@@ -34,7 +34,7 @@ export default function ColorPicker({
     // Oranges/Ambers
     '#ea580c', '#f97316', '#d97706', '#92400e',
     // Grays
-    '#374151', '#4b5563', '#6b7280', '#002434',
+    '#374151', '#4b5563', '#6b7280', '#001620',
   ];
 
   return (
