@@ -1,11 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { Menu, MenuButton, MenuItems, MenuItem, Transition } from '@headlessui/react';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import UserAvatar from '@/public/images/user-avatar-32-blue.svg';
 
 export default function DropdownProfile({ align }: { align?: 'left' | 'right' }) {
   const router = useRouter()
@@ -47,13 +45,6 @@ export default function DropdownProfile({ align }: { align?: 'left' | 'right' })
   return (
     <Menu as="div" className="relative inline-flex">
       <MenuButton className="inline-flex justify-center items-center group">
-        <Image
-          className="w-8 h-8 rounded-full"
-          src={UserAvatar}
-          width={32}
-          height={32}
-          alt="User"
-        />
         <div className="flex items-center truncate">
           <span className="truncate ml-2 text-sm font-medium text-gray-600 dark:text-gray-100 group-hover:text-gray-800 dark:group-hover:text-white">
             Acme Inc.
