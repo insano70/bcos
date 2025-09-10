@@ -5,7 +5,7 @@
   <!-- Gradient definition -->
   <defs>
     <linearGradient id="triangleGradient" x1="16" y1="32" x2="52" y2="32" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#33c3ff"/>
+      <stop offset="0%" stop-color="#66d2ff"/>
       <stop offset="100%" stop-color="#00AEEF"/>
     </linearGradient>
   </defs>
