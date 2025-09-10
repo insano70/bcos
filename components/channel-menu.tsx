@@ -1,43 +1,53 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { Menu, MenuButton, MenuItems, MenuItem, Transition } from '@headlessui/react'
-import Image from 'next/image'
-import ChannelImage01 from '@/public/images/channel-01.png'
-import ChannelImage02 from '@/public/images/channel-02.png'
-import ChannelImage03 from '@/public/images/channel-03.png'
+import { useState } from 'react';
+import { Menu, MenuButton, MenuItems, MenuItem, Transition } from '@headlessui/react';
+import Image from 'next/image';
+import ChannelImage01 from '@/public/images/channel-01.png';
+import ChannelImage02 from '@/public/images/channel-02.png';
+import ChannelImage03 from '@/public/images/channel-03.png';
 
 export default function ChannelMenu() {
-
   const options = [
     {
       id: 0,
       channel: 'Marketing',
-      image: ChannelImage01
+      image: ChannelImage01,
     },
     {
       id: 1,
       channel: 'Developing',
-      image: ChannelImage02
+      image: ChannelImage02,
     },
     {
       id: 2,
       channel: 'ProductSupport',
-      image: ChannelImage03
-    }
-  ]
+      image: ChannelImage03,
+    },
+  ];
 
-  const [selected, setSelected] = useState<number>(0)
+  const [selected, setSelected] = useState<number>(0);
 
   return (
     <>
       <Menu as="div" className="relative">
         <MenuButton className="grow flex items-center truncate">
-          <Image className="w-8 h-8 rounded-full mr-2" src={options[selected].image} width={32} height={32} alt="Group 01" />
+          <Image
+            className="w-8 h-8 rounded-full mr-2"
+            src={options[selected].image}
+            width={32}
+            height={32}
+            alt="Group 01"
+          />
           <div className="truncate">
-            <span className="font-semibold text-gray-800 dark:text-gray-100">#{options[selected].channel}</span>
+            <span className="font-semibold text-gray-800 dark:text-gray-100">
+              #{options[selected].channel}
+            </span>
           </div>
-          <svg className="w-3 h-3 shrink-0 ml-1 fill-current text-gray-400 dark:text-gray-500" viewBox="0 0 12 12">
+          <svg
+            className="w-3 h-3 shrink-0 ml-1 fill-current text-gray-400 dark:text-gray-500"
+            viewBox="0 0 12 12"
+          >
             <path d="M5.9 11.4L.5 6l1.4-1.4 4 4 4-4L11.3 6z" />
           </svg>
         </MenuButton>
@@ -57,14 +67,25 @@ export default function ChannelMenu() {
                 {({ active }) => (
                   <button
                     className={`w-full font-medium text-sm block py-1.5 px-3 ${active ? 'text-gray-800 dark:text-gray-200' : 'text-gray-600 dark:text-gray-300'}`}
-                    onClick={() => { setSelected(option.id) }}
+                    onClick={() => {
+                      setSelected(option.id);
+                    }}
                   >
                     <div className="flex items-center justify-between">
                       <div className="grow flex items-center truncate">
-                        <Image className="w-7 h-7 rounded-full mr-2" src={option.image} width={28} height={28} alt="Channel 01" />
+                        <Image
+                          className="w-7 h-7 rounded-full mr-2"
+                          src={option.image}
+                          width={28}
+                          height={28}
+                          alt="Channel 01"
+                        />
                         <div className="truncate">#{option.channel}</div>
                       </div>
-                      <svg className={`w-3 h-3 shrink-0 fill-current text-violet-500 ml-1 ${option.id !== selected && 'invisible'}`} viewBox="0 0 12 12">
+                      <svg
+                        className={`w-3 h-3 shrink-0 fill-current text-violet-500 ml-1 ${option.id !== selected && 'invisible'}`}
+                        viewBox="0 0 12 12"
+                      >
                         <path d="M10.28 1.28L3.989 7.575 1.695 5.28A1 1 0 00.28 6.695l3 3a1 1 0 001.414 0l7-7A1 1 0 0010.28 1.28z" />
                       </svg>
                     </div>
@@ -76,5 +97,5 @@ export default function ChannelMenu() {
         </Transition>
       </Menu>
     </>
-  )
+  );
 }

@@ -1,23 +1,22 @@
-import { Invoice } from './invoices-table'
-import { InvoicesProperties } from './invoices-properties'
+import { Invoice } from './invoices-table';
+import { InvoicesProperties } from './invoices-properties';
 
 interface InvoicesTableItemProps {
-  invoice: Invoice
-  onCheckboxChange: (id: number, checked: boolean) => void
-  isSelected: boolean
+  invoice: Invoice;
+  onCheckboxChange: (id: number, checked: boolean) => void;
+  isSelected: boolean;
 }
 
-export default function InvoicesTableItem({ invoice, onCheckboxChange, isSelected }: InvoicesTableItemProps) {
+export default function InvoicesTableItem({
+  invoice,
+  onCheckboxChange,
+  isSelected,
+}: InvoicesTableItemProps) {
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onCheckboxChange(invoice.id, e.target.checked);
+  };
 
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {        
-    onCheckboxChange(invoice.id, e.target.checked)
-  }
-
-  const {
-    totalColor,
-    statusColor,
-    typeIcon,
-  } = InvoicesProperties()  
+  const { totalColor, statusColor, typeIcon } = InvoicesProperties();
 
   return (
     <tr>
@@ -25,7 +24,12 @@ export default function InvoicesTableItem({ invoice, onCheckboxChange, isSelecte
         <div className="flex items-center">
           <label className="inline-flex">
             <span className="sr-only">Select</span>
-            <input className="form-checkbox" type="checkbox" onChange={handleCheckboxChange} checked={isSelected} />
+            <input
+              className="form-checkbox"
+              type="checkbox"
+              onChange={handleCheckboxChange}
+              checked={isSelected}
+            />
           </label>
         </div>
       </td>
@@ -36,8 +40,12 @@ export default function InvoicesTableItem({ invoice, onCheckboxChange, isSelecte
         <div className={`font-medium ${totalColor(invoice.status)}`}>{invoice.total}</div>
       </td>
       <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-        <div className={`inline-flex font-medium rounded-full text-center px-2.5 py-0.5 ${statusColor(invoice.status)}`}>{invoice.status}</div>
-      </td >
+        <div
+          className={`inline-flex font-medium rounded-full text-center px-2.5 py-0.5 ${statusColor(invoice.status)}`}
+        >
+          {invoice.status}
+        </div>
+      </td>
       <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
         <div className="font-medium text-gray-800 dark:text-gray-100">{invoice.customer}</div>
       </td>
@@ -77,5 +85,5 @@ export default function InvoicesTableItem({ invoice, onCheckboxChange, isSelecte
         </div>
       </td>
     </tr>
-  )
+  );
 }

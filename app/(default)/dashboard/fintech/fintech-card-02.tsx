@@ -1,7 +1,7 @@
-import EditMenu from '@/components/edit-menu-card'
+import EditMenu from '@/components/edit-menu-card';
 
 export default function FintechCard02() {
-  return(
+  return (
     <div className="flex flex-col col-span-full xl:col-span-4 bg-linear-[225deg,var(--color-gray-800),var(--color-gray-900)] shadow-sm rounded-xl">
       <header className="px-5 py-4 border-b border-gray-700/60 flex items-center">
         <h2 className="font-semibold text-gray-200">Active Cards</h2>
@@ -13,7 +13,13 @@ export default function FintechCard02() {
           <div className="relative aspect-7/4 bg-linear-to-tr from-gray-900 to-gray-800 p-5 rounded-xl overflow-hidden">
             <div className="relative h-full flex flex-col justify-between">
               {/* Logo on card */}
-              <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink">
+              <svg
+                width="32"
+                height="32"
+                viewBox="0 0 32 32"
+                xmlns="http://www.w3.org/2000/svg"
+                xmlnsXlink="http://www.w3.org/1999/xlink"
+              >
                 <defs>
                   <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="icon1-b">
                     <stop stopColor="#B7ACFF" offset="0%" />
@@ -72,7 +78,11 @@ export default function FintechCard02() {
                 </div>
               </div>
               <div className="relative w-full h-2 bg-gray-600 rounded-sm">
-                <div className="absolute inset-0 bg-green-400 rounded-full" aria-hidden="true" style={{ width: '50%' }} />
+                <div
+                  className="absolute inset-0 bg-green-400 rounded-full"
+                  aria-hidden="true"
+                  style={{ width: '50%' }}
+                />
               </div>
             </div>
             <div>
@@ -83,12 +93,16 @@ export default function FintechCard02() {
                 </div>
               </div>
               <div className="relative w-full h-2 bg-gray-600 rounded-sm">
-                <div className="absolute inset-0 bg-green-400 rounded-full" aria-hidden="true" style={{ width: '35%' }} />
+                <div
+                  className="absolute inset-0 bg-green-400 rounded-full"
+                  aria-hidden="true"
+                  style={{ width: '35%' }}
+                />
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }

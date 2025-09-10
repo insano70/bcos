@@ -1,30 +1,29 @@
 export const metadata = {
   title: 'Transactions - Mosaic',
   description: 'Page description',
-}
+};
 
-import { SelectedItemsProvider } from '@/app/selected-items-context'
-import { FlyoutProvider } from '@/app/flyout-context'
-import { TransactionDetailProvider } from './transaction-context'
-import DeleteButton from '@/components/delete-button'
-import SearchForm from '@/components/search-form'
-import TransactionDropdown from './transaction-dropdown'
-import OrdersTable from './transactions-table'
-import PaginationClassic from '@/components/pagination-classic'
-import TransactionPanel from './transaction-panel'
+import { SelectedItemsProvider } from '@/app/selected-items-context';
+import { FlyoutProvider } from '@/app/flyout-context';
+import { TransactionDetailProvider } from './transaction-context';
+import DeleteButton from '@/components/delete-button';
+import SearchForm from '@/components/search-form';
+import TransactionDropdown from './transaction-dropdown';
+import OrdersTable from './transactions-table';
+import PaginationClassic from '@/components/pagination-classic';
+import TransactionPanel from './transaction-panel';
 
-import Image01 from '@/public/images/transactions-image-01.svg'
-import Image02 from '@/public/images/transactions-image-02.svg'
-import Image03 from '@/public/images/user-36-05.jpg'
-import Image04 from '@/public/images/transactions-image-03.svg'
-import Image05 from '@/public/images/transactions-image-04.svg'
-import Image06 from '@/public/images/transactions-image-05.svg'
-import Image07 from '@/public/images/transactions-image-06.svg'
-import Image08 from '@/public/images/transactions-image-07.svg'
-import Image09 from '@/public/images/transactions-image-08.svg'
+import Image01 from '@/public/images/transactions-image-01.svg';
+import Image02 from '@/public/images/transactions-image-02.svg';
+import Image03 from '@/public/images/user-36-05.jpg';
+import Image04 from '@/public/images/transactions-image-03.svg';
+import Image05 from '@/public/images/transactions-image-04.svg';
+import Image06 from '@/public/images/transactions-image-05.svg';
+import Image07 from '@/public/images/transactions-image-06.svg';
+import Image08 from '@/public/images/transactions-image-07.svg';
+import Image09 from '@/public/images/transactions-image-08.svg';
 
 function Transactions() {
-
   // Some dummy transactions data
   const transactions = [
     {
@@ -107,22 +106,22 @@ function Transactions() {
       status: 'Completed',
       amount: '-$112.44',
     },
-  ]
+  ];
 
   return (
     <div className="relative bg-white dark:bg-gray-900 h-full">
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
         {/* Page header */}
         <div className="sm:flex sm:justify-between sm:items-center mb-4 md:mb-2">
-
           {/* Left: Title */}
           <div className="mb-4 sm:mb-0">
-            <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">$47,347.09</h1>
+            <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
+              $47,347.09
+            </h1>
           </div>
 
           {/* Right: Actions */}
           <div className="grid grid-flow-col sm:auto-cols-max justify-start sm:justify-end gap-2">
-
             {/* Delete button */}
             <DeleteButton />
 
@@ -132,10 +131,10 @@ function Transactions() {
             </div>
 
             {/* Export button */}
-            <button className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white">Export Transactions</button>
-
+            <button className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white">
+              Export Transactions
+            </button>
           </div>
-
         </div>
 
         <div className="mb-5">
@@ -167,7 +166,7 @@ function Transactions() {
               </button>
             </li>
           </ul>
-        </div>        
+        </div>
 
         {/* Table */}
         <OrdersTable transactions={transactions} />
@@ -175,12 +174,12 @@ function Transactions() {
         {/* Pagination */}
         <div className="mt-8">
           <PaginationClassic />
-        </div>    
+        </div>
       </div>
 
       <TransactionPanel />
     </div>
-  )
+  );
 }
 
 export default function Orders() {
@@ -192,5 +191,5 @@ export default function Orders() {
         </TransactionDetailProvider>
       </FlyoutProvider>
     </SelectedItemsProvider>
-  )
+  );
 }

@@ -8,19 +8,19 @@ export const TransactionsProperties = () => {
       default:
         return 'bg-gray-400/20 text-gray-500 dark:text-gray-400';
     }
-  }
+  };
 
   const amountColor = (amount: string): string => {
     switch (amount.charAt(0)) {
       case '+':
-        return 'text-green-500'
+        return 'text-green-500';
       default:
-        return 'text-gray-800 dark:text-gray-300'
+        return 'text-gray-800 dark:text-gray-300';
     }
-  } 
+  };
 
   return {
     statusColor,
     amountColor,
-  }
-}
+  };
+};

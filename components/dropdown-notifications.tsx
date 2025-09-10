@@ -1,11 +1,9 @@
-'use client'
+'use client';
 
-import Link from 'next/link'
-import { Menu, MenuButton, MenuItems, MenuItem, Transition } from '@headlessui/react'
+import Link from 'next/link';
+import { Menu, MenuButton, MenuItems, MenuItem, Transition } from '@headlessui/react';
 
-export default function DropdownNotifications({ align }: {
-  align?: 'left' | 'right'
-}) {
+export default function DropdownNotifications({ align }: { align?: 'left' | 'right' }) {
   return (
     <Menu as="div" className="relative inline-flex">
       {({ open }) => (
@@ -40,38 +38,76 @@ export default function DropdownNotifications({ align }: {
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase pt-1.5 pb-2 px-4">Notifications</div>
+            <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase pt-1.5 pb-2 px-4">
+              Notifications
+            </div>
             <MenuItems as="ul" className="focus:outline-hidden">
-              <MenuItem as="li" className="border-b border-gray-200 dark:border-gray-700/60 last:border-0">
+              <MenuItem
+                as="li"
+                className="border-b border-gray-200 dark:border-gray-700/60 last:border-0"
+              >
                 {({ active }) => (
-                  <Link className={`block py-2 px-4 ${active && 'bg-gray-50 dark:bg-gray-700/20'}`} href="#0">
+                  <Link
+                    className={`block py-2 px-4 ${active && 'bg-gray-50 dark:bg-gray-700/20'}`}
+                    href="#0"
+                  >
                     <span className="block text-sm mb-2">
-                      📣 <span className="font-medium text-gray-800 dark:text-gray-100">Edit your information in a swipe</span> Sint occaecat cupidatat non proident,
-                      sunt in culpa qui officia deserunt mollit anim.
+                      📣{' '}
+                      <span className="font-medium text-gray-800 dark:text-gray-100">
+                        Edit your information in a swipe
+                      </span>{' '}
+                      Sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt
+                      mollit anim.
                     </span>
-                    <span className="block text-xs font-medium text-gray-400 dark:text-gray-500">Feb 12, 2024</span>
+                    <span className="block text-xs font-medium text-gray-400 dark:text-gray-500">
+                      Feb 12, 2024
+                    </span>
                   </Link>
                 )}
               </MenuItem>
-              <MenuItem as="li" className="border-b border-gray-200 dark:border-gray-700/60 last:border-0">
+              <MenuItem
+                as="li"
+                className="border-b border-gray-200 dark:border-gray-700/60 last:border-0"
+              >
                 {({ active }) => (
-                  <Link className={`block py-2 px-4 ${active && 'bg-gray-50 dark:bg-gray-700/20'}`} href="#0">
+                  <Link
+                    className={`block py-2 px-4 ${active && 'bg-gray-50 dark:bg-gray-700/20'}`}
+                    href="#0"
+                  >
                     <span className="block text-sm mb-2">
-                      📣 <span className="font-medium text-gray-800 dark:text-gray-100">Edit your information in a swipe</span> Sint occaecat cupidatat non proident,
-                      sunt in culpa qui officia deserunt mollit anim.
+                      📣{' '}
+                      <span className="font-medium text-gray-800 dark:text-gray-100">
+                        Edit your information in a swipe
+                      </span>{' '}
+                      Sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt
+                      mollit anim.
                     </span>
-                    <span className="block text-xs font-medium text-gray-400 dark:text-gray-500">Feb 9, 2024</span>
+                    <span className="block text-xs font-medium text-gray-400 dark:text-gray-500">
+                      Feb 9, 2024
+                    </span>
                   </Link>
                 )}
               </MenuItem>
-              <MenuItem as="li" className="border-b border-gray-200 dark:border-gray-700/60 last:border-0">
+              <MenuItem
+                as="li"
+                className="border-b border-gray-200 dark:border-gray-700/60 last:border-0"
+              >
                 {({ active }) => (
-                  <Link className={`block py-2 px-4 ${active && 'bg-gray-50 dark:bg-gray-700/20'}`} href="#0">
+                  <Link
+                    className={`block py-2 px-4 ${active && 'bg-gray-50 dark:bg-gray-700/20'}`}
+                    href="#0"
+                  >
                     <span className="block text-sm mb-2">
-                      🚀<span className="font-medium text-gray-800 dark:text-gray-100">Say goodbye to paper receipts!</span> Sint occaecat cupidatat non proident, sunt
-                      in culpa qui officia deserunt mollit anim.
+                      🚀
+                      <span className="font-medium text-gray-800 dark:text-gray-100">
+                        Say goodbye to paper receipts!
+                      </span>{' '}
+                      Sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt
+                      mollit anim.
                     </span>
-                    <span className="block text-xs font-medium text-gray-400 dark:text-gray-500">Jan 24, 2024</span>
+                    <span className="block text-xs font-medium text-gray-400 dark:text-gray-500">
+                      Jan 24, 2024
+                    </span>
                   </Link>
                 )}
               </MenuItem>
@@ -80,5 +116,5 @@ export default function DropdownNotifications({ align }: {
         </>
       )}
     </Menu>
-  )
+  );
 }

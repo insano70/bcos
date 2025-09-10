@@ -1,10 +1,10 @@
 export const metadata = {
   title: 'Form - Mosaic',
   description: 'Page description',
-}
+};
 
-import Tooltip from '@/components/tooltip'
-import FormSwitches from './form-switches'
+import Tooltip from '@/components/tooltip';
+import FormSwitches from './form-switches';
 
 export default function FormLibrary() {
   return (
@@ -12,7 +12,9 @@ export default function FormLibrary() {
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
         {/* Page header */}
         <div className="mb-8">
-          <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">Input Form</h1>
+          <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
+            Input Form
+          </h1>
         </div>
 
         <div>
@@ -20,7 +22,9 @@ export default function FormLibrary() {
           <div className="space-y-8 mt-8">
             {/* Input Types */}
             <div>
-              <h2 className="text-2xl text-gray-800 dark:text-gray-100 font-bold mb-6">Input Types</h2>
+              <h2 className="text-2xl text-gray-800 dark:text-gray-100 font-bold mb-6">
+                Input Types
+              </h2>
               <div className="grid gap-5 md:grid-cols-3">
                 <div>
                   {/* Start */}
@@ -41,7 +45,9 @@ export default function FormLibrary() {
                         W/ Tooltip
                       </label>
                       <Tooltip className="ml-2" bg="dark" size="md">
-                        <div className="text-sm text-gray-200">Excepteur sint occaecat cupidata non proident, sunt.</div>
+                        <div className="text-sm text-gray-200">
+                          Excepteur sint occaecat cupidata non proident, sunt.
+                        </div>
                       </Tooltip>
                     </div>
                     <input id="tooltip" className="form-input w-full" type="text" />
@@ -69,7 +75,9 @@ export default function FormLibrary() {
                     <div className="relative">
                       <input id="prefix" className="form-input w-full pl-12" type="text" />
                       <div className="absolute inset-0 right-auto flex items-center pointer-events-none">
-                        <span className="text-sm text-gray-400 dark:text-gray-500 font-medium px-3">USD</span>
+                        <span className="text-sm text-gray-400 dark:text-gray-500 font-medium px-3">
+                          USD
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -85,7 +93,9 @@ export default function FormLibrary() {
                     <div className="relative">
                       <input id="suffix" className="form-input w-full pr-8" type="text" />
                       <div className="absolute inset-0 left-auto flex items-center pointer-events-none">
-                        <span className="text-sm text-gray-400 dark:text-gray-500 font-medium px-3">%</span>
+                        <span className="text-sm text-gray-400 dark:text-gray-500 font-medium px-3">
+                          %
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -98,7 +108,12 @@ export default function FormLibrary() {
                     <label className="block text-sm font-medium mb-1" htmlFor="placeholder">
                       W/ Placeholder
                     </label>
-                    <input id="placeholder" className="form-input w-full" type="text" placeholder="Something cool..." />
+                    <input
+                      id="placeholder"
+                      className="form-input w-full"
+                      type="text"
+                      placeholder="Something cool..."
+                    />
                   </div>
                   {/* End */}
                 </div>
@@ -112,7 +127,12 @@ export default function FormLibrary() {
                     <div className="relative">
                       <input id="icon" className="form-input w-full pl-9" type="text" />
                       <div className="absolute inset-0 right-auto flex items-center pointer-events-none">
-                        <svg className="fill-current text-gray-400 dark:text-gray-500 shrink-0 ml-3 mr-2" width="16" height="16" viewBox="0 0 16 16">
+                        <svg
+                          className="fill-current text-gray-400 dark:text-gray-500 shrink-0 ml-3 mr-2"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 16 16"
+                        >
                           <path d="M11.7.3c-.4-.4-1-.4-1.4 0l-10 10c-.2.2-.3.4-.3.7v4c0 .6.4 1 1 1h4c.3 0 .5-.1.7-.3l10-10c.4-.4.4-1 0-1.4l-4-4zM4.6 14H2v-2.6l6-6L10.6 8l-6 6zM12 6.6L9.4 4 11 2.4 13.6 5 12 6.6z" />
                         </svg>
                       </div>
@@ -143,7 +163,11 @@ export default function FormLibrary() {
                     </label>
                     <div className="relative">
                       <input id="form-search" className="form-input w-full pl-9" type="search" />
-                      <button className="absolute inset-0 right-auto group" type="submit" aria-label="Search">
+                      <button
+                        className="absolute inset-0 right-auto group"
+                        type="submit"
+                        aria-label="Search"
+                      >
                         <svg
                           className="shrink-0 fill-current text-gray-400 dark:text-gray-500 group-hover:text-gray-500 dark:group-hover:text-gray-400 ml-3 mr-2"
                           width="16"
@@ -164,7 +188,9 @@ export default function FormLibrary() {
 
             {/* Input Sizes */}
             <div>
-              <h2 className="text-2xl text-gray-800 dark:text-gray-100 font-bold mb-6">Input Sizes</h2>
+              <h2 className="text-2xl text-gray-800 dark:text-gray-100 font-bold mb-6">
+                Input Sizes
+              </h2>
               <div className="grid gap-5 md:grid-cols-3">
                 <div>
                   {/* Start */}
@@ -203,7 +229,9 @@ export default function FormLibrary() {
 
             {/* Input States */}
             <div>
-              <h2 className="text-2xl text-gray-800 dark:text-gray-100 font-bold mb-6">Input States</h2>
+              <h2 className="text-2xl text-gray-800 dark:text-gray-100 font-bold mb-6">
+                Input States
+              </h2>
               <div className="grid gap-5 md:grid-cols-3">
                 <div>
                   {/* Start */}
@@ -243,7 +271,11 @@ export default function FormLibrary() {
                       <label className="block text-sm font-medium mb-1" htmlFor="success">
                         Success <span className="text-red-500">*</span>
                       </label>
-                      <input id="success" className="form-input w-full border-green-300" type="text" />
+                      <input
+                        id="success"
+                        className="form-input w-full border-green-300"
+                        type="text"
+                      />
                     </div>
                     <div className="text-xs mt-1 text-green-500">Sounds good!</div>
                   </div>
@@ -290,7 +322,11 @@ export default function FormLibrary() {
                 <div className="m-3">
                   {/* Start */}
                   <label className="flex items-center">
-                    <input type="checkbox" className="form-checkbox disabled:border-gray-200 dark:disabled:border-gray-700 disabled:bg-gray-100 dark:disabled:bg-gray-800" disabled />
+                    <input
+                      type="checkbox"
+                      className="form-checkbox disabled:border-gray-200 dark:disabled:border-gray-700 disabled:bg-gray-100 dark:disabled:bg-gray-800"
+                      disabled
+                    />
                     <span className="text-sm ml-2">Disabled</span>
                   </label>
                   {/* End */}
@@ -314,7 +350,12 @@ export default function FormLibrary() {
                 <div className="m-3">
                   {/* Start */}
                   <label className="flex items-center">
-                    <input type="radio" name="radio-buttons" className="form-radio" defaultChecked />
+                    <input
+                      type="radio"
+                      name="radio-buttons"
+                      className="form-radio"
+                      defaultChecked
+                    />
                     <span className="text-sm ml-2">Selected</span>
                   </label>
                   {/* End */}
@@ -323,7 +364,12 @@ export default function FormLibrary() {
                 <div className="m-3">
                   {/* Start */}
                   <label className="flex items-center">
-                    <input type="radio" name="radio-buttons" className="form-radio disabled:border-gray-200 dark:disabled:border-gray-700 disabled:bg-gray-100 dark:disabled:bg-gray-800" disabled />
+                    <input
+                      type="radio"
+                      name="radio-buttons"
+                      className="form-radio disabled:border-gray-200 dark:disabled:border-gray-700 disabled:bg-gray-100 dark:disabled:bg-gray-800"
+                      disabled
+                    />
                     <span className="text-sm ml-2">Disabled</span>
                   </label>
                   {/* End */}
@@ -337,5 +383,5 @@ export default function FormLibrary() {
         </div>
       </div>
     </div>
-  )
+  );
 }

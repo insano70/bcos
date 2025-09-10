@@ -1,9 +1,9 @@
 export default function TasksGroups({
   children,
-  title
+  title,
 }: {
-  children: React.ReactNode,
-  title: string
+  children: React.ReactNode;
+  title: string;
 }) {
   return (
     <div className="col-span-full sm:col-span-6 xl:col-span-3">
@@ -18,10 +18,8 @@ export default function TasksGroups({
           </button>
         </div>
         {/* Cards */}
-        <div className="grid gap-2">
-          {children}
-        </div>
+        <div className="grid gap-2">{children}</div>
       </header>
     </div>
-  )
+  );
 }

@@ -1,18 +1,22 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
+import { useState } from 'react';
 
 export default function JobsSidebar() {
-
-  const [companySetting, setCompanySetting] = useState<boolean>(true)
-  const [immigrationSetting, setImmigrationSetting] = useState<boolean>(false)
+  const [companySetting, setCompanySetting] = useState<boolean>(true);
+  const [immigrationSetting, setImmigrationSetting] = useState<boolean>(false);
 
   return (
     <div className="space-y-8">
       {/* Alert */}
       <div className="relative bg-linear-to-r from-violet-500/[0.12] dark:from-violet-500/[0.24] to-violet-500/[0.04] rounded-lg p-5">
         <div className="absolute bottom-0 -mb-3">
-          <svg width="44" height="42" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink">
+          <svg
+            width="44"
+            height="42"
+            xmlns="http://www.w3.org/2000/svg"
+            xmlnsXlink="http://www.w3.org/1999/xlink"
+          >
             <defs>
               <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="ill-b">
                 <stop stopColor="#B7ACFF" offset="0%" />
@@ -34,7 +38,9 @@ export default function JobsSidebar() {
           </svg>
         </div>
         <div className="relative">
-          <div className="text-sm font-medium text-gray-800 dark:text-violet-200 mb-2">Remember to keep track of your job research.</div>
+          <div className="text-sm font-medium text-gray-800 dark:text-violet-200 mb-2">
+            Remember to keep track of your job research.
+          </div>
           <div className="text-right">
             <a className="text-sm font-medium text-violet-500 hover:text-violet-600" href="#0">
               Create Alert -&gt;
@@ -47,43 +53,57 @@ export default function JobsSidebar() {
         <div className="grid md:grid-cols-2 xl:grid-cols-1 gap-6">
           {/* Group 1 */}
           <div>
-            <div className="text-sm text-gray-800 dark:text-gray-100 font-semibold mb-3">Job Types</div>
+            <div className="text-sm text-gray-800 dark:text-gray-100 font-semibold mb-3">
+              Job Types
+            </div>
             <ul className="space-y-2">
               <li>
                 <label className="flex items-center">
                   <input type="checkbox" className="form-checkbox" defaultChecked />
-                  <span className="text-sm text-gray-600 dark:text-gray-300 font-medium ml-2">Programming</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300 font-medium ml-2">
+                    Programming
+                  </span>
                 </label>
               </li>
               <li>
                 <label className="flex items-center">
                   <input type="checkbox" className="form-checkbox" />
-                  <span className="text-sm text-gray-600 dark:text-gray-300 font-medium ml-2">Design</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300 font-medium ml-2">
+                    Design
+                  </span>
                 </label>
               </li>
               <li>
                 <label className="flex items-center">
                   <input type="checkbox" className="form-checkbox" />
-                  <span className="text-sm text-gray-600 dark:text-gray-300 font-medium ml-2">Management / Finance</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300 font-medium ml-2">
+                    Management / Finance
+                  </span>
                 </label>
               </li>
               <li>
                 <label className="flex items-center">
                   <input type="checkbox" className="form-checkbox" />
-                  <span className="text-sm text-gray-600 dark:text-gray-300 font-medium ml-2">Customer Support</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300 font-medium ml-2">
+                    Customer Support
+                  </span>
                 </label>
               </li>
               <li>
                 <label className="flex items-center">
                   <input type="checkbox" className="form-checkbox" />
-                  <span className="text-sm text-gray-600 dark:text-gray-300 font-medium ml-2">Sales / Marketing</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300 font-medium ml-2">
+                    Sales / Marketing
+                  </span>
                 </label>
               </li>
             </ul>
           </div>
           {/* Group 2 */}
           <div>
-            <div className="text-sm text-gray-800 dark:text-gray-100 font-semibold mb-3">Company Culture</div>
+            <div className="text-sm text-gray-800 dark:text-gray-100 font-semibold mb-3">
+              Company Culture
+            </div>
             <div className="flex items-center">
               <div className="form-switch">
                 <input
@@ -98,43 +118,59 @@ export default function JobsSidebar() {
                   <span className="sr-only">Company Culture</span>
                 </label>
               </div>
-              <div className="text-sm text-gray-400 dark:text-gray-500 italic ml-2">{companySetting ? 'On' : 'Off'}</div>
+              <div className="text-sm text-gray-400 dark:text-gray-500 italic ml-2">
+                {companySetting ? 'On' : 'Off'}
+              </div>
             </div>
-            <div className="text-sm dark:text-gray-500 italic mt-3">Only show companies that are creating a positive culture</div>
+            <div className="text-sm dark:text-gray-500 italic mt-3">
+              Only show companies that are creating a positive culture
+            </div>
           </div>
           {/* Group 3 */}
           <div>
-            <div className="text-sm text-gray-800 dark:text-gray-100 font-semibold mb-3">Salary Range</div>
+            <div className="text-sm text-gray-800 dark:text-gray-100 font-semibold mb-3">
+              Salary Range
+            </div>
             <ul className="space-y-2">
               <li>
                 <label className="flex items-center">
                   <input type="checkbox" className="form-checkbox" defaultChecked />
-                  <span className="text-sm text-gray-600 dark:text-gray-300 font-medium ml-2">$20K - $50K</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300 font-medium ml-2">
+                    $20K - $50K
+                  </span>
                 </label>
               </li>
               <li>
                 <label className="flex items-center">
                   <input type="checkbox" className="form-checkbox" />
-                  <span className="text-sm text-gray-600 dark:text-gray-300 font-medium ml-2">$50K - $100K</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300 font-medium ml-2">
+                    $50K - $100K
+                  </span>
                 </label>
               </li>
               <li>
                 <label className="flex items-center">
                   <input type="checkbox" className="form-checkbox" />
-                  <span className="text-sm text-gray-600 dark:text-gray-300 font-medium ml-2">&gt; $100K</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300 font-medium ml-2">
+                    &gt; $100K
+                  </span>
                 </label>
               </li>
               <li>
                 <label className="flex items-center">
                   <input type="checkbox" className="form-checkbox" />
-                  <span className="text-sm text-gray-600 dark:text-gray-300 font-medium ml-2">Drawing / Painting</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300 font-medium ml-2">
+                    Drawing / Painting
+                  </span>
                 </label>
               </li>
             </ul>
           </div>
           {/* Group 4 */}
           <div>
-            <div className="text-sm text-gray-800 dark:text-gray-100 font-semibold mb-3">Immigration</div>
+            <div className="text-sm text-gray-800 dark:text-gray-100 font-semibold mb-3">
+              Immigration
+            </div>
             <div className="flex items-center">
               <div className="form-switch">
                 <input
@@ -149,12 +185,16 @@ export default function JobsSidebar() {
                   <span className="sr-only">Immigration</span>
                 </label>
               </div>
-              <div className="text-sm text-gray-400 dark:text-gray-500 italic ml-2">{immigrationSetting ? 'On' : 'Off'}</div>
+              <div className="text-sm text-gray-400 dark:text-gray-500 italic ml-2">
+                {immigrationSetting ? 'On' : 'Off'}
+              </div>
             </div>
-            <div className="text-sm dark:text-gray-500 italic mt-3">Only show companies that can sponsor a visa</div>
+            <div className="text-sm dark:text-gray-500 italic mt-3">
+              Only show companies that can sponsor a visa
+            </div>
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }

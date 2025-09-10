@@ -1,15 +1,16 @@
 export default function DashboardCard11() {
-  return(
+  return (
     <div className="col-span-full xl:col-span-6 bg-white dark:bg-gray-800 shadow-sm rounded-xl">
       <header className="px-5 py-4 border-b border-gray-100 dark:border-gray-700/60">
         <h2 className="font-semibold text-gray-800 dark:text-gray-100">Income/Expenses</h2>
       </header>
       <div className="p-3">
-
         {/* Card content */}
         {/* "Today" group */}
         <div>
-          <header className="text-xs uppercase text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50 rounded-xs font-semibold p-2">Today</header>
+          <header className="text-xs uppercase text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50 rounded-xs font-semibold p-2">
+            Today
+          </header>
           <ul className="my-1">
             {/* Item */}
             <li className="flex px-2">
@@ -20,7 +21,15 @@ export default function DashboardCard11() {
               </div>
               <div className="grow flex items-center border-b border-gray-100 dark:border-gray-700/60 text-sm py-2">
                 <div className="grow flex justify-between">
-                  <div className="self-center"><a className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white" href="#0">Qonto</a> billing</div>
+                  <div className="self-center">
+                    <a
+                      className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white"
+                      href="#0"
+                    >
+                      Qonto
+                    </a>{' '}
+                    billing
+                  </div>
                   <div className="shrink-0 self-start ml-2">
                     <span className="font-medium text-gray-800 dark:text-gray-100">-$49.88</span>
                   </div>
@@ -36,7 +45,15 @@ export default function DashboardCard11() {
               </div>
               <div className="grow flex items-center border-b border-gray-100 dark:border-gray-700/60 text-sm py-2">
                 <div className="grow flex justify-between">
-                  <div className="self-center"><a className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white" href="#0">Cruip.com</a> Market Ltd 70 Wilson St London</div>
+                  <div className="self-center">
+                    <a
+                      className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white"
+                      href="#0"
+                    >
+                      Cruip.com
+                    </a>{' '}
+                    Market Ltd 70 Wilson St London
+                  </div>
                   <div className="shrink-0 self-start ml-2">
                     <span className="font-medium text-green-600">+249.88</span>
                   </div>
@@ -52,7 +69,14 @@ export default function DashboardCard11() {
               </div>
               <div className="grow flex items-center border-b border-gray-100 dark:border-gray-700/60 text-sm py-2">
                 <div className="grow flex justify-between">
-                  <div className="self-center"><a className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white" href="#0">Notion Labs Inc</a></div>
+                  <div className="self-center">
+                    <a
+                      className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white"
+                      href="#0"
+                    >
+                      Notion Labs Inc
+                    </a>
+                  </div>
                   <div className="shrink-0 self-start ml-2">
                     <span className="font-medium text-green-600">+99.99</span>
                   </div>
@@ -68,7 +92,14 @@ export default function DashboardCard11() {
               </div>
               <div className="grow flex items-center border-b border-gray-100 dark:border-gray-700/60 text-sm py-2">
                 <div className="grow flex justify-between">
-                  <div className="self-center"><a className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white" href="#0">Market Cap Ltd</a></div>
+                  <div className="self-center">
+                    <a
+                      className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white"
+                      href="#0"
+                    >
+                      Market Cap Ltd
+                    </a>
+                  </div>
                   <div className="shrink-0 self-start ml-2">
                     <span className="font-medium text-green-600">+1,200.88</span>
                   </div>
@@ -84,9 +115,19 @@ export default function DashboardCard11() {
               </div>
               <div className="grow flex items-center border-b border-gray-100 dark:border-gray-700/60 text-sm py-2">
                 <div className="grow flex justify-between">
-                  <div className="self-center"><a className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white" href="#0">App.com</a> Market Ltd 70 Wilson St London</div>
+                  <div className="self-center">
+                    <a
+                      className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white"
+                      href="#0"
+                    >
+                      App.com
+                    </a>{' '}
+                    Market Ltd 70 Wilson St London
+                  </div>
                   <div className="shrink-0 self-start ml-2">
-                    <span className="font-medium text-gray-800 dark:text-gray-100 line-through">+$99.99</span>
+                    <span className="font-medium text-gray-800 dark:text-gray-100 line-through">
+                      +$99.99
+                    </span>
                   </div>
                 </div>
               </div>
@@ -100,7 +141,15 @@ export default function DashboardCard11() {
               </div>
               <div className="grow flex items-center text-sm py-2">
                 <div className="grow flex justify-between">
-                  <div className="self-center"><a className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white" href="#0">App.com</a> Market Ltd 70 Wilson St London</div>
+                  <div className="self-center">
+                    <a
+                      className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white"
+                      href="#0"
+                    >
+                      App.com
+                    </a>{' '}
+                    Market Ltd 70 Wilson St London
+                  </div>
                   <div className="shrink-0 self-start ml-2">
                     <span className="font-medium text-gray-800 dark:text-gray-100">-$49.88</span>
                   </div>
@@ -109,8 +158,7 @@ export default function DashboardCard11() {
             </li>
           </ul>
         </div>
-
       </div>
     </div>
-  )
+  );
 }

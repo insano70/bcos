@@ -1,8 +1,8 @@
-import Image from 'next/image'
-import UserImage from '@/public/images/user-36-05.jpg'
+import Image from 'next/image';
+import UserImage from '@/public/images/user-36-05.jpg';
 
 export default function FintechCard06() {
-  return(
+  return (
     <div className="col-span-full xl:col-span-6 bg-white dark:bg-gray-800 shadow-sm rounded-xl">
       <header className="px-5 py-4 border-b border-gray-100 dark:border-gray-700/60">
         <h2 className="font-semibold text-gray-800 dark:text-gray-100">Recent Earnings</h2>
@@ -101,9 +101,17 @@ export default function FintechCard06() {
                 <td className="p-2 whitespace-nowrap">
                   <div className="flex items-center">
                     <div className="shrink-0 rounded-full mr-2 sm:mr-3">
-                      <Image className="w-9 h-9 rounded-full" src={UserImage} width={36} height={36} alt="User 05" />
+                      <Image
+                        className="w-9 h-9 rounded-full"
+                        src={UserImage}
+                        width={36}
+                        height={36}
+                        alt="User 05"
+                      />
                     </div>
-                    <div className="font-medium text-gray-800 dark:text-gray-100">Aprilynne Pills</div>
+                    <div className="font-medium text-gray-800 dark:text-gray-100">
+                      Aprilynne Pills
+                    </div>
                   </div>
                 </td>
                 <td className="p-2 whitespace-nowrap">
@@ -125,7 +133,9 @@ export default function FintechCard06() {
                         <path d="M18 21a3 3 0 1 1 0-6 3 3 0 0 1 0 6Zm-4.95 3.363-.707-.707a8 8 0 0 1 0-11.312l.707-.707 1.414 1.414-.707.707a6 6 0 0 0 0 8.484l.707.707-1.414 1.414Zm9.9 0-1.414-1.414.707-.707a6 6 0 0 0 0-8.484l-.707-.707 1.414-1.414.707.707a8 8 0 0 1 0 11.312l-.707.707Z" />
                       </svg>
                     </div>
-                    <div className="font-medium text-gray-800 dark:text-gray-100">Form Builder PRO</div>
+                    <div className="font-medium text-gray-800 dark:text-gray-100">
+                      Form Builder PRO
+                    </div>
                   </div>
                 </td>
                 <td className="p-2 whitespace-nowrap">
@@ -142,11 +152,14 @@ export default function FintechCard06() {
           </table>
         </div>
         <div className="text-center border-t border-gray-100 dark:border-gray-700/60 px-2">
-          <a className="block text-sm font-medium text-violet-500 hover:text-violet-600 dark:hover:text-violet-400 pt-4 pb-1" href="#0">
+          <a
+            className="block text-sm font-medium text-violet-500 hover:text-violet-600 dark:hover:text-violet-400 pt-4 pb-1"
+            href="#0"
+          >
             View All -&gt;
           </a>
         </div>
       </div>
     </div>
-  )
+  );
 }

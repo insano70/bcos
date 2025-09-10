@@ -1,38 +1,35 @@
-'use client'
+'use client';
 
-import { StaticImageData } from 'next/image'
-import { useItemSelection } from '@/components/utils/use-item-selection'
-import OrdersTableItem from './orders-table-item'
+import { StaticImageData } from 'next/image';
+import { useItemSelection } from '@/components/utils/use-item-selection';
+import OrdersTableItem from './orders-table-item';
 
 export interface Order {
-  id: number
-  image: StaticImageData
-  order: string
-  date: string
-  customer: string
-  total: string
-  status: string
-  items: string
-  location: string
-  type: string
-  description: string  
+  id: number;
+  image: StaticImageData;
+  order: string;
+  date: string;
+  customer: string;
+  total: string;
+  status: string;
+  items: string;
+  location: string;
+  type: string;
+  description: string;
 }
 
-export default function OrdersTable({ orders }: { orders: Order[]}) {
-  const {
-    selectedItems,
-    isAllSelected,
-    handleCheckboxChange,
-    handleSelectAllChange,
-  } = useItemSelection(orders)  
+export default function OrdersTable({ orders }: { orders: Order[] }) {
+  const { selectedItems, isAllSelected, handleCheckboxChange, handleSelectAllChange } =
+    useItemSelection(orders);
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl relative">
       <header className="px-5 py-4">
-        <h2 className="font-semibold text-gray-800 dark:text-gray-100">All Orders <span className="text-gray-400 dark:text-gray-500 font-medium">442</span></h2>
+        <h2 className="font-semibold text-gray-800 dark:text-gray-100">
+          All Orders <span className="text-gray-400 dark:text-gray-500 font-medium">442</span>
+        </h2>
       </header>
       <div>
-
         {/* Table */}
         <div className="overflow-x-auto">
           <table className="table-auto w-full dark:text-gray-300 divide-y divide-gray-100 dark:divide-gray-700/60">
@@ -43,7 +40,12 @@ export default function OrdersTable({ orders }: { orders: Order[]}) {
                   <div className="flex items-center">
                     <label className="inline-flex">
                       <span className="sr-only">Select all</span>
-                      <input className="form-checkbox" type="checkbox" onChange={handleSelectAllChange} checked={isAllSelected} />
+                      <input
+                        className="form-checkbox"
+                        type="checkbox"
+                        onChange={handleSelectAllChange}
+                        checked={isAllSelected}
+                      />
                     </label>
                   </div>
                 </th>
@@ -77,17 +79,17 @@ export default function OrdersTable({ orders }: { orders: Order[]}) {
               </tr>
             </thead>
             {/* Table body */}
-            {orders.map(order => (
+            {orders.map((order) => (
               <OrdersTableItem
                 key={order.id}
                 order={order}
                 onCheckboxChange={handleCheckboxChange}
-                isSelected={selectedItems.includes(order.id)} />
+                isSelected={selectedItems.includes(order.id)}
+              />
             ))}
           </table>
-
         </div>
       </div>
     </div>
-  )
+  );
 }

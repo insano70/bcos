@@ -1,22 +1,20 @@
 export const metadata = {
   title: 'Cart 3 - Mosaic',
   description: 'Page description',
-}
+};
 
-import Link from 'next/link'
-import Image from 'next/image'
-import ProductImage01 from '@/public/images/related-product-01.jpg'
-import ProductImage02 from '@/public/images/related-product-02.jpg'
-import ProductImage03 from '@/public/images/related-product-03.jpg'
+import Link from 'next/link';
+import Image from 'next/image';
+import ProductImage01 from '@/public/images/related-product-01.jpg';
+import ProductImage02 from '@/public/images/related-product-02.jpg';
+import ProductImage03 from '@/public/images/related-product-03.jpg';
 
 export default function Cart3() {
   return (
     <div className="lg:relative lg:flex">
-
       {/* Content */}
       <div className="px-4 sm:px-6 lg:px-8 py-8 lg:grow lg:pr-8 xl:pr-16 2xl:ml-[80px]">
         <div className="lg:max-w-[640px] lg:mx-auto">
-
           {/* Cart items */}
           <div className="mb-6 lg:mb-0">
             <div className="mb-3">
@@ -30,12 +28,19 @@ export default function Cart3() {
             </div>
             <header className="mb-6">
               {/* Title */}
-              <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold mb-2">Thank you for your order</h1>
-              <p>You will soon receive a confirmation email with details of your order and a link to download the files.</p>
+              <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold mb-2">
+                Thank you for your order
+              </h1>
+              <p>
+                You will soon receive a confirmation email with details of your order and a link to
+                download the files.
+              </p>
             </header>
             {/* Billing Information */}
             <div>
-              <div className="text-gray-800 dark:text-gray-100 font-semibold mb-4">Billing Information</div>
+              <div className="text-gray-800 dark:text-gray-100 font-semibold mb-4">
+                Billing Information
+              </div>
               <form>
                 <div className="space-y-4">
                   {/* 1st row */}
@@ -44,13 +49,23 @@ export default function Cart3() {
                       <label className="block text-sm font-medium mb-1" htmlFor="card-name">
                         Name
                       </label>
-                      <input id="card-name" className="form-input w-full" type="text" defaultValue="Patrick" />
+                      <input
+                        id="card-name"
+                        className="form-input w-full"
+                        type="text"
+                        defaultValue="Patrick"
+                      />
                     </div>
                     <div className="flex-1">
                       <label className="block text-sm font-medium mb-1" htmlFor="card-surname">
                         Surname
                       </label>
-                      <input id="card-surname" className="form-input w-full" type="text" defaultValue="Sullivan" />
+                      <input
+                        id="card-surname"
+                        className="form-input w-full"
+                        type="text"
+                        defaultValue="Sullivan"
+                      />
                     </div>
                   </div>
                   {/* 2nd row */}
@@ -103,7 +118,10 @@ export default function Cart3() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <button type="submit" className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300">
+                    <button
+                      type="submit"
+                      className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300"
+                    >
                       Download Invoice
                     </button>
                   </div>
@@ -116,7 +134,9 @@ export default function Cart3() {
             <div className="bg-gray-50 dark:bg-gray-800/30 rounded-sm border border-gray-200 dark:border-gray-700/60 p-4">
               <div className="text-center md:text-left md:flex md:items-center md:justify-between space-y-2 md:space-y-0 md:space-x-2">
                 <div className="text-sm">
-                  Enjoy a <span className="font-medium text-gray-800 dark:text-gray-100">20% OFF</span> discount on your next order 🎉
+                  Enjoy a{' '}
+                  <span className="font-medium text-gray-800 dark:text-gray-100">20% OFF</span>{' '}
+                  discount on your next order 🎉
                 </div>
                 <div className="relative inline-flex text-center px-3 py-1 rounded-sm bg-green-500">
                   <div
@@ -132,7 +152,6 @@ export default function Cart3() {
               </div>
             </div>
           </div>
-
         </div>
       </div>
 
@@ -141,60 +160,97 @@ export default function Cart3() {
         <div className="lg:sticky lg:top-16 bg-linear-to-r from-white/30 dark:from-gray-800/30 lg:overflow-x-hidden lg:overflow-y-auto no-scrollbar lg:shrink-0 border-t lg:border-t-0 lg:border-l border-gray-200 dark:border-gray-700/60 lg:w-[320px] xl:w-[352px] 2xl:w-[calc(352px+80px)] lg:h-[calc(100dvh-64px)]">
           <div className="py-8 px-4 lg:px-8 2xl:px-12">
             <div className="max-w-sm mx-auto lg:max-w-none">
-              <h2 className="text-2xl text-gray-800 dark:text-gray-100 font-bold mb-6">Order Summary</h2>
+              <h2 className="text-2xl text-gray-800 dark:text-gray-100 font-bold mb-6">
+                Order Summary
+              </h2>
               <div className="space-y-6">
-
                 {/* Order Details */}
                 <div>
-                  <div className="text-gray-800 dark:text-gray-100 font-semibold mb-2">Order Details</div>
+                  <div className="text-gray-800 dark:text-gray-100 font-semibold mb-2">
+                    Order Details
+                  </div>
                   {/* Cart items */}
                   <ul>
                     {/* Cart item */}
                     <li className="flex items-center py-3 border-b border-gray-200 dark:border-gray-700/60">
                       <a className="block mr-2 xl:mr-4 shrink-0" href="#0">
-                        <Image className="w-16 xl:w-20" src={ProductImage01} width={200} height={142} alt="Product 01" />
+                        <Image
+                          className="w-16 xl:w-20"
+                          src={ProductImage01}
+                          width={200}
+                          height={142}
+                          alt="Product 01"
+                        />
                       </a>
                       <div className="grow">
                         <a href="#0">
-                          <h4 className="text-sm font-medium text-gray-800 dark:text-gray-100 leading-tight">The Complete Front-End Development Course!</h4>
+                          <h4 className="text-sm font-medium text-gray-800 dark:text-gray-100 leading-tight">
+                            The Complete Front-End Development Course!
+                          </h4>
                         </a>
                       </div>
-                      <div className="text-sm font-medium text-gray-800 dark:text-gray-100 ml-2">$69</div>
+                      <div className="text-sm font-medium text-gray-800 dark:text-gray-100 ml-2">
+                        $69
+                      </div>
                     </li>
                     {/* Cart item */}
                     <li className="flex items-center py-3 border-b border-gray-200 dark:border-gray-700/60">
                       <a className="block mr-2 xl:mr-4 shrink-0" href="#0">
-                        <Image className="w-16 xl:w-20" src={ProductImage02} width={200} height={142} alt="Product 02" />
+                        <Image
+                          className="w-16 xl:w-20"
+                          src={ProductImage02}
+                          width={200}
+                          height={142}
+                          alt="Product 02"
+                        />
                       </a>
                       <div className="grow">
                         <a href="#0">
-                          <h4 className="text-sm font-medium text-gray-800 dark:text-gray-100 leading-tight">Web Development Ultimate Course 2024</h4>
+                          <h4 className="text-sm font-medium text-gray-800 dark:text-gray-100 leading-tight">
+                            Web Development Ultimate Course 2024
+                          </h4>
                         </a>
                       </div>
-                      <div className="text-sm font-medium text-gray-800 dark:text-gray-100 ml-2">$69</div>
+                      <div className="text-sm font-medium text-gray-800 dark:text-gray-100 ml-2">
+                        $69
+                      </div>
                     </li>
                     {/* Cart item */}
                     <li className="flex items-center py-3 border-b border-gray-200 dark:border-gray-700/60">
                       <a className="block mr-2 xl:mr-4 shrink-0" href="#0">
-                        <Image className="w-16 xl:w-20" src={ProductImage03} width={200} height={142} alt="Product 03" />
+                        <Image
+                          className="w-16 xl:w-20"
+                          src={ProductImage03}
+                          width={200}
+                          height={142}
+                          alt="Product 03"
+                        />
                       </a>
                       <div className="grow">
                         <a href="#0">
-                          <h4 className="text-sm font-medium text-gray-800 dark:text-gray-100 leading-tight">Full-Stack JavaScript Course!</h4>
+                          <h4 className="text-sm font-medium text-gray-800 dark:text-gray-100 leading-tight">
+                            Full-Stack JavaScript Course!
+                          </h4>
                         </a>
                       </div>
-                      <div className="text-sm font-medium text-gray-800 dark:text-gray-100 ml-2">$69</div>
+                      <div className="text-sm font-medium text-gray-800 dark:text-gray-100 ml-2">
+                        $69
+                      </div>
                     </li>
                   </ul>
                   {/* Fees, discount and total */}
                   <ul>
                     <li className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700/60">
                       <div className="text-sm">Subtotal</div>
-                      <div className="text-sm font-medium text-gray-800 dark:text-gray-100 ml-2">$205</div>
+                      <div className="text-sm font-medium text-gray-800 dark:text-gray-100 ml-2">
+                        $205
+                      </div>
                     </li>
                     <li className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700/60">
                       <div className="text-sm">Taxes</div>
-                      <div className="text-sm font-medium text-gray-800 dark:text-gray-100 ml-2">$48</div>
+                      <div className="text-sm font-medium text-gray-800 dark:text-gray-100 ml-2">
+                        $48
+                      </div>
                     </li>
                     <li className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700/60">
                       <div className="flex items-center">
@@ -203,7 +259,9 @@ export default function Cart3() {
                           XMAS22
                         </span>
                       </div>
-                      <div className="text-sm font-medium text-gray-800 dark:text-gray-100 ml-2">-$25</div>
+                      <div className="text-sm font-medium text-gray-800 dark:text-gray-100 ml-2">
+                        -$25
+                      </div>
                     </li>
                     <li className="flex items-center justify-between py-3 border-b border-gray-200 dark:border-gray-700/60">
                       <div className="text-sm">Total</div>
@@ -214,13 +272,20 @@ export default function Cart3() {
 
                 {/* Payment Details */}
                 <div>
-                  <div className="text-gray-800 dark:text-gray-100 font-semibold mb-4">Payment Details</div>
+                  <div className="text-gray-800 dark:text-gray-100 font-semibold mb-4">
+                    Payment Details
+                  </div>
                   <div className="text-sm rounded-sm border border-gray-200 dark:border-gray-700/60 p-3">
                     <div className="flex items-center justify-between space-x-2">
                       {/* CC details */}
                       <div className="flex items-center">
                         {/* Mastercard icon */}
-                        <svg className="shrink-0 mr-3" width="32" height="24" xmlns="http://www.w3.org/2000/svg">
+                        <svg
+                          className="shrink-0 mr-3"
+                          width="32"
+                          height="24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
                           <rect fill="#1F2937" width="32" height="24" rx="3" />
                           <ellipse fill="#E61C24" cx="12.522" cy="12" rx="5.565" ry="5.647" />
                           <ellipse fill="#F99F1B" cx="19.432" cy="12" rx="5.565" ry="5.647" />
@@ -241,21 +306,23 @@ export default function Cart3() {
 
                 <div className="mt-6">
                   <div className="mb-4">
-                    <Link href="/ecommerce/pay" className="btn w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white">
+                    <Link
+                      href="/ecommerce/pay"
+                      className="btn w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
+                    >
                       View Your Order
                     </Link>
                   </div>
                   <div className="text-xs text-gray-500 italic text-center">
-                    Should you ever change your mind, we offer a 14-day, no-questions-asked refund policy.
+                    Should you ever change your mind, we offer a 14-day, no-questions-asked refund
+                    policy.
                   </div>
                 </div>
-
               </div>
             </div>
           </div>
         </div>
       </div>
-
     </div>
-  )
+  );
 }

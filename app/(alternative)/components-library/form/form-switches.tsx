@@ -1,12 +1,11 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
+import { useState } from 'react';
 
 export default function FormSwitches() {
-
-  const [toggle1, setToggle1] = useState<boolean>(true)
-  const [toggle2, setToggle2] = useState<boolean>(false)
-  const [toggle3, setToggle3] = useState<boolean>(false)
+  const [toggle1, setToggle1] = useState<boolean>(true);
+  const [toggle2, setToggle2] = useState<boolean>(false);
+  const [toggle3, setToggle3] = useState<boolean>(false);
 
   return (
     <div>
@@ -16,13 +15,21 @@ export default function FormSwitches() {
           {/* Start */}
           <div className="flex items-center">
             <div className="form-switch">
-              <input type="checkbox" id="switch-1" className="sr-only" checked={toggle1} onChange={() => setToggle1(!toggle1)} />
+              <input
+                type="checkbox"
+                id="switch-1"
+                className="sr-only"
+                checked={toggle1}
+                onChange={() => setToggle1(!toggle1)}
+              />
               <label htmlFor="switch-1">
                 <span className="bg-white shadow-sm" aria-hidden="true"></span>
                 <span className="sr-only">Switch label</span>
               </label>
             </div>
-            <div className="text-sm text-gray-400 dark:text-gray-500 italic ml-2">{toggle1 ? 'On' : 'Off'}</div>
+            <div className="text-sm text-gray-400 dark:text-gray-500 italic ml-2">
+              {toggle1 ? 'On' : 'Off'}
+            </div>
           </div>
           {/* End */}
         </div>
@@ -31,13 +38,21 @@ export default function FormSwitches() {
           {/* Start */}
           <div className="flex items-center">
             <div className="form-switch">
-              <input type="checkbox" id="switch-2" className="sr-only" checked={toggle2} onChange={() => setToggle2(!toggle2)} />
+              <input
+                type="checkbox"
+                id="switch-2"
+                className="sr-only"
+                checked={toggle2}
+                onChange={() => setToggle2(!toggle2)}
+              />
               <label htmlFor="switch-2">
                 <span className="bg-white shadow-sm" aria-hidden="true"></span>
                 <span className="sr-only">Switch label</span>
               </label>
             </div>
-            <div className="text-sm text-gray-400 dark:text-gray-500 italic ml-2">{toggle2 ? 'On' : 'Off'}</div>
+            <div className="text-sm text-gray-400 dark:text-gray-500 italic ml-2">
+              {toggle2 ? 'On' : 'Off'}
+            </div>
           </div>
           {/* End */}
         </div>
@@ -46,7 +61,14 @@ export default function FormSwitches() {
           {/* Start */}
           <div className="flex items-center">
             <div className="form-switch">
-              <input type="checkbox" id="switch-3" className="sr-only" checked={toggle3} onChange={() => setToggle3(!toggle3)} disabled />
+              <input
+                type="checkbox"
+                id="switch-3"
+                className="sr-only"
+                checked={toggle3}
+                onChange={() => setToggle3(!toggle3)}
+                disabled
+              />
               <label htmlFor="switch-3">
                 <span className="bg-white shadow-sm" aria-hidden="true"></span>
                 <span className="sr-only">Switch label</span>
@@ -57,6 +79,6 @@ export default function FormSwitches() {
           {/* End */}
         </div>
       </div>
-    </div>    
-  )
+    </div>
+  );
 }

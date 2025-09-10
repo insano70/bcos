@@ -12,12 +12,24 @@ export default function MessagesFooter() {
         {/* Message input */}
         <form className="grow flex">
           <div className="grow mr-3">
-            <label htmlFor="message-input" className="sr-only">Type a message</label>
-            <input id="message-input" className="form-input w-full bg-gray-100 dark:bg-gray-800 border-transparent dark:border-transparent focus:bg-white dark:focus:bg-gray-800 placeholder-gray-500" type="text" placeholder="Aa" />
+            <label htmlFor="message-input" className="sr-only">
+              Type a message
+            </label>
+            <input
+              id="message-input"
+              className="form-input w-full bg-gray-100 dark:bg-gray-800 border-transparent dark:border-transparent focus:bg-white dark:focus:bg-gray-800 placeholder-gray-500"
+              type="text"
+              placeholder="Aa"
+            />
           </div>
-          <button type="submit" className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white whitespace-nowrap">Send -&gt;</button>
+          <button
+            type="submit"
+            className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white whitespace-nowrap"
+          >
+            Send -&gt;
+          </button>
         </form>
       </div>
     </div>
-  )
+  );
 }

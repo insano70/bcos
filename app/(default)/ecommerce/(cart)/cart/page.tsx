@@ -1,15 +1,14 @@
 export const metadata = {
   title: 'Cart - Mosaic',
   description: 'Page description',
-}
+};
 
-import CartItems from '../cart-items'
+import CartItems from '../cart-items';
 
 export default function Cart() {
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8 w-full">
       <div className="max-w-5xl mx-auto flex flex-col lg:flex-row lg:space-x-8 xl:space-x-16">
-
         {/* Cart items */}
         <div className="mb-6 lg:mb-0">
           <div className="mb-3">
@@ -23,12 +22,13 @@ export default function Cart() {
           </div>
           <header className="mb-2">
             {/* Title */}
-            <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">Shopping Cart (3)</h1>
+            <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
+              Shopping Cart (3)
+            </h1>
           </header>
 
           {/* Cart items */}
           <CartItems />
-
         </div>
 
         {/* Sidebar */}
@@ -57,20 +57,34 @@ export default function Cart() {
             {/* Promo box */}
             <div className="mb-6">
               <div className="flex items-center justify-between">
-                <label className="block text-sm font-medium mb-1" htmlFor="promo">Promo Code</label>
+                <label className="block text-sm font-medium mb-1" htmlFor="promo">
+                  Promo Code
+                </label>
                 <div className="text-sm text-gray-400 dark:text-gray-500 italic">optional</div>
               </div>
               <input id="promo" className="form-input w-full mb-2" type="text" />
-              <button className="btn w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:border-gray-200 dark:disabled:border-gray-700 disabled:bg-white dark:disabled:bg-gray-800 disabled:text-gray-300 dark:disabled:text-gray-600 disabled:cursor-not-allowed" disabled>Apply Code</button>
+              <button
+                className="btn w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:border-gray-200 dark:disabled:border-gray-700 disabled:bg-white dark:disabled:bg-gray-800 disabled:text-gray-300 dark:disabled:text-gray-600 disabled:cursor-not-allowed"
+                disabled
+              >
+                Apply Code
+              </button>
             </div>
             <div className="mb-4">
-              <button className="btn w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white">Buy Now - $253.00</button>
+              <button className="btn w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white">
+                Buy Now - $253.00
+              </button>
             </div>
-            <div className="text-xs text-gray-500 italic text-center">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do <a className="underline hover:no-underline" href="#0">Terms</a>.</div>
+            <div className="text-xs text-gray-500 italic text-center">
+              Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do{' '}
+              <a className="underline hover:no-underline" href="#0">
+                Terms
+              </a>
+              .
+            </div>
           </div>
         </div>
-
       </div>
     </div>
-  )
+  );
 }

@@ -1,64 +1,120 @@
-import { useFlyoutContext } from '@/app/flyout-context'
-import Image from 'next/image'
-import UserImage01 from '@/public/images/user-32-01.jpg'
-import UserImage02 from '@/public/images/user-32-02.jpg'
-import UserImage03 from '@/public/images/user-32-03.jpg'
-import UserImage04 from '@/public/images/user-32-04.jpg'
-import UserImage05 from '@/public/images/user-32-05.jpg'
-import UserImage06 from '@/public/images/user-32-06.jpg'
+import { useFlyoutContext } from '@/app/flyout-context';
+import Image from 'next/image';
+import UserImage01 from '@/public/images/user-32-01.jpg';
+import UserImage02 from '@/public/images/user-32-02.jpg';
+import UserImage03 from '@/public/images/user-32-03.jpg';
+import UserImage04 from '@/public/images/user-32-04.jpg';
+import UserImage05 from '@/public/images/user-32-05.jpg';
+import UserImage06 from '@/public/images/user-32-06.jpg';
 
 export default function DirectMessages() {
-  const { setFlyoutOpen } = useFlyoutContext()
+  const { setFlyoutOpen } = useFlyoutContext();
 
   return (
     <div className="mt-4">
-      <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase mb-3">Direct messages</div>
+      <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase mb-3">
+        Direct messages
+      </div>
       <ul className="mb-6">
         <li className="-mx-2">
-          <button className="flex items-center justify-between w-full p-2 rounded-lg bg-linear-to-r from-violet-500/[0.12] dark:from-violet-500/[0.24] to-violet-500/[0.04]" onClick={() => setFlyoutOpen(false)}>
+          <button
+            className="flex items-center justify-between w-full p-2 rounded-lg bg-linear-to-r from-violet-500/[0.12] dark:from-violet-500/[0.24] to-violet-500/[0.04]"
+            onClick={() => setFlyoutOpen(false)}
+          >
             <div className="flex items-center truncate">
-              <Image className="w-8 h-8 rounded-full mr-2" src={UserImage01} width={32} height={32} alt="User 01" />
+              <Image
+                className="w-8 h-8 rounded-full mr-2"
+                src={UserImage01}
+                width={32}
+                height={32}
+                alt="User 01"
+              />
               <div className="truncate">
-                <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Dominik Lamakani</span>
+                <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                  Dominik Lamakani
+                </span>
               </div>
             </div>
             <div className="flex items-center ml-2">
-              <div className="text-xs inline-flex font-medium bg-violet-400 text-white rounded-full text-center leading-5 px-2">2</div>
+              <div className="text-xs inline-flex font-medium bg-violet-400 text-white rounded-full text-center leading-5 px-2">
+                2
+              </div>
             </div>
           </button>
         </li>
         <li className="-mx-2">
-          <button className="flex items-center justify-between w-full p-2 rounded-sm" onClick={() => setFlyoutOpen(false)}>
+          <button
+            className="flex items-center justify-between w-full p-2 rounded-sm"
+            onClick={() => setFlyoutOpen(false)}
+          >
             <div className="flex items-center truncate">
-              <Image className="w-8 h-8 rounded-full mr-2" src={UserImage02} width={32} height={32} alt="User 02" />
+              <Image
+                className="w-8 h-8 rounded-full mr-2"
+                src={UserImage02}
+                width={32}
+                height={32}
+                alt="User 02"
+              />
               <div className="truncate">
-                <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Tisha Yanchev</span>
+                <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                  Tisha Yanchev
+                </span>
               </div>
             </div>
             <div className="flex items-center ml-2">
-              <div className="text-xs inline-flex font-medium bg-violet-400 text-white rounded-full text-center leading-5 px-2">4</div>
+              <div className="text-xs inline-flex font-medium bg-violet-400 text-white rounded-full text-center leading-5 px-2">
+                4
+              </div>
             </div>
           </button>
         </li>
         <li className="-mx-2">
-          <button className="flex items-center justify-between w-full p-2 rounded-sm" onClick={() => setFlyoutOpen(false)}>
+          <button
+            className="flex items-center justify-between w-full p-2 rounded-sm"
+            onClick={() => setFlyoutOpen(false)}
+          >
             <div className="flex items-center truncate">
-              <Image className="w-8 h-8 rounded-full mr-2" src={UserImage03} width={32} height={32} alt="User 03" />
+              <Image
+                className="w-8 h-8 rounded-full mr-2"
+                src={UserImage03}
+                width={32}
+                height={32}
+                alt="User 03"
+              />
               <div className="truncate">
-                <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Jerzy Wierzy</span>
+                <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                  Jerzy Wierzy
+                </span>
               </div>
             </div>
             <div className="flex items-center ml-2">
-              <Image className="rounded-full shrink-0" src={UserImage03} width="20" height="20" alt="User 03" />
+              <Image
+                className="rounded-full shrink-0"
+                src={UserImage03}
+                width="20"
+                height="20"
+                alt="User 03"
+              />
             </div>
           </button>
         </li>
         <li className="-mx-2">
-          <button className="flex items-center justify-between w-full p-2 rounded-sm" onClick={() => setFlyoutOpen(false)}>
+          <button
+            className="flex items-center justify-between w-full p-2 rounded-sm"
+            onClick={() => setFlyoutOpen(false)}
+          >
             <div className="flex items-center truncate">
-              <Image className="w-8 h-8 rounded-full mr-2" src={UserImage04} width={32} height={32} alt="User 04" />
+              <Image
+                className="w-8 h-8 rounded-full mr-2"
+                src={UserImage04}
+                width={32}
+                height={32}
+                alt="User 04"
+              />
               <div className="truncate">
-                <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Adrian Przetocki</span>
+                <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                  Adrian Przetocki
+                </span>
               </div>
             </div>
             <div className="flex items-center ml-2">
@@ -69,11 +125,22 @@ export default function DirectMessages() {
           </button>
         </li>
         <li className="-mx-2">
-          <button className="flex items-center justify-between w-full p-2 rounded-sm" onClick={() => setFlyoutOpen(false)}>
+          <button
+            className="flex items-center justify-between w-full p-2 rounded-sm"
+            onClick={() => setFlyoutOpen(false)}
+          >
             <div className="flex items-center truncate">
-              <Image className="w-8 h-8 rounded-full mr-2" src={UserImage05} width={32} height={32} alt="User 05" />
+              <Image
+                className="w-8 h-8 rounded-full mr-2"
+                src={UserImage05}
+                width={32}
+                height={32}
+                alt="User 05"
+              />
               <div className="truncate">
-                <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Simona Lürwer</span>
+                <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                  Simona Lürwer
+                </span>
               </div>
             </div>
             <div className="flex items-center ml-2">
@@ -84,11 +151,22 @@ export default function DirectMessages() {
           </button>
         </li>
         <li className="-mx-2">
-          <button className="flex items-center justify-between w-full p-2 rounded-sm" onClick={() => setFlyoutOpen(false)}>
+          <button
+            className="flex items-center justify-between w-full p-2 rounded-sm"
+            onClick={() => setFlyoutOpen(false)}
+          >
             <div className="flex items-center truncate">
-              <Image className="w-8 h-8 rounded-full mr-2" src={UserImage06} width={32} height={32} alt="User 06" />
+              <Image
+                className="w-8 h-8 rounded-full mr-2"
+                src={UserImage06}
+                width={32}
+                height={32}
+                alt="User 06"
+              />
               <div className="truncate">
-                <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Mary Roszczewski</span>
+                <span className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                  Mary Roszczewski
+                </span>
               </div>
             </div>
             <div className="flex items-center ml-2">
@@ -100,5 +178,5 @@ export default function DirectMessages() {
         </li>
       </ul>
     </div>
-  )
+  );
 }

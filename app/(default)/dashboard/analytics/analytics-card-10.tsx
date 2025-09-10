@@ -1,20 +1,17 @@
-'use client'
+'use client';
 
-import PolarChart from '@/components/charts/polar-chart'
+import PolarChart from '@/components/charts/polar-chart';
 
 // Import utilities
-import { adjustColorOpacity, getCssVariable } from '@/components/utils/utils'
+import { adjustColorOpacity, getCssVariable } from '@/components/utils/utils';
 
 export default function AnalyticsCard10() {
-
   const chartData = {
     labels: ['Males', 'Females', 'Unknown'],
     datasets: [
       {
         label: 'Sessions By Gender',
-        data: [
-          500, 326, 242,
-        ],
+        data: [500, 326, 242],
         backgroundColor: [
           adjustColorOpacity(getCssVariable('--color-violet-500'), 0.8),
           adjustColorOpacity(getCssVariable('--color-sky-500'), 0.8),
@@ -28,7 +25,7 @@ export default function AnalyticsCard10() {
         borderWidth: 0,
       },
     ],
-  }
+  };
 
   return (
     <div className="flex flex-col col-span-full sm:col-span-6 xl:col-span-4 bg-white dark:bg-gray-800 shadow-sm rounded-xl">
@@ -39,5 +36,5 @@ export default function AnalyticsCard10() {
       {/* Change the height attribute to adjust the chart height */}
       <PolarChart data={chartData} width={389} height={260} />
     </div>
-  )
+  );
 }

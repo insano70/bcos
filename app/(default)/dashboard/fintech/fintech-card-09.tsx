@@ -1,12 +1,11 @@
-'use client'
+'use client';
 
-import PieChart from '@/components/charts/pie-chart'
+import PieChart from '@/components/charts/pie-chart';
 
 // Import utilities
-import { getCssVariable } from '@/components/utils/utils'
+import { getCssVariable } from '@/components/utils/utils';
 
 export default function FintechCard09() {
-
   const chartData = {
     labels: ['Cash', 'Commodities', 'Bonds', 'Stock'],
     datasets: [
@@ -28,7 +27,7 @@ export default function FintechCard09() {
         borderWidth: 0,
       },
     ],
-  }
+  };
 
   return (
     <div className="flex flex-col col-span-full sm:col-span-6 xl:col-span-4 bg-white dark:bg-gray-800 shadow-sm rounded-xl">
@@ -43,5 +42,5 @@ export default function FintechCard09() {
       {/* Change the height attribute to adjust the chart height */}
       <PieChart data={chartData} width={389} height={220} />
     </div>
-  )
+  );
 }

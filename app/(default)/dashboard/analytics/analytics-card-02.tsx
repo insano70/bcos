@@ -1,45 +1,59 @@
-'use client'
+'use client';
 
-import Link from 'next/link'
-import LineChart04 from '@/components/charts/line-chart-04'
-import { chartAreaGradient } from '@/components/charts/chartjs-config'
+import Link from 'next/link';
+import LineChart04 from '@/components/charts/line-chart-04';
+import { chartAreaGradient } from '@/components/charts/chartjs-config';
 
 // Import utilities
-import { adjustColorOpacity, getCssVariable } from '@/components/utils/utils'
+import { adjustColorOpacity, getCssVariable } from '@/components/utils/utils';
 
 export default function AnalyticsCard02() {
-
   const chartData = {
     labels: [
-      '12-01-2022', '01-01-2023', '02-01-2023',
-      '03-01-2023', '04-01-2023', '05-01-2023',
-      '06-01-2023', '07-01-2023', '08-01-2023',
-      '09-01-2023', '10-01-2023', '11-01-2023',
-      '12-01-2023', '01-01-2024', '02-01-2024',
-      '03-01-2024', '04-01-2024', '05-01-2024',
-      '06-01-2024', '07-01-2024', '08-01-2024',
-      '09-01-2024', '10-01-2024', '11-01-2024',
-      '12-01-2024', '01-01-2025',
+      '12-01-2022',
+      '01-01-2023',
+      '02-01-2023',
+      '03-01-2023',
+      '04-01-2023',
+      '05-01-2023',
+      '06-01-2023',
+      '07-01-2023',
+      '08-01-2023',
+      '09-01-2023',
+      '10-01-2023',
+      '11-01-2023',
+      '12-01-2023',
+      '01-01-2024',
+      '02-01-2024',
+      '03-01-2024',
+      '04-01-2024',
+      '05-01-2024',
+      '06-01-2024',
+      '07-01-2024',
+      '08-01-2024',
+      '09-01-2024',
+      '10-01-2024',
+      '11-01-2024',
+      '12-01-2024',
+      '01-01-2025',
     ],
     datasets: [
       // Indigo line
       {
         data: [
-          732, 610, 610, 504, 504, 504, 349,
-          349, 504, 342, 504, 610, 391, 192,
-          154, 273, 191, 191, 126, 263, 349,
-          252, 423, 622, 470, 532,
+          732, 610, 610, 504, 504, 504, 349, 349, 504, 342, 504, 610, 391, 192, 154, 273, 191, 191,
+          126, 263, 349, 252, 423, 622, 470, 532,
         ],
         fill: true,
-        backgroundColor: function(context: any) {
+        backgroundColor: function (context: any) {
           const chart = context.chart;
-          const {ctx, chartArea} = chart;
+          const { ctx, chartArea } = chart;
           const gradientOrColor = chartAreaGradient(ctx, chartArea, [
             { stop: 0, color: adjustColorOpacity(getCssVariable('--color-violet-500'), 0) },
-            { stop: 1, color: adjustColorOpacity(getCssVariable('--color-violet-500'), 0.2) }
+            { stop: 1, color: adjustColorOpacity(getCssVariable('--color-violet-500'), 0.2) },
           ]);
           return gradientOrColor || 'transparent';
-        },     
+        },
         borderColor: getCssVariable('--color-violet-500'),
         borderWidth: 2,
         pointRadius: 0,
@@ -52,9 +66,9 @@ export default function AnalyticsCard02() {
         tension: 0.2,
       },
     ],
-  }
+  };
 
-  return(
+  return (
     <div className="flex flex-col col-span-full xl:col-span-4 bg-white dark:bg-gray-800 shadow-sm rounded-xl">
       <header className="px-5 py-4 border-b border-gray-100 dark:border-gray-700/60">
         <h2 className="font-semibold text-gray-800 dark:text-gray-100">Active Users Right Now</h2>
@@ -65,10 +79,13 @@ export default function AnalyticsCard02() {
         <div className="px-5 py-3">
           <div className="flex items-center">
             {/* Red dot */}
-            <div className="relative flex items-center justify-center w-3 h-3 mr-3" aria-hidden="true">
+            <div
+              className="relative flex items-center justify-center w-3 h-3 mr-3"
+              aria-hidden="true"
+            >
               <div className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-50"></div>
               <div className="relative inline-flex rounded-full w-1.5 h-1.5 bg-red-500"></div>
-            </div>            
+            </div>
             {/* Vistors number */}
             <div>
               <div className="text-3xl font-bold text-gray-800 dark:text-gray-100 mr-2">347</div>
@@ -78,7 +95,7 @@ export default function AnalyticsCard02() {
         </div>
 
         {/* Chart built with Chart.js 3 */}
-        <div >
+        <div>
           {/* Change the height attribute to adjust the chart height */}
           <LineChart04 data={chartData} width={389} height={70} />
         </div>
@@ -143,9 +160,14 @@ export default function AnalyticsCard02() {
 
         {/* Card footer */}
         <div className="text-right px-5 pb-4">
-          <Link className="text-sm font-medium text-violet-500 hover:text-violet-600 dark:hover:text-violet-400" href="#0">Real-Time Report -&gt;</Link>
+          <Link
+            className="text-sm font-medium text-violet-500 hover:text-violet-600 dark:hover:text-violet-400"
+            href="#0"
+          >
+            Real-Time Report -&gt;
+          </Link>
         </div>
       </div>
     </div>
-  )
+  );
 }

@@ -1,42 +1,44 @@
-'use client'
+'use client';
 
-import { useRef, useState, useEffect } from 'react'
-import { useTheme } from 'next-themes'
+import { useRef, useState, useEffect } from 'react';
+import { useTheme } from 'next-themes';
 
-import { chartColors } from '@/components/charts/chartjs-config'
+import { chartColors } from '@/components/charts/chartjs-config';
 import {
-  Chart, LineController, LineElement, Filler, PointElement, LinearScale, TimeScale, Tooltip,
-} from 'chart.js'
-import type { ChartData } from 'chart.js'
-import 'chartjs-adapter-moment'
+  Chart,
+  LineController,
+  LineElement,
+  Filler,
+  PointElement,
+  LinearScale,
+  TimeScale,
+  Tooltip,
+} from 'chart.js';
+import type { ChartData } from 'chart.js';
+import 'chartjs-adapter-moment';
 
 // Import utilities
-import { formatThousands } from '@/components/utils/utils'
+import { formatThousands } from '@/components/utils/utils';
 
-Chart.register(LineController, LineElement, Filler, PointElement, LinearScale, TimeScale, Tooltip)
+Chart.register(LineController, LineElement, Filler, PointElement, LinearScale, TimeScale, Tooltip);
 
 interface LineChart04Props {
-  data: ChartData
-  width: number
-  height: number
+  data: ChartData;
+  width: number;
+  height: number;
 }
 
-export default function LineChart04({
-  data,
-  width,
-  height
-}: LineChart04Props) {
+export default function LineChart04({ data, width, height }: LineChart04Props) {
+  const [chart, setChart] = useState<Chart | null>(null);
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const { theme } = useTheme();
+  const darkMode = theme === 'dark';
+  const { tooltipBodyColor, tooltipBgColor, tooltipBorderColor } = chartColors;
 
-  const [chart, setChart] = useState<Chart | null>(null)
-  const canvas = useRef<HTMLCanvasElement>(null)
-  const { theme } = useTheme()
-  const darkMode = theme === 'dark'
-  const { tooltipBodyColor, tooltipBgColor, tooltipBorderColor } = chartColors    
+  useEffect(() => {
+    const ctx = canvas.current;
+    if (!ctx) return;
 
-  useEffect(() => {    
-    const ctx = canvas.current
-    if (!ctx) return
-    
     const newChart = new Chart(ctx, {
       type: 'line',
       data: data,
@@ -69,7 +71,7 @@ export default function LineChart04({
             },
             bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
             backgroundColor: darkMode ? tooltipBgColor.dark : tooltipBgColor.light,
-            borderColor: darkMode ? tooltipBorderColor.dark : tooltipBorderColor.light,               
+            borderColor: darkMode ? tooltipBorderColor.dark : tooltipBorderColor.light,
           },
           legend: {
             display: false,
@@ -81,27 +83,25 @@ export default function LineChart04({
         },
         maintainAspectRatio: false,
       },
-    })
-    setChart(newChart)
-    return () => newChart.destroy()
-  }, [])
+    });
+    setChart(newChart);
+    return () => newChart.destroy();
+  }, []);
 
   useEffect(() => {
-    if (!chart) return
+    if (!chart) return;
 
     if (darkMode) {
-      chart.options.plugins!.tooltip!.bodyColor = tooltipBodyColor.dark
-      chart.options.plugins!.tooltip!.backgroundColor = tooltipBgColor.dark
-      chart.options.plugins!.tooltip!.borderColor = tooltipBorderColor.dark
+      chart.options.plugins!.tooltip!.bodyColor = tooltipBodyColor.dark;
+      chart.options.plugins!.tooltip!.backgroundColor = tooltipBgColor.dark;
+      chart.options.plugins!.tooltip!.borderColor = tooltipBorderColor.dark;
     } else {
-      chart.options.plugins!.tooltip!.bodyColor = tooltipBodyColor.light
-      chart.options.plugins!.tooltip!.backgroundColor = tooltipBgColor.light
-      chart.options.plugins!.tooltip!.borderColor = tooltipBorderColor.light
+      chart.options.plugins!.tooltip!.bodyColor = tooltipBodyColor.light;
+      chart.options.plugins!.tooltip!.backgroundColor = tooltipBgColor.light;
+      chart.options.plugins!.tooltip!.borderColor = tooltipBorderColor.light;
     }
-    chart.update('none')
-  }, [theme])    
+    chart.update('none');
+  }, [theme]);
 
-  return (
-    <canvas ref={canvas} width={width} height={height}></canvas>
-  )
+  return <canvas ref={canvas} width={width} height={height}></canvas>;
 }

@@ -1,4 +1,4 @@
-import Logo from '@/components/ui/logo'
+import Logo from '@/components/ui/logo';
 
 export default function AuthHeader() {
   return (
@@ -7,5 +7,5 @@ export default function AuthHeader() {
         <Logo />
       </div>
     </div>
-  )
+  );
 }

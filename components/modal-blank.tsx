@@ -1,16 +1,12 @@
-import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react'
+import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 
 interface ModalBlankProps {
-  children: React.ReactNode
-  isOpen: boolean
-  setIsOpen: (value: boolean) => void
+  children: React.ReactNode;
+  isOpen: boolean;
+  setIsOpen: (value: boolean) => void;
 }
 
-export default function ModalBlank({
-  children,
-  isOpen,
-  setIsOpen
-}: ModalBlankProps) {
+export default function ModalBlank({ children, isOpen, setIsOpen }: ModalBlankProps) {
   return (
     <Transition appear show={isOpen}>
       <Dialog as="div" onClose={() => setIsOpen(false)}>
@@ -41,5 +37,5 @@ export default function ModalBlank({
         </TransitionChild>
       </Dialog>
     </Transition>
-  )
+  );
 }

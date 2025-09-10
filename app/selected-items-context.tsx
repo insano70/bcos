@@ -1,29 +1,27 @@
-'use client'
+'use client';
 
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useState } from 'react';
 
 interface SelectedItemsContextProps {
-  selectedItems: number[]
-  setSelectedItems: (selectedItems: number[]) => void
+  selectedItems: number[];
+  setSelectedItems: (selectedItems: number[]) => void;
 }
 
-const SelectedItemsContext = createContext<SelectedItemsContextProps | undefined>(undefined)
+const SelectedItemsContext = createContext<SelectedItemsContextProps | undefined>(undefined);
 
-export const SelectedItemsProvider = ({ children }: {
-  children: React.ReactNode
-}) => {
-  const [selectedItems, setSelectedItems] = useState<number[]>([])
+export const SelectedItemsProvider = ({ children }: { children: React.ReactNode }) => {
+  const [selectedItems, setSelectedItems] = useState<number[]>([]);
   return (
     <SelectedItemsContext.Provider value={{ selectedItems, setSelectedItems }}>
       {children}
     </SelectedItemsContext.Provider>
-  )
-}
+  );
+};
 
 export const useSelectedItems = () => {
-  const context = useContext(SelectedItemsContext)
+  const context = useContext(SelectedItemsContext);
   if (!context) {
-    throw new Error('useSelectedItems must be used within a SelectedItemsProvider')
+    throw new Error('useSelectedItems must be used within a SelectedItemsProvider');
   }
-  return context
-}
+  return context;
+};

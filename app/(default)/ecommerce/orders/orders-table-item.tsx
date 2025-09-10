@@ -1,25 +1,23 @@
-import Image from 'next/image'
-import { Order } from './orders-table'
-import { OrdersProperties } from './orders-properties'
+import Image from 'next/image';
+import { Order } from './orders-table';
+import { OrdersProperties } from './orders-properties';
 
 interface OrdersTableItemProps {
-  order: Order
-  onCheckboxChange: (id: number, checked: boolean) => void
-  isSelected: boolean
+  order: Order;
+  onCheckboxChange: (id: number, checked: boolean) => void;
+  isSelected: boolean;
 }
 
-export default function OrdersTableItem({ order, onCheckboxChange, isSelected }: OrdersTableItemProps) {
+export default function OrdersTableItem({
+  order,
+  onCheckboxChange,
+  isSelected,
+}: OrdersTableItemProps) {
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onCheckboxChange(order.id, e.target.checked);
+  };
 
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {        
-    onCheckboxChange(order.id, e.target.checked)
-  }
-
-  const { 
-    descriptionOpen,
-    setDescriptionOpen,
-    statusColor,
-    typeIcon,    
-  } = OrdersProperties()
+  const { descriptionOpen, setDescriptionOpen, statusColor, typeIcon } = OrdersProperties();
 
   return (
     <tbody className="text-sm">
@@ -29,7 +27,12 @@ export default function OrdersTableItem({ order, onCheckboxChange, isSelected }:
           <div className="flex items-center">
             <label className="inline-flex">
               <span className="sr-only">Select</span>
-              <input className="form-checkbox" type="checkbox" onChange={handleCheckboxChange} checked={isSelected} />
+              <input
+                className="form-checkbox"
+                type="checkbox"
+                onChange={handleCheckboxChange}
+                checked={isSelected}
+              />
             </label>
           </div>
         </td>
@@ -51,7 +54,11 @@ export default function OrdersTableItem({ order, onCheckboxChange, isSelected }:
           <div className="text-left font-medium text-green-600">{order.total}</div>
         </td>
         <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-          <div className={`inline-flex font-medium rounded-full text-center px-2.5 py-0.5 ${statusColor(order.status)}`}>{order.status}</div>
+          <div
+            className={`inline-flex font-medium rounded-full text-center px-2.5 py-0.5 ${statusColor(order.status)}`}
+          >
+            {order.status}
+          </div>
         </td>
         <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
           <div className="text-center">{order.items}</div>
@@ -86,10 +93,18 @@ export default function OrdersTableItem({ order, onCheckboxChange, isSelected }:
       Note that you must set a "colSpan" attribute on the <td> element,
       and it should match the number of columns in your table
       */}
-      <tr id={`description-${order.id}`} role="region" className={`${!descriptionOpen && 'hidden'}`}>
+      <tr
+        id={`description-${order.id}`}
+        role="region"
+        className={`${!descriptionOpen && 'hidden'}`}
+      >
         <td colSpan={10} className="px-2 first:pl-5 last:pr-5 py-3">
           <div className="flex items-center bg-gray-50 dark:bg-gray-950/[0.15] dark:text-gray-400 p-3 -mt-3">
-            <svg className="shrink-0 fill-current text-gray-400 dark:text-gray-500 mr-2" width="16" height="16">
+            <svg
+              className="shrink-0 fill-current text-gray-400 dark:text-gray-500 mr-2"
+              width="16"
+              height="16"
+            >
               <path d="M1 16h3c.3 0 .5-.1.7-.3l11-11c.4-.4.4-1 0-1.4l-3-3c-.4-.4-1-.4-1.4 0l-11 11c-.2.2-.3.4-.3.7v3c0 .6.4 1 1 1zm1-3.6l10-10L13.6 4l-10 10H2v-1.6z" />
             </svg>
             <div className="italic">{order.description}</div>
@@ -97,5 +112,5 @@ export default function OrdersTableItem({ order, onCheckboxChange, isSelected }:
         </td>
       </tr>
     </tbody>
-  )
+  );
 }

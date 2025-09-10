@@ -1,11 +1,11 @@
-import Image from 'next/image'
-import UserImage from '@/public/images/user-64-14.jpg'
-import FintechIcon01 from '@/public/images/company-icon-06.svg'
-import FintechIcon02 from '@/public/images/company-icon-02.svg'
-import FintechIcon03 from '@/public/images/company-icon-03.svg'
+import Image from 'next/image';
+import UserImage from '@/public/images/user-64-14.jpg';
+import FintechIcon01 from '@/public/images/company-icon-06.svg';
+import FintechIcon02 from '@/public/images/company-icon-02.svg';
+import FintechIcon03 from '@/public/images/company-icon-03.svg';
 
 export default function FintechIntro() {
-  return(
+  return (
     <div className="flex flex-col col-span-full bg-white dark:bg-gray-800 shadow-sm rounded-xl">
       <div className="px-5 py-6">
         <div className="md:flex md:justify-between md:items-center">
@@ -13,12 +13,19 @@ export default function FintechIntro() {
           <div className="flex items-center mb-4 md:mb-0">
             {/* Avatar */}
             <div className="mr-4">
-              <Image className="inline-flex rounded-full" src={UserImage} width={64} height={64} alt="User" />
+              <Image
+                className="inline-flex rounded-full"
+                src={UserImage}
+                width={64}
+                height={64}
+                alt="User"
+              />
             </div>
             {/* User info */}
             <div>
               <div className="mb-2">
-                Hey <strong className="font-medium text-gray-800 dark:text-gray-100">Mary</strong> 👋, this is your current balance:
+                Hey <strong className="font-medium text-gray-800 dark:text-gray-100">Mary</strong>{' '}
+                👋, this is your current balance:
               </div>
               <div className="text-3xl font-bold text-green-500">$47,347.09</div>
             </div>
@@ -27,17 +34,35 @@ export default function FintechIntro() {
           <ul className="shrink-0 flex flex-wrap justify-end md:justify-start -space-x-3 -ml-px">
             <li>
               <a className="block" href="#0">
-                <Image className="w-9 h-9 rounded-full" src={FintechIcon01} width={36} height={36} alt="Account 01" />
+                <Image
+                  className="w-9 h-9 rounded-full"
+                  src={FintechIcon01}
+                  width={36}
+                  height={36}
+                  alt="Account 01"
+                />
               </a>
             </li>
             <li>
               <a className="block" href="#0">
-                <Image className="w-9 h-9 rounded-full" src={FintechIcon02} width={36} height={36} alt="Account 02" />
+                <Image
+                  className="w-9 h-9 rounded-full"
+                  src={FintechIcon02}
+                  width={36}
+                  height={36}
+                  alt="Account 02"
+                />
               </a>
             </li>
             <li>
               <a className="block" href="#0">
-                <Image className="w-9 h-9 rounded-full" src={FintechIcon03} width={36} height={36} alt="Account 03" />
+                <Image
+                  className="w-9 h-9 rounded-full"
+                  src={FintechIcon03}
+                  width={36}
+                  height={36}
+                  alt="Account 03"
+                />
               </a>
             </li>
             <li>
@@ -52,5 +77,5 @@ export default function FintechIntro() {
         </div>
       </div>
     </div>
-  )
+  );
 }

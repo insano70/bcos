@@ -1,8 +1,8 @@
-'use client'
+'use client';
 
-import MessagesHeader from './messages-header'
-import MessagesChat from './messages-chat'
-import MessagesFooter from './messages-footer'
+import MessagesHeader from './messages-header';
+import MessagesChat from './messages-chat';
+import MessagesFooter from './messages-footer';
 
 export default function MessagesBody() {
   return (
@@ -11,5 +11,5 @@ export default function MessagesBody() {
       <MessagesChat />
       <MessagesFooter />
     </div>
-  )
+  );
 }

@@ -1,13 +1,12 @@
-'use client'
+'use client';
 
-import LineChart07 from '@/components/charts/line-chart-07'
-import { chartAreaGradient } from '@/components/charts/chartjs-config'
+import LineChart07 from '@/components/charts/line-chart-07';
+import { chartAreaGradient } from '@/components/charts/chartjs-config';
 
 // Import utilities
-import { adjustColorOpacity, getCssVariable } from '@/components/utils/utils'
+import { adjustColorOpacity, getCssVariable } from '@/components/utils/utils';
 
 export default function FintechCard08() {
-
   const chartData = {
     labels: ['2010', 'Age 65'],
     datasets: [
@@ -17,22 +16,22 @@ export default function FintechCard08() {
         data: [0, 3500000],
         borderColor: getCssVariable('--color-green-500'),
         fill: true,
-        backgroundColor: function(context: any) {
+        backgroundColor: function (context: any) {
           const chart = context.chart;
-          const {ctx, chartArea} = chart;
+          const { ctx, chartArea } = chart;
           const gradientOrColor = chartAreaGradient(ctx, chartArea, [
             { stop: 0, color: adjustColorOpacity(getCssVariable('--color-green-500'), 0) },
-            { stop: 1, color: adjustColorOpacity(getCssVariable('--color-green-500'), 0.2) }
+            { stop: 1, color: adjustColorOpacity(getCssVariable('--color-green-500'), 0.2) },
           ]);
           return gradientOrColor || 'transparent';
-        },   
+        },
         borderWidth: 2,
         pointRadius: 0,
         pointHoverRadius: 3,
         pointBackgroundColor: getCssVariable('--color-green-500'),
         pointHoverBackgroundColor: getCssVariable('--color-green-500'),
         pointBorderWidth: 0,
-        pointHoverBorderWidth: 0,        
+        pointHoverBorderWidth: 0,
         clip: 20,
         tension: 0.2,
       },
@@ -48,12 +47,12 @@ export default function FintechCard08() {
         pointBackgroundColor: getCssVariable('--color-green-200'),
         pointHoverBackgroundColor: getCssVariable('--color-green-200'),
         pointBorderWidth: 0,
-        pointHoverBorderWidth: 0,        
+        pointHoverBorderWidth: 0,
         clip: 20,
         tension: 0.2,
       },
     ],
-  }
+  };
 
   return (
     <div className="flex flex-col col-span-full sm:col-span-6 xl:col-span-4 bg-white dark:bg-gray-800 shadow-sm rounded-xl">
@@ -71,5 +70,5 @@ export default function FintechCard08() {
         <LineChart07 data={chartData} width={389} height={262} />
       </div>
     </div>
-  )
+  );
 }

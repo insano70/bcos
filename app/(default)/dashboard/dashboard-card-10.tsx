@@ -1,15 +1,16 @@
 export default function DashboardCard10() {
-  return(
+  return (
     <div className="col-span-full xl:col-span-6 bg-white dark:bg-gray-800 shadow-sm rounded-xl">
       <header className="px-5 py-4 border-b border-gray-100 dark:border-gray-700/60">
         <h2 className="font-semibold text-gray-800 dark:text-gray-100">Recent Activity</h2>
       </header>
       <div className="p-3">
-
         {/* Card content */}
         {/* "Today" group */}
         <div>
-          <header className="text-xs uppercase text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50 rounded-xs font-semibold p-2">Today</header>
+          <header className="text-xs uppercase text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50 rounded-xs font-semibold p-2">
+            Today
+          </header>
           <ul className="my-1">
             {/* Item */}
             <li className="flex px-2">
@@ -20,9 +21,29 @@ export default function DashboardCard10() {
               </div>
               <div className="grow flex items-center border-b border-gray-100 dark:border-gray-700/60 text-sm py-2">
                 <div className="grow flex justify-between">
-                  <div className="self-center"><a className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white" href="#0">Nick Mark</a> mentioned <a className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white" href="#0">Sara Smith</a> in a new post</div>
+                  <div className="self-center">
+                    <a
+                      className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white"
+                      href="#0"
+                    >
+                      Nick Mark
+                    </a>{' '}
+                    mentioned{' '}
+                    <a
+                      className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white"
+                      href="#0"
+                    >
+                      Sara Smith
+                    </a>{' '}
+                    in a new post
+                  </div>
                   <div className="shrink-0 self-end ml-2">
-                    <a className="font-medium text-violet-500 hover:text-violet-600 dark:hover:text-violet-400" href="#0">View<span className="hidden sm:inline"> -&gt;</span></a>
+                    <a
+                      className="font-medium text-violet-500 hover:text-violet-600 dark:hover:text-violet-400"
+                      href="#0"
+                    >
+                      View<span className="hidden sm:inline"> -&gt;</span>
+                    </a>
                   </div>
                 </div>
               </div>
@@ -36,9 +57,29 @@ export default function DashboardCard10() {
               </div>
               <div className="grow flex items-center border-b border-gray-100 dark:border-gray-700/60 text-sm py-2">
                 <div className="grow flex justify-between">
-                  <div className="self-center">The post <a className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white" href="#0">Post Name</a> was removed by <a className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white" href="#0">Nick Mark</a></div>
+                  <div className="self-center">
+                    The post{' '}
+                    <a
+                      className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white"
+                      href="#0"
+                    >
+                      Post Name
+                    </a>{' '}
+                    was removed by{' '}
+                    <a
+                      className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white"
+                      href="#0"
+                    >
+                      Nick Mark
+                    </a>
+                  </div>
                   <div className="shrink-0 self-end ml-2">
-                    <a className="font-medium text-violet-500 hover:text-violet-600 dark:hover:text-violet-400" href="#0">View<span className="hidden sm:inline"> -&gt;</span></a>
+                    <a
+                      className="font-medium text-violet-500 hover:text-violet-600 dark:hover:text-violet-400"
+                      href="#0"
+                    >
+                      View<span className="hidden sm:inline"> -&gt;</span>
+                    </a>
                   </div>
                 </div>
               </div>
@@ -52,9 +93,28 @@ export default function DashboardCard10() {
               </div>
               <div className="grow flex items-center text-sm py-2">
                 <div className="grow flex justify-between">
-                  <div className="self-center"><a className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white" href="#0">Patrick Sullivan</a> published a new <a className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white" href="#0">post</a></div>
+                  <div className="self-center">
+                    <a
+                      className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white"
+                      href="#0"
+                    >
+                      Patrick Sullivan
+                    </a>{' '}
+                    published a new{' '}
+                    <a
+                      className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white"
+                      href="#0"
+                    >
+                      post
+                    </a>
+                  </div>
                   <div className="shrink-0 self-end ml-2">
-                    <a className="font-medium text-violet-500 hover:text-violet-600 dark:hover:text-violet-400" href="#0">View<span className="hidden sm:inline"> -&gt;</span></a>
+                    <a
+                      className="font-medium text-violet-500 hover:text-violet-600 dark:hover:text-violet-400"
+                      href="#0"
+                    >
+                      View<span className="hidden sm:inline"> -&gt;</span>
+                    </a>
                   </div>
                 </div>
               </div>
@@ -63,7 +123,9 @@ export default function DashboardCard10() {
         </div>
         {/* "Yesterday" group */}
         <div>
-          <header className="text-xs uppercase text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50 rounded-xs font-semibold p-2">Yesterday</header>
+          <header className="text-xs uppercase text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50 rounded-xs font-semibold p-2">
+            Yesterday
+          </header>
           <ul className="my-1">
             {/* Item */}
             <li className="flex px-2">
@@ -74,9 +136,28 @@ export default function DashboardCard10() {
               </div>
               <div className="grow flex items-center border-b border-gray-100 dark:border-gray-700/60 text-sm py-2">
                 <div className="grow flex justify-between">
-                  <div className="self-center"><a className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white" href="#0">240+</a> users have subscribed to <a className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white" href="#0">Newsletter #1</a></div>
+                  <div className="self-center">
+                    <a
+                      className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white"
+                      href="#0"
+                    >
+                      240+
+                    </a>{' '}
+                    users have subscribed to{' '}
+                    <a
+                      className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white"
+                      href="#0"
+                    >
+                      Newsletter #1
+                    </a>
+                  </div>
                   <div className="shrink-0 self-end ml-2">
-                    <a className="font-medium text-violet-500 hover:text-violet-600 dark:hover:text-violet-400" href="#0">View<span className="hidden sm:inline"> -&gt;</span></a>
+                    <a
+                      className="font-medium text-violet-500 hover:text-violet-600 dark:hover:text-violet-400"
+                      href="#0"
+                    >
+                      View<span className="hidden sm:inline"> -&gt;</span>
+                    </a>
                   </div>
                 </div>
               </div>
@@ -90,17 +171,36 @@ export default function DashboardCard10() {
               </div>
               <div className="grow flex items-center text-sm py-2">
                 <div className="grow flex justify-between">
-                  <div className="self-center">The post <a className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white" href="#0">Post Name</a> was suspended by <a className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white" href="#0">Nick Mark</a></div>
+                  <div className="self-center">
+                    The post{' '}
+                    <a
+                      className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white"
+                      href="#0"
+                    >
+                      Post Name
+                    </a>{' '}
+                    was suspended by{' '}
+                    <a
+                      className="font-medium text-gray-800 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white"
+                      href="#0"
+                    >
+                      Nick Mark
+                    </a>
+                  </div>
                   <div className="shrink-0 self-end ml-2">
-                    <a className="font-medium text-violet-500 hover:text-violet-600 dark:hover:text-violet-400" href="#0">View<span className="hidden sm:inline"> -&gt;</span></a>
+                    <a
+                      className="font-medium text-violet-500 hover:text-violet-600 dark:hover:text-violet-400"
+                      href="#0"
+                    >
+                      View<span className="hidden sm:inline"> -&gt;</span>
+                    </a>
                   </div>
                 </div>
               </div>
             </li>
           </ul>
         </div>
-
       </div>
     </div>
-  )
+  );
 }

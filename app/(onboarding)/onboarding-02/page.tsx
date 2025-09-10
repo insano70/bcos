@@ -1,40 +1,40 @@
 export const metadata = {
-  title: "Tell us about your company - Mosaic",
+  title: 'Tell us about your company - Mosaic',
   description: 'Page description',
-}
+};
 
-import Link from 'next/link'
-import OnboardingHeader from '../onboarding-header'
-import OnboardingImage from '../onboarding-image'
-import OnboardingProgress from '../onboarding-progress'
+import Link from 'next/link';
+import OnboardingHeader from '../onboarding-header';
+import OnboardingImage from '../onboarding-image';
+import OnboardingProgress from '../onboarding-progress';
 
 export default function Onboarding02() {
   return (
     <main className="bg-white dark:bg-gray-900">
-
       <div className="relative flex">
-
         {/* Content */}
         <div className="w-full md:w-1/2">
-
           <div className="min-h-[100dvh] h-full flex flex-col after:flex-1">
-
             <div className="flex-1">
-
               <OnboardingHeader />
               <OnboardingProgress step={2} />
-
             </div>
 
             <div className="px-4 py-8">
               <div className="max-w-md mx-auto">
-
-                <h1 className="text-3xl text-gray-800 dark:text-gray-100 font-bold mb-6">Tell us about your company</h1>
+                <h1 className="text-3xl text-gray-800 dark:text-gray-100 font-bold mb-6">
+                  Tell us about your company
+                </h1>
                 {/* Form */}
                 <form>
                   <div className="sm:flex space-y-3 sm:space-y-0 sm:space-x-4 mb-8">
                     <label className="flex-1 relative block cursor-pointer">
-                      <input type="radio" name="radio-buttons" className="peer sr-only" defaultChecked />
+                      <input
+                        type="radio"
+                        name="radio-buttons"
+                        className="peer sr-only"
+                        defaultChecked
+                      />
                       <div className="h-full text-center bg-white dark:bg-gray-800 px-4 py-6 rounded-lg border border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 shadow-sm transition">
                         <svg
                           className="inline-flex fill-current text-violet-500 mt-2 mb-4"
@@ -48,10 +48,15 @@ export default function Onboarding02() {
                             fillRule="evenodd"
                           />
                         </svg>
-                        <div className="font-semibold text-gray-800 dark:text-gray-100 mb-1">Individual</div>
+                        <div className="font-semibold text-gray-800 dark:text-gray-100 mb-1">
+                          Individual
+                        </div>
                         <div className="text-sm">Lorem ipsum is place text commonly used.</div>
                       </div>
-                      <div className="absolute inset-0 border-2 border-transparent peer-checked:border-violet-400 dark:peer-checked:border-violet-500 rounded-lg pointer-events-none" aria-hidden="true"></div>
+                      <div
+                        className="absolute inset-0 border-2 border-transparent peer-checked:border-violet-400 dark:peer-checked:border-violet-500 rounded-lg pointer-events-none"
+                        aria-hidden="true"
+                      ></div>
                     </label>
                     <label className="flex-1 relative block cursor-pointer">
                       <input type="radio" name="radio-buttons" className="peer sr-only" />
@@ -63,18 +68,28 @@ export default function Onboarding02() {
                           height={24}
                           viewBox="0 0 24 24"
                         >
-                          <path d="M13 22V11a3 3 0 0 1 3-3h5a3 3 0 0 1 3 3v13H0V14a3 3 0 0 1 3-3h5a3 3 0 0 1 3 3v8h2Zm6-15h-2V3a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7H5V3a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v4ZM9 22v-8a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v8h7Zm13 0V11a1 1 0 0 0-1-1h-5a1 1 0 0 0-1 1v11h7Zm-5-8v-2h3v2h-3Zm0 3v-2h3v2h-3Zm0 3v-2h3v2h-3ZM4 20v-2h3v2H4Zm0-3v-2h3v2H4Z"/>
+                          <path d="M13 22V11a3 3 0 0 1 3-3h5a3 3 0 0 1 3 3v13H0V14a3 3 0 0 1 3-3h5a3 3 0 0 1 3 3v8h2Zm6-15h-2V3a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7H5V3a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v4ZM9 22v-8a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v8h7Zm13 0V11a1 1 0 0 0-1-1h-5a1 1 0 0 0-1 1v11h7Zm-5-8v-2h3v2h-3Zm0 3v-2h3v2h-3Zm0 3v-2h3v2h-3ZM4 20v-2h3v2H4Zm0-3v-2h3v2H4Z" />
                         </svg>
-                        <div className="font-semibold text-gray-800 dark:text-gray-100 mb-1">Organization</div>
+                        <div className="font-semibold text-gray-800 dark:text-gray-100 mb-1">
+                          Organization
+                        </div>
                         <div className="text-sm">Lorem ipsum is place text commonly used.</div>
                       </div>
-                      <div className="absolute inset-0 border-2 border-transparent peer-checked:border-violet-400 dark:peer-checked:border-violet-500 rounded-lg pointer-events-none" aria-hidden="true"></div>
+                      <div
+                        className="absolute inset-0 border-2 border-transparent peer-checked:border-violet-400 dark:peer-checked:border-violet-500 rounded-lg pointer-events-none"
+                        aria-hidden="true"
+                      ></div>
                     </label>
                   </div>
                   <div className="flex items-center justify-between space-x-6 mb-8">
                     <div>
-                      <div className="font-medium text-gray-800 dark:text-gray-100 text-sm mb-1">💸 Lorem ipsum is place text commonly?</div>
-                      <div className="text-xs">Lorem ipsum is placeholder text commonly used in the graphic, print, and publishing industries for previewing layouts.</div>
+                      <div className="font-medium text-gray-800 dark:text-gray-100 text-sm mb-1">
+                        💸 Lorem ipsum is place text commonly?
+                      </div>
+                      <div className="text-xs">
+                        Lorem ipsum is placeholder text commonly used in the graphic, print, and
+                        publishing industries for previewing layouts.
+                      </div>
                     </div>
                     <div className="flex items-center">
                       <div className="form-switch">
@@ -87,22 +102,24 @@ export default function Onboarding02() {
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <Link className="text-sm underline hover:no-underline" href="/onboarding-01">&lt;- Back</Link>
-                    <Link className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white ml-auto" href="/onboarding-03">Next Step -&gt;</Link>
+                    <Link className="text-sm underline hover:no-underline" href="/onboarding-01">
+                      &lt;- Back
+                    </Link>
+                    <Link
+                      className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white ml-auto"
+                      href="/onboarding-03"
+                    >
+                      Next Step -&gt;
+                    </Link>
                   </div>
                 </form>
-
               </div>
             </div>
-
           </div>
-
         </div>
 
         <OnboardingImage />
-
       </div>
-
     </main>
-  )
+  );
 }

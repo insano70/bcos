@@ -1,8 +1,8 @@
-import Image from 'next/image'
-import AppImage13 from '@/public/images/applications-image-13.jpg'
-import AppImage14 from '@/public/images/applications-image-14.jpg'
-import AppImage15 from '@/public/images/applications-image-15.jpg'
-import AppImage16 from '@/public/images/applications-image-16.jpg'
+import Image from 'next/image';
+import AppImage13 from '@/public/images/applications-image-13.jpg';
+import AppImage14 from '@/public/images/applications-image-14.jpg';
+import AppImage15 from '@/public/images/applications-image-15.jpg';
+import AppImage16 from '@/public/images/applications-image-16.jpg';
 
 export default function ShopCards04() {
   return (
@@ -12,7 +12,13 @@ export default function ShopCards04() {
         <div className="flex flex-col h-full">
           {/* Image */}
           <div className="relative">
-            <Image className="w-full" src={AppImage13} width={286} height={160} alt="Application 13" />
+            <Image
+              className="w-full"
+              src={AppImage13}
+              width={286}
+              height={160}
+              alt="Application 13"
+            />
             {/* Like button */}
             <button className="absolute top-0 right-0 mt-4 mr-4">
               <div className="text-gray-100 bg-gray-900/60 rounded-full">
@@ -29,26 +35,46 @@ export default function ShopCards04() {
             <div className="grow">
               {/* Header */}
               <header className="mb-4">
-                <a className="text-xs text-green-500 hover:text-green-600 font-semibold uppercase tracking-widest mb-1" href="#0">Funding</a>
-                <h3 className="text-lg text-gray-800 dark:text-gray-100 font-semibold mb-1">SwiftNight Home Plus</h3>
+                <a
+                  className="text-xs text-green-500 hover:text-green-600 font-semibold uppercase tracking-widest mb-1"
+                  href="#0"
+                >
+                  Funding
+                </a>
+                <h3 className="text-lg text-gray-800 dark:text-gray-100 font-semibold mb-1">
+                  SwiftNight Home Plus
+                </h3>
                 <div className="text-sm">Lorem ipsum is placeholder text commonly used.</div>
               </header>
               {/* Info */}
               <div className="mb-5">
                 <div className="flex justify-between text-sm space-x-2 mb-2">
-                  <div><span className="font-semibold text-gray-800 dark:text-gray-100">$789,784</span> <span className="italic">raised</span></div>
+                  <div>
+                    <span className="font-semibold text-gray-800 dark:text-gray-100">$789,784</span>{' '}
+                    <span className="italic">raised</span>
+                  </div>
                   <div className="text-gray-500 dark:text-gray-400">64%</div>
                 </div>
                 {/* Bar */}
                 <div className="relative w-full h-2 rounded-full bg-gray-200 dark:bg-gray-700 mb-2">
-                  <div className="absolute left-0 top-0 bottom-0 bg-green-500 rounded-full" style={{width: '55%'}}></div>
+                  <div
+                    className="absolute left-0 top-0 bottom-0 bg-green-500 rounded-full"
+                    style={{ width: '55%' }}
+                  ></div>
                 </div>
-                <div className="font-medium text-xs text-gray-500 dark:text-gray-400">30 Days Left</div>
+                <div className="font-medium text-xs text-gray-500 dark:text-gray-400">
+                  30 Days Left
+                </div>
               </div>
             </div>
             {/* Card footer */}
             <div>
-              <a className="btn-sm w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white" href="#0">Back It</a>
+              <a
+                className="btn-sm w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
+                href="#0"
+              >
+                Back It
+              </a>
             </div>
           </div>
         </div>
@@ -59,7 +85,13 @@ export default function ShopCards04() {
         <div className="flex flex-col h-full">
           {/* Image */}
           <div className="relative">
-            <Image className="w-full" src={AppImage14} width={286} height={160} alt="Application 14" />
+            <Image
+              className="w-full"
+              src={AppImage14}
+              width={286}
+              height={160}
+              alt="Application 14"
+            />
             {/* Like button */}
             <button className="absolute top-0 right-0 mt-4 mr-4">
               <div className="text-gray-100 bg-gray-900/60 rounded-full">
@@ -76,26 +108,46 @@ export default function ShopCards04() {
             <div className="grow">
               {/* Header */}
               <header className="mb-4">
-                <a className="text-xs text-green-500 hover:text-green-600 font-semibold uppercase tracking-widest mb-1" href="#0">Funding</a>
-                <h3 className="text-lg text-gray-800 dark:text-gray-100 font-semibold mb-1">SwiftNight Home Plus</h3>
+                <a
+                  className="text-xs text-green-500 hover:text-green-600 font-semibold uppercase tracking-widest mb-1"
+                  href="#0"
+                >
+                  Funding
+                </a>
+                <h3 className="text-lg text-gray-800 dark:text-gray-100 font-semibold mb-1">
+                  SwiftNight Home Plus
+                </h3>
                 <div className="text-sm">Lorem ipsum is placeholder text commonly used.</div>
               </header>
               {/* Info */}
               <div className="mb-5">
                 <div className="flex justify-between text-sm space-x-2 mb-2">
-                  <div><span className="font-semibold text-gray-800 dark:text-gray-100">$789,784</span> <span className="italic">raised</span></div>
+                  <div>
+                    <span className="font-semibold text-gray-800 dark:text-gray-100">$789,784</span>{' '}
+                    <span className="italic">raised</span>
+                  </div>
                   <div className="text-gray-500 dark:text-gray-400">64%</div>
                 </div>
                 {/* Bar */}
                 <div className="relative w-full h-2 rounded-full bg-gray-200 dark:bg-gray-700 mb-2">
-                  <div className="absolute left-0 top-0 bottom-0 bg-green-500 rounded-full" style={{width: '55%'}}></div>
+                  <div
+                    className="absolute left-0 top-0 bottom-0 bg-green-500 rounded-full"
+                    style={{ width: '55%' }}
+                  ></div>
                 </div>
-                <div className="font-medium text-xs text-gray-500 dark:text-gray-400">30 Days Left</div>
+                <div className="font-medium text-xs text-gray-500 dark:text-gray-400">
+                  30 Days Left
+                </div>
               </div>
             </div>
             {/* Card footer */}
             <div>
-              <a className="btn-sm w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white" href="#0">Back It</a>
+              <a
+                className="btn-sm w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
+                href="#0"
+              >
+                Back It
+              </a>
             </div>
           </div>
         </div>
@@ -106,7 +158,13 @@ export default function ShopCards04() {
         <div className="flex flex-col h-full">
           {/* Image */}
           <div className="relative">
-            <Image className="w-full" src={AppImage15} width={286} height={160} alt="Application 15" />
+            <Image
+              className="w-full"
+              src={AppImage15}
+              width={286}
+              height={160}
+              alt="Application 15"
+            />
             {/* Like button */}
             <button className="absolute top-0 right-0 mt-4 mr-4">
               <div className="text-gray-100 bg-gray-900/60 rounded-full">
@@ -123,26 +181,46 @@ export default function ShopCards04() {
             <div className="grow">
               {/* Header */}
               <header className="mb-4">
-                <a className="text-xs text-green-500 hover:text-green-600 font-semibold uppercase tracking-widest mb-1" href="#0">Funding</a>
-                <h3 className="text-lg text-gray-800 dark:text-gray-100 font-semibold mb-1">SwiftNight Home Plus</h3>
+                <a
+                  className="text-xs text-green-500 hover:text-green-600 font-semibold uppercase tracking-widest mb-1"
+                  href="#0"
+                >
+                  Funding
+                </a>
+                <h3 className="text-lg text-gray-800 dark:text-gray-100 font-semibold mb-1">
+                  SwiftNight Home Plus
+                </h3>
                 <div className="text-sm">Lorem ipsum is placeholder text commonly used.</div>
               </header>
               {/* Info */}
               <div className="mb-5">
                 <div className="flex justify-between text-sm space-x-2 mb-2">
-                  <div><span className="font-semibold text-gray-800 dark:text-gray-100">$789,784</span> <span className="italic">raised</span></div>
+                  <div>
+                    <span className="font-semibold text-gray-800 dark:text-gray-100">$789,784</span>{' '}
+                    <span className="italic">raised</span>
+                  </div>
                   <div className="text-gray-500 dark:text-gray-400">64%</div>
                 </div>
                 {/* Bar */}
                 <div className="relative w-full h-2 rounded-full bg-gray-200 dark:bg-gray-700 mb-2">
-                  <div className="absolute left-0 top-0 bottom-0 bg-green-500 rounded-full" style={{width: '55%'}}></div>
+                  <div
+                    className="absolute left-0 top-0 bottom-0 bg-green-500 rounded-full"
+                    style={{ width: '55%' }}
+                  ></div>
                 </div>
-                <div className="font-medium text-xs text-gray-500 dark:text-gray-400">30 Days Left</div>
+                <div className="font-medium text-xs text-gray-500 dark:text-gray-400">
+                  30 Days Left
+                </div>
               </div>
             </div>
             {/* Card footer */}
             <div>
-              <a className="btn-sm w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white" href="#0">Back It</a>
+              <a
+                className="btn-sm w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
+                href="#0"
+              >
+                Back It
+              </a>
             </div>
           </div>
         </div>
@@ -153,7 +231,13 @@ export default function ShopCards04() {
         <div className="flex flex-col h-full">
           {/* Image */}
           <div className="relative">
-            <Image className="w-full" src={AppImage16} width={286} height={160} alt="Application 16" />
+            <Image
+              className="w-full"
+              src={AppImage16}
+              width={286}
+              height={160}
+              alt="Application 16"
+            />
             {/* Like button */}
             <button className="absolute top-0 right-0 mt-4 mr-4">
               <div className="text-gray-100 bg-gray-900/60 rounded-full">
@@ -170,30 +254,50 @@ export default function ShopCards04() {
             <div className="grow">
               {/* Header */}
               <header className="mb-4">
-                <a className="text-xs text-green-500 hover:text-green-600 font-semibold uppercase tracking-widest mb-1" href="#0">Funding</a>
-                <h3 className="text-lg text-gray-800 dark:text-gray-100 font-semibold mb-1">SwiftNight Home Plus</h3>
+                <a
+                  className="text-xs text-green-500 hover:text-green-600 font-semibold uppercase tracking-widest mb-1"
+                  href="#0"
+                >
+                  Funding
+                </a>
+                <h3 className="text-lg text-gray-800 dark:text-gray-100 font-semibold mb-1">
+                  SwiftNight Home Plus
+                </h3>
                 <div className="text-sm">Lorem ipsum is placeholder text commonly used.</div>
               </header>
               {/* Info */}
               <div className="mb-5">
                 <div className="flex justify-between text-sm space-x-2 mb-2">
-                  <div><span className="font-semibold text-gray-800 dark:text-gray-100">$789,784</span> <span className="italic">raised</span></div>
+                  <div>
+                    <span className="font-semibold text-gray-800 dark:text-gray-100">$789,784</span>{' '}
+                    <span className="italic">raised</span>
+                  </div>
                   <div className="text-gray-500 dark:text-gray-400">64%</div>
                 </div>
                 {/* Bar */}
                 <div className="relative w-full h-2 rounded-full bg-gray-200 dark:bg-gray-700 mb-2">
-                  <div className="absolute left-0 top-0 bottom-0 bg-green-500 rounded-full" style={{width: '55%'}}></div>
+                  <div
+                    className="absolute left-0 top-0 bottom-0 bg-green-500 rounded-full"
+                    style={{ width: '55%' }}
+                  ></div>
                 </div>
-                <div className="font-medium text-xs text-gray-500 dark:text-gray-400">30 Days Left</div>
+                <div className="font-medium text-xs text-gray-500 dark:text-gray-400">
+                  30 Days Left
+                </div>
               </div>
             </div>
             {/* Card footer */}
             <div>
-              <a className="btn-sm w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white" href="#0">Back It</a>
+              <a
+                className="btn-sm w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
+                href="#0"
+              >
+                Back It
+              </a>
             </div>
           </div>
         </div>
       </div>
     </>
-  )
+  );
 }

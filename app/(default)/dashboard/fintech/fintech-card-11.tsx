@@ -1,44 +1,58 @@
-'use client'
+'use client';
 
-import LineChart08 from '@/components/charts/line-chart-08'
-import { chartAreaGradient } from '@/components/charts/chartjs-config'
+import LineChart08 from '@/components/charts/line-chart-08';
+import { chartAreaGradient } from '@/components/charts/chartjs-config';
 
 // Import utilities
-import { adjustColorOpacity, getCssVariable } from '@/components/utils/utils'
+import { adjustColorOpacity, getCssVariable } from '@/components/utils/utils';
 
 export default function FintechCard11() {
-
   const chartData = {
     labels: [
-      '12-01-2022', '01-01-2023', '02-01-2023',
-      '03-01-2023', '04-01-2023', '05-01-2023',
-      '06-01-2023', '07-01-2023', '08-01-2023',
-      '09-01-2023', '10-01-2023', '11-01-2023',
-      '12-01-2023', '01-01-2024', '02-01-2024',
-      '03-01-2024', '04-01-2024', '05-01-2024',
-      '06-01-2024', '07-01-2024', '08-01-2024',
-      '09-01-2024', '10-01-2024', '11-01-2024',
-      '12-01-2024', '01-01-2025',
+      '12-01-2022',
+      '01-01-2023',
+      '02-01-2023',
+      '03-01-2023',
+      '04-01-2023',
+      '05-01-2023',
+      '06-01-2023',
+      '07-01-2023',
+      '08-01-2023',
+      '09-01-2023',
+      '10-01-2023',
+      '11-01-2023',
+      '12-01-2023',
+      '01-01-2024',
+      '02-01-2024',
+      '03-01-2024',
+      '04-01-2024',
+      '05-01-2024',
+      '06-01-2024',
+      '07-01-2024',
+      '08-01-2024',
+      '09-01-2024',
+      '10-01-2024',
+      '11-01-2024',
+      '12-01-2024',
+      '01-01-2025',
     ],
     datasets: [
       // Line
       {
         data: [
-          222, 222, 226, 271, 365, 365, 238,
-          324, 288, 206, 324, 324, 500, 409,
-          409, 273, 232, 273, 500, 570, 767,
-          808, 685, 767, 685, 685,
+          222, 222, 226, 271, 365, 365, 238, 324, 288, 206, 324, 324, 500, 409, 409, 273, 232, 273,
+          500, 570, 767, 808, 685, 767, 685, 685,
         ],
         fill: true,
-        backgroundColor: function(context: any) {
+        backgroundColor: function (context: any) {
           const chart = context.chart;
-          const {ctx, chartArea} = chart;
+          const { ctx, chartArea } = chart;
           const gradientOrColor = chartAreaGradient(ctx, chartArea, [
             { stop: 0, color: adjustColorOpacity(getCssVariable('--color-green-500'), 0) },
-            { stop: 1, color: adjustColorOpacity(getCssVariable('--color-green-500'), 0.2) }
+            { stop: 1, color: adjustColorOpacity(getCssVariable('--color-green-500'), 0.2) },
           ]);
           return gradientOrColor || 'transparent';
-        }, 
+        },
         borderColor: getCssVariable('--color-green-500'),
         borderWidth: 2,
         pointRadius: 0,
@@ -46,12 +60,12 @@ export default function FintechCard11() {
         pointBackgroundColor: getCssVariable('--color-green-500'),
         pointHoverBackgroundColor: getCssVariable('--color-green-500'),
         pointBorderWidth: 0,
-        pointHoverBorderWidth: 0,        
+        pointHoverBorderWidth: 0,
         clip: 20,
         tension: 0.2,
       },
     ],
-  }
+  };
 
   return (
     <div className="flex flex-col col-span-full sm:col-span-6 xl:col-span-3 bg-white dark:bg-gray-800 shadow-sm rounded-xl">
@@ -72,5 +86,5 @@ export default function FintechCard11() {
         <LineChart08 data={chartData} width={286} height={98} />
       </div>
     </div>
-  )
+  );
 }

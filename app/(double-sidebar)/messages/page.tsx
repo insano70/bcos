@@ -1,11 +1,11 @@
 export const metadata = {
   title: 'Messages - Mosaic',
   description: 'Page description',
-}
+};
 
-import { FlyoutProvider } from '@/app/flyout-context'
-import MessagesSidebar from './messages-sidebar'
-import MessagesBody from './messages-body'
+import { FlyoutProvider } from '@/app/flyout-context';
+import MessagesSidebar from './messages-sidebar';
+import MessagesBody from './messages-body';
 
 function MessagesContent() {
   return (
@@ -13,7 +13,7 @@ function MessagesContent() {
       <MessagesSidebar />
       <MessagesBody />
     </div>
-  )
+  );
 }
 
 export default function Messages() {
@@ -21,5 +21,5 @@ export default function Messages() {
     <FlyoutProvider initialState={true}>
       <MessagesContent />
     </FlyoutProvider>
-  )
+  );
 }

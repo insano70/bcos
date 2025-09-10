@@ -1,10 +1,9 @@
-'use client'
+'use client';
 
-import { useTheme } from 'next-themes'
+import { useTheme } from 'next-themes';
 
 export default function ThemeToggle() {
-
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme } = useTheme();
 
   return (
     <div>
@@ -16,12 +15,15 @@ export default function ThemeToggle() {
         checked={theme === 'light'}
         onChange={() => {
           if (theme === 'dark') {
-            return setTheme('light')
+            return setTheme('light');
           }
-          return setTheme('dark')
+          return setTheme('dark');
         }}
       />
-      <label className="flex items-center justify-center cursor-pointer w-8 h-8 hover:bg-gray-100 lg:hover:bg-gray-200 dark:hover:bg-gray-700/50 dark:lg:hover:bg-gray-800 rounded-full" htmlFor="light-switch">
+      <label
+        className="flex items-center justify-center cursor-pointer w-8 h-8 hover:bg-gray-100 lg:hover:bg-gray-200 dark:hover:bg-gray-700/50 dark:lg:hover:bg-gray-800 rounded-full"
+        htmlFor="light-switch"
+      >
         <svg
           className="dark:hidden fill-current text-gray-500/80 dark:text-gray-400/80"
           width={16}
@@ -46,5 +48,5 @@ export default function ThemeToggle() {
         <span className="sr-only">Switch to light / dark version</span>
       </label>
     </div>
-  )
+  );
 }

@@ -1,20 +1,17 @@
-'use client'
+'use client';
 
-import DoughnutChart from '@/components/charts/doughnut-chart'
+import DoughnutChart from '@/components/charts/doughnut-chart';
 
 // Import utilities
-import { getCssVariable } from '@/components/utils/utils'
+import { getCssVariable } from '@/components/utils/utils';
 
 export default function AnalyticsCard08() {
-
   const chartData = {
     labels: ['Desktop', 'Mobile', 'Tablet'],
     datasets: [
       {
         label: 'Sessions By Device',
-        data: [
-          12, 50, 38,
-        ],
+        data: [12, 50, 38],
         backgroundColor: [
           getCssVariable('--color-violet-500'),
           getCssVariable('--color-sky-500'),
@@ -28,7 +25,7 @@ export default function AnalyticsCard08() {
         borderWidth: 0,
       },
     ],
-  }
+  };
 
   return (
     <div className="flex flex-col col-span-full sm:col-span-6 xl:col-span-4 bg-white dark:bg-gray-800 shadow-sm rounded-xl">
@@ -39,5 +36,5 @@ export default function AnalyticsCard08() {
       {/* Change the height attribute to adjust the chart height */}
       <DoughnutChart data={chartData} width={389} height={260} />
     </div>
-  )
+  );
 }

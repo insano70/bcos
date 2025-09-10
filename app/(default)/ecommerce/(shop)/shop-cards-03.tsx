@@ -1,8 +1,8 @@
-import Image from 'next/image'
-import AppImage09 from '@/public/images/applications-image-09.jpg'
-import AppImage10 from '@/public/images/applications-image-10.jpg'
-import AppImage11 from '@/public/images/applications-image-11.jpg'
-import AppImage12 from '@/public/images/applications-image-12.jpg'
+import Image from 'next/image';
+import AppImage09 from '@/public/images/applications-image-09.jpg';
+import AppImage10 from '@/public/images/applications-image-10.jpg';
+import AppImage11 from '@/public/images/applications-image-11.jpg';
+import AppImage12 from '@/public/images/applications-image-12.jpg';
 
 export default function ShopCards03() {
   return (
@@ -12,7 +12,13 @@ export default function ShopCards03() {
         <div className="flex flex-col h-full">
           {/* Image */}
           <div className="relative">
-            <Image className="w-full" src={AppImage09} width={286} height={160} alt="Application 09" />
+            <Image
+              className="w-full"
+              src={AppImage09}
+              width={286}
+              height={160}
+              alt="Application 09"
+            />
             {/* Like button */}
             <button className="absolute top-0 right-0 mt-4 mr-4">
               <div className="text-gray-100 bg-gray-900/60 rounded-full">
@@ -29,19 +35,31 @@ export default function ShopCards03() {
             <div className="grow">
               {/* Header */}
               <header className="mb-2">
-                <h3 className="text-lg text-gray-800 dark:text-gray-100 font-semibold">Health and Happiness Workshop</h3>
+                <h3 className="text-lg text-gray-800 dark:text-gray-100 font-semibold">
+                  Health and Happiness Workshop
+                </h3>
               </header>
               {/* List */}
               <ul className="text-sm space-y-2 mb-5 dark:text-gray-300">
                 <li className="flex items-center">
-                  <svg className="fill-current text-gray-400 dark:text-gray-500 shrink-0 mr-3" width="16" height="16" viewBox="0 0 16 16">
+                  <svg
+                    className="fill-current text-gray-400 dark:text-gray-500 shrink-0 mr-3"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                  >
                     <path d="M5 4a1 1 0 0 0 0 2h6a1 1 0 1 0 0-2H5Z" />
                     <path d="M4 0a4 4 0 0 0-4 4v8a4 4 0 0 0 4 4h8a4 4 0 0 0 4-4V4a4 4 0 0 0-4-4H4ZM2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4Z" />
                   </svg>
                   <div className="text-red-500">Fri 7 Aug 2024 23:00 CEST</div>
                 </li>
                 <li className="flex items-center">
-                  <svg className="fill-current text-gray-400 dark:text-gray-500 shrink-0 mr-3" width="16" height="16" viewBox="0 0 16 16">
+                  <svg
+                    className="fill-current text-gray-400 dark:text-gray-500 shrink-0 mr-3"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                  >
                     <path d="M3.886 1.137A8 8 0 1 1 .08 9.142a1 1 0 0 1 1.98-.284 6 6 0 1 0 3.314-6.256l.844.83a1 1 0 0 1-.53 1.698l-3.745.653a1 1 0 0 1-1.16-1.142L1.38.887A1 1 0 0 1 3.07.331l.817.806ZM9 7.586l1.707 1.707a1 1 0 1 1-1.414 1.414l-2-2A1 1 0 0 1 7 8V5a1 1 0 1 1 2 0v2.586Z" />
                   </svg>
                   <div>Starts at $16.24 / person</div>
@@ -50,7 +68,12 @@ export default function ShopCards03() {
             </div>
             {/* Card footer */}
             <div>
-              <a className="btn-sm w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white" href="#0">Buy Tickets</a>
+              <a
+                className="btn-sm w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
+                href="#0"
+              >
+                Buy Tickets
+              </a>
             </div>
           </div>
         </div>
@@ -61,7 +84,13 @@ export default function ShopCards03() {
         <div className="flex flex-col h-full">
           {/* Image */}
           <div className="relative">
-            <Image className="w-full" src={AppImage10} width={286} height={160} alt="Application 10" />
+            <Image
+              className="w-full"
+              src={AppImage10}
+              width={286}
+              height={160}
+              alt="Application 10"
+            />
             {/* Like button */}
             <button className="absolute top-0 right-0 mt-4 mr-4">
               <div className="text-gray-100 bg-gray-900/60 rounded-full">
@@ -78,19 +107,31 @@ export default function ShopCards03() {
             <div className="grow">
               {/* Header */}
               <header className="mb-2">
-                <h3 className="text-lg text-gray-800 dark:text-gray-100 font-semibold">Health and Happiness Workshop</h3>
+                <h3 className="text-lg text-gray-800 dark:text-gray-100 font-semibold">
+                  Health and Happiness Workshop
+                </h3>
               </header>
               {/* List */}
               <ul className="text-sm space-y-2 mb-5 dark:text-gray-300">
                 <li className="flex items-center">
-                  <svg className="fill-current text-gray-400 dark:text-gray-500 shrink-0 mr-3" width="16" height="16" viewBox="0 0 16 16">
+                  <svg
+                    className="fill-current text-gray-400 dark:text-gray-500 shrink-0 mr-3"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                  >
                     <path d="M5 4a1 1 0 0 0 0 2h6a1 1 0 1 0 0-2H5Z" />
                     <path d="M4 0a4 4 0 0 0-4 4v8a4 4 0 0 0 4 4h8a4 4 0 0 0 4-4V4a4 4 0 0 0-4-4H4ZM2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4Z" />
                   </svg>
                   <div className="text-red-500">Fri 7 Aug 2024 23:00 CEST</div>
                 </li>
                 <li className="flex items-center">
-                  <svg className="fill-current text-gray-400 dark:text-gray-500 shrink-0 mr-3" width="16" height="16" viewBox="0 0 16 16">
+                  <svg
+                    className="fill-current text-gray-400 dark:text-gray-500 shrink-0 mr-3"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                  >
                     <path d="M3.886 1.137A8 8 0 1 1 .08 9.142a1 1 0 0 1 1.98-.284 6 6 0 1 0 3.314-6.256l.844.83a1 1 0 0 1-.53 1.698l-3.745.653a1 1 0 0 1-1.16-1.142L1.38.887A1 1 0 0 1 3.07.331l.817.806ZM9 7.586l1.707 1.707a1 1 0 1 1-1.414 1.414l-2-2A1 1 0 0 1 7 8V5a1 1 0 1 1 2 0v2.586Z" />
                   </svg>
                   <div>Starts at $16.24 / person</div>
@@ -99,7 +140,12 @@ export default function ShopCards03() {
             </div>
             {/* Card footer */}
             <div>
-              <a className="btn-sm w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white" href="#0">Buy Tickets</a>
+              <a
+                className="btn-sm w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
+                href="#0"
+              >
+                Buy Tickets
+              </a>
             </div>
           </div>
         </div>
@@ -110,7 +156,13 @@ export default function ShopCards03() {
         <div className="flex flex-col h-full">
           {/* Image */}
           <div className="relative">
-            <Image className="w-full" src={AppImage11} width={286} height={160} alt="Application 11" />
+            <Image
+              className="w-full"
+              src={AppImage11}
+              width={286}
+              height={160}
+              alt="Application 11"
+            />
             {/* Like button */}
             <button className="absolute top-0 right-0 mt-4 mr-4">
               <div className="text-gray-100 bg-gray-900/60 rounded-full">
@@ -127,19 +179,31 @@ export default function ShopCards03() {
             <div className="grow">
               {/* Header */}
               <header className="mb-2">
-                <h3 className="text-lg text-gray-800 dark:text-gray-100 font-semibold">Health and Happiness Workshop</h3>
+                <h3 className="text-lg text-gray-800 dark:text-gray-100 font-semibold">
+                  Health and Happiness Workshop
+                </h3>
               </header>
               {/* List */}
               <ul className="text-sm space-y-2 mb-5 dark:text-gray-300">
                 <li className="flex items-center">
-                  <svg className="fill-current text-gray-400 dark:text-gray-500 shrink-0 mr-3" width="16" height="16" viewBox="0 0 16 16">
+                  <svg
+                    className="fill-current text-gray-400 dark:text-gray-500 shrink-0 mr-3"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                  >
                     <path d="M5 4a1 1 0 0 0 0 2h6a1 1 0 1 0 0-2H5Z" />
                     <path d="M4 0a4 4 0 0 0-4 4v8a4 4 0 0 0 4 4h8a4 4 0 0 0 4-4V4a4 4 0 0 0-4-4H4ZM2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4Z" />
                   </svg>
                   <div className="text-red-500">Fri 7 Aug 2024 23:00 CEST</div>
                 </li>
                 <li className="flex items-center">
-                  <svg className="fill-current text-gray-400 dark:text-gray-500 shrink-0 mr-3" width="16" height="16" viewBox="0 0 16 16">
+                  <svg
+                    className="fill-current text-gray-400 dark:text-gray-500 shrink-0 mr-3"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                  >
                     <path d="M3.886 1.137A8 8 0 1 1 .08 9.142a1 1 0 0 1 1.98-.284 6 6 0 1 0 3.314-6.256l.844.83a1 1 0 0 1-.53 1.698l-3.745.653a1 1 0 0 1-1.16-1.142L1.38.887A1 1 0 0 1 3.07.331l.817.806ZM9 7.586l1.707 1.707a1 1 0 1 1-1.414 1.414l-2-2A1 1 0 0 1 7 8V5a1 1 0 1 1 2 0v2.586Z" />
                   </svg>
                   <div>Starts at $16.24 / person</div>
@@ -148,7 +212,12 @@ export default function ShopCards03() {
             </div>
             {/* Card footer */}
             <div>
-              <a className="btn-sm w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white" href="#0">Buy Tickets</a>
+              <a
+                className="btn-sm w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
+                href="#0"
+              >
+                Buy Tickets
+              </a>
             </div>
           </div>
         </div>
@@ -159,7 +228,13 @@ export default function ShopCards03() {
         <div className="flex flex-col h-full">
           {/* Image */}
           <div className="relative">
-            <Image className="w-full" src={AppImage12} width={286} height={160} alt="Application 12" />
+            <Image
+              className="w-full"
+              src={AppImage12}
+              width={286}
+              height={160}
+              alt="Application 12"
+            />
             {/* Like button */}
             <button className="absolute top-0 right-0 mt-4 mr-4">
               <div className="text-gray-100 bg-gray-900/60 rounded-full">
@@ -176,19 +251,31 @@ export default function ShopCards03() {
             <div className="grow">
               {/* Header */}
               <header className="mb-2">
-                <h3 className="text-lg text-gray-800 dark:text-gray-100 font-semibold">Health and Happiness Workshop</h3>
+                <h3 className="text-lg text-gray-800 dark:text-gray-100 font-semibold">
+                  Health and Happiness Workshop
+                </h3>
               </header>
               {/* List */}
               <ul className="text-sm space-y-2 mb-5 dark:text-gray-300">
                 <li className="flex items-center">
-                  <svg className="fill-current text-gray-400 dark:text-gray-500 shrink-0 mr-3" width="16" height="16" viewBox="0 0 16 16">
+                  <svg
+                    className="fill-current text-gray-400 dark:text-gray-500 shrink-0 mr-3"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                  >
                     <path d="M5 4a1 1 0 0 0 0 2h6a1 1 0 1 0 0-2H5Z" />
                     <path d="M4 0a4 4 0 0 0-4 4v8a4 4 0 0 0 4 4h8a4 4 0 0 0 4-4V4a4 4 0 0 0-4-4H4ZM2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4Z" />
                   </svg>
                   <div className="text-red-500">Fri 7 Aug 2024 23:00 CEST</div>
                 </li>
                 <li className="flex items-center">
-                  <svg className="fill-current text-gray-400 dark:text-gray-500 shrink-0 mr-3" width="16" height="16" viewBox="0 0 16 16">
+                  <svg
+                    className="fill-current text-gray-400 dark:text-gray-500 shrink-0 mr-3"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                  >
                     <path d="M3.886 1.137A8 8 0 1 1 .08 9.142a1 1 0 0 1 1.98-.284 6 6 0 1 0 3.314-6.256l.844.83a1 1 0 0 1-.53 1.698l-3.745.653a1 1 0 0 1-1.16-1.142L1.38.887A1 1 0 0 1 3.07.331l.817.806ZM9 7.586l1.707 1.707a1 1 0 1 1-1.414 1.414l-2-2A1 1 0 0 1 7 8V5a1 1 0 1 1 2 0v2.586Z" />
                   </svg>
                   <div>Starts at $16.24 / person</div>
@@ -197,11 +284,16 @@ export default function ShopCards03() {
             </div>
             {/* Card footer */}
             <div>
-              <a className="btn-sm w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white" href="#0">Buy Tickets</a>
+              <a
+                className="btn-sm w-full bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white"
+                href="#0"
+              >
+                Buy Tickets
+              </a>
             </div>
           </div>
         </div>
       </div>
     </>
-  )
+  );
 }

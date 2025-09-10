@@ -1,4 +1,3 @@
-
 export default function PaginationNumeric02() {
   return (
     <div>
@@ -32,7 +31,9 @@ export default function PaginationNumeric02() {
               </a>
             </li>
             <li>
-              <span className="inline-flex items-center justify-center leading-5 px-2 py-2 text-gray-400 dark:text-gray-500">…</span>
+              <span className="inline-flex items-center justify-center leading-5 px-2 py-2 text-gray-400 dark:text-gray-500">
+                …
+              </span>
             </li>
             <li>
               <a
@@ -45,7 +46,10 @@ export default function PaginationNumeric02() {
           </ul>
         </div>
         <div className="flex-1 text-right ml-2">
-          <a className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300" href="#0">
+          <a
+            className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300"
+            href="#0"
+          >
             <span className="hidden sm:inline">Next&nbsp;</span>-&gt;
           </a>
         </div>

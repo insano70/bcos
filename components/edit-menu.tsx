@@ -1,14 +1,14 @@
-'use client'
+'use client';
 
-import { Menu, MenuButton, MenuItems, MenuItem, Transition } from '@headlessui/react'
-import Link from 'next/link'
+import { Menu, MenuButton, MenuItems, MenuItem, Transition } from '@headlessui/react';
+import Link from 'next/link';
 
 export default function EditMenu({
   align,
   className = '',
 }: React.HTMLAttributes<HTMLDivElement> & {
-  align?: 'left' | 'right'
-  className?: string
+  align?: 'left' | 'right';
+  className?: string;
 }) {
   return (
     <Menu as="div" className={`relative inline-flex ${className}`}>
@@ -37,29 +37,38 @@ export default function EditMenu({
             <MenuItems as="ul" className="focus:outline-hidden">
               <MenuItem as="li">
                 {({ active }) => (
-                  <Link className={`font-medium text-sm flex py-1 px-3 ${active ? 'text-gray-800 dark:text-gray-200' : 'text-gray-600 dark:text-gray-300'}`} href="#0">
+                  <Link
+                    className={`font-medium text-sm flex py-1 px-3 ${active ? 'text-gray-800 dark:text-gray-200' : 'text-gray-600 dark:text-gray-300'}`}
+                    href="#0"
+                  >
                     Option 1
                   </Link>
                 )}
               </MenuItem>
               <MenuItem as="li">
                 {({ active }) => (
-                  <Link className={`font-medium text-sm flex py-1 px-3 ${active ? 'text-gray-800 dark:text-gray-200' : 'text-gray-600 dark:text-gray-300'}`} href="#0">
+                  <Link
+                    className={`font-medium text-sm flex py-1 px-3 ${active ? 'text-gray-800 dark:text-gray-200' : 'text-gray-600 dark:text-gray-300'}`}
+                    href="#0"
+                  >
                     Option 2
                   </Link>
                 )}
               </MenuItem>
               <MenuItem as="li">
                 {({ active }) => (
-                  <Link className={`font-medium text-sm flex py-1 px-3 ${active ? 'text-red-600' : 'text-red-500'}`} href="#0">
+                  <Link
+                    className={`font-medium text-sm flex py-1 px-3 ${active ? 'text-red-600' : 'text-red-500'}`}
+                    href="#0"
+                  >
                     Remove
                   </Link>
                 )}
-              </MenuItem>                            
+              </MenuItem>
             </MenuItems>
           </Transition>
         </>
       )}
     </Menu>
-  )
+  );
 }

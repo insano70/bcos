@@ -1,28 +1,30 @@
-import Link from 'next/link'
-import Image from 'next/image'
-import MeetupsThumb01 from '@/public/images/meetups-thumb-01.jpg'
-import MeetupsThumb02 from '@/public/images/meetups-thumb-02.jpg'
-import MeetupsThumb03 from '@/public/images/meetups-thumb-03.jpg'
-import MeetupsThumb04 from '@/public/images/meetups-thumb-04.jpg'
-import MeetupsThumb05 from '@/public/images/meetups-thumb-05.jpg'
-import MeetupsThumb06 from '@/public/images/meetups-thumb-06.jpg'
-import MeetupsThumb07 from '@/public/images/meetups-thumb-07.jpg'
-import MeetupsThumb08 from '@/public/images/meetups-thumb-08.jpg'
-import UserImage01 from '@/public/images/avatar-01.jpg'
-import UserImage02 from '@/public/images/avatar-02.jpg'
-import UserImage03 from '@/public/images/avatar-03.jpg'
-import UserImage04 from '@/public/images/avatar-04.jpg'
-import UserImage05 from '@/public/images/avatar-05.jpg'
-import UserImage06 from '@/public/images/avatar-06.jpg'
+import Link from 'next/link';
+import Image from 'next/image';
+import MeetupsThumb01 from '@/public/images/meetups-thumb-01.jpg';
+import MeetupsThumb02 from '@/public/images/meetups-thumb-02.jpg';
+import MeetupsThumb03 from '@/public/images/meetups-thumb-03.jpg';
+import MeetupsThumb04 from '@/public/images/meetups-thumb-04.jpg';
+import MeetupsThumb05 from '@/public/images/meetups-thumb-05.jpg';
+import MeetupsThumb06 from '@/public/images/meetups-thumb-06.jpg';
+import MeetupsThumb07 from '@/public/images/meetups-thumb-07.jpg';
+import MeetupsThumb08 from '@/public/images/meetups-thumb-08.jpg';
+import UserImage01 from '@/public/images/avatar-01.jpg';
+import UserImage02 from '@/public/images/avatar-02.jpg';
+import UserImage03 from '@/public/images/avatar-03.jpg';
+import UserImage04 from '@/public/images/avatar-04.jpg';
+import UserImage05 from '@/public/images/avatar-05.jpg';
+import UserImage06 from '@/public/images/avatar-06.jpg';
 
 export default function MeetupsPosts() {
   return (
     <div className="grid xl:grid-cols-2 gap-6">
-
       {/* Item 1 */}
       <article className="flex bg-white dark:bg-gray-800 shadow-sm rounded-xl overflow-hidden">
         {/* Image */}
-        <Link className="relative block w-24 sm:w-[14rem] xl:sidebar-expanded:w-40 2xl:sidebar-expanded:w-[14rem] shrink-0" href="/community/meetups/post">
+        <Link
+          className="relative block w-24 sm:w-[14rem] xl:sidebar-expanded:w-40 2xl:sidebar-expanded:w-[14rem] shrink-0"
+          href="/community/meetups/post"
+        >
           <Image
             className="absolute object-cover object-center w-full h-full"
             src={MeetupsThumb01}
@@ -43,12 +45,17 @@ export default function MeetupsPosts() {
         {/* Content */}
         <div className="grow p-5 flex flex-col">
           <div className="grow">
-            <div className="text-sm font-semibold text-violet-500 uppercase mb-2">Mon 27 Dec, 2024</div>
+            <div className="text-sm font-semibold text-violet-500 uppercase mb-2">
+              Mon 27 Dec, 2024
+            </div>
             <Link className="inline-flex mb-2" href="/community/meetups/post">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Silicon Valley Bootstrapper Breakfast Online for 2024</h3>
+              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+                Silicon Valley Bootstrapper Breakfast Online for 2024
+              </h3>
             </Link>
             <div className="text-sm">
-              Lorem ipsum is placeholder text commonly used in the graphic, print, and publishing industries for previewing layouts.
+              Lorem ipsum is placeholder text commonly used in the graphic, print, and publishing
+              industries for previewing layouts.
             </div>
           </div>
           {/* Footer */}
@@ -94,7 +101,10 @@ export default function MeetupsPosts() {
       {/* Item 2 */}
       <article className="flex bg-white dark:bg-gray-800 shadow-sm rounded-xl overflow-hidden">
         {/* Image */}
-        <Link className="relative block w-24 sm:w-[14rem] xl:sidebar-expanded:w-40 2xl:sidebar-expanded:w-[14rem] shrink-0" href="/community/meetups/post">
+        <Link
+          className="relative block w-24 sm:w-[14rem] xl:sidebar-expanded:w-40 2xl:sidebar-expanded:w-[14rem] shrink-0"
+          href="/community/meetups/post"
+        >
           <Image
             className="absolute object-cover object-center w-full h-full"
             src={MeetupsThumb02}
@@ -115,12 +125,17 @@ export default function MeetupsPosts() {
         {/* Content */}
         <div className="grow p-5 flex flex-col">
           <div className="grow">
-            <div className="text-sm font-semibold text-violet-500 uppercase mb-2">Mon 27 Dec, 2024</div>
+            <div className="text-sm font-semibold text-violet-500 uppercase mb-2">
+              Mon 27 Dec, 2024
+            </div>
             <Link className="inline-flex mb-2" href="/community/meetups/post">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">New York &amp; New Jersey Virtual Retreat 2024</h3>
+              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+                New York &amp; New Jersey Virtual Retreat 2024
+              </h3>
             </Link>
             <div className="text-sm">
-              Lorem ipsum is placeholder text commonly used in the graphic, print, and publishing industries for previewing layouts.
+              Lorem ipsum is placeholder text commonly used in the graphic, print, and publishing
+              industries for previewing layouts.
             </div>
           </div>
           {/* Footer */}
@@ -157,7 +172,9 @@ export default function MeetupsPosts() {
                   alt="User 04"
                 />
               </div>
-              <div className="text-xs font-medium text-gray-400 dark:text-gray-500 italic">+132</div>
+              <div className="text-xs font-medium text-gray-400 dark:text-gray-500 italic">
+                +132
+              </div>
             </div>
           </div>
         </div>
@@ -166,7 +183,10 @@ export default function MeetupsPosts() {
       {/* Item 3 */}
       <article className="flex bg-white dark:bg-gray-800 shadow-sm rounded-xl overflow-hidden">
         {/* Image */}
-        <Link className="relative block w-24 sm:w-[14rem] xl:sidebar-expanded:w-40 2xl:sidebar-expanded:w-[14rem] shrink-0" href="/community/meetups/post">
+        <Link
+          className="relative block w-24 sm:w-[14rem] xl:sidebar-expanded:w-40 2xl:sidebar-expanded:w-[14rem] shrink-0"
+          href="/community/meetups/post"
+        >
           <Image
             className="absolute object-cover object-center w-full h-full"
             src={MeetupsThumb03}
@@ -187,12 +207,17 @@ export default function MeetupsPosts() {
         {/* Content */}
         <div className="grow p-5 flex flex-col">
           <div className="grow">
-            <div className="text-sm font-semibold text-violet-500 uppercase mb-2">Wed 29 Dec, 2024</div>
+            <div className="text-sm font-semibold text-violet-500 uppercase mb-2">
+              Wed 29 Dec, 2024
+            </div>
             <Link className="inline-flex mb-2" href="/community/meetups/post">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">The World of AI and Machine Learning — Open Chat</h3>
+              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+                The World of AI and Machine Learning — Open Chat
+              </h3>
             </Link>
             <div className="text-sm">
-              Lorem ipsum is placeholder text commonly used in the graphic, print, and publishing industries for previewing layouts.
+              Lorem ipsum is placeholder text commonly used in the graphic, print, and publishing
+              industries for previewing layouts.
             </div>
           </div>
           {/* Footer */}
@@ -238,7 +263,10 @@ export default function MeetupsPosts() {
       {/* Item 4 */}
       <article className="flex bg-white dark:bg-gray-800 shadow-sm rounded-xl overflow-hidden">
         {/* Image */}
-        <Link className="relative block w-24 sm:w-[14rem] xl:sidebar-expanded:w-40 2xl:sidebar-expanded:w-[14rem] shrink-0" href="/community/meetups/post">
+        <Link
+          className="relative block w-24 sm:w-[14rem] xl:sidebar-expanded:w-40 2xl:sidebar-expanded:w-[14rem] shrink-0"
+          href="/community/meetups/post"
+        >
           <Image
             className="absolute object-cover object-center w-full h-full"
             src={MeetupsThumb04}
@@ -259,12 +287,17 @@ export default function MeetupsPosts() {
         {/* Content */}
         <div className="grow p-5 flex flex-col">
           <div className="grow">
-            <div className="text-sm font-semibold text-violet-500 uppercase mb-2">Wed 29 Dec, 2024</div>
+            <div className="text-sm font-semibold text-violet-500 uppercase mb-2">
+              Wed 29 Dec, 2024
+            </div>
             <Link className="inline-flex mb-2" href="/community/meetups/post">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">NYC Code &amp; Coffee 2.0 @ Freehold Brooklyn</h3>
+              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+                NYC Code &amp; Coffee 2.0 @ Freehold Brooklyn
+              </h3>
             </Link>
             <div className="text-sm">
-              Lorem ipsum is placeholder text commonly used in the graphic, print, and publishing industries for previewing layouts.
+              Lorem ipsum is placeholder text commonly used in the graphic, print, and publishing
+              industries for previewing layouts.
             </div>
           </div>
           {/* Footer */}
@@ -303,7 +336,10 @@ export default function MeetupsPosts() {
       {/* Item 5 */}
       <article className="flex bg-white dark:bg-gray-800 shadow-sm rounded-xl overflow-hidden">
         {/* Image */}
-        <Link className="relative block w-24 sm:w-[14rem] xl:sidebar-expanded:w-40 2xl:sidebar-expanded:w-[14rem] shrink-0" href="/community/meetups/post">
+        <Link
+          className="relative block w-24 sm:w-[14rem] xl:sidebar-expanded:w-40 2xl:sidebar-expanded:w-[14rem] shrink-0"
+          href="/community/meetups/post"
+        >
           <Image
             className="absolute object-cover object-center w-full h-full"
             src={MeetupsThumb05}
@@ -324,12 +360,17 @@ export default function MeetupsPosts() {
         {/* Content */}
         <div className="grow p-5 flex flex-col">
           <div className="grow">
-            <div className="text-sm font-semibold text-violet-500 uppercase mb-2">Mon 3 Jan, 2024</div>
+            <div className="text-sm font-semibold text-violet-500 uppercase mb-2">
+              Mon 3 Jan, 2024
+            </div>
             <Link className="inline-flex mb-2" href="/community/meetups/post">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Acme Inc. London Meetup: Women in Tech Night</h3>
+              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+                Acme Inc. London Meetup: Women in Tech Night
+              </h3>
             </Link>
             <div className="text-sm">
-              Lorem ipsum is placeholder text commonly used in the graphic, print, and publishing industries for previewing layouts.
+              Lorem ipsum is placeholder text commonly used in the graphic, print, and publishing
+              industries for previewing layouts.
             </div>
           </div>
           {/* Footer */}
@@ -359,7 +400,9 @@ export default function MeetupsPosts() {
                   alt="User 01"
                 />
               </div>
-              <div className="text-xs font-medium text-gray-400 dark:text-gray-500 italic">+117</div>
+              <div className="text-xs font-medium text-gray-400 dark:text-gray-500 italic">
+                +117
+              </div>
             </div>
           </div>
         </div>
@@ -368,7 +411,10 @@ export default function MeetupsPosts() {
       {/* Item 6 */}
       <article className="flex bg-white dark:bg-gray-800 shadow-sm rounded-xl overflow-hidden">
         {/* Image */}
-        <Link className="relative block w-24 sm:w-[14rem] xl:sidebar-expanded:w-40 2xl:sidebar-expanded:w-[14rem] shrink-0" href="/community/meetups/post">
+        <Link
+          className="relative block w-24 sm:w-[14rem] xl:sidebar-expanded:w-40 2xl:sidebar-expanded:w-[14rem] shrink-0"
+          href="/community/meetups/post"
+        >
           <Image
             className="absolute object-cover object-center w-full h-full"
             src={MeetupsThumb06}
@@ -389,12 +435,17 @@ export default function MeetupsPosts() {
         {/* Content */}
         <div className="grow p-5 flex flex-col">
           <div className="grow">
-            <div className="text-sm font-semibold text-violet-500 uppercase mb-2">Thu 6 Jan, 2024</div>
+            <div className="text-sm font-semibold text-violet-500 uppercase mb-2">
+              Thu 6 Jan, 2024
+            </div>
             <Link className="inline-flex mb-2" href="/community/meetups/post">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Founder Worldwide - First Meetup of 2022!</h3>
+              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+                Founder Worldwide - First Meetup of 2022!
+              </h3>
             </Link>
             <div className="text-sm">
-              Lorem ipsum is placeholder text commonly used in the graphic, print, and publishing industries for previewing layouts.
+              Lorem ipsum is placeholder text commonly used in the graphic, print, and publishing
+              industries for previewing layouts.
             </div>
           </div>
           {/* Footer */}
@@ -440,7 +491,10 @@ export default function MeetupsPosts() {
       {/* Item 7 */}
       <article className="flex bg-white dark:bg-gray-800 shadow-sm rounded-xl overflow-hidden">
         {/* Image */}
-        <Link className="relative block w-24 sm:w-[14rem] xl:sidebar-expanded:w-40 2xl:sidebar-expanded:w-[14rem] shrink-0" href="/community/meetups/post">
+        <Link
+          className="relative block w-24 sm:w-[14rem] xl:sidebar-expanded:w-40 2xl:sidebar-expanded:w-[14rem] shrink-0"
+          href="/community/meetups/post"
+        >
           <Image
             className="absolute object-cover object-center w-full h-full"
             src={MeetupsThumb07}
@@ -461,12 +515,17 @@ export default function MeetupsPosts() {
         {/* Content */}
         <div className="grow p-5 flex flex-col">
           <div className="grow">
-            <div className="text-sm font-semibold text-violet-500 uppercase mb-2">Thu 6 Jan, 2024</div>
+            <div className="text-sm font-semibold text-violet-500 uppercase mb-2">
+              Thu 6 Jan, 2024
+            </div>
             <Link className="inline-flex mb-2" href="/community/meetups/post">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">NYC Blockchain Network - Monthly 3rd Thursday Meetup</h3>
+              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+                NYC Blockchain Network - Monthly 3rd Thursday Meetup
+              </h3>
             </Link>
             <div className="text-sm">
-              Lorem ipsum is placeholder text commonly used in the graphic, print, and publishing industries for previewing layouts.
+              Lorem ipsum is placeholder text commonly used in the graphic, print, and publishing
+              industries for previewing layouts.
             </div>
           </div>
           {/* Footer */}
@@ -496,7 +555,9 @@ export default function MeetupsPosts() {
                   alt="User 04"
                 />
               </div>
-              <div className="text-xs font-medium text-gray-400 dark:text-gray-500 italic">+112</div>
+              <div className="text-xs font-medium text-gray-400 dark:text-gray-500 italic">
+                +112
+              </div>
             </div>
           </div>
         </div>
@@ -505,7 +566,10 @@ export default function MeetupsPosts() {
       {/* Item 8 */}
       <article className="flex bg-white dark:bg-gray-800 shadow-sm rounded-xl overflow-hidden">
         {/* Image */}
-        <Link className="relative block w-24 sm:w-[14rem] xl:sidebar-expanded:w-40 2xl:sidebar-expanded:w-[14rem] shrink-0" href="/community/meetups/post">
+        <Link
+          className="relative block w-24 sm:w-[14rem] xl:sidebar-expanded:w-40 2xl:sidebar-expanded:w-[14rem] shrink-0"
+          href="/community/meetups/post"
+        >
           <Image
             className="absolute object-cover object-center w-full h-full"
             src={MeetupsThumb08}
@@ -526,12 +590,17 @@ export default function MeetupsPosts() {
         {/* Content */}
         <div className="grow p-5 flex flex-col">
           <div className="grow">
-            <div className="text-sm font-semibold text-violet-500 uppercase mb-2">Fri 7 Jan, 2024</div>
+            <div className="text-sm font-semibold text-violet-500 uppercase mb-2">
+              Fri 7 Jan, 2024
+            </div>
             <Link className="inline-flex mb-2" href="/community/meetups/post">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">Build a Personal Brand and Boost Your Career in AI!</h3>
+              <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+                Build a Personal Brand and Boost Your Career in AI!
+              </h3>
             </Link>
             <div className="text-sm">
-              Lorem ipsum is placeholder text commonly used in the graphic, print, and publishing industries for previewing layouts.
+              Lorem ipsum is placeholder text commonly used in the graphic, print, and publishing
+              industries for previewing layouts.
             </div>
           </div>
           {/* Footer */}
@@ -573,7 +642,6 @@ export default function MeetupsPosts() {
           </div>
         </div>
       </article>
-
     </div>
-  )
+  );
 }
