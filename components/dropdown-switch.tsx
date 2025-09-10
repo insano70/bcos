@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Menu, MenuButton, MenuItems, MenuItem, Transition } from '@headlessui/react';
 import Image from 'next/image';
-import ChannelImage01 from '@/public/images/channel-01.png';
+import ChannelImage01 from '@/public/images/channel-01-blue.svg';
 import ChannelImage02 from '@/public/images/channel-02.png';
 import ChannelImage03 from '@/public/images/channel-03.png';
 
