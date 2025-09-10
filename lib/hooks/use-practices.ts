@@ -16,7 +16,19 @@ async function fetchPractices(): Promise<Practice[]> {
   if (!response.ok) {
     throw new Error('Failed to fetch practices');
   }
-  return response.json();
+  const result = await response.json();
+  
+  // Handle the standardized API response format
+  if (result.success && Array.isArray(result.data)) {
+    return result.data;
+  }
+  
+  // Fallback for direct array response
+  if (Array.isArray(result)) {
+    return result;
+  }
+  
+  throw new Error('Invalid response format from practices API');
 }
 
 export function usePractices() {

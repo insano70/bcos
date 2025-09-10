@@ -3,9 +3,47 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Menu, MenuButton, MenuItems, MenuItem, Transition } from '@headlessui/react';
+import { signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import UserAvatar from '@/public/images/user-avatar-32.png';
 
 export default function DropdownProfile({ align }: { align?: 'left' | 'right' }) {
+  const router = useRouter()
+
+  const handleSignOut = async () => {
+    try {
+      console.log('Initiating logout from dropdown...')
+      
+      // Call our logout API first to cleanup enterprise tokens
+      try {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          credentials: 'include'
+        })
+        console.log('Enterprise token cleanup completed')
+      } catch (tokenError) {
+        console.log('Enterprise token cleanup failed (may not exist):', tokenError)
+      }
+      
+      // Use NextAuth signOut
+      await signOut({
+        redirect: false,
+        callbackUrl: '/signin'
+      })
+      
+      console.log('NextAuth signOut completed')
+      
+      // Redirect to signin
+      router.push('/signin')
+      router.refresh()
+      
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Force redirect even if logout fails
+      router.push('/signin')
+    }
+  }
+
   return (
     <Menu as="div" className="relative inline-flex">
       <MenuButton className="inline-flex justify-center items-center group">
@@ -54,12 +92,12 @@ export default function DropdownProfile({ align }: { align?: 'left' | 'right' })
             </Link>
           </MenuItem>
           <MenuItem as="li">
-            <Link
-              className="font-medium text-sm flex items-center py-1 px-3 text-violet-500"
-              href="#0"
+            <button
+              onClick={handleSignOut}
+              className="font-medium text-sm flex items-center py-1 px-3 text-violet-500 hover:text-violet-600 w-full text-left"
             >
               Sign Out
-            </Link>
+            </button>
           </MenuItem>
         </MenuItems>
       </Transition>

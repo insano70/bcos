@@ -1,0 +1,247 @@
+import { db, audit_logs } from '@/lib/db'
+import { nanoid } from 'nanoid'
+
+/**
+ * Audit Logging Service
+ * Tracks security events, user actions, and system changes for compliance
+ */
+
+export interface AuditLogEntry {
+  id?: string
+  event_type: 'auth' | 'user_action' | 'system' | 'security' | 'data_change'
+  action: string
+  user_id?: string
+  ip_address?: string
+  user_agent?: string
+  resource_type?: string
+  resource_id?: string
+  old_values?: Record<string, any>
+  new_values?: Record<string, any>
+  metadata?: Record<string, any>
+  severity: 'low' | 'medium' | 'high' | 'critical'
+  timestamp?: Date
+}
+
+export class AuditLogger {
+  /**
+   * Log authentication events
+   */
+  static async logAuth(data: {
+    action: 'login' | 'logout' | 'login_failed' | 'password_reset' | 'account_locked'
+    userId?: string
+    email?: string
+    ipAddress?: string
+    userAgent?: string
+    metadata?: Record<string, any>
+  }): Promise<void> {
+    await this.log({
+      event_type: 'auth',
+      action: data.action,
+      user_id: data.userId,
+      ip_address: data.ipAddress,
+      user_agent: data.userAgent,
+      metadata: {
+        email: data.email,
+        ...data.metadata
+      },
+      severity: data.action === 'login_failed' || data.action === 'account_locked' ? 'high' : 'medium'
+    })
+  }
+
+  /**
+   * Log user actions
+   */
+  static async logUserAction(data: {
+    action: string
+    userId: string
+    resourceType?: string
+    resourceId?: string
+    ipAddress?: string
+    userAgent?: string
+    metadata?: Record<string, any>
+  }): Promise<void> {
+    await this.log({
+      event_type: 'user_action',
+      action: data.action,
+      user_id: data.userId,
+      resource_type: data.resourceType,
+      resource_id: data.resourceId,
+      ip_address: data.ipAddress,
+      user_agent: data.userAgent,
+      metadata: data.metadata,
+      severity: 'low'
+    })
+  }
+
+  /**
+   * Log data changes (CRUD operations)
+   */
+  static async logDataChange(data: {
+    action: 'create' | 'update' | 'delete'
+    userId: string
+    resourceType: string
+    resourceId: string
+    oldValues?: Record<string, any>
+    newValues?: Record<string, any>
+    ipAddress?: string
+    userAgent?: string
+    metadata?: Record<string, any>
+  }): Promise<void> {
+    await this.log({
+      event_type: 'data_change',
+      action: data.action,
+      user_id: data.userId,
+      resource_type: data.resourceType,
+      resource_id: data.resourceId,
+      old_values: data.oldValues,
+      new_values: data.newValues,
+      ip_address: data.ipAddress,
+      user_agent: data.userAgent,
+      metadata: data.metadata,
+      severity: data.action === 'delete' ? 'medium' : 'low'
+    })
+  }
+
+  /**
+   * Log security events
+   */
+  static async logSecurity(data: {
+    action: string
+    userId?: string
+    ipAddress?: string
+    userAgent?: string
+    metadata?: Record<string, any>
+    severity?: 'low' | 'medium' | 'high' | 'critical'
+  }): Promise<void> {
+    await this.log({
+      event_type: 'security',
+      action: data.action,
+      user_id: data.userId,
+      ip_address: data.ipAddress,
+      user_agent: data.userAgent,
+      metadata: data.metadata,
+      severity: data.severity || 'high'
+    })
+  }
+
+  /**
+   * Log system events
+   */
+  static async logSystem(data: {
+    action: string
+    metadata?: Record<string, any>
+    severity?: 'low' | 'medium' | 'high' | 'critical'
+  }): Promise<void> {
+    await this.log({
+      event_type: 'system',
+      action: data.action,
+      metadata: data.metadata,
+      severity: data.severity || 'medium'
+    })
+  }
+
+  /**
+   * Core logging method
+   */
+  private static async log(entry: AuditLogEntry): Promise<void> {
+    try {
+      const logEntry = {
+        audit_log_id: nanoid(),
+        event_type: entry.event_type,
+        action: entry.action,
+        user_id: entry.user_id || null,
+        ip_address: entry.ip_address || null,
+        user_agent: entry.user_agent || null,
+        resource_type: entry.resource_type || null,
+        resource_id: entry.resource_id || null,
+        old_values: entry.old_values ? JSON.stringify(entry.old_values) : null,
+        new_values: entry.new_values ? JSON.stringify(entry.new_values) : null,
+        metadata: entry.metadata ? JSON.stringify(entry.metadata) : null,
+        severity: entry.severity,
+        created_at: new Date()
+      }
+
+      await db.insert(audit_logs).values(logEntry)
+
+      // For critical events, also send system notifications
+      if (entry.severity === 'critical') {
+        await this.sendCriticalAlert(entry)
+      }
+
+      console.log(`Audit log created: ${entry.event_type}/${entry.action}`, {
+        userId: entry.user_id,
+        severity: entry.severity
+      })
+    } catch (error) {
+      // Never let audit logging failures break the main application
+      console.error('Audit logging failed:', error)
+    }
+  }
+
+  /**
+   * Send critical alerts to system administrators
+   */
+  private static async sendCriticalAlert(entry: AuditLogEntry): Promise<void> {
+    try {
+      // Dynamic import to avoid circular dependencies
+      const { EmailService } = await import('./email')
+      
+      await EmailService.sendSystemNotification(
+        `Critical Security Event: ${entry.action}`,
+        `A critical security event has been detected in the system.`,
+        {
+          eventType: entry.event_type,
+          action: entry.action,
+          userId: entry.user_id,
+          ipAddress: entry.ip_address,
+          timestamp: new Date().toISOString(),
+          metadata: entry.metadata
+        }
+      )
+    } catch (error) {
+      console.error('Failed to send critical alert:', error)
+    }
+  }
+
+  /**
+   * Get audit logs with filtering and pagination
+   */
+  static async getLogs(options: {
+    eventType?: string
+    userId?: string
+    resourceType?: string
+    severity?: string
+    startDate?: Date
+    endDate?: Date
+    limit?: number
+    offset?: number
+  }) {
+    try {
+      // This would be implemented with proper Drizzle queries
+      // For now, return a placeholder structure
+      return {
+        logs: [],
+        total: 0,
+        hasMore: false
+      }
+    } catch (error) {
+      console.error('Failed to retrieve audit logs:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Extract request information for logging
+   */
+  static extractRequestInfo(request: Request): {
+    ipAddress: string
+    userAgent: string
+  } {
+    return {
+      ipAddress: request.headers.get('x-forwarded-for') || 
+                 request.headers.get('x-real-ip') || 
+                 'unknown',
+      userAgent: request.headers.get('user-agent') || 'unknown'
+    }
+  }
+}

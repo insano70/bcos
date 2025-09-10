@@ -1,5 +1,17 @@
 import { pgTable, uuid, varchar, boolean, timestamp, index, text, integer } from 'drizzle-orm/pg-core';
 
+// Import audit logs table
+export { audit_logs } from './audit-schema';
+
+// Import JWT + Refresh Token tables
+export { 
+  refresh_tokens,
+  token_blacklist,
+  user_sessions, 
+  login_attempts, 
+  account_security
+} from './refresh-token-schema';
+
 // System users (admins who manage the platform)
 export const users = pgTable(
   'users',

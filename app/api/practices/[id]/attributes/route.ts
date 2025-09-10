@@ -1,26 +1,31 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { db, practices, practice_attributes } from '@/lib/db';
 import { eq, isNull } from 'drizzle-orm';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
+import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
+import { validateRequest, validateParams } from '@/lib/api/middleware/validation';
+import { practiceAttributesUpdateSchema, practiceParamsSchema } from '@/lib/validations/practice';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: practiceId } = await params;
+    await applyRateLimit(request, 'api')
+    
+    const { id: practiceId } = validateParams(await params, practiceParamsSchema)
 
     // Verify practice exists
     const [practice] = await db
       .select()
       .from(practices)
       .where(eq(practices.practice_id, practiceId))
-      .limit(1);
+      .where(isNull(practices.deleted_at))
+      .limit(1)
 
     if (!practice) {
-      return NextResponse.json(
-        { error: 'Practice not found' },
-        { status: 404 }
-      );
+      throw NotFoundError('Practice')
     }
 
     // Get practice attributes
@@ -28,16 +33,13 @@ export async function GET(
       .select()
       .from(practice_attributes)
       .where(eq(practice_attributes.practice_id, practiceId))
-      .limit(1);
+      .limit(1)
 
     if (!attributes) {
-      return NextResponse.json(
-        { error: 'Practice attributes not found' },
-        { status: 404 }
-      );
+      throw NotFoundError('Practice attributes')
     }
 
-    // Parse JSON fields
+    // Parse JSON fields safely
     const parsedAttributes = {
       ...attributes,
       business_hours: attributes.business_hours ? JSON.parse(attributes.business_hours) : null,
@@ -45,15 +47,13 @@ export async function GET(
       insurance_accepted: attributes.insurance_accepted ? JSON.parse(attributes.insurance_accepted) : [],
       conditions_treated: attributes.conditions_treated ? JSON.parse(attributes.conditions_treated) : [],
       gallery_images: attributes.gallery_images ? JSON.parse(attributes.gallery_images) : [],
-    };
+    }
 
-    return NextResponse.json(parsedAttributes);
+    return createSuccessResponse(parsedAttributes)
+    
   } catch (error) {
-    console.error('Error fetching practice attributes:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch practice attributes' },
-      { status: 500 }
-    );
+    console.error('Error fetching practice attributes:', error)
+    return createErrorResponse(error, 500, request)
   }
 }
 

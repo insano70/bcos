@@ -1,71 +1,77 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import { existsSync } from 'fs';
-import path from 'path';
+import { NextRequest } from 'next/server'
+import { FileUploadService } from '@/lib/api/services/upload'
+import { createSuccessResponse } from '@/lib/api/responses/success'
+import { createErrorResponse } from '@/lib/api/responses/error'
+import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
+import { requireAuth } from '@/lib/api/middleware/auth'
+import { AuditLogger } from '@/lib/api/services/audit'
 
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
-    const type = formData.get('type') as string; // 'logo', 'hero', 'provider', 'gallery'
-    const practiceId = formData.get('practiceId') as string;
-
-    if (!file) {
-      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
-    }
-
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json(
-        { error: 'Invalid file type. Please upload JPG, PNG, or WebP images.' },
-        { status: 400 }
-      );
-    }
-
-    // Validate file size (5MB max)
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (file.size > maxSize) {
-      return NextResponse.json(
-        { error: 'File too large. Maximum size is 5MB.' },
-        { status: 400 }
-      );
-    }
-
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    // Create upload directory structure
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', practiceId || 'general', type || 'images');
+    // Apply rate limiting for uploads
+    await applyRateLimit(request, 'upload')
     
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
+    // Require authentication
+    const session = await requireAuth(request)
+    
+    // Parse form data
+    const data = await request.formData()
+    const files: File[] = []
+    
+    // Handle multiple files
+    for (const [key, value] of data.entries()) {
+      if (key.startsWith('file') && value instanceof File) {
+        files.push(value)
+      }
+    }
+    
+    if (files.length === 0) {
+      return createErrorResponse('No files uploaded', 400, request)
     }
 
-    // Generate unique filename
-    const timestamp = Date.now();
-    const extension = path.extname(file.name);
-    const filename = `${timestamp}${extension}`;
-    const filepath = path.join(uploadDir, filename);
+    // Get upload options from form data
+    const folder = (data.get('folder') as string) || 'uploads'
+    const optimizeImages = (data.get('optimizeImages') as string) !== 'false'
+    const generateThumbnails = (data.get('generateThumbnails') as string) !== 'false'
 
-    // Save file
-    await writeFile(filepath, buffer);
+    // Upload files
+    const result = await FileUploadService.uploadFiles(files, {
+      folder,
+      optimizeImages,
+      generateThumbnails,
+      allowedTypes: [
+        'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif',
+        'application/pdf', 'text/plain'
+      ],
+      maxFileSize: 10 * 1024 * 1024, // 10MB
+      maxFiles: 5
+    })
 
-    // Return public URL
-    const publicUrl = `/uploads/${practiceId || 'general'}/${type || 'images'}/${filename}`;
+    // Log the upload action
+    const requestInfo = AuditLogger.extractRequestInfo(request)
+    await AuditLogger.logUserAction({
+      action: 'file_upload',
+      userId: session.user.id,
+      resourceType: 'file',
+      resourceId: result.files.map(f => f.fileName).join(','),
+      ipAddress: requestInfo.ipAddress,
+      userAgent: requestInfo.userAgent,
+      metadata: {
+        fileCount: files.length,
+        totalSize: files.reduce((sum, f) => sum + f.size, 0),
+        folder,
+        success: result.success
+      }
+    })
 
-    return NextResponse.json({
-      url: publicUrl,
-      filename,
-      size: file.size,
-      type: file.type
-    });
+    if (!result.success) {
+      return createErrorResponse(result.errors.join(', '), 400, request)
+    }
 
+    return createSuccessResponse(result.files, 'Files uploaded successfully')
+    
   } catch (error) {
-    console.error('Upload error:', error);
-    return NextResponse.json(
-      { error: 'Failed to upload file' },
-      { status: 500 }
-    );
+    console.error('Upload error:', error)
+    return createErrorResponse(error, 500, request)
   }
 }

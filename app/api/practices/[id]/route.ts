@@ -1,26 +1,33 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { db, practices } from '@/lib/db';
 import { eq, isNull } from 'drizzle-orm';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { createErrorResponse, NotFoundError, ConflictError } from '@/lib/api/responses/error';
+import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
+import { validateRequest, validateParams } from '@/lib/api/middleware/validation';
+import { practiceUpdateSchema, practiceParamsSchema } from '@/lib/validations/practice';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: practiceId } = await params;
+    await applyRateLimit(request, 'api')
+    
+    const { id: practiceId } = validateParams(await params, practiceParamsSchema)
 
     const [practice] = await db
       .select()
       .from(practices)
       .where(eq(practices.practice_id, practiceId))
       .where(isNull(practices.deleted_at))
-      .limit(1);
+      .limit(1)
 
     if (!practice) {
-      return NextResponse.json({ message: 'Practice not found' }, { status: 404 });
+      throw NotFoundError('Practice')
     }
 
-    return NextResponse.json({
+    return createSuccessResponse({
       id: practice.practice_id,
       name: practice.name,
       domain: practice.domain,
@@ -29,13 +36,11 @@ export async function GET(
       owner_user_id: practice.owner_user_id,
       created_at: practice.created_at,
       updated_at: practice.updated_at,
-    });
+    })
+    
   } catch (error) {
-    console.error('Error fetching practice:', error);
-    return NextResponse.json(
-      { message: 'Failed to fetch practice', error: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    );
+    console.error('Error fetching practice:', error)
+    return createErrorResponse(error, 500, request)
   }
 }
 
@@ -44,8 +49,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: practiceId } = await params;
-    const body = await request.json();
+    await applyRateLimit(request, 'api')
+    
+    const { id: practiceId } = validateParams(await params, practiceParamsSchema)
+    const validatedData = await validateRequest(request, practiceUpdateSchema)
 
     // Verify practice exists
     const [existingPractice] = await db
@@ -53,23 +60,37 @@ export async function PUT(
       .from(practices)
       .where(eq(practices.practice_id, practiceId))
       .where(isNull(practices.deleted_at))
-      .limit(1);
+      .limit(1)
 
     if (!existingPractice) {
-      return NextResponse.json({ message: 'Practice not found' }, { status: 404 });
+      throw NotFoundError('Practice')
+    }
+
+    // Check domain uniqueness if domain is being updated
+    if (validatedData.domain && validatedData.domain !== existingPractice.domain) {
+      const [domainExists] = await db
+        .select()
+        .from(practices)
+        .where(eq(practices.domain, validatedData.domain))
+        .where(isNull(practices.deleted_at))
+        .limit(1)
+      
+      if (domainExists) {
+        throw ConflictError('A practice with this domain already exists')
+      }
     }
 
     // Update practice
     const [updatedPractice] = await db
       .update(practices)
       .set({
-        ...body,
+        ...validatedData,
         updated_at: new Date(),
       })
       .where(eq(practices.practice_id, practiceId))
-      .returning();
+      .returning()
 
-    return NextResponse.json({
+    return createSuccessResponse({
       id: updatedPractice.practice_id,
       name: updatedPractice.name,
       domain: updatedPractice.domain,
@@ -78,13 +99,11 @@ export async function PUT(
       owner_user_id: updatedPractice.owner_user_id,
       created_at: updatedPractice.created_at,
       updated_at: updatedPractice.updated_at,
-    });
+    }, 'Practice updated successfully')
+    
   } catch (error) {
-    console.error('Error updating practice:', error);
-    return NextResponse.json(
-      { message: 'Failed to update practice', error: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    );
+    console.error('Error updating practice:', error)
+    return createErrorResponse(error, 500, request)
   }
 }
 
@@ -93,7 +112,21 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: practiceId } = await params;
+    await applyRateLimit(request, 'api')
+    
+    const { id: practiceId } = validateParams(await params, practiceParamsSchema)
+
+    // Verify practice exists before deletion
+    const [existingPractice] = await db
+      .select()
+      .from(practices)
+      .where(eq(practices.practice_id, practiceId))
+      .where(isNull(practices.deleted_at))
+      .limit(1)
+
+    if (!existingPractice) {
+      throw NotFoundError('Practice')
+    }
 
     // Soft delete by setting deleted_at
     const [deletedPractice] = await db
@@ -103,18 +136,15 @@ export async function DELETE(
         updated_at: new Date(),
       })
       .where(eq(practices.practice_id, practiceId))
-      .returning();
+      .returning()
 
-    if (!deletedPractice) {
-      return NextResponse.json({ message: 'Practice not found' }, { status: 404 });
-    }
-
-    return NextResponse.json({ message: 'Practice deleted successfully' });
+    return createSuccessResponse(
+      { id: deletedPractice.practice_id },
+      'Practice deleted successfully'
+    )
+    
   } catch (error) {
-    console.error('Error deleting practice:', error);
-    return NextResponse.json(
-      { message: 'Failed to delete practice', error: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    );
+    console.error('Error deleting practice:', error)
+    return createErrorResponse(error, 500, request)
   }
 }
