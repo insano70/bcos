@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { Menu, MenuButton, MenuItems, MenuItem, Transition } from '@headlessui/react';
 import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import UserAvatar from '@/public/images/user-avatar-32.png';
+import UserAvatar from '@/public/images/user-avatar-32-blue.svg';
 
 export default function DropdownProfile({ align }: { align?: 'left' | 'right' }) {
   const router = useRouter()
