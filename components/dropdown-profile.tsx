@@ -2,34 +2,19 @@
 
 import Link from 'next/link';
 import { Menu, MenuButton, MenuItems, MenuItem, Transition } from '@headlessui/react';
-import { signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from './auth/custom-auth-provider';
 
 export default function DropdownProfile({ align }: { align?: 'left' | 'right' }) {
   const router = useRouter()
+  const { logout } = useAuth()
 
   const handleSignOut = async () => {
     try {
       console.log('Initiating logout from dropdown...')
       
-      // Call our logout API first to cleanup enterprise tokens
-      try {
-        await fetch('/api/auth/logout', {
-          method: 'POST',
-          credentials: 'include'
-        })
-        console.log('Enterprise token cleanup completed')
-      } catch (tokenError) {
-        console.log('Enterprise token cleanup failed (may not exist):', tokenError)
-      }
-      
-      // Use NextAuth signOut
-      await signOut({
-        redirect: false,
-        callbackUrl: '/signin'
-      })
-      
-      console.log('NextAuth signOut completed')
+      // Use our custom logout
+      await logout()
       
       // Redirect to signin
       router.push('/signin')

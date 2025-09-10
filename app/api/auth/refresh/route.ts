@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: isProduction,
       sameSite: 'strict',
-      path: '/api/auth',
+      path: '/',
       maxAge: 30 * 24 * 60 * 60, // 30 days (will be shorter for standard mode)
     })
 

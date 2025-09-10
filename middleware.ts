@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getToken } from 'next-auth/jwt'
 import { addSecurityHeaders, getContentSecurityPolicy } from '@/lib/security/headers'
 import { CSRFProtection } from '@/lib/security/csrf'
 
@@ -40,10 +39,38 @@ export async function middleware(request: NextRequest) {
   if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('192.168.')) {
     // Check authentication for protected routes
     if (pathname.startsWith('/dashboard') || pathname.startsWith('/configure')) {
-      // Check NextAuth session for now (we'll integrate tokens later)
-      const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
+      // Check for refresh token cookie first
+      const refreshToken = request.cookies.get('refresh-token')?.value
+      let isAuthenticated = false
       
-      if (!token) {
+      if (refreshToken) {
+        // Validate refresh token
+        try {
+          const { jwtVerify } = await import('jose')
+          const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'fallback-refresh-secret')
+          await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET)
+          isAuthenticated = true
+        } catch (error) {
+          console.log('Refresh token validation failed:', error)
+        }
+      }
+      
+      // Also check for access token in Authorization header (for immediate post-login access)
+      if (!isAuthenticated) {
+        const authHeader = request.headers.get('Authorization')
+        if (authHeader?.startsWith('Bearer ')) {
+          try {
+            const { jwtVerify } = await import('jose')
+            const ACCESS_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
+            await jwtVerify(authHeader.slice(7), ACCESS_TOKEN_SECRET)
+            isAuthenticated = true
+          } catch (error) {
+            console.log('Access token validation failed:', error)
+          }
+        }
+      }
+      
+      if (!isAuthenticated) {
         const signInUrl = new URL('/signin', request.url)
         signInUrl.searchParams.set('callbackUrl', pathname)
         response = NextResponse.redirect(signInUrl)
@@ -56,10 +83,38 @@ export async function middleware(request: NextRequest) {
 
   // Production: Check for admin subdomain
   if (hostname.startsWith('admin.')) {
-    // Check NextAuth session for now (we'll integrate tokens later)
-    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
+    // Check for refresh token cookie first
+    const refreshToken = request.cookies.get('refresh-token')?.value
+    let isAuthenticated = false
     
-    if (!token) {
+    if (refreshToken) {
+      // Validate refresh token
+      try {
+        const { jwtVerify } = await import('jose')
+        const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'fallback-refresh-secret')
+        await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET)
+        isAuthenticated = true
+      } catch (error) {
+        console.log('Refresh token validation failed:', error)
+      }
+    }
+    
+    // Also check for access token in Authorization header
+    if (!isAuthenticated) {
+      const authHeader = request.headers.get('Authorization')
+      if (authHeader?.startsWith('Bearer ')) {
+        try {
+          const { jwtVerify } = await import('jose')
+          const ACCESS_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
+          await jwtVerify(authHeader.slice(7), ACCESS_TOKEN_SECRET)
+          isAuthenticated = true
+        } catch (error) {
+          console.log('Access token validation failed:', error)
+        }
+      }
+    }
+    
+    if (!isAuthenticated) {
       const signInUrl = new URL('/signin', request.url)
       signInUrl.searchParams.set('callbackUrl', pathname)
       response = NextResponse.redirect(signInUrl)

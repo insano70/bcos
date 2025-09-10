@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     await applyRateLimit(request, 'upload')
     
     // Require authentication
-    const session = await requireAuth(request)
+    const authResult = await requireAuth(request)
     
     // Parse form data
     const data = await request.formData()
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     const requestInfo = AuditLogger.extractRequestInfo(request)
     await AuditLogger.logUserAction({
       action: 'file_upload',
-      userId: session.user.id,
+      userId: authResult.user.id,
       resourceType: 'file',
       resourceId: result.files.map(f => f.fileName).join(','),
       ipAddress: requestInfo.ipAddress,

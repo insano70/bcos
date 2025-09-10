@@ -4,7 +4,7 @@ import { Inter } from 'next/font/google';
 import Theme from './theme-provider';
 import AppProvider from './app-provider';
 import QueryProvider from './query-provider';
-import AuthProvider from '@/components/auth/auth-provider';
+import { CustomAuthProvider } from '@/components/auth/custom-auth-provider';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -22,13 +22,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${inter.variable}`} suppressHydrationWarning>
       {/* suppressHydrationWarning: https://github.com/vercel/next.js/issues/44343 */}
       <body className="font-inter antialiased bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400">
-        <AuthProvider>
+        <CustomAuthProvider>
           <QueryProvider>
             <Theme>
               <AppProvider>{children}</AppProvider>
             </Theme>
           </QueryProvider>
-        </AuthProvider>
+        </CustomAuthProvider>
       </body>
     </html>
   );

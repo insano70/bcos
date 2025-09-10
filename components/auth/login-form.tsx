@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useAuth } from './custom-auth-provider'
 import Link from 'next/link'
 import { loginSchema } from '@/lib/validations/auth'
 import type { z } from 'zod'
@@ -16,11 +16,11 @@ interface LoginFormProps {
 }
 
 export default function LoginForm({ onSuccess }: LoginFormProps) {
-  const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
+  const { login, isLoading } = useAuth()
 
   const {
     register,
@@ -33,40 +33,21 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
 
   const onSubmit = async (data: LoginFormData) => {
     try {
-      setIsLoading(true)
       setError(null)
+      console.log('Login form submitting...')
 
-      const result = await signIn('credentials', {
-        email: data.email,
-        password: data.password,
-        remember: data.remember,
-        redirect: false,
-      })
-
-      if (result?.error) {
-        switch (result.error) {
-          case 'CredentialsSignin':
-            setError('Invalid email or password. Please try again.')
-            break
-          case 'AccountLocked':
-            setError('Account temporarily locked due to multiple failed attempts. Please try again later.')
-            break
-          default:
-            setError('An error occurred during sign in. Please try again.')
-        }
-        return
-      }
-
-      if (result?.ok) {
-        onSuccess?.()
-        router.push(callbackUrl)
-        router.refresh()
-      }
+      await login(data.email, data.password, data.remember)
+      console.log('Login completed, redirecting to:', callbackUrl)
+      
+      onSuccess?.()
+      
+      // Use window.location for hard redirect to ensure middleware sees the cookie
+      window.location.href = callbackUrl
+      
     } catch (error) {
       console.error('Login error:', error)
-      setError('An unexpected error occurred. Please try again.')
-    } finally {
-      setIsLoading(false)
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.'
+      setError(errorMessage)
     }
   }
 

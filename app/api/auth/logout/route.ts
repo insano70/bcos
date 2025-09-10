@@ -6,8 +6,8 @@ import { createErrorResponse } from '@/lib/api/responses/error'
 import { AuditLogger } from '@/lib/api/services/audit'
 
 /**
- * Logout Endpoint
- * Revokes refresh token and adds to blacklist for instant invalidation
+ * Custom Logout Endpoint
+ * Complete token cleanup and session termination
  */
 export async function POST(request: NextRequest) {
   try {
@@ -43,17 +43,8 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      path: '/api/auth',
-      maxAge: 0, // Expire immediately
-    })
-
-    // Also clear any NextAuth cookies for compatibility
-    response.cookies.set('next-auth.session-token', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
       path: '/',
-      maxAge: 0,
+      maxAge: 0, // Expire immediately
     })
 
     return response
@@ -115,7 +106,7 @@ export async function DELETE(request: NextRequest) {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        path: '/api/auth',
+        path: '/',
         maxAge: 0,
       })
 

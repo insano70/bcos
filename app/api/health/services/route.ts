@@ -117,14 +117,17 @@ async function checkAuthService(): Promise<{ name: string; healthy: boolean; res
   const startTime = Date.now()
   
   try {
-    // Test NextAuth configuration
-    const authConfigured = !!(process.env.NEXTAUTH_SECRET && process.env.NEXTAUTH_URL)
-    
+    // Test JWT configuration
+    const accessSecretConfigured = !!process.env.JWT_SECRET
+    const refreshSecretConfigured = !!(process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET)
+
+    const authConfigured = accessSecretConfigured && refreshSecretConfigured
+
     return {
-      name: 'Authentication Service (NextAuth)',
+      name: 'Authentication Service (JWT)',
       healthy: authConfigured,
       responseTime: Date.now() - startTime,
-      error: authConfigured ? undefined : 'NextAuth not properly configured'
+      error: authConfigured ? undefined : 'JWT secrets not properly configured'
     }
   } catch (error) {
     return {

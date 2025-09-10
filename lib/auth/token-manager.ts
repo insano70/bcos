@@ -10,8 +10,12 @@ import { AuditLogger } from '@/lib/api/services/audit'
  * Handles 15-minute access tokens with sliding window refresh tokens
  */
 
-const ACCESS_TOKEN_SECRET = new TextEncoder().encode(process.env.NEXTAUTH_SECRET || 'fallback-secret')
-const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret')
+const ACCESS_TOKEN_SECRET = new TextEncoder().encode(
+  process.env.JWT_SECRET || 'fallback-secret'
+)
+const REFRESH_TOKEN_SECRET = new TextEncoder().encode(
+  process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'fallback-refresh-secret'
+)
 
 export interface TokenPair {
   accessToken: string

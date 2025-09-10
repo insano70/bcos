@@ -52,10 +52,8 @@ export function getContentSecurityPolicy(): string {
     'default-src': ["'self'"],
     'script-src': [
       "'self'",
-      // Allow inline scripts in development for hot reload
+      // Allow inline/eval only in development for hot reload
       ...(isDevelopment ? ["'unsafe-inline'", "'unsafe-eval'"] : []),
-      // NextAuth.js requires inline scripts
-      "'unsafe-inline'",
       // Trusted CDNs for charts and UI libraries
       'https://cdn.jsdelivr.net',
       'https://unpkg.com'
