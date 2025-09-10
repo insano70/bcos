@@ -6,134 +6,553 @@
 
 ```
 src/
-├── app/                          # Next.js 13+ App Router
+├── app/                          # Next.js 15 App Router
 │   ├── (auth)/                   # Route groups for auth pages
-│   │   ├── login/
-│   │   ├── register/
-│   │   └── forgot-password/
+│   │   ├── login/page.tsx
+│   │   ├── register/page.tsx
+│   │   └── forgot-password/page.tsx
 │   ├── (dashboard)/              # Protected dashboard routes
-│   │   ├── analytics/
-│   │   ├── settings/
-│   │   └── profile/
+│   │   ├── analytics/page.tsx
+│   │   ├── settings/page.tsx
+│   │   └── profile/page.tsx
 │   ├── api/                      # API Routes
-│   │   ├── auth/                 # Authentication endpoints
-│   │   │   ├── [...nextauth]/
-│   │   │   ├── register/
-│   │   │   └── logout/
-│   │   ├── users/                # User management
-│   │   │   ├── [id]/
+│   │   ├── auth/
+│   │   │   ├── [...nextauth]/route.ts
+│   │   │   ├── register/route.ts
+│   │   │   └── logout/route.ts
+│   │   ├── users/
+│   │   │   ├── [id]/route.ts
 │   │   │   └── route.ts
-│   │   ├── admin/                # Admin-only endpoints
-│   │   └── health/               # Health check endpoints
-│   ├── globals.css
+│   │   └── admin/users/route.ts
 │   ├── layout.tsx
-│   ├── loading.tsx
-│   ├── error.tsx
-│   └── not-found.tsx
+│   └── page.tsx
 ├── components/                   # Reusable UI components
-│   ├── ui/                       # Base UI components (shadcn/ui style)
-│   │   ├── button/
-│   │   ├── input/
-│   │   ├── modal/
-│   │   └── index.ts
-│   ├── forms/                    # Form components
-│   │   ├── LoginForm/
-│   │   ├── RegisterForm/
-│   │   └── index.ts
-│   ├── layout/                   # Layout components
-│   │   ├── Header/
-│   │   ├── Sidebar/
-│   │   ├── Footer/
-│   │   └── index.ts
-│   └── charts/                   # Chart components
+│   ├── ui/
+│   ├── forms/
+│   └── layout/
 ├── lib/                          # Utility libraries and configurations
 │   ├── auth/                     # Authentication utilities
 │   │   ├── config.ts
-│   │   ├── providers.ts
-│   │   ├── callbacks.ts
-│   │   └── jwt.ts
-│   ├── db/                       # Database configuration
-│   │   ├── schema.ts
-│   │   ├── migrations/
-│   │   ├── seed.ts
-│   │   └── connection.ts
+│   │   ├── jwt.ts
+│   │   └── session.ts
 │   ├── validations/              # Validation schemas
 │   │   ├── auth.ts
 │   │   ├── user.ts
 │   │   └── common.ts
-│   ├── utils/                    # Utility functions
-│   │   ├── crypto.ts
-│   │   ├── date.ts
-│   │   ├── constants.ts
-│   │   └── helpers.ts
 │   ├── security/                 # Security utilities
 │   │   ├── middleware.ts
 │   │   ├── csrf.ts
 │   │   ├── rate-limiting.ts
-│   │   └── sanitization.ts
-│   └── hooks/                    # Custom React hooks
-├── middleware.ts                 # Next.js middleware (root level)
+│   │   └── password.ts
+│   └── utils/
+├── middleware.ts                 # Next.js middleware
 ├── providers/                    # React context providers
-│   ├── AuthProvider.tsx
-│   ├── QueryProvider.tsx
-│   └── ThemeProvider.tsx
-├── services/                     # Business logic and API services
-│   ├── auth/
-│   │   ├── AuthService.ts
-│   │   └── TokenService.ts
-│   ├── user/
-│   │   └── UserService.ts
-│   └── api/
-│       ├── client.ts
-│       └── types.ts
-├── types/                        # TypeScript type definitions
-│   ├── auth.ts
-│   ├── user.ts
-│   ├── api.ts
-│   └── global.d.ts
-└── __tests__/                    # Test files
-    ├── components/
-    ├── lib/
-    ├── services/
-    └── setup.ts
+└── types/                        # TypeScript type definitions
 ```
 
-## 2. API Architecture Breakdown
+## 2. Scalable API Architecture Breakdown
 
-### API Route Organization
+### Complete API File Organization
 
-#### Authentication Routes (`/api/auth/`)
-- `[...nextauth]/route.ts` - NextAuth.js handler
-- `register/route.ts` - User registration
-- `logout/route.ts` - Logout functionality
-- `refresh/route.ts` - Token refresh
-- `verify-email/route.ts` - Email verification
+```
+src/app/api/
+├── _shared/                      # Shared API utilities
+│   ├── middleware/               # Reusable middleware
+│   │   ├── auth.ts              # Authentication middleware
+│   │   ├── rateLimit.ts         # Rate limiting middleware
+│   │   ├── validation.ts        # Validation middleware
+│   │   └── cors.ts              # CORS middleware
+│   ├── responses/               # Standardized response handlers
+│   │   ├── success.ts           # Success response utilities
+│   │   ├── error.ts             # Error response utilities
+│   │   └── types.ts             # Response type definitions
+│   ├── services/                # Shared business logic
+│   │   ├── email.ts             # Email service
+│   │   ├── storage.ts           # File storage service
+│   │   └── notifications.ts     # Notification service
+│   └── utils/                   # API utility functions
+│       ├── request.ts           # Request parsing utilities
+│       ├── headers.ts           # Header management
+│       └── security.ts          # Security utilities
+├── auth/                        # Authentication endpoints
+│   ├── [...nextauth]/
+│   │   └── route.ts
+│   ├── register/
+│   │   └── route.ts
+│   ├── login/
+│   │   └── route.ts
+│   ├── logout/
+│   │   └── route.ts
+│   ├── refresh/
+│   │   └── route.ts
+│   └── verify-email/
+│       └── route.ts
+├── users/                       # User management
+│   ├── route.ts                 # GET /api/users, POST /api/users
+│   ├── [id]/
+│   │   ├── route.ts             # GET/PUT/DELETE /api/users/[id]
+│   │   ├── avatar/
+│   │   │   └── route.ts         # POST /api/users/[id]/avatar
+│   │   ├── password/
+│   │   │   └── route.ts         # PUT /api/users/[id]/password
+│   │   └── sessions/
+│   │       └── route.ts         # GET /api/users/[id]/sessions
+│   ├── me/
+│   │   ├── route.ts             # GET/PUT /api/users/me
+│   │   └── preferences/
+│   │       └── route.ts         # GET/PUT /api/users/me/preferences
+│   └── search/
+│       └── route.ts             # GET /api/users/search
+├── admin/                       # Admin-only endpoints
+│   ├── users/
+│   │   ├── route.ts
+│   │   └── [id]/
+│   │       ├── route.ts
+│   │       ├── activate/route.ts
+│   │       └── deactivate/route.ts
+│   ├── analytics/
+│   │   ├── users/route.ts
+│   │   └── activity/route.ts
+│   └── settings/
+│       └── route.ts
+├── uploads/                     # File upload endpoints
+│   ├── images/
+│   │   └── route.ts
+│   └── documents/
+│       └── route.ts
+├── webhooks/                    # External webhook handlers
+│   ├── stripe/
+│   │   └── route.ts
+│   └── resend/
+│       └── route.ts
+└── health/                      # Health check endpoints
+    ├── route.ts                 # Basic health check
+    ├── db/
+    │   └── route.ts             # Database health
+    └── services/
+        └── route.ts             # External services health
+```
 
-#### User Management (`/api/users/`)
-- `route.ts` - GET (list), POST (create)
-- `[id]/route.ts` - GET, PUT, DELETE specific user
-- `[id]/password/route.ts` - Password change
-- `profile/route.ts` - Current user profile
+### Shared API Utilities
 
-#### Admin Routes (`/api/admin/`)
-- Protected with role-based access
-- User management, system settings, analytics
+#### Response Handlers (`app/api/_shared/responses/`)
 
-### API Design Principles
-1. **RESTful conventions** - Use standard HTTP methods
-2. **Consistent response format** - Standardized JSON responses
-3. **Error handling** - Unified error response structure
-4. **Version control** - API versioning strategy
-5. **Rate limiting** - Per-endpoint rate limits
-6. **Input validation** - Schema validation for all inputs
+```typescript
+// app/api/_shared/responses/success.ts
+export interface SuccessResponse<T = any> {
+  success: true
+  data: T
+  message?: string
+  meta?: {
+    pagination?: {
+      page: number
+      limit: number
+      total: number
+      totalPages: number
+    }
+    timestamp: string
+  }
+}
+
+export function createSuccessResponse<T>(
+  data: T,
+  message?: string,
+  meta?: Partial<SuccessResponse<T>['meta']>
+): Response {
+  const response: SuccessResponse<T> = {
+    success: true,
+    data,
+    message,
+    meta: {
+      timestamp: new Date().toISOString(),
+      ...meta
+    }
+  }
+  
+  return Response.json(response)
+}
+
+export function createPaginatedResponse<T>(
+  data: T[],
+  pagination: { page: number; limit: number; total: number }
+): Response {
+  return createSuccessResponse(data, undefined, {
+    pagination: {
+      ...pagination,
+      totalPages: Math.ceil(pagination.total / pagination.limit)
+    }
+  })
+}
+```
+
+```typescript
+// app/api/_shared/responses/error.ts
+export interface ErrorResponse {
+  success: false
+  error: string
+  code?: string
+  details?: any
+  meta: {
+    timestamp: string
+    path?: string
+  }
+}
+
+export class APIError extends Error {
+  constructor(
+    public message: string,
+    public statusCode: number = 500,
+    public code?: string,
+    public details?: any
+  ) {
+    super(message)
+    this.name = 'APIError'
+  }
+}
+
+export function createErrorResponse(
+  error: string | Error | APIError,
+  statusCode: number = 500,
+  request?: Request
+): Response {
+  let errorMessage: string
+  let errorCode: string | undefined
+  let errorDetails: any
+  
+  if (error instanceof APIError) {
+    errorMessage = error.message
+    statusCode = error.statusCode
+    errorCode = error.code
+    errorDetails = error.details
+  } else if (error instanceof Error) {
+    errorMessage = error.message
+  } else {
+    errorMessage = error
+  }
+  
+  const response: ErrorResponse = {
+    success: false,
+    error: errorMessage,
+    code: errorCode,
+    details: errorDetails,
+    meta: {
+      timestamp: new Date().toISOString(),
+      path: request?.url
+    }
+  }
+  
+  return Response.json(response, { status: statusCode })
+}
+
+// Predefined error types
+export const AuthenticationError = (message = 'Authentication required') => 
+  new APIError(message, 401, 'AUTHENTICATION_REQUIRED')
+
+export const AuthorizationError = (message = 'Insufficient permissions') => 
+  new APIError(message, 403, 'INSUFFICIENT_PERMISSIONS')
+
+export const ValidationError = (details: any, message = 'Validation failed') => 
+  new APIError(message, 400, 'VALIDATION_ERROR', details)
+
+export const NotFoundError = (resource = 'Resource') => 
+  new APIError(`${resource} not found`, 404, 'RESOURCE_NOT_FOUND')
+
+export const ConflictError = (message = 'Resource already exists') => 
+  new APIError(message, 409, 'RESOURCE_CONFLICT')
+```
+
+#### Reusable Middleware (`app/api/_shared/middleware/`)
+
+```typescript
+// app/api/_shared/middleware/auth.ts
+import { getServerSession } from 'next-auth'
+import { authConfig } from '@/lib/auth/config'
+import { AuthenticationError, AuthorizationError } from '../responses/error'
+
+export async function requireAuth(request: Request) {
+  const session = await getServerSession(authConfig)
+  
+  if (!session?.user) {
+    throw AuthenticationError()
+  }
+  
+  return session
+}
+
+export async function requireRole(request: Request, allowedRoles: string[]) {
+  const session = await requireAuth(request)
+  
+  if (!allowedRoles.includes(session.user.role)) {
+    throw AuthorizationError(`Role must be one of: ${allowedRoles.join(', ')}`)
+  }
+  
+  return session
+}
+
+export async function requireOwnership(request: Request, resourceUserId: string) {
+  const session = await requireAuth(request)
+  
+  if (session.user.id !== resourceUserId && session.user.role !== 'admin') {
+    throw AuthorizationError('You can only access your own resources')
+  }
+  
+  return session
+}
+```
+
+```typescript
+// app/api/_shared/middleware/validation.ts
+import { z } from 'zod'
+import { ValidationError } from '../responses/error'
+
+export async function validateRequest<T>(
+  request: Request,
+  schema: z.ZodSchema<T>
+): Promise<T> {
+  try {
+    const body = await request.json()
+    const validatedData = schema.parse(body)
+    return validatedData
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw ValidationError(error.errors)
+    }
+    throw ValidationError(null, 'Invalid request body')
+  }
+}
+
+export function validateQuery<T>(
+  searchParams: URLSearchParams,
+  schema: z.ZodSchema<T>
+): T {
+  try {
+    const queryObject = Object.fromEntries(searchParams.entries())
+    return schema.parse(queryObject)
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw ValidationError(error.errors)
+    }
+    throw ValidationError(null, 'Invalid query parameters')
+  }
+}
+
+export function validateParams<T>(
+  params: Record<string, string>,
+  schema: z.ZodSchema<T>
+): T {
+  try {
+    return schema.parse(params)
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw ValidationError(error.errors)
+    }
+    throw ValidationError(null, 'Invalid route parameters')
+  }
+}
+```
+
+```typescript
+// app/api/_shared/middleware/rateLimit.ts
+import { authRateLimiter, apiRateLimiter, getRateLimitKey } from '@/lib/security/rate-limiting'
+import { APIError } from '../responses/error'
+
+export async function applyRateLimit(
+  request: Request,
+  type: 'auth' | 'api' | 'upload' = 'api'
+) {
+  const rateLimitKey = getRateLimitKey(request, type)
+  let limiter = apiRateLimiter
+  
+  switch (type) {
+    case 'auth':
+      limiter = authRateLimiter
+      break
+    case 'upload':
+      limiter = new InMemoryRateLimiter(60 * 1000, 10) // 10 uploads per minute
+      break
+  }
+  
+  const result = limiter.checkLimit(rateLimitKey)
+  
+  if (!result.success) {
+    throw new APIError('Too many requests', 429, 'RATE_LIMIT_EXCEEDED', {
+      resetTime: result.resetTime,
+      remaining: result.remaining
+    })
+  }
+  
+  return result
+}
+```
+
+#### Request Utilities (`app/api/_shared/utils/`)
+
+```typescript
+// app/api/_shared/utils/request.ts
+import { z } from 'zod'
+
+export interface PaginationParams {
+  page: number
+  limit: number
+  offset: number
+}
+
+export const paginationSchema = z.object({
+  page: z.string().transform(val => Math.max(1, parseInt(val) || 1)),
+  limit: z.string().transform(val => Math.min(100, Math.max(1, parseInt(val) || 10)))
+})
+
+export function getPagination(searchParams: URLSearchParams): PaginationParams {
+  const validated = paginationSchema.parse({
+    page: searchParams.get('page') || '1',
+    limit: searchParams.get('limit') || '10'
+  })
+  
+  return {
+    ...validated,
+    offset: (validated.page - 1) * validated.limit
+  }
+}
+
+export function getSearchFilters(searchParams: URLSearchParams) {
+  const filters: Record<string, string> = {}
+  
+  for (const [key, value] of searchParams.entries()) {
+    if (!['page', 'limit', 'sort', 'order'].includes(key) && value) {
+      filters[key] = value
+    }
+  }
+  
+  return filters
+}
+
+export interface SortParams {
+  sortBy: string
+  sortOrder: 'asc' | 'desc'
+}
+
+export function getSortParams(
+  searchParams: URLSearchParams,
+  allowedFields: string[]
+): SortParams {
+  const sortBy = searchParams.get('sort') || 'createdAt'
+  const sortOrder = searchParams.get('order') === 'asc' ? 'asc' : 'desc'
+  
+  if (!allowedFields.includes(sortBy)) {
+    throw ValidationError(null, `Invalid sort field. Allowed: ${allowedFields.join(', ')}`)
+  }
+  
+  return { sortBy, sortOrder }
+}
+```
+
+### API Route Handler Pattern
+
+```typescript
+// Example: app/api/users/route.ts
+import { requireAuth, requireRole } from '../_shared/middleware/auth'
+import { validateRequest, validateQuery } from '../_shared/middleware/validation'
+import { applyRateLimit } from '../_shared/middleware/rateLimit'
+import { createSuccessResponse, createErrorResponse, createPaginatedResponse } from '../_shared/responses/success'
+import { APIError } from '../_shared/responses/error'
+import { getPagination, getSortParams } from '../_shared/utils/request'
+import { userCreateSchema, userQuerySchema } from '@/lib/validations/user'
+
+// GET /api/users - List users (admin only)
+export async function GET(request: Request) {
+  try {
+    await applyRateLimit(request, 'api')
+    await requireRole(request, ['admin'])
+    
+    const { searchParams } = new URL(request.url)
+    const pagination = getPagination(searchParams)
+    const sort = getSortParams(searchParams, ['name', 'email', 'createdAt'])
+    const query = validateQuery(searchParams, userQuerySchema)
+    
+    const { users, total } = await getUsersWithPagination({
+      ...pagination,
+      ...sort,
+      ...query
+    })
+    
+    return createPaginatedResponse(users, { ...pagination, total })
+    
+  } catch (error) {
+    return createErrorResponse(error, request)
+  }
+}
+
+// POST /api/users - Create user (admin only)
+export async function POST(request: Request) {
+  try {
+    await applyRateLimit(request, 'api')
+    await requireRole(request, ['admin'])
+    
+    const userData = await validateRequest(request, userCreateSchema)
+    const user = await createUser(userData)
+    
+    return createSuccessResponse(user, 'User created successfully')
+    
+  } catch (error) {
+    return createErrorResponse(error, request)
+  }
+}
+```
+
+### Service Layer Organization
+
+```typescript
+// app/api/_shared/services/email.ts
+interface EmailTemplate {
+  subject: string
+  html: string
+  text?: string
+}
+
+export class EmailService {
+  static async sendWelcomeEmail(email: string, name: string): Promise<void> {
+    const template = await this.getTemplate('welcome', { name })
+    await this.send(email, template)
+  }
+  
+  static async sendPasswordReset(email: string, resetToken: string): Promise<void> {
+    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset?token=${resetToken}`
+    const template = await this.getTemplate('password-reset', { resetUrl })
+    await this.send(email, template)
+  }
+  
+  private static async send(to: string, template: EmailTemplate): Promise<void> {
+    // Implementation with your email provider (Resend, etc.)
+  }
+  
+  private static async getTemplate(name: string, vars: Record<string, string>): Promise<EmailTemplate> {
+    // Template loading and variable substitution
+  }
+}
+```
+
+This scalable API architecture provides:
+
+- **Separation of concerns** - Shared utilities, middleware, and services
+- **Consistent error handling** - Standardized response formats
+- **Reusable middleware** - Authentication, validation, rate limiting
+- **Type safety** - Full TypeScript integration
+- **Easy testing** - Modular, testable components
+- **Maintainability** - Clear file organization and naming conventions
 
 ## 3. NextAuth Implementation Strategy
 
-### Priority 1: Basic NextAuth Setup
-
-#### Configuration (`lib/auth/config.ts`)
+### NextAuth Configuration (`lib/auth/config.ts`)
 ```typescript
+import { DrizzleAdapter } from "@auth/drizzle-adapter"
+import { db } from "@/lib/db/connection"
+import CredentialsProvider from "next-auth/providers/credentials"
+import { verifyPassword } from "@/lib/security/password"
+import { loginSchema } from "@/lib/validations/auth"
+import { createId } from "@paralleldrive/cuid2"
+
 export const authConfig = {
+  adapter: DrizzleAdapter(db),
   providers: [
     CredentialsProvider({
       name: "credentials",
@@ -142,203 +561,536 @@ export const authConfig = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        // Implementation details in code
+        const validatedFields = loginSchema.safeParse(credentials)
+        if (!validatedFields.success) return null
+        
+        const { email, password } = validatedFields.data
+        
+        // Fetch user from database
+        const user = await getUserByEmail(email)
+        if (!user) return null
+        
+        // Verify password with bcrypt
+        const isValidPassword = await verifyPassword(password, user.password)
+        if (!isValidPassword) return null
+        
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role
+        }
       }
     })
   ],
-  session: { strategy: "jwt" },
+  session: { 
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+    updateAge: 24 * 60 * 60,    // 24 hours
+  },
   pages: {
-    signIn: '/login',
-    signUp: '/register',
+    signIn: '/auth/login',
+    signUp: '/auth/register',
     error: '/auth/error',
   },
   callbacks: {
-    jwt: async ({ token, user }) => { /* JWT callback */ },
-    session: async ({ session, token }) => { /* Session callback */ }
+    jwt: async ({ token, user }) => {
+      if (user) {
+        token.sub = user.id
+        token.role = user.role
+        token.jti = createId() // CUID2 for JWT ID
+      }
+      return token
+    },
+    session: async ({ session, token }) => {
+      if (token) {
+        session.user.id = token.sub!
+        session.user.role = token.role as string
+      }
+      return session
+    }
   }
 }
 ```
 
-#### JWT Strategy Implementation
-- Custom JWT signing and verification
-- Refresh token rotation
-- Secure token storage
-- Token expiration handling
-
-### Priority 2: User Registration & Authentication Flow
-
-#### Registration Process
-1. Client-side form validation
-2. Server-side validation with Valibot
-3. Password hashing with bcrypt
-4. Email verification (optional)
-5. Database user creation
-6. Auto-login after registration
-
-#### Login Process
-1. Credential validation
-2. Password verification
-3. JWT token generation
-4. Session creation
-5. Redirect to dashboard
-
-## 4. World-Class Security Implementation
-
-### Priority 1: Frontend Security
-
-#### Input Validation & Sanitization
+### Modern JWT Implementation (`lib/auth/jwt.ts`)
 ```typescript
-// Using Valibot for client-side validation
-export const loginSchema = object({
-  email: pipe(string(), email(), maxLength(255)),
-  password: pipe(string(), minLength(8), maxLength(128))
-});
-```
+import { SignJWT, jwtVerify, JWTPayload } from 'jose'
+import { createId } from '@paralleldrive/cuid2'
 
-#### Security Headers
-- Content Security Policy (CSP)
-- XSS Protection
-- CSRF tokens
-- Secure cookies
+const secret = new TextEncoder().encode(process.env.JWT_SECRET)
 
-#### Form Security
-- CSRF protection on all forms
-- Input sanitization
-- Rate limiting on form submissions
-- Client-side validation with server-side verification
+export async function signJWT(payload: JWTPayload): Promise<string> {
+  return await new SignJWT(payload)
+    .setProtectedHeader({ alg: 'HS256' })
+    .setJti(createId())
+    .setIssuedAt()
+    .setExpirationTime('24h')
+    .sign(secret)
+}
 
-### Priority 2: Middleware Security Layer
+export async function verifyJWT(token: string): Promise<JWTPayload | null> {
+  try {
+    const { payload } = await jwtVerify(token, secret)
+    return payload
+  } catch {
+    return null
+  }
+}
 
-#### Comprehensive Middleware (`middleware.ts`)
-```typescript
-export async function middleware(request: NextRequest) {
-  // 1. Security headers
-  // 2. Rate limiting
-  // 3. Authentication check
-  // 4. Authorization verification
-  // 5. CSRF protection
-  // 6. Input validation
-  // 7. Audit logging
+export async function refreshJWT(token: string): Promise<string | null> {
+  const payload = await verifyJWT(token)
+  if (!payload) return null
+  
+  return await signJWT({
+    sub: payload.sub,
+    email: payload.email,
+    role: payload.role
+  })
 }
 ```
 
-#### Security Features
-- **Rate Limiting**: Per-IP and per-user limits
-- **Authentication**: JWT verification
-- **Authorization**: Role-based access control
-- **CSRF Protection**: Token validation
-- **Request Validation**: Input sanitization
-- **Audit Logging**: Security event tracking
+## 4. World-Class Security Implementation
 
-### Priority 3: Backend Security
+### Input Validation with Zod (`lib/validations/auth.ts`)
+```typescript
+import { z } from 'zod'
 
-#### API Security
-- Input validation with Valibot schemas
-- SQL injection prevention (Drizzle ORM)
-- Authentication middleware
-- Rate limiting per endpoint
-- Request size limits
-- Timeout handling
+export const loginSchema = z.object({
+  email: z.string().email().max(255).toLowerCase().trim(),
+  password: z.string().min(1, 'Password is required')
+})
 
-#### Database Security
-- Connection pooling
-- Encrypted connections
-- Parameterized queries
-- Data encryption at rest
-- Regular security audits
+export const registerSchema = z.object({
+  email: z.string().email().max(255).toLowerCase().trim(),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(128, 'Password must not exceed 128 characters')
+    .regex(/^(?=.*[a-z])/, 'Must contain lowercase letter')
+    .regex(/^(?=.*[A-Z])/, 'Must contain uppercase letter')
+    .regex(/^(?=.*\d)/, 'Must contain number')
+    .regex(/^(?=.*[@$!%*?&])/, 'Must contain special character'),
+  confirmPassword: z.string(),
+  name: z.string().min(2).max(100).trim()
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"]
+})
 
-#### Password Security
-- bcrypt with high cost factor
-- Password complexity requirements
-- Password history tracking
-- Account lockout policies
-
-### Priority 4: Advanced Security Features
-
-#### Security Monitoring
-- Failed login attempt tracking
-- Suspicious activity detection
-- Rate limit violation alerts
-- Security event logging
-
-#### Additional Protections
-- Environment variable security
-- Dependency vulnerability scanning
-- Regular security updates
-- Security testing automation
-
-## 5. Implementation Priority Order
-
-### Phase 1: Foundation (Week 1-2)
-1. **File restructuring** - Reorganize existing code
-2. **Basic NextAuth setup** - Username/password authentication
-3. **Core middleware** - Basic security headers and auth check
-4. **Database schema** - User tables and authentication data
-
-### Phase 2: Security Core (Week 2-3)
-1. **Input validation** - Frontend and backend validation
-2. **Rate limiting** - Basic rate limiting implementation
-3. **CSRF protection** - Token-based CSRF protection
-4. **Password security** - Proper hashing and validation
-
-### Phase 3: Enhanced Security (Week 3-4)
-1. **Advanced middleware** - Complete security middleware
-2. **Audit logging** - Security event tracking
-3. **Error handling** - Comprehensive error management
-4. **Testing** - Security and functionality testing
-
-### Phase 4: Production Hardening (Week 4+)
-1. **Performance optimization** - Caching and optimization
-2. **Monitoring** - Security monitoring setup
-3. **Documentation** - Security procedures documentation
-4. **Compliance** - Security compliance verification
-
-## 6. Key Configuration Files
-
-### Environment Variables
+export const passwordChangeSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(128, 'Password must not exceed 128 characters')
+    .regex(/^(?=.*[a-z])/, 'Must contain lowercase letter')
+    .regex(/^(?=.*[A-Z])/, 'Must contain uppercase letter')
+    .regex(/^(?=.*\d)/, 'Must contain number')
+    .regex(/^(?=.*[@$!%*?&])/, 'Must contain special character'),
+  confirmPassword: z.string()
+}).refine(data => data.newPassword === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"]
+})
 ```
+
+### Password Security (`lib/security/password.ts`)
+```typescript
+import bcrypt from 'bcrypt'
+import { createId } from '@paralleldrive/cuid2'
+
+export class PasswordService {
+  private static readonly saltRounds = 12
+  
+  static async hash(password: string): Promise<string> {
+    return await bcrypt.hash(password, this.saltRounds)
+  }
+  
+  static async verify(password: string, hash: string): Promise<boolean> {
+    try {
+      return await bcrypt.compare(password, hash)
+    } catch {
+      return false
+    }
+  }
+}
+
+// Account lockout system
+export class AccountSecurity {
+  private static failedAttempts = new Map<string, { count: number; lastAttempt: number }>()
+  private static readonly maxFailedAttempts = 5
+  private static readonly lockoutDuration = 15 * 60 * 1000 // 15 minutes
+  
+  static isAccountLocked(identifier: string): boolean {
+    const attempts = this.failedAttempts.get(identifier)
+    if (!attempts) return false
+    
+    const now = Date.now()
+    if (now - attempts.lastAttempt > this.lockoutDuration) {
+      this.failedAttempts.delete(identifier)
+      return false
+    }
+    
+    return attempts.count >= this.maxFailedAttempts
+  }
+  
+  static recordFailedAttempt(identifier: string): void {
+    const now = Date.now()
+    const existing = this.failedAttempts.get(identifier)
+    
+    if (existing && now - existing.lastAttempt < this.lockoutDuration) {
+      existing.count++
+      existing.lastAttempt = now
+    } else {
+      this.failedAttempts.set(identifier, { count: 1, lastAttempt: now })
+    }
+  }
+  
+  static clearFailedAttempts(identifier: string): void {
+    this.failedAttempts.delete(identifier)
+  }
+}
+
+export const verifyPassword = PasswordService.verify
+export const hashPassword = PasswordService.hash
+```
+
+### Rate Limiting (`lib/security/rate-limiting.ts`)
+```typescript
+interface RateLimitEntry {
+  count: number
+  resetTime: number
+}
+
+class InMemoryRateLimiter {
+  private store = new Map<string, RateLimitEntry>()
+  private windowMs: number
+  private maxRequests: number
+  
+  constructor(windowMs: number = 15 * 60 * 1000, maxRequests: number = 100) {
+    this.windowMs = windowMs
+    this.maxRequests = maxRequests
+    
+    // Clean up expired entries every 5 minutes
+    setInterval(() => this.cleanup(), 5 * 60 * 1000)
+  }
+  
+  private cleanup(): void {
+    const now = Date.now()
+    for (const [key, entry] of this.store.entries()) {
+      if (now > entry.resetTime) {
+        this.store.delete(key)
+      }
+    }
+  }
+  
+  checkLimit(identifier: string): { success: boolean; remaining: number; resetTime: number } {
+    const now = Date.now()
+    const resetTime = now + this.windowMs
+    const existing = this.store.get(identifier)
+    
+    if (!existing || now > existing.resetTime) {
+      this.store.set(identifier, { count: 1, resetTime })
+      return { success: true, remaining: this.maxRequests - 1, resetTime }
+    }
+    
+    existing.count++
+    const remaining = Math.max(0, this.maxRequests - existing.count)
+    
+    return {
+      success: existing.count <= this.maxRequests,
+      remaining,
+      resetTime: existing.resetTime
+    }
+  }
+}
+
+// Rate limiter instances
+export const globalRateLimiter = new InMemoryRateLimiter(15 * 60 * 1000, 100) // 100 req/15min
+export const authRateLimiter = new InMemoryRateLimiter(15 * 60 * 1000, 5)     // 5 req/15min
+export const apiRateLimiter = new InMemoryRateLimiter(60 * 1000, 30)          // 30 req/min
+
+export function getRateLimitKey(request: Request, prefix = ''): string {
+  const ip = request.headers.get('x-forwarded-for') || 
+             request.headers.get('x-real-ip') || 
+             'anonymous'
+  return prefix ? `${prefix}:${ip}` : ip
+}
+
+export function addRateLimitHeaders(response: Response, result: { remaining: number; resetTime: number }): void {
+  response.headers.set('X-RateLimit-Remaining', result.remaining.toString())
+  response.headers.set('X-RateLimit-Reset', Math.ceil(result.resetTime / 1000).toString())
+}
+```
+
+### CSRF Protection (`lib/security/csrf.ts`)
+```typescript
+import { nanoid } from 'nanoid'
+import { cookies } from 'next/headers'
+
+export class CSRFProtection {
+  private static readonly tokenLength = 64
+  private static readonly cookieName = 'csrf-token'
+  
+  static generateToken(): string {
+    return nanoid(this.tokenLength)
+  }
+  
+  static async setCSRFToken(): Promise<string> {
+    const token = this.generateToken()
+    const cookieStore = cookies()
+    
+    cookieStore.set(this.cookieName, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 24, // 24 hours
+    })
+    
+    return token
+  }
+  
+  static async verifyCSRFToken(token: string): Promise<boolean> {
+    const cookieStore = cookies()
+    const storedToken = cookieStore.get(this.cookieName)?.value
+    
+    return storedToken === token && token.length === this.tokenLength
+  }
+}
+```
+
+### Security Middleware (`middleware.ts`)
+```typescript
+import { NextRequest, NextResponse } from 'next/server'
+import { verifyJWT } from '@/lib/auth/jwt'
+import { globalRateLimiter, getRateLimitKey } from '@/lib/security/rate-limiting'
+
+// In-memory rate limiting store
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
+
+export async function middleware(request: NextRequest) {
+  const response = NextResponse.next()
+  
+  // 1. Security headers
+  response.headers.set('X-Frame-Options', 'DENY')
+  response.headers.set('X-Content-Type-Options', 'nosniff')
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  response.headers.set('X-XSS-Protection', '1; mode=block')
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+  
+  // 2. Rate limiting
+  const ip = request.ip || request.headers.get('x-forwarded-for') || 'anonymous'
+  const rateLimitResult = globalRateLimiter.checkLimit(ip)
+  
+  if (!rateLimitResult.success) {
+    return new NextResponse('Too Many Requests', { status: 429 })
+  }
+  
+  // 3. Authentication check for protected routes
+  if (request.nextUrl.pathname.startsWith('/dashboard')) {
+    const token = request.cookies.get('next-auth.session-token')?.value
+    if (!token) {
+      return NextResponse.redirect(new URL('/auth/login', request.url))
+    }
+    
+    const payload = await verifyJWT(token)
+    if (!payload) {
+      return NextResponse.redirect(new URL('/auth/login', request.url))
+    }
+  }
+  
+  // 4. CSRF protection for state-changing operations
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method)) {
+    const csrfToken = request.headers.get('x-csrf-token')
+    const sessionCsrf = request.cookies.get('csrf-token')?.value
+    
+    if (!csrfToken || csrfToken !== sessionCsrf) {
+      return new NextResponse('CSRF Token Mismatch', { status: 403 })
+    }
+  }
+  
+  // 5. Content Security Policy
+  response.headers.set(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;"
+  )
+  
+  return response
+}
+
+export const config = {
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/api/:path*',
+    '/dashboard/:path*'
+  ]
+}
+```
+
+### Secure API Route Example (`app/api/auth/register/route.ts`)
+```typescript
+import { NextRequest } from 'next/server'
+import { registerSchema } from '@/lib/validations/auth'
+import { hashPassword } from '@/lib/security/password'
+import { authRateLimiter, getRateLimitKey, addRateLimitHeaders } from '@/lib/security/rate-limiting'
+import { createId } from '@paralleldrive/cuid2'
+
+export async function POST(request: NextRequest) {
+  try {
+    // Rate limiting
+    const rateLimitKey = getRateLimitKey(request, 'auth')
+    const rateLimitResult = authRateLimiter.checkLimit(rateLimitKey)
+    
+    if (!rateLimitResult.success) {
+      const response = Response.json({ error: 'Too many requests' }, { status: 429 })
+      addRateLimitHeaders(response, rateLimitResult)
+      return response
+    }
+    
+    // Input validation
+    const body = await request.json()
+    const validatedData = registerSchema.safeParse(body)
+    
+    if (!validatedData.success) {
+      return Response.json({ 
+        error: 'Validation failed', 
+        details: validatedData.error.errors 
+      }, { status: 400 })
+    }
+    
+    const { email, password, name } = validatedData.data
+    
+    // Check if user exists (implement your database logic)
+    const existingUser = await checkUserExists(email)
+    if (existingUser) {
+      return Response.json({ error: 'User already exists' }, { status: 409 })
+    }
+    
+    // Hash password and create user
+    const hashedPassword = await hashPassword(password)
+    const userId = createId()
+    
+    const user = await createUser({
+      id: userId,
+      email,
+      password: hashedPassword,
+      name
+    })
+    
+    const response = Response.json({ 
+      success: true,
+      data: { user: { id: user.id, email: user.email, name: user.name } }
+    }, { status: 201 })
+    
+    addRateLimitHeaders(response, rateLimitResult)
+    return response
+    
+  } catch (error) {
+    console.error('Registration error:', error)
+    return Response.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+// Implement these functions with your database
+async function checkUserExists(email: string): Promise<boolean> {
+  // Your database logic here
+  return false
+}
+
+async function createUser(userData: any): Promise<any> {
+  // Your database logic here
+  return userData
+}
+```
+
+## 5. Required Dependencies
+
+### Additional Dependencies to Install
+
+```json
+{
+  "dependencies": {
+    "@auth/drizzle-adapter": "^1.7.4",
+    "@hookform/resolvers": "^3.10.0",
+    "@paralleldrive/cuid2": "^2.2.2",
+    "iron-session": "^8.0.6",
+    "jose": "^5.9.6",
+    "nanoid": "^5.0.9",
+    "resend": "^4.0.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "msw": "^2.8.3",
+    "playwright": "^1.49.0"
+  }
+}
+```
+
+## 6. Environment Variables
+
+```env
 # Authentication
-NEXTAUTH_SECRET=
-NEXTAUTH_URL=
-JWT_SECRET=
+NEXTAUTH_SECRET=your-super-secret-32-char-string-here
+NEXTAUTH_URL=http://localhost:3000
+JWT_SECRET=another-super-secret-32-char-string
 
 # Database
-DATABASE_URL=
-DATABASE_SSL=true
+DATABASE_URL=postgresql://user:password@localhost:5432/database
 
 # Security
-CSRF_SECRET=
-RATE_LIMIT_WINDOW=
-RATE_LIMIT_MAX=
+CSRF_SECRET=32-character-csrf-secret-string
+BCRYPT_ROUNDS=12
 
-# Email (optional)
-EMAIL_SERVER_URL=
-EMAIL_FROM=
+# Email
+RESEND_API_KEY=your-resend-api-key
+EMAIL_FROM=noreply@yourdomain.com
+
+# App
+NODE_ENV=development
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-### Security Checklist
+## 7. Implementation Phases
+
+### Phase 1: Foundation (Week 1-2)
+1. Install new dependencies
+2. File restructuring according to architecture
+3. NextAuth with Drizzle setup
+4. Basic Zod validation schemas
+5. In-memory rate limiting
+
+### Phase 2: Security Core (Week 2-3)
+1. Enhanced bcrypt password security
+2. Security middleware implementation
+3. JOSE JWT implementation
+4. CSRF protection
+5. Input sanitization
+
+### Phase 3: Enhanced Security (Week 3-4)
+1. Account lockout system
+2. Advanced rate limiting
+3. Security headers and CSP
+4. Error handling and logging
+5. Session management
+
+### Phase 4: Testing & Production (Week 4+)
+1. Security testing with Playwright
+2. Performance optimization
+3. Production configuration
+4. Documentation
+5. Security audit
+
+## 8. Security Checklist
+
+### Pre-Production Security Audit
+- [ ] Password hashing with bcrypt (12+ rounds)
+- [ ] JWT tokens properly signed and verified
+- [ ] Account lockout after failed attempts
+- [ ] All API endpoints use Zod validation
+- [ ] Rate limiting on all endpoints
+- [ ] CSRF protection on state-changing operations
+- [ ] Security headers implemented
 - [ ] HTTPS enforced in production
-- [ ] Secure cookie settings
-- [ ] CSP headers implemented
-- [ ] Rate limiting active
-- [ ] Input validation comprehensive
-- [ ] Error handling secure
-- [ ] Audit logging functional
-- [ ] Dependencies updated
-- [ ] Security testing complete
+- [ ] Environment variables secured
+- [ ] Error messages sanitized
 
-## 7. Testing Strategy
-
-### Security Testing
-- Authentication flow testing
-- Authorization testing
-- Input validation testing
-- Rate limiting testing
-- CSRF protection testing
-
-### Integration Testing
-- API endpoint testing
-- Database integration testing
-- Authentication integration testing
-
-This architecture provides a solid foundation for a secure, scalable Next.js application with proper separation of concerns and comprehensive security measures.
+This architecture provides a secure, scalable foundation for your Next.js application with modern security practices and proven technologies.

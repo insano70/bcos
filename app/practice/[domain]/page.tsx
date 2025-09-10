@@ -1,6 +1,7 @@
 import { db, practices, practice_attributes, staff_members, templates } from '@/lib/db';
 import { eq, isNull } from 'drizzle-orm';
-import ClassicProfessionalTemplate from '@/templates/classic-professional';
+import { getTemplateComponent } from '@/lib/template-loader';
+import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
 import { notFound } from 'next/navigation';
 
 async function getPracticeByDomain(domain: string) {
@@ -88,13 +89,24 @@ export default async function PracticeWebsite({
     education: member.education ? JSON.parse(member.education) : [],
   }));
 
-  // For now, render Classic Professional template
-  // Later we can check template.slug to render different templates
+  // Generate color styles for the template
+  const defaultColors = getTemplateDefaultColors(template?.slug || 'classic-professional');
+  const brandColors = {
+    primary: parsedAttributes.primary_color || defaultColors.primary,
+    secondary: parsedAttributes.secondary_color || defaultColors.secondary,
+    accent: parsedAttributes.accent_color || defaultColors.accent,
+  };
+  const colorStyles = getColorStyles(brandColors);
+
+  // Dynamically load the correct template component
+  const TemplateComponent = getTemplateComponent(template?.slug || 'classic-professional');
+  
   return (
-    <ClassicProfessionalTemplate 
+    <TemplateComponent 
       practice={practice}
       attributes={parsedAttributes}
       staff={parsedStaff}
+      colorStyles={colorStyles}
     />
   );
 }

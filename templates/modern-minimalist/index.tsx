@@ -1,5 +1,6 @@
 import type { TemplateProps } from '@/lib/types/practice';
 import Head from 'next/head';
+import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
 import Header from './components/header';
 import Hero from './components/hero';
 import About from './components/about';
@@ -12,8 +13,18 @@ import Footer from './components/footer';
 export default function ModernMinimalistTemplate({ 
   practice, 
   attributes, 
-  staff 
+  staff,
+  colorStyles 
 }: TemplateProps) {
+  // Generate color styles if not provided
+  const defaultColors = getTemplateDefaultColors('modern-minimalist');
+  const brandColors = {
+    primary: attributes.primary_color || defaultColors.primary,
+    secondary: attributes.secondary_color || defaultColors.secondary,
+    accent: attributes.accent_color || defaultColors.accent,
+  };
+  const templateColorStyles = colorStyles || getColorStyles(brandColors);
+
   return (
     <>
       {/* SEO and Meta Tags */}
@@ -54,21 +65,21 @@ export default function ModernMinimalistTemplate({
         />
       </Head>
 
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen" style={templateColorStyles.secondary}>
         {/* Header with navigation */}
-        <Header practice={practice} attributes={attributes} />
+        <Header practice={practice} attributes={attributes} colorStyles={templateColorStyles} />
         
         {/* Hero section */}
-        <Hero practice={practice} attributes={attributes} />
+        <Hero practice={practice} attributes={attributes} colorStyles={templateColorStyles} />
         
         {/* About section */}
-        <About practice={practice} attributes={attributes} />
+        <About practice={practice} attributes={attributes} colorStyles={templateColorStyles} />
         
         {/* Services section */}
-        <Services attributes={attributes} />
+        <Services attributes={attributes} colorStyles={templateColorStyles} />
         
         {/* Providers section */}
-        <Providers staff={staff} />
+        <Providers staff={staff} colorStyles={templateColorStyles} />
         
         {/* Appointment Form Section */}
         <section className="py-16 bg-white">
@@ -86,10 +97,10 @@ export default function ModernMinimalistTemplate({
         </section>
         
         {/* Contact section */}
-        <Contact practice={practice} attributes={attributes} />
+        <Contact practice={practice} attributes={attributes} colorStyles={templateColorStyles} />
         
         {/* Footer */}
-        <Footer practice={practice} attributes={attributes} />
+        <Footer practice={practice} attributes={attributes} colorStyles={templateColorStyles} />
       </div>
     </>
   );

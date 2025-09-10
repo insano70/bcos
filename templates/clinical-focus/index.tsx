@@ -1,11 +1,22 @@
 import type { TemplateProps } from '@/lib/types/practice';
 import Head from 'next/head';
+import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
 
 export default function ClinicalFocusTemplate({ 
   practice, 
   attributes, 
-  staff 
+  staff,
+  colorStyles 
 }: TemplateProps) {
+  // Generate color styles if not provided
+  const defaultColors = getTemplateDefaultColors('clinical-focus');
+  const brandColors = {
+    primary: attributes.primary_color || defaultColors.primary,
+    secondary: attributes.secondary_color || defaultColors.secondary,
+    accent: attributes.accent_color || defaultColors.accent,
+  };
+  const templateColorStyles = colorStyles || getColorStyles(brandColors);
+
   return (
     <>
       <Head>
@@ -13,7 +24,7 @@ export default function ClinicalFocusTemplate({
         <meta name="description" content={attributes.meta_description || `Academic excellence in rheumatology research and patient care at ${practice.name}`} />
       </Head>
 
-      <div className="min-h-screen bg-slate-50">
+      <div className="min-h-screen" style={templateColorStyles.secondary}>
         {/* Header */}
         <header className="bg-white border-b border-slate-200">
           <div className="max-w-7xl mx-auto px-4 py-4">
@@ -30,7 +41,7 @@ export default function ClinicalFocusTemplate({
         </header>
 
         {/* Hero */}
-        <section className="py-20 bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
+        <section className="py-20 text-white" style={{ background: `linear-gradient(to right, ${templateColorStyles.primary.backgroundColor}, ${templateColorStyles.accent.backgroundColor})` }}>
           <div className="max-w-7xl mx-auto px-4 text-center">
             <h1 className="text-5xl font-bold mb-6">Advancing Rheumatology Through Research</h1>
             <p className="text-xl mb-8 max-w-3xl mx-auto">
@@ -125,7 +136,7 @@ export default function ClinicalFocusTemplate({
                 Interested in participating in clinical trials or receiving care from our research team?
               </p>
               <div className="text-center">
-                <a href={`tel:${attributes.phone}`} className="bg-blue-600 text-white px-8 py-3 rounded font-semibold hover:bg-blue-700">
+                <a href={`tel:${attributes.phone}`} className="px-8 py-3 rounded font-semibold transition-colors" style={templateColorStyles.primary}>
                   Call {attributes.phone}
                 </a>
               </div>
@@ -164,7 +175,7 @@ export default function ClinicalFocusTemplate({
         </section>
 
         {/* Footer */}
-        <footer className="bg-slate-900 text-white py-8">
+        <footer className="text-white py-8" style={templateColorStyles.primary}>
           <div className="max-w-7xl mx-auto px-4 text-center">
             <p>© {new Date().getFullYear()} {practice.name}. Advancing medicine through research.</p>
           </div>

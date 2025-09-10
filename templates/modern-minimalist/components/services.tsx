@@ -3,9 +3,10 @@ import { parseServices } from '@/lib/utils/json-parser';
 
 interface ServicesProps {
   attributes: PracticeAttributes;
+  colorStyles: any;
 }
 
-export default function Services({ attributes }: ServicesProps) {
+export default function Services({ attributes, colorStyles }: ServicesProps) {
   const services = parseServices(attributes.services);
 
   return (
@@ -24,7 +25,7 @@ export default function Services({ attributes }: ServicesProps) {
           {services.map((service: string, index: number) => (
             <div key={index} className="group">
               <div className="bg-gray-50 p-8 hover:bg-gray-100 transition-colors">
-                <div className="w-12 h-12 bg-gray-900 text-white flex items-center justify-center mb-6 group-hover:bg-gray-800 transition-colors">
+                <div className="w-12 h-12 flex items-center justify-center mb-6 transition-colors" style={colorStyles.primary}>
                   <span className="text-xl">⚕️</span>
                 </div>
                 <h3 className="text-xl font-light text-gray-900 mb-3">

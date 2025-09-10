@@ -3,9 +3,10 @@ import { parseServices, parseConditions } from '@/lib/utils/json-parser';
 
 interface ServicesProps {
   attributes: PracticeAttributes;
+  colorStyles: any;
 }
 
-export default function Services({ attributes }: ServicesProps) {
+export default function Services({ attributes, colorStyles }: ServicesProps) {
   const defaultServices = [
     'Rheumatoid Arthritis Treatment',
     'Lupus Management',
@@ -29,7 +30,7 @@ export default function Services({ attributes }: ServicesProps) {
   const conditions = parseConditions(attributes.conditions_treated);
 
   return (
-    <section id="services" className="py-20 bg-gray-50">
+    <section id="services" className="py-20" style={colorStyles.secondary}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Services */}
         <div className="text-center mb-16">
@@ -44,8 +45,8 @@ export default function Services({ attributes }: ServicesProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20">
           {services.map((service, index) => (
             <div key={index} className="bg-white rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                <span className="text-blue-600 text-xl">💉</span>
+              <div className="w-12 h-12 rounded-lg flex items-center justify-center mb-4" style={colorStyles.primaryBg100}>
+                <span className="text-xl" style={colorStyles.primaryText}>💉</span>
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-3">{service}</h3>
               <p className="text-gray-600">Expert care and treatment for optimal patient outcomes.</p>

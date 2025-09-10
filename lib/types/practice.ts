@@ -42,6 +42,11 @@ export interface PracticeAttributes {
   meta_title?: string;
   meta_description?: string;
   
+  // Brand Colors
+  primary_color?: string;
+  secondary_color?: string;
+  accent_color?: string;
+  
   updated_at: string;
 }
 
@@ -81,9 +86,51 @@ export interface Education {
   year: string;
 }
 
+// Color styles interface for templates
+export interface ColorStyles {
+  primary: {
+    backgroundColor: string;
+    color: string;
+  };
+  primaryText: {
+    color: string;
+  };
+  primaryBorder: {
+    borderColor: string;
+    color: string;
+  };
+  primaryBg50: {
+    backgroundColor: string;
+  };
+  primaryBg100: {
+    backgroundColor: string;
+  };
+  primaryGradient: {
+    background: string;
+  };
+  secondary: {
+    backgroundColor: string;
+  };
+  secondaryText: {
+    color: string;
+  };
+  accent: {
+    backgroundColor: string;
+    color: string;
+  };
+  accentText: {
+    color: string;
+  };
+  accentBorder: {
+    borderColor: string;
+    color: string;
+  };
+}
+
 // Template props interface - what all templates receive
 export interface TemplateProps {
   practice: Practice;
   attributes: PracticeAttributes;
   staff: StaffMember[];
+  colorStyles?: ColorStyles; // Dynamic color styles for the template
 }

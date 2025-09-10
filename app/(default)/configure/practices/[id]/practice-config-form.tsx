@@ -3,7 +3,9 @@
 import { useForm } from 'react-hook-form';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import ImageUpload from '@/components/image-upload';
+import ColorPicker from '@/components/color-picker';
 import type { Practice, PracticeAttributes, StaffMember, Template } from '@/lib/types/practice';
 
 interface PracticeFormData {
@@ -31,6 +33,11 @@ interface PracticeFormData {
   // SEO
   meta_title: string;
   meta_description: string;
+  
+  // Brand Colors
+  primary_color: string;
+  secondary_color: string;
+  accent_color: string;
 }
 
 async function fetchPracticeAttributes(practiceId: string) {
@@ -72,6 +79,7 @@ export default function PracticeConfigForm({
 }: PracticeConfigFormProps) {
   const practiceId = practice.practice_id;
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const { data: attributes, isLoading } = useQuery({
     queryKey: ['practice-attributes', practiceId],
@@ -119,6 +127,9 @@ export default function PracticeConfigForm({
         hero_image_url: attributes.hero_image_url || '',
         meta_title: attributes.meta_title || '',
         meta_description: attributes.meta_description || '',
+        primary_color: attributes.primary_color || '#00AEEF',
+        secondary_color: attributes.secondary_color || '#FFFFFF',
+        accent_color: attributes.accent_color || '#44C0AE',
       });
     }
   }, [attributes, practice, reset]);
@@ -142,6 +153,11 @@ export default function PracticeConfigForm({
     // Update attributes
     const { template_id, ...attributesData } = data;
     updateAttributes.mutate(attributesData);
+  };
+
+  const handlePreview = () => {
+    // Open preview in new tab
+    window.open(`/template-preview/${practiceId}`, '_blank');
   };
 
   if (isLoading) {
@@ -184,7 +200,7 @@ export default function PracticeConfigForm({
               </label>
               <select
                 {...register('template_id', { required: 'Please select a template' })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">Select a template...</option>
                 {allTemplates.map((template) => (
@@ -206,6 +222,62 @@ export default function PracticeConfigForm({
           </div>
         </div>
 
+        {/* Brand Colors */}
+        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
+            Brand Colors
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+            Customize your website colors to match your practice's brand identity.
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <ColorPicker
+              label="Primary Color"
+              value={watch('primary_color')}
+              onChange={(color) => setValue('primary_color', color, { shouldDirty: true })}
+              defaultColor="#00AEEF"
+              description="Main brand color for buttons and key elements"
+            />
+            <ColorPicker
+              label="Secondary Color"
+              value={watch('secondary_color')}
+              onChange={(color) => setValue('secondary_color', color, { shouldDirty: true })}
+              defaultColor="#FFFFFF"
+              description="Background and supporting elements"
+            />
+            <ColorPicker
+              label="Accent Color"
+              value={watch('accent_color')}
+              onChange={(color) => setValue('accent_color', color, { shouldDirty: true })}
+              defaultColor="#44C0AE"
+              description="Highlights and call-to-action elements"
+            />
+          </div>
+          
+          <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+            <div className="flex items-center space-x-3">
+              <div className="flex space-x-2">
+                <div 
+                  className="w-8 h-8 rounded"
+                  style={{ backgroundColor: watch('primary_color') || '#00AEEF' }}
+                />
+                <div 
+                  className="w-8 h-8 rounded"
+                  style={{ backgroundColor: watch('secondary_color') || '#FFFFFF' }}
+                />
+                <div 
+                  className="w-8 h-8 rounded"
+                  style={{ backgroundColor: watch('accent_color') || '#44C0AE' }}
+                />
+              </div>
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                Color preview - see how they work together
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* Contact Information */}
         <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
@@ -220,7 +292,7 @@ export default function PracticeConfigForm({
               <input
                 type="tel"
                 {...register('phone')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="(555) 123-4567"
               />
             </div>
@@ -232,7 +304,7 @@ export default function PracticeConfigForm({
               <input
                 type="email"
                 {...register('email')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="info@practice.com"
               />
             </div>
@@ -244,7 +316,7 @@ export default function PracticeConfigForm({
               <input
                 type="text"
                 {...register('address_line1')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="123 Medical Center Drive"
               />
             </div>
@@ -256,7 +328,7 @@ export default function PracticeConfigForm({
               <input
                 type="text"
                 {...register('address_line2')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Suite 200"
               />
             </div>
@@ -268,7 +340,7 @@ export default function PracticeConfigForm({
               <input
                 type="text"
                 {...register('city')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Denver"
               />
             </div>
@@ -280,7 +352,7 @@ export default function PracticeConfigForm({
               <input
                 type="text"
                 {...register('state')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="CO"
               />
             </div>
@@ -292,7 +364,7 @@ export default function PracticeConfigForm({
               <input
                 type="text"
                 {...register('zip_code')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="80202"
               />
             </div>
@@ -313,7 +385,7 @@ export default function PracticeConfigForm({
               <input
                 type="text"
                 {...register('welcome_message')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Welcome to our rheumatology practice"
               />
             </div>
@@ -325,7 +397,7 @@ export default function PracticeConfigForm({
               <textarea
                 {...register('about_text')}
                 rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Describe your practice, experience, and approach to care..."
               />
             </div>
@@ -337,7 +409,7 @@ export default function PracticeConfigForm({
               <textarea
                 {...register('mission_statement')}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Your practice's mission and values..."
               />
             </div>
@@ -383,7 +455,7 @@ export default function PracticeConfigForm({
               <input
                 type="text"
                 {...register('meta_title')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Practice Name - Expert Rheumatology Care"
               />
             </div>
@@ -395,7 +467,7 @@ export default function PracticeConfigForm({
               <textarea
                 {...register('meta_description')}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Brief description for search engines (160 characters max)..."
                 maxLength={160}
               />
@@ -404,21 +476,34 @@ export default function PracticeConfigForm({
         </div>
 
         {/* Submit */}
-        <div className="flex justify-end space-x-4">
+        <div className="flex justify-between">
           <button
             type="button"
-            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-            disabled={updateAttributes.isPending}
+            onClick={handlePreview}
+            className="px-6 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center space-x-2"
           >
-            Cancel
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+            <span>Preview Website</span>
           </button>
-          <button
-            type="submit"
-            disabled={!isDirty || updateAttributes.isPending}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {updateAttributes.isPending ? 'Saving...' : 'Save Changes'}
-          </button>
+          
+          <div className="flex space-x-4">
+            <button
+              type="button"
+              className="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+              disabled={updateAttributes.isPending}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!isDirty || updateAttributes.isPending}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {updateAttributes.isPending ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
         </div>
       </form>
 

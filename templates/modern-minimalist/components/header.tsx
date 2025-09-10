@@ -3,9 +3,10 @@ import type { Practice, PracticeAttributes } from '@/lib/types/practice';
 interface HeaderProps {
   practice: Practice;
   attributes: PracticeAttributes;
+  colorStyles: any;
 }
 
-export default function Header({ practice, attributes }: HeaderProps) {
+export default function Header({ practice, attributes, colorStyles }: HeaderProps) {
   return (
     <header className="bg-white shadow-sm border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -53,7 +54,8 @@ export default function Header({ practice, attributes }: HeaderProps) {
             )}
             <a 
               href="#appointment" 
-              className="bg-gray-900 text-white px-4 py-2 text-sm font-light hover:bg-gray-800 transition-colors"
+              className="px-4 py-2 text-sm font-light transition-colors"
+              style={colorStyles.primary}
             >
               Schedule
             </a>

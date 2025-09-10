@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p ${PORT:-4001}",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p ${PORT:-4001}",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
     "format": "biome format --write .",
@@ -15,7 +15,9 @@
     "test:ui": "vitest --ui",
     "db:seed": "tsx lib/db/seed.ts",
     "db:push": "drizzle-kit push",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "db:psql": "./lib/db/db-utils.sh",
+    "db:check": "./lib/db/db-utils.sh -c 'SELECT current_database();'"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.7",

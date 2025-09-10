@@ -2,9 +2,10 @@ import type { StaffMember } from '@/lib/types/practice';
 
 interface ProvidersProps {
   staff: StaffMember[];
+  colorStyles: any;
 }
 
-export default function Providers({ staff }: ProvidersProps) {
+export default function Providers({ staff, colorStyles }: ProvidersProps) {
   if (!staff || staff.length === 0) {
     return null;
   }

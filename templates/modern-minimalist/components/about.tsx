@@ -3,9 +3,10 @@ import type { Practice, PracticeAttributes } from '@/lib/types/practice';
 interface AboutProps {
   practice: Practice;
   attributes: PracticeAttributes;
+  colorStyles: any;
 }
 
-export default function About({ practice, attributes }: AboutProps) {
+export default function About({ practice, attributes, colorStyles }: AboutProps) {
   return (
     <section id="about" className="py-16 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

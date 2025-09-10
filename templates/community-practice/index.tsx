@@ -1,11 +1,22 @@
 import type { TemplateProps } from '@/lib/types/practice';
 import Head from 'next/head';
+import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
 
 export default function CommunityPracticeTemplate({ 
   practice, 
   attributes, 
-  staff 
+  staff,
+  colorStyles 
 }: TemplateProps) {
+  // Generate color styles if not provided
+  const defaultColors = getTemplateDefaultColors('community-practice');
+  const brandColors = {
+    primary: attributes.primary_color || defaultColors.primary,
+    secondary: attributes.secondary_color || defaultColors.secondary,
+    accent: attributes.accent_color || defaultColors.accent,
+  };
+  const templateColorStyles = colorStyles || getColorStyles(brandColors);
+
   return (
     <>
       <Head>
@@ -13,14 +24,14 @@ export default function CommunityPracticeTemplate({
         <meta name="description" content={attributes.meta_description || `Local, accessible rheumatology care in your community at ${practice.name}`} />
       </Head>
 
-      <div className="min-h-screen bg-green-50">
+      <div className="min-h-screen" style={templateColorStyles.secondary}>
         {/* Header */}
         <header className="bg-white shadow-sm">
           <div className="max-w-6xl mx-auto px-4 py-4">
             <div className="flex justify-between items-center">
               <div className="flex items-center">
                 <span className="text-3xl mr-3">🏘️</span>
-                <h1 className="text-2xl font-bold text-green-800">{practice.name}</h1>
+                <h1 className="text-2xl font-bold" style={templateColorStyles.primaryText}>{practice.name}</h1>
               </div>
               <nav className="space-x-6">
                 <a href="#about" className="text-green-700 hover:text-green-900">About</a>
@@ -33,17 +44,17 @@ export default function CommunityPracticeTemplate({
         </header>
 
         {/* Hero */}
-        <section className="py-20 bg-gradient-to-r from-green-400 to-green-600 text-white">
+        <section className="py-20 text-white" style={{ background: `linear-gradient(to right, ${templateColorStyles.primary.backgroundColor}, ${templateColorStyles.accent.backgroundColor})` }}>
           <div className="max-w-6xl mx-auto px-4 text-center">
             <h1 className="text-4xl font-bold mb-6">Your Local Rheumatology Partner</h1>
             <p className="text-xl mb-8 max-w-2xl mx-auto">
               {attributes.welcome_message || "Right here in your neighborhood, providing personalized rheumatology care for our community"}
             </p>
             <div className="space-x-4">
-              <a href="#appointment" className="bg-white text-green-600 px-8 py-3 rounded-full font-semibold hover:bg-gray-100">
+              <a href="#appointment" className="bg-white px-8 py-3 rounded-full font-semibold hover:bg-gray-100" style={templateColorStyles.primaryText}>
                 Book Your Visit
               </a>
-              <a href="#about" className="border-2 border-white text-white px-8 py-3 rounded-full hover:bg-white hover:text-green-600">
+              <a href="#about" className="border-2 border-white text-white px-8 py-3 rounded-full hover:bg-white transition-colors">
                 Learn More
               </a>
             </div>

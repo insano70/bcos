@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {};
+const nextConfig = {
+  outputFileTracingRoot: '/Users/pstewart/bcos',
+};
 
 module.exports = nextConfig;

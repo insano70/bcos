@@ -3,9 +3,10 @@ import type { Practice, PracticeAttributes } from '@/lib/types/practice';
 interface HeroProps {
   practice: Practice;
   attributes: PracticeAttributes;
+  colorStyles: any;
 }
 
-export default function Hero({ practice, attributes }: HeroProps) {
+export default function Hero({ practice, attributes, colorStyles }: HeroProps) {
   return (
     <section className="relative bg-white py-20 lg:py-32">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -21,13 +22,15 @@ export default function Hero({ practice, attributes }: HeroProps) {
             <div className="flex flex-col sm:flex-row gap-4">
               <a 
                 href="#appointment" 
-                className="bg-gray-900 text-white px-8 py-3 text-lg font-light hover:bg-gray-800 transition-colors text-center"
+                className="px-8 py-3 text-lg font-light transition-colors text-center"
+                style={colorStyles.primary}
               >
                 Schedule Consultation
               </a>
               <a 
                 href="#services" 
-                className="border border-gray-300 text-gray-900 px-8 py-3 text-lg font-light hover:border-gray-400 transition-colors text-center"
+                className="border px-8 py-3 text-lg font-light transition-colors text-center"
+                style={colorStyles.primaryBorder}
               >
                 Our Services
               </a>

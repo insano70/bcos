@@ -134,7 +134,7 @@ export default function UsersContent() {
 
       {/* Pagination */}
       <div className="mt-8">
-        <PaginationClassic />
+        <PaginationClassic totalItems={users?.length || 0} />
       </div>
     </div>
   );

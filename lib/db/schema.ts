@@ -100,6 +100,11 @@ export const practice_attributes = pgTable(
     meta_title: varchar('meta_title', { length: 255 }),
     meta_description: varchar('meta_description', { length: 500 }),
     
+    // Brand Colors
+    primary_color: varchar('primary_color', { length: 7 }), // Hex color #RRGGBB
+    secondary_color: varchar('secondary_color', { length: 7 }), // Hex color #RRGGBB
+    accent_color: varchar('accent_color', { length: 7 }), // Hex color #RRGGBB
+    
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },
   (table) => ({

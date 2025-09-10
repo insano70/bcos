@@ -3,13 +3,14 @@ import type { Practice, PracticeAttributes } from '@/lib/types/practice';
 interface FooterProps {
   practice: Practice;
   attributes: PracticeAttributes;
+  colorStyles: any;
 }
 
-export default function Footer({ practice, attributes }: FooterProps) {
+export default function Footer({ practice, attributes, colorStyles }: FooterProps) {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-gray-900 text-white py-16">
+    <footer className="text-white py-16" style={{ backgroundColor: colorStyles?.primary?.backgroundColor || '#1f2937' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Practice info */}

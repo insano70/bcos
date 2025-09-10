@@ -14,7 +14,7 @@ interface AppointmentFormData {
   message: string;
 }
 
-export default function AppointmentForm() {
+export default function AppointmentForm({ colorStyles }: { colorStyles?: any }) {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -46,20 +46,21 @@ export default function AppointmentForm() {
 
   if (isSubmitted) {
     return (
-      <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
-        <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <span className="text-green-600 text-2xl">✓</span>
+      <div className="border rounded-lg p-6 text-center" style={{ ...(colorStyles?.primaryBg50 || { backgroundColor: '#f0f9ff' }), borderColor: colorStyles?.primary?.backgroundColor || '#2563eb' }}>
+        <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={colorStyles?.primaryBg100 || { backgroundColor: '#dbeafe' }}>
+          <span className="text-2xl" style={colorStyles?.primaryText || { color: '#2563eb' }}>✓</span>
         </div>
-        <h3 className="text-lg font-semibold text-green-800 mb-2">
+        <h3 className="text-lg font-semibold mb-2" style={colorStyles?.primaryText || { color: '#2563eb' }}>
           Appointment Request Submitted
         </h3>
-        <p className="text-green-600">
+        <p style={colorStyles?.primaryText || { color: '#2563eb' }}>
           Thank you! We'll contact you within 24 hours to confirm your appointment.
         </p>
         <button
           type="button"
           onClick={() => setIsSubmitted(false)}
-          className="mt-4 text-green-600 hover:text-green-700 font-medium"
+          className="mt-4 font-medium transition-colors hover:opacity-80"
+          style={colorStyles?.primaryText || { color: '#2563eb' }}
         >
           Submit Another Request
         </button>
@@ -80,7 +81,11 @@ export default function AppointmentForm() {
             <input
               type="text"
               {...register('first_name', { required: 'First name is required' })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-70"
+              style={{ 
+                '--tw-ring-color': colorStyles?.primary?.backgroundColor || '#2563eb',
+                '--tw-border-opacity': '0.7'
+              } as React.CSSProperties}
             />
             {errors.first_name && (
               <p className="text-red-600 text-sm mt-1">{errors.first_name.message}</p>
@@ -94,7 +99,11 @@ export default function AppointmentForm() {
             <input
               type="text"
               {...register('last_name', { required: 'Last name is required' })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-70"
+              style={{ 
+                '--tw-ring-color': colorStyles?.primary?.backgroundColor || '#2563eb',
+                '--tw-border-opacity': '0.7'
+              } as React.CSSProperties}
             />
             {errors.last_name && (
               <p className="text-red-600 text-sm mt-1">{errors.last_name.message}</p>
@@ -110,7 +119,11 @@ export default function AppointmentForm() {
             <input
               type="email"
               {...register('email', { required: 'Email is required' })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-70"
+              style={{ 
+                '--tw-ring-color': colorStyles?.primary?.backgroundColor || '#2563eb',
+                '--tw-border-opacity': '0.7'
+              } as React.CSSProperties}
             />
             {errors.email && (
               <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>
@@ -124,7 +137,11 @@ export default function AppointmentForm() {
             <input
               type="tel"
               {...register('phone', { required: 'Phone number is required' })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-70"
+              style={{ 
+                '--tw-ring-color': colorStyles?.primary?.backgroundColor || '#2563eb',
+                '--tw-border-opacity': '0.7'
+              } as React.CSSProperties}
             />
             {errors.phone && (
               <p className="text-red-600 text-sm mt-1">{errors.phone.message}</p>
@@ -140,7 +157,11 @@ export default function AppointmentForm() {
             <input
               type="date"
               {...register('preferred_date')}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-70"
+              style={{ 
+                '--tw-ring-color': colorStyles?.primary?.backgroundColor || '#2563eb',
+                '--tw-border-opacity': '0.7'
+              } as React.CSSProperties}
             />
           </div>
           
@@ -150,7 +171,11 @@ export default function AppointmentForm() {
             </label>
             <select
               {...register('preferred_time')}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-70"
+              style={{ 
+                '--tw-ring-color': colorStyles?.primary?.backgroundColor || '#2563eb',
+                '--tw-border-opacity': '0.7'
+              } as React.CSSProperties}
             >
               <option value="">Select a time</option>
               <option value="morning">Morning (8:00 AM - 12:00 PM)</option>
@@ -195,7 +220,8 @@ export default function AppointmentForm() {
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-3 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          style={colorStyles?.primary || { backgroundColor: '#2563eb', color: 'white' }}
         >
           {isSubmitting ? 'Submitting...' : 'Request Appointment'}
         </button>

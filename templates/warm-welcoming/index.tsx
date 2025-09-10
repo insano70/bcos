@@ -1,5 +1,6 @@
 import type { TemplateProps } from '@/lib/types/practice';
 import Head from 'next/head';
+import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
 import Header from './components/header';
 import Hero from './components/hero';
 import About from './components/about';
@@ -12,8 +13,18 @@ import Footer from './components/footer';
 export default function WarmWelcomingTemplate({ 
   practice, 
   attributes, 
-  staff 
+  staff,
+  colorStyles 
 }: TemplateProps) {
+  // Generate color styles if not provided
+  const defaultColors = getTemplateDefaultColors('warm-welcoming');
+  const brandColors = {
+    primary: attributes.primary_color || defaultColors.primary,
+    secondary: attributes.secondary_color || defaultColors.secondary,
+    accent: attributes.accent_color || defaultColors.accent,
+  };
+  const templateColorStyles = colorStyles || getColorStyles(brandColors);
+
   return (
     <>
       {/* SEO and Meta Tags */}
@@ -54,30 +65,30 @@ export default function WarmWelcomingTemplate({
         />
       </Head>
 
-      <div className="min-h-screen bg-amber-50">
+      <div className="min-h-screen" style={templateColorStyles.secondary}>
         {/* Header with navigation */}
-        <Header practice={practice} attributes={attributes} />
+        <Header practice={practice} attributes={attributes} colorStyles={templateColorStyles} />
         
         {/* Hero section */}
-        <Hero practice={practice} attributes={attributes} />
+        <Hero practice={practice} attributes={attributes} colorStyles={templateColorStyles} />
         
         {/* About section */}
-        <About practice={practice} attributes={attributes} />
+        <About practice={practice} attributes={attributes} colorStyles={templateColorStyles} />
         
         {/* Services section */}
-        <Services attributes={attributes} />
+        <Services attributes={attributes} colorStyles={templateColorStyles} />
         
         {/* Providers section */}
-        <Providers staff={staff} />
+        <Providers staff={staff} colorStyles={templateColorStyles} />
         
         {/* Appointment Form Section */}
-        <section className="py-20 bg-orange-100">
+        <section className="py-20" style={templateColorStyles.primaryBg100}>
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-serif text-amber-900 mb-4">
+              <h2 className="text-3xl md:text-4xl font-serif mb-4" style={templateColorStyles.primaryText}>
                 Schedule Your Visit
               </h2>
-              <p className="text-lg text-amber-800">
+              <p className="text-lg" style={templateColorStyles.primaryText}>
                 We're here to help you feel better. Let's start your journey to wellness together.
               </p>
             </div>

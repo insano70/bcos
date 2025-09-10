@@ -23,7 +23,9 @@ export default function UsersTable({ users }: { users: User[] }) {
       <header className="px-5 py-4">
         <h2 className="font-semibold text-gray-800 dark:text-gray-100">
           All Users{' '}
-          <span className="text-gray-400 dark:text-gray-500 font-medium">{users.length}</span>
+          <span className="text-gray-400 dark:text-gray-500 font-medium">
+            {users.filter(user => user.is_active !== false).length}
+          </span>
         </h2>
       </header>
       <div>

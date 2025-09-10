@@ -2,9 +2,10 @@ import type { StaffMember } from '@/lib/types/practice';
 
 interface ProvidersProps {
   staff: StaffMember[];
+  colorStyles: any;
 }
 
-export default function Providers({ staff }: ProvidersProps) {
+export default function Providers({ staff, colorStyles }: ProvidersProps) {
   const activeStaff = staff.filter(member => member.is_active);
 
   return (
@@ -31,8 +32,8 @@ export default function Providers({ staff }: ProvidersProps) {
                     className="w-full h-64 object-cover"
                   />
                 ) : (
-                  <div className="w-full h-64 bg-blue-100 flex items-center justify-center">
-                    <span className="text-blue-600 text-6xl">👨‍⚕️</span>
+                  <div className="w-full h-64 flex items-center justify-center" style={colorStyles.primaryBg100}>
+                    <span className="text-6xl" style={colorStyles.primaryText}>👨‍⚕️</span>
                   </div>
                 )}
               </div>
@@ -44,7 +45,7 @@ export default function Providers({ staff }: ProvidersProps) {
                 </h3>
                 
                 {provider.title && (
-                  <p className="text-blue-600 font-semibold mb-2">
+                  <p className="font-semibold mb-2" style={colorStyles.primaryText}>
                     {provider.title}
                   </p>
                 )}
@@ -68,7 +69,8 @@ export default function Providers({ staff }: ProvidersProps) {
                       {provider.specialties.map((specialty, index) => (
                         <span
                           key={index}
-                          className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full"
+                          className="inline-block text-xs px-2 py-1 rounded-full"
+                          style={{ ...colorStyles.primaryBg100, ...colorStyles.primaryText }}
                         >
                           {specialty}
                         </span>
@@ -79,7 +81,8 @@ export default function Providers({ staff }: ProvidersProps) {
                 
                 <button
                   type="button"
-                  className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  className="w-full py-2 rounded-lg transition-colors"
+                  style={colorStyles.primary}
                 >
                   Schedule with {provider.name.split(' ')[1] || provider.name}
                 </button>

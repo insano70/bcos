@@ -1,13 +1,14 @@
-import type { Practice, PracticeAttributes } from '@/lib/types/practice';
+import type { Practice, PracticeAttributes, ColorStyles } from '@/lib/types/practice';
 
 interface FooterProps {
   practice: Practice;
   attributes: PracticeAttributes;
+  colorStyles: ColorStyles;
 }
 
-export default function Footer({ practice, attributes }: FooterProps) {
+export default function Footer({ practice, attributes, colorStyles }: FooterProps) {
   return (
-    <footer className="bg-gray-900 text-white py-12">
+    <footer className="text-white py-12" style={colorStyles.primary}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           <p className="text-gray-300">

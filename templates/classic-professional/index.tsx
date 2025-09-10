@@ -1,5 +1,6 @@
 import type { TemplateProps } from '@/lib/types/practice';
 import Head from 'next/head';
+import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
 import Header from './components/header';
 import Hero from './components/hero';
 import About from './components/about';
@@ -14,6 +15,17 @@ export default function ClassicProfessionalTemplate({
   attributes, 
   staff 
 }: TemplateProps) {
+  // Get colors for this practice or use template defaults
+  const defaultColors = getTemplateDefaultColors('classic-professional');
+  const brandColors = {
+    primary: attributes.primary_color || defaultColors.primary,
+    secondary: attributes.secondary_color || defaultColors.secondary,
+    accent: attributes.accent_color || defaultColors.accent,
+  };
+  
+  // Generate color styles for SSR-compatible rendering
+  const colorStyles = getColorStyles(brandColors);
+
   return (
     <>
       {/* SEO and Meta Tags */}
@@ -56,22 +68,22 @@ export default function ClassicProfessionalTemplate({
 
       <div className="min-h-screen bg-white">
         {/* Header with navigation */}
-        <Header practice={practice} attributes={attributes} />
+        <Header practice={practice} attributes={attributes} colorStyles={colorStyles} />
         
         {/* Hero section */}
-        <Hero practice={practice} attributes={attributes} />
+        <Hero practice={practice} attributes={attributes} colorStyles={colorStyles} />
         
         {/* About section */}
-        <About practice={practice} attributes={attributes} />
+        <About practice={practice} attributes={attributes} colorStyles={colorStyles} />
         
         {/* Services section */}
-        <Services attributes={attributes} />
+        <Services attributes={attributes} colorStyles={colorStyles} />
         
         {/* Providers section */}
-        <Providers staff={staff} />
+        <Providers staff={staff} colorStyles={colorStyles} />
         
         {/* Appointment Form Section */}
-        <section className="py-20 bg-blue-50">
+        <section className="py-20" style={colorStyles.primaryBg50}>
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
@@ -81,15 +93,15 @@ export default function ClassicProfessionalTemplate({
                 Ready to take the first step toward better health? Request an appointment today.
               </p>
             </div>
-            <AppointmentForm />
+            <AppointmentForm colorStyles={colorStyles} />
           </div>
         </section>
         
         {/* Contact section */}
-        <Contact practice={practice} attributes={attributes} />
+        <Contact practice={practice} attributes={attributes} colorStyles={colorStyles} />
         
         {/* Footer */}
-        <Footer practice={practice} attributes={attributes} />
+        <Footer practice={practice} attributes={attributes} colorStyles={colorStyles} />
       </div>
     </>
   );

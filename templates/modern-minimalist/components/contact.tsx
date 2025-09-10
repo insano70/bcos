@@ -4,9 +4,10 @@ import { parseBusinessHours, parseInsurance } from '@/lib/utils/json-parser';
 interface ContactProps {
   practice: Practice;
   attributes: PracticeAttributes;
+  colorStyles: any;
 }
 
-export default function Contact({ practice, attributes }: ContactProps) {
+export default function Contact({ practice, attributes, colorStyles }: ContactProps) {
   const businessHours = parseBusinessHours(attributes.business_hours);
 
   const formatTime = (time: string) => {

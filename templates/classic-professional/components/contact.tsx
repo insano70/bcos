@@ -4,9 +4,10 @@ import { parseBusinessHours, parseInsurance } from '@/lib/utils/json-parser';
 interface ContactProps {
   practice: Practice;
   attributes: PracticeAttributes;
+  colorStyles: any;
 }
 
-export default function Contact({ practice, attributes }: ContactProps) {
+export default function Contact({ practice, attributes, colorStyles }: ContactProps) {
   const formatBusinessHours = (hours: any) => {
     if (!hours) return null;
     
@@ -47,12 +48,12 @@ export default function Contact({ practice, attributes }: ContactProps) {
             
             {attributes.phone && (
               <div className="flex items-center mb-4">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
-                  <span className="text-blue-600">📞</span>
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center mr-4" style={colorStyles.primaryBg100}>
+                  <span style={colorStyles.primaryText}>📞</span>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Phone</p>
-                  <a href={`tel:${attributes.phone}`} className="text-blue-600 font-semibold hover:text-blue-700">
+                  <a href={`tel:${attributes.phone}`} className="font-semibold transition-colors hover:opacity-80" style={colorStyles.primaryText}>
                     {attributes.phone}
                   </a>
                 </div>
@@ -61,12 +62,12 @@ export default function Contact({ practice, attributes }: ContactProps) {
             
             {attributes.email && (
               <div className="flex items-center mb-4">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
-                  <span className="text-blue-600">✉️</span>
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center mr-4" style={colorStyles.primaryBg100}>
+                  <span style={colorStyles.primaryText}>✉️</span>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Email</p>
-                  <a href={`mailto:${attributes.email}`} className="text-blue-600 font-semibold hover:text-blue-700">
+                  <a href={`mailto:${attributes.email}`} className="font-semibold transition-colors hover:opacity-80" style={colorStyles.primaryText}>
                     {attributes.email}
                   </a>
                 </div>
@@ -75,8 +76,8 @@ export default function Contact({ practice, attributes }: ContactProps) {
             
             {(attributes.address_line1 || attributes.city) && (
               <div className="flex items-start">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
-                  <span className="text-blue-600">📍</span>
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center mr-4" style={colorStyles.primaryBg100}>
+                  <span style={colorStyles.primaryText}>📍</span>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Address</p>
@@ -113,7 +114,7 @@ export default function Contact({ practice, attributes }: ContactProps) {
               <div className="space-y-2">
                 {attributes.insurance_accepted.map((insurance, index) => (
                   <div key={index} className="flex items-center">
-                    <span className="w-2 h-2 bg-blue-600 rounded-full mr-3"></span>
+                    <span className="w-2 h-2 rounded-full mr-3" style={{ backgroundColor: colorStyles.primary.backgroundColor }}></span>
                     <span className="text-gray-700">{insurance}</span>
                   </div>
                 ))}

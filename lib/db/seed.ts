@@ -164,6 +164,138 @@ async function seedPractices() {
       return;
     }
 
+    // Create Denver Rheumatology practice
+    const denverPractice = await db
+      .select()
+      .from(practices)
+      .where(eq(practices.domain, 'denver-rheumatology.com'))
+      .limit(1);
+
+    if (denverPractice.length === 0) {
+      const [newDenverPractice] = await db
+        .insert(practices)
+        .values({
+          name: 'Denver Rheumatology',
+          domain: 'denver-rheumatology.com',
+          template_id: randomTemplate.template_id,
+          status: 'active',
+          owner_user_id: adminUser.user_id,
+        })
+        .returning();
+      
+      console.log('✅ Denver Rheumatology practice created:', newDenverPractice.name);
+      
+      // Create practice attributes for Denver Rheumatology
+      await db
+        .insert(practice_attributes)
+        .values({
+          practice_id: newDenverPractice.practice_id,
+          phone: '(720) 555-0199',
+          email: 'info@denver-rheumatology.com',
+          address_line1: '456 Colorado Boulevard',
+          address_line2: 'Suite 300',
+          city: 'Denver',
+          state: 'CO',
+          zip_code: '80206',
+          business_hours: JSON.stringify({
+            monday: { open: '08:00', close: '17:00', closed: false },
+            tuesday: { open: '08:00', close: '17:00', closed: false },
+            wednesday: { open: '08:00', close: '17:00', closed: false },
+            thursday: { open: '08:00', close: '17:00', closed: false },
+            friday: { open: '08:00', close: '16:00', closed: false },
+            saturday: { closed: true },
+            sunday: { closed: true }
+          }),
+          services: JSON.stringify([
+            'Rheumatoid Arthritis Treatment',
+            'Psoriatic Arthritis Management',
+            'Lupus Care',
+            'Gout Treatment',
+            'Osteoporosis Management',
+            'Biologic Infusion Therapy',
+            'Joint Injections',
+            'Fibromyalgia Treatment'
+          ]),
+          conditions_treated: JSON.stringify([
+            'Rheumatoid Arthritis',
+            'Psoriatic Arthritis',
+            'Systemic Lupus Erythematosus',
+            'Gout',
+            'Osteoporosis',
+            'Osteoarthritis',
+            'Fibromyalgia',
+            'Ankylosing Spondylitis',
+            'Sjögren\'s Syndrome',
+            'Polymyalgia Rheumatica'
+          ]),
+          insurance_accepted: JSON.stringify([
+            'Aetna',
+            'Anthem Blue Cross Blue Shield',
+            'Cigna',
+            'Humana',
+            'Kaiser Permanente',
+            'Medicare',
+            'UnitedHealthcare'
+          ]),
+          about_text: 'Denver Rheumatology is a leading rheumatology practice in the Denver metro area, dedicated to providing comprehensive care for patients with arthritis and autoimmune conditions. Our experienced team combines cutting-edge treatments with compassionate care.',
+          mission_statement: 'To improve the quality of life for patients with rheumatic diseases through expert diagnosis, innovative treatment, and personalized care.',
+          welcome_message: 'Welcome to Denver Rheumatology. We are committed to helping you manage your condition and live your best life.',
+          meta_title: 'Denver Rheumatology - Expert Arthritis & Autoimmune Care in Denver, CO',
+          meta_description: 'Denver\'s premier rheumatology practice specializing in arthritis, lupus, and autoimmune conditions. Board-certified rheumatologists providing expert care.',
+          primary_color: '#00AEEF',
+          secondary_color: '#FFFFFF',
+          accent_color: '#44C0AE'
+        });
+
+      // Create staff members for Denver Rheumatology
+      await db
+        .insert(staff_members)
+        .values([
+          {
+            practice_id: newDenverPractice.practice_id,
+            name: 'Dr. Michael Chen',
+            title: 'Rheumatologist',
+            credentials: 'MD, FACR',
+            bio: 'Dr. Chen is a board-certified rheumatologist with expertise in inflammatory arthritis and biologic therapies. He completed his fellowship at the University of Colorado and has been practicing in Denver for over 10 years.',
+            specialties: JSON.stringify([
+              'Rheumatoid Arthritis',
+              'Psoriatic Arthritis',
+              'Biologic Therapy',
+              'Inflammatory Arthritis'
+            ]),
+            education: JSON.stringify([
+              { degree: 'MD', school: 'Stanford University School of Medicine', year: '2009' },
+              { degree: 'Rheumatology Fellowship', school: 'University of Colorado', year: '2015' },
+              { degree: 'Internal Medicine Residency', school: 'UCLA Medical Center', year: '2012' }
+            ]),
+            display_order: 1,
+          },
+          {
+            practice_id: newDenverPractice.practice_id,
+            name: 'Dr. Emily Rodriguez',
+            title: 'Rheumatologist',
+            credentials: 'MD, MS',
+            bio: 'Dr. Rodriguez specializes in lupus and other connective tissue diseases. She is actively involved in clinical research and has published numerous papers on novel treatments for autoimmune conditions.',
+            specialties: JSON.stringify([
+              'Lupus',
+              'Sjögren\'s Syndrome',
+              'Connective Tissue Diseases',
+              'Clinical Research'
+            ]),
+            education: JSON.stringify([
+              { degree: 'MD', school: 'University of Michigan Medical School', year: '2011' },
+              { degree: 'MS', school: 'University of Michigan', year: '2008' },
+              { degree: 'Rheumatology Fellowship', school: 'Mayo Clinic', year: '2017' }
+            ]),
+            display_order: 2,
+          }
+        ]);
+      
+      console.log('✅ Denver Rheumatology configuration and staff created');
+    } else {
+      console.log('ℹ️  Denver Rheumatology practice already exists, skipping...');
+    }
+
     // Check if demo practice exists
     const existingPractice = await db
       .select()
@@ -174,13 +306,13 @@ async function seedPractices() {
     if (existingPractice.length === 0) {
       const [newPractice] = await db
         .insert(practices)
-        .                    values({
-                      name: 'Demo Rheumatology Clinic',
-                      domain: 'demo-rheumatology.com',
-                      template_id: randomTemplate.template_id,
-                      status: 'active',
-                      owner_user_id: adminUser.user_id,
-                    })
+        .values({
+          name: 'Demo Rheumatology Clinic',
+          domain: 'demo-rheumatology.com',
+          template_id: randomTemplate.template_id,
+          status: 'active',
+          owner_user_id: adminUser.user_id,
+        })
         .returning();
       
       console.log('✅ Demo practice created:', newPractice.name);
@@ -236,7 +368,10 @@ async function seedPractices() {
           mission_statement: 'To provide compassionate, expert rheumatology care while advancing the field through research and education.',
           welcome_message: 'Welcome to Demo Rheumatology Clinic, where expert care meets compassionate treatment.',
           meta_title: 'Demo Rheumatology Clinic - Expert Arthritis & Autoimmune Care',
-          meta_description: 'Leading rheumatology practice specializing in rheumatoid arthritis, lupus, and autoimmune conditions. Expert care from board-certified rheumatologists.'
+          meta_description: 'Leading rheumatology practice specializing in rheumatoid arthritis, lupus, and autoimmune conditions. Expert care from board-certified rheumatologists.',
+          primary_color: '#00AEEF',
+          secondary_color: '#FFFFFF',
+          accent_color: '#44C0AE'
         });
 
       // Create sample staff member
