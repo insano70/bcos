@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from './custom-auth-provider'
 import Link from 'next/link'
 import { loginSchema } from '@/lib/validations/auth'
+import SplitText from '@/components/SplitText'
 import type { z } from 'zod'
 
 type LoginFormData = z.infer<typeof loginSchema>
@@ -17,10 +18,11 @@ interface LoginFormProps {
 
 export default function LoginForm({ onSuccess }: LoginFormProps) {
   const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
-  const { login, isLoading } = useAuth()
+  const { login } = useAuth()
 
   const {
     register,
@@ -28,12 +30,14 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     formState: { errors, isValid }
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
-    mode: 'onBlur'
+    mode: 'onChange',
+    reValidateMode: 'onChange'
   })
 
   const onSubmit = async (data: LoginFormData) => {
     try {
       setError(null)
+      setIsSubmitting(true)
       console.log('Login form submitting...')
 
       await login(data.email, data.password, data.remember)
@@ -48,6 +52,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
       console.error('Login error:', error)
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.'
       setError(errorMessage)
+      setIsSubmitting(false)
     }
   }
 
@@ -77,6 +82,12 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
           autoFocus
           className="form-input w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
           {...register('email')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              void handleSubmit(onSubmit)()
+            }
+          }}
         />
         {errors.email && (
           <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email.message}</p>
@@ -94,6 +105,12 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
           autoComplete="current-password"
           className="form-input w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
           {...register('password')}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              void handleSubmit(onSubmit)()
+            }
+          }}
         />
         {errors.password && (
           <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password.message}</p>
@@ -126,10 +143,10 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
         </Link>
         <button
           type="submit"
-          disabled={!isValid || isLoading}
+          disabled={!isValid || isSubmitting}
           className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed ml-3"
         >
-          {isLoading ? (
+          {isSubmitting ? (
             <div className="flex items-center">
               <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-current" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

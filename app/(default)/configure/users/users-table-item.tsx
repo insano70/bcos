@@ -127,6 +127,7 @@ export default function UsersTableItem({
         <div className="relative inline-flex" ref={dropdownRef}>
           {/* Menu button */}
           <button 
+            type="button"
             className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400 rounded-full"
             aria-haspopup="true"
             aria-expanded={dropdownOpen}
@@ -146,6 +147,7 @@ export default function UsersTableItem({
               <ul>
                 <li>
                   <button
+                    type="button"
                     className="font-medium text-sm text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-200 flex items-center py-1 px-3 w-full text-left"
                     onClick={handleEdit}
                   >
@@ -157,6 +159,7 @@ export default function UsersTableItem({
                 </li>
                 <li>
                   <button
+                    type="button"
                     className="font-medium text-sm text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-200 flex items-center py-1 px-3 w-full text-left"
                     onClick={handleInactivate}
                   >
@@ -168,6 +171,7 @@ export default function UsersTableItem({
                 </li>
                 <li>
                   <button
+                    type="button"
                     className="font-medium text-sm text-red-500 hover:text-red-600 flex items-center py-1 px-3 w-full text-left"
                     onClick={handleDelete}
                   >

@@ -32,6 +32,33 @@ export async function POST(request: NextRequest) {
       return createErrorResponse('Failed to logout', 500, request)
     }
 
+    // Blacklist access token if provided (defense-in-depth)
+    const authHeader = request.headers.get('Authorization')
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.slice(7)
+        const { jwtVerify } = await import('jose')
+        const ACCESS_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
+        const { payload } = await jwtVerify(token, ACCESS_TOKEN_SECRET)
+        const jti = payload.jti as string | undefined
+        const userId = payload.sub as string | undefined
+        if (jti && userId) {
+          // Insert into blacklist via TokenManager.cleanup-style util
+          const { db, token_blacklist } = await import('@/lib/db') as any
+          await db.insert(token_blacklist).values({
+            jti,
+            user_id: userId,
+            token_type: 'access',
+            // expire when access tokens would no longer be valid (15 min)
+            expires_at: new Date(Date.now() + 15 * 60 * 1000),
+            reason: 'logout'
+          })
+        }
+      } catch (e) {
+        console.warn('Failed to blacklist access token on logout:', e)
+      }
+    }
+
     // Clear refresh token cookie
     const response = createSuccessResponse(
       { message: 'Logged out successfully' }, 

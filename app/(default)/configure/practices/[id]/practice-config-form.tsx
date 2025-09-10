@@ -2,8 +2,7 @@
 
 import { useForm } from 'react-hook-form';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useId } from 'react';
 import ImageUpload from '@/components/image-upload';
 import ColorPicker from '@/components/color-picker';
 import type { Practice, PracticeAttributes, StaffMember, Template } from '@/lib/types/practice';
@@ -74,12 +73,11 @@ interface PracticeConfigFormProps {
 export default function PracticeConfigForm({ 
   practice, 
   attributes: initialAttributes, 
-  staff, 
   allTemplates 
 }: PracticeConfigFormProps) {
   const practiceId = practice.practice_id;
   const queryClient = useQueryClient();
-  const router = useRouter();
+  const uid = useId();
 
   const { data: attributes, isLoading } = useQuery({
     queryKey: ['practice-attributes', practiceId],
@@ -151,7 +149,7 @@ export default function PracticeConfigForm({
     }
 
     // Update attributes
-    const { template_id, ...attributesData } = data;
+    const { template_id: _template_id, ...attributesData } = data;
     updateAttributes.mutate(attributesData);
   };
 
@@ -195,10 +193,11 @@ export default function PracticeConfigForm({
           
           <div className="space-y-4">
             <div>
-              <label htmlFor="template_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor={`${uid}-template_id`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Choose Template Design
               </label>
               <select
+                id={`${uid}-template_id`}
                 {...register('template_id', { required: 'Please select a template' })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
@@ -286,11 +285,12 @@ export default function PracticeConfigForm({
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor={`${uid}-phone`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Phone Number
               </label>
               <input
                 type="tel"
+                id={`${uid}-phone`}
                 {...register('phone')}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="(555) 123-4567"
@@ -298,11 +298,12 @@ export default function PracticeConfigForm({
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor={`${uid}-email`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Email Address
               </label>
               <input
                 type="email"
+                id={`${uid}-email`}
                 {...register('email')}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="info@practice.com"
@@ -310,11 +311,12 @@ export default function PracticeConfigForm({
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor={`${uid}-address_line1`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Address Line 1
               </label>
               <input
                 type="text"
+                id={`${uid}-address_line1`}
                 {...register('address_line1')}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="123 Medical Center Drive"
@@ -322,11 +324,12 @@ export default function PracticeConfigForm({
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor={`${uid}-address_line2`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Address Line 2
               </label>
               <input
                 type="text"
+                id={`${uid}-address_line2`}
                 {...register('address_line2')}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Suite 200"
@@ -334,11 +337,12 @@ export default function PracticeConfigForm({
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor={`${uid}-city`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 City
               </label>
               <input
                 type="text"
+                id={`${uid}-city`}
                 {...register('city')}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Denver"
@@ -346,11 +350,12 @@ export default function PracticeConfigForm({
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor={`${uid}-state`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 State
               </label>
               <input
                 type="text"
+                id={`${uid}-state`}
                 {...register('state')}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="CO"
@@ -358,11 +363,12 @@ export default function PracticeConfigForm({
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor={`${uid}-zip_code`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 ZIP Code
               </label>
               <input
                 type="text"
+                id={`${uid}-zip_code`}
                 {...register('zip_code')}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="80202"
@@ -379,11 +385,12 @@ export default function PracticeConfigForm({
           
           <div className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor={`${uid}-welcome_message`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Welcome Message
               </label>
               <input
                 type="text"
+                id={`${uid}-welcome_message`}
                 {...register('welcome_message')}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Welcome to our rheumatology practice"
@@ -391,10 +398,11 @@ export default function PracticeConfigForm({
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor={`${uid}-about_text`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 About Text
               </label>
               <textarea
+                id={`${uid}-about_text`}
                 {...register('about_text')}
                 rows={4}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -403,10 +411,11 @@ export default function PracticeConfigForm({
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor={`${uid}-mission_statement`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Mission Statement
               </label>
               <textarea
+                id={`${uid}-mission_statement`}
                 {...register('mission_statement')}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -449,11 +458,12 @@ export default function PracticeConfigForm({
           
           <div className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor={`${uid}-meta_title`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Meta Title
               </label>
               <input
                 type="text"
+                id={`${uid}-meta_title`}
                 {...register('meta_title')}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Practice Name - Expert Rheumatology Care"
@@ -461,10 +471,11 @@ export default function PracticeConfigForm({
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor={`${uid}-meta_description`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Meta Description
               </label>
               <textarea
+                id={`${uid}-meta_description`}
                 {...register('meta_description')}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"

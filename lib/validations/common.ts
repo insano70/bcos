@@ -7,8 +7,8 @@ export const uuidSchema = z.string().uuid('Invalid UUID format')
 
 // Pagination schema
 export const paginationSchema = z.object({
-  page: z.string().optional().transform(val => Math.max(1, parseInt(val || '1') || 1)),
-  limit: z.string().optional().transform(val => Math.min(100, Math.max(1, parseInt(val || '10') || 10)))
+  page: z.string().optional().transform(val => Math.max(1, parseInt(val || '1', 10) || 1)),
+  limit: z.string().optional().transform(val => Math.min(100, Math.max(1, parseInt(val || '10', 10) || 10)))
 })
 
 // Sorting schema
@@ -48,7 +48,7 @@ export const emailSchema = z.string()
 
 // Phone validation
 export const phoneSchema = z.string()
-  .regex(/^[\+]?[1-9][\d]{0,15}$/, 'Invalid phone number format')
+  .regex(/^[+]?[1-9][\d]{0,15}$/, 'Invalid phone number format')
   .max(20, 'Phone number must not exceed 20 characters')
 
 // URL validation

@@ -15,24 +15,24 @@ export interface AuditLogEntry {
   user_agent?: string
   resource_type?: string
   resource_id?: string
-  old_values?: Record<string, any>
-  new_values?: Record<string, any>
-  metadata?: Record<string, any>
+  old_values?: Record<string, unknown>
+  new_values?: Record<string, unknown>
+  metadata?: Record<string, unknown>
   severity: 'low' | 'medium' | 'high' | 'critical'
   timestamp?: Date
 }
 
-export class AuditLogger {
+class AuditLoggerService {
   /**
    * Log authentication events
    */
-  static async logAuth(data: {
+  async logAuth(data: {
     action: 'login' | 'logout' | 'login_failed' | 'password_reset' | 'account_locked'
     userId?: string
     email?: string
     ipAddress?: string
     userAgent?: string
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   }): Promise<void> {
     await this.log({
       event_type: 'auth',
@@ -51,14 +51,14 @@ export class AuditLogger {
   /**
    * Log user actions
    */
-  static async logUserAction(data: {
+  async logUserAction(data: {
     action: string
     userId: string
     resourceType?: string
     resourceId?: string
     ipAddress?: string
     userAgent?: string
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   }): Promise<void> {
     await this.log({
       event_type: 'user_action',
@@ -76,16 +76,16 @@ export class AuditLogger {
   /**
    * Log data changes (CRUD operations)
    */
-  static async logDataChange(data: {
+  async logDataChange(data: {
     action: 'create' | 'update' | 'delete'
     userId: string
     resourceType: string
     resourceId: string
-    oldValues?: Record<string, any>
-    newValues?: Record<string, any>
+    oldValues?: Record<string, unknown>
+    newValues?: Record<string, unknown>
     ipAddress?: string
     userAgent?: string
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   }): Promise<void> {
     await this.log({
       event_type: 'data_change',
@@ -105,12 +105,12 @@ export class AuditLogger {
   /**
    * Log security events
    */
-  static async logSecurity(data: {
+  async logSecurity(data: {
     action: string
     userId?: string
     ipAddress?: string
     userAgent?: string
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
     severity?: 'low' | 'medium' | 'high' | 'critical'
   }): Promise<void> {
     await this.log({
@@ -127,9 +127,9 @@ export class AuditLogger {
   /**
    * Log system events
    */
-  static async logSystem(data: {
+  async logSystem(data: {
     action: string
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
     severity?: 'low' | 'medium' | 'high' | 'critical'
   }): Promise<void> {
     await this.log({
@@ -143,7 +143,7 @@ export class AuditLogger {
   /**
    * Core logging method
    */
-  private static async log(entry: AuditLogEntry): Promise<void> {
+  private async log(entry: AuditLogEntry): Promise<void> {
     try {
       const logEntry = {
         audit_log_id: nanoid(),
@@ -181,7 +181,7 @@ export class AuditLogger {
   /**
    * Send critical alerts to system administrators
    */
-  private static async sendCriticalAlert(entry: AuditLogEntry): Promise<void> {
+  private async sendCriticalAlert(entry: AuditLogEntry): Promise<void> {
     try {
       // Dynamic import to avoid circular dependencies
       const { EmailService } = await import('./email')
@@ -206,7 +206,7 @@ export class AuditLogger {
   /**
    * Get audit logs with filtering and pagination
    */
-  static async getLogs(options: {
+  async getLogs(_options: {
     eventType?: string
     userId?: string
     resourceType?: string
@@ -233,7 +233,7 @@ export class AuditLogger {
   /**
    * Extract request information for logging
    */
-  static extractRequestInfo(request: Request): {
+  extractRequestInfo(request: Request): {
     ipAddress: string
     userAgent: string
   } {
@@ -245,3 +245,5 @@ export class AuditLogger {
     }
   }
 }
+
+export const AuditLogger = new AuditLoggerService()

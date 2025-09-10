@@ -31,7 +31,7 @@ export async function getCurrentUserFromToken(accessToken: string) {
       role: 'admin',
       emailVerified: user.email_verified
     }
-  } catch (error) {
+  } catch (_error) {
     return null
   }
 }

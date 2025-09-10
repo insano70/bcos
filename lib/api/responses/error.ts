@@ -2,7 +2,7 @@ export interface ErrorResponse {
   success: false
   error: string
   code?: string
-  details?: any
+  details?: unknown
   meta: {
     timestamp: string
     path?: string
@@ -14,7 +14,7 @@ export class APIError extends Error {
     public message: string,
     public statusCode: number = 500,
     public code?: string,
-    public details?: any
+    public details?: unknown
   ) {
     super(message)
     this.name = 'APIError'
@@ -28,7 +28,7 @@ export function createErrorResponse(
 ): Response {
   let errorMessage: string
   let errorCode: string | undefined
-  let errorDetails: any
+  let errorDetails: unknown
   let finalStatusCode = statusCode
 
   if (error instanceof APIError) {
@@ -63,7 +63,7 @@ export const AuthenticationError = (message = 'Authentication required') =>
 export const AuthorizationError = (message = 'Insufficient permissions') => 
   new APIError(message, 403, 'INSUFFICIENT_PERMISSIONS')
 
-export const ValidationError = (details: any, message = 'Validation failed') => 
+export const ValidationError = (details: unknown, message = 'Validation failed') => 
   new APIError(message, 400, 'VALIDATION_ERROR', details)
 
 export const NotFoundError = (resource = 'Resource') => 

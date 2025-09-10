@@ -29,23 +29,23 @@ export class EmailService {
   private static resend: Resend | null = null
 
   private static getResend(): Resend {
-    if (!this.resend) {
+    if (!EmailService.resend) {
       const apiKey = process.env.RESEND_API_KEY
       if (!apiKey) {
         throw new Error('RESEND_API_KEY environment variable is not set')
       }
-      this.resend = new Resend(apiKey)
+      EmailService.resend = new Resend(apiKey)
     }
-    return this.resend
+    return EmailService.resend
   }
 
   /**
    * Send a welcome email to new users
    */
   static async sendWelcomeEmail(email: string, firstName: string, lastName: string): Promise<void> {
-    const template = this.getWelcomeTemplate({ firstName, lastName })
+    const template = EmailService.getWelcomeTemplate({ firstName, lastName })
     
-    await this.send({
+    await EmailService.send({
       to: email,
       subject: template.subject,
       html: template.html,
@@ -58,9 +58,9 @@ export class EmailService {
    */
   static async sendPasswordResetEmail(email: string, resetToken: string, firstName: string): Promise<void> {
     const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`
-    const template = this.getPasswordResetTemplate({ firstName, resetUrl })
+    const template = EmailService.getPasswordResetTemplate({ firstName, resetUrl })
     
-    await this.send({
+    await EmailService.send({
       to: email,
       subject: template.subject,
       html: template.html,
@@ -73,9 +73,9 @@ export class EmailService {
    */
   static async sendEmailVerificationEmail(email: string, verificationToken: string, firstName: string): Promise<void> {
     const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${verificationToken}`
-    const template = this.getEmailVerificationTemplate({ firstName, verificationUrl })
+    const template = EmailService.getEmailVerificationTemplate({ firstName, verificationUrl })
     
-    await this.send({
+    await EmailService.send({
       to: email,
       subject: template.subject,
       html: template.html,
@@ -88,9 +88,9 @@ export class EmailService {
    */
   static async sendPracticeSetupEmail(email: string, practiceName: string, ownerName: string): Promise<void> {
     const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`
-    const template = this.getPracticeSetupTemplate({ ownerName, practiceName, dashboardUrl })
+    const template = EmailService.getPracticeSetupTemplate({ ownerName, practiceName, dashboardUrl })
     
-    await this.send({
+    await EmailService.send({
       to: email,
       subject: template.subject,
       html: template.html,
@@ -104,7 +104,7 @@ export class EmailService {
   static async sendSystemNotification(
     subject: string, 
     message: string, 
-    details?: Record<string, any>
+    details?: Record<string, unknown>
   ): Promise<void> {
     const adminEmails = process.env.ADMIN_NOTIFICATION_EMAILS?.split(',') || []
     
@@ -113,9 +113,9 @@ export class EmailService {
       return
     }
 
-    const template = this.getSystemNotificationTemplate({ message, details })
+    const template = EmailService.getSystemNotificationTemplate({ message, details })
     
-    await this.send({
+    await EmailService.send({
       to: adminEmails,
       subject: `[System Alert] ${subject}`,
       html: template.html,
@@ -128,7 +128,7 @@ export class EmailService {
    */
   private static async send(options: EmailOptions): Promise<void> {
     try {
-      const resend = this.getResend()
+      const resend = EmailService.getResend()
       const fromEmail = process.env.EMAIL_FROM || 'noreply@yourdomain.com'
       
       const result = await resend.emails.send({
@@ -402,7 +402,7 @@ export class EmailService {
   /**
    * System notification template
    */
-  private static getSystemNotificationTemplate(vars: { message: string; details?: Record<string, any> }): EmailTemplate {
+  private static getSystemNotificationTemplate(vars: { message: string; details?: Record<string, unknown> }): EmailTemplate {
     const subject = 'System Notification'
     
     const detailsHtml = vars.details 

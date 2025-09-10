@@ -34,6 +34,7 @@ export default function UsersContent() {
                 {error instanceof Error ? error.message : 'An unexpected error occurred'}
               </p>
               <button
+                type="button"
                 onClick={() => refetch()}
                 className="mt-3 btn-sm bg-red-600 hover:bg-red-700 text-white"
               >
@@ -90,6 +91,7 @@ export default function UsersContent() {
 
           {/* Add user button */}
           <button
+            type="button"
             disabled={isLoading}
             className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
           >

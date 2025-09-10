@@ -1,4 +1,4 @@
-export interface SuccessResponse<T = any> {
+export interface SuccessResponse<T = unknown> {
   success: true
   data: T
   message?: string

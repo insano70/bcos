@@ -5,7 +5,7 @@ export class PasswordService {
   private static readonly saltRounds = 12
   
   static async hash(password: string): Promise<string> {
-    return await bcrypt.hash(password, this.saltRounds)
+    return await bcrypt.hash(password, PasswordService.saltRounds)
   }
   
   static async verify(password: string, hash: string): Promise<boolean> {
@@ -45,8 +45,6 @@ export class PasswordService {
 // Account lockout system
 export class AccountSecurity {
   private static failedAttempts = new Map<string, { count: number; lastAttempt: number; lockedUntil?: number }>()
-  private static readonly maxFailedAttempts = 5
-  private static readonly lockoutDuration = 15 * 60 * 1000 // 15 minutes
   private static readonly progressiveLockout = [
     1 * 60 * 1000,  // 1 minute after 3 attempts
     5 * 60 * 1000,  // 5 minutes after 4 attempts

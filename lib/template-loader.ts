@@ -3,7 +3,6 @@ import ModernMinimalistTemplate from '@/templates/modern-minimalist';
 import WarmWelcomingTemplate from '@/templates/warm-welcoming';
 import ClinicalFocusTemplate from '@/templates/clinical-focus';
 import CommunityPracticeTemplate from '@/templates/community-practice';
-import type { TemplateProps } from '@/lib/types/practice';
 
 // Template mapping
 const TEMPLATE_MAP = {

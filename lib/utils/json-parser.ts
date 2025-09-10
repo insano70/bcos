@@ -1,7 +1,7 @@
 /**
  * Safely parse JSON strings with fallback values
  */
-export function safeJsonParse<T>(jsonString: string | null | undefined | any, fallback: T): T {
+export function safeJsonParse<T>(jsonString: string | null | undefined | unknown, fallback: T): T {
   // If the value is null or undefined, return fallback
   if (jsonString == null) {
     return fallback;
@@ -9,7 +9,7 @@ export function safeJsonParse<T>(jsonString: string | null | undefined | any, fa
   
   // If the value is already parsed (not a string), return it
   if (typeof jsonString !== 'string') {
-    return jsonString;
+    return jsonString as T;
   }
   
   // If it's an empty string, return fallback
@@ -28,7 +28,7 @@ export function safeJsonParse<T>(jsonString: string | null | undefined | any, fa
 /**
  * Parse business hours with fallback
  */
-export function parseBusinessHours(jsonString: string | null | undefined | any) {
+export function parseBusinessHours(jsonString: string | null | undefined | unknown) {
   return safeJsonParse(jsonString, {
     monday: { open: '08:00', close: '17:00', closed: false },
     tuesday: { open: '08:00', close: '17:00', closed: false },
@@ -43,7 +43,7 @@ export function parseBusinessHours(jsonString: string | null | undefined | any) 
 /**
  * Parse services array with fallback
  */
-export function parseServices(jsonString: string | null | undefined | any) {
+export function parseServices(jsonString: string | null | undefined | unknown) {
   return safeJsonParse(jsonString, [
     'Rheumatoid Arthritis Treatment',
     'Lupus Management',
@@ -57,7 +57,7 @@ export function parseServices(jsonString: string | null | undefined | any) {
 /**
  * Parse insurance array with fallback
  */
-export function parseInsurance(jsonString: string | null | undefined | any) {
+export function parseInsurance(jsonString: string | null | undefined | unknown) {
   return safeJsonParse(jsonString, [
     'Aetna',
     'Anthem Blue Cross Blue Shield',
@@ -70,7 +70,7 @@ export function parseInsurance(jsonString: string | null | undefined | any) {
 /**
  * Parse conditions array with fallback
  */
-export function parseConditions(jsonString: string | null | undefined | any) {
+export function parseConditions(jsonString: string | null | undefined | unknown) {
   return safeJsonParse(jsonString, [
     'Rheumatoid Arthritis',
     'Psoriatic Arthritis',
@@ -84,13 +84,13 @@ export function parseConditions(jsonString: string | null | undefined | any) {
 /**
  * Parse specialties array with fallback
  */
-export function parseSpecialties(jsonString: string | null | undefined | any) {
+export function parseSpecialties(jsonString: string | null | undefined | unknown) {
   return safeJsonParse(jsonString, []);
 }
 
 /**
  * Parse education array with fallback
  */
-export function parseEducation(jsonString: string | null | undefined | any) {
+export function parseEducation(jsonString: string | null | undefined | unknown) {
   return safeJsonParse(jsonString, []);
 }

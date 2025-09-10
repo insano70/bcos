@@ -47,7 +47,7 @@ export class SessionManager {
     const expiresAt = new Date(now.getTime() + (expirationHours * 60 * 60 * 1000))
 
     // Check concurrent session limits
-    await this.enforceConcurrentSessionLimits(userId)
+    await SessionManager.enforceConcurrentSessionLimits(userId)
 
     // Create session record
     const [session] = await db
@@ -66,10 +66,10 @@ export class SessionManager {
       .returning()
 
     // Update device tracking
-    await this.updateDeviceTracking(userId, deviceInfo)
+    await SessionManager.updateDeviceTracking(userId, deviceInfo)
 
     // Log successful login
-    await this.logLoginAttempt(userId, deviceInfo, true)
+    await SessionManager.logLoginAttempt(userId, deviceInfo, true)
 
     // Audit log
     await AuditLogger.logAuth({
@@ -270,7 +270,7 @@ export class SessionManager {
         .limit(1)
 
       if (oldestSession) {
-        await this.revokeSession(oldestSession.sessionId, 'concurrent_limit')
+        await SessionManager.revokeSession(oldestSession.sessionId, 'concurrent_limit')
       }
     }
   }

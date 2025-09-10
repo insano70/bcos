@@ -135,7 +135,10 @@ export function CustomAuthProvider({ children }: AuthProviderProps) {
       const csrfToken = (await ensureCsrfToken()) || ''
       await fetch('/api/auth/logout', {
         method: 'POST',
-        headers: { 'x-csrf-token': csrfToken },
+        headers: {
+          'x-csrf-token': csrfToken,
+          ...(state.accessToken ? { Authorization: `Bearer ${state.accessToken}` } : {})
+        },
         credentials: 'include'
       })
 

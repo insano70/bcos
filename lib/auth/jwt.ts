@@ -1,4 +1,4 @@
-import { SignJWT, jwtVerify, JWTPayload } from 'jose'
+import { SignJWT, jwtVerify, type JWTPayload } from 'jose'
 import { nanoid } from 'nanoid'
 
 const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret-key')

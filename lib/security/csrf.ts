@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import { cookies } from 'next/headers'
-import { NextRequest } from 'next/server'
+import type { NextRequest } from 'next/server'
 
 /**
  * CSRF (Cross-Site Request Forgery) Protection
@@ -15,17 +15,17 @@ export class CSRFProtection {
    * Generate a cryptographically secure CSRF token
    */
   static generateToken(): string {
-    return nanoid(this.tokenLength)
+    return nanoid(CSRFProtection.tokenLength)
   }
   
   /**
    * Set CSRF token in HTTP-only cookie
    */
   static async setCSRFToken(): Promise<string> {
-    const token = this.generateToken()
+    const token = CSRFProtection.generateToken()
     const cookieStore = cookies()
     
-    cookieStore.set(this.cookieName, token, {
+    cookieStore.set(CSRFProtection.cookieName, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
@@ -41,7 +41,7 @@ export class CSRFProtection {
    */
   static async getCSRFToken(): Promise<string | null> {
     const cookieStore = cookies()
-    return cookieStore.get(this.cookieName)?.value || null
+    return cookieStore.get(CSRFProtection.cookieName)?.value || null
   }
   
   /**
@@ -49,8 +49,8 @@ export class CSRFProtection {
    */
   static async verifyCSRFToken(request: NextRequest): Promise<boolean> {
     try {
-      const headerToken = request.headers.get(this.headerName)
-      const cookieToken = request.cookies.get(this.cookieName)?.value
+      const headerToken = request.headers.get(CSRFProtection.headerName)
+      const cookieToken = request.cookies.get(CSRFProtection.cookieName)?.value
       
       // Both tokens must exist and match
       if (!headerToken || !cookieToken) {
@@ -58,7 +58,7 @@ export class CSRFProtection {
       }
       
       // Constant-time comparison to prevent timing attacks
-      return this.constantTimeCompare(headerToken, cookieToken)
+      return CSRFProtection.constantTimeCompare(headerToken, cookieToken)
     } catch (error) {
       console.error('CSRF verification error:', error)
       return false

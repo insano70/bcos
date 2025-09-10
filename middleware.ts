@@ -5,6 +5,7 @@ import { CSRFProtection } from '@/lib/security/csrf'
 export async function middleware(request: NextRequest) {
   const hostname = request.nextUrl.hostname
   const pathname = request.nextUrl.pathname
+  const search = request.nextUrl.search
   let response = NextResponse.next()
 
   // Apply security headers to all responses
@@ -35,10 +36,26 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
+  const isPublicPath = (path: string) => {
+    return (
+      path === '/signin' || 
+      path === '/reset-password' ||
+      path === '/signup' ||
+      path.startsWith('/reset-password/')
+    )
+  }
+
+  const addNoStoreHeaders = (res: NextResponse) => {
+    res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate')
+    res.headers.set('Pragma', 'no-cache')
+    res.headers.set('Expires', '0')
+    return res
+  }
+
   // Development: localhost or 127.0.0.1 goes to admin dashboard
   if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('192.168.')) {
-    // Check authentication for protected routes
-    if (pathname.startsWith('/dashboard') || pathname.startsWith('/configure')) {
+    // Default-deny: protect all non-public routes
+    if (!isPublicPath(pathname)) {
       // Check for refresh token cookie first
       const refreshToken = request.cookies.get('refresh-token')?.value
       let isAuthenticated = false
@@ -55,73 +72,48 @@ export async function middleware(request: NextRequest) {
         }
       }
       
-      // Also check for access token in Authorization header (for immediate post-login access)
-      if (!isAuthenticated) {
-        const authHeader = request.headers.get('Authorization')
-        if (authHeader?.startsWith('Bearer ')) {
-          try {
-            const { jwtVerify } = await import('jose')
-            const ACCESS_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
-            await jwtVerify(authHeader.slice(7), ACCESS_TOKEN_SECRET)
-            isAuthenticated = true
-          } catch (error) {
-            console.log('Access token validation failed:', error)
-          }
-        }
-      }
-      
       if (!isAuthenticated) {
         const signInUrl = new URL('/signin', request.url)
-        signInUrl.searchParams.set('callbackUrl', pathname)
+        signInUrl.searchParams.set('callbackUrl', `${pathname}${search}`)
         response = NextResponse.redirect(signInUrl)
         return addSecurityHeaders(response)
       }
+
+      response = addNoStoreHeaders(response)
     }
     
-    return response // Continue to admin dashboard
+    return response // Continue
   }
 
   // Production: Check for admin subdomain
   if (hostname.startsWith('admin.')) {
-    // Check for refresh token cookie first
-    const refreshToken = request.cookies.get('refresh-token')?.value
-    let isAuthenticated = false
-    
-    if (refreshToken) {
-      // Validate refresh token
-      try {
-        const { jwtVerify } = await import('jose')
-        const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'fallback-refresh-secret')
-        await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET)
-        isAuthenticated = true
-      } catch (error) {
-        console.log('Refresh token validation failed:', error)
-      }
-    }
-    
-    // Also check for access token in Authorization header
-    if (!isAuthenticated) {
-      const authHeader = request.headers.get('Authorization')
-      if (authHeader?.startsWith('Bearer ')) {
+    if (!isPublicPath(pathname)) {
+      const refreshToken = request.cookies.get('refresh-token')?.value
+      let isAuthenticated = false
+      
+      if (refreshToken) {
+        // Validate refresh token
         try {
           const { jwtVerify } = await import('jose')
-          const ACCESS_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
-          await jwtVerify(authHeader.slice(7), ACCESS_TOKEN_SECRET)
+          const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'fallback-refresh-secret')
+          await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET)
           isAuthenticated = true
         } catch (error) {
-          console.log('Access token validation failed:', error)
+          console.log('Refresh token validation failed:', error)
         }
       }
+
+      if (!isAuthenticated) {
+        const signInUrl = new URL('/signin', request.url)
+        signInUrl.searchParams.set('callbackUrl', `${pathname}${search}`)
+        response = NextResponse.redirect(signInUrl)
+        return addSecurityHeaders(response)
+      }
+
+      response = addNoStoreHeaders(response)
     }
-    
-    if (!isAuthenticated) {
-      const signInUrl = new URL('/signin', request.url)
-      signInUrl.searchParams.set('callbackUrl', pathname)
-      response = NextResponse.redirect(signInUrl)
-      return addSecurityHeaders(response)
-    }
-    
-    return response // Continue to admin dashboard
+
+    return response // Continue
   }
 
   // All other domains: Rewrite to practice website

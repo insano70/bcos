@@ -43,6 +43,10 @@ const adjustOKLCHOpacity = (oklchColor: string, opacity: number): string => {
 };
 
 export const adjustColorOpacity = (color: string, opacity: number): string => {
+  if (!color || color.trim() === '') {
+    // Fallback to a neutral transparent color to avoid runtime errors in canvas gradients
+    return `rgba(0, 0, 0, ${opacity})`;
+  }
   if (color.startsWith('#')) {
     return adjustHexOpacity(color, opacity);
   } else if (color.startsWith('hsl')) {
@@ -50,7 +54,8 @@ export const adjustColorOpacity = (color: string, opacity: number): string => {
   } else if (color.startsWith('oklch')) {
     return adjustOKLCHOpacity(color, opacity);
   } else {
-    return '';
+    // Unknown format: return a safe RGBA fallback
+    return `rgba(0, 0, 0, ${opacity})`;
   }
 };
 

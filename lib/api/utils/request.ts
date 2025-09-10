@@ -8,8 +8,14 @@ export interface PaginationParams {
 }
 
 export const paginationSchema = z.object({
-  page: z.string().optional().transform(val => Math.max(1, parseInt(val || '1') || 1)),
-  limit: z.string().optional().transform(val => Math.min(100, Math.max(1, parseInt(val || '10') || 10)))
+  page: z
+    .string()
+    .optional()
+    .transform((val) => Math.max(1, parseInt(val || '1', 10) || 1)),
+  limit: z
+    .string()
+    .optional()
+    .transform((val) => Math.min(100, Math.max(1, parseInt(val || '10', 10) || 10)))
 })
 
 export function getPagination(searchParams: URLSearchParams): PaginationParams {
