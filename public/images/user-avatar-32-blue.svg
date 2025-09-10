@@ -1,6 +1,15 @@
-<svg width="32" height="32" xmlns="http://www.w3.org/2000/svg">
-  <g fill="none" fill-rule="evenodd">
-    <circle fill="#00AEEF" cx="16" cy="16" r="16"/>
-    <path d="M16 8 24 20 8 20Z" fill="#FFFFFF" fill-rule="nonzero"/>
-  </g>
+<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="64" height="64" fill="#001620"/>
+
+  <!-- Gradient definition -->
+  <defs>
+    <linearGradient id="triangleGradient" x1="16" y1="32" x2="52" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#33c3ff"/>
+      <stop offset="100%" stop-color="#00AEEF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Play triangle -->
+  <polygon points="16,12 16,52 52,32" fill="url(#triangleGradient)"/>
 </svg>
