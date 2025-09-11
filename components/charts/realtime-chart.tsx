@@ -126,8 +126,8 @@ export default function RealtimeChart({ data, width, height }: RealtimeChartProp
   // Update header values
   useEffect(() => {
     if (chartValue.current && chartDeviation.current) {
-      const currentValue = data.datasets[0].data[data.datasets[0].data.length - 1] || 0;
-      const previousValue = data.datasets[0].data[data.datasets[0].data.length - 2] || 0;
+      const currentValue = data.datasets[0]?.data[data.datasets[0]?.data.length - 1] || 0;
+      const previousValue = data.datasets[0]?.data[data.datasets[0]?.data.length - 2] || 0;
       const diff = ((+currentValue - +previousValue) / +previousValue) * 100;
       chartValue.current.innerHTML = currentValue.toString();
       if (diff < 0) {

@@ -29,7 +29,8 @@ export async function getCurrentUserFromToken(accessToken: string) {
       firstName: user.first_name,
       lastName: user.last_name,
       role: 'admin',
-      emailVerified: user.email_verified
+      emailVerified: user.email_verified,
+      practiceId: undefined // TODO: Add practice relationship logic
     }
   } catch (_error) {
     return null

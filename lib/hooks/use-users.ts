@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useApiQuery, useApiPost, useApiPut, useApiDelete } from './use-api';
 
 export interface User {
   id: string; // Maps to user_id in database
@@ -11,31 +11,72 @@ export interface User {
   deleted_at: string | null;
 }
 
-async function fetchUsers(): Promise<User[]> {
-  const response = await fetch('/api/users');
-  if (!response.ok) {
-    throw new Error('Failed to fetch users');
-  }
-  const result = await response.json();
-  
-  // Handle the standardized API response format
-  if (result.success && Array.isArray(result.data)) {
-    return result.data;
-  }
-  
-  // Fallback for direct array response
-  if (Array.isArray(result)) {
-    return result;
-  }
-  
-  throw new Error('Invalid response format from users API');
+export interface CreateUserData {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  email_verified?: boolean;
+  is_active?: boolean;
 }
 
+export interface UpdateUserData {
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  email_verified?: boolean;
+  is_active?: boolean;
+}
+
+/**
+ * Hook to fetch all users
+ */
 export function useUsers() {
-  return useQuery({
-    queryKey: ['users'],
-    queryFn: fetchUsers,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
-  });
+  return useApiQuery<User[]>(
+    ['users'],
+    '/api/users',
+    {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes
+    }
+  );
+}
+
+/**
+ * Hook to fetch a single user by ID
+ */
+export function useUser(userId: string) {
+  return useApiQuery<User>(
+    ['users', userId],
+    `/api/users/${userId}`,
+    {
+      enabled: !!userId,
+      staleTime: 5 * 60 * 1000,
+    }
+  );
+}
+
+/**
+ * Hook to create a new user
+ */
+export function useCreateUser() {
+  return useApiPost<User, CreateUserData>('/api/users');
+}
+
+/**
+ * Hook to update a user
+ */
+export function useUpdateUser() {
+  return useApiPut<User, { id: string; data: UpdateUserData }>(
+    ({ id }) => `/api/users/${id}`
+  );
+}
+
+/**
+ * Hook to delete a user
+ */
+export function useDeleteUser() {
+  return useApiDelete<void, string>(
+    (userId) => `/api/users/${userId}`
+  );
 }

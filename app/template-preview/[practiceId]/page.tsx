@@ -3,6 +3,7 @@ import { eq, isNull } from 'drizzle-orm';
 import { getTemplateComponent } from '@/lib/template-loader';
 import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
 import { notFound } from 'next/navigation';
+import { transformPractice, transformPracticeAttributes, transformStaffMember } from '@/lib/types/transformers';
 
 async function getPracticeData(practiceId: string) {
   // Get practice
@@ -17,11 +18,14 @@ async function getPracticeData(practiceId: string) {
   }
 
   // Get template
-  const [template] = await db
-    .select()
-    .from(templates)
-    .where(eq(templates.template_id, practice.template_id))
-    .limit(1);
+  let template = null;
+  if (practice.template_id) {
+    [template] = await db
+      .select()
+      .from(templates)
+      .where(eq(templates.template_id, practice.template_id))
+      .limit(1);
+  }
 
   // Get practice attributes
   const [attributes] = await db
@@ -38,10 +42,10 @@ async function getPracticeData(practiceId: string) {
     .orderBy(staff_members.display_order);
 
   return {
-    practice,
+    practice: transformPractice(practice),
     template: template || { slug: 'classic-professional' },
-    attributes: attributes || {},
-    staff: staff || [],
+    attributes: attributes ? transformPracticeAttributes(attributes) : {} as any,
+    staff: staff.map(transformStaffMember),
   };
 }
 
@@ -59,32 +63,9 @@ export default async function TemplatePreview({
 
   const { practice, template, attributes, staff } = data;
 
-  // Helper function to safely parse JSON
-  const safeJsonParse = (jsonString: string | null, fallback: any = null) => {
-    if (!jsonString) return fallback;
-    try {
-      return JSON.parse(jsonString);
-    } catch (error) {
-      console.error('Failed to parse JSON:', jsonString, error);
-      return fallback;
-    }
-  };
-
-  // Parse JSON fields safely
-  const parsedAttributes = {
-    ...attributes,
-    business_hours: safeJsonParse(attributes.business_hours, null),
-    services: safeJsonParse(attributes.services, []),
-    insurance_accepted: safeJsonParse(attributes.insurance_accepted, []),
-    conditions_treated: safeJsonParse(attributes.conditions_treated, []),
-    gallery_images: safeJsonParse(attributes.gallery_images, []),
-  };
-
-  const parsedStaff = staff.map(member => ({
-    ...member,
-    specialties: safeJsonParse(member.specialties, []),
-    education: safeJsonParse(member.education, []),
-  }));
+  // Attributes and staff are already transformed/parsed by the transformers
+  const parsedAttributes = attributes;
+  const parsedStaff = staff;
 
   // Generate color styles for the template
   const defaultColors = getTemplateDefaultColors(template.slug);

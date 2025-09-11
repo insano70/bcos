@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
         practiceId: practices.practice_id,
         practiceName: practices.name,
         domain: practices.domain,
-        staffCount: sql<number>`count(${staff_members.staff_member_id})`
+        staffCount: sql<number>`count(${staff_members.staff_id})`
       })
       .from(practices)
       .leftJoin(staff_members, eq(practices.practice_id, staff_members.practice_id))
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
         )
       )
       .groupBy(practices.practice_id, practices.name, practices.domain)
-      .orderBy(desc(sql`count(${staff_members.staff_member_id})`))
+      .orderBy(desc(sql`count(${staff_members.staff_id})`))
       .limit(10)
 
     // Get recent practices
@@ -129,15 +129,15 @@ export async function GET(request: NextRequest) {
 
     const analytics = {
       overview: {
-        totalPractices: practiceStats.totalPractices,
-        activePractices: practiceStats.activePractices,
-        newPracticesThisPeriod: practiceStats.newPracticesThisPeriod,
-        practicesWithDomains: practiceStats.practicesWithDomains,
-        activationRate: practiceStats.totalPractices > 0 
-          ? Math.round((practiceStats.activePractices / practiceStats.totalPractices) * 100) 
+        totalPractices: practiceStats?.totalPractices || 0,
+        activePractices: practiceStats?.activePractices || 0,
+        newPracticesThisPeriod: practiceStats?.newPracticesThisPeriod || 0,
+        practicesWithDomains: practiceStats?.practicesWithDomains || 0,
+        activationRate: (practiceStats?.totalPractices || 0) > 0 
+          ? Math.round(((practiceStats?.activePractices || 0) / (practiceStats?.totalPractices || 1)) * 100) 
           : 0,
-        domainCompletionRate: practiceStats.totalPractices > 0 
-          ? Math.round((practiceStats.practicesWithDomains / practiceStats.totalPractices) * 100) 
+        domainCompletionRate: (practiceStats?.totalPractices || 0) > 0 
+          ? Math.round(((practiceStats?.practicesWithDomains || 0) / (practiceStats?.totalPractices || 1)) * 100) 
           : 0
       },
       trends: {
@@ -151,8 +151,8 @@ export async function GET(request: NextRequest) {
         distribution: statusDistribution
       },
       staff: {
-        totalStaff: staffStats.totalStaff || 0,
-        averagePerPractice: staffStats.averageStaffPerPractice || 0,
+        totalStaff: staffStats?.totalStaff || 0,
+        averagePerPractice: staffStats?.averageStaffPerPractice || 0,
         topPractices: practicesWithMostStaff
       },
       completion: {
@@ -179,7 +179,7 @@ export async function GET(request: NextRequest) {
     
   } catch (error) {
     console.error('Practice analytics error:', error)
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
 

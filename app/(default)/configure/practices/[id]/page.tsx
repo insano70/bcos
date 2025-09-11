@@ -7,7 +7,9 @@ import { notFound } from 'next/navigation';
 import { db, practices, practice_attributes, staff_members, templates } from '@/lib/db';
 import { eq } from 'drizzle-orm';
 import PracticeConfigForm from './practice-config-form';
-import type { Practice, PracticeAttributes, StaffMember, Template } from '@/lib/types/practice';
+import type { Practice, PracticeAttributes, StaffMember } from '@/lib/types/practice';
+import type { Template } from '@/lib/hooks/use-templates';
+import { transformPractice, transformStaffMember, transformTemplate, transformPracticeAttributes } from '@/lib/types/transformers';
 
 async function getPracticeData(practiceId: string) {
   const [practice] = await db
@@ -33,10 +35,10 @@ async function getPracticeData(practiceId: string) {
   const allTemplates = await db.select().from(templates).where(eq(templates.is_active, true));
 
   return {
-    practice,
-    attributes: attributes || {},
-    staff: staff || [],
-    allTemplates: allTemplates || [],
+    practice: transformPractice(practice),
+    attributes: attributes ? transformPracticeAttributes(attributes) : {} as PracticeAttributes,
+    staff: staff.map(transformStaffMember),
+    allTemplates: allTemplates.map(transformTemplate),
   };
 }
 
@@ -63,10 +65,10 @@ export default async function EditPracticePage({
       </div>
 
       <PracticeConfigForm
-        practice={data.practice as Practice}
-        attributes={data.attributes as PracticeAttributes}
-        staff={data.staff as StaffMember[]}
-        allTemplates={data.allTemplates as Template[]}
+        practice={data.practice}
+        attributes={data.attributes}
+        staff={data.staff}
+        allTemplates={data.allTemplates}
       />
     </div>
   );

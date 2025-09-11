@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { db, practices, practice_attributes } from '@/lib/db';
-import { eq, isNull } from 'drizzle-orm';
+import { eq, isNull, and } from 'drizzle-orm';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
@@ -21,8 +21,10 @@ export async function GET(
     const [practice] = await db
       .select()
       .from(practices)
-      .where(eq(practices.practice_id, practiceId))
-      .where(isNull(practices.deleted_at))
+      .where(and(
+        eq(practices.practice_id, practiceId),
+        isNull(practices.deleted_at)
+      ))
       .limit(1)
 
     if (!practice) {
@@ -54,7 +56,7 @@ export async function GET(
     
   } catch (error) {
     console.error('Error fetching practice attributes:', error)
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
 
@@ -75,8 +77,10 @@ export async function PUT(
     const [practice] = await db
       .select()
       .from(practices)
-      .where(eq(practices.practice_id, practiceId))
-      .where(isNull(practices.deleted_at))
+      .where(and(
+        eq(practices.practice_id, practiceId),
+        isNull(practices.deleted_at)
+      ))
       .limit(1)
 
     if (!practice) {
@@ -119,6 +123,6 @@ export async function PUT(
     
   } catch (error) {
     console.error('Error updating practice attributes:', error)
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }

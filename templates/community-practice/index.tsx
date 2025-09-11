@@ -102,7 +102,7 @@ export default function CommunityPracticeTemplate({
           <div className="max-w-6xl mx-auto px-4">
             <h2 className="text-3xl font-bold text-center text-green-800 mb-12">How We Help Our Neighbors</h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {(attributes.services ? JSON.parse(attributes.services) : [
+              {(Array.isArray(attributes.services) ? attributes.services : [
                 'Arthritis Care',
                 'Joint Pain Relief',
                 'Family-Friendly Treatment',

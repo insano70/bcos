@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       database: {
         connected: true,
         responseTime: `${responseTime}ms`,
-        currentTime: result.current_time,
+        currentTime: result?.current_time || new Date().toISOString(),
         queries: {
           basic: 'success',
           users: 'success',
@@ -35,8 +35,8 @@ export async function GET(request: NextRequest) {
         }
       },
       statistics: {
-        totalUsers: Number(userCount.count),
-        totalPractices: Number(practiceCount.count),
+        totalUsers: Number(userCount?.count || 0),
+        totalPractices: Number(practiceCount?.count || 0),
       },
       timestamp: new Date().toISOString()
     }
@@ -61,6 +61,6 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString()
     }
 
-    return createErrorResponse(healthData, 503, request)
+    return Response.json(healthData, { status: 503 })
   }
 }

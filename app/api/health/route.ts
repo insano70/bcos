@@ -30,6 +30,6 @@ export async function GET(request: NextRequest) {
     
   } catch (error) {
     console.error('Health check error:', error)
-    return createErrorResponse(error, 503, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 503, request)
   }
 }

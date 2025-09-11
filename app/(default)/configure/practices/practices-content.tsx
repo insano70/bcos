@@ -11,6 +11,32 @@ export default function PracticesContent() {
   const { data: practices, isLoading, error, refetch } = usePractices();
 
   if (error) {
+    // Check if this is a session expiry error
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    const isSessionExpired = errorMessage.includes('Session expired');
+    
+    if (isSessionExpired) {
+      // Don't render error UI for session expiry - redirect is happening
+      return (
+        <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-6">
+            <div className="flex items-center">
+              <svg className="animate-spin h-6 w-6 text-blue-600 dark:text-blue-400 mr-3" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <div>
+                <h3 className="text-blue-800 dark:text-blue-200 font-medium">Session Expired</h3>
+                <p className="text-blue-600 dark:text-blue-400 text-sm mt-1">
+                  Redirecting to login page...
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6">
@@ -31,7 +57,7 @@ export default function PracticesContent() {
             <div>
               <h3 className="text-red-800 dark:text-red-200 font-medium">Error loading practices</h3>
               <p className="text-red-600 dark:text-red-400 text-sm mt-1">
-                {error instanceof Error ? error.message : 'An unexpected error occurred'}
+                {errorMessage}
               </p>
               <button
                 type="button"

@@ -2,6 +2,7 @@
 
 export interface Practice {
   practice_id: string;
+  id: string; // Alias for practice_id for consistency with selection hooks
   name: string;
   domain: string;
   status: 'active' | 'inactive' | 'pending';

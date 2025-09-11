@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { addSecurityHeaders, getContentSecurityPolicy } from '@/lib/security/headers'
 import { CSRFProtection } from '@/lib/security/csrf'
+import { getJWTConfig } from '@/lib/env'
+import { isPublicApiRoute } from '@/lib/api/middleware/global-auth'
 
 export async function middleware(request: NextRequest) {
   const hostname = request.nextUrl.hostname
@@ -14,16 +16,10 @@ export async function middleware(request: NextRequest) {
   // Add Content Security Policy
   response.headers.set('Content-Security-Policy', getContentSecurityPolicy())
 
-  // Skip additional middleware for API routes, static files, and internal Next.js routes
-  if (
-    pathname.startsWith('/api/') ||
-    pathname.startsWith('/_next/') ||
-    pathname.startsWith('/favicon.ico') ||
-    pathname.startsWith('/static/') ||
-    pathname.includes('.')
-  ) {
+  // Handle API routes with global authentication
+  if (pathname.startsWith('/api/')) {
     // CSRF protection for API routes with state-changing methods
-    if (pathname.startsWith('/api/') && CSRFProtection.requiresCSRFProtection(request.method)) {
+    if (CSRFProtection.requiresCSRFProtection(request.method)) {
       const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
       if (!isValidCSRF) {
         return new NextResponse('CSRF Token Invalid', { 
@@ -32,7 +28,45 @@ export async function middleware(request: NextRequest) {
         })
       }
     }
+
+    // Global API authentication (except for public routes)
+    if (!isPublicApiRoute(pathname)) {
+      const refreshToken = request.cookies.get('refresh-token')?.value
+      let isAuthenticated = false
+      
+      if (refreshToken) {
+        try {
+          const { jwtVerify } = await import('jose')
+          const REFRESH_TOKEN_SECRET = new TextEncoder().encode(getJWTConfig().refreshSecret)
+          await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET)
+          isAuthenticated = true
+        } catch (error) {
+          console.log('API auth failed:', error)
+        }
+      }
+      
+      if (!isAuthenticated) {
+        return new NextResponse(JSON.stringify({
+          success: false,
+          error: 'Authentication required',
+          code: 'AUTHENTICATION_REQUIRED'
+        }), { 
+          status: 401,
+          headers: { 'Content-Type': 'application/json', ...response.headers }
+        })
+      }
+    }
     
+    return response
+  }
+
+  // Skip additional middleware for static files and internal Next.js routes
+  if (
+    pathname.startsWith('/_next/') ||
+    pathname.startsWith('/favicon.ico') ||
+    pathname.startsWith('/static/') ||
+    pathname.includes('.')
+  ) {
     return response
   }
 
@@ -64,7 +98,7 @@ export async function middleware(request: NextRequest) {
         // Validate refresh token
         try {
           const { jwtVerify } = await import('jose')
-          const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'fallback-refresh-secret')
+          const REFRESH_TOKEN_SECRET = new TextEncoder().encode(getJWTConfig().refreshSecret)
           await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET)
           isAuthenticated = true
         } catch (error) {
@@ -95,7 +129,7 @@ export async function middleware(request: NextRequest) {
         // Validate refresh token
         try {
           const { jwtVerify } = await import('jose')
-          const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'fallback-refresh-secret')
+          const REFRESH_TOKEN_SECRET = new TextEncoder().encode(getJWTConfig().refreshSecret)
           await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET)
           isAuthenticated = true
         } catch (error) {

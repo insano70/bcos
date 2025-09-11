@@ -12,7 +12,7 @@ import { EmailService } from '@/lib/api/services/email'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.text()
-    const signature = headers().get('stripe-signature')
+    const signature = (await headers()).get('stripe-signature')
     
     if (!signature) {
       return createErrorResponse('Missing Stripe signature', 400, request)
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       severity: 'high'
     })
     
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
 

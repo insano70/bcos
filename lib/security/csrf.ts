@@ -23,7 +23,7 @@ export class CSRFProtection {
    */
   static async setCSRFToken(): Promise<string> {
     const token = CSRFProtection.generateToken()
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     
     cookieStore.set(CSRFProtection.cookieName, token, {
       httpOnly: true,
@@ -40,7 +40,7 @@ export class CSRFProtection {
    * Get CSRF token from cookies
    */
   static async getCSRFToken(): Promise<string | null> {
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     return cookieStore.get(CSRFProtection.cookieName)?.value || null
   }
   
@@ -92,8 +92,8 @@ export class CSRFProtection {
    * Generate CSRF token for client-side use (non-HTTP-only)
    */
   static async setClientCSRFToken(): Promise<string> {
-    const token = this.generateToken()
-    const cookieStore = cookies()
+    const token = CSRFProtection.generateToken()
+    const cookieStore = await cookies()
     
     // Set a separate token for client-side access
     cookieStore.set('csrf-token-client', token, {

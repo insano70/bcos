@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { db, practices } from '@/lib/db';
-import { eq, isNull } from 'drizzle-orm';
+import { eq, isNull, and } from 'drizzle-orm';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse, NotFoundError, ConflictError } from '@/lib/api/responses/error';
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
@@ -19,8 +19,10 @@ export async function GET(
     const [practice] = await db
       .select()
       .from(practices)
-      .where(eq(practices.practice_id, practiceId))
-      .where(isNull(practices.deleted_at))
+      .where(and(
+        eq(practices.practice_id, practiceId),
+        isNull(practices.deleted_at)
+      ))
       .limit(1)
 
     if (!practice) {
@@ -40,7 +42,7 @@ export async function GET(
     
   } catch (error) {
     console.error('Error fetching practice:', error)
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
 
@@ -58,8 +60,10 @@ export async function PUT(
     const [existingPractice] = await db
       .select()
       .from(practices)
-      .where(eq(practices.practice_id, practiceId))
-      .where(isNull(practices.deleted_at))
+      .where(and(
+        eq(practices.practice_id, practiceId),
+        isNull(practices.deleted_at)
+      ))
       .limit(1)
 
     if (!existingPractice) {
@@ -71,8 +75,10 @@ export async function PUT(
       const [domainExists] = await db
         .select()
         .from(practices)
-        .where(eq(practices.domain, validatedData.domain))
-        .where(isNull(practices.deleted_at))
+        .where(and(
+          eq(practices.domain, validatedData.domain),
+          isNull(practices.deleted_at)
+        ))
         .limit(1)
       
       if (domainExists) {
@@ -90,6 +96,10 @@ export async function PUT(
       .where(eq(practices.practice_id, practiceId))
       .returning()
 
+    if (!updatedPractice) {
+      throw new Error('Failed to update practice')
+    }
+
     return createSuccessResponse({
       id: updatedPractice.practice_id,
       name: updatedPractice.name,
@@ -103,7 +113,7 @@ export async function PUT(
     
   } catch (error) {
     console.error('Error updating practice:', error)
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
 
@@ -120,8 +130,10 @@ export async function DELETE(
     const [existingPractice] = await db
       .select()
       .from(practices)
-      .where(eq(practices.practice_id, practiceId))
-      .where(isNull(practices.deleted_at))
+      .where(and(
+        eq(practices.practice_id, practiceId),
+        isNull(practices.deleted_at)
+      ))
       .limit(1)
 
     if (!existingPractice) {
@@ -138,6 +150,10 @@ export async function DELETE(
       .where(eq(practices.practice_id, practiceId))
       .returning()
 
+    if (!deletedPractice) {
+      throw new Error('Failed to delete practice')
+    }
+
     return createSuccessResponse(
       { id: deletedPractice.practice_id },
       'Practice deleted successfully'
@@ -145,6 +161,6 @@ export async function DELETE(
     
   } catch (error) {
     console.error('Error deleting practice:', error)
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }

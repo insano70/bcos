@@ -5,7 +5,7 @@ export const metadata = {
 
 import Link from 'next/link';
 import { db, practices, users, staff_members } from '@/lib/db';
-import { count, eq, isNull } from 'drizzle-orm';
+import { count, eq, isNull, and } from 'drizzle-orm';
 
 async function getDashboardStats() {
   try {
@@ -24,17 +24,19 @@ async function getDashboardStats() {
       .from(staff_members)
       .where(isNull(staff_members.deleted_at));
 
-    const [activePracticeCount] = await db
-      .select({ count: count() })
-      .from(practices)
-      .where(eq(practices.status, 'active'))
-      .where(isNull(practices.deleted_at));
+  const [activePracticeCount] = await db
+    .select({ count: count() })
+    .from(practices)
+    .where(and(
+      eq(practices.status, 'active'),
+      isNull(practices.deleted_at)
+    ));
 
     return {
-      totalPractices: practiceCount.count,
-      totalUsers: userCount.count,
-      totalStaff: staffCount.count,
-      activePractices: activePracticeCount.count,
+      totalPractices: practiceCount?.count || 0,
+      totalUsers: userCount?.count || 0,
+      totalStaff: staffCount?.count || 0,
+      activePractices: activePracticeCount?.count || 0,
     };
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);

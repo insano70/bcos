@@ -56,12 +56,21 @@ export default function DashboardCard05() {
   useEffect(() => {
     setIncrement(increment + 1);
     if (increment + range < data.length) {
-      setSlicedData(([x, ...slicedData]) => [...slicedData, data[increment + range]]);
+      const nextValue = data[increment + range];
+      if (nextValue !== undefined) {
+        setSlicedData((prevData) => {
+          const [, ...rest] = prevData;
+          return [...rest, nextValue];
+        });
+      }
     } else {
       setIncrement(0);
       setRange(0);
     }
-    setSlicedLabels(([x, ...slicedLabels]) => [...slicedLabels, new Date()]);
+    setSlicedLabels((prevLabels) => {
+      const [, ...rest] = prevLabels;
+      return [...rest, new Date()];
+    });
     return () => setIncrement(0);
   }, [counter]);
 

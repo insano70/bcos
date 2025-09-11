@@ -34,14 +34,14 @@ export default function DropdownSwitch() {
         <MenuButton className="grow flex items-center truncate">
           <Image
             className="w-8 h-8 rounded-full mr-2"
-            src={options[selected].image}
+            src={options[selected]?.image}
             width={32}
             height={32}
             alt="Group 01"
           />
           <div className="truncate">
             <span className="text-sm font-medium dark:text-gray-300 group-hover:text-gray-800 dark:group-hover:text-gray-200">
-              {options[selected].channel}
+               {options[selected]?.channel}
             </span>
           </div>
           <svg

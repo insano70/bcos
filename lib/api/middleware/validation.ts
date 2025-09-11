@@ -11,7 +11,7 @@ export async function validateRequest<T>(
     return validatedData
   } catch (error) {
     if (error instanceof z.ZodError) {
-      throw ValidationError(error.errors)
+      throw ValidationError(error.issues)
     }
     throw ValidationError(null, 'Invalid request body')
   }
@@ -26,7 +26,7 @@ export function validateQuery<T>(
     return schema.parse(queryObject)
   } catch (error) {
     if (error instanceof z.ZodError) {
-      throw ValidationError(error.errors)
+      throw ValidationError(error.issues)
     }
     throw ValidationError(null, 'Invalid query parameters')
   }
@@ -40,7 +40,7 @@ export function validateParams<T>(
     return schema.parse(params)
   } catch (error) {
     if (error instanceof z.ZodError) {
-      throw ValidationError(error.errors)
+      throw ValidationError(error.issues)
     }
     throw ValidationError(null, 'Invalid route parameters')
   }

@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
       
       const staffResults = await db
         .select({
-          id: staff_members.staff_member_id,
+          id: staff_members.staff_id,
           type: sql<string>`'staff'`,
           title: staff_members.name,
           subtitle: staff_members.title,
@@ -171,7 +171,7 @@ export async function GET(request: NextRequest) {
           subtitle: templates.description,
           slug: templates.slug,
           status: sql<string>`case when ${templates.is_active} then 'active' else 'inactive' end`,
-          previewImage: templates.preview_image,
+          previewImage: templates.preview_image_url,
           createdAt: templates.created_at,
           updatedAt: templates.updated_at,
           relevanceScore: calculateRelevanceScore(templates.name, templates.description, sql`''`, query.q)
@@ -213,7 +213,7 @@ export async function GET(request: NextRequest) {
     
   } catch (error) {
     console.error('Search error:', error)
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
 
@@ -275,14 +275,16 @@ async function generateSearchSuggestions(query: string): Promise<string[]> {
     // Simple fuzzy matching for suggestions
     const allTerms = [
       ...practiceNames.map(p => p.name),
-      ...staffTitles.map(s => s.title),
+      ...staffTitles.map(s => s.title).filter((title): title is string => title !== null),
       'rheumatology', 'doctor', 'practice', 'clinic', 'medical'
     ].filter(Boolean)
     
     // Find terms that partially match the query
-    const fuzzyMatches = allTerms.filter(term => 
-      term.toLowerCase().includes(query.toLowerCase()) ||
-      query.toLowerCase().includes(term.toLowerCase())
+    const fuzzyMatches = allTerms.filter((term): term is string => 
+      typeof term === 'string' && (
+        term.toLowerCase().includes(query.toLowerCase()) ||
+        query.toLowerCase().includes(term.toLowerCase())
+      )
     )
     
     return fuzzyMatches.slice(0, 5)

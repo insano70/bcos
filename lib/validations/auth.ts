@@ -6,7 +6,7 @@ export const loginSchema = z.object({
   remember: z.union([
     z.boolean(),
     z.string().transform(val => val === 'true' || val === 'on' || val === '1')
-  ]).optional().default(false) // Handle form checkbox values
+  ]).default(false) // Handle form checkbox values
 })
 
 export const registerSchema = z.object({

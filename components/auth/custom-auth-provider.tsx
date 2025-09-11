@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { apiClient } from '@/lib/api/client'
 
 /**
  * Custom Authentication Provider
@@ -52,6 +53,16 @@ export function CustomAuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     initializeAuth()
   }, [])
+
+  // Set up API client with auth context
+  useEffect(() => {
+    apiClient.setAuthContext({
+      accessToken: state.accessToken,
+      csrfToken: state.csrfToken,
+      refreshToken,
+      logout
+    })
+  }, [state.accessToken, state.csrfToken])
 
   // Set up token refresh interval
   useEffect(() => {

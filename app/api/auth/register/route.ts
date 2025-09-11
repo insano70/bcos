@@ -42,6 +42,10 @@ export async function POST(request: NextRequest) {
       })
       .returning()
     
+    if (!newUser) {
+      throw new Error('Failed to create user account')
+    }
+
     return createSuccessResponse({
       id: newUser.user_id,
       email: newUser.email,
@@ -52,6 +56,6 @@ export async function POST(request: NextRequest) {
     
   } catch (error) {
     console.error('Registration error:', error)
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }

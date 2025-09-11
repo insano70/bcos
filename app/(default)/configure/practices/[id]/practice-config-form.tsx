@@ -5,7 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId } from 'react';
 import ImageUpload from '@/components/image-upload';
 import ColorPicker from '@/components/color-picker';
-import type { Practice, PracticeAttributes, StaffMember, Template } from '@/lib/types/practice';
+import type { Practice, PracticeAttributes, StaffMember } from '@/lib/types/practice';
+import type { Template } from '@/lib/hooks/use-templates';
 
 interface PracticeFormData {
   // Practice Settings
@@ -203,7 +204,7 @@ export default function PracticeConfigForm({
               >
                 <option value="">Select a template...</option>
                 {allTemplates.map((template) => (
-                  <option key={template.template_id} value={template.template_id}>
+                  <option key={template.id} value={template.id}>
                     {template.name} - {template.description}
                   </option>
                 ))}

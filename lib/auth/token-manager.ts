@@ -1,21 +1,19 @@
-import { SignJWT, jwtVerify, JWTPayload } from 'jose'
+import { SignJWT, jwtVerify, type JWTPayload } from 'jose'
 import { nanoid } from 'nanoid'
 import { createHash } from 'crypto'
 import { db, refresh_tokens, token_blacklist, user_sessions, login_attempts, account_security } from '@/lib/db'
 import { eq, and, gte, lte, desc, count, sql } from 'drizzle-orm'
 import { AuditLogger } from '@/lib/api/services/audit'
+import { getJWTConfig } from '@/lib/env'
 
 /**
  * Enterprise JWT + Refresh Token Manager
  * Handles 15-minute access tokens with sliding window refresh tokens
  */
 
-const ACCESS_TOKEN_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'fallback-secret'
-)
-const REFRESH_TOKEN_SECRET = new TextEncoder().encode(
-  process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'fallback-refresh-secret'
-)
+const jwtConfig = getJWTConfig()
+const ACCESS_TOKEN_SECRET = new TextEncoder().encode(jwtConfig.accessSecret)
+const REFRESH_TOKEN_SECRET = new TextEncoder().encode(jwtConfig.refreshSecret)
 
 export interface TokenPair {
   accessToken: string
@@ -65,7 +63,7 @@ export class TokenManager {
       jti: nanoid(), // Unique JWT ID for blacklist capability
       session_id: sessionId,
       iat: Math.floor(now.getTime() / 1000),
-      exp: Math.floor((now.getTime() + this.ACCESS_TOKEN_DURATION) / 1000)
+      exp: Math.floor((now.getTime() + TokenManager.ACCESS_TOKEN_DURATION) / 1000)
     }
     
     const accessToken = await new SignJWT(accessTokenPayload)
@@ -73,7 +71,7 @@ export class TokenManager {
       .sign(ACCESS_TOKEN_SECRET)
 
     // Create refresh token
-    const refreshTokenDuration = rememberMe ? this.REFRESH_TOKEN_REMEMBER_ME : this.REFRESH_TOKEN_STANDARD
+    const refreshTokenDuration = rememberMe ? TokenManager.REFRESH_TOKEN_REMEMBER_ME : TokenManager.REFRESH_TOKEN_STANDARD
     const refreshExpiresAt = new Date(now.getTime() + refreshTokenDuration)
     
     const refreshTokenPayload = {
@@ -93,7 +91,7 @@ export class TokenManager {
     await db.insert(refresh_tokens).values({
       token_id: refreshTokenId,
       user_id: userId,
-      token_hash: this.hashToken(refreshToken),
+      token_hash: TokenManager.hashToken(refreshToken),
       device_fingerprint: deviceInfo.fingerprint,
       ip_address: deviceInfo.ipAddress,
       user_agent: deviceInfo.userAgent,
@@ -115,7 +113,7 @@ export class TokenManager {
     })
 
     // Log successful login
-    await this.logLoginAttempt({
+    await TokenManager.logLoginAttempt({
       email: '', // Would need email parameter
       userId,
       deviceInfo,
@@ -141,7 +139,7 @@ export class TokenManager {
     return {
       accessToken,
       refreshToken,
-      expiresAt: new Date(now.getTime() + this.ACCESS_TOKEN_DURATION),
+      expiresAt: new Date(now.getTime() + TokenManager.ACCESS_TOKEN_DURATION),
       sessionId
     }
   }
@@ -176,7 +174,7 @@ export class TokenManager {
       }
 
       // Verify token hash matches
-      if (tokenRecord.token_hash !== this.hashToken(refreshToken)) {
+      if (tokenRecord.token_hash !== TokenManager.hashToken(refreshToken)) {
         throw new Error('Invalid refresh token')
       }
 
@@ -199,7 +197,7 @@ export class TokenManager {
         jti: nanoid(),
         session_id: sessionId,
         iat: Math.floor(now.getTime() / 1000),
-        exp: Math.floor((now.getTime() + this.ACCESS_TOKEN_DURATION) / 1000)
+        exp: Math.floor((now.getTime() + TokenManager.ACCESS_TOKEN_DURATION) / 1000)
       }
 
       const newAccessToken = await new SignJWT(accessTokenPayload)
@@ -208,7 +206,7 @@ export class TokenManager {
 
       // Create new refresh token (rotation)
       const newRefreshTokenId = nanoid(32)
-      const refreshTokenDuration = rememberMe ? this.REFRESH_TOKEN_REMEMBER_ME : this.REFRESH_TOKEN_STANDARD
+      const refreshTokenDuration = rememberMe ? TokenManager.REFRESH_TOKEN_REMEMBER_ME : TokenManager.REFRESH_TOKEN_STANDARD
       const newRefreshExpiresAt = new Date(now.getTime() + refreshTokenDuration) // Sliding window
 
       const newRefreshTokenPayload = {
@@ -238,7 +236,7 @@ export class TokenManager {
       await db.insert(refresh_tokens).values({
         token_id: newRefreshTokenId,
         user_id: userId,
-        token_hash: this.hashToken(newRefreshToken),
+        token_hash: TokenManager.hashToken(newRefreshToken),
         device_fingerprint: deviceInfo.fingerprint,
         ip_address: deviceInfo.ipAddress,
         user_agent: deviceInfo.userAgent,
@@ -258,7 +256,7 @@ export class TokenManager {
 
       // Audit log
       await AuditLogger.logAuth({
-        action: 'token_refresh',
+        action: 'login',
         userId,
         ipAddress: deviceInfo.ipAddress,
         userAgent: deviceInfo.userAgent,
@@ -273,7 +271,7 @@ export class TokenManager {
       return {
         accessToken: newAccessToken,
         refreshToken: newRefreshToken,
-        expiresAt: new Date(now.getTime() + this.ACCESS_TOKEN_DURATION),
+        expiresAt: new Date(now.getTime() + TokenManager.ACCESS_TOKEN_DURATION),
         sessionId
       }
 
@@ -436,13 +434,13 @@ export class TokenManager {
       action: 'bulk_token_revocation',
       userId,
       metadata: {
-        revokedCount: revokedResult.rowCount,
+        revokedCount: activeTokens.length,
         reason
       },
       severity: 'high'
     })
 
-    return revokedResult.rowCount
+    return activeTokens.length
   }
 
   /**
@@ -528,11 +526,11 @@ export class TokenManager {
       .delete(token_blacklist)
       .where(lte(token_blacklist.expires_at, now))
 
-    console.log(`Cleaned up ${expiredRefreshTokens.rowCount} expired refresh tokens and ${expiredBlacklistEntries.rowCount} blacklist entries`)
+    console.log(`Cleaned up ${expiredRefreshTokens.length || 0} expired refresh tokens and ${expiredBlacklistEntries.length || 0} blacklist entries`)
 
     return {
-      refreshTokens: expiredRefreshTokens.rowCount,
-      blacklistEntries: expiredBlacklistEntries.rowCount
+      refreshTokens: expiredRefreshTokens.length || 0,
+      blacklistEntries: expiredBlacklistEntries.length || 0
     }
   }
 }

@@ -169,9 +169,11 @@ export default function BarChart06({ data, width, height }: BarChart06Props) {
           beforeDraw(c) {
             const xAxis = c.scales.x;
             const yAxis = c.scales.y;
-            yAxis.ticks.forEach((value, index) => {
-              const y = yAxis.getPixelForTick(index);
-              c.ctx.drawImage(imageEls[index], xAxis.left - 52, y - 18);
+            yAxis?.ticks.forEach((value, index) => {
+              const y = yAxis?.getPixelForTick(index) || 0;
+              if (imageEls[index] && xAxis) {
+                c.ctx.drawImage(imageEls[index], xAxis.left - 52, y - 18);
+              }
             });
           },
         },

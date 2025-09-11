@@ -34,7 +34,7 @@ export default function DropdownFull() {
             aria-label="Select option"
           >
             <span className="flex items-center">
-              <span>{options[selected].value}</span>
+               <span>{options[selected]?.value}</span>
             </span>
             <svg
               className="shrink-0 ml-1 fill-current text-gray-400 dark:text-gray-500"

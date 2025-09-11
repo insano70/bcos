@@ -34,14 +34,14 @@ export default function ChannelMenu() {
         <MenuButton className="grow flex items-center truncate">
           <Image
             className="w-8 h-8 rounded-full mr-2"
-            src={options[selected].image}
+            src={options[selected]?.image || ''}
             width={32}
             height={32}
             alt="Group 01"
           />
           <div className="truncate">
             <span className="font-semibold text-gray-800 dark:text-gray-100">
-              #{options[selected].channel}
+               #{options[selected]?.channel}
             </span>
           </div>
           <svg

@@ -40,7 +40,8 @@ export async function requireAuth(request: Request) {
       firstName: user.first_name,
       lastName: user.last_name,
       role: 'admin', // For now, all users are admins
-      emailVerified: user.email_verified
+      emailVerified: user.email_verified,
+      practiceId: undefined // TODO: Add practice relationship logic
     },
     accessToken,
     sessionId: payload.session_id as string

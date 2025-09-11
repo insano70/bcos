@@ -1,7 +1,9 @@
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose'
 import { nanoid } from 'nanoid'
+import { getJWTConfig } from '@/lib/env'
 
-const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret-key')
+const jwtConfig = getJWTConfig()
+const secret = new TextEncoder().encode(jwtConfig.accessSecret)
 
 export async function signJWT(payload: JWTPayload): Promise<string> {
   return await new SignJWT(payload)
@@ -27,7 +29,7 @@ export async function refreshJWT(token: string): Promise<string | null> {
   if (!payload) return null
   
   return await signJWT({
-    sub: payload.sub,
+    ...(payload.sub && { sub: payload.sub }),
     email: payload.email,
     role: payload.role,
     firstName: payload.firstName,

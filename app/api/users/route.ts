@@ -8,10 +8,9 @@ import { validateRequest, validateQuery } from '@/lib/api/middleware/validation'
 import { getPagination, getSortParams } from '@/lib/api/utils/request';
 import { userCreateSchema, userQuerySchema } from '@/lib/validations/user';
 import { hashPassword } from '@/lib/auth/password';
+import { secureRoute } from '@/lib/api/route-handler';
 
-export async function GET(request: NextRequest) {
-  try {
-    await applyRateLimit(request, 'api')
+const getUsersHandler = async (request: NextRequest, session: any) => {
     
     const { searchParams } = new URL(request.url)
     const pagination = getPagination(searchParams)
@@ -35,7 +34,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Get total count for pagination
-    const [{ count }] = await db
+    const [countResult] = await db
       .select({ count: sql<number>`count(*)` })
       .from(users)
       .where(and(...whereConditions))
@@ -53,21 +52,25 @@ export async function GET(request: NextRequest) {
       })
       .from(users)
       .where(and(...whereConditions))
-      .orderBy(sort.sortOrder === 'asc' ? asc(users[sort.sortBy as keyof typeof users]) : desc(users[sort.sortBy as keyof typeof users]))
+      .orderBy(sort.sortOrder === 'asc' ? asc(users.first_name) : desc(users.first_name))
       .limit(pagination.limit)
       .offset(pagination.offset)
 
     return createPaginatedResponse(usersData, {
       page: pagination.page,
       limit: pagination.limit,
-      total: count
+      total: countResult?.count || 0
     })
     
-  } catch (error) {
-    console.error('Error fetching users:', error)
-    return createErrorResponse(error, 500, request)
-  }
+    return createPaginatedResponse(usersData, {
+      page: pagination.page,
+      limit: pagination.limit,
+      total: countResult?.count || 0
+    })
 }
+
+// Export the secured route
+export const GET = secureRoute(getUsersHandler, { rateLimit: 'api' })
 
 export async function POST(request: NextRequest) {
   try {
@@ -103,6 +106,10 @@ export async function POST(request: NextRequest) {
       })
       .returning()
 
+    if (!newUser) {
+      throw new Error('Failed to create user')
+    }
+
     return createSuccessResponse({
       id: newUser.user_id,
       email: newUser.email,
@@ -115,6 +122,6 @@ export async function POST(request: NextRequest) {
     
   } catch (error) {
     console.error('Error creating user:', error)
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }

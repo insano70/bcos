@@ -49,7 +49,7 @@ export default function DatePickerWithRange({ className }: React.HTMLAttributes<
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
-          <Calendar mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} />
+          <Calendar mode="range" {...(date?.from && { defaultMonth: date.from })} selected={date} onSelect={setDate} />
         </PopoverContent>
       </Popover>
     </div>

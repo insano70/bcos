@@ -19,7 +19,8 @@ export async function POST(request: NextRequest) {
     const files: File[] = []
     
     // Handle multiple files
-    for (const [key, value] of data.entries()) {
+    const entries = Array.from(data.entries())
+    for (const [key, value] of entries) {
       if (key.startsWith('file') && value instanceof File) {
         files.push(value)
       }
@@ -72,6 +73,6 @@ export async function POST(request: NextRequest) {
     
   } catch (error) {
     console.error('Upload error:', error)
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }

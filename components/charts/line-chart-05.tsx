@@ -137,7 +137,7 @@ export default function LineChart05({ data, width, height }: LineChart05Props) {
               box.style.borderRadius = 'calc(infinity * 1px)';
               box.style.marginRight = '8px';
               box.style.borderWidth = '3px';
-              box.style.borderColor = c.data.datasets[item.datasetIndex!].borderColor as string;
+              box.style.borderColor = (c.data.datasets[item.datasetIndex!]?.borderColor as string) || '#000';
               box.style.pointerEvents = 'none';
               // Label
               const label = document.createElement('span');

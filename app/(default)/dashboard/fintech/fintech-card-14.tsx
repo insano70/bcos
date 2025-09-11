@@ -68,10 +68,8 @@ export default function FintechCard14() {
     },
   ];
 
-  const chartData: ChartData[] = [];
-
   const buildChartData = (chart: MiniChart): ChartData => {
-    var obj = {
+    return {
       labels: [
         '12-01-2022',
         '01-01-2023',
@@ -113,22 +111,14 @@ export default function FintechCard14() {
           pointBackgroundColor: chart.growth
             ? getCssVariable('--color-green-500')
             : getCssVariable('--color-red-500'),
-          pointHoverBackgroundColor: chart.growth
-            ? getCssVariable('--color-green-500')
-            : getCssVariable('--color-red-500'),
-          pointBorderWidth: 0,
-          pointHoverBorderWidth: 0,
           clip: 20,
           tension: 0.2,
         },
       ],
     };
-    return obj;
   };
 
-  miniCharts.map((miniChart) => {
-    chartData.push(buildChartData(miniChart));
-  });
+  const chartData: ChartData[] = miniCharts.map(buildChartData);
 
   return (
     <div className="col-span-full bg-white dark:bg-gray-800 shadow-sm rounded-xl">
@@ -190,7 +180,7 @@ export default function FintechCard14() {
                   {/* Chart built with Chart.js 3 */}
                   <div className="w-[96px]">
                     {/* Change the height attribute to adjust the chart height */}
-                    <LineChart09 data={chartData[0]} width={96} height={32} />
+                    <LineChart09 data={chartData[0] || { labels: [], datasets: [] }} width={96} height={32} />
                   </div>
                 </td>
                 <td className="p-2 whitespace-nowrap">
@@ -230,7 +220,7 @@ export default function FintechCard14() {
                   {/* Chart built with Chart.js 3 */}
                   <div className="w-[96px]">
                     {/* Change the height attribute to adjust the chart height */}
-                    <LineChart09 data={chartData[1]} width={96} height={32} />
+                    <LineChart09 data={chartData[1] || { labels: [], datasets: [] }} width={96} height={32} />
                   </div>
                 </td>
                 <td className="p-2 whitespace-nowrap">
@@ -270,7 +260,7 @@ export default function FintechCard14() {
                   {/* Chart built with Chart.js 3 */}
                   <div className="w-[96px]">
                     {/* Change the height attribute to adjust the chart height */}
-                    <LineChart09 data={chartData[2]} width={96} height={32} />
+                    <LineChart09 data={chartData[2] || { labels: [], datasets: [] }} width={96} height={32} />
                   </div>
                 </td>
                 <td className="p-2 whitespace-nowrap">
@@ -311,7 +301,7 @@ export default function FintechCard14() {
                   {/* Chart built with Chart.js 3 */}
                   <div className="w-[96px]">
                     {/* Change the height attribute to adjust the chart height */}
-                    <LineChart09 data={chartData[3]} width={96} height={32} />
+                    <LineChart09 data={chartData[3] || { labels: [], datasets: [] }} width={96} height={32} />
                   </div>
                 </td>
                 <td className="p-2 whitespace-nowrap">
@@ -351,7 +341,7 @@ export default function FintechCard14() {
                   {/* Chart built with Chart.js 3 */}
                   <div className="w-[96px]">
                     {/* Change the height attribute to adjust the chart height */}
-                    <LineChart09 data={chartData[4]} width={96} height={32} />
+                    <LineChart09 data={chartData[4] || { labels: [], datasets: [] }} width={96} height={32} />
                   </div>
                 </td>
                 <td className="p-2 whitespace-nowrap">

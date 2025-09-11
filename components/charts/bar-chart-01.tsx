@@ -160,7 +160,7 @@ export default function BarChart01({ data, width, height }: BarChartProps) {
               label.style.lineHeight = 'calc(1.25 / 0.875)';
               // @ts-ignore
               const theValue: number = c.data.datasets[item.datasetIndex!].data.reduce(
-                (a, b) => a + b,
+                (a, b) => (typeof a === 'number' ? a : 0) + (typeof b === 'number' ? b : 0),
                 0
               );
               const valueText = document.createTextNode(formatValue(theValue));

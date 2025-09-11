@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { TokenManager } from '@/lib/auth/token-manager'
 import { createSuccessResponse } from '@/lib/api/responses/success'
@@ -12,7 +12,7 @@ import { AuditLogger } from '@/lib/api/services/audit'
 export async function POST(request: NextRequest) {
   try {
     // Get refresh token from httpOnly cookie
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const refreshToken = cookieStore.get('refresh-token')?.value
     
     if (!refreshToken) {
@@ -60,10 +60,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Clear refresh token cookie
-    const response = createSuccessResponse(
-      { message: 'Logged out successfully' }, 
-      'Session ended successfully'
-    )
+    const response = NextResponse.json({
+      success: true,
+      data: { message: 'Logged out successfully' },
+      message: 'Session ended successfully',
+      meta: { timestamp: new Date().toISOString() }
+    })
 
     // Clear the refresh token cookie
     response.cookies.set('refresh-token', '', {
@@ -78,7 +80,7 @@ export async function POST(request: NextRequest) {
     
   } catch (error) {
     console.error('Logout error:', error)
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
 
@@ -89,7 +91,7 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     // Get user from current session (would need proper auth middleware)
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const refreshToken = cookieStore.get('refresh-token')?.value
     
     if (!refreshToken) {
@@ -124,10 +126,12 @@ export async function DELETE(request: NextRequest) {
       })
 
       // Clear refresh token cookie
-      const response = createSuccessResponse(
-        { revokedSessions: revokedCount },
-        `Successfully logged out from ${revokedCount} device(s)`
-      )
+      const response = NextResponse.json({
+        success: true,
+        data: { revokedSessions: revokedCount },
+        message: `Successfully logged out from ${revokedCount} device(s)`,
+        meta: { timestamp: new Date().toISOString() }
+      })
 
       response.cookies.set('refresh-token', '', {
         httpOnly: true,
@@ -145,6 +149,6 @@ export async function DELETE(request: NextRequest) {
     
   } catch (error) {
     console.error('Revoke all sessions error:', error)
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }

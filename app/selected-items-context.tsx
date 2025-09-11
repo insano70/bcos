@@ -3,14 +3,14 @@
 import { createContext, useContext, useState } from 'react';
 
 interface SelectedItemsContextProps {
-  selectedItems: number[];
-  setSelectedItems: (selectedItems: number[]) => void;
+  selectedItems: (string | number)[];
+  setSelectedItems: (selectedItems: (string | number)[]) => void;
 }
 
 const SelectedItemsContext = createContext<SelectedItemsContextProps | undefined>(undefined);
 
 export const SelectedItemsProvider = ({ children }: { children: React.ReactNode }) => {
-  const [selectedItems, setSelectedItems] = useState<number[]>([]);
+  const [selectedItems, setSelectedItems] = useState<(string | number)[]>([]);
   return (
     <SelectedItemsContext.Provider value={{ selectedItems, setSelectedItems }}>
       {children}

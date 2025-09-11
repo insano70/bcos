@@ -94,7 +94,10 @@ export function getContentSecurityPolicy(): string {
   
   // Remove upgrade-insecure-requests in development
   if (isDevelopment) {
-    delete csp['upgrade-insecure-requests']
+    const { 'upgrade-insecure-requests': _, ...devCsp } = csp
+    return Object.entries(devCsp)
+      .map(([directive, sources]) => `${directive} ${sources.join(' ')}`)
+      .join('; ')
   }
   
   // Convert to CSP string

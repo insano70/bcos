@@ -37,14 +37,14 @@ export async function GET(request: NextRequest) {
     const statusCode = healthData.status === 'healthy' ? 200 : 503
     
     if (statusCode === 503) {
-      return createErrorResponse(healthData, statusCode, request)
+      return Response.json(healthData, { status: statusCode })
     }
 
     return createSuccessResponse(healthData, 'Services are healthy')
     
   } catch (error) {
     console.error('Services health check error:', error)
-    return createErrorResponse(error, 503, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 503, request)
   }
 }
 
@@ -63,12 +63,17 @@ async function checkEmailService(): Promise<{ name: string; healthy: boolean; re
       })
       
       const healthy = response.ok
-      return {
+      const result = {
         name: 'Email Service (Resend)',
         healthy,
         responseTime: Date.now() - startTime,
-        error: healthy ? undefined : `HTTP ${response.status}`
+      } as { name: string; healthy: boolean; responseTime: number; error?: string }
+      
+      if (!healthy) {
+        result.error = `HTTP ${response.status}`
       }
+      
+      return result
     } else {
       return {
         name: 'Email Service',
@@ -123,12 +128,17 @@ async function checkAuthService(): Promise<{ name: string; healthy: boolean; res
 
     const authConfigured = accessSecretConfigured && refreshSecretConfigured
 
-    return {
+    const result = {
       name: 'Authentication Service (JWT)',
       healthy: authConfigured,
       responseTime: Date.now() - startTime,
-      error: authConfigured ? undefined : 'JWT secrets not properly configured'
+    } as { name: string; healthy: boolean; responseTime: number; error?: string }
+    
+    if (!authConfigured) {
+      result.error = 'JWT secrets not properly configured'
     }
+    
+    return result
   } catch (error) {
     return {
       name: 'Authentication Service',

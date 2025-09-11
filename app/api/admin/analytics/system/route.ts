@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
     
   } catch (error) {
     console.error('System analytics error:', error)
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
 

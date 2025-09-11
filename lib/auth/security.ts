@@ -52,14 +52,14 @@ export class AccountSecurity {
   ]
   
   static isAccountLocked(identifier: string): { locked: boolean; lockedUntil?: number } {
-    const attempts = this.failedAttempts.get(identifier)
+    const attempts = AccountSecurity.failedAttempts.get(identifier)
     if (!attempts) return { locked: false }
     
     const now = Date.now()
     
     // Check if lockout has expired
     if (attempts.lockedUntil && now > attempts.lockedUntil) {
-      this.failedAttempts.delete(identifier)
+      AccountSecurity.failedAttempts.delete(identifier)
       return { locked: false }
     }
     
@@ -73,10 +73,10 @@ export class AccountSecurity {
   
   static recordFailedAttempt(identifier: string): { locked: boolean; lockedUntil?: number } {
     const now = Date.now()
-    const existing = this.failedAttempts.get(identifier)
+    const existing = AccountSecurity.failedAttempts.get(identifier)
     
     if (!existing) {
-      this.failedAttempts.set(identifier, { count: 1, lastAttempt: now })
+      AccountSecurity.failedAttempts.set(identifier, { count: 1, lastAttempt: now })
       return { locked: false }
     }
     
@@ -85,8 +85,8 @@ export class AccountSecurity {
     
     // Apply progressive lockout
     if (existing.count >= 3) {
-      const lockoutIndex = Math.min(existing.count - 3, this.progressiveLockout.length - 1)
-      existing.lockedUntil = now + this.progressiveLockout[lockoutIndex]
+      const lockoutIndex = Math.min(existing.count - 3, AccountSecurity.progressiveLockout.length - 1)
+      existing.lockedUntil = now + (AccountSecurity.progressiveLockout[lockoutIndex] || 0)
       return { locked: true, lockedUntil: existing.lockedUntil }
     }
     
@@ -94,11 +94,11 @@ export class AccountSecurity {
   }
   
   static clearFailedAttempts(identifier: string): void {
-    this.failedAttempts.delete(identifier)
+    AccountSecurity.failedAttempts.delete(identifier)
   }
   
   static getFailedAttemptCount(identifier: string): number {
-    return this.failedAttempts.get(identifier)?.count || 0
+    return AccountSecurity.failedAttempts.get(identifier)?.count || 0
   }
 }
 

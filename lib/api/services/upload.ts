@@ -57,7 +57,7 @@ export class FileUploadService {
     files: File[],
     options: UploadOptions = {}
   ): Promise<UploadResult> {
-    const opts = { ...this.DEFAULT_OPTIONS, ...options }
+    const opts = { ...FileUploadService.DEFAULT_OPTIONS, ...options }
     const result: UploadResult = {
       success: true,
       files: [],
@@ -80,7 +80,7 @@ export class FileUploadService {
     // Process each file
     for (const file of files) {
       try {
-        const fileResult = await this.processFile(file, opts)
+        const fileResult = await FileUploadService.processFile(file, opts)
         if (fileResult.success) {
           result.files.push(fileResult.file!)
         } else {
@@ -104,7 +104,7 @@ export class FileUploadService {
     file: File,
     options: UploadOptions = {}
   ): Promise<UploadResult> {
-    return this.uploadFiles([file], options)
+    return FileUploadService.uploadFiles([file], options)
   }
 
   /**
@@ -133,7 +133,7 @@ export class FileUploadService {
     const fileExtension = path.extname(file.name)
     const baseName = path.basename(file.name, fileExtension)
     const uniqueId = nanoid(8)
-    const fileName = `${this.sanitizeFilename(baseName)}_${uniqueId}${fileExtension}`
+    const fileName = `${FileUploadService.sanitizeFilename(baseName)}_${uniqueId}${fileExtension}`
     const filePath = path.join(process.cwd(), 'public', options.folder, fileName)
     const fileUrl = `/${options.folder}/${fileName}`
 
@@ -145,13 +145,14 @@ export class FileUploadService {
     let thumbnail: string | undefined
 
     // Process images
-    if (this.IMAGE_TYPES.includes(file.type)) {
+    if (FileUploadService.IMAGE_TYPES.includes(file.type)) {
       if (options.optimizeImages) {
-        processedBuffer = await this.optimizeImage(buffer, file.type)
+        const optimized = await FileUploadService.optimizeImage(buffer, file.type)
+        processedBuffer = Buffer.from(optimized)
       }
 
       if (options.generateThumbnails) {
-        thumbnail = await this.generateThumbnail(buffer, fileName, options.folder)
+        thumbnail = await FileUploadService.generateThumbnail(buffer, fileName, options.folder)
       }
     }
 

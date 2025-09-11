@@ -7,10 +7,12 @@ import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { validateQuery } from '@/lib/api/middleware/validation';
 import { getPagination, getSortParams } from '@/lib/api/utils/request';
 import { templateQuerySchema } from '@/lib/validations/template';
+import { requireAuth } from '@/lib/api/middleware/auth';
 
 export async function GET(request: NextRequest) {
   try {
     await applyRateLimit(request, 'api')
+    await requireAuth(request) // Require authentication
     
     const { searchParams } = new URL(request.url)
     const pagination = getPagination(searchParams)
@@ -30,7 +32,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Get total count for pagination
-    const [{ count }] = await db
+    const [countResult] = await db
       .select({ count: sql<number>`count(*)` })
       .from(templates)
       .where(and(...whereConditions))
@@ -48,18 +50,18 @@ export async function GET(request: NextRequest) {
       })
       .from(templates)
       .where(and(...whereConditions))
-      .orderBy(sort.sortOrder === 'asc' ? asc(templates[sort.sortBy as keyof typeof templates]) : desc(templates[sort.sortBy as keyof typeof templates]))
+      .orderBy(sort.sortOrder === 'asc' ? asc(templates.name) : desc(templates.name))
       .limit(pagination.limit)
       .offset(pagination.offset)
 
     return createPaginatedResponse(templatesData, {
       page: pagination.page,
       limit: pagination.limit,
-      total: count
+      total: countResult?.count || 0
     })
     
   } catch (error) {
     console.error('Error fetching templates:', error)
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }

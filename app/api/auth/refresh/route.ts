@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { TokenManager } from '@/lib/auth/token-manager'
 import { createSuccessResponse } from '@/lib/api/responses/success'
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     await applyRateLimit(request, 'auth')
     
     // Get refresh token from httpOnly cookie
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const refreshToken = cookieStore.get('refresh-token')?.value
     
     if (!refreshToken) {
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     if (!tokenPair) {
       // Log failed refresh attempt
       await AuditLogger.logAuth({
-        action: 'token_refresh_failed',
+        action: 'login_failed',
         ipAddress,
         userAgent,
         metadata: {
@@ -57,11 +57,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Set new refresh token in httpOnly cookie
-    const response = createSuccessResponse({
-      accessToken: tokenPair.accessToken,
-      expiresAt: tokenPair.expiresAt.toISOString(),
-      sessionId: tokenPair.sessionId
-    }, 'Tokens refreshed successfully')
+    const response = NextResponse.json({
+      success: true,
+      data: {
+        accessToken: tokenPair.accessToken,
+        expiresAt: tokenPair.expiresAt.toISOString(),
+        sessionId: tokenPair.sessionId
+      },
+      message: 'Tokens refreshed successfully',
+      meta: { timestamp: new Date().toISOString() }
+    })
 
     // Set secure httpOnly cookie for refresh token
     const isProduction = process.env.NODE_ENV === 'production'
@@ -90,6 +95,6 @@ export async function POST(request: NextRequest) {
       severity: 'medium'
     })
     
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }

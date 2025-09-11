@@ -97,10 +97,10 @@ export default function WarmWelcomingTemplate({
         </section>
         
         {/* Contact section */}
-        <Contact practice={practice} attributes={attributes} />
+        <Contact practice={practice} attributes={attributes} colorStyles={colorStyles} />
         
         {/* Footer */}
-        <Footer practice={practice} attributes={attributes} />
+        <Footer practice={practice} attributes={attributes} colorStyles={colorStyles} />
       </div>
     </>
   );

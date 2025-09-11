@@ -14,7 +14,7 @@ interface EmailTemplate {
 interface EmailOptions {
   to: string | string[]
   subject: string
-  html?: string
+  html: string
   text?: string
   template?: string
   variables?: Record<string, string>
@@ -49,7 +49,7 @@ export class EmailService {
       to: email,
       subject: template.subject,
       html: template.html,
-      text: template.text
+      ...(template.text && { text: template.text })
     })
   }
 
@@ -64,7 +64,7 @@ export class EmailService {
       to: email,
       subject: template.subject,
       html: template.html,
-      text: template.text
+      ...(template.text && { text: template.text })
     })
   }
 
@@ -79,7 +79,7 @@ export class EmailService {
       to: email,
       subject: template.subject,
       html: template.html,
-      text: template.text
+      ...(template.text && { text: template.text })
     })
   }
 
@@ -94,7 +94,7 @@ export class EmailService {
       to: email,
       subject: template.subject,
       html: template.html,
-      text: template.text
+      ...(template.text && { text: template.text })
     })
   }
 
@@ -113,13 +113,13 @@ export class EmailService {
       return
     }
 
-    const template = EmailService.getSystemNotificationTemplate({ message, details })
+    const template = EmailService.getSystemNotificationTemplate({ message, details: details || {} })
     
     await EmailService.send({
       to: adminEmails,
       subject: `[System Alert] ${subject}`,
       html: template.html,
-      text: template.text
+      ...(template.text && { text: template.text })
     })
   }
 
@@ -135,10 +135,10 @@ export class EmailService {
         from: fromEmail,
         to: Array.isArray(options.to) ? options.to : [options.to],
         subject: options.subject,
-        html: options.html,
-        text: options.text,
+        html: options.html || '',
+        text: options.text || '',
         attachments: options.attachments
-      })
+      } as any)
 
       if (result.error) {
         throw new Error(`Email sending failed: ${result.error.message}`)

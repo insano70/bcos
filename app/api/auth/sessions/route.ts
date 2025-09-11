@@ -1,10 +1,11 @@
 import { NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
 import { db, user_sessions, refresh_tokens } from '@/lib/db'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, sql } from 'drizzle-orm'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { TokenManager } from '@/lib/auth/token-manager'
+import { AuditLogger } from '@/lib/api/services/audit'
 
 /**
  * Session Management Endpoint
@@ -13,7 +14,7 @@ import { TokenManager } from '@/lib/auth/token-manager'
 export async function GET(request: NextRequest) {
   try {
     // Get current user from refresh token
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const refreshToken = cookieStore.get('refresh-token')?.value
     
     if (!refreshToken) {
@@ -73,7 +74,7 @@ export async function GET(request: NextRequest) {
     
   } catch (error) {
     console.error('Get sessions error:', error)
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
 
@@ -89,7 +90,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Get current user from refresh token
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const refreshToken = cookieStore.get('refresh-token')?.value
     
     if (!refreshToken) {
@@ -125,22 +126,24 @@ export async function DELETE(request: NextRequest) {
       }
 
       // Get the refresh token for this session
-      const [refreshTokenRecord] = await db
-        .select({ tokenId: refresh_tokens.token_id })
-        .from(refresh_tokens)
-        .where(eq(refresh_tokens.token_id, sessionToRevoke.refreshTokenId))
-        .limit(1)
+      if (sessionToRevoke.refreshTokenId) {
+        const [refreshTokenRecord] = await db
+          .select({ tokenId: refresh_tokens.token_id })
+          .from(refresh_tokens)
+          .where(eq(refresh_tokens.token_id, sessionToRevoke.refreshTokenId))
+          .limit(1)
 
-      if (refreshTokenRecord) {
-        // Revoke the refresh token (this will also end the session)
-        await TokenManager.revokeRefreshToken(refreshToken, 'security')
+        if (refreshTokenRecord) {
+          // Revoke the refresh token (this will also end the session)
+          await TokenManager.revokeRefreshToken(refreshToken, 'security')
+        }
       }
 
       // Log the action
       const ipAddress = request.headers.get('x-forwarded-for') || 'unknown'
       const userAgent = request.headers.get('user-agent') || 'unknown'
       
-      await AuditLogger.logAuth({
+      await AuditLogger.logSecurity({
         action: 'session_revoked',
         userId,
         ipAddress,
@@ -148,7 +151,8 @@ export async function DELETE(request: NextRequest) {
         metadata: {
           revokedSessionId: sessionId,
           reason: 'user_requested'
-        }
+        },
+        severity: 'medium'
       })
 
       return createSuccessResponse(
@@ -162,6 +166,6 @@ export async function DELETE(request: NextRequest) {
     
   } catch (error) {
     console.error('Revoke session error:', error)
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }

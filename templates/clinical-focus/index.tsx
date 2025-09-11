@@ -87,7 +87,7 @@ export default function ClinicalFocusTemplate({
           <div className="max-w-7xl mx-auto px-4">
             <h2 className="text-3xl font-bold text-center mb-12">Clinical Services</h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {(attributes.services ? JSON.parse(attributes.services) : [
+              {(Array.isArray(attributes.services) ? attributes.services : [
                 'Rheumatoid Arthritis Research',
                 'Lupus Clinical Trials',
                 'Biologics Research',

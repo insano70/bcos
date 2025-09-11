@@ -11,7 +11,7 @@ import { AuditLogger } from '@/lib/api/services/audit'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.text()
-    const signature = headers().get('resend-signature')
+    const signature = (await headers()).get('resend-signature')
     
     if (!signature) {
       return createErrorResponse('Missing Resend signature', 400, request)
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
       severity: 'high'
     })
     
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
 

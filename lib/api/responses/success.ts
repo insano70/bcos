@@ -21,7 +21,7 @@ export function createSuccessResponse<T>(
   const response: SuccessResponse<T> = {
     success: true,
     data,
-    message,
+    ...(message && { message }),
     meta: {
       timestamp: new Date().toISOString(),
       ...meta

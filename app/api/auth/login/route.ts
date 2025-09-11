@@ -11,12 +11,13 @@ import { verifyPassword } from '@/lib/auth/security'
 import { TokenManager } from '@/lib/auth/token-manager'
 import { AccountSecurity } from '@/lib/auth/security'
 import { AuditLogger } from '@/lib/api/services/audit'
+import { publicRoute } from '@/lib/api/route-handler'
 
 /**
  * Custom Login Endpoint
  * Replaces NextAuth with enterprise-grade authentication
  */
-export async function POST(request: NextRequest) {
+const loginHandler = async (request: NextRequest) => {
   try {
     // Apply rate limiting
     await applyRateLimit(request, 'auth')
@@ -28,7 +29,6 @@ export async function POST(request: NextRequest) {
     // Extract device info
     const ipAddress = request.headers.get('x-forwarded-for') || 
                      request.headers.get('x-real-ip') || 
-                     request.ip || 
                      'unknown'
     const userAgent = request.headers.get('user-agent') || 'unknown'
 
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     const lockoutStatus = AccountSecurity.isAccountLocked(email)
     if (lockoutStatus.locked) {
       await AuditLogger.logAuth({
-        action: 'login_blocked_locked',
+        action: 'account_locked',
         ipAddress,
         userAgent,
         metadata: {
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
     )
 
     // Set secure httpOnly cookie for refresh token
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const isProduction = process.env.NODE_ENV === 'production'
     const maxAge = remember ? 30 * 24 * 60 * 60 : 7 * 24 * 60 * 60 // 30 days or 7 days
     
@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
 
     // Log successful login
     await AuditLogger.logAuth({
-      action: 'login_success',
+      action: 'login',
       userId: user.user_id,
       ipAddress,
       userAgent,
@@ -173,6 +173,9 @@ export async function POST(request: NextRequest) {
     
   } catch (error) {
     console.error('Login error:', error)
-    return createErrorResponse(error, error instanceof AuthenticationError ? 401 : 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', error instanceof AuthenticationError ? 401 : 500, request)
   }
 }
+
+// Export as public route
+export const POST = publicRoute(loginHandler, 'Authentication endpoint - must be public', { rateLimit: 'auth' })

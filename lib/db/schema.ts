@@ -3,12 +3,12 @@ import { pgTable, uuid, varchar, boolean, timestamp, index, text, integer } from
 // Import audit logs table
 export { audit_logs } from './audit-schema';
 
-// Import JWT + Refresh Token tables
+// Import JWT + Refresh Token tables and Session tables
 export { 
   refresh_tokens,
   token_blacklist,
-  user_sessions, 
-  login_attempts, 
+  user_sessions,
+  login_attempts,
   account_security
 } from './refresh-token-schema';
 

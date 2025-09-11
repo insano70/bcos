@@ -7,10 +7,12 @@ import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { validateRequest, validateQuery } from '@/lib/api/middleware/validation';
 import { getPagination, getSortParams } from '@/lib/api/utils/request';
 import { practiceCreateSchema, practiceQuerySchema } from '@/lib/validations/practice';
+import { requireAuth } from '@/lib/api/middleware/auth';
 
 export async function GET(request: NextRequest) {
   try {
     await applyRateLimit(request, 'api')
+    await requireAuth(request) // Require authentication
     
     const { searchParams } = new URL(request.url)
     const pagination = getPagination(searchParams)
@@ -27,7 +29,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Get total count for pagination
-    const [{ count }] = await db
+    const [countResult] = await db
       .select({ count: sql<number>`count(*)` })
       .from(practices)
       .where(and(...whereConditions))
@@ -48,19 +50,19 @@ export async function GET(request: NextRequest) {
       .leftJoin(templates, eq(practices.template_id, templates.template_id))
       .leftJoin(users, eq(practices.owner_user_id, users.user_id))
       .where(and(...whereConditions))
-      .orderBy(sort.sortOrder === 'asc' ? asc(practices[sort.sortBy as keyof typeof practices]) : desc(practices[sort.sortBy as keyof typeof practices]))
+      .orderBy(sort.sortOrder === 'asc' ? asc(practices.name) : desc(practices.name))
       .limit(pagination.limit)
       .offset(pagination.offset)
 
     return createPaginatedResponse(practicesData, {
       page: pagination.page,
       limit: pagination.limit,
-      total: count
+      total: countResult?.count || 0
     })
     
   } catch (error) {
     console.error('Error fetching practices:', error)
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
 
@@ -75,8 +77,10 @@ export async function POST(request: NextRequest) {
     const existingPractice = await db
       .select()
       .from(practices)
-      .where(eq(practices.domain, domain))
-      .where(isNull(practices.deleted_at))
+      .where(and(
+        eq(practices.domain, domain),
+        isNull(practices.deleted_at)
+      ))
       .limit(1)
 
     if (existingPractice.length > 0) {
@@ -87,8 +91,10 @@ export async function POST(request: NextRequest) {
     const [template] = await db
       .select()
       .from(templates)
-      .where(eq(templates.template_id, template_id))
-      .where(eq(templates.is_active, true))
+      .where(and(
+        eq(templates.template_id, template_id),
+        eq(templates.is_active, true)
+      ))
       .limit(1)
     
     if (!template) {
@@ -106,6 +112,10 @@ export async function POST(request: NextRequest) {
       })
       .returning()
 
+    if (!newPractice) {
+      throw new Error('Failed to create practice')
+    }
+
     return createSuccessResponse({
       id: newPractice.practice_id,
       name: newPractice.name,
@@ -119,6 +129,6 @@ export async function POST(request: NextRequest) {
     
   } catch (error) {
     console.error('Error creating practice:', error)
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }

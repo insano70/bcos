@@ -45,11 +45,11 @@ export function createErrorResponse(
   const response: ErrorResponse = {
     success: false,
     error: errorMessage,
-    code: errorCode,
+    code: errorCode || 'INTERNAL_ERROR',
     details: errorDetails,
     meta: {
       timestamp: new Date().toISOString(),
-      path: request?.url
+      ...(request?.url && { path: request.url })
     }
   }
 

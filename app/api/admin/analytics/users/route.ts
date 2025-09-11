@@ -114,15 +114,15 @@ export async function GET(request: NextRequest) {
 
     const analytics = {
       overview: {
-        totalUsers: userStats.totalUsers,
-        activeUsers: userStats.activeUsers,
-        verifiedUsers: userStats.verifiedUsers,
-        newUsersThisPeriod: userStats.newUsersThisPeriod,
-        verificationRate: userStats.totalUsers > 0 
-          ? Math.round((userStats.verifiedUsers / userStats.totalUsers) * 100) 
+        totalUsers: userStats?.totalUsers || 0,
+        activeUsers: userStats?.activeUsers || 0,
+        verifiedUsers: userStats?.verifiedUsers || 0,
+        newUsersThisPeriod: userStats?.newUsersThisPeriod || 0,
+        verificationRate: (userStats?.totalUsers || 0) > 0 
+          ? Math.round(((userStats?.verifiedUsers || 0) / (userStats?.totalUsers || 1)) * 100) 
           : 0,
-        activationRate: userStats.totalUsers > 0 
-          ? Math.round((userStats.activeUsers / userStats.totalUsers) * 100) 
+        activationRate: (userStats?.totalUsers || 0) > 0 
+          ? Math.round(((userStats?.activeUsers || 0) / (userStats?.totalUsers || 1)) * 100) 
           : 0
       },
       trends: {
@@ -152,7 +152,7 @@ export async function GET(request: NextRequest) {
     
   } catch (error) {
     console.error('User analytics error:', error)
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
 

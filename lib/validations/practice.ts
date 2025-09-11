@@ -49,7 +49,7 @@ export const practiceAttributesUpdateSchema = z.object({
   zip_code: z.string().max(20).optional(),
   
   // Business Details
-  business_hours: z.record(z.object({
+  business_hours: z.record(z.string(), z.object({
     open: z.string().optional(),
     close: z.string().optional(),
     closed: z.boolean()

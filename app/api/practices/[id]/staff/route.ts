@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db, practices, staff_members } from '@/lib/db';
 import { eq, isNull, and, asc, desc, sql, like } from 'drizzle-orm';
 import { createSuccessResponse, createPaginatedResponse } from '@/lib/api/responses/success';
@@ -26,8 +26,10 @@ export async function GET(
     const [practice] = await db
       .select()
       .from(practices)
-      .where(eq(practices.practice_id, practiceId))
-      .where(isNull(practices.deleted_at))
+      .where(and(
+        eq(practices.practice_id, practiceId),
+        isNull(practices.deleted_at)
+      ))
       .limit(1)
 
     if (!practice) {
@@ -50,7 +52,7 @@ export async function GET(
     }
 
     // Get total count for pagination
-    const [{ count }] = await db
+    const [countResult] = await db
       .select({ count: sql<number>`count(*)` })
       .from(staff_members)
       .where(and(...whereConditions))
@@ -60,7 +62,7 @@ export async function GET(
       .select()
       .from(staff_members)
       .where(and(...whereConditions))
-      .orderBy(sort.sortOrder === 'asc' ? asc(staff_members[sort.sortBy as keyof typeof staff_members]) : desc(staff_members[sort.sortBy as keyof typeof staff_members]))
+      .orderBy(sort.sortOrder === 'asc' ? asc(staff_members.name) : desc(staff_members.name))
       .limit(pagination.limit)
       .offset(pagination.offset)
 
@@ -74,12 +76,12 @@ export async function GET(
     return createPaginatedResponse(parsedStaff, {
       page: pagination.page,
       limit: pagination.limit,
-      total: count
+      total: countResult?.count || 0
     })
     
   } catch (error) {
     console.error('Error fetching staff members:', error)
-    return createErrorResponse(error, 500, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
 
@@ -109,10 +111,10 @@ export async function POST(
 
     // Prepare staff data, stringify JSON fields
     const staffData = {
-      ...body,
+      ...validatedData,
       practice_id: practiceId,
-      specialties: body.specialties ? JSON.stringify(body.specialties) : null,
-      education: body.education ? JSON.stringify(body.education) : null,
+      specialties: validatedData.specialties ? JSON.stringify(validatedData.specialties) : null,
+      education: validatedData.education ? JSON.stringify(validatedData.education) : null,
     };
 
     const [newStaff] = await db

@@ -10,7 +10,11 @@ import { loginSchema } from '@/lib/validations/auth'
 import SplitText from '@/components/SplitText'
 import type { z } from 'zod'
 
-type LoginFormData = z.infer<typeof loginSchema>
+type LoginFormData = {
+  email: string;
+  password: string;
+  remember: boolean;
+}
 
 interface LoginFormProps {
   onSuccess?: () => void
@@ -24,15 +28,18 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
   const { login } = useAuth()
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isValid }
-  } = useForm<LoginFormData>({
+  const form = useForm({
     resolver: zodResolver(loginSchema),
-    mode: 'onChange',
-    reValidateMode: 'onChange'
+    mode: 'onChange' as const,
+    reValidateMode: 'onChange' as const,
+    defaultValues: {
+      email: '',
+      password: '',
+      remember: false
+    }
   })
+
+  const { register, handleSubmit, formState: { errors, isValid } } = form
 
   const onSubmit = async (data: LoginFormData) => {
     try {

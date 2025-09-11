@@ -40,7 +40,11 @@ export function getTemplateDefaultColors(templateSlug: string): BrandColors {
     },
   };
   
-  return defaults[templateSlug] || defaults['classic-professional'];
+  return defaults[templateSlug] || defaults['classic-professional'] || {
+    primary: '#3B82F6',
+    secondary: '#1E40AF', 
+    accent: '#F59E0B'
+  };
 }
 
 /**
@@ -49,9 +53,9 @@ export function getTemplateDefaultColors(templateSlug: string): BrandColors {
 export function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return result ? {
-    r: parseInt(result[1], 16),
-    g: parseInt(result[2], 16),
-    b: parseInt(result[3], 16)
+    r: parseInt(result[1] || '0', 16),
+    g: parseInt(result[2] || '0', 16),
+    b: parseInt(result[3] || '0', 16)
   } : null;
 }
 

@@ -33,7 +33,7 @@ export function getPagination(searchParams: URLSearchParams): PaginationParams {
 export function getSearchFilters(searchParams: URLSearchParams): Record<string, string> {
   const filters: Record<string, string> = {}
   
-  for (const [key, value] of searchParams.entries()) {
+  for (const [key, value] of Array.from(searchParams.entries())) {
     if (!['page', 'limit', 'sort', 'order'].includes(key) && value) {
       filters[key] = value
     }

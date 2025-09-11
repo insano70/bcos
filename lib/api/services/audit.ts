@@ -37,9 +37,9 @@ class AuditLoggerService {
     await this.log({
       event_type: 'auth',
       action: data.action,
-      user_id: data.userId,
-      ip_address: data.ipAddress,
-      user_agent: data.userAgent,
+      user_id: data.userId || '',
+      ip_address: data.ipAddress || '',
+      user_agent: data.userAgent || '',
       metadata: {
         email: data.email,
         ...data.metadata
@@ -64,11 +64,11 @@ class AuditLoggerService {
       event_type: 'user_action',
       action: data.action,
       user_id: data.userId,
-      resource_type: data.resourceType,
-      resource_id: data.resourceId,
-      ip_address: data.ipAddress,
-      user_agent: data.userAgent,
-      metadata: data.metadata,
+      resource_type: data.resourceType || '',
+      resource_id: data.resourceId || '',
+      ip_address: data.ipAddress || '',
+      user_agent: data.userAgent || '',
+      metadata: data.metadata || {},
       severity: 'low'
     })
   }
@@ -93,11 +93,11 @@ class AuditLoggerService {
       user_id: data.userId,
       resource_type: data.resourceType,
       resource_id: data.resourceId,
-      old_values: data.oldValues,
-      new_values: data.newValues,
-      ip_address: data.ipAddress,
-      user_agent: data.userAgent,
-      metadata: data.metadata,
+      old_values: data.oldValues || {},
+      new_values: data.newValues || {},
+      ip_address: data.ipAddress || '',
+      user_agent: data.userAgent || '',
+      metadata: data.metadata || {},
       severity: data.action === 'delete' ? 'medium' : 'low'
     })
   }
@@ -116,10 +116,10 @@ class AuditLoggerService {
     await this.log({
       event_type: 'security',
       action: data.action,
-      user_id: data.userId,
-      ip_address: data.ipAddress,
-      user_agent: data.userAgent,
-      metadata: data.metadata,
+      user_id: data.userId || '',
+      ip_address: data.ipAddress || '',
+      user_agent: data.userAgent || '',
+      metadata: data.metadata || {},
       severity: data.severity || 'high'
     })
   }
@@ -135,7 +135,7 @@ class AuditLoggerService {
     await this.log({
       event_type: 'system',
       action: data.action,
-      metadata: data.metadata,
+      metadata: data.metadata || {},
       severity: data.severity || 'medium'
     })
   }

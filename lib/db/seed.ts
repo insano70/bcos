@@ -29,7 +29,7 @@ async function seedUsers() {
         })
         .returning();
 
-      console.log('✅ Admin user created:', adminUser.email);
+      console.log('✅ Admin user created:', adminUser?.email || 'Unknown');
     } else {
       console.log('ℹ️  Admin user already exists, skipping...');
     }
@@ -73,7 +73,7 @@ async function seedUsers() {
       if (existingUser.length === 0) {
         const [newUser] = await db.insert(users).values(userData).returning();
 
-        console.log('✅ Sample user created:', newUser.email);
+        console.log('✅ Sample user created:', newUser?.email || 'Unknown');
       } else {
         console.log(`ℹ️  User ${userData.email} already exists, skipping...`);
       }
@@ -130,7 +130,7 @@ async function seedTemplates() {
         .values(template)
         .returning();
       
-      console.log('✅ Template created:', newTemplate.name);
+      console.log('✅ Template created:', newTemplate?.name || 'Unknown');
     } else {
       console.log(`ℹ️  Template ${template.name} already exists, skipping...`);
     }
@@ -183,13 +183,13 @@ async function seedPractices() {
         })
         .returning();
       
-      console.log('✅ Denver Rheumatology practice created:', newDenverPractice.name);
+      console.log('✅ Denver Rheumatology practice created:', newDenverPractice?.name || 'Unknown');
       
       // Create practice attributes for Denver Rheumatology
       await db
         .insert(practice_attributes)
         .values({
-          practice_id: newDenverPractice.practice_id,
+          practice_id: newDenverPractice?.practice_id || '',
           phone: '(720) 555-0199',
           email: 'info@denver-rheumatology.com',
           address_line1: '456 Colorado Boulevard',
@@ -252,7 +252,7 @@ async function seedPractices() {
         .insert(staff_members)
         .values([
           {
-            practice_id: newDenverPractice.practice_id,
+            practice_id: newDenverPractice?.practice_id || '',
             name: 'Dr. Michael Chen',
             title: 'Rheumatologist',
             credentials: 'MD, FACR',
@@ -271,7 +271,7 @@ async function seedPractices() {
             display_order: 1,
           },
           {
-            practice_id: newDenverPractice.practice_id,
+            practice_id: newDenverPractice?.practice_id || '',
             name: 'Dr. Emily Rodriguez',
             title: 'Rheumatologist',
             credentials: 'MD, MS',
@@ -315,13 +315,13 @@ async function seedPractices() {
         })
         .returning();
       
-      console.log('✅ Demo practice created:', newPractice.name);
+      console.log('✅ Demo practice created:', newPractice?.name || 'Unknown');
       
       // Create practice attributes
       await db
         .insert(practice_attributes)
         .values({
-          practice_id: newPractice.practice_id,
+          practice_id: newPractice?.practice_id || '',
           phone: '(303) 555-0123',
           email: 'info@demo-rheumatology.com',
           address_line1: '123 Medical Center Drive',
@@ -378,7 +378,7 @@ async function seedPractices() {
       await db
         .insert(staff_members)
         .values({
-          practice_id: newPractice.practice_id,
+          practice_id: newPractice?.practice_id || '',
           name: 'Dr. Sarah Johnson',
           title: 'Rheumatologist',
           credentials: 'MD, FACR',

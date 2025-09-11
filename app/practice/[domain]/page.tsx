@@ -1,8 +1,9 @@
 import { db, practices, practice_attributes, staff_members, templates } from '@/lib/db';
-import { eq, isNull } from 'drizzle-orm';
+import { eq, isNull, and } from 'drizzle-orm';
 import { getTemplateComponent } from '@/lib/template-loader';
 import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
 import { notFound } from 'next/navigation';
+import { transformPractice, transformPracticeAttributes, transformStaffMember } from '@/lib/types/transformers';
 
 async function getPracticeByDomain(domain: string) {
   // Get practice by domain
@@ -10,9 +11,11 @@ async function getPracticeByDomain(domain: string) {
     .select()
     .from(practices)
     .leftJoin(templates, eq(practices.template_id, templates.template_id))
-    .where(eq(practices.domain, domain))
-    .where(eq(practices.status, 'active'))
-    .where(isNull(practices.deleted_at))
+    .where(and(
+      eq(practices.domain, domain),
+      eq(practices.status, 'active'),
+      isNull(practices.deleted_at)
+    ))
     .limit(1);
 
   if (!practice) {
@@ -30,16 +33,18 @@ async function getPracticeByDomain(domain: string) {
   const staff = await db
     .select()
     .from(staff_members)
-    .where(eq(staff_members.practice_id, practice.practices.practice_id))
-    .where(eq(staff_members.is_active, true))
-    .where(isNull(staff_members.deleted_at))
+    .where(and(
+      eq(staff_members.practice_id, practice.practices.practice_id),
+      eq(staff_members.is_active, true),
+      isNull(staff_members.deleted_at)
+    ))
     .orderBy(staff_members.display_order);
 
   return {
-    practice: practice.practices,
+    practice: transformPractice(practice.practices),
     template: practice.templates,
-    attributes: attributes || {},
-    staff: staff || [],
+    attributes: attributes ? transformPracticeAttributes(attributes) : {} as any,
+    staff: staff.map(transformStaffMember),
   };
 }
 
@@ -73,21 +78,9 @@ export default async function PracticeWebsite({
 
   const { practice, template, attributes, staff } = data;
 
-  // Parse JSON fields
-  const parsedAttributes = {
-    ...attributes,
-    business_hours: attributes.business_hours ? JSON.parse(attributes.business_hours) : null,
-    services: attributes.services ? JSON.parse(attributes.services) : [],
-    insurance_accepted: attributes.insurance_accepted ? JSON.parse(attributes.insurance_accepted) : [],
-    conditions_treated: attributes.conditions_treated ? JSON.parse(attributes.conditions_treated) : [],
-    gallery_images: attributes.gallery_images ? JSON.parse(attributes.gallery_images) : [],
-  };
-
-  const parsedStaff = staff.map(member => ({
-    ...member,
-    specialties: member.specialties ? JSON.parse(member.specialties) : [],
-    education: member.education ? JSON.parse(member.education) : [],
-  }));
+  // Attributes and staff are already transformed/parsed by the transformers
+  const parsedAttributes = attributes;
+  const parsedStaff = staff;
 
   // Generate color styles for the template
   const defaultColors = getTemplateDefaultColors(template?.slug || 'classic-professional');

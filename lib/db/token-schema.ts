@@ -1,4 +1,4 @@
-import { pgTable, varchar, text, timestamp, boolean, index, uuid } from 'drizzle-orm/pg-core'
+import { pgTable, varchar, text, timestamp, boolean, index, uuid, integer } from 'drizzle-orm/pg-core'
 
 /**
  * JWT Token Tracking Tables
