@@ -6,9 +6,12 @@ import FilterButton from '@/components/dropdown-filter';
 import PracticesTable from './practices-table';
 import PaginationClassic from '@/components/pagination-classic';
 import { usePractices } from '@/lib/hooks/use-practices';
+import { ProtectedComponent } from '@/components/rbac/protected-component';
+import { usePracticePermissions } from '@/lib/hooks/use-permissions';
 
 export default function PracticesContent() {
   const { data: practices, isLoading, error, refetch } = usePractices();
+  const _practicePermissions = usePracticePermissions();
 
   if (error) {
     // Check if this is a session expiry error
@@ -106,31 +109,37 @@ export default function PracticesContent() {
 
         {/* Right: Actions */}
         <div className="grid grid-flow-col sm:auto-cols-max justify-start sm:justify-end gap-2">
-          {/* Delete button */}
-          <DeleteButton />
+          {/* Delete button - only for users who can manage practices */}
+          <ProtectedComponent permission="practices:manage:all">
+            <DeleteButton />
+          </ProtectedComponent>
 
-          {/* Dropdown */}
-          <DateSelect />
-
-          {/* Filter button */}
-          <FilterButton align="right" />
-
-          {/* Add practice button */}
-          <button
-            type="button"
-            disabled={isLoading}
-            className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+          {/* Filter and date controls - available to all who can read practices */}
+          <ProtectedComponent 
+            permissions={['practices:read:own', 'practices:read:all']}
           >
-            <svg
-              className="fill-current shrink-0 xs:hidden"
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
+            <DateSelect />
+            <FilterButton align="right" />
+          </ProtectedComponent>
+
+          {/* Add practice button - only for super admins */}
+          <ProtectedComponent permission="practices:create:all">
+            <button
+              type="button"
+              disabled={isLoading}
+              className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <path d="M15 7H9V1c0-.6-.4-1-1-1S7 .4 7 1v6H1c-.6 0-1 .4-1 1s.4 1 1 1h6v6c0 .6.4 1 1 1s1-.4 1-1V9h6c.6 0 1-.4 1-1s-.4-1-1-1z" />
-            </svg>
-            <span className="max-xs:sr-only">Add Practice</span>
-          </button>
+              <svg
+                className="fill-current shrink-0 xs:hidden"
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+              >
+                <path d="M15 7H9V1c0-.6-.4-1-1-1S7 .4 7 1v6H1c-.6 0-1 .4-1 1s.4 1 1 1h6v6c0 .6.4 1 1 1s1-.4 1-1V9h6c.6 0 1-.4 1-1s-.4-1-1-1z" />
+              </svg>
+              <span className="max-xs:sr-only">Add Practice</span>
+            </button>
+          </ProtectedComponent>
         </div>
       </div>
 

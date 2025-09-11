@@ -12,6 +12,22 @@ export {
   account_security
 } from './refresh-token-schema';
 
+// Import RBAC tables
+export {
+  organizations,
+  permissions,
+  roles,
+  role_permissions,
+  user_roles,
+  user_organizations,
+  organizationsRelations,
+  rolesRelations,
+  permissionsRelations,
+  rolePermissionsRelations,
+  userRolesRelations,
+  userOrganizationsRelations
+} from './rbac-schema';
+
 // System users (admins who manage the platform)
 export const users = pgTable(
   'users',

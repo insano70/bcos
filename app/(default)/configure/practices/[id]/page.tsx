@@ -7,8 +7,7 @@ import { notFound } from 'next/navigation';
 import { db, practices, practice_attributes, staff_members, templates } from '@/lib/db';
 import { eq } from 'drizzle-orm';
 import PracticeConfigForm from './practice-config-form';
-import type { Practice, PracticeAttributes, StaffMember } from '@/lib/types/practice';
-import type { Template } from '@/lib/hooks/use-templates';
+import type { PracticeAttributes, } from '@/lib/types/practice';
 import { transformPractice, transformStaffMember, transformTemplate, transformPracticeAttributes } from '@/lib/types/transformers';
 
 async function getPracticeData(practiceId: string) {

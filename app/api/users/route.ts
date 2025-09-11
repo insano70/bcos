@@ -1,114 +1,87 @@
-import { NextRequest } from 'next/server';
-import { db, users } from '@/lib/db';
-import { eq, isNull, and, asc, desc, sql, like } from 'drizzle-orm';
+import type { NextRequest } from 'next/server';
 import { createSuccessResponse, createPaginatedResponse } from '@/lib/api/responses/success';
 import { createErrorResponse, ConflictError } from '@/lib/api/responses/error';
-import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { validateRequest, validateQuery } from '@/lib/api/middleware/validation';
 import { getPagination, getSortParams } from '@/lib/api/utils/request';
 import { userCreateSchema, userQuerySchema } from '@/lib/validations/user';
-import { hashPassword } from '@/lib/auth/password';
-import { secureRoute } from '@/lib/api/route-handler';
+import { userRoute } from '@/lib/api/rbac-route-handler';
+import { createRBACUsersService } from '@/lib/services/rbac-users-service';
+import type { UserContext } from '@/lib/types/rbac';
 
-const getUsersHandler = async (request: NextRequest, session: any) => {
-    
-    const { searchParams } = new URL(request.url)
-    const pagination = getPagination(searchParams)
-    const sort = getSortParams(searchParams, ['first_name', 'last_name', 'email', 'created_at'])
-    const query = validateQuery(searchParams, userQuerySchema)
-    
-    // Build where conditions
-    const whereConditions = [isNull(users.deleted_at)]
-    if (query.is_active !== undefined) {
-      whereConditions.push(eq(users.is_active, query.is_active))
-    }
-    if (query.email_verified !== undefined) {
-      whereConditions.push(eq(users.email_verified, query.email_verified))
-    }
-    if (query.search) {
-      whereConditions.push(
-        like(users.first_name, `%${query.search}%`),
-        like(users.last_name, `%${query.search}%`),
-        like(users.email, `%${query.search}%`)
-      )
-    }
-    
-    // Get total count for pagination
-    const [countResult] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(users)
-      .where(and(...whereConditions))
-    
-    // Get paginated data
-    const usersData = await db
-      .select({
-        id: users.user_id,
-        first_name: users.first_name,
-        last_name: users.last_name,
-        email: users.email,
-        email_verified: users.email_verified,
-        is_active: users.is_active,
-        created_at: users.created_at,
-      })
-      .from(users)
-      .where(and(...whereConditions))
-      .orderBy(sort.sortOrder === 'asc' ? asc(users.first_name) : desc(users.first_name))
-      .limit(pagination.limit)
-      .offset(pagination.offset)
+const getUsersHandler = async (request: NextRequest, userContext: UserContext) => {
+    try {
+      const { searchParams } = new URL(request.url);
+      const pagination = getPagination(searchParams);
+      const sort = getSortParams(searchParams, ['first_name', 'last_name', 'email', 'created_at']);
+      const query = validateQuery(searchParams, userQuerySchema);
+      
+      // Create RBAC users service
+      const usersService = createRBACUsersService(userContext);
+      
+      // Get users with automatic permission-based filtering
+      const users = await usersService.getUsers({
+        search: query.search,
+        is_active: query.is_active,
+        email_verified: query.email_verified,
+        limit: pagination.limit,
+        offset: pagination.offset
+      });
 
-    return createPaginatedResponse(usersData, {
-      page: pagination.page,
-      limit: pagination.limit,
-      total: countResult?.count || 0
-    })
-    
-    return createPaginatedResponse(usersData, {
-      page: pagination.page,
-      limit: pagination.limit,
-      total: countResult?.count || 0
-    })
+      // Get total count
+      const totalCount = await usersService.getUserCount();
+
+      return createPaginatedResponse(
+        users.map(user => ({
+          id: user.user_id,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          email: user.email,
+          email_verified: user.email_verified,
+          is_active: user.is_active,
+          created_at: user.created_at,
+          organizations: user.organizations
+        })),
+        {
+          page: pagination.page,
+          limit: pagination.limit,
+          total: totalCount
+        }
+      );
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      return createErrorResponse(
+        error instanceof Error ? error.message : 'Unknown error', 
+        500, 
+        request
+      );
+    }
 }
 
-// Export the secured route
-export const GET = secureRoute(getUsersHandler, { rateLimit: 'api' })
+// Export with RBAC protection - users can read based on their scope
+export const GET = userRoute(
+  ['users:read:own', 'users:read:organization', 'users:read:all'],
+  getUsersHandler,
+  { rateLimit: 'api' }
+);
 
-export async function POST(request: NextRequest) {
+const createUserHandler = async (request: NextRequest, userContext: UserContext) => {
   try {
-    await applyRateLimit(request, 'api')
+    const validatedData = await validateRequest(request, userCreateSchema);
+    const { email, password, first_name, last_name, email_verified, is_active } = validatedData;
+
+    // Create RBAC users service
+    const usersService = createRBACUsersService(userContext);
     
-    const validatedData = await validateRequest(request, userCreateSchema)
-    const { email, password, first_name, last_name, email_verified, is_active } = validatedData
-
-    // Check if user already exists
-    const [existingUser] = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1)
-
-    if (existingUser) {
-      throw ConflictError('A user with this email already exists')
-    }
-
-    // Hash password
-    const hashedPassword = await hashPassword(password)
-
-    // Create user
-    const [newUser] = await db
-      .insert(users)
-      .values({
-        email,
-        password_hash: hashedPassword,
-        first_name,
-        last_name,
-        email_verified: email_verified || false,
-        is_active: is_active || true,
-      })
-      .returning()
-
-    if (!newUser) {
-      throw new Error('Failed to create user')
-    }
+    // Create user with automatic permission checking
+    const newUser = await usersService.createUser({
+      email,
+      password,
+      first_name,
+      last_name,
+      organization_id: userContext.current_organization_id || '',
+      email_verified: email_verified || false,
+      is_active: is_active || true
+    });
 
     return createSuccessResponse({
       id: newUser.user_id,
@@ -118,10 +91,22 @@ export async function POST(request: NextRequest) {
       email_verified: newUser.email_verified,
       is_active: newUser.is_active,
       created_at: newUser.created_at,
-    }, 'User created successfully')
+      organizations: newUser.organizations
+    }, 'User created successfully');
     
   } catch (error) {
-    console.error('Error creating user:', error)
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
+    console.error('Error creating user:', error);
+    return createErrorResponse(
+      error instanceof Error ? error.message : 'Unknown error', 
+      500, 
+      request
+    );
   }
-}
+};
+
+// Export with RBAC protection - requires permission to create users
+export const POST = userRoute(
+  'users:create:organization',
+  createUserHandler,
+  { rateLimit: 'api' }
+);

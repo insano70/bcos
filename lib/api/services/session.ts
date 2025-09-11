@@ -44,7 +44,7 @@ export class SessionManager {
     
     // Calculate expiration based on remember me preference
     const expirationHours = rememberMe ? 24 * 30 : 24 // 30 days or 24 hours
-    const expiresAt = new Date(now.getTime() + (expirationHours * 60 * 60 * 1000))
+    const _expiresAt = new Date(now.getTime() + (expirationHours * 60 * 60 * 1000))
 
     // Check concurrent session limits
     await SessionManager.enforceConcurrentSessionLimits(userId)

@@ -1,0 +1,249 @@
+'use client';
+
+import { usePermissions } from '@/lib/hooks/use-permissions';
+import { type ProtectedComponentProps } from '@/lib/types/rbac';
+
+/**
+ * ProtectedComponent - Conditional rendering based on permissions
+ * 
+ * Hides/shows UI elements based on user's RBAC permissions
+ * This is the UX layer of security - not a security boundary
+ */
+export function ProtectedComponent({
+  permission,
+  permissions,
+  requireAll = false,
+  resourceId,
+  organizationId,
+  children,
+  fallback = null,
+  showFallback = true
+}: ProtectedComponentProps) {
+  const { hasPermission, hasAnyPermission, hasAllPermissions } = usePermissions();
+  
+  let hasAccess = false;
+
+  if (permission) {
+    hasAccess = hasPermission(permission, resourceId, organizationId);
+  } else if (permissions) {
+    hasAccess = requireAll 
+      ? hasAllPermissions(permissions, resourceId, organizationId)
+      : hasAnyPermission(permissions, resourceId, organizationId);
+  }
+  
+  if (!hasAccess) {
+    return showFallback ? <>{fallback}</> : null;
+  }
+  
+  return <>{children}</>;
+}
+
+/**
+ * Specialized permission components for common use cases
+ */
+
+/**
+ * Super Admin Only Component
+ */
+export function SuperAdminOnly({ 
+  children, 
+  fallback 
+}: { 
+  children: React.ReactNode; 
+  fallback?: React.ReactNode; 
+}) {
+  const { isSuperAdmin } = usePermissions();
+  
+  if (!isSuperAdmin) {
+    return fallback ? <>{fallback}</> : null;
+  }
+  
+  return <>{children}</>;
+}
+
+/**
+ * Organization Admin Only Component
+ */
+export function OrgAdminOnly({ 
+  children, 
+  fallback,
+  organizationId 
+}: { 
+  children: React.ReactNode; 
+  fallback?: React.ReactNode;
+  organizationId?: string;
+}) {
+  const permissions = usePermissions();
+  
+  const isAdmin = organizationId 
+    ? permissions.isOrganizationAdmin(organizationId)
+    : permissions.accessibleOrganizations.some(org => 
+        permissions.isOrganizationAdmin(org.organization_id)
+      );
+  
+  if (!isAdmin) {
+    return fallback ? <>{fallback}</> : null;
+  }
+  
+  return <>{children}</>;
+}
+
+/**
+ * User Management Component
+ */
+export function UserManagementOnly({ 
+  children, 
+  fallback 
+}: { 
+  children: React.ReactNode; 
+  fallback?: React.ReactNode; 
+}) {
+  return (
+    <ProtectedComponent 
+      permissions={[
+        'users:read:organization',
+        'users:create:organization',
+        'users:update:organization',
+        'users:delete:organization'
+      ]}
+      fallback={fallback}
+    >
+      {children}
+    </ProtectedComponent>
+  );
+}
+
+/**
+ * Practice Management Component
+ */
+export function PracticeManagementOnly({ 
+  children, 
+  fallback 
+}: { 
+  children: React.ReactNode; 
+  fallback?: React.ReactNode; 
+}) {
+  return (
+    <ProtectedComponent 
+      permissions={[
+        'practices:update:own',
+        'practices:staff:manage:own',
+        'practices:manage:all'
+      ]}
+      fallback={fallback}
+    >
+      {children}
+    </ProtectedComponent>
+  );
+}
+
+/**
+ * Analytics Access Component
+ */
+export function AnalyticsOnly({ 
+  children, 
+  fallback 
+}: { 
+  children: React.ReactNode; 
+  fallback?: React.ReactNode; 
+}) {
+  return (
+    <ProtectedComponent 
+      permissions={[
+        'analytics:read:organization',
+        'analytics:read:all'
+      ]}
+      fallback={fallback}
+    >
+      {children}
+    </ProtectedComponent>
+  );
+}
+
+/**
+ * Settings Access Component
+ */
+export function SettingsOnly({ 
+  children, 
+  fallback 
+}: { 
+  children: React.ReactNode; 
+  fallback?: React.ReactNode; 
+}) {
+  return (
+    <ProtectedComponent 
+      permissions={[
+        'settings:read:organization',
+        'settings:update:organization',
+        'settings:read:all',
+        'settings:update:all'
+      ]}
+      fallback={fallback}
+    >
+      {children}
+    </ProtectedComponent>
+  );
+}
+
+/**
+ * Own Resource Only Component (for profile pages, etc.)
+ */
+export function OwnResourceOnly({ 
+  children, 
+  fallback,
+  resourceId,
+  resourceType = 'users'
+}: { 
+  children: React.ReactNode; 
+  fallback?: React.ReactNode;
+  resourceId?: string;
+  resourceType?: 'users' | 'practices';
+}) {
+  return (
+    <ProtectedComponent 
+      permission={`${resourceType}:read:own` as any}
+      resourceId={resourceId}
+      fallback={fallback}
+    >
+      {children}
+    </ProtectedComponent>
+  );
+}
+
+/**
+ * Conditional component that shows different content based on permission level
+ */
+export function PermissionLevelComponent({
+  ownContent,
+  orgContent,
+  allContent,
+  resourceType,
+  resourceId,
+  organizationId
+}: {
+  ownContent?: React.ReactNode;
+  orgContent?: React.ReactNode;
+  allContent?: React.ReactNode;
+  resourceType: 'users' | 'practices' | 'analytics';
+  resourceId?: string;
+  organizationId?: string;
+}) {
+  const { hasPermission } = usePermissions();
+  
+  // Check permissions in order of increasing scope
+  if (allContent && hasPermission(`${resourceType}:read:all` as any, resourceId, organizationId)) {
+    return <>{allContent}</>;
+  }
+  
+  if (orgContent && hasPermission(`${resourceType}:read:organization` as any, resourceId, organizationId)) {
+    return <>{orgContent}</>;
+  }
+  
+  if (ownContent && hasPermission(`${resourceType}:read:own` as any, resourceId, organizationId)) {
+    return <>{ownContent}</>;
+  }
+  
+  return null;
+}
+
+export default ProtectedComponent;

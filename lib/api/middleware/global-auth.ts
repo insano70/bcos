@@ -67,7 +67,7 @@ export async function applyGlobalAuth(request: NextRequest): Promise<any> {
  * Mark a route as public (for explicit documentation)
  * This is a no-op function for clarity in route handlers
  */
-export function markAsPublicRoute(reason: string): void {
+export function markAsPublicRoute(_reason: string): void {
   // This function exists for documentation purposes
   // Usage: markAsPublicRoute('Health check endpoint')
 }

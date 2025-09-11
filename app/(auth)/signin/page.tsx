@@ -3,9 +3,14 @@ export const metadata = {
   description: 'Page description',
 };
 
+import { Suspense } from 'react';
 import AuthImage from '../auth-image';
 import LoginForm from '@/components/auth/login-form';
 import SplitText from '@/components/SplitText';
+
+function LoginFormWrapper() {
+  return <LoginForm />;
+}
 
 export default function SignIn() {
   return (
@@ -30,7 +35,9 @@ export default function SignIn() {
                 textAlign="left"
               />
               {/* Form */}
-              <LoginForm />
+              <Suspense fallback={<div>Loading...</div>}>
+                <LoginFormWrapper />
+              </Suspense>
               {/* Removed signup link and outdated notice */}
             </div>
           </div>

@@ -1,8 +1,8 @@
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose'
 import { nanoid } from 'nanoid'
 import { createHash } from 'crypto'
-import { db, refresh_tokens, token_blacklist, user_sessions, login_attempts, account_security } from '@/lib/db'
-import { eq, and, gte, lte, desc, count, sql } from 'drizzle-orm'
+import { db, refresh_tokens, token_blacklist, user_sessions, login_attempts, } from '@/lib/db'
+import { eq, and, gte, lte, } from 'drizzle-orm'
 import { AuditLogger } from '@/lib/api/services/audit'
 import { getJWTConfig } from '@/lib/env'
 
@@ -301,7 +301,7 @@ export class TokenManager {
       }
 
       return payload
-    } catch (error) {
+    } catch (_error) {
       return null
     }
   }
@@ -389,7 +389,7 @@ export class TokenManager {
       )
 
     // Revoke all refresh tokens
-    const revokedResult = await db
+    const _revokedResult = await db
       .update(refresh_tokens)
       .set({
         is_active: false,

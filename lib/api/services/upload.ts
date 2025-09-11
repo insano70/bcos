@@ -278,7 +278,7 @@ export class FileUploadService {
    */
   static async deleteFile(filePath: string): Promise<boolean> {
     try {
-      const fs = await import('fs/promises')
+      const fs = await import('node:fs/promises')
       const fullPath = path.join(process.cwd(), 'public', filePath)
       
       // Delete main file
@@ -313,7 +313,7 @@ export class FileUploadService {
    */
   static async getFileInfo(filePath: string) {
     try {
-      const fs = await import('fs/promises')
+      const fs = await import('node:fs/promises')
       const fullPath = path.join(process.cwd(), 'public', filePath)
       const stats = await fs.stat(fullPath)
       
@@ -330,28 +330,5 @@ export class FileUploadService {
         error: error instanceof Error ? error.message : 'Unknown error'
       }
     }
-  }
-
-  /**
-   * Validate file type by examining file header (magic bytes)
-   */
-  private static validateFileType(buffer: Buffer, expectedType: string): boolean {
-    // Basic file type validation by checking magic bytes
-    const signatures: Record<string, number[][]> = {
-      'image/jpeg': [[0xFF, 0xD8, 0xFF]],
-      'image/png': [[0x89, 0x50, 0x4E, 0x47]],
-      'image/gif': [[0x47, 0x49, 0x46, 0x38]],
-      'image/webp': [[0x52, 0x49, 0x46, 0x46]],
-      'application/pdf': [[0x25, 0x50, 0x44, 0x46]]
-    }
-
-    const typeSignatures = signatures[expectedType]
-    if (!typeSignatures) {
-      return true // Skip validation for unknown types
-    }
-
-    return typeSignatures.some(signature => 
-      signature.every((byte, index) => buffer[index] === byte)
-    )
   }
 }
