@@ -14,6 +14,9 @@ import { CSRFProtection } from '@/lib/security/csrf'
  * SECURED: Requires authentication and token ownership validation
  */
 export async function POST(request: NextRequest) {
+  // Store refresh token for error handling (declared at function level)
+  let refreshTokenForError: string | undefined
+
   try {
     // CSRF PROTECTION: Verify CSRF token before authentication check
     const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
@@ -21,8 +24,10 @@ export async function POST(request: NextRequest) {
       return createErrorResponse('CSRF token validation failed', 403, request)
     }
 
-    // REQUIRE AUTHENTICATION: Only authenticated users can refresh tokens
-    const session = await requireAuth(request)
+    console.log('🔄 Refresh endpoint called')
+
+    // NOTE: We don't require auth header here since we're validating the refresh token cookie directly
+    // This allows token refresh without needing a valid access token
 
     // Apply aggressive rate limiting for token refresh
     await applyRateLimit(request, 'auth')
@@ -31,24 +36,44 @@ export async function POST(request: NextRequest) {
     const cookieStore = await cookies()
     const refreshToken = cookieStore.get('refresh-token')?.value
 
+    console.log('🍪 Refresh token from cookie:', !!refreshToken)
+
     if (!refreshToken) {
+      console.log('❌ No refresh token found in cookie')
       return createErrorResponse('Refresh token not found', 401, request)
     }
 
-    // VALIDATE TOKEN OWNERSHIP: Ensure refresh token belongs to authenticated user
-    // This prevents token theft and cross-user attacks
+    // Store refresh token for error handling
+    refreshTokenForError = refreshToken
+
+    // Authenticate user from refresh token
+    let userId: string
     try {
       const { jwtVerify } = await import('jose')
       const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret')
       const { payload } = await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET)
-      const tokenUserId = payload.sub as string
-
-      if (tokenUserId !== session.user.id) {
-        return createErrorResponse('Unauthorized: Token does not belong to authenticated user', 403, request)
-      }
+      userId = payload.sub as string
+      console.log('✅ Refresh token validated for user:', userId)
     } catch (tokenError) {
-      return createErrorResponse('Invalid session token', 401, request)
+      console.log('❌ Refresh token validation failed:', tokenError)
+      return createErrorResponse('Invalid refresh token', 401, request)
     }
+
+    // Get user details from database
+    const db = (await import('@/lib/db')).db
+    const users = (await import('@/lib/db')).users
+    const [user] = await db
+      .select()
+      .from(users)
+      .where((await import('drizzle-orm')).eq(users.user_id, userId))
+      .limit(1)
+
+    if (!user || !user.is_active) {
+      console.log('❌ User not found or inactive:', userId)
+      return createErrorResponse('User account is inactive', 401, request)
+    }
+
+    console.log('👤 Found active user:', user.email)
 
     // Extract device info
     const ipAddress = request.headers.get('x-forwarded-for') || 
@@ -72,7 +97,7 @@ export async function POST(request: NextRequest) {
       // AUDIT LOGGING: Log failed refresh attempt with authenticated user info
       await AuditLogger.logUserAction({
         action: 'token_refresh_failed',
-        userId: session.user.id,
+        userId: userId,
         resourceType: 'session',
         resourceId: 'current',
         ipAddress,
@@ -90,7 +115,7 @@ export async function POST(request: NextRequest) {
     // AUDIT LOGGING: Log successful token refresh
     await AuditLogger.logUserAction({
       action: 'token_refresh_success',
-      userId: session.user.id,
+      userId: userId,
       resourceType: 'session',
       resourceId: tokenPair.sessionId,
       ipAddress,
@@ -130,16 +155,31 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Token refresh error:', error)
 
-    // Log the error for security monitoring
-    const ipAddress = request.headers.get('x-forwarded-for') || 'unknown'
+    // Extract device info for logging
+    const ipAddress = request.headers.get('x-forwarded-for') ||
+                     request.headers.get('x-real-ip') ||
+                     'unknown'
     const userAgent = request.headers.get('user-agent') || 'unknown'
+
+    // Try to extract userId from the failed refresh token if possible
+    let failedUserId = 'unknown'
+    try {
+      if (refreshTokenForError) {
+        const { jwtVerify } = await import('jose')
+        const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret')
+        const { payload } = await jwtVerify(refreshTokenForError, REFRESH_TOKEN_SECRET)
+        failedUserId = payload.sub as string
+      }
+    } catch (tokenError) {
+      // Token is invalid, keep as unknown
+    }
 
     // Try to get user info from the request (may not be available if auth failed)
     try {
       const session = await requireAuth(request)
       await AuditLogger.logUserAction({
         action: 'token_refresh_error',
-        userId: session.user.id,
+        userId: failedUserId,
         resourceType: 'session',
         resourceId: 'unknown',
         ipAddress,

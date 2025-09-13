@@ -90,29 +90,60 @@ export async function middleware(request: NextRequest) {
 
   // Development: localhost or 127.0.0.1 goes to admin dashboard
   if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('192.168.')) {
+    console.log('🌐 MIDDLEWARE: Processing request for:', pathname)
+
     // Default-deny: protect all non-public routes
     if (!isPublicPath(pathname)) {
+      console.log('🔒 MIDDLEWARE: Protected route detected')
+
       // Check for refresh token cookie first
       const refreshToken = request.cookies.get('refresh-token')?.value
       let isAuthenticated = false
-      
+
+      console.log('🔐 MIDDLEWARE: Checking auth for path:', pathname)
+      console.log('🍪 MIDDLEWARE: Refresh token cookie exists:', !!refreshToken)
+
+      // Debug all cookies in the request
+      const allCookies = request.cookies.getAll()
+      console.log('🍪 MIDDLEWARE: All cookies in request:', allCookies.map(c => ({ name: c.name, hasValue: !!c.value, valueLength: c.value?.length || 0 })))
+
       if (refreshToken) {
+        console.log('🔍 MIDDLEWARE: Refresh token value length:', refreshToken.length)
+        console.log('🔍 MIDDLEWARE: Refresh token starts with:', refreshToken.substring(0, 20) + '...')
+      }
+
+      if (refreshToken) {
+        console.log('🔍 MIDDLEWARE: Validating refresh token...')
         // Validate refresh token
         try {
+          const jwtConfig = getJWTConfig()
+          console.log('🔑 MIDDLEWARE: JWT config available:', {
+            hasRefreshSecret: !!jwtConfig.refreshSecret,
+            refreshSecretLength: jwtConfig.refreshSecret?.length
+          })
+
           const { jwtVerify } = await import('jose')
-          const REFRESH_TOKEN_SECRET = new TextEncoder().encode(getJWTConfig().refreshSecret)
+          const REFRESH_TOKEN_SECRET = new TextEncoder().encode(jwtConfig.refreshSecret)
           await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET)
           isAuthenticated = true
+          console.log('✅ MIDDLEWARE: Refresh token validation successful - allowing access')
         } catch (error) {
-          console.log('Refresh token validation failed:', error)
+          console.log('❌ MIDDLEWARE: Refresh token validation failed:', error instanceof Error ? error.message : String(error))
+          console.log('🔍 MIDDLEWARE: Token preview:', refreshToken.substring(0, 50) + '...')
         }
+      } else {
+        console.log('❌ MIDDLEWARE: No refresh token found in cookies')
       }
-      
+
       if (!isAuthenticated) {
+        console.log('🔄 MIDDLEWARE: User not authenticated - redirecting to login')
         const signInUrl = new URL('/signin', request.url)
         signInUrl.searchParams.set('callbackUrl', `${pathname}${search}`)
+        console.log('🔄 MIDDLEWARE: Redirect URL:', signInUrl.toString())
         response = NextResponse.redirect(signInUrl)
         return addSecurityHeaders(response)
+      } else {
+        console.log('✅ MIDDLEWARE: User authenticated - allowing request to proceed')
       }
 
       response = addNoStoreHeaders(response)
