@@ -3,19 +3,16 @@ import { db, practices, staff_members } from '@/lib/db';
 import { eq, isNull, and, asc, desc, sql, like } from 'drizzle-orm';
 import { createSuccessResponse, createPaginatedResponse } from '@/lib/api/responses/success';
 import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
-import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { validateRequest, validateParams, validateQuery } from '@/lib/api/middleware/validation';
 import { getPagination, getSortParams } from '@/lib/api/utils/request';
 import { staffCreateSchema, staffQuerySchema, staffParamsSchema } from '@/lib/validations/staff';
 import { practiceParamsSchema } from '@/lib/validations/practice';
+import { practiceRoute, rbacRoute } from '@/lib/api/rbac-route-handler';
+import type { UserContext } from '@/lib/types/rbac';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+const getPracticeStaffHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   try {
-    await applyRateLimit(request, 'api')
-    
+    const params = args[0] as Promise<{ id: string }>
     const { id: practiceId } = validateParams(await params, practiceParamsSchema)
     const { searchParams } = new URL(request.url)
     const pagination = getPagination(searchParams)
@@ -34,6 +31,12 @@ export async function GET(
 
     if (!practice) {
       throw NotFoundError('Practice')
+    }
+
+    // RBAC: Check if user can access this practice's staff
+    // Super admins can access all, practice owners can access their own practice staff
+    if (!userContext.is_super_admin && practice.owner_user_id !== userContext.user_id) {
+      throw new Error('Access denied: You do not have permission to view staff for this practice')
     }
 
     // Build where conditions
@@ -85,13 +88,9 @@ export async function GET(
   }
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+const createPracticeStaffHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   try {
-    await applyRateLimit(request, 'api')
-    
+    const params = args[0] as Promise<{ id: string }>
     const { id: practiceId } = validateParams(await params, practiceParamsSchema)
     const validatedData = await validateRequest(request, staffCreateSchema)
 
@@ -107,6 +106,12 @@ export async function POST(
         { error: 'Practice not found' },
         { status: 404 }
       );
+    }
+
+    // RBAC: Check if user can manage staff for this practice
+    // Super admins can manage all, practice owners can manage their own practice staff
+    if (!userContext.is_super_admin && practice.owner_user_id !== userContext.user_id) {
+      throw new Error('Access denied: You do not have permission to manage staff for this practice')
     }
 
     // Prepare staff data, stringify JSON fields
@@ -131,3 +136,16 @@ export async function POST(
     );
   }
 }
+
+// Export with RBAC protection
+export const GET = practiceRoute(
+  ['practices:staff:manage:own', 'practices:manage:all'],
+  getPracticeStaffHandler,
+  { rateLimit: 'api' }
+);
+
+export const POST = practiceRoute(
+  ['practices:staff:manage:own', 'practices:manage:all'],
+  createPracticeStaffHandler,
+  { rateLimit: 'api' }
+);

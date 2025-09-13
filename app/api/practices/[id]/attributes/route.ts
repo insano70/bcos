@@ -3,18 +3,14 @@ import { db, practices, practice_attributes } from '@/lib/db';
 import { eq, isNull, and } from 'drizzle-orm';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
-import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
-import { requireAuth } from '@/lib/api/middleware/auth';
 import { validateRequest, validateParams } from '@/lib/api/middleware/validation';
 import { practiceAttributesUpdateSchema, practiceParamsSchema } from '@/lib/validations/practice';
+import { practiceRoute } from '@/lib/api/rbac-route-handler';
+import type { UserContext } from '@/lib/types/rbac';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+const getPracticeAttributesHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   try {
-    await applyRateLimit(request, 'api')
-    
+    const params = args[0] as Promise<{ id: string }>
     const { id: practiceId } = validateParams(await params, practiceParamsSchema)
 
     // Verify practice exists
@@ -29,6 +25,12 @@ export async function GET(
 
     if (!practice) {
       throw NotFoundError('Practice')
+    }
+
+    // RBAC: Check if user can access this practice's attributes
+    // Super admins can access all, practice owners can access their own practice attributes
+    if (!userContext.is_super_admin && practice.owner_user_id !== userContext.user_id) {
+      throw new Error('Access denied: You do not have permission to view attributes for this practice')
     }
 
     // Get practice attributes
@@ -60,16 +62,9 @@ export async function GET(
   }
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+const updatePracticeAttributesHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   try {
-    await applyRateLimit(request, 'api')
-    
-    // Require authentication
-    await requireAuth(request)
-    
+    const params = args[0] as Promise<{ id: string }>
     const { id: practiceId } = validateParams(await params, practiceParamsSchema)
     const validatedData = await validateRequest(request, practiceAttributesUpdateSchema)
 
@@ -85,6 +80,12 @@ export async function PUT(
 
     if (!practice) {
       throw NotFoundError('Practice')
+    }
+
+    // RBAC: Check if user can update this practice's attributes
+    // Super admins can update all, practice owners can update their own practice attributes
+    if (!userContext.is_super_admin && practice.owner_user_id !== userContext.user_id) {
+      throw new Error('Access denied: You do not have permission to update attributes for this practice')
     }
 
     // Prepare data for update, stringify JSON fields
@@ -126,3 +127,16 @@ export async function PUT(
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
+
+// Export with RBAC protection
+export const GET = practiceRoute(
+  ['practices:update:own', 'practices:manage:all'],
+  getPracticeAttributesHandler,
+  { rateLimit: 'api' }
+);
+
+export const PUT = practiceRoute(
+  ['practices:update:own', 'practices:manage:all'],
+  updatePracticeAttributesHandler,
+  { rateLimit: 'api' }
+);

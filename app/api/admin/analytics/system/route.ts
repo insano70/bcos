@@ -4,16 +4,15 @@ import { sql, gte, and, desc, eq } from 'drizzle-orm'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
-import { requireAdmin } from '@/lib/api/middleware/auth'
+import { rbacRoute } from '@/lib/api/rbac-route-handler'
 
 /**
  * Admin Analytics - System Metrics
  * Provides system health, performance, and security analytics
  */
-export async function GET(request: NextRequest) {
+const analyticsHandler = async (request: NextRequest, userContext: any) => {
   try {
     await applyRateLimit(request, 'api')
-    await requireAdmin(request)
     
     const { searchParams } = new URL(request.url)
     const timeframe = searchParams.get('timeframe') || '24h' // 1h, 24h, 7d, 30d
@@ -228,7 +227,7 @@ function formatUptime(seconds: number): string {
 
 function getStartDate(timeframe: string): Date {
   const now = new Date()
-  
+
   switch (timeframe) {
     case '1h':
       return new Date(now.getTime() - 60 * 60 * 1000)
@@ -242,3 +241,14 @@ function getStartDate(timeframe: string): Date {
       return new Date(now.getTime() - 24 * 60 * 60 * 1000)
   }
 }
+
+// Export as permission-based protected route
+// Uses analytics:read:all permission (granted via roles)
+// Super admins bypass permission checks automatically
+export const GET = rbacRoute(
+  analyticsHandler,
+  {
+    permission: 'analytics:read:all',
+    rateLimit: 'api'
+  }
+)

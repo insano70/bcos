@@ -16,6 +16,7 @@ export interface CreateUserData {
   password: string;
   first_name: string;
   last_name: string;
+  role_ids: string[];
   email_verified?: boolean;
   is_active?: boolean;
 }

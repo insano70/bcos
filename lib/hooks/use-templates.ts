@@ -11,7 +11,9 @@ export interface Template {
 }
 
 async function fetchTemplates(): Promise<Template[]> {
-  const response = await fetch('/api/templates');
+  const response = await fetch('/api/templates', {
+    credentials: 'include'
+  });
   if (!response.ok) {
     throw new Error('Failed to fetch templates');
   }

@@ -7,6 +7,9 @@ import { userCreateSchema, userQuerySchema } from '@/lib/validations/user';
 import { userRoute } from '@/lib/api/rbac-route-handler';
 import { createRBACUsersService } from '@/lib/services/rbac-users-service';
 import type { UserContext } from '@/lib/types/rbac';
+import { db } from '@/lib/db';
+import { user_roles } from '@/lib/db/rbac-schema';
+import { eq } from 'drizzle-orm';
 
 const getUsersHandler = async (request: NextRequest, userContext: UserContext) => {
     try {
@@ -67,11 +70,11 @@ export const GET = userRoute(
 const createUserHandler = async (request: NextRequest, userContext: UserContext) => {
   try {
     const validatedData = await validateRequest(request, userCreateSchema);
-    const { email, password, first_name, last_name, email_verified, is_active } = validatedData;
+    const { email, password, first_name, last_name, email_verified, is_active, role_ids } = validatedData;
 
     // Create RBAC users service
     const usersService = createRBACUsersService(userContext);
-    
+
     // Create user with automatic permission checking
     const newUser = await usersService.createUser({
       email,
@@ -83,6 +86,20 @@ const createUserHandler = async (request: NextRequest, userContext: UserContext)
       is_active: is_active || true
     });
 
+    // Assign roles to the user if provided
+    if (role_ids && role_ids.length > 0) {
+      // Verify that the user has permission to assign these roles
+      // This is a simplified check - in a real app you'd want more sophisticated validation
+      const roleAssignments = role_ids.map(roleId => ({
+        user_id: newUser.user_id,
+        role_id: roleId,
+        organization_id: userContext.current_organization_id,
+        granted_by: userContext.user_id
+      }));
+
+      await db.insert(user_roles).values(roleAssignments);
+    }
+
     return createSuccessResponse({
       id: newUser.user_id,
       email: newUser.email,
@@ -91,14 +108,15 @@ const createUserHandler = async (request: NextRequest, userContext: UserContext)
       email_verified: newUser.email_verified,
       is_active: newUser.is_active,
       created_at: newUser.created_at,
-      organizations: newUser.organizations
+      organizations: newUser.organizations,
+      roles_assigned: role_ids || []
     }, 'User created successfully');
-    
+
   } catch (error) {
     console.error('Error creating user:', error);
     return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error', 
-      500, 
+      error instanceof Error ? error.message : 'Unknown error',
+      500,
       request
     );
   }

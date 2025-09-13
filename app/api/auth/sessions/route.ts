@@ -6,6 +6,7 @@ import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { TokenManager } from '@/lib/auth/token-manager'
 import { AuditLogger } from '@/lib/api/services/audit'
+import { CSRFProtection } from '@/lib/security/csrf'
 
 /**
  * Session Management Endpoint
@@ -83,8 +84,14 @@ export async function GET(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
+    // CSRF PROTECTION: Verify CSRF token for session revocation
+    const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
+    if (!isValidCSRF) {
+      return createErrorResponse('CSRF token validation failed', 403, request)
+    }
+
     const { sessionId } = await request.json()
-    
+
     if (!sessionId) {
       return createErrorResponse('Session ID required', 400, request)
     }

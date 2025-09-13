@@ -11,13 +11,10 @@ const PUBLIC_API_ROUTES = new Set([
   '/api/health',
   '/api/health/db',
   '/api/health/services',
-  '/api/auth/login',
-  '/api/auth/register', 
-  '/api/auth/refresh',
-  '/api/auth/logout',
-  '/api/csrf',
-  '/api/webhooks/stripe',
-  '/api/webhooks/resend',
+  '/api/auth/login', // ✅ Needs CSRF protection despite being public
+  '/api/csrf',       // ✅ Public endpoint for token generation
+  '/api/webhooks/stripe', // ✅ Webhooks don't need CSRF (external)
+  '/api/webhooks/resend', // ✅ Webhooks don't need CSRF (external)
   // Practice website API (public facing)
   '/api/practices/by-domain', // If this exists for public practice sites
 ])

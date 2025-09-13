@@ -1,12 +1,15 @@
 import { NextRequest } from 'next/server'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
+import { rbacRoute } from '@/lib/api/rbac-route-handler'
+import type { UserContext } from '@/lib/types/rbac'
 
 /**
  * External services health check endpoint
  * Tests connectivity to external dependencies
+ * Protected - only admin users can access service health information
  */
-export async function GET(request: NextRequest) {
+const servicesHealthHandler = async (request: NextRequest, userContext: UserContext) => {
   try {
     const services = await Promise.allSettled([
       checkEmailService(),
@@ -47,6 +50,15 @@ export async function GET(request: NextRequest) {
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 503, request)
   }
 }
+
+// Export with RBAC protection - only users with admin permissions can access
+export const GET = rbacRoute(
+  servicesHealthHandler,
+  {
+    permission: 'settings:read:all',
+    rateLimit: 'api'
+  }
+);
 
 async function checkEmailService(): Promise<{ name: string; healthy: boolean; responseTime: number; error?: string }> {
   const startTime = Date.now()

@@ -1,0 +1,77 @@
+import { NextRequest } from 'next/server'
+import { requireAuth } from '@/lib/api/middleware/auth'
+import { getUserContextSafe } from '@/lib/rbac/user-context'
+import { createSuccessResponse } from '@/lib/api/responses/success'
+import { createErrorResponse } from '@/lib/api/responses/error'
+
+/**
+ * Get current user with full RBAC context
+ * Provides complete user information including roles, permissions, and organization access
+ */
+export async function GET(request: NextRequest) {
+  try {
+    // Get authenticated user session
+    const session = await requireAuth(request)
+
+    // Get full RBAC context for the user
+    const userContext = await getUserContextSafe(session.user.id)
+
+    if (!userContext) {
+      return createErrorResponse('User context not found', 404, request)
+    }
+
+    // Return user data with full RBAC context
+    return createSuccessResponse({
+      user: {
+        id: userContext.user_id,
+        email: userContext.email,
+        name: `${userContext.first_name} ${userContext.last_name}`,
+        firstName: userContext.first_name,
+        lastName: userContext.last_name,
+        emailVerified: userContext.email_verified,
+
+        // RBAC Data
+        roles: userContext.roles.map(role => ({
+          id: role.role_id,
+          name: role.name,
+          description: role.description,
+          isSystemRole: role.is_system_role
+        })),
+        permissions: userContext.all_permissions.map(permission => ({
+          id: permission.permission_id,
+          name: permission.name,
+          resource: permission.resource,
+          action: permission.action,
+          scope: permission.scope
+        })),
+
+        // Organization Data
+        organizations: userContext.organizations.map(org => ({
+          id: org.organization_id,
+          name: org.name,
+          slug: org.slug
+        })),
+        accessibleOrganizations: userContext.accessible_organizations.map(org => ({
+          id: org.organization_id,
+          name: org.name,
+          slug: org.slug
+        })),
+
+        // Current context
+        currentOrganizationId: userContext.current_organization_id,
+
+        // Computed properties
+        isSuperAdmin: userContext.is_super_admin,
+        organizationAdminFor: userContext.organization_admin_for
+      }
+    }, 'User context retrieved successfully')
+
+  } catch (error) {
+    console.error('Get user context error:', error)
+    return createErrorResponse(
+      error instanceof Error ? error.message : 'Failed to retrieve user context',
+      500,
+      request
+    )
+  }
+}

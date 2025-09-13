@@ -18,11 +18,13 @@ export async function middleware(request: NextRequest) {
 
   // Handle API routes with global authentication
   if (pathname.startsWith('/api/')) {
-    // CSRF protection for API routes with state-changing methods
-    if (CSRFProtection.requiresCSRFProtection(request.method)) {
+    // CSRF protection for state-changing operations
+    // Applied to ALL routes except webhooks (which come from external services)
+    if (CSRFProtection.requiresCSRFProtection(request.method) &&
+        !pathname.startsWith('/api/webhooks/')) {
       const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
       if (!isValidCSRF) {
-        return new NextResponse('CSRF Token Invalid', { 
+        return new NextResponse('CSRF Token Invalid', {
           status: 403,
           headers: response.headers
         })

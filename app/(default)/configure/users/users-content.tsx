@@ -1,14 +1,17 @@
 'use client';
 
+import { useState } from 'react';
 import DeleteButton from '@/components/delete-button';
 import DateSelect from '@/components/date-select';
 import FilterButton from '@/components/dropdown-filter';
 import UsersTable from './users-table';
 import PaginationClassic from '@/components/pagination-classic';
+import AddUserModal from '@/components/add-user-modal';
 import { useUsers } from '@/lib/hooks/use-users';
 
 export default function UsersContent() {
   const { data: users, isLoading, error, refetch } = useUsers();
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
 
   if (error) {
     return (
@@ -93,6 +96,7 @@ export default function UsersContent() {
           <button
             type="button"
             disabled={isLoading}
+            onClick={() => setIsAddUserModalOpen(true)}
             className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg
@@ -138,6 +142,15 @@ export default function UsersContent() {
       <div className="mt-8">
         <PaginationClassic totalItems={users?.length || 0} />
       </div>
+
+      {/* Add User Modal */}
+      <AddUserModal
+        isOpen={isAddUserModalOpen}
+        onClose={() => setIsAddUserModalOpen(false)}
+        onSuccess={() => {
+          refetch(); // Refresh the users list after successful creation
+        }}
+      />
     </div>
   );
 }

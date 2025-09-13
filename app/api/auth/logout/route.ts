@@ -4,35 +4,63 @@ import { TokenManager } from '@/lib/auth/token-manager'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { AuditLogger } from '@/lib/api/services/audit'
+import { requireAuth } from '@/lib/api/middleware/auth'
+import { CSRFProtection } from '@/lib/security/csrf'
 
 /**
  * Custom Logout Endpoint
  * Complete token cleanup and session termination
+ * SECURED: Requires authentication to prevent unauthorized logout
  */
 export async function POST(request: NextRequest) {
   try {
+    // CSRF PROTECTION: Verify CSRF token before authentication check
+    const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
+    if (!isValidCSRF) {
+      return createErrorResponse('CSRF token validation failed', 403, request)
+    }
+
+    // REQUIRE AUTHENTICATION: Only authenticated users can logout
+    const session = await requireAuth(request)
+
     // Get refresh token from httpOnly cookie
     const cookieStore = await cookies()
     const refreshToken = cookieStore.get('refresh-token')?.value
-    
+
     if (!refreshToken) {
       return createErrorResponse('No active session found', 400, request)
     }
 
+    // VALIDATE TOKEN OWNERSHIP: Ensure refresh token belongs to authenticated user
+    // This prevents one user from logging out another user
+    try {
+      const { jwtVerify } = await import('jose')
+      const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret')
+      const { payload } = await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET)
+      const tokenUserId = payload.sub as string
+
+      if (tokenUserId !== session.user.id) {
+        return createErrorResponse('Unauthorized: Token does not belong to authenticated user', 403, request)
+      }
+    } catch (tokenError) {
+      return createErrorResponse('Invalid session token', 401, request)
+    }
+
     // Extract device info for audit logging
-    const ipAddress = request.headers.get('x-forwarded-for') || 
-                     request.headers.get('x-real-ip') || 
+    const ipAddress = request.headers.get('x-forwarded-for') ||
+                     request.headers.get('x-real-ip') ||
                      'unknown'
     const userAgent = request.headers.get('user-agent') || 'unknown'
 
     // Revoke the refresh token
     const revoked = await TokenManager.revokeRefreshToken(refreshToken, 'logout')
-    
+
     if (!revoked) {
       return createErrorResponse('Failed to logout', 500, request)
     }
 
     // Blacklist access token if provided (defense-in-depth)
+    // Use authenticated user's ID for security
     const authHeader = request.headers.get('Authorization')
     if (authHeader?.startsWith('Bearer ')) {
       try {
@@ -41,15 +69,15 @@ export async function POST(request: NextRequest) {
         const ACCESS_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
         const { payload } = await jwtVerify(token, ACCESS_TOKEN_SECRET)
         const jti = payload.jti as string | undefined
-        const userId = payload.sub as string | undefined
-        if (jti && userId) {
-          // Insert into blacklist via TokenManager.cleanup-style util
+        const tokenUserId = payload.sub as string | undefined
+
+        // SECURITY: Ensure access token belongs to authenticated user
+        if (jti && tokenUserId && tokenUserId === session.user.id) {
           const { db, token_blacklist } = await import('@/lib/db') as any
           await db.insert(token_blacklist).values({
             jti,
-            user_id: userId,
+            user_id: session.user.id, // Use authenticated user's ID
             token_type: 'access',
-            // expire when access tokens would no longer be valid (15 min)
             expires_at: new Date(Date.now() + 15 * 60 * 1000),
             reason: 'logout'
           })
@@ -58,6 +86,19 @@ export async function POST(request: NextRequest) {
         console.warn('Failed to blacklist access token on logout:', e)
       }
     }
+
+    // AUDIT LOGGING: Log the logout action
+    await AuditLogger.logUserAction({
+      action: 'logout',
+      userId: session.user.id,
+      resourceType: 'session',
+      resourceId: 'current',
+      ipAddress,
+      userAgent,
+      metadata: {
+        reason: 'user_initiated'
+      }
+    })
 
     // Clear refresh token cookie
     const response = NextResponse.json({
@@ -87,35 +128,53 @@ export async function POST(request: NextRequest) {
 /**
  * Revoke All Sessions Endpoint
  * Emergency logout from all devices
+ * SECURED: Requires authentication and token validation
  */
 export async function DELETE(request: NextRequest) {
   try {
-    // Get user from current session (would need proper auth middleware)
+    // CSRF PROTECTION: Verify CSRF token before authentication check
+    const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
+    if (!isValidCSRF) {
+      return createErrorResponse('CSRF token validation failed', 403, request)
+    }
+
+    // REQUIRE AUTHENTICATION: Critical security - only authenticated users can revoke all sessions
+    const session = await requireAuth(request)
+
+    // Get refresh token from httpOnly cookie
     const cookieStore = await cookies()
     const refreshToken = cookieStore.get('refresh-token')?.value
-    
+
     if (!refreshToken) {
       return createErrorResponse('No active session found', 400, request)
     }
 
-    // Extract user ID from refresh token
+    // VALIDATE TOKEN OWNERSHIP: Double-check that refresh token belongs to authenticated user
     const { jwtVerify } = await import('jose')
     const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret')
-    
+
     try {
       const { payload } = await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET)
-      const userId = payload.sub as string
+      const tokenUserId = payload.sub as string
+
+      if (tokenUserId !== session.user.id) {
+        return createErrorResponse('Unauthorized: Token does not belong to authenticated user', 403, request)
+      }
+
+      const userId = tokenUserId
 
       // Revoke all user tokens
       const revokedCount = await TokenManager.revokeAllUserTokens(userId, 'security')
 
-      // Log security action
-      const ipAddress = request.headers.get('x-forwarded-for') || 'unknown'
+      // AUDIT LOGGING: Log the revoke all sessions action
+      const ipAddress = request.headers.get('x-forwarded-for') ||
+                       request.headers.get('x-real-ip') ||
+                       'unknown'
       const userAgent = request.headers.get('user-agent') || 'unknown'
-      
+
       await AuditLogger.logSecurity({
         action: 'revoke_all_sessions',
-        userId,
+        userId: session.user.id, // Use authenticated user's ID
         ipAddress,
         userAgent,
         metadata: {

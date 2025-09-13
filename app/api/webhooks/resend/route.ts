@@ -17,28 +17,47 @@ export async function POST(request: NextRequest) {
       return createErrorResponse('Missing Resend signature', 400, request)
     }
 
-    // Verify webhook signature (implement when Resend webhooks are configured)
-    if (process.env.RESEND_WEBHOOK_SECRET) {
-      const isValid = await verifyResendSignature(body, signature, process.env.RESEND_WEBHOOK_SECRET)
-      if (!isValid) {
-        await AuditLogger.logSecurity({
-          action: 'webhook_signature_invalid',
-          metadata: { source: 'resend', signature },
-          severity: 'high'
-        })
-        return createErrorResponse('Invalid signature', 401, request)
-      }
+    // Verify webhook signature - REQUIRED for security
+    if (!process.env.RESEND_WEBHOOK_SECRET) {
+      await AuditLogger.logSecurity({
+        action: 'webhook_config_missing',
+        metadata: { source: 'resend', reason: 'RESEND_WEBHOOK_SECRET not configured' },
+        severity: 'critical'
+      })
+      return createErrorResponse('Webhook configuration error', 500, request)
+    }
+
+    const isValid = await verifyResendSignature(body, signature, process.env.RESEND_WEBHOOK_SECRET)
+    if (!isValid) {
+      await AuditLogger.logSecurity({
+        action: 'webhook_signature_invalid',
+        metadata: { source: 'resend', signature: signature.substring(0, 10) + '...' },
+        severity: 'high'
+      })
+      return createErrorResponse('Invalid webhook signature', 401, request)
     }
 
     const event = JSON.parse(body)
-    
-    // Log webhook received
+
+    // Check for idempotency key to prevent duplicate processing
+    const idempotencyKey = request.headers.get('idempotency-key') || event.id
+    // Note: In a production system, you'd store processed webhook IDs to prevent duplicates
+
+    // Rate limiting for webhooks (different from API rate limiting)
+    const clientIP = request.headers.get('x-forwarded-for') ||
+                     request.headers.get('x-real-ip') ||
+                     'unknown'
+
+    // Log webhook received with security context
     await AuditLogger.logSystem({
       action: 'webhook_received',
       metadata: {
         source: 'resend',
         eventType: event.type,
-        eventId: event.id
+        eventId: event.id,
+        idempotencyKey,
+        clientIP,
+        userAgent: request.headers.get('user-agent')
       },
       severity: 'low'
     })

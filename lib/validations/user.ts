@@ -22,6 +22,7 @@ export const userCreateSchema = z.object({
     .regex(/^(?=.*[A-Z])/, 'Must contain uppercase letter')
     .regex(/^(?=.*\d)/, 'Must contain number')
     .regex(/^(?=.*[@$!%*?&])/, 'Must contain special character'),
+  role_ids: z.array(z.string().uuid('Invalid role ID')).min(1, 'At least one role is required'),
   email_verified: z.boolean().optional().default(false),
   is_active: z.boolean().optional().default(true)
 })

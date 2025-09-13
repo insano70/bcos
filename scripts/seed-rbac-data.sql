@@ -2,7 +2,7 @@
 -- Run this script to populate initial permissions, roles, and sample organizations
 
 -- Insert base permissions
-INSERT INTO permissions (name, description, resource, action, scope, is_active) VALUES
+INSERT INTO public.permissions (name, description, resource, action, scope, is_active) VALUES
 -- User Management Permissions
 ('users:read:own', 'Read own user profile', 'users', 'read', 'own', true),
 ('users:update:own', 'Update own user profile', 'users', 'update', 'own', true),
@@ -48,7 +48,7 @@ INSERT INTO permissions (name, description, resource, action, scope, is_active) 
 ('api:write:organization', 'Write API access for organization', 'api', 'write', 'organization', true);
 
 -- Insert base roles
-INSERT INTO roles (name, description, is_system_role, is_active) VALUES
+INSERT INTO public.roles (name, description, is_system_role, is_active) VALUES
 ('super_admin', 'Super administrator with full system access', true, true),
 ('practice_admin', 'Practice administrator with full practice management', false, true),
 ('practice_manager', 'Practice manager with staff and operational management', false, true),
@@ -56,7 +56,7 @@ INSERT INTO roles (name, description, is_system_role, is_active) VALUES
 ('practice_user', 'Basic practice user with minimal access', false, true);
 
 -- Insert sample organizations
-INSERT INTO organizations (name, slug, is_active) VALUES
+INSERT INTO public.organizations (name, slug, is_active) VALUES
 ('Platform Administration', 'platform-admin', true),
 ('Rheumatology Associates', 'rheumatology-associates', true),
 ('Joint Care Specialists', 'joint-care-specialists', true);

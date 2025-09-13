@@ -51,7 +51,8 @@ export class TokenManager {
   static async createTokenPair(
     userId: string,
     deviceInfo: DeviceInfo,
-    rememberMe: boolean = false
+    rememberMe: boolean = false,
+    email?: string
   ): Promise<TokenPair> {
     const now = new Date()
     const sessionId = nanoid(32)
@@ -114,7 +115,7 @@ export class TokenManager {
 
     // Log successful login
     await TokenManager.logLoginAttempt({
-      email: '', // Would need email parameter
+      email: email || '', // Use provided email or empty string
       userId,
       deviceInfo,
       success: true,

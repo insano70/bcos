@@ -3,12 +3,15 @@ import { db } from '@/lib/db'
 import { sql } from 'drizzle-orm'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
+import { rbacRoute } from '@/lib/api/rbac-route-handler'
+import type { UserContext } from '@/lib/types/rbac'
 
 /**
  * Database health check endpoint
  * Tests database connectivity and performance
+ * Protected - only admin users can access detailed health information
  */
-export async function GET(request: NextRequest) {
+const healthCheckHandler = async (request: NextRequest, userContext: UserContext) => {
   try {
     const startTime = Date.now()
     
@@ -61,6 +64,16 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString()
     }
 
-    return Response.json(healthData, { status: 503 })
+    return createErrorResponse('Database health check failed', 503, request)
   }
 }
+
+// Export with RBAC protection - only users with admin permissions can access
+export const GET = rbacRoute(
+  healthCheckHandler,
+  {
+    permission: 'settings:read:all',
+    rateLimit: 'api'
+  }
+);
+

@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useAuth } from '@/components/auth/custom-auth-provider';
 import { PermissionChecker } from '@/lib/rbac/permission-checker';
-import type { 
+import type {
   UserContext,
   PermissionName,
   ResourceType,
@@ -19,43 +19,138 @@ import type {
 
 /**
  * Main permissions hook - provides all RBAC functionality for React components
+ * Now uses real RBAC data from the backend instead of mock data
  */
 export function usePermissions(): UsePermissionsReturn {
-  const { user, isAuthenticated } = useAuth();
-  
-  // For now, we'll create a basic UserContext from the existing auth user
-  // TODO: This will be enhanced when we integrate full RBAC user context
-  const userContext = useMemo((): UserContext | null => {
-    if (!user || !isAuthenticated) {
-      return null;
+  const { user: authUser, isAuthenticated } = useAuth();
+  const [userContext, setUserContext] = useState<UserContext | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch real RBAC user context from the backend
+  useEffect(() => {
+    if (!isAuthenticated || !authUser) {
+      setUserContext(null);
+      return;
     }
 
-    // Create a minimal UserContext for initial integration
-    // This will be replaced with full RBAC context in the next task
-    return {
-      user_id: user.id,
-      email: user.email,
-      first_name: user.firstName,
-      last_name: user.lastName,
-      is_active: true,
-      email_verified: user.emailVerified,
-      
-      // Minimal RBAC data (will be enhanced)
-      roles: [],
-      organizations: [],
-      accessible_organizations: [],
-      user_roles: [],
-      user_organizations: [],
-      
-      // Current context
-      current_organization_id: undefined,
-      
-      // Computed properties (will be populated properly later)
-      all_permissions: [],
-      is_super_admin: user.role === 'admin', // Temporary mapping
-      organization_admin_for: []
+    const fetchUserContext = async () => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch('/api/auth/me', {
+          credentials: 'include'
+        });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch user context: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data.success && data.data?.user) {
+          const apiUser = data.data.user;
+
+          // Convert API response to UserContext format
+          const context: UserContext = {
+            user_id: apiUser.id,
+            email: apiUser.email,
+            first_name: apiUser.firstName,
+            last_name: apiUser.lastName,
+            is_active: true,
+            email_verified: apiUser.emailVerified,
+
+            // RBAC data from API
+            roles: apiUser.roles.map((role: any) => ({
+              role_id: role.id,
+              name: role.name,
+              description: role.description || '',
+              organization_id: undefined, // Will be populated from user_roles if needed
+              is_system_role: role.isSystemRole,
+              is_active: true,
+              created_at: new Date(),
+              updated_at: new Date(),
+              deleted_at: undefined,
+              permissions: [] // Will be populated from permissions array
+            })),
+
+            organizations: apiUser.organizations.map((org: any) => ({
+              organization_id: org.id,
+              name: org.name,
+              slug: org.slug,
+              parent_organization_id: undefined,
+              is_active: true,
+              created_at: new Date(),
+              updated_at: new Date(),
+              deleted_at: undefined
+            })),
+
+            accessible_organizations: apiUser.accessibleOrganizations.map((org: any) => ({
+              organization_id: org.id,
+              name: org.name,
+              slug: org.slug,
+              parent_organization_id: undefined,
+              is_active: true,
+              created_at: new Date(),
+              updated_at: new Date(),
+              deleted_at: undefined
+            })),
+
+            user_roles: [], // Could be populated if API provides this
+            user_organizations: [], // Could be populated if API provides this
+
+            // Current context
+            current_organization_id: apiUser.currentOrganizationId,
+
+            // Computed properties from API
+            all_permissions: apiUser.permissions.map((perm: any) => ({
+              permission_id: perm.id,
+              name: perm.name,
+              description: undefined,
+              resource: perm.resource,
+              action: perm.action,
+              scope: perm.scope,
+              is_active: true,
+              created_at: new Date(),
+              updated_at: new Date()
+            })),
+
+            is_super_admin: apiUser.isSuperAdmin,
+            organization_admin_for: apiUser.organizationAdminFor || []
+          };
+
+          setUserContext(context);
+        } else {
+          throw new Error('Invalid API response format');
+        }
+      } catch (err) {
+        console.error('Failed to fetch user context:', err);
+        setError(err instanceof Error ? err.message : 'Unknown error');
+        // Fallback to minimal context if API fails
+        setUserContext({
+          user_id: authUser.id,
+          email: authUser.email,
+          first_name: authUser.firstName,
+          last_name: authUser.lastName,
+          is_active: true,
+          email_verified: authUser.emailVerified,
+          roles: [],
+          organizations: [],
+          accessible_organizations: [],
+          user_roles: [],
+          user_organizations: [],
+          current_organization_id: undefined,
+          all_permissions: [],
+          is_super_admin: false,
+          organization_admin_for: []
+        });
+      } finally {
+        setLoading(false);
+      }
     };
-  }, [user, isAuthenticated]);
+
+    fetchUserContext();
+  }, [isAuthenticated, authUser]);
 
   const checker = useMemo(() => {
     return userContext ? new PermissionChecker(userContext) : null;
@@ -159,7 +254,7 @@ export function usePermissions(): UsePermissionsReturn {
     getAccessScope,
     getAllPermissions,
     isAuthenticated,
-    isSuperAdmin: isSuperAdmin(),
+    isSuperAdmin: userContext?.is_super_admin || false,
     isOrganizationAdmin,
     currentOrganization: getCurrentOrganization(),
     accessibleOrganizations
@@ -171,16 +266,16 @@ export function usePermissions(): UsePermissionsReturn {
  */
 
 /**
- * Hook for user management permissions
+ * Hook for user management permissions - now uses real RBAC data
  */
 export function useUserPermissions() {
   const permissions = usePermissions();
-  
+
   return {
     ...permissions,
     canReadUsers: permissions.hasAnyPermission([
       'users:read:own',
-      'users:read:organization', 
+      'users:read:organization',
       'users:read:all'
     ]),
     canCreateUsers: permissions.hasPermission('users:create:organization'),
@@ -200,11 +295,11 @@ export function useUserPermissions() {
 }
 
 /**
- * Hook for practice/organization management permissions
+ * Hook for practice/organization management permissions - now uses real RBAC data
  */
 export function usePracticePermissions() {
   const permissions = usePermissions();
-  
+
   return {
     ...permissions,
     canReadPractices: permissions.hasAnyPermission([
@@ -220,11 +315,11 @@ export function usePracticePermissions() {
 }
 
 /**
- * Hook for analytics permissions
+ * Hook for analytics permissions - now uses real RBAC data
  */
 export function useAnalyticsPermissions() {
   const permissions = usePermissions();
-  
+
   return {
     ...permissions,
     canReadAnalytics: permissions.hasAnyPermission([
@@ -237,11 +332,11 @@ export function useAnalyticsPermissions() {
 }
 
 /**
- * Hook for role management permissions
+ * Hook for role management permissions - now uses real RBAC data
  */
 export function useRolePermissions() {
   const permissions = usePermissions();
-  
+
   return {
     ...permissions,
     canReadRoles: permissions.hasPermission('roles:read:organization'),
@@ -258,11 +353,11 @@ export function useRolePermissions() {
 }
 
 /**
- * Hook for settings permissions
+ * Hook for settings permissions - now uses real RBAC data
  */
 export function useSettingsPermissions() {
   const permissions = usePermissions();
-  
+
   return {
     ...permissions,
     canReadSettings: permissions.hasAnyPermission([
@@ -279,11 +374,11 @@ export function useSettingsPermissions() {
 }
 
 /**
- * Hook for template permissions
+ * Hook for template permissions - now uses real RBAC data
  */
 export function useTemplatePermissions() {
   const permissions = usePermissions();
-  
+
   return {
     ...permissions,
     canReadTemplates: permissions.hasPermission('templates:read:organization'),
@@ -292,11 +387,11 @@ export function useTemplatePermissions() {
 }
 
 /**
- * Hook for API access permissions
+ * Hook for API access permissions - now uses real RBAC data
  */
 export function useApiPermissions() {
   const permissions = usePermissions();
-  
+
   return {
     ...permissions,
     canReadAPI: permissions.hasPermission('api:read:organization'),
@@ -309,7 +404,7 @@ export function useApiPermissions() {
 }
 
 /**
- * Hook to check permissions for a specific resource
+ * Hook to check permissions for a specific resource - now uses real RBAC data
  */
 export function useResourcePermissions(
   resourceType: ResourceType,
@@ -317,31 +412,31 @@ export function useResourcePermissions(
   organizationId?: string
 ) {
   const permissions = usePermissions();
-  
+
   return useMemo(() => ({
     canRead: permissions.hasAnyPermission([
       `${resourceType}:read:own`,
       `${resourceType}:read:organization`,
       `${resourceType}:read:all`
     ] as PermissionName[], resourceId, organizationId),
-    
+
     canUpdate: permissions.hasAnyPermission([
       `${resourceType}:update:own`,
       `${resourceType}:update:organization`
     ] as PermissionName[], resourceId, organizationId),
-    
+
     canDelete: permissions.hasPermission(
       `${resourceType}:delete:organization` as PermissionName,
       resourceId,
       organizationId
     ),
-    
+
     canCreate: permissions.hasPermission(
       `${resourceType}:create:organization` as PermissionName,
       resourceId,
       organizationId
     ),
-    
+
     hasAnyAccess: permissions.hasAnyPermission([
       `${resourceType}:read:own`,
       `${resourceType}:read:organization`,
@@ -353,14 +448,14 @@ export function useResourcePermissions(
 }
 
 /**
- * Hook for organization-specific permissions
+ * Hook for organization-specific permissions - now uses real RBAC data
  */
 export function useOrganizationPermissions(organizationId?: string) {
   const permissions = usePermissions();
-  
+
   return useMemo(() => {
     const targetOrgId = organizationId || permissions.currentOrganization?.organization_id;
-    
+
     return {
       organizationId: targetOrgId,
       canAccess: targetOrgId ? permissions.hasPermission('practices:read:own', undefined, targetOrgId) : false,
@@ -374,14 +469,14 @@ export function useOrganizationPermissions(organizationId?: string) {
 }
 
 /**
- * Hook to get user's permission summary
+ * Hook to get user's permission summary - now uses real RBAC data
  */
 export function usePermissionSummary() {
   const permissions = usePermissions();
-  
+
   return useMemo(() => {
     const allPermissions = permissions.getAllPermissions();
-    
+
     return {
       totalPermissions: allPermissions.length,
       permissionsByResource: allPermissions.reduce((acc, permission) => {
@@ -392,16 +487,16 @@ export function usePermissionSummary() {
         acc[resource].push(permission);
         return acc;
       }, {} as Record<string, Permission[]>),
-      
+
       scopes: {
         hasOwnScope: allPermissions.some(p => p.scope === 'own'),
         hasOrgScope: allPermissions.some(p => p.scope === 'organization'),
         hasAllScope: allPermissions.some(p => p.scope === 'all')
       },
-      
+
       adminStatus: {
         isSuperAdmin: permissions.isSuperAdmin,
-        isOrgAdmin: permissions.accessibleOrganizations.some(org => 
+        isOrgAdmin: permissions.accessibleOrganizations.some(org =>
           permissions.isOrganizationAdmin(org.organization_id)
         ),
         adminForOrgs: permissions.accessibleOrganizations.filter(org =>

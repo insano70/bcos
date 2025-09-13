@@ -35,12 +35,28 @@ const getPracticesHandler = async (request: NextRequest, userContext: UserContex
       whereConditions.push(eq(practices.template_id, query.template_id));
     }
     
-    // Apply RBAC filtering based on user's accessible organizations
-    // For now, super admins see all, others see practices they own/manage
-    if (!userContext.is_super_admin) {
-      // TODO: Add organization-based filtering when practices are mapped to organizations
-      // For now, filter by owner (if owner_user_id matches current user)
-      whereConditions.push(eq(practices.owner_user_id, userContext.user_id));
+    // Apply RBAC filtering based on user's permissions
+    const canReadAllPractices = userContext.all_permissions?.some(p =>
+      p.name === 'practices:read:all'
+    ) || false;
+
+    const canReadOwnPractices = userContext.all_permissions?.some(p =>
+      p.name === 'practices:read:own'
+    ) || false;
+
+    // If user can read all practices, no additional filtering needed
+    if (!canReadAllPractices) {
+      if (canReadOwnPractices) {
+        // User can only see practices they own
+        whereConditions.push(eq(practices.owner_user_id, userContext.user_id));
+      } else {
+        // User has no practice read permissions - return empty result
+        return createPaginatedResponse([], {
+          page: pagination.page,
+          limit: pagination.limit,
+          total: 0
+        });
+      }
     }
     
     // Get total count for pagination

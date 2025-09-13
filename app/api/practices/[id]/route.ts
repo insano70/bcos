@@ -3,19 +3,17 @@ import { db, practices } from '@/lib/db';
 import { eq, isNull, and } from 'drizzle-orm';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse, NotFoundError, ConflictError } from '@/lib/api/responses/error';
-import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { validateRequest, validateParams } from '@/lib/api/middleware/validation';
 import { practiceUpdateSchema, practiceParamsSchema } from '@/lib/validations/practice';
+import { practiceRoute, superAdminRoute } from '@/lib/api/rbac-route-handler';
+import type { UserContext } from '@/lib/types/rbac';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+const getPracticeHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   try {
-    await applyRateLimit(request, 'api')
-    
+    const params = args[0] as Promise<{ id: string }>
     const { id: practiceId } = validateParams(await params, practiceParamsSchema)
 
+    // Verify practice exists
     const [practice] = await db
       .select()
       .from(practices)
@@ -29,6 +27,13 @@ export async function GET(
       throw NotFoundError('Practice')
     }
 
+    // RBAC: Check if user can access this practice
+    // Super admins can access all practices, others need ownership or organization access
+    if (!userContext.is_super_admin && practice.owner_user_id !== userContext.user_id) {
+      // TODO: Add organization-based access control when practices are mapped to organizations
+      throw new Error('Access denied: You do not have permission to view this practice')
+    }
+
     return createSuccessResponse({
       id: practice.practice_id,
       name: practice.name,
@@ -39,20 +44,16 @@ export async function GET(
       created_at: practice.created_at,
       updated_at: practice.updated_at,
     })
-    
+
   } catch (error) {
     console.error('Error fetching practice:', error)
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+const updatePracticeHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   try {
-    await applyRateLimit(request, 'api')
-    
+    const params = args[0] as Promise<{ id: string }>
     const { id: practiceId } = validateParams(await params, practiceParamsSchema)
     const validatedData = await validateRequest(request, practiceUpdateSchema)
 
@@ -68,6 +69,12 @@ export async function PUT(
 
     if (!existingPractice) {
       throw NotFoundError('Practice')
+    }
+
+    // RBAC: Check if user can update this practice
+    // Super admins can update all practices, practice owners can update their own
+    if (!userContext.is_super_admin && existingPractice.owner_user_id !== userContext.user_id) {
+      throw new Error('Access denied: You do not have permission to update this practice')
     }
 
     // Check domain uniqueness if domain is being updated
@@ -117,13 +124,9 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+const deletePracticeHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   try {
-    await applyRateLimit(request, 'api')
-    
+    const params = args[0] as Promise<{ id: string }>
     const { id: practiceId } = validateParams(await params, practiceParamsSchema)
 
     // Verify practice exists before deletion
@@ -138,6 +141,12 @@ export async function DELETE(
 
     if (!existingPractice) {
       throw NotFoundError('Practice')
+    }
+
+    // RBAC: Check if user can delete this practice
+    // Only super admins can delete practices
+    if (!userContext.is_super_admin) {
+      throw new Error('Access denied: Only super administrators can delete practices')
     }
 
     // Soft delete by setting deleted_at
@@ -164,3 +173,22 @@ export async function DELETE(
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
+
+// Export with RBAC protection
+export const GET = practiceRoute(
+  ['practices:read:own', 'practices:read:all'],
+  getPracticeHandler,
+  { rateLimit: 'api' }
+);
+
+export const PUT = practiceRoute(
+  ['practices:update:own', 'practices:manage:all'],
+  updatePracticeHandler,
+  { rateLimit: 'api' }
+);
+
+// Only super admins can delete practices
+export const DELETE = superAdminRoute(
+  deletePracticeHandler,
+  { rateLimit: 'api' }
+);

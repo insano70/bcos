@@ -3,10 +3,10 @@ import { db, users, practices, practice_attributes, staff_members, templates } f
 import { sql, eq, isNull, like, or, and, desc, asc } from 'drizzle-orm'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
-import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
-import { requireAuth } from '@/lib/api/middleware/auth'
 import { validateQuery } from '@/lib/api/middleware/validation'
 import { getPagination } from '@/lib/api/utils/request'
+import { rbacRoute } from '@/lib/api/rbac-route-handler'
+import type { UserContext } from '@/lib/types/rbac'
 import { z } from 'zod'
 
 /**
@@ -22,10 +22,8 @@ const searchQuerySchema = z.object({
   order: z.enum(['asc', 'desc']).optional().default('desc')
 })
 
-export async function GET(request: NextRequest) {
+const searchHandler = async (request: NextRequest, userContext: UserContext) => {
   try {
-    await applyRateLimit(request, 'api')
-    await requireAuth(request)
     
     const { searchParams } = new URL(request.url)
     const pagination = getPagination(searchParams)
@@ -42,9 +40,18 @@ export async function GET(request: NextRequest) {
       type: query.type,
       pagination
     }
+
+    // RBAC: Apply permission-based filtering to search results
+    const canReadUsers = userContext.is_super_admin || userContext.all_permissions.some(p =>
+      p.name === 'users:read:own' || p.name === 'users:read:organization' || p.name === 'users:read:all'
+    )
+    const canReadPractices = userContext.is_super_admin || userContext.all_permissions.some(p =>
+      p.name === 'practices:read:own' || p.name === 'practices:read:all'
+    )
+    const canReadAllData = userContext.is_super_admin
     
-    // Search Users
-    if (query.type === 'all' || query.type === 'users') {
+    // Search Users (with RBAC permission check)
+    if ((query.type === 'all' || query.type === 'users') && canReadUsers) {
       const userConditions = [
         isNull(users.deleted_at),
         or(
@@ -54,7 +61,7 @@ export async function GET(request: NextRequest) {
           like(sql`lower(concat(${users.first_name}, ' ', ${users.last_name}))`, searchTerm)
         )
       ]
-      
+
       if (query.status !== 'all') {
         userConditions.push(eq(users.is_active, query.status === 'active'))
       }
@@ -80,8 +87,8 @@ export async function GET(request: NextRequest) {
       results.users = userResults
     }
     
-    // Search Practices
-    if (query.type === 'all' || query.type === 'practices') {
+    // Search Practices (with RBAC permission check)
+    if ((query.type === 'all' || query.type === 'practices') && canReadPractices) {
       const practiceConditions = [
         isNull(practices.deleted_at),
         or(
@@ -89,7 +96,7 @@ export async function GET(request: NextRequest) {
           like(sql`lower(${practices.domain})`, searchTerm)
         )
       ]
-      
+
       if (query.status !== 'all') {
         practiceConditions.push(eq(practices.status, query.status))
       }
@@ -115,8 +122,8 @@ export async function GET(request: NextRequest) {
       results.practices = practiceResults
     }
     
-    // Search Staff Members
-    if (query.type === 'all' || query.type === 'staff') {
+    // Search Staff Members (with RBAC permission check)
+    if ((query.type === 'all' || query.type === 'staff') && canReadPractices) {
       const staffConditions = [
         isNull(staff_members.deleted_at),
         or(
@@ -148,8 +155,8 @@ export async function GET(request: NextRequest) {
       results.staff = staffResults
     }
     
-    // Search Templates
-    if (query.type === 'all' || query.type === 'templates') {
+    // Search Templates (with RBAC permission check)
+    if ((query.type === 'all' || query.type === 'templates') && (canReadUsers || canReadPractices)) {
       const templateConditions = [
         isNull(templates.deleted_at),
         or(
@@ -293,3 +300,12 @@ async function generateSearchSuggestions(query: string): Promise<string[]> {
     return []
   }
 }
+
+// Export with RBAC protection - search requires read access to relevant data
+export const GET = rbacRoute(
+  searchHandler,
+  {
+    permission: 'api:read:organization',
+    rateLimit: 'api'
+  }
+);

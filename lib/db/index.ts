@@ -1,6 +1,7 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './schema';
+import * as rbacSchema from './rbac-schema';
 import { env } from '@/lib/env';
 
 // Get validated database configuration
@@ -26,8 +27,12 @@ const client = postgres(dbConfig.url, {
   transform: postgres.camel,
 });
 
+// Merge schemas for the database instance
+const mergedSchema = { ...schema, ...rbacSchema };
+
 // Create the database instance
-export const db = drizzle(client, { schema });
+export const db = drizzle(client, { schema: mergedSchema });
 
 // Export schema for use in other files
 export * from './schema';
+export * from './rbac-schema';

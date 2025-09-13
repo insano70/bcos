@@ -41,7 +41,9 @@ interface PracticeFormData {
 }
 
 async function fetchPracticeAttributes(practiceId: string) {
-  const response = await fetch(`/api/practices/${practiceId}/attributes`);
+  const response = await fetch(`/api/practices/${practiceId}/attributes`, {
+    credentials: 'include'
+  });
   if (!response.ok) {
     throw new Error('Failed to fetch practice attributes');
   }
@@ -54,6 +56,7 @@ async function updatePracticeAttributes(practiceId: string, data: Omit<PracticeF
     headers: {
       'Content-Type': 'application/json',
     },
+    credentials: 'include',
     body: JSON.stringify(data),
   });
   
@@ -140,6 +143,7 @@ export default function PracticeConfigForm({
         const response = await fetch(`/api/practices/${practiceId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ template_id: data.template_id }),
         });
         if (!response.ok) throw new Error('Failed to update practice');

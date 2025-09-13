@@ -7,6 +7,12 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 /**
  * RBAC Middleware for Next.js API Routes
  * Integrates with existing authentication system to provide permission-based access control
+ *
+ * Philosophy:
+ * - super_admin role gets special case handling (full access bypass)
+ * - All other roles are just permission containers
+ * - Access control is permission-based, not role-based
+ * - Focus on "what can this user do?" rather than "what role do they have?"
  */
 
 export interface RBACMiddlewareOptions {

@@ -2,17 +2,12 @@ import { NextRequest } from 'next/server'
 import { FileUploadService } from '@/lib/api/services/upload'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
-import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
-import { requireAuth } from '@/lib/api/middleware/auth'
+import { rbacRoute } from '@/lib/api/rbac-route-handler'
 import { AuditLogger } from '@/lib/api/services/audit'
+import type { UserContext } from '@/lib/types/rbac'
 
-export async function POST(request: NextRequest) {
+const uploadFilesHandler = async (request: NextRequest, userContext: UserContext) => {
   try {
-    // Apply rate limiting for uploads
-    await applyRateLimit(request, 'upload')
-    
-    // Require authentication
-    const authResult = await requireAuth(request)
     
     // Parse form data
     const data = await request.formData()
@@ -52,7 +47,7 @@ export async function POST(request: NextRequest) {
     const requestInfo = AuditLogger.extractRequestInfo(request)
     await AuditLogger.logUserAction({
       action: 'file_upload',
-      userId: authResult.user.id,
+      userId: userContext.user_id,
       resourceType: 'file',
       resourceId: result.files.map(f => f.fileName).join(','),
       ipAddress: requestInfo.ipAddress,
@@ -76,3 +71,12 @@ export async function POST(request: NextRequest) {
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
+
+// Export with RBAC protection - file uploads require write API access
+export const POST = rbacRoute(
+  uploadFilesHandler,
+  {
+    permission: 'api:write:organization',
+    rateLimit: 'upload'
+  }
+);

@@ -11,6 +11,8 @@ import { verifyPassword } from '@/lib/auth/security'
 import { TokenManager } from '@/lib/auth/token-manager'
 import { AccountSecurity } from '@/lib/auth/security'
 import { AuditLogger } from '@/lib/api/services/audit'
+import { getUserContextSafe } from '@/lib/rbac/user-context'
+import { CSRFProtection } from '@/lib/security/csrf'
 import { publicRoute } from '@/lib/api/route-handler'
 
 /**
@@ -19,6 +21,12 @@ import { publicRoute } from '@/lib/api/route-handler'
  */
 const loginHandler = async (request: NextRequest) => {
   try {
+    // CSRF PROTECTION: Verify CSRF token for login (public but state-changing)
+    const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
+    if (!isValidCSRF) {
+      return createErrorResponse('CSRF token validation failed', 403, request)
+    }
+
     // Apply rate limiting
     await applyRateLimit(request, 'auth')
     
@@ -122,11 +130,15 @@ const loginHandler = async (request: NextRequest) => {
       deviceName
     }
 
-    // Create token pair
+    // Get user's RBAC context to determine roles
+    const userContext = await getUserContextSafe(user.user_id)
+
+    // Create token pair with email parameter for audit logging
     const tokenPair = await TokenManager.createTokenPair(
       user.user_id,
       deviceInfo,
-      remember || false
+      remember || false,
+      email // Pass email for audit logging
     )
 
     // Set secure httpOnly cookie for refresh token
@@ -156,6 +168,10 @@ const loginHandler = async (request: NextRequest) => {
       }
     })
 
+    // Get the user's actual assigned roles
+    const userRoles = userContext?.roles?.map(r => r.name) || [];
+    const primaryRole = userRoles.length > 0 ? userRoles[0] : 'user';
+
     return createSuccessResponse({
       user: {
         id: user.user_id,
@@ -163,8 +179,10 @@ const loginHandler = async (request: NextRequest) => {
         name: `${user.first_name} ${user.last_name}`,
         firstName: user.first_name,
         lastName: user.last_name,
-        role: 'admin',
-        emailVerified: user.email_verified
+        role: primaryRole, // First role as primary, or 'user' if none
+        emailVerified: user.email_verified,
+        roles: userRoles, // All explicitly assigned roles
+        permissions: userContext?.all_permissions?.map(p => p.name) || []
       },
       accessToken: tokenPair.accessToken,
       sessionId: tokenPair.sessionId,

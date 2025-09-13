@@ -3,17 +3,14 @@ import { db, templates } from '@/lib/db';
 import { eq, isNull, and, asc, desc, sql, like } from 'drizzle-orm';
 import { createSuccessResponse, createPaginatedResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
-import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { validateQuery } from '@/lib/api/middleware/validation';
 import { getPagination, getSortParams } from '@/lib/api/utils/request';
 import { templateQuerySchema } from '@/lib/validations/template';
-import { requireAuth } from '@/lib/api/middleware/auth';
+import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import type { UserContext } from '@/lib/types/rbac';
 
-export async function GET(request: NextRequest) {
+const getTemplatesHandler = async (request: NextRequest, userContext: UserContext) => {
   try {
-    await applyRateLimit(request, 'api')
-    await requireAuth(request) // Require authentication
-    
     const { searchParams } = new URL(request.url)
     const pagination = getPagination(searchParams)
     const sort = getSortParams(searchParams, ['name', 'slug', 'created_at'])
@@ -65,3 +62,12 @@ export async function GET(request: NextRequest) {
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
+
+// Export with RBAC protection - templates can be read by organization members
+export const GET = rbacRoute(
+  getTemplatesHandler,
+  {
+    permission: 'templates:read:organization',
+    rateLimit: 'api'
+  }
+);

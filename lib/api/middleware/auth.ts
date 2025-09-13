@@ -2,6 +2,7 @@ import { TokenManager } from '@/lib/auth/token-manager'
 import { AuthenticationError, AuthorizationError } from '../responses/error'
 import { db, users } from '@/lib/db'
 import { eq } from 'drizzle-orm'
+import { getUserContextSafe } from '@/lib/rbac/user-context'
 
 export async function requireAuth(request: Request) {
   // Extract access token from Authorization header
@@ -31,7 +32,14 @@ export async function requireAuth(request: Request) {
     throw AuthenticationError('User account is inactive')
   }
   
-  // Return session-like object for compatibility
+  // Get user's RBAC context
+  const userContext = await getUserContextSafe(user.user_id)
+
+  // Get the user's actual assigned roles
+  const userRoles = userContext?.roles?.map(r => r.name) || [];
+  const primaryRole = userRoles.length > 0 ? userRoles[0] : 'user';
+
+  // Return session-like object with actual RBAC information
   return {
     user: {
       id: user.user_id,
@@ -39,56 +47,83 @@ export async function requireAuth(request: Request) {
       name: `${user.first_name} ${user.last_name}`,
       firstName: user.first_name,
       lastName: user.last_name,
-      role: 'admin', // For now, all users are admins
+      role: primaryRole, // First assigned role, or 'user' if none
       emailVerified: user.email_verified,
-      practiceId: undefined // TODO: Add practice relationship logic
+      practiceId: userContext?.current_organization_id,
+      roles: userRoles, // All explicitly assigned roles
+      permissions: userContext?.all_permissions?.map(p => p.name) || [],
+      isSuperAdmin: userContext?.is_super_admin || false,
+      organizationAdminFor: userContext?.organization_admin_for || []
     },
     accessToken,
-    sessionId: payload.session_id as string
+    sessionId: payload.session_id as string,
+    userContext // Include full RBAC context for middleware
   }
 }
 
 export async function requireRole(request: Request, allowedRoles: string[]) {
   const session = await requireAuth(request)
-  
-  if (!allowedRoles.includes(session.user.role)) {
+
+  // For super_admin, always allow (special case)
+  if (session.user.isSuperAdmin) {
+    return session
+  }
+
+  // For other roles, check if user has any of the required roles
+  const hasRequiredRole = allowedRoles.some(role =>
+    session.user.roles?.includes(role)
+  )
+
+  if (!hasRequiredRole) {
     throw AuthorizationError(`Access denied. Required role: ${allowedRoles.join(' or ')}`)
   }
-  
+
   return session
 }
 
+// Note: This is legacy - prefer using permission-based checks instead
+// Super admins get special case handling (full access)
+// Other users should be checked via specific permissions
 export async function requireAdmin(request: Request) {
-  return await requireRole(request, ['admin'])
+  return await requireRole(request, ['admin', 'super_admin'])
 }
 
 export async function requirePracticeOwner(request: Request) {
-  return await requireRole(request, ['admin', 'practice_owner'])
+  return await requireRole(request, ['admin', 'practice_owner', 'super_admin'])
 }
 
 export async function requireOwnership(request: Request, resourceUserId: string) {
   const session = await requireAuth(request)
-  
-  if (session.user.id !== resourceUserId && session.user.role !== 'admin') {
+
+  const hasOwnership = session.user.id === resourceUserId ||
+    session.user.isSuperAdmin ||
+    session.user.organizationAdminFor?.length > 0
+
+  if (!hasOwnership) {
     throw AuthorizationError('You can only access your own resources')
   }
-  
+
   return session
 }
 
 export async function requirePracticeAccess(request: Request, practiceId: string) {
   const session = await requireAuth(request)
-  
-  // Admins can access any practice
-  if (session.user.role === 'admin') {
+
+  // Super admins can access any practice
+  if (session.user.isSuperAdmin) {
     return session
   }
-  
-  // Practice owners can only access their own practice
+
+  // Organization admins can access practices in their organizations
+  if (session.user.organizationAdminFor?.includes(practiceId)) {
+    return session
+  }
+
+  // Practice owners can access their own practice
   if (session.user.role === 'practice_owner' && session.user.practiceId === practiceId) {
     return session
   }
-  
+
   throw AuthorizationError('You do not have access to this practice')
 }
 
