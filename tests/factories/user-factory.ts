@@ -4,7 +4,7 @@ import { generateUniqueEmail, generateUniqueUsername } from '@/tests/helpers/uni
 import { hashPassword } from '@/lib/auth/password'
 import type { InferSelectModel } from 'drizzle-orm'
 
-type User = InferSelectModel<typeof users>
+export type User = InferSelectModel<typeof users>
 
 /**
  * Configuration options for creating test users

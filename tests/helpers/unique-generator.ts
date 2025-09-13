@@ -29,6 +29,14 @@ export function generateUniqueUsername(prefix = 'user'): string {
 }
 
 /**
+ * Generate a unique organization name for test organizations
+ * Uses crypto random bytes to prevent collisions in parallel test runs
+ */
+export function generateUniqueOrgName(prefix = 'org'): string {
+  return generateCryptoUniqueId(prefix)
+}
+
+/**
  * Generate a unique practice name for test practices
  * Uses crypto random bytes to prevent collisions in parallel test runs
  */

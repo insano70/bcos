@@ -8,15 +8,14 @@ export default defineConfig({
     environment: 'node', // Use node environment for database tests
     setupFiles: ['./tests/setup/test-setup.ts'],
     globals: true,
-    // Disable parallel execution for database consistency
+    // Enable parallel execution with proper isolation via AsyncLocalStorage
     pool: 'forks',
     poolOptions: {
       forks: {
-        singleFork: true,
-        isolate: false
+        isolate: true // Each fork gets its own process and database connection
       }
     },
-    maxConcurrency: 1,
+    maxConcurrency: 4, // Allow up to 4 parallel test processes
     testTimeout: 30000
   },
   resolve: {

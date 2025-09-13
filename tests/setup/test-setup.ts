@@ -1,5 +1,6 @@
 import { beforeEach, afterEach, afterAll } from 'vitest'
 import { getTestTransaction, rollbackTransaction, cleanupTestDb } from '@/tests/helpers/db-helper'
+import { emergencyCleanup } from './cleanup'
 
 // Ensure environment variables are set for tests
 // Only set DATABASE_URL if it's not already set (to avoid overriding existing config)
@@ -27,8 +28,16 @@ afterEach(async () => {
 
 /**
  * Global cleanup - runs after all tests complete
- * Cleans up database connections
+ * Performs emergency cleanup of any lingering test data and cleans up connections
  */
 afterAll(async () => {
-  await cleanupTestDb()
+  try {
+    // Perform emergency cleanup to remove any test data that might have leaked
+    await emergencyCleanup()
+  } catch (error) {
+    console.warn('⚠️ Emergency cleanup failed:', error)
+  } finally {
+    // Always clean up database connections
+    await cleanupTestDb()
+  }
 })
