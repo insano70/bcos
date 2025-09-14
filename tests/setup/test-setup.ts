@@ -1,5 +1,5 @@
-import { beforeEach, afterEach, afterAll } from 'vitest'
-import { getTestTransaction, rollbackTransaction, cleanupTestDb } from '@/tests/helpers/db-helper'
+import { beforeEach, afterEach, afterAll, beforeAll } from 'vitest'
+import { initializeMainTransaction, getTestTransaction, rollbackTransaction, cleanupTestDb } from '@/tests/helpers/db-helper'
 import { emergencyCleanup } from './cleanup'
 
 // Ensure environment variables are set for tests
@@ -11,12 +11,26 @@ process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
 process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'test-refresh-secret';
 
 /**
+ * Initialize main transaction for the entire test session
+ * This runs once before all tests in this file
+ */
+beforeAll(async () => {
+  try {
+    console.log('🚀 Initializing main test transaction...')
+    await initializeMainTransaction()
+  } catch (error) {
+    console.error('❌ Failed to initialize main transaction:', error)
+    throw error
+  }
+})
+
+/**
  * Per-test setup - runs before each test
- * Sets up a fresh database transaction for test isolation
+ * Sets up a savepoint for individual test isolation
  */
 beforeEach(async () => {
   try {
-    // Start a transaction for this test
+    // Create a savepoint for this test
     await getTestTransaction()
   } catch (error) {
     console.error('❌ Test setup failed:', error)
@@ -26,11 +40,11 @@ beforeEach(async () => {
 
 /**
  * Per-test teardown - runs after each test
- * Rolls back the transaction to ensure test isolation
+ * Rolls back to the savepoint to ensure test isolation
  */
 afterEach(async () => {
   try {
-    // Rollback the transaction
+    // Rollback to the savepoint (undoes all test changes)
     await rollbackTransaction()
   } catch (error) {
     console.warn('⚠️ Test cleanup failed:', error)
@@ -46,13 +60,13 @@ afterEach(async () => {
 
 /**
  * Global cleanup - runs after all tests complete
- * Performs emergency cleanup of any lingering test data and cleans up connections
+ * Rolls back main transaction and cleans up connections
  */
 afterAll(async () => {
   try {
     console.log('🧹 Starting process cleanup...')
     
-    // Clean up database connections
+    // This will rollback the main transaction and clean up connections
     await cleanupTestDb()
     
     console.log('✅ Process cleanup completed')

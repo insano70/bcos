@@ -5,12 +5,12 @@
 
 // Core structured logger
 export { 
-  createLogger, 
+  createAppLogger, 
   logger, 
   loggers,
   type LogContext,
   LOG_LEVELS 
-} from './structured-logger'
+} from './winston-logger'
 
 // API-specific logging
 export {
@@ -33,12 +33,6 @@ export {
   withDBLogging
 } from './middleware'
 
-// Environment-specific configuration
-export { 
-  getLogConfig,
-  LogLevels,
-  type LogConfig 
-} from './config'
 
 // Correlation and tracing
 export {
@@ -55,4 +49,5 @@ export {
 } from './correlation'
 
 // Default exports for common use cases
-export default logger
+import { logger as defaultLogger } from './winston-logger'
+export default defaultLogger

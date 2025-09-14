@@ -3,7 +3,7 @@
  * Provides backward-compatible interface while migrating to structured logging
  */
 
-import { loggers, createLogger } from './structured-logger'
+import { loggers, createAppLogger } from './winston-logger'
 
 /**
  * Migrated debug logging interface
@@ -37,7 +37,7 @@ export const debugLog = {
  */
 export const errorLog = (message: string, error?: any, context?: any) => {
   // Create a temporary logger for error logging if we don't have a specific context
-  const logger = createLogger('error')
+  const logger = createAppLogger('error')
   
   if (context) {
     logger.error(message, error, context)

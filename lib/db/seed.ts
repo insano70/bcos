@@ -1,4 +1,5 @@
-import { db, users, templates, practices, practice_attributes, staff_members, roles, user_roles } from './index';
+import { db, users, templates, practices, practice_attributes, staff_members } from './index';
+import { permissions, roles, role_permissions, organizations, user_roles, user_organizations } from './rbac-schema';
 import { eq, sql, and } from 'drizzle-orm';
 import { hashPassword } from '../auth/password';
 import * as fs from 'fs';
@@ -145,28 +146,140 @@ async function seedRBAC() {
   console.log('🔐 Seeding RBAC data...');
 
   try {
-    // Read the RBAC seeding SQL file
-    const rbacSqlPath = path.join(__dirname, '../../scripts/seed-rbac-data.sql');
-    const rbacSql = fs.readFileSync(rbacSqlPath, 'utf8');
+    // 1. Seed permissions
+    console.log('📝 Seeding permissions...');
+    const permissionData = [
+      // User Management Permissions
+      { name: 'users:read:own', description: 'Read own user profile', resource: 'users', action: 'read', scope: 'own' },
+      { name: 'users:update:own', description: 'Update own user profile', resource: 'users', action: 'update', scope: 'own' },
+      { name: 'users:read:organization', description: 'Read users in organization', resource: 'users', action: 'read', scope: 'organization' },
+      { name: 'users:create:organization', description: 'Create users in organization', resource: 'users', action: 'create', scope: 'organization' },
+      { name: 'users:update:organization', description: 'Update users in organization', resource: 'users', action: 'update', scope: 'organization' },
+      { name: 'users:delete:organization', description: 'Delete users in organization', resource: 'users', action: 'delete', scope: 'organization' },
+      { name: 'users:read:all', description: 'Read all users (super admin)', resource: 'users', action: 'read', scope: 'all' },
+      { name: 'users:manage:all', description: 'Full user management (super admin)', resource: 'users', action: 'manage', scope: 'all' },
+      
+      // Practice Management Permissions
+      { name: 'practices:read:own', description: 'Read own practice information', resource: 'practices', action: 'read', scope: 'own' },
+      { name: 'practices:update:own', description: 'Update own practice information', resource: 'practices', action: 'update', scope: 'own' },
+      { name: 'practices:staff:manage:own', description: 'Manage practice staff', resource: 'practices', action: 'staff:manage', scope: 'own' },
+      { name: 'practices:create:all', description: 'Create new practices (super admin)', resource: 'practices', action: 'create', scope: 'all' },
+      { name: 'practices:read:all', description: 'Read all practices (super admin)', resource: 'practices', action: 'read', scope: 'all' },
+      { name: 'practices:manage:all', description: 'Full practice management (super admin)', resource: 'practices', action: 'manage', scope: 'all' },
+      
+      // Analytics Permissions
+      { name: 'analytics:read:organization', description: 'View organization analytics', resource: 'analytics', action: 'read', scope: 'organization' },
+      { name: 'analytics:export:organization', description: 'Export organization reports', resource: 'analytics', action: 'export', scope: 'organization' },
+      { name: 'analytics:read:all', description: 'View all analytics (super admin)', resource: 'analytics', action: 'read', scope: 'all' },
+      
+      // Role Management Permissions
+      { name: 'roles:read:organization', description: 'Read roles in organization', resource: 'roles', action: 'read', scope: 'organization' },
+      { name: 'roles:create:organization', description: 'Create roles in organization', resource: 'roles', action: 'create', scope: 'organization' },
+      { name: 'roles:update:organization', description: 'Update roles in organization', resource: 'roles', action: 'update', scope: 'organization' },
+      { name: 'roles:delete:organization', description: 'Delete roles in organization', resource: 'roles', action: 'delete', scope: 'organization' },
+      { name: 'roles:manage:all', description: 'Full role management (super admin)', resource: 'roles', action: 'manage', scope: 'all' },
+      
+      // Settings Permissions
+      { name: 'settings:read:organization', description: 'Read organization settings', resource: 'settings', action: 'read', scope: 'organization' },
+      { name: 'settings:update:organization', description: 'Update organization settings', resource: 'settings', action: 'update', scope: 'organization' },
+      { name: 'settings:read:all', description: 'Read all system settings', resource: 'settings', action: 'read', scope: 'all' },
+      { name: 'settings:update:all', description: 'Update all system settings', resource: 'settings', action: 'update', scope: 'all' },
+      
+      // Template Management Permissions
+      { name: 'templates:read:organization', description: 'Read available templates', resource: 'templates', action: 'read', scope: 'organization' },
+      { name: 'templates:manage:all', description: 'Full template management (super admin)', resource: 'templates', action: 'manage', scope: 'all' },
+      
+      // API Access Permissions
+      { name: 'api:read:organization', description: 'Read API access for organization', resource: 'api', action: 'read', scope: 'organization' },
+      { name: 'api:write:organization', description: 'Write API access for organization', resource: 'api', action: 'write', scope: 'organization' },
+    ];
 
-    // Split the SQL into individual statements
-    const statements = rbacSql
-      .split(';')
-      .map(stmt => stmt.trim())
-      .filter(stmt => stmt.length > 0);
+    for (const permission of permissionData) {
+      const existing = await db.select().from(permissions).where(eq(permissions.name, permission.name)).limit(1);
+      if (existing.length === 0) {
+        await db.insert(permissions).values(permission);
+        console.log(`✅ Permission created: ${permission.name}`);
+      } else {
+        console.log(`ℹ️  Permission ${permission.name} already exists, skipping...`);
+      }
+    }
 
-    // Execute each statement using sql template
-    for (const statement of statements) {
-      if (statement.trim()) {
-        try {
-          // Use Drizzle's sql template for raw SQL execution
-          await db.execute(sql.raw(statement));
-          console.log('✅ RBAC statement executed successfully');
-        } catch (error) {
-          // Log but continue for non-critical errors (e.g., duplicate key violations)
-          console.log('ℹ️  RBAC statement may have failed (possibly already exists):', error);
+    // 2. Seed roles
+    console.log('👥 Seeding roles...');
+    const roleData = [
+      { name: 'super_admin', description: 'Super administrator with full system access', is_system_role: true, is_active: true },
+      { name: 'user', description: 'Basic user with own resource access', is_system_role: true, is_active: true }
+    ];
+
+    for (const role of roleData) {
+      const existing = await db.select().from(roles).where(eq(roles.name, role.name)).limit(1);
+      if (existing.length === 0) {
+        await db.insert(roles).values(role);
+        console.log(`✅ Role created: ${role.name} (system_role: ${role.is_system_role})`);
+      } else {
+        console.log(`ℹ️  Role ${role.name} already exists, skipping...`);
+      }
+    }
+
+    // 3. Seed organizations
+    console.log('🏢 Seeding organizations...');
+    const orgData = [
+      { name: 'Platform Administration', slug: 'platform-admin', is_active: true },
+      { name: 'Rheumatology Associates', slug: 'rheumatology-associates', is_active: true },
+      { name: 'Joint Care Specialists', slug: 'joint-care-specialists', is_active: true }
+    ];
+
+    for (const org of orgData) {
+      const existing = await db.select().from(organizations).where(eq(organizations.slug, org.slug)).limit(1);
+      if (existing.length === 0) {
+        await db.insert(organizations).values(org);
+        console.log(`✅ Organization created: ${org.name}`);
+      } else {
+        console.log(`ℹ️  Organization ${org.name} already exists, skipping...`);
+      }
+    }
+
+    // 4. Assign permissions to roles
+    console.log('🔗 Assigning permissions to roles...');
+    
+    // Get roles
+    const [superAdminRole] = await db.select().from(roles).where(eq(roles.name, 'super_admin')).limit(1);
+    const [userRole] = await db.select().from(roles).where(eq(roles.name, 'user')).limit(1);
+    
+    if (superAdminRole) {
+      // Assign ALL permissions to super_admin
+      const allPermissions = await db.select().from(permissions);
+      for (const permission of allPermissions) {
+        const existing = await db.select().from(role_permissions)
+          .where(and(eq(role_permissions.role_id, superAdminRole.role_id), eq(role_permissions.permission_id, permission.permission_id)))
+          .limit(1);
+        
+        if (existing.length === 0) {
+          await db.insert(role_permissions).values({
+            role_id: superAdminRole.role_id,
+            permission_id: permission.permission_id
+          });
         }
       }
+      console.log(`✅ Assigned all permissions to super_admin`);
+    }
+
+    if (userRole) {
+      // Assign only 'own' scope permissions to user role
+      const ownPermissions = await db.select().from(permissions).where(eq(permissions.scope, 'own'));
+      for (const permission of ownPermissions) {
+        const existing = await db.select().from(role_permissions)
+          .where(and(eq(role_permissions.role_id, userRole.role_id), eq(role_permissions.permission_id, permission.permission_id)))
+          .limit(1);
+        
+        if (existing.length === 0) {
+          await db.insert(role_permissions).values({
+            role_id: userRole.role_id,
+            permission_id: permission.permission_id
+          });
+        }
+      }
+      console.log(`✅ Assigned 'own' scope permissions to user role`);
     }
 
     console.log('🎉 RBAC seeding completed!');
@@ -447,6 +560,188 @@ async function seedPractices() {
   }
 }
 
+async function assignUserRoles() {
+  console.log('👥 Assigning roles to users...');
+
+  try {
+    // Get the admin user
+    const [adminUser] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, 'admin@bendcare.com'))
+      .limit(1);
+
+    if (!adminUser) {
+      console.log('⚠️  Admin user not found, skipping role assignment');
+      return;
+    }
+
+    // Get the super_admin role
+    const [superAdminRole] = await db
+      .select()
+      .from(roles)
+      .where(eq(roles.name, 'super_admin'))
+      .limit(1);
+
+    if (!superAdminRole) {
+      console.log('⚠️  Super admin role not found, skipping role assignment');
+      return;
+    }
+
+    // Get the platform admin organization
+    const [platformOrg] = await db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.slug, 'platform-admin'))
+      .limit(1);
+
+    if (!platformOrg) {
+      console.log('⚠️  Platform admin organization not found, skipping role assignment');
+      return;
+    }
+
+    // Check if role assignment already exists
+    const existingAssignment = await db
+      .select()
+      .from(user_roles)
+      .where(
+        and(
+          eq(user_roles.user_id, adminUser.user_id),
+          eq(user_roles.role_id, superAdminRole.role_id)
+        )
+      )
+      .limit(1);
+
+    if (existingAssignment.length === 0) {
+      // Assign super admin role to admin user
+      await db
+        .insert(user_roles)
+        .values({
+          user_id: adminUser.user_id,
+          role_id: superAdminRole.role_id,
+          organization_id: platformOrg.organization_id,
+          granted_by: adminUser.user_id, // Self-granted for initial setup
+          granted_at: new Date(),
+          is_active: true
+        });
+
+      console.log('✅ Super admin role assigned to admin user');
+    } else {
+      console.log('ℹ️  Admin user already has super admin role, skipping...');
+    }
+
+    // Assign user to platform organization
+    const existingOrgAssignment = await db
+      .select()
+      .from(user_organizations)
+      .where(
+        and(
+          eq(user_organizations.user_id, adminUser.user_id),
+          eq(user_organizations.organization_id, platformOrg.organization_id)
+        )
+      )
+      .limit(1);
+
+    if (existingOrgAssignment.length === 0) {
+      await db
+        .insert(user_organizations)
+        .values({
+          user_id: adminUser.user_id,
+          organization_id: platformOrg.organization_id,
+          is_primary: true,
+          joined_at: new Date()
+        });
+
+      console.log('✅ Admin user assigned to platform organization');
+    } else {
+      console.log('ℹ️  Admin user already in platform organization, skipping...');
+    }
+
+    // Assign 'user' role to all sample users
+    const sampleUserEmails = ['john.doe@example.com', 'jane.smith@example.com', 'bob.johnson@example.com'];
+    const [userRole] = await db
+      .select()
+      .from(roles)
+      .where(eq(roles.name, 'user'))
+      .limit(1);
+
+    const [rheumatologyOrg] = await db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.slug, 'rheumatology-associates'))
+      .limit(1);
+
+    if (userRole && rheumatologyOrg) {
+      for (const email of sampleUserEmails) {
+        const [sampleUser] = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, email))
+          .limit(1);
+
+        if (sampleUser) {
+          // Check if role assignment exists
+          const existingRole = await db
+            .select()
+            .from(user_roles)
+            .where(
+              and(
+                eq(user_roles.user_id, sampleUser.user_id),
+                eq(user_roles.role_id, userRole.role_id)
+              )
+            )
+            .limit(1);
+
+          if (existingRole.length === 0) {
+            await db
+              .insert(user_roles)
+              .values({
+                user_id: sampleUser.user_id,
+                role_id: userRole.role_id,
+                organization_id: rheumatologyOrg.organization_id,
+                granted_by: adminUser.user_id,
+                granted_at: new Date(),
+                is_active: true
+              });
+
+            // Assign to organization
+            const existingSampleOrgAssignment = await db
+              .select()
+              .from(user_organizations)
+              .where(
+                and(
+                  eq(user_organizations.user_id, sampleUser.user_id),
+                  eq(user_organizations.organization_id, rheumatologyOrg.organization_id)
+                )
+              )
+              .limit(1);
+
+            if (existingSampleOrgAssignment.length === 0) {
+              await db
+                .insert(user_organizations)
+                .values({
+                  user_id: sampleUser.user_id,
+                  organization_id: rheumatologyOrg.organization_id,
+                  is_primary: true,
+                  joined_at: new Date()
+                });
+            }
+
+            console.log(`✅ User role assigned to ${email}`);
+          } else {
+            console.log(`ℹ️  ${email} already has user role, skipping...`);
+          }
+        }
+      }
+    }
+
+    console.log('🎉 User role assignments completed!');
+  } catch (error) {
+    console.error('❌ Error assigning user roles:', error);
+    throw error;
+  }
+}
+
 async function seed() {
   console.log('🚀 Starting database seeding...');
 
@@ -458,6 +753,9 @@ async function seed() {
     await seedUsers();
     await seedTemplates();
     await seedPractices();
+
+    // Finally assign roles to users
+    await assignUserRoles();
 
     console.log('✨ Database seeding completed successfully!');
     process.exit(0);

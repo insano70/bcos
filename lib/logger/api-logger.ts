@@ -4,9 +4,9 @@
  */
 
 import { NextRequest } from 'next/server'
-import { createLogger, type LogContext } from './structured-logger'
+import { createAppLogger, type LogContext } from './winston-logger'
 
-const apiLogger = createLogger('api')
+const apiLogger = createAppLogger('api')
 
 export interface APILogContext extends LogContext {
   requestId: string
@@ -20,7 +20,7 @@ export interface APILogContext extends LogContext {
 /**
  * Create API logger with request context
  */
-export function createAPILogger(request: NextRequest): typeof apiLogger {
+export function createAPILogger(request: NextRequest) {
   const url = new URL(request.url)
   const searchParams = Object.fromEntries(url.searchParams)
   
@@ -39,7 +39,7 @@ export function createAPILogger(request: NextRequest): typeof apiLogger {
 /**
  * Log API request start
  */
-export function logAPIRequest(logger: ReturnType<typeof createAPILogger>, request: NextRequest): void {
+export function logAPIRequest(logger: any, request: NextRequest): void {
   const contentLength = request.headers.get('content-length')
   
   logger.info('API Request Started', {
@@ -52,7 +52,7 @@ export function logAPIRequest(logger: ReturnType<typeof createAPILogger>, reques
  * Log API response
  */
 export function logAPIResponse(
-  logger: ReturnType<typeof createAPILogger>,
+  logger: any,
   statusCode: number,
   startTime: number,
   responseSize?: number,
@@ -82,7 +82,7 @@ export function logAPIResponse(
  * Log database operations within API calls
  */
 export function logDBOperation(
-  logger: ReturnType<typeof createAPILogger>,
+  logger: any,
   operation: string,
   table: string,
   startTime: number,
@@ -102,7 +102,7 @@ export function logDBOperation(
  * Log authentication events within API calls
  */
 export function logAPIAuth(
-  logger: ReturnType<typeof createAPILogger>,
+  logger: any,
   action: string,
   success: boolean,
   userId?: string,
@@ -122,7 +122,7 @@ export function logAPIAuth(
  * Log validation errors
  */
 export function logValidationError(
-  logger: ReturnType<typeof createAPILogger>,
+  logger: any,
   field: string,
   value: any,
   message: string
@@ -138,7 +138,7 @@ export function logValidationError(
  * Log rate limiting events
  */
 export function logRateLimit(
-  logger: ReturnType<typeof createAPILogger>,
+  logger: any,
   limit: number,
   remaining: number,
   resetTime: Date
@@ -154,12 +154,12 @@ export function logRateLimit(
  * Log security events within API calls
  */
 export function logSecurityEvent(
-  logger: ReturnType<typeof createAPILogger>,
+  logger: any,
   event: string,
   severity: 'low' | 'medium' | 'high' | 'critical',
   details?: Record<string, any>
 ): void {
-  const level = severity === 'critical' ? 'fatal' : 
+  const level = severity === 'critical' ? 'error' : 
                 severity === 'high' ? 'error' : 
                 severity === 'medium' ? 'warn' : 'info'
   
@@ -174,7 +174,7 @@ export function logSecurityEvent(
  * Performance monitoring for specific operations
  */
 export function logPerformanceMetric(
-  logger: ReturnType<typeof createAPILogger>,
+  logger: any,
   operation: string,
   duration: number,
   metadata?: Record<string, any>
