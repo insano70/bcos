@@ -17,9 +17,16 @@ export const sortSchema = z.object({
   order: z.enum(['asc', 'desc']).optional().default('desc')
 })
 
-// Search schema
+// Search schema with enhanced sanitization
 export const searchSchema = z.object({
-  search: z.string().max(255).optional()
+  search: z.string()
+    .max(255, 'Search term must not exceed 255 characters')
+    .transform(term => term
+      .trim()
+      .replace(/[<>"']/g, '') // Remove dangerous characters
+      .replace(/[%_\\]/g, '') // Remove SQL wildcards for safety
+    )
+    .optional()
 })
 
 // File upload schema

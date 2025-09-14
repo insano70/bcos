@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Calendar - Mosaic',
+  title: 'Calendar - BendcareOS',
   description: 'Page description',
 };
 

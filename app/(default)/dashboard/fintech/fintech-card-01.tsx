@@ -54,7 +54,7 @@ export default function FintechCard01() {
     datasets: [
       // Indigo line
       {
-        label: 'Mosaic Portfolio',
+        label: 'BendcareOS Portfolio',
         data: [
           0, 2.5, 2.5, 4, 2.5, 3.8, 5, 9, 7.5, 11, 14, 15, 17, 15, 14, 9, 15, 26, 16, 18, 15, 20,
           18, 19, 19, 24, 29, 26, 39, 27, 35, 32, 29, 35, 36, 34, 39, 36, 41, 41, 48,

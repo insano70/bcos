@@ -1,5 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { requireAuth } from './auth'
+import { cookies } from 'next/headers'
+import { debugLog, errorLog } from '@/lib/utils/debug'
 
 /**
  * Global API Authentication Middleware
@@ -12,6 +14,8 @@ const PUBLIC_API_ROUTES = new Set([
   '/api/health/db',
   '/api/health/services',
   '/api/auth/login', // ✅ Needs CSRF protection despite being public
+  '/api/auth/logout', // ✅ Logout needs to be accessible even when not authenticated
+  '/api/auth/refresh', // ✅ Token refresh needs cookie-based auth
   '/api/csrf',       // ✅ Public endpoint for token generation
   '/api/webhooks/stripe', // ✅ Webhooks don't need CSRF (external)
   '/api/webhooks/resend', // ✅ Webhooks don't need CSRF (external)
@@ -40,22 +44,58 @@ export function isPublicApiRoute(pathname: string): boolean {
 }
 
 /**
+ * Check if refresh token cookie exists (for debugging purposes only)
+ */
+async function _checkRefreshTokenCookie(): Promise<boolean> {
+  try {
+    const cookieStore = await cookies()
+    const refreshToken = cookieStore.get('refresh-token')?.value
+    return !!refreshToken
+  } catch (_error) {
+    return false
+  }
+}
+
+/**
  * Apply global authentication to API routes
  * Call this at the start of every API route handler
  */
 export async function applyGlobalAuth(request: NextRequest): Promise<any> {
   const pathname = new URL(request.url).pathname
-  
+
+  debugLog.auth('API auth check:', pathname)
+
   // Skip auth for public routes
   if (isPublicApiRoute(pathname)) {
+    debugLog.auth('Public API route, no auth required')
     return null // No auth required
   }
+
+  // Check for Authorization header OR httpOnly cookie (consistent with requireAuth)
+  const authHeader = request.headers.get('authorization')
+  const cookieHeader = request.headers.get('cookie')
   
-  // Require authentication for all other API routes
+  let hasAuth = false
+  if (authHeader) {
+    hasAuth = true
+    debugLog.auth('API auth: Using Authorization header for:', pathname)
+  } else if (cookieHeader?.includes('access-token=')) {
+    hasAuth = true
+    debugLog.auth('API auth: Using httpOnly cookie for:', pathname)
+  }
+
+  if (!hasAuth) {
+    debugLog.auth('API auth failed - no Authorization header or access token cookie for:', pathname)
+    throw new Error(`Authentication required for ${pathname}: Access token required`)
+  }
+
+  // Validate authentication (requireAuth handles both Authorization headers and cookies)
   try {
-    return await requireAuth(request)
+    const authResult = await requireAuth(request)
+    debugLog.auth('API authenticated - user:', authResult.user.email)
+    return authResult
   } catch (error) {
-    // Re-throw with additional context
+    errorLog('API auth failed:', error)
     throw new Error(`Authentication required for ${pathname}: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }

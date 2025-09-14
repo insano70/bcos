@@ -1,8 +1,8 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { type PostgresJsTransaction } from 'drizzle-orm/postgres-js'
-import { db } from '@/lib/db'
 
+// Simple per-test transaction storage
 let testClient: ReturnType<typeof postgres> | null = null
 let testDb: ReturnType<typeof drizzle> | null = null
 let currentTransaction: PostgresJsTransaction<any, any> | null = null
@@ -26,7 +26,7 @@ export function getTestDb() {
  * Start a new database transaction for test isolation
  * Each test gets its own transaction that can be rolled back
  */
-export async function getTestTransaction() {
+export async function getTestTransaction(): Promise<PostgresJsTransaction<any, any>> {
   const db = getTestDb()
 
   // If there's already an active transaction, rollback it first
@@ -34,7 +34,7 @@ export async function getTestTransaction() {
     await rollbackTransaction()
   }
 
-  // Start a new transaction
+  // Create a transaction using the standard Drizzle pattern
   currentTransaction = await db.transaction(async (tx) => {
     return tx
   })
@@ -46,10 +46,10 @@ export async function getTestTransaction() {
  * Rollback the current test transaction
  * This ensures test isolation by undoing all changes
  */
-export async function rollbackTransaction() {
+export async function rollbackTransaction(): Promise<void> {
   if (currentTransaction) {
     try {
-      // Transaction will auto-rollback when the function exits
+      // Transaction will auto-rollback when function exits
       // We just need to clear our reference
       currentTransaction = null
     } catch (error) {
@@ -63,7 +63,7 @@ export async function rollbackTransaction() {
  * Get the current active transaction
  * Throws if no transaction is active
  */
-export function getCurrentTransaction() {
+export function getCurrentTransaction(): PostgresJsTransaction<any, any> {
   if (!currentTransaction) {
     throw new Error('No active transaction. Make sure getTestTransaction() is called in test setup.')
   }
@@ -90,7 +90,13 @@ export async function withTestTransaction<T>(
  * Clean up the test database connection
  * Should be called after all tests complete
  */
-export async function cleanupTestDb() {
+export async function cleanupTestDb(): Promise<void> {
+  // Rollback any active transaction first
+  if (currentTransaction) {
+    await rollbackTransaction()
+  }
+
+  // Close the database connection
   if (testClient) {
     await testClient.end()
     testClient = null

@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useCreateUser } from '@/lib/hooks/use-users';
 import RoleSelector from './role-selector';
+import { passwordSchema } from '@/lib/config/password-policy';
 import Toast from './toast';
 
 // Form validation schema
@@ -15,12 +16,7 @@ const createUserSchema = z.object({
   first_name: z.string().min(1, 'First name is required').max(100, 'First name must be less than 100 characters'),
   last_name: z.string().min(1, 'Last name is required').max(100, 'Last name must be less than 100 characters'),
   email: z.string().email('Please enter a valid email address'),
-  password: z.string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/^(?=.*[a-z])/, 'Must contain at least one lowercase letter')
-    .regex(/^(?=.*[A-Z])/, 'Must contain at least one uppercase letter')
-    .regex(/^(?=.*\d)/, 'Must contain at least one number')
-    .regex(/^(?=.*[@$!%*?&])/, 'Must contain at least one special character'),
+  password: passwordSchema, // ✅ CENTRALIZED: Uses 12-char policy from single source
   confirm_password: z.string(),
   role_ids: z.array(z.string()).min(1, 'Please select at least one role'),
   email_verified: z.boolean().optional(),

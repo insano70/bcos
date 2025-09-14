@@ -1,5 +1,5 @@
 {
-  "name": "mosaic-next",
+  "name": "bendcare-os",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -13,10 +13,29 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:ui": "vitest --ui",
-    "test:unit": "vitest run tests/unit",
-    "test:integration": "vitest run tests/integration",
-    "test:users": "vitest run tests/integration/api/users.test.ts",
-    "db:seed": "tsx lib/db/seed.ts",
+    
+    "test:unit": "vitest run tests/unit --reporter=verbose",
+    "test:integration": "vitest run tests/integration --reporter=verbose",
+    "test:api": "vitest run tests/integration/api --reporter=verbose",
+    "test:rbac": "vitest run tests/integration/rbac --reporter=verbose",
+    "test:e2e": "vitest run tests/e2e --reporter=verbose",
+    
+    "test:parallel": "vitest run --pool=forks --poolOptions.forks.singleFork=false --reporter=verbose",
+    "test:parallel:max": "vitest run --pool=forks --poolOptions.forks.singleFork=false --maxConcurrency=8 --reporter=verbose",
+    "test:sequential": "vitest run --pool=forks --poolOptions.forks.singleFork=true --reporter=verbose",
+    
+    "test:coverage": "vitest run --coverage --reporter=verbose",
+    "test:coverage:ui": "vitest run --coverage --ui",
+    
+    "test:watch": "vitest watch",
+    "test:watch:ui": "vitest watch --ui",
+    
+    "test:specific:users": "vitest run tests/integration/api/users.test.ts --reporter=verbose",
+    "test:specific:permissions": "vitest run tests/integration/rbac/permissions.test.ts --reporter=verbose",
+    
+    "test:debug": "vitest run --reporter=verbose --no-coverage",
+    "test:debug:single": "vitest run --pool=forks --poolOptions.forks.singleFork=true --reporter=verbose --no-coverage",
+    "db:seed": "tsx --env-file=.env.local lib/db/seed.ts",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:psql": "./lib/db/db-utils.sh",
@@ -50,6 +69,8 @@
     "nanoid": "^5.1.5",
     "next": "15.5.2",
     "next-themes": "^0.4.6",
+    "pino": "^9.6.0",
+    "pino-http": "^10.6.0",
     "postgres": "^3.4.7",
     "react": "19.1.1",
     "react-day-picker": "^9.9.0",
@@ -70,6 +91,7 @@
     "@testing-library/react": "^16.3.0",
     "@vitejs/plugin-react": "^5.0.2",
     "jsdom": "^26.1.0",
+    "pino-pretty": "^13.0.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.13",
     "tsx": "^4.20.5",

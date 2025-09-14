@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Breadcrumb - Mosaic',
+  title: 'Breadcrumb - BendcareOS',
   description: 'Page description',
 };
 

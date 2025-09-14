@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Kanban - Mosaic',
+  title: 'Kanban - BendcareOS',
   description: 'Page description',
 };
 

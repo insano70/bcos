@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Cart - Mosaic',
+  title: 'Cart - BendcareOS',
   description: 'Page description',
 };
 

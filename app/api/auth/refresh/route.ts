@@ -7,6 +7,7 @@ import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
 import { AuditLogger } from '@/lib/api/services/audit'
 import { requireAuth } from '@/lib/api/middleware/auth'
 import { CSRFProtection } from '@/lib/security/csrf'
+import { debugLog, errorLog } from '@/lib/utils/debug'
 
 /**
  * Refresh Token Endpoint
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
       return createErrorResponse('CSRF token validation failed', 403, request)
     }
 
-    console.log('🔄 Refresh endpoint called')
+    debugLog.session('Refresh endpoint called')
 
     // NOTE: We don't require auth header here since we're validating the refresh token cookie directly
     // This allows token refresh without needing a valid access token
@@ -36,10 +37,10 @@ export async function POST(request: NextRequest) {
     const cookieStore = await cookies()
     const refreshToken = cookieStore.get('refresh-token')?.value
 
-    console.log('🍪 Refresh token from cookie:', !!refreshToken)
+    debugLog.session('Refresh token from cookie:', !!refreshToken)
 
     if (!refreshToken) {
-      console.log('❌ No refresh token found in cookie')
+      debugLog.session('No refresh token found in cookie')
       return createErrorResponse('Refresh token not found', 401, request)
     }
 
@@ -50,12 +51,12 @@ export async function POST(request: NextRequest) {
     let userId: string
     try {
       const { jwtVerify } = await import('jose')
-      const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret')
+      const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET!)
       const { payload } = await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET)
       userId = payload.sub as string
-      console.log('✅ Refresh token validated for user:', userId)
+      debugLog.session('Refresh token validated for user:', userId)
     } catch (tokenError) {
-      console.log('❌ Refresh token validation failed:', tokenError)
+      errorLog('Refresh token validation failed:', tokenError)
       return createErrorResponse('Invalid refresh token', 401, request)
     }
 
@@ -69,11 +70,15 @@ export async function POST(request: NextRequest) {
       .limit(1)
 
     if (!user || !user.is_active) {
-      console.log('❌ User not found or inactive:', userId)
+      errorLog('User not found or inactive:', userId)
       return createErrorResponse('User account is inactive', 401, request)
     }
 
-    console.log('👤 Found active user:', user.email)
+    debugLog.session('Found active user:', user.email)
+
+    // Get user's RBAC context for complete user data
+    const { getUserContextSafe } = await import('@/lib/rbac/user-context')
+    const userContext = await getUserContextSafe(user.user_id)
 
     // Extract device info
     const ipAddress = request.headers.get('x-forwarded-for') || 
@@ -127,10 +132,25 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    // Set new refresh token in httpOnly cookie
+    // Get the user's actual assigned roles
+    const userRoles = userContext?.roles?.map(r => r.name) || [];
+    const primaryRole = userRoles.length > 0 ? userRoles[0] : 'user';
+
+    // Set new refresh token in httpOnly cookie and return user data
     const response = NextResponse.json({
       success: true,
       data: {
+        user: {
+          id: user.user_id,
+          email: user.email,
+          name: `${user.first_name} ${user.last_name}`,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          role: primaryRole,
+          emailVerified: user.email_verified,
+          roles: userRoles,
+          permissions: userContext?.all_permissions?.map(p => p.name) || []
+        },
         accessToken: tokenPair.accessToken,
         expiresAt: tokenPair.expiresAt.toISOString(),
         sessionId: tokenPair.sessionId
@@ -139,21 +159,56 @@ export async function POST(request: NextRequest) {
       meta: { timestamp: new Date().toISOString() }
     })
 
-    // Set secure httpOnly cookie for refresh token
+    // Set secure cookies for both tokens
     const isProduction = process.env.NODE_ENV === 'production'
-    
+
+    // ✅ SECURITY: Debug logging only in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🍪 REFRESH: Setting cookies for token refresh:', {
+        refreshToken: {
+          name: 'refresh-token',
+          httpOnly: true,
+          secure: isProduction,
+          sameSite: 'strict',
+          path: '/',
+          maxAge: 30 * 24 * 60 * 60,
+          valueLength: tokenPair.refreshToken.length
+        },
+        accessToken: {
+          name: 'access-token',
+          httpOnly: true, // Server-only access
+          secure: isProduction,
+          sameSite: 'strict',
+          path: '/',
+          maxAge: 15 * 60,
+          valueLength: tokenPair.accessToken.length
+        }
+      });
+    }
+
+    // Set HTTP-only refresh token cookie (server-only)
     response.cookies.set('refresh-token', tokenPair.refreshToken, {
       httpOnly: true,
       secure: isProduction,
       sameSite: 'strict',
       path: '/',
-      maxAge: 30 * 24 * 60 * 60, // 30 days (will be shorter for standard mode)
+      maxAge: 30 * 24 * 60 * 60 // 30 days (will be shorter for standard mode)
     })
 
+    // Set secure access token cookie (server-only, secure)
+    response.cookies.set('access-token', tokenPair.accessToken, {
+      httpOnly: true, // ✅ SECURE: JavaScript cannot access this token
+      secure: isProduction,
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 15 * 60 // 15 minutes
+    })
+
+    debugLog.session('Cookies set successfully')
     return response
     
   } catch (error) {
-    console.error('Token refresh error:', error)
+    errorLog('Token refresh error:', error)
 
     // Extract device info for logging
     const ipAddress = request.headers.get('x-forwarded-for') ||
@@ -166,7 +221,7 @@ export async function POST(request: NextRequest) {
     try {
       if (refreshTokenForError) {
         const { jwtVerify } = await import('jose')
-        const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret')
+        const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET!)
         const { payload } = await jwtVerify(refreshTokenForError, REFRESH_TOKEN_SECRET)
         failedUserId = payload.sub as string
       }

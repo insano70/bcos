@@ -323,10 +323,28 @@ async function getAccessibleOrganizations(directOrganizationIds: string[]): Prom
  * Get user context for API route handlers (with error handling)
  */
 export async function getUserContextSafe(userId: string): Promise<UserContext | null> {
+  const isDev = process.env.NODE_ENV === 'development';
+  if (isDev) console.log('📋 Loading user context for user ID:', userId);
+  
   try {
-    return await getUserContext(userId);
+    const context = await getUserContext(userId);
+    if (isDev) {
+      console.log('✅ User context loaded successfully');
+      console.log('👤 User roles count:', context.roles?.length || 0);
+      console.log('🔑 User permissions count:', context.all_permissions?.length || 0);
+    }
+    return context;
   } catch (error) {
-    console.error('Failed to get user context:', error);
+    // ✅ SECURITY: Use sanitized error logging for production
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ Failed to get user context:', error);
+    } else {
+      console.error('❌ Failed to get user context:', {
+        error: error instanceof Error ? error.name : 'Unknown error',
+        timestamp: new Date().toISOString()
+        // Don't log sensitive user context details in production
+      });
+    }
     return null;
   }
 }

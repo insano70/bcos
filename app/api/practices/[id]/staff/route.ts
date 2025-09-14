@@ -9,6 +9,7 @@ import { staffCreateSchema, staffQuerySchema, staffParamsSchema } from '@/lib/va
 import { practiceParamsSchema } from '@/lib/validations/practice';
 import { practiceRoute, rbacRoute } from '@/lib/api/rbac-route-handler';
 import type { UserContext } from '@/lib/types/rbac';
+import { parseSpecialties, parseEducation } from '@/lib/utils/safe-json';
 
 const getPracticeStaffHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   try {
@@ -72,8 +73,8 @@ const getPracticeStaffHandler = async (request: NextRequest, userContext: UserCo
     // Parse JSON fields safely
     const parsedStaff = staff.map(member => ({
       ...member,
-      specialties: member.specialties ? JSON.parse(member.specialties) : [],
-      education: member.education ? JSON.parse(member.education) : [],
+      specialties: parseSpecialties(member.specialties),
+      education: parseEducation(member.education),
     }))
 
     return createPaginatedResponse(parsedStaff, {

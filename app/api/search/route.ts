@@ -29,7 +29,13 @@ const searchHandler = async (request: NextRequest, userContext: UserContext) => 
     const pagination = getPagination(searchParams)
     const query = validateQuery(searchParams, searchQuerySchema)
     
-    const searchTerm = `%${query.q.toLowerCase()}%`
+    // ✅ SECURITY: Sanitize search term to prevent SQL injection
+    const sanitizedQuery = query.q
+      .trim()
+      .replace(/[%_\\]/g, '\\$&') // Escape SQL wildcards
+      .replace(/[<>"']/g, '') // Remove dangerous characters
+      .slice(0, 255); // Limit length
+    const searchTerm = `%${sanitizedQuery.toLowerCase()}%`
     const results: any = {
       users: [],
       practices: [],

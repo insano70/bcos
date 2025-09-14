@@ -2,8 +2,8 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { apiClient } from '@/lib/api/client';
-import { getUserContextSafe } from '@/lib/rbac/user-context';
 import { type UserContext } from '@/lib/types/rbac';
+import { debugLog, errorLog } from '@/lib/utils/debug';
 
 /**
  * Enhanced Authentication Provider with RBAC Integration
@@ -21,9 +21,8 @@ export interface User {
 }
 
 export interface RBACAuthState {
-  // Basic auth state
+  // Basic auth state (accessToken removed - now handled server-side only)
   user: User | null;
-  accessToken: string | null;
   sessionId: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -51,7 +50,6 @@ interface RBACAuthProviderProps {
 export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
   const [state, setState] = useState<RBACAuthState>({
     user: null,
-    accessToken: null,
     sessionId: null,
     isLoading: true,
     isAuthenticated: false,
@@ -66,19 +64,18 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     initializeAuth();
   }, []);
 
-  // Set up API client with auth context
+  // Set up API client with auth context (accessToken removed - handled by middleware)
   useEffect(() => {
     apiClient.setAuthContext({
-      accessToken: state.accessToken,
       csrfToken: state.csrfToken,
       refreshToken,
       logout
     });
-  }, [state.accessToken, state.csrfToken]);
+  }, [state.csrfToken]);
 
-  // Set up token refresh interval
+  // Set up token refresh interval (based on authentication state, not client-side token)
   useEffect(() => {
-    if (state.accessToken) {
+    if (state.isAuthenticated) {
       // Refresh token every 10 minutes (access tokens last 15 minutes)
       const refreshInterval = setInterval(() => {
         refreshToken();
@@ -86,7 +83,7 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
 
       return () => clearInterval(refreshInterval);
     }
-  }, [state.accessToken]);
+  }, [state.isAuthenticated]);
 
   // Load RBAC user context when user changes
   useEffect(() => {
@@ -97,12 +94,13 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
 
   const initializeAuth = async () => {
     try {
+      debugLog.auth('Initializing authentication via server-side token refresh...');
       // Ensure CSRF token cookie exists before any state-changing requests
       await ensureCsrfToken();
-      // Try to refresh token to get current session
+      // Try to refresh token to get current session (server will read httpOnly cookies)
       await refreshToken();
     } catch (error) {
-      console.log('No active session found');
+      debugLog.auth('No active session found');
       setState(prev => ({ ...prev, isLoading: false }));
     }
   };
@@ -126,16 +124,100 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     try {
       setState(prev => ({ ...prev, rbacLoading: true, rbacError: null }));
       
-      const userContext = await getUserContextSafe(state.user.id);
+      // Fetch user context via API (server-side database access)
+      const response = await fetch('/api/auth/me', {
+        method: 'GET',
+        credentials: 'include' // Include httpOnly cookies
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user context: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.success || !data.data?.user) {
+        throw new Error('Invalid user context response');
+      }
+
+      const apiUser = data.data.user;
+
+      // Transform API response to UserContext format
+      const userContext: UserContext = {
+        user_id: apiUser.id,
+        email: apiUser.email,
+        first_name: apiUser.firstName,
+        last_name: apiUser.lastName,
+        is_active: true,
+        email_verified: apiUser.emailVerified,
+
+        // RBAC data from API
+        roles: apiUser.roles.map((role: any) => ({
+          role_id: role.id,
+          name: role.name,
+          description: role.description || '',
+          organization_id: undefined,
+          is_system_role: role.isSystemRole,
+          is_active: true,
+          created_at: new Date(),
+          updated_at: new Date(),
+          deleted_at: undefined,
+          permissions: [] // Will be populated from all_permissions
+        })),
+
+        organizations: apiUser.organizations.map((org: any) => ({
+          organization_id: org.id,
+          name: org.name,
+          slug: org.slug,
+          parent_organization_id: undefined,
+          is_active: true,
+          created_at: new Date(),
+          updated_at: new Date(),
+          deleted_at: undefined
+        })),
+
+        accessible_organizations: apiUser.accessibleOrganizations.map((org: any) => ({
+          organization_id: org.id,
+          name: org.name,
+          slug: org.slug,
+          parent_organization_id: undefined,
+          is_active: true,
+          created_at: new Date(),
+          updated_at: new Date(),
+          deleted_at: undefined
+        })),
+
+        user_roles: [], // Could be populated if needed
+        user_organizations: [], // Could be populated if needed
+
+        // Current context
+        current_organization_id: apiUser.currentOrganizationId,
+
+        // Computed properties from API
+        all_permissions: apiUser.permissions.map((perm: any) => ({
+          permission_id: perm.id,
+          name: perm.name,
+          description: undefined,
+          resource: perm.resource,
+          action: perm.action,
+          scope: perm.scope,
+          is_active: true,
+          created_at: new Date(),
+          updated_at: new Date()
+        })),
+
+        is_super_admin: apiUser.isSuperAdmin,
+        organization_admin_for: apiUser.organizationAdminFor || []
+      };
       
       setState(prev => ({
         ...prev,
         userContext,
         rbacLoading: false,
-        rbacError: userContext ? null : 'Failed to load user permissions'
+        rbacError: null
       }));
     } catch (error) {
-      console.error('Failed to load RBAC user context:', error);
+      errorLog('Failed to load RBAC user context:', error);
       setState(prev => ({
         ...prev,
         userContext: null,
@@ -166,11 +248,10 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
         throw new Error(result.error || 'Login failed');
       }
 
-      // Update state with login result
+      // Update state with login result (accessToken handled server-side via cookies)
       setState(prev => ({
         ...prev,
         user: result.data.user,
-        accessToken: result.data.accessToken,
         sessionId: result.data.sessionId,
         isLoading: false,
         isAuthenticated: true,
@@ -179,7 +260,7 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
         rbacError: null
       }));
 
-      console.log('Login successful for:', result.data.user.email);
+      debugLog.auth('Login successful for:', result.data.user.email);
     } catch (error) {
       setState(prev => ({ 
         ...prev, 
@@ -201,16 +282,15 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
       await fetch('/api/auth/logout', {
         method: 'POST',
         headers: {
-          'x-csrf-token': csrfToken,
-          ...(state.accessToken ? { Authorization: `Bearer ${state.accessToken}` } : {})
+          'x-csrf-token': csrfToken
+          // Authorization header automatically added by middleware from httpOnly cookie
         },
         credentials: 'include'
       });
 
-      // Clear state
+      // Clear state (accessToken cleared server-side via cookie removal)
       setState({
         user: null,
-        accessToken: null,
         sessionId: null,
         isLoading: false,
         isAuthenticated: false,
@@ -220,13 +300,12 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
         rbacError: null
       });
 
-      console.log('Logout successful');
+      debugLog.auth('Logout successful');
     } catch (error) {
-      console.error('Logout error:', error);
-      // Clear state even if logout fails
+      errorLog('Logout error:', error);
+      // Clear state even if logout fails (accessToken cleared server-side)
       setState({
         user: null,
-        accessToken: null,
         sessionId: null,
         isLoading: false,
         isAuthenticated: false,
@@ -249,10 +328,9 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
 
       if (!response.ok) {
         // Refresh failed - this is normal if no session exists
-        console.log('No active session to refresh');
+        debugLog.auth('No active session to refresh');
         setState({
           user: null,
-          accessToken: null,
           sessionId: null,
           isLoading: false,
           isAuthenticated: false,
@@ -266,23 +344,24 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
 
       const result = await response.json();
 
-      // Update state with new tokens
+      // Update state with refreshed user data (accessToken updated server-side in httpOnly cookie)
       setState(prev => ({
         ...prev,
-        accessToken: result.data.accessToken,
+        user: result.data.user, // ✅ FIX: Set user data from refresh response
         sessionId: result.data.sessionId,
         isLoading: false,
         isAuthenticated: true,
-        // Keep existing user and userContext - they should still be valid
+        userContext: null, // Will be loaded by useEffect when user is set
+        rbacLoading: false,
+        rbacError: null
       }));
 
-      console.log('Token refreshed successfully');
+      debugLog.auth('Token refreshed successfully');
     } catch (error) {
       // This is normal if no session exists
-      console.log('No session to refresh (normal on first visit)');
+      debugLog.auth('No session to refresh (normal on first visit)');
       setState({
         user: null,
-        accessToken: null,
         sessionId: null,
         isLoading: false,
         isAuthenticated: false,

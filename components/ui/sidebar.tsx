@@ -7,6 +7,7 @@ import { useWindowWidth } from '@/components/utils/use-window-width';
 import SidebarLinkGroup from './sidebar-link-group';
 import SidebarLink from './sidebar-link';
 import Logo from './logo';
+import { ProtectedComponent } from '../rbac/protected-component';
 
 export default function Sidebar({ variant = 'default' }: { variant?: 'default' | 'v2' }) {
   const sidebar = useRef<HTMLDivElement>(null);
@@ -209,20 +210,27 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
                       </a>
                       <div className="lg:hidden lg:sidebar-expanded:block 2xl:block">
                         <ul className={`pl-8 mt-1 ${!open && 'hidden'}`}>
-                          <li className="mb-1 last:mb-0">
-                            <SidebarLink href="/configure/users">
-                              <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
-                                Users
-                              </span>
-                            </SidebarLink>
-                          </li>
-                          <li className="mb-1 last:mb-0">
-                            <SidebarLink href="/configure/practices">
-                              <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
-                                Practices
-                              </span>
-                            </SidebarLink>
-                          </li>
+                          {/* Users - Protected by RBAC */}
+                          <ProtectedComponent permission="users:read:organization">
+                            <li className="mb-1 last:mb-0">
+                              <SidebarLink href="/configure/users">
+                                <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                                  Users
+                                </span>
+                              </SidebarLink>
+                            </li>
+                          </ProtectedComponent>
+                          
+                          {/* Practices - Protected by RBAC */}
+                          <ProtectedComponent permission="practices:read:own">
+                            <li className="mb-1 last:mb-0">
+                              <SidebarLink href="/configure/practices">
+                                <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                                  Practices
+                                </span>
+                              </SidebarLink>
+                            </li>
+                          </ProtectedComponent>
                         </ul>
                       </div>
                     </>

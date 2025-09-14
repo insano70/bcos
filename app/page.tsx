@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/components/auth/custom-auth-provider'
+import { useAuth } from '@/components/auth/rbac-auth-provider'
 
 export default function Home() {
   const router = useRouter()

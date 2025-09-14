@@ -129,7 +129,8 @@ export default function RealtimeChart({ data, width, height }: RealtimeChartProp
       const currentValue = data.datasets[0]?.data[data.datasets[0]?.data.length - 1] || 0;
       const previousValue = data.datasets[0]?.data[data.datasets[0]?.data.length - 2] || 0;
       const diff = ((+currentValue - +previousValue) / +previousValue) * 100;
-      chartValue.current.innerHTML = currentValue.toString();
+      // ✅ SECURITY FIX: Use textContent instead of innerHTML to prevent XSS
+      chartValue.current.textContent = currentValue.toString();
       if (diff < 0) {
         chartDeviation.current.style.backgroundColor = adjustColorOpacity(
           getCssVariable('--color-red-500'),
@@ -143,7 +144,8 @@ export default function RealtimeChart({ data, width, height }: RealtimeChartProp
         );
         chartDeviation.current.style.color = getCssVariable('--color-green-700');
       }
-      chartDeviation.current.innerHTML = `${diff > 0 ? '+' : ''}${diff.toFixed(2)}%`;
+      // ✅ SECURITY FIX: Use textContent instead of innerHTML to prevent XSS
+      chartDeviation.current.textContent = `${diff > 0 ? '+' : ''}${diff.toFixed(2)}%`;
     }
   }, [data]);
 

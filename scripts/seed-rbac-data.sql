@@ -1,5 +1,6 @@
 -- RBAC Seed Data for Healthcare Practice Management System
--- Run this script to populate initial permissions, roles, and sample organizations
+-- Creates only 2 roles: super_admin (all permissions) and user (own permissions)
+-- Creates admin@bendcare.com as super_admin and assigns user role to other test users
 
 -- Insert base permissions
 INSERT INTO public.permissions (name, description, resource, action, scope, is_active) VALUES
@@ -47,13 +48,10 @@ INSERT INTO public.permissions (name, description, resource, action, scope, is_a
 ('api:read:organization', 'Read API access for organization', 'api', 'read', 'organization', true),
 ('api:write:organization', 'Write API access for organization', 'api', 'write', 'organization', true);
 
--- Insert base roles
+-- Insert only TWO roles: super_admin and user
 INSERT INTO public.roles (name, description, is_system_role, is_active) VALUES
 ('super_admin', 'Super administrator with full system access', true, true),
-('practice_admin', 'Practice administrator with full practice management', false, true),
-('practice_manager', 'Practice manager with staff and operational management', false, true),
-('practice_staff', 'Practice staff member with basic access', false, true),
-('practice_user', 'Basic practice user with minimal access', false, true);
+('user', 'Basic user with own resource access', false, true);
 
 -- Insert sample organizations
 INSERT INTO public.organizations (name, slug, is_active) VALUES
@@ -61,104 +59,79 @@ INSERT INTO public.organizations (name, slug, is_active) VALUES
 ('Rheumatology Associates', 'rheumatology-associates', true),
 ('Joint Care Specialists', 'joint-care-specialists', true);
 
--- Assign permissions to super_admin role
+-- SUPER_ADMIN: Assign ALL permissions dynamically (*)
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.role_id, p.permission_id
 FROM roles r
 CROSS JOIN permissions p
-WHERE r.name = 'super_admin'
-  AND p.name IN (
-    'users:read:all',
-    'users:manage:all',
-    'practices:create:all',
-    'practices:read:all',
-    'practices:manage:all',
-    'analytics:read:all',
-    'roles:manage:all',
-    'settings:read:all',
-    'settings:update:all',
-    'templates:manage:all'
-  );
+WHERE r.name = 'super_admin';
 
--- Assign permissions to practice_admin role
+-- USER: Assign all permissions with scope 'own' dynamically
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.role_id, p.permission_id
 FROM roles r
-CROSS JOIN permissions p
-WHERE r.name = 'practice_admin'
-  AND p.name IN (
-    'users:read:own',
-    'users:update:own',
-    'users:read:organization',
-    'users:create:organization',
-    'users:update:organization',
-    'users:delete:organization',
-    'practices:read:own',
-    'practices:update:own',
-    'practices:staff:manage:own',
-    'analytics:read:organization',
-    'analytics:export:organization',
-    'roles:read:organization',
-    'roles:create:organization',
-    'roles:update:organization',
-    'roles:delete:organization',
-    'settings:read:organization',
-    'settings:update:organization',
-    'templates:read:organization',
-    'api:read:organization',
-    'api:write:organization'
-  );
+JOIN permissions p ON p.scope = 'own'
+WHERE r.name = 'user';
 
--- Assign permissions to practice_manager role
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.role_id, p.permission_id
-FROM roles r
-CROSS JOIN permissions p
-WHERE r.name = 'practice_manager'
-  AND p.name IN (
-    'users:read:own',
-    'users:update:own',
-    'users:read:organization',
-    'users:create:organization',
-    'users:update:organization',
-    'practices:read:own',
-    'practices:update:own',
-    'practices:staff:manage:own',
-    'analytics:read:organization',
-    'analytics:export:organization',
-    'roles:read:organization',
-    'settings:read:organization',
-    'templates:read:organization',
-    'api:read:organization'
-  );
+-- Create super_admin user: admin@bendcare.com
+INSERT INTO public.users (
+  email,
+  password_hash,
+  first_name,
+  last_name,
+  email_verified,
+  is_active,
+  created_at,
+  updated_at
+) VALUES (
+  'admin@bendcare.com',
+  '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeCt1uSk8pyyOjQK', -- admin123!
+  'Super',
+  'Admin',
+  true,
+  true,
+  NOW(),
+  NOW()
+);
 
--- Assign permissions to practice_staff role
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.role_id, p.permission_id
-FROM roles r
-CROSS JOIN permissions p
-WHERE r.name = 'practice_staff'
-  AND p.name IN (
-    'users:read:own',
-    'users:update:own',
-    'users:read:organization',
-    'practices:read:own',
-    'analytics:read:organization',
-    'templates:read:organization'
-  );
+-- Assign super_admin role to admin@bendcare.com
+INSERT INTO public.user_roles (user_id, role_id, organization_id, granted_by, is_active, granted_at) VALUES
+((SELECT user_id FROM users WHERE email = 'admin@bendcare.com' LIMIT 1),
+ (SELECT role_id FROM roles WHERE name = 'super_admin' LIMIT 1),
+ NULL, -- System-wide role
+ (SELECT user_id FROM users WHERE email = 'admin@bendcare.com' LIMIT 1),
+ true,
+ NOW()
+);
 
--- Assign permissions to practice_user role
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.role_id, p.permission_id
-FROM roles r
-CROSS JOIN permissions p
-WHERE r.name = 'practice_user'
-  AND p.name IN (
-    'users:read:own',
-    'users:update:own',
-    'practices:read:own',
-    'templates:read:organization'
-  );
+-- Create sample users with 'user' role
+INSERT INTO public.users (
+  email,
+  password_hash,
+  first_name,
+  last_name,
+  email_verified,
+  is_active,
+  created_at,
+  updated_at
+) VALUES
+  ('john.doe@example.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeCt1uSk8pyyOjQK', 'John', 'Doe', true, true, NOW(), NOW()),
+  ('jane.smith@example.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeCt1uSk8pyyOjQK', 'Jane', 'Smith', false, true, NOW(), NOW()),
+  ('bob.johnson@example.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeCt1uSk8pyyOjQK', 'Bob', 'Johnson', true, false, NOW(), NOW());
+
+-- Assign 'user' role to all non-admin users
+INSERT INTO public.user_roles (user_id, role_id, organization_id, granted_by, is_active, granted_at)
+SELECT
+  u.user_id,
+  r.role_id,
+  NULL, -- System-wide role
+  (SELECT user_id FROM users WHERE email = 'admin@bendcare.com' LIMIT 1), -- Granted by super admin
+  true,
+  NOW()
+FROM users u
+CROSS JOIN roles r
+WHERE u.email != 'admin@bendcare.com'
+  AND r.name = 'user';
 
 -- Display summary
 SELECT 'RBAC Seed Data Summary:' AS info;
@@ -166,6 +139,29 @@ SELECT COUNT(*) AS permission_count FROM permissions;
 SELECT COUNT(*) AS role_count FROM roles;
 SELECT COUNT(*) AS organization_count FROM organizations;
 SELECT COUNT(*) AS role_permission_count FROM role_permissions;
+SELECT COUNT(*) AS user_count FROM users;
+SELECT COUNT(*) AS user_role_count FROM user_roles;
 
 SELECT 'Available Roles:' AS info;
 SELECT name, description, is_system_role FROM roles ORDER BY is_system_role DESC, name;
+
+SELECT 'Role Permission Summary:' AS info;
+SELECT
+  r.name AS role_name,
+  COUNT(rp.permission_id) AS permission_count,
+  STRING_AGG(p.name, ', ') AS permissions
+FROM roles r
+LEFT JOIN role_permissions rp ON r.role_id = rp.role_id
+LEFT JOIN permissions p ON rp.permission_id = p.permission_id
+GROUP BY r.role_id, r.name
+ORDER BY r.is_system_role DESC, r.name;
+
+SELECT 'User Role Assignments:' AS info;
+SELECT
+  u.email,
+  r.name AS role_name,
+  ur.is_active
+FROM users u
+JOIN user_roles ur ON u.user_id = ur.user_id
+JOIN roles r ON ur.role_id = r.role_id
+ORDER BY u.email;

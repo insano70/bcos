@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Icons - Mosaic',
+  title: 'Icons - BendcareOS',
   description: 'Page description',
 };
 
@@ -16,7 +16,7 @@ export default function IconsLibrary() {
           {/* Components */}
           <div className="space-y-8 mt-8">
             <div className="text-sm">
-              If you need more icons than what we currently support in Mosaic, check out these great
+              If you need more icons than what we currently support in BendcareOS, check out these great
               packs 👇
             </div>
 
@@ -30,7 +30,7 @@ export default function IconsLibrary() {
               </div>
               <div className="px-6 py-8 bg-gray-100 dark:bg-gray-800/50 rounded-lg text-center xl:text-left xl:flex xl:flex-wrap xl:justify-between xl:items-center">
                 <div className="text-gray-900 dark:text-gray-100 mb-4 xl:mb-0 max-w-lg mx-auto xl:mx-0 2xl:max-w-none">
-                  99% of the icons used in Mosaic come from Nucleo; a huge library of 3K+ vector
+                  99% of the icons used in BendcareOS come from Nucleo; a huge library of 3K+ vector
                   icons!
                 </div>
                 <div className="inline-flex space-x-3">
@@ -66,7 +66,7 @@ export default function IconsLibrary() {
               </div>
               <div className="px-6 py-8 bg-gray-100 dark:bg-gray-800/50 rounded-lg text-center xl:text-left xl:flex xl:flex-wrap xl:justify-between xl:items-center">
                 <div className="text-gray-900 dark:text-gray-100 mb-4 xl:mb-0 max-w-lg mx-auto xl:mx-0 2xl:max-w-none">
-                  A set of 1250+ icons that are visually consistent with the style used in Mosaic!
+                  A set of 1250+ icons that are visually consistent with the style used in BendcareOS!
                 </div>
                 <div className="inline-flex space-x-3">
                   <a

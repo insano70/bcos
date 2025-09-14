@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Notifications Settings - Mosaic',
+  title: 'Notifications Settings - BendcareOS',
   description: 'Page description',
 };
 

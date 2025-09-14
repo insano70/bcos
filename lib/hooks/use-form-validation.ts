@@ -1,0 +1,112 @@
+import { useForm, UseFormProps, FieldValues, UseFormReturn } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useState } from 'react';
+
+/**
+ * Enhanced form validation hook with Zod integration
+ * Provides consistent error handling and validation patterns
+ */
+
+interface UseValidatedFormOptions<T extends FieldValues> extends Omit<UseFormProps<T>, 'resolver'> {
+  schema: z.ZodSchema<T>;
+  onSubmit: (data: T) => Promise<void> | void;
+  onError?: (error: Error) => void;
+}
+
+interface UseValidatedFormReturn<T extends FieldValues> extends UseFormReturn<T> {
+  onSubmit: (e?: React.BaseSyntheticEvent) => Promise<void>;
+  isSubmitting: boolean;
+  submitError: string | null;
+  clearError: () => void;
+}
+
+export function useValidatedForm<T extends FieldValues>({
+  schema,
+  onSubmit,
+  onError,
+  ...formOptions
+}: UseValidatedFormOptions<T>): UseValidatedFormReturn<T> {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const form = useForm<T>({
+    resolver: zodResolver(schema),
+    mode: 'onChange', // Real-time validation
+    reValidateMode: 'onChange',
+    ...formOptions
+  });
+
+  const handleSubmit = form.handleSubmit(async (data: T) => {
+    try {
+      setIsSubmitting(true);
+      setSubmitError(null);
+      
+      // ✅ BEST PRACTICE: Additional client-side validation with safeParse
+      const result = schema.safeParse(data);
+      if (!result.success) {
+        const firstError = result.error.issues[0];
+        throw new Error(firstError.message);
+      }
+      
+      await onSubmit(result.data);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      setSubmitError(errorMessage);
+      onError?.(error instanceof Error ? error : new Error(errorMessage));
+    } finally {
+      setIsSubmitting(false);
+    }
+  });
+
+  const clearError = () => setSubmitError(null);
+
+  return {
+    ...form,
+    onSubmit: handleSubmit,
+    isSubmitting,
+    submitError,
+    clearError
+  };
+}
+
+/**
+ * Hook for password confirmation validation
+ */
+export function usePasswordConfirmation(
+  passwordFieldName: string = 'password',
+  confirmFieldName: string = 'confirmPassword'
+) {
+  return {
+    validate: (confirmPassword: string, formValues: any) => {
+      const password = formValues[passwordFieldName];
+      return password === confirmPassword || "Passwords don't match";
+    }
+  };
+}
+
+/**
+ * Hook for real-time field validation
+ */
+export function useFieldValidation<T>(schema: z.ZodSchema<T>) {
+  const validateField = (fieldName: keyof T, value: any): string | null => {
+    try {
+      // Create a partial schema for single field validation
+      const fieldSchema = schema.pick({ [fieldName]: true } as any);
+      const result = fieldSchema.safeParse({ [fieldName]: value });
+      
+      if (!result.success) {
+        const fieldError = result.error.issues.find(issue => 
+          issue.path.includes(fieldName as string)
+        );
+        return fieldError?.message || 'Invalid value';
+      }
+      
+      return null;
+    } catch {
+      return 'Validation error';
+    }
+  };
+
+  return { validateField };
+}

@@ -19,7 +19,7 @@ export function ProtectedComponent({
   fallback = null,
   showFallback = true
 }: ProtectedComponentProps) {
-  const { hasPermission, hasAnyPermission, hasAllPermissions } = usePermissions();
+  const { hasPermission, hasAnyPermission, hasAllPermissions, isAuthenticated, isSuperAdmin } = usePermissions();
   
   let hasAccess = false;
 

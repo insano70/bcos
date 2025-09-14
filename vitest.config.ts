@@ -1,22 +1,54 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
+import { cpus } from 'os';
 
 export default defineConfig({
   plugins: [react()],
   test: {
-    environment: 'node', // Use node environment for database tests
+    environment: 'node',
     setupFiles: ['./tests/setup/test-setup.ts'],
+    globalSetup: ['./tests/setup/global-setup.ts'],
     globals: true,
-    // Enable parallel execution with proper isolation via AsyncLocalStorage
+    
+    // Enable true parallel execution
     pool: 'forks',
     poolOptions: {
       forks: {
-        isolate: true // Each fork gets its own process and database connection
+        singleFork: false, // Allow multiple worker processes
+        isolate: true,     // Each fork gets its own isolated environment
+        execArgv: ['--max-old-space-size=4096'] // Increase memory for test processes
       }
     },
-    maxConcurrency: 4, // Allow up to 4 parallel test processes
-    testTimeout: 30000
+    
+    // Maximize parallel execution
+    maxConcurrency: Math.min(cpus().length, 8), // Use available CPUs, max 8
+    fileParallelism: true, // Run test files in parallel
+    
+    // Timeouts for database operations
+    testTimeout: 30000,
+    hookTimeout: 30000,
+    
+    // Retry failed tests once (useful for flaky database tests)
+    retry: 1,
+    
+    // Reporter configuration
+    reporters: process.env.CI ? ['junit', 'github-actions'] : ['verbose'],
+    outputFile: process.env.CI ? './test-results.xml' : undefined,
+    
+    // Coverage configuration
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov'],
+      exclude: [
+        'node_modules/',
+        'tests/',
+        '**/*.d.ts',
+        '**/*.config.*',
+        'coverage/',
+        '.next/'
+      ]
+    }
   },
   resolve: {
     alias: {

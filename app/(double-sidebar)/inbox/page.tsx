@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Inbox - Mosaic',
+  title: 'Inbox - BendcareOS',
   description: 'Page description',
 };
 

@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/api/middleware/auth'
 import { getUserContextSafe } from '@/lib/rbac/user-context'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
+import { errorLog } from '@/lib/utils/debug'
 
 /**
  * Get current user with full RBAC context
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest) {
     }, 'User context retrieved successfully')
 
   } catch (error) {
-    console.error('Get user context error:', error)
+    errorLog('Get user context error:', error)
     return createErrorResponse(
       error instanceof Error ? error.message : 'Failed to retrieve user context',
       500,

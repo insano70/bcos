@@ -7,6 +7,7 @@ import { createErrorResponse } from '@/lib/api/responses/error'
 import { TokenManager } from '@/lib/auth/token-manager'
 import { AuditLogger } from '@/lib/api/services/audit'
 import { CSRFProtection } from '@/lib/security/csrf'
+import { errorLog } from '@/lib/utils/debug'
 
 /**
  * Session Management Endpoint
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
 
     // Extract user ID from refresh token
     const { jwtVerify } = await import('jose')
-    const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret')
+    const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET!)
     
     try {
       const { payload } = await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET)
@@ -74,7 +75,7 @@ export async function GET(request: NextRequest) {
     }
     
   } catch (error) {
-    console.error('Get sessions error:', error)
+    errorLog('Get sessions error:', error)
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
@@ -106,7 +107,7 @@ export async function DELETE(request: NextRequest) {
 
     // Extract user ID from refresh token
     const { jwtVerify } = await import('jose')
-    const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret')
+    const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET!)
     
     try {
       const { payload } = await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET)
@@ -172,7 +173,7 @@ export async function DELETE(request: NextRequest) {
     }
     
   } catch (error) {
-    console.error('Revoke session error:', error)
+    errorLog('Revoke session error:', error)
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }

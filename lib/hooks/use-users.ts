@@ -31,9 +31,12 @@ export interface UpdateUserData {
 
 /**
  * Hook to fetch all users
+ * Authentication handled by middleware via httpOnly cookies
  */
 export function useUsers() {
-  return useApiQuery<User[]>(
+  console.log('👥 useUsers: Hook called (auth handled by middleware)')
+
+  const query = useApiQuery<User[]>(
     ['users'],
     '/api/users',
     {
@@ -41,10 +44,20 @@ export function useUsers() {
       gcTime: 10 * 60 * 1000, // 10 minutes
     }
   );
+
+  console.log('👥 useUsers: Query state -', {
+    isLoading: query.isLoading,
+    hasData: !!query.data,
+    hasError: !!query.error,
+    errorMessage: query.error?.message
+  })
+
+  return query;
 }
 
 /**
  * Hook to fetch a single user by ID
+ * Authentication handled by middleware via httpOnly cookies
  */
 export function useUser(userId: string) {
   return useApiQuery<User>(

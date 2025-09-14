@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Mail } from './inbox-body';
 import Image from 'next/image';
+import { SafeHtmlRenderer } from '@/lib/utils/html-sanitizer';
 
 export default function MailItem({ mail }: { mail: Mail }) {
   const [open, setOpen] = useState<boolean>(mail.open);
@@ -54,10 +55,10 @@ export default function MailItem({ mail }: { mail: Mail }) {
       </header>
       {/* Body */}
       {open && (
-        <div
+        <SafeHtmlRenderer
+          html={mail.message}
           className="text-sm text-gray-800 dark:text-gray-100 mt-4 space-y-2"
-          dangerouslySetInnerHTML={{ __html: mail.message }}
-        ></div>
+        />
       )}
     </div>
   );

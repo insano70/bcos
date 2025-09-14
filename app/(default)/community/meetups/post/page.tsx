@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Meetup Post - Mosaic',
+  title: 'Meetup Post - BendcareOS',
   description: 'Page description',
 };
 

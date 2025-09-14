@@ -7,6 +7,7 @@ import { AuditLogger } from '@/lib/api/services/audit'
 import { requireAuth } from '@/lib/api/middleware/auth'
 import { CSRFProtection } from '@/lib/security/csrf'
 import { db, token_blacklist } from '@/lib/db'
+import { errorLog } from '@/lib/utils/debug'
 
 /**
  * Custom Logout Endpoint
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
     // This prevents one user from logging out another user
     try {
       const { jwtVerify } = await import('jose')
-      const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret')
+      const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET!)
       const { payload } = await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET)
       const tokenUserId = payload.sub as string
 
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
       try {
         const token = authHeader.slice(7)
         const { jwtVerify } = await import('jose')
-        const ACCESS_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'fallback-secret')
+        const ACCESS_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_SECRET!)
         const { payload } = await jwtVerify(token, ACCESS_TOKEN_SECRET)
         const jti = payload.jti as string | undefined
         const tokenUserId = payload.sub as string | undefined
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
 
     // Clear access token cookie
     response.cookies.set('access-token', '', {
-      httpOnly: false,
+      httpOnly: true, // ✅ SECURITY FIX: Consistent with secure token model
       secure: isProduction,
       sameSite: 'strict',
       path: '/',
@@ -132,7 +133,7 @@ export async function POST(request: NextRequest) {
     return response
     
   } catch (error) {
-    console.error('Logout error:', error)
+    errorLog('Logout error:', error)
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
@@ -163,7 +164,7 @@ export async function DELETE(request: NextRequest) {
 
     // VALIDATE TOKEN OWNERSHIP: Double-check that refresh token belongs to authenticated user
     const { jwtVerify } = await import('jose')
-    const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET || 'fallback-refresh-secret')
+    const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET!)
 
     try {
       const { payload } = await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET)
@@ -218,7 +219,7 @@ export async function DELETE(request: NextRequest) {
 
       // Clear access token cookie
       response.cookies.set('access-token', '', {
-        httpOnly: false,
+        httpOnly: true, // ✅ SECURITY FIX: Consistent with secure token model
         secure: isProduction,
         sameSite: 'strict',
         path: '/',
@@ -232,7 +233,7 @@ export async function DELETE(request: NextRequest) {
     }
     
   } catch (error) {
-    console.error('Revoke all sessions error:', error)
+    errorLog('Revoke all sessions error:', error)
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }

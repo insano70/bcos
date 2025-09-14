@@ -11,19 +11,37 @@ process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
 process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'test-refresh-secret';
 
 /**
- * Global test setup - runs before each test
+ * Per-test setup - runs before each test
  * Sets up a fresh database transaction for test isolation
  */
 beforeEach(async () => {
-  await getTestTransaction()
+  try {
+    // Start a transaction for this test
+    await getTestTransaction()
+  } catch (error) {
+    console.error('❌ Test setup failed:', error)
+    throw error
+  }
 })
 
 /**
- * Global test teardown - runs after each test
+ * Per-test teardown - runs after each test
  * Rolls back the transaction to ensure test isolation
  */
 afterEach(async () => {
-  await rollbackTransaction()
+  try {
+    // Rollback the transaction
+    await rollbackTransaction()
+  } catch (error) {
+    console.warn('⚠️ Test cleanup failed:', error)
+    
+    // Try emergency cleanup if normal cleanup fails
+    try {
+      await emergencyCleanup()
+    } catch (emergencyError) {
+      console.warn('⚠️ Emergency cleanup also failed:', emergencyError)
+    }
+  }
 })
 
 /**
@@ -32,12 +50,15 @@ afterEach(async () => {
  */
 afterAll(async () => {
   try {
-    // Perform emergency cleanup to remove any test data that might have leaked
-    await emergencyCleanup()
-  } catch (error) {
-    console.warn('⚠️ Emergency cleanup failed:', error)
-  } finally {
-    // Always clean up database connections
+    console.log('🧹 Starting process cleanup...')
+    
+    // Clean up database connections
     await cleanupTestDb()
+    
+    console.log('✅ Process cleanup completed')
+    
+  } catch (error) {
+    console.error('❌ Process cleanup failed:', error)
+    // Don't throw - we want tests to complete even if cleanup fails
   }
 })

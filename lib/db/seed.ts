@@ -1,6 +1,8 @@
-import { db, users, templates, practices, practice_attributes, staff_members } from './index';
-import { eq } from 'drizzle-orm';
+import { db, users, templates, practices, practice_attributes, staff_members, roles, user_roles } from './index';
+import { eq, sql, and } from 'drizzle-orm';
 import { hashPassword } from '../auth/password';
+import * as fs from 'fs';
+import * as path from 'path';
 
 async function seedUsers() {
   console.log('🌱 Seeding users...');
@@ -33,6 +35,8 @@ async function seedUsers() {
     } else {
       console.log('ℹ️  Admin user already exists, skipping...');
     }
+
+    // Note: Super admin user is now created in the RBAC seeding script
 
     // Add more sample users for development
     const sampleUsers = [
@@ -137,9 +141,44 @@ async function seedTemplates() {
   }
 }
 
+async function seedRBAC() {
+  console.log('🔐 Seeding RBAC data...');
+
+  try {
+    // Read the RBAC seeding SQL file
+    const rbacSqlPath = path.join(__dirname, '../../scripts/seed-rbac-data.sql');
+    const rbacSql = fs.readFileSync(rbacSqlPath, 'utf8');
+
+    // Split the SQL into individual statements
+    const statements = rbacSql
+      .split(';')
+      .map(stmt => stmt.trim())
+      .filter(stmt => stmt.length > 0);
+
+    // Execute each statement using sql template
+    for (const statement of statements) {
+      if (statement.trim()) {
+        try {
+          // Use Drizzle's sql template for raw SQL execution
+          await db.execute(sql.raw(statement));
+          console.log('✅ RBAC statement executed successfully');
+        } catch (error) {
+          // Log but continue for non-critical errors (e.g., duplicate key violations)
+          console.log('ℹ️  RBAC statement may have failed (possibly already exists):', error);
+        }
+      }
+    }
+
+    console.log('🎉 RBAC seeding completed!');
+  } catch (error) {
+    console.error('❌ Error seeding RBAC:', error);
+    throw error;
+  }
+}
+
 async function seedPractices() {
   console.log('🏥 Seeding sample practice...');
-  
+
   try {
         // Get a random template for demo
         const allTemplates = await db.select().from(templates).where(eq(templates.is_active, true));
@@ -410,12 +449,16 @@ async function seedPractices() {
 
 async function seed() {
   console.log('🚀 Starting database seeding...');
-  
+
   try {
+    // Seed RBAC data first (permissions, roles, role_permissions)
+    await seedRBAC();
+
+    // Then seed application data
     await seedUsers();
     await seedTemplates();
     await seedPractices();
-    
+
     console.log('✨ Database seeding completed successfully!');
     process.exit(0);
   } catch (error) {
@@ -429,4 +472,4 @@ if (require.main === module) {
   seed();
 }
 
-export { seed, seedUsers };
+export { seed, seedUsers, seedRBAC };

@@ -1,4 +1,5 @@
 import type { NextResponse } from 'next/server'
+import { nanoid } from 'nanoid'
 
 /**
  * Security headers configuration for production-grade security
@@ -41,10 +42,18 @@ export function addSecurityHeaders(response: NextResponse): NextResponse {
 }
 
 /**
+ * Generate a cryptographically secure nonce for CSP
+ */
+export function generateCSPNonce(): string {
+  return nanoid(16); // 16-character nonce
+}
+
+/**
  * Content Security Policy configuration
  * Restricts resource loading to prevent XSS and other injection attacks
+ * ✅ SECURITY: Enhanced with nonce-based policies for better development security
  */
-export function getContentSecurityPolicy(): string {
+export function getContentSecurityPolicy(nonce?: string): string {
   const isDevelopment = process.env.NODE_ENV === 'development'
   
   // Base CSP directives
@@ -52,15 +61,20 @@ export function getContentSecurityPolicy(): string {
     'default-src': ["'self'"],
     'script-src': [
       "'self'",
-      // Allow inline/eval only in development for hot reload
-      ...(isDevelopment ? ["'unsafe-inline'", "'unsafe-eval'"] : []),
+      // ✅ SECURITY: Use nonce-based CSP for inline scripts
+      ...(nonce ? [`'nonce-${nonce}'`] : []),
+      // Allow unsafe-eval only in development for Next.js hot reload
+      ...(isDevelopment ? ["'unsafe-eval'"] : []),
+      // Only allow unsafe-inline as last resort in development
+      ...(isDevelopment && !nonce ? ["'unsafe-inline'"] : []),
       // Trusted CDNs for charts and UI libraries
       'https://cdn.jsdelivr.net',
       'https://unpkg.com'
     ],
     'style-src': [
       "'self'",
-      "'unsafe-inline'", // Required for CSS-in-JS and dynamic styles
+      // ✅ SECURITY: Use nonce for inline styles when available
+      ...(nonce ? [`'nonce-${nonce}'`] : ["'unsafe-inline'"]), // Fallback to unsafe-inline for CSS-in-JS
       'https://fonts.googleapis.com'
     ],
     'img-src': [

@@ -47,11 +47,11 @@ const getPracticeAttributesHandler = async (request: NextRequest, userContext: U
     // Parse JSON fields safely
     const parsedAttributes = {
       ...attributes,
-      business_hours: attributes.business_hours ? JSON.parse(attributes.business_hours) : null,
-      services: attributes.services ? JSON.parse(attributes.services) : [],
-      insurance_accepted: attributes.insurance_accepted ? JSON.parse(attributes.insurance_accepted) : [],
-      conditions_treated: attributes.conditions_treated ? JSON.parse(attributes.conditions_treated) : [],
-      gallery_images: attributes.gallery_images ? JSON.parse(attributes.gallery_images) : [],
+      business_hours: parseBusinessHours(attributes.business_hours),
+      services: parseServices(attributes.services),
+      insurance_accepted: parseInsuranceAccepted(attributes.insurance_accepted),
+      conditions_treated: parseConditionsTreated(attributes.conditions_treated),
+      gallery_images: parseGalleryImages(attributes.gallery_images),
     }
 
     return createSuccessResponse(parsedAttributes)
@@ -113,11 +113,11 @@ const updatePracticeAttributesHandler = async (request: NextRequest, userContext
     // Parse JSON fields for response
     const parsedAttributes = {
       ...updatedAttributes,
-      business_hours: updatedAttributes.business_hours ? JSON.parse(updatedAttributes.business_hours) : null,
-      services: updatedAttributes.services ? JSON.parse(updatedAttributes.services) : [],
-      insurance_accepted: updatedAttributes.insurance_accepted ? JSON.parse(updatedAttributes.insurance_accepted) : [],
-      conditions_treated: updatedAttributes.conditions_treated ? JSON.parse(updatedAttributes.conditions_treated) : [],
-      gallery_images: updatedAttributes.gallery_images ? JSON.parse(updatedAttributes.gallery_images) : [],
+      business_hours: parseBusinessHours(updatedAttributes.business_hours),
+      services: parseServices(updatedAttributes.services),
+      insurance_accepted: parseInsuranceAccepted(updatedAttributes.insurance_accepted),
+      conditions_treated: parseConditionsTreated(updatedAttributes.conditions_treated),
+      gallery_images: parseGalleryImages(updatedAttributes.gallery_images),
     }
 
     return createSuccessResponse(parsedAttributes, 'Practice attributes updated successfully')

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Menu, MenuButton, MenuItems, MenuItem, Transition } from '@headlessui/react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from './auth/custom-auth-provider';
+import { useAuth } from './auth/rbac-auth-provider';
 
 export default function DropdownProfile({ align }: { align?: 'left' | 'right' }) {
   const router = useRouter()

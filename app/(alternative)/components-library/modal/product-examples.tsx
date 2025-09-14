@@ -225,7 +225,7 @@ export default function ProductExamples() {
             <div className="mb-5 text-center">
               {/* Icons */}
               <div className="inline-flex items-center justify-center space-x-3 mb-4">
-                {/* Mosaic logo */}
+                {/* BendcareOS logo */}
                 <div className="flex justify-center items-center w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700">
                   <svg
                     className="fill-violet-500 w-5 h-5"
@@ -265,13 +265,13 @@ export default function ProductExamples() {
                 </svg>
               </div>
               <div className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-                Connect Mosaic with your Cruip account
+                Connect BendcareOS with your Cruip account
               </div>
             </div>
             {/* Modal content */}
             <div className="text-sm mb-5">
               <div className="font-medium text-gray-800 dark:text-gray-100 mb-3">
-                Mosaic would like to:
+                BendcareOS would like to:
               </div>
               <ul className="space-y-2 mb-5">
                 <li className="flex items-center">
@@ -312,7 +312,7 @@ export default function ProductExamples() {
                 </li>
               </ul>
               <div className="text-xs text-gray-500">
-                By clicking on Allow access, you authorize Mosaic to use your information in
+                By clicking on Allow access, you authorize BendcareOS to use your information in
                 accordance with its{' '}
                 <a
                   className="text-violet-500 hover:text-violet-600 dark:hover:text-violet-400"
@@ -320,7 +320,7 @@ export default function ProductExamples() {
                 >
                   Privacy Policy
                 </a>
-                . You can stop it at any time on the integrations page of your Mosaic account.
+                . You can stop it at any time on the integrations page of your BendcareOS account.
               </div>
             </div>
             {/* Modal footer */}
@@ -360,7 +360,7 @@ export default function ProductExamples() {
                 src={ModalImage}
                 width={460}
                 height="200"
-                alt="New on Mosaic"
+                alt="New on BendcareOS"
               />
               {/* Close button */}
               <button
@@ -380,7 +380,7 @@ export default function ProductExamples() {
               <div className="mb-2">
                 <div className="mb-3">
                   <div className="btn-xs text-xs border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300 px-2.5 py-1 rounded-full shadow-none">
-                    New on Mosaic
+                    New on BendcareOS
                   </div>
                 </div>
                 <div className="text-lg font-semibold text-gray-800 dark:text-gray-100">
@@ -443,7 +443,7 @@ export default function ProductExamples() {
                         <div className="grow">
                           <div className="flex flex-wrap items-center justify-between mb-0.5">
                             <span className="font-medium text-gray-800 dark:text-gray-100">
-                              Mosaic Light{' '}
+                              BendcareOS Light{' '}
                               <span className="text-xs italic text-gray-500 align-top">
                                 Current Plan
                               </span>
@@ -464,7 +464,7 @@ export default function ProductExamples() {
                         <div className="grow">
                           <div className="flex flex-wrap items-center justify-between mb-0.5">
                             <span className="font-semibold text-gray-800 dark:text-gray-100">
-                              Mosaic Basic{' '}
+                              BendcareOS Basic{' '}
                               <span className="text-xs italic text-violet-500 align-top">
                                 Best Value
                               </span>
@@ -485,7 +485,7 @@ export default function ProductExamples() {
                         <div className="grow">
                           <div className="flex flex-wrap items-center justify-between mb-0.5">
                             <span className="font-semibold text-gray-800 dark:text-gray-100">
-                              Mosaic Plus
+                              BendcareOS Plus
                             </span>
                             <span className="text-gray-600">
                               <span className="font-medium text-green-600">$79.00</span>/mo
@@ -498,7 +498,7 @@ export default function ProductExamples() {
                   </li>
                 </ul>
                 <div className="text-xs text-gray-500">
-                  Your workspace's Mosaic Light Plan is set to $39 per month and will renew on
+                  Your workspace's BendcareOS Light Plan is set to $39 per month and will renew on
                   August 9, 2024.
                 </div>
               </div>

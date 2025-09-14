@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Reset Password - Mosaic',
+  title: 'Reset Password - BendcareOS',
   description: 'Page description',
 };
 

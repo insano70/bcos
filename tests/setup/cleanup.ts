@@ -1,5 +1,5 @@
 import { getTestDb } from '@/tests/helpers/db-helper'
-import { users } from '@/lib/db/schema'
+import { users, practices } from '@/lib/db/schema'
 import { user_organizations, user_roles, roles, role_permissions, organizations } from '@/lib/db/rbac-schema'
 import { sql } from 'drizzle-orm'
 
@@ -12,17 +12,33 @@ export async function cleanupTestData() {
   const db = getTestDb()
 
   try {
-    // Clean up RBAC data in dependency order
+    console.log('🧹 Starting test data cleanup...')
+    
+    // Clean up in foreign key dependency order (children first, then parents)
+    
+    // 1. Clean up RBAC junction tables first (no dependencies)
     await db.delete(user_roles).where(sql`1=1`)
     await db.delete(user_organizations).where(sql`1=1`)
     await db.delete(role_permissions).where(sql`1=1`)
-    await db.delete(roles).where(sql`name LIKE 'test_%' OR name LIKE 'role_%'`)
-    await db.delete(organizations).where(sql`name LIKE 'test_%' OR slug LIKE 'test_%'`)
+    console.log('  ✅ Cleaned up RBAC junction tables')
+    
+    // 2. Clean up practices (depends on users)
+    await db.delete(practices).where(sql`name LIKE 'test_%' OR name LIKE '%test%' OR domain LIKE '%.local'`)
+    console.log('  ✅ Cleaned up test practices')
+    
+    // 3. Clean up roles (referenced by role_permissions and user_roles)
+    await db.delete(roles).where(sql`name LIKE 'test_%' OR name LIKE 'role_%' OR name LIKE '%test%'`)
+    console.log('  ✅ Cleaned up test roles')
+    
+    // 4. Clean up organizations (referenced by user_organizations)
+    await db.delete(organizations).where(sql`name LIKE 'test_%' OR slug LIKE 'test_%' OR name LIKE '%test%' OR slug LIKE '%test%'`)
+    console.log('  ✅ Cleaned up test organizations')
 
-    // Clean up users
-    await db.delete(users).where(sql`email LIKE '%@test.local'`)
+    // 5. Finally clean up users (now that all references are gone)
+    const deletedUsers = await db.delete(users).where(sql`email LIKE '%@test.local' OR email LIKE '%test%' OR (first_name = 'Test' AND last_name = 'User')`)
+    console.log('  ✅ Cleaned up test users')
 
-    console.log('✅ Test data cleanup completed')
+    console.log('✅ Test data cleanup completed successfully')
   } catch (error) {
     console.error('❌ Test data cleanup failed:', error)
     throw error
@@ -37,21 +53,37 @@ export async function emergencyCleanup() {
   const db = getTestDb()
 
   try {
-    // More aggressive RBAC cleanup
+    console.log('🚨 Starting emergency cleanup...')
+    
+    // Clean up in foreign key dependency order (children first, then parents)
+    
+    // 1. Clean up all RBAC junction tables
     await db.delete(user_roles).where(sql`1=1`)
     await db.delete(user_organizations).where(sql`1=1`)
     await db.delete(role_permissions).where(sql`1=1`)
-    await db.delete(roles).where(sql`name LIKE '%test%' OR name LIKE '%role%'`)
-    await db.delete(organizations).where(sql`name LIKE '%test%' OR slug LIKE '%test%'`)
+    console.log('  ✅ Emergency cleanup of RBAC junction tables')
+    
+    // 2. Clean up all practices (aggressive - includes any test patterns)
+    await db.delete(practices).where(sql`name LIKE '%test%' OR domain LIKE '%.local' OR domain LIKE '%test%'`)
+    console.log('  ✅ Emergency cleanup of practices')
+    
+    // 3. Clean up test roles (more aggressive patterns)
+    await db.delete(roles).where(sql`name LIKE '%test%' OR name LIKE '%role%' OR name LIKE 'user_%' OR name LIKE 'org_%' OR name LIKE 'practice_%'`)
+    console.log('  ✅ Emergency cleanup of test roles')
+    
+    // 4. Clean up test organizations (more aggressive patterns)
+    await db.delete(organizations).where(sql`name LIKE '%test%' OR slug LIKE '%test%' OR name LIKE '%org%'`)
+    console.log('  ✅ Emergency cleanup of test organizations')
 
-    // More aggressive user cleanup
-    await db.delete(users).where(sql`email LIKE '%test%'`)
-    await db.delete(users).where(sql`first_name = 'Test' AND last_name = 'User'`)
+    // 5. Clean up test users (aggressive patterns - now that all references are gone)
+    await db.delete(users).where(sql`email LIKE '%test%' OR email LIKE '%@test.local' OR (first_name = 'Test' AND last_name = 'User') OR first_name LIKE 'Test%'`)
+    console.log('  ✅ Emergency cleanup of test users')
 
-    console.log('✅ Emergency cleanup completed')
+    console.log('✅ Emergency cleanup completed successfully')
   } catch (error) {
     console.error('❌ Emergency cleanup failed:', error)
-    throw error
+    // Don't throw - emergency cleanup should be best-effort
+    console.log('⚠️  Continuing despite emergency cleanup failure...')
   }
 }
 
@@ -63,10 +95,27 @@ export async function cleanupByTestPattern(testId: string) {
   const db = getTestDb()
 
   try {
-    // Clean up data that includes the test ID in names
-    await db.delete(roles).where(sql`name LIKE ${'%' + testId + '%'}`)
-    await db.delete(organizations).where(sql`name LIKE ${'%' + testId + '%'}`)
-    await db.delete(users).where(sql`username LIKE ${'%' + testId + '%'}`)
+    console.log(`🧹 Starting cleanup for test pattern: ${testId}`)
+    
+    // Clean up in foreign key dependency order
+    const pattern = `%${testId}%`
+    
+    // 1. Clean up RBAC junction tables first
+    await db.delete(user_roles).where(sql`1=1`) // Clear all for safety with specific test
+    await db.delete(user_organizations).where(sql`1=1`)
+    await db.delete(role_permissions).where(sql`1=1`)
+    
+    // 2. Clean up practices that include the test ID
+    await db.delete(practices).where(sql`name LIKE ${pattern} OR domain LIKE ${pattern}`)
+    
+    // 3. Clean up roles that include the test ID
+    await db.delete(roles).where(sql`name LIKE ${pattern}`)
+    
+    // 4. Clean up organizations that include the test ID
+    await db.delete(organizations).where(sql`name LIKE ${pattern} OR slug LIKE ${pattern}`)
+
+    // 5. Clean up users that include the test ID
+    await db.delete(users).where(sql`email LIKE ${pattern} OR first_name LIKE ${pattern} OR last_name LIKE ${pattern}`)
 
     console.log(`✅ Cleanup completed for test pattern: ${testId}`)
   } catch (error) {

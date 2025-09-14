@@ -3,15 +3,35 @@ import { AuthenticationError, AuthorizationError } from '../responses/error'
 import { db, users } from '@/lib/db'
 import { eq } from 'drizzle-orm'
 import { getUserContextSafe } from '@/lib/rbac/user-context'
+import { debugLog } from '@/lib/utils/debug'
 
 export async function requireAuth(request: Request) {
-  // Extract access token from Authorization header
+  // Extract access token from Authorization header OR httpOnly cookie
   const authHeader = request.headers.get('Authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
-    throw AuthenticationError('Access token required')
+  let accessToken: string | null = null
+  
+  if (authHeader?.startsWith('Bearer ')) {
+    // Use Authorization header if present (for API clients)
+    accessToken = authHeader.slice(7)
+  } else {
+    // Fallback to httpOnly cookie (for browser requests)
+    const cookieHeader = request.headers.get('Cookie')
+    if (cookieHeader) {
+      const cookies = cookieHeader.split(';')
+      const accessTokenCookie = cookies
+        .find(cookie => cookie.trim().startsWith('access-token='))
+        ?.split('=')[1]
+      
+      if (accessTokenCookie) {
+        accessToken = accessTokenCookie
+        debugLog.auth('Using access token from httpOnly cookie')
+      }
+    }
   }
   
-  const accessToken = authHeader.slice(7)
+  if (!accessToken) {
+    throw AuthenticationError('Access token required')
+  }
   
   // Validate access token
   const payload = await TokenManager.validateAccessToken(accessToken)

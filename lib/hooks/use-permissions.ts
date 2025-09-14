@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { useAuth } from '@/components/auth/custom-auth-provider';
+import { useAuth } from '@/components/auth/rbac-auth-provider';
 import { PermissionChecker } from '@/lib/rbac/permission-checker';
 import type {
   UserContext,
@@ -22,135 +22,8 @@ import type {
  * Now uses real RBAC data from the backend instead of mock data
  */
 export function usePermissions(): UsePermissionsReturn {
-  const { user: authUser, isAuthenticated } = useAuth();
-  const [userContext, setUserContext] = useState<UserContext | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Fetch real RBAC user context from the backend
-  useEffect(() => {
-    if (!isAuthenticated || !authUser) {
-      setUserContext(null);
-      return;
-    }
-
-    const fetchUserContext = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response = await fetch('/api/auth/me', {
-          credentials: 'include'
-        });
-        if (!response.ok) {
-          throw new Error(`Failed to fetch user context: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        if (data.success && data.data?.user) {
-          const apiUser = data.data.user;
-
-          // Convert API response to UserContext format
-          const context: UserContext = {
-            user_id: apiUser.id,
-            email: apiUser.email,
-            first_name: apiUser.firstName,
-            last_name: apiUser.lastName,
-            is_active: true,
-            email_verified: apiUser.emailVerified,
-
-            // RBAC data from API
-            roles: apiUser.roles.map((role: any) => ({
-              role_id: role.id,
-              name: role.name,
-              description: role.description || '',
-              organization_id: undefined, // Will be populated from user_roles if needed
-              is_system_role: role.isSystemRole,
-              is_active: true,
-              created_at: new Date(),
-              updated_at: new Date(),
-              deleted_at: undefined,
-              permissions: [] // Will be populated from permissions array
-            })),
-
-            organizations: apiUser.organizations.map((org: any) => ({
-              organization_id: org.id,
-              name: org.name,
-              slug: org.slug,
-              parent_organization_id: undefined,
-              is_active: true,
-              created_at: new Date(),
-              updated_at: new Date(),
-              deleted_at: undefined
-            })),
-
-            accessible_organizations: apiUser.accessibleOrganizations.map((org: any) => ({
-              organization_id: org.id,
-              name: org.name,
-              slug: org.slug,
-              parent_organization_id: undefined,
-              is_active: true,
-              created_at: new Date(),
-              updated_at: new Date(),
-              deleted_at: undefined
-            })),
-
-            user_roles: [], // Could be populated if API provides this
-            user_organizations: [], // Could be populated if API provides this
-
-            // Current context
-            current_organization_id: apiUser.currentOrganizationId,
-
-            // Computed properties from API
-            all_permissions: apiUser.permissions.map((perm: any) => ({
-              permission_id: perm.id,
-              name: perm.name,
-              description: undefined,
-              resource: perm.resource,
-              action: perm.action,
-              scope: perm.scope,
-              is_active: true,
-              created_at: new Date(),
-              updated_at: new Date()
-            })),
-
-            is_super_admin: apiUser.isSuperAdmin,
-            organization_admin_for: apiUser.organizationAdminFor || []
-          };
-
-          setUserContext(context);
-        } else {
-          throw new Error('Invalid API response format');
-        }
-      } catch (err) {
-        console.error('Failed to fetch user context:', err);
-        setError(err instanceof Error ? err.message : 'Unknown error');
-        // Fallback to minimal context if API fails
-        setUserContext({
-          user_id: authUser.id,
-          email: authUser.email,
-          first_name: authUser.firstName,
-          last_name: authUser.lastName,
-          is_active: true,
-          email_verified: authUser.emailVerified,
-          roles: [],
-          organizations: [],
-          accessible_organizations: [],
-          user_roles: [],
-          user_organizations: [],
-          current_organization_id: undefined,
-          all_permissions: [],
-          is_super_admin: false,
-          organization_admin_for: []
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUserContext();
-  }, [isAuthenticated, authUser]);
+  // Use the userContext that's already loaded by RBACAuthProvider instead of fetching it again
+  const { user: authUser, isAuthenticated, userContext, rbacLoading, rbacError } = useAuth();
 
   const checker = useMemo(() => {
     return userContext ? new PermissionChecker(userContext) : null;
@@ -161,7 +34,9 @@ export function usePermissions(): UsePermissionsReturn {
     resourceId?: string,
     organizationId?: string
   ): boolean => {
-    if (!checker || !userContext) return false;
+    if (!checker || !userContext) {
+      return false;
+    }
     
     try {
       return checker.hasPermission(permission, resourceId, organizationId);

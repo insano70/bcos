@@ -4,7 +4,7 @@
  */
 
 interface AuthContext {
-  accessToken?: string | null
+  // accessToken removed - now handled server-side via httpOnly cookies + middleware
   csrfToken?: string | null | undefined
   refreshToken?: () => Promise<void>
   logout?: () => Promise<void>
@@ -34,21 +34,21 @@ class ApiClient {
    * Make an authenticated API request
    */
   async request<T>(
-    endpoint: string, 
+    endpoint: string,
     options: RequestInit & ApiClientOptions = {}
   ): Promise<T> {
     const { headers = {}, includeAuth = true, ...requestOptions } = options
-    
+
+    console.log('🚀 API Client Request:', endpoint, { hasAuthContext: !!this.authContext })
+
     // Build request headers
     const requestHeaders = new Headers({
       'Content-Type': 'application/json',
       ...(headers as Record<string, string>)
     })
 
-    // Add authentication header if available and requested
-    if (includeAuth && this.authContext?.accessToken) {
-      requestHeaders.set('Authorization', `Bearer ${this.authContext.accessToken}`)
-    }
+    // Authentication header automatically added by middleware from httpOnly cookies
+    // No client-side token management needed for security
 
     // Add CSRF token for state-changing operations
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(requestOptions.method || 'GET')) {
@@ -75,26 +75,22 @@ class ApiClient {
           try {
             await this.authContext.refreshToken()
             
-            // Retry the original request with new token
-            if (this.authContext.accessToken) {
-              requestHeaders.set('Authorization', `Bearer ${this.authContext.accessToken}`)
-              
-              const retryResponse = await fetch(url, {
-                ...requestOptions,
-                headers: requestHeaders,
-                credentials: 'include'
-              })
-              
-              if (retryResponse.ok) {
-                const data = await retryResponse.json()
-                return data.data || data // Handle standardized API response format
-              }
-              
-              // If retry still fails with 401, session is truly expired
-              if (retryResponse.status === 401) {
-                this.handleSessionExpired()
-                throw new Error('Session expired - redirecting to login')
-              }
+            // Retry the original request (token refresh updates httpOnly cookies)
+            const retryResponse = await fetch(url, {
+              ...requestOptions,
+              headers: requestHeaders,
+              credentials: 'include'
+            })
+            
+            if (retryResponse.ok) {
+              const data = await retryResponse.json()
+              return data.data || data // Handle standardized API response format
+            }
+            
+            // If retry still fails with 401, session is truly expired
+            if (retryResponse.status === 401) {
+              this.handleSessionExpired()
+              throw new Error('Session expired - redirecting to login')
             }
           } catch (refreshError) {
             console.log('Token refresh failed:', refreshError)

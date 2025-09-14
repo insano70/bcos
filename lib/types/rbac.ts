@@ -55,7 +55,7 @@ export interface UserRole {
   created_at: Date;
   // Optional: populated by queries
   role?: Role;
-  organization?: Organization;
+  organization?: Organization | undefined;
 }
 
 export interface UserOrganization {

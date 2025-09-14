@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Feedback Settings - Mosaic',
+  title: 'Feedback Settings - BendcareOS',
   description: 'Page description',
 };
 

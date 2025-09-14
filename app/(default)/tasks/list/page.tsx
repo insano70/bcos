@@ -1,5 +1,5 @@
 export const metadata = {
-  title: 'Tasks list - Mosaic',
+  title: 'Tasks list - BendcareOS',
   description: 'Page description',
 };
 

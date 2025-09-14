@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import DeleteButton from '@/components/delete-button';
 import DateSelect from '@/components/date-select';
 import FilterButton from '@/components/dropdown-filter';
@@ -8,10 +8,73 @@ import UsersTable from './users-table';
 import PaginationClassic from '@/components/pagination-classic';
 import AddUserModal from '@/components/add-user-modal';
 import { useUsers } from '@/lib/hooks/use-users';
+import { useAuth } from '@/components/auth/rbac-auth-provider';
+import { ProtectedComponent } from '@/components/rbac/protected-component';
 
 export default function UsersContent() {
-  const { data: users, isLoading, error, refetch } = useUsers();
+  console.log('👥 UsersContent: Component rendered')
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { data: users, isLoading, error, refetch } = useUsers(); // Access token handled by middleware
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+
+  console.log('👤 UsersContent: Auth state -', {
+    isAuthenticated,
+    authLoading
+    // Access token now handled securely server-side via httpOnly cookies
+  })
+
+  console.log('📊 UsersContent: API state -', {
+    hasUsers: !!users,
+    isLoading,
+    hasError: !!error,
+    errorMessage: error?.message
+  })
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    console.log('🔄 UsersContent: useEffect triggered -', { authLoading, isAuthenticated })
+    if (!authLoading && !isAuthenticated) {
+      console.log('🔄 UsersContent: Redirecting to login - no authentication')
+      const currentPath = window.location.pathname + window.location.search;
+      const loginUrl = `/signin?callbackUrl=${encodeURIComponent(currentPath)}`;
+      window.location.href = loginUrl;
+    } else if (!authLoading && isAuthenticated) {
+      console.log('✅ UsersContent: User authenticated, staying on page')
+    }
+  }, [isAuthenticated, authLoading]);
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
+        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-8">
+          <div className="flex items-center justify-center">
+            <svg className="animate-spin h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24">
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
+            </svg>
+            <span className="ml-3 text-gray-600 dark:text-gray-400">Checking authentication...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render anything if not authenticated (will redirect)
+  if (!isAuthenticated) {
+    return null;
+  }
 
   if (error) {
     return (
@@ -92,23 +155,25 @@ export default function UsersContent() {
           {/* Filter button */}
           <FilterButton align="right" />
 
-          {/* Add user button */}
-          <button
-            type="button"
-            disabled={isLoading}
-            onClick={() => setIsAddUserModalOpen(true)}
-            className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <svg
-              className="fill-current shrink-0 xs:hidden"
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
+          {/* Add user button - protected by RBAC */}
+          <ProtectedComponent permission="users:create:organization">
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={() => setIsAddUserModalOpen(true)}
+              className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <path d="M15 7H9V1c0-.6-.4-1-1-1S7 .4 7 1v6H1c-.6 0-1 .4-1 1s.4 1 1 1h6v6c0 .6.4 1 1 1s1-.4 1-1V9h6c.6 0 1-.4 1-1s-.4-1-1-1z" />
-            </svg>
-            <span className="max-xs:sr-only">Add User</span>
-          </button>
+              <svg
+                className="fill-current shrink-0 xs:hidden"
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+              >
+                <path d="M15 7H9V1c0-.6-.4-1-1-1S7 .4 7 1v6H1c-.6 0-1 .4-1 1s.4 1 1 1h6v6c0 .6.4 1 1 1s1-.4 1-1V9h6c.6 0 1-.4 1-1s-.4-1-1-1z" />
+              </svg>
+              <span className="max-xs:sr-only">Add User</span>
+            </button>
+          </ProtectedComponent>
         </div>
       </div>
 
