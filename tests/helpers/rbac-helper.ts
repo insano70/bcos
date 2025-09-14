@@ -7,6 +7,40 @@ import type { User } from '@/tests/factories'
 import { eq, inArray } from 'drizzle-orm'
 
 /**
+ * Map database role object to Role interface
+ */
+export function mapDatabaseRoleToRole(dbRole: typeof roles.$inferSelect): Role {
+  return {
+    role_id: dbRole.role_id,
+    name: dbRole.name,
+    description: dbRole.description || undefined,
+    organization_id: dbRole.organization_id || undefined,
+    is_system_role: dbRole.is_system_role || false,
+    is_active: dbRole.is_active || false,
+    created_at: dbRole.created_at || new Date(),
+    updated_at: dbRole.updated_at || new Date(),
+    deleted_at: dbRole.deleted_at || undefined,
+    permissions: [], // Permissions populated separately
+  }
+}
+
+/**
+ * Map database organization object to Organization interface
+ */
+export function mapDatabaseOrgToOrg(dbOrg: typeof organizations.$inferSelect): Organization {
+  return {
+    organization_id: dbOrg.organization_id,
+    name: dbOrg.name,
+    slug: dbOrg.slug,
+    parent_organization_id: dbOrg.parent_organization_id || undefined,
+    is_active: dbOrg.is_active || false,
+    created_at: dbOrg.created_at || new Date(),
+    updated_at: dbOrg.updated_at || new Date(),
+    deleted_at: dbOrg.deleted_at || undefined,
+  }
+}
+
+/**
  * Assign a user to an organization
  * Creates the user_organization relationship
  */
@@ -237,7 +271,7 @@ export async function buildUserContext(user: User, currentOrganizationId?: strin
         created_at: ur.organization.created_at || new Date(),
         updated_at: ur.organization.updated_at || new Date(),
         deleted_at: ur.organization.deleted_at || undefined,
-      } : undefined,
+      } : undefined as Organization | undefined,
     })),
     user_organizations: userOrgs.map(uo => ({
       user_organization_id: uo.user_organization_id,
@@ -350,7 +384,7 @@ export async function createUserWithRoles(
       created_at: role.created_at || new Date(),
       updated_at: role.updated_at || new Date(),
       deleted_at: role.deleted_at || undefined,
-      permissions: role.permissions || [],
+      permissions: [], // Permissions will be populated by RBAC logic
     }
     await assignRoleToUser(user, mappedRole, organization, user) // Self-granted for tests
   }

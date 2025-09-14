@@ -14,8 +14,8 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
             gcTime: 10 * 60 * 1000, // 10 minutes
             retry: (failureCount, error) => {
               // Don't retry on 4xx errors
-              if (error instanceof Error && 'status' in error) {
-                const status = (error as any).status;
+              if (error instanceof Error && 'status' in error && typeof error.status === 'number') {
+                const status = error.status;
                 if (status >= 400 && status < 500) {
                   return false;
                 }

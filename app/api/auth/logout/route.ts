@@ -6,6 +6,7 @@ import { createErrorResponse } from '@/lib/api/responses/error'
 import { AuditLogger } from '@/lib/api/services/audit'
 import { requireAuth } from '@/lib/api/middleware/auth'
 import { CSRFProtection } from '@/lib/security/csrf'
+import { db, token_blacklist } from '@/lib/db'
 
 /**
  * Custom Logout Endpoint
@@ -73,7 +74,6 @@ export async function POST(request: NextRequest) {
 
         // SECURITY: Ensure access token belongs to authenticated user
         if (jti && tokenUserId && tokenUserId === session.user.id) {
-          const { db, token_blacklist } = await import('@/lib/db') as any
           await db.insert(token_blacklist).values({
             jti,
             user_id: session.user.id, // Use authenticated user's ID
@@ -108,10 +108,22 @@ export async function POST(request: NextRequest) {
       meta: { timestamp: new Date().toISOString() }
     })
 
-    // Clear the refresh token cookie
+    // Clear authentication cookies
+    const isProduction = process.env.NODE_ENV === 'production'
+
+    // Clear refresh token cookie
     response.cookies.set('refresh-token', '', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isProduction,
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 0, // Expire immediately
+    })
+
+    // Clear access token cookie
+    response.cookies.set('access-token', '', {
+      httpOnly: false,
+      secure: isProduction,
       sameSite: 'strict',
       path: '/',
       maxAge: 0, // Expire immediately
@@ -192,9 +204,22 @@ export async function DELETE(request: NextRequest) {
         meta: { timestamp: new Date().toISOString() }
       })
 
+      // Clear authentication cookies
+      const isProduction = process.env.NODE_ENV === 'production'
+
+      // Clear refresh token cookie
       response.cookies.set('refresh-token', '', {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: isProduction,
+        sameSite: 'strict',
+        path: '/',
+        maxAge: 0,
+      })
+
+      // Clear access token cookie
+      response.cookies.set('access-token', '', {
+        httpOnly: false,
+        secure: isProduction,
         sameSite: 'strict',
         path: '/',
         maxAge: 0,

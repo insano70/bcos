@@ -3,7 +3,8 @@ import { eq, isNull, and } from 'drizzle-orm';
 import { getTemplateComponent } from '@/lib/template-loader';
 import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
 import { notFound } from 'next/navigation';
-import { transformPractice, transformPracticeAttributes, transformStaffMember } from '@/lib/types/transformers';
+import { transformPractice, transformPracticeAttributes, transformStaffMember } from '@/lib/types/transformers'
+import type { PracticeAttributes } from '@/lib/types/practice';
 
 async function getPracticeByDomain(domain: string) {
   // Get practice by domain
@@ -43,7 +44,7 @@ async function getPracticeByDomain(domain: string) {
   return {
     practice: transformPractice(practice.practices),
     template: practice.templates,
-    attributes: attributes ? transformPracticeAttributes(attributes) : {} as any,
+    attributes: attributes ? transformPracticeAttributes(attributes) : {} as PracticeAttributes,
     staff: staff.map(transformStaffMember),
   };
 }

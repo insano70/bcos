@@ -5,12 +5,13 @@ import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
 import { rbacRoute } from '@/lib/api/rbac-route-handler'
+import type { UserContext } from '@/lib/types/rbac'
 
 /**
  * Admin Analytics - System Metrics
  * Provides system health, performance, and security analytics
  */
-const analyticsHandler = async (request: NextRequest, userContext: any) => {
+const analyticsHandler = async (request: NextRequest, userContext: UserContext) => {
   try {
     await applyRateLimit(request, 'api')
     

@@ -6,12 +6,13 @@ import { createErrorResponse } from '@/lib/api/responses/error'
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
 import { requireSuperAdmin } from '@/lib/rbac/middleware'
 import { rbacRoute } from '@/lib/api/rbac-route-handler'
+import type { UserContext } from '@/lib/types/rbac'
 
 /**
  * Admin Analytics - User Metrics
  * Provides comprehensive user analytics for admin dashboard
  */
-const analyticsHandler = async (request: NextRequest, userContext: any) => {
+const analyticsHandler = async (request: NextRequest, userContext: UserContext) => {
   try {
     await applyRateLimit(request, 'api')
     

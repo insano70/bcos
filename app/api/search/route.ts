@@ -224,7 +224,7 @@ const searchHandler = async (request: NextRequest, userContext: UserContext) => 
   }
 }
 
-function calculateRelevanceScore(field1: any, field2: any, field3: any, searchTerm: string): any {
+function calculateRelevanceScore(field1: unknown, field2: unknown, field3: unknown, searchTerm: string): ReturnType<typeof sql<number>> {
   // Simple relevance scoring based on exact matches and position
   return sql<number>`
     case 
