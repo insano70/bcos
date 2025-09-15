@@ -28,31 +28,21 @@ export async function extractRouteParams<T extends z.ZodType>(
       throw ValidationError(null, 'Invalid route parameters');
     }
 
-    // Type guard to check if it's a Promise - avoid instanceof
-    const isPromise = (value: unknown): value is Promise<unknown> => {
-      return (typeof value === 'object' && 
-         value !== null && 
-         'then' in value && 
-         typeof (value as Record<string, unknown>).then === 'function');
-    };
-
     let resolvedParams: Record<string, unknown>;
 
-    if (isPromise(params)) {
-      // Next.js 15 pattern: params is a Promise
-      const awaited = await params;
+    // In Next.js 15, params is always a Promise that needs to be awaited
+    // Try to await it regardless of type detection
+    try {
+      const awaited = await (params as Promise<unknown>);
       
       // Check if it has the expected structure
-      if (typeof awaited === 'object' && awaited !== null && 'params' in awaited) {
-        resolvedParams = (awaited as { params: Record<string, unknown> }).params;
-      } else if (typeof awaited === 'object' && awaited !== null) {
-        // Fallback: if it's just the params object directly
+      if (typeof awaited === 'object' && awaited !== null) {
         resolvedParams = awaited as Record<string, unknown>;
       } else {
         throw ValidationError(null, 'Invalid params structure after awaiting');
       }
-    } else {
-      // Fallback for direct params object (backwards compatibility)
+    } catch (awaitError) {
+      // If awaiting fails, treat as direct params object (backwards compatibility)
       if ('params' in params) {
         resolvedParams = (params as { params: Record<string, unknown> }).params;
       } else {
