@@ -3,6 +3,7 @@ import ModernMinimalistTemplate from '@/templates/modern-minimalist';
 import WarmWelcomingTemplate from '@/templates/warm-welcoming';
 import ClinicalFocusTemplate from '@/templates/clinical-focus';
 import CommunityPracticeTemplate from '@/templates/community-practice';
+import TidyProfessionalTemplate from '@/templates/tidy-professional';
 
 // Template mapping
 const TEMPLATE_MAP = {
@@ -11,6 +12,7 @@ const TEMPLATE_MAP = {
   'warm-welcoming': WarmWelcomingTemplate,
   'clinical-focus': ClinicalFocusTemplate,
   'community-practice': CommunityPracticeTemplate,
+  'tidy-professional': TidyProfessionalTemplate,
 } as const;
 
 export type TemplateSlug = keyof typeof TEMPLATE_MAP;
@@ -47,6 +49,11 @@ export function getAllTemplateOptions() {
       slug: 'community-practice',
       name: 'Community Practice',
       description: 'Local, family-oriented approach for neighborhood practices',
+    },
+    {
+      slug: 'tidy-professional',
+      name: 'Tidy Professional',
+      description: 'Elegant, modern design with sophisticated typography and smooth animations',
     },
   ];
 }

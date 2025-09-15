@@ -102,14 +102,7 @@ export default function CommunityPracticeTemplate({
           <div className="max-w-6xl mx-auto px-4">
             <h2 className="text-3xl font-bold text-center text-green-800 mb-12">How We Help Our Neighbors</h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {(Array.isArray(attributes.services) ? attributes.services : [
-                'Arthritis Care',
-                'Joint Pain Relief',
-                'Family-Friendly Treatment',
-                'Local Lab Services',
-                'Senior Care Programs',
-                'Community Health Education'
-              ]).map((service: string, index: number) => (
+              {(attributes.services || []).map((service: string, index: number) => (
                 <div key={index} className="bg-white p-6 rounded-lg shadow-md">
                   <div className="text-3xl mb-4">🌟</div>
                   <h3 className="text-xl font-semibold text-green-800 mb-3">{service}</h3>

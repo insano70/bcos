@@ -30,13 +30,13 @@ export function safeJsonParse<T>(jsonString: string | null | undefined | unknown
  */
 export function parseBusinessHours(jsonString: string | null | undefined | unknown) {
   return safeJsonParse(jsonString, {
-    monday: { open: '08:00', close: '17:00', closed: false },
-    tuesday: { open: '08:00', close: '17:00', closed: false },
-    wednesday: { open: '08:00', close: '17:00', closed: false },
-    thursday: { open: '08:00', close: '17:00', closed: false },
-    friday: { open: '08:00', close: '17:00', closed: false },
-    saturday: { closed: true },
-    sunday: { closed: true }
+    sunday: { closed: true },
+    monday: { open: '09:00', close: '17:00', closed: false },
+    tuesday: { open: '09:00', close: '17:00', closed: false },
+    wednesday: { open: '09:00', close: '17:00', closed: false },
+    thursday: { open: '09:00', close: '17:00', closed: false },
+    friday: { open: '09:00', close: '17:00', closed: false },
+    saturday: { closed: true }
   });
 }
 
@@ -44,14 +44,7 @@ export function parseBusinessHours(jsonString: string | null | undefined | unkno
  * Parse services array with fallback
  */
 export function parseServices(jsonString: string | null | undefined | unknown) {
-  return safeJsonParse(jsonString, [
-    'Rheumatoid Arthritis Treatment',
-    'Lupus Management',
-    'Infusion Therapy',
-    'Joint Injections',
-    'Osteoporosis Treatment',
-    'Clinical Research'
-  ]);
+  return safeJsonParse(jsonString, []);
 }
 
 /**
@@ -78,14 +71,7 @@ export function parseInsuranceAccepted(jsonString: string | null | undefined | u
  * Parse conditions array with fallback
  */
 export function parseConditions(jsonString: string | null | undefined | unknown) {
-  return safeJsonParse(jsonString, [
-    'Rheumatoid Arthritis',
-    'Psoriatic Arthritis',
-    'Lupus',
-    'Gout',
-    'Osteoporosis',
-    'Osteoarthritis'
-  ]);
+  return safeJsonParse(jsonString, []);
 }
 
 /**

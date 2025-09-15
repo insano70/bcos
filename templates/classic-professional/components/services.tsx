@@ -7,26 +7,7 @@ interface ServicesProps {
 }
 
 export default function Services({ attributes, colorStyles }: ServicesProps) {
-  const defaultServices = [
-    'Rheumatoid Arthritis Treatment',
-    'Lupus Management',
-    'Infusion Therapy',
-    'Joint Injections',
-    'Osteoporosis Treatment',
-    'Clinical Research'
-  ];
-  
   const services = parseServices(attributes.services);
-  
-  const defaultConditions = [
-    'Rheumatoid Arthritis',
-    'Psoriatic Arthritis',
-    'Lupus',
-    'Gout',
-    'Osteoporosis',
-    'Osteoarthritis'
-  ];
-  
   const conditions = parseConditions(attributes.conditions_treated);
 
   return (

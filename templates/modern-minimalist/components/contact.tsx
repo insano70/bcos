@@ -1,5 +1,6 @@
 import type { Practice, PracticeAttributes } from '@/lib/types/practice';
 import { parseBusinessHours, parseInsurance } from '@/lib/utils/json-parser';
+import { formatBusinessHours } from '@/lib/utils/business-hours-formatter';
 
 interface ContactProps {
   practice: Practice;
@@ -8,15 +9,6 @@ interface ContactProps {
 }
 
 export default function Contact({ practice, attributes, colorStyles }: ContactProps) {
-  const businessHours = parseBusinessHours(attributes.business_hours);
-
-  const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(':');
-    const hour = parseInt(hours || '0');
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
-  };
 
   return (
     <section id="contact" className="py-16 bg-white">
@@ -75,16 +67,20 @@ export default function Contact({ practice, attributes, colorStyles }: ContactPr
           <div>
             <h3 className="text-lg font-light text-gray-900 mb-4">Hours</h3>
             <div className="space-y-2">
-              {Object.entries(businessHours).map(([day, hours]: [string, any]) => (
-                <div key={day} className="flex justify-between items-center py-2 border-b border-gray-100">
-                  <span className="text-gray-600 font-light capitalize">
-                    {day}
-                  </span>
-                  <span className="text-gray-900 font-light">
-                    {hours.closed ? 'Closed' : `${formatTime(hours.open)} - ${formatTime(hours.close)}`}
-                  </span>
-                </div>
-              ))}
+              {attributes.business_hours ? (
+                formatBusinessHours(parseBusinessHours(attributes.business_hours)).map((dayInfo) => (
+                  <div key={dayInfo.day} className="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span className="text-gray-600 font-light">
+                      {dayInfo.day}
+                    </span>
+                    <span className={`font-light ${dayInfo.isClosed ? 'text-gray-500 italic' : 'text-gray-900'}`}>
+                      {dayInfo.hours}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-600 font-light">Please call for current hours</p>
+              )}
             </div>
           </div>
 

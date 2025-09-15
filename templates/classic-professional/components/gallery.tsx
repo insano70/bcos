@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import type { PracticeAttributes } from '@/lib/types/practice';
 
 interface GalleryProps {
@@ -6,10 +9,20 @@ interface GalleryProps {
 }
 
 export default function Gallery({ attributes, colorStyles }: GalleryProps) {
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
   // Don't render if no gallery images
   if (!attributes.gallery_images || attributes.gallery_images.length === 0) {
     return null;
   }
+
+  const openLightbox = (image: string) => {
+    setSelectedImage(image);
+  };
+
+  const closeLightbox = () => {
+    setSelectedImage(null);
+  };
 
   return (
     <section className="py-20 bg-gray-50">
@@ -23,23 +36,47 @@ export default function Gallery({ attributes, colorStyles }: GalleryProps) {
           </p>
         </div>
         
-        {/* 3-column grid with no gaps - images touch each other */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+        {/* 2-column grid with no gaps - images touch each other */}
+        <div className="grid grid-cols-1 lg:grid-cols-2">
           {attributes.gallery_images.map((image, index) => (
-            <div key={index} className="aspect-square overflow-hidden">
+            <div key={index} className="aspect-[3/2] overflow-hidden">
               <img
                 src={image}
                 alt={`Practice gallery image ${index + 1}`}
                 className="w-full h-full object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
-                onClick={() => {
-                  // Optional: Add lightbox functionality later
-                  window.open(image, '_blank');
-                }}
+                onClick={() => openLightbox(image)}
               />
             </div>
           ))}
         </div>
       </div>
+
+      {/* Lightbox Modal */}
+      {selectedImage && (
+        <div 
+          className="fixed inset-0 z-50 bg-black bg-opacity-75 flex items-center justify-center p-4"
+          onClick={closeLightbox}
+        >
+          <div className="relative max-w-7xl max-h-full">
+            <img
+              src={selectedImage}
+              alt="Gallery image"
+              className="max-w-full max-h-full object-contain cursor-pointer"
+            />
+            
+            {/* Close button */}
+            <button
+              onClick={closeLightbox}
+              className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors"
+              aria-label="Close"
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

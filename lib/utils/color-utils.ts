@@ -38,6 +38,11 @@ export function getTemplateDefaultColors(templateSlug: string): BrandColors {
       secondary: '#FFFFFF', // white
       accent: '#44C0AE', // teal
     },
+    'tidy-professional': {
+      primary: '#2174EA', // tidy blue
+      secondary: '#F8FAFC', // slate-50
+      accent: '#5696FF', // lighter blue
+    },
   };
   
   return defaults[templateSlug] || defaults['classic-professional'] || {

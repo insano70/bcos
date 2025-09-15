@@ -87,14 +87,7 @@ export default function ClinicalFocusTemplate({
           <div className="max-w-7xl mx-auto px-4">
             <h2 className="text-3xl font-bold text-center mb-12">Clinical Services</h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {(Array.isArray(attributes.services) ? attributes.services : [
-                'Rheumatoid Arthritis Research',
-                'Lupus Clinical Trials',
-                'Biologics Research',
-                'Autoimmune Studies',
-                'Precision Medicine',
-                'Genetic Research'
-              ]).map((service: string, index: number) => (
+              {(attributes.services || []).map((service: string, index: number) => (
                 <div key={index} className="bg-white p-6 rounded-lg shadow">
                   <h3 className="font-semibold mb-2">{service}</h3>
                   <p className="text-gray-600">Evidence-based treatment with research integration</p>

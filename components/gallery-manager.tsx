@@ -73,8 +73,10 @@ export default function GalleryManager({
   const handleReorderImage = (fromIndex: number, toIndex: number) => {
     const updatedImages = [...images];
     const [movedImage] = updatedImages.splice(fromIndex, 1);
-    updatedImages.splice(toIndex, 0, movedImage);
-    onImagesUpdated(updatedImages);
+    if (movedImage) {
+      updatedImages.splice(toIndex, 0, movedImage);
+      onImagesUpdated(updatedImages);
+    }
   };
 
   return (

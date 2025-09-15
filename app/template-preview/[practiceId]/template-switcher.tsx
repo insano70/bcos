@@ -49,6 +49,9 @@ export default function TemplateSwitcher({
         case 'community-practice':
           templateModule = await import('@/templates/community-practice');
           break;
+        case 'tidy-professional':
+          templateModule = await import('@/templates/tidy-professional');
+          break;
         default:
           throw new Error(`Unknown template: ${templateSlug}`);
       }

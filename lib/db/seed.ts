@@ -147,6 +147,11 @@ async function seedTemplates() {
       name: 'Community Practice',
       slug: 'community-practice',
       description: 'Local, family-oriented approach for neighborhood practices',
+    },
+    {
+      name: 'Tidy Professional',
+      slug: 'tidy-professional',
+      description: 'Elegant, modern design with sophisticated typography and smooth animations',
     }
   ];
 

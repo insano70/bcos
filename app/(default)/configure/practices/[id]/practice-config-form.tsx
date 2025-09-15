@@ -7,8 +7,11 @@ import ImageUpload from '@/components/image-upload';
 import ColorPicker from '@/components/color-picker';
 import StaffListEmbedded from '@/components/staff-list-embedded';
 import GalleryManager from '@/components/gallery-manager';
+import ServicesEditor from '@/components/services-editor';
+import ConditionsEditor from '@/components/conditions-editor';
+import BusinessHoursEditor from '@/components/business-hours-editor';
 import Toast from '@/components/toast';
-import type { Practice, PracticeAttributes, StaffMember } from '@/lib/types/practice';
+import type { Practice, PracticeAttributes, StaffMember, BusinessHours } from '@/lib/types/practice';
 import type { Template } from '@/lib/hooks/use-templates';
 
 interface PracticeFormData {
@@ -29,6 +32,13 @@ interface PracticeFormData {
   about_text: string;
   mission_statement: string;
   welcome_message: string;
+  
+  // Services & Conditions
+  services: string[];
+  conditions_treated: string[];
+  
+  // Business Hours
+  business_hours: BusinessHours;
   
   // Images
   logo_url: string;
@@ -55,7 +65,7 @@ async function fetchPracticeAttributes(practiceId: string) {
   return response.json();
 }
 
-async function updatePracticeAttributes(practiceId: string, data: Omit<PracticeFormData, 'template_id'>) {
+async function updatePracticeAttributes(practiceId: string, data: Omit<PracticeFormData, 'template_id' | 'name'>) {
   const response = await fetch(`/api/practices/${practiceId}/attributes`, {
     method: 'PUT',
     headers: {
@@ -132,6 +142,17 @@ export default function PracticeConfigForm({
         about_text: attributes.about_text || '',
         mission_statement: attributes.mission_statement || '',
         welcome_message: attributes.welcome_message || '',
+        services: attributes.services || [],
+        conditions_treated: attributes.conditions_treated || [],
+        business_hours: attributes.business_hours || {
+          sunday: { closed: true },
+          monday: { open: '09:00', close: '17:00', closed: false },
+          tuesday: { open: '09:00', close: '17:00', closed: false },
+          wednesday: { open: '09:00', close: '17:00', closed: false },
+          thursday: { open: '09:00', close: '17:00', closed: false },
+          friday: { open: '09:00', close: '17:00', closed: false },
+          saturday: { closed: true }
+        },
         logo_url: attributes.logo_url || '',
         hero_image_url: attributes.hero_image_url || '',
         gallery_images: attributes.gallery_images || [],
@@ -180,7 +201,7 @@ export default function PracticeConfigForm({
         queryClient.invalidateQueries({ queryKey: ['practices'] });
       }
 
-      // Update attributes
+      // Update attributes (exclude name and template_id which are handled separately)
       const { name: _name, template_id: _template_id, ...attributesData } = data;
       
       // Make the API call (no optimistic update to avoid cache corruption)
@@ -505,6 +526,50 @@ export default function PracticeConfigForm({
               />
             </div>
           </div>
+        </div>
+
+        {/* Services & Conditions */}
+        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
+            Services & Conditions
+          </h2>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <ServicesEditor
+              services={watch('services') || []}
+              onChange={(services) => setValue('services', services, { shouldDirty: true })}
+              label="Services Offered"
+              placeholder="Enter service (e.g., Rheumatoid Arthritis Treatment)"
+            />
+            
+            <ConditionsEditor
+              conditions={watch('conditions_treated') || []}
+              onChange={(conditions) => setValue('conditions_treated', conditions, { shouldDirty: true })}
+              label="Conditions Treated"
+              placeholder="Enter condition (e.g., Lupus)"
+            />
+          </div>
+        </div>
+
+        {/* Business Hours */}
+        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
+            Business Hours
+          </h2>
+          
+          <BusinessHoursEditor
+            businessHours={watch('business_hours') || {
+              sunday: { closed: true },
+              monday: { open: '09:00', close: '17:00', closed: false },
+              tuesday: { open: '09:00', close: '17:00', closed: false },
+              wednesday: { open: '09:00', close: '17:00', closed: false },
+              thursday: { open: '09:00', close: '17:00', closed: false },
+              friday: { open: '09:00', close: '17:00', closed: false },
+              saturday: { closed: true }
+            }}
+            onChange={(hours) => setValue('business_hours', hours, { shouldDirty: true })}
+            label="Practice Hours"
+          />
         </div>
 
         {/* Images */}
