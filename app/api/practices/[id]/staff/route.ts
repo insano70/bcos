@@ -122,10 +122,22 @@ const createPracticeStaffHandler = async (request: NextRequest, userContext: Use
       throw new Error('Access denied: You do not have permission to manage staff for this practice')
     }
 
+    // Get the next display_order by finding the max current order
+    const [maxOrderResult] = await db
+      .select({ maxOrder: sql<number>`COALESCE(MAX(${staff_members.display_order}), -1)` })
+      .from(staff_members)
+      .where(and(
+        eq(staff_members.practice_id, practiceId),
+        isNull(staff_members.deleted_at)
+      ));
+    
+    const nextDisplayOrder = (maxOrderResult?.maxOrder ?? -1) + 1;
+
     // Prepare staff data, stringify JSON fields
     const staffData = {
       ...validatedData,
       practice_id: practiceId,
+      display_order: validatedData.display_order ?? nextDisplayOrder, // Use provided order or next available
       specialties: validatedData.specialties ? JSON.stringify(validatedData.specialties) : null,
       education: validatedData.education ? JSON.stringify(validatedData.education) : null,
     };

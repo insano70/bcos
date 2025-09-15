@@ -105,7 +105,7 @@ export default function StaffMemberFormModal({
         photo_url: data.photo_url || undefined,
         specialties: data.specialties || undefined,
         education: data.education || undefined,
-        display_order: 0,
+        // display_order will be automatically assigned by the API
         is_active: data.is_active ?? true
       });
 

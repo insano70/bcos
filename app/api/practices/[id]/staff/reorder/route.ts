@@ -128,22 +128,37 @@ const reorderStaffHandler = async (request: NextRequest, userContext: UserContex
   } catch (error) {
     const totalDuration = Date.now() - startTime;
     
+    // Safe error handling without instanceof
+    let errorMessage = 'Unknown error';
+    let errorType = 'unknown';
+    let constructorName: string = typeof error;
+    
+    if (error && typeof error === 'object' && 'message' in error) {
+      errorMessage = String(error.message);
+      if ('name' in error) {
+        errorType = String(error.name);
+      }
+      if ('constructor' in error && error.constructor && 'name' in error.constructor) {
+        constructorName = String(error.constructor.name);
+      }
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+      errorType = 'string';
+      constructorName = 'string';
+    }
+    
     logger.error('Staff reorder request failed', error, {
       requestingUserId: userContext.user_id,
       totalDuration,
-      errorType: error instanceof Error ? error.constructor.name : typeof error
+      errorType: constructorName
     });
 
     logPerformanceMetric(logger, 'staff_reorder_total', totalDuration, {
       success: false,
-      errorType: error instanceof Error ? error.name : 'unknown'
+      errorType: errorType
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return createErrorResponse(errorMessage, 500, request);
   }
 };
 
