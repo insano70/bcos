@@ -87,7 +87,6 @@ export default async function TemplatePreview({
       {/* Server-rendered toolbar - client component will enhance it */}
       <TemplatePreviewToolbar
         currentTemplate={template.slug}
-        onTemplateChange={() => {}} // Will be enhanced by client
         isLoading={false}
       />
 

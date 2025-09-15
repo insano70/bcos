@@ -179,9 +179,12 @@ export default function StaffMemberForm({
     }
   };
 
-  const handlePhotoUploaded = (_url: string) => {
+  const handlePhotoUploaded = (url: string) => {
     // Photo is automatically saved to database by upload service
-    // Refresh staff data to show updated photo
+    // Immediately update the form field to show the new image
+    setValue('photo_url', url, { shouldDirty: true });
+    
+    // Also refresh staff data in the background
     queryClient.invalidateQueries({ queryKey: ['staff', practiceId] });
   };
 
