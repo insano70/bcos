@@ -7,41 +7,67 @@ import FilterButton from '@/components/dropdown-filter';
 import UsersTable from './users-table';
 import PaginationClassic from '@/components/pagination-classic';
 import AddUserModal from '@/components/add-user-modal';
-import { useUsers } from '@/lib/hooks/use-users';
+import EditUserModal from '@/components/edit-user-modal';
+import { useUsers, type User } from '@/lib/hooks/use-users';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 
 export default function UsersContent() {
-  console.log('👥 UsersContent: Component rendered')
+  // Component rendered (client-side debug)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('👥 UsersContent: Component rendered')
+  }
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { data: users, isLoading, error, refetch } = useUsers(); // Access token handled by middleware
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-  console.log('👤 UsersContent: Auth state -', {
-    isAuthenticated,
-    authLoading
-    // Access token now handled securely server-side via httpOnly cookies
-  })
+  // Auth state logging (client-side debug)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('👤 UsersContent: Auth state -', {
+      isAuthenticated,
+      authLoading
+      // Access token now handled securely server-side via httpOnly cookies
+    })
+  }
 
-  console.log('📊 UsersContent: API state -', {
-    hasUsers: !!users,
-    isLoading,
-    hasError: !!error,
-    errorMessage: error?.message
-  })
+  // API state logging (client-side debug)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('📊 UsersContent: API state -', {
+      hasUsers: !!users,
+      isLoading,
+      hasError: !!error,
+      errorMessage: error?.message
+    })
+  }
 
   // Redirect to login if not authenticated
   useEffect(() => {
-    console.log('🔄 UsersContent: useEffect triggered -', { authLoading, isAuthenticated })
+    // useEffect trigger logging (client-side debug)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔄 UsersContent: useEffect triggered -', { authLoading, isAuthenticated })
+    }
     if (!authLoading && !isAuthenticated) {
-      console.log('🔄 UsersContent: Redirecting to login - no authentication')
+      // Redirect logging (client-side debug)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔄 UsersContent: Redirecting to login - no authentication')
+      }
       const currentPath = window.location.pathname + window.location.search;
       const loginUrl = `/signin?callbackUrl=${encodeURIComponent(currentPath)}`;
       window.location.href = loginUrl;
     } else if (!authLoading && isAuthenticated) {
-      console.log('✅ UsersContent: User authenticated, staying on page')
+      // Authentication success logging (client-side debug)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ UsersContent: User authenticated, staying on page')
+      }
     }
   }, [isAuthenticated, authLoading]);
+
+  const handleEditUser = (user: User) => {
+    setSelectedUser(user);
+    setIsEditUserModalOpen(true);
+  };
 
   // Show loading while checking authentication
   if (authLoading) {
@@ -200,7 +226,7 @@ export default function UsersContent() {
           </div>
         </div>
       ) : (
-        <UsersTable users={users || []} />
+        <UsersTable users={users || []} onEdit={handleEditUser} />
       )}
 
       {/* Pagination */}
@@ -215,6 +241,19 @@ export default function UsersContent() {
         onSuccess={() => {
           refetch(); // Refresh the users list after successful creation
         }}
+      />
+
+      {/* Edit User Modal */}
+      <EditUserModal
+        isOpen={isEditUserModalOpen}
+        onClose={() => {
+          setIsEditUserModalOpen(false);
+          setSelectedUser(null);
+        }}
+        onSuccess={() => {
+          refetch(); // Refresh the users list after successful update
+        }}
+        user={selectedUser}
       />
     </div>
   );

@@ -5,6 +5,7 @@ import { db, refresh_tokens, token_blacklist, user_sessions, login_attempts, } f
 import { eq, and, gte, lte, } from 'drizzle-orm'
 import { AuditLogger } from '@/lib/api/services/audit'
 import { getJWTConfig } from '@/lib/env'
+import { logger } from '@/lib/logger'
 
 /**
  * Enterprise JWT + Refresh Token Manager
@@ -277,7 +278,11 @@ export class TokenManager {
       }
 
     } catch (error) {
-      console.error('Token refresh error:', error)
+      logger.error('Token refresh error', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        refreshToken: refreshToken ? 'present' : 'missing'
+      })
       return null
     }
   }
@@ -364,7 +369,11 @@ export class TokenManager {
 
       return true
     } catch (error) {
-      console.error('Token revocation error:', error)
+      logger.error('Token revocation error', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        userId: userId || 'unknown'
+      })
       return false
     }
   }
@@ -527,7 +536,11 @@ export class TokenManager {
       .delete(token_blacklist)
       .where(lte(token_blacklist.expires_at, now))
 
-    console.log(`Cleaned up ${expiredRefreshTokens.length || 0} expired refresh tokens and ${expiredBlacklistEntries.length || 0} blacklist entries`)
+    logger.info('Token cleanup completed', {
+      expiredRefreshTokens: expiredRefreshTokens.length || 0,
+      expiredBlacklistEntries: expiredBlacklistEntries.length || 0,
+      operation: 'cleanupExpiredTokens'
+    })
 
     return {
       refreshTokens: expiredRefreshTokens.length || 0,

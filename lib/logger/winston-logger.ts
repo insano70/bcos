@@ -106,7 +106,7 @@ function sanitizeLogData(obj: any): any {
       sanitized[key] = sanitized[key]
         .replace(/Bearer\s+[^\s]+/gi, 'Bearer [REDACTED]')
         .replace(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi, '[UUID]')
-        .replace(/\b[\w\.-]+@[\w\.-]+\.\w+\b/gi, '[EMAIL]')
+        .replace(/\b[\w.-]+@[\w.-]+\.\w+\b/gi, '[EMAIL]')
     } else if (typeof sanitized[key] === 'object' && sanitized[key] !== null) {
       sanitized[key] = sanitizeLogData(sanitized[key])
     }

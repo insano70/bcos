@@ -316,17 +316,19 @@ async function getAccessibleOrganizations(userOrganizations: Organization[]): Pr
 }
 
 /**
- * Create a PermissionChecker for a user
+ * Create a PermissionChecker for a user with database context
  * Useful for testing permission logic directly
  */
 export async function createPermissionChecker(user: User): Promise<PermissionChecker> {
   const userContext = await buildUserContext(user)
-  return new PermissionChecker(userContext)
+  const testDb = getCurrentTransaction() // Use the test transaction for database queries
+  return new PermissionChecker(userContext, testDb)
 }
 
 /**
  * Test if a user has a specific permission
  * Returns both the result and detailed information
+ * Uses async ownership validation for accurate testing
  */
 export async function testUserPermission(
   user: User,
@@ -335,7 +337,7 @@ export async function testUserPermission(
   organizationId?: string
 ): Promise<{ granted: boolean; scope?: string; reason?: string | undefined }> {
   const checker = await createPermissionChecker(user)
-  const result = checker.checkPermission(permission, { resourceId, organizationId })
+  const result = await checker.checkPermissionAsync(permission, { resourceId, organizationId })
 
   return {
     granted: result.granted,

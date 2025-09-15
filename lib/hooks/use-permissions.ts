@@ -41,7 +41,10 @@ export function usePermissions(): UsePermissionsReturn {
     try {
       return checker.hasPermission(permission, resourceId, organizationId);
     } catch (error) {
-      console.warn('Permission check failed:', error);
+      // Permission check failure (client-side debug)
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Permission check failed:', error);
+      }
       return false;
     }
   };
@@ -56,7 +59,10 @@ export function usePermissions(): UsePermissionsReturn {
     try {
       return checker.hasAnyPermission(permissions, resourceId, organizationId);
     } catch (error) {
-      console.warn('Permission check failed:', error);
+      // Permission check failure (client-side debug)
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Permission check failed:', error);
+      }
       return false;
     }
   };
@@ -71,7 +77,10 @@ export function usePermissions(): UsePermissionsReturn {
     try {
       return checker.hasAllPermissions(permissions, resourceId, organizationId);
     } catch (error) {
-      console.warn('Permission check failed:', error);
+      // Permission check failure (client-side debug)
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Permission check failed:', error);
+      }
       return false;
     }
   };

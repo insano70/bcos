@@ -51,9 +51,9 @@ export const passwordChangeSchema = z.object({
 export const sessionSchema = z.object({
   user: z.object({
     id: z.string().uuid(),
-    email: z.string().email(),
-    firstName: z.string(),
-    lastName: z.string(),
+    email: safeEmailSchema,
+    firstName: createNameSchema('First name'),
+    lastName: createNameSchema('Last name'),
     role: z.enum(['admin', 'practice_owner']),
     practiceId: z.string().uuid().optional()
   }),

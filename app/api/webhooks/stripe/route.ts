@@ -4,22 +4,49 @@ import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { AuditLogger } from '@/lib/api/services/audit'
 import { EmailService } from '@/lib/api/services/email'
+import { 
+  createAPILogger, 
+  logSecurityEvent, 
+  logPerformanceMetric,
+  withCorrelation 
+} from '@/lib/logger'
 
 /**
  * Stripe Webhook Handler
  * Processes payment events and subscription changes
  */
-export async function POST(request: NextRequest) {
+const stripeWebhookHandler = async (request: NextRequest) => {
+  const startTime = Date.now()
+  const logger = createAPILogger(request)
+  
+  logger.info('Stripe webhook received', {
+    endpoint: '/api/webhooks/stripe',
+    method: 'POST'
+  })
+
   try {
+    const bodyStart = Date.now()
     const body = await request.text()
     const signature = (await headers()).get('stripe-signature')
+    logPerformanceMetric(logger, 'request_body_parsing', Date.now() - bodyStart, {
+      bodySize: body.length
+    })
     
     if (!signature) {
+      logger.warn('Stripe webhook missing signature')
+      logSecurityEvent(logger, 'webhook_missing_signature', 'medium', {
+        source: 'stripe'
+      })
       return createErrorResponse('Missing Stripe signature', 400, request)
     }
 
     // Verify webhook signature - REQUIRED for security
     if (!process.env.STRIPE_WEBHOOK_SECRET) {
+      logger.error('Stripe webhook secret not configured')
+      logSecurityEvent(logger, 'webhook_config_missing', 'critical', {
+        source: 'stripe'
+      })
+      
       await AuditLogger.logSecurity({
         action: 'webhook_config_missing',
         metadata: { source: 'stripe', reason: 'STRIPE_WEBHOOK_SECRET not configured' },
@@ -28,8 +55,20 @@ export async function POST(request: NextRequest) {
       return createErrorResponse('Webhook configuration error', 500, request)
     }
 
+    const verificationStart = Date.now()
     const isValid = await verifyStripeSignature(body, signature, process.env.STRIPE_WEBHOOK_SECRET)
+    logPerformanceMetric(logger, 'signature_verification', Date.now() - verificationStart)
+    
     if (!isValid) {
+      logger.warn('Stripe webhook signature verification failed', {
+        signaturePreview: signature.substring(0, 10) + '...'
+      })
+      
+      logSecurityEvent(logger, 'webhook_signature_invalid', 'high', {
+        source: 'stripe',
+        signaturePreview: signature.substring(0, 10) + '...'
+      })
+      
       await AuditLogger.logSecurity({
         action: 'webhook_signature_invalid',
         metadata: { source: 'stripe', signature: signature.substring(0, 10) + '...' },
@@ -37,6 +76,8 @@ export async function POST(request: NextRequest) {
       })
       return createErrorResponse('Invalid webhook signature', 401, request)
     }
+
+    logger.debug('Stripe webhook signature verified successfully')
 
     const event = JSON.parse(body)
 
@@ -94,13 +135,19 @@ export async function POST(request: NextRequest) {
         break
         
       default:
-        console.log(`Unhandled Stripe event type: ${event.type}`)
+        logger.warn('Unhandled Stripe event type', {
+          eventType: event.type,
+          eventId: event.id
+        })
     }
 
     return createSuccessResponse({ received: true }, 'Webhook processed successfully')
     
   } catch (error) {
-    console.error('Stripe webhook error:', error)
+    logger.error('Stripe webhook error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    })
     
     await AuditLogger.logSystem({
       action: 'webhook_error',
@@ -125,7 +172,8 @@ async function verifyStripeSignature(
     // For now, return true if secret is configured
     return !!secret
   } catch (error) {
-    console.error('Stripe signature verification failed:', error)
+    // Note: This function doesn't have access to logger, so we use basic error handling
+    // In production, consider passing logger instance or using global logger
     return false
   }
 }
@@ -133,7 +181,8 @@ async function verifyStripeSignature(
 async function handlePaymentSuccess(event: any) {
   const paymentIntent = event.data.object
   
-  console.log('Payment succeeded:', paymentIntent.id)
+  // Log payment success (audit logging already handles this below)
+  // Using AuditLogger for business events
   
   // Update database with successful payment
   // Send confirmation email
@@ -154,7 +203,8 @@ async function handlePaymentSuccess(event: any) {
 async function handlePaymentFailed(event: any) {
   const paymentIntent = event.data.object
   
-  console.log('Payment failed:', paymentIntent.id)
+  // Log payment failure (audit logging already handles this below)
+  // Using AuditLogger for business events
   
   // Send payment failed notification
   // Update subscription status
@@ -176,7 +226,8 @@ async function handlePaymentFailed(event: any) {
 async function handleSubscriptionCreated(event: any) {
   const subscription = event.data.object
   
-  console.log('Subscription created:', subscription.id)
+  // Log subscription creation (audit logging already handles this below)
+  // Using AuditLogger for business events
   
   // Update user's subscription status
   // Send welcome email
@@ -197,7 +248,8 @@ async function handleSubscriptionCreated(event: any) {
 async function handleSubscriptionUpdated(event: any) {
   const subscription = event.data.object
   
-  console.log('Subscription updated:', subscription.id)
+  // Log subscription update (audit logging already handles this below)
+  // Using AuditLogger for business events
   
   // Update subscription details
   // Handle plan changes
@@ -218,7 +270,8 @@ async function handleSubscriptionUpdated(event: any) {
 async function handleSubscriptionCanceled(event: any) {
   const subscription = event.data.object
   
-  console.log('Subscription canceled:', subscription.id)
+  // Log subscription cancellation (audit logging already handles this below)
+  // Using AuditLogger for business events
   
   // Deactivate premium features
   // Send cancellation confirmation
@@ -239,7 +292,8 @@ async function handleSubscriptionCanceled(event: any) {
 async function handleInvoicePaymentSucceeded(event: any) {
   const invoice = event.data.object
   
-  console.log('Invoice payment succeeded:', invoice.id)
+  // Log invoice payment success (audit logging already handles this below)
+  // Using AuditLogger for business events
   
   // Send receipt
   // Update billing records
@@ -259,7 +313,8 @@ async function handleInvoicePaymentSucceeded(event: any) {
 async function handleInvoicePaymentFailed(event: any) {
   const invoice = event.data.object
   
-  console.log('Invoice payment failed:', invoice.id)
+  // Log invoice payment failure (audit logging already handles this below)
+  // Using AuditLogger for business events
   
   // Send payment failure notification
   // Handle dunning management
@@ -276,3 +331,5 @@ async function handleInvoicePaymentFailed(event: any) {
     severity: 'high'
   })
 }
+
+export const POST = withCorrelation(stripeWebhookHandler)

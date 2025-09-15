@@ -91,7 +91,7 @@ function sanitizeErrorMessage(message: string): string {
     .replace(/secret[=:\s]+[^\s]+/gi, 'secret=***')
     .replace(/Bearer\s+[^\s]+/gi, 'Bearer ***')
     .replace(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi, '[UUID]')
-    .replace(/\b[\w\.-]+@[\w\.-]+\.\w+\b/gi, '[EMAIL]')
+    .replace(/\b[\w.-]+@[\w.-]+\.\w+\b/gi, '[EMAIL]')
     .replace(/\d{3,}/g, '[NUMBER]'); // Hide potentially sensitive numeric data
 }
 

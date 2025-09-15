@@ -1,6 +1,7 @@
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import { db } from '@/lib/db';
 import { users, user_organizations, organizations } from '@/lib/db/schema';
+import { user_roles } from '@/lib/db/rbac-schema';
 import { eq, and, inArray, isNull, like, or, count } from 'drizzle-orm';
 import { hashPassword } from '@/lib/auth/security';
 import type { UserContext } from '@/lib/types/rbac';
@@ -25,6 +26,8 @@ export interface UpdateUserData {
   first_name?: string;
   last_name?: string;
   email?: string;
+  password?: string;
+  role_ids?: string[];
   email_verified?: boolean;
   is_active?: boolean;
 }
@@ -301,19 +304,55 @@ export class RBACUsersService extends BaseRBACService {
       }
     }
 
-    // Update user
-    const [updatedUser] = await db
-      .update(users)
-      .set({
+    // Execute user update and role assignment as atomic transaction
+    const updatedUser = await db.transaction(async (tx) => {
+      // Prepare update data
+      const updateFields: any = {
         ...updateData,
         updated_at: new Date()
-      })
-      .where(eq(users.user_id, userId))
-      .returning();
+      };
 
-    if (!updatedUser) {
-      throw new Error('Failed to update user');
-    }
+      // Hash password if provided
+      if (updateData.password) {
+        updateFields.password_hash = await hashPassword(updateData.password);
+        delete updateFields.password; // Remove plain password from update
+      }
+
+      // Update user
+      const [user] = await tx
+        .update(users)
+        .set(updateFields)
+        .where(eq(users.user_id, userId))
+        .returning();
+
+      if (!user) {
+        throw new Error('Failed to update user');
+      }
+
+      // Update user roles if provided
+      if (updateData.role_ids) {
+        // First, deactivate all current roles for this user
+        await tx
+          .update(user_roles)
+          .set({ is_active: false })
+          .where(eq(user_roles.user_id, userId));
+
+        // Then add the new roles
+        if (updateData.role_ids.length > 0) {
+          const roleAssignments = updateData.role_ids.map(roleId => ({
+            user_id: userId,
+            role_id: roleId,
+            organization_id: this.userContext.current_organization_id,
+            granted_by: this.userContext.user_id,
+            is_active: true
+          }));
+
+          await tx.insert(user_roles).values(roleAssignments);
+        }
+      }
+
+      return user;
+    });
 
     await this.logPermissionCheck('users:update', userId);
 

@@ -1,6 +1,6 @@
-import { useForm, UseFormProps, FieldValues, UseFormReturn } from 'react-hook-form';
+import { useForm, type UseFormProps, type FieldValues, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { useState } from 'react';
 
 /**

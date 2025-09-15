@@ -3,22 +3,49 @@ import { headers } from 'next/headers'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { AuditLogger } from '@/lib/api/services/audit'
+import { 
+  createAPILogger, 
+  logSecurityEvent, 
+  logPerformanceMetric,
+  withCorrelation 
+} from '@/lib/logger'
 
 /**
  * Resend Webhook Handler
  * Processes email delivery events and bounces
  */
-export async function POST(request: NextRequest) {
+const resendWebhookHandler = async (request: NextRequest) => {
+  const startTime = Date.now()
+  const logger = createAPILogger(request)
+  
+  logger.info('Resend webhook received', {
+    endpoint: '/api/webhooks/resend',
+    method: 'POST'
+  })
+
   try {
+    const bodyStart = Date.now()
     const body = await request.text()
     const signature = (await headers()).get('resend-signature')
+    logPerformanceMetric(logger, 'request_body_parsing', Date.now() - bodyStart, {
+      bodySize: body.length
+    })
     
     if (!signature) {
+      logger.warn('Resend webhook missing signature')
+      logSecurityEvent(logger, 'webhook_missing_signature', 'medium', {
+        source: 'resend'
+      })
       return createErrorResponse('Missing Resend signature', 400, request)
     }
 
     // Verify webhook signature - REQUIRED for security
     if (!process.env.RESEND_WEBHOOK_SECRET) {
+      logger.error('Resend webhook secret not configured')
+      logSecurityEvent(logger, 'webhook_config_missing', 'critical', {
+        source: 'resend'
+      })
+      
       await AuditLogger.logSecurity({
         action: 'webhook_config_missing',
         metadata: { source: 'resend', reason: 'RESEND_WEBHOOK_SECRET not configured' },
@@ -27,8 +54,20 @@ export async function POST(request: NextRequest) {
       return createErrorResponse('Webhook configuration error', 500, request)
     }
 
+    const verificationStart = Date.now()
     const isValid = await verifyResendSignature(body, signature, process.env.RESEND_WEBHOOK_SECRET)
+    logPerformanceMetric(logger, 'signature_verification', Date.now() - verificationStart)
+    
     if (!isValid) {
+      logger.warn('Resend webhook signature verification failed', {
+        signaturePreview: signature.substring(0, 10) + '...'
+      })
+      
+      logSecurityEvent(logger, 'webhook_signature_invalid', 'high', {
+        source: 'resend',
+        signaturePreview: signature.substring(0, 10) + '...'
+      })
+      
       await AuditLogger.logSecurity({
         action: 'webhook_signature_invalid',
         metadata: { source: 'resend', signature: signature.substring(0, 10) + '...' },
@@ -36,6 +75,8 @@ export async function POST(request: NextRequest) {
       })
       return createErrorResponse('Invalid webhook signature', 401, request)
     }
+
+    logger.debug('Resend webhook signature verified successfully')
 
     const event = JSON.parse(body)
 
@@ -89,13 +130,19 @@ export async function POST(request: NextRequest) {
         break
         
       default:
-        console.log(`Unhandled Resend event type: ${event.type}`)
+        logger.warn('Unhandled Resend event type', {
+          eventType: event.type,
+          eventId: event.id
+        })
     }
 
     return createSuccessResponse({ received: true }, 'Webhook processed successfully')
     
   } catch (error) {
-    console.error('Resend webhook error:', error)
+    logger.error('Resend webhook error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    })
     
     await AuditLogger.logSystem({
       action: 'webhook_error',
@@ -120,7 +167,8 @@ async function verifyResendSignature(
     // For now, return true if secret is configured
     return !!secret
   } catch (error) {
-    console.error('Resend signature verification failed:', error)
+    // Note: This function doesn't have access to logger, so we use basic error handling
+    // In production, consider passing logger instance or using global logger
     return false
   }
 }
@@ -128,7 +176,8 @@ async function verifyResendSignature(
 async function handleEmailSent(event: any) {
   const data = event.data
   
-  console.log('Email sent:', data.email_id)
+  // Log email sent (audit logging already handles this below)
+  // Using AuditLogger for business events
   
   // Update email status in database
   // Track delivery metrics
@@ -148,7 +197,8 @@ async function handleEmailSent(event: any) {
 async function handleEmailDelivered(event: any) {
   const data = event.data
   
-  console.log('Email delivered:', data.email_id)
+  // Log email delivery (audit logging already handles this below)
+  // Using AuditLogger for business events
   
   // Update delivery status
   // Track successful deliveries
@@ -167,7 +217,8 @@ async function handleEmailDelivered(event: any) {
 async function handleEmailBounced(event: any) {
   const data = event.data
   
-  console.log('Email bounced:', data.email_id)
+  // Log email bounce (audit logging already handles this below)
+  // Using AuditLogger for business events
   
   // Mark email as bounced
   // Handle hard bounces (remove from list)
@@ -200,7 +251,8 @@ async function handleEmailBounced(event: any) {
 async function handleEmailComplained(event: any) {
   const data = event.data
   
-  console.log('Email complaint:', data.email_id)
+  // Log email complaint (audit logging already handles this below)
+  // Using AuditLogger for business events
   
   // Mark as spam complaint
   // Remove from mailing list
@@ -220,7 +272,8 @@ async function handleEmailComplained(event: any) {
 async function handleEmailClicked(event: any) {
   const data = event.data
   
-  console.log('Email clicked:', data.email_id)
+  // Log email click (audit logging already handles this below)
+  // Using AuditLogger for business events
   
   // Track click metrics
   // Update engagement scores
@@ -240,7 +293,8 @@ async function handleEmailClicked(event: any) {
 async function handleEmailOpened(event: any) {
   const data = event.data
   
-  console.log('Email opened:', data.email_id)
+  // Log email open (audit logging already handles this below)
+  // Using AuditLogger for business events
   
   // Track open metrics
   // Update engagement scores
@@ -257,3 +311,5 @@ async function handleEmailOpened(event: any) {
     severity: 'low'
   })
 }
+
+export const POST = withCorrelation(resendWebhookHandler)

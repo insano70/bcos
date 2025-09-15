@@ -1,44 +1,55 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-// Inline SVG for X mark icon
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useCreateUser } from '@/lib/hooks/use-users';
-import RoleSelector from './role-selector';
+import { useUpdateUser, type User } from '@/lib/hooks/use-users';
 import { passwordSchema } from '@/lib/config/password-policy';
 import { safeEmailSchema, createNameSchema } from '@/lib/validations/sanitization';
+import RoleSelector from './role-selector';
 import Toast from './toast';
 
-// Form validation schema
-const createUserSchema = z.object({
+// Form validation schema with optional password reset
+const editUserSchema = z.object({
   first_name: createNameSchema('First name'),
   last_name: createNameSchema('Last name'),
   email: safeEmailSchema,
-  password: passwordSchema, // ✅ CENTRALIZED: Uses 12-char policy from single source
-  confirm_password: z.string(),
+  password: z.string().optional(),
+  confirm_password: z.string().optional(),
   role_ids: z.array(z.string()).min(1, 'Please select at least one role'),
   email_verified: z.boolean().optional(),
   is_active: z.boolean().optional(),
-}).refine((data) => data.password === data.confirm_password, {
-  message: "Passwords don't match",
+}).refine((data) => {
+  // If password is provided, it must meet requirements and match confirmation
+  if (data.password && data.password.length > 0) {
+    const passwordValidation = passwordSchema.safeParse(data.password);
+    if (!passwordValidation.success) {
+      return false;
+    }
+    return data.password === data.confirm_password;
+  }
+  // If no password provided, that's fine (no password change)
+  return true;
+}, {
+  message: "Password must meet requirements and passwords must match",
   path: ["confirm_password"],
 });
 
-type CreateUserForm = z.infer<typeof createUserSchema>;
+type EditUserForm = z.infer<typeof editUserSchema>;
 
-interface AddUserModalProps {
+interface EditUserModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  user: User | null;
 }
 
-export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) {
+export default function EditUserModal({ isOpen, onClose, onSuccess, user }: EditUserModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
-  const createUser = useCreateUser();
+  const updateUser = useUpdateUser();
 
   const {
     register,
@@ -47,12 +58,15 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
     reset,
     setValue,
     watch
-  } = useForm<CreateUserForm>({
-    resolver: zodResolver(createUserSchema),
+  } = useForm<EditUserForm>({
+    resolver: zodResolver(editUserSchema),
     defaultValues: {
+      first_name: '',
+      last_name: '',
+      email: '',
+      role_ids: [],
       email_verified: false,
       is_active: true,
-      role_ids: []
     }
   });
 
@@ -62,21 +76,42 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
     setValue('role_ids', roleIds, { shouldValidate: true });
   };
 
-  const onSubmit = async (data: CreateUserForm) => {
+  // Populate form when user data changes
+  useEffect(() => {
+    if (user && isOpen) {
+      setValue('first_name', user.first_name);
+      setValue('last_name', user.last_name);
+      setValue('email', user.email);
+      setValue('role_ids', user.roles?.map(role => role.id) || []);
+      setValue('email_verified', user.email_verified || false);
+      setValue('is_active', user.is_active !== false); // Handle null as true
+    }
+  }, [user, isOpen, setValue]);
+
+  const onSubmit = async (data: EditUserForm) => {
+    if (!user) return;
+    
     setIsSubmitting(true);
 
     try {
-      const userData = {
-        email: data.email,
-        password: data.password,
+      const updateData: any = {
         first_name: data.first_name,
         last_name: data.last_name,
-        email_verified: data.email_verified || false,
-        is_active: data.is_active || true,
-        role_ids: data.role_ids
+        email: data.email,
+        role_ids: data.role_ids,
+        email_verified: data.email_verified,
+        is_active: data.is_active,
       };
 
-      await createUser.mutateAsync(userData);
+      // Only include password if it was provided
+      if (data.password && data.password.length > 0) {
+        updateData.password = data.password;
+      }
+
+      await updateUser.mutateAsync({
+        id: user.id,
+        data: updateData
+      });
 
       // Show success toast
       setShowToast(true);
@@ -90,10 +125,7 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
       }, 2000);
 
     } catch (error) {
-      // Log client-side user creation errors for debugging
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Error creating user:', error);
-      }
+      console.error('Error updating user:', error);
       // Error handling is done by the mutation
     } finally {
       setIsSubmitting(false);
@@ -136,7 +168,7 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700/60">
               <div className="flex justify-between items-center">
                 <Dialog.Title className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-                  Add New User
+                  Edit User
                 </Dialog.Title>
                 <button
                   type="button"
@@ -157,12 +189,12 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 {/* First Name */}
                 <div>
-                  <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="edit_first_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     First Name *
                   </label>
                   <input
                     type="text"
-                    id="first_name"
+                    id="edit_first_name"
                     {...register('first_name')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
                       errors.first_name 
@@ -179,12 +211,12 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
 
                 {/* Last Name */}
                 <div>
-                  <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="edit_last_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Last Name *
                   </label>
                   <input
                     type="text"
-                    id="last_name"
+                    id="edit_last_name"
                     {...register('last_name')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
                       errors.last_name 
@@ -201,12 +233,12 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
 
                 {/* Email */}
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="edit_email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Email Address *
                   </label>
                   <input
                     type="email"
-                    id="email"
+                    id="edit_email"
                     {...register('email')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
                       errors.email 
@@ -221,21 +253,21 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
                   )}
                 </div>
 
-                {/* Password */}
+                {/* Password Reset */}
                 <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Password *
+                  <label htmlFor="edit_password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    New Password (leave blank to keep current)
                   </label>
                   <input
                     type="password"
-                    id="password"
+                    id="edit_password"
                     {...register('password')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
                       errors.password 
                         ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600' 
                         : 'border-gray-300 dark:border-gray-600'
                     }`}
-                    placeholder="Enter password"
+                    placeholder="Enter new password (optional)"
                     disabled={isSubmitting}
                   />
                   {errors.password && (
@@ -245,19 +277,19 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
 
                 {/* Confirm Password */}
                 <div>
-                  <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Confirm Password *
+                  <label htmlFor="edit_confirm_password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Confirm New Password
                   </label>
                   <input
                     type="password"
-                    id="confirm_password"
+                    id="edit_confirm_password"
                     {...register('confirm_password')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
                       errors.confirm_password 
                         ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600' 
                         : 'border-gray-300 dark:border-gray-600'
                     }`}
-                    placeholder="Confirm password"
+                    placeholder="Confirm new password"
                     disabled={isSubmitting}
                   />
                   {errors.confirm_password && (
@@ -278,12 +310,12 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
                 <div className="flex items-center">
                   <input
                     type="checkbox"
-                    id="email_verified"
+                    id="edit_email_verified"
                     {...register('email_verified')}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     disabled={isSubmitting}
                   />
-                  <label htmlFor="email_verified" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                  <label htmlFor="edit_email_verified" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
                     Email Verified
                   </label>
                 </div>
@@ -292,21 +324,21 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
                 <div className="flex items-center">
                   <input
                     type="checkbox"
-                    id="is_active"
+                    id="edit_is_active"
                     {...register('is_active')}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     disabled={isSubmitting}
                   />
-                  <label htmlFor="is_active" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                  <label htmlFor="edit_is_active" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
                     Active User
                   </label>
                 </div>
 
                 {/* Error display */}
-                {createUser.error && (
+                {updateUser.error && (
                   <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
                     <p className="text-sm text-red-600 dark:text-red-400">
-                      {createUser.error instanceof Error ? createUser.error.message : 'An error occurred while creating the user'}
+                      {updateUser.error instanceof Error ? updateUser.error.message : 'An error occurred while updating the user'}
                     </p>
                   </div>
                 )}
@@ -330,7 +362,7 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
                   disabled={isSubmitting}
                   className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isSubmitting ? 'Creating User...' : 'Create User'}
+                  {isSubmitting ? 'Updating User...' : 'Update User'}
                 </button>
               </div>
             </div>
@@ -345,7 +377,7 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
         setOpen={setShowToast}
         className="fixed top-4 right-4 z-50"
       >
-        User created successfully!
+        User updated successfully!
       </Toast>
     </Transition>
   );

@@ -17,12 +17,14 @@ export const userUpdateSchema = z.object({
   email: safeEmailSchema.optional(), // ✅ ENHANCED: XSS-safe email validation
   first_name: createNameSchema('First name').optional(), // ✅ ENHANCED: XSS-safe name validation
   last_name: createNameSchema('Last name').optional(), // ✅ ENHANCED: XSS-safe name validation
+  password: passwordSchema.optional(), // ✅ CENTRALIZED: Optional password for reset
+  role_ids: z.array(z.string().uuid('Invalid role ID')).optional(),
   email_verified: z.boolean().optional(),
   is_active: z.boolean().optional()
 })
 
 export const userQuerySchema = z.object({
-  email: z.string().email().optional(),
+  email: safeEmailSchema.optional(),
   is_active: z.enum(['true', 'false']).transform(val => val === 'true').optional(),
   email_verified: z.enum(['true', 'false']).transform(val => val === 'true').optional(),
   search: z.string().max(255).optional()

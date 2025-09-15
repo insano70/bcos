@@ -3,7 +3,7 @@
  * Automatically logs all API requests and responses
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import type { NextRequest, NextResponse } from 'next/server'
 import { createAPILogger, logAPIRequest, logAPIResponse } from './api-logger'
 
 /**

@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose'
 import { nanoid } from 'nanoid'
 import { getJWTConfig } from '@/lib/env'
+import { logger } from '@/lib/logger'
 
 const jwtConfig = getJWTConfig()
 const secret = new TextEncoder().encode(jwtConfig.accessSecret)
@@ -19,7 +20,11 @@ export async function verifyJWT(token: string): Promise<JWTPayload | null> {
     const { payload } = await jwtVerify(token, secret)
     return payload
   } catch (error) {
-    console.error('JWT verification failed:', error)
+    logger.error('JWT verification failed', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      operation: 'verifyJWT'
+    })
     return null
   }
 }

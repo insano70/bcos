@@ -3,7 +3,7 @@
  * Provides structured HTTP logging with performance metrics
  */
 
-import { NextRequest } from 'next/server'
+import type { NextRequest } from 'next/server'
 import { createAppLogger, type LogContext } from './winston-logger'
 
 const apiLogger = createAppLogger('api')

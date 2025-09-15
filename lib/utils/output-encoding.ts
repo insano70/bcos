@@ -105,7 +105,7 @@ export function SafeContent({ content, type, className, maxLength }: SafeContent
       safeContent = encodeHtmlContent(content.toLowerCase().trim());
       break;
     case 'phone':
-      safeContent = content.replace(/[^0-9\s\-\(\)\+\.]/g, '');
+      safeContent = content.replace(/[^0-9\s\-()+.]/g, '');
       break;
     case 'url':
       safeContent = encodeHtmlAttribute(content);

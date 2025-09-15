@@ -18,12 +18,13 @@ const getRolesHandler = async (request: NextRequest, userContext: UserContext) =
     const rolesService = createRBACRolesService(userContext);
 
     // Get roles with automatic permission-based filtering
+    // For roles dropdown, we want all roles, not paginated results
     const roles = await rolesService.getRoles({
       search: query.search,
       is_active: query.is_active,
       organization_id: query.organization_id,
-      limit: pagination.limit,
-      offset: pagination.offset
+      limit: 1000, // Get all roles
+      offset: 0
     });
 
     // Get total count
@@ -60,7 +61,7 @@ const getRolesHandler = async (request: NextRequest, userContext: UserContext) =
 export const GET = rbacRoute(
   getRolesHandler,
   {
-    permission: ['roles:read:organization', 'roles:manage:all'],
+    permission: ['roles:read:organization', 'roles:read:all', 'roles:manage:all'],
     rateLimit: 'api'
   }
 );

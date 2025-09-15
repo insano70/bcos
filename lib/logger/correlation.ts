@@ -54,14 +54,14 @@ export class CorrelationIdGenerator {
    * Generate correlation ID for background operations
    */
   static forBackground(operation: string): string {
-    return this.generate(`bg_${operation.substring(0, 8)}`)
+    return CorrelationIdGenerator.generate(`bg_${operation.substring(0, 8)}`)
   }
 
   /**
    * Generate correlation ID for scheduled tasks
    */
   static forScheduled(taskName: string): string {
-    return this.generate(`sch_${taskName.substring(0, 8)}`)
+    return CorrelationIdGenerator.generate(`sch_${taskName.substring(0, 8)}`)
   }
 }
 
@@ -96,7 +96,7 @@ export class CorrelationContextManager {
     metadata: Record<string, any>,
     fn: () => Promise<T>
   ): Promise<T> {
-    const parentContext = this.getCurrentContext()
+    const parentContext = CorrelationContextManager.getCurrentContext()
     const childId = parentContext 
       ? CorrelationIdGenerator.forChild(parentContext.correlationId, operationName)
       : CorrelationIdGenerator.generate()
@@ -126,14 +126,14 @@ export class CorrelationContextManager {
    * Get current correlation ID
    */
   static getCurrentId(): string | undefined {
-    return this.getCurrentContext()?.correlationId
+    return CorrelationContextManager.getCurrentContext()?.correlationId
   }
 
   /**
    * Add metadata to current context
    */
   static addMetadata(metadata: Record<string, any>): void {
-    const context = this.getCurrentContext()
+    const context = CorrelationContextManager.getCurrentContext()
     if (context) {
       Object.assign(context.metadata, metadata)
     }
@@ -143,7 +143,7 @@ export class CorrelationContextManager {
    * Update operation name in current context
    */
   static setOperationName(name: string): void {
-    const context = this.getCurrentContext()
+    const context = CorrelationContextManager.getCurrentContext()
     if (context) {
       context.operationName = name
     }

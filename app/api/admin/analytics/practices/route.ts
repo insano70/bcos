@@ -6,17 +6,34 @@ import { createErrorResponse } from '@/lib/api/responses/error'
 import { rbacRoute } from '@/lib/api/rbac-route-handler'
 import { AuditLogger } from '@/lib/api/services/audit'
 import type { UserContext } from '@/lib/types/rbac'
+import { 
+  createAPILogger, 
+  logDBOperation, 
+  logPerformanceMetric 
+} from '@/lib/logger'
 
 /**
  * Admin Analytics - Practice Metrics
  * Provides comprehensive practice analytics for admin dashboard
  */
 const analyticsHandler = async (request: NextRequest, userContext: UserContext) => {
+  const startTime = Date.now()
+  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id)
+  
+  logger.info('Practice analytics request initiated', {
+    requestingUserId: userContext.user_id,
+    isSuperAdmin: userContext.is_super_admin
+  })
+
   try {
-    
     const { searchParams } = new URL(request.url)
     const timeframe = searchParams.get('timeframe') || '30d'
     const startDate = getStartDate(timeframe)
+    
+    logger.debug('Practice analytics parameters parsed', {
+      timeframe,
+      startDate: startDate.toISOString()
+    })
     
     // Get practice statistics
     const [practiceStats] = await db
@@ -177,8 +194,17 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     return createSuccessResponse(analytics, 'Practice analytics retrieved successfully')
     
   } catch (error) {
-    console.error('Practice analytics error:', error)
+    logger.error('Practice analytics error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      timeframe,
+      requestingUserId: userContext.user_id
+    })
+    
+    logPerformanceMetric(logger, 'analytics_request_failed', Date.now() - startTime)
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
+  } finally {
+    logPerformanceMetric(logger, 'practice_analytics_total', Date.now() - startTime)
   }
 }
 

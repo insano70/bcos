@@ -1,5 +1,7 @@
 import { NextRequest } from 'next/server'
+import { logger } from '@/lib/logger'
 import { createSuccessResponse } from '@/lib/api/responses/success'
+import { createAPILogger, logDBHealth } from '@/lib/logger'
 import { createErrorResponse } from '@/lib/api/responses/error'
 
 /**
@@ -29,7 +31,11 @@ export async function GET(request: NextRequest) {
     return createSuccessResponse(healthData, 'System is healthy')
     
   } catch (error) {
-    console.error('Health check error:', error)
+    logger.error('Health check error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      operation: 'healthCheck'
+    })
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 503, request)
   }
 }

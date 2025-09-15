@@ -5,12 +5,14 @@ interface UsersTableItemProps {
   user: User;
   onCheckboxChange: (id: string, checked: boolean) => void;
   isSelected: boolean;
+  onEdit?: (user: User) => void;
 }
 
 export default function UsersTableItem({
   user,
   onCheckboxChange,
   isSelected,
+  onEdit,
 }: UsersTableItemProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -34,20 +36,25 @@ export default function UsersTableItem({
   }, []);
 
   const handleEdit = () => {
-    // TODO: Implement edit functionality
-    console.log('Edit user:', user.id);
+    onEdit?.(user);
     setDropdownOpen(false);
   };
 
   const handleInactivate = () => {
     // TODO: Implement inactivate functionality
-    console.log('Inactivate user:', user.id);
+    // User inactivation (client-side debug)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Inactivate user:', user.id);
+    }
     setDropdownOpen(false);
   };
 
   const handleDelete = () => {
     // TODO: Implement delete functionality
-    console.log('Delete user:', user.id);
+    // User deletion (client-side debug)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Delete user:', user.id);
+    }
     setDropdownOpen(false);
   };
 

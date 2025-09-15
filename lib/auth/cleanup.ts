@@ -1,4 +1,5 @@
 import { TokenManager } from './token-manager'
+import { logger } from '@/lib/logger'
 import { AuditLogger } from '@/lib/api/services/audit'
 
 /**
@@ -7,7 +8,10 @@ import { AuditLogger } from '@/lib/api/services/audit'
  */
 export async function runTokenCleanup(): Promise<void> {
   try {
-    console.log('Starting token cleanup process...')
+    logger.info('Starting token cleanup process', {
+      operation: 'tokenCleanup',
+      scheduled: true
+    })
 
     const cleanupResult = await TokenManager.cleanupExpiredTokens()
 
@@ -21,11 +25,17 @@ export async function runTokenCleanup(): Promise<void> {
       severity: 'low'
     })
 
-    console.log(
-      `Token cleanup completed: ${cleanupResult.refreshTokens} refresh tokens, ${cleanupResult.blacklistEntries} blacklist entries`
-    )
+    logger.info('Token cleanup completed', {
+      refreshTokensRemoved: cleanupResult.refreshTokens,
+      blacklistEntriesRemoved: cleanupResult.blacklistEntries,
+      operation: 'tokenCleanup'
+    })
   } catch (error) {
-    console.error('Token cleanup failed:', error)
+    logger.error('Token cleanup failed', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      operation: 'tokenCleanup'
+    })
 
     await AuditLogger.logSystem({
       action: 'token_cleanup_failed',
@@ -42,5 +52,9 @@ export function scheduleTokenCleanup(): void {
   setInterval(() => {
     void runTokenCleanup()
   }, cleanupInterval)
-  console.log('Token cleanup scheduled to run every 6 hours')
+  logger.info('Token cleanup scheduled', {
+    interval: '6 hours',
+    operation: 'tokenCleanup',
+    scheduled: true
+  })
 }

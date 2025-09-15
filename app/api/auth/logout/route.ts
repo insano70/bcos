@@ -4,6 +4,7 @@ import { TokenManager } from '@/lib/auth/token-manager'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { AuditLogger } from '@/lib/api/services/audit'
+import { logger } from '@/lib/logger'
 import { requireAuth } from '@/lib/api/middleware/auth'
 import { CSRFProtection } from '@/lib/security/csrf'
 import { db, token_blacklist } from '@/lib/db'
@@ -84,7 +85,10 @@ export async function POST(request: NextRequest) {
           })
         }
       } catch (e) {
-        console.warn('Failed to blacklist access token on logout:', e)
+        logger.warn('Failed to blacklist access token on logout', {
+          error: e instanceof Error ? e.message : 'Unknown error',
+          operation: 'logout'
+        })
       }
     }
 

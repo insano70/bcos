@@ -4,9 +4,13 @@ import { eq, sql, and } from 'drizzle-orm';
 import { hashPassword } from '../auth/password';
 import * as fs from 'fs';
 import * as path from 'path';
+import { logger } from '@/lib/logger';
 
 async function seedUsers() {
-  console.log('🌱 Seeding users...');
+  logger.info('Seeding users', {
+    operation: 'seedUsers',
+    phase: 'start'
+  });
 
   try {
     // Check if admin user already exists
@@ -32,9 +36,16 @@ async function seedUsers() {
         })
         .returning();
 
-      console.log('✅ Admin user created:', adminUser?.email || 'Unknown');
+      logger.info('Admin user created', {
+        email: adminUser?.email || 'Unknown',
+        userId: adminUser?.user_id,
+        operation: 'seedUsers'
+      });
     } else {
-      console.log('ℹ️  Admin user already exists, skipping...');
+      logger.info('Admin user already exists, skipping', {
+        email: existingAdmin[0]?.email,
+        operation: 'seedUsers'
+      });
     }
 
     // Note: Super admin user is now created in the RBAC seeding script
@@ -78,21 +89,38 @@ async function seedUsers() {
       if (existingUser.length === 0) {
         const [newUser] = await db.insert(users).values(userData).returning();
 
-        console.log('✅ Sample user created:', newUser?.email || 'Unknown');
+        logger.info('Sample user created', {
+          email: newUser?.email || 'Unknown',
+          userId: newUser?.user_id,
+          operation: 'seedUsers'
+        });
       } else {
-        console.log(`ℹ️  User ${userData.email} already exists, skipping...`);
+        logger.info('User already exists, skipping', {
+          email: userData.email,
+          operation: 'seedUsers'
+        });
       }
     }
 
-    console.log('🎉 User seeding completed!');
+    logger.info('User seeding completed', {
+      operation: 'seedUsers',
+      phase: 'completed'
+    });
   } catch (error) {
-    console.error('❌ Error seeding users:', error);
+    logger.error('Error seeding users', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      operation: 'seedUsers'
+    });
     throw error;
   }
 }
 
 async function seedTemplates() {
-  console.log('🎨 Seeding templates...');
+  logger.info('Seeding templates', {
+    operation: 'seedTemplates',
+    phase: 'start'
+  });
   
   const templateData = [
     {
@@ -135,19 +163,34 @@ async function seedTemplates() {
         .values(template)
         .returning();
       
-      console.log('✅ Template created:', newTemplate?.name || 'Unknown');
+      logger.info('Template created', {
+        name: newTemplate?.name || 'Unknown',
+        slug: newTemplate?.slug,
+        templateId: newTemplate?.template_id,
+        operation: 'seedTemplates'
+      });
     } else {
-      console.log(`ℹ️  Template ${template.name} already exists, skipping...`);
+      logger.info('Template already exists, skipping', {
+        name: template.name,
+        slug: template.slug,
+        operation: 'seedTemplates'
+      });
     }
   }
 }
 
 async function seedRBAC() {
-  console.log('🔐 Seeding RBAC data...');
+  logger.info('Seeding RBAC data', {
+    operation: 'seedRBAC',
+    phase: 'start'
+  });
 
   try {
     // 1. Seed permissions
-    console.log('📝 Seeding permissions...');
+    logger.info('Seeding permissions', {
+      operation: 'seedRBAC',
+      phase: 'permissions'
+    });
     const permissionData = [
       // User Management Permissions
       { name: 'users:read:own', description: 'Read own user profile', resource: 'users', action: 'read', scope: 'own' },
@@ -198,14 +241,25 @@ async function seedRBAC() {
       const existing = await db.select().from(permissions).where(eq(permissions.name, permission.name)).limit(1);
       if (existing.length === 0) {
         await db.insert(permissions).values(permission);
-        console.log(`✅ Permission created: ${permission.name}`);
+        logger.info('Permission created', {
+          name: permission.name,
+          resource: permission.resource,
+          action: permission.action,
+          operation: 'seedRBAC'
+        });
       } else {
-        console.log(`ℹ️  Permission ${permission.name} already exists, skipping...`);
+        logger.info('Permission already exists, skipping', {
+          name: permission.name,
+          operation: 'seedRBAC'
+        });
       }
     }
 
     // 2. Seed roles
-    console.log('👥 Seeding roles...');
+    logger.info('Seeding roles', {
+      operation: 'seedRBAC',
+      phase: 'roles'
+    });
     const roleData = [
       { name: 'super_admin', description: 'Super administrator with full system access', is_system_role: true, is_active: true },
       { name: 'user', description: 'Basic user with own resource access', is_system_role: true, is_active: true }
@@ -215,14 +269,25 @@ async function seedRBAC() {
       const existing = await db.select().from(roles).where(eq(roles.name, role.name)).limit(1);
       if (existing.length === 0) {
         await db.insert(roles).values(role);
-        console.log(`✅ Role created: ${role.name} (system_role: ${role.is_system_role})`);
+        logger.info('Role created', {
+          name: role.name,
+          systemRole: role.is_system_role,
+          roleId: newRole?.role_id,
+          operation: 'seedRBAC'
+        });
       } else {
-        console.log(`ℹ️  Role ${role.name} already exists, skipping...`);
+        logger.info('Role already exists, skipping', {
+          name: role.name,
+          operation: 'seedRBAC'
+        });
       }
     }
 
     // 3. Seed organizations
-    console.log('🏢 Seeding organizations...');
+    logger.info('Seeding organizations', {
+      operation: 'seedRBAC',
+      phase: 'organizations'
+    });
     const orgData = [
       { name: 'Platform Administration', slug: 'platform-admin', is_active: true },
       { name: 'Rheumatology Associates', slug: 'rheumatology-associates', is_active: true },
@@ -233,14 +298,25 @@ async function seedRBAC() {
       const existing = await db.select().from(organizations).where(eq(organizations.slug, org.slug)).limit(1);
       if (existing.length === 0) {
         await db.insert(organizations).values(org);
-        console.log(`✅ Organization created: ${org.name}`);
+        logger.info('Organization created', {
+          name: org.name,
+          slug: org.slug,
+          organizationId: newOrg?.organization_id,
+          operation: 'seedRBAC'
+        });
       } else {
-        console.log(`ℹ️  Organization ${org.name} already exists, skipping...`);
+        logger.info('Organization already exists, skipping', {
+          name: org.name,
+          operation: 'seedRBAC'
+        });
       }
     }
 
     // 4. Assign permissions to roles
-    console.log('🔗 Assigning permissions to roles...');
+    logger.info('Assigning permissions to roles', {
+      operation: 'seedRBAC',
+      phase: 'rolePermissions'
+    });
     
     // Get roles
     const [superAdminRole] = await db.select().from(roles).where(eq(roles.name, 'super_admin')).limit(1);
@@ -261,7 +337,10 @@ async function seedRBAC() {
           });
         }
       }
-      console.log(`✅ Assigned all permissions to super_admin`);
+      logger.info('Assigned all permissions to super_admin', {
+        permissionsCount: allPermissions.length,
+        operation: 'seedRBAC'
+      });
     }
 
     if (userRole) {
@@ -279,18 +358,31 @@ async function seedRBAC() {
           });
         }
       }
-      console.log(`✅ Assigned 'own' scope permissions to user role`);
+      logger.info('Assigned own scope permissions to user role', {
+        permissionsCount: ownPermissions.length,
+        operation: 'seedRBAC'
+      });
     }
 
-    console.log('🎉 RBAC seeding completed!');
+    logger.info('RBAC seeding completed', {
+      operation: 'seedRBAC',
+      phase: 'completed'
+    });
   } catch (error) {
-    console.error('❌ Error seeding RBAC:', error);
+    logger.error('Error seeding RBAC', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      operation: 'seedRBAC'
+    });
     throw error;
   }
 }
 
 async function seedPractices() {
-  console.log('🏥 Seeding sample practice...');
+  logger.info('Seeding sample practice', {
+    operation: 'seedPractices',
+    phase: 'start'
+  });
 
   try {
         // Get a random template for demo
@@ -298,11 +390,18 @@ async function seedPractices() {
         const randomTemplate = allTemplates[Math.floor(Math.random() * allTemplates.length)];
 
         if (!randomTemplate) {
-          console.log('❌ No templates found, skipping practice seeding');
+          logger.warn('No templates found, skipping practice seeding', {
+            operation: 'seedPractices'
+          });
           return;
         }
 
-        console.log(`ℹ️  Using template: ${randomTemplate.name} (${randomTemplate.slug})`);
+        logger.info('Using template for practice', {
+          templateName: randomTemplate.name,
+          templateSlug: randomTemplate.slug,
+          templateId: randomTemplate.template_id,
+          operation: 'seedPractices'
+        });
 
     // Get admin user
     const [adminUser] = await db
@@ -312,7 +411,9 @@ async function seedPractices() {
       .limit(1);
 
     if (!adminUser) {
-      console.log('❌ Admin user not found, skipping practice seeding');
+      logger.warn('Admin user not found, skipping practice seeding', {
+        operation: 'seedPractices'
+      });
       return;
     }
 
@@ -335,7 +436,12 @@ async function seedPractices() {
         })
         .returning();
       
-      console.log('✅ Denver Rheumatology practice created:', newDenverPractice?.name || 'Unknown');
+      logger.info('Denver Rheumatology practice created', {
+        name: newDenverPractice?.name || 'Unknown',
+        practiceId: newDenverPractice?.practice_id,
+        domain: newDenverPractice?.domain,
+        operation: 'seedPractices'
+      });
       
       // Create practice attributes for Denver Rheumatology
       await db
@@ -443,9 +549,14 @@ async function seedPractices() {
           }
         ]);
       
-      console.log('✅ Denver Rheumatology configuration and staff created');
+      logger.info('Denver Rheumatology configuration and staff created', {
+        operation: 'seedPractices',
+        practice: 'Denver Rheumatology'
+      });
     } else {
-      console.log('ℹ️  Denver Rheumatology practice already exists, skipping...');
+      logger.info('Denver Rheumatology practice already exists, skipping', {
+        operation: 'seedPractices'
+      });
     }
 
     // Check if demo practice exists
@@ -467,7 +578,12 @@ async function seedPractices() {
         })
         .returning();
       
-      console.log('✅ Demo practice created:', newPractice?.name || 'Unknown');
+      logger.info('Demo practice created', {
+        name: newPractice?.name || 'Unknown',
+        practiceId: newPractice?.practice_id,
+        domain: newPractice?.domain,
+        operation: 'seedPractices'
+      });
       
       // Create practice attributes
       await db
@@ -549,19 +665,31 @@ async function seedPractices() {
           display_order: 1,
         });
       
-      console.log('✅ Demo practice configuration and staff created');
+      logger.info('Demo practice configuration and staff created', {
+        operation: 'seedPractices',
+        practice: 'Demo Practice'
+      });
     } else {
-      console.log('ℹ️  Demo practice already exists, skipping...');
+      logger.info('Demo practice already exists, skipping', {
+        operation: 'seedPractices'
+      });
     }
     
   } catch (error) {
-    console.error('❌ Error seeding practices:', error);
+    logger.error('Error seeding practices', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      operation: 'seedPractices'
+    });
     throw error;
   }
 }
 
 async function assignUserRoles() {
-  console.log('👥 Assigning roles to users...');
+  logger.info('Assigning roles to users', {
+    operation: 'assignUserRoles',
+    phase: 'start'
+  });
 
   try {
     // Get the admin user
@@ -572,7 +700,9 @@ async function assignUserRoles() {
       .limit(1);
 
     if (!adminUser) {
-      console.log('⚠️  Admin user not found, skipping role assignment');
+      logger.warn('Admin user not found, skipping role assignment', {
+        operation: 'assignUserRoles'
+      });
       return;
     }
 
@@ -584,7 +714,9 @@ async function assignUserRoles() {
       .limit(1);
 
     if (!superAdminRole) {
-      console.log('⚠️  Super admin role not found, skipping role assignment');
+      logger.warn('Super admin role not found, skipping role assignment', {
+        operation: 'assignUserRoles'
+      });
       return;
     }
 
@@ -596,7 +728,9 @@ async function assignUserRoles() {
       .limit(1);
 
     if (!platformOrg) {
-      console.log('⚠️  Platform admin organization not found, skipping role assignment');
+      logger.warn('Platform admin organization not found, skipping role assignment', {
+        operation: 'assignUserRoles'
+      });
       return;
     }
 
@@ -625,9 +759,17 @@ async function assignUserRoles() {
           is_active: true
         });
 
-      console.log('✅ Super admin role assigned to admin user');
+      logger.info('Super admin role assigned to admin user', {
+        userId: adminUser.user_id,
+        email: adminUser.email,
+        roleId: superAdminRole.role_id,
+        operation: 'assignUserRoles'
+      });
     } else {
-      console.log('ℹ️  Admin user already has super admin role, skipping...');
+      logger.info('Admin user already has super admin role, skipping', {
+        userId: adminUser.user_id,
+        operation: 'assignUserRoles'
+      });
     }
 
     // Assign user to platform organization
@@ -652,9 +794,16 @@ async function assignUserRoles() {
           joined_at: new Date()
         });
 
-      console.log('✅ Admin user assigned to platform organization');
+      logger.info('Admin user assigned to platform organization', {
+        userId: adminUser.user_id,
+        organizationId: platformOrganization.organization_id,
+        operation: 'assignUserRoles'
+      });
     } else {
-      console.log('ℹ️  Admin user already in platform organization, skipping...');
+      logger.info('Admin user already in platform organization, skipping', {
+        userId: adminUser.user_id,
+        operation: 'assignUserRoles'
+      });
     }
 
     // Assign 'user' role to all sample users
@@ -727,23 +876,41 @@ async function assignUserRoles() {
                 });
             }
 
-            console.log(`✅ User role assigned to ${email}`);
+            logger.info('User role assigned', {
+              email,
+              userId: sampleUser.user_id,
+              roleId: userRole.role_id,
+              operation: 'assignUserRoles'
+            });
           } else {
-            console.log(`ℹ️  ${email} already has user role, skipping...`);
+            logger.info('User already has user role, skipping', {
+              email,
+              operation: 'assignUserRoles'
+            });
           }
         }
       }
     }
 
-    console.log('🎉 User role assignments completed!');
+    logger.info('User role assignments completed', {
+      operation: 'assignUserRoles',
+      phase: 'completed'
+    });
   } catch (error) {
-    console.error('❌ Error assigning user roles:', error);
+    logger.error('Error assigning user roles', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      operation: 'assignUserRoles'
+    });
     throw error;
   }
 }
 
 async function seed() {
-  console.log('🚀 Starting database seeding...');
+  logger.info('Starting database seeding', {
+    operation: 'seedDatabase',
+    phase: 'start'
+  });
 
   try {
     // Seed RBAC data first (permissions, roles, role_permissions)
@@ -757,10 +924,17 @@ async function seed() {
     // Finally assign roles to users
     await assignUserRoles();
 
-    console.log('✨ Database seeding completed successfully!');
+    logger.info('Database seeding completed successfully', {
+      operation: 'seedDatabase',
+      phase: 'completed'
+    });
     process.exit(0);
   } catch (error) {
-    console.error('💥 Database seeding failed:', error);
+    logger.error('Database seeding failed', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      operation: 'seedDatabase'
+    });
     process.exit(1);
   }
 }

@@ -3,6 +3,7 @@ import { getUserContextSafe } from './user-context';
 import { PermissionChecker } from './permission-checker';
 import { type PermissionName, type UserContext, RBACError } from '@/lib/types/rbac';
 import { createErrorResponse } from '@/lib/api/responses/error';
+import { db } from '@/lib/db';
 
 /**
  * RBAC Middleware for Next.js API Routes
@@ -54,7 +55,7 @@ export function createRBACMiddleware(
         return createErrorResponse('User context not available', 401, request) as NextResponse;
       }
 
-      const checker = new PermissionChecker(resolvedUserContext);
+      const checker = new PermissionChecker(resolvedUserContext, db);
       
       // Extract resource and organization IDs from request
       const resourceId = options.extractResourceId?.(request);

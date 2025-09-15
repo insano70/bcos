@@ -2,6 +2,7 @@ import { db, user_sessions, login_attempts, account_security } from '@/lib/db'
 import { eq, and, gte, lte, desc, count, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { AuditLogger } from './audit'
+import { logger } from '@/lib/logger'
 
 /**
  * Enterprise Session Management Service
@@ -284,7 +285,12 @@ export class SessionManager {
   private static async updateDeviceTracking(userId: string, deviceInfo: DeviceInfo): Promise<void> {
     // Device tracking functionality removed - trusted_devices table not implemented
     // This is a placeholder for future device tracking implementation
-    console.log(`Device tracking for user ${userId} with fingerprint ${deviceInfo.fingerprint}`)
+    logger.debug('Device tracking initiated', {
+      userId,
+      fingerprint: deviceInfo.fingerprint,
+      deviceType: deviceInfo.deviceType,
+      operation: 'trackUserDevice'
+    })
   }
 
   /**
@@ -328,7 +334,10 @@ export class SessionManager {
         )
       )
 
-    console.log(`Cleaned up ${result.length} expired sessions`)
+    logger.info('Session cleanup completed', {
+      expiredSessions: result.length,
+      operation: 'cleanupExpiredSessions'
+    })
     return result.length
   }
 

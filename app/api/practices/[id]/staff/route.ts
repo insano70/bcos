@@ -8,7 +8,8 @@ import { getPagination, getSortParams } from '@/lib/api/utils/request';
 import { staffCreateSchema, staffQuerySchema, staffParamsSchema } from '@/lib/validations/staff';
 import { practiceParamsSchema } from '@/lib/validations/practice';
 import { practiceRoute, rbacRoute } from '@/lib/api/rbac-route-handler';
-import type { UserContext } from '@/lib/types/rbac';
+import type { UserContext } from '@/lib/types/rbac'
+import { logger } from '@/lib/logger';
 import { parseSpecialties, parseEducation } from '@/lib/utils/safe-json';
 
 const getPracticeStaffHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
@@ -84,7 +85,12 @@ const getPracticeStaffHandler = async (request: NextRequest, userContext: UserCo
     })
     
   } catch (error) {
-    console.error('Error fetching staff members:', error)
+    logger.error('Error fetching staff members', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      practiceId,
+      operation: 'fetchStaffMembers'
+    })
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
@@ -130,7 +136,12 @@ const createPracticeStaffHandler = async (request: NextRequest, userContext: Use
 
     return NextResponse.json(newStaff, { status: 201 });
   } catch (error) {
-    console.error('Error creating staff member:', error);
+    logger.error('Error creating staff member', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      practiceId,
+      operation: 'createStaffMember'
+    });
     return NextResponse.json(
       { error: 'Failed to create staff member' },
       { status: 500 }

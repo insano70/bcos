@@ -39,7 +39,10 @@ async function getDashboardStats() {
       activePractices: activePracticeCount?.count || 0,
     };
   } catch (error) {
-    console.error('Error fetching dashboard stats:', error);
+    // Log client-side dashboard errors for debugging
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error fetching dashboard stats:', error);
+    }
     return {
       totalPractices: 0,
       totalUsers: 0,

@@ -148,7 +148,10 @@ export default function PracticeConfigForm({
         });
         if (!response.ok) throw new Error('Failed to update practice');
       } catch (error) {
-        console.error('Error updating practice:', error);
+        // Log client-side practice update errors for debugging
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error updating practice:', error);
+        }
         return;
       }
     }

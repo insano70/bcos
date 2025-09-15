@@ -1,14 +1,15 @@
 import { beforeEach, afterEach, afterAll, beforeAll } from 'vitest'
 import { initializeMainTransaction, getTestTransaction, rollbackTransaction, cleanupTestDb } from '@/tests/helpers/db-helper'
 import { emergencyCleanup } from './cleanup'
+import { logger } from '@/lib/logger'
 
 // Ensure environment variables are set for tests
 // Only set DATABASE_URL if it's not already set (to avoid overriding existing config)
 if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = 'postgresql://bcos_d:oRMgpg2micRfQVXz7Bfbr@localhost:5432/bcos_d';
 }
-process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
-process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'test-refresh-secret';
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-that-is-at-least-32-characters-long-for-security';
+process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'test-refresh-secret-that-is-at-least-32-characters-long';
 
 /**
  * Initialize main transaction for the entire test session
@@ -17,9 +18,18 @@ process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'test-refresh
 beforeAll(async () => {
   try {
     console.log('🚀 Initializing main test transaction...')
+    logger.info('Initializing main test transaction', {
+      operation: 'testSetup',
+      phase: 'transaction'
+    })
     await initializeMainTransaction()
   } catch (error) {
     console.error('❌ Failed to initialize main transaction:', error)
+    logger.error('Failed to initialize main transaction', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      operation: 'testSetup'
+    })
     throw error
   }
 })
@@ -34,6 +44,11 @@ beforeEach(async () => {
     await getTestTransaction()
   } catch (error) {
     console.error('❌ Test setup failed:', error)
+    logger.error('Test setup failed', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      operation: 'testSetup'
+    })
     throw error
   }
 })
@@ -48,12 +63,20 @@ afterEach(async () => {
     await rollbackTransaction()
   } catch (error) {
     console.warn('⚠️ Test cleanup failed:', error)
+    logger.warn('Test cleanup failed', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      operation: 'testCleanup'
+    })
     
     // Try emergency cleanup if normal cleanup fails
     try {
       await emergencyCleanup()
     } catch (emergencyError) {
       console.warn('⚠️ Emergency cleanup also failed:', emergencyError)
+      logger.error('Emergency cleanup failed', {
+        error: emergencyError instanceof Error ? emergencyError.message : 'Unknown error',
+        operation: 'emergencyCleanup'
+      })
     }
   }
 })
@@ -65,14 +88,24 @@ afterEach(async () => {
 afterAll(async () => {
   try {
     console.log('🧹 Starting process cleanup...')
+    logger.info('Starting process cleanup', {
+      operation: 'processCleanup'
+    })
     
     // This will rollback the main transaction and clean up connections
     await cleanupTestDb()
     
     console.log('✅ Process cleanup completed')
+    logger.info('Process cleanup completed', {
+      operation: 'processCleanup'
+    })
     
   } catch (error) {
     console.error('❌ Process cleanup failed:', error)
+    logger.error('Process cleanup failed', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      operation: 'processCleanup'
+    })
     // Don't throw - we want tests to complete even if cleanup fails
   }
 })

@@ -37,8 +37,9 @@ export class PermissionChecker {
       const result = this.checkPermission(permissionName, { resourceId, organizationId });
       return result.granted;
     } catch (error) {
-      // Log permission check failures for audit
-      console.warn(`Permission check failed for ${this.userContext.user_id}:`, {
+      // Log permission check failures for audit (client-safe logging)
+      console.warn('Permission check failed:', {
+        userId: this.userContext.user_id,
         permission: permissionName,
         resourceId,
         organizationId,
@@ -311,24 +312,23 @@ export class PermissionChecker {
   ): { valid: boolean; reason?: string; applicableOrganizations?: string[] } {
     switch (scope) {
       case 'own':
-        // For 'own' scope validation, we need to handle different resource types
+        // User can only access their own resources or resources they own
         if (resourceId) {
-          // Special case: if resourceId equals user_id, it's definitely accessible (direct ownership)
+          // Direct user ID match (user accessing their own profile)
           if (resourceId === this.userContext.user_id) {
             return { valid: true };
           }
           
-          // For practice resources, check if user is the owner
-          // This is a simplified check that works for tests
-          // In production, this should query the database to verify ownership
-          // For now, we'll allow 'own' scope access when a resourceId is provided
-          // The actual ownership verification should be handled by the API layer
+          // Check if user owns this resource (via owned_resources in UserContext)
+          const ownedResources = this.userContext.owned_resources || [];
+          if (ownedResources.includes(resourceId)) {
+            return { valid: true };
+          }
           
-          // TODO: Implement proper database-driven ownership validation
-          // For practices: query practices table where owner_user_id = this.userContext.user_id AND practice_id = resourceId
-          // For other resources: implement appropriate ownership logic
-          
-          console.log(`[PermissionChecker] 'own' scope validation for resource ${resourceId} by user ${this.userContext.user_id} - allowing for test compatibility`);
+          return {
+            valid: false,
+            reason: `Access denied: User ${this.userContext.user_id} does not own resource ${resourceId}`
+          };
         }
         return { valid: true };
 

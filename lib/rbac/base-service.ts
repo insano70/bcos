@@ -1,4 +1,5 @@
 import { PermissionChecker } from './permission-checker';
+import { db } from '@/lib/db';
 import { 
   type UserContext, 
   type AccessScope, 
@@ -17,8 +18,8 @@ import {
 export abstract class BaseRBACService {
   protected checker: PermissionChecker;
   
-  constructor(protected userContext: UserContext) {
-    this.checker = new PermissionChecker(userContext);
+  constructor(protected userContext: UserContext, protected dbContext?: typeof db) {
+    this.checker = new PermissionChecker(userContext, dbContext || db);
   }
 
   /**

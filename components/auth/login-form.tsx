@@ -45,10 +45,16 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     try {
       setError(null)
       setIsSubmitting(true)
-      console.log('Login form submitting...')
+      // Login form submitting (client-side debug)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Login form submitting...')
+      }
 
       await login(data.email, data.password, data.remember)
-      console.log('Login completed, redirecting to:', callbackUrl)
+      // Login successful, redirecting (client-side debug)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Login completed, redirecting to:', callbackUrl)
+      }
       
       onSuccess?.()
       
@@ -56,7 +62,10 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
       window.location.href = callbackUrl
       
     } catch (error) {
-      console.error('Login error:', error)
+      // Log client-side login errors for debugging
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Login error:', error)
+      }
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.'
       setError(errorMessage)
       setIsSubmitting(false)

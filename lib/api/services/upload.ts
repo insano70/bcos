@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { nanoid } from 'nanoid'
 import sharp from 'sharp'
+import { logger } from '@/lib/logger'
 
 /**
  * Enterprise File Upload Service
@@ -220,7 +221,10 @@ export class FileUploadService {
           return buffer
       }
     } catch (error) {
-      console.warn('Image optimization failed, using original:', error)
+      logger.warn('Image optimization failed, using original', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        operation: 'optimizeImage'
+      })
       return buffer
     }
   }
@@ -256,7 +260,10 @@ export class FileUploadService {
       await writeFile(thumbnailFile, thumbnailBuffer)
       return thumbnailUrl
     } catch (error) {
-      console.warn('Thumbnail generation failed:', error)
+      logger.warn('Thumbnail generation failed', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        operation: 'generateThumbnail'
+      })
       return ''
     }
   }
@@ -303,7 +310,12 @@ export class FileUploadService {
 
       return true
     } catch (error) {
-      console.error('File deletion failed:', error)
+      logger.error('File deletion failed', {
+        filePath,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        operation: 'deleteFile'
+      })
       return false
     }
   }

@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import type { z } from 'zod'
 import { ValidationError } from '../responses/error'
 
 export async function validateRequest<T>(
@@ -89,7 +89,7 @@ function sanitizeValidationErrors(issues: z.ZodIssue[]): z.ZodIssue[] {
 function sanitizeErrorMessage(message: string): string {
   // Remove potentially sensitive information from error messages
   return message
-    .replace(/\b[\w\.-]+@[\w\.-]+\.\w+\b/gi, '[EMAIL]')
+    .replace(/\b[\w.-]+@[\w.-]+\.\w+\b/gi, '[EMAIL]')
     .replace(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi, '[UUID]')
     .replace(/\b\d{3,}\b/g, '[NUMBER]');
 }

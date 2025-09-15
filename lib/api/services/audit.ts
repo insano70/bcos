@@ -1,4 +1,5 @@
 import { db, audit_logs } from '@/lib/db'
+import { logger } from '@/lib/logger'
 import { nanoid } from 'nanoid'
 
 /**
@@ -168,13 +169,23 @@ class AuditLoggerService {
         await this.sendCriticalAlert(entry)
       }
 
-      console.log(`Audit log created: ${entry.event_type}/${entry.action}`, {
+      logger.debug('Audit log created', {
+        eventType: entry.event_type,
+        action: entry.action,
         userId: entry.user_id,
-        severity: entry.severity
+        severity: entry.severity,
+        operation: 'createAuditLog'
       })
     } catch (error) {
       // Never let audit logging failures break the main application
-      console.error('Audit logging failed:', error)
+      logger.error('Audit logging failed', {
+        eventType: entry.event_type,
+        action: entry.action,
+        userId: entry.user_id,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        operation: 'createAuditLog'
+      })
     }
   }
 
@@ -199,7 +210,14 @@ class AuditLoggerService {
         }
       )
     } catch (error) {
-      console.error('Failed to send critical alert:', error)
+      logger.error('Failed to send critical alert', {
+        eventType: entry.event_type,
+        action: entry.action,
+        severity: entry.severity,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        operation: 'sendCriticalAlert'
+      })
     }
   }
 
@@ -225,7 +243,11 @@ class AuditLoggerService {
         hasMore: false
       }
     } catch (error) {
-      console.error('Failed to retrieve audit logs:', error)
+      logger.error('Failed to retrieve audit logs', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      operation: 'getAuditLogs'
+    })
       throw error
     }
   }

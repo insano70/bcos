@@ -39,7 +39,10 @@ class ApiClient {
   ): Promise<T> {
     const { headers = {}, includeAuth = true, ...requestOptions } = options
 
-    console.log('🚀 API Client Request:', endpoint, { hasAuthContext: !!this.authContext })
+    // API request logging (client-side debug)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🚀 API Client Request:', endpoint, { hasAuthContext: !!this.authContext })
+    }
 
     // Build request headers
     const requestHeaders = new Headers({
@@ -68,7 +71,10 @@ class ApiClient {
 
       // Handle 401 Unauthorized - Session expired
       if (response.status === 401) {
-        console.log('API request returned 401 - session expired, attempting token refresh...')
+        // Session expiry logging (client-side debug)
+        if (process.env.NODE_ENV === 'development') {
+          console.log('API request returned 401 - session expired, attempting token refresh...')
+        }
         
         // Try to refresh token first
         if (this.authContext?.refreshToken && includeAuth) {
@@ -93,7 +99,10 @@ class ApiClient {
               throw new Error('Session expired - redirecting to login')
             }
           } catch (refreshError) {
-            console.log('Token refresh failed:', refreshError)
+            // Token refresh failure logging (client-side debug)
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Token refresh failed:', refreshError)
+            }
             this.handleSessionExpired()
             throw new Error('Session expired - redirecting to login')
           }
@@ -126,7 +135,10 @@ class ApiClient {
         throw error // Re-throw session expired errors
       }
       
-      console.error(`API request failed [${requestOptions.method || 'GET'} ${endpoint}]:`, error)
+      // API request failure logging (client-side debug)
+      if (process.env.NODE_ENV === 'development') {
+        console.error(`API request failed [${requestOptions.method || 'GET'} ${endpoint}]:`, error)
+      }
       throw new Error(error instanceof Error ? error.message : 'Network error occurred')
     }
   }
@@ -135,7 +147,10 @@ class ApiClient {
    * Handle session expiry by redirecting to login
    */
   private handleSessionExpired() {
-    console.log('Session expired - redirecting to login page')
+    // Session expiry redirect logging (client-side debug)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Session expired - redirecting to login page')
+    }
     
     // Clear auth context if available
     if (this.authContext?.logout) {

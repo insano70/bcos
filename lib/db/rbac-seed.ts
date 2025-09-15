@@ -6,6 +6,7 @@ import {
   organizations 
 } from './schema';
 import { inArray, count } from 'drizzle-orm';
+import { logger } from '@/lib/logger';
 
 /**
  * RBAC Seed Data for Healthcare Practice Management System
@@ -358,29 +359,47 @@ const SAMPLE_ORGANIZATIONS = [
  * Seed the RBAC system with base permissions, roles, and sample data
  */
 export async function seedRBACData() {
-  console.log('🌱 Starting RBAC seed process...');
+  logger.info('Starting RBAC seed process', {
+    operation: 'seedRBAC',
+    phase: 'start'
+  });
 
   try {
     // 1. Insert base permissions
-    console.log('📝 Inserting base permissions...');
+    logger.info('Inserting base permissions', {
+      operation: 'seedRBAC',
+      phase: 'permissions'
+    });
     const insertedPermissions = await db
       .insert(permissions)
       .values(BASE_PERMISSIONS)
       .returning();
     
-    console.log(`✅ Created ${insertedPermissions.length} permissions`);
+    logger.info('Created permissions', {
+      count: insertedPermissions.length,
+      operation: 'seedRBAC'
+    });
 
     // 2. Insert sample organizations
-    console.log('🏢 Inserting sample organizations...');
+    logger.info('Inserting sample organizations', {
+      operation: 'seedRBAC',
+      phase: 'organizations'
+    });
     const insertedOrganizations = await db
       .insert(organizations)
       .values(SAMPLE_ORGANIZATIONS)
       .returning();
     
-    console.log(`✅ Created ${insertedOrganizations.length} organizations`);
+    logger.info('Created organizations', {
+      count: insertedOrganizations.length,
+      operation: 'seedRBAC'
+    });
 
     // 3. Insert base roles
-    console.log('👥 Inserting base roles...');
+    logger.info('Inserting base roles', {
+      operation: 'seedRBAC',
+      phase: 'roles'
+    });
     const insertedRoles = [];
     
     for (const roleData of BASE_ROLES) {
@@ -413,18 +432,43 @@ export async function seedRBACData() {
       }
     }
 
-    console.log(`✅ Created ${insertedRoles.length} roles with permissions`);
+    logger.info('Created roles with permissions', {
+      count: insertedRoles.length,
+      operation: 'seedRBAC'
+    });
 
     // 4. Summary
-    console.log('\n🎉 RBAC seed completed successfully!');
-    console.log(`📊 Summary:`);
-    console.log(`   • ${insertedPermissions.length} permissions`);
-    console.log(`   • ${insertedRoles.length} roles`);
-    console.log(`   • ${insertedOrganizations.length} organizations`);
-    console.log(`\n🔐 Available roles:`);
+    logger.info('RBAC seed completed successfully', {
+      operation: 'seedRBAC',
+      phase: 'completed'
+    });
+    logger.info('RBAC seed summary', {
+      operation: 'seedRBAC',
+      phase: 'summary'
+    });
+    logger.info('Permissions created', {
+      count: insertedPermissions.length,
+      operation: 'seedRBAC'
+    });
+    logger.info('Roles created', {
+      count: insertedRoles.length,
+      operation: 'seedRBAC'
+    });
+    logger.info('Organizations created', {
+      count: insertedOrganizations.length,
+      operation: 'seedRBAC'
+    });
+    logger.info('Available roles', {
+      operation: 'seedRBAC',
+      phase: 'roleList'
+    });
     insertedRoles.forEach(role => {
       if (role) {
-        console.log(`   • ${role.name}: ${role.description}`);
+        logger.info('Role available', {
+          name: role.name,
+          description: role.description,
+          operation: 'seedRBAC'
+        });
       }
     });
 
@@ -435,7 +479,11 @@ export async function seedRBACData() {
     };
 
   } catch (error) {
-    console.error('❌ RBAC seed failed:', error);
+    logger.error('RBAC seed failed', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      operation: 'seedRBAC'
+    });
     throw error;
   }
 }
@@ -444,7 +492,10 @@ export async function seedRBACData() {
  * Clear all RBAC data (for testing/development)
  */
 export async function clearRBACData() {
-  console.log('🧹 Clearing RBAC data...');
+  logger.info('Clearing RBAC data', {
+    operation: 'clearRBAC',
+    phase: 'start'
+  });
   
   try {
     // Delete in correct order due to foreign key constraints
@@ -453,9 +504,16 @@ export async function clearRBACData() {
     await db.delete(permissions);
     await db.delete(organizations);
     
-    console.log('✅ RBAC data cleared successfully');
+    logger.info('RBAC data cleared successfully', {
+      operation: 'clearRBAC',
+      phase: 'completed'
+    });
   } catch (error) {
-    console.error('❌ Failed to clear RBAC data:', error);
+    logger.error('Failed to clear RBAC data', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      operation: 'clearRBAC'
+    });
     throw error;
   }
 }
@@ -471,7 +529,11 @@ export async function checkRBACDataExists(): Promise<boolean> {
     
     return (result?.count ?? 0) > 0;
   } catch (error) {
-    console.error('Error checking RBAC data:', error);
+    logger.error('Error checking RBAC data', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      operation: 'checkRBAC'
+    });
     return false;
   }
 }

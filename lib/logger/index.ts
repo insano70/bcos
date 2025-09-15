@@ -29,8 +29,7 @@ export {
 export {
   withLogging,
   withRBACLogging,
-  withPerformanceLogging,
-  withDBLogging
+  withPerformanceLogging
 } from './middleware'
 
 
@@ -47,6 +46,47 @@ export {
   CorrelationHelpers,
   type CorrelationContext
 } from './correlation'
+
+// Database monitoring
+export {
+  withDBLogging,
+  logSlowQuery,
+  logDBConnection,
+  logDBTransaction,
+  logDBHealth
+} from './db-wrapper'
+
+// Error handling
+export {
+  ContextualError,
+  ValidationError,
+  AuthenticationError,
+  AuthorizationError,
+  NotFoundError,
+  ConflictError,
+  RateLimitError,
+  DatabaseError,
+  handleError,
+  createErrorHandler,
+  withErrorHandling,
+  withDBErrorHandling,
+  createValidationError,
+  createRateLimitError
+} from './error-handler'
+
+// Audit optimization
+export {
+  BufferedAuditLogger
+} from './audit-optimizer'
+
+// Metrics and monitoring
+export {
+  RequestMetricsCollector,
+  PerformanceAggregator,
+  withRequestMetrics,
+  requestMetrics,
+  performanceAggregator
+} from './metrics'
 
 // Default exports for common use cases
 import { logger as defaultLogger } from './winston-logger'

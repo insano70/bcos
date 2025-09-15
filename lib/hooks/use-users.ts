@@ -9,6 +9,10 @@ export interface User {
   is_active: boolean | null;
   created_at: string;
   deleted_at: string | null;
+  roles?: Array<{
+    id: string;
+    name: string;
+  }>;
 }
 
 export interface CreateUserData {
@@ -25,6 +29,8 @@ export interface UpdateUserData {
   first_name?: string;
   last_name?: string;
   email?: string;
+  password?: string;
+  role_ids?: string[];
   email_verified?: boolean;
   is_active?: boolean;
 }
@@ -34,7 +40,10 @@ export interface UpdateUserData {
  * Authentication handled by middleware via httpOnly cookies
  */
 export function useUsers() {
-  console.log('👥 useUsers: Hook called (auth handled by middleware)')
+  // Hook called (client-side debug)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('👥 useUsers: Hook called (auth handled by middleware)')
+  }
 
   const query = useApiQuery<User[]>(
     ['users'],
@@ -45,12 +54,15 @@ export function useUsers() {
     }
   );
 
-  console.log('👥 useUsers: Query state -', {
-    isLoading: query.isLoading,
-    hasData: !!query.data,
-    hasError: !!query.error,
-    errorMessage: query.error?.message
-  })
+  // Query state logging (client-side debug)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('👥 useUsers: Query state -', {
+      isLoading: query.isLoading,
+      hasData: !!query.data,
+      hasError: !!query.error,
+      errorMessage: query.error?.message
+    })
+  }
 
   return query;
 }

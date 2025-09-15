@@ -6,7 +6,8 @@ import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
 import { validateRequest, validateParams } from '@/lib/api/middleware/validation';
 import { practiceAttributesUpdateSchema, practiceParamsSchema } from '@/lib/validations/practice';
 import { practiceRoute } from '@/lib/api/rbac-route-handler';
-import type { UserContext } from '@/lib/types/rbac';
+import type { UserContext } from '@/lib/types/rbac'
+import { logger } from '@/lib/logger';
 
 const getPracticeAttributesHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   try {
@@ -57,7 +58,12 @@ const getPracticeAttributesHandler = async (request: NextRequest, userContext: U
     return createSuccessResponse(parsedAttributes)
     
   } catch (error) {
-    console.error('Error fetching practice attributes:', error)
+    logger.error('Error fetching practice attributes', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      practiceId,
+      operation: 'fetchPracticeAttributes'
+    })
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
@@ -123,7 +129,12 @@ const updatePracticeAttributesHandler = async (request: NextRequest, userContext
     return createSuccessResponse(parsedAttributes, 'Practice attributes updated successfully')
     
   } catch (error) {
-    console.error('Error updating practice attributes:', error)
+    logger.error('Error updating practice attributes', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      practiceId,
+      operation: 'updatePracticeAttributes'
+    })
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }

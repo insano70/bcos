@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+import { logger } from '@/lib/logger'
 
 /**
  * Professional Email Service
@@ -109,7 +110,10 @@ export class EmailService {
     const adminEmails = process.env.ADMIN_NOTIFICATION_EMAILS?.split(',') || []
     
     if (adminEmails.length === 0) {
-      console.warn('No admin notification emails configured')
+      logger.warn('No admin notification emails configured', {
+        operation: 'sendAdminNotification',
+        reason: 'ADMIN_NOTIFICATION_EMAILS not set'
+      })
       return
     }
 
@@ -144,9 +148,20 @@ export class EmailService {
         throw new Error(`Email sending failed: ${result.error.message}`)
       }
 
-      console.log(`Email sent successfully to ${options.to}:`, result.data?.id)
+      logger.info('Email sent successfully', {
+        to: options.to,
+        emailId: result.data?.id,
+        subject: options.subject,
+        operation: 'sendEmail'
+      })
     } catch (error) {
-      console.error('Email sending error:', error)
+      logger.error('Email sending error', {
+        to: options.to,
+        subject: options.subject,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        operation: 'sendEmail'
+      })
       throw error
     }
   }

@@ -32,6 +32,7 @@ INSERT INTO public.permissions (name, description, resource, action, scope, is_a
 ('roles:create:organization', 'Create roles in organization', 'roles', 'create', 'organization', true),
 ('roles:update:organization', 'Update roles in organization', 'roles', 'update', 'organization', true),
 ('roles:delete:organization', 'Delete roles in organization', 'roles', 'delete', 'organization', true),
+('roles:read:all', 'Read all roles (admin level)', 'roles', 'read', 'all', true),
 ('roles:manage:all', 'Full role management (super admin)', 'roles', 'manage', 'all', true),
 
 -- Settings & Configuration Permissions

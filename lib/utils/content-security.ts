@@ -75,7 +75,7 @@ export function sanitizePhoneNumber(phone: string | null | undefined): string {
 
   return phone
     .trim()
-    .replace(/[^0-9\s\-\(\)\+\.]/g, '') // Only allow phone number characters
+    .replace(/[^0-9\s\-()+.]/g, '') // Only allow phone number characters
     .slice(0, 20);
 }
 

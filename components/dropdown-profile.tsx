@@ -11,7 +11,10 @@ export default function DropdownProfile({ align }: { align?: 'left' | 'right' })
 
   const handleSignOut = async () => {
     try {
-      console.log('Initiating logout from dropdown...')
+      // Logout initiated (client-side debug)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Initiating logout from dropdown...')
+      }
       
       // Use our custom logout
       await logout()
@@ -21,7 +24,10 @@ export default function DropdownProfile({ align }: { align?: 'left' | 'right' })
       router.refresh()
       
     } catch (error) {
-      console.error('Logout error:', error)
+      // Log client-side logout errors for debugging
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Logout error:', error)
+      }
       // Force redirect even if logout fails
       router.push('/signin')
     }

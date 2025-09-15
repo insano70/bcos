@@ -34,6 +34,10 @@ export interface RoleWithPermissions {
  * Handles role management with automatic permission-based filtering
  */
 export function createRBACRolesService(userContext: UserContext) {
+  const hasManageAllPermission = userContext.all_permissions?.some(p =>
+    p.name === 'roles:manage:all'
+  ) || false;
+
   const hasReadAllPermission = userContext.all_permissions?.some(p =>
     p.name === 'roles:read:all'
   ) || false;
@@ -65,7 +69,7 @@ export function createRBACRolesService(userContext: UserContext) {
       }
 
       // Filter by organization based on permissions
-      if (hasReadAllPermission) {
+      if (hasManageAllPermission || hasReadAllPermission) {
         // Can read all roles - no organization filter needed
       } else if (hasReadOrganizationPermission) {
         // Can read roles from their organization
@@ -101,7 +105,7 @@ export function createRBACRolesService(userContext: UserContext) {
 
       // Filter by specific organization if requested and user has permission
       if (organization_id) {
-        if (hasReadAllPermission ||
+        if (hasManageAllPermission || hasReadAllPermission ||
             (hasReadOrganizationPermission && organization_id === userContext.current_organization_id)) {
           whereConditions.push(eq(roles.organization_id, organization_id));
         }
