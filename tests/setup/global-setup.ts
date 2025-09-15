@@ -8,16 +8,16 @@ import { TestDatabasePool } from '../helpers/test-database-pool'
  * Handles database migrations and global initialization
  */
 export async function setup() {
-  console.log('🚀 Starting global test setup...')
+  // TEST: console.log('🚀 Starting global test setup...')
   
   try {
     // Ensure we have a database URL - use same fallback as test-setup.ts
     if (!process.env.DATABASE_URL) {
       process.env.DATABASE_URL = 'postgresql://bcos_d:oRMgpg2micRfQVXz7Bfbr@localhost:5432/bcos_d'
-      console.log('📝 Using default DATABASE_URL for tests')
+      // TEST: console.log('📝 Using default DATABASE_URL for tests')
     }
 
-    console.log('📊 Initializing test database...')
+    // TEST: console.log('📊 Initializing test database...')
     
     // Create a migration-specific connection
     const migrationClient = postgres(process.env.DATABASE_URL, { 
@@ -30,13 +30,13 @@ export async function setup() {
     try {
       // Skip migrations for now - assume database is already set up
       // TODO: Fix migration path once drizzle migrations are properly configured
-      console.log('⚠️  Skipping database migrations - assuming database is ready')
+      // TEST: console.log('⚠️  Skipping database migrations - assuming database is ready')
       
       // Just test the connection
       await migrationClient`SELECT 1 as connection_test`
-      console.log('✅ Database connection verified')
+      // TEST: console.log('✅ Database connection verified')
     } catch (error) {
-      console.error('❌ Database connection failed:', error)
+      // TEST: console.error('❌ Database connection failed:', error)
       throw error
     } finally {
       // Close migration connection
@@ -44,21 +44,21 @@ export async function setup() {
     }
 
     // Test database connectivity
-    console.log('🔗 Testing database connectivity...')
+    // TEST: console.log('🔗 Testing database connectivity...')
     const testProcessId = `global_test_${process.pid}`
     const { client } = await TestDatabasePool.getConnection(testProcessId)
     
     // Verify basic queries work
     await client`SELECT 1 as connectivity_test`
-    console.log('✅ Database connectivity verified')
+    // TEST: console.log('✅ Database connectivity verified')
     
     // Clean up test connection
     await TestDatabasePool.closeConnection(testProcessId)
 
-    console.log('🎉 Global test setup completed successfully')
+    // TEST: console.log('🎉 Global test setup completed successfully')
     
   } catch (error) {
-    console.error('❌ Global test setup failed:', error)
+    // TEST: console.error('❌ Global test setup failed:', error)
     throw error
   }
 }
@@ -68,17 +68,17 @@ export async function setup() {
  * Handles global cleanup and connection closure
  */
 export async function teardown() {
-  console.log('🧹 Starting global test teardown...')
+  // TEST: console.log('🧹 Starting global test teardown...')
   
   try {
     // Close all database connections
     await TestDatabasePool.closeAllConnections()
     
     // Additional cleanup if needed
-    console.log('✅ Global test teardown completed successfully')
+    // TEST: console.log('✅ Global test teardown completed successfully')
     
   } catch (error) {
-    console.error('❌ Global test teardown failed:', error)
+    // TEST: console.error('❌ Global test teardown failed:', error)
     // Don't throw here - we want tests to complete even if cleanup fails
   }
 }

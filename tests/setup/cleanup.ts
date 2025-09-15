@@ -12,7 +12,7 @@ export async function cleanupTestData() {
   const db = getTestDb()
 
   try {
-    console.log('🧹 Starting test data cleanup...')
+    // TEST: console.log('🧹 Starting test data cleanup...')
     
     // Clean up in foreign key dependency order (children first, then parents)
     
@@ -20,27 +20,27 @@ export async function cleanupTestData() {
     await db.delete(user_roles).where(sql`1=1`)
     await db.delete(user_organizations).where(sql`1=1`)
     await db.delete(role_permissions).where(sql`1=1`)
-    console.log('  ✅ Cleaned up RBAC junction tables')
+    // TEST: console.log('  ✅ Cleaned up RBAC junction tables')
     
     // 2. Clean up practices (depends on users)
     await db.delete(practices).where(sql`name LIKE 'test_%' OR name LIKE '%test%' OR domain LIKE '%.local'`)
-    console.log('  ✅ Cleaned up test practices')
+    // TEST: console.log('  ✅ Cleaned up test practices')
     
     // 3. Clean up roles (referenced by role_permissions and user_roles)
     await db.delete(roles).where(sql`name LIKE 'test_%' OR name LIKE 'role_%' OR name LIKE '%test%'`)
-    console.log('  ✅ Cleaned up test roles')
+    // TEST: console.log('  ✅ Cleaned up test roles')
     
     // 4. Clean up organizations (referenced by user_organizations)
     await db.delete(organizations).where(sql`name LIKE 'test_%' OR slug LIKE 'test_%' OR name LIKE '%test%' OR slug LIKE '%test%'`)
-    console.log('  ✅ Cleaned up test organizations')
+    // TEST: console.log('  ✅ Cleaned up test organizations')
 
     // 5. Finally clean up users (now that all references are gone)
     const deletedUsers = await db.delete(users).where(sql`email LIKE '%@test.local' OR email LIKE '%test%' OR (first_name = 'Test' AND last_name = 'User')`)
-    console.log('  ✅ Cleaned up test users')
+    // TEST: console.log('  ✅ Cleaned up test users')
 
-    console.log('✅ Test data cleanup completed successfully')
+    // TEST: console.log('✅ Test data cleanup completed successfully')
   } catch (error) {
-    console.error('❌ Test data cleanup failed:', error)
+    // TEST: console.error('❌ Test data cleanup failed:', error)
     throw error
   }
 }
@@ -53,7 +53,7 @@ export async function emergencyCleanup() {
   const db = getTestDb()
 
   try {
-    console.log('🚨 Starting emergency cleanup...')
+    // TEST: console.log('🚨 Starting emergency cleanup...')
     
     // Clean up in foreign key dependency order (children first, then parents)
     
@@ -61,29 +61,29 @@ export async function emergencyCleanup() {
     await db.delete(user_roles).where(sql`1=1`)
     await db.delete(user_organizations).where(sql`1=1`)
     await db.delete(role_permissions).where(sql`1=1`)
-    console.log('  ✅ Emergency cleanup of RBAC junction tables')
+    // TEST: console.log('  ✅ Emergency cleanup of RBAC junction tables')
     
     // 2. Clean up all practices (aggressive - includes any test patterns)
     await db.delete(practices).where(sql`name LIKE '%test%' OR domain LIKE '%.local' OR domain LIKE '%test%'`)
-    console.log('  ✅ Emergency cleanup of practices')
+    // TEST: console.log('  ✅ Emergency cleanup of practices')
     
     // 3. Clean up test roles (more aggressive patterns)
     await db.delete(roles).where(sql`name LIKE '%test%' OR name LIKE '%role%' OR name LIKE 'user_%' OR name LIKE 'org_%' OR name LIKE 'practice_%'`)
-    console.log('  ✅ Emergency cleanup of test roles')
+    // TEST: console.log('  ✅ Emergency cleanup of test roles')
     
     // 4. Clean up test organizations (more aggressive patterns)
     await db.delete(organizations).where(sql`name LIKE '%test%' OR slug LIKE '%test%' OR name LIKE '%org%'`)
-    console.log('  ✅ Emergency cleanup of test organizations')
+    // TEST: console.log('  ✅ Emergency cleanup of test organizations')
 
     // 5. Clean up test users (aggressive patterns - now that all references are gone)
     await db.delete(users).where(sql`email LIKE '%test%' OR email LIKE '%@test.local' OR (first_name = 'Test' AND last_name = 'User') OR first_name LIKE 'Test%'`)
-    console.log('  ✅ Emergency cleanup of test users')
+    // TEST: console.log('  ✅ Emergency cleanup of test users')
 
-    console.log('✅ Emergency cleanup completed successfully')
+    // TEST: console.log('✅ Emergency cleanup completed successfully')
   } catch (error) {
-    console.error('❌ Emergency cleanup failed:', error)
+    // TEST: console.error('❌ Emergency cleanup failed:', error)
     // Don't throw - emergency cleanup should be best-effort
-    console.log('⚠️  Continuing despite emergency cleanup failure...')
+    // TEST: console.log('⚠️  Continuing despite emergency cleanup failure...')
   }
 }
 
@@ -95,7 +95,7 @@ export async function cleanupByTestPattern(testId: string) {
   const db = getTestDb()
 
   try {
-    console.log(`🧹 Starting cleanup for test pattern: ${testId}`)
+    // TEST: console.log(`🧹 Starting cleanup for test pattern: ${testId}`)
     
     // Clean up in foreign key dependency order
     const pattern = `%${testId}%`
@@ -117,9 +117,9 @@ export async function cleanupByTestPattern(testId: string) {
     // 5. Clean up users that include the test ID
     await db.delete(users).where(sql`email LIKE ${pattern} OR first_name LIKE ${pattern} OR last_name LIKE ${pattern}`)
 
-    console.log(`✅ Cleanup completed for test pattern: ${testId}`)
+    // TEST: console.log(`✅ Cleanup completed for test pattern: ${testId}`)
   } catch (error) {
-    console.error(`❌ Cleanup failed for test pattern ${testId}:`, error)
+    // TEST: console.error(`❌ Cleanup failed for test pattern ${testId}:`, error)
     throw error
   }
 }

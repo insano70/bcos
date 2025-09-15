@@ -3,7 +3,8 @@ import { db, practices, staff_members } from '@/lib/db';
 import { eq, isNull, and, asc, desc, sql, like } from 'drizzle-orm';
 import { createSuccessResponse, createPaginatedResponse } from '@/lib/api/responses/success';
 import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
-import { validateRequest, validateParams, validateQuery } from '@/lib/api/middleware/validation';
+import { validateRequest, validateQuery } from '@/lib/api/middleware/validation';
+import { extractRouteParams } from '@/lib/api/utils/params';
 import { getPagination, getSortParams } from '@/lib/api/utils/request';
 import { staffCreateSchema, staffQuerySchema, staffParamsSchema } from '@/lib/validations/staff';
 import { practiceParamsSchema } from '@/lib/validations/practice';
@@ -13,9 +14,9 @@ import { logger } from '@/lib/logger';
 import { parseSpecialties, parseEducation } from '@/lib/utils/safe-json';
 
 const getPracticeStaffHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+  let practiceId: string | undefined;
   try {
-    const params = args[0] as Promise<{ id: string }>
-    const { id: practiceId } = validateParams(await params, practiceParamsSchema)
+    ({ id: practiceId } = await extractRouteParams(args[0], practiceParamsSchema))
     const { searchParams } = new URL(request.url)
     const pagination = getPagination(searchParams)
     const sort = getSortParams(searchParams, ['name', 'title', 'display_order', 'created_at'])
@@ -96,9 +97,9 @@ const getPracticeStaffHandler = async (request: NextRequest, userContext: UserCo
 }
 
 const createPracticeStaffHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+  let practiceId: string | undefined;
   try {
-    const params = args[0] as Promise<{ id: string }>
-    const { id: practiceId } = validateParams(await params, practiceParamsSchema)
+    ({ id: practiceId } = await extractRouteParams(args[0], practiceParamsSchema))
     const validatedData = await validateRequest(request, staffCreateSchema)
 
     // Verify practice exists

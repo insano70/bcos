@@ -3,15 +3,15 @@ import { db, practices } from '@/lib/db';
 import { eq, isNull, and } from 'drizzle-orm';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse, NotFoundError, ConflictError } from '@/lib/api/responses/error';
-import { validateRequest, validateParams } from '@/lib/api/middleware/validation';
+import { validateRequest } from '@/lib/api/middleware/validation';
+import { extractRouteParams } from '@/lib/api/utils/params';
 import { practiceUpdateSchema, practiceParamsSchema } from '@/lib/validations/practice';
 import { practiceRoute, superAdminRoute } from '@/lib/api/rbac-route-handler';
 import type { UserContext } from '@/lib/types/rbac';
 
 const getPracticeHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   try {
-    const params = args[0] as Promise<{ id: string }>
-    const { id: practiceId } = validateParams(await params, practiceParamsSchema)
+    const { id: practiceId } = await extractRouteParams(args[0], practiceParamsSchema)
 
     // Verify practice exists
     const [practice] = await db
@@ -53,8 +53,7 @@ const getPracticeHandler = async (request: NextRequest, userContext: UserContext
 
 const updatePracticeHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   try {
-    const params = args[0] as Promise<{ id: string }>
-    const { id: practiceId } = validateParams(await params, practiceParamsSchema)
+    const { id: practiceId } = await extractRouteParams(args[0], practiceParamsSchema)
     const validatedData = await validateRequest(request, practiceUpdateSchema)
 
     // Verify practice exists
@@ -126,8 +125,7 @@ const updatePracticeHandler = async (request: NextRequest, userContext: UserCont
 
 const deletePracticeHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   try {
-    const params = args[0] as Promise<{ id: string }>
-    const { id: practiceId } = validateParams(await params, practiceParamsSchema)
+    const { id: practiceId } = await extractRouteParams(args[0], practiceParamsSchema)
 
     // Verify practice exists before deletion
     const [existingPractice] = await db

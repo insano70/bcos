@@ -1,7 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
-import { validateRequest, validateParams } from '@/lib/api/middleware/validation';
+import { validateRequest } from '@/lib/api/middleware/validation';
+import { extractRouteParams } from '@/lib/api/utils/params';
 import { userUpdateSchema, userParamsSchema } from '@/lib/validations/user';
 import { userRoute } from '@/lib/api/rbac-route-handler';
 import { createRBACUsersService } from '@/lib/services/rbac-users-service';
@@ -17,9 +18,7 @@ const getUserHandler = async (request: NextRequest, userContext: UserContext, ..
   const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
   
   try {
-    const params = args[0] as Promise<{ params: { id: string } }>;
-    const { params: { id } } = await params;
-    const { id: userId } = validateParams({ id }, userParamsSchema);
+    const { id: userId } = await extractRouteParams(args[0], userParamsSchema);
     
     logger.info('Get user request initiated', {
       targetUserId: userId,
@@ -75,9 +74,7 @@ const updateUserHandler = async (request: NextRequest, userContext: UserContext,
   const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
   
   try {
-    const params = args[0] as Promise<{ params: { id: string } }>;
-    const { params: { id } } = await params;
-    const { id: userId } = validateParams({ id }, userParamsSchema);
+    const { id: userId } = await extractRouteParams(args[0], userParamsSchema);
     
     logger.info('Update user request initiated', {
       targetUserId: userId,
@@ -175,9 +172,7 @@ const deleteUserHandler = async (request: NextRequest, userContext: UserContext,
   const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
   
   try {
-    const params = args[0] as Promise<{ params: { id: string } }>;
-    const { params: { id } } = await params;
-    const { id: userId } = validateParams({ id }, userParamsSchema);
+    const { id: userId } = await extractRouteParams(args[0], userParamsSchema);
     
     logger.info('Delete user request initiated', {
       targetUserId: userId,
@@ -223,13 +218,13 @@ export const GET = userRoute(
 );
 
 export const PUT = userRoute(
-  ['users:update:own', 'users:update:organization', 'users:update:all'],
+  ['users:update:own', 'users:update:organization', 'users:manage:all'],
   updateUserHandler,
   { rateLimit: 'api' }
 );
 
 export const DELETE = userRoute(
-  ['users:delete:organization', 'users:delete:all'],
+  ['users:delete:organization', 'users:manage:all'],
   deleteUserHandler,
   { rateLimit: 'api' }
 );

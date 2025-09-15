@@ -39,9 +39,9 @@ export class TestDatabasePool {
       // Test connection
       try {
         await client`SELECT 1 as connection_test`
-        console.log(`✅ Database connection established for process: ${processId}`)
+        // TEST: console.log(`✅ Database connection established for process: ${processId}`)
       } catch (error) {
-        console.error(`❌ Failed to establish database connection for process: ${processId}`, error)
+        // TEST: console.error(`❌ Failed to establish database connection for process: ${processId}`, error)
         throw error
       }
     }
@@ -62,9 +62,9 @@ export class TestDatabasePool {
         await client.end()
         this.pools.delete(processId)
         this.databases.delete(processId)
-        console.log(`✅ Database connection closed for process: ${processId}`)
+        // TEST: console.log(`✅ Database connection closed for process: ${processId}`)
       } catch (error) {
-        console.error(`❌ Error closing database connection for process: ${processId}`, error)
+        // TEST: console.error(`❌ Error closing database connection for process: ${processId}`, error)
       }
     }
   }
@@ -79,9 +79,9 @@ export class TestDatabasePool {
     for (const [processId, client] of Array.from(this.pools.entries())) {
       closePromises.push(
         client.end().then(() => {
-          console.log(`✅ Closed connection for process: ${processId}`)
+          // TEST: console.log(`✅ Closed connection for process: ${processId}`)
         }).catch((error: unknown) => {
-          console.error(`❌ Error closing connection for process: ${processId}`, error)
+          // TEST: console.error(`❌ Error closing connection for process: ${processId}`, error)
         })
       )
     }
@@ -91,7 +91,7 @@ export class TestDatabasePool {
     this.pools.clear()
     this.databases.clear()
     
-    console.log('✅ All database connections closed')
+    // TEST: console.log('✅ All database connections closed')
   }
 
   /**

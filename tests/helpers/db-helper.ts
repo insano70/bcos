@@ -39,9 +39,9 @@ export async function initializeMainTransaction(): Promise<void> {
     // Start a main transaction for the entire test session
     await client.unsafe('BEGIN')
     mainTransactionActive = true
-    console.log('🚀 Main test transaction started')
+    // TEST: console.log('🚀 Main test transaction started')
   } catch (error) {
-    console.error('❌ Failed to start main transaction:', error)
+    // TEST: console.error('❌ Failed to start main transaction:', error)
     throw error
   }
 }
@@ -64,7 +64,7 @@ export async function getTestTransaction() {
   // Create the savepoint within the main transaction
   await client.unsafe(`SAVEPOINT ${savepointName}`)
   
-  console.log(`🔄 Created savepoint: ${savepointName}`)
+  // TEST: console.log(`🔄 Created savepoint: ${savepointName}`)
   
   // Return the regular database instance
   // All operations will happen within the savepoint
@@ -82,10 +82,10 @@ export async function rollbackTransaction(): Promise<void> {
       await client.unsafe(`ROLLBACK TO SAVEPOINT ${testSavepointName}`)
       await client.unsafe(`RELEASE SAVEPOINT ${testSavepointName}`)
       
-      console.log(`🔄 Rolled back to savepoint: ${testSavepointName}`)
+      // TEST: console.log(`🔄 Rolled back to savepoint: ${testSavepointName}`)
       testSavepointName = null
     } catch (error) {
-      console.error('❌ Error during savepoint rollback:', error)
+      // TEST: console.error('❌ Error during savepoint rollback:', error)
       testSavepointName = null
       throw error
     }
@@ -122,9 +122,9 @@ export async function rollbackMainTransaction(): Promise<void> {
       const client = getTestClient()
       await client.unsafe('ROLLBACK')
       mainTransactionActive = false
-      console.log('🔄 Main test transaction rolled back')
+      // TEST: console.log('🔄 Main test transaction rolled back')
     } catch (error) {
-      console.error('❌ Error rolling back main transaction:', error)
+      // TEST: console.error('❌ Error rolling back main transaction:', error)
       mainTransactionActive = false
     }
   }

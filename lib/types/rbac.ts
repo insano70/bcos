@@ -3,6 +3,9 @@
  * Healthcare Practice Management with Multi-tenant Support
  */
 
+// Import NextRequest type for route handlers
+import type { NextRequest } from 'next/server';
+
 // Base RBAC Entities
 export interface Permission {
   permission_id: string;
@@ -386,3 +389,10 @@ export interface RBACConfig {
   batchPermissionChecks: boolean;
   maxBatchSize: number;
 }
+
+// Next.js 15 Route Handler Types
+export type RBACRouteHandler = (
+  request: NextRequest,
+  userContext: UserContext,
+  ...args: unknown[]
+) => Promise<Response>;

@@ -3,7 +3,8 @@ import { db, practices, practice_attributes } from '@/lib/db';
 import { eq, isNull, and } from 'drizzle-orm';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
-import { validateRequest, validateParams } from '@/lib/api/middleware/validation';
+import { validateRequest } from '@/lib/api/middleware/validation';
+import { extractRouteParams } from '@/lib/api/utils/params';
 import { practiceAttributesUpdateSchema, practiceParamsSchema } from '@/lib/validations/practice';
 import { practiceRoute } from '@/lib/api/rbac-route-handler';
 import type { UserContext } from '@/lib/types/rbac'
@@ -11,8 +12,7 @@ import { logger } from '@/lib/logger';
 
 const getPracticeAttributesHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   try {
-    const params = args[0] as Promise<{ id: string }>
-    const { id: practiceId } = validateParams(await params, practiceParamsSchema)
+    const { id: practiceId } = await extractRouteParams(args[0], practiceParamsSchema)
 
     // Verify practice exists
     const [practice] = await db
@@ -70,8 +70,7 @@ const getPracticeAttributesHandler = async (request: NextRequest, userContext: U
 
 const updatePracticeAttributesHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   try {
-    const params = args[0] as Promise<{ id: string }>
-    const { id: practiceId } = validateParams(await params, practiceParamsSchema)
+    const { id: practiceId } = await extractRouteParams(args[0], practiceParamsSchema)
     const validatedData = await validateRequest(request, practiceAttributesUpdateSchema)
 
     // Verify practice exists

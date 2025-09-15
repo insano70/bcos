@@ -57,6 +57,24 @@ input[type="search"]::-webkit-search-results-decoration {
   -webkit-appearance: none;
 }
 
+/* Auto-fill styling - override browser defaults */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px white inset !important;
+  -webkit-text-fill-color: theme(colors.gray.900) !important;
+}
+
+/* Auto-fill styling for dark mode */
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover,
+.dark input:-webkit-autofill:focus,
+.dark input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px theme(colors.gray.700) inset !important;
+  -webkit-text-fill-color: theme(colors.gray.100) !important;
+}
+
 .form-input,
 .form-textarea,
 .form-multiselect,
