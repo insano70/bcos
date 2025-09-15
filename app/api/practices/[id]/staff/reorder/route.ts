@@ -16,10 +16,13 @@ import {
 } from '@/lib/logger';
 
 // Validation schema for reorder request
-const reorderSchema = z.array(z.object({
-  staffId: z.string().uuid('Invalid staff ID'),
-  newOrder: z.number().int().min(0, 'Order must be non-negative')
-})).min(1, 'At least one staff member must be reordered');
+const reorderRequestSchema = z.object({
+  practiceId: z.string().uuid().optional(), // Optional since we get it from route
+  data: z.array(z.object({
+    staffId: z.string().uuid('Invalid staff ID'),
+    newOrder: z.number().int().min(0, 'Order must be non-negative')
+  })).min(1, 'At least one staff member must be reordered')
+});
 
 const reorderStaffHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const startTime = Date.now();
@@ -29,7 +32,9 @@ const reorderStaffHandler = async (request: NextRequest, userContext: UserContex
     // Extract practice ID from route params
     const practiceParams = await extractRouteParams(args[0], practiceParamsSchema);
     const practiceId = practiceParams.id;
-    const reorderData = await validateRequest(request, reorderSchema);
+    
+    const requestData = await validateRequest(request, reorderRequestSchema);
+    const reorderData = requestData.data;
     
     logger.info('Reorder staff request initiated', {
       practiceId,

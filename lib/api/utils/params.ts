@@ -30,26 +30,34 @@ export async function extractRouteParams<T extends z.ZodType>(
 
     let resolvedParams: Record<string, unknown>;
 
-    // In Next.js 15, params is always a Promise that needs to be awaited
-    // Try to await it regardless of type detection
-    try {
-      const awaited = await (params as Promise<unknown>);
-      
-      // Check if it has the expected structure
-      if (typeof awaited === 'object' && awaited !== null) {
+    // Check if the object has route params directly (Next.js 15 pattern)
+    // The object has both 'params' (Promise) and direct properties like 'id'
+    const paramsObj = params as Record<string, unknown>;
+    
+    // Check if it has direct route param properties (like 'id', 'slug', etc.)
+    const hasDirectParams = Object.keys(paramsObj).some(key => 
+      key !== 'params' && !key.startsWith('Symbol(')
+    );
+    
+    if (hasDirectParams) {
+      // Extract only the non-params, non-Symbol properties
+      resolvedParams = {};
+      for (const [key, value] of Object.entries(paramsObj)) {
+        if (key !== 'params' && !key.startsWith('Symbol(')) {
+          resolvedParams[key] = value;
+        }
+      }
+    } else if ('params' in paramsObj) {
+      try {
+        const awaited = await (paramsObj.params as Promise<unknown>);
         resolvedParams = awaited as Record<string, unknown>;
-      } else {
-        throw ValidationError(null, 'Invalid params structure after awaiting');
+      } catch (awaitError) {
+        resolvedParams = paramsObj.params as Record<string, unknown>;
       }
-    } catch (awaitError) {
-      // If awaiting fails, treat as direct params object (backwards compatibility)
-      if ('params' in params) {
-        resolvedParams = (params as { params: Record<string, unknown> }).params;
-      } else {
-        resolvedParams = params as Record<string, unknown>;
-      }
+    } else {
+      resolvedParams = paramsObj;
     }
-
+    
     // Validate with the provided schema
     const result = schema.safeParse(resolvedParams);
     
