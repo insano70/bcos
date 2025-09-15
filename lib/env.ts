@@ -35,6 +35,7 @@ export const env = createEnv({
   client: {
     NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:4001"),
     NEXT_PUBLIC_STORAGE_DOMAIN: z.string().url().optional(),
+    NEXT_PUBLIC_EXPERIMENTAL_MODE: z.string().default("false").transform(val => val === "true"),
   },
 
   /**
@@ -56,6 +57,7 @@ export const env = createEnv({
     // Client
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NEXT_PUBLIC_STORAGE_DOMAIN: process.env.NEXT_PUBLIC_STORAGE_DOMAIN,
+    NEXT_PUBLIC_EXPERIMENTAL_MODE: process.env.NEXT_PUBLIC_EXPERIMENTAL_MODE,
   },
   
   /**
@@ -75,58 +77,88 @@ export const env = createEnv({
  * Additional security validation for production
  * Note: Next.js build command runs with NODE_ENV=production, but we only want
  * to enforce production security for actual production deployments
+ * Only run this validation on the server side
  */
-const isActualProduction = env.NODE_ENV === "production" && process.env.VERCEL_ENV === "production";
+if (typeof window === 'undefined') {
+  const isActualProduction = env.NODE_ENV === "production" && process.env.VERCEL_ENV === "production";
 
-if (isActualProduction) {
-  // Ensure JWT secrets are strong enough for production
-  if (env.JWT_SECRET.length < 64) {
-    throw new Error("JWT_SECRET must be at least 64 characters in production");
-  }
-  
-  if (env.JWT_REFRESH_SECRET && env.JWT_REFRESH_SECRET.length < 64) {
-    throw new Error("JWT_REFRESH_SECRET must be at least 64 characters in production");
-  }
-  
-  // Ensure HTTPS in production
-  if (!env.NEXT_PUBLIC_APP_URL.startsWith("https://")) {
-    throw new Error("NEXT_PUBLIC_APP_URL must use HTTPS in production");
-  }
-  
-  // Warn about missing production services
-  if (!env.RESEND_API_KEY) {
-    console.warn("⚠️ RESEND_API_KEY not configured - email features will not work");
-  }
-  
-  if (!env.ADMIN_NOTIFICATION_EMAILS) {
-    console.warn("⚠️ ADMIN_NOTIFICATION_EMAILS not configured - security alerts will not be sent");
+  if (isActualProduction) {
+    // Ensure JWT secrets are strong enough for production
+    if (env.JWT_SECRET.length < 64) {
+      throw new Error("JWT_SECRET must be at least 64 characters in production");
+    }
+    
+    if (env.JWT_REFRESH_SECRET && env.JWT_REFRESH_SECRET.length < 64) {
+      throw new Error("JWT_REFRESH_SECRET must be at least 64 characters in production");
+    }
+    
+    // Ensure HTTPS in production
+    if (!env.NEXT_PUBLIC_APP_URL.startsWith("https://")) {
+      throw new Error("NEXT_PUBLIC_APP_URL must use HTTPS in production");
+    }
+    
+    // Warn about missing production services
+    if (!env.RESEND_API_KEY) {
+      console.warn("⚠️ RESEND_API_KEY not configured - email features will not work");
+    }
+    
+    if (!env.ADMIN_NOTIFICATION_EMAILS) {
+      console.warn("⚠️ ADMIN_NOTIFICATION_EMAILS not configured - security alerts will not be sent");
+    }
   }
 }
 
 /**
  * Helper functions for accessing validated environment
+ * These functions should only be used on the server side
  */
-export const getJWTConfig = () => ({
-  accessSecret: env.JWT_SECRET,
-  refreshSecret: env.JWT_REFRESH_SECRET || env.JWT_SECRET,
-  keyId: env.NODE_ENV === 'production' ? 'prod-key-1' : 'dev-key-1'
-});
+export const getJWTConfig = () => {
+  if (typeof window !== 'undefined') {
+    throw new Error('getJWTConfig can only be used on the server side');
+  }
+  return {
+    accessSecret: env.JWT_SECRET,
+    refreshSecret: env.JWT_REFRESH_SECRET || env.JWT_SECRET,
+    keyId: env.NODE_ENV === 'production' ? 'prod-key-1' : 'dev-key-1'
+  };
+};
 
-export const getDatabaseConfig = () => ({
-  url: env.DATABASE_URL,
-  // Production optimizations
-  ...(env.NODE_ENV === 'production' && {
-    max: 20,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
-  })
-});
+export const getDatabaseConfig = () => {
+  if (typeof window !== 'undefined') {
+    throw new Error('getDatabaseConfig can only be used on the server side');
+  }
+  return {
+    url: env.DATABASE_URL,
+    // Production optimizations
+    ...(env.NODE_ENV === 'production' && {
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    })
+  };
+};
 
-export const getEmailConfig = () => ({
-  apiKey: env.RESEND_API_KEY,
-  from: env.EMAIL_FROM || 'noreply@yourdomain.com',
-  adminEmails: env.ADMIN_NOTIFICATION_EMAILS?.split(',') || [],
-});
+export const getEmailConfig = () => {
+  if (typeof window !== 'undefined') {
+    throw new Error('getEmailConfig can only be used on the server side');
+  }
+  return {
+    apiKey: env.RESEND_API_KEY,
+    from: env.EMAIL_FROM || 'noreply@yourdomain.com',
+    adminEmails: env.ADMIN_NOTIFICATION_EMAILS?.split(',') || [],
+  };
+};
 
-export const isProduction = () => env.NODE_ENV === 'production';
-export const isDevelopment = () => env.NODE_ENV === 'development';
+export const isProduction = () => {
+  if (typeof window !== 'undefined') {
+    throw new Error('isProduction can only be used on the server side');
+  }
+  return env.NODE_ENV === 'production';
+};
+
+export const isDevelopment = () => {
+  if (typeof window !== 'undefined') {
+    throw new Error('isDevelopment can only be used on the server side');
+  }
+  return env.NODE_ENV === 'development';
+};
