@@ -19,7 +19,16 @@ const getPracticeStaffHandler = async (request: NextRequest, userContext: UserCo
     ({ id: practiceId } = await extractRouteParams(args[0], practiceParamsSchema))
     const { searchParams } = new URL(request.url)
     const pagination = getPagination(searchParams)
-    const sort = getSortParams(searchParams, ['name', 'title', 'display_order', 'created_at'])
+    // Default to display_order for proper staff ordering and reorder functionality
+    const sortBy = searchParams.get('sort') || 'display_order'
+    const sortOrder = searchParams.get('order') === 'desc' ? 'desc' : 'asc'
+    const allowedFields = ['name', 'title', 'display_order', 'created_at']
+    
+    if (!allowedFields.includes(sortBy)) {
+      throw new Error(`Invalid sort field. Allowed: ${allowedFields.join(', ')}`)
+    }
+    
+    const sort = { sortBy, sortOrder }
     const query = validateQuery(searchParams, staffQuerySchema)
 
     // Verify practice exists
@@ -63,12 +72,17 @@ const getPracticeStaffHandler = async (request: NextRequest, userContext: UserCo
       .from(staff_members)
       .where(and(...whereConditions))
 
-    // Get paginated data
+    // Get paginated data - default to display_order for proper reordering
+    const orderByColumn = sort.sortBy === 'name' ? staff_members.name :
+                         sort.sortBy === 'title' ? staff_members.title :
+                         sort.sortBy === 'created_at' ? staff_members.created_at :
+                         staff_members.display_order; // Default to display_order
+    
     const staff = await db
       .select()
       .from(staff_members)
       .where(and(...whereConditions))
-      .orderBy(sort.sortOrder === 'asc' ? asc(staff_members.name) : desc(staff_members.name))
+      .orderBy(sort.sortOrder === 'asc' ? asc(orderByColumn) : desc(orderByColumn))
       .limit(pagination.limit)
       .offset(pagination.offset)
 
