@@ -9,6 +9,7 @@ import SidebarLink from './sidebar-link';
 import Logo from './logo';
 import { ProtectedComponent } from '../rbac/protected-component';
 import { env } from '@/lib/env';
+import { useAuth } from '@/components/auth/rbac-auth-provider';
 
 export default function Sidebar({ variant = 'default' }: { variant?: 'default' | 'v2' }) {
   const sidebar = useRef<HTMLDivElement>(null);
@@ -17,6 +18,7 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
   const breakpoint = useWindowWidth();
   const expandOnly = !sidebarExpanded && breakpoint && breakpoint >= 1024 && breakpoint < 1536;
   const isExperimentalMode = env.NEXT_PUBLIC_EXPERIMENTAL_MODE;
+  const { rbacLoading } = useAuth();
 
   // close on click outside
   useEffect(() => {
@@ -38,6 +40,20 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
     document.addEventListener('keydown', keyHandler);
     return () => document.removeEventListener('keydown', keyHandler);
   });
+
+  // Don't render the sidebar until authentication is loaded
+  if (rbacLoading) {
+    return (
+      <div className={`min-w-fit ${sidebarExpanded ? 'sidebar-expanded' : ''}`}>
+        <div className="flex lg:flex! flex-col absolute z-40 left-0 top-0 lg:static lg:left-auto lg:top-auto lg:translate-x-0 h-[100dvh] overflow-y-scroll lg:overflow-y-auto no-scrollbar w-64 lg:w-20 lg:sidebar-expanded:!w-64 2xl:w-64! shrink-0 bg-white dark:bg-gray-800 p-4 transition-all duration-200 ease-in-out">
+          {/* Loading placeholder */}
+          <div className="flex justify-center items-center h-full">
+            <div className="animate-pulse text-gray-400">Loading...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-w-fit ${sidebarExpanded ? 'sidebar-expanded' : ''}`}>

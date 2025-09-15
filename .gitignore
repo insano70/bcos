@@ -38,5 +38,7 @@ next-env.d.ts
 
 /generated/prisma
 /docs/tidy-next
+/docs/tidy-next/
+/docs/tidy-next/**/*
 /docs/tidy-professional/
 

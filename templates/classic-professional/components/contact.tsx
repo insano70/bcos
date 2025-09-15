@@ -100,7 +100,14 @@ export default function Contact({ practice, attributes, colorStyles }: ContactPr
           <div className="bg-white rounded-lg shadow-sm p-8">
             <h3 className="text-xl font-bold text-gray-900 mb-6">Office Hours</h3>
             <div className="space-y-2">
-              {attributes.business_hours ? (
+              {(() => {
+                console.log('Business hours raw data:', attributes.business_hours);
+                const parsed = parseBusinessHours(attributes.business_hours);
+                console.log('Parsed business hours:', parsed);
+                const formatted = formatBusinessHours(parsed);
+                console.log('Formatted business hours:', formatted);
+                return formatted;
+              })().length > 0 ? (
                 <div className="space-y-1">
                   {formatBusinessHours(parseBusinessHours(attributes.business_hours)).map((dayInfo) => (
                     <div key={dayInfo.day} className="flex justify-between items-center py-1">
