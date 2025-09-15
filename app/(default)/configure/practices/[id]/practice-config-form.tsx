@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId } from 'react';
 import ImageUpload from '@/components/image-upload';
 import ColorPicker from '@/components/color-picker';
+import StaffListEmbedded from '@/components/staff-list-embedded';
 import type { Practice, PracticeAttributes, StaffMember } from '@/lib/types/practice';
 import type { Template } from '@/lib/hooks/use-templates';
 
@@ -165,6 +166,7 @@ export default function PracticeConfigForm({
     // Open preview in new tab
     window.open(`/template-preview/${practiceId}`, '_blank');
   };
+
 
   if (isLoading) {
     return (
@@ -442,7 +444,11 @@ export default function PracticeConfigForm({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <ImageUpload
               currentImage={logoUrl}
-              onImageUploaded={(url) => setValue('logo_url', url, { shouldDirty: true })}
+              onImageUploaded={(_url) => {
+                // Service layer has already updated the database
+                // Refresh the data to show the updated image
+                queryClient.invalidateQueries({ queryKey: ['practice-attributes', practiceId] });
+              }}
               practiceId={practiceId}
               type="logo"
               label="Practice Logo"
@@ -450,12 +456,21 @@ export default function PracticeConfigForm({
             
             <ImageUpload
               currentImage={heroImageUrl}
-              onImageUploaded={(url) => setValue('hero_image_url', url, { shouldDirty: true })}
+              onImageUploaded={(_url) => {
+                // Service layer has already updated the database  
+                // Refresh the data to show the updated image
+                queryClient.invalidateQueries({ queryKey: ['practice-attributes', practiceId] });
+              }}
               practiceId={practiceId}
               type="hero"
               label="Hero/Banner Image"
             />
           </div>
+        </div>
+
+        {/* Staff Management */}
+        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
+          <StaffListEmbedded practiceId={practiceId} />
         </div>
 
         {/* SEO */}

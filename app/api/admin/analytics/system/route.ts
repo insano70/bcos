@@ -19,6 +19,7 @@ import {
 const analyticsHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now()
   const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id)
+  let timeframe: string | undefined;
   
   logger.info('System analytics request initiated', {
     requestingUserId: userContext.user_id,
@@ -31,7 +32,7 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     logPerformanceMetric(logger, 'rate_limit_check', Date.now() - rateLimitStart)
     
     const { searchParams } = new URL(request.url)
-    const timeframe = searchParams.get('timeframe') || '24h' // 1h, 24h, 7d, 30d
+    timeframe = searchParams.get('timeframe') || '24h' // 1h, 24h, 7d, 30d
     const startDate = getStartDate(timeframe)
     
     logger.debug('Analytics parameters parsed', {

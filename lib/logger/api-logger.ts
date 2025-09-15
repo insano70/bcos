@@ -28,9 +28,9 @@ export function createAPILogger(request: NextRequest) {
     requestId: generateRequestId(),
     method: request.method,
     path: url.pathname,
-    query: Object.keys(searchParams).length > 0 ? searchParams : undefined,
+    query: Object.keys(searchParams).length > 0 ? searchParams : {} as Record<string, string>,
     ipAddress: extractIPAddress(request),
-    userAgent: request.headers.get('user-agent') || undefined
+    userAgent: request.headers.get('user-agent') ?? undefined
   }
 
   return apiLogger.child(context)
@@ -198,7 +198,7 @@ function generateRequestId(): string {
 function extractIPAddress(request: NextRequest): string {
   return request.headers.get('x-forwarded-for') || 
          request.headers.get('x-real-ip') || 
-         request.ip || 
+         (request as any).ip || 
          'unknown'
 }
 

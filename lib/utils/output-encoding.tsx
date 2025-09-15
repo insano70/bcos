@@ -3,6 +3,8 @@
  * Provides context-aware encoding for safe content display
  */
 
+import React from 'react';
+
 /**
  * HTML attribute encoding
  * Use when inserting user data into HTML attributes

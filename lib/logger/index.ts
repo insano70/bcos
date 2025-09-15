@@ -74,7 +74,8 @@ export {
   createRateLimitError
 } from './error-handler'
 
-// Audit optimization
+// Audit logging services
+export { AuditLogger } from '../api/services/audit'
 export {
   BufferedAuditLogger
 } from './audit-optimizer'

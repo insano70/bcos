@@ -19,6 +19,7 @@ import {
 const analyticsHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now()
   const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id)
+  let timeframe: string | undefined;
   
   logger.info('Practice analytics request initiated', {
     requestingUserId: userContext.user_id,
@@ -27,7 +28,7 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
 
   try {
     const { searchParams } = new URL(request.url)
-    const timeframe = searchParams.get('timeframe') || '30d'
+    timeframe = searchParams.get('timeframe') || '30d'
     const startDate = getStartDate(timeframe)
     
     logger.debug('Practice analytics parameters parsed', {

@@ -19,7 +19,7 @@ export abstract class BaseRBACService {
   protected checker: PermissionChecker;
   
   constructor(protected userContext: UserContext, protected dbContext?: typeof db) {
-    this.checker = new PermissionChecker(userContext, dbContext || db);
+    this.checker = new PermissionChecker(userContext);
   }
 
   /**

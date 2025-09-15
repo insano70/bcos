@@ -55,7 +55,7 @@ export function createRBACMiddleware(
         return createErrorResponse('User context not available', 401, request) as NextResponse;
       }
 
-      const checker = new PermissionChecker(resolvedUserContext, db);
+      const checker = new PermissionChecker(resolvedUserContext);
       
       // Extract resource and organization IDs from request
       const resourceId = options.extractResourceId?.(request);

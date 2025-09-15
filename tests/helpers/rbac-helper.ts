@@ -322,7 +322,7 @@ async function getAccessibleOrganizations(userOrganizations: Organization[]): Pr
 export async function createPermissionChecker(user: User): Promise<PermissionChecker> {
   const userContext = await buildUserContext(user)
   const testDb = getCurrentTransaction() // Use the test transaction for database queries
-  return new PermissionChecker(userContext, testDb)
+  return new PermissionChecker(userContext)
 }
 
 /**
@@ -337,7 +337,7 @@ export async function testUserPermission(
   organizationId?: string
 ): Promise<{ granted: boolean; scope?: string; reason?: string | undefined }> {
   const checker = await createPermissionChecker(user)
-  const result = await checker.checkPermissionAsync(permission, { resourceId, organizationId })
+  const result = checker.checkPermission(permission, { resourceId, organizationId })
 
   return {
     granted: result.granted,

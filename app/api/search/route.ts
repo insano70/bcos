@@ -24,11 +24,12 @@ const searchQuerySchema = z.object({
 })
 
 const searchHandler = async (request: NextRequest, userContext: UserContext) => {
+  let query: any;
   try {
     
     const { searchParams } = new URL(request.url)
     const pagination = getPagination(searchParams)
-    const query = validateQuery(searchParams, searchQuerySchema)
+    query = validateQuery(searchParams, searchQuerySchema)
     
     // ✅ SECURITY: Sanitize search term to prevent SQL injection
     const sanitizedQuery = query.q

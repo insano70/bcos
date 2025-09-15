@@ -372,7 +372,7 @@ export class TokenManager {
       logger.error('Token revocation error', {
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
-        userId: userId || 'unknown'
+        userId: 'unknown' // userId may not be available if JWT verification fails
       })
       return false
     }

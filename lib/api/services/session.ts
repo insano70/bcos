@@ -288,7 +288,7 @@ export class SessionManager {
     logger.debug('Device tracking initiated', {
       userId,
       fingerprint: deviceInfo.fingerprint,
-      deviceType: deviceInfo.deviceType,
+      deviceName: deviceInfo.name,
       operation: 'trackUserDevice'
     })
   }

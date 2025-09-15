@@ -68,6 +68,13 @@ export function parseInsurance(jsonString: string | null | undefined | unknown) 
 }
 
 /**
+ * Parse insurance accepted array with fallback (alias for parseInsurance)
+ */
+export function parseInsuranceAccepted(jsonString: string | null | undefined | unknown) {
+  return parseInsurance(jsonString);
+}
+
+/**
  * Parse conditions array with fallback
  */
 export function parseConditions(jsonString: string | null | undefined | unknown) {
@@ -82,6 +89,13 @@ export function parseConditions(jsonString: string | null | undefined | unknown)
 }
 
 /**
+ * Parse conditions treated array with fallback (alias for parseConditions)
+ */
+export function parseConditionsTreated(jsonString: string | null | undefined | unknown) {
+  return parseConditions(jsonString);
+}
+
+/**
  * Parse specialties array with fallback
  */
 export function parseSpecialties(jsonString: string | null | undefined | unknown) {
@@ -92,5 +106,12 @@ export function parseSpecialties(jsonString: string | null | undefined | unknown
  * Parse education array with fallback
  */
 export function parseEducation(jsonString: string | null | undefined | unknown) {
+  return safeJsonParse(jsonString, []);
+}
+
+/**
+ * Parse gallery images array with fallback
+ */
+export function parseGalleryImages(jsonString: string | null | undefined | unknown) {
   return safeJsonParse(jsonString, []);
 }

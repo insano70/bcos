@@ -1,7 +1,7 @@
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import { db } from '@/lib/db';
 import { users, user_organizations, organizations } from '@/lib/db/schema';
-import { user_roles } from '@/lib/db/rbac-schema';
+import { user_roles, roles } from '@/lib/db/rbac-schema';
 import { eq, and, inArray, isNull, like, or, count } from 'drizzle-orm';
 import { hashPassword } from '@/lib/auth/security';
 import type { UserContext } from '@/lib/types/rbac';
@@ -55,6 +55,10 @@ export interface UserWithOrganizations {
     name: string;
     slug: string;
     is_active: boolean;
+  }[];
+  roles?: {
+    id: string;
+    name: string;
   }[];
 }
 
@@ -190,6 +194,38 @@ export class RBACUsersService extends BaseRBACService {
       }
     });
 
+    // Fetch roles for all users
+    const userIds = Array.from(usersMap.keys());
+    if (userIds.length > 0) {
+      const rolesQuery = await db
+        .select({
+          user_id: user_roles.user_id,
+          role_id: roles.role_id,
+          role_name: roles.name
+        })
+        .from(user_roles)
+        .innerJoin(roles, eq(roles.role_id, user_roles.role_id))
+        .where(and(
+          inArray(user_roles.user_id, userIds),
+          eq(user_roles.is_active, true),
+          eq(roles.is_active, true)
+        ));
+
+      // Add roles to users
+      rolesQuery.forEach(roleRow => {
+        const user = usersMap.get(roleRow.user_id);
+        if (user) {
+          if (!user.roles) {
+            user.roles = [];
+          }
+          user.roles.push({
+            id: roleRow.role_id,
+            name: roleRow.role_name
+          });
+        }
+      });
+    }
+
     return Array.from(usersMap.values());
   }
 
@@ -206,15 +242,71 @@ export class RBACUsersService extends BaseRBACService {
       throw new PermissionDeniedError('users:read:*', userId);
     }
 
-    const [user] = await this.getUsers({ limit: 1 });
+    // Get user with organizations
+    const query = db
+      .select({
+        user_id: users.user_id,
+        email: users.email,
+        first_name: users.first_name,
+        last_name: users.last_name,
+        email_verified: users.email_verified,
+        is_active: users.is_active,
+        created_at: users.created_at,
+        updated_at: users.updated_at,
+        organization_id: user_organizations.organization_id,
+        org_name: organizations.name,
+        org_slug: organizations.slug,
+        org_is_active: organizations.is_active
+      })
+      .from(users)
+      .leftJoin(user_organizations, and(
+        eq(user_organizations.user_id, users.user_id),
+        eq(user_organizations.is_active, true)
+      ))
+      .leftJoin(organizations, and(
+        eq(organizations.organization_id, user_organizations.organization_id),
+        isNull(organizations.deleted_at)
+      ))
+      .where(and(
+        eq(users.user_id, userId),
+        isNull(users.deleted_at)
+      ));
+
+    const results = await query;
     
-    if (!user) {
+    if (results.length === 0) {
       return null;
     }
 
+    // Build user object with organizations
+    const firstResult = results[0]!;
+    const userObj: UserWithOrganizations = {
+      user_id: firstResult.user_id!,
+      email: firstResult.email!,
+      first_name: firstResult.first_name!,
+      last_name: firstResult.last_name!,
+      email_verified: firstResult.email_verified ?? false,
+      is_active: firstResult.is_active ?? true,
+      created_at: firstResult.created_at ?? new Date(),
+      updated_at: firstResult.updated_at ?? new Date(),
+      organizations: []
+    };
+
+    // Add organizations
+    results.forEach(row => {
+      if (row.organization_id && row.org_name && row.org_slug && !userObj.organizations.some(org => org.organization_id === row.organization_id)) {
+        userObj.organizations.push({
+          organization_id: row.organization_id,
+          name: row.org_name,
+          slug: row.org_slug,
+          is_active: row.org_is_active ?? true
+        });
+      }
+    });
+
     // For organization scope, verify user is in accessible organization
     if (canReadOrg && !canReadAll && !canReadOwn) {
-      const hasSharedOrg = user.organizations.some(org =>
+      const hasSharedOrg = userObj.organizations.some(org =>
         this.canAccessOrganization(org.organization_id)
       );
 
@@ -223,7 +315,26 @@ export class RBACUsersService extends BaseRBACService {
       }
     }
 
-    return user;
+    // Fetch user roles
+    const rolesQuery = await db
+      .select({
+        role_id: roles.role_id,
+        role_name: roles.name
+      })
+      .from(user_roles)
+      .innerJoin(roles, eq(roles.role_id, user_roles.role_id))
+      .where(and(
+        eq(user_roles.user_id, userId),
+        eq(user_roles.is_active, true),
+        eq(roles.is_active, true)
+      ));
+
+    userObj.roles = rolesQuery.map(role => ({
+      id: role.role_id,
+      name: role.role_name
+    }));
+
+    return userObj;
   }
 
   /**

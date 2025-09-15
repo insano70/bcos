@@ -5,7 +5,7 @@ import { getAllTemplateOptions } from '@/lib/template-loader';
 
 interface TemplatePreviewToolbarProps {
   currentTemplate: string;
-  onTemplateChange: (templateSlug: string) => void;
+  onTemplateChange?: (templateSlug: string) => void;
   isLoading?: boolean;
 }
 
@@ -43,8 +43,8 @@ export default function TemplatePreviewToolbar({
     });
     window.dispatchEvent(event);
 
-    // Call the original onTemplateChange (though it might be a no-op in SSR)
-    onTemplateChange(templateSlug);
+    // Call the original onTemplateChange if provided
+    onTemplateChange?.(templateSlug);
   };
 
   return (

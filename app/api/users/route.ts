@@ -74,7 +74,8 @@ const getUsersHandler = async (request: NextRequest, userContext: UserContext) =
         email_verified: user.email_verified,
         is_active: user.is_active,
         created_at: user.created_at,
-        organizations: user.organizations
+        organizations: user.organizations,
+        roles: user.roles || []
       }))
 
       const totalDuration = Date.now() - startTime
@@ -96,8 +97,7 @@ const getUsersHandler = async (request: NextRequest, userContext: UserContext) =
           page: pagination.page,
           limit: pagination.limit,
           total: totalCount
-        },
-        'Users retrieved successfully'
+        }
       )
       
     } catch (error) {

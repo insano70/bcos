@@ -268,7 +268,7 @@ async function seedRBAC() {
     for (const role of roleData) {
       const existing = await db.select().from(roles).where(eq(roles.name, role.name)).limit(1);
       if (existing.length === 0) {
-        await db.insert(roles).values(role);
+        const [newRole] = await db.insert(roles).values(role).returning();
         logger.info('Role created', {
           name: role.name,
           systemRole: role.is_system_role,
@@ -297,7 +297,7 @@ async function seedRBAC() {
     for (const org of orgData) {
       const existing = await db.select().from(organizations).where(eq(organizations.slug, org.slug)).limit(1);
       if (existing.length === 0) {
-        await db.insert(organizations).values(org);
+        const [newOrg] = await db.insert(organizations).values(org).returning();
         logger.info('Organization created', {
           name: org.name,
           slug: org.slug,
@@ -790,13 +790,12 @@ async function assignUserRoles() {
         .values({
           user_id: adminUser.user_id,
           organization_id: platformOrg.organization_id,
-          is_primary: true,
           joined_at: new Date()
         });
 
       logger.info('Admin user assigned to platform organization', {
         userId: adminUser.user_id,
-        organizationId: platformOrganization.organization_id,
+        organizationId: platformOrg.organization_id,
         operation: 'assignUserRoles'
       });
     } else {
@@ -871,7 +870,6 @@ async function assignUserRoles() {
                 .values({
                   user_id: sampleUser.user_id,
                   organization_id: rheumatologyOrg.organization_id,
-                  is_primary: true,
                   joined_at: new Date()
                 });
             }

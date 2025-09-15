@@ -45,11 +45,11 @@ export class RequestMetricsCollector {
       path: url.pathname,
       startTime: Date.now(),
       requestSize: this.getRequestSize(request),
-      userAgent: request.headers.get('user-agent') || undefined,
+      userAgent: request.headers.get('user-agent') ?? undefined,
       ipAddress: request.headers.get('x-forwarded-for') || 
                  request.headers.get('x-real-ip') || 
                  'unknown',
-      userId
+      userId: userId ?? undefined
     }
 
     this.activeRequests.set(requestId, metrics)
@@ -86,7 +86,7 @@ export class RequestMetricsCollector {
       statusCode: response.status,
       responseSize: this.getResponseSize(response),
       duration: Date.now() - requestMetrics.startTime,
-      errorType: error ? error.constructor.name : undefined
+      errorType: error ? error.constructor.name ?? undefined : undefined
     }
 
     // Log metrics based on performance and status
@@ -217,7 +217,7 @@ export class RequestMetricsCollector {
     const now = Date.now()
     const staleThreshold = 30 * 1000 // 30 seconds
 
-    for (const [requestId, metrics] of this.activeRequests.entries()) {
+    for (const [requestId, metrics] of Array.from(this.activeRequests.entries())) {
       if (now - metrics.startTime > staleThreshold) {
         metricsLogger.warn('Stale request detected and cleaned up', {
           requestId,

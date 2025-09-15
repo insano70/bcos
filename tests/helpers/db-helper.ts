@@ -135,7 +135,7 @@ export async function rollbackMainTransaction(): Promise<void> {
  * Automatically handles rollback on completion or error
  */
 export async function withTestTransaction<T>(
-  fn: (tx: PostgresJsTransaction<any, any>) => Promise<T>
+  fn: (tx: any) => Promise<T>
 ): Promise<T> {
   const tx = await getTestTransaction()
   try {

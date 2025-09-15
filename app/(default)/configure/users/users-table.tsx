@@ -76,7 +76,7 @@ export default function UsersTable({ users, onEdit }: { users: User[]; onEdit?: 
                   user={user}
                   onCheckboxChange={handleCheckboxChange}
                   isSelected={selectedItems.includes(user.id)}
-                  onEdit={onEdit}
+                  {...(onEdit && { onEdit })}
                 />
               ))}
             </tbody>

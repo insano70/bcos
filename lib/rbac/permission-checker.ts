@@ -319,11 +319,13 @@ export class PermissionChecker {
             return { valid: true };
           }
           
-          // Check if user owns this resource (via owned_resources in UserContext)
-          const ownedResources = this.userContext.owned_resources || [];
-          if (ownedResources.includes(resourceId)) {
-            return { valid: true };
-          }
+          // TODO: Implement resource ownership checking
+          // This would require adding owned_resources to UserContext or implementing
+          // a different ownership checking mechanism
+          // const ownedResources = this.userContext.owned_resources || [];
+          // if (ownedResources.includes(resourceId)) {
+          //   return { valid: true };
+          // }
           
           return {
             valid: false,

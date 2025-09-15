@@ -131,7 +131,7 @@ class ApiClient {
 
     } catch (error) {
       // Network or parsing errors
-      if (error instanceof Error && error.message.includes('Session expired')) {
+      if (error && typeof error === 'object' && 'message' in error && String(error.message).includes('Session expired')) {
         throw error // Re-throw session expired errors
       }
       
@@ -139,7 +139,16 @@ class ApiClient {
       if (process.env.NODE_ENV === 'development') {
         console.error(`API request failed [${requestOptions.method || 'GET'} ${endpoint}]:`, error)
       }
-      throw new Error(error instanceof Error ? error.message : 'Network error occurred')
+      
+      // Safe error message extraction
+      let errorMessage = 'Network error occurred';
+      if (error && typeof error === 'object' && 'message' in error) {
+        errorMessage = String(error.message);
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+      
+      throw new Error(errorMessage)
     }
   }
 

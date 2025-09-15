@@ -25,7 +25,7 @@ export async function extractRouteParams<T extends z.ZodType>(
   try {
     // Handle the Next.js 15 params structure
     if (!params || typeof params !== 'object') {
-      throw new ValidationError('Invalid route parameters');
+      throw ValidationError(null, 'Invalid route parameters');
     }
 
     // Type guard to check if it's a Promise
@@ -50,7 +50,7 @@ export async function extractRouteParams<T extends z.ZodType>(
         // Fallback: if it's just the params object directly
         resolvedParams = awaited as Record<string, unknown>;
       } else {
-        throw new ValidationError('Invalid params structure after awaiting');
+        throw ValidationError(null, 'Invalid params structure after awaiting');
       }
     } else {
       // Fallback for direct params object (backwards compatibility)
@@ -65,16 +65,17 @@ export async function extractRouteParams<T extends z.ZodType>(
     const result = schema.safeParse(resolvedParams);
     
     if (!result.success) {
-      throw new ValidationError(`Invalid route parameters: ${result.error.message}`);
+      throw ValidationError(result.error, `Invalid route parameters: ${result.error.message}`);
     }
 
     return result.data;
   } catch (error) {
-    if (error instanceof ValidationError) {
+    if (error instanceof Error && error.name === 'APIError') {
       throw error;
     }
     
-    throw new ValidationError(
+    throw ValidationError(
+      error,
       `Failed to extract route parameters: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
   }

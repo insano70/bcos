@@ -19,9 +19,15 @@ export const staffCreateSchema = z.object({
     .max(2000, 'Bio must not exceed 2000 characters')
     .optional(),
   photo_url: z.string()
-    .url('Invalid photo URL')
     .max(500, 'Photo URL must not exceed 500 characters')
-    .optional(),
+    .optional()
+    .refine((val) => {
+      if (!val || val === '') return true; // Allow empty/undefined
+      // Allow relative URLs (starting with /) or absolute URLs
+      return val.startsWith('/') || z.string().url().safeParse(val).success;
+    }, {
+      message: 'Invalid photo URL'
+    }),
   specialties: z.array(z.string().max(255)).optional(),
   education: z.array(z.object({
     degree: z.string().max(255),
@@ -50,9 +56,15 @@ export const staffUpdateSchema = z.object({
     .max(2000, 'Bio must not exceed 2000 characters')
     .optional(),
   photo_url: z.string()
-    .url('Invalid photo URL')
     .max(500, 'Photo URL must not exceed 500 characters')
-    .optional(),
+    .optional()
+    .refine((val) => {
+      if (!val || val === '') return true; // Allow empty/undefined
+      // Allow relative URLs (starting with /) or absolute URLs
+      return val.startsWith('/') || z.string().url().safeParse(val).success;
+    }, {
+      message: 'Invalid photo URL'
+    }),
   specialties: z.array(z.string().max(255)).optional(),
   education: z.array(z.object({
     degree: z.string().max(255),

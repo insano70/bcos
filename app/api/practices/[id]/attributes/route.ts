@@ -9,10 +9,19 @@ import { practiceAttributesUpdateSchema, practiceParamsSchema } from '@/lib/vali
 import { practiceRoute } from '@/lib/api/rbac-route-handler';
 import type { UserContext } from '@/lib/types/rbac'
 import { logger } from '@/lib/logger';
+import { 
+  parseBusinessHours, 
+  parseServices, 
+  parseInsuranceAccepted, 
+  parseConditionsTreated, 
+  parseGalleryImages 
+} from '@/lib/utils/json-parser';
 
 const getPracticeAttributesHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+  let practiceId: string | undefined;
   try {
-    const { id: practiceId } = await extractRouteParams(args[0], practiceParamsSchema)
+    const params = await extractRouteParams(args[0], practiceParamsSchema);
+    practiceId = params.id;
 
     // Verify practice exists
     const [practice] = await db
@@ -69,8 +78,10 @@ const getPracticeAttributesHandler = async (request: NextRequest, userContext: U
 }
 
 const updatePracticeAttributesHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+  let practiceId: string | undefined;
   try {
-    const { id: practiceId } = await extractRouteParams(args[0], practiceParamsSchema)
+    const params = await extractRouteParams(args[0], practiceParamsSchema);
+    practiceId = params.id;
     const validatedData = await validateRequest(request, practiceAttributesUpdateSchema)
 
     // Verify practice exists
@@ -140,7 +151,7 @@ const updatePracticeAttributesHandler = async (request: NextRequest, userContext
 
 // Export with RBAC protection
 export const GET = practiceRoute(
-  ['practices:update:own', 'practices:manage:all'],
+  ['practices:read:own', 'practices:read:all'],
   getPracticeAttributesHandler,
   { rateLimit: 'api' }
 );

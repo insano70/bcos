@@ -3,6 +3,8 @@
  * Single entry point for all validation schemas and utilities
  */
 
+import { z } from 'zod';
+
 // Authentication schemas
 export { 
   loginSchema, 
@@ -88,12 +90,13 @@ export { useValidatedForm, usePasswordConfirmation, useFieldValidation } from '.
 
 /**
  * Type inference helpers for schemas
+ * TODO: Fix circular dependency issues preventing schema access
  */
-export type LoginFormData = z.infer<typeof loginSchema>;
-export type RegisterFormData = z.infer<typeof registerSchema>;
-export type UserCreateData = z.infer<typeof userCreateSchema>;
-export type UserUpdateData = z.infer<typeof userUpdateSchema>;
-export type PasswordChangeData = z.infer<typeof passwordChangeSchema>;
+// export type LoginFormData = z.infer<typeof loginSchema>;
+// export type RegisterFormData = z.infer<typeof registerSchema>;
+// export type UserCreateData = z.infer<typeof userCreateSchema>;
+// export type UserUpdateData = z.infer<typeof userUpdateSchema>;
+// export type PasswordChangeData = z.infer<typeof passwordChangeSchema>;
 
 // Re-export Zod for convenience
 export { z } from 'zod';

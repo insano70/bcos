@@ -75,6 +75,8 @@ export interface UserOrganization {
 // Permission System Types
 export type PermissionScope = 'own' | 'organization' | 'all';
 
+// Permission name type - format: resource:action:scope (defined below with specific values)
+
 export type ResourceType = 
   | 'users'
   | 'practices'
@@ -110,6 +112,7 @@ export type PracticePermission =
   | 'practices:read:own'
   | 'practices:update:own'
   | 'practices:staff:manage:own'
+  | 'practices:staff:read:own'
   | 'practices:create:all'
   | 'practices:read:all'
   | 'practices:manage:all';
@@ -124,6 +127,7 @@ export type RolePermission =
   | 'roles:create:organization'
   | 'roles:update:organization'
   | 'roles:delete:organization'
+  | 'roles:read:all'
   | 'roles:manage:all';
 
 export type SettingsPermission =

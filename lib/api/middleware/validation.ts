@@ -79,7 +79,7 @@ function sanitizeValidationErrors(issues: z.ZodIssue[]): z.ZodIssue[] {
     ...issue,
     message: sanitizeErrorMessage(issue.message),
     // Remove potentially sensitive path information in production
-    path: issue.path.length > 0 ? [issue.path[0]] : []
+    path: issue.path.length > 0 ? [issue.path[0]].filter(p => p !== undefined) : []
   }));
 }
 

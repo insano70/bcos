@@ -8,7 +8,9 @@ import { createErrorResponse } from '@/lib/api/responses/error'
  * Basic health check endpoint
  * Returns system status and basic information
  */
-export async function GET(request: NextRequest) {
+import { withRequestMetrics } from '@/lib/logger'
+
+const healthHandler = async (request: NextRequest) => {
   try {
     const healthData = {
       status: 'healthy',

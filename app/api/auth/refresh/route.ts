@@ -4,7 +4,7 @@ import { TokenManager } from '@/lib/auth/token-manager'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
-import { AuditLogger } from '@/lib/api/services/audit'
+import { AuditLogger, BufferedAuditLogger } from '@/lib/logger'
 import { requireAuth } from '@/lib/api/middleware/auth'
 import { CSRFProtection } from '@/lib/security/csrf'
 import { 

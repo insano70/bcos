@@ -6,6 +6,7 @@ interface ImageUploadProps {
   currentImage?: string;
   onImageUploaded: (url: string) => void;
   practiceId?: string;
+  staffId?: string; // Required for 'provider' type uploads
   type: 'logo' | 'hero' | 'provider' | 'gallery';
   label: string;
   className?: string;
@@ -15,6 +16,7 @@ export default function ImageUpload({
   currentImage,
   onImageUploaded,
   practiceId,
+  staffId,
   type,
   label,
   className = ''
@@ -37,6 +39,9 @@ export default function ImageUpload({
       if (practiceId) {
         formData.append('practiceId', practiceId);
       }
+      if (staffId) {
+        formData.append('staffId', staffId);
+      }
 
       const response = await fetch('/api/upload', {
         method: 'POST',
@@ -50,7 +55,9 @@ export default function ImageUpload({
         throw new Error(result.error || 'Upload failed');
       }
 
-      onImageUploaded(result.url);
+      // The service layer has already updated the database
+      // Just notify the parent component to refresh/update UI
+      onImageUploaded(result.data.url);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed');
     } finally {

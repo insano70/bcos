@@ -3,6 +3,8 @@
  * Provides safe HTML rendering and XSS protection
  */
 
+import React from 'react';
+
 /**
  * Sanitize HTML content for safe rendering
  * Removes dangerous tags and attributes while preserving basic formatting

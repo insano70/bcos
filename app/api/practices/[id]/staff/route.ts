@@ -135,7 +135,18 @@ const createPracticeStaffHandler = async (request: NextRequest, userContext: Use
       .values(staffData)
       .returning();
 
-    return NextResponse.json(newStaff, { status: 201 });
+    if (!newStaff) {
+      throw new Error('Failed to create staff member');
+    }
+
+    // Parse JSON fields for response
+    const parsedStaffMember = {
+      ...newStaff,
+      specialties: parseSpecialties(newStaff.specialties),
+      education: parseEducation(newStaff.education),
+    };
+
+    return createSuccessResponse(parsedStaffMember, 'Staff member created successfully');
   } catch (error) {
     logger.error('Error creating staff member', {
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -143,9 +154,10 @@ const createPracticeStaffHandler = async (request: NextRequest, userContext: Use
       practiceId,
       operation: 'createStaffMember'
     });
-    return NextResponse.json(
-      { error: 'Failed to create staff member' },
-      { status: 500 }
+    return createErrorResponse(
+      error instanceof Error ? error.message : 'Unknown error',
+      500,
+      request
     );
   }
 }

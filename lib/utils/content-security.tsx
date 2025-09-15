@@ -3,6 +3,8 @@
  * Provides safe rendering of user-generated content
  */
 
+import React from 'react';
+
 /**
  * Sanitize user names for safe display
  * Prevents XSS while allowing international characters

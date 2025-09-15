@@ -51,7 +51,8 @@ const getUserHandler = async (request: NextRequest, userContext: UserContext, ..
       is_active: user.is_active,
       created_at: user.created_at,
       updated_at: user.updated_at,
-      organizations: user.organizations
+      organizations: user.organizations,
+      roles: user.roles || []
     });
 
   } catch (error) {
@@ -116,10 +117,15 @@ const updateUserHandler = async (request: NextRequest, userContext: UserContext,
     // Create RBAC users service
     const usersService = createRBACUsersService(userContext);
     
+    // Filter out undefined values to match UpdateUserData type requirements
+    const cleanUpdateData = Object.fromEntries(
+      Object.entries(updateData).filter(([_, value]) => value !== undefined)
+    );
+    
     // Update user with automatic permission checking
     const dbStart = Date.now();
-    const updatedUser = await usersService.updateUser(userId, updateData);
-    logDBOperation(logger, 'update_user', Date.now() - dbStart);
+    const updatedUser = await usersService.updateUser(userId, cleanUpdateData);
+    logDBOperation(logger, 'update_user', 'users', dbStart);
     
     logPerformanceMetric(logger, 'update_user_total', Date.now() - startTime);
     
@@ -185,7 +191,7 @@ const deleteUserHandler = async (request: NextRequest, userContext: UserContext,
     // Delete user with automatic permission checking
     const dbStart = Date.now();
     await usersService.deleteUser(userId);
-    logDBOperation(logger, 'delete_user', Date.now() - dbStart);
+    logDBOperation(logger, 'delete_user', 'users', dbStart);
     
     logPerformanceMetric(logger, 'delete_user_total', Date.now() - startTime);
     

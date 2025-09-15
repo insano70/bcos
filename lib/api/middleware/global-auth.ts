@@ -62,7 +62,7 @@ async function _checkRefreshTokenCookie(): Promise<boolean> {
  */
 export async function applyGlobalAuth(request: NextRequest): Promise<any> {
   const pathname = new URL(request.url).pathname
-  const logger = loggers.auth.child({ endpoint: pathname, method: request.method })
+  const logger = loggers.auth.child({ path: pathname, method: request.method })
 
   logger.debug('API auth check initiated', { pathname })
 
