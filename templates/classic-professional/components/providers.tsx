@@ -20,20 +20,20 @@ export default function Providers({ staff, colorStyles }: ProvidersProps) {
           </p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {activeStaff.map((provider) => (
             <div key={provider.staff_id} className="bg-gray-50 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
               {/* Provider photo */}
-              <div className="aspect-w-3 aspect-h-4 bg-gray-200">
+              <div className="bg-gray-200">
                 {provider.photo_url ? (
                   <img
                     src={provider.photo_url}
                     alt={provider.name}
-                    className="w-full h-64 object-cover"
+                    className="w-full h-128 object-cover"
                   />
                 ) : (
-                  <div className="w-full h-64 flex items-center justify-center" style={colorStyles.primaryBg100}>
-                    <span className="text-6xl" style={colorStyles.primaryText}>👨‍⚕️</span>
+                  <div className="w-full h-128 flex items-center justify-center" style={colorStyles.primaryBg100}>
+                    <span className="text-8xl" style={colorStyles.primaryText}>👨‍⚕️</span>
                   </div>
                 )}
               </div>
@@ -57,7 +57,7 @@ export default function Providers({ staff, colorStyles }: ProvidersProps) {
                 )}
                 
                 {provider.bio && (
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                  <p className="text-gray-600 text-sm mb-4 leading-relaxed">
                     {provider.bio}
                   </p>
                 )}
@@ -78,14 +78,6 @@ export default function Providers({ staff, colorStyles }: ProvidersProps) {
                     </div>
                   </div>
                 )}
-                
-                <button
-                  type="button"
-                  className="w-full py-2 rounded-lg transition-colors"
-                  style={colorStyles.primary}
-                >
-                  Schedule with {provider.name.split(' ')[1] || provider.name}
-                </button>
               </div>
             </div>
           ))}
