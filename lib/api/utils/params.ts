@@ -70,13 +70,15 @@ export async function extractRouteParams<T extends z.ZodType>(
 
     return result.data;
   } catch (error) {
-    if (error instanceof Error && error.name === 'APIError') {
+    if (error && typeof error === 'object' && 'name' in error && error.name === 'APIError') {
       throw error;
     }
     
+    const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
+    
     throw ValidationError(
       error,
-      `Failed to extract route parameters: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `Failed to extract route parameters: ${errorMessage}`
     );
   }
 }

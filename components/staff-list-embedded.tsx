@@ -78,7 +78,7 @@ export default function StaffListEmbedded({ practiceId }: StaffListEmbeddedProps
           <div>
             <h3 className="text-red-800 dark:text-red-200 font-medium">Error loading staff</h3>
             <p className="text-red-600 dark:text-red-400 text-sm">
-              {error instanceof Error ? error.message : 'Failed to load staff members'}
+              {error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Failed to load staff members'}
             </p>
           </div>
         </div>

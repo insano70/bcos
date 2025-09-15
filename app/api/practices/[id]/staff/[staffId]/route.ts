@@ -96,22 +96,22 @@ const getStaffMemberHandler = async (request: NextRequest, userContext: UserCont
   } catch (error) {
     const totalDuration = Date.now() - startTime;
     
+    const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
+    const errorName = error && typeof error === 'object' && 'name' in error ? String(error.name) : 'unknown';
+    const constructorName = error && typeof error === 'object' && 'constructor' in error && error.constructor && 'name' in error.constructor ? String(error.constructor.name) : typeof error;
+    
     logger.error('Staff member get request failed', error, {
       requestingUserId: userContext.user_id,
       totalDuration,
-      errorType: error instanceof Error ? error.constructor.name : typeof error
+      errorType: constructorName
     });
 
     logPerformanceMetric(logger, 'staff_get_total', totalDuration, {
       success: false,
-      errorType: error instanceof Error ? error.name : 'unknown'
+      errorType: errorName
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return createErrorResponse(errorMessage, 500, request);
   }
 };
 
@@ -224,22 +224,22 @@ const updateStaffMemberHandler = async (request: NextRequest, userContext: UserC
   } catch (error) {
     const totalDuration = Date.now() - startTime;
     
+    const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
+    const errorName = error && typeof error === 'object' && 'name' in error ? String(error.name) : 'unknown';
+    const constructorName = error && typeof error === 'object' && 'constructor' in error && error.constructor && 'name' in error.constructor ? String(error.constructor.name) : typeof error;
+    
     logger.error('Staff member update request failed', error, {
       requestingUserId: userContext.user_id,
       totalDuration,
-      errorType: error instanceof Error ? error.constructor.name : typeof error
+      errorType: constructorName
     });
 
     logPerformanceMetric(logger, 'staff_update_total', totalDuration, {
       success: false,
-      errorType: error instanceof Error ? error.name : 'unknown'
+      errorType: errorName
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return createErrorResponse(errorMessage, 500, request);
   }
 };
 
@@ -332,22 +332,22 @@ const deleteStaffMemberHandler = async (request: NextRequest, userContext: UserC
   } catch (error) {
     const totalDuration = Date.now() - startTime;
     
+    const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
+    const errorName = error && typeof error === 'object' && 'name' in error ? String(error.name) : 'unknown';
+    const constructorName = error && typeof error === 'object' && 'constructor' in error && error.constructor && 'name' in error.constructor ? String(error.constructor.name) : typeof error;
+    
     logger.error('Staff member delete request failed', error, {
       requestingUserId: userContext.user_id,
       totalDuration,
-      errorType: error instanceof Error ? error.constructor.name : typeof error
+      errorType: constructorName
     });
 
     logPerformanceMetric(logger, 'staff_delete_total', totalDuration, {
       success: false,
-      errorType: error instanceof Error ? error.name : 'unknown'
+      errorType: errorName
     });
 
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return createErrorResponse(errorMessage, 500, request);
   }
 };
 

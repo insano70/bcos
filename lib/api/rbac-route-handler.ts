@@ -195,16 +195,16 @@ export function rbacRoute(
         endpoint: url.pathname,
         method: request.method,
         totalDuration,
-        errorType: error instanceof Error ? error.constructor.name : typeof error
+        errorType: error && typeof error === 'object' && 'constructor' in error && error.constructor && 'name' in error.constructor ? String(error.constructor.name) : typeof error
       })
       
       logPerformanceMetric(logger, 'rbac_route_duration', totalDuration, {
         success: false,
-        errorType: error instanceof Error ? error.name : 'unknown'
+        errorType: error && typeof error === 'object' && 'name' in error ? String(error.name) : 'unknown'
       })
       
       return createErrorResponse(
-        error instanceof Error ? error.message : 'Unknown error', 
+        error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error', 
         500, 
         request
       ) as Response
@@ -404,16 +404,16 @@ export function legacySecureRoute(
         endpoint: url.pathname,
         method: request.method,
         totalDuration,
-        errorType: error instanceof Error ? error.constructor.name : typeof error
+        errorType: error && typeof error === 'object' && 'constructor' in error && error.constructor && 'name' in error.constructor ? String(error.constructor.name) : typeof error
       })
       
       logPerformanceMetric(logger, 'legacy_route_duration', totalDuration, {
         success: false,
-        errorType: error instanceof Error ? error.name : 'unknown'
+        errorType: error && typeof error === 'object' && 'name' in error ? String(error.name) : 'unknown'
       })
       
       return createErrorResponse(
-        error instanceof Error ? error.message : 'Unknown error', 
+        error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error', 
         500, 
         request
       ) as Response

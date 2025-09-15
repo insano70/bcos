@@ -86,13 +86,16 @@ const getPracticeStaffHandler = async (request: NextRequest, userContext: UserCo
     })
     
   } catch (error) {
+    const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
+    const errorStack = error && typeof error === 'object' && 'stack' in error ? String(error.stack) : undefined;
+    
     logger.error('Error fetching staff members', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+      error: errorMessage,
+      stack: errorStack,
       practiceId,
       operation: 'fetchStaffMembers'
     })
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
+    return createErrorResponse(errorMessage, 500, request)
   }
 }
 
@@ -160,17 +163,16 @@ const createPracticeStaffHandler = async (request: NextRequest, userContext: Use
 
     return createSuccessResponse(parsedStaffMember, 'Staff member created successfully');
   } catch (error) {
+    const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
+    const errorStack = error && typeof error === 'object' && 'stack' in error ? String(error.stack) : undefined;
+    
     logger.error('Error creating staff member', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+      error: errorMessage,
+      stack: errorStack,
       practiceId,
       operation: 'createStaffMember'
     });
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    return createErrorResponse(errorMessage, 500, request);
   }
 }
 
