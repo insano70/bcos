@@ -2,15 +2,18 @@
 
 import { useForm } from 'react-hook-form';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useId } from 'react';
+import { useEffect, useId, useState } from 'react';
 import ImageUpload from '@/components/image-upload';
 import ColorPicker from '@/components/color-picker';
 import StaffListEmbedded from '@/components/staff-list-embedded';
+import GalleryManager from '@/components/gallery-manager';
+import Toast from '@/components/toast';
 import type { Practice, PracticeAttributes, StaffMember } from '@/lib/types/practice';
 import type { Template } from '@/lib/hooks/use-templates';
 
 interface PracticeFormData {
   // Practice Settings
+  name: string;
   template_id: string;
   
   // Contact Information
@@ -30,6 +33,7 @@ interface PracticeFormData {
   // Images
   logo_url: string;
   hero_image_url: string;
+  gallery_images: string[];
   
   // SEO
   meta_title: string;
@@ -84,19 +88,15 @@ export default function PracticeConfigForm({
   const queryClient = useQueryClient();
   const uid = useId();
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [currentPractice, setCurrentPractice] = useState(practice);
+
   const { data: attributes, isLoading } = useQuery({
     queryKey: ['practice-attributes', practiceId],
     queryFn: () => fetchPracticeAttributes(practiceId),
     enabled: !!practiceId,
     initialData: initialAttributes,
-  });
-
-  const updateAttributes = useMutation({
-    mutationFn: (data: Omit<PracticeFormData, 'template_id'>) => updatePracticeAttributes(practiceId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['practice-attributes', practiceId] });
-      queryClient.invalidateQueries({ queryKey: ['practices'] });
-    },
   });
 
   const {
@@ -111,11 +111,17 @@ export default function PracticeConfigForm({
   const logoUrl = watch('logo_url');
   const heroImageUrl = watch('hero_image_url');
 
-  // Reset form when data loads
+  // Reset form when fresh data loads - WITH DEBUGGING
   useEffect(() => {
+    console.log('🔄 useEffect triggered - attributes changed');
+    console.log('Attributes:', attributes);
+    console.log('Practice:', practice);
+    console.log('isDirty:', isDirty);
+    
     if (attributes) {
-      reset({
-        template_id: practice?.template_id || '',
+      const resetData = {
+        name: currentPractice?.name || '',
+        template_id: currentPractice?.template_id || '',
         phone: attributes.phone || '',
         email: attributes.email || '',
         address_line1: attributes.address_line1 || '',
@@ -128,38 +134,81 @@ export default function PracticeConfigForm({
         welcome_message: attributes.welcome_message || '',
         logo_url: attributes.logo_url || '',
         hero_image_url: attributes.hero_image_url || '',
+        gallery_images: attributes.gallery_images || [],
         meta_title: attributes.meta_title || '',
         meta_description: attributes.meta_description || '',
         primary_color: attributes.primary_color || '#00AEEF',
         secondary_color: attributes.secondary_color || '#FFFFFF',
         accent_color: attributes.accent_color || '#44C0AE',
-      });
+      };
+      
+      console.log('📝 Resetting form with data:', resetData);
+      reset(resetData);
     }
-  }, [attributes, practice, reset]);
+  }, [attributes, currentPractice, reset]);
 
   const onSubmit = async (data: PracticeFormData) => {
-    // Update practice template if changed
+    console.log('💾 Form submit started with data:', data);
+    setIsSubmitting(true);
+    
+    // Track practice changes for later use
+    const practiceChanges: any = {};
+    if (data.name !== practice?.name) {
+      practiceChanges.name = data.name;
+    }
     if (data.template_id !== practice?.template_id) {
-      try {
+      practiceChanges.template_id = data.template_id;
+    }
+    
+    try {
+      // Update practice info (name, template) if changed
+      
+      if (Object.keys(practiceChanges).length > 0) {
+        console.log('📝 Updating practice info:', practiceChanges);
         const response = await fetch(`/api/practices/${practiceId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ template_id: data.template_id }),
+          body: JSON.stringify(practiceChanges),
         });
         if (!response.ok) throw new Error('Failed to update practice');
-      } catch (error) {
-        // Log client-side practice update errors for debugging
-        if (process.env.NODE_ENV === 'development') {
-          console.error('Error updating practice:', error);
-        }
-        return;
+        
+        // Update local practice state to reflect changes
+        setCurrentPractice(prev => ({ ...prev, ...practiceChanges }));
+        
+        // Invalidate the practices list
+        queryClient.invalidateQueries({ queryKey: ['practices'] });
       }
-    }
 
-    // Update attributes
-    const { template_id: _template_id, ...attributesData } = data;
-    updateAttributes.mutate(attributesData);
+      // Update attributes
+      const { name: _name, template_id: _template_id, ...attributesData } = data;
+      
+      // Make the API call (no optimistic update to avoid cache corruption)
+      console.log('📡 Making API call...');
+      const result = await updatePracticeAttributes(practiceId, attributesData);
+      console.log('✅ API call successful:', result);
+      
+      // Extract actual data from API response
+      const actualData = result.data || result;
+      console.log('📦 Extracted actual data:', actualData);
+      
+      // Update cache with the actual data structure
+      queryClient.setQueryData(['practice-attributes', practiceId], actualData);
+      queryClient.invalidateQueries({ queryKey: ['practices'] });
+      
+      // Show success message
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 3000);
+      
+    } catch (error) {
+      console.error('Error updating practice:', error);
+      // Revert optimistic update on failure
+      queryClient.invalidateQueries({ queryKey: ['practice-attributes', practiceId] });
+      // Show error to user
+      alert(`Error updating practice: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handlePreview = () => {
@@ -195,6 +244,29 @@ export default function PracticeConfigForm({
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+        {/* Practice Name */}
+        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
+            Practice Information
+          </h2>
+          
+          <div>
+            <label htmlFor={`${uid}-name`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Practice Name *
+            </label>
+            <input
+              id={`${uid}-name`}
+              type="text"
+              {...register('name', { required: 'Practice name is required' })}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Enter practice name"
+            />
+            {errors.name && (
+              <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
+            )}
+          </div>
+        </div>
+
         {/* Template Selection */}
         <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
@@ -446,7 +518,7 @@ export default function PracticeConfigForm({
               currentImage={logoUrl}
               onImageUploaded={(_url) => {
                 // Service layer has already updated the database
-                // Refresh the data to show the updated image
+                // Standard pattern: invalidate and let React Query handle the rest
                 queryClient.invalidateQueries({ queryKey: ['practice-attributes', practiceId] });
               }}
               practiceId={practiceId}
@@ -458,12 +530,28 @@ export default function PracticeConfigForm({
               currentImage={heroImageUrl}
               onImageUploaded={(_url) => {
                 // Service layer has already updated the database  
-                // Refresh the data to show the updated image
+                // Standard pattern: invalidate and let React Query handle the rest
                 queryClient.invalidateQueries({ queryKey: ['practice-attributes', practiceId] });
               }}
               practiceId={practiceId}
               type="hero"
               label="Hero/Banner Image"
+            />
+          </div>
+          
+          {/* Gallery Images */}
+          <div className="mt-8">
+            <GalleryManager
+              images={watch('gallery_images') || []}
+              onImagesUpdated={(images) => {
+                // Update form field immediately for responsive UI
+                setValue('gallery_images', images, { shouldDirty: true });
+                
+                // Standard pattern: invalidate cache to keep data in sync
+                queryClient.invalidateQueries({ queryKey: ['practice-attributes', practiceId] });
+              }}
+              practiceId={practiceId}
+              label="Practice Gallery"
             />
           </div>
         </div>
@@ -526,33 +614,30 @@ export default function PracticeConfigForm({
             <button
               type="button"
               className="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-              disabled={updateAttributes.isPending}
+              disabled={isSubmitting}
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={!isDirty || updateAttributes.isPending}
+              disabled={!isDirty || isSubmitting}
               className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {updateAttributes.isPending ? 'Saving...' : 'Save Changes'}
+              {isSubmitting ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </div>
       </form>
 
-      {/* Success/Error Messages */}
-      {updateAttributes.isSuccess && (
-        <div className="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg">
-          Practice configuration saved successfully!
-        </div>
-      )}
-      
-      {updateAttributes.isError && (
-        <div className="fixed bottom-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg">
-          Error saving configuration. Please try again.
-        </div>
-      )}
+      {/* Success Toast */}
+      <Toast
+        type="success"
+        open={showSuccessToast}
+        setOpen={setShowSuccessToast}
+        className="fixed bottom-4 right-4 z-50"
+      >
+        Practice configuration saved successfully!
+      </Toast>
     </div>
   );
 }

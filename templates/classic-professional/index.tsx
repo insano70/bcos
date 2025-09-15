@@ -4,6 +4,7 @@ import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-util
 import Header from './components/header';
 import Hero from './components/hero';
 import About from './components/about';
+import Gallery from './components/gallery';
 import Services from './components/services';
 import Providers from './components/providers';
 import Contact from './components/contact';
@@ -75,6 +76,9 @@ export default function ClassicProfessionalTemplate({
         
         {/* About section */}
         <About practice={practice} attributes={attributes} colorStyles={colorStyles} />
+        
+        {/* Gallery section */}
+        <Gallery attributes={attributes} colorStyles={colorStyles} />
         
         {/* Services section */}
         <Services attributes={attributes} colorStyles={colorStyles} />

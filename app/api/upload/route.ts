@@ -82,6 +82,82 @@ const uploadFilesHandler = async (request: NextRequest, userContext: UserContext
         'provider': 'photo_url'
       }
       
+      // Handle gallery images separately (array append)
+      if (imageType === 'gallery') {
+        try {
+          // Import here to avoid circular dependencies
+          const { db, practice_attributes, practices } = await import('@/lib/db')
+          const { eq, and, isNull } = await import('drizzle-orm')
+          
+          // SECURITY: Verify user has permission to update this practice
+          const [practice] = await db
+            .select()
+            .from(practices)
+            .where(and(
+              eq(practices.practice_id, practiceId),
+              isNull(practices.deleted_at)
+            ))
+            .limit(1)
+          
+          if (!practice) {
+            return createErrorResponse('Practice not found', 404, request)
+          }
+          
+          // Check if user can update this practice
+          const canUpdatePractice = userContext.all_permissions?.some(p =>
+            p.name === 'practices:update:own' || p.name === 'practices:manage:all'
+          ) || false
+          
+          const isOwner = practice.owner_user_id === userContext.user_id
+          const isSuperAdmin = userContext.is_super_admin
+          
+          if (!canUpdatePractice || (!isOwner && !isSuperAdmin)) {
+            return createErrorResponse('You do not have permission to update this practice', 403, request)
+          }
+          
+          // Get current gallery images
+          const [currentAttributes] = await db
+            .select({ gallery_images: practice_attributes.gallery_images })
+            .from(practice_attributes)
+            .where(eq(practice_attributes.practice_id, practiceId))
+            .limit(1)
+          
+          // Parse existing gallery images
+          let existingImages: string[] = []
+          if (currentAttributes?.gallery_images) {
+            try {
+              existingImages = JSON.parse(currentAttributes.gallery_images)
+            } catch {
+              existingImages = []
+            }
+          }
+          
+          // Add new image to gallery
+          const updatedImages = [...existingImages, fileUrl]
+          
+          // Update gallery_images array
+          await db
+            .update(practice_attributes)
+            .set({
+              gallery_images: JSON.stringify(updatedImages),
+              updated_at: new Date()
+            })
+            .where(eq(practice_attributes.practice_id, practiceId))
+            
+          return createSuccessResponse({
+            url: fileUrl,
+            fileName: result.files[0]?.fileName,
+            fieldUpdated: 'gallery_images',
+            practiceId,
+            totalImages: updatedImages.length
+          }, 'Gallery image uploaded successfully')
+          
+        } catch (dbError) {
+          console.error('Database update failed after gallery upload:', dbError)
+          return createErrorResponse('File uploaded but failed to update gallery', 500, request)
+        }
+      }
+      
       const practiceFieldName = practiceFieldMapping[imageType]
       if (practiceFieldName) {
         try {

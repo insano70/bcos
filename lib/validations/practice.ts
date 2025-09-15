@@ -84,7 +84,13 @@ export const practiceAttributesUpdateSchema = z.object({
     }, {
       message: 'Invalid hero image URL'
     }),
-  gallery_images: z.array(z.string().url()).optional(),
+  gallery_images: z.array(z.string().refine((val) => {
+    if (!val || val === '') return true; // Allow empty/undefined
+    // Allow relative URLs (starting with /) or absolute URLs
+    return val.startsWith('/') || z.string().url().safeParse(val).success;
+  }, {
+    message: 'Invalid gallery image URL'
+  })).optional(),
   
   // SEO
   meta_title: z.string().max(255).optional(),
