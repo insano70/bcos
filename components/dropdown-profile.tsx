@@ -38,7 +38,7 @@ export default function DropdownProfile({ align }: { align?: 'left' | 'right' })
       <MenuButton className="inline-flex justify-center items-center group">
         <div className="flex items-center truncate">
           <span className="truncate ml-2 text-sm font-medium text-gray-600 dark:text-gray-100 group-hover:text-gray-800 dark:group-hover:text-white">
-            Acme Inc.
+            Bendcare
           </span>
           <svg
             className="w-3 h-3 shrink-0 ml-1 fill-current text-gray-400 dark:text-gray-500"
@@ -61,7 +61,7 @@ export default function DropdownProfile({ align }: { align?: 'left' | 'right' })
         leaveTo="opacity-0"
       >
         <div className="pt-0.5 pb-2 px-3 mb-1 border-b border-gray-200 dark:border-gray-700/60">
-          <div className="font-medium text-gray-800 dark:text-gray-100">Acme Inc.</div>
+          <div className="font-medium text-gray-800 dark:text-gray-100">Bendcare</div>
           <div className="text-xs text-gray-500 dark:text-gray-400 italic">Administrator</div>
         </div>
         <MenuItems as="ul" className="focus:outline-hidden">

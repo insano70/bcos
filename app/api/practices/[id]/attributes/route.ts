@@ -67,13 +67,16 @@ const getPracticeAttributesHandler = async (request: NextRequest, userContext: U
     return createSuccessResponse(parsedAttributes)
     
   } catch (error) {
+    const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
+    const errorStack = error && typeof error === 'object' && 'stack' in error ? String(error.stack) : undefined;
+    
     logger.error('Error fetching practice attributes', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+      error: errorMessage,
+      stack: errorStack,
       practiceId,
       operation: 'fetchPracticeAttributes'
     })
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
+    return createErrorResponse(errorMessage, 500, request)
   }
 }
 
@@ -139,13 +142,16 @@ const updatePracticeAttributesHandler = async (request: NextRequest, userContext
     return createSuccessResponse(parsedAttributes, 'Practice attributes updated successfully')
     
   } catch (error) {
+    const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
+    const errorStack = error && typeof error === 'object' && 'stack' in error ? String(error.stack) : undefined;
+    
     logger.error('Error updating practice attributes', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+      error: errorMessage,
+      stack: errorStack,
       practiceId,
       operation: 'updatePracticeAttributes'
     })
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
+    return createErrorResponse(errorMessage, 500, request)
   }
 }
 

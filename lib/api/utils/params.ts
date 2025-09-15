@@ -28,10 +28,9 @@ export async function extractRouteParams<T extends z.ZodType>(
       throw ValidationError(null, 'Invalid route parameters');
     }
 
-    // Type guard to check if it's a Promise
+    // Type guard to check if it's a Promise - avoid instanceof
     const isPromise = (value: unknown): value is Promise<unknown> => {
-      return value instanceof Promise || 
-        (typeof value === 'object' && 
+      return (typeof value === 'object' && 
          value !== null && 
          'then' in value && 
          typeof (value as Record<string, unknown>).then === 'function');

@@ -237,7 +237,8 @@ const uploadFilesHandler = async (request: NextRequest, userContext: UserContext
     
   } catch (error) {
     console.error('Upload error:', error)
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
+    const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
+    return createErrorResponse(errorMessage, 500, request)
   }
 }
 

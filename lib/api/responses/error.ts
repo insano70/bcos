@@ -31,15 +31,18 @@ export function createErrorResponse(
   let errorDetails: unknown
   let finalStatusCode = statusCode
 
-  if (error instanceof APIError) {
-    errorMessage = error.message
-    finalStatusCode = error.statusCode
-    errorCode = error.code
-    errorDetails = error.details
-  } else if (error instanceof Error) {
-    errorMessage = error.message
-  } else {
+  if (error && typeof error === 'object' && 'name' in error && error.name === 'APIError') {
+    const apiError = error as APIError;
+    errorMessage = apiError.message
+    finalStatusCode = apiError.statusCode
+    errorCode = apiError.code
+    errorDetails = apiError.details
+  } else if (error && typeof error === 'object' && 'message' in error) {
+    errorMessage = String(error.message)
+  } else if (typeof error === 'string') {
     errorMessage = error
+  } else {
+    errorMessage = 'Unknown error'
   }
 
   const response: ErrorResponse = {

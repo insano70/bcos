@@ -19,10 +19,10 @@ export async function validateRequest<T>(
     
     return result.data
   } catch (error) {
-    if (error instanceof SyntaxError) {
+    if (error && typeof error === 'object' && 'name' in error && error.name === 'SyntaxError') {
       throw ValidationError(null, 'Invalid JSON in request body')
     }
-    if (error instanceof ValidationError) {
+    if (error && typeof error === 'object' && 'name' in error && error.name === 'ValidationError') {
       throw error
     }
     throw ValidationError(null, 'Invalid request body')
