@@ -1,0 +1,363 @@
+import type { 
+  AppMeasure, 
+  AnalyticsQueryParams, 
+  AnalyticsQueryResult,
+  ChartFilter,
+  ChartOrderBy,
+  ChartRenderContext 
+} from '@/lib/types/analytics';
+import { executeAnalyticsQuery } from './analytics-db';
+import { logger } from '@/lib/logger';
+
+/**
+ * Secure Query Builder for Analytics Database
+ * Implements security-first approach with parameterized queries and field whitelisting
+ */
+
+/**
+ * Allowed tables - whitelist approach for security
+ */
+const ALLOWED_TABLES = ['ih.gr_app_measures'] as const;
+
+/**
+ * Allowed fields for ih.gr_app_measures table - prevents SQL injection
+ */
+const ALLOWED_FIELDS = [
+  'practice_uid',
+  'provider_uid', 
+  'measure',
+  'measure_format',
+  'period_based_on',
+  'frequency',
+  'period_start',
+  'period_end',
+  'date_index',
+  'measure_value',
+  'last_period_value',
+  'last_year_value',
+  'pct_change_vs_last_period',
+  'pct_change_vs_last_year'
+] as const;
+
+/**
+ * Allowed operators for filters - prevents injection attacks
+ */
+const ALLOWED_OPERATORS = {
+  eq: '=',
+  neq: '!=',
+  gt: '>',
+  gte: '>=',
+  lt: '<',
+  lte: '<=',
+  in: 'IN',
+  not_in: 'NOT IN',
+  like: 'ILIKE',
+  between: 'BETWEEN'
+} as const;
+
+/**
+ * Secure Query Builder Class
+ */
+export class AnalyticsQueryBuilder {
+  private logger = logger;
+
+  /**
+   * Validate table name against whitelist
+   */
+  private validateTable(tableName: string): void {
+    if (!ALLOWED_TABLES.includes(tableName as any)) {
+      throw new Error(`Unauthorized table access: ${tableName}`);
+    }
+  }
+
+  /**
+   * Validate field name against whitelist
+   */
+  private validateField(fieldName: string): void {
+    if (!ALLOWED_FIELDS.includes(fieldName as any)) {
+      throw new Error(`Unauthorized field access: ${fieldName}`);
+    }
+  }
+
+  /**
+   * Validate operator against whitelist
+   */
+  private validateOperator(operator: string): void {
+    if (!Object.keys(ALLOWED_OPERATORS).includes(operator)) {
+      throw new Error(`Unauthorized operator: ${operator}`);
+    }
+  }
+
+  /**
+   * Sanitize and validate filter values
+   */
+  private sanitizeValue(value: any, operator: string): any {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    // Handle array values for IN/NOT IN operators
+    if (operator === 'in' || operator === 'not_in') {
+      if (!Array.isArray(value)) {
+        throw new Error(`${operator} operator requires array value`);
+      }
+      return value.map(v => this.sanitizeSingleValue(v));
+    }
+
+    // Handle BETWEEN operator
+    if (operator === 'between') {
+      if (!Array.isArray(value) || value.length !== 2) {
+        throw new Error('BETWEEN operator requires array with exactly 2 values');
+      }
+      return value.map(v => this.sanitizeSingleValue(v));
+    }
+
+    return this.sanitizeSingleValue(value);
+  }
+
+  /**
+   * Sanitize individual values based on type
+   */
+  private sanitizeSingleValue(value: any): any {
+    if (typeof value === 'string') {
+      // Basic string sanitization - remove potentially dangerous characters
+      return value.replace(/[';\\x00\\n\\r\\x1a"]/g, '');
+    }
+    
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value)) {
+        throw new Error('Invalid number value');
+      }
+      return value;
+    }
+
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+
+    return value;
+  }
+
+  /**
+   * Build WHERE clause with parameterized queries
+   */
+  private buildWhereClause(
+    filters: ChartFilter[], 
+    context: ChartRenderContext
+  ): { clause: string; params: any[] } {
+    const conditions: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    // Add security filters based on user context
+    if (context.accessible_practices.length > 0) {
+      conditions.push(`practice_uid = ANY($${paramIndex})`);
+      params.push(context.accessible_practices);
+      paramIndex++;
+    }
+
+    if (context.accessible_providers.length > 0) {
+      conditions.push(`(provider_uid IS NULL OR provider_uid = ANY($${paramIndex}))`);
+      params.push(context.accessible_providers);
+      paramIndex++;
+    }
+
+    // Add user-specified filters
+    for (const filter of filters) {
+      this.validateField(filter.field);
+      this.validateOperator(filter.operator);
+
+      const sanitizedValue = this.sanitizeValue(filter.value, filter.operator);
+      const sqlOperator = ALLOWED_OPERATORS[filter.operator as keyof typeof ALLOWED_OPERATORS];
+
+      if (filter.operator === 'in' || filter.operator === 'not_in') {
+        conditions.push(`${filter.field} ${sqlOperator} ($${paramIndex})`);
+        params.push(sanitizedValue);
+        paramIndex++;
+      } else if (filter.operator === 'between') {
+        conditions.push(`${filter.field} ${sqlOperator} $${paramIndex} AND $${paramIndex + 1}`);
+        params.push(sanitizedValue[0], sanitizedValue[1]);
+        paramIndex += 2;
+      } else {
+        conditions.push(`${filter.field} ${sqlOperator} $${paramIndex}`);
+        params.push(sanitizedValue);
+        paramIndex++;
+      }
+    }
+
+    const clause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    return { clause, params };
+  }
+
+  /**
+   * Build ORDER BY clause
+   */
+  private buildOrderByClause(orderBy: ChartOrderBy[]): string {
+    if (orderBy.length === 0) {
+      return 'ORDER BY date_index DESC'; // Default ordering
+    }
+
+    const orderClauses = orderBy.map(order => {
+      this.validateField(order.field);
+      const direction = order.direction === 'ASC' ? 'ASC' : 'DESC';
+      return `${order.field} ${direction}`;
+    });
+
+    return `ORDER BY ${orderClauses.join(', ')}`;
+  }
+
+  /**
+   * Query measures data with security and validation
+   */
+  async queryMeasures(
+    params: AnalyticsQueryParams,
+    context: ChartRenderContext
+  ): Promise<AnalyticsQueryResult> {
+    const startTime = Date.now();
+    
+    try {
+      this.logger.info('Building analytics query', { 
+        params: { ...params, limit: params.limit || 1000 },
+        userId: context.user_id 
+      });
+
+      // Validate table access
+      this.validateTable('ih.gr_app_measures');
+
+      // Build filters from params
+      const filters: ChartFilter[] = [];
+      
+      if (params.measure) {
+        filters.push({ field: 'measure', operator: 'eq', value: params.measure });
+      }
+      
+      if (params.frequency) {
+        filters.push({ field: 'frequency', operator: 'eq', value: params.frequency });
+      }
+      
+      if (params.practice_uid) {
+        filters.push({ field: 'practice_uid', operator: 'eq', value: params.practice_uid });
+      }
+      
+      if (params.provider_uid) {
+        filters.push({ field: 'provider_uid', operator: 'eq', value: params.provider_uid });
+      }
+      
+      if (params.start_date) {
+        filters.push({ field: 'period_start', operator: 'gte', value: params.start_date });
+      }
+      
+      if (params.end_date) {
+        filters.push({ field: 'period_end', operator: 'lte', value: params.end_date });
+      }
+
+      // Build WHERE clause with security context
+      const { clause: whereClause, params: queryParams } = this.buildWhereClause(filters, context);
+
+      // Build complete query
+      const limit = Math.min(params.limit || 1000, 10000); // Cap at 10k records for safety
+      const offset = params.offset || 0;
+
+      const query = `
+        SELECT 
+          practice_uid,
+          provider_uid,
+          measure,
+          measure_format,
+          period_based_on,
+          frequency,
+          period_start,
+          period_end,
+          date_index,
+          measure_value,
+          last_period_value,
+          last_year_value,
+          pct_change_vs_last_period,
+          pct_change_vs_last_year
+        FROM ih.gr_app_measures
+        ${whereClause}
+        ORDER BY date_index DESC
+        LIMIT $${queryParams.length + 1}
+        OFFSET $${queryParams.length + 2}
+      `;
+
+      queryParams.push(limit, offset);
+
+      // Execute query
+      const data = await executeAnalyticsQuery<AppMeasure>(query, queryParams);
+
+      // Get total count for pagination
+      const countQuery = `
+        SELECT COUNT(*) as total
+        FROM ih.gr_app_measures
+        ${whereClause}
+      `;
+
+      const countResult = await executeAnalyticsQuery<{ total: string }>(
+        countQuery, 
+        queryParams.slice(0, -2) // Remove LIMIT and OFFSET params
+      );
+
+      const queryTime = Date.now() - startTime;
+      const totalCount = parseInt(countResult[0]?.total || '0', 10);
+
+      this.logger.info('Analytics query completed', {
+        queryTime,
+        resultCount: data.length,
+        totalCount,
+        userId: context.user_id
+      });
+
+      return {
+        data,
+        total_count: totalCount,
+        query_time_ms: queryTime,
+        cache_hit: false
+      };
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error('Analytics query failed', { 
+        error: errorMessage,
+        params,
+        userId: context.user_id
+      });
+      
+      throw new Error(`Query execution failed: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Get practice revenue trend data (common use case)
+   */
+  async getPracticeRevenueTrend(
+    context: ChartRenderContext,
+    practiceUid?: string,
+    months: number = 12
+  ): Promise<AppMeasure[]> {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - months);
+
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+    
+    const params: AnalyticsQueryParams = {
+      measure: 'Charges by Practice',
+      frequency: 'Monthly',
+      start_date: startDateStr,
+      end_date: endDateStr,
+      limit: months * 2, // Buffer for multiple practices
+    };
+
+    if (practiceUid) {
+      params.practice_uid = practiceUid;
+    }
+
+    const result = await this.queryMeasures(params, context);
+    return result.data;
+  }
+}
+
+// Export singleton instance
+export const analyticsQueryBuilder = new AnalyticsQueryBuilder();

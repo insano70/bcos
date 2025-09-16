@@ -1,5 +1,5 @@
 import { PermissionChecker } from './permission-checker';
-import { db } from '@/lib/db';
+import type { db } from '@/lib/db';
 import { 
   type UserContext, 
   type AccessScope, 

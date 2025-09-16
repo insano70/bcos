@@ -9,6 +9,7 @@ export const env = createEnv({
   server: {
     // Database
     DATABASE_URL: z.string().url("Invalid DATABASE_URL format"),
+    ANALYTICS_DATABASE_URL: z.string().url("Invalid ANALYTICS_DATABASE_URL format").optional(),
     
     // Authentication & Security
     JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters for security"),
@@ -45,6 +46,7 @@ export const env = createEnv({
   runtimeEnv: {
     // Server
     DATABASE_URL: process.env.DATABASE_URL,
+    ANALYTICS_DATABASE_URL: process.env.ANALYTICS_DATABASE_URL,
     JWT_SECRET: process.env.JWT_SECRET,
     JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
@@ -132,6 +134,21 @@ export const getDatabaseConfig = () => {
     // Production optimizations
     ...(env.NODE_ENV === 'production' && {
       max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    })
+  };
+};
+
+export const getAnalyticsDatabaseConfig = () => {
+  if (typeof window !== 'undefined') {
+    throw new Error('getAnalyticsDatabaseConfig can only be used on the server side');
+  }
+  return {
+    url: env.ANALYTICS_DATABASE_URL,
+    // Production optimizations for analytics database
+    ...(env.NODE_ENV === 'production' && {
+      max: 10, // Smaller pool for analytics
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
     })
