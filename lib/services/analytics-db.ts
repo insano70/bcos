@@ -101,8 +101,10 @@ export const executeAnalyticsQuery = async <T = any>(
       getAnalyticsDb(); // Initialize connection
     }
 
-    logger.debug('Executing analytics query', { 
-      query: query.substring(0, 100) + (query.length > 100 ? '...' : ''),
+    // Log the full SQL query with parameters for debugging
+    logger.info('Executing analytics query', { 
+      sql: query,
+      parameters: params,
       paramCount: params.length 
     });
 
@@ -113,7 +115,8 @@ export const executeAnalyticsQuery = async <T = any>(
 
     logger.info('Analytics query executed successfully', { 
       duration,
-      rowCount: result.length 
+      rowCount: result.length,
+      sampleData: result.length > 0 ? result[0] : null
     });
 
     return result as T[];

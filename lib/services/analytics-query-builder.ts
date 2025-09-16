@@ -235,7 +235,9 @@ export class AnalyticsQueryBuilder {
     try {
       this.logger.info('Building analytics query', { 
         params: { ...params, limit: params.limit || 1000 },
-        userId: context.user_id 
+        userId: context.user_id,
+        contextPractices: context.accessible_practices,
+        contextProviders: context.accessible_providers
       });
 
       // Validate table access
@@ -268,8 +270,20 @@ export class AnalyticsQueryBuilder {
         filters.push({ field: 'period_end', operator: 'lte', value: params.end_date });
       }
 
+      // Log the filters being applied
+      this.logger.info('Filters built for analytics query', { 
+        filters: filters.map(f => ({ field: f.field, operator: f.operator, value: f.value })),
+        filterCount: filters.length
+      });
+
       // Build WHERE clause with security context
       const { clause: whereClause, params: queryParams } = this.buildWhereClause(filters, context);
+      
+      this.logger.info('WHERE clause built', { 
+        whereClause,
+        paramCount: queryParams.length,
+        parameters: queryParams
+      });
 
       // Build complete query
       const limit = Math.min(params.limit || 1000, 10000); // Cap at 10k records for safety
