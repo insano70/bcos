@@ -120,7 +120,12 @@ export class AnalyticsQueryBuilder {
    */
   private sanitizeSingleValue(value: any): any {
     if (typeof value === 'string') {
-      // Basic string sanitization - remove potentially dangerous characters
+      // For date strings, validate format and return as-is if valid
+      if (this.isValidDateString(value)) {
+        return value;
+      }
+      
+      // For other strings, basic sanitization - remove dangerous characters but preserve valid ones
       return value.replace(/[';\\x00\\n\\r\\x1a"]/g, '');
     }
     
@@ -132,10 +137,22 @@ export class AnalyticsQueryBuilder {
     }
 
     if (value instanceof Date) {
-      return value.toISOString();
+      return value.toISOString().split('T')[0]; // Return YYYY-MM-DD format
     }
 
     return value;
+  }
+
+  /**
+   * Validate if a string is a valid date format (YYYY-MM-DD)
+   */
+  private isValidDateString(dateString: string): boolean {
+    const regex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!regex.test(dateString)) return false;
+    
+    const date = new Date(dateString);
+    return date instanceof Date && !isNaN(date.getTime()) && 
+           date.toISOString().split('T')[0] === dateString;
   }
 
   /**
