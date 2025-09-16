@@ -25,17 +25,21 @@ interface AnalyticsChartProps {
 }
 
 interface ApiResponse {
-  measures: any[];
-  pagination: {
-    total_count: number;
-    limit: number;
-    offset: number;
-    has_more: boolean;
-  };
-  metadata: {
-    query_time_ms: number;
-    cache_hit: boolean;
-    analytics_db_latency_ms?: number;
+  success: boolean;
+  data: {
+    measures: any[];
+    pagination: {
+      total_count: number;
+      limit: number;
+      offset: number;
+      has_more: boolean;
+    };
+    metadata: {
+      query_time_ms: number;
+      cache_hit: boolean;
+      analytics_db_latency_ms?: number;
+      generatedAt: string;
+    };
   };
 }
 
@@ -80,14 +84,8 @@ export default function AnalyticsChart({
       // Set reasonable defaults for chart display
       params.append('limit', '1000');
 
-      // Fetch data from analytics API, fallback to mock if unavailable
-      let response = await fetch(`/api/analytics/measures?${params.toString()}`);
-      
-      // If analytics database is unavailable (503), try mock endpoint
-      if (response.status === 503) {
-        console.warn('Analytics database unavailable, using mock data for demo');
-        response = await fetch(`/api/analytics/measures/mock?${params.toString()}`);
-      }
+      // Fetch data from admin analytics API
+      const response = await fetch(`/api/admin/analytics/measures?${params.toString()}`);
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -98,13 +96,13 @@ export default function AnalyticsChart({
       
       // Transform data for Chart.js
       const transformedData = chartDataTransformer.transformMeasuresData(
-        data.measures,
+        data.data.measures,
         chartType,
         groupBy
       );
 
       setChartData(transformedData);
-      setMetadata(data.metadata);
+      setMetadata(data.data.metadata);
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch chart data';

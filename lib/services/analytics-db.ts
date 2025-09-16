@@ -51,6 +51,16 @@ export const checkAnalyticsDbHealth = async (): Promise<{
   // Use logger directly
   
   try {
+    const config = getAnalyticsDatabaseConfig();
+    
+    // If no analytics database URL is configured, return unhealthy
+    if (!config.url) {
+      return {
+        isHealthy: false,
+        error: 'ANALYTICS_DATABASE_URL not configured'
+      };
+    }
+
     if (!analyticsConnection) {
       getAnalyticsDb(); // Initialize connection
     }

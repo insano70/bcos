@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
-import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { analyticsQueryBuilder } from '@/lib/services/analytics-query-builder';
 import { checkAnalyticsDbHealth } from '@/lib/services/analytics-db';
@@ -19,25 +18,20 @@ import {
 } from '@/lib/logger';
 
 /**
- * Analytics Measures API
- * Secure endpoint for fetching data from ih.gr_app_measures table
- * Implements RBAC, rate limiting, and parameterized queries
+ * Admin Analytics - Measures Data
+ * Provides comprehensive measures analytics from ih.gr_app_measures table
  */
-
 const analyticsHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
   const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
+  let queryParams: AnalyticsQueryParams | undefined;
   
-  logger.info('Analytics measures request initiated', {
+  logger.info('Measures analytics request initiated', {
     requestingUserId: userContext.user_id,
-    organizationId: userContext.current_organization_id
+    isSuperAdmin: userContext.is_super_admin
   });
 
   try {
-    // Apply rate limiting
-    const rateLimitStart = Date.now();
-    await applyRateLimit(request, 'api');
-    logPerformanceMetric(logger, 'rate_limit_check', Date.now() - rateLimitStart);
 
     // Health check for analytics database
     const healthStart = Date.now();
@@ -46,6 +40,12 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     
     if (!healthCheck.isHealthy) {
       logger.error('Analytics database health check failed', { error: healthCheck.error });
+      
+      // Provide helpful error message for configuration issues
+      if (healthCheck.error?.includes('not configured')) {
+        return createErrorResponse('Analytics database not configured. Please set ANALYTICS_DATABASE_URL in your environment.', 503);
+      }
+      
       return createErrorResponse('Analytics database unavailable', 503);
     }
 
@@ -108,7 +108,7 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
       totalRequestTime: Date.now() - startTime
     });
 
-    return createSuccessResponse({
+    const analytics = {
       measures: result.data,
       pagination: {
         total_count: result.total_count,
@@ -119,19 +119,25 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
       metadata: {
         query_time_ms: result.query_time_ms,
         cache_hit: result.cache_hit || false,
-        analytics_db_latency_ms: healthCheck.latency
+        analytics_db_latency_ms: healthCheck.latency,
+        generatedAt: new Date().toISOString()
       }
-    });
+    };
 
+    return createSuccessResponse(analytics, 'Measures analytics retrieved successfully');
+    
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Analytics measures request failed', { 
-      error: errorMessage,
-      totalRequestTime: Date.now() - startTime
+    logger.error('Measures analytics error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      queryParams,
+      requestingUserId: userContext.user_id
     });
-
-    // Don't expose internal error details to client
-    return createErrorResponse('Failed to fetch analytics data', 500);
+    
+    logPerformanceMetric(logger, 'analytics_request_failed', Date.now() - startTime);
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+  } finally {
+    logPerformanceMetric(logger, 'measures_analytics_total', Date.now() - startTime);
   }
 };
 
@@ -160,11 +166,15 @@ function isValidDate(dateString: string): boolean {
  * - limit: Number of records to return (1-10000, default 1000)
  * - offset: Number of records to skip (default 0)
  */
-export const GET = rbacRoute(analyticsHandler, {
-  permission: 'analytics:read:all',
-  requireAuth: true,
-  rateLimit: 'api'
-});
+// Uses analytics:read:all permission (granted via roles)
+// Super admins bypass permission checks automatically
+export const GET = rbacRoute(
+  analyticsHandler,
+  {
+    permission: 'analytics:read:all',
+    rateLimit: 'api'
+  }
+);
 
 /**
  * Health check endpoint for analytics measures
