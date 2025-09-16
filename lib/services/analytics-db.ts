@@ -28,8 +28,8 @@ export const getAnalyticsDb = () => {
       max: config.max || 5, // Smaller connection pool for analytics
       idle_timeout: config.idleTimeoutMillis ? config.idleTimeoutMillis / 1000 : 20,
       connect_timeout: config.connectionTimeoutMillis ? config.connectionTimeoutMillis / 1000 : 10,
-      // Enable SSL for production
-      ssl: process.env.NODE_ENV === 'production' ? 'require' : false,
+      // Force SSL for analytics database (external database likely requires it)
+      ssl: 'require',
     });
 
     analyticsDb = drizzle(analyticsConnection, {
