@@ -80,8 +80,14 @@ export default function AnalyticsChart({
       // Set reasonable defaults for chart display
       params.append('limit', '1000');
 
-      // Fetch data from analytics API
-      const response = await fetch(`/api/analytics/measures?${params.toString()}`);
+      // Fetch data from analytics API, fallback to mock if unavailable
+      let response = await fetch(`/api/analytics/measures?${params.toString()}`);
+      
+      // If analytics database is unavailable (503), try mock endpoint
+      if (response.status === 503) {
+        console.warn('Analytics database unavailable, using mock data for demo');
+        response = await fetch(`/api/analytics/measures/mock?${params.toString()}`);
+      }
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
