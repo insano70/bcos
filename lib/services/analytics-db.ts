@@ -102,7 +102,7 @@ export const executeAnalyticsQuery = async <T = any>(
     }
 
     // Log the full SQL query with parameters for debugging
-    logger.info('Executing analytics query', { 
+    console.log('🔍 EXECUTING SQL:', {
       sql: query,
       parameters: params,
       paramCount: params.length 
@@ -113,8 +113,8 @@ export const executeAnalyticsQuery = async <T = any>(
     const result = await analyticsConnection!.unsafe(query, params);
     const duration = Date.now() - startTime;
 
-    logger.info('Analytics query executed successfully', { 
-      duration,
+    console.log('✅ QUERY RESULT:', { 
+      duration: `${duration}ms`,
       rowCount: result.length,
       sampleData: result.length > 0 ? result[0] : null
     });

@@ -125,8 +125,13 @@ export class AnalyticsQueryBuilder {
         return value;
       }
       
-      // For other strings, basic sanitization - remove dangerous characters but preserve valid ones
-      return value.replace(/[';\\x00\\n\\r\\x1a"]/g, '');
+      // For known measure and frequency values, return as-is (they're from controlled lists)
+      if (this.isKnownMeasureOrFrequency(value)) {
+        return value;
+      }
+      
+      // For other strings, only remove truly dangerous characters (not letters/spaces)
+      return value.replace(/[';\\x00\\n\\r\\x1a"\\]/g, '');
     }
     
     if (typeof value === 'number') {
@@ -141,6 +146,22 @@ export class AnalyticsQueryBuilder {
     }
 
     return value;
+  }
+
+  /**
+   * Check if value is a known measure or frequency (safe values)
+   */
+  private isKnownMeasureOrFrequency(value: string): boolean {
+    const knownMeasures = [
+      'Charges by Practice',
+      'Payments by Practice', 
+      'Charges by Provider',
+      'Payments by Provider'
+    ];
+    
+    const knownFrequencies = ['Monthly', 'Weekly', 'Quarterly'];
+    
+    return knownMeasures.includes(value) || knownFrequencies.includes(value);
   }
 
   /**
@@ -271,7 +292,7 @@ export class AnalyticsQueryBuilder {
       }
 
       // Log the filters being applied
-      this.logger.info('Filters built for analytics query', { 
+      console.log('🔍 ANALYTICS FILTERS:', { 
         filters: filters.map(f => ({ field: f.field, operator: f.operator, value: f.value })),
         filterCount: filters.length
       });
@@ -279,7 +300,7 @@ export class AnalyticsQueryBuilder {
       // Build WHERE clause with security context
       const { clause: whereClause, params: queryParams } = this.buildWhereClause(filters, context);
       
-      this.logger.info('WHERE clause built', { 
+      console.log('🔍 WHERE CLAUSE:', { 
         whereClause,
         paramCount: queryParams.length,
         parameters: queryParams
@@ -313,6 +334,14 @@ export class AnalyticsQueryBuilder {
       `;
 
       queryParams.push(limit, offset);
+
+      // Log the final complete query
+      console.log('🔍 FINAL SQL QUERY:', {
+        sql: query,
+        parameters: queryParams,
+        limit,
+        offset
+      });
 
       // Execute query
       const data = await executeAnalyticsQuery<AppMeasure>(query, queryParams);
