@@ -171,7 +171,7 @@ export class AnalyticsCache {
     const toRemove = Math.ceil(entries.length * 0.1);
     
     for (let i = 0; i < toRemove; i++) {
-      this.cache.delete(entries[i][0]);
+      this.cache.delete(entries[i]?.[0] || '');
     }
 
     logger.debug('Cache eviction completed', { 
@@ -187,7 +187,7 @@ export class AnalyticsCache {
     const now = Date.now();
     let removedCount = 0;
 
-    for (const [key, entry] of this.cache.entries()) {
+    for (const [key, entry] of Array.from(this.cache.entries())) {
       if (now - entry.timestamp > entry.ttl) {
         this.cache.delete(key);
         removedCount++;
@@ -225,13 +225,24 @@ export class AnalyticsCache {
     const totalAccess = entries.reduce((sum, entry) => sum + entry.accessCount, 0);
     const totalHits = entries.filter(entry => entry.accessCount > 0).length;
 
-    return {
+    const result: {
+      size: number;
+      maxSize: number;
+      hitRate: number;
+      oldestEntry?: Date;
+      newestEntry?: Date;
+    } = {
       size: this.cache.size,
       maxSize: this.MAX_CACHE_SIZE,
       hitRate: totalAccess > 0 ? (totalHits / totalAccess) * 100 : 0,
-      oldestEntry: entries.length > 0 ? new Date(Math.min(...entries.map(e => e.timestamp))) : undefined,
-      newestEntry: entries.length > 0 ? new Date(Math.max(...entries.map(e => e.timestamp))) : undefined,
     };
+    
+    if (entries.length > 0) {
+      result.oldestEntry = new Date(Math.min(...entries.map(e => e.timestamp)));
+      result.newestEntry = new Date(Math.max(...entries.map(e => e.timestamp)));
+    }
+    
+    return result;
   }
 
   /**
@@ -240,7 +251,7 @@ export class AnalyticsCache {
   invalidatePattern(pattern: Partial<AnalyticsQueryParams>): number {
     let invalidatedCount = 0;
     
-    for (const [key, entry] of this.cache.entries()) {
+    for (const [key, entry] of Array.from(this.cache.entries())) {
       // Simple pattern matching - in production you'd want more sophisticated matching
       const shouldInvalidate = Object.entries(pattern).every(([patternKey, patternValue]) => {
         return key.includes(`${patternKey}:${patternValue}`);

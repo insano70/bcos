@@ -261,10 +261,10 @@ export default function StaffMemberForm({
         {/* Photo Upload */}
         <div>
           <ImageUpload
-            currentImage={photoUrl}
+            {...(photoUrl && { currentImage: photoUrl })}
             onImageUploaded={handlePhotoUploaded}
             practiceId={practiceId}
-            staffId={staffMember?.staff_id}
+            {...(staffMember?.staff_id && { staffId: staffMember.staff_id })}
             type="provider"
             label="Staff Photo"
           />

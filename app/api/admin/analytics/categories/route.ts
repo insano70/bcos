@@ -24,14 +24,7 @@ const getCategoriesHandler = async (request: NextRequest, userContext: UserConte
   try {
     // Fetch all categories with hierarchy
     const categories = await db
-      .select({
-        chart_category_id: chart_categories.chart_category_id,
-        category_name: chart_categories.category_name,
-        category_description: chart_categories.category_description,
-        parent_category_id: chart_categories.parent_category_id,
-        created_at: chart_categories.created_at,
-        updated_at: chart_categories.updated_at,
-      })
+      .select()
       .from(chart_categories)
       .orderBy(chart_categories.category_name);
 
@@ -80,6 +73,10 @@ const createCategoryHandler = async (request: NextRequest, userContext: UserCont
         parent_category_id: body.parent_category_id,
       })
       .returning();
+
+    if (!newCategory) {
+      return createErrorResponse('Failed to create category', 500, request);
+    }
 
     logDBOperation(logger, 'chart_category_create', 'chart_categories', startTime, 1);
 

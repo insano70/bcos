@@ -31,7 +31,7 @@ export function useValidatedForm<T extends FieldValues>({
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const form = useForm<T>({
-    resolver: zodResolver(schema) as any, // TODO: Fix generic type constraints
+    resolver: zodResolver(schema as never), // Type assertion for complex generic constraints
     mode: 'onChange', // Real-time validation
     reValidateMode: 'onChange',
     ...formOptions

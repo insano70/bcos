@@ -1,5 +1,5 @@
 import { db, chart_data_sources, chart_data_source_columns, chart_display_configs, color_palettes } from '@/lib/db';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
 
 /**
@@ -111,28 +111,36 @@ export class ChartConfigService {
       const config: DataSourceConfig = {
         id: dataSource.data_source_id,
         name: dataSource.data_source_name,
-        description: dataSource.data_source_description || undefined,
         tableName: dataSource.table_name,
         schemaName: dataSource.schema_name,
-        isActive: dataSource.is_active,
-        columns: columns.map(col => ({
-          id: col.column_id,
-          columnName: col.column_name,
-          displayName: col.display_name,
-          description: col.column_description || undefined,
-          dataType: col.data_type,
-          isFilterable: col.is_filterable,
-          isGroupable: col.is_groupable,
-          isMeasure: col.is_measure,
-          isDimension: col.is_dimension,
-          isDateField: col.is_date_field,
-          formatType: col.format_type || undefined,
-          sortOrder: col.sort_order,
-          defaultAggregation: col.default_aggregation || undefined,
-          exampleValue: col.example_value || undefined,
-          allowedValues: col.allowed_values as any[] || undefined,
-        }))
+        isActive: dataSource.is_active ?? false,
+        columns: columns.map(col => {
+          const columnConfig: ColumnConfig = {
+            id: col.column_id,
+            columnName: col.column_name,
+            displayName: col.display_name,
+            dataType: col.data_type,
+            isFilterable: col.is_filterable ?? false,
+            isGroupable: col.is_groupable ?? false,
+            isMeasure: col.is_measure ?? false,
+            isDimension: col.is_dimension ?? false,
+            isDateField: col.is_date_field ?? false,
+            sortOrder: col.sort_order ?? 0,
+          };
+          
+          if (col.column_description) columnConfig.description = col.column_description;
+          if (col.format_type) columnConfig.formatType = col.format_type;
+          if (col.default_aggregation) columnConfig.defaultAggregation = col.default_aggregation;
+          if (col.example_value) columnConfig.exampleValue = col.example_value;
+          if (col.allowed_values) columnConfig.allowedValues = col.allowed_values as string[];
+          
+          return columnConfig;
+        })
       };
+      
+      if (dataSource.data_source_description) {
+        config.description = dataSource.data_source_description;
+      }
 
       this.dataSourceCache.set(cacheKey, config);
       return config;
@@ -200,7 +208,7 @@ export class ChartConfigService {
         .where(
           and(
             eq(chart_display_configs.chart_type, chartType),
-            frequency ? eq(chart_display_configs.frequency, frequency) : eq(chart_display_configs.frequency, null),
+            frequency ? eq(chart_display_configs.frequency, frequency) : isNull(chart_display_configs.frequency),
             eq(chart_display_configs.is_active, true)
           )
         );
@@ -225,19 +233,20 @@ export class ChartConfigService {
 
         const displayConfig: ChartDisplayConfig = {
           chartType: defaultConfig.chart_type,
-          frequency: defaultConfig.frequency || undefined,
-          xAxisConfig: defaultConfig.x_axis_config as any,
-          yAxisConfig: defaultConfig.y_axis_config as any,
-          defaultWidth: defaultConfig.default_width,
-          defaultHeight: defaultConfig.default_height,
-          timeUnit: defaultConfig.time_unit || undefined,
-          timeDisplayFormat: defaultConfig.time_display_format || undefined,
-          timeTooltipFormat: defaultConfig.time_tooltip_format || undefined,
-          showLegend: defaultConfig.show_legend,
-          showTooltips: defaultConfig.show_tooltips,
-          enableAnimation: defaultConfig.enable_animation,
-          defaultColorPaletteId: defaultConfig.default_color_palette_id || undefined,
+          defaultWidth: defaultConfig.default_width ?? 800,
+          defaultHeight: defaultConfig.default_height ?? 400,
+          showLegend: defaultConfig.show_legend ?? true,
+          showTooltips: defaultConfig.show_tooltips ?? true,
+          enableAnimation: defaultConfig.enable_animation ?? true,
         };
+        
+        if (defaultConfig.frequency) displayConfig.frequency = defaultConfig.frequency;
+        if (defaultConfig.x_axis_config) displayConfig.xAxisConfig = defaultConfig.x_axis_config;
+        if (defaultConfig.y_axis_config) displayConfig.yAxisConfig = defaultConfig.y_axis_config;
+        if (defaultConfig.time_unit) displayConfig.timeUnit = defaultConfig.time_unit;
+        if (defaultConfig.time_display_format) displayConfig.timeDisplayFormat = defaultConfig.time_display_format;
+        if (defaultConfig.time_tooltip_format) displayConfig.timeTooltipFormat = defaultConfig.time_tooltip_format;
+        if (defaultConfig.default_color_palette_id) displayConfig.defaultColorPaletteId = defaultConfig.default_color_palette_id;
 
         this.displayConfigCache.set(cacheKey, displayConfig);
         return displayConfig;
@@ -245,19 +254,20 @@ export class ChartConfigService {
 
       const displayConfig: ChartDisplayConfig = {
         chartType: config.chart_type,
-        frequency: config.frequency || undefined,
-        xAxisConfig: config.x_axis_config as any,
-        yAxisConfig: config.y_axis_config as any,
-        defaultWidth: config.default_width,
-        defaultHeight: config.default_height,
-        timeUnit: config.time_unit || undefined,
-        timeDisplayFormat: config.time_display_format || undefined,
-        timeTooltipFormat: config.time_tooltip_format || undefined,
-        showLegend: config.show_legend,
-        showTooltips: config.show_tooltips,
-        enableAnimation: config.enable_animation,
-        defaultColorPaletteId: config.default_color_palette_id || undefined,
+        defaultWidth: config.default_width ?? 800,
+        defaultHeight: config.default_height ?? 400,
+        showLegend: config.show_legend ?? true,
+        showTooltips: config.show_tooltips ?? true,
+        enableAnimation: config.enable_animation ?? true,
       };
+      
+      if (config.frequency) displayConfig.frequency = config.frequency;
+      if (config.x_axis_config) displayConfig.xAxisConfig = config.x_axis_config;
+      if (config.y_axis_config) displayConfig.yAxisConfig = config.y_axis_config;
+      if (config.time_unit) displayConfig.timeUnit = config.time_unit;
+      if (config.time_display_format) displayConfig.timeDisplayFormat = config.time_display_format;
+      if (config.time_tooltip_format) displayConfig.timeTooltipFormat = config.time_tooltip_format;
+      if (config.default_color_palette_id) displayConfig.defaultColorPaletteId = config.default_color_palette_id;
 
       this.displayConfigCache.set(cacheKey, displayConfig);
       return displayConfig;
@@ -310,13 +320,14 @@ export class ChartConfigService {
       const colorPalette: ColorPalette = {
         id: palette.palette_id,
         name: palette.palette_name,
-        description: palette.palette_description || undefined,
         colors: palette.colors as string[],
-        paletteType: palette.palette_type,
-        maxColors: palette.max_colors || undefined,
-        isColorblindSafe: palette.is_colorblind_safe,
-        isDefault: palette.is_default,
+        paletteType: palette.palette_type ?? 'general',
+        isColorblindSafe: palette.is_colorblind_safe ?? false,
+        isDefault: palette.is_default ?? false,
       };
+      
+      if (palette.palette_description) colorPalette.description = palette.palette_description;
+      if (palette.max_colors) colorPalette.maxColors = palette.max_colors;
 
       this.colorPaletteCache.set(palette.palette_id, colorPalette);
       return colorPalette;

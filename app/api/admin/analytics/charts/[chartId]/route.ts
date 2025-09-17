@@ -26,23 +26,7 @@ const getChartHandler = async (request: NextRequest, userContext: UserContext, .
   try {
     // Fetch specific chart definition
     const [chart] = await db
-      .select({
-        chart_definition_id: chart_definitions.chart_definition_id,
-        chart_name: chart_definitions.chart_name,
-        chart_description: chart_definitions.chart_description,
-        chart_type: chart_definitions.chart_type,
-        data_source: chart_definitions.data_source,
-        chart_config: chart_definitions.chart_config,
-        access_control: chart_definitions.access_control,
-        chart_category_id: chart_definitions.chart_category_id,
-        category_name: chart_categories.category_name,
-        created_by: chart_definitions.created_by,
-        creator_name: users.first_name,
-        creator_last_name: users.last_name,
-        created_at: chart_definitions.created_at,
-        updated_at: chart_definitions.updated_at,
-        is_active: chart_definitions.is_active,
-      })
+      .select()
       .from(chart_definitions)
       .leftJoin(chart_categories, eq(chart_definitions.chart_category_id, chart_categories.chart_category_id))
       .leftJoin(users, eq(chart_definitions.created_by, users.user_id))

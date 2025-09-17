@@ -226,8 +226,8 @@ export class SimplifiedChartTransformer {
       datasets.push({
         label: groupKey,
         data,
-        borderColor: color,
-        backgroundColor: color, // Remove filled logic for bar charts
+        borderColor: color || '#00AEEF',
+        backgroundColor: color || '#00AEEF', // Ensure color is always defined
         fill: filled,
         tension: 0.4,
         pointRadius: 3,

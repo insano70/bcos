@@ -1,11 +1,17 @@
-import type { Practice, PracticeAttributes } from '@/lib/types/practice';
+import type { Practice, PracticeAttributes, ColorStyles } from '@/lib/types/practice';
 import { parseBusinessHours, parseInsurance } from '@/lib/utils/json-parser';
 import { formatBusinessHours } from '@/lib/utils/business-hours-formatter';
+
+interface BusinessHourInfo {
+  day: string;
+  hours: string;
+  isClosed: boolean;
+}
 
 interface ContactProps {
   practice: Practice;
   attributes: PracticeAttributes;
-  colorStyles: any;
+  colorStyles: ColorStyles;
 }
 
 export default function Contact({ practice, attributes, colorStyles }: ContactProps) {
@@ -106,17 +112,19 @@ export default function Contact({ practice, attributes, colorStyles }: ContactPr
                 console.log('Parsed business hours:', parsed);
                 const formatted = formatBusinessHours(parsed);
                 console.log('Formatted business hours:', formatted);
-                return formatted;
+                return formatted || [];
               })().length > 0 ? (
                 <div className="space-y-1">
-                  {formatBusinessHours(parseBusinessHours(attributes.business_hours)).map((dayInfo) => (
-                    <div key={dayInfo.day} className="flex justify-between items-center py-1">
-                      <span className="text-gray-900 font-medium">{dayInfo.day}</span>
-                      <span className={`text-sm ${dayInfo.isClosed ? 'text-gray-500 italic' : 'text-gray-700'}`}>
-                        {dayInfo.hours}
-                      </span>
-                    </div>
-                  ))}
+                  {(formatBusinessHours(parseBusinessHours(attributes.business_hours)) as unknown as BusinessHourInfo[] || [])
+                    .filter((dayInfo): dayInfo is BusinessHourInfo => dayInfo != null)
+                    .map((dayInfo: BusinessHourInfo) => (
+                      <div key={dayInfo.day} className="flex justify-between items-center py-1">
+                        <span className="text-gray-900 font-medium">{dayInfo.day}</span>
+                        <span className={`text-sm ${dayInfo.isClosed ? 'text-gray-500 italic' : 'text-gray-700'}`}>
+                          {dayInfo.hours}
+                        </span>
+                      </div>
+                    ))}
                 </div>
               ) : (
                 <p className="text-gray-600">Please call for current hours</p>
@@ -131,7 +139,7 @@ export default function Contact({ practice, attributes, colorStyles }: ContactPr
               <div className="space-y-2">
                 {attributes.insurance_accepted.map((insurance, index) => (
                   <div key={index} className="flex items-center">
-                    <span className="w-2 h-2 rounded-full mr-3" style={{ backgroundColor: colorStyles.primary.backgroundColor }}></span>
+                    <span className="w-2 h-2 rounded-full mr-3" style={colorStyles.primary}></span>
                     <span className="text-gray-700">{insurance}</span>
                   </div>
                 ))}

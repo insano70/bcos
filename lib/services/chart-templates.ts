@@ -1,4 +1,4 @@
-import type { ChartDefinition } from '@/lib/types/analytics';
+import type { ChartDefinition, ChartAccessControl, ChartFilter, ChartOrderBy } from '@/lib/types/analytics';
 
 /**
  * Chart Templates
@@ -15,9 +15,8 @@ export const CHART_TEMPLATES = {
       filters: [
         { field: 'frequency', operator: 'eq', value: 'Monthly' },
         { field: 'measure', operator: 'in', value: ['Charges by Practice', 'Payments by Practice'] }
-      ],
-      groupBy: ['practice_uid', 'measure', 'period_start', 'period_end'],
-      orderBy: [{ field: 'period_end', direction: 'ASC' as const }],
+      ] as ChartFilter[],
+      orderBy: [{ field: 'period_end', direction: 'ASC' }] as ChartOrderBy[],
     },
     chart_config: {
       x_axis: {
@@ -59,8 +58,7 @@ export const CHART_TEMPLATES = {
         { field: 'measure', operator: 'eq', value: 'Charges by Practice' },
         { field: 'frequency', operator: 'eq', value: 'Monthly' }
       ],
-      groupBy: ['practice_uid', 'period_start'],
-      orderBy: [{ field: 'date_index', direction: 'DESC' as const }],
+      orderBy: [{ field: 'date_index', direction: 'DESC' }] as ChartOrderBy[],
       limit: 12
     },
     chart_config: {
@@ -144,9 +142,15 @@ export function createChartFromTemplate(
 ): Omit<ChartDefinition, 'chart_definition_id' | 'created_at' | 'updated_at'> {
   const template = CHART_TEMPLATES[templateKey];
   
-  return {
+  const baseTemplate = {
     ...template,
     created_by: createdByUserId,
-    ...overrides
   };
+  
+  const result = {
+    ...baseTemplate,
+    ...overrides
+  } as Omit<ChartDefinition, 'chart_definition_id' | 'created_at' | 'updated_at'>;
+  
+  return result;
 }

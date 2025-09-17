@@ -373,12 +373,12 @@ export class AnalyticsQueryBuilder {
       let totalCount = 0;
       if (totalResult.length > 0) {
         const firstResult = totalResult[0];
-        totalCount = parseInt(firstResult.total || '0', 10);
+        totalCount = parseInt(firstResult?.total || '0', 10);
         
         console.log('✅ TOTAL CALCULATION:', {
-          measureType: firstResult.measure_type,
+          measureType: firstResult?.measure_type || 'unknown',
           totalValue: totalCount,
-          calculationType: firstResult.measure_type === 'currency' ? 'SUM of values' : 'COUNT of rows'
+          calculationType: (firstResult?.measure_type === 'currency') ? 'SUM of values' : 'COUNT of rows'
         });
       }
 
@@ -430,7 +430,7 @@ export class AnalyticsQueryBuilder {
     const endDateStr = endDate.toISOString().split('T')[0];
     
     const params: AnalyticsQueryParams = {
-      measure: 'Charges by Practice',
+      measure: 'Charges by Provider',
       frequency: 'Monthly',
       start_date: startDateStr,
       end_date: endDateStr,
@@ -438,7 +438,7 @@ export class AnalyticsQueryBuilder {
     };
 
     if (practiceUid) {
-      params.practice_uid = practiceUid;
+      params.practice_uid = parseInt(practiceUid, 10);
     }
 
     const result = await this.queryMeasures(params, context);

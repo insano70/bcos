@@ -35,20 +35,7 @@ const getDashboardsHandler = async (request: NextRequest, userContext: UserConte
 
     // Fetch dashboards with creator and category info
     const dashboardList = await db
-      .select({
-        dashboard_id: dashboards.dashboard_id,
-        dashboard_name: dashboards.dashboard_name,
-        dashboard_description: dashboards.dashboard_description,
-        layout_config: dashboards.layout_config,
-        dashboard_category_id: dashboards.dashboard_category_id,
-        category_name: chart_categories.category_name,
-        created_by: dashboards.created_by,
-        creator_name: users.first_name,
-        creator_last_name: users.last_name,
-        created_at: dashboards.created_at,
-        updated_at: dashboards.updated_at,
-        is_active: dashboards.is_active,
-      })
+      .select()
       .from(dashboards)
       .leftJoin(chart_categories, eq(dashboards.dashboard_category_id, chart_categories.chart_category_id))
       .leftJoin(users, eq(dashboards.created_by, users.user_id))
@@ -61,7 +48,7 @@ const getDashboardsHandler = async (request: NextRequest, userContext: UserConte
         const [chartCount] = await db
           .select({ count: count() })
           .from(dashboard_charts)
-          .where(eq(dashboard_charts.dashboard_id, dashboard.dashboard_id));
+          .where(eq(dashboard_charts.dashboard_id, dashboard.dashboards.dashboard_id));
 
         return {
           ...dashboard,

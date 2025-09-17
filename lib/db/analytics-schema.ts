@@ -15,7 +15,7 @@ export const chart_categories = pgTable(
     chart_category_id: integer('chart_category_id').primaryKey().generatedByDefaultAsIdentity(),
     category_name: varchar('category_name', { length: 100 }).notNull(),
     category_description: text('category_description'),
-    parent_category_id: integer('parent_category_id').references(() => chart_categories.chart_category_id),
+    parent_category_id: integer('parent_category_id'),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },

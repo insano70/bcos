@@ -39,7 +39,7 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
         }
 
         const current = measure.measure_value;
-        const previous = sorted[index - 1].measure_value;
+        const previous = sorted[index - 1]?.measure_value ?? 0;
         const growthRate = previous !== 0 ? ((current - previous) / previous) * 100 : 0;
 
         return {
@@ -122,8 +122,8 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
         }
 
         const current = measure.measure_value;
-        const previous1 = sorted[index - 1].measure_value;
-        const previous2 = sorted[index - 2].measure_value;
+        const previous1 = sorted[index - 1]?.measure_value ?? 0;
+        const previous2 = sorted[index - 2]?.measure_value ?? 0;
         const average = (current + previous1 + previous2) / 3;
 
         return {
@@ -198,7 +198,7 @@ export class CalculatedFieldsService {
 
     // Check if all required fields are present in the data
     const sampleMeasure = measures[0];
-    const availableFields = Object.keys(sampleMeasure);
+    const availableFields = sampleMeasure ? Object.keys(sampleMeasure) : [];
     const missingDependencies = field.dependencies.filter(dep => !availableFields.includes(dep));
 
     return {

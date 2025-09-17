@@ -221,7 +221,7 @@ export default function StaffMemberFormModal({
           {/* Photo Upload */}
           <div>
             <ImageUpload
-              currentImage={photoUrl}
+              {...(photoUrl && { currentImage: photoUrl })}
               onImageUploaded={handlePhotoUploaded}
               practiceId={practiceId}
               type="provider"

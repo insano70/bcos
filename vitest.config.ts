@@ -34,7 +34,7 @@ export default defineConfig({
     
     // Reporter configuration
     reporters: process.env.CI ? ['junit', 'github-actions'] : ['verbose'],
-    outputFile: process.env.CI ? './test-results.xml' : undefined,
+    ...(process.env.CI && { outputFile: './test-results.xml' }),
     
     // Coverage configuration
     coverage: {

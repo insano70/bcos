@@ -45,11 +45,11 @@ export class RequestMetricsCollector {
       path: url.pathname,
       startTime: Date.now(),
       requestSize: this.getRequestSize(request),
-      userAgent: request.headers.get('user-agent') ?? undefined,
+      ...(request.headers.get('user-agent') && { userAgent: request.headers.get('user-agent')! }),
       ipAddress: request.headers.get('x-forwarded-for') || 
                  request.headers.get('x-real-ip') || 
                  'unknown',
-      userId: userId ?? undefined
+      ...(userId && { userId })
     }
 
     this.activeRequests.set(requestId, metrics)
@@ -86,7 +86,7 @@ export class RequestMetricsCollector {
       statusCode: response.status,
       responseSize: this.getResponseSize(response),
       duration: Date.now() - requestMetrics.startTime,
-      errorType: error ? error.constructor.name ?? undefined : undefined
+      ...(error && { errorType: error.constructor.name })
     }
 
     // Log metrics based on performance and status
@@ -206,7 +206,7 @@ export class RequestMetricsCollector {
       method: req.method,
       path: req.path,
       duration: now - req.startTime,
-      userId: req.userId
+      ...(req.userId && { userId: req.userId })
     }))
   }
 

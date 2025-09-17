@@ -192,12 +192,24 @@ class OptimizedAuditLogger {
     oldestEntry?: Date
     newestEntry?: Date
   } {
-    return {
+    const result: {
+      bufferSize: number;
+      bufferCapacity: number;
+      oldestEntry?: Date;
+      newestEntry?: Date;
+    } = {
       bufferSize: this.buffer.length,
       bufferCapacity: this.bufferSize,
-      oldestEntry: this.buffer.length > 0 ? this.buffer[0].timestamp : undefined,
-      newestEntry: this.buffer.length > 0 ? this.buffer[this.buffer.length - 1].timestamp : undefined
+    };
+    
+    if (this.buffer.length > 0) {
+      const oldestTimestamp = this.buffer[0]?.timestamp;
+      const newestTimestamp = this.buffer[this.buffer.length - 1]?.timestamp;
+      if (oldestTimestamp) result.oldestEntry = oldestTimestamp;
+      if (newestTimestamp) result.newestEntry = newestTimestamp;
     }
+    
+    return result;
   }
 }
 

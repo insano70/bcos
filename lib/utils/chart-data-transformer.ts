@@ -1,5 +1,5 @@
 import type { 
-  AppMeasure, 
+  AggAppMeasure, 
   ChartData, 
   ChartDataset, 
   ChartAxisConfig 
@@ -18,7 +18,7 @@ export class ChartDataTransformer {
    * Transform measures data into Chart.js format
    */
   transformMeasuresData(
-    measures: AppMeasure[],
+    measures: AggAppMeasure[],
     chartType: 'line' | 'bar' | 'pie' | 'doughnut' | 'area',
     groupBy?: string
   ): ChartData {
@@ -45,13 +45,13 @@ export class ChartDataTransformer {
    * Transform data for line/area charts (time series)
    */
   private transformToTimeSeriesData(
-    measures: AppMeasure[], 
+    measures: AggAppMeasure[], 
     groupBy?: string,
     filled: boolean = false
   ): ChartData {
     // Sort by date for proper time series
     const sortedMeasures = measures.sort((a, b) => 
-      new Date(a.period_start).getTime() - new Date(b.period_start).getTime()
+      new Date(a.date_index).getTime() - new Date(b.date_index).getTime()
     );
 
     if (!groupBy) {
@@ -59,7 +59,7 @@ export class ChartDataTransformer {
       const dataMap = new Map<string, number>();
       
       sortedMeasures.forEach(measure => {
-        const dateKey = this.formatDateLabel(measure.period_start, measure.frequency);
+        const dateKey = this.formatDateLabel(measure.date_index, measure.frequency);
         const currentValue = dataMap.get(dateKey) || 0;
         // Convert string values to numbers
         const measureValue = typeof measure.measure_value === 'string' 
@@ -100,7 +100,7 @@ export class ChartDataTransformer {
    * Transform data for multiple series (grouped data)
    */
   private transformToMultiSeriesData(
-    measures: AppMeasure[], 
+    measures: AggAppMeasure[], 
     groupBy: string,
     filled: boolean = false
   ): ChartData {
@@ -110,7 +110,7 @@ export class ChartDataTransformer {
 
       measures.forEach(measure => {
         const groupKey = this.getGroupValue(measure, groupBy);
-        const dateKey = this.formatDateLabel(measure.period_start, measure.frequency);
+        const dateKey = this.formatDateLabel(measure.date_index, measure.frequency);
         
         allDates.add(dateKey);
         
@@ -182,13 +182,13 @@ export class ChartDataTransformer {
   /**
    * Transform data for bar charts
    */
-  private transformToBarData(measures: AppMeasure[], groupBy?: string): ChartData {
+  private transformToBarData(measures: AggAppMeasure[], groupBy?: string): ChartData {
     if (!groupBy) {
       // Single series - aggregate by date
       const dataMap = new Map<string, number>();
       
       measures.forEach(measure => {
-        const dateKey = this.formatDateLabel(measure.period_start, measure.frequency);
+        const dateKey = this.formatDateLabel(measure.date_index, measure.frequency);
         const currentValue = dataMap.get(dateKey) || 0;
         // Convert string values to numbers
         const measureValue = typeof measure.measure_value === 'string' 
@@ -221,7 +221,7 @@ export class ChartDataTransformer {
   /**
    * Transform data for pie/doughnut charts
    */
-  private transformToPieData(measures: AppMeasure[], groupBy?: string): ChartData {
+  private transformToPieData(measures: AggAppMeasure[], groupBy?: string): ChartData {
     const groupField = groupBy || 'practice_uid';
     const groupedData = new Map<string, number>();
     
@@ -256,12 +256,12 @@ export class ChartDataTransformer {
   /**
    * Get value for grouping from measure object
    */
-  private getGroupValue(measure: AppMeasure, groupBy: string): string {
+  private getGroupValue(measure: AggAppMeasure, groupBy: string): string {
     switch (groupBy) {
       case 'practice_uid':
         return measure.practice_uid?.toString() || 'Unknown Practice';
-      case 'provider_uid':
-        return measure.provider_uid?.toString() || 'Unknown Provider';
+      case 'provider_name':
+        return measure.provider_name?.toString() || 'Unknown Provider';
       case 'measure':
         return measure.measure;
       case 'frequency':
@@ -350,15 +350,15 @@ export class ChartDataTransformer {
   /**
    * Create practice revenue trend chart data (common use case)
    */
-  createPracticeRevenueTrendData(measures: AppMeasure[]): ChartData {
+  createPracticeRevenueTrendData(measures: AggAppMeasure[]): ChartData {
     return this.transformMeasuresData(measures, 'line', 'practice_uid');
   }
 
   /**
    * Create provider performance comparison chart data
    */
-  createProviderComparisonData(measures: AppMeasure[]): ChartData {
-    return this.transformMeasuresData(measures, 'bar', 'provider_uid');
+  createProviderComparisonData(measures: AggAppMeasure[]): ChartData {
+    return this.transformMeasuresData(measures, 'bar', 'provider_name');
   }
 }
 

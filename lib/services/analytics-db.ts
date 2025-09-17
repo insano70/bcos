@@ -119,7 +119,7 @@ export const executeAnalyticsQuery = async <T = any>(
       sampleData: result.length > 0 ? result[0] : null
     });
 
-    return result as T[];
+    return result as unknown as T[];
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Analytics query execution failed', { 

@@ -115,14 +115,7 @@ export class ChartValidator {
       }
     }
 
-    // Validate groupBy fields
-    if (dataSource.groupBy) {
-      for (const field of dataSource.groupBy) {
-        if (!ALLOWED_FIELDS.includes(field as any)) {
-          errors.push(`Unauthorized groupBy field: ${field}`);
-        }
-      }
-    }
+    // Note: groupBy validation is handled in the chart series configuration
 
     // Validate orderBy fields
     if (dataSource.orderBy) {

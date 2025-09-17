@@ -103,7 +103,7 @@ export class CorrelationContextManager {
 
     const context: CorrelationContext = {
       correlationId: childId,
-      parentId: parentContext?.correlationId,
+      ...(parentContext && { parentId: parentContext.correlationId }),
       operationName,
       startTime: Date.now(),
       metadata: {

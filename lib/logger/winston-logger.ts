@@ -173,7 +173,7 @@ export class StructuredLogger {
    * Add user context to logger
    */
   withUser(userId: string, organizationId?: string): StructuredLogger {
-    return this.child({ userId, organizationId })
+    return this.child({ userId, ...(organizationId && { organizationId }) })
   }
 
   /**
