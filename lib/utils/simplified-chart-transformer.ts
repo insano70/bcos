@@ -1,7 +1,7 @@
-import { 
-  type AggAppMeasure, 
-  type ChartData, 
-  type ChartDataset
+import type { 
+  AggAppMeasure, 
+  ChartData, 
+  ChartDataset
 } from '@/lib/types/analytics';
 import { getCssVariable } from '@/components/utils/utils';
 
@@ -19,7 +19,7 @@ export class SimplifiedChartTransformer {
   transformData(
     measures: AggAppMeasure[],
     chartType: 'line' | 'bar' | 'pie' | 'doughnut' | 'area',
-    groupBy: 'provider_name' | 'practice' | 'measure' | 'none' = 'none'
+    groupBy: string = 'none'
   ): ChartData {
 
     if (measures.length === 0) {

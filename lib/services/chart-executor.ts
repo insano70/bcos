@@ -1,4 +1,4 @@
-import { ChartDefinition, ChartRenderContext, AnalyticsQueryResult } from '@/lib/types/analytics';
+import type { ChartDefinition, ChartRenderContext, AnalyticsQueryResult } from '@/lib/types/analytics';
 import { analyticsQueryBuilder } from './analytics-query-builder';
 import { chartValidator } from './chart-validation';
 import { logger } from '@/lib/logger';

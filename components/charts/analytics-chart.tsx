@@ -65,7 +65,7 @@ export default function AnalyticsChart({
   const [chartData, setChartData] = useState<ChartData>({ labels: [], datasets: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [metadata, setMetadata] = useState<ApiResponse['metadata'] | null>(null);
+  const [metadata, setMetadata] = useState<ApiResponse['data']['metadata'] | null>(null);
 
   useEffect(() => {
     fetchChartData();

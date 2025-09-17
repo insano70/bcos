@@ -163,10 +163,10 @@ export class AnalyticsQueryBuilder {
   /**
    * Build WHERE clause with parameterized queries
    */
-  private buildWhereClause(
+  private async buildWhereClause(
     filters: ChartFilter[], 
     context: ChartRenderContext
-  ): { clause: string; params: any[] } {
+  ): Promise<{ clause: string; params: any[] }> {
     const conditions: string[] = [];
     const params: any[] = [];
     let paramIndex = 1;
@@ -186,7 +186,7 @@ export class AnalyticsQueryBuilder {
 
     // Add user-specified filters
     for (const filter of filters) {
-      this.validateField(filter.field);
+      await this.validateField(filter.field, 'agg_app_measures', 'ih');
       this.validateOperator(filter.operator);
 
       const sanitizedValue = this.sanitizeValue(filter.value, filter.operator);
@@ -214,16 +214,16 @@ export class AnalyticsQueryBuilder {
   /**
    * Build ORDER BY clause
    */
-  private buildOrderByClause(orderBy: ChartOrderBy[]): string {
+  private async buildOrderByClause(orderBy: ChartOrderBy[]): Promise<string> {
     if (orderBy.length === 0) {
       return 'ORDER BY date_index DESC'; // Default ordering
     }
 
-    const orderClauses = orderBy.map(order => {
-      this.validateField(order.field);
+    const orderClauses = await Promise.all(orderBy.map(async order => {
+      await this.validateField(order.field, 'agg_app_measures', 'ih');
       const direction = order.direction === 'ASC' ? 'ASC' : 'DESC';
       return `${order.field} ${direction}`;
-    });
+    }));
 
     return `ORDER BY ${orderClauses.join(', ')}`;
   }
@@ -257,7 +257,7 @@ export class AnalyticsQueryBuilder {
       });
 
       // Validate table access
-      this.validateTable('ih.agg_app_measures');
+      await this.validateTable('agg_app_measures', 'ih');
 
       // Build filters from params
       const filters: ChartFilter[] = [];
@@ -309,7 +309,7 @@ export class AnalyticsQueryBuilder {
       });
 
       // Build WHERE clause with security context
-      const { clause: whereClause, params: queryParams } = this.buildWhereClause(filters, context);
+      const { clause: whereClause, params: queryParams } = await this.buildWhereClause(filters, context);
       
       console.log('🔍 WHERE CLAUSE:', { 
         whereClause,
@@ -421,7 +421,7 @@ export class AnalyticsQueryBuilder {
     context: ChartRenderContext,
     practiceUid?: string,
     months: number = 12
-  ): Promise<AppMeasure[]> {
+  ): Promise<AggAppMeasure[]> {
     const endDate = new Date();
     const startDate = new Date();
     startDate.setMonth(startDate.getMonth() - months);

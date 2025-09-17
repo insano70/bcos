@@ -341,18 +341,40 @@ export class ChartConfigService {
    * Get available measure types from data source by querying actual data
    */
   async getAvailableMeasures(tableName: string, schemaName: string = 'ih'): Promise<string[]> {
-    // For now, return the known measures from ih.agg_app_measures
-    // TODO: Query the actual data source dynamically
-    return ['Charges by Provider', 'Payments by Provider'];
+    try {
+      // Query the actual data source for distinct measures
+      const { executeAnalyticsQuery } = await import('./analytics-db');
+      const measures = await executeAnalyticsQuery(`
+        SELECT DISTINCT measure 
+        FROM ${schemaName}.${tableName} 
+        ORDER BY measure
+      `, []);
+      
+      return measures.map((row: any) => row.measure).filter(Boolean);
+    } catch (error) {
+      console.warn('Failed to load measures from database, using fallback:', error);
+      return ['Charges by Provider', 'Payments by Provider'];
+    }
   }
 
   /**
    * Get available frequencies from data source by querying actual data
    */
   async getAvailableFrequencies(tableName: string, schemaName: string = 'ih'): Promise<string[]> {
-    // For now, return the known frequencies from ih.agg_app_measures  
-    // TODO: Query the actual data source dynamically
-    return ['Monthly', 'Weekly', 'Quarterly'];
+    try {
+      // Query the actual data source for distinct frequencies
+      const { executeAnalyticsQuery } = await import('./analytics-db');
+      const frequencies = await executeAnalyticsQuery(`
+        SELECT DISTINCT frequency 
+        FROM ${schemaName}.${tableName} 
+        ORDER BY frequency
+      `, []);
+      
+      return frequencies.map((row: any) => row.frequency).filter(Boolean);
+    } catch (error) {
+      console.warn('Failed to load frequencies from database, using fallback:', error);
+      return ['Monthly', 'Weekly', 'Quarterly'];
+    }
   }
 }
 

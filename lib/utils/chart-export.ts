@@ -40,7 +40,7 @@ export class ChartExporter {
       
       const canvas = chartElement.querySelector('canvas');
       if (canvas) {
-        this.exportAsPNG(canvas, filename.replace('.pdf', '.png'));
+        ChartExporter.exportAsPNG(canvas, filename.replace('.pdf', '.png'));
       } else {
         throw new Error('No canvas found in chart element');
       }

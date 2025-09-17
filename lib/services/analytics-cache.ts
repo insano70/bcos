@@ -1,4 +1,4 @@
-import { AnalyticsQueryParams, AnalyticsQueryResult } from '@/lib/types/analytics';
+import type { AnalyticsQueryParams, AnalyticsQueryResult } from '@/lib/types/analytics';
 import { logger } from '@/lib/logger';
 
 /**

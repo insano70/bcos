@@ -1,4 +1,4 @@
-import { ChartDefinition } from '@/lib/types/analytics';
+import type { ChartDefinition } from '@/lib/types/analytics';
 
 /**
  * Chart Templates

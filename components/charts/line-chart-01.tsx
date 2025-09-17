@@ -59,7 +59,7 @@ export default function LineChart01({ data, width, height }: LineChart01Props) {
           x: {
             type: 'time',
             time: {
-              parser: false, // Let Chart.js handle Date objects directly
+              // parser: false, // Let Chart.js handle Date objects directly
               unit: 'week', // Use week unit for better weekly data handling
               displayFormats: {
                 week: 'MMM DD',
@@ -81,7 +81,7 @@ export default function LineChart01({ data, width, height }: LineChart01Props) {
               source: 'data', // Use data points as tick sources
               callback: function(value, index, ticks) {
                 // Custom formatting for quarterly data
-                const date = new Date(this.getLabelForValue(value));
+                const date = new Date(this.getLabelForValue(Number(value)));
                 const quarter = Math.floor(date.getMonth() / 3) + 1;
                 const year = date.getFullYear();
                 
@@ -102,7 +102,7 @@ export default function LineChart01({ data, width, height }: LineChart01Props) {
             callbacks: {
               title: (context) => {
                 // Show the date as the title
-                const date = new Date(context[0].label);
+                const date = new Date(context[0]?.label || '');
                 return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
               },
               label: (context) => {

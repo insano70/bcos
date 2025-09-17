@@ -121,6 +121,10 @@ const createDashboardHandler = async (request: NextRequest, userContext: UserCon
       })
       .returning();
 
+    if (!newDashboard) {
+      return createErrorResponse('Failed to create dashboard', 500, request);
+    }
+
     // Add charts to dashboard if provided
     if (body.chart_ids && Array.isArray(body.chart_ids)) {
       const chartAssociations = body.chart_ids.map((chartId: string, index: number) => ({

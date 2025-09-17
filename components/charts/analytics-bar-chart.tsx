@@ -125,7 +125,7 @@ export default function AnalyticsBarChart({ data, width, height, frequency = 'Mo
             callbacks: {
               title: (context) => {
                 // Format tooltip title based on frequency
-                const date = new Date(context[0].label);
+                const date = new Date(context[0]?.label || '');
                 return date.toLocaleDateString('en-US', {
                   year: 'numeric',
                   month: 'short',
@@ -199,7 +199,7 @@ export default function AnalyticsBarChart({ data, width, height, frequency = 'Mo
               label.style.lineHeight = 'calc(1.25 / 0.875)';
               // Calculate total for this dataset
               const dataset = c.data.datasets[item.datasetIndex!];
-              const dataArray = dataset.data;
+              const dataArray = dataset?.data || [];
               
               console.log('🔍 LEGEND CALCULATION:', {
                 providerName: item.text,
@@ -210,9 +210,18 @@ export default function AnalyticsBarChart({ data, width, height, frequency = 'Mo
               });
               
               const theValue: number = dataArray.reduce(
-                (a, b) => (typeof a === 'number' ? a : 0) + (typeof b === 'number' ? b : 0),
+                (sum: number, value) => {
+                  // Handle Chart.js data types safely
+                  if (typeof value === 'number') {
+                    return sum + value;
+                  } else if (value && typeof value === 'object' && 'y' in value) {
+                    // Handle Point objects
+                    return sum + (typeof value.y === 'number' ? value.y : 0);
+                  }
+                  return sum;
+                },
                 0
-              );
+              ) as number;
               
               console.log('🔍 CALCULATED TOTAL:', {
                 providerName: item.text,

@@ -1,8 +1,8 @@
-import { 
-  type AppMeasure, 
-  type ChartData, 
-  type ChartDataset, 
-  type ChartAxisConfig 
+import type { 
+  AppMeasure, 
+  ChartData, 
+  ChartDataset, 
+  ChartAxisConfig 
 } from '@/lib/types/analytics';
 import { getCssVariable } from '@/components/utils/utils';
 
