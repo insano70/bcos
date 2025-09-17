@@ -93,7 +93,7 @@ export interface ChartDefinition {
   chart_description?: string;
   chart_type: 'line' | 'bar' | 'pie' | 'doughnut' | 'area';
   chart_category_id?: number;
-  created_by_user_id: string;
+  created_by: string;
   created_at: Date;
   updated_at: Date;
   is_active: boolean;
@@ -106,7 +106,7 @@ export interface ChartDefinition {
  * Chart.js compatible data structure
  */
 export interface ChartData {
-  labels: string[];
+  labels: (string | Date)[];
   datasets: ChartDataset[];
 }
 
@@ -174,6 +174,6 @@ export interface ChartTemplate {
   template_id: string;
   template_name: string;
   template_description: string;
-  chart_definition: Omit<ChartDefinition, 'chart_definition_id' | 'created_by_user_id' | 'created_at' | 'updated_at'>;
+  chart_definition: Omit<ChartDefinition, 'chart_definition_id' | 'created_by' | 'created_at' | 'updated_at'>;
   is_system_template: boolean;
 }

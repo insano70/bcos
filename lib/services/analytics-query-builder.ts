@@ -8,6 +8,7 @@ import type {
 } from '@/lib/types/analytics';
 import { executeAnalyticsQuery } from './analytics-db';
 import { analyticsCache } from './analytics-cache';
+import { chartConfigService } from './chart-config-service';
 import { logger } from '@/lib/logger';
 
 /**
@@ -16,24 +17,9 @@ import { logger } from '@/lib/logger';
  */
 
 /**
- * Allowed tables - whitelist approach for security
+ * Dynamic field and table validation using database configuration
+ * Replaces hardcoded ALLOWED_TABLES and ALLOWED_FIELDS arrays
  */
-const ALLOWED_TABLES = ['ih.agg_app_measures'] as const;
-
-/**
- * Allowed fields for ih.agg_app_measures table - prevents SQL injection
- */
-const ALLOWED_FIELDS = [
-  'practice',
-  'practice_primary',
-  'practice_uid',
-  'provider_name',
-  'measure',
-  'frequency',
-  'date_index',
-  'measure_value',
-  'measure_type'
-] as const;
 
 /**
  * Allowed operators for filters - prevents injection attacks
@@ -58,19 +44,21 @@ export class AnalyticsQueryBuilder {
   private logger = logger;
 
   /**
-   * Validate table name against whitelist
+   * Validate table name against database configuration
    */
-  private validateTable(tableName: string): void {
-    if (!ALLOWED_TABLES.includes(tableName as any)) {
-      throw new Error(`Unauthorized table access: ${tableName}`);
+  private async validateTable(tableName: string, schemaName: string = 'ih'): Promise<void> {
+    const config = await chartConfigService.getDataSourceConfig(tableName, schemaName);
+    if (!config || !config.isActive) {
+      throw new Error(`Unauthorized table access: ${schemaName}.${tableName}`);
     }
   }
 
   /**
-   * Validate field name against whitelist
+   * Validate field name against database configuration
    */
-  private validateField(fieldName: string): void {
-    if (!ALLOWED_FIELDS.includes(fieldName as any)) {
+  private async validateField(fieldName: string, tableName: string, schemaName: string = 'ih'): Promise<void> {
+    const allowedFields = await chartConfigService.getAllowedFields(tableName, schemaName);
+    if (!allowedFields.includes(fieldName)) {
       throw new Error(`Unauthorized field access: ${fieldName}`);
     }
   }
@@ -303,6 +291,10 @@ export class AnalyticsQueryBuilder {
       }
       
       if (params.start_date) {
+        console.log('🔍 ADDING DATE RANGE FILTER:', { 
+          start_date: params.start_date,
+          end_date: params.end_date
+        });
         filters.push({ field: 'date_index', operator: 'gte', value: params.start_date });
       }
       

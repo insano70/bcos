@@ -162,6 +162,17 @@ export default function AnalyticsChart({
         sampleDataset: transformedData.datasets[0]
       });
 
+      // Show EXACT data structure being passed to Chart.js
+      console.log('📊 EXACT CHART.JS DATA STRUCTURE:', JSON.stringify({
+        labels: transformedData.labels,
+        datasets: transformedData.datasets.map(dataset => ({
+          label: dataset.label,
+          data: dataset.data,
+          backgroundColor: dataset.backgroundColor,
+          borderColor: dataset.borderColor
+        }))
+      }, null, 2));
+
       setChartData(transformedData);
       setMetadata(data.data.metadata);
 
@@ -282,7 +293,7 @@ export const AnalyticsChartPresets = {
   PracticeRevenueTrend: (props: Partial<AnalyticsChartProps>) => (
     <AnalyticsChart
       chartType="line"
-      measure="Charges by Practice"
+      measure="Charges by Provider"
       frequency="Monthly"
       groupBy="practice_uid"
       title="Practice Revenue Trend"
@@ -304,7 +315,18 @@ export const AnalyticsChartPresets = {
   RevenueDistribution: (props: Partial<AnalyticsChartProps>) => (
     <AnalyticsChart
       chartType="doughnut"
-      measure="Charges by Practice"
+      measure="Charges by Provider"
+      frequency="Monthly"
+      groupBy="practice_uid"
+      title="Revenue Distribution"
+      {...props}
+    />
+  ),
+
+  RevenueDistribution: (props: Partial<AnalyticsChartProps>) => (
+    <AnalyticsChart
+      chartType="doughnut"
+      measure="Charges by Provider"
       frequency="Monthly"
       groupBy="practice_uid"
       title="Revenue Distribution"

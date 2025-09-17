@@ -8,6 +8,7 @@ import {
   BarController,
   BarElement,
   LinearScale,
+  CategoryScale,
   TimeScale,
   Tooltip,
   Legend,
@@ -16,7 +17,7 @@ import type { ChartData } from 'chart.js';
 import 'chartjs-adapter-moment';
 import { formatValue } from '@/components/utils/utils';
 
-Chart.register(BarController, BarElement, LinearScale, TimeScale, Tooltip, Legend);
+Chart.register(BarController, BarElement, LinearScale, CategoryScale, TimeScale, Tooltip, Legend);
 
 interface AnalyticsBarChartProps {
   data: ChartData;
@@ -56,7 +57,7 @@ export default function AnalyticsBarChart({ data, width, height, frequency = 'Mo
         return {
           unit: 'quarter',
           displayFormats: {
-            quarter: '[Q]Q YYYY', // "Q3 2025"
+            quarter: '[Q]Q YYYY', // "Q1 2025"
           },
           tooltipFormat: '[Q]Q YYYY'
         };
@@ -81,6 +82,11 @@ export default function AnalyticsBarChart({ data, width, height, frequency = 'Mo
       type: 'bar',
       data: data,
       options: {
+        adapters: {
+          date: {
+            zone: 'UTC' // Force UTC timezone to prevent date shifting
+          }
+        },
         layout: {
           padding: {
             top: 12,
@@ -104,12 +110,7 @@ export default function AnalyticsBarChart({ data, width, height, frequency = 'Mo
             },
           },
           x: {
-            type: 'time',
-            time: {
-              unit: timeConfig.unit as any,
-              displayFormats: timeConfig.displayFormats,
-              tooltipFormat: timeConfig.tooltipFormat,
-            },
+            type: 'category', // Use category axis for bar charts
             border: {
               display: false,
             },
@@ -281,3 +282,5 @@ export default function AnalyticsBarChart({ data, width, height, frequency = 'Mo
     </>
   );
 }
+
+

@@ -146,7 +146,7 @@ export function createChartFromTemplate(
   
   return {
     ...template,
-    created_by_user_id: createdByUserId,
+    created_by: createdByUserId,
     ...overrides
   };
 }

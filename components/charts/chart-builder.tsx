@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import AnalyticsChart from './analytics-chart';
+import Toast from '@/components/toast';
 
 /**
  * Functional Chart Builder
@@ -40,6 +41,9 @@ export default function FunctionalChartBuilder() {
   const [schemaInfo, setSchemaInfo] = useState<SchemaInfo | null>(null);
   const [isLoadingSchema, setIsLoadingSchema] = useState(true);
   const [currentStep, setCurrentStep] = useState<'configure' | 'preview' | 'save'>('configure');
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
   
   const [chartConfig, setChartConfig] = useState<ChartConfig>({
     chartName: '',
@@ -47,9 +51,9 @@ export default function FunctionalChartBuilder() {
     measure: '',
     frequency: '',
     practiceUid: '114',
-    startDate: '',
-    endDate: '',
-    groupBy: 'practice_uid'
+    startDate: '2024-01-01', // Default to last year
+    endDate: '2025-12-31',   // Default to end of next year
+    groupBy: 'provider_name'
   });
 
   const [previewKey, setPreviewKey] = useState(0);
@@ -105,11 +109,15 @@ export default function FunctionalChartBuilder() {
 
   const handlePreview = () => {
     if (!chartConfig.chartName.trim()) {
-      alert('Chart name is required');
+      setToastMessage('Chart name is required');
+      setToastType('error');
+      setShowToast(true);
       return;
     }
     if (!chartConfig.measure) {
-      alert('Measure selection is required');
+      setToastMessage('Measure selection is required');
+      setToastType('error');
+      setShowToast(true);
       return;
     }
     
@@ -162,12 +170,16 @@ export default function FunctionalChartBuilder() {
       const result = await response.json();
       console.log('✅ Chart saved successfully:', result);
       
-      alert('Chart saved successfully!');
+      setToastMessage(`Chart "${chartConfig.chartName}" saved successfully!`);
+      setToastType('success');
+      setShowToast(true);
       setCurrentStep('configure');
       
     } catch (error) {
       console.error('❌ Failed to save chart:', error);
-      alert(`Failed to save chart: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setToastMessage(`Failed to save chart: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setToastType('error');
+      setShowToast(true);
     } finally {
       setIsSaving(false);
     }
@@ -315,6 +327,35 @@ export default function FunctionalChartBuilder() {
                 />
               </div>
 
+              {/* Start Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={chartConfig.startDate}
+                  onChange={(e) => updateConfig('startDate', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                />
+              </div>
+
+              {/* End Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  value={chartConfig.endDate}
+                  onChange={(e) => updateConfig('endDate', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                />
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Filters: date_index BETWEEN start_date AND end_date
+                </div>
+              </div>
+
               {/* Group By */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -447,6 +488,16 @@ export default function FunctionalChartBuilder() {
           </div>
         </details>
       </div>
+
+      {/* Toast Notification */}
+      <Toast
+        type={toastType}
+        open={showToast}
+        setOpen={setShowToast}
+        className="fixed bottom-4 right-4 z-50"
+      >
+        {toastMessage}
+      </Toast>
     </div>
   );
 }

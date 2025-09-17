@@ -57,13 +57,36 @@ export class SimplifiedChartTransformer {
   ): ChartData {
     
     if (groupBy === 'none') {
-      // Single series - use date_index as actual dates for Chart.js time axis
+      // Single series - use MM-DD-YYYY format for LineChart01
       const sortedMeasures = measures.sort((a, b) => 
         new Date(a.date_index + 'T00:00:00').getTime() - new Date(b.date_index + 'T00:00:00').getTime()
       );
 
+      // Handle dates based on frequency
+      const dateObjects = sortedMeasures.map(m => {
+        const date = new Date(m.date_index + 'T12:00:00Z');
+        
+        // Only convert to month-start for Monthly/Quarterly data
+        // Keep actual dates for Weekly data  
+        if (m.frequency === 'Weekly') {
+          return date; // Use actual weekly dates
+        } else {
+          // For Monthly/Quarterly, convert to first day of month for Chart.js
+          return new Date(date.getUTCFullYear(), date.getUTCMonth(), 1, 12, 0, 0);
+        }
+      });
+
+      console.log('🔍 SINGLE SERIES TIME LABELS:', {
+        originalDates: sortedMeasures.map(m => m.date_index),
+        dateObjects: dateObjects,
+        sampleConversion: {
+          original: sortedMeasures[0]?.date_index,
+          dateObject: dateObjects[0]
+        }
+      });
+
       return {
-        labels: sortedMeasures.map(m => m.date_index), // Use actual dates for Chart.js
+        labels: dateObjects, // Use Date objects for proper time axis
         datasets: [{
           label: sortedMeasures[0]?.measure || 'Value',
           data: sortedMeasures.map(m => typeof m.measure_value === 'string' ? parseFloat(m.measure_value) : m.measure_value),
@@ -78,8 +101,8 @@ export class SimplifiedChartTransformer {
         }]
       };
     } else {
-      // Multiple series - group by specified field
-      return this.createMultiSeriesChart(measures, groupBy, filled);
+      // Multiple series - group by specified field  
+      return this.createMultiSeriesChart(measures, groupBy, filled, true);
     }
   }
 
@@ -95,7 +118,13 @@ export class SimplifiedChartTransformer {
       );
 
       return {
-        labels: sortedMeasures.map(m => m.date_index), // Use actual dates for Chart.js
+        labels: sortedMeasures.map(m => {
+          const date = new Date(m.date_index + 'T12:00:00Z');
+          const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+          const day = String(date.getUTCDate()).padStart(2, '0');
+          const year = date.getUTCFullYear();
+          return `${month}-${day}-${year}`;
+        }), // Convert to MM-DD-YYYY format
         datasets: [{
           label: sortedMeasures[0]?.measure || 'Value',
           data: sortedMeasures.map(m => typeof m.measure_value === 'string' ? parseFloat(m.measure_value) : m.measure_value),
@@ -118,7 +147,8 @@ export class SimplifiedChartTransformer {
   private createMultiSeriesChart(
     measures: AggAppMeasure[], 
     groupBy: string,
-    filled: boolean = false
+    filled: boolean = false,
+    isTimeSeries: boolean = false
   ): ChartData {
     
     // Group data by the groupBy field and date
@@ -148,6 +178,20 @@ export class SimplifiedChartTransformer {
       return new Date(a + 'T00:00:00').getTime() - new Date(b + 'T00:00:00').getTime();
     });
 
+    // Filter out dates where no providers have data (all values would be 0)
+    const datesWithData = sortedDates.filter(dateIndex => {
+      return Array.from(groupedData.values()).some(dateMap => {
+        const value = dateMap.get(dateIndex) || 0;
+        return value > 0;
+      });
+    });
+
+    console.log('🔍 DATE FILTERING:', {
+      allDates: sortedDates,
+      datesWithData: datesWithData,
+      filteredOut: sortedDates.filter(d => !datesWithData.includes(d))
+    });
+
     console.log('🔍 DATE PROCESSING:', {
       sortedDateIndexes: sortedDates,
       sampleDate: sortedDates[0],
@@ -168,7 +212,7 @@ export class SimplifiedChartTransformer {
     let colorIndex = 0;
 
     groupedData.forEach((dateMap, groupKey) => {
-      const data = sortedDates.map(dateIndex => dateMap.get(dateIndex) || 0);
+      const data = datesWithData.map(dateIndex => dateMap.get(dateIndex) || 0);
       const color = colors[colorIndex % colors.length];
 
       console.log('🔍 CREATING DATASET:', {
@@ -196,8 +240,74 @@ export class SimplifiedChartTransformer {
       colorIndex++;
     });
 
+    console.log('🔍 FINAL CHART DATA:', {
+      labels: sortedDates,
+      labelCount: sortedDates.length,
+      datasetCount: datasets.length,
+      sampleLabels: sortedDates.slice(0, 3),
+      lastLabels: sortedDates.slice(-3),
+      allLabels: sortedDates
+    });
+
+    // For bar charts, create readable category labels based on frequency
+    const categoryLabels = datesWithData.map(dateStr => {
+      const date = new Date(dateStr + 'T12:00:00Z');
+      
+      if (measures[0]?.frequency === 'Quarterly') {
+        const quarter = Math.floor(date.getUTCMonth() / 3) + 1;
+        return `Q${quarter} ${date.getUTCFullYear()}`;
+      } else if (measures[0]?.frequency === 'Monthly') {
+        return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+      } else if (measures[0]?.frequency === 'Weekly') {
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+      }
+      
+      return dateStr;
+    });
+
+    console.log('🔍 CATEGORY LABELS:', {
+      originalDates: datesWithData,
+      categoryLabels: categoryLabels,
+      frequency: measures[0]?.frequency,
+      sampleConversion: {
+        original: datesWithData[0],
+        category: categoryLabels[0]
+      }
+    });
+
+    // Choose label format based on chart type
+    let finalLabels;
+    if (isTimeSeries) {
+      // For line charts, handle dates based on frequency
+      finalLabels = datesWithData.map(dateStr => {
+        const date = new Date(dateStr + 'T12:00:00Z');
+        
+        // Only convert to month-start for Monthly/Quarterly data
+        // Keep actual dates for Weekly data
+        if (measures[0]?.frequency === 'Weekly') {
+          return date; // Use actual weekly dates
+        } else {
+          // For Monthly/Quarterly, convert to first day of month for Chart.js
+          return new Date(date.getUTCFullYear(), date.getUTCMonth(), 1, 12, 0, 0);
+        }
+      });
+      
+      console.log('🔍 LINE CHART DATE OBJECTS:', {
+        originalDates: datesWithData,
+        dateObjects: finalLabels,
+        sampleConversion: {
+          original: datesWithData[0],
+          dateObject: finalLabels[0],
+          isoString: finalLabels[0]?.toISOString()
+        }
+      });
+    } else {
+      // For bar charts, use category labels
+      finalLabels = categoryLabels;
+    }
+
     return {
-      labels: sortedDates, // Use date_index for Chart.js time axis
+      labels: finalLabels,
       datasets
     };
   }
@@ -212,12 +322,24 @@ export class SimplifiedChartTransformer {
     measures.forEach(measure => {
       const groupKey = this.getGroupValue(measure, groupField);
       const currentValue = groupedData.get(groupKey) || 0;
-      groupedData.set(groupKey, currentValue + measure.measure_value);
+      // Convert string values to numbers before adding
+      const measureValue = typeof measure.measure_value === 'string' 
+        ? parseFloat(measure.measure_value) 
+        : measure.measure_value;
+      groupedData.set(groupKey, currentValue + measureValue);
     });
 
     const labels = Array.from(groupedData.keys());
     const data = labels.map(label => groupedData.get(label) || 0);
     const colors = this.getColorPalette();
+
+    console.log('🔍 PIE CHART DATA:', {
+      groupField,
+      labels,
+      data,
+      groupedDataEntries: Array.from(groupedData.entries()),
+      sampleMeasure: measures[0]
+    });
 
     return {
       labels,
@@ -255,17 +377,13 @@ export class SimplifiedChartTransformer {
 
   /**
    * Get color palette for charts
+   * TODO: Load from database via API call in the future
    */
   private getColorPalette(): string[] {
+    // Using default palette for now - will be loaded from database via API
     return [
-      getCssVariable('--color-violet-500'),
-      getCssVariable('--color-sky-500'),
-      getCssVariable('--color-green-500'),
-      getCssVariable('--color-yellow-500'),
-      getCssVariable('--color-red-500'),
-      getCssVariable('--color-pink-500'),
-      getCssVariable('--color-indigo-500'),
-      getCssVariable('--color-orange-500'),
+      '#00AEEF', '#67bfff', '#3ec972', '#f0bb33', '#ff5656', 
+      'oklch(65.6% 0.241 354.308)', 'oklch(58.5% 0.233 277.117)', 'oklch(70.5% 0.213 47.604)'
     ];
   }
 

@@ -41,7 +41,7 @@ export default function AnalyticsDemoPage() {
       case 'practice-revenue':
         setChartConfig({
           chartType: 'line',
-          measure: 'Charges by Practice',
+          measure: 'Charges by Provider',
           frequency: 'Monthly',
           groupBy: 'practice_uid',
           startDate: getDefaultStartDate(),
@@ -65,7 +65,7 @@ export default function AnalyticsDemoPage() {
       case 'revenue-distribution':
         setChartConfig({
           chartType: 'doughnut',
-          measure: 'Charges by Practice',
+          measure: 'Charges by Provider',
           frequency: 'Monthly',
           groupBy: 'practice_uid',
           startDate: getDefaultStartDate(),

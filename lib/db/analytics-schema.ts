@@ -37,7 +37,7 @@ export const chart_definitions = pgTable(
     chart_config: jsonb('chart_config').notNull(), // ChartConfig as JSON
     access_control: jsonb('access_control'), // ChartAccessControl as JSON
     chart_category_id: integer('chart_category_id').references(() => chart_categories.chart_category_id),
-    created_by_user_id: uuid('created_by_user_id').references(() => users.user_id).notNull(),
+    created_by: uuid('created_by').references(() => users.user_id).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
     is_active: boolean('is_active').default(true),
@@ -45,7 +45,7 @@ export const chart_definitions = pgTable(
   (table) => ({
     chartNameIdx: index('idx_chart_definitions_name').on(table.chart_name),
     chartTypeIdx: index('idx_chart_definitions_type').on(table.chart_type),
-    createdByIdx: index('idx_chart_definitions_created_by').on(table.created_by_user_id),
+    createdByIdx: index('idx_chart_definitions_created_by').on(table.created_by),
     categoryIdx: index('idx_chart_definitions_category').on(table.chart_category_id),
     activeIdx: index('idx_chart_definitions_active').on(table.is_active),
     createdAtIdx: index('idx_chart_definitions_created_at').on(table.created_at),
@@ -98,14 +98,14 @@ export const dashboards = pgTable(
     dashboard_description: text('dashboard_description'),
     layout_config: jsonb('layout_config').notNull(), // Dashboard layout as JSON
     dashboard_category_id: integer('dashboard_category_id').references(() => chart_categories.chart_category_id),
-    created_by_user_id: uuid('created_by_user_id').references(() => users.user_id).notNull(),
+    created_by: uuid('created_by').references(() => users.user_id).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
     is_active: boolean('is_active').default(true),
   },
   (table) => ({
     dashboardNameIdx: index('idx_dashboards_name').on(table.dashboard_name),
-    createdByIdx: index('idx_dashboards_created_by').on(table.created_by_user_id),
+    createdByIdx: index('idx_dashboards_created_by').on(table.created_by),
     categoryIdx: index('idx_dashboards_category').on(table.dashboard_category_id),
     activeIdx: index('idx_dashboards_active').on(table.is_active),
   })

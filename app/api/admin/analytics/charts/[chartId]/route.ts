@@ -13,7 +13,8 @@ import { createAPILogger, logDBOperation, logPerformanceMetric } from '@/lib/log
  */
 
 // GET - Get specific chart definition
-const getChartHandler = async (request: NextRequest, userContext: UserContext, { params }: { params: { chartId: string } }) => {
+const getChartHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+  const { params } = args[0] as { params: { chartId: string } };
   const startTime = Date.now();
   const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
   
@@ -35,7 +36,7 @@ const getChartHandler = async (request: NextRequest, userContext: UserContext, {
         access_control: chart_definitions.access_control,
         chart_category_id: chart_definitions.chart_category_id,
         category_name: chart_categories.category_name,
-        created_by_user_id: chart_definitions.created_by_user_id,
+        created_by: chart_definitions.created_by,
         creator_name: users.first_name,
         creator_last_name: users.last_name,
         created_at: chart_definitions.created_at,
@@ -44,7 +45,7 @@ const getChartHandler = async (request: NextRequest, userContext: UserContext, {
       })
       .from(chart_definitions)
       .leftJoin(chart_categories, eq(chart_definitions.chart_category_id, chart_categories.chart_category_id))
-      .leftJoin(users, eq(chart_definitions.created_by_user_id, users.user_id))
+      .leftJoin(users, eq(chart_definitions.created_by, users.user_id))
       .where(eq(chart_definitions.chart_definition_id, params.chartId));
 
     if (!chart) {
@@ -67,7 +68,8 @@ const getChartHandler = async (request: NextRequest, userContext: UserContext, {
 };
 
 // PUT - Update chart definition
-const updateChartHandler = async (request: NextRequest, userContext: UserContext, { params }: { params: { chartId: string } }) => {
+const updateChartHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+  const { params } = args[0] as { params: { chartId: string } };
   const startTime = Date.now();
   const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
   
@@ -121,7 +123,8 @@ const updateChartHandler = async (request: NextRequest, userContext: UserContext
 };
 
 // DELETE - Delete chart definition (soft delete)
-const deleteChartHandler = async (request: NextRequest, userContext: UserContext, { params }: { params: { chartId: string } }) => {
+const deleteChartHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+  const { params } = args[0] as { params: { chartId: string } };
   const startTime = Date.now();
   const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
   

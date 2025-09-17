@@ -46,7 +46,7 @@ const getChartsHandler = async (request: NextRequest, userContext: UserContext) 
         access_control: chart_definitions.access_control,
         chart_category_id: chart_definitions.chart_category_id,
         category_name: chart_categories.category_name,
-        created_by_user_id: chart_definitions.created_by_user_id,
+        created_by: chart_definitions.created_by,
         creator_name: users.first_name,
         creator_last_name: users.last_name,
         created_at: chart_definitions.created_at,
@@ -55,7 +55,7 @@ const getChartsHandler = async (request: NextRequest, userContext: UserContext) 
       })
       .from(chart_definitions)
       .leftJoin(chart_categories, eq(chart_definitions.chart_category_id, chart_categories.chart_category_id))
-      .leftJoin(users, eq(chart_definitions.created_by_user_id, users.user_id))
+      .leftJoin(users, eq(chart_definitions.created_by, users.user_id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(chart_definitions.created_at));
 
@@ -121,19 +121,21 @@ const createChartHandler = async (request: NextRequest, userContext: UserContext
         chart_config: body.chart_config,
         access_control: body.access_control,
         chart_category_id: body.chart_category_id,
-        created_by_user_id: userContext.user_id,
+        created_by: userContext.user_id,
       })
       .returning();
 
     logDBOperation(logger, 'chart_definition_create', 'chart_definitions', startTime, 1);
 
-    logger.info('Chart definition created successfully', {
-      chartId: newChart.chart_definition_id,
-      chartName: newChart.chart_name,
-      chartType: newChart.chart_type,
-      createdBy: userContext.user_id,
-      totalRequestTime: Date.now() - startTime
-    });
+    if (newChart) {
+      logger.info('Chart definition created successfully', {
+        chartId: newChart.chart_definition_id,
+        chartName: newChart.chart_name,
+        chartType: newChart.chart_type,
+        createdBy: userContext.user_id,
+        totalRequestTime: Date.now() - startTime
+      });
+    }
 
     return createSuccessResponse({
       chart: newChart

@@ -39,6 +39,15 @@ export {
   chart_permissions
 } from './analytics-schema';
 
+// Import Chart Configuration tables
+export {
+  chart_data_sources,
+  chart_data_source_columns,
+  chart_display_configs,
+  color_palettes,
+  chart_component_configs
+} from './chart-config-schema';
+
 // System users (admins who manage the platform)
 export const users = pgTable(
   'users',

@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
-import { executeAnalyticsQuery } from '@/lib/services/analytics-db';
+import { chartConfigService } from '@/lib/services/chart-config-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { createAPILogger, logPerformanceMetric } from '@/lib/logger';
 
@@ -19,138 +19,53 @@ const schemaHandler = async (request: NextRequest, userContext: UserContext) => 
   });
 
   try {
-    // Get sample data from new aggregated table
-    const sampleQuery = `
-      SELECT 
-        practice,
-        practice_primary,
-        practice_uid,
-        provider_name,
-        measure,
-        frequency,
-        date_index,
-        measure_value,
-        measure_type
-      FROM ih.agg_app_measures 
-      LIMIT 5
-    `;
+    const { searchParams } = new URL(request.url);
+    const tableName = searchParams.get('table') || 'agg_app_measures';
+    const schemaName = searchParams.get('schema') || 'ih';
 
-    // Get distinct values for key fields
-    const measuresQuery = `
-      SELECT DISTINCT measure, COUNT(*) as count
-      FROM ih.agg_app_measures 
-      GROUP BY measure 
-      ORDER BY count DESC
-    `;
-
-    const frequenciesQuery = `
-      SELECT DISTINCT frequency, COUNT(*) as count
-      FROM ih.agg_app_measures 
-      GROUP BY frequency 
-      ORDER BY count DESC
-    `;
-
-    console.log('🔍 Getting schema information...');
+    console.log('🔍 Loading schema from database configuration...');
     
-    const [sampleData, measures, frequencies] = await Promise.all([
-      executeAnalyticsQuery(sampleQuery, []),
-      executeAnalyticsQuery(measuresQuery, []),
-      executeAnalyticsQuery(frequenciesQuery, [])
-    ]);
+    // Load data source configuration from database
+    const dataSourceConfig = await chartConfigService.getDataSourceConfig(tableName, schemaName);
+    
+    if (!dataSourceConfig) {
+      return createErrorResponse(`Data source configuration not found: ${schemaName}.${tableName}`, 404);
+    }
 
-    // Define field metadata for simplified aggregated table
-    const fieldDefinitions = {
-      practice: {
-        name: 'Practice',
-        type: 'string',
-        description: 'Practice name',
-        example: sampleData[0]?.practice,
-        groupable: true,
-        filterable: true
-      },
-      practice_primary: {
-        name: 'Practice Primary',
-        type: 'string',
-        description: 'Primary practice identifier',
-        example: sampleData[0]?.practice_primary,
-        groupable: true,
-        filterable: true
-      },
-      practice_uid: {
-        name: 'Practice UID',
-        type: 'number',
-        description: 'Practice unique identifier for filtering',
-        example: sampleData[0]?.practice_uid,
-        groupable: true,
-        filterable: true
-      },
-      provider_name: {
-        name: 'Provider Name',
-        type: 'string',
-        description: 'Provider name',
-        example: sampleData[0]?.provider_name,
-        groupable: true,
-        filterable: true
-      },
-      measure: {
-        name: 'Measure',
-        type: 'string',
-        description: 'What is being measured (Charges, Payments)',
-        example: sampleData[0]?.measure,
-        groupable: true,
-        filterable: true,
-        allowedValues: measures.map((m: any) => m.measure)
-      },
-      frequency: {
-        name: 'Frequency',
-        type: 'string',
-        description: 'Time frequency (Monthly, Weekly, Quarterly)',
-        example: sampleData[0]?.frequency,
-        groupable: true,
-        filterable: true,
-        allowedValues: frequencies.map((f: any) => f.frequency)
-      },
-      date_index: {
-        name: 'Date Index',
-        type: 'date',
-        description: 'Date field for filtering, sorting, and chart X-axis',
-        example: sampleData[0]?.date_index,
-        groupable: false,
-        filterable: true
-      },
-      measure_value: {
-        name: 'Value',
-        type: 'number',
-        description: 'The measured value',
-        example: sampleData[0]?.measure_value,
-        groupable: false,
-        filterable: true,
-        aggregatable: true
-      },
-      measure_type: {
-        name: 'Measure Type',
-        type: 'string',
-        description: 'Type of value (currency, count, etc.)',
-        example: sampleData[0]?.measure_type,
-        groupable: true,
-        filterable: true
-      }
-    };
+    // Get available measures and frequencies from database config
+    const availableMeasures = await chartConfigService.getAvailableMeasures(tableName, schemaName);
+    const availableFrequencies = await chartConfigService.getAvailableFrequencies(tableName, schemaName);
+
+    // Convert database column configurations to API format
+    const fieldDefinitions: Record<string, any> = {};
+    
+    for (const column of dataSourceConfig.columns) {
+      fieldDefinitions[column.columnName] = {
+        name: column.displayName,
+        type: column.dataType,
+        description: column.description || `${column.displayName} field from analytics data`,
+        example: column.exampleValue,
+        groupable: column.isGroupable,
+        filterable: column.isFilterable,
+        aggregatable: column.isMeasure,
+        allowedValues: column.allowedValues,
+      };
+    }
 
     const schemaInfo = {
-      tableName: 'ih.agg_app_measures',
-      description: 'Pre-aggregated practice and provider performance measures',
-      totalRecords: sampleData.length > 0 ? 'Available' : 'No data',
+      tableName: `${dataSourceConfig.schemaName}.${dataSourceConfig.tableName}`,
+      description: dataSourceConfig.description || 'Analytics data source',
+      totalColumns: dataSourceConfig.columns.length,
       fields: fieldDefinitions,
-      availableMeasures: measures,
-      availableFrequencies: frequencies,
-      sampleData: sampleData.slice(0, 2)
+      availableMeasures: availableMeasures.map(measure => ({ measure, count: 'N/A' })),
+      availableFrequencies: availableFrequencies.map(frequency => ({ frequency, count: 'N/A' })),
+      dataSource: dataSourceConfig,
     };
 
     console.log('✅ Schema information compiled:', {
       fieldCount: Object.keys(fieldDefinitions).length,
-      measureCount: measures.length,
-      frequencyCount: frequencies.length
+      measureCount: availableMeasures.length,
+      frequencyCount: availableFrequencies.length
     });
 
     logPerformanceMetric(logger, 'analytics_schema_query', Date.now() - startTime);

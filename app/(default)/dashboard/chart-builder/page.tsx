@@ -87,8 +87,8 @@ export default function ChartBuilderPage() {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
         <ChartBuilder
-          onSave={handleSaveChart}
-          onCancel={handleCancelBuilder}
+          
+          
         />
       </div>
     );
@@ -185,65 +185,6 @@ export default function ChartBuilderPage() {
         </div>
       </div>
 
-      {/* API Testing Section */}
-      <div className="mt-8 bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
-          Phase 1 API Testing
-        </h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button
-            onClick={() => window.open('/api/admin/analytics/charts', '_blank')}
-            className="p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
-          >
-            <div className="font-medium text-gray-900 dark:text-gray-100">Chart Definitions API</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              GET /api/admin/analytics/charts
-            </div>
-          </button>
-          
-          <button
-            onClick={() => window.open('/api/admin/analytics/categories', '_blank')}
-            className="p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
-          >
-            <div className="font-medium text-gray-900 dark:text-gray-100">Chart Categories API</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              GET /api/admin/analytics/categories
-            </div>
-          </button>
-          
-          <button
-            onClick={() => window.open('/api/admin/analytics/explore', '_blank')}
-            className="p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
-          >
-            <div className="font-medium text-gray-900 dark:text-gray-100">Data Explorer</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              GET /api/admin/analytics/explore
-            </div>
-          </button>
-          
-          <button
-            onClick={() => window.open('https://local.drizzle.studio', '_blank')}
-            className="p-4 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
-          >
-            <div className="font-medium text-gray-900 dark:text-gray-100">Database Studio</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              View analytics tables
-            </div>
-          </button>
-        </div>
-        
-        <div className="mt-6 text-sm text-gray-600 dark:text-gray-400">
-          <strong>Phase 1 Features:</strong>
-          <ul className="list-disc list-inside mt-2 space-y-1">
-            <li>Chart definition storage and management</li>
-            <li>Chart categories for organization</li>
-            <li>Wizard-style chart builder interface</li>
-            <li>Security validation and field whitelisting</li>
-            <li>Dynamic query execution from stored definitions</li>
-          </ul>
-        </div>
-      </div>
     </div>
   );
 }

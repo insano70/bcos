@@ -235,8 +235,8 @@ export class ChartValidator {
     const baseValidation = this.validateChartDefinition(definition);
     
     // Additional creation-specific validations
-    if (!definition.created_by_user_id) {
-      baseValidation.errors.push('created_by_user_id is required for creation');
+    if (!definition.created_by) {
+      baseValidation.errors.push('created_by is required for creation');
     }
 
     return baseValidation;

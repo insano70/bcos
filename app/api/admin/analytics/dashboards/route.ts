@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { db, dashboards, dashboard_charts, chart_definitions, chart_categories, users } from '@/lib/db';
-import { eq, desc, and, isNull } from 'drizzle-orm';
+import { eq, desc, and, isNull, count } from 'drizzle-orm';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
@@ -42,7 +42,7 @@ const getDashboardsHandler = async (request: NextRequest, userContext: UserConte
         layout_config: dashboards.layout_config,
         dashboard_category_id: dashboards.dashboard_category_id,
         category_name: chart_categories.category_name,
-        created_by_user_id: dashboards.created_by_user_id,
+        created_by: dashboards.created_by,
         creator_name: users.first_name,
         creator_last_name: users.last_name,
         created_at: dashboards.created_at,
@@ -51,7 +51,7 @@ const getDashboardsHandler = async (request: NextRequest, userContext: UserConte
       })
       .from(dashboards)
       .leftJoin(chart_categories, eq(dashboards.dashboard_category_id, chart_categories.chart_category_id))
-      .leftJoin(users, eq(dashboards.created_by_user_id, users.user_id))
+      .leftJoin(users, eq(dashboards.created_by, users.user_id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(dashboards.created_at));
 
@@ -59,7 +59,7 @@ const getDashboardsHandler = async (request: NextRequest, userContext: UserConte
     const dashboardsWithChartCount = await Promise.all(
       dashboardList.map(async (dashboard) => {
         const [chartCount] = await db
-          .select({ count: db.$count() })
+          .select({ count: count() })
           .from(dashboard_charts)
           .where(eq(dashboard_charts.dashboard_id, dashboard.dashboard_id));
 
@@ -117,7 +117,7 @@ const createDashboardHandler = async (request: NextRequest, userContext: UserCon
         dashboard_description: body.dashboard_description,
         layout_config: body.layout_config,
         dashboard_category_id: body.dashboard_category_id,
-        created_by_user_id: userContext.user_id,
+        created_by: userContext.user_id,
       })
       .returning();
 
