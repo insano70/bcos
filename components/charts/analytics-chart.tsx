@@ -322,15 +322,4 @@ export const AnalyticsChartPresets = {
       {...props}
     />
   ),
-
-  RevenueDistribution: (props: Partial<AnalyticsChartProps>) => (
-    <AnalyticsChart
-      chartType="doughnut"
-      measure="Charges by Provider"
-      frequency="Monthly"
-      groupBy="practice_uid"
-      title="Revenue Distribution"
-      {...props}
-    />
-  ),
 };

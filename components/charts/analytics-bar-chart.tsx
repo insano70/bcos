@@ -82,11 +82,6 @@ export default function AnalyticsBarChart({ data, width, height, frequency = 'Mo
       type: 'bar',
       data: data,
       options: {
-        adapters: {
-          date: {
-            zone: 'UTC' // Force UTC timezone to prevent date shifting
-          }
-        },
         layout: {
           padding: {
             top: 12,
