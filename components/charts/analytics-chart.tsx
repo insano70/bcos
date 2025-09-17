@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ChartData, AnalyticsQueryParams, MeasureType, FrequencyType } from '@/lib/types/analytics';
+import { useState, useEffect, useRef } from 'react';
+import { ChartData, AnalyticsQueryParams, MeasureType, FrequencyType, ChartFilter } from '@/lib/types/analytics';
 import { simplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
+import { calculatedFieldsService } from '@/lib/services/calculated-fields';
+import { chartExportService } from '@/lib/services/chart-export';
 
 // Import existing chart components
 import LineChart01 from './line-chart-01';
@@ -25,6 +27,8 @@ interface AnalyticsChartProps {
   title?: string;
   groupBy?: string;
   className?: string;
+  calculatedField?: string | undefined; // Phase 3: Calculated fields support
+  advancedFilters?: ChartFilter[]; // Phase 3: Advanced filtering support
 }
 
 interface ApiResponse {
@@ -60,16 +64,20 @@ export default function AnalyticsChart({
   height = 400,
   title,
   groupBy,
-  className = ''
+  className = '',
+  calculatedField, // Phase 3: Calculated fields
+  advancedFilters = [] // Phase 3: Advanced filters
 }: AnalyticsChartProps) {
   const [chartData, setChartData] = useState<ChartData>({ labels: [], datasets: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<ApiResponse['data']['metadata'] | null>(null);
+  const [rawData, setRawData] = useState<any[]>([]);
+  const chartRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     fetchChartData();
-  }, [chartType, measure, frequency, practiceUid, providerUid, startDate, endDate, groupBy]);
+  }, [chartType, measure, frequency, practiceUid, providerUid, startDate, endDate, groupBy, calculatedField, advancedFilters]);
 
   const fetchChartData = async () => {
     setIsLoading(true);
@@ -150,8 +158,30 @@ export default function AnalyticsChart({
         mappedGroupBy: mappedGroupBy
       });
 
+      // Apply calculated fields if selected
+      let processedMeasures = data.data.measures;
+      if (calculatedField) {
+        try {
+          console.log('🔍 APPLYING CALCULATED FIELD:', {
+            calculatedFieldId: calculatedField,
+            originalDataCount: processedMeasures.length
+          });
+          
+          processedMeasures = calculatedFieldsService.applyCalculatedField(calculatedField, processedMeasures);
+          
+          console.log('🔍 CALCULATED FIELD RESULT:', {
+            processedDataCount: processedMeasures.length,
+            sampleCalculatedRecord: processedMeasures[0]
+          });
+        } catch (error) {
+          console.error('❌ Calculated field processing failed:', error);
+          setError(`Calculated field error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          return;
+        }
+      }
+
       const transformedData = simplifiedChartTransformer.transformData(
-        data.data.measures,
+        processedMeasures,
         chartType,
         mappedGroupBy
       );
@@ -175,6 +205,7 @@ export default function AnalyticsChart({
 
       setChartData(transformedData);
       setMetadata(data.data.metadata);
+      setRawData(data.data.measures); // Store raw data for export
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch chart data';
@@ -182,6 +213,33 @@ export default function AnalyticsChart({
       console.error('Chart data fetch error:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleExport = async (format: 'png' | 'csv' | 'pdf') => {
+    try {
+      let result;
+      
+      if (format === 'csv') {
+        result = chartExportService.exportChartDataAsCSV(chartData, rawData, { format });
+      } else if (chartRef.current) {
+        if (format === 'pdf') {
+          result = await chartExportService.exportChartAsPDF(chartRef.current, { format });
+        } else {
+          result = await chartExportService.exportChartAsImage(chartRef.current, { format });
+        }
+      } else {
+        throw new Error('Chart not available for export');
+      }
+
+      if (result.success) {
+        chartExportService.downloadFile(result);
+      } else {
+        throw new Error(result.error || 'Export failed');
+      }
+    } catch (error) {
+      console.error('Export failed:', error);
+      // Could show a toast notification here
     }
   };
 
@@ -255,6 +313,40 @@ export default function AnalyticsChart({
         
         {/* Chart Controls */}
         <div className="flex items-center gap-2">
+          {/* Export Dropdown */}
+          <div className="relative group">
+            <button
+              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              title="Export chart"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </button>
+            
+            {/* Export Menu */}
+            <div className="absolute right-0 top-full mt-1 w-32 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+              <button
+                onClick={() => handleExport('png')}
+                className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Export PNG
+              </button>
+              <button
+                onClick={() => handleExport('pdf')}
+                className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Export PDF
+              </button>
+              <button
+                onClick={() => handleExport('csv')}
+                className="w-full px-3 py-2 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Export Data
+              </button>
+            </div>
+          </div>
+
           <button
             onClick={fetchChartData}
             disabled={isLoading}

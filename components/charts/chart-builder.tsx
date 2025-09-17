@@ -3,6 +3,10 @@
 import { useState, useEffect } from 'react';
 import AnalyticsChart from './analytics-chart';
 import Toast from '@/components/toast';
+import AdvancedFilterBuilder from './advanced-filter-builder';
+import DateRangePresets from './date-range-presets';
+import { calculatedFieldsService } from '@/lib/services/calculated-fields';
+import { ChartFilter } from '@/lib/types/analytics';
 
 /**
  * Functional Chart Builder
@@ -26,6 +30,14 @@ interface SchemaInfo {
   availableFrequencies: Array<{ frequency: string; count: string }>;
 }
 
+interface SeriesConfig {
+  id: string;
+  measure: string;
+  aggregation: 'sum' | 'avg' | 'count' | 'min' | 'max';
+  label: string;
+  color?: string;
+}
+
 interface ChartConfig {
   chartName: string;
   chartType: 'line' | 'bar' | 'doughnut';
@@ -35,6 +47,11 @@ interface ChartConfig {
   startDate: string;
   endDate: string;
   groupBy: string;
+  calculatedField?: string | undefined;
+  advancedFilters: ChartFilter[];
+  useAdvancedFiltering: boolean;
+  useMultipleSeries: boolean;
+  seriesConfigs: SeriesConfig[];
 }
 
 export default function FunctionalChartBuilder() {
@@ -53,11 +70,17 @@ export default function FunctionalChartBuilder() {
     practiceUid: '114',
     startDate: '2024-01-01', // Default to last year
     endDate: '2025-12-31',   // Default to end of next year
-    groupBy: 'provider_name'
+    groupBy: 'provider_name',
+    calculatedField: undefined,
+    advancedFilters: [],
+    useAdvancedFiltering: false,
+    useMultipleSeries: false,
+    seriesConfigs: []
   });
 
   const [previewKey, setPreviewKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [availableCalculatedFields] = useState(calculatedFieldsService.getAvailableCalculatedFields());
 
   // Load schema information on mount
   useEffect(() => {
@@ -103,8 +126,45 @@ export default function FunctionalChartBuilder() {
     }
   };
 
-  const updateConfig = (key: keyof ChartConfig, value: string) => {
+  const updateConfig = (key: keyof ChartConfig, value: string | boolean | ChartFilter[] | undefined) => {
     setChartConfig(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleAdvancedFiltersChange = (filters: ChartFilter[]) => {
+    setChartConfig(prev => ({ ...prev, advancedFilters: filters }));
+  };
+
+  const handleDateRangeChange = (startDate: string, endDate: string) => {
+    setChartConfig(prev => ({ ...prev, startDate, endDate }));
+  };
+
+  const addSeries = () => {
+    const newSeries: SeriesConfig = {
+      id: `series_${Date.now()}`,
+      measure: schemaInfo?.availableMeasures[0]?.measure || '',
+      aggregation: 'sum',
+      label: `Series ${chartConfig.seriesConfigs.length + 1}`,
+    };
+    setChartConfig(prev => ({
+      ...prev,
+      seriesConfigs: [...prev.seriesConfigs, newSeries]
+    }));
+  };
+
+  const updateSeries = (seriesId: string, updates: Partial<SeriesConfig>) => {
+    setChartConfig(prev => ({
+      ...prev,
+      seriesConfigs: prev.seriesConfigs.map(series =>
+        series.id === seriesId ? { ...series, ...updates } : series
+      )
+    }));
+  };
+
+  const removeSeries = (seriesId: string) => {
+    setChartConfig(prev => ({
+      ...prev,
+      seriesConfigs: prev.seriesConfigs.filter(series => series.id !== seriesId)
+    }));
   };
 
   const handlePreview = () => {
@@ -295,6 +355,30 @@ export default function FunctionalChartBuilder() {
                 </select>
               </div>
 
+              {/* Calculated Fields */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Calculated Field (Optional)
+                </label>
+                <select
+                  value={chartConfig.calculatedField || ''}
+                  onChange={(e) => updateConfig('calculatedField', e.target.value || undefined)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  <option value="">Use raw measure</option>
+                  {availableCalculatedFields.map((field) => (
+                    <option key={field.id} value={field.id}>
+                      {field.name} - {field.description}
+                    </option>
+                  ))}
+                </select>
+                {chartConfig.calculatedField && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Formula: {availableCalculatedFields.find(f => f.id === chartConfig.calculatedField)?.formula}
+                  </div>
+                )}
+              </div>
+
               {/* Frequency Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -327,33 +411,13 @@ export default function FunctionalChartBuilder() {
                 />
               </div>
 
-              {/* Start Date */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  value={chartConfig.startDate}
-                  onChange={(e) => updateConfig('startDate', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              {/* Date Range Selection */}
+              <div className="md:col-span-2">
+                <DateRangePresets
+                  onDateRangeChange={handleDateRangeChange}
+                  currentStartDate={chartConfig.startDate}
+                  currentEndDate={chartConfig.endDate}
                 />
-              </div>
-
-              {/* End Date */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  value={chartConfig.endDate}
-                  onChange={(e) => updateConfig('endDate', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                />
-                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Filters: date_index BETWEEN start_date AND end_date
-                </div>
               </div>
 
               {/* Group By */}
@@ -372,6 +436,146 @@ export default function FunctionalChartBuilder() {
                   <option value="measure">Measure Type</option>
                 </select>
               </div>
+            </div>
+
+            {/* Advanced Options Section */}
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+                Advanced Options
+              </h3>
+
+              {/* Advanced Filtering Toggle */}
+              <div className="mb-6">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={chartConfig.useAdvancedFiltering}
+                    onChange={(e) => updateConfig('useAdvancedFiltering', e.target.checked)}
+                    className="mr-2 text-violet-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    Enable Advanced Filtering
+                  </span>
+                </label>
+
+                {chartConfig.useAdvancedFiltering && schemaInfo && (
+                  <div className="mt-4">
+                    <AdvancedFilterBuilder
+                      availableFields={Object.entries(schemaInfo.fields).map(([key, field]) => {
+                        const fieldDef = {
+                          name: key,
+                          displayName: field.name,
+                          type: field.type
+                        };
+                        if (field.allowedValues) {
+                          (fieldDef as any).allowedValues = field.allowedValues;
+                        }
+                        return fieldDef;
+                      })}
+                      onFiltersChange={handleAdvancedFiltersChange}
+                      initialFilters={chartConfig.advancedFilters}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Multiple Series Toggle */}
+              {(chartConfig.chartType === 'line' || chartConfig.chartType === 'bar') && (
+                <div className="mb-6">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={chartConfig.useMultipleSeries}
+                      onChange={(e) => updateConfig('useMultipleSeries', e.target.checked)}
+                      className="mr-2 text-violet-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      Enable Multiple Series (Different Aggregations)
+                    </span>
+                  </label>
+
+                  {chartConfig.useMultipleSeries && schemaInfo && (
+                    <div className="mt-4 space-y-4">
+                      <div className="flex justify-between items-center">
+                        <h4 className="text-md font-medium text-gray-800 dark:text-gray-200">
+                          Series Configuration
+                        </h4>
+                        <button
+                          onClick={addSeries}
+                          className="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600 transition-colors"
+                        >
+                          + Add Series
+                        </button>
+                      </div>
+
+                      {chartConfig.seriesConfigs.map((series, index) => (
+                        <div key={series.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                          <div className="flex justify-between items-center mb-3">
+                            <h5 className="font-medium text-gray-700 dark:text-gray-300">
+                              Series {index + 1}
+                            </h5>
+                            <button
+                              onClick={() => removeSeries(series.id)}
+                              className="text-red-500 hover:text-red-700 text-sm"
+                            >
+                              Remove
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Measure
+                              </label>
+                              <select
+                                value={series.measure}
+                                onChange={(e) => updateSeries(series.id, { measure: e.target.value })}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                              >
+                                {schemaInfo.availableMeasures.map((measure) => (
+                                  <option key={measure.measure} value={measure.measure}>
+                                    {measure.measure}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Aggregation
+                              </label>
+                              <select
+                                value={series.aggregation}
+                                onChange={(e) => updateSeries(series.id, { aggregation: e.target.value as any })}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                              >
+                                <option value="sum">Sum</option>
+                                <option value="avg">Average</option>
+                                <option value="count">Count</option>
+                                <option value="min">Minimum</option>
+                                <option value="max">Maximum</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Label
+                              </label>
+                              <input
+                                type="text"
+                                value={series.label}
+                                onChange={(e) => updateSeries(series.id, { label: e.target.value })}
+                                placeholder="Series label"
+                                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end">
@@ -407,6 +611,8 @@ export default function FunctionalChartBuilder() {
                   width={700}
                   height={400}
                   title={chartConfig.chartName}
+                  calculatedField={chartConfig.calculatedField}
+                  advancedFilters={chartConfig.advancedFilters}
                 />
               </div>
             </div>

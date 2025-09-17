@@ -255,7 +255,47 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
                             <li className="mb-1 last:mb-0">
                               <SidebarLink href="/dashboard/chart-builder">
                                 <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
-                                  Charts
+                                  Chart Builder
+                                </span>
+                              </SidebarLink>
+                            </li>
+                          </ProtectedComponent>
+
+                          <ProtectedComponent permission="analytics:read:all">
+                            <li className="mb-1 last:mb-0">
+                              <SidebarLink href="/dashboard/dashboard-builder">
+                                <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                                  Dashboard Builder
+                                </span>
+                              </SidebarLink>
+                            </li>
+                          </ProtectedComponent>
+
+                          <ProtectedComponent permission="analytics:read:all">
+                            <li className="mb-1 last:mb-0">
+                              <SidebarLink href="/dashboard/chart-templates">
+                                <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                                  Chart Templates
+                                </span>
+                              </SidebarLink>
+                            </li>
+                          </ProtectedComponent>
+
+                          <ProtectedComponent permission="analytics:read:all">
+                            <li className="mb-1 last:mb-0">
+                              <SidebarLink href="/dashboard/usage-analytics">
+                                <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                                  Usage Analytics
+                                </span>
+                              </SidebarLink>
+                            </li>
+                          </ProtectedComponent>
+
+                          <ProtectedComponent permission="analytics:read:all">
+                            <li className="mb-1 last:mb-0">
+                              <SidebarLink href="/dashboard/bulk-operations">
+                                <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                                  Bulk Operations
                                 </span>
                               </SidebarLink>
                             </li>
