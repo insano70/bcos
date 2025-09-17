@@ -52,16 +52,25 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     // Parse query parameters
     const { searchParams } = new URL(request.url);
     
+    const practiceUidParam = searchParams.get('practice_uid');
     const queryParams: AnalyticsQueryParams = {
       measure: searchParams.get('measure') as MeasureType || undefined,
       frequency: searchParams.get('frequency') as FrequencyType || undefined,
-      practice_uid: searchParams.get('practice_uid') || undefined,
-      provider_uid: searchParams.get('provider_uid') || undefined,
+      practice: searchParams.get('practice') || undefined,
+      practice_primary: searchParams.get('practice_primary') || undefined,
+      practice_uid: practiceUidParam ? parseInt(practiceUidParam, 10) : undefined,
+      provider_name: searchParams.get('provider_name') || undefined,
       start_date: searchParams.get('start_date') || undefined,
       end_date: searchParams.get('end_date') || undefined,
       limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : undefined,
       offset: searchParams.get('offset') ? parseInt(searchParams.get('offset')!, 10) : undefined,
     };
+
+    console.log('🔍 PARSED QUERY PARAMS:', {
+      queryParams,
+      rawPracticeUid: practiceUidParam,
+      parsedPracticeUid: queryParams.practice_uid
+    });
 
     // Validate query parameters
     if (queryParams.limit && (queryParams.limit < 1 || queryParams.limit > 10000)) {

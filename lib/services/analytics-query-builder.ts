@@ -1,5 +1,5 @@
 import type { 
-  AppMeasure, 
+  AggAppMeasure, 
   AnalyticsQueryParams, 
   AnalyticsQueryResult,
   ChartFilter,
@@ -7,6 +7,7 @@ import type {
   ChartRenderContext 
 } from '@/lib/types/analytics';
 import { executeAnalyticsQuery } from './analytics-db';
+import { analyticsCache } from './analytics-cache';
 import { logger } from '@/lib/logger';
 
 /**
@@ -17,26 +18,21 @@ import { logger } from '@/lib/logger';
 /**
  * Allowed tables - whitelist approach for security
  */
-const ALLOWED_TABLES = ['ih.gr_app_measures'] as const;
+const ALLOWED_TABLES = ['ih.agg_app_measures'] as const;
 
 /**
- * Allowed fields for ih.gr_app_measures table - prevents SQL injection
+ * Allowed fields for ih.agg_app_measures table - prevents SQL injection
  */
 const ALLOWED_FIELDS = [
+  'practice',
+  'practice_primary',
   'practice_uid',
-  'provider_uid', 
+  'provider_name',
   'measure',
-  'measure_format',
-  'period_based_on',
   'frequency',
-  'period_start',
-  'period_end',
   'date_index',
   'measure_value',
-  'last_period_value',
-  'last_year_value',
-  'pct_change_vs_last_period',
-  'pct_change_vs_last_year'
+  'measure_type'
 ] as const;
 
 /**
@@ -254,6 +250,17 @@ export class AnalyticsQueryBuilder {
     const startTime = Date.now();
     
     try {
+      // Check cache first
+      const cachedResult = analyticsCache.get(params, context.user_id);
+      if (cachedResult) {
+        this.logger.info('Analytics query served from cache', {
+          params,
+          userId: context.user_id,
+          cacheAge: Date.now() - (cachedResult as any).timestamp
+        });
+        return cachedResult;
+      }
+
       this.logger.info('Building analytics query', { 
         params: { ...params, limit: params.limit || 1000 },
         userId: context.user_id,
@@ -262,7 +269,7 @@ export class AnalyticsQueryBuilder {
       });
 
       // Validate table access
-      this.validateTable('ih.gr_app_measures');
+      this.validateTable('ih.agg_app_measures');
 
       // Build filters from params
       const filters: ChartFilter[] = [];
@@ -275,20 +282,32 @@ export class AnalyticsQueryBuilder {
         filters.push({ field: 'frequency', operator: 'eq', value: params.frequency });
       }
       
+      if (params.practice) {
+        filters.push({ field: 'practice', operator: 'eq', value: params.practice });
+      }
+      
+      if (params.practice_primary) {
+        filters.push({ field: 'practice_primary', operator: 'eq', value: params.practice_primary });
+      }
+      
       if (params.practice_uid) {
+        console.log('🔍 ADDING PRACTICE_UID FILTER:', { 
+          practice_uid: params.practice_uid, 
+          type: typeof params.practice_uid 
+        });
         filters.push({ field: 'practice_uid', operator: 'eq', value: params.practice_uid });
       }
       
-      if (params.provider_uid) {
-        filters.push({ field: 'provider_uid', operator: 'eq', value: params.provider_uid });
+      if (params.provider_name) {
+        filters.push({ field: 'provider_name', operator: 'eq', value: params.provider_name });
       }
       
       if (params.start_date) {
-        filters.push({ field: 'period_start', operator: 'gte', value: params.start_date });
+        filters.push({ field: 'date_index', operator: 'gte', value: params.start_date });
       }
       
       if (params.end_date) {
-        filters.push({ field: 'period_end', operator: 'lte', value: params.end_date });
+        filters.push({ field: 'date_index', operator: 'lte', value: params.end_date });
       }
 
       // Log the filters being applied
@@ -306,74 +325,90 @@ export class AnalyticsQueryBuilder {
         parameters: queryParams
       });
 
-      // Build complete query
-      const limit = Math.min(params.limit || 1000, 10000); // Cap at 10k records for safety
-      const offset = params.offset || 0;
-
+      // Build complete query for pre-aggregated data
       const query = `
         SELECT 
+          practice,
+          practice_primary,
           practice_uid,
-          provider_uid,
+          provider_name,
           measure,
-          measure_format,
-          period_based_on,
           frequency,
-          period_start,
-          period_end,
           date_index,
           measure_value,
-          last_period_value,
-          last_year_value,
-          pct_change_vs_last_period,
-          pct_change_vs_last_year
-        FROM ih.gr_app_measures
+          measure_type
+        FROM ih.agg_app_measures
         ${whereClause}
-        ORDER BY date_index DESC
-        LIMIT $${queryParams.length + 1}
-        OFFSET $${queryParams.length + 2}
+        ORDER BY date_index ASC
       `;
-
-      queryParams.push(limit, offset);
 
       // Log the final complete query
       console.log('🔍 FINAL SQL QUERY:', {
         sql: query,
-        parameters: queryParams,
-        limit,
-        offset
+        parameters: queryParams
       });
 
       // Execute query
-      const data = await executeAnalyticsQuery<AppMeasure>(query, queryParams);
+      const data = await executeAnalyticsQuery<AggAppMeasure>(query, queryParams);
 
-      // Get total count for pagination
-      const countQuery = `
-        SELECT COUNT(*) as total
-        FROM ih.gr_app_measures
+      // Get appropriate total based on measure_type
+      // For currency: sum the values, for count: count the rows
+      const totalQuery = `
+        SELECT 
+          CASE 
+            WHEN measure_type = 'currency' THEN SUM(measure_value)::text
+            ELSE COUNT(*)::text
+          END as total,
+          measure_type
+        FROM ih.agg_app_measures
         ${whereClause}
+        GROUP BY measure_type
       `;
 
-      const countResult = await executeAnalyticsQuery<{ total: string }>(
-        countQuery, 
-        queryParams.slice(0, -2) // Remove LIMIT and OFFSET params
+      console.log('🔍 TOTAL QUERY:', {
+        sql: totalQuery,
+        parameters: queryParams
+      });
+
+      const totalResult = await executeAnalyticsQuery<{ total: string; measure_type: string }>(
+        totalQuery, 
+        queryParams // Use all params since we removed LIMIT/OFFSET
       );
 
       const queryTime = Date.now() - startTime;
-      const totalCount = parseInt(countResult[0]?.total || '0', 10);
+      
+      // Calculate appropriate total based on measure_type
+      let totalCount = 0;
+      if (totalResult.length > 0) {
+        const firstResult = totalResult[0];
+        totalCount = parseInt(firstResult.total || '0', 10);
+        
+        console.log('✅ TOTAL CALCULATION:', {
+          measureType: firstResult.measure_type,
+          totalValue: totalCount,
+          calculationType: firstResult.measure_type === 'currency' ? 'SUM of values' : 'COUNT of rows'
+        });
+      }
 
-      this.logger.info('Analytics query completed', {
-        queryTime,
-        resultCount: data.length,
-        totalCount,
-        userId: context.user_id
-      });
-
-      return {
+      const result: AnalyticsQueryResult = {
         data,
         total_count: totalCount,
         query_time_ms: queryTime,
         cache_hit: false
       };
+
+      // Cache the result
+      analyticsCache.set(params, context.user_id, result);
+
+      this.logger.info('Analytics query completed', {
+        queryTime,
+        resultCount: data.length,
+        totalCount,
+        userId: context.user_id,
+        cached: true
+      });
+
+      return result;
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';

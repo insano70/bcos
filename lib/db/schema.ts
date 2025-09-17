@@ -28,6 +28,17 @@ export {
   userOrganizationsRelations
 } from './rbac-schema';
 
+// Import Analytics tables
+export {
+  chart_categories,
+  chart_definitions,
+  user_chart_favorites,
+  data_sources,
+  dashboards,
+  dashboard_charts,
+  chart_permissions
+} from './analytics-schema';
+
 // System users (admins who manage the platform)
 export const users = pgTable(
   'users',

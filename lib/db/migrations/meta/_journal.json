@@ -29,6 +29,13 @@
       "when": 1757601596512,
       "tag": "0003_misty_sabretooth",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1758014907105,
+      "tag": "0004_magical_bucky",
+      "breakpoints": true
     }
   ]
 }

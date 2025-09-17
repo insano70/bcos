@@ -4,32 +4,25 @@
  */
 
 /**
- * Raw measure record from ih.gr_app_measures table
- * Contains 15,603 records with practice/provider performance data
+ * Pre-aggregated measure record from ih.agg_app_measures table
+ * Simplified structure with pre-calculated aggregations
  */
-export interface AppMeasure {
-  practice_uid: string;
-  provider_uid?: string;
-  measure: string; // e.g., "Charges by Practice", "Payments by Practice", "Charges by Provider", "Payments by Provider"
-  measure_format: string; // Data format/type
-  period_based_on: string; // What the period is based on
-  frequency: string; // "Monthly", "Weekly", "Quarterly"
-  period_start: string; // Period start date (ISO string)
-  period_end: string; // Period end date (ISO string)
-  date_index: number; // Numeric index for ordering
-  measure_value: number; // Primary metric value
-  last_period_value?: number; // Previous period value for comparison
-  last_year_value?: number; // Same period last year value
-  pct_change_vs_last_period?: number; // Percentage change vs last period
-  pct_change_vs_last_year?: number; // Percentage change vs last year
+export interface AggAppMeasure {
+  practice: string; // Practice name/identifier
+  practice_primary: string; // Primary practice identifier
+  practice_uid: number; // Practice UID for filtering
+  provider_name: string; // Provider name
+  measure: string; // What we're measuring (e.g., "Charges by Provider", "Payments by Provider")
+  frequency: string; // Time unit ("Monthly", "Weekly", "Quarterly")
+  date_index: string; // Date field for filtering and X-axis (ISO date string)
+  measure_value: number; // The actual numeric value
+  measure_type: string; // Type of measure ("currency", "count", etc.)
 }
 
 /**
- * Supported measure types from the data
+ * Supported measure types from the actual data in ih.agg_app_measures
  */
 export type MeasureType = 
-  | 'Charges by Practice'
-  | 'Payments by Practice' 
   | 'Charges by Provider'
   | 'Payments by Provider';
 
@@ -43,9 +36,8 @@ export type FrequencyType = 'Monthly' | 'Weekly' | 'Quarterly';
  */
 
 export interface ChartDataSourceConfig {
-  table: string; // e.g., "ih.gr_app_measures"
+  table: string; // e.g., "ih.agg_app_measures"
   filters: ChartFilter[];
-  groupBy: string[];
   orderBy: ChartOrderBy[];
   limit?: number;
 }
@@ -140,13 +132,15 @@ export interface ChartDataset {
 }
 
 /**
- * Analytics query parameters
+ * Simplified analytics query parameters for pre-aggregated data
  */
 export interface AnalyticsQueryParams {
   measure?: MeasureType;
   frequency?: FrequencyType;
-  practice_uid?: string | undefined;
-  provider_uid?: string | undefined;
+  practice?: string | undefined;
+  practice_primary?: string | undefined;
+  practice_uid?: number | undefined;
+  provider_name?: string | undefined;
   start_date?: string | undefined;
   end_date?: string | undefined;
   limit?: number | undefined;
@@ -157,7 +151,7 @@ export interface AnalyticsQueryParams {
  * Analytics query result with metadata
  */
 export interface AnalyticsQueryResult {
-  data: AppMeasure[];
+  data: AggAppMeasure[];
   total_count: number;
   query_time_ms: number;
   cache_hit?: boolean;

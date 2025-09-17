@@ -61,7 +61,11 @@ export class ChartDataTransformer {
       sortedMeasures.forEach(measure => {
         const dateKey = this.formatDateLabel(measure.period_start, measure.frequency);
         const currentValue = dataMap.get(dateKey) || 0;
-        dataMap.set(dateKey, currentValue + measure.measure_value);
+        // Convert string values to numbers
+        const measureValue = typeof measure.measure_value === 'string' 
+          ? parseFloat(measure.measure_value) 
+          : measure.measure_value;
+        dataMap.set(dateKey, currentValue + measureValue);
       });
 
       const labels = Array.from(dataMap.keys());
@@ -104,25 +108,42 @@ export class ChartDataTransformer {
     const groupedData = new Map<string, Map<string, number>>();
     const allDates = new Set<string>();
 
-    measures.forEach(measure => {
-      const groupKey = this.getGroupValue(measure, groupBy);
-      const dateKey = this.formatDateLabel(measure.period_start, measure.frequency);
-      
-      allDates.add(dateKey);
-      
-      if (!groupedData.has(groupKey)) {
-        groupedData.set(groupKey, new Map());
-      }
-      
-      const dateMap = groupedData.get(groupKey)!;
-      const currentValue = dateMap.get(dateKey) || 0;
-      dateMap.set(dateKey, currentValue + measure.measure_value);
-    });
+      measures.forEach(measure => {
+        const groupKey = this.getGroupValue(measure, groupBy);
+        const dateKey = this.formatDateLabel(measure.period_start, measure.frequency);
+        
+        allDates.add(dateKey);
+        
+        if (!groupedData.has(groupKey)) {
+          groupedData.set(groupKey, new Map());
+        }
+        
+        const dateMap = groupedData.get(groupKey)!;
+        const currentValue = dateMap.get(dateKey) || 0;
+        // Convert string values to numbers, handle null values
+        let measureValue = 0;
+        if (measure.measure_value !== null && measure.measure_value !== undefined) {
+          measureValue = typeof measure.measure_value === 'string' 
+            ? parseFloat(measure.measure_value) 
+            : measure.measure_value;
+        }
+        if (!isNaN(measureValue)) {
+          dateMap.set(dateKey, currentValue + measureValue);
+        }
+      });
 
     // Sort dates chronologically
     const sortedDates = Array.from(allDates).sort((a, b) => 
       new Date(a).getTime() - new Date(b).getTime()
     );
+
+    // Debug logging
+    console.log('🔍 MULTI-SERIES TRANSFORMATION:', {
+      groupBy,
+      uniqueDates: sortedDates,
+      groupCount: groupedData.size,
+      groups: Array.from(groupedData.keys())
+    });
 
     // Create datasets for each group
     const datasets: ChartDataset[] = [];
@@ -163,13 +184,17 @@ export class ChartDataTransformer {
    */
   private transformToBarData(measures: AppMeasure[], groupBy?: string): ChartData {
     if (!groupBy) {
-      // Aggregate by date
+      // Single series - aggregate by date
       const dataMap = new Map<string, number>();
       
       measures.forEach(measure => {
         const dateKey = this.formatDateLabel(measure.period_start, measure.frequency);
         const currentValue = dataMap.get(dateKey) || 0;
-        dataMap.set(dateKey, currentValue + measure.measure_value);
+        // Convert string values to numbers
+        const measureValue = typeof measure.measure_value === 'string' 
+          ? parseFloat(measure.measure_value) 
+          : measure.measure_value;
+        dataMap.set(dateKey, currentValue + measureValue);
       });
 
       const labels = Array.from(dataMap.keys()).sort();
@@ -188,33 +213,8 @@ export class ChartDataTransformer {
         }]
       };
     } else {
-      // Group by specified field
-      const groupedData = new Map<string, number>();
-      
-      measures.forEach(measure => {
-        const groupKey = this.getGroupValue(measure, groupBy);
-        const currentValue = groupedData.get(groupKey) || 0;
-        groupedData.set(groupKey, currentValue + measure.measure_value);
-      });
-
-      const labels = Array.from(groupedData.keys()).sort();
-      const data = labels.map(label => groupedData.get(label) || 0);
-      const colors = this.getColorPalette();
-
-      return {
-        labels,
-        datasets: [{
-          label: measures[0]?.measure || 'Value',
-          data,
-          backgroundColor: colors.slice(0, labels.length),
-          hoverBackgroundColor: colors.slice(0, labels.length).map(color => 
-            this.adjustColorOpacity(color, 0.8)
-          ),
-          borderRadius: 4,
-          barPercentage: 0.7,
-          categoryPercentage: 0.7,
-        }]
-      };
+      // Multiple series - show providers as different colored datasets
+      return this.transformToMultiSeriesData(measures, groupBy, false);
     }
   }
 
@@ -228,7 +228,11 @@ export class ChartDataTransformer {
     measures.forEach(measure => {
       const groupKey = this.getGroupValue(measure, groupField);
       const currentValue = groupedData.get(groupKey) || 0;
-      groupedData.set(groupKey, currentValue + measure.measure_value);
+      // Convert string values to numbers
+      const measureValue = typeof measure.measure_value === 'string' 
+        ? parseFloat(measure.measure_value) 
+        : measure.measure_value;
+      groupedData.set(groupKey, currentValue + measureValue);
     });
 
     const labels = Array.from(groupedData.keys());
@@ -255,9 +259,9 @@ export class ChartDataTransformer {
   private getGroupValue(measure: AppMeasure, groupBy: string): string {
     switch (groupBy) {
       case 'practice_uid':
-        return measure.practice_uid || 'Unknown Practice';
+        return measure.practice_uid?.toString() || 'Unknown Practice';
       case 'provider_uid':
-        return measure.provider_uid || 'Unknown Provider';
+        return measure.provider_uid?.toString() || 'Unknown Provider';
       case 'measure':
         return measure.measure;
       case 'frequency':
@@ -271,20 +275,18 @@ export class ChartDataTransformer {
    * Format date label based on frequency
    */
   private formatDateLabel(dateString: string, frequency: string): string {
-    const date = new Date(dateString);
+    // Parse date correctly by adding timezone or using UTC
+    const date = new Date(dateString + 'T00:00:00'); // Add time to avoid timezone issues
+    const formattedLabel = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
     
-    switch (frequency) {
-      case 'Monthly':
-        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
-      case 'Weekly':
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      case 'Quarterly': {
-        const quarter = Math.floor(date.getMonth() / 3) + 1;
-        return `Q${quarter} ${date.getFullYear()}`;
-      }
-      default:
-        return date.toLocaleDateString('en-US');
-    }
+    console.log('🔍 DATE LABEL:', { 
+      input: dateString, 
+      output: formattedLabel,
+      frequency,
+      parsedDate: date.toISOString()
+    });
+    
+    return formattedLabel;
   }
 
   /**

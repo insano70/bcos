@@ -2,19 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import { ChartData, AnalyticsQueryParams, MeasureType, FrequencyType } from '@/lib/types/analytics';
-import { chartDataTransformer } from '@/lib/utils/chart-data-transformer';
+import { simplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
 
 // Import existing chart components
 import LineChart01 from './line-chart-01';
 import BarChart01 from './bar-chart-01';
+import AnalyticsBarChart from './analytics-bar-chart';
 import DoughnutChart from './doughnut-chart';
 
 interface AnalyticsChartProps {
   chartType: 'line' | 'bar' | 'doughnut';
   measure?: MeasureType;
   frequency?: FrequencyType;
-  practiceUid?: string | undefined;
-  providerUid?: string | undefined;
+  practice?: string | undefined;
+  practiceUid?: string | undefined; // Legacy support
+  providerName?: string | undefined;
+  providerUid?: string | undefined; // Legacy support
   startDate?: string | undefined;
   endDate?: string | undefined;
   width?: number;
@@ -45,10 +48,12 @@ interface ApiResponse {
 
 export default function AnalyticsChart({
   chartType,
-  measure = 'Charges by Practice',
+  measure = 'Charges by Provider',
   frequency = 'Monthly',
-  practiceUid,
-  providerUid,
+  practice,
+  practiceUid, // Legacy support
+  providerName,
+  providerUid, // Legacy support
   startDate,
   endDate,
   width = 800,
@@ -76,10 +81,42 @@ export default function AnalyticsChart({
       
       if (measure) params.append('measure', measure);
       if (frequency) params.append('frequency', frequency);
-      if (practiceUid && practiceUid.trim()) params.append('practice_uid', practiceUid);
-      if (providerUid && providerUid.trim()) params.append('provider_uid', providerUid);
+      
+      // Support both new and legacy field names
+      if (practice && practice.trim()) {
+        const practiceUidInt = parseInt(practice, 10);
+        if (!isNaN(practiceUidInt)) {
+          params.append('practice_uid', practiceUidInt.toString());
+        } else {
+          params.append('practice', practice);
+        }
+      }
+      if (practiceUid && practiceUid.trim()) {
+        const practiceUidInt = parseInt(practiceUid, 10);
+        if (!isNaN(practiceUidInt)) {
+          params.append('practice_uid', practiceUidInt.toString());
+        }
+      }
+      
+      if (providerName && providerName.trim()) params.append('provider_name', providerName);
+      if (providerUid && providerUid.trim()) params.append('provider_name', providerUid); // Legacy mapping
+      
       if (startDate && startDate.trim()) params.append('start_date', startDate);
       if (endDate && endDate.trim()) params.append('end_date', endDate);
+
+      // Debug logging
+      console.log('🔍 ANALYTICS CHART PARAMS:', {
+        measure,
+        frequency,
+        practice,
+        practiceUid,
+        providerName,
+        providerUid,
+        startDate,
+        endDate,
+        groupBy,
+        finalUrl: `/api/admin/analytics/measures?${params.toString()}`
+      });
       
       // Set reasonable defaults for chart display
       params.append('limit', '1000');
@@ -95,11 +132,35 @@ export default function AnalyticsChart({
       const data: ApiResponse = await response.json();
       
       // Transform data for Chart.js
-      const transformedData = chartDataTransformer.transformMeasuresData(
+      console.log('🔍 BEFORE TRANSFORMATION:', {
+        rawDataCount: data.data.measures.length,
+        chartType,
+        groupBy,
+        sampleRecord: data.data.measures[0]
+      });
+
+      // Map groupBy values correctly
+      let mappedGroupBy = 'none';
+      if (groupBy === 'practice_uid' || groupBy === 'practice') mappedGroupBy = 'practice';
+      if (groupBy === 'provider_uid' || groupBy === 'provider_name') mappedGroupBy = 'provider_name';
+      if (groupBy === 'measure') mappedGroupBy = 'measure';
+
+      console.log('🔍 GROUPBY MAPPING:', {
+        originalGroupBy: groupBy,
+        mappedGroupBy: mappedGroupBy
+      });
+
+      const transformedData = simplifiedChartTransformer.transformData(
         data.data.measures,
         chartType,
-        groupBy
+        mappedGroupBy
       );
+
+      console.log('🔍 AFTER TRANSFORMATION:', {
+        labels: transformedData.labels,
+        datasetCount: transformedData.datasets.length,
+        sampleDataset: transformedData.datasets[0]
+      });
 
       setChartData(transformedData);
       setMetadata(data.data.metadata);
@@ -156,7 +217,7 @@ export default function AnalyticsChart({
       case 'line':
         return <LineChart01 data={chartData} width={width} height={height} />;
       case 'bar':
-        return <BarChart01 data={chartData} width={width} height={height} />;
+        return <AnalyticsBarChart data={chartData} width={width} height={height} frequency={frequency} />;
       case 'doughnut':
         return <DoughnutChart data={chartData} width={width} height={height} />;
       default:
