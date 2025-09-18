@@ -52,10 +52,17 @@ export default function ChartBuilderPage() {
       const response = await fetch('/api/admin/analytics/charts');
       if (response.ok) {
         const result = await response.json();
-        setSavedCharts(result.data.charts || []);
+        const charts = result.data.charts || [];
+        // Ensure each chart has a unique ID for React keys
+        const chartsWithIds = charts.map((chart: any, index: number) => ({
+          ...chart,
+          chart_definition_id: chart.chart_definition_id || `temp-${index}`
+        }));
+        setSavedCharts(chartsWithIds);
       }
     } catch (error) {
       console.error('Failed to load charts:', error);
+      setSavedCharts([]); // Ensure we always have an array
     }
   };
 
@@ -138,9 +145,9 @@ export default function ChartBuilderPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {savedCharts.map((chart) => (
+              {savedCharts.map((chart, index) => (
                 <div
-                  key={chart.chart_definition_id}
+                  key={chart.chart_definition_id || `chart-${index}`}
                   className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow"
                 >
                   <div className="flex justify-between items-start mb-3">
@@ -172,10 +179,10 @@ export default function ChartBuilderPage() {
                     <br />
                     By: {chart.creator_name} {chart.creator_last_name}
                     {chart.category_name && (
-                      <>
+                      <React.Fragment key="category">
                         <br />
                         Category: {chart.category_name}
-                      </>
+                      </React.Fragment>
                     )}
                   </div>
                 </div>
