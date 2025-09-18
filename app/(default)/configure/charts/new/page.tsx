@@ -7,11 +7,11 @@ export default function NewChartPage() {
   const router = useRouter();
 
   const handleCancel = () => {
-    router.push('/dashboard/charts');
+    router.push('/configure/charts');
   };
 
   const handleSaveSuccess = () => {
-    router.push('/dashboard/charts');
+    router.push('/configure/charts');
   };
 
   return (

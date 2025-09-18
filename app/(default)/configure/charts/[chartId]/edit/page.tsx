@@ -59,11 +59,11 @@ export default function EditChartPage() {
   };
 
   const handleCancel = () => {
-    router.push('/dashboard/charts');
+    router.push('/configure/charts');
   };
 
   const handleSaveSuccess = () => {
-    router.push('/dashboard/charts');
+    router.push('/configure/charts');
   };
 
   if (isLoading) {

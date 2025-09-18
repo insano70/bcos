@@ -140,13 +140,11 @@ export default function ChartBuilderPage() {
   };
 
   const handleEditChart = (chart: ChartDefinitionListItem) => {
-    router.push(`/dashboard/charts/${chart.chart_definition_id}/edit`);
+    router.push(`/configure/charts/${chart.chart_definition_id}/edit`);
   };
 
   const handleCreateChart = () => {
-    // For now, we can create a temporary ID for new charts
-    // Later we might want a dedicated /dashboard/charts/new route
-    router.push('/dashboard/charts/new');
+    router.push('/configure/charts/new');
   };
 
   // Load charts on component mount
