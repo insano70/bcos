@@ -3,11 +3,19 @@
 import React, { useState } from 'react';
 import ChartBuilder from '@/components/charts/chart-builder';
 import { ChartDefinition } from '@/lib/types/analytics';
+import ChartsTable, { ChartDefinitionListItem } from './charts-table';
+import DeleteButton from '@/components/delete-button';
+import DateSelect from '@/components/date-select';
+import FilterButton from '@/components/dropdown-filter';
+import PaginationClassic from '@/components/pagination-classic';
+import { SelectedItemsProvider } from '@/app/selected-items-context';
 
 export default function ChartBuilderPage() {
   const [showBuilder, setShowBuilder] = useState(false);
-  const [savedCharts, setSavedCharts] = useState<any[]>([]);
+  const [savedCharts, setSavedCharts] = useState<ChartDefinitionListItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedChart, setSelectedChart] = useState<ChartDefinitionListItem | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const handleSaveChart = async (chartDefinition: Partial<ChartDefinition>) => {
     setIsLoading(true);
@@ -67,8 +75,6 @@ export default function ChartBuilderPage() {
   };
 
   const deleteChart = async (chartId: string) => {
-    if (!confirm('Are you sure you want to delete this chart?')) return;
-    
     try {
       const response = await fetch(`/api/admin/analytics/charts/${chartId}`, {
         method: 'DELETE',
@@ -81,8 +87,14 @@ export default function ChartBuilderPage() {
         throw new Error(error.error || 'Failed to delete chart');
       }
     } catch (error) {
+      console.error('Failed to delete chart:', error);
       // TODO: Show toast notification for delete error
     }
+  };
+
+  const handleEditChart = (chart: ChartDefinitionListItem) => {
+    setSelectedChart(chart);
+    setIsEditModalOpen(true);
   };
 
   // Load charts on component mount
@@ -102,96 +114,115 @@ export default function ChartBuilderPage() {
   }
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
-      {/* Page Header */}
-      <div className="sm:flex sm:justify-between sm:items-center mb-8">
-        <div className="mb-4 sm:mb-0">
-          <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
-            Chart Builder
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Create and manage configurable chart definitions
-          </p>
-        </div>
-        
-        <button
-          onClick={() => setShowBuilder(true)}
-          className="px-6 py-2 bg-violet-500 text-white rounded-md hover:bg-violet-600 transition-colors"
-        >
-          Create New Chart
-        </button>
-      </div>
+    <SelectedItemsProvider>
+      <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
+        {/* Page Header */}
+        <div className="sm:flex sm:justify-between sm:items-center mb-8">
+          <div className="mb-4 sm:mb-0">
+            <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
+              Chart Definitions
+              {isLoading && (
+                <span className="ml-3 inline-flex items-center">
+                  <svg className="animate-spin h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24">
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  <span className="ml-2 text-sm text-gray-500">Loading...</span>
+                </span>
+              )}
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              Create and manage configurable chart definitions
+            </p>
+          </div>
 
-      {/* Saved Charts List */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Saved Chart Definitions
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
-            Manage your stored chart configurations
-          </p>
+          {/* Right: Actions */}
+          <div className="grid grid-flow-col sm:auto-cols-max justify-start sm:justify-end gap-2">
+            {/* Delete button */}
+            <DeleteButton />
+
+            {/* Date filter */}
+            <DateSelect />
+
+            {/* Filter button */}
+            <FilterButton align="right" />
+
+            {/* Create chart button */}
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={() => setShowBuilder(true)}
+              className="btn bg-violet-500 hover:bg-violet-600 text-white disabled:opacity-50"
+            >
+              <svg className="fill-current shrink-0 xs:hidden" width="16" height="16" viewBox="0 0 16 16">
+                <path d="m7 7V3c0-.6.4-1 1-1s1 .4 1 1v4h4c.6 0 1 .4 1 1s-.4 1-1 1H9v4c0 .6-.4 1-1 1s-1-.4-1-1V9H3c-.6 0-1-.4-1-1s.4-1 1-1h4Z" />
+              </svg>
+              <span className="max-xs:sr-only">Create Chart</span>
+            </button>
+          </div>
         </div>
 
-        <div className="p-6">
-          {savedCharts.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-gray-500 dark:text-gray-400 mb-4">
-                📊 No chart definitions found
-              </div>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">
-                Create your first chart definition to get started
+        {/* Charts Table */}
+        <ChartsTable
+          charts={savedCharts}
+          onEdit={handleEditChart}
+          onDelete={deleteChart}
+          isLoading={isLoading}
+        />
+
+        {/* Pagination */}
+        {savedCharts.length > 0 && (
+          <div className="mt-8">
+            <PaginationClassic />
+          </div>
+        )}
+
+        {/* Edit Chart Modal */}
+        {selectedChart && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+                Edit Chart: {selectedChart.chart_name}
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Chart editing functionality will be implemented here
               </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {savedCharts.map((chart, index) => (
-                <div
-                  key={chart.chart_definition_id || `chart-${index}`}
-                  className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow"
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setSelectedChart(null);
+                    setIsEditModalOpen(false);
+                  }}
+                  className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                 >
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="font-medium text-gray-900 dark:text-gray-100">
-                        {chart.chart_name}
-                      </h3>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {chart.chart_type} chart
-                      </div>
-                    </div>
-                    
-                    <button
-                      onClick={() => deleteChart(chart.chart_definition_id)}
-                      className="text-red-500 hover:text-red-700 text-sm"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                  
-                  {chart.chart_description && (
-                    <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">
-                      {chart.chart_description}
-                    </p>
-                  )}
-                  
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
-                    Created: {new Date(chart.created_at).toLocaleDateString()}
-                    <br />
-                    By: {chart.creator_name} {chart.creator_last_name}
-                    {chart.category_name && (
-                      <React.Fragment key="category">
-                        <br />
-                        Category: {chart.category_name}
-                      </React.Fragment>
-                    )}
-                  </div>
-                </div>
-              ))}
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    // TODO: Implement save changes
+                    setSelectedChart(null);
+                    setIsEditModalOpen(false);
+                  }}
+                  className="px-4 py-2 bg-violet-500 text-white rounded-md hover:bg-violet-600 transition-colors"
+                >
+                  Save Changes
+                </button>
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-
-    </div>
+    </SelectedItemsProvider>
   );
 }
