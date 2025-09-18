@@ -73,10 +73,10 @@ export const chart_data_source_columns = pgTable(
 );
 
 // Chart display configurations
-export const chart_display_configs = pgTable(
-  'chart_display_configs',
+export const chart_display_configurations = pgTable(
+  'chart_display_configurations',
   {
-    config_id: integer('config_id').primaryKey().generatedByDefaultAsIdentity(),
+    display_configuration_id: integer('display_configuration_id').primaryKey().generatedByDefaultAsIdentity(),
     chart_type: varchar('chart_type', { length: 50 }).notNull(),
     frequency: varchar('frequency', { length: 20 }),
     
@@ -107,9 +107,9 @@ export const chart_display_configs = pgTable(
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },
   (table) => ({
-    typeFreqIdx: index('idx_chart_display_configs_type_freq').on(table.chart_type, table.frequency),
-    defaultIdx: index('idx_chart_display_configs_default').on(table.is_default),
-    activeIdx: index('idx_chart_display_configs_active').on(table.is_active),
+    typeFreqIdx: index('idx_chart_display_configurations_type_freq').on(table.chart_type, table.frequency),
+    defaultIdx: index('idx_chart_display_configurations_default').on(table.is_default),
+    activeIdx: index('idx_chart_display_configurations_active').on(table.is_active),
   })
 );
 

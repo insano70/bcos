@@ -1,4 +1,4 @@
-import { db, chart_data_sources, chart_data_source_columns, chart_display_configs, color_palettes } from '@/lib/db';
+import { db, chart_data_sources, chart_data_source_columns, chart_display_configurations, color_palettes } from '@/lib/db';
 import { eq, and, isNull } from 'drizzle-orm';
 import { logger } from '@/lib/logger';
 
@@ -204,12 +204,12 @@ export class ChartConfigService {
     try {
       const [config] = await db
         .select()
-        .from(chart_display_configs)
+        .from(chart_display_configurations)
         .where(
           and(
-            eq(chart_display_configs.chart_type, chartType),
-            frequency ? eq(chart_display_configs.frequency, frequency) : isNull(chart_display_configs.frequency),
-            eq(chart_display_configs.is_active, true)
+            eq(chart_display_configurations.chart_type, chartType),
+            frequency ? eq(chart_display_configurations.frequency, frequency) : isNull(chart_display_configurations.frequency),
+            eq(chart_display_configurations.is_active, true)
           )
         );
 
@@ -217,12 +217,12 @@ export class ChartConfigService {
         // Try to get default config for chart type
         const [defaultConfig] = await db
           .select()
-          .from(chart_display_configs)
+          .from(chart_display_configurations)
           .where(
             and(
-              eq(chart_display_configs.chart_type, chartType),
-              eq(chart_display_configs.is_default, true),
-              eq(chart_display_configs.is_active, true)
+              eq(chart_display_configurations.chart_type, chartType),
+              eq(chart_display_configurations.is_default, true),
+              eq(chart_display_configurations.is_active, true)
             )
           );
 

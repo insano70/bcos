@@ -1,4 +1,4 @@
-import { db, chart_data_sources, chart_data_source_columns, chart_display_configs, color_palettes } from '@/lib/db';
+import { db, chart_data_sources, chart_data_source_columns, chart_display_configurations, color_palettes } from '@/lib/db';
 import { eq, and } from 'drizzle-orm';
 
 /**
@@ -132,7 +132,7 @@ async function seedChartConfiguration() {
 
     for (const config of displayConfigs) {
       await db
-        .insert(chart_display_configs)
+        .insert(chart_display_configurations)
         .values({
           chart_type: config.type,
           frequency: config.freq,

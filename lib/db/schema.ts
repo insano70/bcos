@@ -43,7 +43,7 @@ export {
 export {
   chart_data_sources,
   chart_data_source_columns,
-  chart_display_configs,
+  chart_display_configurations,
   color_palettes
 } from './chart-config-schema';
 
