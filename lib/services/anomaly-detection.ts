@@ -1,5 +1,4 @@
 import type { AggAppMeasure } from '@/lib/types/analytics';
-import { logger } from '@/lib/logger';
 
 /**
  * Anomaly Detection Service
@@ -126,14 +125,16 @@ export class AnomalyDetectionService {
         alerts.push(alert);
         this.alerts.set(alert.id, alert);
         
-        logger.warn('Anomaly detected', {
-          alertId: alert.id,
-          measure: alert.measure,
-          severity: alert.severity,
-          percentageChange: alert.percentageChange,
-          currentValue: alert.currentValue,
-          expectedValue: alert.expectedValue
-        });
+        if (typeof window !== 'undefined') {
+          console.warn('Anomaly detected', {
+            alertId: alert.id,
+            measure: alert.measure,
+            severity: alert.severity,
+            percentageChange: alert.percentageChange,
+            currentValue: alert.currentValue,
+            expectedValue: alert.expectedValue
+          });
+        }
 
         break; // Only trigger the highest severity threshold
       }
@@ -155,12 +156,14 @@ export class AnomalyDetectionService {
 
     this.rules.set(ruleId, fullRule);
     
-    logger.info('Anomaly detection rule created', {
-      ruleId,
-      chartDefinitionId: rule.chartDefinitionId,
-      measure: rule.measure,
-      thresholdCount: rule.thresholds.length
-    });
+    if (typeof window !== 'undefined') {
+      console.info('Anomaly detection rule created', {
+        ruleId,
+        chartDefinitionId: rule.chartDefinitionId,
+        measure: rule.measure,
+        thresholdCount: rule.thresholds.length
+      });
+    }
 
     return ruleId;
   }
@@ -175,7 +178,9 @@ export class AnomalyDetectionService {
     const updatedRule = { ...rule, ...updates };
     this.rules.set(ruleId, updatedRule);
 
-    logger.info('Anomaly detection rule updated', { ruleId });
+    if (typeof window !== 'undefined') {
+      console.info('Anomaly detection rule updated', { ruleId });
+    }
     return true;
   }
 
@@ -185,8 +190,8 @@ export class AnomalyDetectionService {
   deleteRule(ruleId: string): boolean {
     const deleted = this.rules.delete(ruleId);
     
-    if (deleted) {
-      logger.info('Anomaly detection rule deleted', { ruleId });
+    if (deleted && typeof window !== 'undefined') {
+      console.info('Anomaly detection rule deleted', { ruleId });
     }
     
     return deleted;
@@ -219,7 +224,9 @@ export class AnomalyDetectionService {
     
     this.alerts.set(alertId, alert);
     
-    logger.info('Anomaly alert resolved', { alertId, resolvedBy });
+    if (typeof window !== 'undefined') {
+      console.info('Anomaly alert resolved', { alertId, resolvedBy });
+    }
     return true;
   }
 
@@ -232,33 +239,40 @@ export class AnomalyDetectionService {
       if (!rule || rule.alertEmails.length === 0) continue;
 
       try {
-        // Dynamic import to avoid circular dependencies
-        const { EmailService } = await import('../api/services/email');
-        
-        await EmailService.sendSystemNotification(
-          `Anomaly Detected: ${alert.measure}`,
-          alert.description,
-          {
-            severity: alert.severity,
-            chartDefinitionId: alert.chartDefinitionId,
-            measure: alert.measure,
-            percentageChange: alert.percentageChange,
-            currentValue: alert.currentValue,
-            expectedValue: alert.expectedValue
-          }
-        );
+        // Only send emails on server-side
+        if (typeof window === 'undefined') {
+          // Dynamic import to avoid circular dependencies
+          const { EmailService } = await import('../api/services/email');
+          
+          await EmailService.sendSystemNotification(
+            `Anomaly Detected: ${alert.measure}`,
+            alert.description,
+            {
+              severity: alert.severity,
+              chartDefinitionId: alert.chartDefinitionId,
+              measure: alert.measure,
+              percentageChange: alert.percentageChange,
+              currentValue: alert.currentValue,
+              expectedValue: alert.expectedValue
+            }
+          );
+        }
 
-        logger.info('Anomaly alert sent', {
-          alertId: alert.id,
-          emailCount: rule.alertEmails.length,
-          severity: alert.severity
-        });
+        if (typeof window !== 'undefined') {
+          console.info('Anomaly alert sent', {
+            alertId: alert.id,
+            emailCount: rule.alertEmails.length,
+            severity: alert.severity
+          });
+        }
 
       } catch (error) {
-        logger.error('Failed to send anomaly alert', {
-          alertId: alert.id,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
+        if (typeof window !== 'undefined') {
+          console.error('Failed to send anomaly alert', {
+            alertId: alert.id,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
       }
     }
   }
@@ -279,10 +293,12 @@ export class AnomalyDetectionService {
         this.rules.set(rule.id, rule);
         
       } catch (error) {
-        logger.error('Anomaly detection failed for rule', {
-          ruleId: rule.id,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
+        if (typeof window !== 'undefined') {
+          console.error('Anomaly detection failed for rule', {
+            ruleId: rule.id,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        }
       }
     }
 
