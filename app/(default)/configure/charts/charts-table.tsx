@@ -22,10 +22,9 @@ interface ChartsTableProps {
   charts: ChartDefinitionListItem[];
   onEdit?: (chart: ChartDefinitionListItem) => void;
   onDelete?: (chartId: string) => void;
-  isLoading?: boolean;
 }
 
-export default function ChartsTable({ charts, onEdit, onDelete, isLoading = false }: ChartsTableProps) {
+export default function ChartsTable({ charts, onEdit, onDelete }: ChartsTableProps) {
   // Map charts to have 'id' property for useItemSelection
   const chartsWithId = charts.map(chart => ({ ...chart, id: chart.chart_definition_id }));
   
@@ -94,40 +93,7 @@ export default function ChartsTable({ charts, onEdit, onDelete, isLoading = fals
             </thead>
             {/* Table body */}
             <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
-              {isLoading ? (
-                // Loading skeleton rows
-                Array.from({ length: 5 }).map((_, index) => (
-                  <tr key={`loading-${index}`}>
-                    <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap w-px">
-                      <div className="animate-pulse bg-gray-200 dark:bg-gray-700 rounded w-4 h-4"></div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                      <div className="animate-pulse bg-gray-200 dark:bg-gray-700 rounded h-4 w-32"></div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                      <div className="animate-pulse bg-gray-200 dark:bg-gray-700 rounded h-4 w-16"></div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                      <div className="animate-pulse bg-gray-200 dark:bg-gray-700 rounded h-4 w-48"></div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                      <div className="animate-pulse bg-gray-200 dark:bg-gray-700 rounded h-4 w-20"></div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                      <div className="animate-pulse bg-gray-200 dark:bg-gray-700 rounded h-4 w-16"></div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                      <div className="animate-pulse bg-gray-200 dark:bg-gray-700 rounded h-4 w-24"></div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                      <div className="animate-pulse bg-gray-200 dark:bg-gray-700 rounded h-4 w-20"></div>
-                    </td>
-                    <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                      <div className="animate-pulse bg-gray-200 dark:bg-gray-700 rounded h-4 w-8"></div>
-                    </td>
-                  </tr>
-                ))
-              ) : charts.length === 0 ? (
+              {charts.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-2 first:pl-5 last:pr-5 py-12 text-center">
                     <div className="text-gray-500 dark:text-gray-400">
