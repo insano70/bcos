@@ -94,33 +94,21 @@ const createChartHandler = async (request: NextRequest, userContext: UserContext
       return createErrorResponse('Missing required fields: chart_name, chart_type, data_source, chart_config', 400);
     }
 
-    // Create new chart definition
-    const insertData: any = {
-      chart_name: body.chart_name,
-      chart_type: body.chart_type,
-      data_source: body.data_source,
-      chart_config: body.chart_config,
-      created_by: userContext.user_id,
-    };
-
-    // Add optional fields only if they have values
-    if (body.chart_description) {
-      insertData.chart_description = body.chart_description;
-    }
-    
-    if (body.access_control) {
-      insertData.access_control = body.access_control;
-    }
-    
-    if (body.chart_category_id) {
-      insertData.chart_category_id = body.chart_category_id;
-    }
-
-    console.log('💾 Inserting chart definition:', insertData);
+    // Create new chart definition - be explicit about all fields
+    console.log('💾 Chart definition request body:', body);
 
     const [newChart] = await db
       .insert(chart_definitions)
-      .values(insertData)
+      .values({
+        chart_name: body.chart_name,
+        chart_description: body.chart_description || null,
+        chart_type: body.chart_type,
+        data_source: body.data_source,
+        chart_config: body.chart_config,
+        access_control: body.access_control || null,
+        chart_category_id: body.chart_category_id || null,
+        created_by: userContext.user_id,
+      })
       .returning();
 
     logDBOperation(logger, 'chart_definition_create', 'chart_definitions', startTime, 1);

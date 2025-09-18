@@ -201,7 +201,7 @@ export default function FunctionalChartBuilder() {
         chart_name: chartConfig.chartName,
         chart_description: `${chartConfig.chartType} chart showing ${chartConfig.measure} by ${chartConfig.groupBy}`,
         chart_type: chartConfig.chartType,
-        chart_category_id: 1, // Default category
+        chart_category_id: null, // No category by default
         data_source: {
           table: 'ih.agg_app_measures',
           filters: [
