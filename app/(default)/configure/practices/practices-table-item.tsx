@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from 'react';
 import type { Practice } from './practices-table';
 
 interface PracticesTableItemProps {
@@ -11,8 +12,35 @@ export default function PracticesTableItem({
   onCheckboxChange,
   isSelected,
 }: PracticesTableItemProps) {
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onCheckboxChange(practice.id, e.target.checked);
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleEdit = () => {
+    window.location.href = `/configure/practices/${practice.id}`;
+    setDropdownOpen(false);
+  };
+
+  const handlePreview = () => {
+    window.open(`/template-preview/${practice.id}`, '_blank', 'noopener,noreferrer');
+    setDropdownOpen(false);
   };
 
   const formatDate = (date: string | Date | null) => {
@@ -97,24 +125,67 @@ export default function PracticesTableItem({
           {formatDate(practice.created_at)}
         </div>
       </td>
+      {/* Actions Menu */}
       <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap w-px">
-        {/* Actions */}
-        <div className="flex items-center space-x-2">
-          <a
-            href={`/configure/practices/${practice.id}`}
-            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium"
+        <div className="relative inline-flex" ref={dropdownRef}>
+          <button
+            className="rounded-full"
+            aria-haspopup="true"
+            aria-expanded={dropdownOpen}
+            onClick={() => setDropdownOpen(!dropdownOpen)}
           >
-            Edit
-          </a>
-          <span className="text-gray-300">|</span>
-          <a
-            href={`/template-preview/${practice.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300 text-sm font-medium"
-          >
-            Preview
-          </a>
+            <span className="sr-only">Menu</span>
+            <svg className="w-8 h-8 fill-current text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400" viewBox="0 0 32 32">
+              <circle cx="16" cy="16" r="2" />
+              <circle cx="10" cy="16" r="2" />
+              <circle cx="22" cy="16" r="2" />
+            </svg>
+          </button>
+          {dropdownOpen && (
+            <div className="origin-top-right z-50 absolute top-full right-0 min-w-36 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 py-1.5 rounded-lg shadow-lg overflow-hidden mt-1">
+              <ul>
+                <li>
+                  <button
+                    type="button"
+                    className="font-medium text-sm text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-200 flex items-center py-1 px-3 w-full text-left"
+                    onClick={handleEdit}
+                  >
+                    <svg className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0 mr-2" viewBox="0 0 16 16">
+                      <path d="m13.7 2.3-1-1c-.4-.4-1-.4-1.4 0l-10 10c-.2.2-.3.4-.3.7v4c0 .6.4 1 1 1h4c.3 0 .5-.1.7-.3l10-10c.4-.4.4-1 0-1.4zM10.5 6.5L9 5l.5-.5L11 6l-.5.5zM2 14v-3l6-6 3 3-6 6H2z" />
+                    </svg>
+                    <span>Edit Practice</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    className="font-medium text-sm text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-200 flex items-center py-1 px-3 w-full text-left"
+                    onClick={handlePreview}
+                  >
+                    <svg className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0 mr-2" viewBox="0 0 16 16">
+                      <path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zM7 11.4L3.6 8 5 6.6l2 2 4-4L12.4 6 7 11.4z" />
+                    </svg>
+                    <span>Preview Site</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    className="font-medium text-sm text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-200 flex items-center py-1 px-3 w-full text-left"
+                    onClick={() => {
+                      navigator.clipboard.writeText(practice.domain);
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    <svg className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0 mr-2" viewBox="0 0 16 16">
+                      <path d="M11 0H5a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V1a1 1 0 0 0-1-1zM5 2h6v10H5V2z" />
+                    </svg>
+                    <span>Copy Domain</span>
+                  </button>
+                </li>
+              </ul>
+            </div>
+          )}
         </div>
       </td>
     </tr>
