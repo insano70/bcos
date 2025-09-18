@@ -155,9 +155,14 @@ export default function ChartBuilderPage() {
       }
       
       const result = await response.json();
-      const fullChartData = result.data.chart;
+      const chartResponse = result.data.chart;
       
-      console.log('📊 Loaded chart data for editing:', fullChartData);
+      console.log('📊 Raw API response for editing:', chartResponse);
+      
+      // Extract chart definition from joined API response
+      const fullChartData = chartResponse.chart_definitions || chartResponse;
+      
+      console.log('📊 Extracted chart data for editing:', fullChartData);
       
       setEditingChart(fullChartData);
       setShowBuilder(true);

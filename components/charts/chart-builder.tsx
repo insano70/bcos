@@ -104,10 +104,14 @@ export default function FunctionalChartBuilder({ editingChart, onCancel }: Chart
   useEffect(() => {
     if (editingChart && schemaInfo) {
       console.log('📝 Populating form for editing:', editingChart);
+      console.log('📋 Available schema info:', schemaInfo);
       
       // Extract data from chart definition
       const dataSource = editingChart.data_source || {};
       const chartConfigData = editingChart.chart_config || {};
+      
+      console.log('🔍 Extracted data source:', dataSource);
+      console.log('🔍 Extracted chart config:', chartConfigData);
       
       // Find practice UID from filters
       const practiceFilter = dataSource.filters?.find((f: any) => f.field === 'practice_uid');
@@ -116,7 +120,15 @@ export default function FunctionalChartBuilder({ editingChart, onCancel }: Chart
       const startDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'gte');
       const endDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'lte');
       
-      setChartConfig({
+      console.log('🔍 Found filters:', {
+        practice: practiceFilter,
+        measure: measureFilter,
+        frequency: frequencyFilter,
+        startDate: startDateFilter,
+        endDate: endDateFilter
+      });
+      
+      const newConfig = {
         chartName: editingChart.chart_name || '',
         chartType: editingChart.chart_type || 'bar',
         measure: measureFilter?.value || '',
@@ -130,7 +142,10 @@ export default function FunctionalChartBuilder({ editingChart, onCancel }: Chart
         useAdvancedFiltering: false,
         useMultipleSeries: false,
         seriesConfigs: []
-      });
+      };
+      
+      console.log('🔧 Setting new chart config:', newConfig);
+      setChartConfig(newConfig);
       
       console.log('✅ Form populated for editing');
     }
