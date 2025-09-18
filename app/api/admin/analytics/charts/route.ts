@@ -95,18 +95,32 @@ const createChartHandler = async (request: NextRequest, userContext: UserContext
     }
 
     // Create new chart definition
+    const insertData: any = {
+      chart_name: body.chart_name,
+      chart_type: body.chart_type,
+      data_source: body.data_source,
+      chart_config: body.chart_config,
+      created_by: userContext.user_id,
+    };
+
+    // Add optional fields only if they have values
+    if (body.chart_description) {
+      insertData.chart_description = body.chart_description;
+    }
+    
+    if (body.access_control) {
+      insertData.access_control = body.access_control;
+    }
+    
+    if (body.chart_category_id) {
+      insertData.chart_category_id = body.chart_category_id;
+    }
+
+    console.log('💾 Inserting chart definition:', insertData);
+
     const [newChart] = await db
       .insert(chart_definitions)
-      .values({
-        chart_name: body.chart_name,
-        chart_description: body.chart_description,
-        chart_type: body.chart_type,
-        data_source: body.data_source,
-        chart_config: body.chart_config,
-        access_control: body.access_control,
-        chart_category_id: body.chart_category_id,
-        created_by: userContext.user_id,
-      })
+      .values(insertData)
       .returning();
 
     logDBOperation(logger, 'chart_definition_create', 'chart_definitions', startTime, 1);
