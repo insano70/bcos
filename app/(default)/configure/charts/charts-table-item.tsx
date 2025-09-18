@@ -175,7 +175,7 @@ export default function ChartsTableItem({
             </svg>
           </button>
           {dropdownOpen && (
-            <div className="origin-top-right z-10 absolute top-full right-0 min-w-36 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 py-1.5 rounded-lg shadow-lg overflow-hidden mt-1">
+            <div className="origin-top-right z-50 absolute top-full right-0 min-w-36 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 py-1.5 rounded-lg shadow-lg overflow-hidden mt-1">
               <ul>
                 {onEdit && (
                   <li>
