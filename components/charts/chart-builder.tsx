@@ -103,15 +103,9 @@ export default function FunctionalChartBuilder({ editingChart, onCancel }: Chart
   // Populate form when editing
   useEffect(() => {
     if (editingChart && schemaInfo) {
-      console.log('📝 Populating form for editing:', editingChart);
-      console.log('📋 Available schema info:', schemaInfo);
-      
       // Extract data from chart definition
       const dataSource = editingChart.data_source || {};
       const chartConfigData = editingChart.chart_config || {};
-      
-      console.log('🔍 Extracted data source:', dataSource);
-      console.log('🔍 Extracted chart config:', chartConfigData);
       
       // Find practice UID from filters
       const practiceFilter = dataSource.filters?.find((f: any) => f.field === 'practice_uid');
@@ -119,14 +113,6 @@ export default function FunctionalChartBuilder({ editingChart, onCancel }: Chart
       const frequencyFilter = dataSource.filters?.find((f: any) => f.field === 'frequency');
       const startDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'gte');
       const endDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'lte');
-      
-      console.log('🔍 Found filters:', {
-        practice: practiceFilter,
-        measure: measureFilter,
-        frequency: frequencyFilter,
-        startDate: startDateFilter,
-        endDate: endDateFilter
-      });
       
       const newConfig = {
         chartName: editingChart.chart_name || '',
@@ -144,10 +130,7 @@ export default function FunctionalChartBuilder({ editingChart, onCancel }: Chart
         seriesConfigs: []
       };
       
-      console.log('🔧 Setting new chart config:', newConfig);
       setChartConfig(newConfig);
-      
-      console.log('✅ Form populated for editing');
     }
   }, [editingChart, schemaInfo]);
 
@@ -384,6 +367,7 @@ export default function FunctionalChartBuilder({ editingChart, onCancel }: Chart
         {currentStep === 'configure' && (
           <div className="space-y-6">
             <ChartBuilderCore
+              key={isEditMode ? `edit-${editingChart?.chart_definition_id}` : 'create'}
               schemaInfo={schemaInfo}
               chartConfig={chartConfig}
               updateConfig={updateConfig}

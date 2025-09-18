@@ -146,7 +146,6 @@ export default function ChartBuilderPage() {
 
   const handleEditChart = async (chart: ChartDefinitionListItem) => {
     try {
-      console.log('📝 Loading chart for editing:', chart.chart_definition_id);
       
       // Fetch full chart definition from API
       const response = await fetch(`/api/admin/analytics/charts/${chart.chart_definition_id}`);
@@ -157,12 +156,8 @@ export default function ChartBuilderPage() {
       const result = await response.json();
       const chartResponse = result.data.chart;
       
-      console.log('📊 Raw API response for editing:', chartResponse);
-      
       // Extract chart definition from joined API response
       const fullChartData = chartResponse.chart_definitions || chartResponse;
-      
-      console.log('📊 Extracted chart data for editing:', fullChartData);
       
       setEditingChart(fullChartData);
       setShowBuilder(true);
