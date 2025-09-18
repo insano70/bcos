@@ -96,7 +96,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
           type="email"
           autoComplete="email"
           autoFocus
-          className="form-input w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+          className="form-input w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:border-violet-500 focus:ring-violet-500"
           {...register('email')}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
@@ -119,7 +119,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
           id="password"
           type="password"
           autoComplete="current-password"
-          className="form-input w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+          className="form-input w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:border-violet-500 focus:ring-violet-500"
           {...register('password')}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
@@ -138,8 +138,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
         <input
           id="remember"
           type="checkbox"
-          className="form-checkbox"
-          style={{"accentColor": "#00AEEF"}}
+          className="form-checkbox text-violet-500 focus:ring-violet-500"
           {...register('remember')}
         />
         <label htmlFor="remember" className="ml-2 text-sm text-gray-600 dark:text-gray-400">
@@ -153,8 +152,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
       {/* Submit button and forgot password */}
       <div className="flex items-center justify-between mt-6">
         <Link 
-          className="text-sm underline hover:no-underline"
-          style={{"color": "#00AEEF"}} 
+          className="text-sm text-violet-500 hover:text-violet-600 underline hover:no-underline" 
           href="/reset-password"
         >
           Forgot Password?
