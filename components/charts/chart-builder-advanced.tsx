@@ -217,30 +217,32 @@ export default function ChartBuilderAdvanced({
       )}
 
       {/* Historical Analysis Section */}
-      <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
-        <h4 className="text-md font-medium text-gray-900 dark:text-gray-100 mb-4">
-          Historical Analysis
-        </h4>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Historical Comparison */}
-          <HistoricalComparisonWidget
-            measure={chartConfig.measure as any}
-            frequency={chartConfig.frequency as any}
-            practiceUid={chartConfig.practiceUid}
-            className="h-fit"
-          />
+      {chartConfig.measure && chartConfig.frequency && (
+        <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
+          <h4 className="text-md font-medium text-gray-900 dark:text-gray-100 mb-4">
+            Historical Analysis
+          </h4>
           
-          {/* Trend Analysis */}
-          <TrendAnalysisDashboard
-            measure={chartConfig.measure as any}
-            frequency={chartConfig.frequency as any}
-            practiceUid={chartConfig.practiceUid}
-            periods={12}
-            className="h-fit"
-          />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Historical Comparison */}
+            <HistoricalComparisonWidget
+              measure={chartConfig.measure as any}
+              frequency={chartConfig.frequency as any}
+              practiceUid={chartConfig.practiceUid}
+              className="h-fit"
+            />
+            
+            {/* Trend Analysis */}
+            <TrendAnalysisDashboard
+              measure={chartConfig.measure as any}
+              frequency={chartConfig.frequency as any}
+              practiceUid={chartConfig.practiceUid}
+              periods={12}
+              className="h-fit"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Anomaly Detection Section */}
       <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">

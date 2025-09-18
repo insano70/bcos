@@ -32,8 +32,19 @@ export default function HistoricalComparisonWidget({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (measure && frequency) {
+    console.log('🔄 Historical Comparison useEffect triggered:', {
+      measure,
+      frequency,
+      practiceUid,
+      providerName,
+      hasValidMeasure: measure && measure.length > 0,
+      hasValidFrequency: frequency && frequency.length > 0
+    });
+
+    if (measure && frequency && measure.length > 0 && frequency.length > 0) {
       performComparison();
+    } else {
+      console.log('⏸️ Skipping comparison - invalid measure or frequency');
     }
   }, [measure, frequency, practiceUid, providerName, selectedComparison]);
 
@@ -42,8 +53,27 @@ export default function HistoricalComparisonWidget({
     setError(null);
 
     try {
+      console.log('🔍 Historical Comparison - Starting analysis:', {
+        measure,
+        frequency,
+        practiceUid,
+        providerName,
+        comparisonType: selectedComparison.id
+      });
+
       // Get period dates
       const periods = selectedComparison.getPeriods(new Date());
+      
+      console.log('📅 Period calculation:', {
+        current: {
+          start: periods.current.start.toISOString().split('T')[0],
+          end: periods.current.end.toISOString().split('T')[0]
+        },
+        comparison: {
+          start: periods.comparison.start.toISOString().split('T')[0],
+          end: periods.comparison.end.toISOString().split('T')[0]
+        }
+      });
       
       // Fetch current period data
       const currentParams = new URLSearchParams();
@@ -67,14 +97,34 @@ export default function HistoricalComparisonWidget({
       if (practiceUid) comparisonParams.append('practice_uid', practiceUid);
       if (providerName) comparisonParams.append('provider_name', providerName);
 
+      console.log('🌐 API Requests:', {
+        currentUrl: `/api/admin/analytics/measures?${currentParams.toString()}`,
+        comparisonUrl: `/api/admin/analytics/measures?${comparisonParams.toString()}`
+      });
+
       // Execute both requests in parallel
       const [currentResponse, comparisonResponse] = await Promise.all([
         fetch(`/api/admin/analytics/measures?${currentParams.toString()}`),
         fetch(`/api/admin/analytics/measures?${comparisonParams.toString()}`)
       ]);
 
+      console.log('📡 API Response Status:', {
+        currentOk: currentResponse.ok,
+        currentStatus: currentResponse.status,
+        comparisonOk: comparisonResponse.ok,
+        comparisonStatus: comparisonResponse.status
+      });
+
       if (!currentResponse.ok || !comparisonResponse.ok) {
-        throw new Error('Failed to fetch comparison data');
+        const currentError = currentResponse.ok ? null : await currentResponse.text();
+        const comparisonError = comparisonResponse.ok ? null : await comparisonResponse.text();
+        
+        console.error('❌ API Request failed:', {
+          currentError,
+          comparisonError
+        });
+        
+        throw new Error(`Failed to fetch comparison data: Current=${currentResponse.status}, Comparison=${comparisonResponse.status}`);
       }
 
       const [currentData, comparisonData] = await Promise.all([
@@ -82,12 +132,27 @@ export default function HistoricalComparisonWidget({
         comparisonResponse.json()
       ]);
 
+      console.log('📊 Raw API Data:', {
+        currentData: {
+          success: currentData.success,
+          measureCount: currentData.data?.measures?.length || 0,
+          sampleMeasure: currentData.data?.measures?.[0]
+        },
+        comparisonData: {
+          success: comparisonData.success,
+          measureCount: comparisonData.data?.measures?.length || 0,
+          sampleMeasure: comparisonData.data?.measures?.[0]
+        }
+      });
+
       // Perform comparison analysis
       const result = historicalComparisonService.comparePeriodsAnalysis(
-        currentData.data.measures,
-        comparisonData.data.measures,
+        currentData.data.measures || [],
+        comparisonData.data.measures || [],
         selectedComparison.id
       );
+
+      console.log('📈 Comparison Result:', result);
 
       setComparisonResult(result);
 
@@ -146,9 +211,29 @@ export default function HistoricalComparisonWidget({
 
       {/* Comparison Type Selector */}
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-          Comparison Type
-        </label>
+        <div className="flex justify-between items-start mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Comparison Type
+          </label>
+          <button
+            onClick={performComparison}
+            disabled={isLoading || !measure || !frequency}
+            className="px-3 py-1 bg-violet-500 text-white text-sm rounded hover:bg-violet-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+          >
+            {isLoading ? (
+              <>
+                <LoadingSpinner size="sm" text="" />
+                <span className="ml-1">Analyzing...</span>
+              </>
+            ) : (
+              <>
+                <span className="mr-1">🔍</span>
+                Run Analysis
+              </>
+            )}
+          </button>
+        </div>
+        
         <select
           value={selectedComparison.id}
           onChange={(e) => {
@@ -163,6 +248,11 @@ export default function HistoricalComparisonWidget({
             </option>
           ))}
         </select>
+        
+        {/* Debug Info */}
+        <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+          Current config: {measure || 'No measure'} | {frequency || 'No frequency'} | Practice: {practiceUid || 'All'}
+        </div>
       </div>
 
       {/* Content */}
@@ -184,10 +274,23 @@ export default function HistoricalComparisonWidget({
         ) : error ? (
           <div className="text-center py-8">
             <div className="text-red-500 mb-2">⚠️ Comparison Error</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">{error}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">{error}</div>
+            
+            {/* Error Details */}
+            <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 mb-4 text-left">
+              <div className="text-xs text-red-700 dark:text-red-300">
+                <div><strong>Current Configuration:</strong></div>
+                <div>• Measure: {measure || 'Not set'}</div>
+                <div>• Frequency: {frequency || 'Not set'}</div>
+                <div>• Practice: {practiceUid || 'All practices'}</div>
+                <div>• Comparison Type: {selectedComparison.label}</div>
+              </div>
+            </div>
+            
             <button
               onClick={performComparison}
-              className="mt-4 px-4 py-2 bg-violet-500 text-white rounded-md hover:bg-violet-600 transition-colors"
+              disabled={!measure || !frequency}
+              className="px-4 py-2 bg-violet-500 text-white rounded-md hover:bg-violet-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Retry Comparison
             </button>
@@ -258,15 +361,22 @@ export default function HistoricalComparisonWidget({
                 Period Comparison Chart
               </h4>
               
-              {/* Generate comparison chart data and render */}
+              {/* Actual Chart Visualization */}
               <div className="bg-white dark:bg-gray-700 rounded p-4">
-                <div className="text-center text-gray-500 dark:text-gray-400 py-8">
-                  📊 Comparison Chart Visualization
-                  <br />
-                  <span className="text-xs">
-                    {comparisonResult.current.period} vs {comparisonResult.comparison.period}
-                  </span>
-                </div>
+                <AnalyticsChart
+                  chartType="bar"
+                  measure={measure}
+                  frequency={frequency}
+                  practiceUid={practiceUid}
+                  providerName={providerName}
+                  startDate={selectedComparison.getPeriods(new Date()).comparison.start.toISOString().split('T')[0]}
+                  endDate={selectedComparison.getPeriods(new Date()).current.end.toISOString().split('T')[0]}
+                  width={400}
+                  height={200}
+                  title={`${selectedComparison.label} Comparison`}
+                  groupBy="date_index"
+                  className="w-full"
+                />
               </div>
             </div>
 
