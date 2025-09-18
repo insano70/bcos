@@ -166,6 +166,11 @@ export const PUT = rbacRoute(updateChartHandler, {
   rateLimit: 'api'
 });
 
+export const PATCH = rbacRoute(updateChartHandler, {
+  permission: 'analytics:read:all',
+  rateLimit: 'api'
+});
+
 export const DELETE = rbacRoute(deleteChartHandler, {
   permission: 'analytics:read:all',
   rateLimit: 'api'

@@ -7,14 +7,16 @@ interface ChartBuilderPreviewProps {
   chartConfig: ChartConfig;
   previewKey: number;
   onBackToConfigure: () => void;
-  onProceedToSave: () => void;
+  onSave: () => void;
+  isSaving: boolean;
 }
 
 export default function ChartBuilderPreview({
   chartConfig,
   previewKey,
   onBackToConfigure,
-  onProceedToSave
+  onSave,
+  isSaving
 }: ChartBuilderPreviewProps) {
   return (
     <div className="space-y-6">
@@ -53,10 +55,18 @@ export default function ChartBuilderPreview({
         </button>
         
         <button
-          onClick={onProceedToSave}
-          className="px-6 py-2 bg-violet-500 text-white rounded-md hover:bg-violet-600 transition-colors"
+          onClick={onSave}
+          disabled={isSaving}
+          className="px-6 py-2 bg-violet-500 text-white rounded-md hover:bg-violet-600 transition-colors disabled:opacity-50 flex items-center"
         >
-          Save Chart
+          {isSaving ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              Saving...
+            </>
+          ) : (
+            'Save Chart'
+          )}
         </button>
       </div>
     </div>

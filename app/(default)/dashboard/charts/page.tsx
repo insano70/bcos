@@ -15,8 +15,7 @@ export default function ChartBuilderPage() {
   const [savedCharts, setSavedCharts] = useState<ChartDefinitionListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true); // Start with loading true
   const [error, setError] = useState<string | null>(null);
-  const [selectedChart, setSelectedChart] = useState<ChartDefinitionListItem | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingChart, setEditingChart] = useState<ChartDefinitionListItem | null>(null);
 
   const handleSaveChart = async (chartDefinition: Partial<ChartDefinition>) => {
     setIsLoading(true);
@@ -145,9 +144,32 @@ export default function ChartBuilderPage() {
     }
   };
 
-  const handleEditChart = (chart: ChartDefinitionListItem) => {
-    setSelectedChart(chart);
-    setIsEditModalOpen(true);
+  const handleEditChart = async (chart: ChartDefinitionListItem) => {
+    try {
+      console.log('📝 Loading chart for editing:', chart.chart_definition_id);
+      
+      // Fetch full chart definition from API
+      const response = await fetch(`/api/admin/analytics/charts/${chart.chart_definition_id}`);
+      if (!response.ok) {
+        throw new Error(`Failed to load chart: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      const fullChartData = result.data.chart;
+      
+      console.log('📊 Loaded chart data for editing:', fullChartData);
+      
+      setEditingChart(fullChartData);
+      setShowBuilder(true);
+    } catch (error) {
+      console.error('❌ Failed to load chart for editing:', error);
+      // TODO: Show error toast
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingChart(null);
+    setShowBuilder(false);
   };
 
   // Load charts on component mount
@@ -159,8 +181,8 @@ export default function ChartBuilderPage() {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
         <ChartBuilder
-          
-          
+          editingChart={editingChart}
+          onCancel={handleCancelEdit}
         />
       </div>
     );
@@ -279,40 +301,6 @@ export default function ChartBuilderPage() {
           </div>
         )}
 
-        {/* Edit Chart Modal */}
-        {selectedChart && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-                Edit Chart: {selectedChart.chart_name}
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">
-                Chart editing functionality will be implemented here
-              </p>
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => {
-                    setSelectedChart(null);
-                    setIsEditModalOpen(false);
-                  }}
-                  className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    // TODO: Implement save changes
-                    setSelectedChart(null);
-                    setIsEditModalOpen(false);
-                  }}
-                  className="px-4 py-2 bg-violet-500 text-white rounded-md hover:bg-violet-600 transition-colors"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </SelectedItemsProvider>
   );

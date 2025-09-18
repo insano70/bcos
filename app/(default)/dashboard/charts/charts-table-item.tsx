@@ -106,12 +106,9 @@ export default function ChartsTableItem({
 
       {/* Chart Type */}
       <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-        <div className="flex items-center">
-          <span className="mr-2">{getChartTypeIcon(chart.chart_type)}</span>
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getChartTypeBadgeColor(chart.chart_type)}`}>
-            {chart.chart_type}
-          </span>
-        </div>
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getChartTypeBadgeColor(chart.chart_type)}`}>
+          {chart.chart_type}
+        </span>
       </td>
 
       {/* Description */}

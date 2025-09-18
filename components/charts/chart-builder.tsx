@@ -62,13 +62,19 @@ function ChartBuilderSkeleton() {
   );
 }
 
-export default function FunctionalChartBuilder() {
+interface ChartBuilderProps {
+  editingChart?: any; // Chart definition to edit
+  onCancel?: () => void; // Callback when canceling
+}
+
+export default function FunctionalChartBuilder({ editingChart, onCancel }: ChartBuilderProps = {}) {
   const [schemaInfo, setSchemaInfo] = useState<SchemaInfo | null>(null);
   const [isLoadingSchema, setIsLoadingSchema] = useState(true);
-  const [currentStep, setCurrentStep] = useState<'configure' | 'preview' | 'save'>('configure');
+  const [currentStep, setCurrentStep] = useState<'configure' | 'preview'>('configure');
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const [isEditMode, setIsEditMode] = useState(!!editingChart);
   
   const [chartConfig, setChartConfig] = useState<ChartConfig>({
     chartName: '',
@@ -93,6 +99,42 @@ export default function FunctionalChartBuilder() {
   useEffect(() => {
     loadSchemaInfo();
   }, []);
+
+  // Populate form when editing
+  useEffect(() => {
+    if (editingChart && schemaInfo) {
+      console.log('📝 Populating form for editing:', editingChart);
+      
+      // Extract data from chart definition
+      const dataSource = editingChart.data_source || {};
+      const chartConfigData = editingChart.chart_config || {};
+      
+      // Find practice UID from filters
+      const practiceFilter = dataSource.filters?.find((f: any) => f.field === 'practice_uid');
+      const measureFilter = dataSource.filters?.find((f: any) => f.field === 'measure');
+      const frequencyFilter = dataSource.filters?.find((f: any) => f.field === 'frequency');
+      const startDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'gte');
+      const endDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'lte');
+      
+      setChartConfig({
+        chartName: editingChart.chart_name || '',
+        chartType: editingChart.chart_type || 'bar',
+        measure: measureFilter?.value || '',
+        frequency: frequencyFilter?.value || '',
+        practiceUid: practiceFilter?.value?.toString() || '',
+        startDate: startDateFilter?.value || '2024-01-01',
+        endDate: endDateFilter?.value || '2025-12-31',
+        groupBy: chartConfigData.series?.groupBy || 'provider_name',
+        calculatedField: undefined,
+        advancedFilters: [],
+        useAdvancedFiltering: false,
+        useMultipleSeries: false,
+        seriesConfigs: []
+      });
+      
+      console.log('✅ Form populated for editing');
+    }
+  }, [editingChart, schemaInfo]);
 
   const loadSchemaInfo = async () => {
     try {
@@ -223,30 +265,42 @@ export default function FunctionalChartBuilder() {
         }
       };
 
-      console.log('💾 Saving chart definition:', chartDefinition);
+      console.log(`💾 ${isEditMode ? 'Updating' : 'Creating'} chart definition:`, chartDefinition);
 
-      const response = await fetch('/api/admin/analytics/charts', {
-        method: 'POST',
+      const url = isEditMode 
+        ? `/api/admin/analytics/charts/${editingChart.chart_definition_id}`
+        : '/api/admin/analytics/charts';
+      
+      const method = isEditMode ? 'PATCH' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(chartDefinition),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to save chart');
+        throw new Error(error.error || `Failed to ${isEditMode ? 'update' : 'save'} chart`);
       }
 
       const result = await response.json();
-      console.log('✅ Chart saved successfully:', result);
+      console.log(`✅ Chart ${isEditMode ? 'updated' : 'saved'} successfully:`, result);
       
-      setToastMessage(`Chart "${chartConfig.chartName}" saved successfully!`);
+      setToastMessage(`Chart "${chartConfig.chartName}" ${isEditMode ? 'updated' : 'saved'} successfully!`);
       setToastType('success');
       setShowToast(true);
-      setCurrentStep('configure');
+      
+      // Return to charts list or reset form
+      if (onCancel) {
+        onCancel();
+      } else {
+        setCurrentStep('configure');
+      }
       
     } catch (error) {
-      console.error('❌ Failed to save chart:', error);
-      setToastMessage(`Failed to save chart: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error(`❌ Failed to ${isEditMode ? 'update' : 'save'} chart:`, error);
+      setToastMessage(`Failed to ${isEditMode ? 'update' : 'save'} chart: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setToastType('error');
       setShowToast(true);
     } finally {
@@ -272,12 +326,20 @@ export default function FunctionalChartBuilder() {
     <div className="max-w-6xl mx-auto bg-white dark:bg-gray-800 shadow-sm rounded-xl">
       {/* Header */}
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-          Functional Chart Builder
-        </h2>
-        <p className="text-gray-600 dark:text-gray-400 mt-1">
-          Build charts with real data from ih.gr_app_measures
-        </p>
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+            {isEditMode ? 'Edit Chart Definition' : 'Chart Definition'}
+          </h2>
+          
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+            >
+              ← Back to Charts
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Step Navigation */}
@@ -285,8 +347,7 @@ export default function FunctionalChartBuilder() {
         <div className="flex space-x-6">
           {[
             { key: 'configure', label: 'Configure' },
-            { key: 'preview', label: 'Preview' },
-            { key: 'save', label: 'Save' }
+            { key: 'preview', label: 'Preview' }
           ].map(({ key, label }) => (
             <button
               key={key}
@@ -340,16 +401,8 @@ export default function FunctionalChartBuilder() {
             chartConfig={chartConfig}
             previewKey={previewKey}
             onBackToConfigure={() => setCurrentStep('configure')}
-            onProceedToSave={() => setCurrentStep('save')}
-          />
-        )}
-
-        {currentStep === 'save' && (
-          <ChartBuilderSave
-            chartConfig={chartConfig}
-            isSaving={isSaving}
-            onBackToPreview={() => setCurrentStep('preview')}
             onSave={handleSave}
+            isSaving={isSaving}
           />
         )}
       </div>
