@@ -159,8 +159,22 @@ function DashboardChartItem({ dashboardChart, dashboardConfig, onMove, onRemove,
 
             {/* Chart Size Controls */}
             <div className="mb-3">
-              <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Width:</div>
-              <div className="flex gap-1">
+              <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                Width: {dashboardChart.position.w} cols ({((dashboardChart.position.w / dashboardConfig.layout.columns) * 100).toFixed(1)}%)
+              </div>
+              
+              {/* Quick Size Buttons */}
+              <div className="flex gap-1 mb-2">
+                <button
+                  onClick={() => onResize(dashboardChart.id, { w: 3, h: dashboardChart.position.h })}
+                  className={`px-2 py-1 text-xs rounded transition-colors ${
+                    dashboardChart.position.w === 3 
+                      ? 'bg-violet-500 text-white' 
+                      : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'
+                  }`}
+                >
+                  25%
+                </button>
                 <button
                   onClick={() => onResize(dashboardChart.id, { w: 6, h: dashboardChart.position.h })}
                   className={`px-2 py-1 text-xs rounded transition-colors ${
@@ -169,17 +183,17 @@ function DashboardChartItem({ dashboardChart, dashboardConfig, onMove, onRemove,
                       : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'
                   }`}
                 >
-                  Half
+                  50%
                 </button>
                 <button
-                  onClick={() => onResize(dashboardChart.id, { w: 8, h: dashboardChart.position.h })}
+                  onClick={() => onResize(dashboardChart.id, { w: 9, h: dashboardChart.position.h })}
                   className={`px-2 py-1 text-xs rounded transition-colors ${
-                    dashboardChart.position.w === 8 
+                    dashboardChart.position.w === 9 
                       ? 'bg-violet-500 text-white' 
                       : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'
                   }`}
                 >
-                  Large
+                  75%
                 </button>
                 <button
                   onClick={() => onResize(dashboardChart.id, { w: 12, h: dashboardChart.position.h })}
@@ -189,7 +203,50 @@ function DashboardChartItem({ dashboardChart, dashboardConfig, onMove, onRemove,
                       : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'
                   }`}
                 >
-                  Full
+                  100%
+                </button>
+              </div>
+              
+              {/* Granular Width Control */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onResize(dashboardChart.id, { 
+                    w: Math.max(1, dashboardChart.position.w - 1), 
+                    h: dashboardChart.position.h 
+                  })}
+                  disabled={dashboardChart.position.w <= 1}
+                  className="w-6 h-6 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                  title="Decrease width"
+                >
+                  −
+                </button>
+                
+                <input
+                  type="number"
+                  min="1"
+                  max={dashboardConfig.layout.columns}
+                  value={dashboardChart.position.w}
+                  onChange={(e) => {
+                    const newWidth = parseInt(e.target.value) || 1;
+                    const maxWidth = dashboardConfig.layout.columns - dashboardChart.position.x;
+                    onResize(dashboardChart.id, { 
+                      w: Math.min(newWidth, maxWidth), 
+                      h: dashboardChart.position.h 
+                    });
+                  }}
+                  className="w-12 px-1 py-1 text-xs text-center border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                />
+                
+                <button
+                  onClick={() => onResize(dashboardChart.id, { 
+                    w: Math.min(dashboardConfig.layout.columns - dashboardChart.position.x, dashboardChart.position.w + 1), 
+                    h: dashboardChart.position.h 
+                  })}
+                  disabled={dashboardChart.position.w >= dashboardConfig.layout.columns - dashboardChart.position.x}
+                  className="w-6 h-6 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                  title="Increase width"
+                >
+                  +
                 </button>
               </div>
             </div>
@@ -248,7 +305,68 @@ function DashboardChartItem({ dashboardChart, dashboardConfig, onMove, onRemove,
   );
 }
 
-// Drop Zone for Dashboard
+// Individual Grid Cell Drop Zone
+interface GridCellProps {
+  x: number;
+  y: number;
+  isOccupied: boolean;
+  availableWidth: number;
+  onDrop: (item: any, position: { x: number; y: number }) => void;
+  dashboardConfig: DashboardConfig;
+}
+
+function GridCell({ x, y, isOccupied, availableWidth, onDrop, dashboardConfig }: GridCellProps) {
+  const [{ isOver, canDrop }, drop] = useDrop(() => ({
+    accept: [ItemTypes.CHART, ItemTypes.DASHBOARD_CHART],
+    drop: (item: any) => {
+      onDrop(item, { x, y });
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+      canDrop: monitor.canDrop() && !isOccupied,
+    }),
+  }));
+
+  const widthPercentage = ((availableWidth / dashboardConfig.layout.columns) * 100).toFixed(0);
+
+  return (
+    <div
+      ref={drop as any}
+      className={`
+        border border-dashed transition-all min-h-[60px] flex flex-col items-center justify-center text-center
+        ${isOccupied 
+          ? 'border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700' 
+          : isOver && canDrop
+          ? 'border-violet-500 bg-violet-100 dark:bg-violet-900/30 border-2'
+          : canDrop
+          ? 'border-violet-300 dark:border-violet-600 bg-violet-50 dark:bg-violet-900/10 hover:border-violet-400'
+          : 'border-gray-200 dark:border-gray-700'
+        }
+      `}
+      title={isOccupied ? 'Occupied' : `Drop zone (${x}, ${y}) - ${availableWidth} cols available (${widthPercentage}%)`}
+    >
+      {isOccupied ? (
+        <span className="text-xs text-gray-400">Occupied</span>
+      ) : isOver && canDrop ? (
+        <>
+          <span className="text-xs text-violet-600 dark:text-violet-400 font-medium">Drop Here</span>
+          <span className="text-xs text-violet-500 dark:text-violet-400">
+            {availableWidth} cols ({widthPercentage}%)
+          </span>
+        </>
+      ) : canDrop && availableWidth > 0 ? (
+        <>
+          <span className="text-xs text-gray-400">({x}, {y})</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            {availableWidth} cols
+          </span>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+// Enhanced Drop Zone with Grid Cells
 interface DropZoneProps {
   onDrop: (item: any, position: { x: number; y: number }) => void;
   children: React.ReactNode;
@@ -256,83 +374,93 @@ interface DropZoneProps {
 }
 
 function DropZone({ onDrop, children, dashboardConfig }: DropZoneProps) {
-  const [{ isOver, canDrop }, drop] = useDrop(() => ({
+  const [{ isOver }, drop] = useDrop(() => ({
     accept: [ItemTypes.CHART, ItemTypes.DASHBOARD_CHART],
-    drop: (item: any, monitor) => {
-      const offset = monitor.getClientOffset();
-      const dropTargetRef = monitor.getDropResult();
-      
-      if (offset) {
-        // Get the drop zone element to calculate relative position
-        const dropZone = document.querySelector('[data-drop-zone="true"]') as HTMLElement;
-        if (dropZone) {
-          const rect = dropZone.getBoundingClientRect();
-          const relativeX = offset.x - rect.left;
-          const relativeY = offset.y - rect.top;
-          
-          // Calculate grid cell size based on current layout configuration
-          const cellWidth = rect.width / dashboardConfig.layout.columns;
-          const cellHeight = dashboardConfig.layout.rowHeight;
-          
-          // Calculate grid position
-          const gridX = Math.floor(relativeX / cellWidth);
-          const gridY = Math.floor(relativeY / cellHeight);
-          
-          // Ensure position is within bounds
-          const boundedX = Math.max(0, Math.min(gridX, dashboardConfig.layout.columns - 1));
-          const boundedY = Math.max(0, gridY);
-          
-          onDrop(item, { x: boundedX, y: boundedY });
-        } else {
-          // Fallback to center position
-          onDrop(item, { x: 0, y: 0 });
-        }
-      }
-    },
     collect: (monitor) => ({
       isOver: monitor.isOver(),
-      canDrop: monitor.canDrop(),
     }),
   }));
+
+  // Create a grid occupancy map
+  const createOccupancyMap = () => {
+    const occupancyMap = new Map<string, boolean>();
+    
+    dashboardConfig.charts.forEach(chart => {
+      for (let y = chart.position.y; y < chart.position.y + chart.position.h; y++) {
+        for (let x = chart.position.x; x < chart.position.x + chart.position.w; x++) {
+          occupancyMap.set(`${x}-${y}`, true);
+        }
+      }
+    });
+    
+    return occupancyMap;
+  };
+
+  const occupancyMap = createOccupancyMap();
+  const maxRows = Math.max(6, Math.max(...dashboardConfig.charts.map(c => c.position.y + c.position.h), 0) + 2);
 
   return (
     <div
       ref={drop as any}
       data-drop-zone="true"
-      className={`relative transition-all ${
-        isOver && canDrop
-          ? 'border-violet-500 bg-violet-50 dark:bg-violet-900/20'
-          : 'border-gray-300 dark:border-gray-600'
-      } border-2 border-dashed rounded-lg p-4 min-h-96`}
+      className="relative border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 min-h-96"
     >
-      {children}
+      {/* Show grid cells when dragging or when dashboard is empty */}
+      {(isOver || dashboardConfig.charts.length === 0) && (
+        <div 
+          className="absolute inset-4 grid gap-1"
+          style={{
+            gridTemplateColumns: `repeat(${dashboardConfig.layout.columns}, 1fr)`,
+            gridTemplateRows: `repeat(${maxRows}, ${dashboardConfig.layout.rowHeight}px)`,
+          }}
+        >
+          {Array.from({ length: maxRows }).map((_, rowIndex) =>
+            Array.from({ length: dashboardConfig.layout.columns }).map((_, colIndex) => {
+              const isOccupied = occupancyMap.get(`${colIndex}-${rowIndex}`) || false;
+              
+              // Calculate available width from this position
+              let availableWidth = dashboardConfig.layout.columns - colIndex;
+              for (const chart of dashboardConfig.charts) {
+                if (chart.position.y <= rowIndex && rowIndex < chart.position.y + chart.position.h) {
+                  if (chart.position.x > colIndex && chart.position.x < colIndex + availableWidth) {
+                    availableWidth = chart.position.x - colIndex;
+                  }
+                }
+              }
+              
+              return (
+                <GridCell
+                  key={`${colIndex}-${rowIndex}`}
+                  x={colIndex}
+                  y={rowIndex}
+                  isOccupied={isOccupied}
+                  availableWidth={Math.max(0, availableWidth)}
+                  onDrop={onDrop}
+                  dashboardConfig={dashboardConfig}
+                />
+              );
+            })
+          )}
+        </div>
+      )}
       
-      {/* Grid Overlay and Drop Indicator */}
-      {isOver && canDrop && (
-        <>
-          {/* Grid Overlay */}
-          <div 
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              backgroundImage: `
-                linear-gradient(to right, rgba(139, 92, 246, 0.3) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(139, 92, 246, 0.3) 1px, transparent 1px)
-              `,
-              backgroundSize: `${100 / dashboardConfig.layout.columns}% ${dashboardConfig.layout.rowHeight}px`
-            }}
-          />
-          
-          {/* Drop Indicator */}
-          <div className="absolute inset-0 flex items-center justify-center bg-violet-100 dark:bg-violet-900/30 border-2 border-violet-500 border-dashed rounded-lg">
-            <div className="text-center text-violet-700 dark:text-violet-300">
-              <div className="text-2xl mb-2">📊</div>
-              <p className="font-medium">Drop chart into grid position</p>
-              <p className="text-xs mt-1">
-                Grid: {dashboardConfig.layout.columns} columns × {dashboardConfig.layout.rowHeight}px rows
-              </p>
+      {/* Regular content when not dragging */}
+      {!isOver && dashboardConfig.charts.length > 0 && children}
+      
+      {/* Empty state */}
+      {!isOver && dashboardConfig.charts.length === 0 && (
+        <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400 relative z-10">
+          <div className="text-center">
+            <div className="text-6xl mb-4">📊</div>
+            <p className="text-lg font-medium mb-2">Empty Dashboard Canvas</p>
+            <p className="text-sm">
+              Drag charts from the sidebar to specific grid cells
+            </p>
+            <div className="mt-4 text-xs text-gray-400 dark:text-gray-500">
+              💡 Each cell represents a precise drop target
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
@@ -381,15 +509,15 @@ export default function EnhancedDashboardBuilder() {
     }
   };
 
-  const addChartToDashboard = useCallback((chart: ChartDefinition, position?: { x: number; y: number }) => {
+  const addChartToDashboard = useCallback((chart: ChartDefinition, position?: { x: number; y: number; w?: number; h?: number }) => {
     const newChart: DashboardChart = {
       id: `dashboard-chart-${Date.now()}`,
       chartDefinitionId: chart.chart_definition_id,
       position: {
         x: position?.x || 0,
         y: position?.y || 0,
-        w: 6, // Default width
-        h: 2  // Default height
+        w: position?.w || 6, // Default width or specified width
+        h: position?.h || 2  // Default height or specified height
       },
       chartDefinition: chart
     };
@@ -445,41 +573,85 @@ export default function EnhancedDashboardBuilder() {
     });
   }, [dashboardConfig.charts]);
 
-  // Find next available position
+  // Find next available position with smart row management
   const findAvailablePosition = useCallback((w: number, h: number) => {
-    for (let y = 0; y < 20; y++) { // Max 20 rows
+    // Try to find space in existing rows first
+    const maxExistingRow = dashboardConfig.charts.length > 0 
+      ? Math.max(...dashboardConfig.charts.map(c => c.position.y + c.position.h))
+      : 0;
+    
+    // Search existing rows first
+    for (let y = 0; y <= maxExistingRow; y++) {
       for (let x = 0; x <= dashboardConfig.layout.columns - w; x++) {
         if (isPositionAvailable(x, y, w, h)) {
           return { x, y };
         }
       }
     }
-    return { x: 0, y: 0 }; // Fallback
-  }, [dashboardConfig.layout.columns, isPositionAvailable]);
+    
+    // If no space in existing rows, create new row
+    const newRowY = maxExistingRow + 1;
+    return { x: 0, y: newRowY };
+  }, [dashboardConfig.layout.columns, dashboardConfig.charts, isPositionAvailable]);
+
+  // Calculate available width in a row at a specific position
+  const calculateAvailableWidth = useCallback((x: number, y: number) => {
+    let availableWidth = dashboardConfig.layout.columns - x;
+    
+    // Check for charts in the same row that would limit width
+    for (const chart of dashboardConfig.charts) {
+      if (chart.position.y <= y && y < chart.position.y + chart.position.h) {
+        if (chart.position.x > x && chart.position.x < x + availableWidth) {
+          availableWidth = chart.position.x - x;
+        }
+      }
+    }
+    
+    return Math.max(1, availableWidth);
+  }, [dashboardConfig.charts, dashboardConfig.layout.columns]);
 
   const handleDrop = useCallback((item: any, position: { x: number; y: number }) => {
     if (item.chart) {
       // Adding new chart from sidebar
-      const chartWidth = 6; // Default width
+      let chartWidth = 6; // Default width
       const chartHeight = 2; // Default height
       
-      // Check if the dropped position is available
+      // Smart auto-fitting: calculate available width at drop position
+      const availableWidth = calculateAvailableWidth(position.x, position.y);
+      
+      // Auto-fit to available space if smaller than default
+      if (availableWidth < chartWidth) {
+        chartWidth = availableWidth;
+      }
+      
+      // Check if the calculated position is available
       if (isPositionAvailable(position.x, position.y, chartWidth, chartHeight)) {
-        addChartToDashboard(item.chart, position);
+        addChartToDashboard(item.chart, { ...position, w: chartWidth, h: chartHeight });
       } else {
-        // Find alternative position
+        // Find alternative position with smart sizing
         const availablePosition = findAvailablePosition(chartWidth, chartHeight);
-        addChartToDashboard(item.chart, availablePosition);
+        const smartWidth = calculateAvailableWidth(availablePosition.x, availablePosition.y);
+        addChartToDashboard(item.chart, { ...availablePosition, w: Math.min(chartWidth, smartWidth), h: chartHeight });
       }
     } else if (item.id) {
       // Moving existing chart
       const chart = dashboardConfig.charts.find(c => c.id === item.id);
-      if (chart && isPositionAvailable(position.x, position.y, chart.position.w, chart.position.h, item.id)) {
-        moveChart(item.id, { x: position.x, y: position.y });
+      if (chart) {
+        // Check if position is available for the current chart size
+        if (isPositionAvailable(position.x, position.y, chart.position.w, chart.position.h, item.id)) {
+          moveChart(item.id, { x: position.x, y: position.y });
+        } else {
+          // Try to fit with smaller width if needed
+          const availableWidth = calculateAvailableWidth(position.x, position.y);
+          if (availableWidth >= 1 && isPositionAvailable(position.x, position.y, availableWidth, chart.position.h, item.id)) {
+            moveChart(item.id, { x: position.x, y: position.y });
+            resizeChart(item.id, { w: availableWidth, h: chart.position.h });
+          }
+          // If still not available, don't move (stay in original position)
+        }
       }
-      // If position not available, don't move (stay in original position)
     }
-  }, [addChartToDashboard, moveChart, isPositionAvailable, findAvailablePosition, dashboardConfig.charts]);
+  }, [addChartToDashboard, moveChart, resizeChart, isPositionAvailable, findAvailablePosition, calculateAvailableWidth, dashboardConfig.charts]);
 
   const saveDashboard = async () => {
     if (!dashboardConfig.dashboardName.trim()) {
@@ -700,16 +872,43 @@ export default function EnhancedDashboardBuilder() {
                       💡 Layout changes apply immediately to the dashboard canvas
                     </div>
                     
-                    <label className="flex items-center text-xs">
-                      <input
-                        type="checkbox"
-                        checked={showGridPreview}
-                        onChange={(e) => setShowGridPreview(e.target.checked)}
-                        className="mr-1 text-violet-500"
-                      />
-                      <span className="text-gray-600 dark:text-gray-400">Show Grid</span>
-                    </label>
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center text-xs">
+                        <input
+                          type="checkbox"
+                          checked={showGridPreview}
+                          onChange={(e) => setShowGridPreview(e.target.checked)}
+                          className="mr-1 text-violet-500"
+                        />
+                        <span className="text-gray-600 dark:text-gray-400">Show Grid</span>
+                      </label>
+                      
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        Rows: {Math.max(...dashboardConfig.charts.map(c => c.position.y + c.position.h), 1)}
+                      </div>
+                    </div>
                   </div>
+                  
+                  {/* Row Usage Summary */}
+                  {dashboardConfig.charts.length > 0 && (
+                    <div className="mt-3 p-3 bg-white dark:bg-gray-800 rounded border">
+                      <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Row Usage:</div>
+                      {Array.from(new Set(dashboardConfig.charts.map(c => c.position.y))).sort((a, b) => a - b).map(rowY => {
+                        const chartsInRow = dashboardConfig.charts.filter(c => c.position.y === rowY);
+                        const totalWidth = chartsInRow.reduce((sum, c) => sum + c.position.w, 0);
+                        const usagePercentage = ((totalWidth / dashboardConfig.layout.columns) * 100).toFixed(0);
+                        
+                        return (
+                          <div key={rowY} className="flex justify-between items-center text-xs mb-1">
+                            <span className="text-gray-600 dark:text-gray-400">Row {rowY}:</span>
+                            <span className="text-gray-700 dark:text-gray-300">
+                              {chartsInRow.length} charts, {totalWidth}/{dashboardConfig.layout.columns} cols ({usagePercentage}%)
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </details>
             </div>
