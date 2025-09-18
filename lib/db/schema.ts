@@ -44,8 +44,7 @@ export {
   chart_data_sources,
   chart_data_source_columns,
   chart_display_configs,
-  color_palettes,
-  chart_component_configs
+  color_palettes
 } from './chart-config-schema';
 
 // System users (admins who manage the platform)

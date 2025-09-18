@@ -57,6 +57,13 @@
       "when": 1758119005111,
       "tag": "0007_overjoyed_vivisector",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1758198999383,
+      "tag": "0008_drop_chart_component_configs",
+      "breakpoints": true
     }
   ]
 }

@@ -145,31 +145,4 @@ export const color_palettes = pgTable(
   })
 );
 
-// Chart component configurations
-export const chart_component_configs = pgTable(
-  'chart_component_configs',
-  {
-    component_config_id: integer('component_config_id').primaryKey().generatedByDefaultAsIdentity(),
-    component_name: varchar('component_name', { length: 100 }).notNull(),
-    chart_type: varchar('chart_type', { length: 50 }).notNull(),
-    
-    // Component settings
-    default_props: jsonb('default_props'),
-    style_overrides: jsonb('style_overrides'),
-    feature_flags: jsonb('feature_flags'),
-    
-    // Performance settings
-    max_data_points: integer('max_data_points').default(1000),
-    enable_virtualization: boolean('enable_virtualization').default(false),
-    lazy_loading: boolean('lazy_loading').default(false),
-    
-    is_active: boolean('is_active').default(true),
-    created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
-    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
-  },
-  (table) => ({
-    typeIdx: index('idx_chart_component_configs_type').on(table.chart_type, table.is_active),
-    componentIdx: index('idx_chart_component_configs_component').on(table.component_name),
-    uniqueComponent: index('idx_chart_component_configs_unique').on(table.component_name, table.chart_type),
-  })
-);
+// Chart component configurations table removed - was not being used in the application

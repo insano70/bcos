@@ -1,4 +1,4 @@
-import { db, chart_data_sources, chart_data_source_columns, chart_display_configs, color_palettes, chart_component_configs } from '@/lib/db';
+import { db, chart_data_sources, chart_data_source_columns, chart_display_configs, color_palettes } from '@/lib/db';
 import { eq, and } from 'drizzle-orm';
 
 /**
@@ -152,35 +152,7 @@ async function seedChartConfiguration() {
 
     console.log('✅ Inserted chart display configurations');
 
-    // 5. Insert component configurations
-    await db
-      .insert(chart_component_configs)
-      .values([
-        {
-          component_name: 'AnalyticsBarChart',
-          chart_type: 'bar',
-          default_props: {barPercentage: 0.7, categoryPercentage: 0.7},
-          max_data_points: 1000,
-          enable_virtualization: false,
-        },
-        {
-          component_name: 'LineChart01',
-          chart_type: 'line',
-          default_props: {tension: 0.4, pointRadius: 4},
-          max_data_points: 1000,
-          enable_virtualization: false,
-        },
-        {
-          component_name: 'DoughnutChart',
-          chart_type: 'doughnut',
-          default_props: {cutout: '50%'},
-          max_data_points: 100,
-          enable_virtualization: false,
-        }
-      ])
-      .onConflictDoNothing();
-
-    console.log('✅ Inserted component configurations');
+    // Component configurations removed - not used in application
     console.log('🎉 Chart configuration system seeded successfully!');
 
   } catch (error) {
