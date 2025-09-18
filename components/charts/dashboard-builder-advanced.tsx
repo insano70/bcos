@@ -432,9 +432,9 @@ export default function EnhancedDashboardBuilder() {
             </h3>
             
             <div className="space-y-3 max-h-96 overflow-y-auto">
-              {availableCharts.map((chart) => (
+              {availableCharts.map((chart, index) => (
                 <DraggableChart
-                  key={chart.chart_definition_id}
+                  key={chart.chart_definition_id || `chart-${index}`}
                   chart={chart}
                   onAddChart={addChartToDashboard}
                 />
@@ -524,9 +524,9 @@ export default function EnhancedDashboardBuilder() {
                 </div>
               ) : (
                 <div className="grid grid-cols-12 gap-4 auto-rows-min">
-                  {dashboardConfig.charts.map((dashboardChart) => (
+                  {dashboardConfig.charts.map((dashboardChart, index) => (
                     <DashboardChartItem
-                      key={dashboardChart.id}
+                      key={dashboardChart.id || `dashboard-chart-${index}`}
                       dashboardChart={dashboardChart}
                       onMove={moveChart}
                       onRemove={removeChart}
