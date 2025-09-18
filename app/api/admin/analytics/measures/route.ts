@@ -67,6 +67,17 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     // Parse calculated field parameter
     const calculatedField = searchParams.get('calculated_field') || undefined;
 
+    // Parse multiple series configuration
+    const multipleSeriesParam = searchParams.get('multiple_series');
+    let multipleSeries;
+    if (multipleSeriesParam) {
+      try {
+        multipleSeries = JSON.parse(decodeURIComponent(multipleSeriesParam));
+      } catch (error) {
+        return createErrorResponse('Invalid multiple_series parameter format', 400);
+      }
+    }
+
     const queryParams: AnalyticsQueryParams = {
       measure: searchParams.get('measure') as MeasureType || undefined,
       frequency: searchParams.get('frequency') as FrequencyType || undefined,
@@ -80,6 +91,7 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
       offset: searchParams.get('offset') ? parseInt(searchParams.get('offset')!, 10) : undefined,
       advanced_filters: advancedFilters,
       calculated_field: calculatedField,
+      multiple_series: multipleSeries,
     };
 
     console.log('🔍 PARSED QUERY PARAMS:', {

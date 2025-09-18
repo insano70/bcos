@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ChartDefinition } from '@/lib/types/analytics';
+import { TableSkeleton, LoadingSpinner, Skeleton } from '@/components/ui/loading-skeleton';
 // Client-side API service for bulk operations
 const bulkOperationsAPI = {
   async getOperationProgress(operationId: string) {
@@ -69,6 +70,8 @@ export default function BulkOperationsManager() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isPerformingOperation, setIsPerformingOperation] = useState(false);
 
   useEffect(() => {
     loadCharts();
@@ -110,6 +113,7 @@ export default function BulkOperationsManager() {
 
   const loadCharts = async () => {
     try {
+      setIsLoading(true);
       const response = await fetch('/api/admin/analytics/charts');
       if (response.ok) {
         const result = await response.json();
@@ -117,6 +121,11 @@ export default function BulkOperationsManager() {
       }
     } catch (error) {
       console.error('Failed to load charts:', error);
+      setToastMessage('Failed to load charts');
+      setToastType('error');
+      setShowToast(true);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -144,17 +153,27 @@ export default function BulkOperationsManager() {
     const categoryId = prompt('Enter new category ID (optional):');
     const isActive = confirm('Set charts as active?');
 
-    const operationId = await bulkOperationsAPI.bulkUpdateCharts(
-      Array.from(selectedCharts),
-      {
-        updates: {
-          ...(categoryId && { chart_category_id: parseInt(categoryId) }),
-          is_active: isActive
+    try {
+      setIsPerformingOperation(true);
+      const operationId = await bulkOperationsAPI.bulkUpdateCharts(
+        Array.from(selectedCharts),
+        {
+          updates: {
+            ...(categoryId && { chart_category_id: parseInt(categoryId) }),
+            is_active: isActive
+          }
         }
-      }
-    );
+      );
 
-    setCurrentOperation(operationId);
+      setCurrentOperation(operationId);
+    } catch (error) {
+      console.error('Failed to start bulk update:', error);
+      setToastMessage('Failed to start bulk update operation');
+      setToastType('error');
+      setShowToast(true);
+    } finally {
+      setIsPerformingOperation(false);
+    }
   };
 
   const handleBulkDelete = async () => {
@@ -162,22 +181,40 @@ export default function BulkOperationsManager() {
     
     if (!confirm(`Are you sure you want to delete ${selectedCharts.size} chart(s)?`)) return;
 
-    const operationId = await bulkOperationsAPI.bulkDeleteCharts(
-      Array.from(selectedCharts)
-    );
-
-    setCurrentOperation(operationId);
+    try {
+      setIsPerformingOperation(true);
+      const operationId = await bulkOperationsAPI.bulkDeleteCharts(
+        Array.from(selectedCharts)
+      );
+      setCurrentOperation(operationId);
+    } catch (error) {
+      console.error('Failed to start bulk delete:', error);
+      setToastMessage('Failed to start bulk delete operation');
+      setToastType('error');
+      setShowToast(true);
+    } finally {
+      setIsPerformingOperation(false);
+    }
   };
 
   const handleBulkExport = async (format: 'png' | 'pdf' | 'csv') => {
     if (selectedCharts.size === 0) return;
 
-    const operationId = await bulkOperationsAPI.bulkExportCharts(
-      Array.from(selectedCharts),
-      format
-    );
-
-    setCurrentOperation(operationId);
+    try {
+      setIsPerformingOperation(true);
+      const operationId = await bulkOperationsAPI.bulkExportCharts(
+        Array.from(selectedCharts),
+        format
+      );
+      setCurrentOperation(operationId);
+    } catch (error) {
+      console.error('Failed to start bulk export:', error);
+      setToastMessage('Failed to start bulk export operation');
+      setToastType('error');
+      setShowToast(true);
+    } finally {
+      setIsPerformingOperation(false);
+    }
   };
 
   const handleBulkClone = async () => {
@@ -186,13 +223,36 @@ export default function BulkOperationsManager() {
     const suffix = prompt('Enter suffix for cloned charts:', ' (Copy)');
     if (suffix === null) return;
 
-    const operationId = await bulkOperationsAPI.bulkCloneCharts(
-      Array.from(selectedCharts),
-      suffix // targetCategoryId parameter
-    );
-
-    setCurrentOperation(operationId);
+    try {
+      setIsPerformingOperation(true);
+      const operationId = await bulkOperationsAPI.bulkCloneCharts(
+        Array.from(selectedCharts),
+        suffix // targetCategoryId parameter
+      );
+      setCurrentOperation(operationId);
+    } catch (error) {
+      console.error('Failed to start bulk clone:', error);
+      setToastMessage('Failed to start bulk clone operation');
+      setToastType('error');
+      setShowToast(true);
+    } finally {
+      setIsPerformingOperation(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-7xl mx-auto bg-white dark:bg-gray-800 shadow-sm rounded-xl">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-4 w-96 mt-1" />
+        </div>
+        <div className="p-6">
+          <TableSkeleton rows={8} columns={3} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto bg-white dark:bg-gray-800 shadow-sm rounded-xl">
@@ -234,30 +294,34 @@ export default function BulkOperationsManager() {
             <div className="flex gap-2">
               <button
                 onClick={handleBulkUpdate}
-                disabled={!!currentOperation}
-                className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors disabled:opacity-50"
+                disabled={!!currentOperation || isPerformingOperation}
+                className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors disabled:opacity-50 flex items-center gap-1"
               >
+                {isPerformingOperation ? <LoadingSpinner size="sm" text="" /> : null}
                 Update
               </button>
               <button
                 onClick={handleBulkClone}
-                disabled={!!currentOperation}
-                className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50"
+                disabled={!!currentOperation || isPerformingOperation}
+                className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center gap-1"
               >
+                {isPerformingOperation ? <LoadingSpinner size="sm" text="" /> : null}
                 Clone
               </button>
               <button
                 onClick={() => handleBulkExport('csv')}
-                disabled={!!currentOperation}
-                className="px-3 py-1 text-sm bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors disabled:opacity-50"
+                disabled={!!currentOperation || isPerformingOperation}
+                className="px-3 py-1 text-sm bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors disabled:opacity-50 flex items-center gap-1"
               >
+                {isPerformingOperation ? <LoadingSpinner size="sm" text="" /> : null}
                 Export
               </button>
               <button
                 onClick={handleBulkDelete}
-                disabled={!!currentOperation}
-                className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors disabled:opacity-50"
+                disabled={!!currentOperation || isPerformingOperation}
+                className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center gap-1"
               >
+                {isPerformingOperation ? <LoadingSpinner size="sm" text="" /> : null}
                 Delete
               </button>
             </div>

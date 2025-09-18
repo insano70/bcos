@@ -17,6 +17,11 @@ export interface AggAppMeasure {
   date_index: string; // Date field for filtering and X-axis (ISO date string)
   measure_value: number; // The actual numeric value
   measure_type: string; // Type of measure ("currency", "count", etc.)
+  // Multiple series metadata (added dynamically for multi-series queries)
+  series_id?: string;
+  series_label?: string;
+  series_aggregation?: 'sum' | 'avg' | 'count' | 'min' | 'max';
+  series_color?: string;
 }
 
 /**
@@ -132,6 +137,17 @@ export interface ChartDataset {
 }
 
 /**
+ * Multiple series configuration for charts
+ */
+export interface MultipleSeriesConfig {
+  id: string;
+  measure: MeasureType;
+  aggregation: 'sum' | 'avg' | 'count' | 'min' | 'max';
+  label: string;
+  color?: string;
+}
+
+/**
  * Simplified analytics query parameters for pre-aggregated data
  */
 export interface AnalyticsQueryParams {
@@ -147,6 +163,7 @@ export interface AnalyticsQueryParams {
   offset?: number | undefined;
   advanced_filters?: any;
   calculated_field?: string | undefined;
+  multiple_series?: MultipleSeriesConfig[];
 }
 
 /**

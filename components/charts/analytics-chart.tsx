@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { ChartData, AnalyticsQueryParams, MeasureType, FrequencyType, ChartFilter } from '@/lib/types/analytics';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { ChartData, AnalyticsQueryParams, MeasureType, FrequencyType, ChartFilter, MultipleSeriesConfig } from '@/lib/types/analytics';
 import { simplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
 import { calculatedFieldsService } from '@/lib/services/calculated-fields';
 import { chartExportService } from '@/lib/services/chart-export';
 import { usageAnalyticsService } from '@/lib/services/usage-analytics';
 import ChartErrorBoundary from './chart-error-boundary';
+import { ChartSkeleton } from '@/components/ui/loading-skeleton';
 
 // Import existing chart components
 import LineChart01 from './line-chart-01';
@@ -31,6 +32,7 @@ interface AnalyticsChartProps {
   className?: string;
   calculatedField?: string | undefined; // Phase 3: Calculated fields support
   advancedFilters?: ChartFilter[]; // Phase 3: Advanced filtering support
+  multipleSeries?: MultipleSeriesConfig[]; // Phase 3: Multiple series support
 }
 
 interface ApiResponse {
@@ -68,7 +70,8 @@ export default function AnalyticsChart({
   groupBy,
   className = '',
   calculatedField, // Phase 3: Calculated fields
-  advancedFilters = [] // Phase 3: Advanced filters
+  advancedFilters = [], // Phase 3: Advanced filters
+  multipleSeries = [] // Phase 3: Multiple series
 }: AnalyticsChartProps) {
   const [chartData, setChartData] = useState<ChartData>({ labels: [], datasets: [] });
   const [isLoading, setIsLoading] = useState(true);
@@ -77,11 +80,11 @@ export default function AnalyticsChart({
   const [rawData, setRawData] = useState<any[]>([]);
   const chartRef = useRef<HTMLCanvasElement | null>(null);
 
-  useEffect(() => {
-    fetchChartData();
-  }, [chartType, measure, frequency, practiceUid, providerUid, startDate, endDate, groupBy, calculatedField, advancedFilters]);
+  // Memoize complex dependencies to prevent infinite loops
+  const stableAdvancedFilters = useMemo(() => JSON.stringify(advancedFilters || []), [advancedFilters]);
+  const stableMultipleSeries = useMemo(() => JSON.stringify(multipleSeries || []), [multipleSeries]);
 
-  const fetchChartData = async () => {
+  const fetchChartData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
@@ -124,13 +127,18 @@ export default function AnalyticsChart({
       if (endDate && endDate.trim()) params.append('end_date', endDate);
 
       // Add advanced filters if provided
-      if (advancedFilters) {
+      if (advancedFilters && advancedFilters.length > 0) {
         params.append('advanced_filters', encodeURIComponent(JSON.stringify(advancedFilters)));
       }
 
       // Add calculated field if provided
       if (calculatedField && calculatedField.trim()) {
         params.append('calculated_field', calculatedField);
+      }
+
+      // Add multiple series configuration if provided
+      if (multipleSeries && multipleSeries.length > 0) {
+        params.append('multiple_series', encodeURIComponent(JSON.stringify(multipleSeries)));
       }
 
       // Chart parameters configured
@@ -147,9 +155,10 @@ export default function AnalyticsChart({
       }
 
       const data: ApiResponse = await response.json();
-      
-      // Transform data for Chart.js
-      // Data ready for transformation
+
+      if (!data.success || !data.data.measures) {
+        throw new Error('Invalid response format from analytics API');
+      }
 
       // Map groupBy values correctly
       let mappedGroupBy = 'none';
@@ -181,11 +190,29 @@ export default function AnalyticsChart({
         }
       }
 
-      const transformedData = simplifiedChartTransformer.transformData(
-        processedMeasures,
-        chartType,
-        mappedGroupBy
-      );
+      // Transform data - use enhanced multi-series transformer if multiple series are configured
+      let transformedData: ChartData;
+      if (multipleSeries && multipleSeries.length > 0) {
+        // Build aggregation configuration from series configs
+        const aggregations: Record<string, 'sum' | 'avg' | 'count' | 'min' | 'max'> = {};
+        multipleSeries.forEach(series => {
+          if (series.label) {
+            aggregations[series.label] = series.aggregation;
+          }
+        });
+        
+        transformedData = simplifiedChartTransformer.createEnhancedMultiSeriesChart(
+          processedMeasures,
+          mappedGroupBy,
+          aggregations
+        );
+      } else {
+        transformedData = simplifiedChartTransformer.transformData(
+          processedMeasures,
+          chartType,
+          mappedGroupBy
+        );
+      }
 
       // Transformation completed
 
@@ -200,10 +227,16 @@ export default function AnalyticsChart({
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch chart data';
       setError(errorMessage);
       console.error('Chart data fetch error:', err);
+      // Don't retry on error - let the user manually retry
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [chartType, measure, frequency, practice, practiceUid, providerName, providerUid, startDate, endDate, groupBy, calculatedField, stableAdvancedFilters, stableMultipleSeries]);
+
+  useEffect(() => {
+    fetchChartData();
+  }, [fetchChartData]);
+
 
   const handleExport = async (format: 'png' | 'csv' | 'pdf') => {
     try {
@@ -234,12 +267,7 @@ export default function AnalyticsChart({
 
   const renderChart = () => {
     if (isLoading) {
-      return (
-        <div className="flex items-center justify-center" style={{ width, height }}>
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div>
-          <span className="ml-2 text-gray-600 dark:text-gray-400">Loading chart data...</span>
-        </div>
-      );
+      return <ChartSkeleton width={width} height={height} />;
     }
 
     if (error) {

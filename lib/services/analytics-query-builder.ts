@@ -238,6 +238,11 @@ export class AnalyticsQueryBuilder {
     const startTime = Date.now();
     
     try {
+      // If multiple series are requested, handle them separately
+      if (params.multiple_series && params.multiple_series.length > 0) {
+        return await this.queryMultipleSeries(params, context);
+      }
+
       // Check cache first
       const cachedResult = analyticsCache.get(params, context.user_id);
       if (cachedResult) {
@@ -383,6 +388,161 @@ export class AnalyticsQueryBuilder {
       
       throw new Error(`Query execution failed: ${errorMessage}`);
     }
+  }
+
+  /**
+   * Query multiple series data and combine results
+   */
+  private async queryMultipleSeries(
+    params: AnalyticsQueryParams,
+    context: ChartRenderContext
+  ): Promise<AnalyticsQueryResult> {
+    const startTime = Date.now();
+    
+    if (!params.multiple_series || params.multiple_series.length === 0) {
+      throw new Error('Multiple series configuration is required');
+    }
+
+    this.logger.info('Building multiple series analytics query', {
+      seriesCount: params.multiple_series.length,
+      userId: context.user_id
+    });
+
+    const allData: AggAppMeasure[] = [];
+    let totalCount = 0;
+
+    // Execute a query for each series configuration
+    for (const seriesConfig of params.multiple_series) {
+      // Create params for this specific series
+      const { multiple_series, ...baseParams } = params;
+      const seriesParams: AnalyticsQueryParams = {
+        ...baseParams,
+        measure: seriesConfig.measure,
+      };
+
+      // Query data for this series
+      const seriesResult = await this.querySingleSeries(seriesParams, context);
+      
+      // Add series metadata to each data point
+      const enhancedData = seriesResult.data.map(item => ({
+        ...item,
+        series_id: seriesConfig.id,
+        series_label: seriesConfig.label,
+        series_aggregation: seriesConfig.aggregation,
+        ...(seriesConfig.color && { series_color: seriesConfig.color }),
+      }));
+
+      allData.push(...enhancedData);
+      totalCount += seriesResult.total_count;
+    }
+
+    const result: AnalyticsQueryResult = {
+      data: allData,
+      total_count: totalCount,
+      query_time_ms: Date.now() - startTime,
+      cache_hit: false, // Multiple series queries are not cached yet
+    };
+
+    this.logger.info('Multiple series query completed', {
+      seriesCount: params.multiple_series.length,
+      totalRecords: allData.length,
+      queryTime: result.query_time_ms,
+      userId: context.user_id
+    });
+
+    return result;
+  }
+
+  /**
+   * Execute a single series query (used internally by queryMultipleSeries)
+   */
+  private async querySingleSeries(
+    params: AnalyticsQueryParams,
+    context: ChartRenderContext
+  ): Promise<AnalyticsQueryResult> {
+    // Validate table access
+    await this.validateTable('agg_app_measures', 'ih');
+
+    // Build filters from params
+    const filters: ChartFilter[] = [];
+    
+    if (params.measure) {
+      filters.push({ field: 'measure', operator: 'eq', value: params.measure });
+    }
+    
+    if (params.frequency) {
+      filters.push({ field: 'frequency', operator: 'eq', value: params.frequency });
+    }
+    
+    if (params.practice) {
+      filters.push({ field: 'practice', operator: 'eq', value: params.practice });
+    }
+    
+    if (params.practice_primary) {
+      filters.push({ field: 'practice_primary', operator: 'eq', value: params.practice_primary });
+    }
+    
+    if (params.practice_uid) {
+      filters.push({ field: 'practice_uid', operator: 'eq', value: params.practice_uid });
+    }
+    
+    if (params.provider_name) {
+      filters.push({ field: 'provider_name', operator: 'eq', value: params.provider_name });
+    }
+    
+    if (params.start_date) {
+      filters.push({ field: 'date_index', operator: 'gte', value: params.start_date });
+    }
+    
+    if (params.end_date) {
+      filters.push({ field: 'date_index', operator: 'lte', value: params.end_date });
+    }
+
+    // Process advanced filters if provided
+    if (params.advanced_filters) {
+      const advancedFilters = this.processAdvancedFilters(params.advanced_filters);
+      filters.push(...advancedFilters);
+    }
+
+    // Build WHERE clause with security context
+    const { clause: whereClause, params: queryParams } = await this.buildWhereClause(filters, context);
+
+    // Build complete query for pre-aggregated data
+    const query = `
+      SELECT 
+        practice,
+        practice_primary,
+        practice_uid,
+        provider_name,
+        measure,
+        frequency,
+        date_index,
+        measure_value,
+        measure_type
+      FROM ih.agg_app_measures
+      ${whereClause}
+      ORDER BY date_index ASC
+    `;
+
+    // Execute query
+    const data = await executeAnalyticsQuery<AggAppMeasure>(query, queryParams);
+
+    // Get total count
+    const countQuery = `
+      SELECT COUNT(*) as count
+      FROM ih.agg_app_measures
+      ${whereClause}
+    `;
+
+    const countResult = await executeAnalyticsQuery<{ count: number }>(countQuery, queryParams);
+    const totalCount = countResult[0]?.count || 0;
+
+    return {
+      data,
+      total_count: totalCount,
+      query_time_ms: 0, // Will be calculated by parent method
+      cache_hit: false,
+    };
   }
 
   /**

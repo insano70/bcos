@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Toast from '@/components/toast';
 import { ChartFilter, MeasureType, MultipleSeriesConfig } from '@/lib/types/analytics';
 import { calculatedFieldsService } from '@/lib/services/calculated-fields';
-import { FormSkeleton, Skeleton } from '@/components/ui/loading-skeleton';
 
 // Import the new focused components
 import ChartBuilderCore, { ChartConfig } from './chart-builder-core';
@@ -28,38 +27,6 @@ interface SchemaInfo {
   fields: Record<string, FieldDefinition>;
   availableMeasures: Array<{ measure: string; count: string }>;
   availableFrequencies: Array<{ frequency: string; count: string }>;
-}
-
-// Chart Builder Loading Skeleton
-function ChartBuilderSkeleton() {
-  return (
-    <div className="max-w-6xl mx-auto bg-white dark:bg-gray-800 shadow-sm rounded-xl">
-      {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-        <Skeleton className="h-6 w-48" />
-        <Skeleton className="h-4 w-96 mt-1" />
-      </div>
-
-      {/* Step Navigation */}
-      <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex space-x-6">
-          {[...Array(3)].map((_, i) => (
-            <Skeleton key={i} className="h-4 w-20" />
-          ))}
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="px-6 py-6">
-        <FormSkeleton fields={8} />
-      </div>
-
-      {/* Schema Panel */}
-      <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4">
-        <Skeleton className="h-4 w-40" />
-      </div>
-    </div>
-  );
 }
 
 export default function FunctionalChartBuilder() {
@@ -255,7 +222,14 @@ export default function FunctionalChartBuilder() {
   };
 
   if (isLoadingSchema) {
-    return <ChartBuilderSkeleton />;
+    return (
+      <div className="max-w-4xl mx-auto bg-white dark:bg-gray-800 shadow-sm rounded-xl p-8">
+        <div className="flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div>
+          <span className="ml-3 text-gray-600 dark:text-gray-400">Loading analytics schema...</span>
+        </div>
+      </div>
+    );
   }
 
   if (!schemaInfo) {
