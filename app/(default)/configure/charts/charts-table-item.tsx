@@ -8,7 +8,7 @@ interface ChartsTableItemProps {
   onCheckboxChange: (id: string, checked: boolean) => void;
   isSelected: boolean;
   onEdit?: (chart: ChartDefinitionListItem) => void | undefined;
-  onDelete?: (chartId: string) => void | undefined;
+  onDelete?: (chart: ChartDefinitionListItem) => void | undefined;
 }
 
 export default function ChartsTableItem({
@@ -45,9 +45,7 @@ export default function ChartsTableItem({
   };
 
   const handleDelete = () => {
-    if (confirm(`Are you sure you want to delete "${chart.chart_name}"?`)) {
-      onDelete?.(chart.chart_definition_id);
-    }
+    onDelete?.(chart);
     setDropdownOpen(false);
   };
 

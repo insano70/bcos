@@ -9,12 +9,19 @@ import DateSelect from '@/components/date-select';
 import FilterButton from '@/components/dropdown-filter';
 import PaginationClassic from '@/components/pagination-classic';
 import { SelectedItemsProvider } from '@/app/selected-items-context';
+import DeleteChartModal from '@/components/delete-chart-modal';
+import Toast from '@/components/toast';
 
 export default function ChartBuilderPage() {
   const router = useRouter();
   const [savedCharts, setSavedCharts] = useState<ChartDefinitionListItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [chartToDelete, setChartToDelete] = useState<ChartDefinitionListItem | null>(null);
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
 
   const handleSaveChart = async (chartDefinition: Partial<ChartDefinition>) => {
     try {
@@ -114,21 +121,38 @@ export default function ChartBuilderPage() {
       }
   };
 
-  const deleteChart = async (chartId: string) => {
+  const handleDeleteClick = (chart: ChartDefinitionListItem) => {
+    setChartToDelete(chart);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async (chartId: string) => {
     try {
       const response = await fetch(`/api/admin/analytics/charts/${chartId}`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
-      if (response.ok) {
-        await loadCharts(); // Refresh list
-      } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to delete chart');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete chart');
       }
+
+      // Show success toast
+      setToastMessage(`Chart "${chartToDelete?.chart_name}" deleted successfully`);
+      setToastType('success');
+      setToastOpen(true);
+      
+      // Refresh the charts list
+      await loadCharts();
+      
     } catch (error) {
       console.error('Failed to delete chart:', error);
-      // TODO: Show toast notification for delete error
+      setToastMessage(`Failed to delete chart: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setToastType('error');
+      setToastOpen(true);
     }
   };
 
@@ -224,7 +248,7 @@ export default function ChartBuilderPage() {
         <ChartsTable
           charts={savedCharts}
           onEdit={handleEditChart}
-          onDelete={deleteChart}
+          onDelete={handleDeleteClick}
         />
 
         {/* Pagination */}
@@ -233,6 +257,22 @@ export default function ChartBuilderPage() {
             <PaginationClassic />
           </div>
         )}
+
+        {/* Delete Confirmation Modal */}
+        {chartToDelete && (
+          <DeleteChartModal
+            isOpen={deleteModalOpen}
+            setIsOpen={setDeleteModalOpen}
+            chartName={chartToDelete.chart_name}
+            chartId={chartToDelete.chart_definition_id}
+            onConfirm={handleDeleteConfirm}
+          />
+        )}
+
+        {/* Toast Notifications */}
+        <Toast type={toastType} open={toastOpen} setOpen={setToastOpen}>
+          {toastMessage}
+        </Toast>
 
       </div>
     </SelectedItemsProvider>

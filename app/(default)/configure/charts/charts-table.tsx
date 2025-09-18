@@ -21,7 +21,7 @@ export interface ChartDefinitionListItem {
 interface ChartsTableProps {
   charts: ChartDefinitionListItem[];
   onEdit?: (chart: ChartDefinitionListItem) => void;
-  onDelete?: (chartId: string) => void;
+  onDelete?: (chart: ChartDefinitionListItem) => void;
 }
 
 export default function ChartsTable({ charts, onEdit, onDelete }: ChartsTableProps) {
