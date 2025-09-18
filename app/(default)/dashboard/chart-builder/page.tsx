@@ -37,7 +37,7 @@ export default function ChartBuilderPage() {
       
     } catch (error) {
       console.error('❌ Failed to save chart:', error);
-      alert(`Failed to save chart: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // TODO: Show toast notification for save error
     } finally {
       setIsLoading(false);
     }
@@ -74,7 +74,7 @@ export default function ChartBuilderPage() {
         throw new Error(error.error || 'Failed to delete chart');
       }
     } catch (error) {
-      alert(`Failed to delete chart: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // TODO: Show toast notification for delete error
     }
   };
 

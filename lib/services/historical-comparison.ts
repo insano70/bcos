@@ -1,4 +1,4 @@
-import { AggAppMeasure } from '@/lib/types/analytics';
+import type { AggAppMeasure } from '@/lib/types/analytics';
 
 /**
  * Historical Comparison Service
@@ -314,7 +314,7 @@ export class HistoricalComparisonService {
     if (values.length < 2) return 0;
     
     const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
-    const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+    const variance = values.reduce((sum, val) => sum + (val - mean) ** 2, 0) / values.length;
     const stdDev = Math.sqrt(variance);
     
     return mean !== 0 ? stdDev / mean : 0;

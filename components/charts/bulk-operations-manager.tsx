@@ -2,7 +2,58 @@
 
 import { useState, useEffect } from 'react';
 import { ChartDefinition } from '@/lib/types/analytics';
-import { bulkChartOperationsService } from '@/lib/services/bulk-chart-operations';
+// Client-side API service for bulk operations
+const bulkOperationsAPI = {
+  async getOperationProgress(operationId: string) {
+    const response = await fetch(`/api/admin/analytics/bulk-operations/${operationId}`);
+    if (!response.ok) throw new Error('Failed to get operation progress');
+    return response.json();
+  },
+  
+  async bulkUpdateCharts(chartIds: string[], updates: any) {
+    const response = await fetch('/api/admin/analytics/bulk-operations/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chartIds, updates })
+    });
+    if (!response.ok) throw new Error('Failed to start bulk update');
+    const result = await response.json();
+    return result.operationId;
+  },
+  
+  async bulkDeleteCharts(chartIds: string[]) {
+    const response = await fetch('/api/admin/analytics/bulk-operations/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chartIds })
+    });
+    if (!response.ok) throw new Error('Failed to start bulk delete');
+    const result = await response.json();
+    return result.operationId;
+  },
+  
+  async bulkExportCharts(chartIds: string[], format: string) {
+    const response = await fetch('/api/admin/analytics/bulk-operations/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chartIds, format })
+    });
+    if (!response.ok) throw new Error('Failed to start bulk export');
+    const result = await response.json();
+    return result.operationId;
+  },
+  
+  async bulkCloneCharts(chartIds: string[], targetCategoryId?: string) {
+    const response = await fetch('/api/admin/analytics/bulk-operations/clone', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chartIds, targetCategoryId })
+    });
+    if (!response.ok) throw new Error('Failed to start bulk clone');
+    const result = await response.json();
+    return result.operationId;
+  }
+};
 import Toast from '@/components/toast';
 
 /**
@@ -25,21 +76,30 @@ export default function BulkOperationsManager() {
 
   useEffect(() => {
     if (currentOperation) {
-      const interval = setInterval(() => {
-        const progress = bulkChartOperationsService.getOperationProgress(currentOperation);
-        setOperationProgress(progress);
-        
-        if (progress && (progress.status === 'completed' || progress.status === 'failed')) {
+      const interval = setInterval(async () => {
+        try {
+          const progress = await bulkOperationsAPI.getOperationProgress(currentOperation);
+          setOperationProgress(progress);
+          
+          if (progress && (progress.status === 'completed' || progress.status === 'failed')) {
+            setCurrentOperation(null);
+            clearInterval(interval);
+            
+            if (progress.status === 'completed') {
+              setToastMessage(`Operation completed! ${progress.completed} successful, ${progress.failed} failed`);
+              setToastType('success');
+            } else {
+              setToastMessage('Operation failed');
+              setToastType('error');
+            }
+            setShowToast(true);
+          }
+        } catch (error) {
+          console.error('Failed to get operation progress:', error);
           setCurrentOperation(null);
           clearInterval(interval);
-          
-          if (progress.status === 'completed') {
-            setToastMessage(`Operation completed! ${progress.completed} successful, ${progress.failed} failed`);
-            setToastType('success');
-          } else {
-            setToastMessage('Operation failed');
-            setToastType('error');
-          }
+          setToastMessage('Failed to get operation progress');
+          setToastType('error');
           setShowToast(true);
         }
       }, 1000);
@@ -84,15 +144,14 @@ export default function BulkOperationsManager() {
     const categoryId = prompt('Enter new category ID (optional):');
     const isActive = confirm('Set charts as active?');
 
-    const operationId = await bulkChartOperationsService.bulkUpdateCharts(
+    const operationId = await bulkOperationsAPI.bulkUpdateCharts(
       Array.from(selectedCharts),
       {
         updates: {
           ...(categoryId && { chart_category_id: parseInt(categoryId) }),
           is_active: isActive
         }
-      },
-      'current-user-id' // Would come from auth context
+      }
     );
 
     setCurrentOperation(operationId);
@@ -103,9 +162,8 @@ export default function BulkOperationsManager() {
     
     if (!confirm(`Are you sure you want to delete ${selectedCharts.size} chart(s)?`)) return;
 
-    const operationId = await bulkChartOperationsService.bulkDeleteCharts(
-      Array.from(selectedCharts),
-      'current-user-id'
+    const operationId = await bulkOperationsAPI.bulkDeleteCharts(
+      Array.from(selectedCharts)
     );
 
     setCurrentOperation(operationId);
@@ -114,10 +172,9 @@ export default function BulkOperationsManager() {
   const handleBulkExport = async (format: 'png' | 'pdf' | 'csv') => {
     if (selectedCharts.size === 0) return;
 
-    const operationId = await bulkChartOperationsService.bulkExportCharts(
+    const operationId = await bulkOperationsAPI.bulkExportCharts(
       Array.from(selectedCharts),
-      format,
-      'current-user-id'
+      format
     );
 
     setCurrentOperation(operationId);
@@ -129,10 +186,9 @@ export default function BulkOperationsManager() {
     const suffix = prompt('Enter suffix for cloned charts:', ' (Copy)');
     if (suffix === null) return;
 
-    const operationId = await bulkChartOperationsService.bulkCloneCharts(
+    const operationId = await bulkOperationsAPI.bulkCloneCharts(
       Array.from(selectedCharts),
-      { chart_name: suffix }, // This would be applied as a suffix
-      'current-user-id'
+      suffix // targetCategoryId parameter
     );
 
     setCurrentOperation(operationId);

@@ -1,4 +1,4 @@
-import { AggAppMeasure } from '@/lib/types/analytics';
+import type { AggAppMeasure } from '@/lib/types/analytics';
 import { logger } from '@/lib/logger';
 
 /**

@@ -279,10 +279,6 @@ export class AnalyticsQueryBuilder {
       }
       
       if (params.practice_uid) {
-        console.log('🔍 ADDING PRACTICE_UID FILTER:', { 
-          practice_uid: params.practice_uid, 
-          type: typeof params.practice_uid 
-        });
         filters.push({ field: 'practice_uid', operator: 'eq', value: params.practice_uid });
       }
       
@@ -291,10 +287,6 @@ export class AnalyticsQueryBuilder {
       }
       
       if (params.start_date) {
-        console.log('🔍 ADDING DATE RANGE FILTER:', { 
-          start_date: params.start_date,
-          end_date: params.end_date
-        });
         filters.push({ field: 'date_index', operator: 'gte', value: params.start_date });
       }
       
@@ -302,20 +294,14 @@ export class AnalyticsQueryBuilder {
         filters.push({ field: 'date_index', operator: 'lte', value: params.end_date });
       }
 
-      // Log the filters being applied
-      console.log('🔍 ANALYTICS FILTERS:', { 
-        filters: filters.map(f => ({ field: f.field, operator: f.operator, value: f.value })),
-        filterCount: filters.length
-      });
+      // Process advanced filters if provided
+      if (params.advanced_filters) {
+        const advancedFilters = this.processAdvancedFilters(params.advanced_filters);
+        filters.push(...advancedFilters);
+      }
 
       // Build WHERE clause with security context
       const { clause: whereClause, params: queryParams } = await this.buildWhereClause(filters, context);
-      
-      console.log('🔍 WHERE CLAUSE:', { 
-        whereClause,
-        paramCount: queryParams.length,
-        parameters: queryParams
-      });
 
       // Build complete query for pre-aggregated data
       const query = `
@@ -334,12 +320,6 @@ export class AnalyticsQueryBuilder {
         ORDER BY date_index ASC
       `;
 
-      // Log the final complete query
-      console.log('🔍 FINAL SQL QUERY:', {
-        sql: query,
-        parameters: queryParams
-      });
-
       // Execute query
       const data = await executeAnalyticsQuery<AggAppMeasure>(query, queryParams);
 
@@ -357,11 +337,6 @@ export class AnalyticsQueryBuilder {
         GROUP BY measure_type
       `;
 
-      console.log('🔍 TOTAL QUERY:', {
-        sql: totalQuery,
-        parameters: queryParams
-      });
-
       const totalResult = await executeAnalyticsQuery<{ total: string; measure_type: string }>(
         totalQuery, 
         queryParams // Use all params since we removed LIMIT/OFFSET
@@ -375,11 +350,7 @@ export class AnalyticsQueryBuilder {
         const firstResult = totalResult[0];
         totalCount = parseInt(firstResult?.total || '0', 10);
         
-        console.log('✅ TOTAL CALCULATION:', {
-          measureType: firstResult?.measure_type || 'unknown',
-          totalValue: totalCount,
-          calculationType: (firstResult?.measure_type === 'currency') ? 'SUM of values' : 'COUNT of rows'
-        });
+        // Total calculation completed
       }
 
       const result: AnalyticsQueryResult = {
@@ -443,6 +414,73 @@ export class AnalyticsQueryBuilder {
 
     const result = await this.queryMeasures(params, context);
     return result.data;
+  }
+
+  /**
+   * Process advanced filters into query filters
+   */
+  private processAdvancedFilters(advancedFilters: any): ChartFilter[] {
+    const filters: ChartFilter[] = [];
+
+    if (!advancedFilters || !Array.isArray(advancedFilters.conditions)) {
+      return filters;
+    }
+
+    // Process each condition in the advanced filters
+    for (const condition of advancedFilters.conditions) {
+      if (condition.field && condition.operator && condition.value !== undefined) {
+        // Map advanced filter operators to query filter operators
+        let operator = condition.operator;
+        let value = condition.value;
+
+        switch (condition.operator) {
+          case 'equals':
+            operator = 'eq';
+            break;
+          case 'not_equals':
+            operator = 'ne';
+            break;
+          case 'greater_than':
+            operator = 'gt';
+            break;
+          case 'greater_than_or_equal':
+            operator = 'gte';
+            break;
+          case 'less_than':
+            operator = 'lt';
+            break;
+          case 'less_than_or_equal':
+            operator = 'lte';
+            break;
+          case 'contains':
+            operator = 'like';
+            value = `%${value}%`;
+            break;
+          case 'starts_with':
+            operator = 'like';
+            value = `${value}%`;
+            break;
+          case 'ends_with':
+            operator = 'like';
+            value = `%${value}`;
+            break;
+          case 'in':
+            operator = 'in';
+            break;
+          case 'not_in':
+            operator = 'not_in';
+            break;
+        }
+
+        filters.push({
+          field: condition.field,
+          operator: operator as ChartFilter['operator'],
+          value: value,
+        });
+      }
+    }
+
+    return filters;
   }
 }
 

@@ -145,6 +145,8 @@ export interface AnalyticsQueryParams {
   end_date?: string | undefined;
   limit?: number | undefined;
   offset?: number | undefined;
+  advanced_filters?: any;
+  calculated_field?: string | undefined;
 }
 
 /**

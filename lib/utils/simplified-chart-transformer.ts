@@ -377,14 +377,121 @@ export class SimplifiedChartTransformer {
 
   /**
    * Get color palette for charts
-   * TODO: Load from database via API call in the future
+   * Enhanced with multiple palette support
    */
   private getColorPalette(): string[] {
-    // Using default palette for now - will be loaded from database via API
+    // Enhanced default palette with better color distribution
     return [
       '#00AEEF', '#67bfff', '#3ec972', '#f0bb33', '#ff5656', 
-      'oklch(65.6% 0.241 354.308)', 'oklch(58.5% 0.233 277.117)', 'oklch(70.5% 0.213 47.604)'
+      'oklch(65.6% 0.241 354.308)', 'oklch(58.5% 0.233 277.117)', 'oklch(70.5% 0.213 47.604)',
+      '#8B5CF6', '#F59E0B', '#EF4444', '#10B981', '#3B82F6', '#6366F1', '#8B5A2B', '#EC4899'
     ];
+  }
+
+  /**
+   * Format date label based on frequency (consolidated from chart-data-transformer)
+   */
+  private formatDateLabel(dateIndex: string, frequency: string): string {
+    const date = new Date(dateIndex + 'T12:00:00Z');
+    
+    switch (frequency) {
+      case 'Weekly':
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+      case 'Monthly':
+        return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+      case 'Quarterly':
+        const quarter = Math.floor(date.getUTCMonth() / 3) + 1;
+        return `Q${quarter} ${date.getUTCFullYear()}`;
+      default:
+        return dateIndex;
+    }
+  }
+
+  /**
+   * Enhanced multi-series support with better data handling
+   */
+  createEnhancedMultiSeriesChart(
+    measures: AggAppMeasure[],
+    groupBy: string,
+    aggregations: Record<string, 'sum' | 'avg' | 'count' | 'min' | 'max'> = {}
+  ): ChartData {
+    const groupedData = new Map<string, Map<string, number[]>>();
+    const allDates = new Set<string>();
+
+    // Group data with support for multiple aggregation types
+    measures.forEach(measure => {
+      const groupKey = this.getGroupValue(measure, groupBy);
+      const dateKey = measure.date_index;
+      
+      allDates.add(dateKey);
+      
+      if (!groupedData.has(groupKey)) {
+        groupedData.set(groupKey, new Map());
+      }
+      
+      const dateMap = groupedData.get(groupKey)!;
+      if (!dateMap.has(dateKey)) {
+        dateMap.set(dateKey, []);
+      }
+      
+      const measureValue = typeof measure.measure_value === 'string' 
+        ? parseFloat(measure.measure_value) 
+        : measure.measure_value;
+      
+      dateMap.get(dateKey)!.push(measureValue);
+    });
+
+    const sortedDates = Array.from(allDates).sort((a, b) => 
+      new Date(a + 'T00:00:00').getTime() - new Date(b + 'T00:00:00').getTime()
+    );
+
+    const datasets: ChartDataset[] = [];
+    const colors = this.getColorPalette();
+    let colorIndex = 0;
+
+    groupedData.forEach((dateMap, groupKey) => {
+      const aggregationType = aggregations[groupKey] || 'sum';
+      
+      const data = sortedDates.map(dateIndex => {
+        const values = dateMap.get(dateIndex) || [0];
+        
+        switch (aggregationType) {
+          case 'sum':
+            return values.reduce((sum, val) => sum + val, 0);
+          case 'avg':
+            return values.reduce((sum, val) => sum + val, 0) / values.length;
+          case 'count':
+            return values.length;
+          case 'min':
+            return Math.min(...values);
+          case 'max':
+            return Math.max(...values);
+          default:
+            return values.reduce((sum, val) => sum + val, 0);
+        }
+      });
+
+      datasets.push({
+        label: `${groupKey} (${aggregationType})`,
+        data,
+        borderColor: colors[colorIndex % colors.length] || '#00AEEF',
+        backgroundColor: colors[colorIndex % colors.length] || '#00AEEF',
+        fill: false,
+        tension: 0.4,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+      });
+
+      colorIndex++;
+    });
+
+    return {
+      labels: sortedDates.map(dateStr => {
+        const date = new Date(dateStr + 'T12:00:00Z');
+        return this.formatDateLabel(dateStr, measures[0]?.frequency || 'Monthly');
+      }),
+      datasets
+    };
   }
 
   /**

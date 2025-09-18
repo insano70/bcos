@@ -20,7 +20,7 @@ export class ChartExecutor {
   ): Promise<AnalyticsQueryResult> {
     
     // Validate chart definition
-    const validation = chartValidator.validateChartDefinition(chartDefinition);
+    const validation = await chartValidator.validateChartDefinition(chartDefinition);
     if (!validation.isValid) {
       throw new Error(`Invalid chart definition: ${validation.errors.join(', ')}`);
     }
@@ -158,7 +158,7 @@ export class ChartExecutor {
   ): Promise<{ result: AnalyticsQueryResult; validation: any }> {
     
     // Validate first
-    const validation = chartValidator.validateChartDefinition(chartDefinition);
+    const validation = await chartValidator.validateChartDefinition(chartDefinition);
     
     if (!validation.isValid) {
       return {

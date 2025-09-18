@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { useTheme } from 'next-themes';
 
 import { chartColors } from '@/components/charts/chartjs-config';
@@ -28,9 +28,12 @@ interface LineChart01Props {
   height: number;
 }
 
-export default function LineChart01({ data, width, height }: LineChart01Props) {
+const LineChart01 = forwardRef<HTMLCanvasElement, LineChart01Props>(function LineChart01({ data, width, height }, ref) {
   const [chart, setChart] = useState<Chart | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
+  
+  // Expose canvas element to parent via ref
+  useImperativeHandle(ref, () => canvas.current!, []);
   const { theme } = useTheme();
   const darkMode = theme === 'dark';
   const { textColor, tooltipBodyColor, tooltipBgColor, tooltipBorderColor } = chartColors;
@@ -146,4 +149,6 @@ export default function LineChart01({ data, width, height }: LineChart01Props) {
   }, [theme]);
 
   return <canvas ref={canvas} width={width} height={height}></canvas>;
-}
+});
+
+export default LineChart01;

@@ -1,5 +1,6 @@
-import { ChartDefinition, ChartFilter } from '@/lib/types/analytics';
-import { logger } from '@/lib/logger';
+import type { ChartDefinition, ChartFilter } from '@/lib/types/analytics';
+// Note: Using console for client-side logging to avoid winston fs dependency
+// import { logger } from '@/lib/logger';
 
 /**
  * Bulk Chart Operations Service
@@ -217,7 +218,7 @@ export class BulkChartOperationsService {
     
     this.operations.set(operationId, operation);
 
-    logger.info('Bulk operation cancelled', { operationId });
+    console.info('Bulk operation cancelled', { operationId });
     return true;
   }
 
@@ -272,7 +273,7 @@ export class BulkChartOperationsService {
       operation.completedAt = new Date();
       this.operations.set(operationId, operation);
 
-      logger.info('Bulk update completed', {
+      console.info('Bulk update completed', {
         operationId,
         totalCharts: operation.chartIds.length,
         successCount: operation.results.filter(r => r.success).length
@@ -284,7 +285,7 @@ export class BulkChartOperationsService {
       operation.completedAt = new Date();
       this.operations.set(operationId, operation);
 
-      logger.error('Bulk update failed', { operationId, error });
+      console.error('Bulk update failed', { operationId, error });
     }
   }
 
@@ -333,7 +334,7 @@ export class BulkChartOperationsService {
       operation.completedAt = new Date();
       this.operations.set(operationId, operation);
 
-      logger.info('Bulk delete completed', { operationId });
+      console.info('Bulk delete completed', { operationId });
 
     } catch (error) {
       operation.status = 'failed';
@@ -341,7 +342,7 @@ export class BulkChartOperationsService {
       operation.completedAt = new Date();
       this.operations.set(operationId, operation);
 
-      logger.error('Bulk delete failed', { operationId, error });
+      console.error('Bulk delete failed', { operationId, error });
     }
   }
 
@@ -380,7 +381,7 @@ export class BulkChartOperationsService {
       operation.completedAt = new Date();
       this.operations.set(operationId, operation);
 
-      logger.info('Bulk export completed', { operationId, exportFormat });
+      console.info('Bulk export completed', { operationId, exportFormat });
 
     } catch (error) {
       operation.status = 'failed';
@@ -388,7 +389,7 @@ export class BulkChartOperationsService {
       operation.completedAt = new Date();
       this.operations.set(operationId, operation);
 
-      logger.error('Bulk export failed', { operationId, error });
+      console.error('Bulk export failed', { operationId, error });
     }
   }
 
@@ -444,7 +445,7 @@ export class BulkChartOperationsService {
       operation.completedAt = new Date();
       this.operations.set(operationId, operation);
 
-      logger.info('Bulk organize completed', { operationId });
+      console.info('Bulk organize completed', { operationId });
 
     } catch (error) {
       operation.status = 'failed';
@@ -452,7 +453,7 @@ export class BulkChartOperationsService {
       operation.completedAt = new Date();
       this.operations.set(operationId, operation);
 
-      logger.error('Bulk organize failed', { operationId, error });
+      console.error('Bulk organize failed', { operationId, error });
     }
   }
 
@@ -527,7 +528,7 @@ export class BulkChartOperationsService {
       operation.completedAt = new Date();
       this.operations.set(operationId, operation);
 
-      logger.info('Bulk clone completed', { operationId });
+      console.info('Bulk clone completed', { operationId });
 
     } catch (error) {
       operation.status = 'failed';
@@ -535,7 +536,7 @@ export class BulkChartOperationsService {
       operation.completedAt = new Date();
       this.operations.set(operationId, operation);
 
-      logger.error('Bulk clone failed', { operationId, error });
+      console.error('Bulk clone failed', { operationId, error });
     }
   }
 
@@ -609,7 +610,7 @@ export class BulkChartOperationsService {
       }
     }
 
-    logger.info('Old bulk operations cleaned up', {
+    console.info('Old bulk operations cleaned up', {
       retentionDays,
       remainingOperations: this.operations.size
     });

@@ -53,6 +53,20 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     const { searchParams } = new URL(request.url);
     
     const practiceUidParam = searchParams.get('practice_uid');
+    // Parse advanced filters from query parameters
+    const advancedFiltersParam = searchParams.get('advanced_filters');
+    let advancedFilters;
+    if (advancedFiltersParam) {
+      try {
+        advancedFilters = JSON.parse(decodeURIComponent(advancedFiltersParam));
+      } catch (error) {
+        return createErrorResponse('Invalid advanced_filters parameter format', 400);
+      }
+    }
+
+    // Parse calculated field parameter
+    const calculatedField = searchParams.get('calculated_field') || undefined;
+
     const queryParams: AnalyticsQueryParams = {
       measure: searchParams.get('measure') as MeasureType || undefined,
       frequency: searchParams.get('frequency') as FrequencyType || undefined,
@@ -64,6 +78,8 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
       end_date: searchParams.get('end_date') || undefined,
       limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : undefined,
       offset: searchParams.get('offset') ? parseInt(searchParams.get('offset')!, 10) : undefined,
+      advanced_filters: advancedFilters,
+      calculated_field: calculatedField,
     };
 
     console.log('🔍 PARSED QUERY PARAMS:', {

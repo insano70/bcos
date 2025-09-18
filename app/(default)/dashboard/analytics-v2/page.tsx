@@ -1,16 +1,16 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import DashboardBuilder from '@/components/charts/dashboard-builder';
+import DashboardBuilderAdvanced from '@/components/charts/dashboard-builder-advanced';
 import ChargesPaymentsChart from '@/components/charts/charges-payments-chart';
-import { useChartExport } from '@/lib/utils/chart-export';
+import { chartExportService } from '@/lib/services/chart-export';
 
 export default function AnalyticsV2Page() {
   const [activeView, setActiveView] = useState<'overview' | 'builder' | 'dashboards'>('overview');
   const [dashboards, setDashboards] = useState<any[]>([]);
   const [favorites, setFavorites] = useState<any[]>([]);
   const [cacheStats, setCacheStats] = useState<any>(null);
-  const { exportChart } = useChartExport();
+  // Chart export functionality available via chartExportService
 
   useEffect(() => {
     loadDashboards();
@@ -61,10 +61,7 @@ export default function AnalyticsV2Page() {
   if (activeView === 'builder') {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
-        <DashboardBuilder
-          onSave={handleDashboardSaved}
-          onCancel={() => setActiveView('overview')}
-        />
+        <DashboardBuilderAdvanced />
       </div>
     );
   }
@@ -134,9 +131,14 @@ export default function AnalyticsV2Page() {
                 {/* Export Controls */}
                 <div className="flex gap-2">
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       const canvas = document.querySelector('#charges-payments-chart canvas') as HTMLCanvasElement;
-                      if (canvas) exportChart({ current: canvas }, 'png');
+                      if (canvas) {
+                        const result = await chartExportService.exportChartAsImage(canvas, { format: 'png' });
+                        if (result.success) {
+                          chartExportService.downloadFile(result);
+                        }
+                      }
                     }}
                     className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
                     title="Export as PNG"

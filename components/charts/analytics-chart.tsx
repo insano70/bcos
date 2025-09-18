@@ -5,6 +5,8 @@ import { ChartData, AnalyticsQueryParams, MeasureType, FrequencyType, ChartFilte
 import { simplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
 import { calculatedFieldsService } from '@/lib/services/calculated-fields';
 import { chartExportService } from '@/lib/services/chart-export';
+import { usageAnalyticsService } from '@/lib/services/usage-analytics';
+import ChartErrorBoundary from './chart-error-boundary';
 
 // Import existing chart components
 import LineChart01 from './line-chart-01';
@@ -84,6 +86,15 @@ export default function AnalyticsChart({
     setError(null);
 
     try {
+      // Track chart access for usage analytics
+      usageAnalyticsService.trackChartAccess(
+        'chart-' + Date.now(), // chartDefinitionId - would come from actual chart ID
+        `${measure} - ${frequency}`, // chartName
+        'anonymous', // userId - would come from auth context
+        'Anonymous User', // userName - would come from auth context
+        0 // loadTime - would be calculated
+      );
+
       // Build query parameters
       const params = new URLSearchParams();
       
@@ -112,19 +123,17 @@ export default function AnalyticsChart({
       if (startDate && startDate.trim()) params.append('start_date', startDate);
       if (endDate && endDate.trim()) params.append('end_date', endDate);
 
-      // Debug logging
-      console.log('🔍 ANALYTICS CHART PARAMS:', {
-        measure,
-        frequency,
-        practice,
-        practiceUid,
-        providerName,
-        providerUid,
-        startDate,
-        endDate,
-        groupBy,
-        finalUrl: `/api/admin/analytics/measures?${params.toString()}`
-      });
+      // Add advanced filters if provided
+      if (advancedFilters) {
+        params.append('advanced_filters', encodeURIComponent(JSON.stringify(advancedFilters)));
+      }
+
+      // Add calculated field if provided
+      if (calculatedField && calculatedField.trim()) {
+        params.append('calculated_field', calculatedField);
+      }
+
+      // Chart parameters configured
       
       // Set reasonable defaults for chart display
       params.append('limit', '1000');
@@ -140,12 +149,7 @@ export default function AnalyticsChart({
       const data: ApiResponse = await response.json();
       
       // Transform data for Chart.js
-      console.log('🔍 BEFORE TRANSFORMATION:', {
-        rawDataCount: data.data.measures.length,
-        chartType,
-        groupBy,
-        sampleRecord: data.data.measures[0]
-      });
+      // Data ready for transformation
 
       // Map groupBy values correctly
       let mappedGroupBy = 'none';
@@ -153,10 +157,7 @@ export default function AnalyticsChart({
       if (groupBy === 'provider_uid' || groupBy === 'provider_name') mappedGroupBy = 'provider_name';
       if (groupBy === 'measure') mappedGroupBy = 'measure';
 
-      console.log('🔍 GROUPBY MAPPING:', {
-        originalGroupBy: groupBy,
-        mappedGroupBy: mappedGroupBy
-      });
+      // GroupBy mapping completed
 
       // Apply calculated fields if selected
       let processedMeasures = data.data.measures;
@@ -186,22 +187,10 @@ export default function AnalyticsChart({
         mappedGroupBy
       );
 
-      console.log('🔍 AFTER TRANSFORMATION:', {
-        labels: transformedData.labels,
-        datasetCount: transformedData.datasets.length,
-        sampleDataset: transformedData.datasets[0]
-      });
+      // Transformation completed
 
       // Show EXACT data structure being passed to Chart.js
-      console.log('📊 EXACT CHART.JS DATA STRUCTURE:', JSON.stringify({
-        labels: transformedData.labels,
-        datasets: transformedData.datasets.map(dataset => ({
-          label: dataset.label,
-          data: dataset.data,
-          backgroundColor: dataset.backgroundColor,
-          borderColor: dataset.borderColor
-        }))
-      }, null, 2));
+      // Chart data structure prepared
 
       setChartData(transformedData);
       setMetadata(data.data.metadata);
@@ -281,17 +270,25 @@ export default function AnalyticsChart({
       );
     }
 
-    // Render appropriate chart component based on type
-    switch (chartType) {
-      case 'line':
-        return <LineChart01 data={chartData} width={width} height={height} />;
-      case 'bar':
-        return <AnalyticsBarChart data={chartData} width={width} height={height} frequency={frequency} />;
-      case 'doughnut':
-        return <DoughnutChart data={chartData} width={width} height={height} />;
-      default:
-        return <div>Unsupported chart type: {chartType}</div>;
-    }
+    // Render appropriate chart component based on type with error boundary
+    const renderChartComponent = () => {
+      switch (chartType) {
+        case 'line':
+          return <LineChart01 ref={chartRef} data={chartData} width={width} height={height} />;
+        case 'bar':
+          return <AnalyticsBarChart ref={chartRef} data={chartData} width={width} height={height} frequency={frequency} />;
+        case 'doughnut':
+          return <DoughnutChart ref={chartRef} data={chartData} width={width} height={height} />;
+        default:
+          return <div>Unsupported chart type: {chartType}</div>;
+      }
+    };
+
+    return (
+      <ChartErrorBoundary>
+        {renderChartComponent()}
+      </ChartErrorBoundary>
+    );
   };
 
   return (

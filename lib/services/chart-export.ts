@@ -1,4 +1,4 @@
-import { ChartData } from '@/lib/types/analytics';
+import type { ChartData } from '@/lib/types/analytics';
 
 /**
  * Chart Export Service

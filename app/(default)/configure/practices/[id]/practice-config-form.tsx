@@ -226,7 +226,7 @@ export default function PracticeConfigForm({
       // Revert optimistic update on failure
       queryClient.invalidateQueries({ queryKey: ['practice-attributes', practiceId] });
       // Show error to user
-      alert(`Error updating practice: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // TODO: Show toast notification for practice update error
     } finally {
       setIsSubmitting(false);
     }

@@ -1,16 +1,16 @@
 import type { ChartDefinition, ChartFilter, ChartDataSourceConfig } from '@/lib/types/analytics';
 import { logger } from '@/lib/logger';
+import { chartConfigService } from './chart-config-service';
 
 /**
  * Chart Definition Validation Service
  * Validates chart configurations for security and correctness
  */
 
-// Allowed tables - whitelist approach for security
-const ALLOWED_TABLES = ['ih.gr_app_measures'] as const;
-
-// Allowed fields for ih.gr_app_measures table
-const ALLOWED_FIELDS = [
+// Legacy hardcoded values - now loaded dynamically from database
+// TODO: Remove these once all validation methods are updated
+const LEGACY_ALLOWED_TABLES = ['ih.gr_app_measures'] as const;
+const LEGACY_ALLOWED_FIELDS = [
   'practice_uid',
   'provider_uid', 
   'measure',
@@ -42,9 +42,38 @@ export interface ValidationResult {
 export class ChartValidator {
   
   /**
+   * Get allowed fields dynamically from chart config service
+   */
+  private async getAllowedFields(): Promise<string[]> {
+    try {
+      const dataSourceConfig = await chartConfigService.getDataSourceConfig('ih.agg_app_measures');
+      // TODO: Add getColumnConfigs method to chartConfigService
+      const columnConfigs: any[] = []; // Fallback to empty array
+      
+      return columnConfigs.map((col: any) => col.column_name);
+    } catch (error) {
+      logger.warn('Failed to load dynamic field validation, falling back to legacy fields', { error });
+      return [...LEGACY_ALLOWED_FIELDS];
+    }
+  }
+
+  /**
+   * Get allowed tables dynamically from chart config service
+   */
+  private async getAllowedTables(): Promise<string[]> {
+    try {
+      const dataSourceConfig = await chartConfigService.getDataSourceConfig('ih.agg_app_measures');
+      return [dataSourceConfig?.tableName || 'ih.agg_app_measures'];
+    } catch (error) {
+      logger.warn('Failed to load dynamic table validation, falling back to legacy tables', { error });
+      return [...LEGACY_ALLOWED_TABLES];
+    }
+  }
+
+  /**
    * Validate complete chart definition
    */
-  validateChartDefinition(definition: Partial<ChartDefinition>): ValidationResult {
+  async validateChartDefinition(definition: Partial<ChartDefinition>): Promise<ValidationResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
 
@@ -62,7 +91,7 @@ export class ChartValidator {
     if (!definition.data_source) {
       errors.push('Data source configuration is required');
     } else {
-      const dataSourceValidation = this.validateDataSource(definition.data_source);
+      const dataSourceValidation = await this.validateDataSource(definition.data_source);
       errors.push(...dataSourceValidation.errors);
       warnings.push(...dataSourceValidation.warnings);
     }
@@ -70,7 +99,7 @@ export class ChartValidator {
     if (!definition.chart_config) {
       errors.push('Chart configuration is required');
     } else {
-      const configValidation = this.validateChartConfig(definition.chart_config);
+      const configValidation = await this.validateChartConfig(definition.chart_config);
       errors.push(...configValidation.errors);
       warnings.push(...configValidation.warnings);
     }
@@ -95,21 +124,22 @@ export class ChartValidator {
   /**
    * Validate data source configuration
    */
-  validateDataSource(dataSource: ChartDataSourceConfig): ValidationResult {
+  async validateDataSource(dataSource: ChartDataSourceConfig): Promise<ValidationResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
+    const allowedTables = await this.getAllowedTables();
 
     // Validate table access
     if (!dataSource.table) {
       errors.push('Data source table is required');
-    } else if (!ALLOWED_TABLES.includes(dataSource.table as any)) {
-      errors.push(`Unauthorized table access: ${dataSource.table}. Allowed: ${ALLOWED_TABLES.join(', ')}`);
+    } else if (!allowedTables.includes(dataSource.table)) {
+      errors.push(`Unauthorized table access: ${dataSource.table}. Allowed: ${allowedTables.join(', ')}`);
     }
 
     // Validate filters
     if (dataSource.filters) {
       for (const filter of dataSource.filters) {
-        const filterValidation = this.validateFilter(filter);
+        const filterValidation = await this.validateFilter(filter);
         errors.push(...filterValidation.errors);
         warnings.push(...filterValidation.warnings);
       }
@@ -118,9 +148,10 @@ export class ChartValidator {
     // Note: groupBy validation is handled in the chart series configuration
 
     // Validate orderBy fields
+    const allowedFields = await this.getAllowedFields();
     if (dataSource.orderBy) {
       for (const orderBy of dataSource.orderBy) {
-        if (!ALLOWED_FIELDS.includes(orderBy.field as any)) {
+        if (!allowedFields.includes(orderBy.field)) {
           errors.push(`Unauthorized orderBy field: ${orderBy.field}`);
         }
         if (!['ASC', 'DESC'].includes(orderBy.direction)) {
@@ -140,14 +171,15 @@ export class ChartValidator {
   /**
    * Validate individual filter
    */
-  validateFilter(filter: ChartFilter): ValidationResult {
+  async validateFilter(filter: ChartFilter): Promise<ValidationResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
+    const allowedFields = await this.getAllowedFields();
 
     // Validate field
     if (!filter.field) {
       errors.push('Filter field is required');
-    } else if (!ALLOWED_FIELDS.includes(filter.field as any)) {
+    } else if (!allowedFields.includes(filter.field)) {
       errors.push(`Unauthorized filter field: ${filter.field}`);
     }
 
@@ -179,9 +211,10 @@ export class ChartValidator {
   /**
    * Validate chart configuration
    */
-  validateChartConfig(chartConfig: any): ValidationResult {
+  async validateChartConfig(chartConfig: any): Promise<ValidationResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
+    const allowedFields = await this.getAllowedFields();
 
     // Validate x_axis configuration
     if (!chartConfig.x_axis) {
@@ -189,7 +222,7 @@ export class ChartValidator {
     } else {
       if (!chartConfig.x_axis.field) {
         errors.push('X-axis field is required');
-      } else if (!ALLOWED_FIELDS.includes(chartConfig.x_axis.field)) {
+      } else if (!allowedFields.includes(chartConfig.x_axis.field)) {
         errors.push(`Unauthorized x-axis field: ${chartConfig.x_axis.field}`);
       }
 
@@ -204,7 +237,7 @@ export class ChartValidator {
     } else {
       if (!chartConfig.y_axis.field) {
         errors.push('Y-axis field is required');
-      } else if (!ALLOWED_FIELDS.includes(chartConfig.y_axis.field)) {
+      } else if (!allowedFields.includes(chartConfig.y_axis.field)) {
         errors.push(`Unauthorized y-axis field: ${chartConfig.y_axis.field}`);
       }
 
@@ -214,7 +247,7 @@ export class ChartValidator {
     }
 
     // Validate series configuration (optional)
-    if (chartConfig.series?.groupBy && !ALLOWED_FIELDS.includes(chartConfig.series.groupBy)) {
+    if (chartConfig.series?.groupBy && !allowedFields.includes(chartConfig.series.groupBy)) {
       errors.push(`Unauthorized series groupBy field: ${chartConfig.series.groupBy}`);
     }
 
@@ -224,8 +257,8 @@ export class ChartValidator {
   /**
    * Validate chart definition for creation
    */
-  validateForCreation(definition: Partial<ChartDefinition>): ValidationResult {
-    const baseValidation = this.validateChartDefinition(definition);
+  async validateForCreation(definition: Partial<ChartDefinition>): Promise<ValidationResult> {
+    const baseValidation = await this.validateChartDefinition(definition);
     
     // Additional creation-specific validations
     if (!definition.created_by) {
@@ -238,7 +271,7 @@ export class ChartValidator {
   /**
    * Validate chart definition for update
    */
-  validateForUpdate(definition: Partial<ChartDefinition>): ValidationResult {
+  async validateForUpdate(definition: Partial<ChartDefinition>): Promise<ValidationResult> {
     // For updates, most fields are optional
     const errors: string[] = [];
     const warnings: string[] = [];
@@ -249,13 +282,13 @@ export class ChartValidator {
     }
 
     if (definition.data_source) {
-      const dataSourceValidation = this.validateDataSource(definition.data_source);
+      const dataSourceValidation = await this.validateDataSource(definition.data_source);
       errors.push(...dataSourceValidation.errors);
       warnings.push(...dataSourceValidation.warnings);
     }
 
     if (definition.chart_config) {
-      const configValidation = this.validateChartConfig(definition.chart_config);
+      const configValidation = await this.validateChartConfig(definition.chart_config);
       errors.push(...configValidation.errors);
       warnings.push(...configValidation.warnings);
     }

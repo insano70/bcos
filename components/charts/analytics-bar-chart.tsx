@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { useTheme } from 'next-themes';
 import { chartColors } from '@/components/charts/chartjs-config';
 import {
@@ -26,10 +26,13 @@ interface AnalyticsBarChartProps {
   frequency?: string; // For time axis configuration
 }
 
-export default function AnalyticsBarChart({ data, width, height, frequency = 'Monthly' }: AnalyticsBarChartProps) {
+const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(function AnalyticsBarChart({ data, width, height, frequency = 'Monthly' }, ref) {
   const [chart, setChart] = useState<Chart | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const legend = useRef<HTMLUListElement>(null);
+  
+  // Expose canvas element to parent via ref
+  useImperativeHandle(ref, () => canvas.current!, []);
   const { theme } = useTheme();
   const darkMode = theme === 'dark';
   const { textColor, gridColor, tooltipBodyColor, tooltipBgColor, tooltipBorderColor } = chartColors;
@@ -285,6 +288,8 @@ export default function AnalyticsBarChart({ data, width, height, frequency = 'Mo
       </div>
     </>
   );
-}
+});
+
+export default AnalyticsBarChart;
 
 

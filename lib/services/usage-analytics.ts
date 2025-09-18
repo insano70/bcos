@@ -1,4 +1,5 @@
-import { logger } from '@/lib/logger';
+// Note: Using console for client-side logging to avoid winston fs dependency
+// import { logger } from '@/lib/logger';
 
 /**
  * Usage Analytics Service
@@ -145,12 +146,15 @@ export class UsageAnalyticsService {
 
     this.userMetrics.set(userId, userMetric);
 
-    logger.debug('Chart access tracked', {
-      chartDefinitionId,
-      userId,
-      loadTime,
-      totalViews: chartMetric.totalViews
-    });
+    // Client-side logging (winston causes fs module issues in browser)
+    if (typeof window !== 'undefined') {
+        console.debug('Chart access tracked', {
+        chartDefinitionId,
+        userId,
+        loadTime,
+        totalViews: chartMetric.totalViews
+      });
+    }
   }
 
   /**
@@ -305,10 +309,13 @@ export class UsageAnalyticsService {
     
     this.accessLog = this.accessLog.filter(log => log.timestamp > cutoffDate);
     
-    logger.info('Usage analytics logs cleaned up', {
-      retentionDays,
-      remainingLogs: this.accessLog.length
-    });
+    // Server-side only logging
+    if (typeof window === 'undefined') {
+        console.info('Usage analytics logs cleaned up', {
+        retentionDays,
+        remainingLogs: this.accessLog.length
+      });
+    }
   }
 
   private groupByDay(
