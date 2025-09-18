@@ -211,7 +211,7 @@ export default function ChartBuilderPage() {
         <div className="sm:flex sm:justify-between sm:items-center mb-8">
           <div className="mb-4 sm:mb-0">
             <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
-              Chart Definitions
+              Charts
               {isLoading && (
                 <span className="ml-3 inline-flex items-center">
                   <svg className="animate-spin h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24">
@@ -234,7 +234,7 @@ export default function ChartBuilderPage() {
               )}
             </h1>
             <p className="text-gray-600 dark:text-gray-400">
-              Create and manage configurable chart definitions
+              Create and manage your analytics charts
             </p>
           </div>
 

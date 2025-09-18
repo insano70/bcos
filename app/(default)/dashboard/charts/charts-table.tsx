@@ -40,7 +40,7 @@ export default function ChartsTable({ charts, onEdit, onDelete, isLoading = fals
     <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl relative">
       <header className="px-5 py-4">
         <h2 className="font-semibold text-gray-800 dark:text-gray-100">
-          All Chart Definitions{' '}
+          All Charts{' '}
           <span className="text-gray-400 dark:text-gray-500 font-medium">
             {charts.filter(chart => chart.is_active !== false).length}
           </span>
@@ -131,10 +131,10 @@ export default function ChartsTable({ charts, onEdit, onDelete, isLoading = fals
                 <tr>
                   <td colSpan={9} className="px-2 first:pl-5 last:pr-5 py-12 text-center">
                     <div className="text-gray-500 dark:text-gray-400">
-                      📊 No chart definitions found
+                      📊 No charts found
                     </div>
                     <p className="text-gray-600 dark:text-gray-400 text-sm mt-2">
-                      Create your first chart definition to get started
+                      Create your first chart to get started
                     </p>
                   </td>
                 </tr>
