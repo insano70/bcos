@@ -343,7 +343,7 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
         type="success"
         open={showToast}
         setOpen={setShowToast}
-        className="fixed top-4 right-4 z-50"
+        className="fixed bottom-4 right-4 z-50"
       >
         User created successfully!
       </Toast>

@@ -375,7 +375,7 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
         type="success"
         open={showToast}
         setOpen={setShowToast}
-        className="fixed top-4 right-4 z-50"
+        className="fixed bottom-4 right-4 z-50"
       >
         User updated successfully!
       </Toast>
