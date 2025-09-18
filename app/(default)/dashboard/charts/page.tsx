@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import ChartBuilder from '@/components/charts/chart-builder';
+import { useRouter } from 'next/navigation';
 import { ChartDefinition } from '@/lib/types/analytics';
 import ChartsTable, { ChartDefinitionListItem } from './charts-table';
 import DeleteButton from '@/components/delete-button';
@@ -11,11 +11,10 @@ import PaginationClassic from '@/components/pagination-classic';
 import { SelectedItemsProvider } from '@/app/selected-items-context';
 
 export default function ChartBuilderPage() {
-  const [showBuilder, setShowBuilder] = useState(false);
+  const router = useRouter();
   const [savedCharts, setSavedCharts] = useState<ChartDefinitionListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true); // Start with loading true
   const [error, setError] = useState<string | null>(null);
-  const [editingChart, setEditingChart] = useState<ChartDefinitionListItem | null>(null);
 
   const handleSaveChart = async (chartDefinition: Partial<ChartDefinition>) => {
     setIsLoading(true);
@@ -41,7 +40,6 @@ export default function ChartBuilderPage() {
       
       // Refresh the charts list
       await loadCharts();
-      setShowBuilder(false);
       
     } catch (error) {
       console.error('❌ Failed to save chart:', error);
@@ -51,9 +49,6 @@ export default function ChartBuilderPage() {
     }
   };
 
-  const handleCancelBuilder = () => {
-    setShowBuilder(false);
-  };
 
   const loadCharts = async () => {
     setIsLoading(true);
@@ -144,32 +139,14 @@ export default function ChartBuilderPage() {
     }
   };
 
-  const handleEditChart = async (chart: ChartDefinitionListItem) => {
-    try {
-      
-      // Fetch full chart definition from API
-      const response = await fetch(`/api/admin/analytics/charts/${chart.chart_definition_id}`);
-      if (!response.ok) {
-        throw new Error(`Failed to load chart: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      const chartResponse = result.data.chart;
-      
-      // Extract chart definition from joined API response
-      const fullChartData = chartResponse.chart_definitions || chartResponse;
-      
-      setEditingChart(fullChartData);
-      setShowBuilder(true);
-    } catch (error) {
-      console.error('❌ Failed to load chart for editing:', error);
-      // TODO: Show error toast
-    }
+  const handleEditChart = (chart: ChartDefinitionListItem) => {
+    router.push(`/dashboard/charts/${chart.chart_definition_id}/edit`);
   };
 
-  const handleCancelEdit = () => {
-    setEditingChart(null);
-    setShowBuilder(false);
+  const handleCreateChart = () => {
+    // For now, we can create a temporary ID for new charts
+    // Later we might want a dedicated /dashboard/charts/new route
+    router.push('/dashboard/charts/new');
   };
 
   // Load charts on component mount
@@ -177,16 +154,6 @@ export default function ChartBuilderPage() {
     loadCharts();
   }, []);
 
-  if (showBuilder) {
-    return (
-      <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
-        <ChartBuilder
-          editingChart={editingChart}
-          onCancel={handleCancelEdit}
-        />
-      </div>
-    );
-  }
 
   // Error state
   if (error) {
@@ -272,7 +239,7 @@ export default function ChartBuilderPage() {
             <button
               type="button"
               disabled={isLoading}
-              onClick={() => setShowBuilder(true)}
+              onClick={handleCreateChart}
               className="btn bg-violet-500 hover:bg-violet-600 text-white disabled:opacity-50"
             >
               <svg className="fill-current shrink-0 xs:hidden" width="16" height="16" viewBox="0 0 16 16">

@@ -65,9 +65,10 @@ function ChartBuilderSkeleton() {
 interface ChartBuilderProps {
   editingChart?: any; // Chart definition to edit
   onCancel?: () => void; // Callback when canceling
+  onSaveSuccess?: () => void; // Callback when save is successful
 }
 
-export default function FunctionalChartBuilder({ editingChart, onCancel }: ChartBuilderProps = {}) {
+export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveSuccess }: ChartBuilderProps = {}) {
   const [schemaInfo, setSchemaInfo] = useState<SchemaInfo | null>(null);
   const [isLoadingSchema, setIsLoadingSchema] = useState(true);
   const [currentStep, setCurrentStep] = useState<'configure' | 'preview'>('configure');
@@ -289,8 +290,10 @@ export default function FunctionalChartBuilder({ editingChart, onCancel }: Chart
       setToastType('success');
       setShowToast(true);
       
-      // Return to charts list or reset form
-      if (onCancel) {
+      // Call success callback or reset form
+      if (onSaveSuccess) {
+        onSaveSuccess();
+      } else if (onCancel) {
         onCancel();
       } else {
         setCurrentStep('configure');
