@@ -13,12 +13,10 @@ import { SelectedItemsProvider } from '@/app/selected-items-context';
 export default function ChartBuilderPage() {
   const router = useRouter();
   const [savedCharts, setSavedCharts] = useState<ChartDefinitionListItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true); // Start with loading true
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSaveChart = async (chartDefinition: Partial<ChartDefinition>) => {
-    setIsLoading(true);
-    
     try {
       console.log('💾 Saving chart definition:', chartDefinition);
       
@@ -44,14 +42,11 @@ export default function ChartBuilderPage() {
     } catch (error) {
       console.error('❌ Failed to save chart:', error);
       // TODO: Show toast notification for save error
-    } finally {
-      setIsLoading(false);
     }
   };
 
 
   const loadCharts = async () => {
-    setIsLoading(true);
     setError(null);
     
     try {
@@ -110,15 +105,13 @@ export default function ChartBuilderPage() {
         sampleTransformed: transformedCharts[0]
       });
       
-      setSavedCharts(transformedCharts);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to load charts';
-      console.error('❌ Failed to load charts:', error);
-      setError(errorMessage);
-      setSavedCharts([]); // Ensure we always have an array
-    } finally {
-      setIsLoading(false);
-    }
+        setSavedCharts(transformedCharts);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to load charts';
+        console.error('❌ Failed to load charts:', error);
+        setError(errorMessage);
+        setSavedCharts([]); // Ensure we always have an array
+      }
   };
 
   const deleteChart = async (chartId: string) => {
@@ -216,9 +209,8 @@ export default function ChartBuilderPage() {
             {/* Create chart button */}
             <button
               type="button"
-              disabled={isLoading}
               onClick={handleCreateChart}
-              className="btn bg-violet-500 hover:bg-violet-600 text-white disabled:opacity-50"
+              className="btn bg-violet-500 hover:bg-violet-600 text-white"
             >
               <svg className="fill-current shrink-0 xs:hidden" width="16" height="16" viewBox="0 0 16 16">
                 <path d="m7 7V3c0-.6.4-1 1-1s1 .4 1 1v4h4c.6 0 1 .4 1 1s-.4 1-1 1H9v4c0 .6-.4 1-1 1s-1-.4-1-1V9H3c-.6 0-1-.4-1-1s.4-1 1-1h4Z" />
@@ -229,34 +221,11 @@ export default function ChartBuilderPage() {
         </div>
 
         {/* Charts Table */}
-        {isLoading ? (
-          <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-8">
-            <div className="flex items-center justify-center">
-              <svg className="animate-spin h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24">
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-              <span className="ml-3 text-gray-600 dark:text-gray-400">Loading charts...</span>
-            </div>
-          </div>
-        ) : (
-          <ChartsTable
-            charts={savedCharts}
-            onEdit={handleEditChart}
-            onDelete={deleteChart}
-          />
-        )}
+        <ChartsTable
+          charts={savedCharts}
+          onEdit={handleEditChart}
+          onDelete={deleteChart}
+        />
 
         {/* Pagination */}
         {savedCharts.length > 0 && (
