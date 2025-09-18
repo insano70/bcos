@@ -316,7 +316,12 @@ export class AnomalyDetectionService {
     
     if (historicalValues.length === 0) return 0;
     
-    return historicalValues.reduce((sum, measure) => sum + measure.measure_value, 0) / historicalValues.length;
+    return historicalValues.reduce((sum, measure) => {
+      const value = typeof measure.measure_value === 'string' 
+        ? parseFloat(measure.measure_value) 
+        : measure.measure_value;
+      return sum + (isNaN(value) ? 0 : value);
+    }, 0) / historicalValues.length;
   }
 
   private simpleForecast(values: number[]): number {

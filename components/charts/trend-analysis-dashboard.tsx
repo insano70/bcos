@@ -222,14 +222,24 @@ export default function TrendAnalysisDashboard({
                 <div>
                   <div className="text-gray-500 dark:text-gray-400">Total Value</div>
                   <div className="font-medium text-gray-900 dark:text-gray-100">
-                    {formatCurrency(rawData.reduce((sum, record) => sum + record.measure_value, 0))}
+                    {formatCurrency(rawData.reduce((sum, record) => {
+                      const value = typeof record.measure_value === 'string' 
+                        ? parseFloat(record.measure_value) 
+                        : record.measure_value;
+                      return sum + (isNaN(value) ? 0 : value);
+                    }, 0))}
                   </div>
                 </div>
                 
                 <div>
                   <div className="text-gray-500 dark:text-gray-400">Average</div>
                   <div className="font-medium text-gray-900 dark:text-gray-100">
-                    {formatCurrency(rawData.length > 0 ? rawData.reduce((sum, record) => sum + record.measure_value, 0) / rawData.length : 0)}
+                    {formatCurrency(rawData.length > 0 ? rawData.reduce((sum, record) => {
+                      const value = typeof record.measure_value === 'string' 
+                        ? parseFloat(record.measure_value) 
+                        : record.measure_value;
+                      return sum + (isNaN(value) ? 0 : value);
+                    }, 0) / rawData.length : 0)}
                   </div>
                 </div>
               </div>

@@ -142,11 +142,19 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
     formula: '((value - average) / average) * 100',
     dependencies: ['measure_value'],
     calculate: (measures: AggAppMeasure[]) => {
-      const total = measures.reduce((sum, m) => sum + m.measure_value, 0);
+      const total = measures.reduce((sum, m) => {
+        const value = typeof m.measure_value === 'string' 
+          ? parseFloat(m.measure_value) 
+          : m.measure_value;
+        return sum + (isNaN(value) ? 0 : value);
+      }, 0);
       const average = total / measures.length;
 
       return measures.map(measure => {
-        const variance = average !== 0 ? ((measure.measure_value - average) / average) * 100 : 0;
+        const measureValue = typeof measure.measure_value === 'string' 
+          ? parseFloat(measure.measure_value) 
+          : measure.measure_value;
+        const variance = average !== 0 ? ((measureValue - average) / average) * 100 : 0;
 
         return {
           ...measure,

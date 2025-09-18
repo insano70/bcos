@@ -276,7 +276,15 @@ export class HistoricalComparisonService {
   }
 
   private calculateTotal(measures: AggAppMeasure[]): number {
-    return measures.reduce((sum, measure) => sum + measure.measure_value, 0);
+    return measures.reduce((sum, measure) => {
+      // Ensure measure_value is treated as a number, not concatenated as string
+      const value = typeof measure.measure_value === 'string' 
+        ? parseFloat(measure.measure_value) 
+        : measure.measure_value;
+      
+      // Only add valid numbers
+      return sum + (isNaN(value) ? 0 : value);
+    }, 0);
   }
 
   private formatPeriod(measures: AggAppMeasure[]): string {
