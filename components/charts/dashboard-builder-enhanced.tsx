@@ -58,7 +58,7 @@ function DraggableChart({ chart, onAddChart }: DraggableChartProps) {
 
   return (
     <div
-      ref={drag as any}
+      ref={drag}
       className={`p-3 border border-gray-200 dark:border-gray-700 rounded-lg cursor-move transition-all ${
         isDragging
           ? 'opacity-50 scale-95 border-violet-500 shadow-lg'
@@ -115,7 +115,7 @@ function DashboardChartItem({ dashboardChart, onMove, onRemove, onResize }: Dash
     >
       {/* Drag Handle */}
       <div
-        ref={drag as any}
+        ref={drag}
         className="absolute top-2 left-2 right-2 h-6 bg-gray-100 dark:bg-gray-600 rounded cursor-move flex items-center justify-center group"
       >
         <div className="flex space-x-1">
@@ -204,12 +204,12 @@ function DropZone({ onDrop, children }: DropZoneProps) {
     accept: [ItemTypes.CHART, ItemTypes.DASHBOARD_CHART],
     drop: (item: any, monitor) => {
       const offset = monitor.getClientOffset();
+      const targetRect = monitor.getDropResult();
       
       if (offset) {
         // Calculate grid position based on drop location
-        // Simple grid calculation for demo purposes
-        const gridX = Math.floor(Math.random() * 6); // Random position for now
-        const gridY = Math.floor(Math.random() * 3);
+        const gridX = Math.floor((offset.x - (targetRect?.x || 0)) / 100);
+        const gridY = Math.floor((offset.y - (targetRect?.y || 0)) / 150);
         
         onDrop(item, { x: Math.max(0, gridX), y: Math.max(0, gridY) });
       }
@@ -222,7 +222,7 @@ function DropZone({ onDrop, children }: DropZoneProps) {
 
   return (
     <div
-      ref={drop as any}
+      ref={drop}
       className={`relative transition-all ${
         isOver && canDrop
           ? 'border-violet-500 bg-violet-50 dark:bg-violet-900/20'
