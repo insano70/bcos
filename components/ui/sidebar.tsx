@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useAppProvider } from '@/app/app-provider';
-import { useSelectedLayoutSegments } from 'next/navigation';
+import { useSelectedLayoutSegments, usePathname } from 'next/navigation';
 import { useWindowWidth } from '@/components/utils/use-window-width';
 import SidebarLinkGroup from './sidebar-link-group';
 import SidebarLink from './sidebar-link';
@@ -11,10 +12,36 @@ import { ProtectedComponent } from '../rbac/protected-component';
 import { env } from '@/lib/env';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 
+// Custom navigation link for Charts that highlights for all chart-related routes
+function ChartsNavLink() {
+  const pathname = usePathname();
+  const { setSidebarOpen } = useAppProvider();
+  
+  // Check if current path is charts-related
+  const isChartsActive = pathname.startsWith('/dashboard/charts');
+  
+  return (
+    <Link
+      className={`block text-gray-800 dark:text-gray-100 transition truncate ${
+        isChartsActive 
+          ? 'group-[.is-link-group]:text-violet-500' 
+          : 'hover:text-gray-900 dark:hover:text-white group-[.is-link-group]:text-gray-500/90 dark:group-[.is-link-group]:text-gray-400 hover:group-[.is-link-group]:text-gray-700 dark:hover:group-[.is-link-group]:text-gray-200'
+      }`}
+      href="/dashboard/charts"
+      onClick={() => setSidebarOpen(false)}
+    >
+      <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+        Charts
+      </span>
+    </Link>
+  );
+}
+
 export default function Sidebar({ variant = 'default' }: { variant?: 'default' | 'v2' }) {
   const sidebar = useRef<HTMLDivElement>(null);
   const { sidebarOpen, setSidebarOpen, sidebarExpanded, setSidebarExpanded } = useAppProvider();
   const segments = useSelectedLayoutSegments();
+  const pathname = usePathname();
   const breakpoint = useWindowWidth();
   const expandOnly = !sidebarExpanded && breakpoint && breakpoint >= 1024 && breakpoint < 1536;
   const isExperimentalMode = env.NEXT_PUBLIC_EXPERIMENTAL_MODE;
@@ -181,14 +208,15 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
                 }}
               </SidebarLinkGroup>
               {/* Configure */}
-              <SidebarLinkGroup open={segments.includes('configure')}>
+              <SidebarLinkGroup open={segments.includes('configure') || pathname.startsWith('/dashboard/charts')}>
                 {(handleClick, open) => {
+                  const isConfigureActive = segments.includes('configure') || pathname.startsWith('/dashboard/charts');
                   return (
                     <>
                       <a
                         href="#0"
                         className={`block text-gray-800 dark:text-gray-100 truncate transition ${
-                          segments.includes('configure')
+                          isConfigureActive
                             ? ''
                             : 'hover:text-gray-900 dark:hover:text-white'
                         }`}
@@ -200,7 +228,7 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
                         <div className="flex items-center justify-between">
                           <div className="flex items-center">
                             <svg
-                              className={`shrink-0 fill-current ${segments.includes('configure') ? 'text-violet-500' : 'text-gray-400 dark:text-gray-500'}`}
+                              className={`shrink-0 fill-current ${isConfigureActive ? 'text-violet-500' : 'text-gray-400 dark:text-gray-500'}`}
                               xmlns="http://www.w3.org/2000/svg"
                               width="16"
                               height="16"
@@ -253,11 +281,7 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
                           {/* Charts - Protected by Analytics RBAC */}
                           <ProtectedComponent permission="analytics:read:all">
                             <li className="mb-1 last:mb-0">
-                              <SidebarLink href="/dashboard/charts">
-                                <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
-                                  Charts
-                                </span>
-                              </SidebarLink>
+                              <ChartsNavLink />
                             </li>
                           </ProtectedComponent>
 
