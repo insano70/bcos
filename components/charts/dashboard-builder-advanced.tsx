@@ -89,12 +89,13 @@ function DraggableChart({ chart, onAddChart }: DraggableChartProps) {
 // Dashboard Chart Item (can be moved within dashboard)
 interface DashboardChartItemProps {
   dashboardChart: DashboardChart;
+  dashboardConfig: DashboardConfig;
   onMove: (id: string, position: Partial<DashboardChart['position']>) => void;
   onRemove: (id: string) => void;
   onResize: (id: string, size: { w: number; h: number }) => void;
 }
 
-function DashboardChartItem({ dashboardChart, onMove, onRemove, onResize }: DashboardChartItemProps) {
+function DashboardChartItem({ dashboardChart, dashboardConfig, onMove, onRemove, onResize }: DashboardChartItemProps) {
   const [{ isDragging }, drag] = useDrag(() => ({
     type: ItemTypes.DASHBOARD_CHART,
     item: { id: dashboardChart.id, position: dashboardChart.position },
@@ -109,8 +110,9 @@ function DashboardChartItem({ dashboardChart, onMove, onRemove, onResize }: Dash
         isDragging ? 'opacity-50 scale-95 shadow-xl z-10' : 'hover:border-violet-300 dark:hover:border-violet-600'
       }`}
       style={{
-        gridColumn: `span ${dashboardChart.position.w}`,
-        minHeight: `${dashboardChart.position.h * 150}px`
+        gridColumn: `span ${Math.min(dashboardChart.position.w, dashboardConfig.layout.columns)}`,
+        gridRow: `span ${dashboardChart.position.h}`,
+        minHeight: `${dashboardChart.position.h * dashboardConfig.layout.rowHeight}px`
       }}
     >
       {/* Drag Handle */}
@@ -131,26 +133,6 @@ function DashboardChartItem({ dashboardChart, onMove, onRemove, onResize }: Dash
         <div className="absolute right-1 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
           {/* Resize Buttons */}
           <button
-            onClick={() => onResize(dashboardChart.id, { 
-              w: Math.max(1, dashboardChart.position.w - 1), 
-              h: dashboardChart.position.h 
-            })}
-            className="w-4 h-4 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 flex items-center justify-center"
-            title="Decrease width"
-          >
-            −
-          </button>
-          <button
-            onClick={() => onResize(dashboardChart.id, { 
-              w: Math.min(12, dashboardChart.position.w + 1), 
-              h: dashboardChart.position.h 
-            })}
-            className="w-4 h-4 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 flex items-center justify-center"
-            title="Increase width"
-          >
-            +
-          </button>
-          <button
             onClick={() => onRemove(dashboardChart.id)}
             className="w-4 h-4 bg-red-500 text-white text-xs rounded hover:bg-red-600 flex items-center justify-center"
             title="Remove chart"
@@ -167,12 +149,85 @@ function DashboardChartItem({ dashboardChart, onMove, onRemove, onResize }: Dash
             <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2 text-sm">
               {dashboardChart.chartDefinition.chart_name}
             </h4>
-            <div className="bg-gray-50 dark:bg-gray-800 rounded p-2 text-center text-xs text-gray-500 dark:text-gray-400">
+            <div className="bg-gray-50 dark:bg-gray-800 rounded p-2 text-center text-xs text-gray-500 dark:text-gray-400 mb-3">
               {dashboardChart.chartDefinition.chart_type} Chart Preview
               <br />
               <span className="text-xs">
-                {dashboardChart.position.w} × {dashboardChart.position.h} grid units
+                Position: ({dashboardChart.position.x}, {dashboardChart.position.y}) | Size: {dashboardChart.position.w} × {dashboardChart.position.h}
               </span>
+            </div>
+
+            {/* Chart Size Controls */}
+            <div className="mb-3">
+              <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Width:</div>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => onResize(dashboardChart.id, { w: 6, h: dashboardChart.position.h })}
+                  className={`px-2 py-1 text-xs rounded transition-colors ${
+                    dashboardChart.position.w === 6 
+                      ? 'bg-violet-500 text-white' 
+                      : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'
+                  }`}
+                >
+                  Half
+                </button>
+                <button
+                  onClick={() => onResize(dashboardChart.id, { w: 8, h: dashboardChart.position.h })}
+                  className={`px-2 py-1 text-xs rounded transition-colors ${
+                    dashboardChart.position.w === 8 
+                      ? 'bg-violet-500 text-white' 
+                      : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'
+                  }`}
+                >
+                  Large
+                </button>
+                <button
+                  onClick={() => onResize(dashboardChart.id, { w: 12, h: dashboardChart.position.h })}
+                  className={`px-2 py-1 text-xs rounded transition-colors ${
+                    dashboardChart.position.w === 12 
+                      ? 'bg-violet-500 text-white' 
+                      : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'
+                  }`}
+                >
+                  Full
+                </button>
+              </div>
+            </div>
+
+            {/* Position Controls */}
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div>
+                <label className="block text-gray-600 dark:text-gray-400 mb-1">X:</label>
+                <input
+                  type="number"
+                  min="0"
+                  max={dashboardConfig.layout.columns - dashboardChart.position.w}
+                  value={dashboardChart.position.x}
+                  onChange={(e) => onMove(dashboardChart.id, { x: parseInt(e.target.value) || 0 })}
+                  className="w-full px-1 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-600 dark:text-gray-400 mb-1">Y:</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={dashboardChart.position.y}
+                  onChange={(e) => onMove(dashboardChart.id, { y: parseInt(e.target.value) || 0 })}
+                  className="w-full px-1 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-600 dark:text-gray-400 mb-1">H:</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="6"
+                  value={dashboardChart.position.h}
+                  onChange={(e) => onResize(dashboardChart.id, { w: dashboardChart.position.w, h: parseInt(e.target.value) || 2 })}
+                  className="w-full px-1 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                />
+              </div>
             </div>
           </div>
         ) : (
@@ -197,21 +252,41 @@ function DashboardChartItem({ dashboardChart, onMove, onRemove, onResize }: Dash
 interface DropZoneProps {
   onDrop: (item: any, position: { x: number; y: number }) => void;
   children: React.ReactNode;
+  dashboardConfig: DashboardConfig;
 }
 
-function DropZone({ onDrop, children }: DropZoneProps) {
+function DropZone({ onDrop, children, dashboardConfig }: DropZoneProps) {
   const [{ isOver, canDrop }, drop] = useDrop(() => ({
     accept: [ItemTypes.CHART, ItemTypes.DASHBOARD_CHART],
     drop: (item: any, monitor) => {
       const offset = monitor.getClientOffset();
+      const dropTargetRef = monitor.getDropResult();
       
       if (offset) {
-        // Calculate grid position based on drop location
-        // Simple grid calculation for demo purposes
-        const gridX = Math.floor(Math.random() * 6); // Random position for now
-        const gridY = Math.floor(Math.random() * 3);
-        
-        onDrop(item, { x: Math.max(0, gridX), y: Math.max(0, gridY) });
+        // Get the drop zone element to calculate relative position
+        const dropZone = document.querySelector('[data-drop-zone="true"]') as HTMLElement;
+        if (dropZone) {
+          const rect = dropZone.getBoundingClientRect();
+          const relativeX = offset.x - rect.left;
+          const relativeY = offset.y - rect.top;
+          
+          // Calculate grid cell size based on current layout configuration
+          const cellWidth = rect.width / dashboardConfig.layout.columns;
+          const cellHeight = dashboardConfig.layout.rowHeight;
+          
+          // Calculate grid position
+          const gridX = Math.floor(relativeX / cellWidth);
+          const gridY = Math.floor(relativeY / cellHeight);
+          
+          // Ensure position is within bounds
+          const boundedX = Math.max(0, Math.min(gridX, dashboardConfig.layout.columns - 1));
+          const boundedY = Math.max(0, gridY);
+          
+          onDrop(item, { x: boundedX, y: boundedY });
+        } else {
+          // Fallback to center position
+          onDrop(item, { x: 0, y: 0 });
+        }
       }
     },
     collect: (monitor) => ({
@@ -223,6 +298,7 @@ function DropZone({ onDrop, children }: DropZoneProps) {
   return (
     <div
       ref={drop as any}
+      data-drop-zone="true"
       className={`relative transition-all ${
         isOver && canDrop
           ? 'border-violet-500 bg-violet-50 dark:bg-violet-900/20'
@@ -231,14 +307,32 @@ function DropZone({ onDrop, children }: DropZoneProps) {
     >
       {children}
       
-      {/* Drop Indicator */}
+      {/* Grid Overlay and Drop Indicator */}
       {isOver && canDrop && (
-        <div className="absolute inset-0 flex items-center justify-center bg-violet-100 dark:bg-violet-900/30 border-2 border-violet-500 border-dashed rounded-lg">
-          <div className="text-center text-violet-700 dark:text-violet-300">
-            <div className="text-2xl mb-2">📊</div>
-            <p className="font-medium">Drop chart here</p>
+        <>
+          {/* Grid Overlay */}
+          <div 
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              backgroundImage: `
+                linear-gradient(to right, rgba(139, 92, 246, 0.3) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(139, 92, 246, 0.3) 1px, transparent 1px)
+              `,
+              backgroundSize: `${100 / dashboardConfig.layout.columns}% ${dashboardConfig.layout.rowHeight}px`
+            }}
+          />
+          
+          {/* Drop Indicator */}
+          <div className="absolute inset-0 flex items-center justify-center bg-violet-100 dark:bg-violet-900/30 border-2 border-violet-500 border-dashed rounded-lg">
+            <div className="text-center text-violet-700 dark:text-violet-300">
+              <div className="text-2xl mb-2">📊</div>
+              <p className="font-medium">Drop chart into grid position</p>
+              <p className="text-xs mt-1">
+                Grid: {dashboardConfig.layout.columns} columns × {dashboardConfig.layout.rowHeight}px rows
+              </p>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
@@ -263,6 +357,7 @@ export default function EnhancedDashboardBuilder() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const [showGridPreview, setShowGridPreview] = useState(false);
 
   useEffect(() => {
     loadCharts();
@@ -334,15 +429,57 @@ export default function EnhancedDashboardBuilder() {
     }));
   }, []);
 
+  // Collision detection helper
+  const isPositionAvailable = useCallback((x: number, y: number, w: number, h: number, excludeId?: string) => {
+    return !dashboardConfig.charts.some(chart => {
+      if (excludeId && chart.id === excludeId) return false; // Exclude the chart being moved
+      
+      // Check if rectangles overlap
+      const chart1 = { x, y, w, h };
+      const chart2 = chart.position;
+      
+      return !(chart1.x + chart1.w <= chart2.x || 
+               chart2.x + chart2.w <= chart1.x || 
+               chart1.y + chart1.h <= chart2.y || 
+               chart2.y + chart2.h <= chart1.y);
+    });
+  }, [dashboardConfig.charts]);
+
+  // Find next available position
+  const findAvailablePosition = useCallback((w: number, h: number) => {
+    for (let y = 0; y < 20; y++) { // Max 20 rows
+      for (let x = 0; x <= dashboardConfig.layout.columns - w; x++) {
+        if (isPositionAvailable(x, y, w, h)) {
+          return { x, y };
+        }
+      }
+    }
+    return { x: 0, y: 0 }; // Fallback
+  }, [dashboardConfig.layout.columns, isPositionAvailable]);
+
   const handleDrop = useCallback((item: any, position: { x: number; y: number }) => {
     if (item.chart) {
       // Adding new chart from sidebar
-      addChartToDashboard(item.chart, position);
+      const chartWidth = 6; // Default width
+      const chartHeight = 2; // Default height
+      
+      // Check if the dropped position is available
+      if (isPositionAvailable(position.x, position.y, chartWidth, chartHeight)) {
+        addChartToDashboard(item.chart, position);
+      } else {
+        // Find alternative position
+        const availablePosition = findAvailablePosition(chartWidth, chartHeight);
+        addChartToDashboard(item.chart, availablePosition);
+      }
     } else if (item.id) {
       // Moving existing chart
-      moveChart(item.id, { x: position.x, y: position.y });
+      const chart = dashboardConfig.charts.find(c => c.id === item.id);
+      if (chart && isPositionAvailable(position.x, position.y, chart.position.w, chart.position.h, item.id)) {
+        moveChart(item.id, { x: position.x, y: position.y });
+      }
+      // If position not available, don't move (stay in original position)
     }
-  }, [addChartToDashboard, moveChart]);
+  }, [addChartToDashboard, moveChart, isPositionAvailable, findAvailablePosition, dashboardConfig.charts]);
 
   const saveDashboard = async () => {
     if (!dashboardConfig.dashboardName.trim()) {
@@ -495,20 +632,104 @@ export default function EnhancedDashboardBuilder() {
                 </div>
               </div>
 
-              {/* Layout Configuration */}
-              <div className="mt-4 flex items-center space-x-4 text-sm">
-                <span className="text-gray-700 dark:text-gray-300">Layout:</span>
-                <span className="text-gray-500 dark:text-gray-400">
-                  {dashboardConfig.layout.columns} columns × {dashboardConfig.layout.rowHeight}px rows
-                </span>
-                <span className="text-gray-500 dark:text-gray-400">
-                  {dashboardConfig.charts.length} charts
-                </span>
-              </div>
+              {/* Layout Configuration Controls */}
+              <details className="mt-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                <summary className="px-3 py-2 cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg">
+                  🎛️ Layout Configuration ({dashboardConfig.layout.columns} cols × {dashboardConfig.layout.rowHeight}px rows)
+                </summary>
+                
+                <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/20">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Grid Columns
+                      </label>
+                      <input
+                        type="number"
+                        min="6"
+                        max="24"
+                        value={dashboardConfig.layout.columns}
+                        onChange={(e) => setDashboardConfig(prev => ({
+                          ...prev,
+                          layout: { ...prev.layout, columns: parseInt(e.target.value) || 12 }
+                        }))}
+                        className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      />
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">6-24 columns</div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Row Height (px)
+                      </label>
+                      <input
+                        type="number"
+                        min="100"
+                        max="300"
+                        value={dashboardConfig.layout.rowHeight}
+                        onChange={(e) => setDashboardConfig(prev => ({
+                          ...prev,
+                          layout: { ...prev.layout, rowHeight: parseInt(e.target.value) || 150 }
+                        }))}
+                        className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      />
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">100-300px</div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Grid Margin (px)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="50"
+                        value={dashboardConfig.layout.margin}
+                        onChange={(e) => setDashboardConfig(prev => ({
+                          ...prev,
+                          layout: { ...prev.layout, margin: parseInt(e.target.value) || 10 }
+                        }))}
+                        className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                      />
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">0-50px spacing</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex justify-between items-center">
+                    <div className="text-xs text-gray-600 dark:text-gray-400">
+                      💡 Layout changes apply immediately to the dashboard canvas
+                    </div>
+                    
+                    <label className="flex items-center text-xs">
+                      <input
+                        type="checkbox"
+                        checked={showGridPreview}
+                        onChange={(e) => setShowGridPreview(e.target.checked)}
+                        className="mr-1 text-violet-500"
+                      />
+                      <span className="text-gray-600 dark:text-gray-400">Show Grid</span>
+                    </label>
+                  </div>
+                </div>
+              </details>
             </div>
 
             {/* Dashboard Canvas */}
-            <DropZone onDrop={handleDrop}>
+            <DropZone onDrop={handleDrop} dashboardConfig={dashboardConfig}>
+              {/* Grid Preview Overlay */}
+              {showGridPreview && (
+                <div 
+                  className="absolute inset-4 pointer-events-none z-10"
+                  style={{
+                    backgroundImage: `
+                      linear-gradient(to right, rgba(139, 92, 246, 0.2) 1px, transparent 1px),
+                      linear-gradient(to bottom, rgba(139, 92, 246, 0.2) 1px, transparent 1px)
+                    `,
+                    backgroundSize: `${100 / dashboardConfig.layout.columns}% ${dashboardConfig.layout.rowHeight}px`
+                  }}
+                />
+              )}
+              
               {dashboardConfig.charts.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
                   <div className="text-center">
@@ -523,11 +744,19 @@ export default function EnhancedDashboardBuilder() {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-12 gap-4 auto-rows-min">
+                <div 
+                  className="grid auto-rows-min"
+                  style={{
+                    gridTemplateColumns: `repeat(${dashboardConfig.layout.columns}, 1fr)`,
+                    gap: `${dashboardConfig.layout.margin}px`,
+                    gridAutoRows: `${dashboardConfig.layout.rowHeight}px`
+                  }}
+                >
                   {dashboardConfig.charts.map((dashboardChart, index) => (
                     <DashboardChartItem
                       key={dashboardChart.id || `dashboard-chart-${index}`}
                       dashboardChart={dashboardChart}
+                      dashboardConfig={dashboardConfig}
                       onMove={moveChart}
                       onRemove={removeChart}
                       onResize={resizeChart}
