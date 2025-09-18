@@ -13,7 +13,8 @@ import { SelectedItemsProvider } from '@/app/selected-items-context';
 export default function ChartBuilderPage() {
   const [showBuilder, setShowBuilder] = useState(false);
   const [savedCharts, setSavedCharts] = useState<ChartDefinitionListItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start with loading true
+  const [error, setError] = useState<string | null>(null);
   const [selectedChart, setSelectedChart] = useState<ChartDefinitionListItem | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
@@ -56,21 +57,73 @@ export default function ChartBuilderPage() {
   };
 
   const loadCharts = async () => {
+    setIsLoading(true);
+    setError(null);
+    
     try {
+      console.log('🔍 Loading chart definitions from API...');
+      
       const response = await fetch('/api/admin/analytics/charts');
-      if (response.ok) {
-        const result = await response.json();
-        const charts = result.data.charts || [];
-        // Ensure each chart has a unique ID for React keys
-        const chartsWithIds = charts.map((chart: any, index: number) => ({
-          ...chart,
-          chart_definition_id: chart.chart_definition_id || `temp-${index}`
-        }));
-        setSavedCharts(chartsWithIds);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
+      
+      const result = await response.json();
+      console.log('📊 Raw API Response:', result);
+      
+      if (!result.success) {
+        throw new Error(result.message || 'API returned unsuccessful response');
+      }
+      
+      const charts = result.data.charts || [];
+      console.log('📋 Charts data structure:', {
+        count: charts.length,
+        sampleChart: charts[0]
+      });
+      
+      // Transform joined API data to flat ChartDefinitionListItem structure
+      const transformedCharts: ChartDefinitionListItem[] = charts.map((item: any, index: number) => {
+        // Handle joined data structure from API (leftJoin returns nested objects)
+        const chartDef = item.chart_definitions || item;
+        const category = item.chart_categories;
+        const user = item.users;
+        
+        console.log(`🔄 Transforming chart ${index}:`, {
+          original: item,
+          chartDef,
+          category,
+          user
+        });
+        
+        return {
+          chart_definition_id: chartDef.chart_definition_id || `temp-${index}`,
+          chart_name: chartDef.chart_name || 'Unnamed Chart',
+          chart_description: chartDef.chart_description || undefined,
+          chart_type: chartDef.chart_type || 'bar',
+          chart_category_id: chartDef.chart_category_id || undefined,
+          category_name: category?.category_name || undefined,
+          created_by: chartDef.created_by || 'unknown',
+          creator_name: user?.first_name || undefined,
+          creator_last_name: user?.last_name || undefined,
+          created_at: chartDef.created_at || new Date().toISOString(),
+          updated_at: chartDef.updated_at || new Date().toISOString(),
+          is_active: chartDef.is_active ?? true,
+        };
+      });
+      
+      console.log('✅ Transformed charts:', {
+        count: transformedCharts.length,
+        sampleTransformed: transformedCharts[0]
+      });
+      
+      setSavedCharts(transformedCharts);
     } catch (error) {
-      console.error('Failed to load charts:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load charts';
+      console.error('❌ Failed to load charts:', error);
+      setError(errorMessage);
       setSavedCharts([]); // Ensure we always have an array
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -109,6 +162,44 @@ export default function ChartBuilderPage() {
           
           
         />
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6">
+          <div className="flex items-center">
+            <svg
+              className="w-6 h-6 text-red-600 dark:text-red-400 mr-3"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+              />
+            </svg>
+            <div>
+              <h3 className="text-red-800 dark:text-red-200 font-medium">Error loading chart definitions</h3>
+              <p className="text-red-600 dark:text-red-400 text-sm mt-1">
+                {error}
+              </p>
+              <button
+                type="button"
+                onClick={() => loadCharts()}
+                className="mt-3 btn-sm bg-red-600 hover:bg-red-700 text-white"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
