@@ -255,9 +255,6 @@ export default function ChartBuilderPage() {
                 </span>
               )}
             </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              Create and manage your analytics charts
-            </p>
           </div>
 
           {/* Right: Actions */}
