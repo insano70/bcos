@@ -49,7 +49,7 @@ export default function DashboardPreviewModal({
     <div className={`fixed inset-0 z-50 ${isOpen ? 'block' : 'hidden'}`}>
       {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-gray-900/50 transition-opacity"
+        className="fixed inset-0 bg-gray-900 transition-opacity"
         onClick={handleClose}
       />
       
