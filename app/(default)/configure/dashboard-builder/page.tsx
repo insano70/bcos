@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import AdvancedDashboardBuilder from '@/components/charts/dashboard-builder-advanced';
+import RowBasedDashboardBuilder from '@/components/charts/row-based-dashboard-builder';
 
 export default function DashboardBuilderPage() {
   const router = useRouter();
@@ -52,7 +52,7 @@ export default function DashboardBuilderPage() {
       </div>
 
       {/* Dashboard Builder */}
-      <AdvancedDashboardBuilder
+      <RowBasedDashboardBuilder
         onCancel={handleCancel}
         onSaveSuccess={handleSaveSuccess}
       />

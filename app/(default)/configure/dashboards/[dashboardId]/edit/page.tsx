@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import AdvancedDashboardBuilder from '@/components/charts/dashboard-builder-advanced';
+import RowBasedDashboardBuilder from '@/components/charts/row-based-dashboard-builder';
 import type { Dashboard, DashboardChart } from '@/lib/types/analytics';
 
 interface DashboardWithCharts extends Dashboard {
@@ -176,7 +176,7 @@ export default function EditDashboardPage() {
       </div>
 
       {/* Dashboard Builder */}
-      <AdvancedDashboardBuilder
+      <RowBasedDashboardBuilder
         editingDashboard={dashboardData}
         onCancel={handleCancel}
         onSaveSuccess={handleSaveSuccess}
