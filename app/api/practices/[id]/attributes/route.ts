@@ -6,7 +6,8 @@ import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { practiceAttributesUpdateSchema, practiceParamsSchema } from '@/lib/validations/practice';
-import { practiceRoute } from '@/lib/api/rbac-route-handler';
+import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { extractors } from '@/lib/api/utils/rbac-extractors';
 import type { UserContext } from '@/lib/types/rbac'
 import { logger } from '@/lib/logger';
 import { 
@@ -156,14 +157,22 @@ const updatePracticeAttributesHandler = async (request: NextRequest, userContext
 }
 
 // Export with RBAC protection
-export const GET = practiceRoute(
-  ['practices:read:own', 'practices:read:all'],
+export const GET = rbacRoute(
   getPracticeAttributesHandler,
-  { rateLimit: 'api' }
+  {
+    permission: ['practices:read:own', 'practices:read:all'],
+    extractResourceId: extractors.practiceId,
+    extractOrganizationId: extractors.organizationId,
+    rateLimit: 'api'
+  }
 );
 
-export const PUT = practiceRoute(
-  ['practices:update:own', 'practices:manage:all'],
+export const PUT = rbacRoute(
   updatePracticeAttributesHandler,
-  { rateLimit: 'api' }
+  {
+    permission: ['practices:update:own', 'practices:manage:all'],
+    extractResourceId: extractors.practiceId,
+    extractOrganizationId: extractors.organizationId,
+    rateLimit: 'api'
+  }
 );

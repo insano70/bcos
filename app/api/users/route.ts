@@ -4,7 +4,8 @@ import { createErrorResponse, ConflictError } from '@/lib/api/responses/error';
 import { validateRequest, validateQuery } from '@/lib/api/middleware/validation';
 import { getPagination, getSortParams } from '@/lib/api/utils/request';
 import { userCreateSchema, userQuerySchema } from '@/lib/validations/user';
-import { userRoute } from '@/lib/api/rbac-route-handler';
+import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { createRBACUsersService } from '@/lib/services/rbac-users-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { db } from '@/lib/db';
@@ -124,10 +125,14 @@ const getUsersHandler = async (request: NextRequest, userContext: UserContext) =
 }
 
 // Export with RBAC protection - users can read based on their scope
-export const GET = userRoute(
-  ['users:read:own', 'users:read:organization', 'users:read:all'],
+export const GET = rbacRoute(
   getUsersHandler,
-  { rateLimit: 'api' }
+  {
+    permission: ['users:read:own', 'users:read:organization', 'users:read:all'],
+    extractResourceId: extractors.userId,
+    extractOrganizationId: extractors.organizationId,
+    rateLimit: 'api'
+  }
 );
 
 const createUserHandler = async (request: NextRequest, userContext: UserContext) => {
@@ -259,8 +264,11 @@ const createUserHandler = async (request: NextRequest, userContext: UserContext)
 }
 
 // Export with RBAC protection - requires permission to create users
-export const POST = userRoute(
-  'users:create:organization',
+export const POST = rbacRoute(
   createUserHandler,
-  { rateLimit: 'api' }
+  {
+    permission: 'users:create:organization',
+    extractOrganizationId: extractors.organizationId,
+    rateLimit: 'api'
+  }
 );

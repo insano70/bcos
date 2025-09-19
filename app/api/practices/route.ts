@@ -6,7 +6,8 @@ import { createErrorResponse, ConflictError, ValidationError } from '@/lib/api/r
 import { validateRequest, validateQuery } from '@/lib/api/middleware/validation';
 import { getPagination, getSortParams } from '@/lib/api/utils/request';
 import { practiceCreateSchema, practiceQuerySchema } from '@/lib/validations/practice';
-import { practiceRoute, superAdminRoute } from '@/lib/api/rbac-route-handler';
+import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { extractors, rbacConfigs } from '@/lib/api/utils/rbac-extractors';
 import { createRBACOrganizationsService } from '@/lib/services/rbac-organizations-service';
 import type { UserContext } from '@/lib/types/rbac';
 
@@ -172,14 +173,21 @@ const createPracticeHandler = async (request: NextRequest, userContext: UserCont
 };
 
 // Export with RBAC protection
-export const GET = practiceRoute(
-  ['practices:read:own', 'practices:read:all'],
+export const GET = rbacRoute(
   getPracticesHandler,
-  { rateLimit: 'api' }
+  {
+    permission: ['practices:read:own', 'practices:read:all'],
+    extractResourceId: extractors.practiceId,
+    extractOrganizationId: extractors.organizationId,
+    rateLimit: 'api'
+  }
 );
 
 // Only super admins can create new practices
-export const POST = superAdminRoute(
+export const POST = rbacRoute(
   createPracticeHandler,
-  { rateLimit: 'api' }
+  {
+    ...rbacConfigs.superAdmin,
+    rateLimit: 'api'
+  }
 );

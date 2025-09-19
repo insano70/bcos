@@ -450,53 +450,168 @@ export function getSortParams(
 
 ```typescript
 // Example: app/api/users/route.ts
-import { requireAuth, requireRole } from '../_shared/middleware/auth'
-import { validateRequest, validateQuery } from '../_shared/middleware/validation'
-import { applyRateLimit } from '../_shared/middleware/rateLimit'
-import { createSuccessResponse, createErrorResponse, createPaginatedResponse } from '../_shared/responses/success'
-import { APIError } from '../_shared/responses/error'
-import { getPagination, getSortParams } from '../_shared/utils/request'
+import type { NextRequest } from 'next/server'
+import { rbacRoute, publicRoute } from '@/lib/api/rbac-route-handler'
+import { extractors, rbacConfigs } from '@/lib/api/utils/rbac-extractors'
+import { createSuccessResponse, createErrorResponse, createPaginatedResponse } from '@/lib/api/responses/success'
+import { validateRequest, validateQuery } from '@/lib/api/middleware/validation'
+import { getPagination, getSortParams } from '@/lib/api/utils/request'
 import { userCreateSchema, userQuerySchema } from '@/lib/validations/user'
+import type { UserContext } from '@/lib/types/rbac'
 
-// GET /api/users - List users (admin only)
-export async function GET(request: Request) {
+// Handler function with full logging and error handling
+const getUsersHandler = async (request: NextRequest, userContext: UserContext) => {
+  const startTime = Date.now()
+  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id)
+  
   try {
-    await applyRateLimit(request, 'api')
-    await requireRole(request, ['admin'])
-    
     const { searchParams } = new URL(request.url)
     const pagination = getPagination(searchParams)
-    const sort = getSortParams(searchParams, ['name', 'email', 'createdAt'])
+    const sort = getSortParams(searchParams, ['first_name', 'last_name', 'email', 'created_at'])
     const query = validateQuery(searchParams, userQuerySchema)
     
+    // Business logic here...
     const { users, total } = await getUsersWithPagination({
       ...pagination,
       ...sort,
-      ...query
+      ...query,
+      organizationId: userContext.current_organization_id
     })
     
     return createPaginatedResponse(users, { ...pagination, total })
     
   } catch (error) {
-    return createErrorResponse(error, request)
+    logger.error('Get users failed', error)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
 
-// POST /api/users - Create user (admin only)
-export async function POST(request: Request) {
-  try {
-    await applyRateLimit(request, 'api')
-    await requireRole(request, ['admin'])
-    
-    const userData = await validateRequest(request, userCreateSchema)
-    const user = await createUser(userData)
-    
-    return createSuccessResponse(user, 'User created successfully')
-    
-  } catch (error) {
-    return createErrorResponse(error, request)
+// STANDARDIZED RBAC ROUTE EXPORTS
+
+// GET /api/users - List users with proper permission checking
+export const GET = rbacRoute(
+  getUsersHandler,
+  {
+    permission: ['users:read:own', 'users:read:organization', 'users:read:all'],
+    extractResourceId: extractors.userId, // For checking specific user access
+    extractOrganizationId: extractors.organizationId, // For org-scoped permissions
+    rateLimit: 'api'
   }
-}
+)
+
+// POST /api/users - Create user (requires organization admin)
+export const POST = rbacRoute(
+  createUserHandler,
+  {
+    permission: 'users:create:organization',
+    extractOrganizationId: extractors.organizationId,
+    rateLimit: 'api'
+  }
+)
+
+// Super admin only endpoints use rbacConfigs
+export const DELETE = rbacRoute(
+  deleteAllUsersHandler,
+  {
+    ...rbacConfigs.superAdmin, // Requires users:read:all + practices:read:all
+    rateLimit: 'api'
+  }
+)
+
+// Public endpoints (rare, but available)
+export const OPTIONS = publicRoute(
+  corsHandler,
+  'CORS preflight requests must be public',
+  { rateLimit: 'api' }
+)
+```
+
+### RBAC Route Configuration Guide
+
+#### Available Route Wrappers
+Use only these two standardized wrappers:
+
+```typescript
+// For authenticated endpoints (most common)
+export const GET = rbacRoute(handler, options)
+
+// For public endpoints (rare - must justify)
+export const GET = publicRoute(handler, reason, options)
+```
+
+#### Resource ID Extractors
+Import and use standardized extractors from `@/lib/api/utils/rbac-extractors`:
+
+```typescript
+import { extractors, rbacConfigs } from '@/lib/api/utils/rbac-extractors'
+
+// Available extractors:
+extractors.userId         // /api/users/123 → "123"
+extractors.practiceId     // /api/practices/abc → "abc"
+extractors.staffId        // /api/practices/123/staff/456 → "456"
+extractors.chartId        // /api/charts/789 → "789"
+extractors.dashboardId    // /api/dashboards/def → "def"
+extractors.organizationId // Header or query param → org ID
+```
+
+#### Common Permission Patterns
+
+```typescript
+// Single user access (owns the resource)
+export const GET = rbacRoute(handler, {
+  permission: 'users:read:own',
+  extractResourceId: extractors.userId,
+  rateLimit: 'api'
+})
+
+// Multi-level permissions (own OR organization OR all)
+export const GET = rbacRoute(handler, {
+  permission: ['users:read:own', 'users:read:organization', 'users:read:all'],
+  extractResourceId: extractors.userId,
+  extractOrganizationId: extractors.organizationId,
+  rateLimit: 'api'
+})
+
+// Practice management with scoping
+export const PUT = rbacRoute(handler, {
+  permission: ['practices:update:own', 'practices:manage:all'],
+  extractResourceId: extractors.practiceId,
+  extractOrganizationId: extractors.organizationId,
+  rateLimit: 'api'
+})
+
+// Super admin endpoints (use pre-configured)
+export const DELETE = rbacRoute(handler, {
+  ...rbacConfigs.superAdmin, // includes required permissions + requireAllPermissions
+  rateLimit: 'api'
+})
+
+// Analytics with organization scoping
+export const GET = rbacRoute(handler, {
+  permission: 'analytics:read:all',
+  extractOrganizationId: extractors.organizationId,
+  rateLimit: 'api'
+})
+```
+
+#### Rate Limiting Tiers
+
+```typescript
+rateLimit: 'auth'    // Strictest (login, register, password reset)
+rateLimit: 'api'     // Standard (most endpoints)
+rateLimit: 'upload'  // Generous (file uploads)
+```
+
+#### RBAC Configuration Objects
+Pre-configured for common scenarios:
+
+```typescript
+// Use these instead of duplicating permission sets
+rbacConfigs.superAdmin        // Requires users:read:all + practices:read:all (AND logic)
+rbacConfigs.organizationAdmin // Users OR practices admin (OR logic) 
+rbacConfigs.practiceManagement // Practice resource + org scoping
+rbacConfigs.userManagement     // User resource + org scoping
+rbacConfigs.analytics          // Analytics with org scoping
 ```
 
 ### Service Layer Organization

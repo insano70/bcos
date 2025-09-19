@@ -4,7 +4,8 @@ import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { userUpdateSchema, userParamsSchema } from '@/lib/validations/user';
-import { userRoute } from '@/lib/api/rbac-route-handler';
+import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { createRBACUsersService } from '@/lib/services/rbac-users-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { 
@@ -217,20 +218,32 @@ const deleteUserHandler = async (request: NextRequest, userContext: UserContext,
 };
 
 // Export with RBAC protection
-export const GET = userRoute(
-  ['users:read:own', 'users:read:organization', 'users:read:all'],
+export const GET = rbacRoute(
   getUserHandler,
-  { rateLimit: 'api' }
+  {
+    permission: ['users:read:own', 'users:read:organization', 'users:read:all'],
+    extractResourceId: extractors.userId,
+    extractOrganizationId: extractors.organizationId,
+    rateLimit: 'api'
+  }
 );
 
-export const PUT = userRoute(
-  ['users:update:own', 'users:update:organization', 'users:manage:all'],
+export const PUT = rbacRoute(
   updateUserHandler,
-  { rateLimit: 'api' }
+  {
+    permission: ['users:update:own', 'users:update:organization', 'users:manage:all'],
+    extractResourceId: extractors.userId,
+    extractOrganizationId: extractors.organizationId,
+    rateLimit: 'api'
+  }
 );
 
-export const DELETE = userRoute(
-  ['users:delete:organization', 'users:manage:all'],
+export const DELETE = rbacRoute(
   deleteUserHandler,
-  { rateLimit: 'api' }
+  {
+    permission: ['users:delete:organization', 'users:manage:all'],
+    extractResourceId: extractors.userId,
+    extractOrganizationId: extractors.organizationId,
+    rateLimit: 'api'
+  }
 );

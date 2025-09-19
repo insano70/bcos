@@ -8,7 +8,8 @@ import { extractRouteParams } from '@/lib/api/utils/params';
 import { getPagination, getSortParams } from '@/lib/api/utils/request';
 import { staffCreateSchema, staffQuerySchema, staffParamsSchema } from '@/lib/validations/staff';
 import { practiceParamsSchema } from '@/lib/validations/practice';
-import { practiceRoute, rbacRoute } from '@/lib/api/rbac-route-handler';
+import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { extractors } from '@/lib/api/utils/rbac-extractors';
 import type { UserContext } from '@/lib/types/rbac'
 import { logger } from '@/lib/logger';
 import { parseSpecialties, parseEducation } from '@/lib/utils/safe-json';
@@ -191,14 +192,22 @@ const createPracticeStaffHandler = async (request: NextRequest, userContext: Use
 }
 
 // Export with RBAC protection
-export const GET = practiceRoute(
-  ['practices:staff:manage:own', 'practices:manage:all'],
+export const GET = rbacRoute(
   getPracticeStaffHandler,
-  { rateLimit: 'api' }
+  {
+    permission: ['practices:staff:manage:own', 'practices:manage:all'],
+    extractResourceId: extractors.practiceId,
+    extractOrganizationId: extractors.organizationId,
+    rateLimit: 'api'
+  }
 );
 
-export const POST = practiceRoute(
-  ['practices:staff:manage:own', 'practices:manage:all'],
+export const POST = rbacRoute(
   createPracticeStaffHandler,
-  { rateLimit: 'api' }
+  {
+    permission: ['practices:staff:manage:own', 'practices:manage:all'],
+    extractResourceId: extractors.practiceId,
+    extractOrganizationId: extractors.organizationId,
+    rateLimit: 'api'
+  }
 );

@@ -7,7 +7,8 @@ import { validateRequest } from '@/lib/api/middleware/validation';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { staffUpdateSchema } from '@/lib/validations/staff';
 import { z } from 'zod';
-import { practiceRoute } from '@/lib/api/rbac-route-handler';
+import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { extractors } from '@/lib/api/utils/rbac-extractors';
 import type { UserContext } from '@/lib/types/rbac';
 import { 
   createAPILogger, 
@@ -352,20 +353,32 @@ const deleteStaffMemberHandler = async (request: NextRequest, userContext: UserC
 };
 
 // Export with RBAC protection following users pattern
-export const GET = practiceRoute(
-  ['practices:staff:read:own', 'practices:manage:all'],
+export const GET = rbacRoute(
   getStaffMemberHandler,
-  { rateLimit: 'api' }
+  {
+    permission: ['practices:staff:read:own', 'practices:manage:all'],
+    extractResourceId: extractors.practiceId, // Primary resource is the practice
+    extractOrganizationId: extractors.organizationId,
+    rateLimit: 'api'
+  }
 );
 
-export const PUT = practiceRoute(
-  ['practices:staff:manage:own', 'practices:manage:all'],
+export const PUT = rbacRoute(
   updateStaffMemberHandler,
-  { rateLimit: 'api' }
+  {
+    permission: ['practices:staff:manage:own', 'practices:manage:all'],
+    extractResourceId: extractors.practiceId,
+    extractOrganizationId: extractors.organizationId,
+    rateLimit: 'api'
+  }
 );
 
-export const DELETE = practiceRoute(
-  ['practices:staff:manage:own', 'practices:manage:all'],
+export const DELETE = rbacRoute(
   deleteStaffMemberHandler,
-  { rateLimit: 'api' }
+  {
+    permission: ['practices:staff:manage:own', 'practices:manage:all'],
+    extractResourceId: extractors.practiceId,
+    extractOrganizationId: extractors.organizationId,
+    rateLimit: 'api'
+  }
 );

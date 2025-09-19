@@ -6,7 +6,8 @@ import { createErrorResponse, NotFoundError, ConflictError } from '@/lib/api/res
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { practiceUpdateSchema, practiceParamsSchema } from '@/lib/validations/practice';
-import { practiceRoute, superAdminRoute } from '@/lib/api/rbac-route-handler';
+import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { extractors, rbacConfigs } from '@/lib/api/utils/rbac-extractors';
 import type { UserContext } from '@/lib/types/rbac';
 
 const getPracticeHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
@@ -173,20 +174,31 @@ const deletePracticeHandler = async (request: NextRequest, userContext: UserCont
 }
 
 // Export with RBAC protection
-export const GET = practiceRoute(
-  ['practices:read:own', 'practices:read:all'],
+export const GET = rbacRoute(
   getPracticeHandler,
-  { rateLimit: 'api' }
+  {
+    permission: ['practices:read:own', 'practices:read:all'],
+    extractResourceId: extractors.practiceId,
+    extractOrganizationId: extractors.organizationId,
+    rateLimit: 'api'
+  }
 );
 
-export const PUT = practiceRoute(
-  ['practices:update:own', 'practices:manage:all'],
+export const PUT = rbacRoute(
   updatePracticeHandler,
-  { rateLimit: 'api' }
+  {
+    permission: ['practices:update:own', 'practices:manage:all'],
+    extractResourceId: extractors.practiceId,
+    extractOrganizationId: extractors.organizationId,
+    rateLimit: 'api'
+  }
 );
 
 // Only super admins can delete practices
-export const DELETE = superAdminRoute(
+export const DELETE = rbacRoute(
   deletePracticeHandler,
-  { rateLimit: 'api' }
+  {
+    ...rbacConfigs.superAdmin,
+    rateLimit: 'api'
+  }
 );

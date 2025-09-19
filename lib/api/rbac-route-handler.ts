@@ -260,98 +260,7 @@ export function publicRoute(
   );
 }
 
-/**
- * Admin-only route (requires super admin permissions)
- */
-export function superAdminRoute(
-  handler: (request: NextRequest, userContext: UserContext, ...args: unknown[]) => Promise<Response>,
-  options: Omit<RBACRouteOptions, 'permission'> = {}
-) {
-  return rbacRoute(handler, {
-    ...options,
-    permission: ['users:read:all', 'practices:read:all'],
-    requireAllPermissions: true,
-    requireAuth: true
-  });
-}
-
-/**
- * Organization admin route (requires practice admin permissions)
- */
-export function orgAdminRoute(
-  handler: (request: NextRequest, userContext: UserContext, ...args: unknown[]) => Promise<Response>,
-  options: Omit<RBACRouteOptions, 'permission'> = {}
-) {
-  return rbacRoute(handler, {
-    ...options,
-    permission: ['users:create:organization', 'practices:update:own'],
-    requireAllPermissions: false, // OR logic - either permission is sufficient
-    requireAuth: true
-  });
-}
-
-/**
- * User management route
- */
-export function userRoute(
-  permission: PermissionName | PermissionName[],
-  handler: (request: NextRequest, userContext: UserContext, ...args: unknown[]) => Promise<Response>,
-  options: Omit<RBACRouteOptions, 'permission'> = {}
-) {
-  return rbacRoute(handler, {
-    ...options,
-    permission,
-    extractResourceId: (request) => {
-      const pathSegments = request.nextUrl.pathname.split('/');
-      const userIndex = pathSegments.indexOf('users');
-      return userIndex >= 0 && pathSegments[userIndex + 1] ? pathSegments[userIndex + 1] : undefined;
-    },
-    extractOrganizationId: (request) => {
-      return request.headers.get('x-organization-id') || undefined;
-    }
-  });
-}
-
-/**
- * Practice management route
- */
-export function practiceRoute(
-  permission: PermissionName | PermissionName[],
-  handler: (request: NextRequest, userContext: UserContext, ...args: unknown[]) => Promise<Response>,
-  options: Omit<RBACRouteOptions, 'permission'> = {}
-) {
-  return rbacRoute(handler, {
-    ...options,
-    permission,
-    extractResourceId: (request) => {
-      const pathSegments = request.nextUrl.pathname.split('/');
-      const practiceIndex = pathSegments.indexOf('practices');
-      return practiceIndex >= 0 && pathSegments[practiceIndex + 1] ? pathSegments[practiceIndex + 1] : undefined;
-    },
-    extractOrganizationId: (request) => {
-      return request.nextUrl.searchParams.get('organizationId') || 
-             request.headers.get('x-organization-id') || undefined;
-    }
-  });
-}
-
-/**
- * Analytics route with organization scoping
- */
-export function analyticsRoute(
-  permission: PermissionName | PermissionName[],
-  handler: (request: NextRequest, userContext: UserContext, ...args: unknown[]) => Promise<Response>,
-  options: Omit<RBACRouteOptions, 'permission'> = {}
-) {
-  return rbacRoute(handler, {
-    ...options,
-    permission,
-    extractOrganizationId: (request) => {
-      return request.nextUrl.searchParams.get('organizationId') || 
-             request.headers.get('x-organization-id') || undefined;
-    }
-  });
-}
+// Deprecated route wrappers removed - use rbacRoute with extractors from @/lib/api/utils/rbac-extractors
 
 /**
  * Backward compatibility wrapper for existing secureRoute usage
@@ -635,4 +544,4 @@ export function webhookRoute(
 
 // Export legacy functions for backward compatibility
 export { legacySecureRoute as secureRoute };
-export const adminRoute = superAdminRoute;
+// adminRoute removed - use rbacRoute with rbacConfigs.superAdmin

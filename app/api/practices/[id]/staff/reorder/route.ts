@@ -6,7 +6,8 @@ import { createErrorResponse, NotFoundError, ValidationError } from '@/lib/api/r
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { practiceParamsSchema } from '@/lib/validations/practice';
-import { practiceRoute } from '@/lib/api/rbac-route-handler';
+import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { extractors } from '@/lib/api/utils/rbac-extractors';
 import type { UserContext } from '@/lib/types/rbac';
 import { z } from 'zod';
 import { 
@@ -168,8 +169,12 @@ const reorderStaffHandler = async (request: NextRequest, userContext: UserContex
 };
 
 // Export with RBAC protection following users pattern
-export const PUT = practiceRoute(
-  ['practices:staff:manage:own', 'practices:manage:all'],
+export const PUT = rbacRoute(
   reorderStaffHandler,
-  { rateLimit: 'api' }
+  {
+    permission: ['practices:staff:manage:own', 'practices:manage:all'],
+    extractResourceId: extractors.practiceId,
+    extractOrganizationId: extractors.organizationId,
+    rateLimit: 'api'
+  }
 );
