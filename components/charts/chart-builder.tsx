@@ -92,6 +92,8 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
     useMultipleSeries: false,
     seriesConfigs: []
   });
+  
+  const [selectedDatePreset, setSelectedDatePreset] = useState<string>('custom');
 
   const [previewKey, setPreviewKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
@@ -115,6 +117,14 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
       const startDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'gte');
       const endDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'lte');
       
+      // Extract advanced configuration
+      const calculatedField = chartConfigData.calculatedField || undefined;
+      const advancedFilters = dataSource.advancedFilters || [];
+      const useAdvancedFiltering = Array.isArray(advancedFilters) && advancedFilters.length > 0;
+      const seriesConfigs = chartConfigData.seriesConfigs || [];
+      const useMultipleSeries = Array.isArray(seriesConfigs) && seriesConfigs.length > 0;
+      const selectedPreset = chartConfigData.dateRangePreset || 'custom';
+      
       const newConfig = {
         chartName: editingChart.chart_name || '',
         chartType: editingChart.chart_type || 'bar',
@@ -124,12 +134,14 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
         startDate: startDateFilter?.value || '2024-01-01',
         endDate: endDateFilter?.value || '2025-12-31',
         groupBy: chartConfigData.series?.groupBy || 'provider_name',
-        calculatedField: undefined,
-        advancedFilters: [],
-        useAdvancedFiltering: false,
-        useMultipleSeries: false,
-        seriesConfigs: []
+        calculatedField,
+        advancedFilters,
+        useAdvancedFiltering,
+        useMultipleSeries,
+        seriesConfigs
       };
+      
+      setSelectedDatePreset(selectedPreset);
       
       setChartConfig(newConfig);
     }
@@ -183,6 +195,11 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
   };
 
   const handleDateRangeChange = (startDate: string, endDate: string) => {
+    setChartConfig(prev => ({ ...prev, startDate, endDate }));
+  };
+  
+  const handleDatePresetChange = (presetId: string, startDate: string, endDate: string) => {
+    setSelectedDatePreset(presetId);
     setChartConfig(prev => ({ ...prev, startDate, endDate }));
   };
 
@@ -243,6 +260,17 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
         chart_description: `${chartConfig.chartType} chart showing ${chartConfig.measure} by ${chartConfig.groupBy}`,
         chart_type: chartConfig.chartType,
         chart_category_id: null, // No category by default
+        chart_config: {
+          x_axis: { field: 'period_end', label: 'Date', format: 'date' },
+          y_axis: { field: 'measure_value', label: 'Amount', format: 'currency' },
+          series: { groupBy: chartConfig.groupBy, colorPalette: 'default' },
+          options: { responsive: true, showLegend: true, showTooltips: true, animation: true },
+          // Save additional configuration
+          calculatedField: chartConfig.calculatedField,
+          dateRangePreset: selectedDatePreset,
+          seriesConfigs: chartConfig.seriesConfigs
+        },
+        // Save advanced filters in data_source
         data_source: {
           table: 'ih.agg_app_measures',
           filters: [
@@ -250,17 +278,11 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
             { field: 'frequency', operator: 'eq', value: chartConfig.frequency },
             ...(chartConfig.practiceUid ? [{ field: 'practice_uid', operator: 'eq', value: parseInt(chartConfig.practiceUid) }] : []),
             ...(chartConfig.startDate ? [{ field: 'date_index', operator: 'gte', value: chartConfig.startDate }] : []),
-            ...(chartConfig.endDate ? [{ field: 'date_index', operator: 'lte', value: chartConfig.endDate }] : []),
-            ...chartConfig.advancedFilters
+            ...(chartConfig.endDate ? [{ field: 'date_index', operator: 'lte', value: chartConfig.endDate }] : [])
           ],
+          advancedFilters: chartConfig.advancedFilters,
           groupBy: [chartConfig.groupBy, 'period_end'],
           orderBy: [{ field: 'period_end', direction: 'ASC' }]
-        },
-        chart_config: {
-          x_axis: { field: 'period_end', label: 'Date', format: 'date' },
-          y_axis: { field: 'measure_value', label: 'Amount', format: 'currency' },
-          series: { groupBy: chartConfig.groupBy, colorPalette: 'default' },
-          options: { responsive: true, showLegend: true, showTooltips: true, animation: true }
         }
       };
 
@@ -374,7 +396,8 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
               schemaInfo={schemaInfo}
               chartConfig={chartConfig}
               updateConfig={updateConfig}
-              handleDateRangeChange={handleDateRangeChange}
+              handleDateRangeChange={handleDatePresetChange}
+              selectedDatePreset={selectedDatePreset}
             />
             
             <ChartBuilderAdvanced

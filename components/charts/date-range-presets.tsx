@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 /**
  * Date Range Presets Component
@@ -8,9 +8,10 @@ import { useState } from 'react';
  */
 
 interface DateRangePresetsProps {
-  onDateRangeChange: (startDate: string, endDate: string) => void;
+  onDateRangeChange: (presetId: string, startDate: string, endDate: string) => void;
   currentStartDate?: string;
   currentEndDate?: string;
+  selectedPreset?: string;
 }
 
 interface DateRangePreset {
@@ -141,22 +142,34 @@ const DATE_PRESETS: DateRangePreset[] = [
 export default function DateRangePresets({
   onDateRangeChange,
   currentStartDate,
-  currentEndDate
+  currentEndDate,
+  selectedPreset: initialSelectedPreset = 'custom'
 }: DateRangePresetsProps) {
-  const [selectedPreset, setSelectedPreset] = useState<string>('custom');
+  const [selectedPreset, setSelectedPreset] = useState<string>(initialSelectedPreset);
   const [customStartDate, setCustomStartDate] = useState(currentStartDate || '');
   const [customEndDate, setCustomEndDate] = useState(currentEndDate || '');
+  
+  // Update selectedPreset when prop changes (for editing existing charts)
+  useEffect(() => {
+    setSelectedPreset(initialSelectedPreset);
+  }, [initialSelectedPreset]);
+  
+  // Update custom dates when props change
+  useEffect(() => {
+    setCustomStartDate(currentStartDate || '');
+    setCustomEndDate(currentEndDate || '');
+  }, [currentStartDate, currentEndDate]);
 
   const handlePresetSelect = (presetId: string) => {
     setSelectedPreset(presetId);
     
     if (presetId === 'custom') {
-      onDateRangeChange(customStartDate, customEndDate);
+      onDateRangeChange(presetId, customStartDate, customEndDate);
     } else {
       const preset = DATE_PRESETS.find(p => p.id === presetId);
       if (preset) {
         const { startDate, endDate } = preset.getDateRange();
-        onDateRangeChange(startDate, endDate);
+        onDateRangeChange(presetId, startDate, endDate);
       }
     }
   };
@@ -165,7 +178,7 @@ export default function DateRangePresets({
     setCustomStartDate(startDate);
     setCustomEndDate(endDate);
     setSelectedPreset('custom');
-    onDateRangeChange(startDate, endDate);
+    onDateRangeChange('custom', startDate, endDate);
   };
 
   return (

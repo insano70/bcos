@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChartDefinition } from '@/lib/types/analytics';
-import ChartsTable, { ChartDefinitionListItem } from './charts-table';
+import type { ChartDefinition } from '@/lib/types/analytics';
+import ChartsTable, { type ChartDefinitionListItem } from './charts-table';
 import DeleteButton from '@/components/delete-button';
 import DateSelect from '@/components/date-select';
 import FilterButton from '@/components/dropdown-filter';

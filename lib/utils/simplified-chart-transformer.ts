@@ -399,9 +399,10 @@ export class SimplifiedChartTransformer {
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
       case 'Monthly':
         return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
-      case 'Quarterly':
+      case 'Quarterly': {
         const quarter = Math.floor(date.getUTCMonth() / 3) + 1;
         return `Q${quarter} ${date.getUTCFullYear()}`;
+      }
       default:
         return dateIndex;
     }
@@ -415,6 +416,22 @@ export class SimplifiedChartTransformer {
     groupBy: string,
     aggregations: Record<string, 'sum' | 'avg' | 'count' | 'min' | 'max'> = {}
   ): ChartData {
+    console.log('🔍 ENHANCED MULTI-SERIES INPUT:', {
+      measureCount: measures.length,
+      groupBy,
+      aggregations,
+      sampleMeasure: measures[0],
+      hasSeriesLabels: measures.some(m => (m as any).series_label)
+    });
+
+    // Check if we have series-tagged data (from multiple series query)
+    const hasSeriesLabels = measures.some(m => (m as any).series_label);
+    
+    if (hasSeriesLabels) {
+      return this.createMultiSeriesFromTaggedData(measures, aggregations);
+    }
+
+    // Original logic for non-tagged data
     const groupedData = new Map<string, Map<string, number[]>>();
     const allDates = new Set<string>();
 
@@ -483,6 +500,110 @@ export class SimplifiedChartTransformer {
       });
 
       colorIndex++;
+    });
+
+    return {
+      labels: sortedDates.map(dateStr => {
+        const date = new Date(dateStr + 'T12:00:00Z');
+        return this.formatDateLabel(dateStr, measures[0]?.frequency || 'Monthly');
+      }),
+      datasets
+    };
+  }
+
+  /**
+   * Create multi-series chart from tagged data (optimized for multiple measures)
+   */
+  createMultiSeriesFromTaggedData(
+    measures: any[], // Tagged measures with series_label, etc.
+    aggregations: Record<string, 'sum' | 'avg' | 'count' | 'min' | 'max'> = {}
+  ): ChartData {
+    console.log('🔍 CREATING MULTI-SERIES FROM TAGGED DATA:', {
+      measureCount: measures.length,
+      seriesLabels: Array.from(new Set(measures.map(m => m.series_label))),
+      sampleMeasure: measures[0]
+    });
+
+    // Group by series label and date
+    const groupedBySeries = new Map<string, Map<string, number[]>>();
+    const allDates = new Set<string>();
+
+    measures.forEach(measure => {
+      const seriesLabel = measure.series_label || measure.measure;
+      const dateKey = measure.date_index;
+      
+      allDates.add(dateKey);
+      
+      if (!groupedBySeries.has(seriesLabel)) {
+        groupedBySeries.set(seriesLabel, new Map());
+      }
+      
+      const dateMap = groupedBySeries.get(seriesLabel)!;
+      if (!dateMap.has(dateKey)) {
+        dateMap.set(dateKey, []);
+      }
+      
+      const measureValue = typeof measure.measure_value === 'string' 
+        ? parseFloat(measure.measure_value) 
+        : measure.measure_value;
+      
+      dateMap.get(dateKey)!.push(measureValue);
+    });
+
+    const sortedDates = Array.from(allDates).sort((a, b) => 
+      new Date(a + 'T00:00:00').getTime() - new Date(b + 'T00:00:00').getTime()
+    );
+
+    const datasets: ChartDataset[] = [];
+    const colors = this.getColorPalette();
+    let colorIndex = 0;
+
+    groupedBySeries.forEach((dateMap, seriesLabel) => {
+      const aggregationType = aggregations[seriesLabel] || 'sum';
+      
+      const data = sortedDates.map(dateIndex => {
+        const values = dateMap.get(dateIndex) || [0];
+        
+        switch (aggregationType) {
+          case 'sum':
+            return values.reduce((sum, val) => sum + val, 0);
+          case 'avg':
+            return values.reduce((sum, val) => sum + val, 0) / values.length;
+          case 'count':
+            return values.length;
+          case 'min':
+            return Math.min(...values);
+          case 'max':
+            return Math.max(...values);
+          default:
+            return values.reduce((sum, val) => sum + val, 0);
+        }
+      });
+
+      // Find the series config to get custom color
+      const sampleMeasure = measures.find(m => m.series_label === seriesLabel);
+      const customColor = sampleMeasure?.series_color;
+      const color = customColor || colors[colorIndex % colors.length] || '#00AEEF';
+
+      datasets.push({
+        label: seriesLabel,
+        data,
+        borderColor: color,
+        backgroundColor: color,
+        fill: false,
+        tension: 0.4,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+      });
+
+      colorIndex++;
+    });
+
+    console.log('🔍 TAGGED DATA TRANSFORMATION RESULT:', {
+      seriesCount: datasets.length,
+      dateCount: sortedDates.length,
+      seriesLabels: datasets.map(d => d.label),
+      sampleData: datasets[0]?.data?.slice(0, 3)
     });
 
     return {

@@ -97,11 +97,17 @@ export default function AnalyticsChart({
         'Anonymous User', // userName - would come from auth context
         0 // loadTime - would be calculated
       );
+      
+      // Handle multiple series by passing the configuration to the API
+      if (multipleSeries && multipleSeries.length > 0) {
+        console.log('🚀 FETCHING MULTIPLE SERIES DATA:', multipleSeries);
+        // The API will handle multiple measures efficiently with WHERE measure IN (...)
+      }
 
       // Build query parameters
       const params = new URLSearchParams();
       
-      if (measure) params.append('measure', measure);
+      // Note: measure param is added conditionally based on multiple series mode
       if (frequency) params.append('frequency', frequency);
       
       // Support both new and legacy field names
@@ -138,7 +144,17 @@ export default function AnalyticsChart({
 
       // Add multiple series configuration if provided
       if (multipleSeries && multipleSeries.length > 0) {
+        console.log('🔍 MULTIPLE SERIES CONFIG:', {
+          multipleSeries,
+          seriesCount: multipleSeries.length,
+          measures: multipleSeries.map(s => s.measure),
+          labels: multipleSeries.map(s => s.label)
+        });
         params.append('multiple_series', encodeURIComponent(JSON.stringify(multipleSeries)));
+        // Don't add individual measure param when using multiple series
+      } else {
+        console.log('🔍 SINGLE SERIES MODE:', { measure, frequency });
+        if (measure) params.append('measure', measure);
       }
 
       // Chart parameters configured
@@ -146,7 +162,8 @@ export default function AnalyticsChart({
       // Set reasonable defaults for chart display
       params.append('limit', '1000');
 
-      // Fetch data from admin analytics API
+      // Fetch data from admin analytics API (single series mode)
+      console.log('🚀 FETCHING SINGLE SERIES DATA:', { measure, frequency });
       const response = await fetch(`/api/admin/analytics/measures?${params.toString()}`);
       
       if (!response.ok) {
@@ -190,10 +207,18 @@ export default function AnalyticsChart({
         }
       }
 
-      // Transform data - use enhanced multi-series transformer if multiple series are configured
+      // Transform data - handle both single and multiple series
       let transformedData: ChartData;
+      
       if (multipleSeries && multipleSeries.length > 0) {
-        // Build aggregation configuration from series configs
+        console.log('🔍 USING MULTI-SERIES TRANSFORMER:', {
+          seriesCount: multipleSeries.length,
+          dataCount: processedMeasures.length,
+          mappedGroupBy,
+          seriesLabels: multipleSeries.map(s => s.label)
+        });
+        
+        // Use the enhanced multi-series transformer
         const aggregations: Record<string, 'sum' | 'avg' | 'count' | 'min' | 'max'> = {};
         multipleSeries.forEach(series => {
           if (series.label) {
@@ -203,15 +228,34 @@ export default function AnalyticsChart({
         
         transformedData = simplifiedChartTransformer.createEnhancedMultiSeriesChart(
           processedMeasures,
-          mappedGroupBy,
+          'measure', // Group by measure for multiple series
           aggregations
         );
+        
+        console.log('🔍 MULTI-SERIES RESULT:', {
+          labelCount: transformedData.labels.length,
+          datasetCount: transformedData.datasets.length,
+          datasetLabels: transformedData.datasets.map(d => d.label)
+        });
       } else {
+        console.log('🔍 USING SINGLE-SERIES TRANSFORMER:', {
+          measure,
+          chartType,
+          mappedGroupBy,
+          dataCount: processedMeasures.length
+        });
+        
         transformedData = simplifiedChartTransformer.transformData(
           processedMeasures,
           chartType,
           mappedGroupBy
         );
+        
+        console.log('🔍 SINGLE-SERIES RESULT:', {
+          labelCount: transformedData.labels.length,
+          datasetCount: transformedData.datasets.length,
+          datasetLabels: transformedData.datasets.map(d => d.label)
+        });
       }
 
       // Transformation completed

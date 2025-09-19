@@ -1,6 +1,7 @@
 import { getCurrentTransaction } from '@/tests/helpers/db-helper'
 import { user_organizations, user_roles, roles, role_permissions, permissions, organizations } from '@/lib/db/rbac-schema'
 import { PermissionChecker } from '@/lib/rbac/permission-checker'
+import { ServerPermissionService } from '@/lib/rbac/server-permission-service'
 import { createTestUser, createTestRole, assignPermissionsToRole } from '@/tests/factories'
 import type { UserContext, PermissionName, UserRole, UserOrganization, Role, Permission, Organization, PermissionScope } from '@/lib/types/rbac'
 import type { User } from '@/tests/factories'
@@ -321,14 +322,13 @@ async function getAccessibleOrganizations(userOrganizations: Organization[]): Pr
  */
 export async function createPermissionChecker(user: User): Promise<PermissionChecker> {
   const userContext = await buildUserContext(user)
-  const testDb = getCurrentTransaction() // Use the test transaction for database queries
   return new PermissionChecker(userContext)
 }
 
 /**
  * Test if a user has a specific permission
  * Returns both the result and detailed information
- * Uses async ownership validation for accurate testing
+ * Uses server-side permission service for full database validation including practice ownership
  */
 export async function testUserPermission(
   user: User,
@@ -336,8 +336,10 @@ export async function testUserPermission(
   resourceId?: string,
   organizationId?: string
 ): Promise<{ granted: boolean; scope?: string; reason?: string | undefined }> {
-  const checker = await createPermissionChecker(user)
-  const result = checker.checkPermission(permission, { resourceId, organizationId })
+  const userContext = await buildUserContext(user)
+  const testDb = getCurrentTransaction() // Use the test transaction for database queries
+  const serverService = new ServerPermissionService(userContext, testDb)
+  const result = await serverService.checkPermission(permission, resourceId, organizationId)
 
   return {
     granted: result.granted,

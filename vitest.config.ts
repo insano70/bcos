@@ -2,6 +2,10 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 import { cpus } from 'os';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env.test
+dotenv.config({ path: '.env.test' });
 
 export default defineConfig({
   plugins: [react()],
@@ -55,5 +59,5 @@ export default defineConfig({
       '@': resolve(__dirname, './'),
       '@tests': resolve(__dirname, './tests'),
     },
-  },
+  }
 });

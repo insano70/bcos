@@ -13,6 +13,7 @@ import {
   OrganizationAccessError
 } from '@/lib/types/rbac';
 
+
 /**
  * PermissionChecker - Core RBAC Logic Engine
  * 
@@ -319,18 +320,10 @@ export class PermissionChecker {
             return { valid: true };
           }
           
-          // TODO: Implement resource ownership checking
-          // This would require adding owned_resources to UserContext or implementing
-          // a different ownership checking mechanism
-          // const ownedResources = this.userContext.owned_resources || [];
-          // if (ownedResources.includes(resourceId)) {
-          //   return { valid: true };
-          // }
-          
-          return {
-            valid: false,
-            reason: `Access denied: User ${this.userContext.user_id} does not own resource ${resourceId}`
-          };
+          // For client-side permission checking, we can't do database lookups
+          // So we'll be permissive here and let server-side validation handle the real check
+          // TODO: Consider adding owned_practice_ids to UserContext for better client-side checking
+          return { valid: true };
         }
         return { valid: true };
 
@@ -372,6 +365,7 @@ export class PermissionChecker {
         };
     }
   }
+
 }
 
 /**

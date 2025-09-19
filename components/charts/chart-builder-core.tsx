@@ -40,14 +40,16 @@ interface ChartBuilderCoreProps {
   schemaInfo: SchemaInfo;
   chartConfig: ChartConfig;
   updateConfig: (key: keyof ChartConfig, value: string | boolean | ChartFilter[] | undefined) => void;
-  handleDateRangeChange: (startDate: string, endDate: string) => void;
+  handleDateRangeChange: (presetId: string, startDate: string, endDate: string) => void;
+  selectedDatePreset?: string;
 }
 
 export default function ChartBuilderCore({
   schemaInfo,
   chartConfig,
   updateConfig,
-  handleDateRangeChange
+  handleDateRangeChange,
+  selectedDatePreset = 'custom'
 }: ChartBuilderCoreProps) {
   return (
     <div className="space-y-6">
@@ -86,24 +88,42 @@ export default function ChartBuilderCore({
           </select>
         </div>
 
-        {/* Measure */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Measure *
-          </label>
-          <select
-            value={chartConfig.measure}
-            onChange={(e) => updateConfig('measure', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-          >
-            <option value="">Select a measure...</option>
-            {schemaInfo.availableMeasures.map((measure) => (
-              <option key={measure.measure} value={measure.measure}>
-                {measure.measure} ({measure.count} records)
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* Measure - Hidden when multiple series is enabled */}
+        {!chartConfig.useMultipleSeries ? (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Measure *
+            </label>
+            <select
+              value={chartConfig.measure}
+              onChange={(e) => updateConfig('measure', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            >
+              <option value="">Select a measure...</option>
+              {schemaInfo.availableMeasures.map((measure) => (
+                <option key={measure.measure} value={measure.measure}>
+                  {measure.measure} ({measure.count} records)
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md border border-blue-200 dark:border-blue-800">
+            <div className="flex items-start">
+              <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              <div>
+                <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                  Multiple Series Mode Enabled
+                </p>
+                <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                  Individual measures are configured in the Advanced Options section below. Each series can have its own measure and aggregation method.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Frequency */}
         <div>
@@ -144,6 +164,7 @@ export default function ChartBuilderCore({
             onDateRangeChange={handleDateRangeChange}
             currentStartDate={chartConfig.startDate}
             currentEndDate={chartConfig.endDate}
+            selectedPreset={selectedDatePreset}
           />
         </div>
 
