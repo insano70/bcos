@@ -251,14 +251,21 @@ export default function DashboardRowBuilder({
             </div>
           ) : (
             <div 
-              className="flex gap-2"
-              style={{ height: `${row.heightPx}px` }}
+              className="flex gap-2 overflow-hidden"
+              style={{ 
+                height: `${row.heightPx}px`,
+                maxHeight: `${row.heightPx}px`
+              }}
             >
               {row.charts.map((chart) => (
                 <div
                   key={chart.id}
-                  className="flex flex-col border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-700"
-                  style={{ width: `${chart.widthPercentage}%` }}
+                  className="flex flex-col border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-700 overflow-hidden"
+                  style={{ 
+                    width: `${chart.widthPercentage}%`,
+                    maxWidth: `${chart.widthPercentage}%`,
+                    minWidth: '200px' // Ensure minimum usable width
+                  }}
                 >
                   {/* Chart Controls */}
                   <div className="px-2 py-1 border-b border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-800">
@@ -307,9 +314,9 @@ export default function DashboardRowBuilder({
                   </div>
 
                   {/* Chart Content */}
-                  <div className="flex-1 p-1">
+                  <div className="flex-1 p-1 overflow-hidden">
                     {chart.chartDefinition ? (
-                      <div className="w-full h-full">
+                      <div className="w-full h-full overflow-hidden relative">
                         {(() => {
                           // Extract chart configuration
                           const dataSource = chart.chartDefinition.data_source || {};
@@ -322,28 +329,54 @@ export default function DashboardRowBuilder({
                           const startDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'gte');
                           const endDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'lte');
 
+                          // Calculate exact dimensions available within this container
+                          const availableHeight = row.heightPx - 80; // Account for controls
+                          const chartWidth = Math.max(200, Math.floor(chart.widthPercentage * 8)); // Scale width based on percentage
+                          const chartHeight = Math.max(150, availableHeight - 60); // Account for chart header
+
                           return (
-                            <AnalyticsChart
-                              chartType={chart.chartDefinition.chart_type as any}
-                              measure={measureFilter?.value}
-                              frequency={frequencyFilter?.value}
-                              practice={practiceFilter?.value?.toString()}
-                              startDate={startDateFilter?.value}
-                              endDate={endDateFilter?.value}
-                              groupBy={chartConfig.series?.groupBy || 'provider_name'}
-                              width={300} // Base width, will be responsive
-                              height={row.heightPx - 80} // Account for controls
-                              title={chart.chartDefinition.chart_name}
-                              calculatedField={(chartConfig as any).calculatedField}
-                              advancedFilters={(dataSource as any).advancedFilters || []}
-                              {...((chartConfig as any).seriesConfigs && (chartConfig as any).seriesConfigs.length > 0 ? { multipleSeries: (chartConfig as any).seriesConfigs } : {})}
-                              className="w-full h-full"
-                            />
+                            <div 
+                              className="w-full h-full overflow-hidden"
+                              style={{ 
+                                maxWidth: '100%',
+                                maxHeight: `${availableHeight}px`,
+                                transform: 'scale(1)', // Force containing block
+                                transformOrigin: 'top left'
+                              }}
+                            >
+                              <div 
+                                style={{
+                                  width: `${chartWidth}px`,
+                                  height: `${chartHeight}px`,
+                                  maxWidth: '100%',
+                                  maxHeight: '100%',
+                                  overflow: 'hidden',
+                                  transform: chartWidth > (chart.widthPercentage * 8) ? `scale(${(chart.widthPercentage * 8) / chartWidth})` : 'scale(1)',
+                                  transformOrigin: 'top left'
+                                }}
+                              >
+                                <AnalyticsChart
+                                  chartType={chart.chartDefinition.chart_type as any}
+                                  measure={measureFilter?.value}
+                                  frequency={frequencyFilter?.value}
+                                  practice={practiceFilter?.value?.toString()}
+                                  startDate={startDateFilter?.value}
+                                  endDate={endDateFilter?.value}
+                                  groupBy={chartConfig.series?.groupBy || 'provider_name'}
+                                  width={chartWidth}
+                                  height={chartHeight}
+                                  title={chart.chartDefinition.chart_name}
+                                  calculatedField={(chartConfig as any).calculatedField}
+                                  advancedFilters={(dataSource as any).advancedFilters || []}
+                                  {...((chartConfig as any).seriesConfigs && (chartConfig as any).seriesConfigs.length > 0 ? { multipleSeries: (chartConfig as any).seriesConfigs } : {})}
+                                />
+                              </div>
+                            </div>
                           );
                         })()}
                       </div>
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded">
+                      <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded overflow-hidden">
                         <div className="text-center">
                           <div className="text-2xl mb-1">📊</div>
                           <p className="text-xs">No Chart Selected</p>
