@@ -462,11 +462,12 @@ function DropZone({ onDrop, children, dashboardConfig }: DropZoneProps) {
 
 // Main Enhanced Dashboard Builder Component
 interface EnhancedDashboardBuilderProps {
+  editingDashboard?: any; // Dashboard with charts to edit
   onCancel?: () => void;
   onSaveSuccess?: () => void;
 }
 
-export default function EnhancedDashboardBuilder({ onCancel, onSaveSuccess }: EnhancedDashboardBuilderProps = {}) {
+export default function EnhancedDashboardBuilder({ editingDashboard, onCancel, onSaveSuccess }: EnhancedDashboardBuilderProps = {}) {
   const [dashboardConfig, setDashboardConfig] = useState<DashboardConfig>({
     dashboardName: '',
     dashboardDescription: '',
@@ -485,10 +486,60 @@ export default function EnhancedDashboardBuilder({ onCancel, onSaveSuccess }: En
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const [showGridPreview, setShowGridPreview] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(!!editingDashboard);
 
   useEffect(() => {
     loadCharts();
   }, []);
+
+  // Populate form when editing a dashboard
+  useEffect(() => {
+    if (editingDashboard && availableCharts.length > 0) {
+      console.log('📝 Populating dashboard builder for editing:', editingDashboard);
+      
+      // Set basic dashboard info
+      setDashboardConfig(prev => ({
+        ...prev,
+        dashboardName: editingDashboard.dashboard_name || '',
+        dashboardDescription: editingDashboard.dashboard_description || '',
+        layout: {
+          columns: editingDashboard.layout_config?.columns || 12,
+          rowHeight: editingDashboard.layout_config?.rowHeight || 150,
+          margin: editingDashboard.layout_config?.margin || 10
+        }
+      }));
+
+      // Populate charts if they exist
+      if (editingDashboard.charts && Array.isArray(editingDashboard.charts)) {
+        const dashboardCharts = editingDashboard.charts.map((chartAssoc: any, index: number) => {
+          // Find the chart definition from available charts
+          const chartDefinition = availableCharts.find(chart => 
+            chart.chart_definition_id === chartAssoc.chart_definition_id
+          );
+
+          return {
+            id: `dashboard-chart-${chartAssoc.chart_definition_id}-${index}`,
+            chartDefinitionId: chartAssoc.chart_definition_id,
+            position: chartAssoc.position_config || { x: 0, y: index, w: 6, h: 2 },
+            chartDefinition
+          };
+        }).filter((chart: any) => chart.chartDefinition); // Only include charts that still exist
+
+        setDashboardConfig(prev => ({
+          ...prev,
+          charts: dashboardCharts
+        }));
+
+        console.log('📊 Populated dashboard charts:', {
+          originalChartCount: editingDashboard.charts.length,
+          populatedChartCount: dashboardCharts.length,
+          charts: dashboardCharts
+        });
+      }
+
+      setIsEditMode(true);
+    }
+  }, [editingDashboard, availableCharts]);
 
   const loadCharts = async () => {
     try {
@@ -681,18 +732,26 @@ export default function EnhancedDashboardBuilder({ onCancel, onSaveSuccess }: En
         chart_positions: dashboardConfig.charts.map(chart => chart.position)
       };
 
-      const response = await fetch('/api/admin/analytics/dashboards', {
-        method: 'POST',
+      console.log(`💾 ${isEditMode ? 'Updating' : 'Creating'} dashboard:`, dashboardDefinition);
+
+      const url = isEditMode 
+        ? `/api/admin/analytics/dashboards/${editingDashboard.dashboard_id}`
+        : '/api/admin/analytics/dashboards';
+      
+      const method = isEditMode ? 'PATCH' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dashboardDefinition)
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to save dashboard');
+        throw new Error(error.error || `Failed to ${isEditMode ? 'update' : 'save'} dashboard`);
       }
 
-      setToastMessage(`Dashboard "${dashboardConfig.dashboardName}" saved successfully!`);
+      setToastMessage(`Dashboard "${dashboardConfig.dashboardName}" ${isEditMode ? 'updated' : 'saved'} successfully!`);
       setToastType('success');
       setShowToast(true);
 
@@ -734,10 +793,13 @@ export default function EnhancedDashboardBuilder({ onCancel, onSaveSuccess }: En
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                Enhanced Dashboard Builder
+                {isEditMode ? 'Edit Dashboard' : 'Enhanced Dashboard Builder'}
               </h2>
               <p className="text-gray-600 dark:text-gray-400 mt-1">
-                Create multi-chart dashboards with professional drag-and-drop interface
+                {isEditMode 
+                  ? `Editing: ${dashboardConfig.dashboardName || 'Unnamed Dashboard'}`
+                  : 'Create multi-chart dashboards with professional drag-and-drop interface'
+                }
               </p>
             </div>
             

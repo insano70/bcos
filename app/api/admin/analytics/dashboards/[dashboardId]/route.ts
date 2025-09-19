@@ -91,6 +91,32 @@ const updateDashboardHandler = async (request: NextRequest, userContext: UserCon
       return createErrorResponse('Dashboard not found', 404);
     }
 
+    // Update chart associations if provided
+    if (body.chart_ids && Array.isArray(body.chart_ids)) {
+      // Remove existing chart associations
+      await db
+        .delete(dashboard_charts)
+        .where(eq(dashboard_charts.dashboard_id, params.dashboardId));
+
+      // Add new chart associations
+      if (body.chart_ids.length > 0) {
+        const chartAssociations = body.chart_ids.map((chartId: string, index: number) => ({
+          dashboard_id: params.dashboardId,
+          chart_definition_id: chartId,
+          position_config: body.chart_positions?.[index] || { x: 0, y: index, w: 6, h: 4 }
+        }));
+
+        await db
+          .insert(dashboard_charts)
+          .values(chartAssociations);
+      }
+
+      logger.info('Dashboard chart associations updated', {
+        dashboardId: params.dashboardId,
+        chartCount: body.chart_ids.length
+      });
+    }
+
     logDBOperation(logger, 'dashboard_update', 'dashboards', startTime, 1);
 
     logger.info('Dashboard updated successfully', {
