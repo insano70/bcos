@@ -150,16 +150,26 @@ export default function DashboardPreview({
       </div>
 
       {/* Dashboard Grid Preview - Following /dashboard pattern */}
-      <div className="grid grid-cols-12 gap-6 w-full">
+      <div className="grid grid-cols-12 gap-6 w-full p-4">
         {previewConfig.charts.map((dashboardChart) => {
           if (!dashboardChart.chartDefinition) {
+            // Determine responsive column span classes like dashboard cards
+            let colSpanClass = 'col-span-full';
+            if (dashboardChart.position.w <= 4) {
+              colSpanClass = 'col-span-full sm:col-span-6 xl:col-span-4';
+            } else if (dashboardChart.position.w <= 6) {
+              colSpanClass = 'col-span-full sm:col-span-6';
+            } else if (dashboardChart.position.w <= 8) {
+              colSpanClass = 'col-span-full lg:col-span-8';
+            } else {
+              colSpanClass = 'col-span-full';
+            }
+
             return (
               <div
                 key={dashboardChart.id}
-                className={`flex flex-col bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-dashed border-gray-300 dark:border-gray-600`}
-                style={{
-                  gridColumn: `span ${Math.min(dashboardChart.position.w, 12)}`,
-                }}
+                className={`${colSpanClass} flex flex-col bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-dashed border-gray-300 dark:border-gray-600`}
+                style={{ marginBottom: `${previewConfig.layout.margin}px` }}
               >
                 <div className="flex items-center justify-center h-48 text-center text-gray-500 dark:text-gray-400">
                   <div>
@@ -203,38 +213,25 @@ export default function DashboardPreview({
           return (
             <div
               key={dashboardChart.id}
-              className={`flex flex-col ${colSpanClass} bg-white dark:bg-gray-800 shadow-sm rounded-xl`}
+              className={`${colSpanClass}`}
+              style={{ marginBottom: `${previewConfig.layout.margin}px` }}
             >
-              {/* Chart Header - following dashboard card pattern */}
-              <div className="px-5 pt-5">
-                <header className="flex justify-between items-start mb-2">
-                  <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">
-                    {chartDef.chart_name}
-                  </h2>
-                </header>
-                <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase mb-1">
-                  {chartDef.chart_type} Chart
-                </div>
-              </div>
-              
-              {/* Chart Container - following dashboard card pattern */}
-              <div className="grow" style={{ maxHeight: `${baseHeight}px` }}>
-                <AnalyticsChart
-                  chartType={chartDef.chart_type as any}
-                  measure={measureFilter?.value}
-                  frequency={frequencyFilter?.value}
-                  practice={practiceFilter?.value?.toString()}
-                  startDate={startDateFilter?.value}
-                  endDate={endDateFilter?.value}
-                  groupBy={chartConfig.series?.groupBy || 'provider_name'}
-                  width={baseWidth}
-                  height={Math.min(baseHeight - 100, 400)} // Account for header space
-                  title={chartDef.chart_name}
-                  calculatedField={(chartConfig as any).calculatedField}
-                  advancedFilters={(dataSource as any).advancedFilters || []}
-                  {...((chartConfig as any).seriesConfigs && (chartConfig as any).seriesConfigs.length > 0 ? { multipleSeries: (chartConfig as any).seriesConfigs } : {})}
-                />
-              </div>
+              <AnalyticsChart
+                chartType={chartDef.chart_type as any}
+                measure={measureFilter?.value}
+                frequency={frequencyFilter?.value}
+                practice={practiceFilter?.value?.toString()}
+                startDate={startDateFilter?.value}
+                endDate={endDateFilter?.value}
+                groupBy={chartConfig.series?.groupBy || 'provider_name'}
+                width={baseWidth}
+                height={Math.min(baseHeight, 400)}
+                title={chartDef.chart_name}
+                calculatedField={(chartConfig as any).calculatedField}
+                advancedFilters={(dataSource as any).advancedFilters || []}
+                {...((chartConfig as any).seriesConfigs && (chartConfig as any).seriesConfigs.length > 0 ? { multipleSeries: (chartConfig as any).seriesConfigs } : {})}
+                className="w-full h-full"
+              />
             </div>
           );
         })}
