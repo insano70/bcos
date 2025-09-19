@@ -210,7 +210,7 @@ export default function DashboardPreview({
                   startDate={startDateFilter?.value}
                   endDate={endDateFilter?.value}
                   groupBy={chartConfig.series?.groupBy || 'provider_name'}
-                  width={Math.floor((dashboardChart.position.w / previewConfig.layout.columns) * 1200)}
+                  width={Math.floor((dashboardChart.position.w / previewConfig.layout.columns) * 1600)}
                   height={dashboardChart.position.h * previewConfig.layout.rowHeight - 40}
                   title={chartDef.chart_name}
                   calculatedField={(chartConfig as any).calculatedField}
