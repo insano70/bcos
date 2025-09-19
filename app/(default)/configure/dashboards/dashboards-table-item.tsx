@@ -9,6 +9,7 @@ interface DashboardsTableItemProps {
   isSelected: boolean;
   onEdit?: (dashboard: DashboardListItem) => void;
   onDelete?: (dashboard: DashboardListItem) => void;
+  onPreview?: (dashboard: DashboardListItem) => void;
 }
 
 export default function DashboardsTableItem({
@@ -17,6 +18,7 @@ export default function DashboardsTableItem({
   isSelected,
   onEdit,
   onDelete,
+  onPreview,
 }: DashboardsTableItemProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -46,6 +48,11 @@ export default function DashboardsTableItem({
 
   const handleDelete = () => {
     onDelete?.(dashboard);
+    setDropdownOpen(false);
+  };
+
+  const handlePreview = () => {
+    onPreview?.(dashboard);
     setDropdownOpen(false);
   };
 
@@ -183,10 +190,7 @@ export default function DashboardsTableItem({
                   <button
                     type="button"
                     className="font-medium text-sm text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 flex py-1 px-3 w-full text-left"
-                    onClick={() => {
-                      // TODO: Implement dashboard preview
-                      setDropdownOpen(false);
-                    }}
+                    onClick={handlePreview}
                   >
                     Preview Dashboard
                   </button>

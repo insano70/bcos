@@ -5,6 +5,7 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { ChartDefinition } from '@/lib/types/analytics';
 import AnalyticsChart from './analytics-chart';
+import DashboardPreviewModal from '@/components/dashboard-preview-modal';
 import Toast from '@/components/toast';
 import { DashboardSkeleton } from '@/components/ui/loading-skeleton';
 
@@ -487,6 +488,7 @@ export default function EnhancedDashboardBuilder({ editingDashboard, onCancel, o
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const [showGridPreview, setShowGridPreview] = useState(false);
   const [isEditMode, setIsEditMode] = useState(!!editingDashboard);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
 
   useEffect(() => {
     loadCharts();
@@ -1051,8 +1053,17 @@ export default function EnhancedDashboardBuilder({ editingDashboard, onCancel, o
               )}
             </DropZone>
 
-            {/* Save Button */}
-            <div className="mt-6 flex justify-end">
+            {/* Action Buttons */}
+            <div className="mt-6 flex justify-between">
+              <button
+                onClick={() => setPreviewModalOpen(true)}
+                disabled={!dashboardConfig.dashboardName.trim() || dashboardConfig.charts.length === 0}
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+              >
+                <span className="mr-2">👁️</span>
+                Preview Dashboard
+              </button>
+              
               <button
                 onClick={saveDashboard}
                 disabled={isSaving || !dashboardConfig.dashboardName.trim() || dashboardConfig.charts.length === 0}
@@ -1066,13 +1077,21 @@ export default function EnhancedDashboardBuilder({ editingDashboard, onCancel, o
                 ) : (
                   <>
                     <span className="mr-2">💾</span>
-                    Save Dashboard
+                    {isEditMode ? 'Update Dashboard' : 'Save Dashboard'}
                   </>
                 )}
               </button>
             </div>
           </div>
         </div>
+
+        {/* Dashboard Preview Modal */}
+        <DashboardPreviewModal
+          isOpen={previewModalOpen}
+          setIsOpen={setPreviewModalOpen}
+          dashboardConfig={dashboardConfig}
+          title={`Preview: ${dashboardConfig.dashboardName || 'Unnamed Dashboard'}`}
+        />
 
         {/* Toast Notification */}
         <Toast

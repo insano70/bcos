@@ -8,9 +8,10 @@ interface DashboardsTableProps {
   dashboards: DashboardListItem[];
   onEdit?: (dashboard: DashboardListItem) => void;
   onDelete?: (dashboard: DashboardListItem) => void;
+  onPreview?: (dashboard: DashboardListItem) => void;
 }
 
-export default function DashboardsTable({ dashboards, onEdit, onDelete }: DashboardsTableProps) {
+export default function DashboardsTable({ dashboards, onEdit, onDelete, onPreview }: DashboardsTableProps) {
   // Map dashboards to have 'id' property for useItemSelection
   const dashboardsWithId = dashboards.map(dashboard => ({ ...dashboard, id: dashboard.dashboard_id }));
   
@@ -96,6 +97,7 @@ export default function DashboardsTable({ dashboards, onEdit, onDelete }: Dashbo
                     isSelected={selectedItems.includes(dashboard.dashboard_id)}
                     {...(onEdit && { onEdit })}
                     {...(onDelete && { onDelete })}
+                    {...(onPreview && { onPreview })}
                   />
                 ))
               )}

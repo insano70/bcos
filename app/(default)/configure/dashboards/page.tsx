@@ -10,7 +10,9 @@ import FilterButton from '@/components/dropdown-filter';
 import PaginationClassic from '@/components/pagination-classic';
 import { SelectedItemsProvider } from '@/app/selected-items-context';
 import DeleteDashboardModal from '@/components/delete-dashboard-modal';
+import DashboardPreviewModal from '@/components/dashboard-preview-modal';
 import Toast from '@/components/toast';
+import type { Dashboard, DashboardChart } from '@/lib/types/analytics';
 
 export default function DashboardsPage() {
   const router = useRouter();
@@ -21,6 +23,11 @@ export default function DashboardsPage() {
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [dashboardToPreview, setDashboardToPreview] = useState<{
+    dashboard: Dashboard;
+    charts: DashboardChart[];
+  } | null>(null);
 
   const loadDashboards = useCallback(async () => {
     setError(null);
@@ -129,6 +136,36 @@ export default function DashboardsPage() {
     router.push(`/configure/dashboards/${dashboard.dashboard_id}/edit`);
   };
 
+  const handlePreviewDashboard = async (dashboard: DashboardListItem) => {
+    try {
+      console.log('🔍 Loading dashboard for preview:', dashboard.dashboard_id);
+      
+      const response = await fetch(`/api/admin/analytics/dashboards/${dashboard.dashboard_id}`);
+      if (!response.ok) {
+        throw new Error(`Failed to load dashboard: ${response.status}`);
+      }
+
+      const result = await response.json();
+      const dashboardResponse = result.data;
+
+      // Extract dashboard and charts from API response
+      const fullDashboard = dashboardResponse.dashboard.dashboards || dashboardResponse.dashboard;
+      const charts = dashboardResponse.charts || [];
+
+      setDashboardToPreview({
+        dashboard: fullDashboard,
+        charts
+      });
+      setPreviewModalOpen(true);
+      
+    } catch (error) {
+      console.error('❌ Failed to load dashboard for preview:', error);
+      setToastMessage(`Failed to load dashboard preview: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setToastType('error');
+      setToastOpen(true);
+    }
+  };
+
   const handleCreateDashboard = () => {
     router.push('/configure/dashboard-builder');
   };
@@ -217,6 +254,7 @@ export default function DashboardsPage() {
           dashboards={savedDashboards}
           onEdit={handleEditDashboard}
           onDelete={handleDeleteClick}
+          onPreview={handlePreviewDashboard}
         />
 
         {/* Pagination */}
@@ -234,6 +272,17 @@ export default function DashboardsPage() {
             dashboardName={dashboardToDelete.dashboard_name}
             dashboardId={dashboardToDelete.dashboard_id}
             onConfirm={handleDeleteConfirm}
+          />
+        )}
+
+        {/* Dashboard Preview Modal */}
+        {dashboardToPreview && (
+          <DashboardPreviewModal
+            isOpen={previewModalOpen}
+            setIsOpen={setPreviewModalOpen}
+            dashboard={dashboardToPreview.dashboard}
+            dashboardCharts={dashboardToPreview.charts}
+            title={`Preview: ${dashboardToPreview.dashboard.dashboard_name}`}
           />
         )}
 
