@@ -4,7 +4,6 @@ import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { rbacRoute } from '@/lib/api/rbac-route-handler'
 import { AuditLogger } from '@/lib/api/services/audit'
-import { CSRFProtection } from '@/lib/security/csrf'
 import type { UserContext } from '@/lib/types/rbac'
 import { 
   createAPILogger, 
@@ -23,22 +22,6 @@ const uploadFilesHandler = async (request: NextRequest, userContext: UserContext
   })
 
   try {
-    // CSRF PROTECTION: Verify CSRF token for file upload
-    const csrfStartTime = Date.now()
-    const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
-    logPerformanceMetric(logger, 'csrf_validation', Date.now() - csrfStartTime)
-    
-    if (!isValidCSRF) {
-      logSecurityEvent(logger, 'csrf_validation_failed', 'high', {
-        endpoint: '/api/upload',
-        action: 'file_upload',
-        userId: userContext.user_id
-      })
-      return createErrorResponse('CSRF token validation failed', 403, request)
-    }
-    
-    logger.debug('CSRF validation successful')
-    
     // Parse form data
     const formDataStartTime = Date.now()
     const data = await request.formData()

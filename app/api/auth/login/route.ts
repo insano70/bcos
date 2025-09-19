@@ -332,7 +332,10 @@ const loginHandler = async (request: NextRequest) => {
       success: true
     })
 
-    return createSuccessResponse({
+    // Generate new authenticated CSRF token
+    const csrfToken = await CSRFProtection.setCSRFToken()
+    
+    const response = createSuccessResponse({
       user: {
         id: user.user_id,
         email: user.email,
@@ -346,8 +349,16 @@ const loginHandler = async (request: NextRequest) => {
       },
       accessToken: tokenPair.accessToken,
       sessionId: tokenPair.sessionId,
-      expiresAt: tokenPair.expiresAt.toISOString()
+      expiresAt: tokenPair.expiresAt.toISOString(),
+      csrfToken // Include new CSRF token in response
     }, 'Login successful')
+    
+    logger.info('Authenticated CSRF token generated for user', {
+      userId: user.user_id,
+      tokenLength: csrfToken.length
+    })
+    
+    return response
     
   } catch (error) {
     const totalDuration = Date.now() - startTime

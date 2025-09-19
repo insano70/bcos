@@ -1,9 +1,8 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { CSRFProtection } from '@/lib/security/csrf'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
-import { rbacRoute } from '@/lib/api/rbac-route-handler'
-import type { UserContext } from '@/lib/types/rbac'
+import { publicRoute } from '@/lib/api/rbac-route-handler'
 import { 
   createAPILogger, 
   logPerformanceMetric,
@@ -12,68 +11,67 @@ import {
 
 /**
  * CSRF Token Generation Endpoint
- * Provides CSRF tokens to authenticated users for state-changing operations
- * Requires authentication to prevent token farming
+ * Provides anonymous CSRF tokens for public endpoints (login, register)
+ * and authenticated tokens for logged-in users
  */
-const getCSRFTokenHandler = async (request: NextRequest, userContext: UserContext) => {
+const getCSRFTokenHandler = async (request: NextRequest) => {
   const startTime = Date.now()
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id)
+  const logger = createAPILogger(request)
   
   logger.info('CSRF token request initiated', {
-    userId: userContext.user_id,
     endpoint: '/api/csrf',
-    method: 'GET'
+    method: 'GET',
+    isAnonymous: true
   })
 
   try {
-    // Generate and set CSRF token cookie, and return token for header use
+    // Generate anonymous CSRF token based on request fingerprint
     const tokenStartTime = Date.now()
-    const token = await CSRFProtection.setCSRFToken()
+    const token = CSRFProtection.generateAnonymousToken(request)
     logPerformanceMetric(logger, 'csrf_token_generation', Date.now() - tokenStartTime)
 
-    if (!token) {
-      logger.error('Failed to generate CSRF token', {
-        userId: userContext.user_id
+    // Set the token in a non-httpOnly cookie so JavaScript can read it
+    const response = createSuccessResponse({ csrfToken: token }, 'CSRF token issued')
+    
+    // Cast to NextResponse to access cookies
+    if (response instanceof NextResponse) {
+      response.cookies.set('csrf-token', token, {
+        httpOnly: false, // Must be readable by JavaScript
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 3600, // 1 hour for anonymous tokens
+        path: '/'
       })
-      
-      logSecurityEvent(logger, 'csrf_generation_failed', 'high', {
-        userId: userContext.user_id,
-        reason: 'token_generation_error'
-      })
-      
-      return createErrorResponse('Failed to generate CSRF token', 500, request)
     }
 
     // Log successful token generation
     logSecurityEvent(logger, 'csrf_token_issued', 'low', {
-      userId: userContext.user_id,
+      tokenType: 'anonymous',
       tokenLength: token.length
     })
 
     const totalDuration = Date.now() - startTime
-    logger.info('CSRF token issued successfully', {
-      userId: userContext.user_id,
+    logger.info('Anonymous CSRF token issued successfully', {
       duration: totalDuration
     })
 
     logPerformanceMetric(logger, 'csrf_request_duration', totalDuration, {
       success: true,
-      userId: userContext.user_id
+      tokenType: 'anonymous'
     })
 
-    return createSuccessResponse({ csrfToken: token }, 'CSRF token issued')
+    return response
     
   } catch (error) {
     const totalDuration = Date.now() - startTime
     
     logger.error('CSRF token generation error', error, {
-      userId: userContext.user_id,
       duration: totalDuration,
       errorType: error instanceof Error ? error.constructor.name : typeof error
     })
     
     logSecurityEvent(logger, 'csrf_generation_error', 'high', {
-      userId: userContext.user_id,
+      tokenType: 'anonymous',
       error: error instanceof Error ? error.message : 'Unknown error'
     })
     
@@ -86,14 +84,11 @@ const getCSRFTokenHandler = async (request: NextRequest, userContext: UserContex
   }
 }
 
-// Export with RBAC protection - requires basic authentication
-// Uses the most minimal permission to ensure user is authenticated
-export const GET = rbacRoute(
+// Export as public route - CSRF tokens must be available before authentication
+export const GET = publicRoute(
   getCSRFTokenHandler,
-  {
-    permission: 'users:read:own',
-    rateLimit: 'api'
-  }
+  'CSRF tokens must be available to anonymous users for login protection',
+  { rateLimit: 'api' }
 )
 
 

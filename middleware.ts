@@ -4,6 +4,24 @@ import { CSRFProtection } from '@/lib/security/csrf'
 import { getJWTConfig } from '@/lib/env'
 import { isPublicApiRoute } from '@/lib/api/middleware/global-auth'
 import { debugLog } from '@/lib/utils/debug'
+import { sanitizeRequestBody } from '@/lib/api/middleware/request-sanitization'
+import { createEdgeAPILogger } from '@/lib/logger/edge-logger'
+
+// CSRF exempt paths - these endpoints handle their own security
+const CSRF_EXEMPT_PATHS = [
+  '/api/auth/login',      // Login uses credentials, not session
+  '/api/auth/register',   // Registration is public
+  '/api/auth/refresh',    // Token refresh has its own security
+  '/api/health',          // Health check endpoint
+  '/api/csrf',            // CSRF token generation endpoint
+  '/api/webhooks/',       // All webhook endpoints (external services)
+]
+
+function isCSRFExempt(pathname: string): boolean {
+  return CSRF_EXEMPT_PATHS.some(path => 
+    pathname === path || pathname.startsWith(path)
+  )
+}
 
 export async function middleware(request: NextRequest) {
   const hostname = request.nextUrl.hostname
@@ -17,21 +35,61 @@ export async function middleware(request: NextRequest) {
   // Add Content Security Policy
   response.headers.set('Content-Security-Policy', getContentSecurityPolicy())
 
-  // Handle API routes with global authentication
-  if (pathname.startsWith('/api/')) {
-    // CSRF protection for state-changing operations
-    // Applied to ALL routes except webhooks (which come from external services)
-    if (CSRFProtection.requiresCSRFProtection(request.method) &&
-        !pathname.startsWith('/api/webhooks/')) {
-      const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
-      if (!isValidCSRF) {
-        return new NextResponse('CSRF Token Invalid', {
+  // CSRF Protection for state-changing operations
+  // Applied before any other processing to fail fast
+  if (CSRFProtection.requiresCSRFProtection(request.method) && !isCSRFExempt(pathname)) {
+    const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
+    if (!isValidCSRF) {
+      debugLog.middleware(`CSRF validation failed for ${pathname}`)
+      return new NextResponse(
+        JSON.stringify({ error: 'CSRF token validation failed' }), 
+        {
           status: 403,
-          headers: response.headers
-        })
+          headers: {
+            ...response.headers,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+    }
+  }
+
+  // Handle API routes
+  if (pathname.startsWith('/api/')) {
+    // Request sanitization for JSON bodies
+    if (['POST', 'PUT', 'PATCH'].includes(request.method)) {
+      try {
+        // Clone the request to read the body
+        const clonedRequest = request.clone()
+        const body = await clonedRequest.json().catch(() => null)
+        
+        if (body) {
+          const logger = createEdgeAPILogger(request)
+          const sanitizationResult = await sanitizeRequestBody(body, logger)
+          
+          if (!sanitizationResult.isValid) {
+            debugLog.middleware(`Request sanitization failed for ${pathname}: ${sanitizationResult.errors.join(', ')}`)
+            return new NextResponse(
+              JSON.stringify({ 
+                error: 'Invalid request data',
+                details: sanitizationResult.errors.slice(0, 3) // Only show first 3 errors
+              }), 
+              {
+                status: 400,
+                headers: {
+                  ...response.headers,
+                  'Content-Type': 'application/json'
+                }
+              }
+            )
+          }
+        }
+      } catch (error) {
+        // If body parsing fails, let the API route handle it
+        debugLog.middleware(`Request body parsing failed for ${pathname}: ${error}`)
       }
     }
-
+    
     // ✅ SECURITY: API routes now handle authentication via requireAuth() which supports both 
     // Authorization headers (for API clients) and httpOnly cookies (for browser requests)
     // No middleware modification needed - cleaner and more reliable
@@ -161,11 +219,12 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
-     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * 
+     * API routes are now included for CSRF protection
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 }
