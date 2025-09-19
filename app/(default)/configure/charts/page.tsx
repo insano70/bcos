@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ChartDefinition } from '@/lib/types/analytics';
 import ChartsTable, { type ChartDefinitionListItem } from './charts-table';
@@ -15,7 +15,7 @@ import Toast from '@/components/toast';
 export default function ChartBuilderPage() {
   const router = useRouter();
   const [savedCharts, setSavedCharts] = useState<ChartDefinitionListItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [_isLoading, _setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [chartToDelete, setChartToDelete] = useState<ChartDefinitionListItem | null>(null);
@@ -23,7 +23,7 @@ export default function ChartBuilderPage() {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
 
-  const handleSaveChart = async (chartDefinition: Partial<ChartDefinition>) => {
+  const _handleSaveChart = async (chartDefinition: Partial<ChartDefinition>) => {
     try {
       console.log('💾 Saving chart definition:', chartDefinition);
       
@@ -53,7 +53,7 @@ export default function ChartBuilderPage() {
   };
 
 
-  const loadCharts = async () => {
+  const loadCharts = useCallback(async () => {
     setError(null);
     
     try {
@@ -119,7 +119,7 @@ export default function ChartBuilderPage() {
         setError(errorMessage);
         setSavedCharts([]); // Ensure we always have an array
       }
-  };
+  }, []);
 
   const handleDeleteClick = (chart: ChartDefinitionListItem) => {
     setChartToDelete(chart);
@@ -167,7 +167,7 @@ export default function ChartBuilderPage() {
   // Load charts on component mount
   React.useEffect(() => {
     loadCharts();
-  }, []);
+  }, [loadCharts]);
 
 
   // Error state

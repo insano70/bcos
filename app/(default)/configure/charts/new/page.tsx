@@ -22,6 +22,7 @@ export default function NewChartPage() {
           <ol className="flex items-center space-x-4">
             <li>
               <button
+                type="button"
                 onClick={handleCancel}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               >

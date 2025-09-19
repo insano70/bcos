@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import RowBasedDashboardBuilder from '@/components/charts/row-based-dashboard-builder';
 import type { Dashboard, DashboardChart } from '@/lib/types/analytics';
@@ -18,13 +18,7 @@ export default function EditDashboardPage() {
 
   const dashboardId = params.dashboardId as string;
 
-  useEffect(() => {
-    if (dashboardId) {
-      loadDashboardData();
-    }
-  }, [dashboardId]);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -53,7 +47,13 @@ export default function EditDashboardPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [dashboardId]);
+
+  useEffect(() => {
+    if (dashboardId) {
+      loadDashboardData();
+    }
+  }, [dashboardId, loadDashboardData]);
 
   const handleCancel = () => {
     router.push('/configure/dashboards');

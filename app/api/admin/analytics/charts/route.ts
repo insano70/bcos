@@ -4,9 +4,10 @@ import { eq, desc, and, isNull } from 'drizzle-orm';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { CSRFProtection } from '@/lib/security/csrf';
 import type { UserContext } from '@/lib/types/rbac';
 import { ChartDefinition } from '@/lib/types/analytics';
-import { createAPILogger, logDBOperation, logPerformanceMetric } from '@/lib/logger';
+import { createAPILogger, logDBOperation, logPerformanceMetric, logSecurityEvent } from '@/lib/logger';
 
 /**
  * Admin Analytics - Chart Definitions CRUD API
@@ -87,6 +88,22 @@ const createChartHandler = async (request: NextRequest, userContext: UserContext
   });
 
   try {
+    // CSRF PROTECTION: Verify CSRF token for chart creation
+    const csrfStartTime = Date.now();
+    const isValidCSRF = await CSRFProtection.verifyCSRFToken(request);
+    logPerformanceMetric(logger, 'csrf_validation', Date.now() - csrfStartTime);
+    
+    if (!isValidCSRF) {
+      logSecurityEvent(logger, 'csrf_validation_failed', 'high', {
+        endpoint: '/api/admin/analytics/charts',
+        action: 'create_chart',
+        userId: userContext.user_id
+      });
+      return createErrorResponse('CSRF token validation failed', 403, request);
+    }
+    
+    logger.debug('CSRF validation successful');
+    
     const body = await request.json();
     
     // Validate required fields

@@ -4,6 +4,7 @@ import { eq, and } from 'drizzle-orm';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { withCSRFProtection } from '@/lib/api/middleware/csrf-validation';
 import type { UserContext } from '@/lib/types/rbac';
 import { createAPILogger, logDBOperation, logPerformanceMetric } from '@/lib/logger';
 
@@ -161,17 +162,38 @@ export const GET = rbacRoute(getChartHandler, {
   rateLimit: 'api'
 });
 
-export const PUT = rbacRoute(updateChartHandler, {
-  permission: 'analytics:read:all',
-  rateLimit: 'api'
-});
+export const PUT = rbacRoute(
+  withCSRFProtection(
+    updateChartHandler,
+    '/api/admin/analytics/charts/[chartId]',
+    'update_chart'
+  ),
+  {
+    permission: 'analytics:read:all',
+    rateLimit: 'api'
+  }
+);
 
-export const PATCH = rbacRoute(updateChartHandler, {
-  permission: 'analytics:read:all',
-  rateLimit: 'api'
-});
+export const PATCH = rbacRoute(
+  withCSRFProtection(
+    updateChartHandler,
+    '/api/admin/analytics/charts/[chartId]',
+    'update_chart'
+  ),
+  {
+    permission: 'analytics:read:all',
+    rateLimit: 'api'
+  }
+);
 
-export const DELETE = rbacRoute(deleteChartHandler, {
-  permission: 'analytics:read:all',
-  rateLimit: 'api'
-});
+export const DELETE = rbacRoute(
+  withCSRFProtection(
+    deleteChartHandler,
+    '/api/admin/analytics/charts/[chartId]',
+    'delete_chart'
+  ),
+  {
+    permission: 'analytics:read:all',
+    rateLimit: 'api'
+  }
+);

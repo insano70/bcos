@@ -7,8 +7,8 @@ interface ChartsTableItemProps {
   chart: ChartDefinitionListItem;
   onCheckboxChange: (id: string, checked: boolean) => void;
   isSelected: boolean;
-  onEdit?: (chart: ChartDefinitionListItem) => void | undefined;
-  onDelete?: (chart: ChartDefinitionListItem) => void | undefined;
+  onEdit?: (chart: ChartDefinitionListItem) => void;
+  onDelete?: (chart: ChartDefinitionListItem) => void;
 }
 
 export default function ChartsTableItem({
@@ -49,7 +49,7 @@ export default function ChartsTableItem({
     setDropdownOpen(false);
   };
 
-  const getChartTypeIcon = (type: string) => {
+  const _getChartTypeIcon = (type: string) => {
     switch (type) {
       case 'line': return '📈';
       case 'bar': return '📊';
@@ -162,6 +162,7 @@ export default function ChartsTableItem({
       <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap w-px">
         <div className="relative inline-flex" ref={dropdownRef}>
           <button
+            type="button"
             className="rounded-full"
             aria-haspopup="true"
             aria-expanded={dropdownOpen}
@@ -184,6 +185,7 @@ export default function ChartsTableItem({
                 {onEdit && (
                   <li>
                     <button
+                      type="button"
                       className="font-medium text-sm text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 flex py-1 px-3 w-full text-left"
                       onClick={handleEdit}
                     >
@@ -193,6 +195,7 @@ export default function ChartsTableItem({
                 )}
                 <li>
                   <button
+                    type="button"
                     className="font-medium text-sm text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 flex py-1 px-3 w-full text-left"
                     onClick={() => {
                       navigator.clipboard.writeText(chart.chart_definition_id);
@@ -204,6 +207,7 @@ export default function ChartsTableItem({
                 </li>
                 <li>
                   <button
+                    type="button"
                     className="font-medium text-sm text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 flex py-1 px-3 w-full text-left"
                     onClick={() => {
                       // TODO: Implement chart preview
@@ -216,6 +220,7 @@ export default function ChartsTableItem({
                 {onDelete && (
                   <li>
                     <button
+                      type="button"
                       className="font-medium text-sm text-red-500 hover:text-red-600 flex py-1 px-3 w-full text-left"
                       onClick={handleDelete}
                     >

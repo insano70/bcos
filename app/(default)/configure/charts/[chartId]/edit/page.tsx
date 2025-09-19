@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import ChartBuilder from '@/components/charts/chart-builder';
 
@@ -9,9 +9,9 @@ interface ChartDefinition {
   chart_name: string;
   chart_description?: string;
   chart_type: string;
-  data_source: any;
-  chart_config: any;
-  access_control?: any;
+  data_source: Record<string, unknown>;
+  chart_config: Record<string, unknown>;
+  access_control?: Record<string, unknown>;
   chart_category_id?: string;
   created_by: string;
   created_at: string;
@@ -28,13 +28,7 @@ export default function EditChartPage() {
 
   const chartId = params.chartId as string;
 
-  useEffect(() => {
-    if (chartId) {
-      loadChartData();
-    }
-  }, [chartId]);
-
-  const loadChartData = async () => {
+  const loadChartData = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -56,7 +50,13 @@ export default function EditChartPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [chartId]);
+
+  useEffect(() => {
+    if (chartId) {
+      loadChartData();
+    }
+  }, [chartId, loadChartData]);
 
   const handleCancel = () => {
     router.push('/configure/charts');
@@ -149,6 +149,7 @@ export default function EditChartPage() {
           <ol className="flex items-center space-x-4">
             <li>
               <button
+                type="button"
                 onClick={handleCancel}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               >

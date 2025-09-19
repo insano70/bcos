@@ -56,9 +56,9 @@ export default function DashboardsPage() {
       // Transform joined API data to flat DashboardListItem structure
       const transformedDashboards: DashboardListItem[] = dashboards.map((item: any, index: number) => {
         // Handle joined data structure from API (leftJoin returns nested objects)
-        const dashboardDef = item.dashboards || item;
-        const category = item.chart_categories;
-        const user = item.users;
+        const dashboardDef = (item as any).dashboards || item;
+        const category = (item as any).chart_categories;
+        const user = (item as any).users;
         
         console.log(`🔄 Transforming dashboard ${index}:`, {
           original: item,
@@ -68,18 +68,18 @@ export default function DashboardsPage() {
         });
         
         return {
-          dashboard_id: dashboardDef.dashboard_id || `temp-${index}`,
-          dashboard_name: dashboardDef.dashboard_name || 'Unnamed Dashboard',
-          dashboard_description: dashboardDef.dashboard_description || undefined,
-          dashboard_category_id: dashboardDef.dashboard_category_id || undefined,
-          category_name: category?.category_name || undefined,
-          chart_count: item.chart_count || 0,
-          created_by: dashboardDef.created_by || 'unknown',
-          creator_name: user?.first_name || undefined,
-          creator_last_name: user?.last_name || undefined,
-          created_at: dashboardDef.created_at || new Date().toISOString(),
-          updated_at: dashboardDef.updated_at || new Date().toISOString(),
-          is_active: dashboardDef.is_active ?? true,
+          dashboard_id: (dashboardDef as any).dashboard_id || `temp-${index}`,
+          dashboard_name: (dashboardDef as any).dashboard_name || 'Unnamed Dashboard',
+          dashboard_description: (dashboardDef as any).dashboard_description || undefined,
+          dashboard_category_id: (dashboardDef as any).dashboard_category_id || undefined,
+          category_name: (category as any)?.category_name || undefined,
+          chart_count: (item as any).chart_count || 0,
+          created_by: (dashboardDef as any).created_by || 'unknown',
+          creator_name: (user as any)?.first_name || undefined,
+          creator_last_name: (user as any)?.last_name || undefined,
+          created_at: (dashboardDef as any).created_at || new Date().toISOString(),
+          updated_at: (dashboardDef as any).updated_at || new Date().toISOString(),
+          is_active: (dashboardDef as any).is_active ?? true,
         };
       });
       

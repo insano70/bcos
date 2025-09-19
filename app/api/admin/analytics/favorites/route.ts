@@ -4,6 +4,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { withCSRFProtection } from '@/lib/api/middleware/csrf-validation';
 import type { UserContext } from '@/lib/types/rbac';
 import { createAPILogger, logDBOperation, logPerformanceMetric } from '@/lib/logger';
 
@@ -182,12 +183,26 @@ export const GET = rbacRoute(getFavoritesHandler, {
   rateLimit: 'api'
 });
 
-export const POST = rbacRoute(addFavoriteHandler, {
-  permission: 'analytics:read:all',
-  rateLimit: 'api'
-});
+export const POST = rbacRoute(
+  withCSRFProtection(
+    addFavoriteHandler,
+    '/api/admin/analytics/favorites',
+    'add_favorite'
+  ),
+  {
+    permission: 'analytics:read:all',
+    rateLimit: 'api'
+  }
+);
 
-export const DELETE = rbacRoute(removeFavoriteHandler, {
-  permission: 'analytics:read:all',
-  rateLimit: 'api'
-});
+export const DELETE = rbacRoute(
+  withCSRFProtection(
+    removeFavoriteHandler,
+    '/api/admin/analytics/favorites',
+    'remove_favorite'
+  ),
+  {
+    permission: 'analytics:read:all',
+    rateLimit: 'api'
+  }
+);
