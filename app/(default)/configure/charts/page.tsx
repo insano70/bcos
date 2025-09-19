@@ -11,6 +11,7 @@ import PaginationClassic from '@/components/pagination-classic';
 import { SelectedItemsProvider } from '@/app/selected-items-context';
 import DeleteChartModal from '@/components/delete-chart-modal';
 import Toast from '@/components/toast';
+import { usePagination } from '@/lib/hooks/use-pagination';
 
 export default function ChartBuilderPage() {
   const router = useRouter();
@@ -22,6 +23,9 @@ export default function ChartBuilderPage() {
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
+
+  // Pagination
+  const pagination = usePagination(savedCharts, { itemsPerPage: 10 });
 
   const _handleSaveChart = async (chartDefinition: Partial<ChartDefinition>) => {
     try {
@@ -246,7 +250,7 @@ export default function ChartBuilderPage() {
 
         {/* Charts Table */}
         <ChartsTable
-          charts={savedCharts}
+          charts={pagination.currentItems}
           onEdit={handleEditChart}
           onDelete={handleDeleteClick}
         />
@@ -254,7 +258,17 @@ export default function ChartBuilderPage() {
         {/* Pagination */}
         {savedCharts.length > 0 && (
           <div className="mt-8">
-            <PaginationClassic />
+            <PaginationClassic 
+              currentPage={pagination.currentPage}
+              totalItems={pagination.totalItems}
+              itemsPerPage={pagination.itemsPerPage}
+              startItem={pagination.startItem}
+              endItem={pagination.endItem}
+              hasPrevious={pagination.hasPrevious}
+              hasNext={pagination.hasNext}
+              onPrevious={pagination.goToPrevious}
+              onNext={pagination.goToNext}
+            />
           </div>
         )}
 

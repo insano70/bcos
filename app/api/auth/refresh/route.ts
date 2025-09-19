@@ -220,6 +220,9 @@ const refreshHandler = async (request: NextRequest) => {
       permissionCount: userContext?.all_permissions?.length || 0
     })
 
+    // Generate new authenticated CSRF token as part of token rotation
+    const csrfToken = await CSRFProtection.setCSRFToken(user.user_id)
+    
     // Set new refresh token in httpOnly cookie and return user data
     const responseStart = Date.now()
     const response = NextResponse.json({
@@ -238,7 +241,8 @@ const refreshHandler = async (request: NextRequest) => {
         },
         accessToken: tokenPair.accessToken,
         expiresAt: tokenPair.expiresAt.toISOString(),
-        sessionId: tokenPair.sessionId
+        sessionId: tokenPair.sessionId,
+        csrfToken // Include refreshed CSRF token
       },
       message: 'Tokens refreshed successfully',
       meta: { timestamp: new Date().toISOString() }

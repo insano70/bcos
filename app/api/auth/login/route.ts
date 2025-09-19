@@ -41,20 +41,6 @@ const loginHandler = async (request: NextRequest) => {
   })
 
   try {
-    // CSRF PROTECTION: Verify CSRF token for login (public but state-changing)
-    const csrfStartTime = Date.now()
-    const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
-    logPerformanceMetric(logger, 'csrf_validation', Date.now() - csrfStartTime)
-    
-    if (!isValidCSRF) {
-      logSecurityEvent(logger, 'csrf_validation_failed', 'high', {
-        endpoint: '/api/auth/login'
-      })
-      return createErrorResponse('CSRF token validation failed', 403, request)
-    }
-
-    logger.debug('CSRF validation successful')
-
     // Apply rate limiting
     const rateLimitStartTime = Date.now()
     await applyRateLimit(request, 'auth')
@@ -79,7 +65,7 @@ const loginHandler = async (request: NextRequest) => {
 
     // Check account lockout
     const lockoutStartTime = Date.now()
-    const lockoutStatus = AccountSecurity.isAccountLocked(email)
+    const lockoutStatus = await AccountSecurity.isAccountLocked(email)
     logPerformanceMetric(logger, 'lockout_check', Date.now() - lockoutStartTime)
     
     if (lockoutStatus.locked) {
@@ -118,7 +104,7 @@ const loginHandler = async (request: NextRequest) => {
       })
 
       // Record failed attempt
-      AccountSecurity.recordFailedAttempt(email)
+      await AccountSecurity.recordFailedAttempt(email)
       
       await AuditLogger.logAuth({
         action: 'login_failed',
@@ -174,7 +160,7 @@ const loginHandler = async (request: NextRequest) => {
       })
 
       // Record failed attempt
-      const lockoutResult = AccountSecurity.recordFailedAttempt(email)
+      const lockoutResult = await AccountSecurity.recordFailedAttempt(email)
       
       await AuditLogger.logAuth({
         action: 'login_failed',
@@ -198,7 +184,7 @@ const loginHandler = async (request: NextRequest) => {
     })
 
     // Clear failed attempts on successful login
-    AccountSecurity.clearFailedAttempts(email)
+    await AccountSecurity.clearFailedAttempts(email)
 
     // Generate device info
     const deviceGenStartTime = Date.now()

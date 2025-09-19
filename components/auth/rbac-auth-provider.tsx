@@ -255,6 +255,7 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
         sessionId: result.data.sessionId,
         isLoading: false,
         isAuthenticated: true,
+        csrfToken: result.data.csrfToken || prev.csrfToken, // Use new authenticated token from login
         userContext: null, // Will be loaded by useEffect
         rbacLoading: false,
         rbacError: null
@@ -294,7 +295,7 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
         sessionId: null,
         isLoading: false,
         isAuthenticated: false,
-        csrfToken: null,
+        csrfToken: null, // Clear CSRF token so next login gets fresh anonymous token
         userContext: null,
         rbacLoading: false,
         rbacError: null
@@ -309,7 +310,7 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
         sessionId: null,
         isLoading: false,
         isAuthenticated: false,
-        csrfToken: null,
+        csrfToken: null, // Clear CSRF token even on logout failure
         userContext: null,
         rbacLoading: false,
         rbacError: null
@@ -319,15 +320,17 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
 
   const refreshToken = async () => {
     try {
-      const csrfToken = (await ensureCsrfToken()) || '';
+      const csrfToken = state.csrfToken || (await ensureCsrfToken()) || '';
+      
       const response = await fetch('/api/auth/refresh', {
         method: 'POST',
-        headers: { 'x-csrf-token': csrfToken },
+        headers: {
+          'x-csrf-token': csrfToken
+        },
         credentials: 'include'
       });
 
       if (!response.ok) {
-        // Refresh failed - this is normal if no session exists
         debugLog.auth('No active session to refresh');
         setState({
           user: null,
@@ -351,6 +354,7 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
         sessionId: result.data.sessionId,
         isLoading: false,
         isAuthenticated: true,
+        csrfToken: result.data.csrfToken || prev.csrfToken, // Store new authenticated CSRF token from refresh
         userContext: null, // Will be loaded by useEffect when user is set
         rbacLoading: false,
         rbacError: null

@@ -1,20 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { addSecurityHeaders, getContentSecurityPolicy } from '@/lib/security/headers'
-import { CSRFProtection } from '@/lib/security/csrf'
+import { EdgeCSRFProtection } from '@/lib/security/csrf-edge'
 import { getJWTConfig } from '@/lib/env'
 import { isPublicApiRoute } from '@/lib/api/middleware/global-auth'
 import { debugLog } from '@/lib/utils/debug'
 import { sanitizeRequestBody } from '@/lib/api/middleware/request-sanitization'
 import { createEdgeAPILogger } from '@/lib/logger/edge-logger'
 
-// CSRF exempt paths - these endpoints handle their own security
+// CSRF exempt paths - these endpoints handle their own security or don't need CSRF
 const CSRF_EXEMPT_PATHS = [
-  '/api/auth/login',      // Login uses credentials, not session
-  '/api/auth/register',   // Registration is public
-  '/api/auth/refresh',    // Token refresh has its own security
-  '/api/health',          // Health check endpoint
-  '/api/csrf',            // CSRF token generation endpoint
+  '/api/health',          // Health check endpoint (GET only, no state change)
+  '/api/csrf',            // CSRF token generation endpoint (can't require CSRF to get CSRF)
   '/api/webhooks/',       // All webhook endpoints (external services)
+  // Note: login, register, and refresh are NOT exempt - they all require CSRF protection
+  // - login/register use anonymous CSRF tokens
+  // - refresh uses authenticated CSRF tokens
 ]
 
 function isCSRFExempt(pathname: string): boolean {
@@ -37,8 +37,8 @@ export async function middleware(request: NextRequest) {
 
   // CSRF Protection for state-changing operations
   // Applied before any other processing to fail fast
-  if (CSRFProtection.requiresCSRFProtection(request.method) && !isCSRFExempt(pathname)) {
-    const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
+  if (EdgeCSRFProtection.requiresCSRFProtection(request.method) && !isCSRFExempt(pathname)) {
+    const isValidCSRF = await EdgeCSRFProtection.verifyCSRFToken(request)
     if (!isValidCSRF) {
       debugLog.middleware(`CSRF validation failed for ${pathname}`)
       return new NextResponse(

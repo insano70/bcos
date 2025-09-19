@@ -8,10 +8,14 @@ import PaginationClassic from '@/components/pagination-classic';
 import { usePractices } from '@/lib/hooks/use-practices';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { usePracticePermissions } from '@/lib/hooks/use-permissions';
+import { usePagination } from '@/lib/hooks/use-pagination';
 
 export default function PracticesContent() {
   const { data: practices, isLoading, error, refetch } = usePractices();
   const _practicePermissions = usePracticePermissions();
+
+  // Pagination
+  const pagination = usePagination(practices, { itemsPerPage: 10 });
 
   if (error) {
     // Check if this is a session expiry error
@@ -166,12 +170,22 @@ export default function PracticesContent() {
           </div>
         </div>
       ) : (
-        <PracticesTable practices={practices || []} />
+        <PracticesTable practices={pagination.currentItems} />
       )}
 
       {/* Pagination */}
       <div className="mt-8">
-        <PaginationClassic />
+        <PaginationClassic 
+          currentPage={pagination.currentPage}
+          totalItems={pagination.totalItems}
+          itemsPerPage={pagination.itemsPerPage}
+          startItem={pagination.startItem}
+          endItem={pagination.endItem}
+          hasPrevious={pagination.hasPrevious}
+          hasNext={pagination.hasNext}
+          onPrevious={pagination.goToPrevious}
+          onNext={pagination.goToNext}
+        />
       </div>
     </div>
   );

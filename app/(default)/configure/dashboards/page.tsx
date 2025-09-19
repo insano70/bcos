@@ -13,6 +13,7 @@ import DeleteDashboardModal from '@/components/delete-dashboard-modal';
 import DashboardPreviewModal from '@/components/dashboard-preview-modal';
 import Toast from '@/components/toast';
 import type { Dashboard, DashboardChart } from '@/lib/types/analytics';
+import { usePagination } from '@/lib/hooks/use-pagination';
 
 export default function DashboardsPage() {
   const router = useRouter();
@@ -28,6 +29,9 @@ export default function DashboardsPage() {
     dashboard: Dashboard;
     charts: DashboardChart[];
   } | null>(null);
+
+  // Pagination
+  const pagination = usePagination(savedDashboards, { itemsPerPage: 10 });
 
   const loadDashboards = useCallback(async () => {
     setError(null);
@@ -251,7 +255,7 @@ export default function DashboardsPage() {
 
         {/* Dashboards Table */}
         <DashboardsTable
-          dashboards={savedDashboards}
+          dashboards={pagination.currentItems}
           onEdit={handleEditDashboard}
           onDelete={handleDeleteClick}
           onPreview={handlePreviewDashboard}
@@ -260,7 +264,17 @@ export default function DashboardsPage() {
         {/* Pagination */}
         {savedDashboards.length > 0 && (
           <div className="mt-8">
-            <PaginationClassic />
+            <PaginationClassic 
+              currentPage={pagination.currentPage}
+              totalItems={pagination.totalItems}
+              itemsPerPage={pagination.itemsPerPage}
+              startItem={pagination.startItem}
+              endItem={pagination.endItem}
+              hasPrevious={pagination.hasPrevious}
+              hasNext={pagination.hasNext}
+              onPrevious={pagination.goToPrevious}
+              onNext={pagination.goToNext}
+            />
           </div>
         )}
 

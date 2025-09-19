@@ -11,6 +11,7 @@ import EditUserModal from '@/components/edit-user-modal';
 import { useUsers, type User } from '@/lib/hooks/use-users';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
+import { usePagination } from '@/lib/hooks/use-pagination';
 
 export default function UsersContent() {
   // Component rendered (client-side debug)
@@ -22,6 +23,9 @@ export default function UsersContent() {
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
+  // Pagination
+  const pagination = usePagination(users, { itemsPerPage: 10 });
 
   // Auth state logging (client-side debug)
   if (process.env.NODE_ENV === 'development') {
@@ -226,12 +230,22 @@ export default function UsersContent() {
           </div>
         </div>
       ) : (
-        <UsersTable users={users || []} onEdit={handleEditUser} />
+        <UsersTable users={pagination.currentItems} onEdit={handleEditUser} />
       )}
 
       {/* Pagination */}
       <div className="mt-8">
-        <PaginationClassic totalItems={users?.length || 0} />
+        <PaginationClassic 
+          currentPage={pagination.currentPage}
+          totalItems={pagination.totalItems}
+          itemsPerPage={pagination.itemsPerPage}
+          startItem={pagination.startItem}
+          endItem={pagination.endItem}
+          hasPrevious={pagination.hasPrevious}
+          hasNext={pagination.hasNext}
+          onPrevious={pagination.goToPrevious}
+          onNext={pagination.goToNext}
+        />
       </div>
 
       {/* Add User Modal */}

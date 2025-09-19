@@ -13,7 +13,8 @@ export const env = createEnv({
     
     // Authentication & Security
     JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters for security"),
-    JWT_REFRESH_SECRET: z.string().min(32, "JWT_REFRESH_SECRET must be at least 32 characters").optional(),
+    JWT_REFRESH_SECRET: z.string().min(32, "JWT_REFRESH_SECRET must be at least 32 characters for security"),
+    CSRF_SECRET: z.string().min(32, "CSRF_SECRET must be at least 32 characters for security"),
     
     // Email Service
     RESEND_API_KEY: z.string().optional(),
@@ -49,6 +50,7 @@ export const env = createEnv({
     ANALYTICS_DATABASE_URL: process.env.ANALYTICS_DATABASE_URL,
     JWT_SECRET: process.env.JWT_SECRET,
     JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
+    CSRF_SECRET: process.env.CSRF_SECRET,
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     EMAIL_FROM: process.env.EMAIL_FROM,
     ADMIN_NOTIFICATION_EMAILS: process.env.ADMIN_NOTIFICATION_EMAILS,
@@ -90,8 +92,17 @@ if (typeof window === 'undefined') {
       throw new Error("JWT_SECRET must be at least 64 characters in production");
     }
     
-    if (env.JWT_REFRESH_SECRET && env.JWT_REFRESH_SECRET.length < 64) {
+    if (env.JWT_REFRESH_SECRET.length < 64) {
       throw new Error("JWT_REFRESH_SECRET must be at least 64 characters in production");
+    }
+    
+    if (env.CSRF_SECRET.length < 64) {
+      throw new Error("CSRF_SECRET must be at least 64 characters in production");
+    }
+    
+    // Ensure JWT secrets are different for better security isolation
+    if (env.JWT_SECRET === env.JWT_REFRESH_SECRET) {
+      throw new Error("JWT_SECRET and JWT_REFRESH_SECRET must be different values for security isolation");
     }
     
     // Ensure HTTPS in production
@@ -120,7 +131,7 @@ export const getJWTConfig = () => {
   }
   return {
     accessSecret: env.JWT_SECRET,
-    refreshSecret: env.JWT_REFRESH_SECRET || env.JWT_SECRET,
+    refreshSecret: env.JWT_REFRESH_SECRET,
     keyId: env.NODE_ENV === 'production' ? 'prod-key-1' : 'dev-key-1'
   };
 };
@@ -178,4 +189,13 @@ export const isDevelopment = () => {
     throw new Error('isDevelopment can only be used on the server side');
   }
   return env.NODE_ENV === 'development';
+};
+
+export const getCSRFConfig = () => {
+  if (typeof window !== 'undefined') {
+    throw new Error('getCSRFConfig can only be used on the server side');
+  }
+  return {
+    secret: env.CSRF_SECRET,
+  };
 };

@@ -2,6 +2,7 @@ import { nanoid } from 'nanoid'
 import { cookies } from 'next/headers'
 import type { NextRequest } from 'next/server'
 import crypto from 'crypto'
+import { getCSRFConfig } from '@/lib/env'
 
 /**
  * CSRF (Cross-Site Request Forgery) Protection
@@ -20,18 +21,50 @@ export class CSRFProtection {
   }
 
   /**
+   * Normalize IP address for consistent token validation
+   * Handles localhost IPv4/IPv6 variations in development
+   */
+  private static normalizeIP(rawIP: string): string {
+    // Handle localhost variations
+    if (rawIP === '::1' || rawIP === '127.0.0.1' || rawIP === 'localhost') {
+      return 'localhost'
+    }
+    return rawIP
+  }
+
+  /**
+   * Extract and normalize IP from request
+   */
+  private static getRequestIP(request: NextRequest): string {
+    const rawIP = request.headers.get('x-forwarded-for') || 
+                  request.headers.get('x-real-ip') || 
+                  'unknown'
+    return CSRFProtection.normalizeIP(rawIP)
+  }
+
+  /**
+   * Get time window with development flexibility
+   */
+  private static getTimeWindow(): number {
+    const isDevelopment = process.env.NODE_ENV === 'development'
+    // Development: 15-minute window, Production: 5-minute window
+    const windowSize = isDevelopment ? 900000 : 300000
+    return Math.floor(Date.now() / windowSize)
+  }
+
+  /**
    * Generate anonymous CSRF token based on request fingerprint
    * Used for protecting public endpoints like login
    */
   static generateAnonymousToken(request: NextRequest): string {
-    const secret = process.env.CSRF_SECRET || 'default-csrf-secret-change-in-production'
+    const secret = getCSRFConfig().secret
     
     // Create a payload with type information
     const payload = {
       type: 'anonymous',
-      ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
+      ip: CSRFProtection.getRequestIP(request),
       userAgent: request.headers.get('user-agent') || 'unknown',
-      timeWindow: Math.floor(Date.now() / 300000), // 5-minute window
+      timeWindow: CSRFProtection.getTimeWindow(),
       nonce: nanoid(8) // Add randomness to prevent replay attacks
     }
     
@@ -52,10 +85,30 @@ export class CSRFProtection {
    */
   static validateAnonymousToken(request: NextRequest, token: string): boolean {
     try {
-      const secret = process.env.CSRF_SECRET || 'default-csrf-secret-change-in-production'
+      const secret = getCSRFConfig().secret
+      const isDevelopment = process.env.NODE_ENV === 'development'
+      
+      if (isDevelopment) {
+        console.log('🔍 CSRF Anonymous Token Validation Starting:', {
+          tokenLength: token.length,
+          requestIP: CSRFProtection.getRequestIP(request),
+          timeWindow: CSRFProtection.getTimeWindow()
+        })
+      }
+      
       const [encodedPayload, signature] = token.split('.')
       
       if (!encodedPayload || !signature) {
+        if (isDevelopment) {
+          console.log('🔍 CSRF Token Parse Failed:', {
+            tokenLength: token.length,
+            tokenPreview: token.substring(0, 50) + '...',
+            hasDot: token.includes('.'),
+            parts: token.split('.').length,
+            encodedPayload: !!encodedPayload,
+            signature: !!signature
+          })
+        }
         return false
       }
       
@@ -65,32 +118,92 @@ export class CSRFProtection {
         .update(Buffer.from(encodedPayload, 'base64').toString())
         .digest('hex')
       
-      if (!crypto.timingSafeEqual(
+      const signatureValid = crypto.timingSafeEqual(
         Buffer.from(signature, 'hex'),
         Buffer.from(expectedSignature, 'hex')
-      )) {
+      )
+      
+      if (!signatureValid) {
+        if (isDevelopment) {
+          console.log('🔍 CSRF Signature Verification Failed:', {
+            providedSignature: signature.substring(0, 16) + '...',
+            expectedSignature: expectedSignature.substring(0, 16) + '...',
+            signaturesMatch: signatureValid
+          })
+        }
         return false
       }
       
       // Parse and validate payload
       const payload = JSON.parse(Buffer.from(encodedPayload, 'base64').toString())
       
+      if (isDevelopment) {
+        console.log('🔍 CSRF Payload Parsed:', {
+          type: payload.type,
+          ip: payload.ip,
+          timeWindow: payload.timeWindow,
+          hasNonce: !!payload.nonce
+        })
+      }
+      
       // Check token type
       if (payload.type !== 'anonymous') {
+        if (isDevelopment) {
+          console.log('🔍 CSRF Token Type Mismatch:', {
+            expected: 'anonymous',
+            actual: payload.type
+          })
+        }
         return false
       }
       
-      // Validate request fingerprint
-      const currentIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
+      // Validate request fingerprint using same normalization as generation
+      const currentIp = CSRFProtection.getRequestIP(request)
       const currentUserAgent = request.headers.get('user-agent') || 'unknown'
-      const currentTimeWindow = Math.floor(Date.now() / 300000)
+      const currentTimeWindow = CSRFProtection.getTimeWindow()
       
-      return (
+      // Allow for time window flexibility in development
+      const timeWindowMatch = isDevelopment 
+        ? Math.abs(payload.timeWindow - currentTimeWindow) <= 1 // Allow 1 window drift in dev
+        : payload.timeWindow === currentTimeWindow
+      
+      const isValid = (
         payload.ip === currentIp &&
         payload.userAgent === currentUserAgent &&
-        payload.timeWindow === currentTimeWindow
+        timeWindowMatch
       )
-    } catch {
+      
+      // Enhanced debugging for token validation failures
+      if (!isValid && isDevelopment) {
+        console.log('🔍 CSRF Token Validation Debug:', {
+          payload: {
+            ip: payload.ip,
+            userAgent: payload.userAgent?.substring(0, 50) + '...',
+            timeWindow: payload.timeWindow
+          },
+          current: {
+            ip: currentIp,
+            userAgent: currentUserAgent?.substring(0, 50) + '...',
+            timeWindow: currentTimeWindow
+          },
+          matches: {
+            ip: payload.ip === currentIp,
+            userAgent: payload.userAgent === currentUserAgent,
+            timeWindow: timeWindowMatch
+          }
+        })
+      }
+      
+      return isValid
+    } catch (error) {
+      const isDevelopment = process.env.NODE_ENV === 'development'
+      if (isDevelopment) {
+        console.log('🔍 CSRF Anonymous Token Validation Error:', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          tokenLength: token.length,
+          tokenPreview: token.substring(0, 20) + '...'
+        })
+      }
       return false
     }
   }
@@ -99,7 +212,7 @@ export class CSRFProtection {
    * Generate authenticated CSRF token with type information
    */
   static generateAuthenticatedToken(userId?: string): string {
-    const secret = process.env.CSRF_SECRET || 'default-csrf-secret-change-in-production'
+    const secret = getCSRFConfig().secret
     
     // Create a payload with type information
     const payload = {
@@ -173,34 +286,53 @@ export class CSRFProtection {
    * Enforces strict token scope validation
    */
   static async verifyCSRFToken(request: NextRequest): Promise<boolean> {
+    const isDevelopment = process.env.NODE_ENV === 'development'
+    
     try {
       const headerToken = request.headers.get(CSRFProtection.headerName)
       const cookieToken = request.cookies.get(CSRFProtection.cookieName)?.value
-      
-      // Both tokens must exist
-      if (!headerToken || !cookieToken) {
-        console.error('CSRF validation failed: Missing token', {
-          hasHeader: !!headerToken,
-          hasCookie: !!cookieToken,
-          pathname: request.nextUrl.pathname
-        })
-        return false
-      }
-      
       const pathname = request.nextUrl.pathname
       const isAnonymousEndpoint = CSRFProtection.isAnonymousEndpoint(pathname)
       
-      // For anonymous endpoints, validate as anonymous token
+      // For anonymous endpoints, only header token is required (validated against request fingerprint)
       if (isAnonymousEndpoint) {
-        // Anonymous tokens are validated against request fingerprint
+        if (!headerToken) {
+          console.error('CSRF validation failed: Missing header token for anonymous endpoint', {
+            pathname,
+            hasHeader: !!headerToken
+          })
+          return false
+        }
+        
+        // Enhanced debugging for development
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔍 Anonymous CSRF Validation Start:', {
+            pathname,
+            headerTokenPreview: headerToken.substring(0, 30) + '...',
+            cookieTokenPreview: cookieToken?.substring(0, 30) + '...',
+            requestIP: CSRFProtection.getRequestIP(request)
+          })
+        }
+        
+        // Anonymous tokens are validated against request fingerprint (no cookie comparison)
         const isValid = CSRFProtection.validateAnonymousToken(request, headerToken)
         if (!isValid) {
           console.error('Anonymous CSRF token validation failed', {
             pathname,
-            ip: request.headers.get('x-forwarded-for') || 'unknown'
+            ip: CSRFProtection.getRequestIP(request)
           })
         }
         return isValid
+      }
+      
+      // For authenticated endpoints, both header and cookie tokens must exist
+      if (!headerToken || !cookieToken) {
+        console.error('CSRF validation failed: Missing token for authenticated endpoint', {
+          hasHeader: !!headerToken,
+          hasCookie: !!cookieToken,
+          pathname
+        })
+        return false
       }
       
       // For authenticated endpoints, we need to ensure:
@@ -226,7 +358,7 @@ export class CSRFProtection {
           // For authenticated tokens, verify signature and double-submit
           if (payload.type === 'authenticated') {
             // Verify token signature
-            const secret = process.env.CSRF_SECRET || 'default-csrf-secret-change-in-production'
+            const secret = getCSRFConfig().secret
             const [, signature] = headerToken.split('.')
             const expectedSignature = crypto
               .createHmac('sha256', secret)
