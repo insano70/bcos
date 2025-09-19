@@ -131,30 +131,21 @@ export default function DashboardPreview({
   return (
     <div className="space-y-6">
       {/* Preview Header */}
-      <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-6">
-        <div className="flex justify-between items-start">
-          <div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-              {title || `Dashboard Preview: ${previewConfig.dashboardName}`}
-            </h3>
-            {previewConfig.dashboardDescription && (
-              <p className="text-gray-600 dark:text-gray-400 mt-1">
-                {previewConfig.dashboardDescription}
-              </p>
-            )}
-            <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-              {previewConfig.charts.length} chart{previewConfig.charts.length !== 1 ? 's' : ''} • 
-              {previewConfig.layout.columns} column grid • 
-              {previewConfig.layout.rowHeight}px row height
-            </div>
+      <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-6 mb-6">
+        <div>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+            {previewConfig.dashboardName || 'Unnamed Dashboard'}
+          </h3>
+          {previewConfig.dashboardDescription && (
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
+              {previewConfig.dashboardDescription}
+            </p>
+          )}
+          <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+            {previewConfig.charts.length} chart{previewConfig.charts.length !== 1 ? 's' : ''} • 
+            {previewConfig.layout.columns} column grid • 
+            {previewConfig.layout.rowHeight}px row height
           </div>
-          
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-          >
-            Close Preview
-          </button>
         </div>
       </div>
 
@@ -219,8 +210,8 @@ export default function DashboardPreview({
                   startDate={startDateFilter?.value}
                   endDate={endDateFilter?.value}
                   groupBy={chartConfig.series?.groupBy || 'provider_name'}
-                  width={Math.floor((dashboardChart.position.w / previewConfig.layout.columns) * 800)}
-                  height={dashboardChart.position.h * previewConfig.layout.rowHeight - 20}
+                  width={Math.floor((dashboardChart.position.w / previewConfig.layout.columns) * 1200)}
+                  height={dashboardChart.position.h * previewConfig.layout.rowHeight - 40}
                   title={chartDef.chart_name}
                   calculatedField={(chartConfig as any).calculatedField}
                   advancedFilters={(dataSource as any).advancedFilters || []}
