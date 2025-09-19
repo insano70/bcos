@@ -53,7 +53,7 @@ export default function DashboardRowBuilder({
 
   const addChartToRow = () => {
     const newChart: DashboardChartSlot = {
-      id: `chart-${Date.now()}`,
+      id: `chart-${row.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Ensure unique ID
       widthPercentage: Math.floor(100 / (row.charts.length + 1)) // Auto-distribute width
     };
 

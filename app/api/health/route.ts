@@ -1,18 +1,30 @@
 import { NextRequest } from 'next/server'
-import { logger } from '@/lib/logger'
 import { createSuccessResponse } from '@/lib/api/responses/success'
-import { createAPILogger, logDBHealth } from '@/lib/logger'
 import { createErrorResponse } from '@/lib/api/responses/error'
+import { publicRoute } from '@/lib/api/rbac-route-handler'
+import { 
+  createAPILogger, 
+  logDBHealth,
+  logPerformanceMetric 
+} from '@/lib/logger'
 
 /**
- * Basic health check endpoint
- * Returns system status and basic information
+ * Health Check Endpoint
+ * Public endpoint for monitoring system health and status
+ * Used by load balancers, monitoring tools, and uptime checkers
  */
-import { withRequestMetrics } from '@/lib/logger'
-
 const healthHandler = async (request: NextRequest) => {
+  const startTime = Date.now()
+  const logger = createAPILogger(request)
+  
+  logger.info('Health check request initiated', {
+    endpoint: '/api/health',
+    method: 'GET'
+  })
+
   try {
-    const healthData = {
+    // Basic system health data
+    const systemHealth = {
       status: 'healthy',
       timestamp: new Date().toISOString(),
       version: process.env.npm_package_version || '1.0.0',
@@ -22,22 +34,51 @@ const healthHandler = async (request: NextRequest) => {
         used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
         total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
         rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
+        external: Math.round(process.memoryUsage().external / 1024 / 1024),
       },
       node: {
         version: process.version,
         platform: process.platform,
         arch: process.arch,
-      }
+      },
+      pid: process.pid
     }
 
-    return createSuccessResponse(healthData, 'System is healthy')
+    // Log performance metric
+    const totalDuration = Date.now() - startTime
+    logPerformanceMetric(logger, 'health_check_duration', totalDuration, {
+      status: 'healthy'
+    })
+
+    logger.info('Health check completed successfully', {
+      duration: totalDuration,
+      memoryUsed: systemHealth.memory.used,
+      uptime: systemHealth.uptime
+    })
+
+    return createSuccessResponse(systemHealth, 'System is healthy')
     
   } catch (error) {
-    logger.error('Health check error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      operation: 'healthCheck'
+    const totalDuration = Date.now() - startTime
+    
+    logger.error('Health check error', error, {
+      duration: totalDuration,
+      errorType: error instanceof Error ? error.constructor.name : typeof error
     })
+    
+    logPerformanceMetric(logger, 'health_check_duration', totalDuration, {
+      status: 'error',
+      errorType: error instanceof Error ? error.name : 'unknown'
+    })
+    
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 503, request)
   }
 }
+
+// Export as public route with rate limiting
+// Health checks need to be public for monitoring tools and load balancers
+export const GET = publicRoute(
+  healthHandler,
+  'Health check endpoint for monitoring tools and load balancers',
+  { rateLimit: 'api' }
+)

@@ -60,7 +60,7 @@ export default function RowBasedDashboardBuilder({
 
           if (chartDefinition) {
             const chartSlot: DashboardChartSlot = {
-              id: `chart-${chartAssoc.chart_definition_id}`,
+              id: `chart-${y}-${chartAssoc.chart_definition_id}-${Date.now()}`, // Unique ID with row context
               chartDefinitionId: chartAssoc.chart_definition_id,
               chartDefinition,
               widthPercentage: Math.round((chartAssoc.position_config?.w || 6) / 12 * 100) // Convert 12-col grid to percentage
@@ -114,7 +114,7 @@ export default function RowBasedDashboardBuilder({
 
   const addRow = () => {
     const newRow: DashboardRow = {
-      id: `row-${Date.now()}`,
+      id: `row-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Ensure unique ID
       heightPx: 300,
       charts: []
     };
@@ -422,7 +422,7 @@ export default function RowBasedDashboardBuilder({
           dashboardDescription: dashboardConfig.dashboardDescription,
           charts: dashboardConfig.rows.flatMap((row, rowIndex) => 
             row.charts.filter(chart => chart.chartDefinition && chart.chartDefinitionId).map((chart, chartIndex) => ({
-              id: chart.id,
+              id: `preview-${row.id}-${chart.id}`, // Ensure unique IDs for preview
               chartDefinitionId: chart.chartDefinitionId!,
               position: { 
                 x: chartIndex * 2, 
