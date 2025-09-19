@@ -264,7 +264,9 @@ export default function DashboardRowBuilder({
                   style={{ 
                     width: `${chart.widthPercentage}%`,
                     maxWidth: `${chart.widthPercentage}%`,
-                    minWidth: '200px' // Ensure minimum usable width
+                    minWidth: '200px', // Ensure minimum usable width
+                    height: `${row.heightPx}px`,
+                    maxHeight: `${row.heightPx}px`
                   }}
                 >
                   {/* Chart Controls */}
@@ -314,7 +316,13 @@ export default function DashboardRowBuilder({
                   </div>
 
                   {/* Chart Content */}
-                  <div className="flex-1 p-1 overflow-hidden">
+                  <div 
+                    className="overflow-hidden p-1"
+                    style={{ 
+                      height: `${row.heightPx - 60}px`, // Exact height minus controls
+                      maxHeight: `${row.heightPx - 60}px`
+                    }}
+                  >
                     {chart.chartDefinition ? (
                       <div className="w-full h-full overflow-hidden relative">
                         {(() => {
@@ -330,16 +338,18 @@ export default function DashboardRowBuilder({
                           const endDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'lte');
 
                           // Calculate exact dimensions available within this container
-                          const availableHeight = row.heightPx - 80; // Account for controls
+                          const controlsHeight = 60; // Height of chart controls section
+                          const availableHeight = row.heightPx - controlsHeight; // Remaining height for chart
                           const chartWidth = Math.max(200, Math.floor(chart.widthPercentage * 8)); // Scale width based on percentage
-                          const chartHeight = Math.max(150, availableHeight - 60); // Account for chart header
+                          const chartHeight = Math.max(100, availableHeight - 20); // Account for padding, ensure minimum height
 
                           return (
                             <div 
-                              className="w-full h-full overflow-hidden"
+                              className="w-full overflow-hidden"
                               style={{ 
-                                maxWidth: '100%',
+                                height: `${availableHeight}px`,
                                 maxHeight: `${availableHeight}px`,
+                                maxWidth: '100%',
                                 transform: 'scale(1)', // Force containing block
                                 transformOrigin: 'top left'
                               }}

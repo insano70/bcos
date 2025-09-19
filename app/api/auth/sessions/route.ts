@@ -3,177 +3,264 @@ import { cookies } from 'next/headers'
 import { db, user_sessions, refresh_tokens } from '@/lib/db'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { createSuccessResponse } from '@/lib/api/responses/success'
-import { createErrorResponse } from '@/lib/api/responses/error'
+import { createErrorResponse, ValidationError } from '@/lib/api/responses/error'
 import { TokenManager } from '@/lib/auth/token-manager'
-import { AuditLogger } from '@/lib/api/services/audit'
 import { CSRFProtection } from '@/lib/security/csrf'
-import { errorLog } from '@/lib/utils/debug'
+import { rbacRoute } from '@/lib/api/rbac-route-handler'
+import { validateRequest } from '@/lib/api/middleware/validation'
+import type { UserContext } from '@/lib/types/rbac'
+import { 
+  createAPILogger, 
+  logDBOperation,
+  logPerformanceMetric,
+  logSecurityEvent 
+} from '@/lib/logger'
+import { z } from 'zod'
 
 /**
- * Session Management Endpoint
+ * Session Management Endpoints
  * Allows users to view and manage their active sessions
  */
-export async function GET(request: NextRequest) {
+
+// Schema for session revocation request
+const revokeSessionSchema = z.object({
+  sessionId: z.string().min(1, 'Session ID is required')
+})
+
+/**
+ * GET - List all active sessions for the current user
+ */
+const getSessionsHandler = async (request: NextRequest, userContext: UserContext) => {
+  const startTime = Date.now()
+  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id)
+  
+  logger.info('Sessions list request initiated', {
+    userId: userContext.user_id,
+    endpoint: '/api/auth/sessions',
+    method: 'GET'
+  })
+
   try {
-    // Get current user from refresh token
+    // Get current session ID from refresh token to mark the current session
     const cookieStore = await cookies()
     const refreshToken = cookieStore.get('refresh-token')?.value
+    let currentSessionId: string | null = null
     
-    if (!refreshToken) {
-      return createErrorResponse('Authentication required', 401, request)
+    if (refreshToken) {
+      try {
+        const { jwtVerify } = await import('jose')
+        const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET!)
+        const { payload } = await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET)
+        currentSessionId = payload.session_id as string
+      } catch {
+        // If we can't parse the token, continue without marking current session
+        logger.debug('Could not extract session ID from refresh token')
+      }
     }
 
-    // Extract user ID from refresh token
-    const { jwtVerify } = await import('jose')
-    const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET!)
-    
-    try {
-      const { payload } = await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET)
-      const userId = payload.sub as string
-      const currentSessionId = payload.session_id as string
-
-      // Get all active sessions for user
-      const sessions = await db
-        .select({
-          sessionId: user_sessions.session_id,
-          deviceName: user_sessions.device_name,
-          ipAddress: user_sessions.ip_address,
-          userAgent: user_sessions.user_agent,
-          rememberMe: user_sessions.remember_me,
-          lastActivity: user_sessions.last_activity,
-          createdAt: user_sessions.created_at,
-          isCurrent: sql<boolean>`case when ${user_sessions.session_id} = ${currentSessionId} then true else false end`
-        })
-        .from(user_sessions)
-        .leftJoin(refresh_tokens, eq(user_sessions.refresh_token_id, refresh_tokens.token_id))
-        .where(
-          and(
-            eq(user_sessions.user_id, userId),
-            eq(user_sessions.is_active, true),
-            eq(refresh_tokens.is_active, true)
-          )
+    // Get all active sessions for user
+    const dbStartTime = Date.now()
+    const sessions = await db
+      .select({
+        sessionId: user_sessions.session_id,
+        deviceName: user_sessions.device_name,
+        ipAddress: user_sessions.ip_address,
+        userAgent: user_sessions.user_agent,
+        rememberMe: user_sessions.remember_me,
+        lastActivity: user_sessions.last_activity,
+        createdAt: user_sessions.created_at,
+        isCurrent: sql<boolean>`case when ${user_sessions.session_id} = ${currentSessionId} then true else false end`
+      })
+      .from(user_sessions)
+      .leftJoin(refresh_tokens, eq(user_sessions.refresh_token_id, refresh_tokens.token_id))
+      .where(
+        and(
+          eq(user_sessions.user_id, userContext.user_id),
+          eq(user_sessions.is_active, true),
+          eq(refresh_tokens.is_active, true)
         )
-        .orderBy(desc(user_sessions.last_activity))
+      )
+      .orderBy(desc(user_sessions.last_activity))
+    
+    logDBOperation(logger, 'SELECT', 'user_sessions', dbStartTime, sessions.length)
 
-      return createSuccessResponse({
-        sessions: sessions.map(session => ({
-          sessionId: session.sessionId,
-          deviceName: session.deviceName,
-          ipAddress: session.ipAddress,
-          userAgent: session.userAgent,
-          rememberMe: session.rememberMe,
-          lastActivity: session.lastActivity,
-          createdAt: session.createdAt,
-          isCurrent: session.isCurrent
-        })),
-        totalSessions: sessions.length,
-        currentSessionId
-      }, 'Sessions retrieved successfully')
+    const totalDuration = Date.now() - startTime
+    logger.info('Sessions list retrieved successfully', {
+      userId: userContext.user_id,
+      sessionCount: sessions.length,
+      currentSessionId,
+      duration: totalDuration
+    })
 
-    } catch (tokenError) {
-      return createErrorResponse('Invalid session', 401, request)
-    }
+    logPerformanceMetric(logger, 'sessions_list_duration', totalDuration, {
+      success: true,
+      sessionCount: sessions.length
+    })
+
+    return createSuccessResponse({
+      sessions: sessions.map(session => ({
+        sessionId: session.sessionId,
+        deviceName: session.deviceName,
+        ipAddress: session.ipAddress,
+        userAgent: session.userAgent,
+        rememberMe: session.rememberMe,
+        lastActivity: session.lastActivity,
+        createdAt: session.createdAt,
+        isCurrent: session.isCurrent
+      })),
+      totalSessions: sessions.length,
+      currentSessionId
+    }, 'Sessions retrieved successfully')
     
   } catch (error) {
-    errorLog('Get sessions error:', error)
+    const totalDuration = Date.now() - startTime
+    
+    logger.error('Get sessions error', error, {
+      userId: userContext.user_id,
+      duration: totalDuration,
+      errorType: error instanceof Error ? error.constructor.name : typeof error
+    })
+    
+    logPerformanceMetric(logger, 'sessions_list_duration', totalDuration, {
+      success: false,
+      errorType: error instanceof Error ? error.name : 'unknown'
+    })
+    
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
 
 /**
- * Revoke specific session
+ * DELETE - Revoke a specific session
  */
-export async function DELETE(request: NextRequest) {
+const revokeSessionHandler = async (request: NextRequest, userContext: UserContext) => {
+  const startTime = Date.now()
+  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id)
+  
+  logger.info('Session revocation request initiated', {
+    userId: userContext.user_id,
+    endpoint: '/api/auth/sessions',
+    method: 'DELETE'
+  })
+
   try {
     // CSRF PROTECTION: Verify CSRF token for session revocation
+    const csrfStartTime = Date.now()
     const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
+    logPerformanceMetric(logger, 'csrf_validation', Date.now() - csrfStartTime)
+    
     if (!isValidCSRF) {
+      logSecurityEvent(logger, 'csrf_validation_failed', 'high', {
+        endpoint: '/api/auth/sessions',
+        action: 'revoke_session',
+        userId: userContext.user_id
+      })
       return createErrorResponse('CSRF token validation failed', 403, request)
     }
 
-    const { sessionId } = await request.json()
+    // Validate request body
+    const validationStartTime = Date.now()
+    const validatedData = await validateRequest(request, revokeSessionSchema)
+    const { sessionId } = validatedData
+    logPerformanceMetric(logger, 'request_validation', Date.now() - validationStartTime)
 
-    if (!sessionId) {
-      return createErrorResponse('Session ID required', 400, request)
+    logger.debug('Session revocation request validated', {
+      userId: userContext.user_id,
+      targetSessionId: sessionId
+    })
+
+    // Get the session to revoke
+    const dbStartTime = Date.now()
+    const [sessionToRevoke] = await db
+      .select({
+        sessionId: user_sessions.session_id,
+        refreshTokenId: user_sessions.refresh_token_id
+      })
+      .from(user_sessions)
+      .where(
+        and(
+          eq(user_sessions.session_id, sessionId),
+          eq(user_sessions.user_id, userContext.user_id), // Ensure user owns the session
+          eq(user_sessions.is_active, true)
+        )
+      )
+      .limit(1)
+    
+    logDBOperation(logger, 'SELECT', 'user_sessions', dbStartTime, sessionToRevoke ? 1 : 0)
+
+    if (!sessionToRevoke) {
+      logger.warn('Session not found or already revoked', {
+        userId: userContext.user_id,
+        targetSessionId: sessionId
+      })
+      return createErrorResponse('Session not found or already revoked', 404, request)
     }
 
-    // Get current user from refresh token
+    // Get the current refresh token to use for revocation
     const cookieStore = await cookies()
     const refreshToken = cookieStore.get('refresh-token')?.value
     
-    if (!refreshToken) {
-      return createErrorResponse('Authentication required', 401, request)
+    if (refreshToken && sessionToRevoke.refreshTokenId) {
+      const revokeStartTime = Date.now()
+      // Revoke the refresh token (this will also end the session)
+      await TokenManager.revokeRefreshToken(refreshToken, 'security')
+      logPerformanceMetric(logger, 'token_revocation', Date.now() - revokeStartTime)
     }
 
-    // Extract user ID from refresh token
-    const { jwtVerify } = await import('jose')
-    const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET!)
-    
-    try {
-      const { payload } = await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET)
-      const userId = payload.sub as string
+    // Log the security action
+    logSecurityEvent(logger, 'session_revoked', 'medium', {
+      userId: userContext.user_id,
+      revokedSessionId: sessionId,
+      reason: 'user_requested'
+    })
 
-      // Get the session to revoke
-      const [sessionToRevoke] = await db
-        .select({
-          sessionId: user_sessions.session_id,
-          refreshTokenId: user_sessions.refresh_token_id
-        })
-        .from(user_sessions)
-        .where(
-          and(
-            eq(user_sessions.session_id, sessionId),
-            eq(user_sessions.user_id, userId), // Ensure user owns the session
-            eq(user_sessions.is_active, true)
-          )
-        )
-        .limit(1)
+    const totalDuration = Date.now() - startTime
+    logger.info('Session revoked successfully', {
+      userId: userContext.user_id,
+      revokedSessionId: sessionId,
+      duration: totalDuration
+    })
 
-      if (!sessionToRevoke) {
-        return createErrorResponse('Session not found or already revoked', 404, request)
-      }
+    logPerformanceMetric(logger, 'session_revocation_duration', totalDuration, {
+      success: true
+    })
 
-      // Get the refresh token for this session
-      if (sessionToRevoke.refreshTokenId) {
-        const [refreshTokenRecord] = await db
-          .select({ tokenId: refresh_tokens.token_id })
-          .from(refresh_tokens)
-          .where(eq(refresh_tokens.token_id, sessionToRevoke.refreshTokenId))
-          .limit(1)
-
-        if (refreshTokenRecord) {
-          // Revoke the refresh token (this will also end the session)
-          await TokenManager.revokeRefreshToken(refreshToken, 'security')
-        }
-      }
-
-      // Log the action
-      const ipAddress = request.headers.get('x-forwarded-for') || 'unknown'
-      const userAgent = request.headers.get('user-agent') || 'unknown'
-      
-      await AuditLogger.logSecurity({
-        action: 'session_revoked',
-        userId,
-        ipAddress,
-        userAgent,
-        metadata: {
-          revokedSessionId: sessionId,
-          reason: 'user_requested'
-        },
-        severity: 'medium'
-      })
-
-      return createSuccessResponse(
-        { sessionId },
-        'Session revoked successfully'
-      )
-
-    } catch (tokenError) {
-      return createErrorResponse('Invalid session', 401, request)
-    }
+    return createSuccessResponse(
+      { sessionId },
+      'Session revoked successfully'
+    )
     
   } catch (error) {
-    errorLog('Revoke session error:', error)
+    const totalDuration = Date.now() - startTime
+    
+    logger.error('Revoke session error', error, {
+      userId: userContext.user_id,
+      duration: totalDuration,
+      errorType: error instanceof Error ? error.constructor.name : typeof error
+    })
+    
+    logPerformanceMetric(logger, 'session_revocation_duration', totalDuration, {
+      success: false,
+      errorType: error instanceof Error ? error.name : 'unknown'
+    })
+    
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
+
+// Export with RBAC protection
+export const GET = rbacRoute(
+  getSessionsHandler,
+  {
+    permission: 'users:read:own',
+    rateLimit: 'api'
+  }
+)
+
+export const DELETE = rbacRoute(
+  revokeSessionHandler,
+  {
+    permission: 'users:read:own',
+    rateLimit: 'api'
+  }
+)

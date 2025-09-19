@@ -471,6 +471,142 @@ export function migrateToRBAC(
   )
 }
 
+/**
+ * Webhook route handler
+ * Special handler for webhook endpoints that require signature verification
+ * instead of user authentication
+ */
+interface WebhookRouteOptions {
+  rateLimit?: 'auth' | 'api' | 'upload';
+  verifySignature: (request: NextRequest, body: string) => Promise<boolean>;
+  source: string; // e.g., 'stripe', 'resend', 'github'
+}
+
+export function webhookRoute(
+  handler: (request: NextRequest, body: any, rawBody: string) => Promise<Response>,
+  options: WebhookRouteOptions
+) {
+  return withCorrelation(async (request: NextRequest, ...args: unknown[]): Promise<Response> => {
+    const startTime = Date.now()
+    const logger = createAPILogger(request)
+    const url = new URL(request.url)
+    
+    logger.info('Webhook request initiated', {
+      endpoint: url.pathname,
+      method: request.method,
+      source: options.source
+    })
+
+    try {
+      // 1. Apply rate limiting specific to webhooks
+      if (options.rateLimit) {
+        const rateLimitStart = Date.now()
+        await applyRateLimit(request, options.rateLimit)
+        logPerformanceMetric(logger, 'webhook_rate_limit_check', Date.now() - rateLimitStart, {
+          source: options.source
+        })
+      }
+      
+      // 2. Read body as text for signature verification
+      const bodyStart = Date.now()
+      const rawBody = await request.text()
+      logPerformanceMetric(logger, 'webhook_body_reading', Date.now() - bodyStart, {
+        bodySize: rawBody.length,
+        source: options.source
+      })
+      
+      // 3. Verify webhook signature
+      const signatureStart = Date.now()
+      const isValid = await options.verifySignature(request, rawBody)
+      logPerformanceMetric(logger, 'webhook_signature_verification', Date.now() - signatureStart, {
+        source: options.source,
+        valid: isValid
+      })
+      
+      if (!isValid) {
+        logger.warn('Webhook signature verification failed', {
+          source: options.source,
+          endpoint: url.pathname
+        })
+        
+        logSecurityEvent(logger, 'webhook_signature_invalid', 'high', {
+          source: options.source,
+          endpoint: url.pathname
+        })
+        
+        return createErrorResponse('Invalid webhook signature', 401, request)
+      }
+      
+      logger.debug('Webhook signature verified successfully', {
+        source: options.source
+      })
+      
+      // 4. Parse the body
+      let parsedBody: any
+      try {
+        parsedBody = JSON.parse(rawBody)
+      } catch (parseError) {
+        logger.error('Webhook body parse error', parseError, {
+          source: options.source,
+          bodyPreview: rawBody.substring(0, 100)
+        })
+        return createErrorResponse('Invalid webhook body', 400, request)
+      }
+      
+      // 5. Call the handler with parsed body and raw body
+      const handlerStart = Date.now()
+      const response = await handler(request, parsedBody, rawBody)
+      logPerformanceMetric(logger, 'webhook_handler_execution', Date.now() - handlerStart, {
+        source: options.source,
+        statusCode: response.status
+      })
+      
+      const totalDuration = Date.now() - startTime
+      logger.info('Webhook processed successfully', {
+        source: options.source,
+        statusCode: response.status,
+        totalDuration
+      })
+      
+      logPerformanceMetric(logger, 'webhook_total_duration', totalDuration, {
+        source: options.source,
+        success: response.status < 400
+      })
+      
+      return response
+      
+    } catch (error) {
+      const totalDuration = Date.now() - startTime
+      
+      logger.error('Webhook processing error', error, {
+        source: options.source,
+        endpoint: url.pathname,
+        method: request.method,
+        totalDuration,
+        errorType: error && typeof error === 'object' && 'constructor' in error && error.constructor && 'name' in error.constructor ? String(error.constructor.name) : typeof error
+      })
+      
+      logSecurityEvent(logger, 'webhook_processing_error', 'high', {
+        source: options.source,
+        endpoint: url.pathname,
+        error: error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error'
+      })
+      
+      logPerformanceMetric(logger, 'webhook_total_duration', totalDuration, {
+        source: options.source,
+        success: false,
+        errorType: error && typeof error === 'object' && 'name' in error ? String(error.name) : 'unknown'
+      })
+      
+      return createErrorResponse(
+        error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error', 
+        500, 
+        request
+      ) as Response
+    }
+  })
+}
+
 // Export legacy functions for backward compatibility
 export { legacySecureRoute as secureRoute };
 export const adminRoute = superAdminRoute;
