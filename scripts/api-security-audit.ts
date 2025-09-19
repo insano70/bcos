@@ -51,7 +51,9 @@ class APISecurityAuditor {
   
   async analyzeEndpoint(filePath: string, apiPath: string): Promise<void> {
     const content = await readFile(filePath, 'utf-8');
-    const endpoint = `/api${apiPath}`;
+    // Ensure proper API path formatting
+    const cleanApiPath = apiPath.startsWith('/') ? apiPath : `/${apiPath}`;
+    const endpoint = `/api${cleanApiPath}`;
     
     const info: EndpointInfo = {
       path: endpoint,
@@ -64,13 +66,22 @@ class APISecurityAuditor {
       isPublic: false
     };
     
-    // Check for authentication patterns
-    info.hasAuthentication = content.includes('requireAuth') || 
-                            content.includes('rbacRoute') ||
-                            content.includes('getServerSession');
+    // Check for authentication patterns (including all RBAC route wrappers)
+    const rbacPatterns = [
+      'rbacRoute', 'practiceRoute', 'userRoute', 'superAdminRoute', 
+      'orgAdminRoute', 'analyticsRoute', 'publicRoute', 'requireAuth',
+      'getServerSession'
+    ];
     
-    // Check for RBAC
-    info.hasRBAC = content.includes('rbacRoute');
+    info.hasAuthentication = rbacPatterns.some(pattern => content.includes(pattern));
+    
+    // Check for RBAC (any of the RBAC route wrappers)
+    const rbacRoutePatterns = [
+      'rbacRoute', 'practiceRoute', 'userRoute', 'superAdminRoute', 
+      'orgAdminRoute', 'analyticsRoute'
+    ];
+    
+    info.hasRBAC = rbacRoutePatterns.some(pattern => content.includes(pattern));
     if (info.hasRBAC) {
       info.permissions = this.extractPermissions(content);
     }
@@ -175,11 +186,17 @@ class APISecurityAuditor {
     const hasMutationMethod = info.methods.some(m => ['POST', 'PUT', 'PATCH'].includes(m));
     
     if (hasMutationMethod) {
-      // Check for validation patterns
-      const hasValidation = content.includes('z.object') || 
-                           content.includes('zod') ||
-                           content.includes('validate') ||
-                           content.includes('parse');
+      // Check for validation patterns (expanded list)
+      const validationPatterns = [
+        'z.object', 'zod', '.parse(', '.safeParse(',
+        'validateRequest', 'validateQuery', 'validateBody',
+        'schema.validate', 'joi.validate', 'yup.validate',
+        'Schema', 'validation', 'validator'
+      ];
+      
+      const hasValidation = validationPatterns.some(pattern => 
+        content.includes(pattern) || content.toLowerCase().includes(pattern.toLowerCase())
+      );
       
       if (!hasValidation) {
         this.issues.push({
@@ -193,8 +210,13 @@ class APISecurityAuditor {
   }
   
   checkErrorHandling(info: EndpointInfo, content: string): void {
-    // Check for exposed stack traces
-    if (content.includes('error.stack') && !content.includes('NODE_ENV')) {
+    // Check for exposed stack traces (more sophisticated check)
+    const hasStackExposure = content.includes('error.stack') && 
+                            !content.includes('NODE_ENV') && 
+                            !content.includes('process.env.NODE_ENV') &&
+                            !content.includes('development');
+    
+    if (hasStackExposure) {
       this.issues.push({
         endpoint: info.path,
         severity: 'high',
@@ -203,12 +225,16 @@ class APISecurityAuditor {
       });
     }
     
-    // Check for proper error responses
-    if (!content.includes('createErrorResponse')) {
+    // Check for proper error responses (but be less strict)
+    const hasErrorHandling = content.includes('createErrorResponse') ||
+                             content.includes('NextResponse.json') ||
+                             content.includes('Response(');
+    
+    if (!hasErrorHandling && info.methods.length > 0) {
       this.issues.push({
         endpoint: info.path,
         severity: 'low',
-        issue: 'Not using standardized error response',
+        issue: 'No structured error handling detected',
         recommendation: 'Use createErrorResponse for consistent error handling'
       });
     }

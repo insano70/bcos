@@ -83,7 +83,8 @@ export function rbacRoute(
       }
 
       // 3. Get user context for RBAC
-      if (!session?.user?.id) {
+      // Skip authentication check for public routes
+      if (options.requireAuth !== false && !session?.user?.id) {
         logger.warn('RBAC authentication failed - no user session', {
           hasSession: !!session,
           sessionKeys: session ? Object.keys(session) : []
@@ -98,24 +99,49 @@ export function rbacRoute(
         return createErrorResponse('Authentication required', 401, request) as Response
       }
 
+      // For public routes, skip user context loading
+      if (options.requireAuth === false) {
+        logger.debug('Public route - skipping user context and RBAC checks', {
+          endpoint: url.pathname,
+          publicReason: options.publicReason
+        })
+        
+        // Call the handler directly for public routes
+        const handlerStart = Date.now()
+        const response = await handler(request, {} as UserContext, ...args)
+        logPerformanceMetric(logger, 'handler_execution', Date.now() - handlerStart, {
+          statusCode: response.status,
+          isPublic: true
+        })
+        
+        const totalDuration = Date.now() - startTime
+        logger.info('Public route completed successfully', {
+          endpoint: url.pathname,
+          statusCode: response.status,
+          totalDuration
+        })
+        
+        return response
+      }
+
       const contextStart = Date.now()
-      const userContext = await getUserContextSafe(session.user.id)
+      const userContext = await getUserContextSafe(session!.user.id)
       logPerformanceMetric(logger, 'user_context_fetch', Date.now() - contextStart, {
-        userId: session.user.id
+        userId: session!.user.id
       })
       
       if (!userContext) {
         logger.error('Failed to load user context for RBAC', {
-          userId: session.user.id,
-          sessionEmail: session.user.email
+          userId: session!.user.id,
+          sessionEmail: session!.user.email
         })
         
         logSecurityEvent(logger, 'rbac_context_failed', 'high', {
-          userId: session.user.id,
+          userId: session!.user.id,
           reason: 'context_load_failure'
         })
         
-        logAPIAuth(logger, 'rbac_check', false, session.user.id, 'context_load_failure')
+        logAPIAuth(logger, 'rbac_check', false, session!.user.id, 'context_load_failure')
         return createErrorResponse('Failed to load user context', 500, request) as Response
       }
 

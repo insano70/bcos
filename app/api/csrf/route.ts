@@ -3,6 +3,7 @@ import { CSRFProtection } from '@/lib/security/csrf'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { publicRoute } from '@/lib/api/rbac-route-handler'
+import { requireAuth } from '@/lib/api/middleware/auth'
 import { 
   createAPILogger, 
   logPerformanceMetric,
@@ -11,24 +12,64 @@ import {
 
 /**
  * CSRF Token Generation Endpoint
- * Provides anonymous CSRF tokens for public endpoints (login, register)
- * and authenticated tokens for logged-in users
+ * 
+ * This endpoint is PUBLIC but behaves differently based on authentication status:
+ * - Unauthenticated users: Get anonymous tokens (for login/register)
+ * - Authenticated users: Get authenticated tokens (for API calls)
+ * 
+ * Security measures:
+ * - Rate limited to prevent token farming
+ * - Tokens bound to IP/User-Agent/Time window
+ * - Short expiration times
  */
 const getCSRFTokenHandler = async (request: NextRequest) => {
   const startTime = Date.now()
   const logger = createAPILogger(request)
   
+  // Check if user is authenticated (but don't require it)
+  let session = null
+  let isAuthenticated = false
+  try {
+    session = await requireAuth(request)
+    isAuthenticated = true
+  } catch {
+    // User is not authenticated - this is fine for CSRF endpoint
+    isAuthenticated = false
+  }
+  
   logger.info('CSRF token request initiated', {
     endpoint: '/api/csrf',
     method: 'GET',
-    isAnonymous: true
+    isAuthenticated,
+    userId: session?.user?.id
   })
 
   try {
-    // Generate anonymous CSRF token based on request fingerprint
-    const tokenStartTime = Date.now()
-    const token = CSRFProtection.generateAnonymousToken(request)
-    logPerformanceMetric(logger, 'csrf_token_generation', Date.now() - tokenStartTime)
+    let token: string
+    let tokenType: string
+    
+    if (isAuthenticated && session?.user?.id) {
+      // Generate authenticated CSRF token for logged-in user
+      const tokenStartTime = Date.now()
+      token = await CSRFProtection.setCSRFToken(session.user.id)
+      tokenType = 'authenticated'
+      logPerformanceMetric(logger, 'csrf_token_generation', Date.now() - tokenStartTime)
+      
+      logger.debug('Authenticated CSRF token generated', {
+        userId: session.user.id,
+        tokenLength: token.length
+      })
+    } else {
+      // Generate anonymous CSRF token based on request fingerprint
+      const tokenStartTime = Date.now()
+      token = CSRFProtection.generateAnonymousToken(request)
+      tokenType = 'anonymous'
+      logPerformanceMetric(logger, 'csrf_token_generation', Date.now() - tokenStartTime)
+      
+      logger.debug('Anonymous CSRF token generated', {
+        tokenLength: token.length
+      })
+    }
 
     // Set the token in a non-httpOnly cookie so JavaScript can read it
     const response = createSuccessResponse({ csrfToken: token }, 'CSRF token issued')
@@ -46,18 +87,22 @@ const getCSRFTokenHandler = async (request: NextRequest) => {
 
     // Log successful token generation
     logSecurityEvent(logger, 'csrf_token_issued', 'low', {
-      tokenType: 'anonymous',
-      tokenLength: token.length
+      tokenType,
+      tokenLength: token.length,
+      userId: session?.user?.id
     })
 
     const totalDuration = Date.now() - startTime
-    logger.info('Anonymous CSRF token issued successfully', {
-      duration: totalDuration
+    logger.info(`${tokenType} CSRF token issued successfully`, {
+      duration: totalDuration,
+      tokenType,
+      userId: session?.user?.id
     })
 
     logPerformanceMetric(logger, 'csrf_request_duration', totalDuration, {
       success: true,
-      tokenType: 'anonymous'
+      tokenType,
+      isAuthenticated
     })
 
     return response
@@ -85,10 +130,11 @@ const getCSRFTokenHandler = async (request: NextRequest) => {
 }
 
 // Export as public route - CSRF tokens must be available before authentication
+// Uses stricter 'auth' rate limiting to prevent token farming attacks
 export const GET = publicRoute(
   getCSRFTokenHandler,
   'CSRF tokens must be available to anonymous users for login protection',
-  { rateLimit: 'api' }
+  { rateLimit: 'auth' }
 )
 
 

@@ -332,8 +332,8 @@ const loginHandler = async (request: NextRequest) => {
       success: true
     })
 
-    // Generate new authenticated CSRF token
-    const csrfToken = await CSRFProtection.setCSRFToken()
+    // Generate new authenticated CSRF token tied to the user
+    const csrfToken = await CSRFProtection.setCSRFToken(user.user_id)
     
     const response = createSuccessResponse({
       user: {
