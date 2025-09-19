@@ -66,7 +66,7 @@ function DraggableChart({ chart, onAddChart }: DraggableChartProps) {
       }`}
     >
       <div className="font-medium text-gray-900 dark:text-gray-100 text-sm">
-        {chart.chart_name}
+        {chart.chart_name || 'Unnamed Chart'}
       </div>
       <div className="text-xs text-gray-500 dark:text-gray-400">
         {chart.chart_type} chart
@@ -76,12 +76,6 @@ function DraggableChart({ chart, onAddChart }: DraggableChartProps) {
           {chart.chart_description}
         </div>
       )}
-      <div className="flex items-center mt-2">
-        <div className="w-2 h-2 bg-green-400 rounded-full mr-1"></div>
-        <span className="text-xs text-gray-500 dark:text-gray-400">
-          {chart.is_active ? 'Active' : 'Inactive'}
-        </span>
-      </div>
     </div>
   );
 }
@@ -494,10 +488,16 @@ export default function EnhancedDashboardBuilder() {
   const loadCharts = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/admin/analytics/charts');
+      const response = await fetch('/api/admin/analytics/charts?is_active=true');
       if (response.ok) {
         const result = await response.json();
-        setAvailableCharts(result.data.charts || []);
+        // Filter to only show active charts and extract chart definitions from API response
+        const charts = (result.data.charts || []).map((item: any) => {
+          // Handle joined API response structure
+          return item.chart_definitions || item;
+        }).filter((chart: any) => chart.is_active !== false);
+        
+        setAvailableCharts(charts);
       }
     } catch (error) {
       console.error('Failed to load charts:', error);
