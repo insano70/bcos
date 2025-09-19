@@ -238,16 +238,18 @@ export default function RowBasedDashboardBuilder({
       setToastType('success');
       setShowToast(true);
 
-      // Call success callback or reset form
-      if (onSaveSuccess) {
+      // Only redirect after creating new dashboards, stay on editor when editing
+      if (onSaveSuccess && !isEditMode) {
         onSaveSuccess();
-      } else {
+      } else if (!isEditMode) {
+        // Reset form only for new dashboard creation
         setDashboardConfig({
           dashboardName: '',
           dashboardDescription: '',
           rows: []
         });
       }
+      // For edit mode, do nothing - stay on the editor page
 
     } catch (error) {
       setToastMessage(`Failed to ${isEditMode ? 'update' : 'save'} dashboard: ${error instanceof Error ? error.message : 'Unknown error'}`);
