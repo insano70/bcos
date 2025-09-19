@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import AnalyticsChart from './analytics-chart';
 import type { Dashboard, DashboardChart, ChartDefinition } from '@/lib/types/analytics';
 
@@ -149,59 +149,76 @@ export default function DashboardPreview({
         </div>
       </div>
 
-      {/* Dashboard Grid Preview */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-        <div 
-          className="grid auto-rows-min"
-          style={{
-            gridTemplateColumns: `repeat(${previewConfig.layout.columns}, 1fr)`,
-            gap: `${previewConfig.layout.margin}px`,
-            gridAutoRows: `${previewConfig.layout.rowHeight}px`
-          }}
-        >
-          {previewConfig.charts.map((dashboardChart) => {
-            if (!dashboardChart.chartDefinition) {
-              return (
-                <div
-                  key={dashboardChart.id}
-                  className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-center bg-gray-50 dark:bg-gray-700"
-                  style={{
-                    gridColumn: `span ${Math.min(dashboardChart.position.w, previewConfig.layout.columns)}`,
-                    gridRow: `span ${dashboardChart.position.h}`,
-                    minHeight: `${dashboardChart.position.h * previewConfig.layout.rowHeight}px`
-                  }}
-                >
-                  <div className="text-center text-gray-500 dark:text-gray-400">
+      {/* Dashboard Grid Preview - Following /dashboard pattern */}
+      <div className="grid grid-cols-12 gap-6 w-full">
+        {previewConfig.charts.map((dashboardChart) => {
+          if (!dashboardChart.chartDefinition) {
+            return (
+              <div
+                key={dashboardChart.id}
+                className={`flex flex-col bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-dashed border-gray-300 dark:border-gray-600`}
+                style={{
+                  gridColumn: `span ${Math.min(dashboardChart.position.w, 12)}`,
+                }}
+              >
+                <div className="flex items-center justify-center h-48 text-center text-gray-500 dark:text-gray-400">
+                  <div>
                     <div className="text-2xl mb-2">⚠️</div>
                     <p className="text-sm">Chart Not Found</p>
                     <p className="text-xs">ID: {dashboardChart.chartDefinitionId.slice(0, 8)}...</p>
                   </div>
                 </div>
-              );
-            }
+              </div>
+            );
+          }
 
-            // Extract chart configuration for rendering
-            const chartDef = dashboardChart.chartDefinition;
-            const dataSource = chartDef.data_source || {};
-            const chartConfig = chartDef.chart_config || {};
-            
-            // Extract filters to get chart parameters
-            const measureFilter = dataSource.filters?.find((f: any) => f.field === 'measure');
-            const frequencyFilter = dataSource.filters?.find((f: any) => f.field === 'frequency');
-            const practiceFilter = dataSource.filters?.find((f: any) => f.field === 'practice_uid');
-            const startDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'gte');
-            const endDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'lte');
+          // Extract chart configuration for rendering
+          const chartDef = dashboardChart.chartDefinition;
+          const dataSource = chartDef.data_source || {};
+          const chartConfig = chartDef.chart_config || {};
+          
+          // Extract filters to get chart parameters
+          const measureFilter = dataSource.filters?.find((f: any) => f.field === 'measure');
+          const frequencyFilter = dataSource.filters?.find((f: any) => f.field === 'frequency');
+          const practiceFilter = dataSource.filters?.find((f: any) => f.field === 'practice_uid');
+          const startDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'gte');
+          const endDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'lte');
 
-            return (
-              <div
-                key={dashboardChart.id}
-                className="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800"
-                style={{
-                  gridColumn: `span ${Math.min(dashboardChart.position.w, previewConfig.layout.columns)}`,
-                  gridRow: `span ${dashboardChart.position.h}`,
-                  minHeight: `${dashboardChart.position.h * previewConfig.layout.rowHeight}px`
-                }}
-              >
+          // Calculate responsive dimensions following dashboard card pattern
+          const baseWidth = 389; // Base width from dashboard cards
+          const baseHeight = dashboardChart.position.h * 150; // Scale height based on position height
+          
+          // Determine responsive column span classes like dashboard cards
+          let colSpanClass = 'col-span-full';
+          if (dashboardChart.position.w <= 4) {
+            colSpanClass = 'col-span-full sm:col-span-6 xl:col-span-4';
+          } else if (dashboardChart.position.w <= 6) {
+            colSpanClass = 'col-span-full sm:col-span-6';
+          } else if (dashboardChart.position.w <= 8) {
+            colSpanClass = 'col-span-full lg:col-span-8';
+          } else {
+            colSpanClass = 'col-span-full';
+          }
+
+          return (
+            <div
+              key={dashboardChart.id}
+              className={`flex flex-col ${colSpanClass} bg-white dark:bg-gray-800 shadow-sm rounded-xl`}
+            >
+              {/* Chart Header - following dashboard card pattern */}
+              <div className="px-5 pt-5">
+                <header className="flex justify-between items-start mb-2">
+                  <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">
+                    {chartDef.chart_name}
+                  </h2>
+                </header>
+                <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase mb-1">
+                  {chartDef.chart_type} Chart
+                </div>
+              </div>
+              
+              {/* Chart Container - following dashboard card pattern */}
+              <div className="grow" style={{ maxHeight: `${baseHeight}px` }}>
                 <AnalyticsChart
                   chartType={chartDef.chart_type as any}
                   measure={measureFilter?.value}
@@ -210,17 +227,17 @@ export default function DashboardPreview({
                   startDate={startDateFilter?.value}
                   endDate={endDateFilter?.value}
                   groupBy={chartConfig.series?.groupBy || 'provider_name'}
-                  width={Math.floor((dashboardChart.position.w / previewConfig.layout.columns) * 1600)}
-                  height={dashboardChart.position.h * previewConfig.layout.rowHeight - 40}
+                  width={baseWidth}
+                  height={Math.min(baseHeight - 100, 400)} // Account for header space
                   title={chartDef.chart_name}
                   calculatedField={(chartConfig as any).calculatedField}
                   advancedFilters={(dataSource as any).advancedFilters || []}
                   {...((chartConfig as any).seriesConfigs && (chartConfig as any).seriesConfigs.length > 0 ? { multipleSeries: (chartConfig as any).seriesConfigs } : {})}
                 />
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
