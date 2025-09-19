@@ -266,6 +266,16 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
 
                           <ProtectedComponent permission="analytics:read:all">
                             <li className="mb-1 last:mb-0">
+                              <SidebarLink href="/configure/dashboards">
+                                <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                                  Dashboards
+                                </span>
+                              </SidebarLink>
+                            </li>
+                          </ProtectedComponent>
+
+                          <ProtectedComponent permission="analytics:read:all">
+                            <li className="mb-1 last:mb-0">
                               <SidebarLink href="/configure/dashboard-builder">
                                 <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
                                   Dashboard Builder

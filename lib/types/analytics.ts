@@ -196,3 +196,57 @@ export interface ChartTemplate {
   chart_definition: Omit<ChartDefinition, 'chart_definition_id' | 'created_by' | 'created_at' | 'updated_at'>;
   is_system_template: boolean;
 }
+
+/**
+ * Dashboard definition types
+ */
+export interface Dashboard {
+  dashboard_id: string;
+  dashboard_name: string;
+  dashboard_description?: string;
+  layout_config: DashboardLayoutConfig;
+  dashboard_category_id?: number;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  is_active: boolean;
+}
+
+export interface DashboardLayoutConfig {
+  columns: number;
+  rowHeight: number;
+  margin: number;
+}
+
+export interface DashboardChart {
+  dashboard_chart_id: string;
+  dashboard_id: string;
+  chart_definition_id: string;
+  position_config: DashboardChartPosition;
+  added_at: string;
+}
+
+export interface DashboardChartPosition {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * Dashboard list item for table display
+ */
+export interface DashboardListItem {
+  dashboard_id: string;
+  dashboard_name: string;
+  dashboard_description?: string;
+  dashboard_category_id?: number;
+  category_name?: string;
+  chart_count: number;
+  created_by: string;
+  creator_name?: string;
+  creator_last_name?: string;
+  created_at: string;
+  updated_at: string;
+  is_active: boolean;
+}
