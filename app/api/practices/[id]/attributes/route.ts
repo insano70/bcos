@@ -69,7 +69,7 @@ const getPracticeAttributesHandler = async (request: NextRequest, userContext: U
     
   } catch (error) {
     const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
-    const errorStack = error && typeof error === 'object' && 'stack' in error ? String(error.stack) : undefined;
+    const errorStack = process.env.NODE_ENV === 'development' && error && typeof error === 'object' && 'stack' in error ? String(error.stack) : undefined;
     
     logger.error('Error fetching practice attributes', {
       error: errorMessage,
@@ -77,7 +77,9 @@ const getPracticeAttributesHandler = async (request: NextRequest, userContext: U
       practiceId,
       operation: 'fetchPracticeAttributes'
     })
-    return createErrorResponse(errorMessage, 500, request)
+    
+    const clientErrorMessage = process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
+    return createErrorResponse(clientErrorMessage, 500, request)
   }
 }
 
@@ -144,7 +146,7 @@ const updatePracticeAttributesHandler = async (request: NextRequest, userContext
     
   } catch (error) {
     const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
-    const errorStack = error && typeof error === 'object' && 'stack' in error ? String(error.stack) : undefined;
+    const errorStack = process.env.NODE_ENV === 'development' && error && typeof error === 'object' && 'stack' in error ? String(error.stack) : undefined;
     
     logger.error('Error updating practice attributes', {
       error: errorMessage,
@@ -152,7 +154,9 @@ const updatePracticeAttributesHandler = async (request: NextRequest, userContext
       practiceId,
       operation: 'updatePracticeAttributes'
     })
-    return createErrorResponse(errorMessage, 500, request)
+    
+    const clientErrorMessage = process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
+    return createErrorResponse(clientErrorMessage, 500, request)
   }
 }
 

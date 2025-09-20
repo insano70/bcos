@@ -311,7 +311,7 @@ async function generateSearchSuggestions(query: string): Promise<string[]> {
   } catch (error) {
     logger.error('Error generating suggestions', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
       query,
       operation: 'generateSuggestions'
     })

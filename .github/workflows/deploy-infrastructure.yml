@@ -1,0 +1,360 @@
+name: Deploy Infrastructure (CDK)
+
+on:
+  push:
+    branches: [main, staging]
+    paths:
+      - 'infrastructure/**'
+      - '.github/workflows/deploy-infrastructure.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'infrastructure/**'
+  workflow_dispatch:
+    inputs:
+      stack:
+        description: 'Specific stack to deploy (leave empty for all)'
+        required: false
+        type: choice
+        options:
+          - ''
+          - 'SecurityStack'
+          - 'NetworkStack'  
+          - 'StagingStage'
+          - 'ProductionStage'
+      destroy:
+        description: 'Destroy infrastructure (DANGEROUS)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  AWS_REGION: us-east-1
+  CDK_DEFAULT_ACCOUNT: ${{ secrets.AWS_ACCOUNT_ID }}
+  CDK_DEFAULT_REGION: us-east-1
+  NODE_VERSION: '24'
+
+concurrency:
+  group: infrastructure-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  # CDK Diff for Pull Requests
+  diff:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@1a4442cacd436585916779262731d5b162bc6ec7 # v3.8.2
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'infrastructure/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: infrastructure
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.1
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/BCOS-GitHubActionsDeploymentRole
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-CDK-Diff-${{ github.run_number }}
+
+      - name: CDK Bootstrap (if needed)
+        working-directory: infrastructure
+        run: |
+          if ! aws cloudformation describe-stacks --stack-name CDKToolkit --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            npx cdk bootstrap
+          fi
+
+      - name: CDK Diff
+        working-directory: infrastructure
+        id: diff
+        run: |
+          echo "## CDK Diff Results" > diff-output.md
+          echo "" >> diff-output.md
+          
+          # Get diff for all stacks
+          STACKS=("BCOS-SecurityStack" "BCOS-NetworkStack" "BCOS-StagingStage" "BCOS-ProductionStage")
+          
+          for stack in "${STACKS[@]}"; do
+            echo "### $stack" >> diff-output.md
+            echo '```' >> diff-output.md
+            if npx cdk diff "$stack" >> diff-output.md 2>&1; then
+              echo "✅ No changes detected for $stack" >> diff-output.md
+            else
+              echo "Changes detected for $stack - see diff above" >> diff-output.md
+            fi
+            echo '```' >> diff-output.md
+            echo "" >> diff-output.md
+          done
+
+      - name: Comment PR with diff
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410 # v6.4.1
+        with:
+          script: |
+            const fs = require('fs');
+            const diffOutput = fs.readFileSync('infrastructure/diff-output.md', 'utf8');
+            
+            // Find existing comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const existingComment = comments.data.find(comment => 
+              comment.body.includes('## CDK Diff Results')
+            );
+            
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: diffOutput
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: diffOutput
+              });
+            }
+
+  # CDK Tests and Validation
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744
+
+      - name: Setup Node.js
+        uses: actions/setup-node@1a4442cacd436585916779262731d5b162bc6ec7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'infrastructure/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: infrastructure
+        run: npm ci
+
+      - name: Run TypeScript compilation
+        working-directory: infrastructure
+        run: npm run build
+
+      - name: Run CDK tests
+        working-directory: infrastructure
+        run: npm test
+
+      - name: CDK Synth (validation)
+        working-directory: infrastructure
+        run: npx cdk synth --all > /dev/null
+
+      - name: Security scan of CDK templates
+        uses: aquasecurity/trivy-action@7c2007bcb556501da015201bcba5aa14069b74e2 # v0.12.0
+        with:
+          scan-type: 'config'
+          scan-ref: 'infrastructure/cdk.out'
+          format: 'table'
+          exit-code: '0'
+
+  # Deploy to Staging (from staging branch)
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+    environment: staging-infrastructure
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744
+
+      - name: Setup Node.js
+        uses: actions/setup-node@1a4442cacd436585916779262731d5b162bc6ec7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'infrastructure/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: infrastructure
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/BCOS-GitHubActionsDeploymentRole
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-CDK-Staging-${{ github.run_number }}
+
+      - name: Deploy staging infrastructure
+        working-directory: infrastructure
+        run: |
+          # Deploy shared stacks first if they don't exist
+          if ! aws cloudformation describe-stacks --stack-name BCOS-SecurityStack --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            npx cdk deploy BCOS-SecurityStack --require-approval never
+          fi
+          
+          if ! aws cloudformation describe-stacks --stack-name BCOS-NetworkStack --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            npx cdk deploy BCOS-NetworkStack --require-approval never
+          fi
+          
+          # Deploy staging stage
+          npx cdk deploy BCOS-StagingStage --require-approval never
+
+  # Deploy to Production (from main branch)
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production-infrastructure
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744
+
+      - name: Setup Node.js
+        uses: actions/setup-node@1a4442cacd436585916779262731d5b162bc6ec7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'infrastructure/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: infrastructure
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/BCOS-GitHubActionsDeploymentRole
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-CDK-Production-${{ github.run_number }}
+
+      - name: Deploy production infrastructure
+        working-directory: infrastructure
+        run: |
+          # Deploy shared stacks first (if not already deployed)
+          npx cdk deploy BCOS-SecurityStack BCOS-NetworkStack --require-approval never
+          
+          # Deploy production stage with extra confirmation
+          npx cdk deploy BCOS-ProductionStage --require-approval never
+
+      - name: Verify production deployment
+        working-directory: infrastructure
+        run: |
+          # Wait for deployment to stabilize
+          sleep 30
+          
+          # Check if all stacks are in good state
+          STACKS=("BCOS-SecurityStack" "BCOS-NetworkStack" "BCOS-ProductionStage")
+          for stack in "${STACKS[@]}"; do
+            STATUS=$(aws cloudformation describe-stacks --stack-name "$stack" --query 'Stacks[0].StackStatus' --output text)
+            if [[ "$STATUS" == *"COMPLETE" ]]; then
+              echo "✅ $stack: $STATUS"
+            else
+              echo "❌ $stack: $STATUS"
+              exit 1
+            fi
+          done
+
+  # Manual deployment workflow
+  deploy-manual:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && !github.event.inputs.destroy
+    environment: ${{ github.ref == 'refs/heads/main' && 'production-infrastructure' || 'staging-infrastructure' }}
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744
+
+      - name: Setup Node.js
+        uses: actions/setup-node@1a4442cacd436585916779262731d5b162bc6ec7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'infrastructure/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: infrastructure
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/BCOS-GitHubActionsDeploymentRole
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-CDK-Manual-${{ github.run_number }}
+
+      - name: Deploy specific stack
+        working-directory: infrastructure
+        run: |
+          if [ -n "${{ github.event.inputs.stack }}" ]; then
+            echo "Deploying specific stack: ${{ github.event.inputs.stack }}"
+            npx cdk deploy BCOS-${{ github.event.inputs.stack }} --require-approval never
+          else
+            echo "Deploying all stacks"
+            npx cdk deploy --all --require-approval never
+          fi
+
+  # Destroy infrastructure (DANGEROUS)
+  destroy:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.destroy == 'true'
+    environment: destruction
+    timeout-minutes: 60
+    steps:
+      - name: ⚠️ DANGER - Confirm Destruction
+        run: |
+          echo "🚨 DESTROYING INFRASTRUCTURE 🚨"
+          echo "This will DELETE all infrastructure resources!"
+          echo "Proceeding in 10 seconds..."
+          sleep 10
+
+      - name: Checkout code
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744
+
+      - name: Setup Node.js
+        uses: actions/setup-node@1a4442cacd436585916779262731d5b162bc6ec7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'infrastructure/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: infrastructure
+        run: npm ci
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/BCOS-GitHubActionsDeploymentRole
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-CDK-Destroy-${{ github.run_number }}
+
+      - name: Destroy infrastructure
+        working-directory: infrastructure
+        run: |
+          if [ -n "${{ github.event.inputs.stack }}" ]; then
+            echo "Destroying specific stack: ${{ github.event.inputs.stack }}"
+            npx cdk destroy BCOS-${{ github.event.inputs.stack }} --force
+          else
+            echo "Destroying all application stacks (keeping shared resources)"
+            npx cdk destroy BCOS-ProductionStage BCOS-StagingStage --force
+            echo "⚠️ Shared stacks (Security, Network) preserved for safety"
+          fi

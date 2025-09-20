@@ -4,6 +4,8 @@ import { eq, desc, and, isNull, count } from 'drizzle-orm';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { validateRequest } from '@/lib/api/middleware/validation';
+import { dashboardCreateSchema } from '@/lib/validations/analytics';
 import type { UserContext } from '@/lib/types/rbac';
 import { createAPILogger, logDBOperation, logPerformanceMetric } from '@/lib/logger';
 
@@ -72,10 +74,15 @@ const getDashboardsHandler = async (request: NextRequest, userContext: UserConte
   } catch (error) {
     logger.error('Dashboards list error', {
       error: error instanceof Error ? error.message : 'Unknown error',
+      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
       requestingUserId: userContext.user_id
     });
     
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    const errorMessage = process.env.NODE_ENV === 'development' 
+      ? (error instanceof Error ? error.message : 'Unknown error')
+      : 'Internal server error';
+    
+    return createErrorResponse(errorMessage, 500, request);
   }
 };
 
@@ -89,22 +96,19 @@ const createDashboardHandler = async (request: NextRequest, userContext: UserCon
   });
 
   try {
-    const body = await request.json();
-    
-    // Validate required fields
-    if (!body.dashboard_name || !body.layout_config) {
-      return createErrorResponse('Missing required fields: dashboard_name, layout_config', 400);
-    }
+    // Validate request body with Zod
+    const validatedData = await validateRequest(request, dashboardCreateSchema);
 
     // Create new dashboard
     const [newDashboard] = await db
       .insert(dashboards)
       .values({
-        dashboard_name: body.dashboard_name,
-        dashboard_description: body.dashboard_description,
-        layout_config: body.layout_config,
-        dashboard_category_id: body.dashboard_category_id,
+        dashboard_name: validatedData.dashboard_name,
+        dashboard_description: validatedData.dashboard_description,
+        layout_config: validatedData.layout_config || {},
+        dashboard_category_id: validatedData.dashboard_category_id,
         created_by: userContext.user_id,
+        is_active: validatedData.is_active
       })
       .returning();
 
@@ -113,11 +117,11 @@ const createDashboardHandler = async (request: NextRequest, userContext: UserCon
     }
 
     // Add charts to dashboard if provided
-    if (body.chart_ids && Array.isArray(body.chart_ids)) {
-      const chartAssociations = body.chart_ids.map((chartId: string, index: number) => ({
+    if (validatedData.chart_ids && Array.isArray(validatedData.chart_ids)) {
+      const chartAssociations = validatedData.chart_ids.map((chartId: string, index: number) => ({
         dashboard_id: newDashboard.dashboard_id,
         chart_definition_id: chartId,
-        position_config: body.chart_positions?.[index] || { x: 0, y: index, w: 6, h: 4 }
+        position_config: { x: 0, y: index, w: 6, h: 4 } // Default layout
       }));
 
       await db
@@ -130,7 +134,7 @@ const createDashboardHandler = async (request: NextRequest, userContext: UserCon
     logger.info('Dashboard created successfully', {
       dashboardId: newDashboard.dashboard_id,
       dashboardName: newDashboard.dashboard_name,
-      chartCount: body.chart_ids?.length || 0,
+      chartCount: validatedData.chart_ids?.length || 0,
       createdBy: userContext.user_id
     });
 
@@ -141,10 +145,15 @@ const createDashboardHandler = async (request: NextRequest, userContext: UserCon
   } catch (error) {
     logger.error('Dashboard creation error', {
       error: error instanceof Error ? error.message : 'Unknown error',
+      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
       requestingUserId: userContext.user_id
     });
     
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    const errorMessage = process.env.NODE_ENV === 'development' 
+      ? (error instanceof Error ? error.message : 'Unknown error')
+      : 'Internal server error';
+    
+    return createErrorResponse(errorMessage, 500, request);
   }
 };
 

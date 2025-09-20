@@ -4,6 +4,8 @@ import { eq, and, desc } from 'drizzle-orm';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { validateRequest } from '@/lib/api/middleware/validation';
+import { favoriteCreateSchema, favoriteDeleteSchema } from '@/lib/validations/analytics';
 import type { UserContext } from '@/lib/types/rbac';
 import { createAPILogger, logDBOperation, logPerformanceMetric } from '@/lib/logger';
 
@@ -73,11 +75,8 @@ const addFavoriteHandler = async (request: NextRequest, userContext: UserContext
   });
 
   try {
-    const body = await request.json();
-    
-    if (!body.chart_definition_id) {
-      return createErrorResponse('Missing required field: chart_definition_id', 400);
-    }
+    // Validate request body with Zod
+    const validatedData = await validateRequest(request, favoriteCreateSchema);
 
     // Check if chart exists and is active
     const [chart] = await db
@@ -85,7 +84,7 @@ const addFavoriteHandler = async (request: NextRequest, userContext: UserContext
       .from(chart_definitions)
       .where(
         and(
-          eq(chart_definitions.chart_definition_id, body.chart_definition_id),
+          eq(chart_definitions.chart_definition_id, validatedData.chart_definition_id),
           eq(chart_definitions.is_active, true)
         )
       );
@@ -101,7 +100,7 @@ const addFavoriteHandler = async (request: NextRequest, userContext: UserContext
       .where(
         and(
           eq(user_chart_favorites.user_id, userContext.user_id),
-          eq(user_chart_favorites.chart_definition_id, body.chart_definition_id)
+          eq(user_chart_favorites.chart_definition_id, validatedData.chart_definition_id)
         )
       );
 
@@ -114,13 +113,13 @@ const addFavoriteHandler = async (request: NextRequest, userContext: UserContext
       .insert(user_chart_favorites)
       .values({
         user_id: userContext.user_id,
-        chart_definition_id: body.chart_definition_id,
+        chart_definition_id: validatedData.chart_definition_id,
       });
 
     logDBOperation(logger, 'chart_favorite_add', 'user_chart_favorites', startTime, 1);
 
     logger.info('Chart added to favorites successfully', {
-      chartId: body.chart_definition_id,
+      chartId: validatedData.chart_definition_id,
       userId: userContext.user_id
     });
 
@@ -131,10 +130,15 @@ const addFavoriteHandler = async (request: NextRequest, userContext: UserContext
   } catch (error) {
     logger.error('Add chart to favorites error', {
       error: error instanceof Error ? error.message : 'Unknown error',
+      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
       requestingUserId: userContext.user_id
     });
     
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    const errorMessage = process.env.NODE_ENV === 'development' 
+      ? (error instanceof Error ? error.message : 'Unknown error')
+      : 'Internal server error';
+    
+    return createErrorResponse(errorMessage, 500, request);
   }
 };
 
@@ -144,11 +148,8 @@ const removeFavoriteHandler = async (request: NextRequest, userContext: UserCont
   const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
   
   try {
-    const body = await request.json();
-    
-    if (!body.chart_definition_id) {
-      return createErrorResponse('Missing required field: chart_definition_id', 400);
-    }
+    // Validate request body with Zod
+    const validatedData = await validateRequest(request, favoriteDeleteSchema);
 
     // Remove from favorites
     const result = await db
@@ -156,7 +157,7 @@ const removeFavoriteHandler = async (request: NextRequest, userContext: UserCont
       .where(
         and(
           eq(user_chart_favorites.user_id, userContext.user_id),
-          eq(user_chart_favorites.chart_definition_id, body.chart_definition_id)
+          eq(user_chart_favorites.chart_definition_id, validatedData.chart_definition_id)
         )
       );
 
@@ -169,10 +170,15 @@ const removeFavoriteHandler = async (request: NextRequest, userContext: UserCont
   } catch (error) {
     logger.error('Remove chart from favorites error', {
       error: error instanceof Error ? error.message : 'Unknown error',
+      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
       requestingUserId: userContext.user_id
     });
     
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    const errorMessage = process.env.NODE_ENV === 'development' 
+      ? (error instanceof Error ? error.message : 'Unknown error')
+      : 'Internal server error';
+    
+    return createErrorResponse(errorMessage, 500, request);
   }
 };
 

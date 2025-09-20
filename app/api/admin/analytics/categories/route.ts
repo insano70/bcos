@@ -4,6 +4,8 @@ import { eq, desc, isNull } from 'drizzle-orm';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { validateRequest } from '@/lib/api/middleware/validation';
+import { chartCategoryCreateSchema } from '@/lib/validations/analytics';
 import type { UserContext } from '@/lib/types/rbac';
 import { createAPILogger, logDBOperation, logPerformanceMetric } from '@/lib/logger';
 
@@ -41,10 +43,15 @@ const getCategoriesHandler = async (request: NextRequest, userContext: UserConte
   } catch (error) {
     logger.error('Chart categories list error', {
       error: error instanceof Error ? error.message : 'Unknown error',
+      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
       requestingUserId: userContext.user_id
     });
     
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    const errorMessage = process.env.NODE_ENV === 'development' 
+      ? (error instanceof Error ? error.message : 'Unknown error')
+      : 'Internal server error';
+    
+    return createErrorResponse(errorMessage, 500, request);
   }
 };
 
@@ -58,19 +65,16 @@ const createCategoryHandler = async (request: NextRequest, userContext: UserCont
   });
 
   try {
-    const body = await request.json();
+    // Validate request body with Zod
+    const validatedData = await validateRequest(request, chartCategoryCreateSchema);
     
-    if (!body.category_name) {
-      return createErrorResponse('Missing required field: category_name', 400);
-    }
-
     // Create new category
     const [newCategory] = await db
       .insert(chart_categories)
       .values({
-        category_name: body.category_name,
-        category_description: body.category_description,
-        parent_category_id: body.parent_category_id,
+        category_name: validatedData.category_name,
+        category_description: validatedData.category_description,
+        parent_category_id: validatedData.parent_category_id,
       })
       .returning();
 
@@ -93,10 +97,15 @@ const createCategoryHandler = async (request: NextRequest, userContext: UserCont
   } catch (error) {
     logger.error('Chart category creation error', {
       error: error instanceof Error ? error.message : 'Unknown error',
+      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
       requestingUserId: userContext.user_id
     });
     
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    const errorMessage = process.env.NODE_ENV === 'development' 
+      ? (error instanceof Error ? error.message : 'Unknown error')
+      : 'Internal server error';
+    
+    return createErrorResponse(errorMessage, 500, request);
   }
 };
 

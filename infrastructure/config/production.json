@@ -1,0 +1,61 @@
+{
+  "environment": "production",
+  "domain": "app.bendcare.com",
+  "hostedZoneName": "bendcare.com",
+  "certificateValidationDomain": "app.bendcare.com",
+  "ecs": {
+    "clusterName": "bcos-production-cluster",
+    "serviceName": "bcos-production-service", 
+    "taskDefinitionFamily": "bcos-production",
+    "desiredCount": 2,
+    "cpu": 1024,
+    "memory": 2048,
+    "autoScaling": {
+      "enabled": true,
+      "minCapacity": 2,
+      "maxCapacity": 20,
+      "targetCpuUtilization": 70,
+      "targetMemoryUtilization": 75,
+      "scaleOutCooldown": 300,
+      "scaleInCooldown": 600
+    }
+  },
+  "monitoring": {
+    "detailedMonitoring": true,
+    "logRetentionDays": 90,
+    "alertingEnabled": true,
+    "snsTopicName": "bcos-production-alerts",
+    "enhancedMetrics": true,
+    "xrayTracing": true
+  },
+  "secrets": {
+    "secretName": "production/bcos-secrets",
+    "autoRotation": true,
+    "rotationSchedule": "rate(30 days)"
+  },
+  "waf": {
+    "enabled": true,
+    "rateLimitPerIP": 1000,
+    "geoBlocking": {
+      "enabled": false,
+      "blockedCountries": []
+    },
+    "managedRules": [
+      "AWS-AWSManagedRulesCommonRuleSet",
+      "AWS-AWSManagedRulesOWASPTopTenRuleSet",
+      "AWS-AWSManagedRulesKnownBadInputsRuleSet"
+    ]
+  },
+  "backup": {
+    "enabled": true,
+    "retentionDays": 30,
+    "schedule": "cron(0 2 * * ? *)"
+  },
+  "tags": {
+    "Environment": "production",
+    "CostCenter": "Operations",
+    "Backup": "daily",
+    "Compliance": "required",
+    "Monitoring": "enhanced"
+  }
+}

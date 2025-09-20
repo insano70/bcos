@@ -4,6 +4,8 @@ import { eq, and } from 'drizzle-orm';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { validateRequest } from '@/lib/api/middleware/validation';
+import { dashboardUpdateSchema, dashboardParamsSchema } from '@/lib/validations/analytics';
 import type { UserContext } from '@/lib/types/rbac';
 import { createAPILogger, logDBOperation, logPerformanceMetric } from '@/lib/logger';
 
@@ -52,11 +54,16 @@ const getDashboardHandler = async (request: NextRequest, userContext: UserContex
   } catch (error) {
     logger.error('Dashboard get error', {
       error: error instanceof Error ? error.message : 'Unknown error',
+      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
       dashboardId: params.dashboardId,
       requestingUserId: userContext.user_id
     });
     
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    const errorMessage = process.env.NODE_ENV === 'development' 
+      ? (error instanceof Error ? error.message : 'Unknown error')
+      : 'Internal server error';
+    
+    return createErrorResponse(errorMessage, 500, request);
   }
 };
 
@@ -72,18 +79,20 @@ const updateDashboardHandler = async (request: NextRequest, userContext: UserCon
   });
 
   try {
-    const body = await request.json();
+    // Validate request body with Zod
+    const validatedData = await validateRequest(request, dashboardUpdateSchema);
 
-    // Update dashboard
+    // Update dashboard with only provided fields
+    const updateData: any = { updated_at: new Date() };
+    if (validatedData.dashboard_name !== undefined) updateData.dashboard_name = validatedData.dashboard_name;
+    if (validatedData.dashboard_description !== undefined) updateData.dashboard_description = validatedData.dashboard_description;
+    if (validatedData.layout_config !== undefined) updateData.layout_config = validatedData.layout_config;
+    if (validatedData.dashboard_category_id !== undefined) updateData.dashboard_category_id = validatedData.dashboard_category_id;
+    if (validatedData.is_active !== undefined) updateData.is_active = validatedData.is_active;
+
     const [updatedDashboard] = await db
       .update(dashboards)
-      .set({
-        dashboard_name: body.dashboard_name,
-        dashboard_description: body.dashboard_description,
-        layout_config: body.layout_config,
-        dashboard_category_id: body.dashboard_category_id,
-        updated_at: new Date(),
-      })
+      .set(updateData)
       .where(eq(dashboards.dashboard_id, params.dashboardId))
       .returning();
 
@@ -92,18 +101,18 @@ const updateDashboardHandler = async (request: NextRequest, userContext: UserCon
     }
 
     // Update chart associations if provided
-    if (body.chart_ids && Array.isArray(body.chart_ids)) {
+    if (validatedData.chart_ids && Array.isArray(validatedData.chart_ids)) {
       // Remove existing chart associations
       await db
         .delete(dashboard_charts)
         .where(eq(dashboard_charts.dashboard_id, params.dashboardId));
 
       // Add new chart associations
-      if (body.chart_ids.length > 0) {
-        const chartAssociations = body.chart_ids.map((chartId: string, index: number) => ({
+      if (validatedData.chart_ids.length > 0) {
+        const chartAssociations = validatedData.chart_ids.map((chartId: string, index: number) => ({
           dashboard_id: params.dashboardId,
           chart_definition_id: chartId,
-          position_config: body.chart_positions?.[index] || { x: 0, y: index, w: 6, h: 4 }
+          position_config: { x: 0, y: index, w: 6, h: 4 } // Default layout
         }));
 
         await db
@@ -113,7 +122,7 @@ const updateDashboardHandler = async (request: NextRequest, userContext: UserCon
 
       logger.info('Dashboard chart associations updated', {
         dashboardId: params.dashboardId,
-        chartCount: body.chart_ids.length
+        chartCount: validatedData.chart_ids.length
       });
     }
 
@@ -130,11 +139,16 @@ const updateDashboardHandler = async (request: NextRequest, userContext: UserCon
   } catch (error) {
     logger.error('Dashboard update error', {
       error: error instanceof Error ? error.message : 'Unknown error',
+      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
       dashboardId: params.dashboardId,
       requestingUserId: userContext.user_id
     });
     
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    const errorMessage = process.env.NODE_ENV === 'development' 
+      ? (error instanceof Error ? error.message : 'Unknown error')
+      : 'Internal server error';
+    
+    return createErrorResponse(errorMessage, 500, request);
   }
 };
 
@@ -179,11 +193,16 @@ const deleteDashboardHandler = async (request: NextRequest, userContext: UserCon
   } catch (error) {
     logger.error('Dashboard delete error', {
       error: error instanceof Error ? error.message : 'Unknown error',
+      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
       dashboardId: params.dashboardId,
       requestingUserId: userContext.user_id
     });
     
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    const errorMessage = process.env.NODE_ENV === 'development' 
+      ? (error instanceof Error ? error.message : 'Unknown error')
+      : 'Internal server error';
+    
+    return createErrorResponse(errorMessage, 500, request);
   }
 };
 
