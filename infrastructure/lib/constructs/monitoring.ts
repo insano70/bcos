@@ -189,16 +189,31 @@ export class Monitoring extends Construct {
     targetGroup: elbv2.IApplicationTargetGroup,
     environment: string
   ): void {
+    // Helper function to create alarms with proper actions
+    const createAlarmWithAction = (id: string, props: cloudwatch.AlarmProps) => {
+      const alarm = new cloudwatch.Alarm(this, id, props);
+      alarm.addAlarmAction(new cloudwatchActions.SnsAction(this.alertTopic));
+      return alarm;
+    };
+
+    // Get load balancer full name for metrics - handle tokens for synthesis
+    const loadBalancerFullName = cdk.Token.isUnresolved(loadBalancer.loadBalancerArn) 
+      ? 'dummy-alb-name' 
+      : loadBalancer.loadBalancerArn.split('/').slice(1).join('/');
+    const targetGroupFullName = cdk.Token.isUnresolved(targetGroup.targetGroupArn) 
+      ? 'dummy-tg-name' 
+      : targetGroup.targetGroupArn.split('/').slice(1).join('/');
+
     // Unhealthy target alarm
-    new cloudwatch.Alarm(this, 'ALB-UnhealthyTargets', {
+    createAlarmWithAction('ALB-UnhealthyTargets', {
       alarmName: `BCOS-${environment}-ALB-UnhealthyTargets`,
       alarmDescription: `ALB has unhealthy targets for ${environment}`,
       metric: new cloudwatch.Metric({
         namespace: 'AWS/ApplicationELB',
         metricName: 'UnHealthyHostCount',
         dimensionsMap: {
-          LoadBalancer: loadBalancer.loadBalancerArn.split('/').slice(1).join('/'),
-          TargetGroup: targetGroup.targetGroupArn.split('/').slice(1).join('/'),
+          LoadBalancer: loadBalancerFullName,
+          TargetGroup: targetGroupFullName,
         },
         statistic: 'Maximum',
         period: cdk.Duration.minutes(1),
@@ -206,18 +221,17 @@ export class Monitoring extends Construct {
       threshold: 0,
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
       evaluationPeriods: 2,
-      actionsEnabled: true,
     });
 
     // High 5XX error rate alarm
-    new cloudwatch.Alarm(this, 'ALB-High5XXErrors', {
+    createAlarmWithAction('ALB-High5XXErrors', {
       alarmName: `BCOS-${environment}-ALB-High5XXErrors`,
       alarmDescription: `ALB is returning high 5XX errors for ${environment}`,
       metric: new cloudwatch.Metric({
         namespace: 'AWS/ApplicationELB',
         metricName: 'HTTPCode_ELB_5XX_Count',
         dimensionsMap: {
-          LoadBalancer: loadBalancer.loadBalancerArn.split('/').slice(1).join('/'),
+          LoadBalancer: loadBalancerFullName,
         },
         statistic: 'Sum',
         period: cdk.Duration.minutes(5),
@@ -225,18 +239,17 @@ export class Monitoring extends Construct {
       threshold: environment === 'production' ? 10 : 20,
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
       evaluationPeriods: 2,
-      actionsEnabled: true,
     });
 
     // High response time alarm
-    new cloudwatch.Alarm(this, 'ALB-HighResponseTime', {
+    createAlarmWithAction('ALB-HighResponseTime', {
       alarmName: `BCOS-${environment}-ALB-HighResponseTime`,
       alarmDescription: `ALB response time is high for ${environment}`,
       metric: new cloudwatch.Metric({
         namespace: 'AWS/ApplicationELB',
         metricName: 'TargetResponseTime',
         dimensionsMap: {
-          LoadBalancer: loadBalancer.loadBalancerArn.split('/').slice(1).join('/'),
+          LoadBalancer: loadBalancerFullName,
         },
         statistic: 'Average',
         period: cdk.Duration.minutes(5),
@@ -244,7 +257,6 @@ export class Monitoring extends Construct {
       threshold: environment === 'production' ? 2 : 5,
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
       evaluationPeriods: 3,
-      actionsEnabled: true,
     });
   }
 
@@ -259,8 +271,15 @@ export class Monitoring extends Construct {
       defaultValue: 0,
     });
 
+    // Helper function to create alarms with proper actions
+    const createLogAlarmWithAction = (id: string, props: cloudwatch.AlarmProps) => {
+      const alarm = new cloudwatch.Alarm(this, id, props);
+      alarm.addAlarmAction(new cloudwatchActions.SnsAction(this.alertTopic));
+      return alarm;
+    };
+
     // Error count alarm
-    new cloudwatch.Alarm(this, 'App-HighErrorRate', {
+    createLogAlarmWithAction('App-HighErrorRate', {
       alarmName: `BCOS-${environment}-App-HighErrorRate`,
       alarmDescription: `Application is logging high error rates for ${environment}`,
       metric: errorMetricFilter.metric({
@@ -270,7 +289,6 @@ export class Monitoring extends Construct {
       threshold: environment === 'production' ? 5 : 10,
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
       evaluationPeriods: 2,
-      actionsEnabled: true,
     });
 
     // Health check failure metric filter
@@ -287,7 +305,7 @@ export class Monitoring extends Construct {
     });
 
     // Health check failure alarm
-    new cloudwatch.Alarm(this, 'App-HealthCheckFailures', {
+    createLogAlarmWithAction('App-HealthCheckFailures', {
       alarmName: `BCOS-${environment}-App-HealthCheckFailures`,
       alarmDescription: `Application health checks are failing for ${environment}`,
       metric: healthCheckMetricFilter.metric({
@@ -297,7 +315,6 @@ export class Monitoring extends Construct {
       threshold: 3,
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
       evaluationPeriods: 2,
-      actionsEnabled: true,
     });
   }
 
@@ -308,6 +325,11 @@ export class Monitoring extends Construct {
     targetGroup: elbv2.IApplicationTargetGroup,
     environment: string
   ): void {
+    // Get load balancer full name for metrics - handle tokens for synthesis
+    const loadBalancerFullName = cdk.Token.isUnresolved(loadBalancer.loadBalancerArn) 
+      ? 'dummy-alb-name' 
+      : loadBalancer.loadBalancerArn.split('/').slice(1).join('/');
+
     // ECS Metrics Widget
     this.dashboard.addWidgets(
       new cloudwatch.GraphWidget({
@@ -347,7 +369,7 @@ export class Monitoring extends Construct {
             namespace: 'AWS/ApplicationELB',
             metricName: 'RequestCount',
             dimensionsMap: {
-              LoadBalancer: loadBalancer.loadBalancerArn.split('/').slice(1).join('/'),
+              LoadBalancer: loadBalancerFullName,
             },
             statistic: 'Sum',
           }),
@@ -357,7 +379,7 @@ export class Monitoring extends Construct {
             namespace: 'AWS/ApplicationELB',
             metricName: 'TargetResponseTime',
             dimensionsMap: {
-              LoadBalancer: loadBalancer.loadBalancerArn.split('/').slice(1).join('/'),
+              LoadBalancer: loadBalancerFullName,
             },
             statistic: 'Average',
           }),
@@ -384,7 +406,7 @@ export class Monitoring extends Construct {
 
   private createCompositeAlarms(environment: string): void {
     // Service health composite alarm (production only)
-    new cloudwatch.CompositeAlarm(this, 'ServiceHealth-Composite', {
+    const compositeAlarm = new cloudwatch.CompositeAlarm(this, 'ServiceHealth-Composite', {
       compositeAlarmName: `BCOS-${environment}-ServiceHealth`,
       alarmDescription: `Overall service health for ${environment}`,
       alarmRule: cloudwatch.AlarmRule.anyOf(
@@ -405,7 +427,7 @@ export class Monitoring extends Construct {
           cloudwatch.AlarmState.ALARM
         )
       ),
-      actionsEnabled: true,
     });
+    compositeAlarm.addAlarmAction(new cloudwatchActions.SnsAction(this.alertTopic));
   }
 }

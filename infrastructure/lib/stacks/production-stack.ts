@@ -4,55 +4,106 @@ import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as route53 from 'aws-cdk-lib/aws-route53';
 import * as route53targets from 'aws-cdk-lib/aws-route53-targets';
 import * as applicationautoscaling from 'aws-cdk-lib/aws-applicationautoscaling';
-import * as backup from 'aws-cdk-lib/aws-backup';
-import * as iam from 'aws-cdk-lib/aws-iam';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
-import { SecurityStack } from '../stacks/security-stack';
-import { NetworkStack } from '../stacks/network-stack';
+import { SecurityStack } from './security-stack';
+import { NetworkStack } from './network-stack';
 import { SecureContainer } from '../constructs/secure-container';
 import { WafProtection } from '../constructs/waf-protection';
 import { Monitoring } from '../constructs/monitoring';
 import productionConfig from '../../config/production.json';
 
-interface ProductionStageProps extends cdk.StageProps {
-  securityStack: SecurityStack;
-  networkStack: NetworkStack;
+interface ProductionStackProps extends cdk.StackProps {
+  // No direct references - use CDK outputs/imports instead
 }
 
-export class ProductionStage extends cdk.Stage {
-  public readonly stack: cdk.Stack;
+export class ProductionStack extends cdk.Stack {
   public readonly ecsCluster: ecs.Cluster;
   public readonly ecsService: ecs.FargateService;
   public readonly targetGroup: elbv2.ApplicationTargetGroup;
   public readonly wafProtection: WafProtection;
   public readonly monitoring: Monitoring;
-  public readonly backupPlan?: backup.BackupPlan;
 
-  constructor(scope: Construct, id: string, props: ProductionStageProps) {
+  constructor(scope: Construct, id: string, props: ProductionStackProps) {
     super(scope, id, props);
 
-    const { securityStack, networkStack } = props;
     const environment = 'production';
 
-    // Create a stack within the stage
-    this.stack = new cdk.Stack(this, 'ProductionStack', {
-      env: props.env,
+    // Get VPC ID from context or environment variable
+    const vpcId = this.node.tryGetContext('vpcId') || process.env.VPC_ID;
+    if (!vpcId) {
+      throw new Error('VPC_ID must be provided via context or environment variable');
+    }
+
+    // Look up VPC using context value
+    const vpc = cdk.aws_ec2.Vpc.fromLookup(this, 'VPC', {
+      vpcId: vpcId,
     });
 
+    // Import values from other stacks using CloudFormation imports
+    const kmsKeyArn = cdk.Fn.importValue('BCOS-KMS-Key-Arn');
+    const ecrRepositoryUri = cdk.Fn.importValue('BCOS-ECRRepositoryUri');
+    const ecsTaskExecutionRoleArn = cdk.Fn.importValue('BCOS-ECSTaskExecutionRole-Arn');
+    const ecsTaskRoleArn = cdk.Fn.importValue('BCOS-ECSTaskRole-Arn');
+    const productionSecretArn = cdk.Fn.importValue('BCOS-ProductionSecret-Arn');
+    const albArn = cdk.Fn.importValue('BCOS-LoadBalancer-Arn');
+    const albDnsName = cdk.Fn.importValue('BCOS-LoadBalancer-DnsName');
+    const albCanonicalHostedZoneId = cdk.Fn.importValue('BCOS-LoadBalancer-CanonicalHostedZoneId');
+    const httpsListenerArn = cdk.Fn.importValue('BCOS-HTTPSListener-Arn');
+    const hostedZoneId = cdk.Fn.importValue('BCOS-HostedZone-Id');
+    const ecsSecurityGroupId = cdk.Fn.importValue('BCOS-ECSSecurityGroup-Id');
+
+    // Import KMS key
+    const kmsKey = cdk.aws_kms.Key.fromKeyArn(this, 'KMSKey', kmsKeyArn);
+
+    // Import ECR repository using attributes (required for tokens)
+    const ecrRepository = cdk.aws_ecr.Repository.fromRepositoryAttributes(this, 'ECRRepository', {
+      repositoryArn: ecrRepositoryUri,
+      repositoryName: cdk.Fn.select(1, cdk.Fn.split('/', cdk.Fn.select(5, cdk.Fn.split(':', ecrRepositoryUri)))),
+    });
+
+    // Import IAM roles
+    const executionRole = cdk.aws_iam.Role.fromRoleArn(this, 'ExecutionRole', ecsTaskExecutionRoleArn);
+    const taskRole = cdk.aws_iam.Role.fromRoleArn(this, 'TaskRole', ecsTaskRoleArn);
+
+    // Import secret
+    const secret = cdk.aws_secretsmanager.Secret.fromSecretCompleteArn(this, 'Secret', productionSecretArn);
+
+    // Import load balancer and listener
+    const loadBalancer = cdk.aws_elasticloadbalancingv2.ApplicationLoadBalancer.fromApplicationLoadBalancerAttributes(this, 'LoadBalancer', {
+      loadBalancerArn: albArn,
+      loadBalancerDnsName: albDnsName,
+      loadBalancerCanonicalHostedZoneId: albCanonicalHostedZoneId,
+      securityGroupId: ecsSecurityGroupId,
+    });
+
+    const httpsListener = cdk.aws_elasticloadbalancingv2.ApplicationListener.fromApplicationListenerAttributes(this, 'HTTPSListener', {
+      listenerArn: httpsListenerArn,
+      securityGroup: cdk.aws_ec2.SecurityGroup.fromSecurityGroupId(this, 'ALBSecurityGroup', ecsSecurityGroupId),
+    });
+
+    // Import hosted zone using attributes (provides zoneName)
+    const hostedZone = cdk.aws_route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
+      hostedZoneId: hostedZoneId,
+      zoneName: 'bendcare.com',
+    });
+
+    // Import ECS security group
+    const ecsSecurityGroup = cdk.aws_ec2.SecurityGroup.fromSecurityGroupId(this, 'ECSSecurityGroup', ecsSecurityGroupId);
+
     // Create ECS Cluster with enhanced monitoring
-    this.ecsCluster = new ecs.Cluster(this.stack, 'ProductionCluster', {
+    this.ecsCluster = new ecs.Cluster(this, 'ProductionCluster', {
       clusterName: productionConfig.ecs.clusterName,
-      vpc: networkStack.vpc,
+      vpc: vpc,
       containerInsights: productionConfig.monitoring.detailedMonitoring,
       enableFargateCapacityProviders: true,
       executeCommandConfiguration: {
         // Enable execute command for debugging (with logging)
         logging: ecs.ExecuteCommandLogging.OVERRIDE,
         logConfiguration: {
-          cloudWatchLogGroup: new cdk.aws_logs.LogGroup(this.stack, 'ExecuteCommandLogGroup', {
+          cloudWatchLogGroup: new logs.LogGroup(this, 'ExecuteCommandLogGroup', {
             logGroupName: '/ecs/execute-command/bcos-production',
-            retention: cdk.aws_logs.RetentionDays.ONE_MONTH,
-            encryptionKey: securityStack.kmsKey,
+            retention: logs.RetentionDays.ONE_MONTH,
           }),
           cloudWatchEncryptionEnabled: true,
         },
@@ -60,14 +111,14 @@ export class ProductionStage extends cdk.Stage {
     });
 
     // Create secure container construct
-    const secureContainer = new SecureContainer(this.stack, 'SecureContainer', {
+    const secureContainer = new SecureContainer(this, 'SecureContainer', {
       environment: environment,
       cluster: this.ecsCluster,
-      ecrRepository: securityStack.ecrRepository,
-      kmsKey: securityStack.kmsKey,
-      executionRole: securityStack.ecsTaskExecutionRole,
-      taskRole: securityStack.ecsTaskRole,
-      secret: securityStack.productionSecret,
+      ecrRepository: ecrRepository,
+      kmsKey: kmsKey,
+      executionRole: executionRole,
+      taskRole: taskRole,
+      secret: secret,
       cpu: productionConfig.ecs.cpu,
       memory: productionConfig.ecs.memory,
       containerPort: 80,
@@ -78,9 +129,9 @@ export class ProductionStage extends cdk.Stage {
     });
 
     // Create target group for production
-    this.targetGroup = new elbv2.ApplicationTargetGroup(this.stack, 'ProductionTargetGroup', {
+    this.targetGroup = new elbv2.ApplicationTargetGroup(this, 'ProductionTargetGroup', {
       targetGroupName: 'bcos-production-tg',
-      vpc: networkStack.vpc,
+      vpc: vpc,
       port: 80,
       protocol: elbv2.ApplicationProtocol.HTTP,
       targetType: elbv2.TargetType.IP,
@@ -101,7 +152,7 @@ export class ProductionStage extends cdk.Stage {
     });
 
     // Create ECS Fargate Service with enhanced configuration
-    this.ecsService = new ecs.FargateService(this.stack, 'ProductionService', {
+    this.ecsService = new ecs.FargateService(this, 'ProductionService', {
       serviceName: productionConfig.ecs.serviceName,
       cluster: this.ecsCluster,
       taskDefinition: secureContainer.taskDefinition,
@@ -111,14 +162,12 @@ export class ProductionStage extends cdk.Stage {
       vpcSubnets: {
         subnetType: cdk.aws_ec2.SubnetType.PRIVATE_WITH_EGRESS,
       },
-      securityGroups: [networkStack.ecsSecurityGroup],
+      securityGroups: [ecsSecurityGroup],
       assignPublicIp: false,
-// Logging enabled by default
       healthCheckGracePeriod: cdk.Duration.seconds(120),
       circuitBreaker: {
         rollback: true,
       },
-      // Production-specific settings
       enableExecuteCommand: true, // For debugging (requires proper IAM permissions)
     });
 
@@ -126,27 +175,26 @@ export class ProductionStage extends cdk.Stage {
     this.ecsService.attachToApplicationTargetGroup(this.targetGroup);
 
     // Set target group as default action for HTTPS listener
-    networkStack.httpsListener.addAction('ProductionDefault', {
-      action: elbv2.ListenerAction.forward([this.targetGroup]),
-      conditions: [
-        elbv2.ListenerCondition.hostHeaders([productionConfig.domain]),
-      ],
+    new elbv2.ApplicationListenerRule(this, 'ProductionListenerRule', {
+      listener: httpsListener,
       priority: 10, // Higher priority than staging
+      conditions: [elbv2.ListenerCondition.hostHeaders([productionConfig.domain])],
+      action: elbv2.ListenerAction.forward([this.targetGroup]),
     });
 
     // Create Route53 record for production domain
-    new route53.ARecord(this.stack, 'ProductionARecord', {
-      zone: networkStack.hostedZone,
+    new route53.ARecord(this, 'ProductionARecord', {
+      zone: hostedZone,
       recordName: 'app',
       target: route53.RecordTarget.fromAlias(
-        new route53targets.LoadBalancerTarget(networkStack.loadBalancer)
+        new route53targets.LoadBalancerTarget(loadBalancer)
       ),
     });
 
     // Create WAF protection with enhanced rules
-    this.wafProtection = new WafProtection(this.stack, 'WAFProtection', {
+    this.wafProtection = new WafProtection(this, 'WAFProtection', {
       environment: environment,
-      kmsKey: securityStack.kmsKey,
+      kmsKey: kmsKey,
       rateLimitPerIP: productionConfig.waf.rateLimitPerIP,
       enableGeoBlocking: productionConfig.waf.geoBlocking?.enabled || false,
       blockedCountries: productionConfig.waf.geoBlocking?.blockedCountries || [],
@@ -154,15 +202,15 @@ export class ProductionStage extends cdk.Stage {
     });
 
     // Associate WAF with load balancer
-    this.wafProtection.associateWithLoadBalancer(networkStack.loadBalancer.loadBalancerArn);
+    this.wafProtection.associateWithLoadBalancer(albArn);
 
     // Create comprehensive monitoring
-    this.monitoring = new Monitoring(this.stack, 'Monitoring', {
+    this.monitoring = new Monitoring(this, 'Monitoring', {
       environment: environment,
-      kmsKey: securityStack.kmsKey,
+      kmsKey: kmsKey,
       ecsService: this.ecsService,
       ecsCluster: this.ecsCluster,
-      loadBalancer: networkStack.loadBalancer,
+      loadBalancer: loadBalancer,
       targetGroup: this.targetGroup,
       logGroup: secureContainer.logGroup,
       alertEmails: ['production-alerts@bendcare.com'], // Replace with actual email
@@ -171,7 +219,7 @@ export class ProductionStage extends cdk.Stage {
 
     // Configure auto scaling
     if (productionConfig.ecs.autoScaling.enabled) {
-      const scalableTarget = new applicationautoscaling.ScalableTarget(this.stack, 'ProductionScalableTarget', {
+      const scalableTarget = new applicationautoscaling.ScalableTarget(this, 'ProductionScalableTarget', {
         serviceNamespace: applicationautoscaling.ServiceNamespace.ECS,
         scalableDimension: 'ecs:service:DesiredCount',
         resourceId: `service/${this.ecsCluster.clusterName}/${this.ecsService.serviceName}`,
@@ -196,9 +244,9 @@ export class ProductionStage extends cdk.Stage {
       });
 
       // Request count based scaling (ALB)
-      const loadBalancerFullName = cdk.Token.isUnresolved(networkStack.loadBalancer.loadBalancerArn) 
+      const loadBalancerFullName = cdk.Token.isUnresolved(albArn) 
         ? 'dummy-alb-name' 
-        : networkStack.loadBalancer.loadBalancerArn.split('/').slice(1).join('/');
+        : albArn.split('/').slice(1).join('/');
       const targetGroupFullName = cdk.Token.isUnresolved(this.targetGroup.targetGroupArn) 
         ? 'dummy-tg-name' 
         : this.targetGroup.targetGroupArn.split('/').slice(1).join('/');
@@ -243,67 +291,37 @@ export class ProductionStage extends cdk.Stage {
       });
     }
 
-    // Create backup plan for production (if enabled)
-    if (productionConfig.backup?.enabled) {
-      // Create backup role
-      const backupRole = new iam.Role(this.stack, 'BackupRole', {
-        assumedBy: new iam.ServicePrincipal('backup.amazonaws.com'),
-        managedPolicies: [
-          iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSBackupServiceRolePolicyForBackup'),
-        ],
-      });
-
-      // Create backup vault
-      const backupVault = new backup.BackupVault(this.stack, 'BackupVault', {
-        backupVaultName: `bcos-${environment}-backup-vault`,
-        encryptionKey: securityStack.kmsKey,
-      });
-
-      // Create backup plan
-      this.backupPlan = new backup.BackupPlan(this.stack, 'BackupPlan', {
-        backupPlanName: `bcos-${environment}-backup-plan`,
-        backupVault: backupVault,
-        backupPlanRules: [
-          // Backup rule configuration would go here
-          // Note: BackupPlan API has changed in newer CDK versions
-        ],
-      });
-
-      // Note: ECS tasks don't have persistent storage to back up
-      // This would be used for backing up databases or persistent volumes if added
-    }
-
     // Apply tags
     Object.entries(productionConfig.tags).forEach(([key, value]) => {
-      cdk.Tags.of(this.stack).add(key, value);
+      cdk.Tags.of(this).add(key, value);
     });
 
     // Stack outputs
-    new cdk.CfnOutput(this.stack, 'ProductionClusterName', {
+    new cdk.CfnOutput(this, 'ProductionClusterName', {
       value: this.ecsCluster.clusterName,
       description: 'Production ECS Cluster Name',
       exportName: 'BCOS-Production-ClusterName',
     });
 
-    new cdk.CfnOutput(this.stack, 'ProductionServiceName', {
+    new cdk.CfnOutput(this, 'ProductionServiceName', {
       value: this.ecsService.serviceName,
       description: 'Production ECS Service Name',
       exportName: 'BCOS-Production-ServiceName',
     });
 
-    new cdk.CfnOutput(this.stack, 'ProductionURL', {
+    new cdk.CfnOutput(this, 'ProductionURL', {
       value: `https://${productionConfig.domain}`,
       description: 'Production Application URL',
       exportName: 'BCOS-Production-URL',
     });
 
-    new cdk.CfnOutput(this.stack, 'ProductionTargetGroupArn', {
+    new cdk.CfnOutput(this, 'ProductionTargetGroupArn', {
       value: this.targetGroup.targetGroupArn,
       description: 'Production Target Group ARN',
       exportName: 'BCOS-Production-TargetGroupArn',
     });
 
-    new cdk.CfnOutput(this.stack, 'ProductionDashboardURL', {
+    new cdk.CfnOutput(this, 'ProductionDashboardURL', {
       value: `https://console.aws.amazon.com/cloudwatch/home?region=${cdk.Stack.of(this).region}#dashboards:name=BCOS-${environment}-Dashboard`,
       description: 'Production CloudWatch Dashboard URL',
       exportName: 'BCOS-Production-DashboardURL',

@@ -36,7 +36,7 @@ export class SecurityStack extends cdk.Stack {
             sid: 'Allow CloudWatch Logs',
             effect: iam.Effect.ALLOW,
             principals: [
-              new iam.ServicePrincipal('logs.us-east-1.amazonaws.com'),
+              new iam.ServicePrincipal('logs.amazonaws.com'),
             ],
             actions: [
               'kms:Encrypt',
@@ -46,11 +46,6 @@ export class SecurityStack extends cdk.Stack {
               'kms:DescribeKey',
             ],
             resources: ['*'],
-            conditions: {
-              ArnEquals: {
-                'kms:EncryptionContext:aws:logs:arn': `arn:aws:logs:us-east-1:${this.account}:log-group:/ecs/bcos-*`,
-              },
-            },
           }),
           new iam.PolicyStatement({
             sid: 'Allow ECR Service',
@@ -252,15 +247,45 @@ export class SecurityStack extends cdk.Stack {
       })
     );
 
-    // Stack outputs
+    // Stack outputs for cross-stack references
     new cdk.CfnOutput(this, 'KMSKeyId', {
       value: this.kmsKey.keyId,
       description: 'KMS Key ID for BCOS encryption',
     });
 
+    new cdk.CfnOutput(this, 'KMSKeyArn', {
+      value: this.kmsKey.keyArn,
+      description: 'KMS Key ARN for BCOS encryption',
+      exportName: 'BCOS-KMS-Key-Arn',
+    });
+
     new cdk.CfnOutput(this, 'ECRRepositoryName', {
       value: this.ecrRepository.repositoryName,
       description: 'ECR Repository name for BCOS container images',
+    });
+
+    new cdk.CfnOutput(this, 'ECSTaskExecutionRoleArn', {
+      value: this.ecsTaskExecutionRole.roleArn,
+      description: 'ECS Task Execution Role ARN',
+      exportName: 'BCOS-ECSTaskExecutionRole-Arn',
+    });
+
+    new cdk.CfnOutput(this, 'ECSTaskRoleArn', {
+      value: this.ecsTaskRole.roleArn,
+      description: 'ECS Task Role ARN',
+      exportName: 'BCOS-ECSTaskRole-Arn',
+    });
+
+    new cdk.CfnOutput(this, 'ProductionSecretArn', {
+      value: this.productionSecret.secretArn,
+      description: 'Production Secret ARN',
+      exportName: 'BCOS-ProductionSecret-Arn',
+    });
+
+    new cdk.CfnOutput(this, 'StagingSecretArn', {
+      value: this.stagingSecret.secretArn,
+      description: 'Staging Secret ARN',
+      exportName: 'BCOS-StagingSecret-Arn',
     });
 
     new cdk.CfnOutput(this, 'GitHubActionsRoleOutput', {

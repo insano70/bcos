@@ -63,11 +63,18 @@ infrastructure/
 cd infrastructure
 npm install
 npm run build
+
+# Set your VPC ID (replace with your actual VPC ID)
+export VPC_ID=vpc-your-actual-vpc-id
+
+# Bootstrap CDK (one-time setup)
 npx cdk bootstrap --profile your-profile
-npx cdk deploy SecurityStack --profile your-profile
-npx cdk deploy NetworkStack --profile your-profile
-npx cdk deploy StagingStage --profile your-profile
-npx cdk deploy ProductionStage --profile your-profile
+
+# Deploy in order (dependencies managed via CloudFormation imports)
+npx cdk deploy BCOS-SecurityStack --profile your-profile
+npx cdk deploy BCOS-NetworkStack --profile your-profile --context vpcId=$VPC_ID
+npx cdk deploy BCOS-StagingStack --profile your-profile --context vpcId=$VPC_ID  
+npx cdk deploy BCOS-ProductionStack --profile your-profile --context vpcId=$VPC_ID
 ```
 
 ## Environment Variables Required

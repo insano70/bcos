@@ -57,11 +57,10 @@ export class WafProtection extends Construct {
       enableManagedRules = environment === 'production',
     } = props;
 
-    // Create CloudWatch log group for WAF logs
+    // Create CloudWatch log group for WAF logs (using AWS managed encryption)
     this.logGroup = new logs.LogGroup(this, 'WAFLogGroup', {
       logGroupName: `/aws/waf/bcos-${environment}`,
       retention: environment === 'production' ? logs.RetentionDays.THREE_MONTHS : logs.RetentionDays.ONE_MONTH,
-      encryptionKey: kmsKey,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 

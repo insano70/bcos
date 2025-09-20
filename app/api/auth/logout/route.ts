@@ -9,6 +9,7 @@ import { requireAuth } from '@/lib/api/middleware/auth'
 import { CSRFProtection } from '@/lib/security/csrf'
 import { db, token_blacklist } from '@/lib/db'
 import { errorLog } from '@/lib/utils/debug'
+import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
 
 /**
  * Custom Logout Endpoint
@@ -17,6 +18,9 @@ import { errorLog } from '@/lib/utils/debug'
  */
 export async function POST(request: NextRequest) {
   try {
+    // RATE LIMITING: Apply auth-level rate limiting to prevent logout abuse
+    await applyRateLimit(request, 'auth')
+
     // CSRF PROTECTION: Verify CSRF token before authentication check
     const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
     if (!isValidCSRF) {
@@ -149,6 +153,9 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
+    // RATE LIMITING: Apply auth-level rate limiting to prevent revoke all sessions abuse
+    await applyRateLimit(request, 'auth')
+
     // CSRF PROTECTION: Verify CSRF token before authentication check
     const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
     if (!isValidCSRF) {

@@ -1,0 +1,36 @@
+{
+  "version": "48.0.0",
+  "files": {
+    "62fa02efcaa700e1c247e1d3cc2aa0cd07a0808a9a3e3d2230e51f57a02233fb": {
+      "displayName": "BCOS-SecurityStack/Custom::AWSCDKOpenIdConnectProviderCustomResourceProvider Code",
+      "source": {
+        "path": "asset.62fa02efcaa700e1c247e1d3cc2aa0cd07a0808a9a3e3d2230e51f57a02233fb",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "854428944440-us-east-1-a2fc46f4": {
+          "bucketName": "cdk-hnb659fds-assets-854428944440-us-east-1",
+          "objectKey": "62fa02efcaa700e1c247e1d3cc2aa0cd07a0808a9a3e3d2230e51f57a02233fb.zip",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-file-publishing-role-854428944440-us-east-1"
+        }
+      }
+    },
+    "57cde33aee14869a7a88b408890d0d667296bb6effa1eaa4afe9231b8a28998a": {
+      "displayName": "BCOS-SecurityStack Template",
+      "source": {
+        "path": "BCOS-SecurityStack.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "854428944440-us-east-1-c7dbc8aa": {
+          "bucketName": "cdk-hnb659fds-assets-854428944440-us-east-1",
+          "objectKey": "57cde33aee14869a7a88b408890d0d667296bb6effa1eaa4afe9231b8a28998a.json",
+          "region": "us-east-1",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-file-publishing-role-854428944440-us-east-1"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

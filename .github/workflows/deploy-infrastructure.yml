@@ -211,11 +211,11 @@ jobs:
           fi
           
           if ! aws cloudformation describe-stacks --stack-name BCOS-NetworkStack --region ${{ env.AWS_REGION }} 2>/dev/null; then
-            npx cdk deploy BCOS-NetworkStack --require-approval never
+            npx cdk deploy BCOS-NetworkStack --require-approval never --context vpcId=${{ secrets.VPC_ID }}
           fi
           
-          # Deploy staging stage
-          npx cdk deploy BCOS-StagingStage --require-approval never
+          # Deploy staging stack
+          npx cdk deploy BCOS-StagingStack --require-approval never --context vpcId=${{ secrets.VPC_ID }}
 
   # Deploy to Production (from main branch)
   deploy-production:
@@ -250,10 +250,11 @@ jobs:
         working-directory: infrastructure
         run: |
           # Deploy shared stacks first (if not already deployed)
-          npx cdk deploy BCOS-SecurityStack BCOS-NetworkStack --require-approval never
+          npx cdk deploy BCOS-SecurityStack --require-approval never
+          npx cdk deploy BCOS-NetworkStack --require-approval never --context vpcId=${{ secrets.VPC_ID }}
           
-          # Deploy production stage with extra confirmation
-          npx cdk deploy BCOS-ProductionStage --require-approval never
+          # Deploy production stack
+          npx cdk deploy BCOS-ProductionStack --require-approval never --context vpcId=${{ secrets.VPC_ID }}
 
       - name: Verify production deployment
         working-directory: infrastructure
@@ -262,7 +263,7 @@ jobs:
           sleep 30
           
           # Check if all stacks are in good state
-          STACKS=("BCOS-SecurityStack" "BCOS-NetworkStack" "BCOS-ProductionStage")
+          STACKS=("BCOS-SecurityStack" "BCOS-NetworkStack" "BCOS-ProductionStack")
           for stack in "${STACKS[@]}"; do
             STATUS=$(aws cloudformation describe-stacks --stack-name "$stack" --query 'Stacks[0].StackStatus' --output text)
             if [[ "$STATUS" == *"COMPLETE" ]]; then
@@ -306,10 +307,14 @@ jobs:
         run: |
           if [ -n "${{ github.event.inputs.stack }}" ]; then
             echo "Deploying specific stack: ${{ github.event.inputs.stack }}"
-            npx cdk deploy BCOS-${{ github.event.inputs.stack }} --require-approval never
+            if [[ "${{ github.event.inputs.stack }}" == "SecurityStack" ]]; then
+              npx cdk deploy BCOS-${{ github.event.inputs.stack }} --require-approval never
+            else
+              npx cdk deploy BCOS-${{ github.event.inputs.stack }} --require-approval never --context vpcId=${{ secrets.VPC_ID }}
+            fi
           else
             echo "Deploying all stacks"
-            npx cdk deploy --all --require-approval never
+            npx cdk deploy --all --require-approval never --context vpcId=${{ secrets.VPC_ID }}
           fi
 
   # Destroy infrastructure (DANGEROUS)
@@ -355,6 +360,6 @@ jobs:
             npx cdk destroy BCOS-${{ github.event.inputs.stack }} --force
           else
             echo "Destroying all application stacks (keeping shared resources)"
-            npx cdk destroy BCOS-ProductionStage BCOS-StagingStage --force
+            npx cdk destroy BCOS-ProductionStack BCOS-StagingStack --force
             echo "⚠️ Shared stacks (Security, Network) preserved for safety"
           fi

@@ -1,0 +1,763 @@
+{
+ "Description": "BCOS Security infrastructure - IAM roles, KMS keys, and secrets management",
+ "Resources": {
+  "BCOSEncryptionKeyA46A0152": {
+   "Type": "AWS::KMS::Key",
+   "Properties": {
+    "Description": "BCOS encryption key for logs, secrets, and ECR",
+    "EnableKeyRotation": true,
+    "KeyPolicy": {
+     "Statement": [
+      {
+       "Action": "kms:*",
+       "Effect": "Allow",
+       "Principal": {
+        "AWS": {
+         "Fn::Join": [
+          "",
+          [
+           "arn:",
+           {
+            "Ref": "AWS::Partition"
+           },
+           ":iam::854428944440:root"
+          ]
+         ]
+        }
+       },
+       "Resource": "*",
+       "Sid": "Enable IAM User Permissions"
+      },
+      {
+       "Action": [
+        "kms:Decrypt",
+        "kms:DescribeKey",
+        "kms:Encrypt",
+        "kms:GenerateDataKey*",
+        "kms:ReEncrypt*"
+       ],
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "logs.amazonaws.com"
+       },
+       "Resource": "*",
+       "Sid": "Allow CloudWatch Logs"
+      },
+      {
+       "Action": [
+        "kms:Decrypt",
+        "kms:DescribeKey",
+        "kms:GenerateDataKey"
+       ],
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "ecr.amazonaws.com"
+       },
+       "Resource": "*",
+       "Sid": "Allow ECR Service"
+      },
+      {
+       "Action": [
+        "kms:CreateGrant",
+        "kms:Decrypt",
+        "kms:DescribeKey",
+        "kms:Encrypt",
+        "kms:GenerateDataKey*",
+        "kms:ReEncrypt*"
+       ],
+       "Condition": {
+        "StringEquals": {
+         "kms:ViaService": "secretsmanager.us-east-1.amazonaws.com"
+        }
+       },
+       "Effect": "Allow",
+       "Principal": {
+        "AWS": {
+         "Fn::Join": [
+          "",
+          [
+           "arn:",
+           {
+            "Ref": "AWS::Partition"
+           },
+           ":iam::854428944440:root"
+          ]
+         ]
+        }
+       },
+       "Resource": "*"
+      },
+      {
+       "Action": "kms:Decrypt",
+       "Condition": {
+        "StringEquals": {
+         "kms:ViaService": "secretsmanager.us-east-1.amazonaws.com"
+        }
+       },
+       "Effect": "Allow",
+       "Principal": {
+        "AWS": [
+         {
+          "Fn::GetAtt": [
+           "ECSTaskExecutionRole911F5A4F",
+           "Arn"
+          ]
+         },
+         {
+          "Fn::GetAtt": [
+           "ECSTaskRoleF2ADB362",
+           "Arn"
+          ]
+         }
+        ]
+       },
+       "Resource": "*"
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "BCOS-SecurityStack/BCOSEncryptionKey/Resource"
+   }
+  },
+  "BCOSEncryptionKeyAliasDB70F0D0": {
+   "Type": "AWS::KMS::Alias",
+   "Properties": {
+    "AliasName": "alias/bcos-encryption",
+    "TargetKeyId": {
+     "Fn::GetAtt": [
+      "BCOSEncryptionKeyA46A0152",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-SecurityStack/BCOSEncryptionKey/Alias/Resource"
+   }
+  },
+  "BCOSRepository8278F407": {
+   "Type": "AWS::ECR::Repository",
+   "Properties": {
+    "EncryptionConfiguration": {
+     "EncryptionType": "KMS",
+     "KmsKey": {
+      "Fn::GetAtt": [
+       "BCOSEncryptionKeyA46A0152",
+       "Arn"
+      ]
+     }
+    },
+    "ImageScanningConfiguration": {
+     "ScanOnPush": true
+    },
+    "ImageTagMutability": "IMMUTABLE",
+    "LifecyclePolicy": {
+     "LifecyclePolicyText": "{\"rules\":[{\"rulePriority\":1,\"description\":\"Keep last 10 production images\",\"selection\":{\"tagStatus\":\"tagged\",\"tagPrefixList\":[\"v\",\"release\"],\"countType\":\"imageCountMoreThan\",\"countNumber\":10},\"action\":{\"type\":\"expire\"}},{\"rulePriority\":2,\"description\":\"Keep last 5 staging images\",\"selection\":{\"tagStatus\":\"tagged\",\"tagPrefixList\":[\"staging\"],\"countType\":\"imageCountMoreThan\",\"countNumber\":5},\"action\":{\"type\":\"expire\"}},{\"rulePriority\":3,\"description\":\"Delete untagged images after 7 days\",\"selection\":{\"tagStatus\":\"untagged\",\"countType\":\"sinceImagePushed\",\"countNumber\":7,\"countUnit\":\"days\"},\"action\":{\"type\":\"expire\"}}]}"
+    },
+    "RepositoryName": "bcos"
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "BCOS-SecurityStack/BCOSRepository/Resource"
+   }
+  },
+  "GitHubOidcProvider7EBF861F": {
+   "Type": "Custom::AWSCDKOpenIdConnectProvider",
+   "Properties": {
+    "ServiceToken": {
+     "Fn::GetAtt": [
+      "CustomAWSCDKOpenIdConnectProviderCustomResourceProviderHandlerF2C543E0",
+      "Arn"
+     ]
+    },
+    "ClientIDList": [
+     "sts.amazonaws.com"
+    ],
+    "ThumbprintList": [
+     "6938fd4d98bab03faadb97b34396831e3780aea1"
+    ],
+    "Url": "https://token.actions.githubusercontent.com",
+    "RejectUnauthorized": false,
+    "CodeHash": "62fa02efcaa700e1c247e1d3cc2aa0cd07a0808a9a3e3d2230e51f57a02233fb"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "BCOS-SecurityStack/GitHubOidcProvider/Resource/Default"
+   }
+  },
+  "CustomAWSCDKOpenIdConnectProviderCustomResourceProviderRole517FED65": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Version": "2012-10-17",
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ]
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Sub": "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+     }
+    ],
+    "Policies": [
+     {
+      "PolicyName": "Inline",
+      "PolicyDocument": {
+       "Version": "2012-10-17",
+       "Statement": [
+        {
+         "Effect": "Allow",
+         "Resource": "*",
+         "Action": [
+          "iam:CreateOpenIDConnectProvider",
+          "iam:DeleteOpenIDConnectProvider",
+          "iam:UpdateOpenIDConnectProviderThumbprint",
+          "iam:AddClientIDToOpenIDConnectProvider",
+          "iam:RemoveClientIDFromOpenIDConnectProvider"
+         ]
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-SecurityStack/Custom::AWSCDKOpenIdConnectProviderCustomResourceProvider/Role"
+   }
+  },
+  "CustomAWSCDKOpenIdConnectProviderCustomResourceProviderHandlerF2C543E0": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-854428944440-us-east-1",
+     "S3Key": "62fa02efcaa700e1c247e1d3cc2aa0cd07a0808a9a3e3d2230e51f57a02233fb.zip"
+    },
+    "Timeout": 900,
+    "MemorySize": 128,
+    "Handler": "__entrypoint__.handler",
+    "Role": {
+     "Fn::GetAtt": [
+      "CustomAWSCDKOpenIdConnectProviderCustomResourceProviderRole517FED65",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs22.x"
+   },
+   "DependsOn": [
+    "CustomAWSCDKOpenIdConnectProviderCustomResourceProviderRole517FED65"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BCOS-SecurityStack/Custom::AWSCDKOpenIdConnectProviderCustomResourceProvider/Handler",
+    "aws:asset:path": "asset.62fa02efcaa700e1c247e1d3cc2aa0cd07a0808a9a3e3d2230e51f57a02233fb",
+    "aws:asset:property": "Code"
+   }
+  },
+  "GitHubActionsRole4F1BBA26": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRoleWithWebIdentity",
+       "Condition": {
+        "StringEquals": {
+         "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+         "token.actions.githubusercontent.com:iss": "https://token.actions.githubusercontent.com"
+        },
+        "StringLike": {
+         "token.actions.githubusercontent.com:sub": [
+          "repo:pstewart/bcos:ref:refs/heads/main",
+          "repo:pstewart/bcos:ref:refs/heads/staging"
+         ]
+        }
+       },
+       "Effect": "Allow",
+       "Principal": {
+        "Federated": {
+         "Ref": "GitHubOidcProvider7EBF861F"
+        }
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Description": "Role for GitHub Actions to deploy BCOS application",
+    "MaxSessionDuration": 3600,
+    "RoleName": "BCOS-GitHubActionsDeploymentRole"
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-SecurityStack/GitHubActionsRole/Resource"
+   }
+  },
+  "GitHubActionsRoleDefaultPolicy69DA0189": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "ecr:GetAuthorizationToken",
+       "Effect": "Allow",
+       "Resource": "*",
+       "Sid": "ECRAccess"
+      },
+      {
+       "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:BatchGetImage",
+        "ecr:CompleteLayerUpload",
+        "ecr:DescribeImages",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:InitiateLayerUpload",
+        "ecr:PutImage",
+        "ecr:UploadLayerPart"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "BCOSRepository8278F407",
+         "Arn"
+        ]
+       },
+       "Sid": "ECRRepository"
+      },
+      {
+       "Action": [
+        "ecs:DescribeServices",
+        "ecs:DescribeTaskDefinition",
+        "ecs:RegisterTaskDefinition",
+        "ecs:UpdateService"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        "arn:aws:ecs:us-east-1:854428944440:cluster/bcos-*-cluster",
+        "arn:aws:ecs:us-east-1:854428944440:service/bcos-*-cluster/bcos-*-service",
+        "arn:aws:ecs:us-east-1:854428944440:task-definition/bcos-*"
+       ],
+       "Sid": "ECSAccess"
+      },
+      {
+       "Action": "iam:PassRole",
+       "Condition": {
+        "StringEquals": {
+         "iam:PassedToService": "ecs-tasks.amazonaws.com"
+        }
+       },
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "ECSTaskExecutionRole911F5A4F",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::GetAtt": [
+          "ECSTaskRoleF2ADB362",
+          "Arn"
+         ]
+        }
+       ],
+       "Sid": "PassRole"
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "GitHubActionsRoleDefaultPolicy69DA0189",
+    "Roles": [
+     {
+      "Ref": "GitHubActionsRole4F1BBA26"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-SecurityStack/GitHubActionsRole/DefaultPolicy/Resource"
+   }
+  },
+  "ECSTaskExecutionRole911F5A4F": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "ecs-tasks.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Description": "ECS Task Execution Role for BCOS application",
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+       ]
+      ]
+     }
+    ],
+    "RoleName": "BCOS-ECSTaskExecutionRole"
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-SecurityStack/ECSTaskExecutionRole/Resource"
+   }
+  },
+  "ECSTaskExecutionRoleDefaultPolicyC25F7D27": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "kms:Decrypt",
+        "kms:DescribeKey"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::GetAtt": [
+         "BCOSEncryptionKeyA46A0152",
+         "Arn"
+        ]
+       }
+      },
+      {
+       "Action": [
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetSecretValue"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Ref": "ProductionSecrets9110CDFF"
+        },
+        {
+         "Ref": "StagingSecrets66638D5D"
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ECSTaskExecutionRoleDefaultPolicyC25F7D27",
+    "Roles": [
+     {
+      "Ref": "ECSTaskExecutionRole911F5A4F"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-SecurityStack/ECSTaskExecutionRole/DefaultPolicy/Resource"
+   }
+  },
+  "ECSTaskRoleF2ADB362": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "ecs-tasks.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "Description": "ECS Task Role for BCOS application runtime permissions",
+    "RoleName": "BCOS-ECSTaskRole"
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-SecurityStack/ECSTaskRole/Resource"
+   }
+  },
+  "ECSTaskRoleDefaultPolicy82FC9293": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetSecretValue"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Ref": "ProductionSecrets9110CDFF"
+        },
+        {
+         "Ref": "StagingSecrets66638D5D"
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ECSTaskRoleDefaultPolicy82FC9293",
+    "Roles": [
+     {
+      "Ref": "ECSTaskRoleF2ADB362"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-SecurityStack/ECSTaskRole/DefaultPolicy/Resource"
+   }
+  },
+  "ProductionSecrets9110CDFF": {
+   "Type": "AWS::SecretsManager::Secret",
+   "Properties": {
+    "Description": "Production secrets for BCOS application",
+    "GenerateSecretString": {
+     "ExcludeCharacters": "\"@/\\",
+     "GenerateStringKey": "JWT_SECRET",
+     "IncludeSpace": false,
+     "PasswordLength": 64,
+     "SecretStringTemplate": "{\"NODE_ENV\":\"production\",\"PORT\":\"4001\"}"
+    },
+    "KmsKeyId": {
+     "Fn::GetAtt": [
+      "BCOSEncryptionKeyA46A0152",
+      "Arn"
+     ]
+    },
+    "Name": "production/bcos-secrets"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "BCOS-SecurityStack/ProductionSecrets/Resource"
+   }
+  },
+  "StagingSecrets66638D5D": {
+   "Type": "AWS::SecretsManager::Secret",
+   "Properties": {
+    "Description": "Staging secrets for BCOS application",
+    "GenerateSecretString": {
+     "ExcludeCharacters": "\"@/\\",
+     "GenerateStringKey": "JWT_SECRET",
+     "IncludeSpace": false,
+     "PasswordLength": 64,
+     "SecretStringTemplate": "{\"NODE_ENV\":\"staging\",\"PORT\":\"4001\"}"
+    },
+    "KmsKeyId": {
+     "Fn::GetAtt": [
+      "BCOSEncryptionKeyA46A0152",
+      "Arn"
+     ]
+    },
+    "Name": "staging/bcos-secrets"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "BCOS-SecurityStack/StagingSecrets/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1VQu27DMAz8lu402xot0DX1VGRI4HxAoMqswdiSDFFKEQj698oy+prujjweQbbYPj7jw536lEYPUzPzO6ZTUHqCUjqnyQimPd2g+7Ar7GZWsopKMpD2mHpanHBwvtp+VQZWBtNhIfs2dM5a0uHo3ZUH8tC7map9xaObWdfpjWWQkkxBjLJqpLLjVPXq2FjO0EUJzvQkLnq9Zf3wf63vna9KCHYiFMqFI9sR/g4fYlhiyGDdQHiR+2v7hC/lNRdhbny0gQ1hv+EXKvc8djcBAAA="
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-SecurityStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "KMSKeyId": {
+   "Description": "KMS Key ID for BCOS encryption",
+   "Value": {
+    "Ref": "BCOSEncryptionKeyA46A0152"
+   }
+  },
+  "KMSKeyArn": {
+   "Description": "KMS Key ARN for BCOS encryption",
+   "Value": {
+    "Fn::GetAtt": [
+     "BCOSEncryptionKeyA46A0152",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "BCOS-KMS-Key-Arn"
+   }
+  },
+  "ECRRepositoryName": {
+   "Description": "ECR Repository name for BCOS container images",
+   "Value": {
+    "Ref": "BCOSRepository8278F407"
+   }
+  },
+  "ECSTaskExecutionRoleArn": {
+   "Description": "ECS Task Execution Role ARN",
+   "Value": {
+    "Fn::GetAtt": [
+     "ECSTaskExecutionRole911F5A4F",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "BCOS-ECSTaskExecutionRole-Arn"
+   }
+  },
+  "ECSTaskRoleArn": {
+   "Description": "ECS Task Role ARN",
+   "Value": {
+    "Fn::GetAtt": [
+     "ECSTaskRoleF2ADB362",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "BCOS-ECSTaskRole-Arn"
+   }
+  },
+  "ProductionSecretArn": {
+   "Description": "Production Secret ARN",
+   "Value": {
+    "Ref": "ProductionSecrets9110CDFF"
+   },
+   "Export": {
+    "Name": "BCOS-ProductionSecret-Arn"
+   }
+  },
+  "StagingSecretArn": {
+   "Description": "Staging Secret ARN",
+   "Value": {
+    "Ref": "StagingSecrets66638D5D"
+   },
+   "Export": {
+    "Name": "BCOS-StagingSecret-Arn"
+   }
+  },
+  "GitHubActionsRoleOutput": {
+   "Description": "GitHub Actions Role ARN for CI/CD",
+   "Value": {
+    "Fn::GetAtt": [
+     "GitHubActionsRole4F1BBA26",
+     "Arn"
+    ]
+   }
+  },
+  "GitHubActionsRoleArn": {
+   "Description": "GitHub Actions OIDC Role ARN for CI/CD authentication",
+   "Value": {
+    "Fn::GetAtt": [
+     "GitHubActionsRole4F1BBA26",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "BCOS-GitHubActionsRoleArn"
+   }
+  },
+  "ECRRepositoryUri": {
+   "Description": "ECR repository URI for container images",
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      {
+       "Fn::Select": [
+        4,
+        {
+         "Fn::Split": [
+          ":",
+          {
+           "Fn::GetAtt": [
+            "BCOSRepository8278F407",
+            "Arn"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      ".dkr.ecr.",
+      {
+       "Fn::Select": [
+        3,
+        {
+         "Fn::Split": [
+          ":",
+          {
+           "Fn::GetAtt": [
+            "BCOSRepository8278F407",
+            "Arn"
+           ]
+          }
+         ]
+        }
+       ]
+      },
+      ".",
+      {
+       "Ref": "AWS::URLSuffix"
+      },
+      "/",
+      {
+       "Ref": "BCOSRepository8278F407"
+      }
+     ]
+    ]
+   },
+   "Export": {
+    "Name": "BCOS-ECRRepositoryUri"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

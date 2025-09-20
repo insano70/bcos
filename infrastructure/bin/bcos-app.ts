@@ -3,8 +3,8 @@ import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { SecurityStack } from '../lib/stacks/security-stack';
 import { NetworkStack } from '../lib/stacks/network-stack';
-import { StagingStage } from '../lib/stages/staging-stage';
-import { ProductionStage } from '../lib/stages/production-stage';
+import { StagingStack } from '../lib/stacks/staging-stack';
+import { ProductionStack } from '../lib/stacks/production-stack';
 
 // Environment configuration
 const account = process.env.AWS_ACCOUNT_ID || process.env.CDK_DEFAULT_ACCOUNT;
@@ -52,25 +52,29 @@ const networkStack = new NetworkStack(app, 'BCOS-NetworkStack', {
 // Add dependency to ensure security stack deploys first
 networkStack.addDependency(securityStack);
 
-// Staging Stage - Complete staging environment
-const stagingStage = new StagingStage(app, 'BCOS-StagingStage', {
+// Application stacks (using CDK imports/exports to avoid circular dependencies)
+const stagingStack = new StagingStack(app, 'BCOS-StagingStack', {
   env,
-  securityStack,
-  networkStack,
+  description: 'BCOS Staging environment - Complete staging deployment',
+  tags: {
+    ...commonTags,
+    Environment: 'Staging',
+    StackType: 'Application'
+  }
 });
 
-// Production Stage - Complete production environment
-const productionStage = new ProductionStage(app, 'BCOS-ProductionStage', {
+const productionStack = new ProductionStack(app, 'BCOS-ProductionStack', {
   env,
-  securityStack,
-  networkStack,
+  description: 'BCOS Production environment - Complete production deployment',
+  tags: {
+    ...commonTags,
+    Environment: 'Production',
+    StackType: 'Application'
+  }
 });
 
-// Apply tags to stages
-cdk.Tags.of(stagingStage).add('Environment', 'Staging');
-cdk.Tags.of(stagingStage).add('StackType', 'Application');
-cdk.Tags.of(productionStage).add('Environment', 'Production');  
-cdk.Tags.of(productionStage).add('StackType', 'Application');
+// Stack dependencies managed via CloudFormation imports (no direct dependencies)
+// Deploy order: SecurityStack -> NetworkStack -> StagingStack -> ProductionStack
 
 // Output important values for GitHub Actions
 new cdk.CfnOutput(securityStack, 'GitHubActionsRoleArn', {
@@ -89,6 +93,19 @@ new cdk.CfnOutput(securityStack, 'ECRRepositoryUri', {
   value: securityStack.ecrRepository.repositoryUri,
   description: 'ECR repository URI for container images',
   exportName: 'BCOS-ECRRepositoryUri'
+});
+
+// Stack-specific outputs
+new cdk.CfnOutput(stagingStack, 'StagingStackArn', {
+  value: stagingStack.stackId,
+  description: 'Staging Stack ARN',
+  exportName: 'BCOS-StagingStackArn'
+});
+
+new cdk.CfnOutput(productionStack, 'ProductionStackArn', {
+  value: productionStack.stackId,
+  description: 'Production Stack ARN',
+  exportName: 'BCOS-ProductionStackArn'
 });
 
 // Synthesis configuration

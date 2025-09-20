@@ -90,11 +90,10 @@ export class SecureContainer extends Construct {
       environmentVariables = {},
     } = props;
 
-    // Create CloudWatch log group with encryption
+    // Create CloudWatch log group (using AWS managed encryption to avoid circular dependency)
     this.logGroup = new logs.LogGroup(this, 'LogGroup', {
       logGroupName: `/ecs/bcos-${environment}`,
       retention: environment === 'production' ? logs.RetentionDays.THREE_MONTHS : logs.RetentionDays.ONE_MONTH,
-      encryptionKey: kmsKey,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 

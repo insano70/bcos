@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { addSecurityHeaders, getContentSecurityPolicy } from '@/lib/security/headers'
+import { addSecurityHeaders, getContentSecurityPolicy, addRateLimitHeaders } from '@/lib/security/headers'
 import { EdgeCSRFProtection } from '@/lib/security/csrf-edge'
 import { getJWTConfig } from '@/lib/env'
 import { isPublicApiRoute } from '@/lib/api/middleware/global-auth'
 import { debugLog } from '@/lib/utils/debug'
 import { sanitizeRequestBody } from '@/lib/api/middleware/request-sanitization'
 import { createEdgeAPILogger } from '@/lib/logger/edge-logger'
+import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
 
 // CSRF exempt paths - these endpoints handle their own security or don't need CSRF
 const CSRF_EXEMPT_PATHS = [
@@ -34,6 +35,42 @@ export async function middleware(request: NextRequest) {
   
   // Add Content Security Policy
   response.headers.set('Content-Security-Policy', getContentSecurityPolicy())
+
+  // GLOBAL RATE LIMITING: Apply before any other processing to prevent abuse
+  // Skip rate limiting for static files and internal Next.js routes
+  if (!pathname.startsWith('/_next/') && 
+      !pathname.startsWith('/favicon.ico') && 
+      !pathname.startsWith('/static/') && 
+      !pathname.includes('.')) {
+    try {
+      const rateLimitResult = await applyRateLimit(request, 'api')
+      
+      // Add rate limit headers to response
+      response = addRateLimitHeaders(response, rateLimitResult)
+      
+      debugLog.middleware(`Global rate limit check: ${rateLimitResult.remaining} remaining`)
+    } catch (rateLimitError) {
+      debugLog.middleware(`Global rate limit exceeded for ${pathname}`)
+      
+      const errorResponse = new NextResponse(
+        JSON.stringify({ 
+          error: 'Rate limit exceeded',
+          message: 'Too many requests. Please try again later.',
+          retryAfter: Math.ceil(Date.now() / 1000) + 60 // 1 minute
+        }), 
+        {
+          status: 429,
+          headers: {
+            ...response.headers,
+            'Content-Type': 'application/json',
+            'Retry-After': '60'
+          }
+        }
+      )
+      
+      return addSecurityHeaders(errorResponse)
+    }
+  }
 
   // CSRF Protection for state-changing operations
   // Applied before any other processing to fail fast

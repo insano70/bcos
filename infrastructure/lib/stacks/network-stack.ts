@@ -202,20 +202,41 @@ export class NetworkStack extends cdk.Stack {
       }),
     });
 
-    // Stack outputs
+    // Stack outputs for cross-stack references
     new cdk.CfnOutput(this, 'VPCId', {
       value: this.vpc.vpcId,
       description: 'VPC ID',
+      exportName: 'BCOS-VPC-Id',
     });
 
     new cdk.CfnOutput(this, 'LoadBalancerDNSOutput', {
       value: this.loadBalancer.loadBalancerDnsName,
       description: 'Load Balancer DNS Name',
+      exportName: 'BCOS-LoadBalancer-DnsName',
     });
 
     new cdk.CfnOutput(this, 'LoadBalancerArn', {
       value: this.loadBalancer.loadBalancerArn,
       description: 'Load Balancer ARN',
+      exportName: 'BCOS-LoadBalancer-Arn',
+    });
+
+    new cdk.CfnOutput(this, 'LoadBalancerCanonicalHostedZoneId', {
+      value: this.loadBalancer.loadBalancerCanonicalHostedZoneId,
+      description: 'Load Balancer Canonical Hosted Zone ID',
+      exportName: 'BCOS-LoadBalancer-CanonicalHostedZoneId',
+    });
+
+    new cdk.CfnOutput(this, 'HTTPSListenerArn', {
+      value: this.httpsListener.listenerArn,
+      description: 'HTTPS Listener ARN',
+      exportName: 'BCOS-HTTPSListener-Arn',
+    });
+
+    new cdk.CfnOutput(this, 'HostedZoneId', {
+      value: this.hostedZone.hostedZoneId,
+      description: 'Hosted Zone ID',
+      exportName: 'BCOS-HostedZone-Id',
     });
 
     new cdk.CfnOutput(this, 'CertificateArn', {
@@ -226,11 +247,13 @@ export class NetworkStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ALBSecurityGroupId', {
       value: this.albSecurityGroup.securityGroupId,
       description: 'ALB Security Group ID',
+      exportName: 'BCOS-ALBSecurityGroup-Id',
     });
 
     new cdk.CfnOutput(this, 'ECSSecurityGroupId', {
       value: this.ecsSecurityGroup.securityGroupId,
       description: 'ECS Security Group ID',
+      exportName: 'BCOS-ECSSecurityGroup-Id',
     });
   }
 }

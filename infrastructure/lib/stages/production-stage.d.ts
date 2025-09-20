@@ -12,6 +12,7 @@ interface ProductionStageProps extends cdk.StageProps {
     networkStack: NetworkStack;
 }
 export declare class ProductionStage extends cdk.Stage {
+    readonly stack: cdk.Stack;
     readonly ecsCluster: ecs.Cluster;
     readonly ecsService: ecs.FargateService;
     readonly targetGroup: elbv2.ApplicationTargetGroup;
