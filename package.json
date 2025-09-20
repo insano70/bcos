@@ -76,7 +76,7 @@
     "typescript": "^5.9.2",
     "valibot": "^1.1.0",
     "winston": "^3.17.0",
-    "zod": "^4.1.9"
+    "zod": "^4.1.11"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.4",
@@ -90,5 +90,10 @@
     "tailwindcss": "^4.1.13",
     "tsx": "^4.20.5",
     "vitest": "^3.2.4"
+  },
+  "pnpm": {
+    "overrides": {
+      "esbuild": ">=0.25.0"
+    }
   }
 }
