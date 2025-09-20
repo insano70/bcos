@@ -59,6 +59,8 @@ infrastructure/
 - GitHub repository with Actions enabled
 
 ## Quick Start
+
+> **Note**: Ensure GitHub repository secrets are configured before deployment.
 ```bash
 cd infrastructure
 npm install
