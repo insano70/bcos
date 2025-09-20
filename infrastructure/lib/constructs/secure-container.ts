@@ -192,20 +192,7 @@ export class SecureContainer extends Construct {
       hardLimit: 65536,
     });
 
-    // Add tmpfs mounts for writable directories (since root filesystem is read-only)
-    this.container.addMountPoints({
-      containerPath: '/tmp',
-      sourceVolume: 'tmp',
-      readOnly: false,
-    });
-
-    // Add tmpfs volume
-    this.taskDefinition.addVolume({
-      name: 'tmp',
-      host: {
-        sourcePath: '/tmp',
-      },
-    });
+    // Note: Fargate provides writable /tmp by default, no need for custom volumes
 
     // Tags
     cdk.Tags.of(this.taskDefinition).add('Environment', environment);

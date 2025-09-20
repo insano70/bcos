@@ -4,6 +4,31 @@ import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import type { DashboardListItem } from '@/lib/types/analytics';
 import DashboardsTable from './dashboards-table';
+
+// Type for the joined query result from the API with chart count
+type JoinedDashboardQueryResult = {
+  dashboards: {
+    dashboard_id: string;
+    dashboard_name: string;
+    dashboard_description?: string | null;
+    dashboard_category_id?: number | null;
+    created_by: string;
+    created_at: string;
+    updated_at: string;
+    is_active: boolean;
+  } | null;
+  chart_categories: {
+    chart_category_id: number;
+    category_name: string;
+    category_description?: string | null;
+  } | null;
+  users: {
+    user_id: string;
+    first_name?: string | null;
+    last_name?: string | null;
+  } | null;
+  chart_count: number;
+};
 import DeleteButton from '@/components/delete-button';
 import DateSelect from '@/components/date-select';
 import FilterButton from '@/components/dropdown-filter';
@@ -58,11 +83,17 @@ export default function DashboardsPage() {
       });
       
       // Transform joined API data to flat DashboardListItem structure
-      const transformedDashboards: DashboardListItem[] = dashboards.map((item: any, index: number) => {
+      const transformedDashboards: DashboardListItem[] = (dashboards as JoinedDashboardQueryResult[]).map((item: JoinedDashboardQueryResult, index: number) => {
         // Handle joined data structure from API (leftJoin returns nested objects)
-        const dashboardDef = (item as any).dashboards || item;
-        const category = (item as any).chart_categories;
-        const user = (item as any).users;
+        const dashboardDef = item.dashboards;
+        const category = item.chart_categories;
+        const user = item.users;
+
+        // If dashboards is null (shouldn't happen in a proper query), skip this item
+        if (!dashboardDef) {
+          console.warn(`⚠️ Skipping dashboard ${index}: missing dashboards`);
+          return null;
+        }
         
         console.log(`🔄 Transforming dashboard ${index}:`, {
           original: item,
@@ -72,20 +103,20 @@ export default function DashboardsPage() {
         });
         
         return {
-          dashboard_id: (dashboardDef as any).dashboard_id || `temp-${index}`,
-          dashboard_name: (dashboardDef as any).dashboard_name || 'Unnamed Dashboard',
-          dashboard_description: (dashboardDef as any).dashboard_description || undefined,
-          dashboard_category_id: (dashboardDef as any).dashboard_category_id || undefined,
-          category_name: (category as any)?.category_name || undefined,
-          chart_count: (item as any).chart_count || 0,
-          created_by: (dashboardDef as any).created_by || 'unknown',
-          creator_name: (user as any)?.first_name || undefined,
-          creator_last_name: (user as any)?.last_name || undefined,
-          created_at: (dashboardDef as any).created_at || new Date().toISOString(),
-          updated_at: (dashboardDef as any).updated_at || new Date().toISOString(),
-          is_active: (dashboardDef as any).is_active ?? true,
+          dashboard_id: dashboardDef.dashboard_id,
+          dashboard_name: dashboardDef.dashboard_name,
+          dashboard_description: dashboardDef.dashboard_description || undefined,
+          dashboard_category_id: dashboardDef.dashboard_category_id || undefined,
+          category_name: category?.category_name || undefined,
+          chart_count: item.chart_count,
+          created_by: dashboardDef.created_by,
+          creator_name: user?.first_name || undefined,
+          creator_last_name: user?.last_name || undefined,
+          created_at: dashboardDef.created_at,
+          updated_at: dashboardDef.updated_at,
+          is_active: dashboardDef.is_active,
         };
-      });
+      }).filter((item): item is DashboardListItem => item !== null);
       
       console.log('✅ Transformed dashboards:', {
         count: transformedDashboards.length,

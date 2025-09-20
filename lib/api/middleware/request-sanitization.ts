@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import type { NextRequest } from 'next/server'
 import { createEdgeAPILogger, logEdgeSecurityEvent, logEdgePerformanceMetric } from '@/lib/logger/edge-logger'
 import type { EdgeLogger } from '@/lib/logger/edge-logger'
 

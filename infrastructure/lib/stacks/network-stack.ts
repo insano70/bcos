@@ -43,7 +43,7 @@ export class NetworkStack extends cdk.Stack {
 
     // Create S3 bucket for ALB access logs
     this.accessLogsBucket = new s3.Bucket(this, 'ALBAccessLogsBucket', {
-      bucketName: `bcos-alb-access-logs-${this.account}-${this.region}`,
+      // Let CDK generate unique bucket name
       encryption: s3.BucketEncryption.S3_MANAGED,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       versioned: true,
@@ -172,8 +172,9 @@ export class NetworkStack extends cdk.Stack {
       securityGroup: this.albSecurityGroup,
       vpcSubnets: {
         subnetType: ec2.SubnetType.PUBLIC,
+        onePerAz: true, // Ensure only one subnet per AZ to avoid the error
       },
-      deletionProtection: true, // Enable deletion protection for production
+      deletionProtection: false, // Disable for easier cleanup during development
     });
 
     // Enable access logging

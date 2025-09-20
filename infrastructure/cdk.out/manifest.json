@@ -269,7 +269,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-deploy-role-854428944440-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-cfn-exec-role-854428944440-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/96d9ae35bdda88c55f38023e8a5ce9a60fc8859b42fb9755ee276119223590f5.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/a1686397eacb87326cbcc97b95ea6efd593fcd6baccffbe03675055e49b1107b.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -287,30 +287,6 @@
       ],
       "metadata": {
         "/BCOS-NetworkStack": [
-          {
-            "type": "aws:cdk:error",
-            "data": "Could not find any VPCs matching {\"account\":\"854428944440\",\"region\":\"us-east-1\",\"filter\":{\"vpc-id\":\"vpc-12345678\"},\"returnAsymmetricSubnets\":true,\"lookupRoleArn\":\"arn:aws:iam::854428944440:role/cdk-hnb659fds-lookup-role-854428944440-us-east-1\"}",
-            "trace": [
-              "Annotations.addMessage (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/core/lib/annotations.js:1:1916)",
-              "Annotations.addError (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/core/lib/annotations.js:1:1378)",
-              "ContextProvider.getValue (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/core/lib/context-provider.js:2:1771)",
-              "Vpc2.fromLookup (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/aws-ec2/lib/vpc.js:1:10077)",
-              "new NetworkStack (/Users/pstewart/bcos/infrastructure/lib/stacks/network-stack.ts:2:1923)",
-              "/Users/pstewart/bcos/infrastructure/bin/bcos-app.ts:3:1740",
-              "Object.<anonymous> (/Users/pstewart/bcos/infrastructure/bin/bcos-app.ts:4:3)",
-              "Module._compile (node:internal/modules/cjs/loader:1760:14)",
-              "Object.transformer (/Users/pstewart/bcos/infrastructure/node_modules/tsx/dist/register-D46fvsV_.cjs:3:1104)",
-              "Module.load (node:internal/modules/cjs/loader:1480:32)",
-              "Module._load (node:internal/modules/cjs/loader:1299:12)",
-              "TracingChannel.traceSync (node:diagnostics_channel:322:14)",
-              "wrapModuleLoad (node:internal/modules/cjs/loader:244:24)",
-              "cjsLoader (node:internal/modules/esm/translators:329:5)",
-              "ModuleWrap.<anonymous> (node:internal/modules/esm/translators:221:7)",
-              "ModuleJob.run (node:internal/modules/esm/module_job:371:25)",
-              "onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:702:26)",
-              "asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)"
-            ]
-          },
           {
             "type": "aws:cdk:stack-tags",
             "data": [
@@ -532,7 +508,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-deploy-role-854428944440-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-cfn-exec-role-854428944440-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/42c9636cd278c60ba62cf925ad716fb8157cda31aaaae520ef46b3b418bea963.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/d59dda3d3197ecc1143cc24e5d54e75125b0b19b7f7fee4597d3a346c6c0bd90.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -549,30 +525,6 @@
       ],
       "metadata": {
         "/BCOS-StagingStack": [
-          {
-            "type": "aws:cdk:error",
-            "data": "Could not find any VPCs matching {\"account\":\"854428944440\",\"region\":\"us-east-1\",\"filter\":{\"vpc-id\":\"vpc-12345678\"},\"returnAsymmetricSubnets\":true,\"lookupRoleArn\":\"arn:aws:iam::854428944440:role/cdk-hnb659fds-lookup-role-854428944440-us-east-1\"}",
-            "trace": [
-              "Annotations.addMessage (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/core/lib/annotations.js:1:1916)",
-              "Annotations.addError (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/core/lib/annotations.js:1:1378)",
-              "ContextProvider.getValue (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/core/lib/context-provider.js:2:1771)",
-              "Vpc2.fromLookup (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/aws-ec2/lib/vpc.js:1:10077)",
-              "new StagingStack (/Users/pstewart/bcos/infrastructure/lib/stacks/staging-stack.ts:2:2186)",
-              "/Users/pstewart/bcos/infrastructure/bin/bcos-app.ts:3:2023",
-              "Object.<anonymous> (/Users/pstewart/bcos/infrastructure/bin/bcos-app.ts:4:3)",
-              "Module._compile (node:internal/modules/cjs/loader:1760:14)",
-              "Object.transformer (/Users/pstewart/bcos/infrastructure/node_modules/tsx/dist/register-D46fvsV_.cjs:3:1104)",
-              "Module.load (node:internal/modules/cjs/loader:1480:32)",
-              "Module._load (node:internal/modules/cjs/loader:1299:12)",
-              "TracingChannel.traceSync (node:diagnostics_channel:322:14)",
-              "wrapModuleLoad (node:internal/modules/cjs/loader:244:24)",
-              "cjsLoader (node:internal/modules/esm/translators:329:5)",
-              "ModuleWrap.<anonymous> (node:internal/modules/esm/translators:221:7)",
-              "ModuleJob.run (node:internal/modules/esm/module_job:371:25)",
-              "onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:702:26)",
-              "asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)"
-            ]
-          },
           {
             "type": "aws:cdk:stack-tags",
             "data": [
@@ -677,12 +629,6 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "WAFProtectionWebACLA37FE6E3"
-          }
-        ],
-        "/BCOS-StagingStack/WAFProtection/WAFLoggingConfiguration": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "WAFProtectionWAFLoggingConfigurationD168F96C"
           }
         ],
         "/BCOS-StagingStack/WAFProtection/WebACLArn": [
@@ -860,7 +806,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-deploy-role-854428944440-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-cfn-exec-role-854428944440-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/3caed4843994bb1a71d17f901aa67683fbbebad7717f41fd7b9fb99375a0b1d1.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/d7d7186092c26022a8aa536daf2d559d4f7d9f7514c47f6e3000db2ac4ae3c97.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -877,30 +823,6 @@
       ],
       "metadata": {
         "/BCOS-ProductionStack": [
-          {
-            "type": "aws:cdk:error",
-            "data": "Could not find any VPCs matching {\"account\":\"854428944440\",\"region\":\"us-east-1\",\"filter\":{\"vpc-id\":\"vpc-12345678\"},\"returnAsymmetricSubnets\":true,\"lookupRoleArn\":\"arn:aws:iam::854428944440:role/cdk-hnb659fds-lookup-role-854428944440-us-east-1\"}",
-            "trace": [
-              "Annotations.addMessage (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/core/lib/annotations.js:1:1916)",
-              "Annotations.addError (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/core/lib/annotations.js:1:1378)",
-              "ContextProvider.getValue (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/core/lib/context-provider.js:2:1771)",
-              "Vpc2.fromLookup (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/aws-ec2/lib/vpc.js:1:10077)",
-              "new ProductionStack (/Users/pstewart/bcos/infrastructure/lib/stacks/production-stack.ts:2:2266)",
-              "/Users/pstewart/bcos/infrastructure/bin/bcos-app.ts:3:2250",
-              "Object.<anonymous> (/Users/pstewart/bcos/infrastructure/bin/bcos-app.ts:4:3)",
-              "Module._compile (node:internal/modules/cjs/loader:1760:14)",
-              "Object.transformer (/Users/pstewart/bcos/infrastructure/node_modules/tsx/dist/register-D46fvsV_.cjs:3:1104)",
-              "Module.load (node:internal/modules/cjs/loader:1480:32)",
-              "Module._load (node:internal/modules/cjs/loader:1299:12)",
-              "TracingChannel.traceSync (node:diagnostics_channel:322:14)",
-              "wrapModuleLoad (node:internal/modules/cjs/loader:244:24)",
-              "cjsLoader (node:internal/modules/esm/translators:329:5)",
-              "ModuleWrap.<anonymous> (node:internal/modules/esm/translators:221:7)",
-              "ModuleJob.run (node:internal/modules/esm/module_job:371:25)",
-              "onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:702:26)",
-              "asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)"
-            ]
-          },
           {
             "type": "aws:cdk:stack-tags",
             "data": [
@@ -1025,12 +947,6 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "WAFProtectionWebACLA37FE6E3"
-          }
-        ],
-        "/BCOS-ProductionStack/WAFProtection/WAFLoggingConfiguration": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "WAFProtectionWAFLoggingConfigurationD168F96C"
           }
         ],
         "/BCOS-ProductionStack/WAFProtection/WebACLArn": [
@@ -1662,20 +1578,5 @@
       }
     }
   },
-  "missing": [
-    {
-      "key": "vpc-provider:account=854428944440:filter.vpc-id=vpc-12345678:region=us-east-1:returnAsymmetricSubnets=true",
-      "provider": "vpc-provider",
-      "props": {
-        "account": "854428944440",
-        "region": "us-east-1",
-        "filter": {
-          "vpc-id": "vpc-12345678"
-        },
-        "returnAsymmetricSubnets": true,
-        "lookupRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-lookup-role-854428944440-us-east-1"
-      }
-    }
-  ],
   "minimumCliVersion": "2.1029.2"
 }

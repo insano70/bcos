@@ -25,38 +25,14 @@
         "secretsmanager:GetSecretValue"
        ],
        "Effect": "Allow",
-       "Resource": {
-        "Fn::ImportValue": "BCOS-StagingSecret-Arn"
-       }
+       "Resource": "arn:aws:secretsmanager:us-east-1:854428944440:secret:staging/bcos-secrets-vDmCm7"
       }
      ],
      "Version": "2012-10-17"
     },
     "PolicyName": "ExecutionRolePolicy79A7F477",
     "Roles": [
-     {
-      "Fn::Select": [
-       1,
-       {
-        "Fn::Split": [
-         "/",
-         {
-          "Fn::Select": [
-           5,
-           {
-            "Fn::Split": [
-             ":",
-             {
-              "Fn::ImportValue": "BCOS-ECSTaskExecutionRole-Arn"
-             }
-            ]
-           }
-          ]
-         }
-        ]
-       }
-      ]
-     }
+     "BCOS-ECSTaskExecutionRole"
     ]
    },
    "Metadata": {
@@ -68,13 +44,9 @@
    "Properties": {
     "Description": "Load balancer to target",
     "FromPort": 80,
-    "GroupId": {
-     "Fn::ImportValue": "BCOS-ECSSecurityGroup-Id"
-    },
+    "GroupId": "sg-01fa0ee93963bd614",
     "IpProtocol": "tcp",
-    "SourceSecurityGroupId": {
-     "Fn::ImportValue": "BCOS-ECSSecurityGroup-Id"
-    },
+    "SourceSecurityGroupId": "sg-01fa0ee93963bd614",
     "ToPort": 80
    },
    "Metadata": {
@@ -195,62 +167,11 @@
        "Fn::Join": [
         "",
         [
-         {
-          "Fn::Select": [
-           4,
-           {
-            "Fn::Split": [
-             ":",
-             {
-              "Fn::ImportValue": "BCOS-ECRRepositoryUri"
-             }
-            ]
-           }
-          ]
-         },
-         ".dkr.ecr.",
-         {
-          "Fn::Select": [
-           3,
-           {
-            "Fn::Split": [
-             ":",
-             {
-              "Fn::ImportValue": "BCOS-ECRRepositoryUri"
-             }
-            ]
-           }
-          ]
-         },
-         ".",
+         "854428944440.dkr.ecr.us-east-1.",
          {
           "Ref": "AWS::URLSuffix"
          },
-         "/",
-         {
-          "Fn::Select": [
-           1,
-           {
-            "Fn::Split": [
-             "/",
-             {
-              "Fn::Select": [
-               5,
-               {
-                "Fn::Split": [
-                 ":",
-                 {
-                  "Fn::ImportValue": "BCOS-ECRRepositoryUri"
-                 }
-                ]
-               }
-              ]
-             }
-            ]
-           }
-          ]
-         },
-         ":latest"
+         "/bcos:latest"
         ]
        ]
       },
@@ -271,13 +192,6 @@
        }
       },
       "Memory": 1024,
-      "MountPoints": [
-       {
-        "ContainerPath": "/tmp",
-        "ReadOnly": false,
-        "SourceVolume": "tmp"
-       }
-      ],
       "Name": "bcos",
       "PortMappings": [
        {
@@ -291,115 +205,35 @@
       "Secrets": [
        {
         "Name": "DATABASE_URL",
-        "ValueFrom": {
-         "Fn::Join": [
-          "",
-          [
-           {
-            "Fn::ImportValue": "BCOS-StagingSecret-Arn"
-           },
-           ":DATABASE_URL::"
-          ]
-         ]
-        }
+        "ValueFrom": "arn:aws:secretsmanager:us-east-1:854428944440:secret:staging/bcos-secrets-vDmCm7:DATABASE_URL::"
        },
        {
         "Name": "ANALYTICS_DATABASE_URL",
-        "ValueFrom": {
-         "Fn::Join": [
-          "",
-          [
-           {
-            "Fn::ImportValue": "BCOS-StagingSecret-Arn"
-           },
-           ":ANALYTICS_DATABASE_URL::"
-          ]
-         ]
-        }
+        "ValueFrom": "arn:aws:secretsmanager:us-east-1:854428944440:secret:staging/bcos-secrets-vDmCm7:ANALYTICS_DATABASE_URL::"
        },
        {
         "Name": "JWT_SECRET",
-        "ValueFrom": {
-         "Fn::Join": [
-          "",
-          [
-           {
-            "Fn::ImportValue": "BCOS-StagingSecret-Arn"
-           },
-           ":JWT_SECRET::"
-          ]
-         ]
-        }
+        "ValueFrom": "arn:aws:secretsmanager:us-east-1:854428944440:secret:staging/bcos-secrets-vDmCm7:JWT_SECRET::"
        },
        {
         "Name": "JWT_REFRESH_SECRET",
-        "ValueFrom": {
-         "Fn::Join": [
-          "",
-          [
-           {
-            "Fn::ImportValue": "BCOS-StagingSecret-Arn"
-           },
-           ":JWT_REFRESH_SECRET::"
-          ]
-         ]
-        }
+        "ValueFrom": "arn:aws:secretsmanager:us-east-1:854428944440:secret:staging/bcos-secrets-vDmCm7:JWT_REFRESH_SECRET::"
        },
        {
         "Name": "CSRF_SECRET",
-        "ValueFrom": {
-         "Fn::Join": [
-          "",
-          [
-           {
-            "Fn::ImportValue": "BCOS-StagingSecret-Arn"
-           },
-           ":CSRF_SECRET::"
-          ]
-         ]
-        }
+        "ValueFrom": "arn:aws:secretsmanager:us-east-1:854428944440:secret:staging/bcos-secrets-vDmCm7:CSRF_SECRET::"
        },
        {
         "Name": "RESEND_API_KEY",
-        "ValueFrom": {
-         "Fn::Join": [
-          "",
-          [
-           {
-            "Fn::ImportValue": "BCOS-StagingSecret-Arn"
-           },
-           ":RESEND_API_KEY::"
-          ]
-         ]
-        }
+        "ValueFrom": "arn:aws:secretsmanager:us-east-1:854428944440:secret:staging/bcos-secrets-vDmCm7:RESEND_API_KEY::"
        },
        {
         "Name": "EMAIL_FROM",
-        "ValueFrom": {
-         "Fn::Join": [
-          "",
-          [
-           {
-            "Fn::ImportValue": "BCOS-StagingSecret-Arn"
-           },
-           ":EMAIL_FROM::"
-          ]
-         ]
-        }
+        "ValueFrom": "arn:aws:secretsmanager:us-east-1:854428944440:secret:staging/bcos-secrets-vDmCm7:EMAIL_FROM::"
        },
        {
         "Name": "ADMIN_NOTIFICATION_EMAILS",
-        "ValueFrom": {
-         "Fn::Join": [
-          "",
-          [
-           {
-            "Fn::ImportValue": "BCOS-StagingSecret-Arn"
-           },
-           ":ADMIN_NOTIFICATION_EMAILS::"
-          ]
-         ]
-        }
+        "ValueFrom": "arn:aws:secretsmanager:us-east-1:854428944440:secret:staging/bcos-secrets-vDmCm7:ADMIN_NOTIFICATION_EMAILS::"
        }
       ],
       "StopTimeout": 30,
@@ -414,9 +248,7 @@
      }
     ],
     "Cpu": "512",
-    "ExecutionRoleArn": {
-     "Fn::ImportValue": "BCOS-ECSTaskExecutionRole-Arn"
-    },
+    "ExecutionRoleArn": "arn:aws:iam::854428944440:role/BCOS-ECSTaskExecutionRole",
     "Family": "bcos-staging",
     "Memory": "1024",
     "NetworkMode": "awsvpc",
@@ -449,17 +281,7 @@
       "Value": "CDK"
      }
     ],
-    "TaskRoleArn": {
-     "Fn::ImportValue": "BCOS-ECSTaskRole-Arn"
-    },
-    "Volumes": [
-     {
-      "Host": {
-       "SourcePath": "/tmp"
-      },
-      "Name": "tmp"
-     }
-    ]
+    "TaskRoleArn": "arn:aws:iam::854428944440:role/BCOS-ECSTaskRole"
    },
    "Metadata": {
     "aws:cdk:path": "BCOS-StagingStack/SecureContainer/TaskDefinition/Resource"
@@ -503,7 +325,7 @@
     ],
     "TargetType": "ip",
     "UnhealthyThresholdCount": 5,
-    "VpcId": "vpc-12345"
+    "VpcId": "vpc-febca387"
    },
    "Metadata": {
     "aws:cdk:path": "BCOS-StagingStack/StagingTargetGroup/Resource"
@@ -548,13 +370,13 @@
      "AwsvpcConfiguration": {
       "AssignPublicIp": "DISABLED",
       "SecurityGroups": [
-       {
-        "Fn::ImportValue": "BCOS-ECSSecurityGroup-Id"
-       }
+       "sg-01fa0ee93963bd614"
       ],
       "Subnets": [
-       "p-12345",
-       "p-67890"
+       "subnet-095fa406c94abb01f",
+       "subnet-1d132031",
+       "subnet-2563a41a",
+       "subnet-6f277e63"
       ]
      }
     },
@@ -605,9 +427,7 @@
       }
      }
     ],
-    "ListenerArn": {
-     "Fn::ImportValue": "BCOS-HTTPSListener-Arn"
-    },
+    "ListenerArn": "arn:aws:elasticloadbalancing:us-east-1:854428944440:listener/app/BCOS-N-Appli-rIo4btfCQRZj/ac6744264a6b1239/93962089e0bad510",
     "Priority": 100
    },
    "Metadata": {
@@ -618,24 +438,10 @@
    "Type": "AWS::Route53::RecordSet",
    "Properties": {
     "AliasTarget": {
-     "DNSName": {
-      "Fn::Join": [
-       "",
-       [
-        "dualstack.",
-        {
-         "Fn::ImportValue": "BCOS-LoadBalancer-DnsName"
-        }
-       ]
-      ]
-     },
-     "HostedZoneId": {
-      "Fn::ImportValue": "BCOS-LoadBalancer-CanonicalHostedZoneId"
-     }
+     "DNSName": "dualstack.BCOS-N-Appli-rIo4btfCQRZj-401564420.us-east-1.elb.amazonaws.com",
+     "HostedZoneId": "Z35SXDOTRQ7X7K"
     },
-    "HostedZoneId": {
-     "Fn::ImportValue": "BCOS-HostedZone-Id"
-    },
+    "HostedZoneId": "Z05961102TVIVESKQ4GAL",
     "Name": "staging.bendcare.com.",
     "Type": "A"
    },
@@ -786,46 +592,10 @@
     "aws:cdk:path": "BCOS-StagingStack/WAFProtection/WebACL"
    }
   },
-  "WAFProtectionWAFLoggingConfigurationD168F96C": {
-   "Type": "AWS::WAFv2::LoggingConfiguration",
-   "Properties": {
-    "LogDestinationConfigs": [
-     {
-      "Fn::GetAtt": [
-       "WAFProtectionWAFLogGroupC4D17A54",
-       "Arn"
-      ]
-     }
-    ],
-    "RedactedFields": [
-     {
-      "SingleHeader": {
-       "name": "authorization"
-      }
-     },
-     {
-      "SingleHeader": {
-       "name": "cookie"
-      }
-     }
-    ],
-    "ResourceArn": {
-     "Fn::GetAtt": [
-      "WAFProtectionWebACLA37FE6E3",
-      "Arn"
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "BCOS-StagingStack/WAFProtection/WAFLoggingConfiguration"
-   }
-  },
   "WAFProtectionWebACLAssociation99F41F81": {
    "Type": "AWS::WAFv2::WebACLAssociation",
    "Properties": {
-    "ResourceArn": {
-     "Fn::ImportValue": "BCOS-LoadBalancer-Arn"
-    },
+    "ResourceArn": "arn:aws:elasticloadbalancing:us-east-1:854428944440:loadbalancer/app/BCOS-N-Appli-rIo4btfCQRZj/ac6744264a6b1239",
     "WebACLArn": {
      "Fn::GetAtt": [
       "WAFProtectionWebACLA37FE6E3",
@@ -841,9 +611,7 @@
    "Type": "AWS::SNS::Topic",
    "Properties": {
     "DisplayName": "BCOS staging Alerts",
-    "KmsMasterKeyId": {
-     "Fn::ImportValue": "BCOS-KMS-Key-Arn"
-    },
+    "KmsMasterKeyId": "arn:aws:kms:us-east-1:854428944440:key/1d56416b-b0da-4f9a-8bf3-7517b7d066c2",
     "Tags": [
      {
       "Key": "Backup",
@@ -914,7 +682,7 @@
        {
         "Ref": "AWS::Region"
        },
-       "\",\"metrics\":[[\"AWS/ApplicationELB\",\"RequestCount\",\"LoadBalancer\",\"dummy-alb-name\",{\"stat\":\"Sum\"}],[\"AWS/ApplicationELB\",\"TargetResponseTime\",\"LoadBalancer\",\"dummy-alb-name\",{\"yAxis\":\"right\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":12,\"height\":6,\"x\":0,\"y\":12,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Application Errors - staging\",\"region\":\"",
+       "\",\"metrics\":[[\"AWS/ApplicationELB\",\"RequestCount\",\"LoadBalancer\",\"app/BCOS-N-Appli-rIo4btfCQRZj/ac6744264a6b1239\",{\"stat\":\"Sum\"}],[\"AWS/ApplicationELB\",\"TargetResponseTime\",\"LoadBalancer\",\"app/BCOS-N-Appli-rIo4btfCQRZj/ac6744264a6b1239\",{\"yAxis\":\"right\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":12,\"height\":6,\"x\":0,\"y\":12,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Application Errors - staging\",\"region\":\"",
        {
         "Ref": "AWS::Region"
        },
@@ -1101,7 +869,7 @@
     "Dimensions": [
      {
       "Name": "LoadBalancer",
-      "Value": "dummy-alb-name"
+      "Value": "app/BCOS-N-Appli-rIo4btfCQRZj/ac6744264a6b1239"
      },
      {
       "Name": "TargetGroup",
@@ -1147,7 +915,7 @@
     "Dimensions": [
      {
       "Name": "LoadBalancer",
-      "Value": "dummy-alb-name"
+      "Value": "app/BCOS-N-Appli-rIo4btfCQRZj/ac6744264a6b1239"
      }
     ],
     "EvaluationPeriods": 2,
@@ -1189,7 +957,7 @@
     "Dimensions": [
      {
       "Name": "LoadBalancer",
-      "Value": "dummy-alb-name"
+      "Value": "app/BCOS-N-Appli-rIo4btfCQRZj/ac6744264a6b1239"
      }
     ],
     "EvaluationPeriods": 3,
@@ -1332,7 +1100,7 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/2VSXW/bMAz8LXtXtM1dgb1mKToUyLDADrDHgZYZl40iGaSULDD830fbbWZ0T7rj5x2hwhaf7+2nD3CRlWuOK0+17asE7mhKlJjZodHc7x4d2xK7KJQiX7+BoCE42X4XPbmr2RzCjAaDrrBKK3SZKV2/c8zdU2gZRTQntt/4LAl57PkfbqADp207jmdqkNci0REkikHMI3ALCfcgxwc8UKAxPDa/j8SQgALyIralkP/sgOGEuuY2q0I+k5qcFE9wMD62KnMb20n7mLrhH5iY3CP5V9VLrtY9SCLnIzQ1eAiOQnsubL/uOr3NZGKvazHdBi/pompLegvVX2Y/SVvywWh1wvs7nVuii9yMFTOqMA3mAodxqQZ/Yb3ebF8NtCpGD3OgNjO8HW6uWBx5MBLU/D525CaBE6hyLY6pe2tb8sGo4dxcILln2z+APNcRZlH/yNoDn8bQBIZhhD9z6rLqDbFB+yIfz8UX+1X/4osQrTiHRCe05fz+BQv3jl6oAgAA"
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/2VSXW/bMAz8LXtXtM5tgb1mKVoUSLHADrDHgpYZl40iGaSULDD830c7W2a0T7o7fh0JFbb4dm9vvsBJFq7ZLzzVtq8SuL0pUWJmh0Zjrz06tiV2UShFPv8AQUNwsP0menJns9qFCxoMusIqrdBlpnR+4pi759AyimhMbL/yWRLyWPMZrqADp2UbjkdqkJci0REkikHMI3ALCbcg+wfcUaBRHos/KjEkoIA809YU8u8NMBxQx1x7VchH0iUnxxMcjI+t2lzHdvI+hq74BROTeyT/1/Wc6+oeJJHzEZoaPARHoT0Wtl92nd5mWmKrYzFdG8/pLGtNegv1X2Y/WZvzwWh2wvtb7Vuii9yMGRdUYRrMCXbjUBV/Yb1crc0VzY45GAm65DZ25CYjE6hyLY6p+3fXOR+MLpabEyT3ZvsHkLc6wmX4f7L0wIdRmsAwjPBnTl1WXyE2aN/l67G4s9/1z70L0YJzSHRAW17eP6cgunWQAgAA"
    },
    "Metadata": {
     "aws:cdk:path": "BCOS-StagingStack/CDKMetadata/Default"

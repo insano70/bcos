@@ -59,7 +59,7 @@ export class ProductionStack extends cdk.Stack {
     // Import ECR repository using attributes (required for tokens)
     const ecrRepository = cdk.aws_ecr.Repository.fromRepositoryAttributes(this, 'ECRRepository', {
       repositoryArn: ecrRepositoryUri,
-      repositoryName: cdk.Fn.select(1, cdk.Fn.split('/', cdk.Fn.select(5, cdk.Fn.split(':', ecrRepositoryUri)))),
+      repositoryName: 'bcos', // Use static name since we know it
     });
 
     // Import IAM roles

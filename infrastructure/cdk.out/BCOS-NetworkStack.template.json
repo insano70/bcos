@@ -13,7 +13,6 @@
       }
      ]
     },
-    "BucketName": "bcos-alb-access-logs-854428944440-us-east-1",
     "LifecycleConfiguration": {
      "Rules": [
       {
@@ -186,7 +185,7 @@
       "ToPort": 80
      }
     ],
-    "VpcId": "vpc-12345"
+    "VpcId": "vpc-febca387"
    },
    "Metadata": {
     "aws:cdk:path": "BCOS-NetworkStack/ALBSecurityGroup/Resource"
@@ -198,7 +197,7 @@
     "GroupDescription": "Security group for BCOS ECS tasks",
     "SecurityGroupEgress": [
      {
-      "CidrIp": "1.2.3.4/5",
+      "CidrIp": "10.104.172.0/22",
       "Description": "Allow HTTPS to VPC endpoints",
       "FromPort": 443,
       "IpProtocol": "tcp",
@@ -233,14 +232,14 @@
       "ToPort": 80
      },
      {
-      "CidrIp": "1.2.3.4/5",
-      "Description": "from 1.2.3.4/5:443",
+      "CidrIp": "10.104.172.0/22",
+      "Description": "from 10.104.172.0/22:443",
       "FromPort": 443,
       "IpProtocol": "tcp",
       "ToPort": 443
      }
     ],
-    "VpcId": "vpc-12345"
+    "VpcId": "vpc-febca387"
    },
    "Metadata": {
     "aws:cdk:path": "BCOS-NetworkStack/ECSSecurityGroup/Resource"
@@ -260,11 +259,13 @@
     ],
     "ServiceName": "com.amazonaws.us-east-1.ecr.api",
     "SubnetIds": [
-     "p-12345",
-     "p-67890"
+     "subnet-095fa406c94abb01f",
+     "subnet-1d132031",
+     "subnet-2563a41a",
+     "subnet-6f277e63"
     ],
     "VpcEndpointType": "Interface",
-    "VpcId": "vpc-12345"
+    "VpcId": "vpc-febca387"
    },
    "Metadata": {
     "aws:cdk:path": "BCOS-NetworkStack/ECR-API-Endpoint/Resource"
@@ -284,11 +285,13 @@
     ],
     "ServiceName": "com.amazonaws.us-east-1.ecr.dkr",
     "SubnetIds": [
-     "p-12345",
-     "p-67890"
+     "subnet-095fa406c94abb01f",
+     "subnet-1d132031",
+     "subnet-2563a41a",
+     "subnet-6f277e63"
     ],
     "VpcEndpointType": "Interface",
-    "VpcId": "vpc-12345"
+    "VpcId": "vpc-febca387"
    },
    "Metadata": {
     "aws:cdk:path": "BCOS-NetworkStack/ECR-DKR-Endpoint/Resource"
@@ -308,11 +311,13 @@
     ],
     "ServiceName": "com.amazonaws.us-east-1.logs",
     "SubnetIds": [
-     "p-12345",
-     "p-67890"
+     "subnet-095fa406c94abb01f",
+     "subnet-1d132031",
+     "subnet-2563a41a",
+     "subnet-6f277e63"
     ],
     "VpcEndpointType": "Interface",
-    "VpcId": "vpc-12345"
+    "VpcId": "vpc-febca387"
    },
    "Metadata": {
     "aws:cdk:path": "BCOS-NetworkStack/CloudWatch-Logs-Endpoint/Resource"
@@ -332,11 +337,13 @@
     ],
     "ServiceName": "com.amazonaws.us-east-1.secretsmanager",
     "SubnetIds": [
-     "p-12345",
-     "p-67890"
+     "subnet-095fa406c94abb01f",
+     "subnet-1d132031",
+     "subnet-2563a41a",
+     "subnet-6f277e63"
     ],
     "VpcEndpointType": "Interface",
-    "VpcId": "vpc-12345"
+    "VpcId": "vpc-febca387"
    },
    "Metadata": {
     "aws:cdk:path": "BCOS-NetworkStack/Secrets-Manager-Endpoint/Resource"
@@ -356,11 +363,13 @@
     ],
     "ServiceName": "com.amazonaws.us-east-1.sts",
     "SubnetIds": [
-     "p-12345",
-     "p-67890"
+     "subnet-095fa406c94abb01f",
+     "subnet-1d132031",
+     "subnet-2563a41a",
+     "subnet-6f277e63"
     ],
     "VpcEndpointType": "Interface",
-    "VpcId": "vpc-12345"
+    "VpcId": "vpc-febca387"
    },
    "Metadata": {
     "aws:cdk:path": "BCOS-NetworkStack/STS-Endpoint/Resource"
@@ -370,8 +379,7 @@
    "Type": "AWS::EC2::VPCEndpoint",
    "Properties": {
     "RouteTableIds": [
-     "rtb-12345p",
-     "rtb-57890p"
+     "rtb-cf8babb4"
     ],
     "ServiceName": {
      "Fn::Join": [
@@ -386,7 +394,7 @@
      ]
     },
     "VpcEndpointType": "Gateway",
-    "VpcId": "vpc-12345"
+    "VpcId": "vpc-febca387"
    },
    "Metadata": {
     "aws:cdk:path": "BCOS-NetworkStack/S3-Gateway-Endpoint/Resource"
@@ -398,7 +406,7 @@
     "LoadBalancerAttributes": [
      {
       "Key": "deletion_protection.enabled",
-      "Value": "true"
+      "Value": "false"
      },
      {
       "Key": "access_logs.s3.enabled",
@@ -425,8 +433,9 @@
      }
     ],
     "Subnets": [
-     "s-12345",
-     "s-67890"
+     "subnet-1c132030",
+     "subnet-02e36d31eafc7b9cc",
+     "subnet-053f73f2d9a4005d9"
     ],
     "Type": "application"
    },
@@ -504,7 +513,7 @@
  "Outputs": {
   "VPCId": {
    "Description": "VPC ID",
-   "Value": "vpc-12345",
+   "Value": "vpc-febca387",
    "Export": {
     "Name": "BCOS-VPC-Id"
    }

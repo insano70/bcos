@@ -39,26 +39,26 @@ export class StagingStack extends cdk.Stack {
       vpcId: vpcId,
     });
 
-    // Import values from other stacks using CloudFormation imports
-    const kmsKeyArn = cdk.Fn.importValue('BCOS-KMS-Key-Arn');
-    const ecrRepositoryUri = cdk.Fn.importValue('BCOS-ECRRepositoryUri');
-    const ecsTaskExecutionRoleArn = cdk.Fn.importValue('BCOS-ECSTaskExecutionRole-Arn');
-    const ecsTaskRoleArn = cdk.Fn.importValue('BCOS-ECSTaskRole-Arn');
-    const stagingSecretArn = cdk.Fn.importValue('BCOS-StagingSecret-Arn');
-    const albArn = cdk.Fn.importValue('BCOS-LoadBalancer-Arn');
-    const albDnsName = cdk.Fn.importValue('BCOS-LoadBalancer-DnsName');
-    const albCanonicalHostedZoneId = cdk.Fn.importValue('BCOS-LoadBalancer-CanonicalHostedZoneId');
-    const httpsListenerArn = cdk.Fn.importValue('BCOS-HTTPSListener-Arn');
-    const hostedZoneId = cdk.Fn.importValue('BCOS-HostedZone-Id');
-    const ecsSecurityGroupId = cdk.Fn.importValue('BCOS-ECSSecurityGroup-Id');
+    // Use hardcoded values from the deployed stacks for now (to avoid CloudFormation function issues)
+    const kmsKeyArn = 'arn:aws:kms:us-east-1:854428944440:key/1d56416b-b0da-4f9a-8bf3-7517b7d066c2';
+    const ecrRepositoryArn = 'arn:aws:ecr:us-east-1:854428944440:repository/bcos';
+    const ecsTaskExecutionRoleArn = 'arn:aws:iam::854428944440:role/BCOS-ECSTaskExecutionRole';
+    const ecsTaskRoleArn = 'arn:aws:iam::854428944440:role/BCOS-ECSTaskRole';
+    const stagingSecretArn = 'arn:aws:secretsmanager:us-east-1:854428944440:secret:staging/bcos-secrets-vDmCm7';
+    const albArn = 'arn:aws:elasticloadbalancing:us-east-1:854428944440:loadbalancer/app/BCOS-N-Appli-rIo4btfCQRZj/ac6744264a6b1239';
+    const albDnsName = 'BCOS-N-Appli-rIo4btfCQRZj-401564420.us-east-1.elb.amazonaws.com';
+    const albCanonicalHostedZoneId = 'Z35SXDOTRQ7X7K';
+    const httpsListenerArn = 'arn:aws:elasticloadbalancing:us-east-1:854428944440:listener/app/BCOS-N-Appli-rIo4btfCQRZj/ac6744264a6b1239/93962089e0bad510';
+    const hostedZoneId = 'Z05961102TVIVESKQ4GAL';
+    const ecsSecurityGroupId = 'sg-01fa0ee93963bd614';
 
     // Import KMS key
     const kmsKey = cdk.aws_kms.Key.fromKeyArn(this, 'KMSKey', kmsKeyArn);
 
     // Import ECR repository using attributes (required for tokens)
     const ecrRepository = cdk.aws_ecr.Repository.fromRepositoryAttributes(this, 'ECRRepository', {
-      repositoryArn: ecrRepositoryUri,
-      repositoryName: cdk.Fn.select(1, cdk.Fn.split('/', cdk.Fn.select(5, cdk.Fn.split(':', ecrRepositoryUri)))),
+      repositoryArn: ecrRepositoryArn,
+      repositoryName: 'bcos',
     });
 
     // Import IAM roles

@@ -361,31 +361,7 @@
          {
           "Ref": "AWS::URLSuffix"
          },
-         "/",
-         {
-          "Fn::Select": [
-           1,
-           {
-            "Fn::Split": [
-             "/",
-             {
-              "Fn::Select": [
-               5,
-               {
-                "Fn::Split": [
-                 ":",
-                 {
-                  "Fn::ImportValue": "BCOS-ECRRepositoryUri"
-                 }
-                ]
-               }
-              ]
-             }
-            ]
-           }
-          ]
-         },
-         ":latest"
+         "/bcos:latest"
         ]
        ]
       },
@@ -406,13 +382,6 @@
        }
       },
       "Memory": 2048,
-      "MountPoints": [
-       {
-        "ContainerPath": "/tmp",
-        "ReadOnly": false,
-        "SourceVolume": "tmp"
-       }
-      ],
       "Name": "bcos",
       "PortMappings": [
        {
@@ -594,15 +563,7 @@
     ],
     "TaskRoleArn": {
      "Fn::ImportValue": "BCOS-ECSTaskRole-Arn"
-    },
-    "Volumes": [
-     {
-      "Host": {
-       "SourcePath": "/tmp"
-      },
-      "Name": "tmp"
-     }
-    ]
+    }
    },
    "Metadata": {
     "aws:cdk:path": "BCOS-ProductionStack/SecureContainer/TaskDefinition/Resource"
@@ -666,7 +627,7 @@
     ],
     "TargetType": "ip",
     "UnhealthyThresholdCount": 3,
-    "VpcId": "vpc-12345"
+    "VpcId": "vpc-febca387"
    },
    "Metadata": {
     "aws:cdk:path": "BCOS-ProductionStack/ProductionTargetGroup/Resource"
@@ -717,8 +678,10 @@
        }
       ],
       "Subnets": [
-       "p-12345",
-       "p-67890"
+       "subnet-095fa406c94abb01f",
+       "subnet-1d132031",
+       "subnet-2563a41a",
+       "subnet-6f277e63"
       ]
      }
     },
@@ -1030,40 +993,6 @@
    },
    "Metadata": {
     "aws:cdk:path": "BCOS-ProductionStack/WAFProtection/WebACL"
-   }
-  },
-  "WAFProtectionWAFLoggingConfigurationD168F96C": {
-   "Type": "AWS::WAFv2::LoggingConfiguration",
-   "Properties": {
-    "LogDestinationConfigs": [
-     {
-      "Fn::GetAtt": [
-       "WAFProtectionWAFLogGroupC4D17A54",
-       "Arn"
-      ]
-     }
-    ],
-    "RedactedFields": [
-     {
-      "SingleHeader": {
-       "name": "authorization"
-      }
-     },
-     {
-      "SingleHeader": {
-       "name": "cookie"
-      }
-     }
-    ],
-    "ResourceArn": {
-     "Fn::GetAtt": [
-      "WAFProtectionWebACLA37FE6E3",
-      "Arn"
-     ]
-    }
-   },
-   "Metadata": {
-    "aws:cdk:path": "BCOS-ProductionStack/WAFProtection/WAFLoggingConfiguration"
    }
   },
   "WAFProtectionWebACLAssociation99F41F81": {
@@ -1859,7 +1788,7 @@
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/2VTXW/bMAz8LXtXtM1dgb1mLjoMSLHADrDHgZYZl40sGfpIFhj+76PkNHG2F+t44lHkgS5k8flRfvoAJ79S7WGlqZFjHUAdRIXeRqdQ8N3vEZWTFQ7WU7Du/A08CoJejlurSZ1FuTcXVFmNKUznJFAVkoMaVXQUzt+djcMP0zn0XmjbeTlubJfZpLniFwyO1DPpgC5dLONUlHWljv5y+z8sYQDF722dPVKLbu29VQSBrPHiGVwHAXfgD0+4J0OJTuJ/GWsCkEG34DZk4p8tOOiRn7nWqtEdSeW5L5C71OADKW2hbUCDUWS6YyHH9TCwUbmXHasxXMdfhousDfFI3EYVZ2eX8SQ4O+DjA9etUFnXZu8zqjFM4gT79CiTv7BZl5uLzR03w/PtqYsO3uefMxZeTcIbtnpnB1K5wQzq2HjlaHiXLeNJ8MCxPUFQr3J8Av/aWJibugVrDa5P1AzyN29Uafu8YXjNuGcmATdbIAbrFWiehFeWATQaZwtzV/fMfOwcbzYL6ll3W947YpoS9TOGIbKDxrYo3/zHY/FFfuVf5c0TrVw0gXqU1Xz+BbGIgkpHAwAA"
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/2VTy27bMBD8lt5ptlUaoFdXQYoALmpIBnosVtRa2ZgiBT7sGoL+vUvKteX0Is4Mua/BqpDF50f56QOc/Eq1h5WmRo51AHUQFXobnULBd79HVE5WOFhPwbrzN/AoCHo5bq0mdRbl3lxQZTUmms5JoCokkxpVdBTO352Nw4vpHHovtO28HDe2y2qKueIfGBypZ9IBXbpY8pSU40od/eX2f1jCAIrrbZ09Uotu7b1VBIGs8eIZXAcBd+APT7gnQ0lOwe8VawKQQbfQNmTiny046JHLXHPV6I6k8twXyF1q8IGUttA2oMEoMt2xkON6GNio3MuOozFcx1/SxasN8UjcRhVnZ5d8Evw64OMD561QWddm7zOqMUziBPtUlMVf2KzLjbiihSeT8IYt3dmBVG4kgzo2Xjka/tmz5JPgwWJ7gqBe5fgE/rWxMBe/kbUG1ydpBvmbN6e0fd4kvL64VyYBt/EhBusVaLaPV5MBNBpnq3JX98p87BxvMAfUc9xtSe+EaUrSzxiGyE4Z26J88x+PxRf5lX+JN0+0ctEE6lFW8/kXT+vrsy8DAAA="
    },
    "Metadata": {
     "aws:cdk:path": "BCOS-ProductionStack/CDKMetadata/Default"
