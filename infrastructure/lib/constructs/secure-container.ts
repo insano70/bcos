@@ -126,10 +126,10 @@ export class SecureContainer extends Construct {
       user: '1001', // Non-root user
       readonlyRootFilesystem: true,
       
-      // Linux parameters for additional security
+      // Linux parameters for additional security (Fargate compatible)
       linuxParameters: new ecs.LinuxParameters(this, 'LinuxParameters', {
         initProcessEnabled: true,
-        sharedMemorySize: 64, // Minimal shared memory
+        // Note: sharedMemorySize not supported in Fargate
       }),
 
       // Logging configuration

@@ -49,7 +49,7 @@ export async function validateCSRFToken(
  * Wrapper function that adds CSRF protection to a handler
  * Use this to wrap existing handlers that need CSRF protection
  */
-export function withCSRFProtection<T extends any[]>(
+export function withCSRFProtection<T extends unknown[]>(
   handler: (request: NextRequest, userContext: UserContext, ...args: T) => Promise<Response>,
   endpoint: string,
   action: string

@@ -73,13 +73,13 @@ const PATH_TRAVERSAL_PATTERNS = [
 interface SanitizationResult {
   isValid: boolean
   errors: string[]
-  sanitized?: any
+  sanitized?: Record<string, unknown>
 }
 
 /**
  * Deep sanitize an object, removing dangerous keys and values
  */
-function deepSanitize(obj: any, path: string = 'root', errors: string[] = []): any {
+function deepSanitize(obj: unknown, path: string = 'root', errors: string[] = []): unknown {
   if (obj === null || obj === undefined) {
     return obj
   }
@@ -98,7 +98,7 @@ function deepSanitize(obj: any, path: string = 'root', errors: string[] = []): a
   }
 
   // Handle objects
-  const sanitized: Record<string, any> = {}
+  const sanitized: Record<string, unknown> = {}
   
   for (const key in obj) {
     // Skip dangerous keys
@@ -177,7 +177,7 @@ function sanitizeString(value: string, path: string, errors: string[]): string {
 /**
  * Validate JSON structure depth to prevent DoS
  */
-function validateDepth(obj: any, maxDepth: number = 10, currentDepth: number = 0): boolean {
+function validateDepth(obj: unknown, maxDepth: number = 10, currentDepth: number = 0): boolean {
   if (currentDepth > maxDepth) {
     return false
   }

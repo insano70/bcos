@@ -1,7 +1,7 @@
 'use client';
 
 import { useForm } from 'react-hook-form';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useState } from 'react';
 import ImageUpload from '@/components/image-upload';
 import ColorPicker from '@/components/color-picker';
@@ -166,14 +166,14 @@ export default function PracticeConfigForm({
       console.log('📝 Resetting form with data:', resetData);
       reset(resetData);
     }
-  }, [attributes, currentPractice, reset]);
+  }, [attributes, currentPractice, reset, practice, isDirty]);
 
   const onSubmit = async (data: PracticeFormData) => {
     console.log('💾 Form submit started with data:', data);
     setIsSubmitting(true);
     
     // Track practice changes for later use
-    const practiceChanges: any = {};
+    const practiceChanges: Partial<Pick<PracticeFormData, 'name' | 'template_id'>> = {};
     if (data.name !== practice?.name) {
       practiceChanges.name = data.name;
     }
