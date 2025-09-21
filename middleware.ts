@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { addSecurityHeaders, getContentSecurityPolicy, addRateLimitHeaders } from '@/lib/security/headers'
-import { EdgeCSRFProtection } from '@/lib/security/csrf-edge'
+import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
 import { getJWTConfig } from '@/lib/env'
 import { isPublicApiRoute } from '@/lib/api/middleware/global-auth'
 import { debugLog } from '@/lib/utils/debug'
@@ -74,8 +74,8 @@ export async function middleware(request: NextRequest) {
 
   // CSRF Protection for state-changing operations
   // Applied before any other processing to fail fast
-  if (EdgeCSRFProtection.requiresCSRFProtection(request.method) && !isCSRFExempt(pathname)) {
-    const isValidCSRF = await EdgeCSRFProtection.verifyCSRFToken(request)
+  if (UnifiedCSRFProtection.requiresCSRFProtection(request.method) && !isCSRFExempt(pathname)) {
+    const isValidCSRF = await UnifiedCSRFProtection.verifyCSRFToken(request)
     if (!isValidCSRF) {
       debugLog.middleware(`CSRF validation failed for ${pathname}`)
       return new NextResponse(
