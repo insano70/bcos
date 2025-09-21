@@ -95,8 +95,8 @@ class APISecurityAuditor {
       }
     }
     
-    // Check for rate limiting
-    info.hasRateLimit = content.includes('rateLimit:');
+    // Check for rate limiting (both configuration and direct calls)
+    info.hasRateLimit = content.includes('rateLimit:') || content.includes('applyRateLimit(');
     
     // Check for CSRF (should be handled by middleware now)
     info.hasCSRF = content.includes('CSRFProtection') || content.includes('withCSRFProtection');

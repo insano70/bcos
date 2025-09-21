@@ -57,18 +57,20 @@ async function _checkRefreshTokenCookie(): Promise<boolean> {
 }
 
 /**
- * Auth result returned by authentication middleware
+ * Apply global authentication to API routes
+ * Call this at the start of every API route handler
  */
-export interface AuthResult {
+// Type for the authentication result
+interface AuthResult {
   user: {
     id: string;
-    email: string;
+    email: string | null;
     name: string;
-    firstName: string;
-    lastName: string;
+    firstName: string | null;
+    lastName: string | null;
     role: string | undefined;
     emailVerified: boolean | null;
-    practiceId: string | undefined;
+    practiceId: string | null;
     roles: string[];
     permissions: string[];
     isSuperAdmin: boolean;
@@ -76,12 +78,9 @@ export interface AuthResult {
   };
   accessToken: string;
   sessionId: string;
+  userContext: unknown; // Full RBAC context
 }
 
-/**
- * Apply global authentication to API routes
- * Call this at the start of every API route handler
- */
 export async function applyGlobalAuth(request: NextRequest): Promise<AuthResult | null> {
   const pathname = new URL(request.url).pathname
   const logger = loggers.auth.child({ path: pathname, method: request.method })

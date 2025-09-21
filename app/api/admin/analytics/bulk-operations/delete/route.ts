@@ -29,7 +29,10 @@ const handler = rbacRoute(
       return createErrorResponse('Failed to start bulk delete operation', 500);
     }
   },
-  { permission: 'analytics:read:all' }
+  { 
+    permission: 'analytics:read:all',
+    rateLimit: 'api' // Add rate limiting for bulk operations
+  }
 );
 
 export { handler as POST };

@@ -50,8 +50,14 @@ export interface ChartDataSourceConfig {
 export interface ChartFilter {
   field: string;
   operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'not_in' | 'like' | 'between';
-  value: unknown;
+  value: ChartFilterValue;
 }
+
+export type ChartFilterValue =
+  | string
+  | number
+  | string[]  // for 'in'/'not_in' operators
+  | [string | number, string | number]  // for 'between' operator
 
 export interface ChartOrderBy {
   field: string;
@@ -161,7 +167,7 @@ export interface AnalyticsQueryParams {
   end_date?: string | undefined;
   limit?: number | undefined;
   offset?: number | undefined;
-  advanced_filters?: unknown;
+  advanced_filters?: ChartFilter[];
   calculated_field?: string | undefined;
   multiple_series?: MultipleSeriesConfig[];
 }
@@ -239,13 +245,13 @@ export interface DashboardChartPosition {
 export interface DashboardListItem {
   dashboard_id: string;
   dashboard_name: string;
-  dashboard_description?: string;
-  dashboard_category_id?: number;
-  category_name?: string;
+  dashboard_description?: string | undefined;
+  dashboard_category_id?: number | undefined;
+  category_name?: string | undefined;
   chart_count: number;
   created_by: string;
-  creator_name?: string;
-  creator_last_name?: string;
+  creator_name?: string | undefined;
+  creator_last_name?: string | undefined;
   created_at: string;
   updated_at: string;
   is_active: boolean;

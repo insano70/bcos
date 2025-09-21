@@ -4,6 +4,8 @@ import { eq, desc, and, isNull } from 'drizzle-orm';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { validateRequest } from '@/lib/api/middleware/validation';
+import { chartDefinitionCreateSchema } from '@/lib/validations/analytics';
 import type { UserContext } from '@/lib/types/rbac';
 import { ChartDefinition } from '@/lib/types/analytics';
 import { createAPILogger, logDBOperation, logPerformanceMetric, logSecurityEvent } from '@/lib/logger';
@@ -65,12 +67,16 @@ const getChartsHandler = async (request: NextRequest, userContext: UserContext) 
   } catch (error) {
     logger.error('Chart definitions list error', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
       requestingUserId: userContext.user_id
     });
     
+    const errorMessage = process.env.NODE_ENV === 'development' 
+      ? (error instanceof Error ? error.message : 'Unknown error')
+      : 'Internal server error';
+    
     logPerformanceMetric(logger, 'chart_definitions_list_failed', Date.now() - startTime);
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return createErrorResponse(errorMessage, 500, request);
   } finally {
     logPerformanceMetric(logger, 'chart_definitions_list_total', Date.now() - startTime);
   }
@@ -87,27 +93,20 @@ const createChartHandler = async (request: NextRequest, userContext: UserContext
   });
 
   try {
-    const body = await request.json();
-    
-    // Validate required fields
-    if (!body.chart_name || !body.chart_type || !body.data_source || !body.chart_config) {
-      return createErrorResponse('Missing required fields: chart_name, chart_type, data_source, chart_config', 400);
-    }
-
-    // Create new chart definition - be explicit about all fields
-    console.log('💾 Chart definition request body:', body);
+    // Validate request body with Zod
+    const validatedData = await validateRequest(request, chartDefinitionCreateSchema);
 
     const [newChart] = await db
       .insert(chart_definitions)
       .values({
-        chart_name: body.chart_name,
-        chart_description: body.chart_description || null,
-        chart_type: body.chart_type,
-        data_source: body.data_source,
-        chart_config: body.chart_config,
-        access_control: body.access_control || null,
-        chart_category_id: body.chart_category_id || null,
+        chart_name: validatedData.chart_name,
+        chart_description: validatedData.chart_description || null,
+        chart_type: validatedData.chart_type,
+        data_source: validatedData.data_source,
+        chart_config: validatedData.chart_config || {},
+        chart_category_id: validatedData.chart_category_id || null,
         created_by: userContext.user_id,
+        is_active: validatedData.is_active
       })
       .returning();
 
@@ -130,12 +129,16 @@ const createChartHandler = async (request: NextRequest, userContext: UserContext
   } catch (error) {
     logger.error('Chart definition creation error', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
       requestingUserId: userContext.user_id
     });
     
+    const errorMessage = process.env.NODE_ENV === 'development' 
+      ? (error instanceof Error ? error.message : 'Unknown error')
+      : 'Internal server error';
+    
     logPerformanceMetric(logger, 'chart_definition_create_failed', Date.now() - startTime);
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    return createErrorResponse(errorMessage, 500, request);
   } finally {
     logPerformanceMetric(logger, 'chart_definition_create_total', Date.now() - startTime);
   }

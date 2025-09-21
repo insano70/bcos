@@ -19,17 +19,19 @@ interface UploadOptions {
   folder?: string
 }
 
+interface ProcessedFile {
+  originalName: string
+  fileName: string
+  filePath: string
+  fileUrl: string
+  mimeType: string
+  size: number
+  thumbnail?: string
+}
+
 interface UploadResult {
   success: boolean
-  files: Array<{
-    originalName: string
-    fileName: string
-    filePath: string
-    fileUrl: string
-    mimeType: string
-    size: number
-    thumbnail?: string
-  }>
+  files: ProcessedFile[]
   errors: string[]
 }
 
@@ -114,7 +116,7 @@ export class FileUploadService {
   private static async processFile(
     file: File,
     options: Required<UploadOptions>
-  ): Promise<{ success: boolean; file?: { originalName: string; fileName: string; filePath: string; fileUrl: string; mimeType: string; size: number; thumbnail?: string }; errors: string[] }> {
+  ): Promise<{ success: boolean; file?: ProcessedFile; errors: string[] }> {
     const errors: string[] = []
 
     // Validate file type
@@ -166,22 +168,17 @@ export class FileUploadService {
       return { success: false, errors }
     }
 
-    const fileResult: { originalName: string; fileName: string; filePath: string; fileUrl: string; mimeType: string; size: number; thumbnail?: string } = {
-      originalName: file.name,
-      fileName,
-      filePath,
-      fileUrl,
-      mimeType: file.type,
-      size: processedBuffer.length
-    };
-
-    if (thumbnail) {
-      fileResult.thumbnail = thumbnail;
-    }
-
     return {
       success: true,
-      file: fileResult,
+      file: {
+        originalName: file.name,
+        fileName,
+        filePath,
+        fileUrl,
+        mimeType: file.type,
+        size: processedBuffer.length,
+        thumbnail
+      },
       errors: []
     }
   }

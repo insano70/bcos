@@ -3,17 +3,17 @@ import { applyRateLimit } from './middleware/rate-limit'
 import { applyGlobalAuth, markAsPublicRoute } from './middleware/global-auth'
 import { createErrorResponse } from './responses/error'
 
-// Type for auth result - should match the one in global-auth.ts
-interface AuthResult {
+// Type for the authentication session (matches AuthResult from global-auth.ts)
+interface AuthSession {
   user: {
     id: string;
-    email: string;
+    email: string | null;
     name: string;
-    firstName: string;
-    lastName: string;
-    role: string | undefined;
+    firstName: string | null;
+    lastName: string | null;
+    role: string;
     emailVerified: boolean | null;
-    practiceId: string | undefined;
+    practiceId: string | null;
     roles: string[];
     permissions: string[];
     isSuperAdmin: boolean;
@@ -21,6 +21,7 @@ interface AuthResult {
   };
   accessToken: string;
   sessionId: string;
+  userContext: unknown;
 }
 
 /**
@@ -38,7 +39,7 @@ interface RouteOptions {
  * Wrap an API route handler with automatic security
  */
 export function secureRoute(
-  handler: (request: NextRequest, session?: AuthResult | null, ...args: unknown[]) => Promise<Response>,
+  handler: (request: NextRequest, session?: AuthSession, ...args: unknown[]) => Promise<Response>,
   options: RouteOptions = { requireAuth: true, rateLimit: 'api' }
 ) {
   return async (request: NextRequest, ...args: unknown[]): Promise<Response> => {
@@ -89,12 +90,12 @@ export function publicRoute(
  * Create an admin-only API route
  */
 export function adminRoute(
-  handler: (request: NextRequest, session: AuthResult, ...args: unknown[]) => Promise<Response>,
+  handler: (request: NextRequest, session: AuthSession, ...args: unknown[]) => Promise<Response>,
   options: Omit<RouteOptions, 'requireAuth'> = {}
 ) {
-  return secureRoute(async (request: NextRequest, session: AuthResult | null | undefined, ...args: unknown[]) => {
+  return secureRoute(async (request: NextRequest, session: AuthSession, ...args: unknown[]) => {
     // Additional admin check
-    if (!session || session.user.role !== 'admin') {
+    if (session?.user?.role !== 'admin') {
       return createErrorResponse('Admin access required', 403, request)
     }
     return await handler(request, session, ...args)

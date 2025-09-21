@@ -222,7 +222,7 @@ export default function AdvancedFilterBuilder({
     if (filter.operator === 'in' || filter.operator === 'not_in') {
       return (
         <textarea
-          value={Array.isArray(filter.value) ? (filter.value as string[]).join('\n') : String(filter.value || '')}
+          value={Array.isArray(filter.value) ? filter.value.join('\n') : (filter.value ?? '')}
           onChange={(e) => updateFilter(groupId, filterIndex, { 
             value: e.target.value.split('\n').filter(v => v.trim()) 
           })}
@@ -239,7 +239,7 @@ export default function AdvancedFilterBuilder({
         <div className="flex gap-2 flex-1">
           <input
             type={field?.type === 'number' ? 'number' : field?.type === 'date' ? 'date' : 'text'}
-            value={values[0] || ''}
+            value={values[0]?.toString() || ''}
             onChange={(e) => updateFilter(groupId, filterIndex, { 
               value: [e.target.value, values[1] || ''] 
             })}
@@ -248,7 +248,7 @@ export default function AdvancedFilterBuilder({
           />
           <input
             type={field?.type === 'number' ? 'number' : field?.type === 'date' ? 'date' : 'text'}
-            value={values[1] || ''}
+            value={values[1]?.toString() || ''}
             onChange={(e) => updateFilter(groupId, filterIndex, { 
               value: [values[0] || '', e.target.value] 
             })}
@@ -262,7 +262,7 @@ export default function AdvancedFilterBuilder({
     if (field?.allowedValues && field.allowedValues.length > 0) {
       return (
         <select
-          value={String(filter.value || '')}
+          value={typeof filter.value === 'string' || typeof filter.value === 'number' ? filter.value : ''}
           onChange={(e) => updateFilter(groupId, filterIndex, { value: e.target.value })}
           className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
         >
@@ -277,7 +277,7 @@ export default function AdvancedFilterBuilder({
     return (
       <input
         type={field?.type === 'number' ? 'number' : field?.type === 'date' ? 'date' : 'text'}
-        value={String(filter.value || '')}
+          value={filter.value?.toString() || ''}
         onChange={(e) => updateFilter(groupId, filterIndex, { value: e.target.value })}
         placeholder="Enter value"
         className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
@@ -311,7 +311,7 @@ export default function AdvancedFilterBuilder({
             {flattenFilters(rootGroup).map((filter, index) => (
               <div key={index}>
                 {availableFields.find(f => f.name === filter.field)?.displayName} {filter.operator} {
-                  Array.isArray(filter.value) ? (filter.value as unknown[]).join(', ') : String(filter.value || '')
+                  Array.isArray(filter.value) ? filter.value.join(', ') : (filter.value?.toString() || '')
                 }
               </div>
             ))}

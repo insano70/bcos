@@ -218,11 +218,11 @@ export default function DashboardPreview({
             >
               <AnalyticsChart
                 chartType={chartDef.chart_type as any}
-                measure={measureFilter?.value as MeasureType}
-                frequency={frequencyFilter?.value as FrequencyType}
+                {...(measureFilter?.value && { measure: measureFilter.value as MeasureType })}
+                {...(frequencyFilter?.value && { frequency: frequencyFilter.value as FrequencyType })}
                 practice={practiceFilter?.value?.toString()}
-                startDate={startDateFilter?.value as string}
-                endDate={endDateFilter?.value as string}
+                startDate={startDateFilter?.value?.toString()}
+                endDate={endDateFilter?.value?.toString()}
                 groupBy={chartConfig.series?.groupBy || 'provider_name'}
                 width={baseWidth}
                 height={Math.min(baseHeight, 400)}

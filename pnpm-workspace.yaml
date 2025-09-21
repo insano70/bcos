@@ -1,0 +1,8 @@
+packages:
+  - '.'
+
+onlyBuiltDependencies:
+  - '@tailwindcss/oxide'
+  - bcrypt
+  - esbuild
+  - sharp

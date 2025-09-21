@@ -4,6 +4,7 @@ import { getUserContextSafe } from '@/lib/rbac/user-context'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { errorLog } from '@/lib/utils/debug'
+import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
 
 /**
  * Get current user with full RBAC context
@@ -11,6 +12,9 @@ import { errorLog } from '@/lib/utils/debug'
  */
 export async function GET(request: NextRequest) {
   try {
+    // RATE LIMITING: Apply API-level rate limiting to prevent user context abuse
+    await applyRateLimit(request, 'api')
+
     // Get authenticated user session
     const session = await requireAuth(request)
 

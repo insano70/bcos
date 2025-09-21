@@ -6,8 +6,10 @@ import { createErrorResponse } from '@/lib/api/responses/error'
 import { AuditLogger, BufferedAuditLogger } from '@/lib/logger'
 import { logger } from '@/lib/logger'
 import { requireAuth } from '@/lib/api/middleware/auth'
+import { CSRFProtection } from '@/lib/security/csrf'
 import { db, token_blacklist } from '@/lib/db'
 import { errorLog } from '@/lib/utils/debug'
+import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
 
 /**
  * Custom Logout Endpoint
@@ -16,6 +18,15 @@ import { errorLog } from '@/lib/utils/debug'
  */
 export async function POST(request: NextRequest) {
   try {
+    // RATE LIMITING: Apply auth-level rate limiting to prevent logout abuse
+    await applyRateLimit(request, 'auth')
+
+    // CSRF PROTECTION: Verify CSRF token before authentication check
+    const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
+    if (!isValidCSRF) {
+      return createErrorResponse('CSRF token validation failed', 403, request)
+    }
+
     // REQUIRE AUTHENTICATION: Only authenticated users can logout
     const session = await requireAuth(request)
 
@@ -142,6 +153,15 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
+    // RATE LIMITING: Apply auth-level rate limiting to prevent revoke all sessions abuse
+    await applyRateLimit(request, 'auth')
+
+    // CSRF PROTECTION: Verify CSRF token before authentication check
+    const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
+    if (!isValidCSRF) {
+      return createErrorResponse('CSRF token validation failed', 403, request)
+    }
+
     // REQUIRE AUTHENTICATION: Critical security - only authenticated users can revoke all sessions
     const session = await requireAuth(request)
 

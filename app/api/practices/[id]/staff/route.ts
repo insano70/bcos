@@ -102,7 +102,7 @@ const getPracticeStaffHandler = async (request: NextRequest, userContext: UserCo
     
   } catch (error) {
     const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
-    const errorStack = error && typeof error === 'object' && 'stack' in error ? String(error.stack) : undefined;
+    const errorStack = process.env.NODE_ENV === 'development' && error && typeof error === 'object' && 'stack' in error ? String(error.stack) : undefined;
     
     logger.error('Error fetching staff members', {
       error: errorMessage,
@@ -110,7 +110,9 @@ const getPracticeStaffHandler = async (request: NextRequest, userContext: UserCo
       practiceId,
       operation: 'fetchStaffMembers'
     })
-    return createErrorResponse(errorMessage, 500, request)
+    
+    const clientErrorMessage = process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
+    return createErrorResponse(clientErrorMessage, 500, request)
   }
 }
 
@@ -179,7 +181,7 @@ const createPracticeStaffHandler = async (request: NextRequest, userContext: Use
     return createSuccessResponse(parsedStaffMember, 'Staff member created successfully');
   } catch (error) {
     const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
-    const errorStack = error && typeof error === 'object' && 'stack' in error ? String(error.stack) : undefined;
+    const errorStack = process.env.NODE_ENV === 'development' && error && typeof error === 'object' && 'stack' in error ? String(error.stack) : undefined;
     
     logger.error('Error creating staff member', {
       error: errorMessage,
@@ -187,7 +189,9 @@ const createPracticeStaffHandler = async (request: NextRequest, userContext: Use
       practiceId,
       operation: 'createStaffMember'
     });
-    return createErrorResponse(errorMessage, 500, request);
+    
+    const clientErrorMessage = process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
+    return createErrorResponse(clientErrorMessage, 500, request);
   }
 }
 

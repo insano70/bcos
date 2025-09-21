@@ -4,6 +4,8 @@ import { eq, and } from 'drizzle-orm';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { validateRequest } from '@/lib/api/middleware/validation';
+import { chartDefinitionUpdateSchema, chartDefinitionParamsSchema } from '@/lib/validations/analytics';
 import type { UserContext } from '@/lib/types/rbac';
 import { createAPILogger, logDBOperation, logPerformanceMetric } from '@/lib/logger';
 
@@ -43,11 +45,16 @@ const getChartHandler = async (request: NextRequest, userContext: UserContext, .
   } catch (error) {
     logger.error('Chart definition get error', {
       error: error instanceof Error ? error.message : 'Unknown error',
+      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
       chartId: params.chartId,
       requestingUserId: userContext.user_id
     });
     
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    const errorMessage = process.env.NODE_ENV === 'development' 
+      ? (error instanceof Error ? error.message : 'Unknown error')
+      : 'Internal server error';
+    
+    return createErrorResponse(errorMessage, 500, request);
   }
 };
 
@@ -63,21 +70,22 @@ const updateChartHandler = async (request: NextRequest, userContext: UserContext
   });
 
   try {
-    const body = await request.json();
+    // Validate request body with Zod
+    const validatedData = await validateRequest(request, chartDefinitionUpdateSchema);
 
-    // Update chart definition
+    // Update chart definition with only provided fields
+    const updateData: any = { updated_at: new Date() };
+    if (validatedData.chart_name !== undefined) updateData.chart_name = validatedData.chart_name;
+    if (validatedData.chart_description !== undefined) updateData.chart_description = validatedData.chart_description;
+    if (validatedData.chart_type !== undefined) updateData.chart_type = validatedData.chart_type;
+    if (validatedData.data_source !== undefined) updateData.data_source = validatedData.data_source;
+    if (validatedData.chart_config !== undefined) updateData.chart_config = validatedData.chart_config;
+    if (validatedData.chart_category_id !== undefined) updateData.chart_category_id = validatedData.chart_category_id;
+    if (validatedData.is_active !== undefined) updateData.is_active = validatedData.is_active;
+
     const [updatedChart] = await db
       .update(chart_definitions)
-      .set({
-        chart_name: body.chart_name,
-        chart_description: body.chart_description,
-        chart_type: body.chart_type,
-        data_source: body.data_source,
-        chart_config: body.chart_config,
-        access_control: body.access_control,
-        chart_category_id: body.chart_category_id,
-        updated_at: new Date(),
-      })
+      .set(updateData)
       .where(eq(chart_definitions.chart_definition_id, params.chartId))
       .returning();
 
@@ -98,11 +106,16 @@ const updateChartHandler = async (request: NextRequest, userContext: UserContext
   } catch (error) {
     logger.error('Chart definition update error', {
       error: error instanceof Error ? error.message : 'Unknown error',
+      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
       chartId: params.chartId,
       requestingUserId: userContext.user_id
     });
     
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    const errorMessage = process.env.NODE_ENV === 'development' 
+      ? (error instanceof Error ? error.message : 'Unknown error')
+      : 'Internal server error';
+    
+    return createErrorResponse(errorMessage, 500, request);
   }
 };
 
@@ -147,11 +160,16 @@ const deleteChartHandler = async (request: NextRequest, userContext: UserContext
   } catch (error) {
     logger.error('Chart definition delete error', {
       error: error instanceof Error ? error.message : 'Unknown error',
+      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
       chartId: params.chartId,
       requestingUserId: userContext.user_id
     });
     
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    const errorMessage = process.env.NODE_ENV === 'development' 
+      ? (error instanceof Error ? error.message : 'Unknown error')
+      : 'Internal server error';
+    
+    return createErrorResponse(errorMessage, 500, request);
   }
 };
 

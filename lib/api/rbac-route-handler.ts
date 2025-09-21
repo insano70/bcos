@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
+import type { AuthSession } from './route-handler';
 import { applyRateLimit } from './middleware/rate-limit';
 import { applyGlobalAuth, markAsPublicRoute } from './middleware/global-auth';
-import type { AuthResult } from './middleware/global-auth';
 import { createErrorResponse } from './responses/error';
 import { getUserContextSafe } from '@/lib/rbac/user-context';
 import { createRBACMiddleware, } from '@/lib/rbac/middleware';
@@ -126,24 +126,23 @@ export function rbacRoute(
       }
 
       const contextStart = Date.now()
-      const userSession = session as AuthResult // We know session exists from earlier check
-      const userContext = await getUserContextSafe(userSession.user.id)
+      const userContext = await getUserContextSafe(session!.user.id)
       logPerformanceMetric(logger, 'user_context_fetch', Date.now() - contextStart, {
-        userId: userSession.user.id
+        userId: session!.user.id
       })
-
+      
       if (!userContext) {
         logger.error('Failed to load user context for RBAC', {
-          userId: userSession.user.id,
-          sessionEmail: userSession.user.email
+          userId: session!.user.id,
+          sessionEmail: session!.user.email
         })
-
+        
         logSecurityEvent(logger, 'rbac_context_failed', 'high', {
-          userId: userSession.user.id,
+          userId: session!.user.id,
           reason: 'context_load_failure'
         })
-
-        logAPIAuth(logger, 'rbac_check', false, userSession.user.id, 'context_load_failure')
+        
+        logAPIAuth(logger, 'rbac_check', false, session!.user.id, 'context_load_failure')
         return createErrorResponse('Failed to load user context', 500, request) as Response
       }
 
@@ -269,7 +268,7 @@ export function publicRoute(
  * Provides a migration path from basic auth to RBAC
  */
 export function legacySecureRoute(
-  handler: (request: NextRequest, session?: AuthResult | null, ...args: unknown[]) => Promise<Response>,
+  handler: (request: NextRequest, session?: AuthSession, ...args: unknown[]) => Promise<Response>,
   options: { rateLimit?: 'auth' | 'api' | 'upload'; requireAuth?: boolean; publicReason?: string } = {}
 ) {
   return withCorrelation(async (request: NextRequest, ...args: unknown[]): Promise<Response> => {
@@ -363,7 +362,7 @@ export function legacySecureRoute(
  * This allows existing routes to work while adding RBAC incrementally
  */
 export function migrateToRBAC(
-  legacyHandler: (request: NextRequest, session?: AuthResult | null, ...args: unknown[]) => Promise<Response>,
+  legacyHandler: (request: NextRequest, session?: AuthSession, ...args: unknown[]) => Promise<Response>,
   permission: PermissionName | PermissionName[],
   options: Omit<RBACRouteOptions, 'permission'> = {}
 ) {
@@ -379,7 +378,7 @@ export function migrateToRBAC(
       })
       
       // Create a session-like object for backward compatibility
-      const legacySession: AuthResult = {
+      const legacySession = {
         user: {
           id: userContext.user_id,
           email: userContext.email,
@@ -387,15 +386,8 @@ export function migrateToRBAC(
           firstName: userContext.first_name,
           lastName: userContext.last_name,
           role: userContext.is_super_admin ? 'super_admin' : 'user',
-          emailVerified: userContext.email_verified,
-          practiceId: undefined,
-          roles: [],
-          permissions: [],
-          isSuperAdmin: userContext.is_super_admin,
-          organizationAdminFor: []
-        },
-        accessToken: '', // Legacy handlers don't need real tokens
-        sessionId: `legacy-${userContext.user_id}`
+          emailVerified: userContext.email_verified
+        }
       }
 
       const handlerStart = Date.now()

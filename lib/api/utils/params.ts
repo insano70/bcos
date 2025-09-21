@@ -51,7 +51,7 @@ export async function extractRouteParams<T extends z.ZodType>(
       try {
         const awaited = await (paramsObj.params as Promise<unknown>);
         resolvedParams = awaited as Record<string, unknown>;
-      } catch (awaitError) {
+      } catch (_awaitError) {
         resolvedParams = paramsObj.params as Record<string, unknown>;
       }
     } else {

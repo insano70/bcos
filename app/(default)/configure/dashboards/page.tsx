@@ -4,6 +4,31 @@ import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import type { DashboardListItem } from '@/lib/types/analytics';
 import DashboardsTable from './dashboards-table';
+
+// Type for the joined query result from the API with chart count
+type JoinedDashboardQueryResult = {
+  dashboards: {
+    dashboard_id: string;
+    dashboard_name: string;
+    dashboard_description?: string | null;
+    dashboard_category_id?: number | null;
+    created_by: string;
+    created_at: string;
+    updated_at: string;
+    is_active: boolean;
+  } | null;
+  chart_categories: {
+    chart_category_id: number;
+    category_name: string;
+    category_description?: string | null;
+  } | null;
+  users: {
+    user_id: string;
+    first_name?: string | null;
+    last_name?: string | null;
+  } | null;
+  chart_count: number;
+};
 import DeleteButton from '@/components/delete-button';
 import DateSelect from '@/components/date-select';
 import FilterButton from '@/components/dropdown-filter';
@@ -14,46 +39,6 @@ import DashboardPreviewModal from '@/components/dashboard-preview-modal';
 import Toast from '@/components/toast';
 import type { Dashboard, DashboardChart } from '@/lib/types/analytics';
 import { usePagination } from '@/lib/hooks/use-pagination';
-
-// Type for the raw API response with joined data from Drizzle ORM
-type DashboardWithJoins = {
-  // dashboards fields
-  dashboard_id: string;
-  dashboard_name: string;
-  dashboard_description: string | null;
-  layout_config: unknown;
-  dashboard_category_id: number | null;
-  created_by: string;
-  created_at: Date | string;
-  updated_at: Date | string;
-  is_active: boolean;
-
-  // Joined tables
-  chart_categories: {
-    chart_category_id: number;
-    category_name: string;
-    category_description: string | null;
-    parent_category_id: number | null;
-    created_at: Date | string;
-    updated_at: Date | string;
-  } | null;
-
-  users: {
-    user_id: string;
-    email: string;
-    first_name: string;
-    last_name: string;
-    password_hash: string;
-    email_verified: boolean;
-    is_active: boolean;
-    created_at: Date | string;
-    updated_at: Date | string;
-    deleted_at: Date | string | null;
-  } | null;
-
-  // Additional computed field
-  chart_count: number;
-};
 
 export default function DashboardsPage() {
   const router = useRouter();
@@ -98,47 +83,41 @@ export default function DashboardsPage() {
       });
       
       // Transform joined API data to flat DashboardListItem structure
-      const transformedDashboards: DashboardListItem[] = dashboards.map((item: DashboardWithJoins, index: number) => {
-        // Handle joined data structure from API (leftJoin creates nested structure)
-        // The actual dashboard data is in item.dashboards, not directly on item
-        const dashboardDef = (item as any).dashboards || item; // Handle both nested and flat structures
+      const transformedDashboards: DashboardListItem[] = (dashboards as JoinedDashboardQueryResult[])
+        .map((item: JoinedDashboardQueryResult, index: number): DashboardListItem | null => {
+        // Handle joined data structure from API (leftJoin returns nested objects)
+        const dashboardDef = item.dashboards;
         const category = item.chart_categories;
         const user = item.users;
+
+        // If dashboards is null (shouldn't happen in a proper query), skip this item
+        if (!dashboardDef) {
+          console.warn(`⚠️ Skipping dashboard ${index}: missing dashboards`);
+          return null;
+        }
         
         console.log(`🔄 Transforming dashboard ${index}:`, {
           original: item,
           dashboardDef,
           category,
-          user,
-          hasNestedDashboards: !!(item as any).dashboards
+          user
         });
-
-        // Ensure we have a valid dashboard_id
-        if (!dashboardDef?.dashboard_id) {
-          console.error(`❌ Dashboard ${index} missing dashboard_id:`, dashboardDef);
-          // Skip invalid dashboards
-          return null;
-        }
         
         return {
           dashboard_id: dashboardDef.dashboard_id,
-          dashboard_name: dashboardDef.dashboard_name || 'Unnamed Dashboard',
+          dashboard_name: dashboardDef.dashboard_name,
           dashboard_description: dashboardDef.dashboard_description || undefined,
           dashboard_category_id: dashboardDef.dashboard_category_id || undefined,
           category_name: category?.category_name || undefined,
-          chart_count: item.chart_count || 0,
-          created_by: dashboardDef.created_by || 'unknown',
+          chart_count: item.chart_count,
+          created_by: dashboardDef.created_by,
           creator_name: user?.first_name || undefined,
           creator_last_name: user?.last_name || undefined,
-          created_at: typeof dashboardDef.created_at === 'string' 
-            ? dashboardDef.created_at 
-            : dashboardDef.created_at?.toISOString() || new Date().toISOString(),
-          updated_at: typeof dashboardDef.updated_at === 'string' 
-            ? dashboardDef.updated_at 
-            : dashboardDef.updated_at?.toISOString() || new Date().toISOString(),
-          is_active: dashboardDef.is_active ?? true,
+          created_at: dashboardDef.created_at,
+          updated_at: dashboardDef.updated_at,
+          is_active: dashboardDef.is_active,
         };
-      }).filter(Boolean) as DashboardListItem[]; // Remove null entries
+      }).filter((item): item is DashboardListItem => item !== null);
       
       console.log('✅ Transformed dashboards:', {
         count: transformedDashboards.length,

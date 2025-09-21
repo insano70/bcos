@@ -1,0 +1,647 @@
+{
+ "Description": "BCOS Network infrastructure - VPC, security groups, and load balancer",
+ "Resources": {
+  "ALBAccessLogsBucket00D07A1D": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketEncryption": {
+     "ServerSideEncryptionConfiguration": [
+      {
+       "ServerSideEncryptionByDefault": {
+        "SSEAlgorithm": "AES256"
+       }
+      }
+     ]
+    },
+    "LifecycleConfiguration": {
+     "Rules": [
+      {
+       "AbortIncompleteMultipartUpload": {
+        "DaysAfterInitiation": 7
+       },
+       "ExpirationInDays": 90,
+       "Id": "DeleteOldAccessLogs",
+       "Status": "Enabled"
+      }
+     ]
+    },
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    },
+    "VersioningConfiguration": {
+     "Status": "Enabled"
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "BCOS-NetworkStack/ALBAccessLogsBucket/Resource"
+   }
+  },
+  "ALBAccessLogsBucketPolicyCCD21B40": {
+   "Type": "AWS::S3::BucketPolicy",
+   "Properties": {
+    "Bucket": {
+     "Ref": "ALBAccessLogsBucket00D07A1D"
+    },
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": "s3:PutObject",
+       "Effect": "Allow",
+       "Principal": {
+        "AWS": {
+         "Fn::Join": [
+          "",
+          [
+           "arn:",
+           {
+            "Ref": "AWS::Partition"
+           },
+           ":iam::127311923021:root"
+          ]
+         ]
+        }
+       },
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          {
+           "Fn::GetAtt": [
+            "ALBAccessLogsBucket00D07A1D",
+            "Arn"
+           ]
+          },
+          "/alb-access-logs/AWSLogs/854428944440/*"
+         ]
+        ]
+       }
+      },
+      {
+       "Action": "s3:PutObject",
+       "Condition": {
+        "StringEquals": {
+         "s3:x-amz-acl": "bucket-owner-full-control"
+        }
+       },
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "delivery.logs.amazonaws.com"
+       },
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          {
+           "Fn::GetAtt": [
+            "ALBAccessLogsBucket00D07A1D",
+            "Arn"
+           ]
+          },
+          "/alb-access-logs/AWSLogs/854428944440/*"
+         ]
+        ]
+       }
+      },
+      {
+       "Action": "s3:GetBucketAcl",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "delivery.logs.amazonaws.com"
+       },
+       "Resource": {
+        "Fn::GetAtt": [
+         "ALBAccessLogsBucket00D07A1D",
+         "Arn"
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-NetworkStack/ALBAccessLogsBucket/Policy/Resource"
+   }
+  },
+  "SSLCertificate2E93C565": {
+   "Type": "AWS::CertificateManager::Certificate",
+   "Properties": {
+    "DomainName": "app.bendcare.com",
+    "DomainValidationOptions": [
+     {
+      "DomainName": "app.bendcare.com",
+      "HostedZoneId": "Z05961102TVIVESKQ4GAL"
+     },
+     {
+      "DomainName": "staging.bendcare.com",
+      "HostedZoneId": "Z05961102TVIVESKQ4GAL"
+     }
+    ],
+    "KeyAlgorithm": "RSA_2048",
+    "SubjectAlternativeNames": [
+     "staging.bendcare.com"
+    ],
+    "Tags": [
+     {
+      "Key": "Name",
+      "Value": "BCOS-NetworkStack/SSLCertificate"
+     }
+    ],
+    "ValidationMethod": "DNS"
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-NetworkStack/SSLCertificate/Resource"
+   }
+  },
+  "ALBSecurityGroup29A3BDEF": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "Security group for BCOS Application Load Balancer",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow all outbound traffic by default",
+      "IpProtocol": "-1"
+     }
+    ],
+    "SecurityGroupIngress": [
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow HTTPS traffic from internet",
+      "FromPort": 443,
+      "IpProtocol": "tcp",
+      "ToPort": 443
+     },
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow HTTP traffic from internet (for redirect)",
+      "FromPort": 80,
+      "IpProtocol": "tcp",
+      "ToPort": 80
+     }
+    ],
+    "VpcId": "vpc-febca387"
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-NetworkStack/ALBSecurityGroup/Resource"
+   }
+  },
+  "ECSSecurityGroupA14DBE7D": {
+   "Type": "AWS::EC2::SecurityGroup",
+   "Properties": {
+    "GroupDescription": "Security group for BCOS ECS tasks",
+    "SecurityGroupEgress": [
+     {
+      "CidrIp": "10.104.172.0/22",
+      "Description": "Allow HTTPS to VPC endpoints",
+      "FromPort": 443,
+      "IpProtocol": "tcp",
+      "ToPort": 443
+     },
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow DNS TCP",
+      "FromPort": 53,
+      "IpProtocol": "tcp",
+      "ToPort": 53
+     },
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow DNS UDP",
+      "FromPort": 53,
+      "IpProtocol": "udp",
+      "ToPort": 53
+     }
+    ],
+    "SecurityGroupIngress": [
+     {
+      "Description": "Allow HTTP traffic from ALB",
+      "FromPort": 80,
+      "IpProtocol": "tcp",
+      "SourceSecurityGroupId": {
+       "Fn::GetAtt": [
+        "ALBSecurityGroup29A3BDEF",
+        "GroupId"
+       ]
+      },
+      "ToPort": 80
+     },
+     {
+      "CidrIp": "10.104.172.0/22",
+      "Description": "from 10.104.172.0/22:443",
+      "FromPort": 443,
+      "IpProtocol": "tcp",
+      "ToPort": 443
+     }
+    ],
+    "VpcId": "vpc-febca387"
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-NetworkStack/ECSSecurityGroup/Resource"
+   }
+  },
+  "ECRAPIEndpoint958C225F": {
+   "Type": "AWS::EC2::VPCEndpoint",
+   "Properties": {
+    "PrivateDnsEnabled": true,
+    "SecurityGroupIds": [
+     {
+      "Fn::GetAtt": [
+       "ECSSecurityGroupA14DBE7D",
+       "GroupId"
+      ]
+     }
+    ],
+    "ServiceName": "com.amazonaws.us-east-1.ecr.api",
+    "SubnetIds": [
+     "subnet-095fa406c94abb01f",
+     "subnet-1d132031",
+     "subnet-2563a41a",
+     "subnet-6f277e63"
+    ],
+    "VpcEndpointType": "Interface",
+    "VpcId": "vpc-febca387"
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-NetworkStack/ECR-API-Endpoint/Resource"
+   }
+  },
+  "ECRDKREndpointC49E2B5C": {
+   "Type": "AWS::EC2::VPCEndpoint",
+   "Properties": {
+    "PrivateDnsEnabled": true,
+    "SecurityGroupIds": [
+     {
+      "Fn::GetAtt": [
+       "ECSSecurityGroupA14DBE7D",
+       "GroupId"
+      ]
+     }
+    ],
+    "ServiceName": "com.amazonaws.us-east-1.ecr.dkr",
+    "SubnetIds": [
+     "subnet-095fa406c94abb01f",
+     "subnet-1d132031",
+     "subnet-2563a41a",
+     "subnet-6f277e63"
+    ],
+    "VpcEndpointType": "Interface",
+    "VpcId": "vpc-febca387"
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-NetworkStack/ECR-DKR-Endpoint/Resource"
+   }
+  },
+  "CloudWatchLogsEndpoint55C1B1BE": {
+   "Type": "AWS::EC2::VPCEndpoint",
+   "Properties": {
+    "PrivateDnsEnabled": true,
+    "SecurityGroupIds": [
+     {
+      "Fn::GetAtt": [
+       "ECSSecurityGroupA14DBE7D",
+       "GroupId"
+      ]
+     }
+    ],
+    "ServiceName": "com.amazonaws.us-east-1.logs",
+    "SubnetIds": [
+     "subnet-095fa406c94abb01f",
+     "subnet-1d132031",
+     "subnet-2563a41a",
+     "subnet-6f277e63"
+    ],
+    "VpcEndpointType": "Interface",
+    "VpcId": "vpc-febca387"
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-NetworkStack/CloudWatch-Logs-Endpoint/Resource"
+   }
+  },
+  "SecretsManagerEndpointCD467D71": {
+   "Type": "AWS::EC2::VPCEndpoint",
+   "Properties": {
+    "PrivateDnsEnabled": true,
+    "SecurityGroupIds": [
+     {
+      "Fn::GetAtt": [
+       "ECSSecurityGroupA14DBE7D",
+       "GroupId"
+      ]
+     }
+    ],
+    "ServiceName": "com.amazonaws.us-east-1.secretsmanager",
+    "SubnetIds": [
+     "subnet-095fa406c94abb01f",
+     "subnet-1d132031",
+     "subnet-2563a41a",
+     "subnet-6f277e63"
+    ],
+    "VpcEndpointType": "Interface",
+    "VpcId": "vpc-febca387"
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-NetworkStack/Secrets-Manager-Endpoint/Resource"
+   }
+  },
+  "STSEndpoint08B1053B": {
+   "Type": "AWS::EC2::VPCEndpoint",
+   "Properties": {
+    "PrivateDnsEnabled": true,
+    "SecurityGroupIds": [
+     {
+      "Fn::GetAtt": [
+       "ECSSecurityGroupA14DBE7D",
+       "GroupId"
+      ]
+     }
+    ],
+    "ServiceName": "com.amazonaws.us-east-1.sts",
+    "SubnetIds": [
+     "subnet-095fa406c94abb01f",
+     "subnet-1d132031",
+     "subnet-2563a41a",
+     "subnet-6f277e63"
+    ],
+    "VpcEndpointType": "Interface",
+    "VpcId": "vpc-febca387"
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-NetworkStack/STS-Endpoint/Resource"
+   }
+  },
+  "S3GatewayEndpointBCE5D76C": {
+   "Type": "AWS::EC2::VPCEndpoint",
+   "Properties": {
+    "RouteTableIds": [
+     "rtb-cf8babb4"
+    ],
+    "ServiceName": {
+     "Fn::Join": [
+      "",
+      [
+       "com.amazonaws.",
+       {
+        "Ref": "AWS::Region"
+       },
+       ".s3"
+      ]
+     ]
+    },
+    "VpcEndpointType": "Gateway",
+    "VpcId": "vpc-febca387"
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-NetworkStack/S3-Gateway-Endpoint/Resource"
+   }
+  },
+  "ApplicationLoadBalancerFD56DEE1": {
+   "Type": "AWS::ElasticLoadBalancingV2::LoadBalancer",
+   "Properties": {
+    "LoadBalancerAttributes": [
+     {
+      "Key": "deletion_protection.enabled",
+      "Value": "false"
+     },
+     {
+      "Key": "access_logs.s3.enabled",
+      "Value": "true"
+     },
+     {
+      "Key": "access_logs.s3.bucket",
+      "Value": {
+       "Ref": "ALBAccessLogsBucket00D07A1D"
+      }
+     },
+     {
+      "Key": "access_logs.s3.prefix",
+      "Value": "alb-access-logs"
+     }
+    ],
+    "Scheme": "internet-facing",
+    "SecurityGroups": [
+     {
+      "Fn::GetAtt": [
+       "ALBSecurityGroup29A3BDEF",
+       "GroupId"
+      ]
+     }
+    ],
+    "Subnets": [
+     "subnet-1c132030",
+     "subnet-02e36d31eafc7b9cc",
+     "subnet-053f73f2d9a4005d9"
+    ],
+    "Type": "application"
+   },
+   "DependsOn": [
+    "ALBAccessLogsBucketPolicyCCD21B40"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "BCOS-NetworkStack/ApplicationLoadBalancer/Resource"
+   }
+  },
+  "ApplicationLoadBalancerHTTPListener197BF964": {
+   "Type": "AWS::ElasticLoadBalancingV2::Listener",
+   "Properties": {
+    "DefaultActions": [
+     {
+      "RedirectConfig": {
+       "Port": "443",
+       "Protocol": "HTTPS",
+       "StatusCode": "HTTP_301"
+      },
+      "Type": "redirect"
+     }
+    ],
+    "LoadBalancerArn": {
+     "Ref": "ApplicationLoadBalancerFD56DEE1"
+    },
+    "Port": 80,
+    "Protocol": "HTTP"
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-NetworkStack/ApplicationLoadBalancer/HTTPListener/Resource"
+   }
+  },
+  "ApplicationLoadBalancerHTTPSListenerC96D73F5": {
+   "Type": "AWS::ElasticLoadBalancingV2::Listener",
+   "Properties": {
+    "Certificates": [
+     {
+      "CertificateArn": {
+       "Ref": "SSLCertificate2E93C565"
+      }
+     }
+    ],
+    "DefaultActions": [
+     {
+      "FixedResponseConfig": {
+       "ContentType": "text/plain",
+       "MessageBody": "Not Found",
+       "StatusCode": "404"
+      },
+      "Type": "fixed-response"
+     }
+    ],
+    "LoadBalancerArn": {
+     "Ref": "ApplicationLoadBalancerFD56DEE1"
+    },
+    "Port": 443,
+    "Protocol": "HTTPS",
+    "SslPolicy": "ELBSecurityPolicy-TLS-1-2-2017-01"
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-NetworkStack/ApplicationLoadBalancer/HTTPSListener/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/1VQ22rCQBD9lr4n2za20NcaRAoFxYKvZZxMZMw6u+xFCSH/3o0JNT7NnMueM2yhitd39fIEV59j1eSaD6r7CYBNtiNvokPKkvbb+YXqlhEbCllZy7SNY2s0Y3unR9xnSC5wzQiBziBwJKe68s4ND2awzwiL1E0YHYd27Uy0g+WR+JJArgakvcWVVNaw3A7ab8t/uE5pV2hnjpStwQdGbaA6gAZBluMl1X1aq4d6NvKdtOVNIzdEPuC5j30gmTzT3vcD2sRgYyoTU5E6+edL8aY+0ueePHPuogQ+k9qN8w8YkeCyeQEAAA=="
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-NetworkStack/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "VPCId": {
+   "Description": "VPC ID",
+   "Value": "vpc-febca387",
+   "Export": {
+    "Name": "BCOS-VPC-Id"
+   }
+  },
+  "LoadBalancerDNSOutput": {
+   "Description": "Load Balancer DNS Name",
+   "Value": {
+    "Fn::GetAtt": [
+     "ApplicationLoadBalancerFD56DEE1",
+     "DNSName"
+    ]
+   },
+   "Export": {
+    "Name": "BCOS-LoadBalancer-DnsName"
+   }
+  },
+  "LoadBalancerArn": {
+   "Description": "Load Balancer ARN",
+   "Value": {
+    "Ref": "ApplicationLoadBalancerFD56DEE1"
+   },
+   "Export": {
+    "Name": "BCOS-LoadBalancer-Arn"
+   }
+  },
+  "LoadBalancerCanonicalHostedZoneId": {
+   "Description": "Load Balancer Canonical Hosted Zone ID",
+   "Value": {
+    "Fn::GetAtt": [
+     "ApplicationLoadBalancerFD56DEE1",
+     "CanonicalHostedZoneID"
+    ]
+   },
+   "Export": {
+    "Name": "BCOS-LoadBalancer-CanonicalHostedZoneId"
+   }
+  },
+  "HTTPSListenerArn": {
+   "Description": "HTTPS Listener ARN",
+   "Value": {
+    "Ref": "ApplicationLoadBalancerHTTPSListenerC96D73F5"
+   },
+   "Export": {
+    "Name": "BCOS-HTTPSListener-Arn"
+   }
+  },
+  "HostedZoneId": {
+   "Description": "Hosted Zone ID",
+   "Value": "Z05961102TVIVESKQ4GAL",
+   "Export": {
+    "Name": "BCOS-HostedZone-Id"
+   }
+  },
+  "CertificateArn": {
+   "Description": "SSL Certificate ARN",
+   "Value": {
+    "Ref": "SSLCertificate2E93C565"
+   }
+  },
+  "ALBSecurityGroupId": {
+   "Description": "ALB Security Group ID",
+   "Value": {
+    "Fn::GetAtt": [
+     "ALBSecurityGroup29A3BDEF",
+     "GroupId"
+    ]
+   },
+   "Export": {
+    "Name": "BCOS-ALBSecurityGroup-Id"
+   }
+  },
+  "ECSSecurityGroupId": {
+   "Description": "ECS Security Group ID",
+   "Value": {
+    "Fn::GetAtt": [
+     "ECSSecurityGroupA14DBE7D",
+     "GroupId"
+    ]
+   },
+   "Export": {
+    "Name": "BCOS-ECSSecurityGroup-Id"
+   }
+  },
+  "LoadBalancerDNS": {
+   "Description": "Application Load Balancer DNS name",
+   "Value": {
+    "Fn::GetAtt": [
+     "ApplicationLoadBalancerFD56DEE1",
+     "DNSName"
+    ]
+   },
+   "Export": {
+    "Name": "BCOS-LoadBalancerDNS"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

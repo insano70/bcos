@@ -1,0 +1,40 @@
+{
+  "environment": "staging",
+  "domain": "staging.bendcare.com",
+  "hostedZoneName": "bendcare.com",
+  "certificateValidationDomain": "staging.bendcare.com",
+  "ecs": {
+    "clusterName": "bcos-staging-cluster",
+    "serviceName": "bcos-staging-service",
+    "taskDefinitionFamily": "bcos-staging",
+    "desiredCount": 1,
+    "cpu": 512,
+    "memory": 1024,
+    "autoScaling": {
+      "enabled": false,
+      "minCapacity": 1,
+      "maxCapacity": 3,
+      "targetCpuUtilization": 70,
+      "targetMemoryUtilization": 80
+    }
+  },
+  "monitoring": {
+    "detailedMonitoring": false,
+    "logRetentionDays": 30,
+    "alertingEnabled": true,
+    "snsTopicName": "bcos-staging-alerts"
+  },
+  "secrets": {
+    "secretName": "staging/bcos-secrets",
+    "autoRotation": false
+  },
+  "waf": {
+    "enabled": true,
+    "rateLimitPerIP": 2000
+  },
+  "tags": {
+    "Environment": "staging",
+    "CostCenter": "Development",
+    "Backup": "weekly"
+  }
+}

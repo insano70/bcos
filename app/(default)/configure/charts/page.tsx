@@ -4,6 +4,31 @@ import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ChartDefinition } from '@/lib/types/analytics';
 import ChartsTable, { type ChartDefinitionListItem } from './charts-table';
+
+// Type for the joined query result from the API
+type JoinedChartQueryResult = {
+  chart_definitions: {
+    chart_definition_id: string;
+    chart_name: string;
+    chart_description?: string | null;
+    chart_type: string;
+    chart_category_id?: number | null;
+    created_by: string;
+    created_at: string;
+    updated_at: string;
+    is_active: boolean;
+  } | null;
+  chart_categories: {
+    chart_category_id: number;
+    category_name: string;
+    category_description?: string | null;
+  } | null;
+  users: {
+    user_id: string;
+    first_name?: string | null;
+    last_name?: string | null;
+  } | null;
+};
 import DeleteButton from '@/components/delete-button';
 import DateSelect from '@/components/date-select';
 import FilterButton from '@/components/dropdown-filter';
@@ -12,46 +37,6 @@ import { SelectedItemsProvider } from '@/app/selected-items-context';
 import DeleteChartModal from '@/components/delete-chart-modal';
 import Toast from '@/components/toast';
 import { usePagination } from '@/lib/hooks/use-pagination';
-
-// Type for the raw API response with joined data from Drizzle ORM
-type ChartDefinitionWithJoins = {
-  // chart_definitions fields
-  chart_definition_id: string;
-  chart_name: string;
-  chart_description: string | null;
-  chart_type: string;
-  data_source: unknown;
-  chart_config: unknown;
-  access_control: unknown | null;
-  chart_category_id: number | null;
-  created_by: string;
-  created_at: Date | string;
-  updated_at: Date | string;
-  is_active: boolean;
-
-  // Joined tables
-  chart_categories: {
-    chart_category_id: number;
-    category_name: string;
-    category_description: string | null;
-    parent_category_id: number | null;
-    created_at: Date | string;
-    updated_at: Date | string;
-  } | null;
-
-  users: {
-    user_id: string;
-    email: string;
-    first_name: string;
-    last_name: string;
-    password_hash: string;
-    email_verified: boolean;
-    is_active: boolean;
-    created_at: Date | string;
-    updated_at: Date | string;
-    deleted_at: Date | string | null;
-  } | null;
-};
 
 export default function ChartBuilderPage() {
   const router = useRouter();
@@ -122,34 +107,41 @@ export default function ChartBuilderPage() {
       });
       
       // Transform joined API data to flat ChartDefinitionListItem structure
-      const transformedCharts: ChartDefinitionListItem[] = charts.map((item: ChartDefinitionWithJoins, index: number) => {
-        // Handle joined data structure from API (leftJoin returns chart_definitions fields at root level)
-        const chartDef = item; // chart_definitions fields are directly on the item
+      const transformedCharts: ChartDefinitionListItem[] = (charts as JoinedChartQueryResult[])
+        .map((item: JoinedChartQueryResult, index: number): ChartDefinitionListItem | null => {
+        // Handle joined data structure from API (leftJoin returns nested objects)
+        const chartDef = item.chart_definitions;
         const category = item.chart_categories;
         const user = item.users;
-        
+
+        // If chart_definitions is null (shouldn't happen in a proper query), skip this item
+        if (!chartDef) {
+          console.warn(`⚠️ Skipping chart ${index}: missing chart_definitions`);
+          return null;
+        }
+
         console.log(`🔄 Transforming chart ${index}:`, {
           original: item,
           chartDef,
           category,
           user
         });
-        
+
         return {
-          chart_definition_id: chartDef.chart_definition_id || `temp-${index}`,
-          chart_name: chartDef.chart_name || 'Unnamed Chart',
-          chart_description: chartDef.chart_description || undefined,
-          chart_type: chartDef.chart_type || 'bar',
+          chart_definition_id: chartDef.chart_definition_id,
+          chart_name: chartDef.chart_name,
+          chart_description: chartDef.chart_description ?? undefined,
+          chart_type: chartDef.chart_type as ChartDefinitionListItem['chart_type'],
           chart_category_id: chartDef.chart_category_id || undefined,
           category_name: category?.category_name || undefined,
-          created_by: chartDef.created_by || 'unknown',
+          created_by: chartDef.created_by,
           creator_name: user?.first_name || undefined,
           creator_last_name: user?.last_name || undefined,
-          created_at: chartDef.created_at || new Date().toISOString(),
-          updated_at: chartDef.updated_at || new Date().toISOString(),
-          is_active: chartDef.is_active ?? true,
+          created_at: chartDef.created_at,
+          updated_at: chartDef.updated_at,
+          is_active: chartDef.is_active,
         };
-      });
+      }).filter((item): item is ChartDefinitionListItem => item !== null);
       
       console.log('✅ Transformed charts:', {
         count: transformedCharts.length,

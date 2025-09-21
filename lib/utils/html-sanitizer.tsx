@@ -1,46 +1,34 @@
 /**
  * HTML Sanitization Utilities
- * Provides safe HTML rendering and XSS protection
+ * Provides safe HTML rendering and XSS protection using DOMPurify
  */
 
 import React from 'react';
+import DOMPurify from 'isomorphic-dompurify';
 
 /**
  * Sanitize HTML content for safe rendering
- * Removes dangerous tags and attributes while preserving basic formatting
+ * Uses DOMPurify to remove dangerous tags and attributes while preserving safe HTML
  */
 export function sanitizeHtml(html: string): string {
   if (!html || typeof html !== 'string') {
     return '';
   }
 
-  // Remove script tags and their content
-  html = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-  
-  // Remove dangerous event handlers
-  html = html.replace(/\bon\w+\s*=\s*["'][^"']*["']/gi, '');
-  
-  // Remove javascript: and data: URLs
-  html = html.replace(/href\s*=\s*["']javascript:[^"']*["']/gi, 'href="#"');
-  html = html.replace(/src\s*=\s*["']data:[^"']*["']/gi, 'src="#"');
-  
-  // Remove style attributes (potential CSS injection)
-  html = html.replace(/style\s*=\s*["'][^"']*["']/gi, '');
-  
-  // Remove dangerous tags
-  const dangerousTags = ['script', 'object', 'embed', 'iframe', 'form', 'input', 'textarea', 'button', 'select'];
-  dangerousTags.forEach(tag => {
-    const regex = new RegExp(`<${tag}\\b[^>]*>.*?<\\/${tag}>`, 'gi');
-    html = html.replace(regex, '');
-    // Also remove self-closing versions
-    const selfClosingRegex = new RegExp(`<${tag}\\b[^>]*\\/>`, 'gi');
-    html = html.replace(selfClosingRegex, '');
-  });
-  
-  // Allow only safe tags
-  const allowedTags = ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote'];
-  
-  return html.trim();
+  // Configure DOMPurify with safe defaults for email content
+  const config = {
+    ALLOWED_TAGS: [
+      'p', 'br', 'strong', 'b', 'em', 'i', 'u', 'ul', 'ol', 'li',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote',
+      'a', 'span', 'div' // Additional safe tags for formatted content
+    ],
+    ALLOWED_ATTR: ['href', 'target', 'rel'], // Only allow safe attributes
+    ALLOW_DATA_ATTR: false, // Disable data attributes
+    FORBID_TAGS: ['script', 'object', 'embed', 'iframe', 'form', 'input', 'textarea', 'button', 'select'],
+    FORBID_ATTR: ['onclick', 'onload', 'onerror', 'style'] // Forbid event handlers and styles
+  };
+
+  return DOMPurify.sanitize(html, config);
 }
 
 /**
@@ -130,8 +118,9 @@ export function SafeHtmlRenderer({ html, className, stripTags = false }: SafeHtm
   const safeHtml = sanitizeHtml(html);
   
   return (
-    <div 
+    <div
       className={className}
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: HTML is sanitized with DOMPurify
       dangerouslySetInnerHTML={{ __html: safeHtml }}
     />
   );

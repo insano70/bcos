@@ -1,0 +1,86 @@
+{
+  "hosted-zone:account=854428944440:domainName=bendcare.com:region=us-east-1": {
+    "Id": "/hostedzone/Z05961102TVIVESKQ4GAL",
+    "Name": "bendcare.com."
+  },
+  "vpc-provider:account=854428944440:filter.vpc-id=vpc-febca387:region=us-east-1:returnAsymmetricSubnets=true": {
+    "vpcId": "vpc-febca387",
+    "vpcCidrBlock": "10.104.172.0/22",
+    "ownerAccountId": "854428944440",
+    "availabilityZones": [],
+    "subnetGroups": [
+      {
+        "name": "Private",
+        "type": "Private",
+        "subnets": [
+          {
+            "subnetId": "subnet-095fa406c94abb01f",
+            "cidr": "10.104.175.128/27",
+            "availabilityZone": "us-east-1a",
+            "routeTableId": "rtb-cf8babb4"
+          },
+          {
+            "subnetId": "subnet-1d132031",
+            "cidr": "10.104.172.0/25",
+            "availabilityZone": "us-east-1c",
+            "routeTableId": "rtb-cf8babb4"
+          },
+          {
+            "subnetId": "subnet-2563a41a",
+            "cidr": "10.104.174.0/25",
+            "availabilityZone": "us-east-1e",
+            "routeTableId": "rtb-cf8babb4"
+          },
+          {
+            "subnetId": "subnet-6f277e63",
+            "cidr": "10.104.173.0/25",
+            "availabilityZone": "us-east-1f",
+            "routeTableId": "rtb-cf8babb4"
+          }
+        ]
+      },
+      {
+        "name": "Public",
+        "type": "Public",
+        "subnets": [
+          {
+            "subnetId": "subnet-1c132030",
+            "cidr": "10.104.172.128/25",
+            "availabilityZone": "us-east-1c",
+            "routeTableId": "rtb-578aaa2c"
+          },
+          {
+            "subnetId": "subnet-04393ef850fd89463",
+            "cidr": "10.104.175.0/27",
+            "availabilityZone": "us-east-1c",
+            "routeTableId": "rtb-578aaa2c"
+          },
+          {
+            "subnetId": "subnet-02e36d31eafc7b9cc",
+            "cidr": "10.104.175.64/27",
+            "availabilityZone": "us-east-1e",
+            "routeTableId": "rtb-578aaa2c"
+          },
+          {
+            "subnetId": "subnet-0462a53b",
+            "cidr": "10.104.174.128/25",
+            "availabilityZone": "us-east-1e",
+            "routeTableId": "rtb-578aaa2c"
+          },
+          {
+            "subnetId": "subnet-053f73f2d9a4005d9",
+            "cidr": "10.104.175.32/27",
+            "availabilityZone": "us-east-1f",
+            "routeTableId": "rtb-578aaa2c"
+          },
+          {
+            "subnetId": "subnet-0e277e02",
+            "cidr": "10.104.173.128/25",
+            "availabilityZone": "us-east-1f",
+            "routeTableId": "rtb-578aaa2c"
+          }
+        ]
+      }
+    ]
+  }
+}

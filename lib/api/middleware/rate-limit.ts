@@ -63,29 +63,71 @@ export function getRateLimitKey(request: Request, prefix = ''): string {
 export async function applyRateLimit(
   request: Request,
   type: 'auth' | 'api' | 'upload' = 'api'
-) {
+): Promise<{ success: boolean; remaining: number; resetTime: number; limit: number; windowMs: number }> {
   const rateLimitKey = getRateLimitKey(request, type)
   let limiter = apiRateLimiter
+  let limit = 30
+  let windowMs = 60 * 1000
   
   switch (type) {
     case 'auth':
       limiter = authRateLimiter
+      limit = 5
+      windowMs = 15 * 60 * 1000
       break
     case 'upload':
       limiter = new InMemoryRateLimiter(60 * 1000, 10) // 10 uploads per minute
+      limit = 10
+      windowMs = 60 * 1000
+      break
+    case 'api':
+      limit = 30
+      windowMs = 60 * 1000
       break
   }
   
   const result = limiter.checkLimit(rateLimitKey)
   
   if (!result.success) {
-    throw RateLimitError(result.resetTime)
+    const error = RateLimitError(result.resetTime)
+    // Add additional context to the error
+    error.details = {
+      limit,
+      windowMs,
+      resetTime: result.resetTime,
+      retryAfter: Math.ceil((result.resetTime - Date.now()) / 1000),
+      type
+    }
+    throw error
   }
   
-  return result
+  return {
+    ...result,
+    limit,
+    windowMs
+  }
 }
 
-export function addRateLimitHeaders(response: Response, result: { remaining: number; resetTime: number }): void {
+export function addRateLimitHeaders(
+  response: Response, 
+  result: { remaining: number; resetTime: number; limit?: number; windowMs?: number }
+): void {
   response.headers.set('X-RateLimit-Remaining', result.remaining.toString())
   response.headers.set('X-RateLimit-Reset', Math.ceil(result.resetTime / 1000).toString())
+  
+  if (result.limit !== undefined) {
+    response.headers.set('X-RateLimit-Limit', result.limit.toString())
+  }
+  
+  if (result.windowMs !== undefined) {
+    response.headers.set('X-RateLimit-Window', Math.ceil(result.windowMs / 1000).toString())
+  }
+  
+  response.headers.set('X-RateLimit-Policy', 'sliding-window')
+  
+  // Add retry-after header if rate limited
+  if (result.remaining === 0) {
+    const retryAfter = Math.ceil((result.resetTime - Date.now()) / 1000)
+    response.headers.set('Retry-After', Math.max(1, retryAfter).toString())
+  }
 }

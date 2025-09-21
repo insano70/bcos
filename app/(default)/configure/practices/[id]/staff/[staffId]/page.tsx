@@ -7,7 +7,6 @@ import { notFound } from 'next/navigation';
 import { db, practices, staff_members } from '@/lib/db';
 import { eq, and, isNull } from 'drizzle-orm';
 import StaffMemberForm from '@/components/staff-member-form';
-import type { StaffMember } from '@/lib/types/practice';
 import { transformStaffMember } from '@/lib/types/transformers';
 
 async function getStaffMemberData(practiceId: string, staffId: string) {
