@@ -166,7 +166,7 @@ export default function PracticeConfigForm({
       console.log('📝 Resetting form with data:', resetData);
       reset(resetData);
     }
-  }, [attributes, currentPractice, reset]);
+  }, [attributes, currentPractice, reset, practice, isDirty]);
 
   const onSubmit = async (data: PracticeFormData) => {
     console.log('💾 Form submit started with data:', data);

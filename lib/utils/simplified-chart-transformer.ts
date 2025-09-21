@@ -158,14 +158,14 @@ export class SimplifiedChartTransformer {
     measures.forEach(measure => {
       const groupKey = this.getGroupValue(measure, groupBy);
       const dateKey = measure.date_index; // Use date_index for proper sorting
-      
+
       allDates.add(dateKey);
-      
-      if (!groupedData.has(groupKey)) {
-        groupedData.set(groupKey, new Map());
+
+      let dateMap = groupedData.get(groupKey);
+      if (!dateMap) {
+        dateMap = new Map();
+        groupedData.set(groupKey, dateMap);
       }
-      
-      const dateMap = groupedData.get(groupKey)!;
       // Convert string values to numbers
       const measureValue = typeof measure.measure_value === 'string' 
         ? parseFloat(measure.measure_value) 
@@ -276,7 +276,7 @@ export class SimplifiedChartTransformer {
     });
 
     // Choose label format based on chart type
-    let finalLabels;
+    let finalLabels: Date[];
     if (isTimeSeries) {
       // For line charts, handle dates based on frequency
       finalLabels = datesWithData.map(dateStr => {

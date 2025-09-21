@@ -129,6 +129,7 @@ export default function PracticesTableItem({
       <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap w-px">
         <div className="relative inline-flex" ref={dropdownRef}>
           <button
+            type="button"
             className="rounded-full"
             aria-haspopup="true"
             aria-expanded={dropdownOpen}

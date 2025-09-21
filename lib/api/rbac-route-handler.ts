@@ -125,23 +125,24 @@ export function rbacRoute(
       }
 
       const contextStart = Date.now()
-      const userContext = await getUserContextSafe(session!.user.id)
+      const userSession = session as AuthResult // We know session exists from earlier check
+      const userContext = await getUserContextSafe(userSession.user.id)
       logPerformanceMetric(logger, 'user_context_fetch', Date.now() - contextStart, {
-        userId: session!.user.id
+        userId: userSession.user.id
       })
-      
+
       if (!userContext) {
         logger.error('Failed to load user context for RBAC', {
-          userId: session!.user.id,
-          sessionEmail: session!.user.email
+          userId: userSession.user.id,
+          sessionEmail: userSession.user.email
         })
-        
+
         logSecurityEvent(logger, 'rbac_context_failed', 'high', {
-          userId: session!.user.id,
+          userId: userSession.user.id,
           reason: 'context_load_failure'
         })
-        
-        logAPIAuth(logger, 'rbac_check', false, session!.user.id, 'context_load_failure')
+
+        logAPIAuth(logger, 'rbac_check', false, userSession.user.id, 'context_load_failure')
         return createErrorResponse('Failed to load user context', 500, request) as Response
       }
 
@@ -267,7 +268,7 @@ export function publicRoute(
  * Provides a migration path from basic auth to RBAC
  */
 export function legacySecureRoute(
-  handler: (request: NextRequest, session?: any, ...args: unknown[]) => Promise<Response>,
+  handler: (request: NextRequest, session?: AuthResult | null, ...args: unknown[]) => Promise<Response>,
   options: { rateLimit?: 'auth' | 'api' | 'upload'; requireAuth?: boolean; publicReason?: string } = {}
 ) {
   return withCorrelation(async (request: NextRequest, ...args: unknown[]): Promise<Response> => {
@@ -361,7 +362,7 @@ export function legacySecureRoute(
  * This allows existing routes to work while adding RBAC incrementally
  */
 export function migrateToRBAC(
-  legacyHandler: (request: NextRequest, session?: any, ...args: unknown[]) => Promise<Response>,
+  legacyHandler: (request: NextRequest, session?: AuthResult | null, ...args: unknown[]) => Promise<Response>,
   permission: PermissionName | PermissionName[],
   options: Omit<RBACRouteOptions, 'permission'> = {}
 ) {
@@ -418,7 +419,7 @@ interface WebhookRouteOptions {
 }
 
 export function webhookRoute(
-  handler: (request: NextRequest, body: any, rawBody: string) => Promise<Response>,
+  handler: (request: NextRequest, body: unknown, rawBody: string) => Promise<Response>,
   options: WebhookRouteOptions
 ) {
   return withCorrelation(async (request: NextRequest, ...args: unknown[]): Promise<Response> => {

@@ -218,8 +218,9 @@ function validateArraySizes(obj: unknown, maxSize: number = 1000): boolean {
 /**
  * Main sanitization function for request bodies
  */
-export async function sanitizeRequestBody(body: unknown, logger: unknown): Promise<SanitizationResult> {
-  const edgeLogger = logger as any; // Cast to any since EdgeLogger interface expects specific types
+
+export async function sanitizeRequestBody(body: unknown, logger: EdgeLogger): Promise<SanitizationResult> {
+  const edgeLogger = logger;
   const startTime = Date.now()
   const errors: string[] = []
 
@@ -293,7 +294,7 @@ export function withRequestSanitization<T extends (request: NextRequest, ...args
 ): T {
   return (async (request: NextRequest, ...args: unknown[]) => {
     const logger = createEdgeAPILogger(request)
-    const edgeLogger = logger as any; // Cast to any for EdgeLogger compatibility
+    const edgeLogger = logger;
 
     // Only sanitize for methods that typically have bodies
     if (!['POST', 'PUT', 'PATCH'].includes(request.method)) {
