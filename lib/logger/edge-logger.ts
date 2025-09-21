@@ -19,7 +19,7 @@ function formatLog(level: string, message: string, meta?: unknown): string {
     timestamp,
     level,
     message,
-    ...meta
+    ...(meta && typeof meta === 'object' && !Array.isArray(meta) ? meta as Record<string, unknown> : {})
   };
   return JSON.stringify(logEntry);
 }
@@ -28,14 +28,16 @@ function formatLog(level: string, message: string, meta?: unknown): string {
  * Create an edge-compatible logger
  */
 export function createEdgeLogger(context?: unknown): EdgeLogger {
-  const contextMeta = context || {};
+  const contextMeta = (context && typeof context === 'object' && !Array.isArray(context)) ? context as Record<string, unknown> : {};
 
   return {
     info: (message: string, meta?: unknown) => {
-      console.log(formatLog('info', message, { ...contextMeta, ...meta }));
+      const safeMeta = (meta && typeof meta === 'object' && !Array.isArray(meta)) ? meta as Record<string, unknown> : {};
+      console.log(formatLog('info', message, { ...contextMeta, ...safeMeta }));
     },
     warn: (message: string, meta?: unknown) => {
-      console.warn(formatLog('warn', message, { ...contextMeta, ...meta }));
+      const safeMeta = (meta && typeof meta === 'object' && !Array.isArray(meta)) ? meta as Record<string, unknown> : {};
+      console.warn(formatLog('warn', message, { ...contextMeta, ...safeMeta }));
     },
     error: (message: string, error?: unknown, meta?: unknown) => {
       const errorMeta = error instanceof Error 
@@ -44,11 +46,13 @@ export function createEdgeLogger(context?: unknown): EdgeLogger {
             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
           }
         : { error };
-      console.error(formatLog('error', message, { ...contextMeta, ...errorMeta, ...meta }));
+      const safeMeta = (meta && typeof meta === 'object' && !Array.isArray(meta)) ? meta as Record<string, unknown> : {};
+      console.error(formatLog('error', message, { ...contextMeta, ...errorMeta, ...safeMeta }));
     },
     debug: (message: string, meta?: unknown) => {
       if (process.env.NODE_ENV === 'development') {
-        console.log(formatLog('debug', message, { ...contextMeta, ...meta }));
+        const safeMeta = (meta && typeof meta === 'object' && !Array.isArray(meta)) ? meta as Record<string, unknown> : {};
+        console.log(formatLog('debug', message, { ...contextMeta, ...safeMeta }));
       }
     }
   };
@@ -63,11 +67,12 @@ export function logEdgeSecurityEvent(
   severity: 'low' | 'medium' | 'high' | 'critical',
   details?: unknown
 ): void {
+  const safeDetails = (details && typeof details === 'object' && !Array.isArray(details)) ? details as Record<string, unknown> : {};
   logger.warn(`Security Event: ${event}`, {
     security: true,
     event,
     severity,
-    ...details
+    ...safeDetails
   });
 }
 
@@ -80,11 +85,12 @@ export function logEdgePerformanceMetric(
   duration: number,
   details?: unknown
 ): void {
+  const safeDetails = (details && typeof details === 'object' && !Array.isArray(details)) ? details as Record<string, unknown> : {};
   logger.info(`Performance: ${metric}`, {
     performance: true,
     metric,
     duration,
-    ...details
+    ...safeDetails
   });
 }
 

@@ -38,22 +38,6 @@ const ALLOWED_OPERATORS = {
 } as const;
 
 /**
- * Advanced filter condition structure
- */
-interface AdvancedFilterCondition {
-  field: string;
-  operator: string;
-  value: unknown;
-}
-
-/**
- * Advanced filters structure
- */
-interface AdvancedFilters {
-  conditions: AdvancedFilterCondition[];
-}
-
-/**
  * Secure Query Builder Class
  */
 export class AnalyticsQueryBuilder {
@@ -91,7 +75,7 @@ export class AnalyticsQueryBuilder {
   /**
    * Sanitize and validate filter values
    */
-  private sanitizeValue(value: unknown, operator: string): unknown {
+  private sanitizeValue(value: any, operator: string): any {
     if (value === null || value === undefined) {
       return null;
     }
@@ -118,7 +102,7 @@ export class AnalyticsQueryBuilder {
   /**
    * Sanitize individual values based on type
    */
-  private sanitizeSingleValue(value: unknown): unknown {
+  private sanitizeSingleValue(value: any): any {
     if (typeof value === 'string') {
       // For date strings, validate format and return as-is if valid
       if (this.isValidDateString(value)) {
@@ -182,9 +166,9 @@ export class AnalyticsQueryBuilder {
   private async buildWhereClause(
     filters: ChartFilter[], 
     context: ChartRenderContext
-  ): Promise<{ clause: string; params: unknown[] }> {
+  ): Promise<{ clause: string; params: any[] }> {
     const conditions: string[] = [];
-    const params: unknown[] = [];
+    const params: any[] = [];
     let paramIndex = 1;
 
     // Add security filters based on user context
@@ -216,8 +200,7 @@ export class AnalyticsQueryBuilder {
         paramIndex++;
       } else if (filter.operator === 'between') {
         conditions.push(`${filter.field} ${sqlOperator} $${paramIndex} AND $${paramIndex + 1}`);
-        const sanitizedArray = sanitizedValue as unknown[];
-        params.push(sanitizedArray[0], sanitizedArray[1]);
+        params.push(sanitizedValue[0], sanitizedValue[1]);
         paramIndex += 2;
       } else {
         conditions.push(`${filter.field} ${sqlOperator} $${paramIndex}`);
@@ -267,7 +250,8 @@ export class AnalyticsQueryBuilder {
       if (cachedResult) {
         this.logger.info('Analytics query served from cache', {
           params,
-          userId: context.user_id
+          userId: context.user_id,
+          cacheAge: Date.now() - (cachedResult as any).timestamp
         });
         return cachedResult;
       }
@@ -660,7 +644,7 @@ export class AnalyticsQueryBuilder {
   /**
    * Process advanced filters into query filters
    */
-  private processAdvancedFilters(advancedFilters: AdvancedFilters): ChartFilter[] {
+  private processAdvancedFilters(advancedFilters: { conditions?: Array<{ field: string; operator: string; value: unknown }> } | undefined): ChartFilter[] {
     const filters: ChartFilter[] = [];
 
     if (!advancedFilters || !Array.isArray(advancedFilters.conditions)) {

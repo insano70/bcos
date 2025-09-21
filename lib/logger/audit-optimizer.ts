@@ -9,13 +9,60 @@ import { createAppLogger } from './winston-logger'
 // Define LogData locally for audit optimizer
 type LogData = Record<string, unknown>
 
-// Audit data interface for better type safety
-interface AuditData extends LogData {
-  action?: string
+// Audit data interfaces for better type safety
+interface BaseAuditData extends LogData {
   userId?: string
   severity?: 'low' | 'medium' | 'high' | 'critical'
   [key: string]: unknown
 }
+
+// Specific audit data types matching the AuditLogger method signatures
+interface AuthAuditData extends BaseAuditData {
+  action: 'login' | 'logout' | 'login_failed' | 'password_reset' | 'account_locked'
+  email?: string
+  ipAddress?: string
+  userAgent?: string
+  metadata?: Record<string, unknown>
+}
+
+interface UserActionAuditData extends BaseAuditData {
+  action: string
+  userId: string
+  resourceType?: string
+  resourceId?: string
+  ipAddress?: string
+  userAgent?: string
+  metadata?: Record<string, unknown>
+}
+
+interface SystemAuditData extends BaseAuditData {
+  action: string
+  metadata?: Record<string, unknown>
+  severity?: 'low' | 'medium' | 'high' | 'critical'
+}
+
+interface SecurityAuditData extends BaseAuditData {
+  action: string
+  userId?: string
+  ipAddress?: string
+  userAgent?: string
+  metadata?: Record<string, unknown>
+  severity?: 'low' | 'medium' | 'high' | 'critical'
+}
+
+interface DataChangeAuditData extends BaseAuditData {
+  action: 'create' | 'update' | 'delete'
+  userId: string
+  resourceType: string
+  resourceId: string
+  oldValues?: Record<string, unknown>
+  newValues?: Record<string, unknown>
+  ipAddress?: string
+  userAgent?: string
+  metadata?: Record<string, unknown>
+}
+
+type AuditData = AuthAuditData | UserActionAuditData | SystemAuditData | SecurityAuditData | DataChangeAuditData
 
 const auditLogger = createAppLogger('audit')
 
@@ -146,19 +193,19 @@ class OptimizedAuditLogger {
   private async processAuditEntry(entry: BufferedAuditEntry): Promise<void> {
     switch (entry.type) {
       case 'auth':
-        await AuditLogger.logAuth(entry.data)
+        await AuditLogger.logAuth(entry.data as AuthAuditData)
         break
       case 'user_action':
-        await AuditLogger.logUserAction(entry.data)
+        await AuditLogger.logUserAction(entry.data as UserActionAuditData)
         break
       case 'system':
-        await AuditLogger.logSystem(entry.data)
+        await AuditLogger.logSystem(entry.data as SystemAuditData)
         break
       case 'security':
-        await AuditLogger.logSecurity(entry.data)
+        await AuditLogger.logSecurity(entry.data as SecurityAuditData)
         break
       case 'data_change':
-        await AuditLogger.logDataChange(entry.data)
+        await AuditLogger.logDataChange(entry.data as DataChangeAuditData)
         break
       default:
         auditLogger.warn('Unknown audit entry type', { type: entry.type })

@@ -375,6 +375,7 @@ async function runRBACMigration() {
     if (existingPermissions.length > 0 || existingOrganizations.length > 0 || existingRoles.length > 0) {
       console.log('✅ RBAC data already exists in the database');
       console.log('ℹ️  If you need to reset RBAC data, delete and recreate the database tables\n');
+      await client.end();
       return;
     }
 
@@ -418,7 +419,7 @@ async function runRBACMigration() {
         const permissionRecords = await db
           .select({ permission_id: permissions.permission_id })
           .from(permissions)
-          .where(sql`${permissions.name} = ANY(${rolePermissions})`);
+          .where(require('drizzle-orm').inArray(permissions.name, rolePermissions));
 
         // Insert role-permission associations
         if (permissionRecords.length > 0) {

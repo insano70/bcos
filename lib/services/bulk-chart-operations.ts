@@ -27,14 +27,14 @@ export interface BulkOperationResult {
   data?: unknown;
 }
 
-export interface BulkUpdateParams {
+export interface BulkUpdateParams extends Record<string, unknown> {
   updates: Partial<ChartDefinition>;
   filters?: ChartFilter[];
   categoryId?: number;
   isActive?: boolean;
 }
 
-export interface BulkOrganizeParams {
+export interface BulkOrganizeParams extends Record<string, unknown> {
   categoryId: number;
   tags?: string[];
   newOwner?: string;

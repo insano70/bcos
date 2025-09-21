@@ -287,7 +287,7 @@ export class ChartConfigService {
     }
 
     try {
-      let palette;
+      let palette: typeof color_palettes.$inferSelect | undefined;
       
       if (paletteId) {
         [palette] = await db

@@ -23,6 +23,17 @@ export default function DashboardsTableItem({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   
+  // Safety check - if dashboard is invalid, render error row
+  if (!dashboard || !dashboard.dashboard_id) {
+    return (
+      <tr>
+        <td colSpan={8} className="px-2 first:pl-5 last:pr-5 py-3 text-center text-red-500">
+          ❌ Invalid dashboard data
+        </td>
+      </tr>
+    );
+  }
+  
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onCheckboxChange(dashboard.dashboard_id, e.target.checked);
   };
@@ -85,10 +96,10 @@ export default function DashboardsTableItem({
         <div className="flex items-center">
           <div>
             <div className="font-medium text-gray-800 dark:text-gray-100">
-              {dashboard.dashboard_name}
+              {dashboard.dashboard_name || 'Unnamed Dashboard'}
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400">
-              ID: {dashboard.dashboard_id.slice(0, 8)}...
+              ID: {dashboard.dashboard_id?.slice(0, 8) || 'unknown'}...
             </div>
           </div>
         </div>
@@ -132,10 +143,16 @@ export default function DashboardsTableItem({
       {/* Created Date */}
       <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
         <div className="text-gray-800 dark:text-gray-100">
-          {new Date(dashboard.created_at).toLocaleDateString()}
+          {dashboard.created_at 
+            ? new Date(dashboard.created_at).toLocaleDateString()
+            : 'Unknown'
+          }
         </div>
         <div className="text-xs text-gray-500 dark:text-gray-400">
-          {new Date(dashboard.created_at).toLocaleTimeString()}
+          {dashboard.created_at 
+            ? new Date(dashboard.created_at).toLocaleTimeString()
+            : ''
+          }
         </div>
       </td>
 

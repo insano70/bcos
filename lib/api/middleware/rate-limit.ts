@@ -50,7 +50,7 @@ class InMemoryRateLimiter {
 
 // Rate limiter instances
 export const globalRateLimiter = new InMemoryRateLimiter(15 * 60 * 1000, 100) // 100 req/15min
-export const authRateLimiter = new InMemoryRateLimiter(15 * 60 * 1000, 5)     // 5 req/15min
+export const authRateLimiter = new InMemoryRateLimiter(15 * 60 * 1000, 20)    // 20 req/15min (increased for refresh tokens)
 export const apiRateLimiter = new InMemoryRateLimiter(60 * 1000, 30)          // 30 req/min
 
 export function getRateLimitKey(request: Request, prefix = ''): string {

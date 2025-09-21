@@ -3,7 +3,7 @@
  * Automatically logs all API requests and responses
  */
 
-import type { NextRequest, NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 import { createAPILogger, logAPIRequest, logAPIResponse } from './api-logger'
 
 /**
@@ -27,7 +27,16 @@ export function withLogging<T extends unknown[]>(
       // Log successful response
       logAPIResponse(logger, response.status, startTime)
       
-      return response
+      // Convert Response to NextResponse if needed
+      const nextResponse = response instanceof NextResponse 
+        ? response 
+        : new NextResponse(response.body, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers
+          })
+      
+      return nextResponse
     } catch (error) {
       // Log error response
       const errorStatus = error instanceof Error && 'status' in error

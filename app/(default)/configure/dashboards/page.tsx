@@ -99,8 +99,9 @@ export default function DashboardsPage() {
       
       // Transform joined API data to flat DashboardListItem structure
       const transformedDashboards: DashboardListItem[] = dashboards.map((item: DashboardWithJoins, index: number) => {
-        // Handle joined data structure from API (leftJoin returns dashboards fields at root level)
-        const dashboardDef = item; // dashboards fields are directly on the item
+        // Handle joined data structure from API (leftJoin creates nested structure)
+        // The actual dashboard data is in item.dashboards, not directly on item
+        const dashboardDef = (item as any).dashboards || item; // Handle both nested and flat structures
         const category = item.chart_categories;
         const user = item.users;
         
@@ -108,24 +109,36 @@ export default function DashboardsPage() {
           original: item,
           dashboardDef,
           category,
-          user
+          user,
+          hasNestedDashboards: !!(item as any).dashboards
         });
+
+        // Ensure we have a valid dashboard_id
+        if (!dashboardDef?.dashboard_id) {
+          console.error(`❌ Dashboard ${index} missing dashboard_id:`, dashboardDef);
+          // Skip invalid dashboards
+          return null;
+        }
         
         return {
           dashboard_id: dashboardDef.dashboard_id,
-          dashboard_name: dashboardDef.dashboard_name,
+          dashboard_name: dashboardDef.dashboard_name || 'Unnamed Dashboard',
           dashboard_description: dashboardDef.dashboard_description || undefined,
           dashboard_category_id: dashboardDef.dashboard_category_id || undefined,
           category_name: category?.category_name || undefined,
-          chart_count: item.chart_count,
-          created_by: dashboardDef.created_by,
+          chart_count: item.chart_count || 0,
+          created_by: dashboardDef.created_by || 'unknown',
           creator_name: user?.first_name || undefined,
           creator_last_name: user?.last_name || undefined,
-          created_at: typeof dashboardDef.created_at === 'string' ? dashboardDef.created_at : dashboardDef.created_at.toISOString(),
-          updated_at: typeof dashboardDef.updated_at === 'string' ? dashboardDef.updated_at : dashboardDef.updated_at.toISOString(),
-          is_active: dashboardDef.is_active,
+          created_at: typeof dashboardDef.created_at === 'string' 
+            ? dashboardDef.created_at 
+            : dashboardDef.created_at?.toISOString() || new Date().toISOString(),
+          updated_at: typeof dashboardDef.updated_at === 'string' 
+            ? dashboardDef.updated_at 
+            : dashboardDef.updated_at?.toISOString() || new Date().toISOString(),
+          is_active: dashboardDef.is_active ?? true,
         };
-      });
+      }).filter(Boolean) as DashboardListItem[]; // Remove null entries
       
       console.log('✅ Transformed dashboards:', {
         count: transformedDashboards.length,

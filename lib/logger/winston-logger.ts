@@ -28,7 +28,7 @@ export interface LogContext {
 }
 
 // Log data type for flexible metadata
-type LogData = Record<string, unknown>
+export type LogData = Record<string, unknown>
 
 // Environment detection
 const isDevelopment = process.env.NODE_ENV === 'development'
@@ -51,7 +51,14 @@ function createWinstonLogger(): winston.Logger {
       winston.format.json(),
       winston.format.printf((info) => {
         // Sanitize sensitive data
-        const sanitized = sanitizeLogData({ ...info })
+        const sanitized = sanitizeLogData({ ...info }) as LogData & {
+          module?: string;
+          userId?: string;
+          duration?: number;
+          timestamp?: string;
+          level?: string;
+          message?: string;
+        }
         
         if (isDevelopment) {
           // Pretty format for development
@@ -68,7 +75,7 @@ function createWinstonLogger(): winston.Logger {
           // JSON format for production
           return JSON.stringify({
             timestamp: sanitized.timestamp,
-            level: sanitized.level.toUpperCase(),
+            level: sanitized.level?.toUpperCase() || 'INFO',
             message: sanitized.message,
             service: 'bendcare-os',
             environment: process.env.NODE_ENV || 'unknown',
@@ -90,10 +97,10 @@ function createWinstonLogger(): winston.Logger {
 /**
  * Sanitize sensitive data from log objects
  */
-function sanitizeLogData(obj: unknown): unknown {
-  if (!obj || typeof obj !== 'object') return obj
+function sanitizeLogData(obj: unknown): LogData {
+  if (!obj || typeof obj !== 'object') return obj as LogData
 
-  const sanitized = { ...obj }
+  const sanitized = { ...obj } as LogData
   const sensitiveKeys = [
     'password', 'token', 'secret', 'key', 'auth', 'authorization', 'cookie',
     // Healthcare-specific PII
@@ -106,7 +113,7 @@ function sanitizeLogData(obj: unknown): unknown {
     if (sensitiveKeys.some(sk => key.toLowerCase().includes(sk))) {
       sanitized[key] = '[REDACTED]'
     } else if (typeof sanitized[key] === 'string') {
-      sanitized[key] = sanitized[key]
+      sanitized[key] = (sanitized[key] as string)
         .replace(/Bearer\s+[^\s]+/gi, 'Bearer [REDACTED]')
         .replace(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/gi, '[UUID]')
         .replace(/\b[\w.-]+@[\w.-]+\.\w+\b/gi, '[EMAIL]')

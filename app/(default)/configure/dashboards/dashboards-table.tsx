@@ -12,8 +12,20 @@ interface DashboardsTableProps {
 }
 
 export default function DashboardsTable({ dashboards, onEdit, onDelete, onPreview }: DashboardsTableProps) {
-  // Map dashboards to have 'id' property for useItemSelection
-  const dashboardsWithId = dashboards.map(dashboard => ({ ...dashboard, id: dashboard.dashboard_id }));
+  // Filter out invalid dashboards and map to have 'id' property for useItemSelection
+  const validDashboards = dashboards.filter(dashboard => 
+    dashboard && 
+    dashboard.dashboard_id && 
+    typeof dashboard.dashboard_id === 'string' &&
+    dashboard.dashboard_id.trim().length > 0
+  );
+  
+  const dashboardsWithId = validDashboards.map((dashboard, index) => ({ 
+    ...dashboard, 
+    id: dashboard.dashboard_id,
+    // Ensure unique keys by adding index as fallback
+    _uniqueKey: `${dashboard.dashboard_id}-${index}`
+  }));
   
   const {
     selectedItems,
@@ -28,7 +40,7 @@ export default function DashboardsTable({ dashboards, onEdit, onDelete, onPrevie
         <h2 className="font-semibold text-gray-800 dark:text-gray-100">
           All Dashboards{' '}
           <span className="text-gray-400 dark:text-gray-500 font-medium">
-            {dashboards.filter(dashboard => dashboard.is_active !== false).length}
+            {validDashboards.filter(dashboard => dashboard.is_active !== false).length}
           </span>
         </h2>
       </header>
@@ -77,21 +89,24 @@ export default function DashboardsTable({ dashboards, onEdit, onDelete, onPrevie
             </thead>
             {/* Table body */}
             <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
-              {dashboards.length === 0 ? (
+              {validDashboards.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-2 first:pl-5 last:pr-5 py-12 text-center">
                     <div className="text-gray-500 dark:text-gray-400">
-                      📊 No dashboards found
+                      📊 {dashboards.length > 0 ? 'No valid dashboards found' : 'No dashboards found'}
                     </div>
                     <p className="text-gray-600 dark:text-gray-400 text-sm mt-2">
-                      Create your first dashboard to get started
+                      {dashboards.length > 0 
+                        ? 'Dashboard data appears to be corrupted. Please check the logs.'
+                        : 'Create your first dashboard to get started'
+                      }
                     </p>
                   </td>
                 </tr>
               ) : (
-                dashboards.map((dashboard) => (
+                dashboardsWithId.map((dashboard) => (
                   <DashboardsTableItem
-                    key={dashboard.dashboard_id}
+                    key={dashboard._uniqueKey}
                     dashboard={dashboard}
                     onCheckboxChange={handleCheckboxChange}
                     isSelected={selectedItems.includes(dashboard.dashboard_id)}
