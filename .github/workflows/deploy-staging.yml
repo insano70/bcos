@@ -111,6 +111,7 @@ jobs:
           build-args: |
             NODE_ENV=production
             NEXT_TELEMETRY_DISABLED=1
+            BUILD_VERSION=${{ steps.vars.outputs.IMAGE_TAG }}
           platforms: linux/amd64
 
       - name: Scan container image
