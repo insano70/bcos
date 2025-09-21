@@ -107,7 +107,8 @@ export default function ChartBuilderPage() {
       });
       
       // Transform joined API data to flat ChartDefinitionListItem structure
-      const transformedCharts: ChartDefinitionListItem[] = (charts as JoinedChartQueryResult[]).map((item: JoinedChartQueryResult, index: number) => {
+      const transformedCharts = (charts as JoinedChartQueryResult[])
+        .map((item: JoinedChartQueryResult, index: number): ChartDefinitionListItem | null => {
         // Handle joined data structure from API (leftJoin returns nested objects)
         const chartDef = item.chart_definitions;
         const category = item.chart_categories;
