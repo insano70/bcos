@@ -68,7 +68,7 @@ interface AuthResult {
     name: string;
     firstName: string | null;
     lastName: string | null;
-    role: string;
+    role: string | undefined;
     emailVerified: boolean | null;
     practiceId: string | null;
     roles: string[];

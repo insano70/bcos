@@ -107,7 +107,7 @@ export default function ChartBuilderPage() {
       });
       
       // Transform joined API data to flat ChartDefinitionListItem structure
-      const transformedCharts = (charts as JoinedChartQueryResult[])
+      const transformedCharts: ChartDefinitionListItem[] = (charts as JoinedChartQueryResult[])
         .map((item: JoinedChartQueryResult, index: number): ChartDefinitionListItem | null => {
         // Handle joined data structure from API (leftJoin returns nested objects)
         const chartDef = item.chart_definitions;
@@ -130,7 +130,7 @@ export default function ChartBuilderPage() {
         return {
           chart_definition_id: chartDef.chart_definition_id,
           chart_name: chartDef.chart_name,
-          chart_description: chartDef.chart_description || undefined,
+          chart_description: chartDef.chart_description ?? undefined,
           chart_type: chartDef.chart_type as ChartDefinitionListItem['chart_type'],
           chart_category_id: chartDef.chart_category_id || undefined,
           category_name: category?.category_name || undefined,

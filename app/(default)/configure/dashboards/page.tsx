@@ -83,7 +83,8 @@ export default function DashboardsPage() {
       });
       
       // Transform joined API data to flat DashboardListItem structure
-      const transformedDashboards: DashboardListItem[] = (dashboards as JoinedDashboardQueryResult[]).map((item: JoinedDashboardQueryResult, index: number) => {
+      const transformedDashboards: DashboardListItem[] = (dashboards as JoinedDashboardQueryResult[])
+        .map((item: JoinedDashboardQueryResult, index: number): DashboardListItem | null => {
         // Handle joined data structure from API (leftJoin returns nested objects)
         const dashboardDef = item.dashboards;
         const category = item.chart_categories;
