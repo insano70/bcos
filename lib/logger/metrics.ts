@@ -244,8 +244,8 @@ setInterval(() => {
 /**
  * Middleware for automatic request/response metrics
  */
-export function withRequestMetrics<T extends any[]>(
-  handler: (request: NextRequest, ...args: T) => Promise<NextResponse>
+export function withRequestMetrics<T extends unknown[]>(
+  handler: (request: NextRequest, ...args: T) => Promise<NextResponse | Response>
 ) {
   return async (request: NextRequest, ...args: T): Promise<NextResponse> => {
     const requestId = requestMetrics.startRequest(request)

@@ -11,7 +11,7 @@ export interface BulkOperation {
   id: string;
   type: 'update' | 'delete' | 'export' | 'organize' | 'clone';
   chartIds: string[];
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   status: 'pending' | 'running' | 'completed' | 'failed';
   progress: number; // 0-100
   startedAt: Date;

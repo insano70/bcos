@@ -27,6 +27,9 @@ export interface LogContext {
   statusCode?: number
 }
 
+// Log data type for flexible metadata
+type LogData = Record<string, unknown>
+
 // Environment detection
 const isDevelopment = process.env.NODE_ENV === 'development'
 const isTest = process.env.NODE_ENV === 'test'
@@ -87,7 +90,7 @@ function createWinstonLogger(): winston.Logger {
 /**
  * Sanitize sensitive data from log objects
  */
-function sanitizeLogData(obj: any): any {
+function sanitizeLogData(obj: unknown): unknown {
   if (!obj || typeof obj !== 'object') return obj
 
   const sanitized = { ...obj }
@@ -179,28 +182,28 @@ export class StructuredLogger {
   /**
    * Debug level logging
    */
-  debug(message: string, data?: any): void {
+  debug(message: string, data?: LogData): void {
     this.log('debug', message, data)
   }
 
   /**
    * Info level logging
    */
-  info(message: string, data?: any): void {
+  info(message: string, data?: LogData): void {
     this.log('info', message, data)
   }
 
   /**
    * Warning level logging
    */
-  warn(message: string, data?: any): void {
+  warn(message: string, data?: LogData): void {
     this.log('warn', message, data)
   }
 
   /**
    * Error level logging
    */
-  error(message: string, error?: Error | any, data?: any): void {
+  error(message: string, error?: Error | unknown, data?: LogData): void {
     const errorData = error instanceof Error ? {
       name: error.name,
       message: error.message,
@@ -214,7 +217,7 @@ export class StructuredLogger {
   /**
    * Performance timing logging
    */
-  timing(message: string, startTime: number, data?: any): void {
+  timing(message: string, startTime: number, data?: LogData): void {
     const duration = Date.now() - startTime
     this.info(message, { duration, ...data })
   }
@@ -222,7 +225,7 @@ export class StructuredLogger {
   /**
    * HTTP request/response logging
    */
-  http(message: string, statusCode: number, duration?: number, data?: any): void {
+  http(message: string, statusCode: number, duration?: number, data?: LogData): void {
     const level = statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'info'
     this.log(level, message, { statusCode, duration, ...data })
   }
@@ -230,14 +233,14 @@ export class StructuredLogger {
   /**
    * Database operation logging
    */
-  db(operation: string, table: string, duration?: number, data?: any): void {
+  db(operation: string, table: string, duration?: number, data?: LogData): void {
     this.debug(`DB ${operation}`, { table, duration, ...data })
   }
 
   /**
    * Authentication/authorization logging
    */
-  auth(action: string, success: boolean, data?: any): void {
+  auth(action: string, success: boolean, data?: LogData): void {
     const level = success ? 'info' : 'warn'
     this.log(level, `Auth: ${action}`, { success, ...data })
   }
@@ -245,17 +248,17 @@ export class StructuredLogger {
   /**
    * Security event logging
    */
-  security(event: string, severity: 'low' | 'medium' | 'high' | 'critical', data?: any): void {
-    const level = severity === 'critical' || severity === 'high' ? 'error' : 
+  security(event: string, severity: 'low' | 'medium' | 'high' | 'critical', data?: LogData): void {
+    const level = severity === 'critical' || severity === 'high' ? 'error' :
                   severity === 'medium' ? 'warn' : 'info'
-    
+
     this.log(level, `Security: ${event}`, { severity, ...data })
   }
 
   /**
    * Core logging method
    */
-  private log(level: string, message: string, data?: any): void {
+  private log(level: string, message: string, data?: LogData): void {
     const logger = getBaseLogger()
     
     const logData = {

@@ -41,7 +41,7 @@ export function useApiMutation<TData, TVariables = void>(
 /**
  * Hook for POST requests
  */
-export function useApiPost<TData, TVariables = any>(
+export function useApiPost<TData, TVariables = Record<string, unknown>>(
   endpoint: string | ((variables: TVariables) => string),
   options?: UseMutationOptions<TData, ApiError, TVariables>
 ) {
@@ -57,7 +57,7 @@ export function useApiPost<TData, TVariables = any>(
 /**
  * Hook for PUT requests
  */
-export function useApiPut<TData, TVariables = any>(
+export function useApiPut<TData, TVariables = Record<string, unknown>>(
   endpoint: string | ((variables: TVariables) => string),
   options?: UseMutationOptions<TData, ApiError, TVariables>
 ) {

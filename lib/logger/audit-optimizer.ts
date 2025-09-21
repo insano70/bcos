@@ -6,11 +6,22 @@
 import { AuditLogger } from '@/lib/api/services/audit'
 import { createAppLogger } from './winston-logger'
 
+// Define LogData locally for audit optimizer
+type LogData = Record<string, unknown>
+
+// Audit data interface for better type safety
+interface AuditData extends LogData {
+  action?: string
+  userId?: string
+  severity?: 'low' | 'medium' | 'high' | 'critical'
+  [key: string]: unknown
+}
+
 const auditLogger = createAppLogger('audit')
 
 interface BufferedAuditEntry {
   type: 'auth' | 'user_action' | 'system' | 'security' | 'data_change'
-  data: any
+  data: AuditData
   severity: 'low' | 'medium' | 'high' | 'critical'
   timestamp: Date
 }
@@ -33,7 +44,7 @@ class OptimizedAuditLogger {
    */
   async logEvent(
     type: BufferedAuditEntry['type'],
-    data: any,
+    data: AuditData,
     severity: BufferedAuditEntry['severity']
   ): Promise<void> {
     const entry: BufferedAuditEntry = {
@@ -220,11 +231,11 @@ const optimizedAuditLogger = new OptimizedAuditLogger()
  * Enhanced audit logging functions with buffering
  */
 export const BufferedAuditLogger = {
-  logAuth: (data: any) => optimizedAuditLogger.logEvent('auth', data, data.severity || 'medium'),
-  logUserAction: (data: any) => optimizedAuditLogger.logEvent('user_action', data, data.severity || 'low'),
-  logSystem: (data: any) => optimizedAuditLogger.logEvent('system', data, data.severity || 'medium'),
-  logSecurity: (data: any) => optimizedAuditLogger.logEvent('security', data, data.severity || 'high'),
-  logDataChange: (data: any) => optimizedAuditLogger.logEvent('data_change', data, data.severity || 'low'),
+  logAuth: (data: AuditData) => optimizedAuditLogger.logEvent('auth', data, data.severity || 'medium'),
+  logUserAction: (data: AuditData) => optimizedAuditLogger.logEvent('user_action', data, data.severity || 'low'),
+  logSystem: (data: AuditData) => optimizedAuditLogger.logEvent('system', data, data.severity || 'medium'),
+  logSecurity: (data: AuditData) => optimizedAuditLogger.logEvent('security', data, data.severity || 'high'),
+  logDataChange: (data: AuditData) => optimizedAuditLogger.logEvent('data_change', data, data.severity || 'low'),
   
   // Utility functions
   getBufferStatus: () => optimizedAuditLogger.getBufferStatus(),

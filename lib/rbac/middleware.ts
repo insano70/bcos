@@ -4,6 +4,7 @@ import { PermissionChecker } from './permission-checker';
 import { type PermissionName, type UserContext, RBACError } from '@/lib/types/rbac';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { db } from '@/lib/db';
+import type { AuthResult } from '../api/middleware/global-auth';
 
 /**
  * RBAC Middleware for Next.js API Routes
@@ -295,8 +296,8 @@ export const createPracticeMiddleware = (permission: PermissionName | Permission
  * This function bridges the gap between your existing auth system and RBAC
  */
 export async function enhanceSessionWithRBAC(
-  existingSession: any
-): Promise<{ session: any; userContext: UserContext } | null> {
+  existingSession: AuthResult | null | undefined
+): Promise<{ session: AuthResult; userContext: UserContext } | null> {
   try {
     if (!existingSession?.user?.id) {
       return null;
@@ -320,7 +321,7 @@ export async function enhanceSessionWithRBAC(
 /**
  * Wrapper for existing route handlers to add RBAC
  */
-export function withRBAC<T extends any[]>(
+export function withRBAC<T extends unknown[]>(
   permission: PermissionName | PermissionName[],
   options: Omit<RBACMiddlewareOptions, 'permission'> = {}
 ) {
@@ -328,7 +329,7 @@ export function withRBAC<T extends any[]>(
 
   return (
     handler: (request: NextRequest, userContext: UserContext, ...args: T) => Promise<Response>
-  ) => async (request: NextRequest, existingSession?: any, ...args: T): Promise<Response> => {
+  ) => async (request: NextRequest, existingSession?: AuthResult | null, ...args: T): Promise<Response> => {
       try {
         // If we have an existing session, enhance it with RBAC
         let userContext: UserContext;

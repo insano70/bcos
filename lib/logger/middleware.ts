@@ -10,8 +10,8 @@ import { createAPILogger, logAPIRequest, logAPIResponse } from './api-logger'
  * Logging middleware for API routes
  * Wraps API handlers to provide automatic request/response logging
  */
-export function withLogging<T extends any[]>(
-  handler: (request: NextRequest, ...args: T) => Promise<NextResponse>
+export function withLogging<T extends unknown[]>(
+  handler: (request: NextRequest, ...args: T) => Promise<NextResponse | Response>
 ) {
   return async (request: NextRequest, ...args: T): Promise<NextResponse> => {
     const startTime = Date.now()

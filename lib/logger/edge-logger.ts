@@ -4,16 +4,16 @@
  */
 
 export interface EdgeLogger {
-  info: (message: string, meta?: any) => void;
-  warn: (message: string, meta?: any) => void;
-  error: (message: string, error?: any, meta?: any) => void;
-  debug: (message: string, meta?: any) => void;
+  info: (message: string, meta?: unknown) => void;
+  warn: (message: string, meta?: unknown) => void;
+  error: (message: string, error?: unknown, meta?: unknown) => void;
+  debug: (message: string, meta?: unknown) => void;
 }
 
 /**
  * Format log entry for edge runtime
  */
-function formatLog(level: string, message: string, meta?: any): string {
+function formatLog(level: string, message: string, meta?: unknown): string {
   const timestamp = new Date().toISOString();
   const logEntry = {
     timestamp,
@@ -27,17 +27,17 @@ function formatLog(level: string, message: string, meta?: any): string {
 /**
  * Create an edge-compatible logger
  */
-export function createEdgeLogger(context?: any): EdgeLogger {
+export function createEdgeLogger(context?: unknown): EdgeLogger {
   const contextMeta = context || {};
 
   return {
-    info: (message: string, meta?: any) => {
+    info: (message: string, meta?: unknown) => {
       console.log(formatLog('info', message, { ...contextMeta, ...meta }));
     },
-    warn: (message: string, meta?: any) => {
+    warn: (message: string, meta?: unknown) => {
       console.warn(formatLog('warn', message, { ...contextMeta, ...meta }));
     },
-    error: (message: string, error?: any, meta?: any) => {
+    error: (message: string, error?: unknown, meta?: unknown) => {
       const errorMeta = error instanceof Error 
         ? { 
             error: error.message, 
@@ -46,7 +46,7 @@ export function createEdgeLogger(context?: any): EdgeLogger {
         : { error };
       console.error(formatLog('error', message, { ...contextMeta, ...errorMeta, ...meta }));
     },
-    debug: (message: string, meta?: any) => {
+    debug: (message: string, meta?: unknown) => {
       if (process.env.NODE_ENV === 'development') {
         console.log(formatLog('debug', message, { ...contextMeta, ...meta }));
       }
@@ -61,7 +61,7 @@ export function logEdgeSecurityEvent(
   logger: EdgeLogger,
   event: string,
   severity: 'low' | 'medium' | 'high' | 'critical',
-  details?: any
+  details?: unknown
 ): void {
   logger.warn(`Security Event: ${event}`, {
     security: true,
@@ -78,7 +78,7 @@ export function logEdgePerformanceMetric(
   logger: EdgeLogger,
   metric: string,
   duration: number,
-  details?: any
+  details?: unknown
 ): void {
   logger.info(`Performance: ${metric}`, {
     performance: true,
