@@ -12,7 +12,7 @@ import { TokenManager } from '@/lib/auth/token-manager'
 import { AccountSecurity } from '@/lib/auth/security'
 import { AuditLogger, BufferedAuditLogger } from '@/lib/logger'
 import { getUserContextSafe } from '@/lib/rbac/user-context'
-import { CSRFProtection } from '@/lib/security/csrf'
+import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
 import { publicRoute } from '@/lib/api/route-handler'
 import { 
   createAPILogger, 
@@ -319,7 +319,7 @@ const loginHandler = async (request: NextRequest) => {
     })
 
     // Generate new authenticated CSRF token tied to the user
-    const csrfToken = await CSRFProtection.setCSRFToken(user.user_id)
+    const csrfToken = await UnifiedCSRFProtection.setCSRFToken(user.user_id)
     
     const response = createSuccessResponse({
       user: {

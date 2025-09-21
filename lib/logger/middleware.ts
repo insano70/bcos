@@ -3,15 +3,15 @@
  * Automatically logs all API requests and responses
  */
 
-import type { NextRequest, NextResponse } from 'next/server'
+import { type NextRequest, NextResponse } from 'next/server'
 import { createAPILogger, logAPIRequest, logAPIResponse } from './api-logger'
 
 /**
  * Logging middleware for API routes
  * Wraps API handlers to provide automatic request/response logging
  */
-export function withLogging<T extends any[]>(
-  handler: (request: NextRequest, ...args: T) => Promise<NextResponse>
+export function withLogging<T extends unknown[]>(
+  handler: (request: NextRequest, ...args: T) => Promise<NextResponse | Response>
 ) {
   return async (request: NextRequest, ...args: T): Promise<NextResponse> => {
     const startTime = Date.now()
@@ -27,11 +27,20 @@ export function withLogging<T extends any[]>(
       // Log successful response
       logAPIResponse(logger, response.status, startTime)
       
-      return response
+      // Convert Response to NextResponse if needed
+      const nextResponse = response instanceof NextResponse 
+        ? response 
+        : new NextResponse(response.body, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers
+          })
+      
+      return nextResponse
     } catch (error) {
       // Log error response
-      const errorStatus = error instanceof Error && 'status' in error 
-        ? (error as any).status 
+      const errorStatus = error instanceof Error && 'status' in error
+        ? (error as { status?: number }).status ?? 500
         : 500
       
       logAPIResponse(logger, errorStatus, startTime, undefined, error as Error)
@@ -45,18 +54,38 @@ export function withLogging<T extends any[]>(
 /**
  * Logging middleware for RBAC-protected routes
  */
-export function withRBACLogging<T extends any[]>(
-  handler: (request: NextRequest, userContext: any, ...args: T) => Promise<NextResponse>
+// Type for auth result - should match the one in global-auth.ts
+interface AuthResult {
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+    emailVerified: boolean;
+    practiceId: string | null;
+    roles: string[];
+    permissions: string[];
+    isSuperAdmin: boolean;
+    organizationAdminFor: string[];
+  };
+  accessToken: string;
+  sessionId: string;
+}
+
+export function withRBACLogging<T extends unknown[]>(
+  handler: (request: NextRequest, userContext: AuthResult, ...args: T) => Promise<NextResponse>
 ) {
-  return async (request: NextRequest, userContext: any, ...args: T): Promise<NextResponse> => {
+  return async (request: NextRequest, userContext: AuthResult, ...args: T): Promise<NextResponse> => {
     const startTime = Date.now()
-    const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id)
+    const logger = createAPILogger(request).withUser(userContext.user.id, userContext.user.practiceId || undefined)
     
     // Log incoming request with user context
     logger.info('RBAC API Request Started', {
-      userId: userContext.user_id,
-      organizationId: userContext.current_organization_id,
-      roles: userContext.roles?.map((r: any) => r.role_name)
+      userId: userContext.user.id,
+      organizationId: userContext.user.practiceId,
+      roles: userContext.user.roles
     })
     
     try {
@@ -69,8 +98,8 @@ export function withRBACLogging<T extends any[]>(
       return response
     } catch (error) {
       // Log error response with user context
-      const errorStatus = error instanceof Error && 'status' in error 
-        ? (error as any).status 
+      const errorStatus = error instanceof Error && 'status' in error
+        ? (error as { status?: number }).status ?? 500
         : 500
       
       logAPIResponse(logger, errorStatus, startTime, undefined, error as Error)
@@ -83,11 +112,11 @@ export function withRBACLogging<T extends any[]>(
 /**
  * Higher-order function to add performance monitoring
  */
-export function withPerformanceLogging<T extends (...args: any[]) => Promise<any>>(
+export function withPerformanceLogging<T extends (...args: unknown[]) => Promise<unknown>>(
   operation: string,
   fn: T
 ): T {
-  return (async (...args: any[]) => {
+  return (async (...args: unknown[]) => {
     const startTime = Date.now()
     
     try {
@@ -122,12 +151,12 @@ export function withPerformanceLogging<T extends (...args: any[]) => Promise<any
 /**
  * Database operation logging wrapper
  */
-export function withDBLogging<T extends (...args: any[]) => Promise<any>>(
+export function withDBLogging<T extends (...args: unknown[]) => Promise<unknown>>(
   operation: string,
   table: string,
   fn: T
 ): T {
-  return (async (...args: any[]) => {
+  return (async (...args: unknown[]) => {
     const startTime = Date.now()
     
     try {

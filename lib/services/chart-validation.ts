@@ -1,4 +1,4 @@
-import type { ChartDefinition, ChartFilter, ChartDataSourceConfig } from '@/lib/types/analytics';
+import type { ChartDefinition, ChartFilter, ChartDataSourceConfig, ChartConfig } from '@/lib/types/analytics';
 import { logger } from '@/lib/logger';
 import { chartConfigService } from './chart-config-service';
 
@@ -48,9 +48,9 @@ export class ChartValidator {
     try {
       const dataSourceConfig = await chartConfigService.getDataSourceConfig('ih.agg_app_measures');
       // TODO: Add getColumnConfigs method to chartConfigService
-      const columnConfigs: any[] = []; // Fallback to empty array
-      
-      return columnConfigs.map((col: any) => col.column_name);
+      const columnConfigs: Array<{ column_name: string }> = []; // Fallback to empty array
+
+      return columnConfigs.map((col) => col.column_name);
     } catch (error) {
       logger.warn('Failed to load dynamic field validation, falling back to legacy fields', { error });
       return [...LEGACY_ALLOWED_FIELDS];
@@ -84,7 +84,7 @@ export class ChartValidator {
 
     if (!definition.chart_type) {
       errors.push('Chart type is required');
-    } else if (!ALLOWED_CHART_TYPES.includes(definition.chart_type as any)) {
+    } else if (!ALLOWED_CHART_TYPES.includes(definition.chart_type)) {
       errors.push(`Invalid chart type: ${definition.chart_type}. Allowed: ${ALLOWED_CHART_TYPES.join(', ')}`);
     }
 
@@ -186,7 +186,7 @@ export class ChartValidator {
     // Validate operator
     if (!filter.operator) {
       errors.push('Filter operator is required');
-    } else if (!ALLOWED_OPERATORS.includes(filter.operator as any)) {
+    } else if (!ALLOWED_OPERATORS.includes(filter.operator)) {
       errors.push(`Invalid filter operator: ${filter.operator}. Allowed: ${ALLOWED_OPERATORS.join(', ')}`);
     }
 
@@ -211,7 +211,7 @@ export class ChartValidator {
   /**
    * Validate chart configuration
    */
-  async validateChartConfig(chartConfig: any): Promise<ValidationResult> {
+  async validateChartConfig(chartConfig: ChartConfig): Promise<ValidationResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
     const allowedFields = await this.getAllowedFields();
@@ -277,7 +277,7 @@ export class ChartValidator {
     const warnings: string[] = [];
 
     // Only validate provided fields
-    if (definition.chart_type && !ALLOWED_CHART_TYPES.includes(definition.chart_type as any)) {
+    if (definition.chart_type && !ALLOWED_CHART_TYPES.includes(definition.chart_type)) {
       errors.push(`Invalid chart type: ${definition.chart_type}`);
     }
 

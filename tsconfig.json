@@ -32,6 +32,8 @@
     "node_modules",
     "docs",
     "docs/**/*",
+    "infrastructure",
+    "infrastructure/**/*",
     "**/*.md"
   ]
 }

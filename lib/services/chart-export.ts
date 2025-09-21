@@ -90,7 +90,7 @@ export class ChartExportService {
    */
   exportChartDataAsCSV(
     chartData: ChartData,
-    rawData: any[],
+    rawData: Record<string, unknown>[],
     options: ExportOptions = { format: 'csv' }
   ): ExportResult {
     try {
@@ -109,7 +109,15 @@ export class ChartExportService {
       }
 
       // Generate CSV content
-      const headers = Object.keys(dataToExport[0]);
+      if (dataToExport.length === 0) {
+        return {
+          success: false,
+          filename: filename || 'chart_data.csv',
+          mimeType: 'text/csv',
+          error: 'No data to export'
+        };
+      }
+      const headers = Object.keys(dataToExport[0] as Record<string, unknown>);
       const csvContent = [
         headers.join(','),
         ...dataToExport.map(row => 
@@ -230,11 +238,11 @@ export class ChartExportService {
   /**
    * Convert Chart.js data to tabular format for CSV export
    */
-  private convertChartDataToTable(chartData: ChartData): any[] {
-    const result: any[] = [];
-    
+  private convertChartDataToTable(chartData: ChartData): Record<string, unknown>[] {
+    const result: Record<string, unknown>[] = [];
+
     chartData.labels.forEach((label, index) => {
-      const row: any = { label: label };
+      const row: Record<string, unknown> = { label: label };
       
       chartData.datasets.forEach(dataset => {
         row[dataset.label || 'Value'] = dataset.data[index] || 0;

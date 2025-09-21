@@ -3,19 +3,19 @@
  * Provides automatic logging for database operations
  */
 
-import { createAppLogger } from './winston-logger'
+import { createAppLogger, type LogData } from './winston-logger'
 
 const dbLogger = createAppLogger('database')
 
 /**
  * Database operation wrapper with performance monitoring
  */
-export function withDBLogging<T extends (...args: any[]) => Promise<any>>(
+export function withDBLogging<T extends (...args: unknown[]) => Promise<unknown>>(
   operation: string,
   table: string,
   fn: T
 ): T {
-  return (async (...args: any[]) => {
+  return (async (...args: unknown[]) => {
     const startTime = Date.now()
     const operationId = `${operation}_${table}_${Date.now()}`
     
@@ -72,7 +72,7 @@ export function logSlowQuery(
   table: string,
   duration: number,
   query?: string,
-  params?: any[]
+  params?: unknown[]
 ): void {
   if (duration > 1000) { // Log queries over 1 second
     dbLogger.warn('Slow query detected', {
@@ -89,7 +89,7 @@ export function logSlowQuery(
 /**
  * Database connection monitoring
  */
-export function logDBConnection(action: 'connect' | 'disconnect' | 'error', details?: any): void {
+export function logDBConnection(action: 'connect' | 'disconnect' | 'error', details?: LogData): void {
   const level = action === 'error' ? 'error' : 'info'
   
   dbLogger[level](`Database ${action}`, {

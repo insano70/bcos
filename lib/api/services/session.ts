@@ -13,13 +13,13 @@ export interface SessionInfo {
   sessionId: string
   userId: string
   deviceFingerprint: string
-  deviceName?: string
+  deviceName?: string | null
   ipAddress: string
-  userAgent?: string
-  location?: string
+  userAgent?: string | null
+  location?: string | null
   isActive: boolean
   lastActivity: Date
-  expiresAt: Date
+  expiresAt?: Date | null
   createdAt: Date
 }
 
@@ -31,184 +31,269 @@ export interface DeviceInfo {
   location?: string
 }
 
-export class SessionManager {
-  /**
-   * Create a new user session with device tracking
-   */
-  static async createSession(
-    userId: string,
-    deviceInfo: DeviceInfo,
-    rememberMe: boolean = false
-  ): Promise<SessionInfo> {
-    const sessionId = nanoid(32)
-    const now = new Date()
-    
-    // Calculate expiration based on remember me preference
-    const expirationHours = rememberMe ? 24 * 30 : 24 // 30 days or 24 hours
-    const _expiresAt = new Date(now.getTime() + (expirationHours * 60 * 60 * 1000))
+/**
+ * Create a new user session with device tracking
+ */
+export async function createSession(
+  userId: string,
+  deviceInfo: DeviceInfo,
+  rememberMe: boolean = false
+): Promise<SessionInfo> {
+  const sessionId = nanoid(32)
+  const now = new Date()
 
-    // Check concurrent session limits
-    await SessionManager.enforceConcurrentSessionLimits(userId)
+  // Calculate expiration based on remember me preference
+  const expirationHours = rememberMe ? 24 * 30 : 24 // 30 days or 24 hours
+  const expiresAt = new Date(now.getTime() + (expirationHours * 60 * 60 * 1000))
 
-    // Create session record
-    const [session] = await db
-      .insert(user_sessions)
-      .values({
-        session_id: sessionId,
-        user_id: userId,
-        device_fingerprint: deviceInfo.fingerprint,
-        device_name: deviceInfo.name,
-        ip_address: deviceInfo.ipAddress,
-        user_agent: deviceInfo.userAgent,
-        remember_me: rememberMe,
-        last_activity: now,
-      })
-      .returning()
+  // Check concurrent session limits
+  await enforceConcurrentSessionLimits(userId)
 
-    // Update device tracking
-    await SessionManager.updateDeviceTracking(userId, deviceInfo)
+  // Create session record
+  const sessions = await db
+    .insert(user_sessions)
+    .values({
+      session_id: sessionId,
+      user_id: userId,
+      device_fingerprint: deviceInfo.fingerprint,
+      device_name: deviceInfo.name,
+      ip_address: deviceInfo.ipAddress,
+      user_agent: deviceInfo.userAgent,
+      remember_me: rememberMe,
+      is_active: true,
+      last_activity: now,
+      created_at: now
+    })
+    .returning()
 
-    // Log successful login
-    await SessionManager.logLoginAttempt(userId, deviceInfo, true)
+  if (!sessions || sessions.length === 0) {
+    throw new Error('Failed to create session')
+  }
 
+  const session = sessions[0]
+
+  // Update device tracking
+  await updateDeviceTracking(userId, deviceInfo)
+
+  // Log successful login
+  await logLoginAttempt(userId, deviceInfo, true)
+
+  // Audit log
+  const auditData: {
+    action: 'login'
+    userId: string
+    ipAddress: string
+    userAgent?: string
+    metadata: Record<string, unknown>
+  } = {
+    action: 'login',
+    userId,
+    ipAddress: deviceInfo.ipAddress,
+    metadata: {
+      sessionId,
+      deviceFingerprint: deviceInfo.fingerprint,
+      rememberMe
+    }
+  }
+  if (deviceInfo.userAgent) {
+    auditData.userAgent = deviceInfo.userAgent
+  }
+  await AuditLogger.logAuth(auditData)
+
+  return {
+    sessionId: session!.session_id,
+    userId: session!.user_id,
+    deviceFingerprint: session!.device_fingerprint,
+    deviceName: session!.device_name,
+    ipAddress: session!.ip_address,
+    userAgent: session!.user_agent,
+    location: deviceInfo.location || null, // From input, not stored in DB
+    isActive: session!.is_active,
+    lastActivity: session!.last_activity,
+    expiresAt: expiresAt, // Calculated value
+    createdAt: session!.created_at
+  }
+}
+
+/**
+ * Validate and refresh an existing session
+ */
+export async function validateSession(sessionId: string): Promise<SessionInfo | null> {
+  const now = new Date()
+
+  const [session] = await db
+    .select()
+    .from(user_sessions)
+    .where(
+      and(
+        eq(user_sessions.session_id, sessionId),
+        eq(user_sessions.is_active, true)
+      )
+    )
+
+  if (!session) {
+    return null
+  }
+
+  // Update last activity
+  await db
+    .update(user_sessions)
+    .set({
+      last_activity: now
+    })
+    .where(eq(user_sessions.session_id, sessionId))
+
+  return {
+    sessionId: session.session_id,
+    userId: session.user_id,
+    deviceFingerprint: session.device_fingerprint,
+    deviceName: session.device_name,
+    ipAddress: session.ip_address,
+    userAgent: session.user_agent,
+    location: null, // Not stored in DB
+    isActive: session.is_active,
+    lastActivity: session.last_activity,
+    expiresAt: null, // Sessions don't expire in this schema
+    createdAt: session.created_at
+  }
+}
+
+/**
+ * Revoke a specific session
+ */
+export async function revokeSession(
+  sessionId: string,
+  reason: 'manual' | 'timeout' | 'security' | 'concurrent_limit' = 'manual'
+): Promise<boolean> {
+  const updatedSessions = await db
+    .update(user_sessions)
+    .set({
+      is_active: false,
+      ended_at: new Date()
+    })
+    .where(eq(user_sessions.session_id, sessionId))
+    .returning()
+
+  if (updatedSessions && updatedSessions.length > 0) {
     // Audit log
     await AuditLogger.logAuth({
-      action: 'login',
-      userId,
-      ipAddress: deviceInfo.ipAddress,
-      userAgent: deviceInfo.userAgent || '',
+      action: 'logout',
+      userId: updatedSessions[0]!.user_id,
       metadata: {
         sessionId,
-        deviceFingerprint: deviceInfo.fingerprint,
-        rememberMe
+        reason
       }
     })
 
-    if (!session) {
-      throw new Error('Failed to create session')
-    }
-
-    return {
-      sessionId: session.session_id,
-      userId: session.user_id,
-      deviceFingerprint: session.device_fingerprint,
-      deviceName: session.device_name ?? '',
-      ipAddress: session.ip_address,
-      userAgent: session.user_agent ?? '',
-      location: '', // Not stored in current schema
-      isActive: session.is_active,
-      lastActivity: session.last_activity,
-      expiresAt: session.ended_at ?? new Date(Date.now() + (rememberMe ? 30 : 7) * 24 * 60 * 60 * 1000), // Calculate expiration
-      createdAt: session.created_at
-    }
+    return true
   }
 
-  /**
-   * Validate and refresh an existing session
-   */
-  static async validateSession(sessionId: string): Promise<SessionInfo | null> {
-    const [session] = await db
-      .select()
-      .from(user_sessions)
-      .where(
-        and(
-          eq(user_sessions.session_id, sessionId),
-          eq(user_sessions.is_active, true)
-        )
-      )
-      .limit(1)
+  return false
+}
 
-    if (!session) {
-      return null
-    }
+/**
+ * Revoke all sessions for a user (except optionally the current one)
+ */
+export async function revokeAllUserSessions(
+  userId: string,
+  exceptSessionId?: string,
+  reason: string = 'security'
+): Promise<number> {
+  const conditions = [
+    eq(user_sessions.user_id, userId),
+    eq(user_sessions.is_active, true)
+  ]
 
-    // Update last activity
-    await db
-      .update(user_sessions)
-      .set({ last_activity: new Date() })
-      .where(eq(user_sessions.session_id, sessionId))
-
-    return {
-      sessionId: session.session_id,
-      userId: session.user_id,
-      deviceFingerprint: session.device_fingerprint,
-      deviceName: session.device_name ?? '',
-      ipAddress: session.ip_address,
-      userAgent: session.user_agent ?? '',
-      location: '', // Not stored in current schema
-      isActive: session.is_active,
-      lastActivity: new Date(), // Updated timestamp
-      expiresAt: session.ended_at ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Default 7 days
-      createdAt: session.created_at
-    }
+  if (exceptSessionId) {
+    conditions.push(sql`${user_sessions.session_id} != ${exceptSessionId}`)
   }
 
-  /**
-   * Revoke a specific session
-   */
-  static async revokeSession(
-    sessionId: string,
-    reason: 'manual' | 'timeout' | 'security' | 'concurrent_limit' = 'manual'
-  ): Promise<boolean> {
-    const result = await db
-      .update(user_sessions)
-      .set({
-        is_active: false,
-        ended_at: new Date(),
-        end_reason: reason
-      })
-      .where(eq(user_sessions.session_id, sessionId))
+  const updatedSessions = await db
+    .update(user_sessions)
+    .set({
+      is_active: false,
+      ended_at: new Date()
+    })
+    .where(and(...conditions))
+    .returning()
 
-    return result.length > 0
-  }
+  const revokedCount = updatedSessions ? updatedSessions.length : 0
 
-  /**
-   * Revoke all sessions for a user (except optionally the current one)
-   */
-  static async revokeAllUserSessions(
-    userId: string,
-    exceptSessionId?: string,
-    reason: string = 'security'
-  ): Promise<number> {
-    const conditions = [
-      eq(user_sessions.user_id, userId),
-      eq(user_sessions.is_active, true)
-    ]
-
-    if (exceptSessionId) {
-      conditions.push(sql`${user_sessions.session_id} != ${exceptSessionId}`)
-    }
-
-    const result = await db
-      .update(user_sessions)
-      .set({
-        is_active: false,
-        ended_at: new Date(),
-        end_reason: reason
-      })
-      .where(and(...conditions))
-
+  if (revokedCount > 0) {
     // Audit log
-    await AuditLogger.logSecurity({
-      action: 'bulk_session_revocation',
+    await AuditLogger.logAuth({
+      action: 'logout',
       userId,
       metadata: {
-        revokedCount: result.length,
         reason,
-        exceptSessionId
-      },
-      severity: 'medium'
+        exceptSessionId,
+        revokedCount
+      }
     })
-
-    return result.length
   }
 
-  /**
-   * Get all active sessions for a user
-   */
-  static async getUserSessions(userId: string): Promise<SessionInfo[]> {
-    const sessions = await db
-      .select()
+  return revokedCount
+}
+
+/**
+ * Get all active sessions for a user
+ */
+export async function getUserSessions(userId: string): Promise<SessionInfo[]> {
+  const sessions = await db
+    .select()
+    .from(user_sessions)
+    .where(
+      and(
+        eq(user_sessions.user_id, userId),
+        eq(user_sessions.is_active, true)
+      )
+    )
+    .orderBy(desc(user_sessions.last_activity))
+
+  return sessions.map(session => ({
+    sessionId: session.session_id,
+    userId: session.user_id,
+    deviceFingerprint: session.device_fingerprint,
+    deviceName: session.device_name,
+    ipAddress: session.ip_address,
+    userAgent: session.user_agent,
+    location: null, // Not stored in DB
+    isActive: session.is_active,
+    lastActivity: session.last_activity,
+    expiresAt: null, // Sessions don't expire in this schema
+    createdAt: session.created_at
+  }))
+}
+
+/**
+ * Enforce concurrent session limits
+ */
+async function enforceConcurrentSessionLimits(userId: string): Promise<void> {
+  // Get user's session limit (default 5)
+  const [securitySettings] = await db
+    .select({ maxSessions: account_security.max_concurrent_sessions })
+    .from(account_security)
+    .where(eq(account_security.user_id, userId))
+
+  const maxSessions = securitySettings?.maxSessions || 5
+
+  // Get current active sessions count
+  const activeCountResult = await db
+    .select({ count: count() })
+    .from(user_sessions)
+    .where(
+      and(
+        eq(user_sessions.user_id, userId),
+        eq(user_sessions.is_active, true)
+      )
+    )
+
+  const activeCount = activeCountResult[0]?.count || 0
+
+  // If at limit, revoke oldest session
+  if (activeCount >= maxSessions) {
+    const oldestSession = await db
+      .select({ sessionId: user_sessions.session_id })
       .from(user_sessions)
       .where(
         and(
@@ -216,158 +301,101 @@ export class SessionManager {
           eq(user_sessions.is_active, true)
         )
       )
-      .orderBy(desc(user_sessions.last_activity))
-
-    return sessions.map(session => ({
-      sessionId: session.session_id,
-      userId: session.user_id,
-      deviceFingerprint: session.device_fingerprint,
-      deviceName: session.device_name ?? '',
-      ipAddress: session.ip_address,
-      userAgent: session.user_agent ?? '',
-      location: '', // Not stored in current schema
-      isActive: session.is_active,
-      lastActivity: session.last_activity,
-      expiresAt: session.ended_at ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Default 7 days
-      createdAt: session.created_at
-    }))
-  }
-
-  /**
-   * Enforce concurrent session limits
-   */
-  private static async enforceConcurrentSessionLimits(userId: string): Promise<void> {
-    // Get user's session limit (default 5)
-    const [securitySettings] = await db
-      .select({ maxSessions: account_security.max_concurrent_sessions })
-      .from(account_security)
-      .where(eq(account_security.user_id, userId))
+      .orderBy(user_sessions.last_activity)
       .limit(1)
 
-    const maxSessions = securitySettings?.maxSessions || 5
-
-    // Count active sessions
-    const [result] = await db
-      .select({ activeCount: count() })
-      .from(user_sessions)
-      .where(
-        and(
-          eq(user_sessions.user_id, userId),
-          eq(user_sessions.is_active, true)
-        )
-      )
-
-    const activeCount = result?.activeCount ?? 0;
-
-    // If at limit, revoke oldest session
-    if (activeCount >= maxSessions) {
-      const [oldestSession] = await db
-        .select({ sessionId: user_sessions.session_id })
-        .from(user_sessions)
-        .where(
-          and(
-            eq(user_sessions.user_id, userId),
-            eq(user_sessions.is_active, true)
-          )
-        )
-        .orderBy(user_sessions.last_activity)
-        .limit(1)
-
-      if (oldestSession) {
-        await SessionManager.revokeSession(oldestSession.sessionId, 'concurrent_limit')
-      }
+    if (oldestSession.length > 0 && oldestSession[0]) {
+      await revokeSession(oldestSession[0].sessionId, 'concurrent_limit')
     }
   }
+}
 
-  /**
-   * Update device tracking information
-   */
-  private static async updateDeviceTracking(userId: string, deviceInfo: DeviceInfo): Promise<void> {
-    // Device tracking functionality removed - trusted_devices table not implemented
-    // This is a placeholder for future device tracking implementation
-    logger.debug('Device tracking initiated', {
-      userId,
-      fingerprint: deviceInfo.fingerprint,
-      deviceName: deviceInfo.name,
-      operation: 'trackUserDevice'
+/**
+ * Update device tracking information
+ */
+async function updateDeviceTracking(userId: string, deviceInfo: DeviceInfo): Promise<void> {
+  // Device tracking functionality removed - trusted_devices table not implemented
+  // This is a placeholder for future device tracking implementation
+  logger.debug('Device tracking initiated', {
+    userId,
+    fingerprint: deviceInfo.fingerprint,
+    ipAddress: deviceInfo.ipAddress
+  })
+}
+
+/**
+ * Log login attempt
+ */
+async function logLoginAttempt(
+  userId: string | null,
+  deviceInfo: DeviceInfo,
+  success: boolean,
+  failureReason?: string
+): Promise<void> {
+  await db
+    .insert(login_attempts)
+    .values({
+      attempt_id: nanoid(),
+      email: '', // Would need email parameter
+      user_id: userId,
+      ip_address: deviceInfo.ipAddress,
+      user_agent: deviceInfo.userAgent,
+      device_fingerprint: deviceInfo.fingerprint,
+      success,
+      failure_reason: failureReason,
+      remember_me_requested: false,
+      attempted_at: new Date()
     })
+}
+
+/**
+ * Clean up expired sessions
+ */
+export async function cleanupExpiredSessions(): Promise<number> {
+  // Sessions don't expire in this schema, so no cleanup needed
+  logger.debug('cleanupExpiredSessions called but sessions don\'t expire in this schema', {
+    operation: 'cleanupExpiredSessions'
+  })
+  return 0
+}
+
+/**
+ * Get session analytics
+ */
+export async function getSessionAnalytics(timeframe: 'day' | 'week' | 'month' = 'week') {
+  const startDate = new Date()
+  switch (timeframe) {
+    case 'day':
+      startDate.setDate(startDate.getDate() - 1)
+      break
+    case 'week':
+      startDate.setDate(startDate.getDate() - 7)
+      break
+    case 'month':
+      startDate.setMonth(startDate.getMonth() - 1)
+      break
   }
 
-  /**
-   * Log login attempt
-   */
-  private static async logLoginAttempt(
-    userId: string | null,
-    deviceInfo: DeviceInfo,
-    success: boolean,
-    failureReason?: string
-  ): Promise<void> {
-    await db
-      .insert(login_attempts)
-      .values({
-        attempt_id: nanoid(),
-        email: '', // Would need email parameter
-        user_id: userId,
-        ip_address: deviceInfo.ipAddress,
-        user_agent: deviceInfo.userAgent,
-        device_fingerprint: deviceInfo.fingerprint,
-        success,
-        failure_reason: failureReason,
-      })
-  }
-
-  /**
-   * Clean up expired sessions
-   */
-  static async cleanupExpiredSessions(): Promise<number> {
-    const result = await db
-      .update(user_sessions)
-      .set({
-        is_active: false,
-        ended_at: new Date(),
-        end_reason: 'timeout'
-      })
-      .where(
-        and(
-          eq(user_sessions.is_active, true),
-          lte(user_sessions.last_activity, new Date(Date.now() - 24 * 60 * 60 * 1000)) // 24 hours ago
-        )
-      )
-
-    logger.info('Session cleanup completed', {
-      expiredSessions: result.length,
-      operation: 'cleanupExpiredSessions'
+  const stats = await db
+    .select({
+      totalSessions: count(user_sessions.session_id),
+      activeSessions: sql<number>`count(case when ${user_sessions.is_active} = true then 1 end)`,
+      uniqueUsers: sql<number>`count(distinct ${user_sessions.user_id})`,
+      uniqueDevices: sql<number>`count(distinct ${user_sessions.device_fingerprint})`
     })
-    return result.length
-  }
+    .from(user_sessions)
+    .where(gte(user_sessions.created_at, startDate))
 
-  /**
-   * Get session analytics
-   */
-  static async getSessionAnalytics(timeframe: 'day' | 'week' | 'month' = 'week') {
-    const startDate = new Date()
-    switch (timeframe) {
-      case 'day':
-        startDate.setDate(startDate.getDate() - 1)
-        break
-      case 'week':
-        startDate.setDate(startDate.getDate() - 7)
-        break
-      case 'month':
-        startDate.setMonth(startDate.getMonth() - 1)
-        break
-    }
+  return stats[0]
+}
 
-    const [stats] = await db
-      .select({
-        totalSessions: count(),
-        activeSessions: sql<number>`count(case when is_active = true then 1 end)`,
-        uniqueUsers: sql<number>`count(distinct user_id)`,
-        uniqueDevices: sql<number>`count(distinct device_fingerprint)`
-      })
-      .from(user_sessions)
-      .where(gte(user_sessions.created_at, startDate))
-
-    return stats
-  }
+// Export for backward compatibility
+export const SessionManager = {
+  createSession,
+  validateSession,
+  revokeSession,
+  revokeAllUserSessions,
+  getUserSessions,
+  cleanupExpiredSessions,
+  getSessionAnalytics
 }

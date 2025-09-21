@@ -11,7 +11,7 @@ export interface BulkOperation {
   id: string;
   type: 'update' | 'delete' | 'export' | 'organize' | 'clone';
   chartIds: string[];
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   status: 'pending' | 'running' | 'completed' | 'failed';
   progress: number; // 0-100
   startedAt: Date;
@@ -24,17 +24,17 @@ export interface BulkOperationResult {
   chartId: string;
   success: boolean;
   error?: string;
-  data?: any;
+  data?: unknown;
 }
 
-export interface BulkUpdateParams {
+export interface BulkUpdateParams extends Record<string, unknown> {
   updates: Partial<ChartDefinition>;
   filters?: ChartFilter[];
   categoryId?: number;
   isActive?: boolean;
 }
 
-export interface BulkOrganizeParams {
+export interface BulkOrganizeParams extends Record<string, unknown> {
   categoryId: number;
   tags?: string[];
   newOwner?: string;
@@ -410,7 +410,7 @@ export class BulkChartOperationsService {
         if (!chartId) continue;
         
         try {
-          const updateData: any = {};
+          const updateData: Partial<ChartDefinition> = {};
           if (organizeParams.categoryId) updateData.chart_category_id = organizeParams.categoryId;
           if (organizeParams.newOwner) updateData.created_by = organizeParams.newOwner;
 

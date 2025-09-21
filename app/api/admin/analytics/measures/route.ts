@@ -118,7 +118,7 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
       return createErrorResponse('Invalid end_date format', 400);
     }
 
-    logger.debug('Analytics query parameters parsed', queryParams);
+    logger.debug('Analytics query parameters parsed', queryParams as Record<string, unknown>);
 
     // Build chart render context from user context
     // TODO: This should be enhanced with actual user permissions

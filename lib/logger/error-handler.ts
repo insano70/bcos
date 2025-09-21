@@ -12,13 +12,13 @@ const errorLogger = createAppLogger('error')
  * Enhanced error class with context
  */
 export class ContextualError extends Error {
-  public readonly context: Record<string, any>
+  public readonly context: Record<string, unknown>
   public readonly statusCode: number
   public readonly isOperational: boolean
 
   constructor(
     message: string,
-    context: Record<string, any> = {},
+    context: Record<string, unknown> = {},
     statusCode: number = 500,
     isOperational: boolean = true
   ) {
@@ -37,7 +37,7 @@ export class ContextualError extends Error {
  * Application-specific error types
  */
 export class ValidationError extends ContextualError {
-  constructor(message: string, field?: string, value?: any) {
+  constructor(message: string, field?: string, value?: unknown) {
     super(message, { field, value }, 400)
   }
 }
@@ -61,7 +61,7 @@ export class NotFoundError extends ContextualError {
 }
 
 export class ConflictError extends ContextualError {
-  constructor(message: string, conflictingValue?: any) {
+  constructor(message: string, conflictingValue?: unknown) {
     super(message, { conflictingValue }, 409)
   }
 }
@@ -84,11 +84,11 @@ export class DatabaseError extends ContextualError {
 export function handleError(
   error: Error | ContextualError,
   request?: NextRequest,
-  additionalContext?: Record<string, any>
+  additionalContext?: Record<string, unknown>
 ): {
   message: string
   statusCode: number
-  context: Record<string, any>
+  context: Record<string, unknown>
   shouldLog: boolean
 } {
   const baseContext = {
@@ -143,7 +143,7 @@ export function handleError(
  * Express-style error handler middleware
  */
 export function createErrorHandler(request: NextRequest) {
-  return (error: Error | ContextualError, additionalContext?: Record<string, any>) => {
+  return (error: Error | ContextualError, additionalContext?: Record<string, unknown>) => {
     const logger = createAppLogger('error', {
       requestId: Math.random().toString(36).substr(2, 9),
       method: request.method,
@@ -174,11 +174,11 @@ export function createErrorHandler(request: NextRequest) {
 /**
  * Async operation error wrapper
  */
-export function withErrorHandling<T extends (...args: any[]) => Promise<any>>(
+export function withErrorHandling<T extends (...args: unknown[]) => Promise<unknown>>(
   operation: string,
   fn: T
 ): T {
-  return (async (...args: any[]) => {
+  return (async (...args: unknown[]) => {
     try {
       return await fn(...args)
     } catch (error) {
@@ -196,12 +196,12 @@ export function withErrorHandling<T extends (...args: any[]) => Promise<any>>(
 /**
  * Database operation error wrapper
  */
-export function withDBErrorHandling<T extends (...args: any[]) => Promise<any>>(
+export function withDBErrorHandling<T extends (...args: unknown[]) => Promise<unknown>>(
   operation: string,
   table: string,
   fn: T
 ): T {
-  return (async (...args: any[]) => {
+  return (async (...args: unknown[]) => {
     try {
       return await fn(...args)
     } catch (error) {
@@ -217,7 +217,7 @@ export function withDBErrorHandling<T extends (...args: any[]) => Promise<any>>(
 /**
  * Validation error helper
  */
-export function createValidationError(field: string, value: any, message: string): ValidationError {
+export function createValidationError(field: string, value: unknown, message: string): ValidationError {
   return new ValidationError(`Validation failed for ${field}: ${message}`, field, value)
 }
 

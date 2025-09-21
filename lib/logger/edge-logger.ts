@@ -4,22 +4,22 @@
  */
 
 export interface EdgeLogger {
-  info: (message: string, meta?: any) => void;
-  warn: (message: string, meta?: any) => void;
-  error: (message: string, error?: any, meta?: any) => void;
-  debug: (message: string, meta?: any) => void;
+  info: (message: string, meta?: unknown) => void;
+  warn: (message: string, meta?: unknown) => void;
+  error: (message: string, error?: unknown, meta?: unknown) => void;
+  debug: (message: string, meta?: unknown) => void;
 }
 
 /**
  * Format log entry for edge runtime
  */
-function formatLog(level: string, message: string, meta?: any): string {
+function formatLog(level: string, message: string, meta?: unknown): string {
   const timestamp = new Date().toISOString();
   const logEntry = {
     timestamp,
     level,
     message,
-    ...meta
+    ...(meta && typeof meta === 'object' && !Array.isArray(meta) ? meta as Record<string, unknown> : {})
   };
   return JSON.stringify(logEntry);
 }
@@ -27,28 +27,32 @@ function formatLog(level: string, message: string, meta?: any): string {
 /**
  * Create an edge-compatible logger
  */
-export function createEdgeLogger(context?: any): EdgeLogger {
-  const contextMeta = context || {};
+export function createEdgeLogger(context?: unknown): EdgeLogger {
+  const contextMeta = (context && typeof context === 'object' && !Array.isArray(context)) ? context as Record<string, unknown> : {};
 
   return {
-    info: (message: string, meta?: any) => {
-      console.log(formatLog('info', message, { ...contextMeta, ...meta }));
+    info: (message: string, meta?: unknown) => {
+      const safeMeta = (meta && typeof meta === 'object' && !Array.isArray(meta)) ? meta as Record<string, unknown> : {};
+      console.log(formatLog('info', message, { ...contextMeta, ...safeMeta }));
     },
-    warn: (message: string, meta?: any) => {
-      console.warn(formatLog('warn', message, { ...contextMeta, ...meta }));
+    warn: (message: string, meta?: unknown) => {
+      const safeMeta = (meta && typeof meta === 'object' && !Array.isArray(meta)) ? meta as Record<string, unknown> : {};
+      console.warn(formatLog('warn', message, { ...contextMeta, ...safeMeta }));
     },
-    error: (message: string, error?: any, meta?: any) => {
+    error: (message: string, error?: unknown, meta?: unknown) => {
       const errorMeta = error instanceof Error 
         ? { 
             error: error.message, 
             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
           }
         : { error };
-      console.error(formatLog('error', message, { ...contextMeta, ...errorMeta, ...meta }));
+      const safeMeta = (meta && typeof meta === 'object' && !Array.isArray(meta)) ? meta as Record<string, unknown> : {};
+      console.error(formatLog('error', message, { ...contextMeta, ...errorMeta, ...safeMeta }));
     },
-    debug: (message: string, meta?: any) => {
+    debug: (message: string, meta?: unknown) => {
       if (process.env.NODE_ENV === 'development') {
-        console.log(formatLog('debug', message, { ...contextMeta, ...meta }));
+        const safeMeta = (meta && typeof meta === 'object' && !Array.isArray(meta)) ? meta as Record<string, unknown> : {};
+        console.log(formatLog('debug', message, { ...contextMeta, ...safeMeta }));
       }
     }
   };
@@ -61,13 +65,14 @@ export function logEdgeSecurityEvent(
   logger: EdgeLogger,
   event: string,
   severity: 'low' | 'medium' | 'high' | 'critical',
-  details?: any
+  details?: unknown
 ): void {
+  const safeDetails = (details && typeof details === 'object' && !Array.isArray(details)) ? details as Record<string, unknown> : {};
   logger.warn(`Security Event: ${event}`, {
     security: true,
     event,
     severity,
-    ...details
+    ...safeDetails
   });
 }
 
@@ -78,13 +83,14 @@ export function logEdgePerformanceMetric(
   logger: EdgeLogger,
   metric: string,
   duration: number,
-  details?: any
+  details?: unknown
 ): void {
+  const safeDetails = (details && typeof details === 'object' && !Array.isArray(details)) ? details as Record<string, unknown> : {};
   logger.info(`Performance: ${metric}`, {
     performance: true,
     metric,
     duration,
-    ...details
+    ...safeDetails
   });
 }
 

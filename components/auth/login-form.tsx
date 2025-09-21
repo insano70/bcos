@@ -51,6 +51,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
       }
 
       await login(data.email, data.password, data.remember)
+      
       // Login successful, redirecting (client-side debug)
       if (process.env.NODE_ENV === 'development') {
         console.log('Login completed, redirecting to:', callbackUrl)
@@ -58,8 +59,11 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
       
       onSuccess?.()
       
-      // Use window.location for hard redirect to ensure middleware sees the cookie
-      window.location.href = callbackUrl
+      // Small delay to ensure auth state is synchronized before redirect
+      setTimeout(() => {
+        // Use window.location for hard redirect to ensure middleware sees the cookie
+        window.location.href = callbackUrl
+      }, 200) // 200ms delay for state synchronization
       
     } catch (error) {
       // Log client-side login errors for debugging

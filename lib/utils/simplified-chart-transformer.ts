@@ -58,13 +58,13 @@ export class SimplifiedChartTransformer {
     
     if (groupBy === 'none') {
       // Single series - use MM-DD-YYYY format for LineChart01
-      const sortedMeasures = measures.sort((a, b) => 
-        new Date(a.date_index + 'T00:00:00').getTime() - new Date(b.date_index + 'T00:00:00').getTime()
+      const sortedMeasures = measures.sort((a, b) =>
+        new Date(`${a.date_index}T00:00:00`).getTime() - new Date(`${b.date_index}T00:00:00`).getTime()
       );
 
       // Handle dates based on frequency
       const dateObjects = sortedMeasures.map(m => {
-        const date = new Date(m.date_index + 'T12:00:00Z');
+        const date = new Date(`${m.date_index}T12:00:00Z`);
         
         // Only convert to month-start for Monthly/Quarterly data
         // Keep actual dates for Weekly data  
@@ -113,13 +113,13 @@ export class SimplifiedChartTransformer {
     
     if (groupBy === 'none') {
       // Single series - use date_index as actual dates for Chart.js time axis
-      const sortedMeasures = measures.sort((a, b) => 
-        new Date(a.date_index + 'T00:00:00').getTime() - new Date(b.date_index + 'T00:00:00').getTime()
+      const sortedMeasures = measures.sort((a, b) =>
+        new Date(`${a.date_index}T00:00:00`).getTime() - new Date(`${b.date_index}T00:00:00`).getTime()
       );
 
       return {
         labels: sortedMeasures.map(m => {
-          const date = new Date(m.date_index + 'T12:00:00Z');
+          const date = new Date(`${m.date_index}T12:00:00Z`);
           const month = String(date.getUTCMonth() + 1).padStart(2, '0');
           const day = String(date.getUTCDate()).padStart(2, '0');
           const year = date.getUTCFullYear();
@@ -158,14 +158,14 @@ export class SimplifiedChartTransformer {
     measures.forEach(measure => {
       const groupKey = this.getGroupValue(measure, groupBy);
       const dateKey = measure.date_index; // Use date_index for proper sorting
-      
+
       allDates.add(dateKey);
-      
-      if (!groupedData.has(groupKey)) {
-        groupedData.set(groupKey, new Map());
+
+      let dateMap = groupedData.get(groupKey);
+      if (!dateMap) {
+        dateMap = new Map();
+        groupedData.set(groupKey, dateMap);
       }
-      
-      const dateMap = groupedData.get(groupKey)!;
       // Convert string values to numbers
       const measureValue = typeof measure.measure_value === 'string' 
         ? parseFloat(measure.measure_value) 
@@ -421,11 +421,11 @@ export class SimplifiedChartTransformer {
       groupBy,
       aggregations,
       sampleMeasure: measures[0],
-      hasSeriesLabels: measures.some(m => (m as any).series_label)
+      hasSeriesLabels: measures.some(m => m.series_label)
     });
 
     // Check if we have series-tagged data (from multiple series query)
-    const hasSeriesLabels = measures.some(m => (m as any).series_label);
+    const hasSeriesLabels = measures.some(m => m.series_label);
     
     if (hasSeriesLabels) {
       return this.createMultiSeriesFromTaggedData(measures, aggregations);
@@ -515,7 +515,7 @@ export class SimplifiedChartTransformer {
    * Create multi-series chart from tagged data (optimized for multiple measures)
    */
   createMultiSeriesFromTaggedData(
-    measures: any[], // Tagged measures with series_label, etc.
+    measures: AggAppMeasure[], // Tagged measures with series_label, etc.
     aggregations: Record<string, 'sum' | 'avg' | 'count' | 'min' | 'max'> = {}
   ): ChartData {
     console.log('🔍 CREATING MULTI-SERIES FROM TAGGED DATA:', {

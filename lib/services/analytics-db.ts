@@ -1,5 +1,8 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
+
+// Type alias for postgres.js raw parameters (external library requirement)
+type PostgresRawParams = Parameters<postgres.Sql['unsafe']>[1];
 import { getAnalyticsDatabaseConfig } from '@/lib/env';
 import { logger } from '@/lib/logger';
 
@@ -90,9 +93,9 @@ export const checkAnalyticsDbHealth = async (): Promise<{
  * Execute a raw SQL query against the analytics database
  * Use with caution - prefer typed queries when possible
  */
-export const executeAnalyticsQuery = async <T = any>(
+export const executeAnalyticsQuery = async <T = Record<string, unknown>>(
   query: string,
-  params: any[] = []
+  params: unknown[] = []
 ): Promise<T[]> => {
   // Use logger directly
   
@@ -110,7 +113,7 @@ export const executeAnalyticsQuery = async <T = any>(
 
     const startTime = Date.now();
     // Use postgres template literal syntax
-    const result = await analyticsConnection!.unsafe(query, params);
+    const result = await analyticsConnection!.unsafe(query, params as PostgresRawParams);
     const duration = Date.now() - startTime;
 
     console.log('✅ QUERY RESULT:', { 

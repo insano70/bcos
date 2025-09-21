@@ -33,14 +33,14 @@ export interface ColumnConfig {
   sortOrder: number;
   defaultAggregation?: string;
   exampleValue?: string;
-  allowedValues?: any[];
+  allowedValues?: unknown[];
 }
 
 export interface ChartDisplayConfig {
   chartType: string;
   frequency?: string;
-  xAxisConfig?: any;
-  yAxisConfig?: any;
+  xAxisConfig?: unknown;
+  yAxisConfig?: unknown;
   defaultWidth: number;
   defaultHeight: number;
   timeUnit?: string;
@@ -361,7 +361,7 @@ export class ChartConfigService {
         ORDER BY measure
       `, []);
       
-      return measures.map((row: any) => row.measure).filter(Boolean);
+      return measures.map((row) => (row as { measure: string }).measure).filter(Boolean);
     } catch (error) {
       console.warn('Failed to load measures from database, using fallback:', error);
       return ['Charges by Provider', 'Payments by Provider'];
@@ -381,7 +381,7 @@ export class ChartConfigService {
         ORDER BY frequency
       `, []);
       
-      return frequencies.map((row: any) => row.frequency).filter(Boolean);
+      return frequencies.map((row) => (row as { frequency: string }).frequency).filter(Boolean);
     } catch (error) {
       console.warn('Failed to load frequencies from database, using fallback:', error);
       return ['Monthly', 'Weekly', 'Quarterly'];

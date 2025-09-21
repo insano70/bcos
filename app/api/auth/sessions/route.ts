@@ -5,7 +5,6 @@ import { eq, and, desc, sql } from 'drizzle-orm'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse, ValidationError } from '@/lib/api/responses/error'
 import { TokenManager } from '@/lib/auth/token-manager'
-import { CSRFProtection } from '@/lib/security/csrf'
 import { rbacRoute } from '@/lib/api/rbac-route-handler'
 import { validateRequest } from '@/lib/api/middleware/validation'
 import type { UserContext } from '@/lib/types/rbac'
@@ -144,20 +143,6 @@ const revokeSessionHandler = async (request: NextRequest, userContext: UserConte
   })
 
   try {
-    // CSRF PROTECTION: Verify CSRF token for session revocation
-    const csrfStartTime = Date.now()
-    const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
-    logPerformanceMetric(logger, 'csrf_validation', Date.now() - csrfStartTime)
-    
-    if (!isValidCSRF) {
-      logSecurityEvent(logger, 'csrf_validation_failed', 'high', {
-        endpoint: '/api/auth/sessions',
-        action: 'revoke_session',
-        userId: userContext.user_id
-      })
-      return createErrorResponse('CSRF token validation failed', 403, request)
-    }
-
     // Validate request body
     const validationStartTime = Date.now()
     const validatedData = await validateRequest(request, revokeSessionSchema)
