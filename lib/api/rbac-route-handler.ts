@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { applyRateLimit } from './middleware/rate-limit';
 import { applyGlobalAuth, markAsPublicRoute } from './middleware/global-auth';
+import type { AuthResult } from './middleware/global-auth';
 import { createErrorResponse } from './responses/error';
 import { getUserContextSafe } from '@/lib/rbac/user-context';
 import { createRBACMiddleware, } from '@/lib/rbac/middleware';
@@ -378,7 +379,7 @@ export function migrateToRBAC(
       })
       
       // Create a session-like object for backward compatibility
-      const legacySession = {
+      const legacySession: AuthResult = {
         user: {
           id: userContext.user_id,
           email: userContext.email,
@@ -386,8 +387,15 @@ export function migrateToRBAC(
           firstName: userContext.first_name,
           lastName: userContext.last_name,
           role: userContext.is_super_admin ? 'super_admin' : 'user',
-          emailVerified: userContext.email_verified
-        }
+          emailVerified: userContext.email_verified,
+          practiceId: undefined,
+          roles: [],
+          permissions: [],
+          isSuperAdmin: userContext.is_super_admin,
+          organizationAdminFor: []
+        },
+        accessToken: '', // Legacy handlers don't need real tokens
+        sessionId: `legacy-${userContext.user_id}`
       }
 
       const handlerStart = Date.now()
@@ -478,7 +486,7 @@ export function webhookRoute(
       })
       
       // 4. Parse the body
-      let parsedBody: any
+      let parsedBody: unknown
       try {
         parsedBody = JSON.parse(rawBody)
       } catch (parseError) {

@@ -58,13 +58,13 @@ export class SimplifiedChartTransformer {
     
     if (groupBy === 'none') {
       // Single series - use MM-DD-YYYY format for LineChart01
-      const sortedMeasures = measures.sort((a, b) => 
-        new Date(a.date_index + 'T00:00:00').getTime() - new Date(b.date_index + 'T00:00:00').getTime()
+      const sortedMeasures = measures.sort((a, b) =>
+        new Date(`${a.date_index}T00:00:00`).getTime() - new Date(`${b.date_index}T00:00:00`).getTime()
       );
 
       // Handle dates based on frequency
       const dateObjects = sortedMeasures.map(m => {
-        const date = new Date(m.date_index + 'T12:00:00Z');
+        const date = new Date(`${m.date_index}T12:00:00Z`);
         
         // Only convert to month-start for Monthly/Quarterly data
         // Keep actual dates for Weekly data  
@@ -113,13 +113,13 @@ export class SimplifiedChartTransformer {
     
     if (groupBy === 'none') {
       // Single series - use date_index as actual dates for Chart.js time axis
-      const sortedMeasures = measures.sort((a, b) => 
-        new Date(a.date_index + 'T00:00:00').getTime() - new Date(b.date_index + 'T00:00:00').getTime()
+      const sortedMeasures = measures.sort((a, b) =>
+        new Date(`${a.date_index}T00:00:00`).getTime() - new Date(`${b.date_index}T00:00:00`).getTime()
       );
 
       return {
         labels: sortedMeasures.map(m => {
-          const date = new Date(m.date_index + 'T12:00:00Z');
+          const date = new Date(`${m.date_index}T12:00:00Z`);
           const month = String(date.getUTCMonth() + 1).padStart(2, '0');
           const day = String(date.getUTCDate()).padStart(2, '0');
           const year = date.getUTCFullYear();
@@ -276,7 +276,7 @@ export class SimplifiedChartTransformer {
     });
 
     // Choose label format based on chart type
-    let finalLabels: Date[];
+    let finalLabels: (string | Date)[];
     if (isTimeSeries) {
       // For line charts, handle dates based on frequency
       finalLabels = datesWithData.map(dateStr => {
@@ -298,7 +298,7 @@ export class SimplifiedChartTransformer {
         sampleConversion: {
           original: datesWithData[0],
           dateObject: finalLabels[0],
-          isoString: finalLabels[0]?.toISOString()
+          isoString: finalLabels[0] instanceof Date ? finalLabels[0].toISOString() : finalLabels[0]
         }
       });
     } else {
@@ -421,11 +421,11 @@ export class SimplifiedChartTransformer {
       groupBy,
       aggregations,
       sampleMeasure: measures[0],
-      hasSeriesLabels: measures.some(m => (m as any).series_label)
+      hasSeriesLabels: measures.some(m => m.series_label)
     });
 
     // Check if we have series-tagged data (from multiple series query)
-    const hasSeriesLabels = measures.some(m => (m as any).series_label);
+    const hasSeriesLabels = measures.some(m => m.series_label);
     
     if (hasSeriesLabels) {
       return this.createMultiSeriesFromTaggedData(measures, aggregations);

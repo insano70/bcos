@@ -136,13 +136,15 @@ export async function sendEmail(options: EmailOptions): Promise<void> {
     const resend = getResend()
     const fromEmail = process.env.EMAIL_FROM || 'noreply@yourdomain.com'
 
+    // Create email data with all required Resend API properties
     const emailData = {
       from: fromEmail,
       to: Array.isArray(options.to) ? options.to : [options.to],
       subject: options.subject,
       html: options.html || '',
       text: options.text || '',
-      attachments: options.attachments
+      attachments: options.attachments || [],
+      react: undefined as undefined // Resend API requires this property but we don't use it
     };
 
     const result = await resend.emails.send(emailData)

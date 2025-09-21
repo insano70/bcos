@@ -59,7 +59,7 @@ async function _checkRefreshTokenCookie(): Promise<boolean> {
 /**
  * Auth result returned by authentication middleware
  */
-interface AuthResult {
+export interface AuthResult {
   user: {
     id: string;
     email: string;
