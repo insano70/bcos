@@ -66,9 +66,9 @@ interface AuthResult {
     name: string;
     firstName: string;
     lastName: string;
-    role: string;
-    emailVerified: boolean;
-    practiceId: string | null;
+    role: string | undefined;
+    emailVerified: boolean | null;
+    practiceId: string | undefined;
     roles: string[];
     permissions: string[];
     isSuperAdmin: boolean;

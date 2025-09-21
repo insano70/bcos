@@ -422,6 +422,7 @@ export class RBACUsersService extends BaseRBACService {
         first_name: string;
         last_name: string;
         email: string;
+        password?: string;
         password_hash: string;
         role_ids?: string[];
         email_verified: boolean;

@@ -11,9 +11,9 @@ interface AuthResult {
     name: string;
     firstName: string;
     lastName: string;
-    role: string;
-    emailVerified: boolean;
-    practiceId: string | null;
+    role: string | undefined;
+    emailVerified: boolean | null;
+    practiceId: string | undefined;
     roles: string[];
     permissions: string[];
     isSuperAdmin: boolean;
@@ -92,7 +92,7 @@ export function adminRoute(
   handler: (request: NextRequest, session: AuthResult, ...args: unknown[]) => Promise<Response>,
   options: Omit<RouteOptions, 'requireAuth'> = {}
 ) {
-  return secureRoute(async (request: NextRequest, session: AuthResult | null, ...args: unknown[]) => {
+  return secureRoute(async (request: NextRequest, session: AuthResult | null | undefined, ...args: unknown[]) => {
     // Additional admin check
     if (!session || session.user.role !== 'admin') {
       return createErrorResponse('Admin access required', 403, request)

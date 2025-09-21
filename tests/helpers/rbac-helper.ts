@@ -338,7 +338,7 @@ export async function testUserPermission(
 ): Promise<{ granted: boolean; scope?: string; reason?: string | undefined }> {
   const userContext = await buildUserContext(user)
   const testDb = getCurrentTransaction() // Use the test transaction for database queries
-  const serverService = new ServerPermissionService(userContext, testDb)
+  const serverService = new ServerPermissionService(userContext, testDb as any)
   const result = await serverService.checkPermission(permission, resourceId, organizationId)
 
   return {

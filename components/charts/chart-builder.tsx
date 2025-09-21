@@ -294,7 +294,7 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
       console.log(`💾 ${isEditMode ? 'Updating' : 'Creating'} chart definition:`, chartDefinition);
 
       const url = isEditMode 
-        ? `/api/admin/analytics/charts/${editingChart.chart_definition_id}`
+        ? `/api/admin/analytics/charts/${editingChart?.chart_definition_id}`
         : '/api/admin/analytics/charts';
       
       const method = isEditMode ? 'PATCH' : 'POST';

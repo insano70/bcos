@@ -1,4 +1,4 @@
-import type { ChartDefinition, ChartFilter, ChartDataSourceConfig } from '@/lib/types/analytics';
+import type { ChartDefinition, ChartFilter, ChartDataSourceConfig, ChartConfig } from '@/lib/types/analytics';
 import { logger } from '@/lib/logger';
 import { chartConfigService } from './chart-config-service';
 

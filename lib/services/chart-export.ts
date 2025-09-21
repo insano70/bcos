@@ -109,7 +109,15 @@ export class ChartExportService {
       }
 
       // Generate CSV content
-      const headers = Object.keys(dataToExport[0]);
+      if (dataToExport.length === 0) {
+        return {
+          success: false,
+          filename: filename || 'chart_data.csv',
+          mimeType: 'text/csv',
+          error: 'No data to export'
+        };
+      }
+      const headers = Object.keys(dataToExport[0] as Record<string, unknown>);
       const csvContent = [
         headers.join(','),
         ...dataToExport.map(row => 

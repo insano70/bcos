@@ -216,7 +216,8 @@ export class AnalyticsQueryBuilder {
         paramIndex++;
       } else if (filter.operator === 'between') {
         conditions.push(`${filter.field} ${sqlOperator} $${paramIndex} AND $${paramIndex + 1}`);
-        params.push(sanitizedValue[0], sanitizedValue[1]);
+        const sanitizedArray = sanitizedValue as unknown[];
+        params.push(sanitizedArray[0], sanitizedArray[1]);
         paramIndex += 2;
       } else {
         conditions.push(`${filter.field} ${sqlOperator} $${paramIndex}`);

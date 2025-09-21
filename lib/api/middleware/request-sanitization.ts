@@ -99,8 +99,9 @@ function deepSanitize(obj: unknown, path: string = 'root', errors: string[] = []
 
   // Handle objects
   const sanitized: Record<string, unknown> = {}
-  
-  for (const key in obj) {
+  const objRecord = obj as Record<string, unknown>
+
+  for (const key in objRecord) {
     // Skip dangerous keys
     if (DANGEROUS_KEYS.includes(key)) {
       errors.push(`Dangerous key '${key}' detected at ${path}`)
@@ -114,7 +115,7 @@ function deepSanitize(obj: unknown, path: string = 'root', errors: string[] = []
     }
 
     // Recursively sanitize the value
-    sanitized[key] = deepSanitize(obj[key], `${path}.${key}`, errors)
+    sanitized[key] = deepSanitize(objRecord[key], `${path}.${key}`, errors)
   }
 
   return sanitized
@@ -186,8 +187,9 @@ function validateDepth(obj: unknown, maxDepth: number = 10, currentDepth: number
     return true
   }
 
-  for (const key in obj) {
-    if (!validateDepth(obj[key], maxDepth, currentDepth + 1)) {
+  const objRecord = obj as Record<string, unknown>
+  for (const key in objRecord) {
+    if (!validateDepth(objRecord[key], maxDepth, currentDepth + 1)) {
       return false
     }
   }
@@ -217,6 +219,7 @@ function validateArraySizes(obj: unknown, maxSize: number = 1000): boolean {
  * Main sanitization function for request bodies
  */
 export async function sanitizeRequestBody(body: unknown, logger: unknown): Promise<SanitizationResult> {
+  const edgeLogger = logger as any; // Cast to any since EdgeLogger interface expects specific types
   const startTime = Date.now()
   const errors: string[] = []
 
@@ -229,7 +232,7 @@ export async function sanitizeRequestBody(body: unknown, logger: unknown): Promi
     // Validate JSON depth
     if (!validateDepth(body)) {
       errors.push('JSON structure too deep (max 10 levels)')
-      logEdgeSecurityEvent(logger, 'json_depth_exceeded', 'medium', {
+      logEdgeSecurityEvent(edgeLogger, 'json_depth_exceeded', 'medium', {
         action: 'request_sanitization'
       })
       return { isValid: false, errors }
@@ -238,7 +241,7 @@ export async function sanitizeRequestBody(body: unknown, logger: unknown): Promi
     // Validate array sizes
     if (!validateArraySizes(body)) {
       errors.push('Array too large (max 1000 items)')
-      logEdgeSecurityEvent(logger, 'array_size_exceeded', 'medium', {
+      logEdgeSecurityEvent(edgeLogger, 'array_size_exceeded', 'medium', {
         action: 'request_sanitization'
       })
       return { isValid: false, errors }
@@ -249,13 +252,13 @@ export async function sanitizeRequestBody(body: unknown, logger: unknown): Promi
 
     // Log if any sanitization was performed
     if (errors.length > 0) {
-      logEdgeSecurityEvent(logger, 'request_sanitization_triggered', 'high', {
+      logEdgeSecurityEvent(edgeLogger, 'request_sanitization_triggered', 'high', {
         errorCount: errors.length,
         errors: errors.slice(0, 5) // Log first 5 errors
       })
     }
 
-    logEdgePerformanceMetric(logger, 'request_sanitization', Date.now() - startTime, {
+    logEdgePerformanceMetric(edgeLogger, 'request_sanitization', Date.now() - startTime, {
       hasErrors: errors.length > 0
     })
 
@@ -266,8 +269,8 @@ export async function sanitizeRequestBody(body: unknown, logger: unknown): Promi
     }
 
   } catch (error) {
-    logger.error('Request sanitization error', error)
-    logEdgeSecurityEvent(logger, 'request_sanitization_error', 'high', {
+    edgeLogger.error('Request sanitization error', error)
+    logEdgeSecurityEvent(edgeLogger, 'request_sanitization_error', 'high', {
       error: error instanceof Error ? error.message : 'Unknown error'
     })
     
@@ -290,7 +293,8 @@ export function withRequestSanitization<T extends (request: NextRequest, ...args
 ): T {
   return (async (request: NextRequest, ...args: unknown[]) => {
     const logger = createEdgeAPILogger(request)
-    
+    const edgeLogger = logger as any; // Cast to any for EdgeLogger compatibility
+
     // Only sanitize for methods that typically have bodies
     if (!['POST', 'PUT', 'PATCH'].includes(request.method)) {
       return handler(request, ...args)
@@ -302,7 +306,7 @@ export function withRequestSanitization<T extends (request: NextRequest, ...args
 
       // Check empty body
       if (!body && !options.allowEmptyBody) {
-        logger.warn('Empty request body received')
+        edgeLogger.warn('Empty request body received')
         return new Response(
           JSON.stringify({ error: 'Request body is required' }),
           { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -310,10 +314,10 @@ export function withRequestSanitization<T extends (request: NextRequest, ...args
       }
 
       // Sanitize the body
-      const result = await sanitizeRequestBody(body, logger)
+      const result = await sanitizeRequestBody(body, edgeLogger)
 
       if (!result.isValid) {
-        logger.warn('Request sanitization failed', {
+        edgeLogger.warn('Request sanitization failed', {
           errors: result.errors
         })
         return new Response(
@@ -330,7 +334,7 @@ export function withRequestSanitization<T extends (request: NextRequest, ...args
         for (const validator of options.customValidators) {
           const error = validator(result.sanitized)
           if (error) {
-            logger.warn('Custom validation failed', { error })
+            edgeLogger.warn('Custom validation failed', { error })
             return new Response(
               JSON.stringify({ error }),
               { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -348,7 +352,7 @@ export function withRequestSanitization<T extends (request: NextRequest, ...args
       return handler(sanitizedRequest as NextRequest, ...args)
 
     } catch (error) {
-      logger.error('Request sanitization middleware error', error)
+      edgeLogger.error('Request sanitization middleware error', error)
       return new Response(
         JSON.stringify({ error: 'Internal server error' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }

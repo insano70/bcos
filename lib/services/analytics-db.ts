@@ -110,7 +110,7 @@ export const executeAnalyticsQuery = async <T = Record<string, unknown>>(
 
     const startTime = Date.now();
     // Use postgres template literal syntax
-    const result = await analyticsConnection!.unsafe(query, params);
+    const result = await analyticsConnection!.unsafe(query, params as any[]);
     const duration = Date.now() - startTime;
 
     console.log('✅ QUERY RESULT:', { 

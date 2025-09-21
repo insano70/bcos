@@ -361,7 +361,7 @@ export class ChartConfigService {
         ORDER BY measure
       `, []);
       
-      return measures.map((row: { measure: string }) => row.measure).filter(Boolean);
+      return measures.map((row) => (row as { measure: string }).measure).filter(Boolean);
     } catch (error) {
       console.warn('Failed to load measures from database, using fallback:', error);
       return ['Charges by Provider', 'Payments by Provider'];
@@ -381,7 +381,7 @@ export class ChartConfigService {
         ORDER BY frequency
       `, []);
       
-      return frequencies.map((row: { frequency: string }) => row.frequency).filter(Boolean);
+      return frequencies.map((row) => (row as { frequency: string }).frequency).filter(Boolean);
     } catch (error) {
       console.warn('Failed to load frequencies from database, using fallback:', error);
       return ['Monthly', 'Weekly', 'Quarterly'];

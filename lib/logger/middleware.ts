@@ -70,7 +70,7 @@ export function withRBACLogging<T extends unknown[]>(
 ) {
   return async (request: NextRequest, userContext: AuthResult, ...args: T): Promise<NextResponse> => {
     const startTime = Date.now()
-    const logger = createAPILogger(request).withUser(userContext.user.id, userContext.user.practiceId)
+    const logger = createAPILogger(request).withUser(userContext.user.id, userContext.user.practiceId || undefined)
     
     // Log incoming request with user context
     logger.info('RBAC API Request Started', {
