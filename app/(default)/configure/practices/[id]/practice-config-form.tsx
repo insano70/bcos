@@ -173,7 +173,7 @@ export default function PracticeConfigForm({
     setIsSubmitting(true);
     
     // Track practice changes for later use
-    const practiceChanges: any = {};
+    const practiceChanges: Partial<Practice> = {};
     if (data.name !== practice?.name) {
       practiceChanges.name = data.name;
     }

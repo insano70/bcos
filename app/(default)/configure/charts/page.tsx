@@ -13,6 +13,46 @@ import DeleteChartModal from '@/components/delete-chart-modal';
 import Toast from '@/components/toast';
 import { usePagination } from '@/lib/hooks/use-pagination';
 
+// Type for the raw API response with joined data from Drizzle ORM
+type ChartDefinitionWithJoins = {
+  // chart_definitions fields
+  chart_definition_id: string;
+  chart_name: string;
+  chart_description: string | null;
+  chart_type: string;
+  data_source: unknown;
+  chart_config: unknown;
+  access_control: unknown | null;
+  chart_category_id: number | null;
+  created_by: string;
+  created_at: Date | string;
+  updated_at: Date | string;
+  is_active: boolean;
+
+  // Joined tables
+  chart_categories: {
+    chart_category_id: number;
+    category_name: string;
+    category_description: string | null;
+    parent_category_id: number | null;
+    created_at: Date | string;
+    updated_at: Date | string;
+  } | null;
+
+  users: {
+    user_id: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    password_hash: string;
+    email_verified: boolean;
+    is_active: boolean;
+    created_at: Date | string;
+    updated_at: Date | string;
+    deleted_at: Date | string | null;
+  } | null;
+};
+
 export default function ChartBuilderPage() {
   const router = useRouter();
   const [savedCharts, setSavedCharts] = useState<ChartDefinitionListItem[]>([]);
@@ -82,9 +122,9 @@ export default function ChartBuilderPage() {
       });
       
       // Transform joined API data to flat ChartDefinitionListItem structure
-      const transformedCharts: ChartDefinitionListItem[] = charts.map((item: any, index: number) => {
-        // Handle joined data structure from API (leftJoin returns nested objects)
-        const chartDef = item.chart_definitions || item;
+      const transformedCharts: ChartDefinitionListItem[] = charts.map((item: ChartDefinitionWithJoins, index: number) => {
+        // Handle joined data structure from API (leftJoin returns chart_definitions fields at root level)
+        const chartDef = item; // chart_definitions fields are directly on the item
         const category = item.chart_categories;
         const user = item.users;
         

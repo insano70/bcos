@@ -15,6 +15,46 @@ import Toast from '@/components/toast';
 import type { Dashboard, DashboardChart } from '@/lib/types/analytics';
 import { usePagination } from '@/lib/hooks/use-pagination';
 
+// Type for the raw API response with joined data from Drizzle ORM
+type DashboardWithJoins = {
+  // dashboards fields
+  dashboard_id: string;
+  dashboard_name: string;
+  dashboard_description: string | null;
+  layout_config: unknown;
+  dashboard_category_id: number | null;
+  created_by: string;
+  created_at: Date | string;
+  updated_at: Date | string;
+  is_active: boolean;
+
+  // Joined tables
+  chart_categories: {
+    chart_category_id: number;
+    category_name: string;
+    category_description: string | null;
+    parent_category_id: number | null;
+    created_at: Date | string;
+    updated_at: Date | string;
+  } | null;
+
+  users: {
+    user_id: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    password_hash: string;
+    email_verified: boolean;
+    is_active: boolean;
+    created_at: Date | string;
+    updated_at: Date | string;
+    deleted_at: Date | string | null;
+  } | null;
+
+  // Additional computed field
+  chart_count: number;
+};
+
 export default function DashboardsPage() {
   const router = useRouter();
   const [savedDashboards, setSavedDashboards] = useState<DashboardListItem[]>([]);
@@ -58,11 +98,11 @@ export default function DashboardsPage() {
       });
       
       // Transform joined API data to flat DashboardListItem structure
-      const transformedDashboards: DashboardListItem[] = dashboards.map((item: any, index: number) => {
-        // Handle joined data structure from API (leftJoin returns nested objects)
-        const dashboardDef = (item as any).dashboards || item;
-        const category = (item as any).chart_categories;
-        const user = (item as any).users;
+      const transformedDashboards: DashboardListItem[] = dashboards.map((item: DashboardWithJoins, index: number) => {
+        // Handle joined data structure from API (leftJoin returns dashboards fields at root level)
+        const dashboardDef = item; // dashboards fields are directly on the item
+        const category = item.chart_categories;
+        const user = item.users;
         
         console.log(`🔄 Transforming dashboard ${index}:`, {
           original: item,
@@ -72,18 +112,18 @@ export default function DashboardsPage() {
         });
         
         return {
-          dashboard_id: (dashboardDef as any).dashboard_id || `temp-${index}`,
-          dashboard_name: (dashboardDef as any).dashboard_name || 'Unnamed Dashboard',
-          dashboard_description: (dashboardDef as any).dashboard_description || undefined,
-          dashboard_category_id: (dashboardDef as any).dashboard_category_id || undefined,
-          category_name: (category as any)?.category_name || undefined,
-          chart_count: (item as any).chart_count || 0,
-          created_by: (dashboardDef as any).created_by || 'unknown',
-          creator_name: (user as any)?.first_name || undefined,
-          creator_last_name: (user as any)?.last_name || undefined,
-          created_at: (dashboardDef as any).created_at || new Date().toISOString(),
-          updated_at: (dashboardDef as any).updated_at || new Date().toISOString(),
-          is_active: (dashboardDef as any).is_active ?? true,
+          dashboard_id: dashboardDef.dashboard_id,
+          dashboard_name: dashboardDef.dashboard_name,
+          dashboard_description: dashboardDef.dashboard_description || undefined,
+          dashboard_category_id: dashboardDef.dashboard_category_id || undefined,
+          category_name: category?.category_name || undefined,
+          chart_count: item.chart_count,
+          created_by: dashboardDef.created_by,
+          creator_name: user?.first_name || undefined,
+          creator_last_name: user?.last_name || undefined,
+          created_at: typeof dashboardDef.created_at === 'string' ? dashboardDef.created_at : dashboardDef.created_at.toISOString(),
+          updated_at: typeof dashboardDef.updated_at === 'string' ? dashboardDef.updated_at : dashboardDef.updated_at.toISOString(),
+          is_active: dashboardDef.is_active,
         };
       });
       

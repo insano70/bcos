@@ -6,31 +6,31 @@
 const isDevelopment = process.env.NODE_ENV === 'development';
 
 export const debugLog = {
-  auth: (message: string, data?: any) => {
+  auth: (message: string, data?: unknown) => {
     if (isDevelopment) {
       console.log(`🔐 AUTH: ${message}`, data);
     }
   },
-  
-  middleware: (message: string, data?: any) => {
+
+  middleware: (message: string, data?: unknown) => {
     if (isDevelopment) {
       console.log(`🌐 MIDDLEWARE: ${message}`, data);
     }
   },
-  
-  rbac: (message: string, data?: any) => {
+
+  rbac: (message: string, data?: unknown) => {
     if (isDevelopment) {
       console.log(`🎯 RBAC: ${message}`, data);
     }
   },
-  
-  security: (message: string, data?: any) => {
+
+  security: (message: string, data?: unknown) => {
     if (isDevelopment) {
       console.log(`🛡️ SECURITY: ${message}`, data);
     }
   },
-  
-  session: (message: string, data?: any) => {
+
+  session: (message: string, data?: unknown) => {
     if (isDevelopment) {
       console.log(`🔄 SESSION: ${message}`, data);
     }
@@ -41,7 +41,7 @@ export const debugLog = {
  * Production-safe error logging
  * Always logs errors but sanitizes sensitive information in production
  */
-export const errorLog = (message: string, error?: any, context?: any) => {
+export const errorLog = (message: string, error?: unknown, context?: unknown) => {
   if (isDevelopment) {
     console.error(`❌ ${message}`, error, context);
   } else {
@@ -61,7 +61,7 @@ export const errorLog = (message: string, error?: any, context?: any) => {
  * Sanitize error information for production logging
  * Removes sensitive data while preserving diagnostic value
  */
-function sanitizeErrorForProduction(error: any): any {
+function sanitizeErrorForProduction(error: unknown): unknown {
   if (!error) return 'No error details';
   
   if (error instanceof Error) {
@@ -98,16 +98,16 @@ function sanitizeErrorMessage(message: string): string {
 /**
  * Sanitize context information for production logging
  */
-function sanitizeContextForProduction(context: any): any {
+function sanitizeContextForProduction(context: unknown): unknown {
   if (!context) return undefined;
-  
+
   if (typeof context === 'string') {
     return sanitizeErrorMessage(context);
   }
-  
-  if (typeof context === 'object') {
-    const sanitized: any = {};
-    
+
+  if (typeof context === 'object' && context !== null) {
+    const sanitized: Record<string, unknown> = {};
+
     for (const [key, value] of Object.entries(context)) {
       // Skip potentially sensitive keys
       const sensitiveKeys = ['password', 'token', 'secret', 'key', 'auth', 'session'];

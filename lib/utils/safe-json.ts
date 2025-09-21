@@ -88,23 +88,31 @@ export const educationSchema = z.object({
 /**
  * Safe parsing functions for practice attributes
  */
-export function parseBusinessHours(jsonString: string | null): any {
+export function parseBusinessHours(jsonString: string | null) {
   return safeJsonParse(jsonString, businessHoursSchema);
 }
 
-export function parseServices(jsonString: string | null): any[] {
+// Define types for the parsed data
+type BusinessHours = z.infer<typeof businessHoursSchema>;
+type Service = z.infer<typeof serviceSchema>;
+type Insurance = z.infer<typeof insuranceSchema>;
+type Condition = z.infer<typeof conditionSchema>;
+type GalleryImage = z.infer<typeof galleryImageSchema>;
+type Education = z.infer<typeof educationSchema>;
+
+export function parseServices(jsonString: string | null): Service[] {
   return safeJsonParseArray(jsonString, serviceSchema);
 }
 
-export function parseInsuranceAccepted(jsonString: string | null): any[] {
+export function parseInsuranceAccepted(jsonString: string | null): Insurance[] {
   return safeJsonParseArray(jsonString, insuranceSchema);
 }
 
-export function parseConditionsTreated(jsonString: string | null): any[] {
+export function parseConditionsTreated(jsonString: string | null): Condition[] {
   return safeJsonParseArray(jsonString, conditionSchema);
 }
 
-export function parseGalleryImages(jsonString: string | null): any[] {
+export function parseGalleryImages(jsonString: string | null): GalleryImage[] {
   return safeJsonParseArray(jsonString, galleryImageSchema);
 }
 
@@ -112,6 +120,6 @@ export function parseSpecialties(jsonString: string | null): string[] {
   return safeJsonParseArray(jsonString, specialtySchema);
 }
 
-export function parseEducation(jsonString: string | null): any[] {
+export function parseEducation(jsonString: string | null): Education[] {
   return safeJsonParseArray(jsonString, educationSchema);
 }

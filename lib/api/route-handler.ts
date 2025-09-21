@@ -3,6 +3,26 @@ import { applyRateLimit } from './middleware/rate-limit'
 import { applyGlobalAuth, markAsPublicRoute } from './middleware/global-auth'
 import { createErrorResponse } from './responses/error'
 
+// Type for auth result - should match the one in global-auth.ts
+interface AuthResult {
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+    emailVerified: boolean;
+    practiceId: string | null;
+    roles: string[];
+    permissions: string[];
+    isSuperAdmin: boolean;
+    organizationAdminFor: string[];
+  };
+  accessToken: string;
+  sessionId: string;
+}
+
 /**
  * Secure API Route Handler Wrapper
  * Automatically applies rate limiting and authentication to all routes
@@ -18,10 +38,10 @@ interface RouteOptions {
  * Wrap an API route handler with automatic security
  */
 export function secureRoute(
-  handler: (request: NextRequest, session?: any, ...args: any[]) => Promise<Response>,
+  handler: (request: NextRequest, session?: AuthResult | null, ...args: unknown[]) => Promise<Response>,
   options: RouteOptions = { requireAuth: true, rateLimit: 'api' }
 ) {
-  return async (request: NextRequest, ...args: any[]): Promise<Response> => {
+  return async (request: NextRequest, ...args: unknown[]): Promise<Response> => {
     try {
       // 1. Apply rate limiting
       if (options.rateLimit) {
@@ -54,7 +74,7 @@ export function secureRoute(
  * Create a public API route (no authentication required)
  */
 export function publicRoute(
-  handler: (request: NextRequest, ...args: any[]) => Promise<Response>,
+  handler: (request: NextRequest, ...args: unknown[]) => Promise<Response>,
   reason: string,
   options: Omit<RouteOptions, 'requireAuth' | 'publicReason'> = {}
 ) {
@@ -69,12 +89,12 @@ export function publicRoute(
  * Create an admin-only API route
  */
 export function adminRoute(
-  handler: (request: NextRequest, session: any, ...args: any[]) => Promise<Response>,
+  handler: (request: NextRequest, session: AuthResult, ...args: unknown[]) => Promise<Response>,
   options: Omit<RouteOptions, 'requireAuth'> = {}
 ) {
-  return secureRoute(async (request: NextRequest, session: any, ...args: any[]) => {
+  return secureRoute(async (request: NextRequest, session: AuthResult | null, ...args: unknown[]) => {
     // Additional admin check
-    if (session?.user?.role !== 'admin') {
+    if (!session || session.user.role !== 'admin') {
       return createErrorResponse('Admin access required', 403, request)
     }
     return await handler(request, session, ...args)

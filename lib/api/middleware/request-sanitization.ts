@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import type { NextRequest } from 'next/server'
 import { createEdgeAPILogger, logEdgeSecurityEvent, logEdgePerformanceMetric } from '@/lib/logger/edge-logger'
 import type { EdgeLogger } from '@/lib/logger/edge-logger'
 
@@ -73,13 +73,13 @@ const PATH_TRAVERSAL_PATTERNS = [
 interface SanitizationResult {
   isValid: boolean
   errors: string[]
-  sanitized?: any
+  sanitized?: unknown
 }
 
 /**
  * Deep sanitize an object, removing dangerous keys and values
  */
-function deepSanitize(obj: any, path: string = 'root', errors: string[] = []): any {
+function deepSanitize(obj: unknown, path: string = 'root', errors: string[] = []): unknown {
   if (obj === null || obj === undefined) {
     return obj
   }
@@ -98,7 +98,7 @@ function deepSanitize(obj: any, path: string = 'root', errors: string[] = []): a
   }
 
   // Handle objects
-  const sanitized: Record<string, any> = {}
+  const sanitized: Record<string, unknown> = {}
   
   for (const key in obj) {
     // Skip dangerous keys
@@ -177,7 +177,7 @@ function sanitizeString(value: string, path: string, errors: string[]): string {
 /**
  * Validate JSON structure depth to prevent DoS
  */
-function validateDepth(obj: any, maxDepth: number = 10, currentDepth: number = 0): boolean {
+function validateDepth(obj: unknown, maxDepth: number = 10, currentDepth: number = 0): boolean {
   if (currentDepth > maxDepth) {
     return false
   }
@@ -198,7 +198,7 @@ function validateDepth(obj: any, maxDepth: number = 10, currentDepth: number = 0
 /**
  * Validate array sizes to prevent DoS
  */
-function validateArraySizes(obj: any, maxSize: number = 1000): boolean {
+function validateArraySizes(obj: unknown, maxSize: number = 1000): boolean {
   if (Array.isArray(obj)) {
     if (obj.length > maxSize) {
       return false
@@ -216,7 +216,7 @@ function validateArraySizes(obj: any, maxSize: number = 1000): boolean {
 /**
  * Main sanitization function for request bodies
  */
-export async function sanitizeRequestBody(body: any, logger: any): Promise<SanitizationResult> {
+export async function sanitizeRequestBody(body: unknown, logger: unknown): Promise<SanitizationResult> {
   const startTime = Date.now()
   const errors: string[] = []
 
@@ -281,14 +281,14 @@ export async function sanitizeRequestBody(body: any, logger: any): Promise<Sanit
 /**
  * Middleware to wrap a handler with request sanitization
  */
-export function withRequestSanitization<T extends (request: NextRequest, ...args: any[]) => Promise<Response>>(
+export function withRequestSanitization<T extends (request: NextRequest, ...args: unknown[]) => Promise<Response>>(
   handler: T,
   options: {
     allowEmptyBody?: boolean
-    customValidators?: Array<(body: any) => string | null>
+    customValidators?: Array<(body: unknown) => string | null>
   } = {}
 ): T {
-  return (async (request: NextRequest, ...args: any[]) => {
+  return (async (request: NextRequest, ...args: unknown[]) => {
     const logger = createEdgeAPILogger(request)
     
     // Only sanitize for methods that typically have bodies
