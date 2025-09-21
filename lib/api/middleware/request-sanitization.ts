@@ -1,6 +1,5 @@
 import type { NextRequest } from 'next/server'
 import { createEdgeAPILogger, logEdgeSecurityEvent, logEdgePerformanceMetric } from '@/lib/logger/edge-logger'
-import type { EdgeLogger } from '@/lib/logger/edge-logger'
 
 /**
  * Request Sanitization Middleware
@@ -198,7 +197,7 @@ function validateDepth(obj: unknown, maxDepth: number = 10, currentDepth: number
 /**
  * Validate array sizes to prevent DoS
  */
-function validateArraySizes(obj: any, maxSize: number = 1000): boolean {
+function validateArraySizes(obj: unknown, maxSize: number = 1000): boolean {
   if (Array.isArray(obj)) {
     if (obj.length > maxSize) {
       return false
@@ -216,7 +215,13 @@ function validateArraySizes(obj: any, maxSize: number = 1000): boolean {
 /**
  * Main sanitization function for request bodies
  */
-export async function sanitizeRequestBody(body: any, logger: any): Promise<SanitizationResult> {
+// Simple logger interface for sanitization
+interface SanitizationLogger {
+  error: (message: string, meta?: unknown) => void;
+  warn: (message: string, meta?: unknown) => void;
+}
+
+export async function sanitizeRequestBody(body: unknown, logger: SanitizationLogger): Promise<SanitizationResult> {
   const startTime = Date.now()
   const errors: string[] = []
 
@@ -281,14 +286,14 @@ export async function sanitizeRequestBody(body: any, logger: any): Promise<Sanit
 /**
  * Middleware to wrap a handler with request sanitization
  */
-export function withRequestSanitization<T extends (request: NextRequest, ...args: any[]) => Promise<Response>>(
+export function withRequestSanitization<T extends (request: NextRequest, ...args: unknown[]) => Promise<Response>>(
   handler: T,
   options: {
     allowEmptyBody?: boolean
-    customValidators?: Array<(body: any) => string | null>
+    customValidators?: Array<(body: unknown) => string | null>
   } = {}
 ): T {
-  return (async (request: NextRequest, ...args: any[]) => {
+  return (async (request: NextRequest, ...args: unknown[]) => {
     const logger = createEdgeAPILogger(request)
     
     // Only sanitize for methods that typically have bodies

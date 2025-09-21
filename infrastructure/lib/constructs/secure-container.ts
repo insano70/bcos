@@ -92,7 +92,7 @@ export class SecureContainer extends Construct {
 
     // Create CloudWatch log group (using AWS managed encryption to avoid circular dependency)
     this.logGroup = new logs.LogGroup(this, 'LogGroup', {
-      logGroupName: `/ecs/bcos-${environment}`,
+      logGroupName: `/ecs/bcos-${environment}-${Date.now()}`,
       retention: environment === 'production' ? logs.RetentionDays.THREE_MONTHS : logs.RetentionDays.ONE_MONTH,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
@@ -151,7 +151,7 @@ export class SecureContainer extends Construct {
       // Environment variables (non-sensitive)
       environment: {
         NODE_ENV: environment,
-        PORT: containerPort.toString(),
+        PORT: '80', // Force application to run on port 80 for ALB compatibility
         AWS_REGION: cdk.Stack.of(this).region,
         ...environmentVariables,
       },

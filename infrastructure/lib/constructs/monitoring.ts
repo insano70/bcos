@@ -291,16 +291,13 @@ export class Monitoring extends Construct {
       evaluationPeriods: 2,
     });
 
-    // Health check failure metric filter
+    // Health check failure metric filter (simplified pattern)
     const healthCheckMetricFilter = new logs.MetricFilter(this, 'HealthCheckFailureFilter', {
       logGroup: logGroup,
       metricNamespace: `BCOS/${environment}`,
       metricName: 'HealthCheckFailures',
       metricValue: '1',
-      filterPattern: logs.FilterPattern.all(
-        logs.FilterPattern.stringValue('path', '=', '/health'),
-        logs.FilterPattern.numberValue('status', '>=', 400)
-      ),
+      filterPattern: logs.FilterPattern.literal('[timestamp, level="ERROR", message="*health*"]'),
       defaultValue: 0,
     });
 

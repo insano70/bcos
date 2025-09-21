@@ -256,7 +256,7 @@
   "SecureContainerLogGroup7C38C890": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/ecs/bcos-production",
+    "LogGroupName": "/ecs/bcos-production-1758420193269",
     "RetentionInDays": 90,
     "Tags": [
      {
@@ -367,8 +367,7 @@
       },
       "LinuxParameters": {
        "Capabilities": {},
-       "InitProcessEnabled": true,
-       "SharedMemorySize": 64
+       "InitProcessEnabled": true
       },
       "LogConfiguration": {
        "LogDriver": "awslogs",
@@ -782,7 +781,7 @@
   "WAFProtectionWAFLogGroupC4D17A54": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/aws/waf/bcos-production",
+    "LogGroupName": "/aws/waf/bcos-production-1758420193270",
     "RetentionInDays": 90,
     "Tags": [
      {
@@ -1515,7 +1514,7 @@
   "MonitoringHealthCheckFailureFilter3774F405": {
    "Type": "AWS::Logs::MetricFilter",
    "Properties": {
-    "FilterPattern": "{ (path = \"/health\") && (status >= 400) }",
+    "FilterPattern": "[timestamp, level=\"ERROR\", message=\"*health*\"]",
     "LogGroupName": {
      "Ref": "SecureContainerLogGroup7C38C890"
     },

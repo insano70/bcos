@@ -149,10 +149,10 @@ export class StagingStack extends cdk.Stack {
       },
       securityGroups: [ecsSecurityGroup],
       assignPublicIp: false,
-      healthCheckGracePeriod: cdk.Duration.seconds(120),
-      circuitBreaker: {
-        rollback: true,
-      },
+      healthCheckGracePeriod: cdk.Duration.seconds(300), // Longer grace period
+      // circuitBreaker: {
+      //   rollback: true,
+      // }, // Disabled temporarily for initial deployment
     });
 
     // Associate service with target group

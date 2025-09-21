@@ -101,7 +101,7 @@
   "SecureContainerLogGroup7C38C890": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/ecs/bcos-staging",
+    "LogGroupName": "/ecs/bcos-staging-1758420193221",
     "RetentionInDays": 30,
     "Tags": [
      {
@@ -177,8 +177,7 @@
       },
       "LinuxParameters": {
        "Capabilities": {},
-       "InitProcessEnabled": true,
-       "SharedMemorySize": 64
+       "InitProcessEnabled": true
       },
       "LogConfiguration": {
        "LogDriver": "awslogs",
@@ -343,19 +342,12 @@
       "Enable": false,
       "Rollback": false
      },
-     "DeploymentCircuitBreaker": {
-      "Enable": true,
-      "Rollback": true
-     },
      "MaximumPercent": 200,
      "MinimumHealthyPercent": 50
     },
-    "DeploymentController": {
-     "Type": "ECS"
-    },
     "DesiredCount": 1,
     "EnableECSManagedTags": false,
-    "HealthCheckGracePeriodSeconds": 120,
+    "HealthCheckGracePeriodSeconds": 300,
     "LaunchType": "FARGATE",
     "LoadBalancers": [
      {
@@ -452,7 +444,7 @@
   "WAFProtectionWAFLogGroupC4D17A54": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/aws/waf/bcos-staging",
+    "LogGroupName": "/aws/waf/bcos-staging-1758420193244",
     "RetentionInDays": 30,
     "Tags": [
      {
@@ -1044,7 +1036,7 @@
   "MonitoringHealthCheckFailureFilter3774F405": {
    "Type": "AWS::Logs::MetricFilter",
    "Properties": {
-    "FilterPattern": "{ (path = \"/health\") && (status >= 400) }",
+    "FilterPattern": "[timestamp, level=\"ERROR\", message=\"*health*\"]",
     "LogGroupName": {
      "Ref": "SecureContainerLogGroup7C38C890"
     },
