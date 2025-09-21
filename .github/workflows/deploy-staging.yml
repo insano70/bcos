@@ -1,12 +1,24 @@
-name: Deploy to Staging
+name: Deploy Application
 
 on:
   push:
     branches: [staging]
   workflow_dispatch:
     inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      branch:
+        description: 'Branch to deploy (leave empty for current branch)'
+        required: false
+        type: string
       force_deploy:
-        description: 'Force deployment even if tests fail'
+        description: 'Force deployment even if checks fail'
         required: false
         default: 'false'
         type: boolean
@@ -14,9 +26,6 @@ on:
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: bcos
-  ECS_SERVICE: bcos-staging-service
-  ECS_CLUSTER: bcos-staging-cluster
-  ECS_TASK_DEFINITION: bcos-staging
 
 concurrency:
   group: staging-deployment-${{ github.ref }}
@@ -34,19 +43,46 @@ jobs:
   # Build and Deploy
   deploy:
     runs-on: ubuntu-latest
-    environment: staging
+    environment: ${{ github.event.inputs.environment || 'staging' }}
     if: ${{ !failure() || github.event.inputs.force_deploy == 'true' }}
     timeout-minutes: 20
     steps:
+      - name: Set deployment variables
+        id: vars
+        run: |
+          # Determine target environment
+          if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+            echo "TARGET_ENV=production" >> $GITHUB_OUTPUT
+            echo "ECS_SERVICE=bcos-production-service" >> $GITHUB_OUTPUT
+            echo "ECS_CLUSTER=bcos-production-cluster" >> $GITHUB_OUTPUT
+            echo "ECS_TASK_DEFINITION=bcos-production" >> $GITHUB_OUTPUT
+            echo "IMAGE_TAG=production-${{ github.sha }}" >> $GITHUB_OUTPUT
+          else
+            echo "TARGET_ENV=staging" >> $GITHUB_OUTPUT
+            echo "ECS_SERVICE=bcos-staging-service" >> $GITHUB_OUTPUT
+            echo "ECS_CLUSTER=bcos-staging-cluster" >> $GITHUB_OUTPUT
+            echo "ECS_TASK_DEFINITION=bcos-staging" >> $GITHUB_OUTPUT
+            echo "IMAGE_TAG=staging-${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
+          
+          # Determine branch to deploy
+          if [ -n "${{ github.event.inputs.branch }}" ]; then
+            echo "DEPLOY_BRANCH=${{ github.event.inputs.branch }}" >> $GITHUB_OUTPUT
+          else
+            echo "DEPLOY_BRANCH=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout code
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744
+        with:
+          ref: ${{ steps.vars.outputs.DEPLOY_BRANCH }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4.0.1
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/BCOS-GitHubActionsDeploymentRole
           aws-region: ${{ env.AWS_REGION }}
-          role-session-name: GitHubActions-Staging-${{ github.run_number }}
+          role-session-name: GitHubActions-${{ steps.vars.outputs.TARGET_ENV }}-${{ github.run_number }}
           mask-aws-account-id: false
 
       - name: Login to Amazon ECR
@@ -59,9 +95,8 @@ jobs:
         with:
           images: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
           tags: |
-            type=ref,event=branch,prefix=staging-
-            type=sha,prefix=staging-{{branch}}-
-            type=raw,value=staging-latest
+            type=raw,value=${{ steps.vars.outputs.IMAGE_TAG }}
+            type=raw,value=${{ steps.vars.outputs.TARGET_ENV }}-latest
 
       - name: Build and push container image
         id: build-image
@@ -81,7 +116,7 @@ jobs:
       - name: Scan container image
         uses: aquasecurity/trivy-action@7c2007bcb556501da015201bcba5aa14069b74e2
         with:
-          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:staging-${{ github.sha }}
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.IMAGE_TAG }}
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
@@ -89,7 +124,7 @@ jobs:
 
       - name: Get current task definition
         run: |
-          aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_DEFINITION }} --query taskDefinition > task-definition.json
+          aws ecs describe-task-definition --task-definition ${{ steps.vars.outputs.ECS_TASK_DEFINITION }} --query taskDefinition > task-definition.json
 
       - name: Update ECS task definition
         id: task-def
@@ -97,14 +132,14 @@ jobs:
         with:
           task-definition: task-definition.json
           container-name: bcos
-          image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:staging-${{ github.sha }}
+          image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.IMAGE_TAG }}
 
       - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@df9643053eda01f169e64a0e60233aacca83799a # v1.4.11
         with:
           task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
+          service: ${{ steps.vars.outputs.ECS_SERVICE }}
+          cluster: ${{ steps.vars.outputs.ECS_CLUSTER }}
           wait-for-service-stability: true
 
       - name: Verify deployment
@@ -112,12 +147,21 @@ jobs:
           # Wait for deployment to complete
           sleep 60
           
-          # Health check
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://staging.bendcare.com/health)
-          if [ "$RESPONSE" -eq 200 ]; then
-            echo "✅ Staging deployment successful - Health check passed"
+          # Set health check URL based on environment
+          if [ "${{ steps.vars.outputs.TARGET_ENV }}" = "production" ]; then
+            HEALTH_URL="https://app.bendcare.com/health"
+            APP_URL="https://app.bendcare.com"
           else
-            echo "❌ Staging deployment failed - Health check returned: $RESPONSE"
+            HEALTH_URL="https://staging.bendcare.com/health"
+            APP_URL="https://staging.bendcare.com"
+          fi
+          
+          # Health check
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" $HEALTH_URL)
+          if [ "$RESPONSE" -eq 200 ]; then
+            echo "✅ ${{ steps.vars.outputs.TARGET_ENV }} deployment successful - Health check passed"
+          else
+            echo "❌ ${{ steps.vars.outputs.TARGET_ENV }} deployment failed - Health check returned: $RESPONSE"
             exit 1
           fi
 
@@ -125,10 +169,15 @@ jobs:
         if: always()
         run: |
           if [ "${{ job.status }}" == "success" ]; then
-            echo "✅ Staging deployment completed successfully"
-            echo "🌐 Application URL: https://staging.bendcare.com"
-            echo "📊 Monitoring: https://console.aws.amazon.com/cloudwatch/home?region=${{ env.AWS_REGION }}#dashboards:name=BCOS-staging-Dashboard"
+            echo "✅ ${{ steps.vars.outputs.TARGET_ENV }} deployment completed successfully"
+            if [ "${{ steps.vars.outputs.TARGET_ENV }}" = "production" ]; then
+              echo "🌐 Application URL: https://app.bendcare.com"
+              echo "📊 Monitoring: https://console.aws.amazon.com/cloudwatch/home?region=${{ env.AWS_REGION }}#dashboards:name=BCOS-production-Dashboard"
+            else
+              echo "🌐 Application URL: https://staging.bendcare.com"
+              echo "📊 Monitoring: https://console.aws.amazon.com/cloudwatch/home?region=${{ env.AWS_REGION }}#dashboards:name=BCOS-staging-Dashboard"
+            fi
           else
-            echo "❌ Staging deployment failed"
-            echo "🔍 Check logs: https://console.aws.amazon.com/ecs/home?region=${{ env.AWS_REGION }}#/clusters/${{ env.ECS_CLUSTER }}/services/${{ env.ECS_SERVICE }}/logs"
+            echo "❌ ${{ steps.vars.outputs.TARGET_ENV }} deployment failed"
+            echo "🔍 Check logs: https://console.aws.amazon.com/ecs/home?region=${{ env.AWS_REGION }}#/clusters/${{ steps.vars.outputs.ECS_CLUSTER }}/services/${{ steps.vars.outputs.ECS_SERVICE }}/logs"
           fi
