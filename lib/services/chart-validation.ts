@@ -84,7 +84,7 @@ export class ChartValidator {
 
     if (!definition.chart_type) {
       errors.push('Chart type is required');
-    } else if (!ALLOWED_CHART_TYPES.includes(definition.chart_type as any)) {
+    } else if (!ALLOWED_CHART_TYPES.includes(definition.chart_type)) {
       errors.push(`Invalid chart type: ${definition.chart_type}. Allowed: ${ALLOWED_CHART_TYPES.join(', ')}`);
     }
 
@@ -186,7 +186,7 @@ export class ChartValidator {
     // Validate operator
     if (!filter.operator) {
       errors.push('Filter operator is required');
-    } else if (!ALLOWED_OPERATORS.includes(filter.operator as any)) {
+    } else if (!ALLOWED_OPERATORS.includes(filter.operator)) {
       errors.push(`Invalid filter operator: ${filter.operator}. Allowed: ${ALLOWED_OPERATORS.join(', ')}`);
     }
 
@@ -277,7 +277,7 @@ export class ChartValidator {
     const warnings: string[] = [];
 
     // Only validate provided fields
-    if (definition.chart_type && !ALLOWED_CHART_TYPES.includes(definition.chart_type as any)) {
+    if (definition.chart_type && !ALLOWED_CHART_TYPES.includes(definition.chart_type)) {
       errors.push(`Invalid chart type: ${definition.chart_type}`);
     }
 

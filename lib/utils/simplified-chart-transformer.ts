@@ -515,7 +515,7 @@ export class SimplifiedChartTransformer {
    * Create multi-series chart from tagged data (optimized for multiple measures)
    */
   createMultiSeriesFromTaggedData(
-    measures: any[], // Tagged measures with series_label, etc.
+    measures: AggAppMeasure[], // Tagged measures with series_label, etc.
     aggregations: Record<string, 'sum' | 'avg' | 'count' | 'min' | 'max'> = {}
   ): ChartData {
     console.log('🔍 CREATING MULTI-SERIES FROM TAGGED DATA:', {

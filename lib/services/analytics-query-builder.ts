@@ -267,8 +267,7 @@ export class AnalyticsQueryBuilder {
       if (cachedResult) {
         this.logger.info('Analytics query served from cache', {
           params,
-          userId: context.user_id,
-          cacheAge: Date.now() - (cachedResult as any).timestamp
+          userId: context.user_id
         });
         return cachedResult;
       }

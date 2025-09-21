@@ -30,8 +30,8 @@ export function withLogging<T extends any[]>(
       return response
     } catch (error) {
       // Log error response
-      const errorStatus = error instanceof Error && 'status' in error 
-        ? (error as any).status 
+      const errorStatus = error instanceof Error && 'status' in error
+        ? (error as { status?: number }).status ?? 500
         : 500
       
       logAPIResponse(logger, errorStatus, startTime, undefined, error as Error)
@@ -89,8 +89,8 @@ export function withRBACLogging<T extends unknown[]>(
       return response
     } catch (error) {
       // Log error response with user context
-      const errorStatus = error instanceof Error && 'status' in error 
-        ? (error as any).status 
+      const errorStatus = error instanceof Error && 'status' in error
+        ? (error as { status?: number }).status ?? 500
         : 500
       
       logAPIResponse(logger, errorStatus, startTime, undefined, error as Error)
