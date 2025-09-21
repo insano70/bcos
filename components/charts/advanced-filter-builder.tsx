@@ -222,7 +222,7 @@ export default function AdvancedFilterBuilder({
     if (filter.operator === 'in' || filter.operator === 'not_in') {
       return (
         <textarea
-          value={Array.isArray(filter.value) ? filter.value.join('\n') : filter.value}
+          value={Array.isArray(filter.value) ? (filter.value as string[]).join('\n') : String(filter.value || '')}
           onChange={(e) => updateFilter(groupId, filterIndex, { 
             value: e.target.value.split('\n').filter(v => v.trim()) 
           })}
@@ -262,7 +262,7 @@ export default function AdvancedFilterBuilder({
     if (field?.allowedValues && field.allowedValues.length > 0) {
       return (
         <select
-          value={filter.value}
+          value={String(filter.value || '')}
           onChange={(e) => updateFilter(groupId, filterIndex, { value: e.target.value })}
           className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
         >
@@ -277,7 +277,7 @@ export default function AdvancedFilterBuilder({
     return (
       <input
         type={field?.type === 'number' ? 'number' : field?.type === 'date' ? 'date' : 'text'}
-        value={filter.value}
+        value={String(filter.value || '')}
         onChange={(e) => updateFilter(groupId, filterIndex, { value: e.target.value })}
         placeholder="Enter value"
         className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
@@ -311,7 +311,7 @@ export default function AdvancedFilterBuilder({
             {flattenFilters(rootGroup).map((filter, index) => (
               <div key={index}>
                 {availableFields.find(f => f.name === filter.field)?.displayName} {filter.operator} {
-                  Array.isArray(filter.value) ? filter.value.join(', ') : filter.value
+                  Array.isArray(filter.value) ? (filter.value as unknown[]).join(', ') : String(filter.value || '')
                 }
               </div>
             ))}

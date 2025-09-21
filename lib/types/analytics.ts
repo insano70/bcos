@@ -50,7 +50,7 @@ export interface ChartDataSourceConfig {
 export interface ChartFilter {
   field: string;
   operator: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'not_in' | 'like' | 'between';
-  value: any;
+  value: unknown;
 }
 
 export interface ChartOrderBy {
@@ -161,7 +161,7 @@ export interface AnalyticsQueryParams {
   end_date?: string | undefined;
   limit?: number | undefined;
   offset?: number | undefined;
-  advanced_filters?: any;
+  advanced_filters?: unknown;
   calculated_field?: string | undefined;
   multiple_series?: MultipleSeriesConfig[];
 }

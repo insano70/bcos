@@ -244,8 +244,8 @@ setInterval(() => {
 /**
  * Middleware for automatic request/response metrics
  */
-export function withRequestMetrics<T extends any[]>(
-  handler: (request: NextRequest, ...args: T) => Promise<NextResponse>
+export function withRequestMetrics<T extends unknown[]>(
+  handler: (request: NextRequest, ...args: T) => Promise<NextResponse | Response>
 ) {
   return async (request: NextRequest, ...args: T): Promise<NextResponse> => {
     const requestId = requestMetrics.startRequest(request)
@@ -254,10 +254,19 @@ export function withRequestMetrics<T extends any[]>(
       const response = await handler(request, ...args)
       requestMetrics.completeRequest(requestId, response)
       
-      // Add request ID to response headers for tracing
-      response.headers.set('x-request-id', requestId)
+      // Convert Response to NextResponse if needed
+      const nextResponse = response instanceof NextResponse 
+        ? response 
+        : new NextResponse(response.body, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers
+          })
       
-      return response
+      // Add request ID to response headers for tracing
+      nextResponse.headers.set('x-request-id', requestId)
+      
+      return nextResponse
     } catch (error) {
       // Create error response and log metrics
       const errorResponse = new NextResponse(

@@ -6,11 +6,69 @@
 import { AuditLogger } from '@/lib/api/services/audit'
 import { createAppLogger } from './winston-logger'
 
+// Define LogData locally for audit optimizer
+type LogData = Record<string, unknown>
+
+// Audit data interfaces for better type safety
+interface BaseAuditData extends LogData {
+  userId?: string
+  severity?: 'low' | 'medium' | 'high' | 'critical'
+  [key: string]: unknown
+}
+
+// Specific audit data types matching the AuditLogger method signatures
+interface AuthAuditData extends BaseAuditData {
+  action: 'login' | 'logout' | 'login_failed' | 'password_reset' | 'account_locked'
+  email?: string
+  ipAddress?: string
+  userAgent?: string
+  metadata?: Record<string, unknown>
+}
+
+interface UserActionAuditData extends BaseAuditData {
+  action: string
+  userId: string
+  resourceType?: string
+  resourceId?: string
+  ipAddress?: string
+  userAgent?: string
+  metadata?: Record<string, unknown>
+}
+
+interface SystemAuditData extends BaseAuditData {
+  action: string
+  metadata?: Record<string, unknown>
+  severity?: 'low' | 'medium' | 'high' | 'critical'
+}
+
+interface SecurityAuditData extends BaseAuditData {
+  action: string
+  userId?: string
+  ipAddress?: string
+  userAgent?: string
+  metadata?: Record<string, unknown>
+  severity?: 'low' | 'medium' | 'high' | 'critical'
+}
+
+interface DataChangeAuditData extends BaseAuditData {
+  action: 'create' | 'update' | 'delete'
+  userId: string
+  resourceType: string
+  resourceId: string
+  oldValues?: Record<string, unknown>
+  newValues?: Record<string, unknown>
+  ipAddress?: string
+  userAgent?: string
+  metadata?: Record<string, unknown>
+}
+
+type AuditData = AuthAuditData | UserActionAuditData | SystemAuditData | SecurityAuditData | DataChangeAuditData
+
 const auditLogger = createAppLogger('audit')
 
 interface BufferedAuditEntry {
   type: 'auth' | 'user_action' | 'system' | 'security' | 'data_change'
-  data: any
+  data: AuditData
   severity: 'low' | 'medium' | 'high' | 'critical'
   timestamp: Date
 }
@@ -33,7 +91,7 @@ class OptimizedAuditLogger {
    */
   async logEvent(
     type: BufferedAuditEntry['type'],
-    data: any,
+    data: AuditData,
     severity: BufferedAuditEntry['severity']
   ): Promise<void> {
     const entry: BufferedAuditEntry = {
@@ -135,19 +193,19 @@ class OptimizedAuditLogger {
   private async processAuditEntry(entry: BufferedAuditEntry): Promise<void> {
     switch (entry.type) {
       case 'auth':
-        await AuditLogger.logAuth(entry.data)
+        await AuditLogger.logAuth(entry.data as AuthAuditData)
         break
       case 'user_action':
-        await AuditLogger.logUserAction(entry.data)
+        await AuditLogger.logUserAction(entry.data as UserActionAuditData)
         break
       case 'system':
-        await AuditLogger.logSystem(entry.data)
+        await AuditLogger.logSystem(entry.data as SystemAuditData)
         break
       case 'security':
-        await AuditLogger.logSecurity(entry.data)
+        await AuditLogger.logSecurity(entry.data as SecurityAuditData)
         break
       case 'data_change':
-        await AuditLogger.logDataChange(entry.data)
+        await AuditLogger.logDataChange(entry.data as DataChangeAuditData)
         break
       default:
         auditLogger.warn('Unknown audit entry type', { type: entry.type })
@@ -220,11 +278,11 @@ const optimizedAuditLogger = new OptimizedAuditLogger()
  * Enhanced audit logging functions with buffering
  */
 export const BufferedAuditLogger = {
-  logAuth: (data: any) => optimizedAuditLogger.logEvent('auth', data, data.severity || 'medium'),
-  logUserAction: (data: any) => optimizedAuditLogger.logEvent('user_action', data, data.severity || 'low'),
-  logSystem: (data: any) => optimizedAuditLogger.logEvent('system', data, data.severity || 'medium'),
-  logSecurity: (data: any) => optimizedAuditLogger.logEvent('security', data, data.severity || 'high'),
-  logDataChange: (data: any) => optimizedAuditLogger.logEvent('data_change', data, data.severity || 'low'),
+  logAuth: (data: AuditData) => optimizedAuditLogger.logEvent('auth', data, data.severity || 'medium'),
+  logUserAction: (data: AuditData) => optimizedAuditLogger.logEvent('user_action', data, data.severity || 'low'),
+  logSystem: (data: AuditData) => optimizedAuditLogger.logEvent('system', data, data.severity || 'medium'),
+  logSecurity: (data: AuditData) => optimizedAuditLogger.logEvent('security', data, data.severity || 'high'),
+  logDataChange: (data: AuditData) => optimizedAuditLogger.logEvent('data_change', data, data.severity || 'low'),
   
   // Utility functions
   getBufferStatus: () => optimizedAuditLogger.getBufferStatus(),

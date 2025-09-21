@@ -57,10 +57,32 @@ async function _checkRefreshTokenCookie(): Promise<boolean> {
 }
 
 /**
+ * Auth result returned by authentication middleware
+ */
+export interface AuthResult {
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    firstName: string;
+    lastName: string;
+    role: string | undefined;
+    emailVerified: boolean | null;
+    practiceId: string | undefined;
+    roles: string[];
+    permissions: string[];
+    isSuperAdmin: boolean;
+    organizationAdminFor: string[];
+  };
+  accessToken: string;
+  sessionId: string;
+}
+
+/**
  * Apply global authentication to API routes
  * Call this at the start of every API route handler
  */
-export async function applyGlobalAuth(request: NextRequest): Promise<any> {
+export async function applyGlobalAuth(request: NextRequest): Promise<AuthResult | null> {
   const pathname = new URL(request.url).pathname
   const logger = loggers.auth.child({ path: pathname, method: request.method })
 

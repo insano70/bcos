@@ -7,7 +7,7 @@ interface FieldDefinition {
   name: string;
   type: string;
   description: string;
-  example: any;
+  example: unknown;
   groupable: boolean;
   filterable: boolean;
   aggregatable?: boolean;

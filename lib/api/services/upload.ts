@@ -114,7 +114,7 @@ export class FileUploadService {
   private static async processFile(
     file: File,
     options: Required<UploadOptions>
-  ): Promise<{ success: boolean; file?: any; errors: string[] }> {
+  ): Promise<{ success: boolean; file?: { originalName: string; fileName: string; filePath: string; fileUrl: string; mimeType: string; size: number; thumbnail?: string }; errors: string[] }> {
     const errors: string[] = []
 
     // Validate file type
@@ -166,17 +166,22 @@ export class FileUploadService {
       return { success: false, errors }
     }
 
+    const fileResult: { originalName: string; fileName: string; filePath: string; fileUrl: string; mimeType: string; size: number; thumbnail?: string } = {
+      originalName: file.name,
+      fileName,
+      filePath,
+      fileUrl,
+      mimeType: file.type,
+      size: processedBuffer.length
+    };
+
+    if (thumbnail) {
+      fileResult.thumbnail = thumbnail;
+    }
+
     return {
       success: true,
-      file: {
-        originalName: file.name,
-        fileName,
-        filePath,
-        fileUrl,
-        mimeType: file.type,
-        size: processedBuffer.length,
-        thumbnail
-      },
+      file: fileResult,
       errors: []
     }
   }

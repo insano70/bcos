@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Toast from '@/components/toast';
-import { ChartFilter, MeasureType, MultipleSeriesConfig } from '@/lib/types/analytics';
+import { ChartDefinition, ChartFilter, MeasureType, MultipleSeriesConfig } from '@/lib/types/analytics';
 import { calculatedFieldsService } from '@/lib/services/calculated-fields';
 import { FormSkeleton, Skeleton } from '@/components/ui/loading-skeleton';
 
@@ -17,7 +17,7 @@ interface FieldDefinition {
   name: string;
   type: string;
   description: string;
-  example: any;
+  example: unknown;
   groupable: boolean;
   filterable: boolean;
   aggregatable?: boolean;
@@ -63,7 +63,7 @@ function ChartBuilderSkeleton() {
 }
 
 interface ChartBuilderProps {
-  editingChart?: any; // Chart definition to edit
+  editingChart?: ChartDefinition; // Chart definition to edit
   onCancel?: () => void; // Callback when canceling
   onSaveSuccess?: () => void; // Callback when save is successful
 }
@@ -107,16 +107,21 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
   useEffect(() => {
     if (editingChart && schemaInfo) {
       // Extract data from chart definition
-      const dataSource = editingChart.data_source || {};
-      const chartConfigData = editingChart.chart_config || {};
-      
+      const dataSource = editingChart.data_source as { filters?: ChartFilter[]; advancedFilters?: ChartFilter[] };
+      const chartConfigData = editingChart.chart_config as {
+        calculatedField?: string;
+        seriesConfigs?: MultipleSeriesConfig[];
+        dateRangePreset?: string;
+        series?: { groupBy?: string };
+      } || {};
+
       // Find practice UID from filters
-      const practiceFilter = dataSource.filters?.find((f: any) => f.field === 'practice_uid');
-      const measureFilter = dataSource.filters?.find((f: any) => f.field === 'measure');
-      const frequencyFilter = dataSource.filters?.find((f: any) => f.field === 'frequency');
-      const startDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'gte');
-      const endDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'lte');
-      
+      const practiceFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'practice_uid');
+      const measureFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'measure');
+      const frequencyFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'frequency');
+      const startDateFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'date_index' && f.operator === 'gte');
+      const endDateFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'date_index' && f.operator === 'lte');
+
       // Extract advanced configuration
       const calculatedField = chartConfigData.calculatedField || undefined;
       const advancedFilters = dataSource.advancedFilters || [];
@@ -127,12 +132,12 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
       
       const newConfig = {
         chartName: editingChart.chart_name || '',
-        chartType: editingChart.chart_type || 'bar',
-        measure: measureFilter?.value || '',
-        frequency: frequencyFilter?.value || '',
+        chartType: (editingChart.chart_type === 'pie' || editingChart.chart_type === 'area' ? 'bar' : editingChart.chart_type) || 'bar',
+        measure: String(measureFilter?.value || ''),
+        frequency: String(frequencyFilter?.value || ''),
         practiceUid: practiceFilter?.value?.toString() || '',
-        startDate: startDateFilter?.value || '2024-01-01',
-        endDate: endDateFilter?.value || '2025-12-31',
+        startDate: String(startDateFilter?.value || '2024-01-01'),
+        endDate: String(endDateFilter?.value || '2025-12-31'),
         groupBy: chartConfigData.series?.groupBy || 'provider_name',
         calculatedField,
         advancedFilters,
@@ -289,7 +294,7 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
       console.log(`💾 ${isEditMode ? 'Updating' : 'Creating'} chart definition:`, chartDefinition);
 
       const url = isEditMode 
-        ? `/api/admin/analytics/charts/${editingChart.chart_definition_id}`
+        ? `/api/admin/analytics/charts/${editingChart?.chart_definition_id}`
         : '/api/admin/analytics/charts';
       
       const method = isEditMode ? 'PATCH' : 'POST';

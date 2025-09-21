@@ -1,4 +1,5 @@
 import type { ChartDefinition, ChartRenderContext, AnalyticsQueryResult } from '@/lib/types/analytics';
+import type { ValidationResult } from './chart-validation';
 import { analyticsQueryBuilder } from './analytics-query-builder';
 import { chartValidator } from './chart-validation';
 import { logger } from '@/lib/logger';
@@ -16,7 +17,7 @@ export class ChartExecutor {
   async executeChart(
     chartDefinition: ChartDefinition,
     context: ChartRenderContext,
-    additionalFilters: any = {}
+    additionalFilters: Record<string, unknown> = {}
   ): Promise<AnalyticsQueryResult> {
     
     // Validate chart definition
@@ -61,9 +62,9 @@ export class ChartExecutor {
   /**
    * Convert chart definition to analytics query parameters
    */
-  private convertToQueryParams(chartDefinition: ChartDefinition, additionalFilters: any = {}) {
+  private convertToQueryParams(chartDefinition: ChartDefinition, additionalFilters: Record<string, unknown> = {}) {
     const dataSource = chartDefinition.data_source;
-    const params: any = {};
+    const params: Record<string, unknown> = {};
 
     // Extract filters and convert to query parameters
     if (dataSource.filters) {
@@ -136,7 +137,7 @@ export class ChartExecutor {
   async executeChartById(
     chartDefinitionId: string,
     context: ChartRenderContext,
-    additionalFilters: any = {}
+    additionalFilters: Record<string, unknown> = {}
   ): Promise<AnalyticsQueryResult> {
     
     const chartDefinition = await this.getChartDefinition(chartDefinitionId);
@@ -154,8 +155,8 @@ export class ChartExecutor {
   async validateAndExecute(
     chartDefinition: ChartDefinition,
     context: ChartRenderContext,
-    additionalFilters: any = {}
-  ): Promise<{ result: AnalyticsQueryResult; validation: any }> {
+    additionalFilters: Record<string, unknown> = {}
+  ): Promise<{ result: AnalyticsQueryResult; validation: ValidationResult }> {
     
     // Validate first
     const validation = await chartValidator.validateChartDefinition(chartDefinition);

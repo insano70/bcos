@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import { CSRFProtection } from '@/lib/security/csrf'
+import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
 import { createErrorResponse } from '../responses/error'
 import { 
   createAPILogger, 
@@ -21,7 +21,7 @@ export async function validateCSRFToken(
   const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id)
   
   const csrfStartTime = Date.now()
-  const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
+  const isValidCSRF = await UnifiedCSRFProtection.verifyCSRFToken(request)
   logPerformanceMetric(logger, 'csrf_validation', Date.now() - csrfStartTime)
   
   if (!isValidCSRF) {
@@ -49,7 +49,7 @@ export async function validateCSRFToken(
  * Wrapper function that adds CSRF protection to a handler
  * Use this to wrap existing handlers that need CSRF protection
  */
-export function withCSRFProtection<T extends any[]>(
+export function withCSRFProtection<T extends unknown[]>(
   handler: (request: NextRequest, userContext: UserContext, ...args: T) => Promise<Response>,
   endpoint: string,
   action: string

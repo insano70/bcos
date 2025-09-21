@@ -6,12 +6,11 @@ import { createErrorResponse } from '@/lib/api/responses/error'
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
 import { AuditLogger, BufferedAuditLogger } from '@/lib/logger'
 import { requireAuth } from '@/lib/api/middleware/auth'
-import { CSRFProtection } from '@/lib/security/csrf'
+import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
 import { 
   createAPILogger, 
   logAPIAuth, 
   logPerformanceMetric,
-  logSecurityEvent,
   withCorrelation,
   CorrelationContextManager 
 } from '@/lib/logger'
@@ -34,20 +33,6 @@ const refreshHandler = async (request: NextRequest) => {
   })
 
   try {
-    // CSRF PROTECTION: Verify CSRF token before authentication check
-    const csrfStart = Date.now()
-    const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
-    logPerformanceMetric(logger, 'csrf_validation', Date.now() - csrfStart)
-    
-    if (!isValidCSRF) {
-      logSecurityEvent(logger, 'csrf_validation_failed', 'high', {
-        endpoint: '/api/auth/refresh'
-      })
-      return createErrorResponse('CSRF token validation failed', 403, request)
-    }
-
-    logger.debug('CSRF validation successful for token refresh')
-
     // NOTE: We don't require auth header here since we're validating the refresh token cookie directly
     // This allows token refresh without needing a valid access token
 
@@ -221,7 +206,7 @@ const refreshHandler = async (request: NextRequest) => {
     })
 
     // Generate new authenticated CSRF token as part of token rotation
-    const csrfToken = await CSRFProtection.setCSRFToken(user.user_id)
+    const csrfToken = await UnifiedCSRFProtection.setCSRFToken(user.user_id)
     
     // Set new refresh token in httpOnly cookie and return user data
     const responseStart = Date.now()

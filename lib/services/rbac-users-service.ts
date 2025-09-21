@@ -418,7 +418,17 @@ export class RBACUsersService extends BaseRBACService {
     // Execute user update and role assignment as atomic transaction
     const updatedUser = await db.transaction(async (tx) => {
       // Prepare update data
-      const updateFields: any = {
+      const updateFields: Partial<{
+        first_name: string;
+        last_name: string;
+        email: string;
+        password?: string;
+        password_hash: string;
+        role_ids?: string[];
+        email_verified: boolean;
+        is_active: boolean;
+        updated_at: Date;
+      }> = {
         ...updateData,
         updated_at: new Date()
       };

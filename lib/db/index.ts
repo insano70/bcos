@@ -21,8 +21,8 @@ const client = postgres(dbConfig.url, {
   max: dbConfig.max || 10,
   idle_timeout: dbConfig.idleTimeoutMillis || 20000,
   connect_timeout: dbConfig.connectionTimeoutMillis || 5000,
-  // Security: Force SSL in production
-  ssl: process.env.NODE_ENV === 'production' ? 'require' : false,
+  // Security: Force SSL for external databases (RDS)
+  ssl: dbConfig.url.includes('rds.amazonaws.com') || process.env.NODE_ENV === 'production' ? 'require' : false,
   // Prevent connection leaks
   transform: postgres.camel,
 });

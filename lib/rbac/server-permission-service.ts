@@ -19,7 +19,7 @@ export class ServerPermissionService {
 
   constructor(
     private userContext: UserContext,
-    private dbInstance: any = db
+    private dbInstance: typeof db = db
   ) {
     this.checker = new PermissionChecker(userContext);
   }
@@ -133,8 +133,8 @@ export class ServerPermissionService {
  * Factory function to create a ServerPermissionService
  */
 export function createServerPermissionService(
-  userContext: UserContext, 
-  dbInstance: any = db
+  userContext: UserContext,
+  dbInstance: typeof db = db
 ): ServerPermissionService {
   return new ServerPermissionService(userContext, dbInstance);
 }
@@ -147,7 +147,7 @@ export async function checkServerPermission(
   permissionName: string,
   resourceId?: string,
   organizationId?: string,
-  dbInstance: any = db
+  dbInstance: typeof db = db
 ): Promise<boolean> {
   const service = new ServerPermissionService(userContext, dbInstance);
   return await service.hasPermission(permissionName, resourceId, organizationId);

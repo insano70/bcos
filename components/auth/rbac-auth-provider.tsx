@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { apiClient } from '@/lib/api/client';
 import { type UserContext } from '@/lib/types/rbac';
 import { debugLog, errorLog } from '@/lib/utils/debug';
+import { CSRFClientHelper } from '@/lib/security/csrf-client';
 
 /**
  * Enhanced Authentication Provider with RBAC Integration
@@ -59,10 +60,16 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     rbacError: null
   });
 
+  // Track token fetch time to prevent unnecessary refreshes
+  const [lastTokenFetchTime, setLastTokenFetchTime] = useState<number | null>(null);
+
   // Initialize authentication state
   useEffect(() => {
     initializeAuth();
   }, []);
+
+  // Track if we've already initialized to prevent redundant calls
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   // Set up API client with auth context (accessToken removed - handled by middleware)
   useEffect(() => {
@@ -76,44 +83,140 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
   // Set up token refresh interval (based on authentication state, not client-side token)
   useEffect(() => {
     if (state.isAuthenticated) {
-      // Refresh token every 10 minutes (access tokens last 15 minutes)
+      // Refresh token every 12 minutes (access tokens last 15 minutes)
+      // Longer interval to reduce rate limiting pressure
       const refreshInterval = setInterval(() => {
-        refreshToken();
-      }, 10 * 60 * 1000);
+        // Only refresh if we're still authenticated and not already refreshing
+        if (state.isAuthenticated && !state.isLoading) {
+          debugLog.auth('Periodic token refresh triggered');
+          refreshToken();
+        }
+      }, 12 * 60 * 1000); // 12 minutes instead of 10
 
       return () => clearInterval(refreshInterval);
     }
   }, [state.isAuthenticated]);
 
-  // Load RBAC user context when user changes
+  // Load RBAC user context when user changes (with debouncing to prevent race conditions)
   useEffect(() => {
     if (state.user && state.isAuthenticated && !state.userContext && !state.rbacLoading) {
-      loadUserContext();
+      // Debounce user context loading to prevent rapid consecutive calls
+      const timeoutId = setTimeout(() => {
+        loadUserContext();
+      }, 100); // 100ms debounce
+
+      return () => clearTimeout(timeoutId);
     }
   }, [state.user, state.isAuthenticated]);
 
   const initializeAuth = async () => {
+    // Prevent redundant initialization calls (React StrictMode calls useEffect twice)
+    if (hasInitialized) {
+      debugLog.auth('Auth already initialized, skipping...');
+      return;
+    }
+
     try {
       debugLog.auth('Initializing authentication via server-side token refresh...');
-      // Ensure CSRF token cookie exists before any state-changing requests
+      setHasInitialized(true);
+      
+      // First, check if we already have a valid authentication state from cookies
+      // Try to validate existing session without forcing a refresh
+      const checkResponse = await fetch('/api/auth/me', {
+        method: 'GET',
+        credentials: 'include' // Include httpOnly cookies
+      });
+
+      if (checkResponse.ok) {
+        // We have a valid session, no need to refresh
+        const data = await checkResponse.json();
+        if (data.success && data.data?.user) {
+          debugLog.auth('Found existing valid session, skipping token refresh');
+          
+          // Update auth state with existing session
+          setState(prev => ({
+            ...prev,
+            user: data.data.user,
+            sessionId: data.data.sessionId,
+            isLoading: false,
+            isAuthenticated: true,
+            userContext: null, // Will be loaded by useEffect
+            rbacLoading: false,
+            rbacError: null
+          }));
+
+          // Ensure we have a CSRF token for future requests
+          await ensureCsrfToken();
+          return;
+        }
+      }
+
+      // No valid session found, try token refresh as fallback
+      debugLog.auth('No valid session found, attempting token refresh...');
       await ensureCsrfToken();
-      // Try to refresh token to get current session (server will read httpOnly cookies)
       await refreshToken();
+      
     } catch (error) {
-      debugLog.auth('No active session found');
+      debugLog.auth('No active session found:', error);
       setState(prev => ({ ...prev, isLoading: false }));
+      setHasInitialized(false); // Allow retry on error
     }
   };
 
   const ensureCsrfToken = async (): Promise<string | null> => {
     try {
-      if (state.csrfToken) return state.csrfToken;
-      const resp = await fetch('/api/csrf', { method: 'GET', credentials: 'include' });
+      // Check if we have a cached token and validate it
+      if (state.csrfToken) {
+        const shouldRefresh = CSRFClientHelper.shouldRefreshToken(state.csrfToken, lastTokenFetchTime);
+        
+        if (!shouldRefresh) {
+          // Token is still valid, return it
+          return state.csrfToken;
+        }
+        
+        // Token validation failed or needs refresh
+        debugLog.auth('CSRF token validation failed or expired, fetching new token');
+      }
+
+      // Fetch new token from server
+      debugLog.auth('Fetching new CSRF token...');
+      const resp = await fetch('/api/csrf', { 
+        method: 'GET', 
+        credentials: 'include' 
+      });
+
+      if (!resp.ok) {
+        errorLog(`CSRF token fetch failed: ${resp.status} ${resp.statusText}`);
+        return null;
+      }
+
       const json = await resp.json();
       const token = json?.data?.csrfToken || null;
+
+      if (!token) {
+        errorLog('CSRF token not found in response');
+        return null;
+      }
+
+      // Validate the new token structure
+      const validation = CSRFClientHelper.validateTokenStructure(token);
+      if (!validation.isValid) {
+        errorLog(`New CSRF token validation failed: ${validation.reason}`);
+        return null;
+      }
+
+      // Update state with new token and record fetch time
+      const now = Date.now();
       setState(prev => ({ ...prev, csrfToken: token }));
+      setLastTokenFetchTime(now);
+
+      debugLog.auth('CSRF token successfully fetched and validated');
       return token;
-    } catch {
+
+    } catch (error) {
+      errorLog('CSRF token fetch error:', error);
+      // Clear invalid token from state
+      setState(prev => ({ ...prev, csrfToken: null }));
       return null;
     }
   };
@@ -121,8 +224,16 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
   const loadUserContext = async () => {
     if (!state.user) return;
     
+    // Prevent overlapping user context loading requests
+    if (state.rbacLoading) {
+      debugLog.auth('User context already loading, skipping duplicate request');
+      return;
+    }
+    
     try {
       setState(prev => ({ ...prev, rbacLoading: true, rbacError: null }));
+      
+      debugLog.auth('Loading user context for:', state.user.id);
       
       // Fetch user context via API (server-side database access)
       const response = await fetch('/api/auth/me', {
@@ -131,6 +242,21 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          // Session expired, clear auth state
+          debugLog.auth('Session expired during user context loading');
+          setState({
+            user: null,
+            sessionId: null,
+            isLoading: false,
+            isAuthenticated: false,
+            csrfToken: state.csrfToken,
+            userContext: null,
+            rbacLoading: false,
+            rbacError: null
+          });
+          return;
+        }
         throw new Error(`Failed to fetch user context: ${response.status}`);
       }
 
@@ -228,49 +354,101 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
   };
 
   const login = async (email: string, password: string, remember = false) => {
-    try {
-      setState(prev => ({ ...prev, isLoading: true }));
+    const maxRetries = 2;
+    let attempt = 0;
 
-      const csrfToken = (await ensureCsrfToken()) || '';
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken,
-        },
-        body: JSON.stringify({ email, password, remember }),
-        credentials: 'include' // Include cookies
-      });
+    while (attempt < maxRetries) {
+      try {
+        setState(prev => ({ ...prev, isLoading: true }));
 
-      const result = await response.json();
+        const csrfToken = await ensureCsrfToken();
+        if (!csrfToken) {
+          throw new Error('Failed to obtain CSRF token');
+        }
 
-      if (!response.ok) {
-        throw new Error(result.error || 'Login failed');
+        debugLog.auth(`Login attempt ${attempt + 1}/${maxRetries} with CSRF token`);
+
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-csrf-token': csrfToken,
+          },
+          body: JSON.stringify({ email, password, remember }),
+          credentials: 'include' // Include cookies
+        });
+
+        const result = await response.json();
+
+        // Check for CSRF-related errors that warrant a retry
+        const isCSRFError = response.status === 403 && 
+                           result.error && 
+                           result.error.toLowerCase().includes('csrf');
+
+        if (isCSRFError && attempt < maxRetries - 1) {
+          debugLog.auth(`CSRF validation failed on attempt ${attempt + 1}, clearing cached token and retrying`);
+          
+          // Clear cached CSRF token to force refresh
+          setState(prev => ({ ...prev, csrfToken: null }));
+          setLastTokenFetchTime(null);
+          
+          attempt++;
+          continue; // Retry with fresh token
+        }
+
+        if (!response.ok) {
+          // If it's not a retryable CSRF error, throw immediately
+          throw new Error(result.error || 'Login failed');
+        }
+
+        // Login successful - update state
+        setState(prev => ({
+          ...prev,
+          user: result.data.user,
+          sessionId: result.data.sessionId,
+          isLoading: false,
+          isAuthenticated: true,
+          csrfToken: result.data.csrfToken || prev.csrfToken, // Use new authenticated token from login
+          userContext: null, // Will be loaded by useEffect
+          rbacLoading: false,
+          rbacError: null
+        }));
+
+        debugLog.auth('Login successful for:', result.data.user.email);
+        return; // Success - exit retry loop
+
+      } catch (error) {
+        // If this was our last attempt, re-throw the error
+        if (attempt >= maxRetries - 1) {
+          setState(prev => ({ 
+            ...prev, 
+            isLoading: false,
+            userContext: null,
+            rbacLoading: false,
+            rbacError: null
+          }));
+          throw error;
+        }
+
+        // For non-CSRF errors, don't retry
+        const errorMessage = error instanceof Error ? error.message : '';
+        if (!errorMessage.toLowerCase().includes('csrf')) {
+          setState(prev => ({ 
+            ...prev, 
+            isLoading: false,
+            userContext: null,
+            rbacLoading: false,
+            rbacError: null
+          }));
+          throw error;
+        }
+
+        // CSRF-related error - clear token and retry
+        debugLog.auth(`Login error on attempt ${attempt + 1}: ${errorMessage}, retrying...`);
+        setState(prev => ({ ...prev, csrfToken: null }));
+        setLastTokenFetchTime(null);
+        attempt++;
       }
-
-      // Update state with login result (accessToken handled server-side via cookies)
-      setState(prev => ({
-        ...prev,
-        user: result.data.user,
-        sessionId: result.data.sessionId,
-        isLoading: false,
-        isAuthenticated: true,
-        csrfToken: result.data.csrfToken || prev.csrfToken, // Use new authenticated token from login
-        userContext: null, // Will be loaded by useEffect
-        rbacLoading: false,
-        rbacError: null
-      }));
-
-      debugLog.auth('Login successful for:', result.data.user.email);
-    } catch (error) {
-      setState(prev => ({ 
-        ...prev, 
-        isLoading: false,
-        userContext: null,
-        rbacLoading: false,
-        rbacError: null
-      }));
-      throw error;
     }
   };
 
@@ -331,6 +509,13 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
       });
 
       if (!response.ok) {
+        // Handle rate limiting gracefully
+        if (response.status === 429) {
+          debugLog.auth('Token refresh rate limited, will retry later');
+          // Don't clear auth state on rate limit - tokens might still be valid
+          return;
+        }
+        
         debugLog.auth('No active session to refresh');
         setState({
           user: null,

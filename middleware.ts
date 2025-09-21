@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { addSecurityHeaders, getContentSecurityPolicy } from '@/lib/security/headers'
-import { EdgeCSRFProtection } from '@/lib/security/csrf-edge'
+import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
 import { getJWTConfig } from '@/lib/env'
 import { isPublicApiRoute } from '@/lib/api/middleware/global-auth'
 import { debugLog } from '@/lib/utils/debug'
@@ -11,6 +11,7 @@ import { createEdgeAPILogger } from '@/lib/logger/edge-logger'
 const CSRF_EXEMPT_PATHS = [
   '/api/health',          // Health check endpoint (GET only, no state change)
   '/api/csrf',            // CSRF token generation endpoint (can't require CSRF to get CSRF)
+  '/api/csrf/validate',   // CSRF token validation endpoint (can't require CSRF to validate CSRF)
   '/api/webhooks/',       // All webhook endpoints (external services)
   // Note: login, register, and refresh are NOT exempt - they all require CSRF protection
   // - login/register use anonymous CSRF tokens
@@ -37,8 +38,8 @@ export async function middleware(request: NextRequest) {
 
   // CSRF Protection for state-changing operations
   // Applied before any other processing to fail fast
-  if (EdgeCSRFProtection.requiresCSRFProtection(request.method) && !isCSRFExempt(pathname)) {
-    const isValidCSRF = await EdgeCSRFProtection.verifyCSRFToken(request)
+  if (UnifiedCSRFProtection.requiresCSRFProtection(request.method) && !isCSRFExempt(pathname)) {
+    const isValidCSRF = await UnifiedCSRFProtection.verifyCSRFToken(request)
     if (!isValidCSRF) {
       debugLog.middleware(`CSRF validation failed for ${pathname}`)
       return new NextResponse(

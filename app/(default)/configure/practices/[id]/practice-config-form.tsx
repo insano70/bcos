@@ -166,14 +166,14 @@ export default function PracticeConfigForm({
       console.log('📝 Resetting form with data:', resetData);
       reset(resetData);
     }
-  }, [attributes, currentPractice, reset]);
+  }, [attributes, currentPractice, reset, practice, isDirty]);
 
   const onSubmit = async (data: PracticeFormData) => {
     console.log('💾 Form submit started with data:', data);
     setIsSubmitting(true);
     
     // Track practice changes for later use
-    const practiceChanges: any = {};
+    const practiceChanges: Partial<Practice> = {};
     if (data.name !== practice?.name) {
       practiceChanges.name = data.name;
     }

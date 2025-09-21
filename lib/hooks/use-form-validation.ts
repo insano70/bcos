@@ -2,6 +2,7 @@ import { useForm, type UseFormProps, type FieldValues, type UseFormReturn } from
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { z } from 'zod';
 import { useState } from 'react';
+import type { ZodIssue } from 'zod';
 
 /**
  * Enhanced form validation hook with Zod integration
@@ -37,7 +38,7 @@ export function useValidatedForm<T extends FieldValues>({
     ...formOptions
   });
 
-  const handleSubmit = form.handleSubmit(async (data: any) => { // TODO: Fix generic type constraints
+  const handleSubmit = form.handleSubmit(async (data: T) => {
     try {
       setIsSubmitting(true);
       setSubmitError(null);
@@ -78,7 +79,7 @@ export function usePasswordConfirmation(
   confirmFieldName: string = 'confirmPassword'
 ) {
   return {
-    validate: (confirmPassword: string, formValues: any) => {
+    validate: (confirmPassword: string, formValues: Record<string, unknown>) => {
       const password = formValues[passwordFieldName];
       return password === confirmPassword || "Passwords don't match";
     }
@@ -89,19 +90,20 @@ export function usePasswordConfirmation(
  * Hook for real-time field validation
  */
 export function useFieldValidation<T>(schema: z.ZodSchema<T>) {
-  const validateField = (fieldName: keyof T, value: any): string | null => {
+  const validateField = (fieldName: keyof T, value: unknown): string | null => {
     try {
       // Create a partial schema for single field validation
-      const fieldSchema = (schema as any).pick({ [fieldName]: true });
+      // Use type assertion with proper Zod types
+      const fieldSchema = (schema as z.ZodObject<Record<string, z.ZodTypeAny>>).pick({ [fieldName]: true } as Record<string, true>);
       const result = fieldSchema.safeParse({ [fieldName]: value });
-      
+
       if (!result.success) {
-        const fieldError = result.error.issues.find((issue: any) => 
+        const fieldError = result.error.issues.find((issue: ZodIssue) =>
           issue.path.includes(fieldName as string)
         );
         return fieldError?.message || 'Invalid value';
       }
-      
+
       return null;
     } catch {
       return 'Validation error';

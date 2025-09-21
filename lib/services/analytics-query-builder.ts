@@ -644,7 +644,7 @@ export class AnalyticsQueryBuilder {
   /**
    * Process advanced filters into query filters
    */
-  private processAdvancedFilters(advancedFilters: any): ChartFilter[] {
+  private processAdvancedFilters(advancedFilters: { conditions?: Array<{ field: string; operator: string; value: unknown }> } | undefined): ChartFilter[] {
     const filters: ChartFilter[] = [];
 
     if (!advancedFilters || !Array.isArray(advancedFilters.conditions)) {

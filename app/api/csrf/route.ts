@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { CSRFProtection } from '@/lib/security/csrf'
-import { EdgeCSRFProtection } from '@/lib/security/csrf-edge'
+import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { publicRoute } from '@/lib/api/rbac-route-handler'
-import { requireAuth } from '@/lib/api/middleware/auth'
 import { 
   createAPILogger, 
   logPerformanceMetric,
@@ -27,36 +25,50 @@ const getCSRFTokenHandler = async (request: NextRequest) => {
   const startTime = Date.now()
   const logger = createAPILogger(request)
   
-  // Simple logic: Check if user is authenticated
-  let session = null
+  // Lightweight authentication check - just check if access token cookie exists and is valid
+  // Don't load full user context for performance
+  let userId: string | null = null
   let isAuthenticated = false
+  
   try {
-    session = await requireAuth(request)
-    isAuthenticated = true
+    const cookieStore = await import('next/headers').then(m => m.cookies())
+    const accessToken = cookieStore.get('access-token')?.value
+    
+    if (accessToken) {
+      // Quick JWT validation without full auth context loading
+      const { jwtVerify } = await import('jose')
+      const { getJWTConfig } = await import('@/lib/env')
+      const jwtConfig = getJWTConfig()
+      const ACCESS_TOKEN_SECRET = new TextEncoder().encode(jwtConfig.accessSecret)
+      
+      const { payload } = await jwtVerify(accessToken, ACCESS_TOKEN_SECRET)
+      userId = payload.sub as string
+      isAuthenticated = true
+    }
   } catch {
     isAuthenticated = false
   }
   
   logger.info('CSRF token request initiated', {
     isAuthenticated,
-    userId: session?.user?.id
+    userId: userId
   })
 
   try {
     let token: string
     let tokenType: string
     
-    if (isAuthenticated && session?.user?.id) {
+    if (isAuthenticated && userId) {
       // Authenticated user gets authenticated token
-      token = await CSRFProtection.setCSRFToken(session.user.id)
+      token = await UnifiedCSRFProtection.setCSRFToken(userId)
       tokenType = 'authenticated'
       
       logger.debug('Authenticated CSRF token generated', {
-        userId: session.user.id
+        userId: userId
       })
     } else {
       // Unauthenticated user gets anonymous token (edge-compatible)
-      token = await EdgeCSRFProtection.generateAnonymousToken(request)
+      token = await UnifiedCSRFProtection.generateAnonymousToken(request)
       tokenType = 'anonymous'
       
       logger.debug('Anonymous CSRF token generated')
@@ -91,7 +103,7 @@ const getCSRFTokenHandler = async (request: NextRequest) => {
 export const GET = publicRoute(
   getCSRFTokenHandler,
   'CSRF tokens must be available to anonymous users for login protection',
-  { rateLimit: 'auth' }
+  { rateLimit: 'api' }
 )
 
 

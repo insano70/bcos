@@ -6,6 +6,14 @@
 import type { NextRequest } from 'next/server'
 import { createAppLogger, type LogContext } from './winston-logger'
 
+// Logger interface for API logging functions
+interface APILogger {
+  info: (message: string, data?: Record<string, unknown>) => void
+  warn: (message: string, data?: Record<string, unknown>) => void
+  error: (message: string, error?: Error | unknown, data?: Record<string, unknown>) => void
+  debug: (message: string, data?: Record<string, unknown>) => void
+}
+
 const apiLogger = createAppLogger('api')
 
 export interface APILogContext extends LogContext {
@@ -39,7 +47,7 @@ export function createAPILogger(request: NextRequest) {
 /**
  * Log API request start
  */
-export function logAPIRequest(logger: any, request: NextRequest): void {
+export function logAPIRequest(logger: APILogger, request: NextRequest): void {
   const contentLength = request.headers.get('content-length')
   
   logger.info('API Request Started', {
@@ -52,7 +60,7 @@ export function logAPIRequest(logger: any, request: NextRequest): void {
  * Log API response
  */
 export function logAPIResponse(
-  logger: any,
+  logger: APILogger,
   statusCode: number,
   startTime: number,
   responseSize?: number,
@@ -60,8 +68,8 @@ export function logAPIResponse(
 ): void {
   const duration = Date.now() - startTime
   const level = statusCode >= 500 ? 'error' : statusCode >= 400 ? 'warn' : 'info'
-  
-  const logData: any = {
+
+  const logData: Record<string, unknown> = {
     statusCode,
     duration,
     responseSize
@@ -82,7 +90,7 @@ export function logAPIResponse(
  * Log database operations within API calls
  */
 export function logDBOperation(
-  logger: any,
+  logger: APILogger,
   operation: string,
   table: string,
   startTime: number,
@@ -102,7 +110,7 @@ export function logDBOperation(
  * Log authentication events within API calls
  */
 export function logAPIAuth(
-  logger: any,
+  logger: APILogger,
   action: string,
   success: boolean,
   userId?: string,
@@ -122,9 +130,9 @@ export function logAPIAuth(
  * Log validation errors
  */
 export function logValidationError(
-  logger: any,
+  logger: APILogger,
   field: string,
-  value: any,
+  value: unknown,
   message: string
 ): void {
   logger.warn('Validation Error', {
@@ -138,7 +146,7 @@ export function logValidationError(
  * Log rate limiting events
  */
 export function logRateLimit(
-  logger: any,
+  logger: APILogger,
   limit: number,
   remaining: number,
   resetTime: Date
@@ -154,10 +162,10 @@ export function logRateLimit(
  * Log security events within API calls
  */
 export function logSecurityEvent(
-  logger: any,
+  logger: APILogger,
   event: string,
   severity: 'low' | 'medium' | 'high' | 'critical',
-  details?: Record<string, any>
+  details?: Record<string, unknown>
 ): void {
   const level = severity === 'critical' ? 'error' : 
                 severity === 'high' ? 'error' : 
@@ -174,10 +182,10 @@ export function logSecurityEvent(
  * Performance monitoring for specific operations
  */
 export function logPerformanceMetric(
-  logger: any,
+  logger: APILogger,
   operation: string,
   duration: number,
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 ): void {
   const level = duration > 5000 ? 'warn' : duration > 1000 ? 'info' : 'debug'
   
@@ -196,9 +204,8 @@ function generateRequestId(): string {
 }
 
 function extractIPAddress(request: NextRequest): string {
-  return request.headers.get('x-forwarded-for') || 
-         request.headers.get('x-real-ip') || 
-         (request as any).ip || 
+  return request.headers.get('x-forwarded-for') ||
+         request.headers.get('x-real-ip') ||
          'unknown'
 }
 
@@ -217,7 +224,7 @@ function sanitizeHeaders(headers: Headers): Record<string, string> {
   return sanitized
 }
 
-function sanitizeValue(value: any): any {
+function sanitizeValue(value: unknown): unknown {
   if (typeof value === 'string') {
     // Sanitize potential sensitive strings
     return value

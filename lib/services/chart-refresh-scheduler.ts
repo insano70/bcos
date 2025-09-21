@@ -101,8 +101,8 @@ export class ChartRefreshScheduler {
     try {
       logger.info('Starting chart refresh', { chartDefinitionId, jobId });
 
-      // Invalidate cache for this chart
-      analyticsCache.invalidatePattern({ chartDefinitionId } as any);
+      // TODO: Implement proper cache invalidation based on chart parameters
+      // analyticsCache.invalidatePattern({ /* proper params */ });
 
       // Update schedule
       const schedule = this.schedules.get(chartDefinitionId);

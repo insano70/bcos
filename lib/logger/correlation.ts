@@ -12,7 +12,7 @@ export interface CorrelationContext {
   parentId?: string
   operationName?: string
   startTime: number
-  metadata: Record<string, any>
+  metadata: Record<string, unknown>
 }
 
 // AsyncLocalStorage for correlation context
@@ -75,7 +75,7 @@ export class CorrelationContextManager {
   static async withContext<T>(
     correlationId: string,
     operationName: string,
-    metadata: Record<string, any>,
+    metadata: Record<string, unknown>,
     fn: () => Promise<T>
   ): Promise<T> {
     const context: CorrelationContext = {
@@ -93,7 +93,7 @@ export class CorrelationContextManager {
    */
   static async withChildContext<T>(
     operationName: string,
-    metadata: Record<string, any>,
+    metadata: Record<string, unknown>,
     fn: () => Promise<T>
   ): Promise<T> {
     const parentContext = CorrelationContextManager.getCurrentContext()
@@ -132,7 +132,7 @@ export class CorrelationContextManager {
   /**
    * Add metadata to current context
    */
-  static addMetadata(metadata: Record<string, any>): void {
+  static addMetadata(metadata: Record<string, unknown>): void {
     const context = CorrelationContextManager.getCurrentContext()
     if (context) {
       Object.assign(context.metadata, metadata)
@@ -154,10 +154,10 @@ export class CorrelationContextManager {
  * Correlation middleware for Next.js API routes
  * Simplified to avoid serialization issues
  */
-export function withCorrelation<T extends any[]>(
-  handler: (...args: T) => Promise<any>
+export function withCorrelation<T extends unknown[]>(
+  handler: (...args: T) => Promise<Response>
 ) {
-  return async (...args: T): Promise<any> => {
+  return async (...args: T): Promise<Response> => {
     // For now, just call the handler directly
     // Correlation context will be managed within the handler
     return handler(...args)
@@ -167,12 +167,12 @@ export function withCorrelation<T extends any[]>(
 /**
  * Database operation correlation wrapper
  */
-export function withDBCorrelation<T extends (...args: any[]) => Promise<any>>(
+export function withDBCorrelation<T extends (...args: unknown[]) => Promise<unknown | Response>>(
   operation: string,
   table: string,
   fn: T
 ): T {
-  return (async (...args: any[]) => {
+  return (async (...args: unknown[]) => {
     return CorrelationContextManager.withChildContext(
       `db_${operation}_${table}`,
       { operation, table },
@@ -184,12 +184,12 @@ export function withDBCorrelation<T extends (...args: any[]) => Promise<any>>(
 /**
  * External API call correlation wrapper
  */
-export function withExternalAPICorrelation<T extends (...args: any[]) => Promise<any>>(
+export function withExternalAPICorrelation<T extends (...args: unknown[]) => Promise<unknown | Response>>(
   service: string,
   endpoint: string,
   fn: T
 ): T {
-  return (async (...args: any[]) => {
+  return (async (...args: unknown[]) => {
     return CorrelationContextManager.withChildContext(
       `ext_api_${service}_${endpoint}`,
       { service, endpoint, type: 'external_api' },
@@ -201,11 +201,11 @@ export function withExternalAPICorrelation<T extends (...args: any[]) => Promise
 /**
  * Background job correlation wrapper
  */
-export function withBackgroundJobCorrelation<T extends (...args: any[]) => Promise<any>>(
+export function withBackgroundJobCorrelation<T extends (...args: unknown[]) => Promise<unknown | Response>>(
   jobName: string,
   fn: T
 ): T {
-  return (async (...args: any[]) => {
+  return (async (...args: unknown[]) => {
     const correlationId = CorrelationIdGenerator.forBackground(jobName)
     
     return CorrelationContextManager.withContext(
@@ -220,11 +220,11 @@ export function withBackgroundJobCorrelation<T extends (...args: any[]) => Promi
 /**
  * Scheduled task correlation wrapper
  */
-export function withScheduledTaskCorrelation<T extends (...args: any[]) => Promise<any>>(
+export function withScheduledTaskCorrelation<T extends (...args: unknown[]) => Promise<unknown | Response>>(
   taskName: string,
   fn: T
 ): T {
-  return (async (...args: any[]) => {
+  return (async (...args: unknown[]) => {
     const correlationId = CorrelationIdGenerator.forScheduled(taskName)
     
     return CorrelationContextManager.withContext(

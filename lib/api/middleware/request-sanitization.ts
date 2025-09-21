@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import type { NextRequest } from 'next/server'
 import { createEdgeAPILogger, logEdgeSecurityEvent, logEdgePerformanceMetric } from '@/lib/logger/edge-logger'
 import type { EdgeLogger } from '@/lib/logger/edge-logger'
 
@@ -73,13 +73,13 @@ const PATH_TRAVERSAL_PATTERNS = [
 interface SanitizationResult {
   isValid: boolean
   errors: string[]
-  sanitized?: any
+  sanitized?: unknown
 }
 
 /**
  * Deep sanitize an object, removing dangerous keys and values
  */
-function deepSanitize(obj: any, path: string = 'root', errors: string[] = []): any {
+function deepSanitize(obj: unknown, path: string = 'root', errors: string[] = []): unknown {
   if (obj === null || obj === undefined) {
     return obj
   }
@@ -98,9 +98,10 @@ function deepSanitize(obj: any, path: string = 'root', errors: string[] = []): a
   }
 
   // Handle objects
-  const sanitized: Record<string, any> = {}
-  
-  for (const key in obj) {
+  const sanitized: Record<string, unknown> = {}
+  const objRecord = obj as Record<string, unknown>
+
+  for (const key in objRecord) {
     // Skip dangerous keys
     if (DANGEROUS_KEYS.includes(key)) {
       errors.push(`Dangerous key '${key}' detected at ${path}`)
@@ -114,7 +115,7 @@ function deepSanitize(obj: any, path: string = 'root', errors: string[] = []): a
     }
 
     // Recursively sanitize the value
-    sanitized[key] = deepSanitize(obj[key], `${path}.${key}`, errors)
+    sanitized[key] = deepSanitize(objRecord[key], `${path}.${key}`, errors)
   }
 
   return sanitized
@@ -177,7 +178,7 @@ function sanitizeString(value: string, path: string, errors: string[]): string {
 /**
  * Validate JSON structure depth to prevent DoS
  */
-function validateDepth(obj: any, maxDepth: number = 10, currentDepth: number = 0): boolean {
+function validateDepth(obj: unknown, maxDepth: number = 10, currentDepth: number = 0): boolean {
   if (currentDepth > maxDepth) {
     return false
   }
@@ -186,8 +187,9 @@ function validateDepth(obj: any, maxDepth: number = 10, currentDepth: number = 0
     return true
   }
 
-  for (const key in obj) {
-    if (!validateDepth(obj[key], maxDepth, currentDepth + 1)) {
+  const objRecord = obj as Record<string, unknown>
+  for (const key in objRecord) {
+    if (!validateDepth(objRecord[key], maxDepth, currentDepth + 1)) {
       return false
     }
   }
@@ -198,7 +200,7 @@ function validateDepth(obj: any, maxDepth: number = 10, currentDepth: number = 0
 /**
  * Validate array sizes to prevent DoS
  */
-function validateArraySizes(obj: any, maxSize: number = 1000): boolean {
+function validateArraySizes(obj: unknown, maxSize: number = 1000): boolean {
   if (Array.isArray(obj)) {
     if (obj.length > maxSize) {
       return false
@@ -216,7 +218,9 @@ function validateArraySizes(obj: any, maxSize: number = 1000): boolean {
 /**
  * Main sanitization function for request bodies
  */
-export async function sanitizeRequestBody(body: any, logger: any): Promise<SanitizationResult> {
+
+export async function sanitizeRequestBody(body: unknown, logger: EdgeLogger): Promise<SanitizationResult> {
+  const edgeLogger = logger;
   const startTime = Date.now()
   const errors: string[] = []
 
@@ -229,7 +233,7 @@ export async function sanitizeRequestBody(body: any, logger: any): Promise<Sanit
     // Validate JSON depth
     if (!validateDepth(body)) {
       errors.push('JSON structure too deep (max 10 levels)')
-      logEdgeSecurityEvent(logger, 'json_depth_exceeded', 'medium', {
+      logEdgeSecurityEvent(edgeLogger, 'json_depth_exceeded', 'medium', {
         action: 'request_sanitization'
       })
       return { isValid: false, errors }
@@ -238,7 +242,7 @@ export async function sanitizeRequestBody(body: any, logger: any): Promise<Sanit
     // Validate array sizes
     if (!validateArraySizes(body)) {
       errors.push('Array too large (max 1000 items)')
-      logEdgeSecurityEvent(logger, 'array_size_exceeded', 'medium', {
+      logEdgeSecurityEvent(edgeLogger, 'array_size_exceeded', 'medium', {
         action: 'request_sanitization'
       })
       return { isValid: false, errors }
@@ -249,13 +253,13 @@ export async function sanitizeRequestBody(body: any, logger: any): Promise<Sanit
 
     // Log if any sanitization was performed
     if (errors.length > 0) {
-      logEdgeSecurityEvent(logger, 'request_sanitization_triggered', 'high', {
+      logEdgeSecurityEvent(edgeLogger, 'request_sanitization_triggered', 'high', {
         errorCount: errors.length,
         errors: errors.slice(0, 5) // Log first 5 errors
       })
     }
 
-    logEdgePerformanceMetric(logger, 'request_sanitization', Date.now() - startTime, {
+    logEdgePerformanceMetric(edgeLogger, 'request_sanitization', Date.now() - startTime, {
       hasErrors: errors.length > 0
     })
 
@@ -266,8 +270,8 @@ export async function sanitizeRequestBody(body: any, logger: any): Promise<Sanit
     }
 
   } catch (error) {
-    logger.error('Request sanitization error', error)
-    logEdgeSecurityEvent(logger, 'request_sanitization_error', 'high', {
+    edgeLogger.error('Request sanitization error', error)
+    logEdgeSecurityEvent(edgeLogger, 'request_sanitization_error', 'high', {
       error: error instanceof Error ? error.message : 'Unknown error'
     })
     
@@ -281,16 +285,17 @@ export async function sanitizeRequestBody(body: any, logger: any): Promise<Sanit
 /**
  * Middleware to wrap a handler with request sanitization
  */
-export function withRequestSanitization<T extends (request: NextRequest, ...args: any[]) => Promise<Response>>(
+export function withRequestSanitization<T extends (request: NextRequest, ...args: unknown[]) => Promise<Response>>(
   handler: T,
   options: {
     allowEmptyBody?: boolean
-    customValidators?: Array<(body: any) => string | null>
+    customValidators?: Array<(body: unknown) => string | null>
   } = {}
 ): T {
-  return (async (request: NextRequest, ...args: any[]) => {
+  return (async (request: NextRequest, ...args: unknown[]) => {
     const logger = createEdgeAPILogger(request)
-    
+    const edgeLogger = logger;
+
     // Only sanitize for methods that typically have bodies
     if (!['POST', 'PUT', 'PATCH'].includes(request.method)) {
       return handler(request, ...args)
@@ -302,7 +307,7 @@ export function withRequestSanitization<T extends (request: NextRequest, ...args
 
       // Check empty body
       if (!body && !options.allowEmptyBody) {
-        logger.warn('Empty request body received')
+        edgeLogger.warn('Empty request body received')
         return new Response(
           JSON.stringify({ error: 'Request body is required' }),
           { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -310,10 +315,10 @@ export function withRequestSanitization<T extends (request: NextRequest, ...args
       }
 
       // Sanitize the body
-      const result = await sanitizeRequestBody(body, logger)
+      const result = await sanitizeRequestBody(body, edgeLogger)
 
       if (!result.isValid) {
-        logger.warn('Request sanitization failed', {
+        edgeLogger.warn('Request sanitization failed', {
           errors: result.errors
         })
         return new Response(
@@ -330,7 +335,7 @@ export function withRequestSanitization<T extends (request: NextRequest, ...args
         for (const validator of options.customValidators) {
           const error = validator(result.sanitized)
           if (error) {
-            logger.warn('Custom validation failed', { error })
+            edgeLogger.warn('Custom validation failed', { error })
             return new Response(
               JSON.stringify({ error }),
               { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -348,7 +353,7 @@ export function withRequestSanitization<T extends (request: NextRequest, ...args
       return handler(sanitizedRequest as NextRequest, ...args)
 
     } catch (error) {
-      logger.error('Request sanitization middleware error', error)
+      edgeLogger.error('Request sanitization middleware error', error)
       return new Response(
         JSON.stringify({ error: 'Internal server error' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
