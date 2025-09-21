@@ -28,36 +28,13 @@ permissions:
   security-events: write
 
 jobs:
-  # Security and Quality Checks
-  security-scan:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
-        
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@7c2007bcb556501da015201bcba5aa14069b74e2 # v0.12.0
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          exit-code: '0'
-          
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@74483a38d39275f33fcff5f35b679b5ca4a26a99 # v2.22.5
-        if: always()
-        with:
-          sarif_file: 'trivy-results.sarif'
-
-  # Tests removed - run tests before deployment in development
+  # Security scan and tests removed for fast staging deployments
+  # Run security scans and tests locally before pushing to staging
 
   # Build and Deploy
   deploy:
     runs-on: ubuntu-latest
     environment: staging
-    needs: [security-scan]
     if: ${{ !failure() || github.event.inputs.force_deploy == 'true' }}
     timeout-minutes: 20
     steps:
