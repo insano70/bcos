@@ -90,9 +90,9 @@ export const checkAnalyticsDbHealth = async (): Promise<{
  * Execute a raw SQL query against the analytics database
  * Use with caution - prefer typed queries when possible
  */
-export const executeAnalyticsQuery = async <T = any>(
+export const executeAnalyticsQuery = async <T = Record<string, unknown>>(
   query: string,
-  params: any[] = []
+  params: unknown[] = []
 ): Promise<T[]> => {
   // Use logger directly
   

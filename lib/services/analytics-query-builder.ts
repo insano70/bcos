@@ -38,6 +38,22 @@ const ALLOWED_OPERATORS = {
 } as const;
 
 /**
+ * Advanced filter condition structure
+ */
+interface AdvancedFilterCondition {
+  field: string;
+  operator: string;
+  value: unknown;
+}
+
+/**
+ * Advanced filters structure
+ */
+interface AdvancedFilters {
+  conditions: AdvancedFilterCondition[];
+}
+
+/**
  * Secure Query Builder Class
  */
 export class AnalyticsQueryBuilder {
@@ -75,7 +91,7 @@ export class AnalyticsQueryBuilder {
   /**
    * Sanitize and validate filter values
    */
-  private sanitizeValue(value: any, operator: string): any {
+  private sanitizeValue(value: unknown, operator: string): unknown {
     if (value === null || value === undefined) {
       return null;
     }
@@ -102,7 +118,7 @@ export class AnalyticsQueryBuilder {
   /**
    * Sanitize individual values based on type
    */
-  private sanitizeSingleValue(value: any): any {
+  private sanitizeSingleValue(value: unknown): unknown {
     if (typeof value === 'string') {
       // For date strings, validate format and return as-is if valid
       if (this.isValidDateString(value)) {
@@ -166,9 +182,9 @@ export class AnalyticsQueryBuilder {
   private async buildWhereClause(
     filters: ChartFilter[], 
     context: ChartRenderContext
-  ): Promise<{ clause: string; params: any[] }> {
+  ): Promise<{ clause: string; params: unknown[] }> {
     const conditions: string[] = [];
-    const params: any[] = [];
+    const params: unknown[] = [];
     let paramIndex = 1;
 
     // Add security filters based on user context
@@ -644,7 +660,7 @@ export class AnalyticsQueryBuilder {
   /**
    * Process advanced filters into query filters
    */
-  private processAdvancedFilters(advancedFilters: any): ChartFilter[] {
+  private processAdvancedFilters(advancedFilters: AdvancedFilters): ChartFilter[] {
     const filters: ChartFilter[] = [];
 
     if (!advancedFilters || !Array.isArray(advancedFilters.conditions)) {

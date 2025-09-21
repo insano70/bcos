@@ -3,21 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import ChartBuilder from '@/components/charts/chart-builder';
-
-interface ChartDefinition {
-  chart_definition_id: string;
-  chart_name: string;
-  chart_description?: string;
-  chart_type: string;
-  data_source: Record<string, unknown>;
-  chart_config: Record<string, unknown>;
-  access_control?: Record<string, unknown>;
-  chart_category_id?: string;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-  is_active: boolean;
-}
+import type { ChartDefinition } from '@/lib/types/analytics';
 
 export default function EditChartPage() {
   const params = useParams();

@@ -24,7 +24,7 @@ export interface BulkOperationResult {
   chartId: string;
   success: boolean;
   error?: string;
-  data?: any;
+  data?: unknown;
 }
 
 export interface BulkUpdateParams {
@@ -410,7 +410,7 @@ export class BulkChartOperationsService {
         if (!chartId) continue;
         
         try {
-          const updateData: any = {};
+          const updateData: Partial<ChartDefinition> = {};
           if (organizeParams.categoryId) updateData.chart_category_id = organizeParams.categoryId;
           if (organizeParams.newOwner) updateData.created_by = organizeParams.newOwner;
 

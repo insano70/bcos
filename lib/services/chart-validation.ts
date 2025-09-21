@@ -48,9 +48,9 @@ export class ChartValidator {
     try {
       const dataSourceConfig = await chartConfigService.getDataSourceConfig('ih.agg_app_measures');
       // TODO: Add getColumnConfigs method to chartConfigService
-      const columnConfigs: any[] = []; // Fallback to empty array
-      
-      return columnConfigs.map((col: any) => col.column_name);
+      const columnConfigs: Array<{ column_name: string }> = []; // Fallback to empty array
+
+      return columnConfigs.map((col) => col.column_name);
     } catch (error) {
       logger.warn('Failed to load dynamic field validation, falling back to legacy fields', { error });
       return [...LEGACY_ALLOWED_FIELDS];
@@ -211,7 +211,7 @@ export class ChartValidator {
   /**
    * Validate chart configuration
    */
-  async validateChartConfig(chartConfig: any): Promise<ValidationResult> {
+  async validateChartConfig(chartConfig: ChartConfig): Promise<ValidationResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
     const allowedFields = await this.getAllowedFields();

@@ -13,13 +13,13 @@ import type { PermissionName, UserContext } from '@/lib/types/rbac';
  * Usage: @withRBAC('users:read:organization')
  */
 export function withRBAC(permission: PermissionName | PermissionName[]) {
-  return <T extends (...args: any[]) => any>(
+  return <T extends (...args: unknown[]) => unknown>(
     target: T,
     _context?: ClassMethodDecoratorContext
   ) => {
     const middleware = createRBACMiddleware(permission);
-    
-    return async function (this: any, request: NextRequest, userContext?: UserContext, ...args: any[]) {
+
+    return async function (this: unknown, request: NextRequest, userContext?: UserContext, ...args: unknown[]) {
       const middlewareResult = await middleware(request, userContext);
       
       if ('success' in middlewareResult && middlewareResult.success) {
