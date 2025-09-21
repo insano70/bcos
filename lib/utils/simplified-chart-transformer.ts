@@ -276,7 +276,7 @@ export class SimplifiedChartTransformer {
     });
 
     // Choose label format based on chart type
-    let finalLabels;
+    let finalLabels: (string | Date)[];
     if (isTimeSeries) {
       // For line charts, handle dates based on frequency
       finalLabels = datesWithData.map(dateStr => {

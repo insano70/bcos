@@ -101,7 +101,7 @@ export class StagingStack extends cdk.Stack {
     // Create secure container construct
     const secureContainer = new SecureContainer(this, 'SecureContainer', {
       environment: environment,
-      cluster: this.ecsCluster,
+      cluster: this.ecsCluster as ecs.ICluster,
       ecrRepository: ecrRepository,
       kmsKey: kmsKey,
       executionRole: executionRole,
@@ -139,7 +139,7 @@ export class StagingStack extends cdk.Stack {
     // Create ECS Fargate Service
     this.ecsService = new ecs.FargateService(this, 'StagingService', {
       serviceName: stagingConfig.ecs.serviceName,
-      cluster: this.ecsCluster,
+      cluster: this.ecsCluster as ecs.ICluster,
       taskDefinition: secureContainer.taskDefinition,
       desiredCount: stagingConfig.ecs.desiredCount,
       minHealthyPercent: 50,
@@ -192,7 +192,7 @@ export class StagingStack extends cdk.Stack {
       environment: environment,
       kmsKey: kmsKey,
       ecsService: this.ecsService,
-      ecsCluster: this.ecsCluster,
+      ecsCluster: this.ecsCluster as ecs.ICluster,
       loadBalancer: loadBalancer,
       targetGroup: this.targetGroup,
       logGroup: secureContainer.logGroup,
