@@ -39,6 +39,7 @@ permissions:
 jobs:
   # Security scan and tests removed for fast staging deployments
   # Run security scans and tests locally before pushing to staging
+  # OIDC trust policy updated for insano70/bcos repository
 
   # Build and Deploy
   deploy:
