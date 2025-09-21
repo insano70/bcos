@@ -111,8 +111,7 @@ jobs:
           build-args: |
             NODE_ENV=production
             NEXT_TELEMETRY_DISABLED=1
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          platforms: linux/amd64
 
       - name: Scan container image
         uses: aquasecurity/trivy-action@7c2007bcb556501da015201bcba5aa14069b74e2
