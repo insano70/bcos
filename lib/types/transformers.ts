@@ -3,13 +3,14 @@
  * Properly converts database schema types to TypeScript interfaces
  */
 
-import type { Practice, PracticeAttributes, StaffMember, } from './practice'
-import type { Template } from '@/lib/hooks/use-templates'
+import { Practice, StaffMember, PracticeAttributes } from './practice';
+import { practices, staff_members, templates, practice_attributes } from '../db/schema';
+import type { Template } from '@/lib/hooks/use-templates';
 
 /**
  * Transform database practice record to Practice interface
  */
-export function transformPractice(dbPractice: any): Practice {
+export function transformPractice(dbPractice: typeof practices.$inferSelect): Practice {
   return {
     practice_id: dbPractice.practice_id,
     id: dbPractice.practice_id, // Alias for selection hook compatibility
@@ -24,7 +25,7 @@ export function transformPractice(dbPractice: any): Practice {
 /**
  * Transform database staff member record to StaffMember interface
  */
-export function transformStaffMember(dbStaff: any): StaffMember {
+export function transformStaffMember(dbStaff: typeof staff_members.$inferSelect): StaffMember {
   return {
     staff_id: dbStaff.staff_id,
     practice_id: dbStaff.practice_id,
@@ -43,7 +44,7 @@ export function transformStaffMember(dbStaff: any): StaffMember {
 /**
  * Transform database template record to Template interface
  */
-export function transformTemplate(dbTemplate: any): Template {
+export function transformTemplate(dbTemplate: typeof templates.$inferSelect): Template {
   return {
     id: dbTemplate.template_id,
     name: dbTemplate.name,
@@ -58,7 +59,7 @@ export function transformTemplate(dbTemplate: any): Template {
 /**
  * Transform database practice attributes record to PracticeAttributes interface
  */
-export function transformPracticeAttributes(dbAttributes: any): PracticeAttributes {
+export function transformPracticeAttributes(dbAttributes: typeof practice_attributes.$inferSelect): PracticeAttributes {
   return {
     practice_attribute_id: dbAttributes.practice_attribute_id,
     practice_id: dbAttributes.practice_id,

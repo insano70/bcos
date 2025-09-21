@@ -142,7 +142,7 @@ export class EmailService {
         html: options.html || '',
         text: options.text || '',
         attachments: options.attachments
-      } as any)
+      })
 
       if (result.error) {
         throw new Error(`Email sending failed: ${result.error.message}`)

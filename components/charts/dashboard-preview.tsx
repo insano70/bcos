@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import AnalyticsChart from './analytics-chart';
-import type { Dashboard, DashboardChart, ChartDefinition } from '@/lib/types/analytics';
+import type { Dashboard, DashboardChart, ChartDefinition, MeasureType, FrequencyType } from '@/lib/types/analytics';
 
 interface DashboardConfig {
   dashboardName: string;
@@ -218,11 +218,11 @@ export default function DashboardPreview({
             >
               <AnalyticsChart
                 chartType={chartDef.chart_type as any}
-                measure={measureFilter?.value}
-                frequency={frequencyFilter?.value}
+                {...(measureFilter?.value && { measure: measureFilter.value as MeasureType })}
+                {...(frequencyFilter?.value && { frequency: frequencyFilter.value as FrequencyType })}
                 practice={practiceFilter?.value?.toString()}
-                startDate={startDateFilter?.value}
-                endDate={endDateFilter?.value}
+                startDate={startDateFilter?.value?.toString()}
+                endDate={endDateFilter?.value?.toString()}
                 groupBy={chartConfig.series?.groupBy || 'provider_name'}
                 width={baseWidth}
                 height={Math.min(baseHeight, 400)}

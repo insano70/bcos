@@ -316,7 +316,7 @@ export class RBACError extends Error {
     message: string,
     public code: string,
     public statusCode: number = 403,
-    public details?: any
+    public details?: unknown
   ) {
     super(message);
     this.name = 'RBACError';
@@ -368,7 +368,7 @@ export type DeepPartial<T> = {
   [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
 };
 
-export type RequiredPermissions<T extends Record<string, any>> = {
+export type RequiredPermissions<T extends Record<string, unknown>> = {
   [K in keyof T]: PermissionName | PermissionName[];
 };
 

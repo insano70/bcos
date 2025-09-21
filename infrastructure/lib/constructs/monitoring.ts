@@ -330,7 +330,6 @@ export class Monitoring extends Construct {
     // ECS Metrics Widget
     this.dashboard.addWidgets(
       new cloudwatch.GraphWidget({
-        warnings: undefined,
         title: `ECS Service Metrics - ${environment}`,
         left: [
           new cloudwatch.Metric({
@@ -361,7 +360,6 @@ export class Monitoring extends Construct {
     // ALB Metrics Widget
     this.dashboard.addWidgets(
       new cloudwatch.GraphWidget({
-        warnings: undefined,
         title: `ALB Metrics - ${environment}`,
         left: [
           new cloudwatch.Metric({
@@ -390,7 +388,6 @@ export class Monitoring extends Construct {
     // Application Error Widget
     this.dashboard.addWidgets(
       new cloudwatch.GraphWidget({
-        warnings: undefined,
         title: `Application Errors - ${environment}`,
         left: [
           new cloudwatch.Metric({

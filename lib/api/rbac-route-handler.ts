@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server';
+import type { AuthSession } from './route-handler';
 import { applyRateLimit } from './middleware/rate-limit';
 import { applyGlobalAuth, markAsPublicRoute } from './middleware/global-auth';
 import { createErrorResponse } from './responses/error';
@@ -267,7 +268,7 @@ export function publicRoute(
  * Provides a migration path from basic auth to RBAC
  */
 export function legacySecureRoute(
-  handler: (request: NextRequest, session?: any, ...args: unknown[]) => Promise<Response>,
+  handler: (request: NextRequest, session?: AuthSession, ...args: unknown[]) => Promise<Response>,
   options: { rateLimit?: 'auth' | 'api' | 'upload'; requireAuth?: boolean; publicReason?: string } = {}
 ) {
   return withCorrelation(async (request: NextRequest, ...args: unknown[]): Promise<Response> => {
@@ -361,7 +362,7 @@ export function legacySecureRoute(
  * This allows existing routes to work while adding RBAC incrementally
  */
 export function migrateToRBAC(
-  legacyHandler: (request: NextRequest, session?: any, ...args: unknown[]) => Promise<Response>,
+  legacyHandler: (request: NextRequest, session?: AuthSession, ...args: unknown[]) => Promise<Response>,
   permission: PermissionName | PermissionName[],
   options: Omit<RBACRouteOptions, 'permission'> = {}
 ) {
@@ -418,7 +419,7 @@ interface WebhookRouteOptions {
 }
 
 export function webhookRoute(
-  handler: (request: NextRequest, body: any, rawBody: string) => Promise<Response>,
+  handler: (request: NextRequest, body: unknown, rawBody: string) => Promise<Response>,
   options: WebhookRouteOptions
 ) {
   return withCorrelation(async (request: NextRequest, ...args: unknown[]): Promise<Response> => {
@@ -477,7 +478,7 @@ export function webhookRoute(
       })
       
       // 4. Parse the body
-      let parsedBody: any
+      let parsedBody: unknown
       try {
         parsedBody = JSON.parse(rawBody)
       } catch (parseError) {

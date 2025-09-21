@@ -298,7 +298,7 @@ export class SimplifiedChartTransformer {
         sampleConversion: {
           original: datesWithData[0],
           dateObject: finalLabels[0],
-          isoString: finalLabels[0]?.toISOString()
+          isoString: finalLabels[0] instanceof Date ? finalLabels[0].toISOString() : finalLabels[0]
         }
       });
     } else {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { ChartDefinition } from '@/lib/types/analytics';
+import type { ChartDefinition, MeasureType, FrequencyType } from '@/lib/types/analytics';
 import AnalyticsChart from './analytics-chart';
 
 // New row-based data structures
@@ -367,11 +367,11 @@ export default function DashboardRowBuilder({
                               >
                                 <AnalyticsChart
                                   chartType={chart.chartDefinition.chart_type as any}
-                                  measure={measureFilter?.value}
-                                  frequency={frequencyFilter?.value}
+                                  {...(measureFilter?.value && { measure: measureFilter.value as MeasureType })}
+                                  {...(frequencyFilter?.value && { frequency: frequencyFilter.value as FrequencyType })}
                                   practice={practiceFilter?.value?.toString()}
-                                  startDate={startDateFilter?.value}
-                                  endDate={endDateFilter?.value}
+                                  startDate={startDateFilter?.value?.toString()}
+                                  endDate={endDateFilter?.value?.toString()}
                                   groupBy={chartConfig.series?.groupBy || 'provider_name'}
                                   width={chartWidth}
                                   height={chartHeight}
