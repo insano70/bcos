@@ -7,7 +7,15 @@ import { TokenManager } from '@/lib/auth/token-manager'
 import { AuthenticationError } from '../responses/error'
 import { rolePermissionCache } from '@/lib/cache/role-permission-cache'
 import { debugLog } from '@/lib/utils/debug'
+import { createAppLogger } from '@/lib/logger/factory'
+import { isPhase2MigrationEnabled } from '@/lib/logger/phase2-migration-flags'
 import type { UserContext, Role, Permission } from '@/lib/types/rbac'
+
+// Universal logger for JWT authentication middleware
+const jwtAuthLogger = createAppLogger('jwt-auth-middleware', {
+  component: 'security',
+  feature: 'jwt-authentication'
+})
 
 /**
  * Enhanced auth session with JWT data
@@ -125,13 +133,27 @@ async function buildUserContextFromJWT(payload: Record<string, unknown>): Promis
  * JWT-enhanced authentication with cache-first approach
  */
 export async function requireJWTAuth(request: Request): Promise<JWTAuthSession> {
+  const startTime = Date.now()
+  
+  // Enhanced JWT authentication logging
+  if (isPhase2MigrationEnabled('enableEnhancedJWTMiddleware')) {
+    jwtAuthLogger.info('JWT authentication middleware initiated', {
+      url: request.url,
+      method: request.method,
+      hasAuthHeader: !!request.headers.get('Authorization'),
+      hasCookieHeader: !!request.headers.get('Cookie')
+    })
+  }
+  
   // Extract access token from Authorization header OR httpOnly cookie
   const authHeader = request.headers.get('Authorization')
   let accessToken: string | null = null
+  let tokenSource: 'header' | 'cookie' | null = null
   
   if (authHeader?.startsWith('Bearer ')) {
     // Use Authorization header if present (for API clients)
     accessToken = authHeader.slice(7)
+    tokenSource = 'header'
   } else {
     // Fallback to httpOnly cookie (for browser requests)
     const cookieHeader = request.headers.get('Cookie')
@@ -143,19 +165,52 @@ export async function requireJWTAuth(request: Request): Promise<JWTAuthSession> 
       
       if (accessTokenCookie) {
         accessToken = accessTokenCookie
+        tokenSource = 'cookie'
         debugLog.auth('Using access token from httpOnly cookie')
       }
     }
   }
   
   if (!accessToken) {
+    // Enhanced missing token logging
+    if (isPhase2MigrationEnabled('enableEnhancedJWTMiddleware')) {
+      jwtAuthLogger.security('jwt_authentication_failed', 'medium', {
+        action: 'token_missing',
+        threat: 'unauthorized_access',
+        blocked: true,
+        reason: 'no_jwt_token'
+      })
+    }
     throw AuthenticationError('Access token required')
   }
   
   // Validate access token
+  const tokenValidationStart = Date.now()
   const payload = await TokenManager.validateAccessToken(accessToken)
+  const tokenValidationDuration = Date.now() - tokenValidationStart
+  
   if (!payload) {
+    // Enhanced token validation failure
+    if (isPhase2MigrationEnabled('enableEnhancedJWTMiddleware')) {
+      jwtAuthLogger.security('jwt_token_validation_failed', 'high', {
+        action: 'invalid_jwt',
+        threat: 'credential_attack',
+        blocked: true,
+        tokenSource,
+        validationTime: tokenValidationDuration
+      })
+    }
     throw AuthenticationError('Invalid or expired access token')
+  }
+  
+  // Enhanced successful JWT validation logging
+  if (isPhase2MigrationEnabled('enableEnhancedJWTMiddleware')) {
+    jwtAuthLogger.auth('jwt_validation', true, {
+      userId: payload.sub as string,
+      sessionId: payload.session_id as string,
+      tokenSource,
+      validationDuration: tokenValidationDuration
+    })
   }
   
   const userId = payload.sub as string
@@ -190,13 +245,46 @@ export async function requireJWTAuth(request: Request): Promise<JWTAuthSession> 
     organizationAdminFor: (payload.org_admin_for as string[]) || []
   }
   
-  debugLog.auth('JWT authentication successful', {
-    userId,
-    email: user.email,
-    rolesCount: user.roles.length,
-    permissionsCount: user.permissions.length,
-    usedCache: userContext !== null
-  })
+  // Enhanced JWT authentication success logging
+  if (isPhase2MigrationEnabled('enableEnhancedJWTMiddleware')) {
+    const duration = Date.now() - startTime
+    
+    // JWT authentication pipeline completion
+    jwtAuthLogger.info('JWT authentication completed', {
+      userId,
+      sessionId: payload.session_id as string,
+      tokenSource,
+      cacheHit: userContext !== null,
+      roleCount: user.roles.length,
+      permissionCount: user.permissions.length,
+      duration
+    })
+    
+    // Security success event
+    jwtAuthLogger.security('jwt_authentication_successful', 'low', {
+      action: 'jwt_middleware_success',
+      userId,
+      tokenValidated: true,
+      rbacContextLoaded: true,
+      cacheOptimized: userContext !== null
+    })
+    
+    // Performance monitoring
+    jwtAuthLogger.timing('JWT middleware completed', startTime, {
+      tokenValidationTime: tokenValidationDuration,
+      cacheEnabled: userContext !== null,
+      totalOperations: user.roles.length + user.permissions.length
+    })
+  } else {
+    // Legacy debug logging
+    debugLog.auth('JWT authentication successful', {
+      userId,
+      email: user.email,
+      rolesCount: user.roles.length,
+      permissionsCount: user.permissions.length,
+      usedCache: userContext !== null
+    })
+  }
   
   // Return session-like object with JWT-derived information
   return {

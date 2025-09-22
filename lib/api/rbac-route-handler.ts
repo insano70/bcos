@@ -7,16 +7,14 @@ import { getUserContextSafe } from '@/lib/rbac/user-context';
 import { createRBACMiddleware, } from '@/lib/rbac/middleware';
 import type { PermissionName, UserContext } from '@/lib/types/rbac';
 import { 
-  createAPILogger, 
   logAPIAuth, 
-  logAPIRequest, 
-  logAPIResponse,
-  logDBOperation,
   logSecurityEvent,
   logPerformanceMetric,
   withCorrelation,
   CorrelationContextManager 
 } from '@/lib/logger';
+import { createAPILogger } from '@/lib/logger/api-features';
+import { isPhase2MigrationEnabled } from '@/lib/logger/phase2-migration-flags';
 
 /**
  * Enhanced API Route Handler with RBAC Integration
@@ -45,15 +43,30 @@ export function rbacRoute(
 ) {
   return withCorrelation(async (request: NextRequest, ...args: unknown[]): Promise<Response> => {
     const startTime = Date.now()
-    const logger = createAPILogger(request)
+    const apiLogger = createAPILogger(request, 'rbac-enforcement')
+    const logger = apiLogger.getLogger()
     const url = new URL(request.url)
     
-    logger.info('RBAC route initiated', {
-      endpoint: url.pathname,
-      method: request.method,
-      requiredPermissions: Array.isArray(options.permission) ? options.permission : [options.permission],
-      requireAllPermissions: options.requireAllPermissions || false
-    })
+    // Enhanced RBAC route initiation logging
+    if (isPhase2MigrationEnabled('enableEnhancedRBACRouteHandler')) {
+      apiLogger.logRequest({
+        authType: 'session'
+      })
+      
+      apiLogger.logSecurity('rbac_enforcement_initiated', 'low', {
+        action: 'permission_check_started',
+        requiredPermissions: Array.isArray(options.permission) ? options.permission : [options.permission],
+        requireAllPermissions: options.requireAllPermissions || false
+      })
+    } else {
+      // Legacy logging fallback
+      logger.info('RBAC route initiated', {
+        endpoint: url.pathname,
+        method: request.method,
+        requiredPermissions: Array.isArray(options.permission) ? options.permission : [options.permission],
+        requireAllPermissions: options.requireAllPermissions || false
+      })
+    }
 
     try {
       // 1. Apply rate limiting
@@ -126,20 +139,32 @@ export function rbacRoute(
       }
 
       // Use existing user context from auth middleware (avoid duplicate loading)
-      const userContext = session!.userContext
+      const userContext = session?.userContext
       
       if (!userContext) {
-        logger.error('Failed to load user context for RBAC', {
-          userId: session!.user.id,
-          sessionEmail: session!.user.email
-        })
+        // Enhanced RBAC context failure logging
+        if (isPhase2MigrationEnabled('enableEnhancedRBACRouteHandler')) {
+          apiLogger.logSecurity('rbac_context_load_failed', 'high', {
+            action: 'context_load_failure',
+            userId: session?.user?.id,
+            threat: 'authorization_bypass_attempt',
+            blocked: true
+          })
+        } else {
+          // Legacy logging
+          logger.error('Failed to load user context for RBAC', {
+            userId: session?.user?.id,
+            sessionEmail: session?.user?.email
+          })
+          
+          logSecurityEvent(logger, 'rbac_context_failed', 'high', {
+            userId: session?.user?.id,
+            reason: 'context_load_failure'
+          })
+          
+          logAPIAuth(logger, 'rbac_check', false, session?.user?.id, 'context_load_failure')
+        }
         
-        logSecurityEvent(logger, 'rbac_context_failed', 'high', {
-          userId: session!.user.id,
-          reason: 'context_load_failure'
-        })
-        
-        logAPIAuth(logger, 'rbac_check', false, session!.user.id, 'context_load_failure')
         return createErrorResponse('Failed to load user context', 500, request) as Response
       }
 
@@ -169,11 +194,32 @@ export function rbacRoute(
       })
 
       if ('success' in rbacResult && rbacResult.success) {
-        logger.info('RBAC permission check passed', {
-          userId: userContext.user_id,
-          permissions: Array.isArray(options.permission) ? options.permission : [options.permission],
-          rbacDuration
-        })
+        // Enhanced RBAC permission success logging
+        if (isPhase2MigrationEnabled('enableEnhancedRBACRouteHandler')) {
+          apiLogger.logSecurity('rbac_permission_granted', 'low', {
+            action: 'permission_check_passed',
+            userId: userContext.user_id,
+            threat: 'none',
+            requiredPermissions: Array.isArray(options.permission) ? options.permission : [options.permission],
+            userRoles: userContext.roles?.map(r => r.name) || []
+          })
+          
+          // Business intelligence for access patterns
+          apiLogger.getLogger().debug('Access control analytics', {
+            resourceAccess: 'granted',
+            permissionEvaluation: 'successful',
+            organizationId: userContext.current_organization_id,
+            userRole: userContext.roles?.[0]?.name || 'no_role',
+            evaluationTime: rbacDuration
+          })
+        } else {
+          // Legacy logging
+          logger.info('RBAC permission check passed', {
+            userId: userContext.user_id,
+            permissions: Array.isArray(options.permission) ? options.permission : [options.permission],
+            rbacDuration
+          })
+        }
         
         logAPIAuth(logger, 'rbac_check', true, userContext.user_id)
         

@@ -3,11 +3,30 @@ import { eq, and, gte, desc, count, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { AuditLogger } from './audit'
 import { logger } from '@/lib/logger'
+import { createAppLogger } from '@/lib/logger/factory'
+import { isPhase2MigrationEnabled } from '@/lib/logger/phase2-migration-flags'
 
 /**
  * Enterprise Session Management Service
  * Handles advanced session tracking, device management, and security
  */
+
+// Universal logger for session management
+const sessionLogger = createAppLogger('session-service', {
+  component: 'authentication',
+  feature: 'session-management'
+})
+
+// Helper function for device type detection
+function getDeviceType(userAgent?: string): string {
+  if (!userAgent) return 'unknown'
+  
+  const agent = userAgent.toLowerCase()
+  if (agent.includes('mobile') || agent.includes('android') || agent.includes('iphone')) return 'mobile'
+  if (agent.includes('tablet') || agent.includes('ipad')) return 'tablet'
+  if (agent.includes('chrome') || agent.includes('firefox') || agent.includes('safari')) return 'desktop'
+  return 'unknown'
+}
 
 export interface SessionInfo {
   sessionId: string
@@ -39,15 +58,35 @@ export async function createSession(
   deviceInfo: DeviceInfo,
   rememberMe: boolean = false
 ): Promise<SessionInfo> {
+  const startTime = Date.now()
   const sessionId = nanoid(32)
   const now = new Date()
+
+  // Enhanced session creation logging
+  if (isPhase2MigrationEnabled('enableEnhancedSessionServiceLogging')) {
+    sessionLogger.info('Session creation initiated', {
+      userId,
+      deviceFingerprint: deviceInfo.fingerprint,
+      deviceName: deviceInfo.name,
+      rememberMe,
+      ipAddress: deviceInfo.ipAddress
+    })
+  }
 
   // Calculate expiration based on remember me preference
   const expirationHours = rememberMe ? 24 * 30 : 24 // 30 days or 24 hours
   const expiresAt = new Date(now.getTime() + (expirationHours * 60 * 60 * 1000))
 
   // Check concurrent session limits
+  const sessionLimitStart = Date.now()
   await enforceConcurrentSessionLimits(userId)
+  
+  if (isPhase2MigrationEnabled('enableEnhancedSessionServiceLogging')) {
+    sessionLogger.timing('Session limit enforcement completed', sessionLimitStart, {
+      userId,
+      operation: 'concurrent_session_check'
+    })
+  }
 
   // Create session record
   const sessions = await db
@@ -99,6 +138,37 @@ export async function createSession(
     auditData.userAgent = deviceInfo.userAgent
   }
   await AuditLogger.logAuth(auditData)
+
+  // Enhanced session creation success logging
+  if (isPhase2MigrationEnabled('enableEnhancedSessionServiceLogging')) {
+    // Session lifecycle logging
+    sessionLogger.info('Session created successfully', {
+      sessionId,
+      userId,
+      sessionType: rememberMe ? 'persistent' : 'temporary',
+      expirationHours,
+      deviceTracking: true,
+      duration: Date.now() - startTime
+    })
+    
+    // Business intelligence for session analytics
+    sessionLogger.debug('Session analytics', {
+      sessionCreationType: 'authentication_success',
+      deviceType: getDeviceType(deviceInfo.userAgent),
+      sessionDuration: rememberMe ? '30_days' : '24_hours',
+      concurrentSessionsEnforced: true,
+      ipGeolocation: 'tracked' // Could be enhanced with actual geo data
+    })
+    
+    // Security monitoring for session creation
+    sessionLogger.security('session_created', 'low', {
+      action: 'session_establishment',
+      userId,
+      threat: 'none',
+      deviceFingerprint: deviceInfo.fingerprint,
+      ipAddress: deviceInfo.ipAddress
+    })
+  }
 
   return {
     sessionId: session.session_id,

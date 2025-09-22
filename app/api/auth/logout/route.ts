@@ -5,6 +5,8 @@ import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { AuditLogger, BufferedAuditLogger } from '@/lib/logger'
 import { logger } from '@/lib/logger'
+import { createAPILogger } from '@/lib/logger/api-features'
+import { isPhase2MigrationEnabled } from '@/lib/logger/phase2-migration-flags'
 import { requireAuth } from '@/lib/api/middleware/auth'
 import { CSRFProtection } from '@/lib/security/csrf'
 import { db, token_blacklist } from '@/lib/db'
@@ -17,9 +19,29 @@ import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
  * SECURED: Requires authentication to prevent unauthorized logout
  */
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
+  
+  // Create enhanced API logger for logout operations
+  const apiLogger = createAPILogger(request, 'authentication')
+  const fallbackLogger = logger.child({ path: '/api/auth/logout' })
+  
   try {
+    // Enhanced logout request logging
+    if (isPhase2MigrationEnabled('enableEnhancedLogoutLogging')) {
+      apiLogger.logRequest({
+        authType: 'session'
+      })
+    } else {
+      fallbackLogger.info('Logout request initiated')
+    }
+    
     // RATE LIMITING: Apply auth-level rate limiting to prevent logout abuse
+    const rateLimitStart = Date.now()
     await applyRateLimit(request, 'auth')
+    
+    if (isPhase2MigrationEnabled('enableEnhancedLogoutLogging')) {
+      apiLogger.getLogger().timing('Rate limit check completed', rateLimitStart)
+    }
 
     // CSRF PROTECTION: Verify CSRF token before authentication check
     const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
@@ -138,10 +160,37 @@ export async function POST(request: NextRequest) {
       maxAge: 0, // Expire immediately
     })
 
+    // Enhanced logout completion logging
+    if (isPhase2MigrationEnabled('enableEnhancedLogoutLogging')) {
+      apiLogger.logAuth('logout_success', true, {
+        userId: session.user.id
+      })
+      
+      apiLogger.logBusiness('session_termination', 'sessions', 'success', {
+        recordsProcessed: 1,
+        businessRules: ['token_cleanup', 'cookie_clearing', 'session_invalidation'],
+        notifications: 0
+      })
+      
+      apiLogger.logResponse(200, {
+        recordCount: 1
+      })
+    } else {
+      fallbackLogger.info('Logout completed successfully', {
+        userId: session.user.id
+      })
+    }
+
     return response
     
   } catch (error) {
-    errorLog('Logout error:', error)
+    // Enhanced error logging
+    if (isPhase2MigrationEnabled('enableEnhancedLogoutLogging')) {
+      apiLogger.logResponse(500, {}, error instanceof Error ? error : new Error(String(error)))
+    } else {
+      errorLog('Logout error:', error)
+    }
+    
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
@@ -152,7 +201,27 @@ export async function POST(request: NextRequest) {
  * SECURED: Requires authentication and token validation
  */
 export async function DELETE(request: NextRequest) {
+  const startTime = Date.now()
+  
+  // Create enhanced API logger for revoke all sessions
+  const apiLogger = createAPILogger(request, 'authentication')
+  const fallbackLogger = logger.child({ path: '/api/auth/logout/revoke-all' })
+  
   try {
+    // Enhanced revoke all sessions request logging
+    if (isPhase2MigrationEnabled('enableEnhancedLogoutLogging')) {
+      apiLogger.logRequest({
+        authType: 'session'
+      })
+      
+      apiLogger.logSecurity('revoke_all_sessions_requested', 'medium', {
+        action: 'emergency_logout',
+        threat: 'potential_compromise'
+      })
+    } else {
+      fallbackLogger.info('Revoke all sessions request initiated')
+    }
+    
     // RATE LIMITING: Apply auth-level rate limiting to prevent revoke all sessions abuse
     await applyRateLimit(request, 'auth')
 

@@ -4,6 +4,8 @@ import path from 'node:path'
 import { nanoid } from 'nanoid'
 import sharp from 'sharp'
 import { logger } from '@/lib/logger'
+import { createAppLogger } from '@/lib/logger/factory'
+import { isPhase2MigrationEnabled } from '@/lib/logger/phase2-migration-flags'
 
 /**
  * Enterprise File Upload Service
@@ -36,6 +38,11 @@ interface UploadResult {
 }
 
 export class FileUploadService {
+  private static universalLogger = createAppLogger('upload-service', {
+    component: 'file-management',
+    feature: 'secure-uploads'
+  })
+  
   private static readonly DEFAULT_OPTIONS: Required<UploadOptions> = {
     allowedTypes: [
       'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif',
@@ -60,6 +67,7 @@ export class FileUploadService {
     files: File[],
     options: UploadOptions = {}
   ): Promise<UploadResult> {
+    const startTime = Date.now()
     const opts = { ...FileUploadService.DEFAULT_OPTIONS, ...options }
     const result: UploadResult = {
       success: true,
@@ -67,8 +75,40 @@ export class FileUploadService {
       errors: []
     }
 
+    // Enhanced upload operation logging
+    if (isPhase2MigrationEnabled('enableEnhancedUploadServiceLogging')) {
+      FileUploadService.universalLogger.info('File upload operation initiated', {
+        fileCount: files.length,
+        maxAllowed: opts.maxFiles,
+        allowedTypes: opts.allowedTypes,
+        optimizeImages: opts.optimizeImages,
+        generateThumbnails: opts.generateThumbnails,
+        targetFolder: opts.folder
+      })
+      
+      // Security validation logging
+      const totalSize = files.reduce((sum, file) => sum + file.size, 0)
+      FileUploadService.universalLogger.security('file_upload_security_check', 'low', {
+        action: 'upload_validation',
+        fileCount: files.length,
+        totalSize,
+        maxFileSize: opts.maxFileSize,
+        securityValidation: 'initiated'
+      })
+    }
+
     // Validate file count
     if (files.length > opts.maxFiles) {
+      if (isPhase2MigrationEnabled('enableEnhancedUploadServiceLogging')) {
+        FileUploadService.universalLogger.security('file_upload_violation', 'medium', {
+          action: 'file_count_exceeded',
+          threat: 'resource_abuse',
+          blocked: true,
+          attemptedCount: files.length,
+          allowedCount: opts.maxFiles
+        })
+      }
+      
       result.errors.push(`Maximum ${opts.maxFiles} files allowed`)
       result.success = false
       return result
@@ -95,6 +135,47 @@ export class FileUploadService {
         result.errors.push(`Failed to process ${file.name}: ${errorMessage}`)
         result.success = false
       }
+    }
+
+    // Enhanced upload completion logging
+    if (isPhase2MigrationEnabled('enableEnhancedUploadServiceLogging')) {
+      const duration = Date.now() - startTime
+      
+      // Business intelligence for upload analytics
+      FileUploadService.universalLogger.info('File upload analytics', {
+        totalFiles: files.length,
+        successfulFiles: result.files.length,
+        failedFiles: result.errors.length,
+        successRate: result.files.length / files.length,
+        totalProcessingTime: duration,
+        averageProcessingTime: duration / files.length,
+        optimizationEnabled: opts.optimizeImages,
+        thumbnailsGenerated: opts.generateThumbnails
+      })
+      
+      // Security completion logging
+      if (result.success) {
+        FileUploadService.universalLogger.security('file_upload_completed', 'low', {
+          action: 'upload_successful',
+          filesProcessed: result.files.length,
+          securityValidation: 'passed',
+          storageLocation: 'local_filesystem'
+        })
+      } else {
+        FileUploadService.universalLogger.security('file_upload_failed', 'medium', {
+          action: 'upload_failed',
+          reason: 'validation_errors',
+          errorCount: result.errors.length,
+          partialSuccess: result.files.length > 0
+        })
+      }
+      
+      // Performance monitoring
+      FileUploadService.universalLogger.timing('Upload operation completed', startTime, {
+        fileCount: files.length,
+        successCount: result.files.length,
+        errorCount: result.errors.length
+      })
     }
 
     return result

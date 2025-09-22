@@ -51,7 +51,14 @@ export default defineConfig({
         '**/*.config.*',
         'coverage/',
         '.next/'
-      ]
+      ],
+      // Initial Phase 1 thresholds - will be increased in subsequent phases
+      thresholds: {
+        statements: 15,
+        branches: 10,
+        functions: 15,
+        lines: 15
+      }
     }
   },
   resolve: {

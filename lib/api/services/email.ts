@@ -1,5 +1,7 @@
 import { Resend } from 'resend'
 import { logger } from '@/lib/logger'
+import { createAppLogger } from '@/lib/logger/factory'
+import { isPhase2MigrationEnabled } from '@/lib/logger/phase2-migration-flags'
 
 /**
  * Professional Email Service
@@ -28,6 +30,10 @@ interface EmailOptions {
 
 export class EmailService {
   private static resend: Resend | null = null
+  private static universalLogger = createAppLogger('email-service', {
+    component: 'communication',
+    feature: 'email-delivery'
+  })
 
   private static getResend(): Resend {
     if (!EmailService.resend) {
@@ -44,14 +50,38 @@ export class EmailService {
    * Send a welcome email to new users
    */
   static async sendWelcomeEmail(email: string, firstName: string, lastName: string): Promise<void> {
+    const startTime = Date.now()
+    
+    // Enhanced welcome email logging
+    if (isPhase2MigrationEnabled('enableEnhancedEmailServiceLogging')) {
+      EmailService.universalLogger.info('Welcome email workflow initiated', {
+        recipientEmail: '[REDACTED]', // PII protection
+        templateType: 'welcome',
+        userOnboarding: true
+      })
+    }
+    
     const template = EmailService.getWelcomeTemplate({ firstName, lastName })
     
     await EmailService.send({
       to: email,
       subject: template.subject,
       html: template.html,
+      template: 'welcome',
+      variables: { firstName, lastName },
       ...(template.text && { text: template.text })
     })
+    
+    // Enhanced business intelligence for welcome emails
+    if (isPhase2MigrationEnabled('enableEnhancedEmailServiceLogging')) {
+      EmailService.universalLogger.debug('User onboarding analytics', {
+        eventType: 'welcome_email_sent',
+        onboardingStep: 'email_welcome',
+        userEngagement: 'email_delivered',
+        templateUsed: 'welcome_professional',
+        duration: Date.now() - startTime
+      })
+    }
   }
 
   /**
@@ -131,6 +161,8 @@ export class EmailService {
    * Core email sending method
    */
   private static async send(options: EmailOptions): Promise<void> {
+    const startTime = Date.now()
+    
     try {
       const resend = EmailService.getResend()
       const fromEmail = process.env.EMAIL_FROM || 'noreply@yourdomain.com'
@@ -144,26 +176,113 @@ export class EmailService {
         ...(options.attachments && { attachments: options.attachments })
       }
       
+      // Enhanced email operation logging
+      if (isPhase2MigrationEnabled('enableEnhancedEmailServiceLogging')) {
+        EmailService.universalLogger.info('Email sending initiated', {
+          template: options.template,
+          recipientCount: Array.isArray(options.to) ? options.to.length : 1,
+          hasAttachments: !!options.attachments?.length,
+          hasVariables: !!Object.keys(options.variables || {}).length
+        })
+      }
+      
+      const apiCallStart = Date.now()
       const result = await resend.emails.send(emailData)
+      const apiCallDuration = Date.now() - apiCallStart
 
       if (result.error) {
+        // Enhanced error logging for external API failures
+        if (isPhase2MigrationEnabled('enableEnhancedEmailServiceLogging')) {
+          EmailService.universalLogger.error('Email API call failed', result.error, {
+            service: 'resend',
+            endpoint: '/emails/send',
+            duration: apiCallDuration,
+            template: options.template,
+            recipientCount: Array.isArray(options.to) ? options.to.length : 1
+          })
+          
+          // Log external API failure
+          EmailService.universalLogger.debug('External API monitoring', {
+            service: 'resend',
+            endpoint: '/emails/send',
+            outcome: 'failure',
+            statusCode: 400, // Resend API error
+            duration: apiCallDuration,
+            errorType: result.error.name || 'ResendAPIError'
+          })
+        }
+        
         throw new Error(`Email sending failed: ${result.error.message}`)
       }
 
-      logger.info('Email sent successfully', {
-        to: options.to,
-        emailId: result.data?.id,
-        subject: options.subject,
-        operation: 'sendEmail'
-      })
+      // Enhanced success logging
+      if (isPhase2MigrationEnabled('enableEnhancedEmailServiceLogging')) {
+        // External API monitoring
+        EmailService.universalLogger.debug('External API monitoring', {
+          service: 'resend',
+          endpoint: '/emails/send', 
+          outcome: 'success',
+          statusCode: 200,
+          duration: apiCallDuration,
+          emailId: result.data?.id
+        })
+        
+        // Business intelligence logging
+        EmailService.universalLogger.info('Email delivery analytics', {
+          template: options.template || 'custom',
+          recipientCount: Array.isArray(options.to) ? options.to.length : 1,
+          deliveryTime: apiCallDuration,
+          hasAttachments: !!options.attachments?.length,
+          templateVariables: Object.keys(options.variables || {}).length,
+          emailProvider: 'resend',
+          deliveryStatus: 'sent'
+        })
+        
+        // Performance tracking
+        EmailService.universalLogger.timing('Email operation completed', startTime, {
+          template: options.template,
+          externalAPITime: apiCallDuration,
+          totalTime: Date.now() - startTime
+        })
+      } else {
+        // Legacy logging fallback
+        logger.info('Email sent successfully', {
+          to: options.to,
+          emailId: result.data?.id,
+          subject: options.subject,
+          operation: 'sendEmail'
+        })
+      }
+      
     } catch (error) {
-      logger.error('Email sending error', {
-        to: options.to,
-        subject: options.subject,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        operation: 'sendEmail'
-      })
+      // Enhanced error handling
+      if (isPhase2MigrationEnabled('enableEnhancedEmailServiceLogging')) {
+        EmailService.universalLogger.error('Email service error', error instanceof Error ? error : new Error(String(error)), {
+          template: options.template,
+          recipientCount: Array.isArray(options.to) ? options.to.length : 1,
+          operation: 'sendEmail',
+          duration: Date.now() - startTime
+        })
+        
+        // Business intelligence for failures
+        EmailService.universalLogger.warn('Email delivery failure analytics', {
+          template: options.template || 'custom',
+          failureReason: error instanceof Error ? error.message : 'Unknown error',
+          emailProvider: 'resend',
+          deliveryStatus: 'failed',
+          retryRecommended: true
+        })
+      } else {
+        // Legacy error logging
+        logger.error('Email sending error', {
+          to: options.to,
+          subject: options.subject,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+          operation: 'sendEmail'
+        })
+      }
+      
       throw error
     }
   }

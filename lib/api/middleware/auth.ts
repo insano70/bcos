@@ -4,8 +4,27 @@ import { db, users } from '@/lib/db'
 import { eq } from 'drizzle-orm'
 import { getUserContextSafe } from '@/lib/rbac/user-context'
 import { debugLog } from '@/lib/utils/debug'
+import { createAppLogger } from '@/lib/logger/factory'
+import { isPhase2MigrationEnabled } from '@/lib/logger/phase2-migration-flags'
+
+// Universal logger for authentication middleware
+const authMiddlewareLogger = createAppLogger('auth-middleware', {
+  component: 'security',
+  feature: 'authentication-pipeline'
+})
 
 export async function requireAuth(request: Request) {
+  const startTime = Date.now()
+  
+  // Enhanced authentication middleware logging
+  if (isPhase2MigrationEnabled('enableEnhancedAuthMiddleware')) {
+    authMiddlewareLogger.info('Authentication middleware initiated', {
+      url: request.url,
+      method: request.method,
+      hasAuthHeader: !!request.headers.get('Authorization'),
+      hasCookieHeader: !!request.headers.get('Cookie')
+    })
+  }
   // Extract access token from Authorization header OR httpOnly cookie
   const authHeader = request.headers.get('Authorization')
   let accessToken: string | null = null
@@ -30,13 +49,48 @@ export async function requireAuth(request: Request) {
   }
   
   if (!accessToken) {
+    // Enhanced missing token logging
+    if (isPhase2MigrationEnabled('enableEnhancedAuthMiddleware')) {
+      authMiddlewareLogger.security('authentication_failed', 'medium', {
+        action: 'token_missing',
+        threat: 'unauthorized_access',
+        blocked: true,
+        reason: 'no_access_token'
+      })
+    }
     throw AuthenticationError('Access token required')
   }
   
   // Validate access token
+  const tokenValidationStart = Date.now()
   const payload = await TokenManager.validateAccessToken(accessToken)
+  const tokenValidationDuration = Date.now() - tokenValidationStart
+  
   if (!payload) {
+    // Enhanced token validation failure logging
+    if (isPhase2MigrationEnabled('enableEnhancedAuthMiddleware')) {
+      authMiddlewareLogger.security('token_validation_failed', 'high', {
+        action: 'invalid_token',
+        threat: 'credential_attack',
+        blocked: true,
+        tokenValidationTime: tokenValidationDuration
+      })
+      
+      authMiddlewareLogger.auth('token_validation', false, {
+        reason: 'invalid_or_expired_token',
+        validationDuration: tokenValidationDuration
+      })
+    }
     throw AuthenticationError('Invalid or expired access token')
+  }
+  
+  // Log successful token validation
+  if (isPhase2MigrationEnabled('enableEnhancedAuthMiddleware')) {
+    authMiddlewareLogger.auth('token_validation', true, {
+      userId: payload.sub as string,
+      sessionId: payload.session_id as string,
+      validationDuration: tokenValidationDuration
+    })
   }
   
   const userId = payload.sub as string
@@ -58,6 +112,36 @@ export async function requireAuth(request: Request) {
   // Get the user's actual assigned roles
   const userRoles = userContext?.roles?.map(r => r.name) || [];
   const primaryRole = userRoles.length > 0 ? userRoles[0] : 'user';
+
+  // Enhanced authentication success logging
+  if (isPhase2MigrationEnabled('enableEnhancedAuthMiddleware')) {
+    const duration = Date.now() - startTime
+    
+    // Authentication pipeline completion
+    authMiddlewareLogger.info('Authentication pipeline completed', {
+      userId: user.user_id,
+      sessionId: payload.session_id as string,
+      roleCount: userRoles.length,
+      permissionCount: userContext?.all_permissions?.length || 0,
+      isSuperAdmin: userContext?.is_super_admin || false,
+      duration
+    })
+    
+    // Security success event
+    authMiddlewareLogger.security('authentication_successful', 'low', {
+      action: 'middleware_auth_success',
+      userId: user.user_id,
+      sessionValidated: true,
+      rbacContextLoaded: !!userContext
+    })
+    
+    // Performance monitoring
+    authMiddlewareLogger.timing('Authentication middleware completed', startTime, {
+      tokenValidationTime: tokenValidationDuration,
+      rbacLoadTime: duration - tokenValidationDuration,
+      userActive: user.is_active
+    })
+  }
 
   // Return session-like object with actual RBAC information
   return {
