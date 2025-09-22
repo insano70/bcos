@@ -67,11 +67,7 @@ class LogVolumeManager {
   private aggregationData: Map<string, LogAggregation> = new Map();
   private retentionPolicies: RetentionPolicy[] = [];
   
-  private readonly volumeLogger = createAppLogger('volume-manager', {
-    component: 'performance',
-    feature: 'log-volume-management',
-    module: 'volume-manager'
-  });
+  private readonly volumeLogger = this.createSafeLogger();
 
   private readonly costOptimization: CostOptimization = {
     levelCosts: {
@@ -92,6 +88,27 @@ class LogVolumeManager {
     searchCost: 0.50,       // $0.50 per search query
     alertingCost: 0.10      // $0.10 per alert
   };
+
+  /**
+   * Create safe logger that doesn't cause initialization issues
+   */
+  private createSafeLogger() {
+    try {
+      return createAppLogger('volume-manager', {
+        component: 'performance',
+        feature: 'log-volume-management',
+        module: 'volume-manager'
+      });
+    } catch (error) {
+      // Fallback to simple console logger if universal logger fails
+      return {
+        info: (message: string, data?: Record<string, unknown>) => console.log(`[VOLUME] ${message}`, data),
+        warn: (message: string, data?: Record<string, unknown>) => console.warn(`[VOLUME] ${message}`, data),
+        error: (message: string, error?: Error, data?: Record<string, unknown>) => console.error(`[VOLUME] ${message}`, error, data),
+        debug: (message: string, data?: Record<string, unknown>) => console.debug(`[VOLUME] ${message}`, data)
+      };
+    }
+  }
 
   constructor() {
     this.initializeRetentionPolicies();
@@ -524,8 +541,38 @@ class LogVolumeManager {
   }
 }
 
-// Global volume manager instance
-export const logVolumeManager = new LogVolumeManager();
+// Global volume manager instance - lazy initialization to prevent startup issues
+let logVolumeManagerInstance: LogVolumeManager | null = null
+
+export const logVolumeManager = {
+  get instance(): LogVolumeManager {
+    if (!logVolumeManagerInstance) {
+      logVolumeManagerInstance = new LogVolumeManager();
+    }
+    return logVolumeManagerInstance;
+  },
+  
+  // Proxy methods for backward compatibility
+  recordLog: (level: string, component: string, size?: number) => {
+    return logVolumeManager.instance.recordLog(level, component, size);
+  },
+  
+  getVolumeStats: () => {
+    return logVolumeManager.instance.getVolumeStats();
+  },
+  
+  getComplianceStatus: () => {
+    return logVolumeManager.instance.getComplianceStatus();
+  },
+  
+  getCostBreakdown: () => {
+    return logVolumeManager.instance.getCostBreakdown();
+  },
+  
+  exportAggregatedData: (timeRange: { start: Date; end: Date }) => {
+    return logVolumeManager.instance.exportAggregatedData(timeRange);
+  }
+};
 
 // Export types and classes
 export { LogVolumeManager, type VolumeMetrics, type RetentionPolicy, type LogAggregation, type CostOptimization };

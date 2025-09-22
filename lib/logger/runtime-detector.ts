@@ -31,17 +31,24 @@ export function detectRuntime(): RuntimeEnvironment {
     }
 
     // Strategy 2: Check for Node.js specific process object characteristics
-    if (typeof process !== 'undefined') {
-      // Edge Runtime has a limited process object, Node.js has full process
-      if (
-        typeof process.nextTick === 'function' &&
-        typeof process.versions === 'object' &&
-        process.versions.node &&
-        typeof process.cwd === 'function'
-      ) {
-        detectedRuntime = 'nodejs'
-        return detectedRuntime
+    // Wrap in try-catch to prevent Edge Runtime bundling issues
+    try {
+      if (typeof process !== 'undefined') {
+        // Edge Runtime has a limited process object, Node.js has full process
+        // Use bracket notation to prevent static analysis bundling issues
+        const processObj = process as any;
+        if (
+          typeof processObj['nextTick'] === 'function' &&
+          typeof processObj['versions'] === 'object' &&
+          processObj['versions']?.['node'] &&
+          typeof processObj['cwd'] === 'function'
+        ) {
+          detectedRuntime = 'nodejs'
+          return detectedRuntime
+        }
       }
+    } catch (error) {
+      // Expected to fail in Edge Runtime - continue to next strategy
     }
 
     // Strategy 3: Check for Node.js specific globals that Edge Runtime lacks
@@ -53,9 +60,11 @@ export function detectRuntime(): RuntimeEnvironment {
 
     // Strategy 4: Try to access Node.js specific APIs
     try {
-      // This will throw in Edge Runtime but succeed in Node.js
-      const nodeTest = typeof require !== 'undefined' && 
-                      typeof require.resolve === 'function'
+      // Use indirect access to prevent bundling issues
+      const globalThis_ = globalThis as any;
+      const requireFunc = globalThis_['require'];
+      const nodeTest = typeof requireFunc !== 'undefined' && 
+                      typeof requireFunc['resolve'] === 'function'
       if (nodeTest) {
         detectedRuntime = 'nodejs'
         return detectedRuntime

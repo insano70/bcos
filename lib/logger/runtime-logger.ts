@@ -8,7 +8,7 @@ import type {
   LoggerAdapter, 
   LoggerConfig 
 } from './universal-logger'
-import { detectRuntime, isNodeRuntime, isEdgeRuntime, getRuntimeInfo } from './runtime-detector'
+import { detectRuntimeSafe as detectRuntime, isNodeRuntimeSafe as isNodeRuntime, isEdgeRuntimeSafe as isEdgeRuntime, getRuntimeInfoSafe as getRuntimeInfo } from './runtime-detector-safe'
 import { EdgeLoggerAdapter } from './adapters/edge-adapter'
 import { WinstonLoggerAdapter } from './adapters/winston-adapter'
 

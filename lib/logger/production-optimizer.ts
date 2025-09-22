@@ -71,11 +71,28 @@ class ProductionOptimizer {
   private lastFlush = Date.now();
   private logBuffer: Array<{ level: string; message: string; meta: Record<string, unknown>; timestamp: number }> = [];
   
-  private readonly optimizerLogger = createAppLogger('production-optimizer', {
-    component: 'performance',
-    feature: 'log-optimization',
-    module: 'production-optimizer'
-  });
+  private readonly optimizerLogger = this.createSafeLogger();
+
+  /**
+   * Create safe logger that doesn't cause initialization issues
+   */
+  private createSafeLogger() {
+    try {
+      return createAppLogger('production-optimizer', {
+        component: 'performance',
+        feature: 'log-optimization',
+        module: 'production-optimizer'
+      });
+    } catch (error) {
+      // Fallback to simple console logger if universal logger fails
+      return {
+        info: (message: string, data?: Record<string, unknown>) => console.log(`[OPTIMIZER] ${message}`, data),
+        warn: (message: string, data?: Record<string, unknown>) => console.warn(`[OPTIMIZER] ${message}`, data),
+        error: (message: string, error?: Error, data?: Record<string, unknown>) => console.error(`[OPTIMIZER] ${message}`, error, data),
+        debug: (message: string, data?: Record<string, unknown>) => console.debug(`[OPTIMIZER] ${message}`, data)
+      };
+    }
+  }
 
   constructor(config?: Partial<ProductionConfig>) {
     this.config = {
@@ -444,8 +461,34 @@ class ProductionOptimizer {
   }
 }
 
-// Global production optimizer instance
-export const productionOptimizer = new ProductionOptimizer();
+// Global production optimizer instance - lazy initialization to prevent startup issues
+let productionOptimizerInstance: ProductionOptimizer | null = null
+
+export const productionOptimizer = {
+  get instance(): ProductionOptimizer {
+    if (!productionOptimizerInstance) {
+      productionOptimizerInstance = new ProductionOptimizer();
+    }
+    return productionOptimizerInstance;
+  },
+  
+  // Proxy methods for backward compatibility
+  shouldSample: (level: string, context?: any) => {
+    return productionOptimizer.instance.shouldSample(level, context);
+  },
+  
+  recordLog: (level: string, component?: string) => {
+    return productionOptimizer.instance.recordLog(level, component);
+  },
+  
+  getStats: () => {
+    return productionOptimizer.instance.getStats();
+  },
+  
+  updateConfig: (updates: any) => {
+    return productionOptimizer.instance.updateConfig(updates);
+  }
+};
 
 // Export types and classes for advanced usage
 export { ProductionOptimizer, type ProductionConfig, type SamplingConfig };

@@ -3,7 +3,7 @@
  * Production-grade logging with Next.js compatibility
  */
 
-import winston from 'winston'
+const winston = require('winston')
 import { nanoid } from 'nanoid'
 
 // Log levels configuration
@@ -42,14 +42,23 @@ function createWinstonLogger(): winston.Logger {
                    isDevelopment ? 'debug' : 
                    (process.env.LOG_LEVEL || 'info')
 
-  const logger = winston.createLogger({
-    level: logLevel,
-    levels: LOG_LEVELS,
-    format: winston.format.combine(
-      winston.format.timestamp(),
-      winston.format.errors({ stack: true }),
-      winston.format.json(),
-      winston.format.printf((info) => {
+  try {
+    // Safe Winston format access with fallback
+    const format = winston.format || {};
+    const combine = format.combine || ((a: any) => a);
+    const timestamp = format.timestamp || (() => ({}));
+    const errors = format.errors || (() => ({}));
+    const json = format.json || (() => ({}));
+    const printf = format.printf || ((fn: any) => fn);
+
+    const logger = winston.createLogger({
+      level: logLevel,
+      levels: LOG_LEVELS,
+      format: combine(
+        timestamp(),
+        errors({ stack: true }),
+        json(),
+        printf((info: any) => {
         // Sanitize sensitive data
         const sanitized = sanitizeLogData({ ...info }) as LogData & {
           module?: string;
@@ -92,6 +101,38 @@ function createWinstonLogger(): winston.Logger {
   })
 
   return logger
+
+  } catch (error) {
+    // Fallback to simple console logger if Winston fails
+    console.warn('Winston initialization failed, using fallback logger:', error);
+    
+    // Create a simple fallback logger that matches Winston interface
+    return {
+      log: (level: string, message: string, meta?: any) => {
+        if (!isTest) {
+          console.log(`[${level.toUpperCase()}] ${message}`, meta);
+        }
+      },
+      info: (message: string, meta?: any) => {
+        if (!isTest) {
+          console.log(`[INFO] ${message}`, meta);
+        }
+      },
+      warn: (message: string, meta?: any) => {
+        if (!isTest) {
+          console.warn(`[WARN] ${message}`, meta);
+        }
+      },
+      error: (message: string, meta?: any) => {
+        console.error(`[ERROR] ${message}`, meta);
+      },
+      debug: (message: string, meta?: any) => {
+        if (isDevelopment) {
+          console.debug(`[DEBUG] ${message}`, meta);
+        }
+      }
+    } as any;
+  }
 }
 
 /**

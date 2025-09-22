@@ -64,7 +64,25 @@ interface DataChangeAuditData extends BaseAuditData {
 
 type AuditData = AuthAuditData | UserActionAuditData | SystemAuditData | SecurityAuditData | DataChangeAuditData
 
-const auditLogger = createAppLogger('audit')
+// Lazy audit logger creation to prevent initialization issues
+let auditLogger: ReturnType<typeof createAppLogger> | null = null
+
+function getAuditLogger() {
+  if (!auditLogger) {
+    try {
+      auditLogger = createAppLogger('audit')
+    } catch (error) {
+      // Fallback to console logger if universal logger fails
+      auditLogger = {
+        info: (message: string, data?: Record<string, unknown>) => console.log(`[AUDIT] ${message}`, data),
+        warn: (message: string, data?: Record<string, unknown>) => console.warn(`[AUDIT] ${message}`, data),
+        error: (message: string, error?: Error, data?: Record<string, unknown>) => console.error(`[AUDIT] ${message}`, error, data),
+        debug: (message: string, data?: Record<string, unknown>) => console.debug(`[AUDIT] ${message}`, data)
+      } as any
+    }
+  }
+  return auditLogger
+}
 
 interface BufferedAuditEntry {
   type: 'auth' | 'user_action' | 'system' | 'security' | 'data_change'
@@ -102,7 +120,7 @@ class OptimizedAuditLogger {
     }
 
     // Always log to Winston immediately
-    auditLogger.info(`Audit event: ${type}/${data.action}`, {
+    getAuditLogger().info(`Audit event: ${type}/${data.action}`, {
       type,
       severity,
       userId: data.userId,
@@ -137,12 +155,12 @@ class OptimizedAuditLogger {
   private async flushImmediately(entry: BufferedAuditEntry): Promise<void> {
     try {
       await this.processAuditEntry(entry)
-      auditLogger.debug('Critical audit event flushed immediately', {
+      getAuditLogger().debug('Critical audit event flushed immediately', {
         type: entry.type,
         severity: entry.severity
       })
     } catch (error) {
-      auditLogger.error('Failed to flush critical audit event', error, {
+      getAuditLogger().error('Failed to flush critical audit event', error, {
         type: entry.type,
         severity: entry.severity
       })
@@ -167,14 +185,14 @@ class OptimizedAuditLogger {
       )
 
       const duration = Date.now() - startTime
-      auditLogger.info('Audit buffer flushed successfully', {
+      getAuditLogger().info('Audit buffer flushed successfully', {
         entriesCount: entriesToFlush.length,
         duration,
         avgTimePerEntry: Math.round(duration / entriesToFlush.length)
       })
 
     } catch (error) {
-      auditLogger.error('Failed to flush audit buffer', error, {
+      getAuditLogger().error('Failed to flush audit buffer', error, {
         entriesCount: entriesToFlush.length,
         lostEntries: entriesToFlush.map(e => ({ type: e.type, severity: e.severity }))
       })
@@ -208,7 +226,7 @@ class OptimizedAuditLogger {
         await AuditLogger.logDataChange(entry.data as DataChangeAuditData)
         break
       default:
-        auditLogger.warn('Unknown audit entry type', { type: entry.type })
+        getAuditLogger().warn('Unknown audit entry type', { type: entry.type })
     }
   }
 
@@ -220,7 +238,7 @@ class OptimizedAuditLogger {
       void this.flushBuffer()
     }, this.flushIntervalMs)
 
-    auditLogger.debug('Audit buffer flush timer started', {
+    getAuditLogger().debug('Audit buffer flush timer started', {
       intervalMs: this.flushIntervalMs,
       bufferSize: this.bufferSize
     })
@@ -238,7 +256,7 @@ class OptimizedAuditLogger {
     // Flush any remaining entries
     await this.flushBuffer()
     
-    auditLogger.info('Optimized audit logger shutdown complete')
+    getAuditLogger().info('Optimized audit logger shutdown complete')
   }
 
   /**
@@ -271,32 +289,39 @@ class OptimizedAuditLogger {
   }
 }
 
-// Singleton instance
-const optimizedAuditLogger = new OptimizedAuditLogger()
+// Singleton instance - lazy initialization to prevent startup issues
+let optimizedAuditLoggerInstance: OptimizedAuditLogger | null = null
+
+function getOptimizedAuditLogger(): OptimizedAuditLogger {
+  if (!optimizedAuditLoggerInstance) {
+    optimizedAuditLoggerInstance = new OptimizedAuditLogger()
+  }
+  return optimizedAuditLoggerInstance
+}
 
 /**
  * Enhanced audit logging functions with buffering
  */
 export const BufferedAuditLogger = {
-  logAuth: (data: AuditData) => optimizedAuditLogger.logEvent('auth', data, data.severity || 'medium'),
-  logUserAction: (data: AuditData) => optimizedAuditLogger.logEvent('user_action', data, data.severity || 'low'),
-  logSystem: (data: AuditData) => optimizedAuditLogger.logEvent('system', data, data.severity || 'medium'),
-  logSecurity: (data: AuditData) => optimizedAuditLogger.logEvent('security', data, data.severity || 'high'),
-  logDataChange: (data: AuditData) => optimizedAuditLogger.logEvent('data_change', data, data.severity || 'low'),
+  logAuth: (data: AuditData) => getOptimizedAuditLogger().logEvent('auth', data, data.severity || 'medium'),
+  logUserAction: (data: AuditData) => getOptimizedAuditLogger().logEvent('user_action', data, data.severity || 'low'),
+  logSystem: (data: AuditData) => getOptimizedAuditLogger().logEvent('system', data, data.severity || 'medium'),
+  logSecurity: (data: AuditData) => getOptimizedAuditLogger().logEvent('security', data, data.severity || 'high'),
+  logDataChange: (data: AuditData) => getOptimizedAuditLogger().logEvent('data_change', data, data.severity || 'low'),
   
   // Utility functions
-  getBufferStatus: () => optimizedAuditLogger.getBufferStatus(),
+  getBufferStatus: () => getOptimizedAuditLogger().getBufferStatus(),
   flushNow: () => optimizedAuditLogger['flushBuffer'](),
-  shutdown: () => optimizedAuditLogger.shutdown()
+  shutdown: () => getOptimizedAuditLogger().shutdown()
 }
 
 // Graceful shutdown handling
 process.on('SIGTERM', () => {
-  void optimizedAuditLogger.shutdown()
+  void getOptimizedAuditLogger().shutdown()
 })
 
 process.on('SIGINT', () => {
-  void optimizedAuditLogger.shutdown()
+  void getOptimizedAuditLogger().shutdown()
 })
 
 export default BufferedAuditLogger
