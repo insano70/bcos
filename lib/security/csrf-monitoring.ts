@@ -4,81 +4,17 @@
  */
 
 import type { NextRequest } from 'next/server';
+import { createAppLogger } from '@/lib/logger/factory';
+import { createConditionalLogger, isMigrationEnabled, MigrationLogger } from '@/lib/logger/migration-flags';
 
-// Edge Runtime compatible logger interface
-interface EdgeLogger {
-  info: (message: string, meta?: Record<string, unknown>) => void;
-  warn: (message: string, meta?: Record<string, unknown>) => void;
-  error: (message: string, meta?: Record<string, unknown>) => void;
-  debug: (message: string, meta?: Record<string, unknown>) => void;
-}
+// Create CSRF security logger with enhanced features
+const csrfLogger = createAppLogger('csrf-monitoring', {
+  component: 'security',
+  feature: 'csrf-protection',
+  module: 'csrf-monitor'
+});
 
-/**
- * Create Edge Runtime compatible logger
- * Falls back to console logging in Edge Runtime where winston is not available
- */
-function createEdgeLogger(): EdgeLogger {
-  // Detect if we're in Edge Runtime
-  const isEdgeRuntime = typeof process === 'undefined' || 
-                       (globalThis as { EdgeRuntime?: unknown }).EdgeRuntime !== undefined ||
-                       typeof process.nextTick === 'undefined';
-  
-  if (isEdgeRuntime) {
-    // Edge Runtime compatible console logger
-    return {
-      info: (message: string, meta?: Record<string, unknown>) => {
-        console.log('[CSRF-MONITOR]', message, meta ? JSON.stringify(meta) : '');
-      },
-      warn: (message: string, meta?: Record<string, unknown>) => {
-        console.warn('[CSRF-MONITOR]', message, meta ? JSON.stringify(meta) : '');
-      },
-      error: (message: string, meta?: Record<string, unknown>) => {
-        console.error('[CSRF-MONITOR]', message, meta ? JSON.stringify(meta) : '');
-      },
-      debug: (message: string, meta?: Record<string, unknown>) => {
-        if (process.env.NODE_ENV === 'development') {
-          console.debug('[CSRF-MONITOR]', message, meta ? JSON.stringify(meta) : '');
-        }
-      },
-    };
-  } else {
-    // Node.js runtime - use full logger (lazy loaded to avoid Edge Runtime issues)
-    try {
-      const { createAPILogger } = require('@/lib/logger');
-      const mockRequest = {
-        url: 'http://localhost:3000/security/csrf',
-        headers: new Headers(),
-        nextUrl: { pathname: '/security/csrf' }
-      } as NextRequest;
-      const fullLogger = createAPILogger(mockRequest);
-      
-      return {
-        info: (message: string, meta?: Record<string, unknown>) => fullLogger.info(message, meta),
-        warn: (message: string, meta?: Record<string, unknown>) => fullLogger.warn(message, meta),
-        error: (message: string, meta?: Record<string, unknown>) => fullLogger.error(message, meta),
-        debug: (message: string, meta?: Record<string, unknown>) => fullLogger.debug(message, meta),
-      };
-    } catch (error) {
-      // Fallback to console if logger import fails
-      return {
-        info: (message: string, meta?: Record<string, unknown>) => {
-          console.log('[CSRF-MONITOR]', message, meta ? JSON.stringify(meta) : '');
-        },
-        warn: (message: string, meta?: Record<string, unknown>) => {
-          console.warn('[CSRF-MONITOR]', message, meta ? JSON.stringify(meta) : '');
-        },
-        error: (message: string, meta?: Record<string, unknown>) => {
-          console.error('[CSRF-MONITOR]', message, meta ? JSON.stringify(meta) : '');
-        },
-        debug: (message: string, meta?: Record<string, unknown>) => {
-          if (process.env.NODE_ENV === 'development') {
-            console.debug('[CSRF-MONITOR]', message, meta ? JSON.stringify(meta) : '');
-          }
-        },
-      };
-    }
-  }
-}
+const migrationLogger = MigrationLogger.getInstance();
 
 /**
  * CSRF failure event data
@@ -185,8 +121,6 @@ export class CSRFSecurityMonitor {
    * Log CSRF failure with appropriate severity
    */
   private static logFailure(event: CSRFFailureEvent): void {
-    const logger = createEdgeLogger();
-
     const logData = {
       event_type: 'csrf_validation_failure',
       ip: event.ip,
@@ -198,20 +132,21 @@ export class CSRFSecurityMonitor {
       timestamp: new Date(event.timestamp).toISOString()
     };
 
-    switch (event.severity) {
-      case 'critical':
-        logger.error('Critical CSRF validation failure', logData);
-        break;
-      case 'high':
-        logger.error('High severity CSRF validation failure', logData);
-        break;
-      case 'medium':
-        logger.warn('CSRF validation failure', logData);
-        break;
-      case 'low':
-        logger.info('CSRF validation failure', logData);
-        break;
-    }
+    // Log migration event for monitoring
+    migrationLogger.logMigration('phase1', 'csrf-monitoring', 'enhanced_security_logging', {
+      severity: event.severity,
+      reason: event.reason
+    });
+
+    // Use enhanced security logging method
+    csrfLogger.security('csrf_validation_failure', event.severity, {
+      ip: event.ip,
+      pathname: event.pathname,
+      reason: event.reason,
+      userAgent: event.userAgent.substring(0, 100),
+      userId: event.userId,
+      timestamp: new Date(event.timestamp).toISOString()
+    });
   }
 
   /**
@@ -302,14 +237,18 @@ export class CSRFSecurityMonitor {
   private static async sendAlert(alert: SecurityAlert): Promise<void> {
     const isDevelopment = process.env.NODE_ENV === 'development';
     
-    // Always log the alert
-    const logger = createEdgeLogger();
-
-    logger.error('CSRF Security Alert', {
-      alert_type: alert.type,
+    // Log migration event for monitoring
+    migrationLogger.logMigration('phase1', 'csrf-monitoring', 'security_alert_triggered', {
+      alertType: alert.type,
       severity: alert.severity,
+      eventCount: alert.events.length
+    });
+
+    // Use enhanced security logging
+    csrfLogger.security('csrf_security_alert', alert.severity, {
+      alertType: alert.type,
       message: alert.message,
-      event_count: alert.events.length,
+      eventCount: alert.events.length,
       metadata: alert.metadata,
       timestamp: new Date(alert.timestamp).toISOString()
     });
@@ -330,7 +269,10 @@ export class CSRFSecurityMonitor {
       try {
         await CSRFSecurityMonitor.sendToMonitoringService(alert);
       } catch (error) {
-        logger.error('Failed to send CSRF alert to monitoring service', { error });
+        csrfLogger.error('Failed to send CSRF alert to monitoring service', error instanceof Error ? error : new Error(String(error)), {
+          alertType: alert.type,
+          severity: alert.severity
+        });
       }
     }
   }

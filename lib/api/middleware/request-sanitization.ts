@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import { createEdgeAPILogger, logEdgeSecurityEvent, logEdgePerformanceMetric } from '@/lib/logger/edge-logger'
+import { createAPILogger } from '@/lib/logger/api-features'
 
 /**
  * Request Sanitization Middleware
@@ -243,8 +243,10 @@ export async function sanitizeRequestBody(body: unknown, logger: SanitizationLog
     // Validate JSON depth
     if (!validateDepth(body)) {
       errors.push('JSON structure too deep (max 10 levels)')
-      logEdgeSecurityEvent(logger, 'json_depth_exceeded', 'medium', {
-        action: 'request_sanitization'
+      logger.warn('JSON depth validation failed', {
+        action: 'request_sanitization',
+        threat: 'json_depth_attack',
+        maxDepth: 10
       })
       return { isValid: false, errors }
     }
@@ -252,8 +254,10 @@ export async function sanitizeRequestBody(body: unknown, logger: SanitizationLog
     // Validate array sizes
     if (!validateArraySizes(body)) {
       errors.push('Array too large (max 1000 items)')
-      logEdgeSecurityEvent(logger, 'array_size_exceeded', 'medium', {
-        action: 'request_sanitization'
+      logger.warn('Array size validation failed', {
+        action: 'request_sanitization',
+        threat: 'resource_exhaustion_attack',
+        maxSize: 1000
       })
       return { isValid: false, errors }
     }
@@ -261,16 +265,12 @@ export async function sanitizeRequestBody(body: unknown, logger: SanitizationLog
     // Deep sanitize the object
     const sanitized = deepSanitize(body, 'body', errors)
 
-    // Log if any sanitization was performed
-    if (errors.length > 0) {
-      logEdgeSecurityEvent(logger, 'request_sanitization_triggered', 'high', {
-        errorCount: errors.length,
-        errors: errors.slice(0, 5) // Log first 5 errors
-      })
-    }
-
-    logEdgePerformanceMetric(logger, 'request_sanitization', Date.now() - startTime, {
-      hasErrors: errors.length > 0
+    // Log sanitization performance
+    const duration = Date.now() - startTime
+    logger.debug('Request sanitization completed', {
+      duration,
+      hasErrors: errors.length > 0,
+      errorCount: errors.length
     })
 
     return {
@@ -280,9 +280,10 @@ export async function sanitizeRequestBody(body: unknown, logger: SanitizationLog
     }
 
   } catch (error) {
-    logger.error('Request sanitization error', error)
-    logEdgeSecurityEvent(logger, 'request_sanitization_error', 'high', {
-      error: error instanceof Error ? error.message : 'Unknown error'
+    logger.error('Request sanitization system error', {
+      error: error instanceof Error ? error.message : String(error),
+      action: 'sanitization_failed',
+      threat: 'system_error'
     })
     
     return {
@@ -303,7 +304,8 @@ export function withRequestSanitization<T extends (request: NextRequest, ...args
   } = {}
 ): T {
   return (async (request: NextRequest, ...args: unknown[]) => {
-    const logger = createEdgeAPILogger(request)
+    const apiLogger = createAPILogger(request, 'request-sanitization')
+    const logger = apiLogger.getLogger()
     
     // Only sanitize for methods that typically have bodies
     if (!['POST', 'PUT', 'PATCH'].includes(request.method)) {
@@ -323,8 +325,16 @@ export function withRequestSanitization<T extends (request: NextRequest, ...args
         )
       }
 
+      // Create compatible logger for sanitization function
+      const sanitizationLogger = {
+        info: (message: string, meta?: unknown) => logger.info(message, meta as Record<string, unknown>),
+        warn: (message: string, meta?: unknown) => logger.warn(message, meta as Record<string, unknown>),
+        error: (message: string, meta?: unknown) => logger.error(message, undefined, meta as Record<string, unknown>),
+        debug: (message: string, meta?: unknown) => logger.debug(message, meta as Record<string, unknown>)
+      }
+      
       // Sanitize the body
-      const result = await sanitizeRequestBody(body, logger)
+      const result = await sanitizeRequestBody(body, sanitizationLogger)
 
       if (!result.isValid) {
         logger.warn('Request sanitization failed', {

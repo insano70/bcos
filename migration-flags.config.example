@@ -1,0 +1,96 @@
+# Universal Logger Migration Feature Flags
+# Copy this file to .env.local and modify as needed for migration control
+
+# =========================================
+# Phase 1: Edge Runtime Critical Path
+# =========================================
+# Enable universal CSRF monitoring logger
+MIGRATION_ENABLE_UNIVERSAL_CSRF_LOGGING=false
+
+# Enable universal middleware logger
+MIGRATION_ENABLE_UNIVERSAL_MIDDLEWARE_LOGGING=false
+
+# Enable universal request sanitization logger
+MIGRATION_ENABLE_UNIVERSAL_REQUEST_SANITIZATION=false
+
+# Enable edge logger replacement
+MIGRATION_ENABLE_EDGE_LOGGER_REPLACEMENT=false
+
+# =========================================
+# Phase 2: API Routes & Core Services
+# =========================================
+# Enable universal auth routes logging
+MIGRATION_ENABLE_UNIVERSAL_AUTH_ROUTES=false
+
+# Enable universal API routes logging
+MIGRATION_ENABLE_UNIVERSAL_API_ROUTES=false
+
+# Enable universal core services logging
+MIGRATION_ENABLE_UNIVERSAL_CORE_SERVICES=false
+
+# =========================================
+# Phase 3: Business Logic & Services
+# =========================================
+# Enable universal RBAC services logging
+MIGRATION_ENABLE_UNIVERSAL_RBAC_SERVICES=false
+
+# Enable universal business services logging
+MIGRATION_ENABLE_UNIVERSAL_BUSINESS_SERVICES=false
+
+# Enable universal database services logging
+MIGRATION_ENABLE_UNIVERSAL_DATABASE_SERVICES=false
+
+# =========================================
+# Phase 4: Console Cleanup
+# =========================================
+# Enable console logger replacement
+MIGRATION_ENABLE_CONSOLE_LOGGER_REPLACEMENT=false
+
+# Enable debug logger replacement
+MIGRATION_ENABLE_DEBUG_LOGGER_REPLACEMENT=false
+
+# =========================================
+# Monitoring & Performance
+# =========================================
+# Enable migration performance monitoring (recommended: true)
+MIGRATION_ENABLE_PERFORMANCE_MONITORING=true
+
+# Enable migration metrics collection (recommended: true)
+MIGRATION_ENABLE_MIGRATION_METRICS=true
+
+# Enable automatic rollback on critical errors (recommended: true)
+MIGRATION_ENABLE_ROLLBACK_ON_ERROR=true
+
+# =========================================
+# Development & Debugging
+# =========================================
+# Enable migration debugging logs (auto-enabled in development)
+MIGRATION_ENABLE_MIGRATION_DEBUGGING=true
+
+# Enable verbose migration logging (auto-enabled in development)
+MIGRATION_ENABLE_VERBOSE_LOGGING=false
+
+# Enable all Phase 1 flags in development (development only)
+MIGRATION_DEV_ENABLE_ALL=false
+
+# =========================================
+# Usage Examples:
+# =========================================
+# 
+# 1. Enable Phase 1 CSRF migration only:
+#    MIGRATION_ENABLE_UNIVERSAL_CSRF_LOGGING=true
+#
+# 2. Enable all Phase 1 migrations:
+#    MIGRATION_ENABLE_UNIVERSAL_CSRF_LOGGING=true
+#    MIGRATION_ENABLE_UNIVERSAL_MIDDLEWARE_LOGGING=true
+#    MIGRATION_ENABLE_UNIVERSAL_REQUEST_SANITIZATION=true
+#    MIGRATION_ENABLE_EDGE_LOGGER_REPLACEMENT=true
+#
+# 3. Development mode with all Phase 1 enabled:
+#    MIGRATION_DEV_ENABLE_ALL=true
+#
+# 4. Production monitoring only:
+#    MIGRATION_ENABLE_PERFORMANCE_MONITORING=true
+#    MIGRATION_ENABLE_MIGRATION_METRICS=true
+#    MIGRATION_ENABLE_ROLLBACK_ON_ERROR=true
+#    (All other flags false)
