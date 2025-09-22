@@ -7,6 +7,7 @@ import { getUserContextSafe } from '@/lib/rbac/user-context';
 import { createRBACMiddleware, } from '@/lib/rbac/middleware';
 import type { PermissionName, UserContext } from '@/lib/types/rbac';
 import { 
+  logger,
   logAPIAuth, 
   logSecurityEvent,
   logPerformanceMetric,
@@ -44,19 +45,19 @@ export function rbacRoute(
   return withCorrelation(async (request: NextRequest, ...args: unknown[]): Promise<Response> => {
     const startTime = Date.now()
     const apiLogger = createAPILogger(request, 'rbac-enforcement')
-    const logger = apiLogger.getLogger()
     const url = new URL(request.url)
+
+    const logger = apiLogger.getLogger()
     
     // Enhanced RBAC route initiation logging
     if (isPhase2MigrationEnabled('enableEnhancedRBACRouteHandler')) {
       apiLogger.logRequest({
         authType: 'session'
       })
-      
       apiLogger.logSecurity('rbac_enforcement_initiated', 'low', {
         action: 'permission_check_started',
-        requiredPermissions: Array.isArray(options.permission) ? options.permission : [options.permission],
-        requireAllPermissions: options.requireAllPermissions || false
+        threat: 'none',
+        blocked: false
       })
     } else {
       // Legacy logging fallback
@@ -146,7 +147,7 @@ export function rbacRoute(
         if (isPhase2MigrationEnabled('enableEnhancedRBACRouteHandler')) {
           apiLogger.logSecurity('rbac_context_load_failed', 'high', {
             action: 'context_load_failure',
-            userId: session?.user?.id,
+            ...(session?.user?.id && { userId: session.user.id }),
             threat: 'authorization_bypass_attempt',
             blocked: true
           })
@@ -199,13 +200,11 @@ export function rbacRoute(
           apiLogger.logSecurity('rbac_permission_granted', 'low', {
             action: 'permission_check_passed',
             userId: userContext.user_id,
-            threat: 'none',
-            requiredPermissions: Array.isArray(options.permission) ? options.permission : [options.permission],
-            userRoles: userContext.roles?.map(r => r.name) || []
+            threat: 'none'
           })
-          
+
           // Business intelligence for access patterns
-          apiLogger.getLogger().debug('Access control analytics', {
+          logger.debug('Access control analytics', {
             resourceAccess: 'granted',
             permissionEvaluation: 'successful',
             organizationId: userContext.current_organization_id,
@@ -316,7 +315,8 @@ export function legacySecureRoute(
 ) {
   return withCorrelation(async (request: NextRequest, ...args: unknown[]): Promise<Response> => {
     const startTime = Date.now()
-    const logger = createAPILogger(request)
+    const apiLogger = createAPILogger(request, 'legacy-secure-route')
+    const logger = apiLogger.getLogger()
     const url = new URL(request.url)
     
     logger.info('Legacy secure route initiated', {
@@ -412,7 +412,8 @@ export function migrateToRBAC(
   return rbacRoute(
     // Convert legacy handler to RBAC handler
     async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
-      const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id)
+      const apiLogger = createAPILogger(request, 'legacy-handler-migration')
+      const logger = apiLogger.getLogger()
       
       logger.debug('Legacy handler migration', {
         userId: userContext.user_id,
@@ -475,7 +476,8 @@ export function webhookRoute(
 ) {
   return withCorrelation(async (request: NextRequest, ...args: unknown[]): Promise<Response> => {
     const startTime = Date.now()
-    const logger = createAPILogger(request)
+    const apiLogger = createAPILogger(request, 'webhook')
+    const logger = apiLogger.getLogger()
     const url = new URL(request.url)
     
     logger.info('Webhook request initiated', {

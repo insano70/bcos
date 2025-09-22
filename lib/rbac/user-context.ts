@@ -523,8 +523,8 @@ function countPermissionCategories(permissions: Permission[]): Record<string, nu
   const categories: Record<string, number> = {}
   
   permissions.forEach(permission => {
-    const category = permission.name.split(':')[0] // e.g., 'users:read' -> 'users'
-    categories[category] = (categories[category] || 0) + 1
+    const category = permission.name.split(':')[0] || 'unknown' // e.g., 'users:read' -> 'users'
+    categories[category] = (categories[category] ?? 0) + 1
   })
   
   return categories

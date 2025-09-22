@@ -24,7 +24,6 @@ const getUsersHandler = async (request: NextRequest, userContext: UserContext) =
     
     // Create enhanced API logger for user management
     const apiLogger = createAPILogger(request, 'user-management')
-      .withUser(userContext.user_id, userContext.current_organization_id)
     const logger = apiLogger.getLogger()
     
     // Enhanced user list request logging
@@ -32,7 +31,7 @@ const getUsersHandler = async (request: NextRequest, userContext: UserContext) =
       apiLogger.logRequest({
         authType: 'session',
         userId: userContext.user_id,
-        organizationId: userContext.current_organization_id
+        ...(userContext.current_organization_id && { organizationId: userContext.current_organization_id })
       })
       
       // Business intelligence for user management
@@ -160,7 +159,8 @@ export const GET = rbacRoute(
 
 const createUserHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now()
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id)
+  const apiLogger = createAPILogger(request, 'user-management')
+  const logger = apiLogger.getLogger()
   
   logger.info('User creation request initiated', {
     createdByUserId: userContext.user_id,
