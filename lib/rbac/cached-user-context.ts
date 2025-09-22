@@ -25,6 +25,9 @@ import type {
 } from '@/lib/types/rbac';
 import { rolePermissionCache } from '@/lib/cache/role-permission-cache';
 
+// Request-scoped cache to prevent multiple getUserContext calls per request
+const requestCache = new Map<string, Promise<UserContext | null>>();
+
 /**
  * Get role permissions from cache or database
  */
@@ -292,30 +295,53 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
 }
 
 /**
- * Get cached user context with error handling
+ * Get cached user context with error handling and request-scoped caching
  */
 export async function getCachedUserContextSafe(userId: string): Promise<UserContext | null> {
   const isDev = process.env.NODE_ENV === 'development';
   
-  try {
-    const context = await getCachedUserContext(userId);
+  // Check request-scoped cache first
+  const cacheKey = `cached_user_context:${userId}`;
+  if (requestCache.has(cacheKey)) {
     if (isDev) {
-      const stats = rolePermissionCache.getStats();
-      logger.debug('Cached user context loaded successfully', {
+      logger.debug('Request-scoped user context cache hit', {
         userId,
-        rolesCount: context.roles?.length || 0,
-        permissionsCount: context.all_permissions?.length || 0,
-        organizationsCount: context.organizations?.length || 0,
-        cacheStats: stats
+        operation: 'getCachedUserContext'
       });
     }
-    return context;
-  } catch (error) {
-    logger.error('Failed to get cached user context', {
-      userId,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
-    });
-    return null;
+    return await requestCache.get(cacheKey)!;
   }
+  
+  // Create promise and cache it immediately to prevent race conditions
+  const contextPromise = (async (): Promise<UserContext | null> => {
+    try {
+      const context = await getCachedUserContext(userId);
+      if (isDev) {
+        const stats = rolePermissionCache.getStats();
+        logger.debug('Cached user context loaded successfully', {
+          userId,
+          rolesCount: context.roles?.length || 0,
+          permissionsCount: context.all_permissions?.length || 0,
+          organizationsCount: context.organizations?.length || 0,
+          cacheStats: stats
+        });
+      }
+      return context;
+    } catch (error) {
+      logger.error('Failed to get cached user context', {
+        userId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      return null;
+    } finally {
+      // Clean up cache entry after request completes (prevent memory leaks)
+      setTimeout(() => {
+        requestCache.delete(cacheKey);
+      }, 1000); // Clean up after 1 second
+    }
+  })();
+  
+  requestCache.set(cacheKey, contextPromise);
+  return await contextPromise;
 }

@@ -44,6 +44,11 @@ class RolePermissionCache {
     
     if (!cached) {
       this.stats.misses++;
+      logger.debug('Cache MISS: Role not found in cache', {
+        roleId,
+        cacheSize: this.cache.size,
+        cachedRoleIds: Array.from(this.cache.keys())
+      });
       return null;
     }
     
@@ -53,10 +58,20 @@ class RolePermissionCache {
       this.cache.delete(roleId);
       this.stats.misses++;
       this.stats.size = this.cache.size;
+      logger.debug('Cache MISS: Role expired', {
+        roleId,
+        age: now - cached.cached_at,
+        ttl: this.TTL
+      });
       return null;
     }
     
     this.stats.hits++;
+    logger.debug('Cache HIT: Role found in cache', {
+      roleId,
+      roleName: cached.name,
+      permissionCount: cached.permissions.length
+    });
     return cached;
   }
 
@@ -76,11 +91,12 @@ class RolePermissionCache {
     this.roleVersions.set(roleId, version);
     this.stats.size = this.cache.size;
     
-    logger.debug('Role permissions cached', {
+    logger.debug('Cache SET: Role permissions cached', {
       roleId,
       roleName: name,
       permissionCount: permissions.length,
-      cacheSize: this.stats.size
+      cacheSize: this.stats.size,
+      version
     });
   }
 
