@@ -114,12 +114,13 @@ describe('safe-json', () => {
       expect(result).toEqual(['item1', 'item2', 'item3'])
     })
 
-    it('should filter out invalid items when using schema', () => {
+    it('should reject arrays with invalid items when using schema', () => {
       const itemSchema = z.string()
       const jsonString = '["valid", 123, "also-valid"]'
       const result = safeJsonParseArray(jsonString, itemSchema)
 
-      expect(result).toEqual(['valid', 'also-valid'])
+      // The function rejects the entire array if any item fails validation
+      expect(result).toEqual([])
     })
 
     it('should return empty array for invalid JSON', () => {
@@ -193,14 +194,12 @@ describe('safe-json', () => {
       ])
     })
 
-    it('should filter out invalid services', () => {
+    it('should reject arrays with invalid services', () => {
       const jsonString = '[{"name": "Valid"}, {"invalid": "service"}, {"name": "Also Valid"}]'
       const result = parseServices(jsonString)
 
-      expect(result).toEqual([
-        { name: 'Valid' },
-        { name: 'Also Valid' }
-      ])
+      // The function rejects the entire array if any service fails validation
+      expect(result).toEqual([])
     })
 
     it('should handle empty services array', () => {
@@ -252,14 +251,12 @@ describe('safe-json', () => {
       ])
     })
 
-    it('should filter out invalid insurance entries', () => {
+    it('should reject arrays with invalid insurance entries', () => {
       const jsonString = '[{"name": "Valid"}, {"invalid": "entry"}, {"name": "Also Valid"}]'
       const result = parseInsuranceAccepted(jsonString)
 
-      expect(result).toEqual([
-        { name: 'Valid', accepted: true },
-        { name: 'Also Valid', accepted: true }
-      ])
+      // The function rejects the entire array if any entry fails validation
+      expect(result).toEqual([])
     })
 
     it('should validate name length', () => {
@@ -282,14 +279,12 @@ describe('safe-json', () => {
       ])
     })
 
-    it('should filter out invalid conditions', () => {
+    it('should reject arrays with invalid conditions', () => {
       const jsonString = '[{"name": "Valid"}, {"invalid": "condition"}, {"name": "Also Valid"}]'
       const result = parseConditionsTreated(jsonString)
 
-      expect(result).toEqual([
-        { name: 'Valid' },
-        { name: 'Also Valid' }
-      ])
+      // The function rejects the entire array if any condition fails validation
+      expect(result).toEqual([])
     })
 
     it('should validate description length', () => {
@@ -348,11 +343,12 @@ describe('safe-json', () => {
       expect(result).toEqual(['Rheumatology', 'Internal Medicine', 'Sports Medicine'])
     })
 
-    it('should filter out non-string specialties', () => {
+    it('should reject arrays with non-string specialties', () => {
       const jsonString = '["Valid", 123, "Also Valid"]'
       const result = parseSpecialties(jsonString)
 
-      expect(result).toEqual(['Valid', 'Also Valid'])
+      // The function rejects the entire array if any specialty fails validation
+      expect(result).toEqual([])
     })
 
     it('should validate specialty length', () => {

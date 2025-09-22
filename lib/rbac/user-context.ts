@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
 import { logger } from '@/lib/logger';
+import { createAppLogger } from '@/lib/logger/factory';
+import { isPhase3MigrationEnabled } from '@/lib/logger/phase3-migration-flags';
 import {
   users,
   roles,
@@ -24,12 +26,31 @@ import type {
  * Loads complete user information with roles, permissions, and organization access
  */
 
+// Universal logger for RBAC user context operations
+const rbacUserContextLogger = createAppLogger('rbac-user-context', {
+  component: 'security',
+  feature: 'user-context-management',
+  securityLevel: 'critical'
+})
+
 /**
  * Get complete user context with RBAC information
  * This is the primary function for loading user data for permission checking
  */
 export async function getUserContext(userId: string): Promise<UserContext> {
+  const startTime = Date.now()
+  
+  // Enhanced user context loading logging
+  if (isPhase3MigrationEnabled('enableEnhancedUserContextLogging')) {
+    rbacUserContextLogger.info('User context loading initiated', {
+      userId,
+      operation: 'get_user_context',
+      securityLevel: 'critical'
+    })
+  }
+  
   // 1. Get basic user information
+  const userQueryStart = Date.now()
   const [user] = await db
     .select({
       user_id: users.user_id,
@@ -264,6 +285,39 @@ export async function getUserContext(userId: string): Promise<UserContext> {
     organization_admin_for: organizationAdminFor
   };
 
+  // Enhanced user context completion logging
+  if (isPhase3MigrationEnabled('enableEnhancedUserContextLogging')) {
+    const duration = Date.now() - startTime
+    
+    // Security analytics for user context loading
+    rbacUserContextLogger.security('user_context_loaded', 'low', {
+      action: 'rbac_context_success',
+      userId,
+      organizationCount: userContext.organizations.length,
+      roleCount: userContext.roles.length,
+      permissionCount: userContext.all_permissions.length,
+      isSuperAdmin: userContext.is_super_admin,
+      hasActiveOrganization: !!userContext.current_organization_id
+    })
+    
+    // Business intelligence for user analytics
+    rbacUserContextLogger.debug('User context analytics', {
+      userSegment: userContext.roles[0]?.name || 'no_role',
+      organizationScope: userContext.current_organization_id,
+      accessLevel: userContext.is_super_admin ? 'super_admin' : 'standard',
+      permissionCategories: countPermissionCategories(userContext.all_permissions),
+      contextComplexity: calculateContextComplexity(userContext)
+    })
+    
+    // Performance monitoring
+    rbacUserContextLogger.timing('User context loading completed', startTime, {
+      userQueryTime: userQueryStart ? Date.now() - userQueryStart : 0,
+      totalQueries: 4, // user, orgs, roles, permissions
+      cacheEnabled: false, // This is the non-cached version
+      optimizationPotential: duration > 100 ? 'high' : 'low'
+    })
+  }
+
   return userContext;
 }
 
@@ -340,12 +394,32 @@ const requestCache = new Map<string, Promise<UserContext | null>>();
  * Get user context for API route handlers (with error handling and request-scoped caching)
  */
 export async function getUserContextSafe(userId: string): Promise<UserContext | null> {
+  const startTime = Date.now()
   const isDev = process.env.NODE_ENV === 'development';
+  
+  // Enhanced safe user context loading logging
+  if (isPhase3MigrationEnabled('enableEnhancedUserContextLogging')) {
+    rbacUserContextLogger.info('Safe user context loading initiated', {
+      userId,
+      operation: 'get_user_context_safe',
+      securityLevel: 'critical',
+      cacheEnabled: true
+    })
+  }
   
   // Check request-scoped cache first
   const cacheKey = `user_context:${userId}`;
   if (requestCache.has(cacheKey)) {
-    if (isDev) {
+    // Enhanced cache hit logging
+    if (isPhase3MigrationEnabled('enableEnhancedUserContextLogging')) {
+      rbacUserContextLogger.debug('User context cache analytics', {
+        userId,
+        cacheHit: true,
+        cacheKey,
+        performance: 'optimized',
+        duration: Date.now() - startTime
+      })
+    } else if (isDev) {
       logger.debug('User context cache hit', {
         userId,
         operation: 'getUserContext'
@@ -354,7 +428,14 @@ export async function getUserContextSafe(userId: string): Promise<UserContext | 
     return await requestCache.get(cacheKey)!;
   }
   
-  if (isDev) {
+  // Enhanced cache miss logging
+  if (isPhase3MigrationEnabled('enableEnhancedUserContextLogging')) {
+    rbacUserContextLogger.debug('User context cache miss', {
+      userId,
+      cacheKey,
+      loadingFromDatabase: true
+    })
+  } else if (isDev) {
     logger.debug('Loading user context', {
       userId,
       operation: 'getUserContext'
@@ -433,4 +514,31 @@ export async function validateUserExists(userId: string): Promise<boolean> {
     });
     return false;
   }
+}
+
+/**
+ * Helper function to count permission categories for analytics
+ */
+function countPermissionCategories(permissions: Permission[]): Record<string, number> {
+  const categories: Record<string, number> = {}
+  
+  permissions.forEach(permission => {
+    const category = permission.name.split(':')[0] // e.g., 'users:read' -> 'users'
+    categories[category] = (categories[category] || 0) + 1
+  })
+  
+  return categories
+}
+
+/**
+ * Helper function to calculate context complexity for performance monitoring
+ */
+function calculateContextComplexity(userContext: UserContext): 'low' | 'medium' | 'high' {
+  const totalItems = userContext.roles.length + 
+                    userContext.organizations.length + 
+                    userContext.all_permissions.length
+  
+  if (totalItems > 50) return 'high'
+  if (totalItems > 20) return 'medium'
+  return 'low'
 }

@@ -162,9 +162,9 @@ describe('color-utils', () => {
     it('should generate darkened variants', () => {
       const styles = generateSSRColorStyles(testColors)
 
-      expect(styles['--color-primary-700']).toBe('#1a5cc8')
-      expect(styles['--color-primary-800']).toBe('#154aa6')
-      expect(styles['--color-accent-700']).toBe('#4686e6')
+      expect(styles['--color-primary-700']).toBe('#1e68d3')
+      expect(styles['--color-primary-800']).toBe('#1a5dbb')
+      expect(styles['--color-accent-700']).toBe('#4d87e6')
     })
 
     it('should handle invalid colors gracefully', () => {

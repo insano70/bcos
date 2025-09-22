@@ -6,6 +6,8 @@ import { eq, and, gte, lte, } from 'drizzle-orm'
 import { AuditLogger } from '@/lib/api/services/audit'
 import { getJWTConfig } from '@/lib/env'
 import { logger } from '@/lib/logger'
+import { createAppLogger } from '@/lib/logger/factory'
+import { isPhase3MigrationEnabled } from '@/lib/logger/phase3-migration-flags'
 import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context'
 import { rolePermissionCache } from '@/lib/cache/role-permission-cache'
 
@@ -13,6 +15,13 @@ import { rolePermissionCache } from '@/lib/cache/role-permission-cache'
  * Enterprise JWT + Refresh Token Manager
  * Handles 15-minute access tokens with sliding window refresh tokens
  */
+
+// Universal logger for token management operations
+const tokenManagerLogger = createAppLogger('token-manager', {
+  component: 'security',
+  feature: 'jwt-token-management',
+  securityLevel: 'critical'
+})
 
 const jwtConfig = getJWTConfig()
 const ACCESS_TOKEN_SECRET = new TextEncoder().encode(jwtConfig.accessSecret)
@@ -57,14 +66,52 @@ export class TokenManager {
     rememberMe: boolean = false,
     email?: string
   ): Promise<TokenPair> {
+    const startTime = Date.now()
     const now = new Date()
     const sessionId = nanoid(32)
     const refreshTokenId = nanoid(32)
     
+    // Enhanced token creation logging
+    if (isPhase3MigrationEnabled('enableEnhancedTokenManagerLogging')) {
+      tokenManagerLogger.info('Token pair creation initiated', {
+        userId,
+        sessionId,
+        deviceFingerprint: deviceInfo.fingerprint,
+        rememberMe,
+        securityLevel: 'critical',
+        operation: 'create_token_pair'
+      })
+    }
+    
     // Load user context to include in JWT (eliminates future database queries)
+    const contextLoadStart = Date.now()
     const userContext = await getCachedUserContextSafe(userId)
+    const contextLoadDuration = Date.now() - contextLoadStart
+    
     if (!userContext) {
+      // Enhanced token creation failure logging
+      if (isPhase3MigrationEnabled('enableEnhancedTokenManagerLogging')) {
+        tokenManagerLogger.security('token_creation_failed', 'high', {
+          action: 'user_context_load_failed',
+          userId,
+          threat: 'authentication_bypass_attempt',
+          blocked: true,
+          reason: 'invalid_user_context'
+        })
+      }
       throw new Error(`Failed to load user context for JWT creation: ${userId}`)
+    }
+    
+    // Log successful context loading
+    if (isPhase3MigrationEnabled('enableEnhancedTokenManagerLogging')) {
+      tokenManagerLogger.debug('User context loaded for token creation', {
+        userId,
+        roleCount: userContext.roles.length,
+        permissionCount: userContext.all_permissions.length,
+        organizationCount: userContext.organizations.length,
+        contextLoadTime: contextLoadDuration,
+        cacheOptimized: true
+      })
     }
     
     // Create access token (15 minutes) with enhanced user data
@@ -166,6 +213,40 @@ export class TokenManager {
         deviceFingerprint: deviceInfo.fingerprint
       }
     })
+
+    // Enhanced token creation completion logging
+    if (isPhase3MigrationEnabled('enableEnhancedTokenManagerLogging')) {
+      const duration = Date.now() - startTime
+      
+      // Token security analytics
+      tokenManagerLogger.security('token_pair_created', 'low', {
+        action: 'jwt_token_generation_success',
+        userId,
+        sessionId,
+        tokenTypes: ['access_token', 'refresh_token'],
+        securityFeatures: ['device_binding', 'session_tracking', 'rbac_embedded'],
+        expirationPolicy: rememberMe ? '30_days' : '24_hours'
+      })
+      
+      // Business intelligence for token analytics
+      tokenManagerLogger.info('Token creation analytics', {
+        tokenLifecycle: 'created',
+        userSegment: userContext.roles[0]?.name || 'no_role',
+        deviceType: deviceInfo.deviceName || 'unknown',
+        sessionType: rememberMe ? 'persistent' : 'session',
+        securityCompliance: 'jwt_standard',
+        rbacEmbedded: true,
+        cacheOptimized: true
+      })
+      
+      // Performance monitoring
+      tokenManagerLogger.timing('Token pair creation completed', startTime, {
+        contextLoadTime: contextLoadDuration,
+        tokenGenerationTime: duration - contextLoadDuration,
+        totalOperations: 3, // access token + refresh token + session
+        performanceOptimized: duration < 200 // Target under 200ms
+      })
+    }
 
     return {
       accessToken,
@@ -523,12 +604,12 @@ export class TokenManager {
    * Generate device name from User-Agent
    */
   static generateDeviceName(userAgent: string): string {
-    // Simple device name extraction
+    // Simple device name extraction - check most specific first
+    if (userAgent.includes('Edge')) return 'Edge Browser'
     if (userAgent.includes('Chrome')) return 'Chrome Browser'
     if (userAgent.includes('Firefox')) return 'Firefox Browser'
-    if (userAgent.includes('Safari')) return 'Safari Browser'
-    if (userAgent.includes('Edge')) return 'Edge Browser'
     if (userAgent.includes('iPhone')) return 'iPhone Safari'
+    if (userAgent.includes('Safari')) return 'Safari Browser'
     if (userAgent.includes('Android')) return 'Android Browser'
     return 'Unknown Browser'
   }

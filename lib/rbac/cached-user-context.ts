@@ -5,6 +5,8 @@
 
 import { db } from '@/lib/db';
 import { logger } from '@/lib/logger';
+import { createAppLogger } from '@/lib/logger/factory';
+import { isPhase3MigrationEnabled } from '@/lib/logger/phase3-migration-flags';
 import {
   users,
   roles,
@@ -24,6 +26,13 @@ import type {
   Permission
 } from '@/lib/types/rbac';
 import { rolePermissionCache } from '@/lib/cache/role-permission-cache';
+
+// Universal logger for cached RBAC operations
+const rbacCacheLogger = createAppLogger('rbac-cached-context', {
+  component: 'performance',
+  feature: 'rbac-cache-optimization',
+  performanceOptimization: true
+})
 
 // Request-scoped cache to prevent multiple getUserContext calls per request
 const requestCache = new Map<string, Promise<UserContext | null>>();
@@ -298,12 +307,33 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
  * Get cached user context with error handling and request-scoped caching
  */
 export async function getCachedUserContextSafe(userId: string): Promise<UserContext | null> {
+  const startTime = Date.now()
   const isDev = process.env.NODE_ENV === 'development';
+  
+  // Enhanced cached user context logging
+  if (isPhase3MigrationEnabled('enableEnhancedCachedUserContextLogging')) {
+    rbacCacheLogger.info('Cached user context loading initiated', {
+      userId,
+      operation: 'get_cached_user_context_safe',
+      cacheOptimization: true,
+      performanceLevel: 'high'
+    })
+  }
   
   // Check request-scoped cache first
   const cacheKey = `cached_user_context:${userId}`;
   if (requestCache.has(cacheKey)) {
-    if (isDev) {
+    // Enhanced request cache hit analytics
+    if (isPhase3MigrationEnabled('enableEnhancedCachedUserContextLogging')) {
+      rbacCacheLogger.debug('Request cache analytics', {
+        userId,
+        cacheType: 'request_scoped',
+        cacheHit: true,
+        cacheKey,
+        performance: 'optimal',
+        duration: Date.now() - startTime
+      })
+    } else if (isDev) {
       logger.debug('Request-scoped user context cache hit', {
         userId,
         operation: 'getCachedUserContext'
