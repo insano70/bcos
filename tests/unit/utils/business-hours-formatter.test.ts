@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, type Mocked } from 'vitest'
 import {
   formatTime,
   formatDaySchedule,
@@ -129,24 +129,24 @@ describe('business-hours-formatter', () => {
       const result = formatBusinessHours(standardHours)
 
       expect(result).toHaveLength(7)
-      expect(result[0].day).toBe('Sunday')
-      expect(result[1].day).toBe('Monday')
-      expect(result[6].day).toBe('Saturday')
+      expect(result[0]?.day).toBe('Sunday')
+      expect(result[1]?.day).toBe('Monday')
+      expect(result[6]?.day).toBe('Saturday')
     })
 
     it('should mark closed days correctly', () => {
       const result = formatBusinessHours(standardHours)
 
-      expect(result[0].isClosed).toBe(true) // Sunday
-      expect(result[6].isClosed).toBe(true) // Saturday
-      expect(result[1].isClosed).toBe(false) // Monday
+      expect(result[0]?.isClosed).toBe(true) // Sunday
+      expect(result[6]?.isClosed).toBe(true) // Saturday
+      expect(result[1]?.isClosed).toBe(false) // Monday
     })
 
     it('should format hours correctly', () => {
       const result = formatBusinessHours(standardHours)
 
-      expect(result[1].hours).toBe('9 AM to 5 PM') // Monday
-      expect(result[0].hours).toBe('Closed') // Sunday
+      expect(result[1]?.hours).toBe('9 AM to 5 PM') // Monday
+      expect(result[0]?.hours).toBe('Closed') // Sunday
     })
 
     it('should handle all closed business', () => {
@@ -180,9 +180,9 @@ describe('business-hours-formatter', () => {
 
       const result = formatBusinessHours(variedHours)
 
-      expect(result[1].hours).toBe('8 AM to 4 PM') // Monday
-      expect(result[5].hours).toBe('10 AM to 6 PM') // Friday
-      expect(result[6].hours).toBe('10 AM to 2 PM') // Saturday
+      expect(result[1]?.hours).toBe('8 AM to 4 PM') // Monday
+      expect(result[5]?.hours).toBe('10 AM to 6 PM') // Friday
+      expect(result[6]?.hours).toBe('10 AM to 2 PM') // Saturday
     })
   })
 
@@ -268,7 +268,7 @@ describe('business-hours-formatter', () => {
   })
 
   describe('isCurrentlyOpen', () => {
-    let mockDate: vi.Mocked<Date>
+    let mockDate: Mocked<Date>
 
     beforeEach(() => {
       // Mock Date constructor

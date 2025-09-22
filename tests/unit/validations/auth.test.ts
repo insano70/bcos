@@ -53,7 +53,7 @@ describe('auth validation schemas', () => {
 
       const result = loginSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('email')
+      expect(result.error?.issues?.[0]?.path).toContain('email')
     })
 
     it('should reject empty password', () => {
@@ -64,7 +64,7 @@ describe('auth validation schemas', () => {
 
       const result = loginSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('password')
+      expect(result.error?.issues?.[0]?.path).toContain('password')
     })
 
     it('should reject missing email', () => {
@@ -74,7 +74,7 @@ describe('auth validation schemas', () => {
 
       const result = loginSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('email')
+      expect(result.error?.issues?.[0]?.path).toContain('email')
     })
 
     it('should reject missing password', () => {
@@ -84,7 +84,7 @@ describe('auth validation schemas', () => {
 
       const result = loginSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('password')
+      expect(result.error?.issues?.[0]?.path).toContain('password')
     })
   })
 
@@ -116,8 +116,8 @@ describe('auth validation schemas', () => {
 
       const result = registerSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe("Passwords don't match")
-      expect(result.error?.issues[0].path).toContain('confirmPassword')
+      expect(result.error?.issues?.[0]?.message).toBe("Passwords don't match")
+      expect(result.error?.issues?.[0]?.path).toContain('confirmPassword')
     })
 
     it('should reject unaccepted terms', () => {
@@ -132,7 +132,7 @@ describe('auth validation schemas', () => {
 
       const result = registerSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('You must accept the terms and conditions')
+      expect(result.error?.issues?.[0]?.message).toBe('You must accept the terms and conditions')
     })
 
     it('should reject short first name', () => {
@@ -147,7 +147,7 @@ describe('auth validation schemas', () => {
 
       const result = registerSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('First name must be at least 2 characters')
+      expect(result.error?.issues?.[0]?.message).toBe('First name must be at least 2 characters')
     })
 
     it('should reject short last name', () => {
@@ -162,7 +162,7 @@ describe('auth validation schemas', () => {
 
       const result = registerSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Last name must be at least 2 characters')
+      expect(result.error?.issues?.[0]?.message).toBe('Last name must be at least 2 characters')
     })
 
     it('should reject weak passwords', () => {
@@ -177,7 +177,7 @@ describe('auth validation schemas', () => {
 
       const result = registerSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('password')
+      expect(result.error?.issues?.[0]?.path).toContain('password')
     })
 
     it('should reject XSS attempts in names', () => {
@@ -192,7 +192,7 @@ describe('auth validation schemas', () => {
 
       const result = registerSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('firstName')
+      expect(result.error?.issues?.[0]?.path).toContain('firstName')
     })
   })
 
@@ -214,7 +214,7 @@ describe('auth validation schemas', () => {
 
       const result = passwordResetRequestSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('email')
+      expect(result.error?.issues?.[0]?.path).toContain('email')
     })
 
     it('should reject missing email', () => {
@@ -222,7 +222,7 @@ describe('auth validation schemas', () => {
 
       const result = passwordResetRequestSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('email')
+      expect(result.error?.issues?.[0]?.path).toContain('email')
     })
   })
 
@@ -248,7 +248,7 @@ describe('auth validation schemas', () => {
 
       const result = passwordResetSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe("Passwords don't match")
+      expect(result.error?.issues?.[0]?.message).toBe("Passwords don't match")
     })
 
     it('should reject missing token', () => {
@@ -259,7 +259,7 @@ describe('auth validation schemas', () => {
 
       const result = passwordResetSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('token')
+      expect(result.error?.issues?.[0]?.path).toContain('token')
     })
 
     it('should reject empty token', () => {
@@ -271,7 +271,7 @@ describe('auth validation schemas', () => {
 
       const result = passwordResetSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('token')
+      expect(result.error?.issues?.[0]?.path).toContain('token')
     })
 
     it('should reject weak new password', () => {
@@ -283,7 +283,7 @@ describe('auth validation schemas', () => {
 
       const result = passwordResetSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('password')
+      expect(result.error?.issues?.[0]?.path).toContain('password')
     })
   })
 
@@ -309,7 +309,7 @@ describe('auth validation schemas', () => {
 
       const result = passwordChangeSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe("Passwords don't match")
+      expect(result.error?.issues?.[0]?.message).toBe("Passwords don't match")
     })
 
     it('should reject missing current password', () => {
@@ -320,7 +320,7 @@ describe('auth validation schemas', () => {
 
       const result = passwordChangeSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('currentPassword')
+      expect(result.error?.issues?.[0]?.path).toContain('currentPassword')
     })
 
     it('should reject empty current password', () => {
@@ -332,7 +332,7 @@ describe('auth validation schemas', () => {
 
       const result = passwordChangeSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('currentPassword')
+      expect(result.error?.issues?.[0]?.path).toContain('currentPassword')
     })
 
     it('should reject weak new password', () => {
@@ -344,7 +344,7 @@ describe('auth validation schemas', () => {
 
       const result = passwordChangeSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('newPassword')
+      expect(result.error?.issues?.[0]?.path).toContain('newPassword')
     })
 
     it('should reject same current and new password', () => {
@@ -411,7 +411,7 @@ describe('auth validation schemas', () => {
 
       const result = sessionSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toEqual(['user', 'id'])
+      expect(result.error?.issues?.[0]?.path).toEqual(['user', 'id'])
     })
 
     it('should reject invalid email', () => {
@@ -428,7 +428,7 @@ describe('auth validation schemas', () => {
 
       const result = sessionSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toEqual(['user', 'email'])
+      expect(result.error?.issues?.[0]?.path).toEqual(['user', 'email'])
     })
 
     it('should reject invalid role', () => {
@@ -445,7 +445,7 @@ describe('auth validation schemas', () => {
 
       const result = sessionSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toEqual(['user', 'role'])
+      expect(result.error?.issues?.[0]?.path).toEqual(['user', 'role'])
     })
 
     it('should reject XSS attempts in names', () => {
@@ -462,7 +462,7 @@ describe('auth validation schemas', () => {
 
       const result = sessionSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toEqual(['user', 'firstName'])
+      expect(result.error?.issues?.[0]?.path).toEqual(['user', 'firstName'])
     })
 
     it('should reject missing required fields', () => {
@@ -479,7 +479,7 @@ describe('auth validation schemas', () => {
 
       const result = sessionSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toEqual(['user', 'id'])
+      expect(result.error?.issues?.[0]?.path).toEqual(['user', 'id'])
     })
   })
 })

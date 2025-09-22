@@ -79,7 +79,7 @@ describe('sanitization validation schemas', () => {
 
       const result = schema.safeParse(shortInput)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Test field must be at least 5 characters')
+      expect(result.error?.issues?.[0]?.message).toBe('Test field must be at least 5 characters')
     })
 
     it('should reject text that is too long', () => {
@@ -88,7 +88,7 @@ describe('sanitization validation schemas', () => {
 
       const result = schema.safeParse(longInput)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Test field must not exceed 10 characters')
+      expect(result.error?.issues?.[0]?.message).toBe('Test field must not exceed 10 characters')
     })
 
     it('should use default parameters when not specified', () => {
@@ -152,7 +152,7 @@ describe('sanitization validation schemas', () => {
       invalidEmails.forEach(email => {
         const result = safeEmailSchema.safeParse(email)
         expect(result.success).toBe(false)
-        expect(result.error?.issues[0].message).toBe('Invalid email address')
+        expect(result.error?.issues?.[0]?.message).toBe('Invalid email address')
       })
     })
 
@@ -161,7 +161,7 @@ describe('sanitization validation schemas', () => {
 
       const result = safeEmailSchema.safeParse(longEmail)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Email must not exceed 255 characters')
+      expect(result.error?.issues?.[0]?.message).toBe('Email must not exceed 255 characters')
     })
   })
 
@@ -197,7 +197,7 @@ describe('sanitization validation schemas', () => {
 
       const result = schema.safeParse(emptyName)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Name is required')
+      expect(result.error?.issues?.[0]?.message).toBe('Name is required')
     })
 
     it('should reject names that are too long', () => {
@@ -206,7 +206,7 @@ describe('sanitization validation schemas', () => {
 
       const result = schema.safeParse(longName)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Name must not exceed 100 characters')
+      expect(result.error?.issues?.[0]?.message).toBe('Name must not exceed 100 characters')
     })
 
     it('should reject names with invalid characters', () => {
@@ -222,7 +222,7 @@ describe('sanitization validation schemas', () => {
       invalidNames.forEach(name => {
         const result = schema.safeParse(name)
         expect(result.success).toBe(false)
-        expect(result.error?.issues[0].message).toBe('Name must contain only letters, spaces, hyphens, and apostrophes')
+        expect(result.error?.issues?.[0]?.message).toBe('Name must contain only letters, spaces, hyphens, and apostrophes')
       })
     })
 
@@ -263,7 +263,7 @@ describe('sanitization validation schemas', () => {
     it('should reject empty domain', () => {
       const result = safeDomainSchema.safeParse('')
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Domain is required')
+      expect(result.error?.issues?.[0]?.message).toBe('Domain is required')
     })
 
     it('should reject overly long domains', () => {
@@ -271,7 +271,7 @@ describe('sanitization validation schemas', () => {
 
       const result = safeDomainSchema.safeParse(longDomain)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Domain must not exceed 255 characters')
+      expect(result.error?.issues?.[0]?.message).toBe('Domain must not exceed 255 characters')
     })
 
     it('should reject invalid domain formats', () => {
@@ -291,7 +291,7 @@ describe('sanitization validation schemas', () => {
       invalidDomains.forEach(domain => {
         const result = safeDomainSchema.safeParse(domain)
         expect(result.success).toBe(false)
-        expect(result.error?.issues[0].message).toBe('Invalid domain format')
+        expect(result.error?.issues?.[0]?.message).toBe('Invalid domain format')
       })
     })
 
@@ -337,7 +337,7 @@ describe('sanitization validation schemas', () => {
       invalidUrls.forEach(url => {
         const result = safeUrlSchema.safeParse(url)
         expect(result.success).toBe(false)
-        expect(result.error?.issues[0].message).toBe('Only HTTP and HTTPS URLs are allowed')
+        expect(result.error?.issues?.[0]?.message).toBe('Only HTTP and HTTPS URLs are allowed')
       })
     })
 
@@ -352,7 +352,7 @@ describe('sanitization validation schemas', () => {
       invalidUrls.forEach(url => {
         const result = safeUrlSchema.safeParse(url)
         expect(result.success).toBe(false)
-        expect(result.error?.issues[0].message).toBe('Invalid URL format')
+        expect(result.error?.issues?.[0]?.message).toBe('Invalid URL format')
       })
     })
 
@@ -361,7 +361,7 @@ describe('sanitization validation schemas', () => {
 
       const result = safeUrlSchema.safeParse(longUrl)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('URL must not exceed 500 characters')
+      expect(result.error?.issues?.[0]?.message).toBe('URL must not exceed 500 characters')
     })
   })
 
@@ -393,7 +393,7 @@ describe('sanitization validation schemas', () => {
 
       const result = objectSchema.safeParse(invalidJson)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Invalid JSON format')
+      expect(result.error?.issues?.[0]?.message).toBe('Invalid JSON format')
     })
 
     it('should reject JSON that doesn\'t match schema', () => {

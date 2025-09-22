@@ -51,7 +51,7 @@ describe('user validation schemas', () => {
 
       const result = userCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('email')
+      expect(result.error?.issues?.[0]?.path).toContain('email')
     })
 
     it('should reject weak password', () => {
@@ -65,7 +65,7 @@ describe('user validation schemas', () => {
 
       const result = userCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('password')
+      expect(result.error?.issues?.[0]?.path).toContain('password')
     })
 
     it('should reject empty role_ids array', () => {
@@ -79,7 +79,7 @@ describe('user validation schemas', () => {
 
       const result = userCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('At least one role is required')
+      expect(result.error?.issues?.[0]?.message).toBe('At least one role is required')
     })
 
     it('should reject invalid role UUIDs', () => {
@@ -93,7 +93,7 @@ describe('user validation schemas', () => {
 
       const result = userCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Invalid role ID')
+      expect(result.error?.issues?.[0]?.message).toBe('Invalid role ID')
     })
 
     it('should reject XSS attempts in names', () => {
@@ -107,7 +107,7 @@ describe('user validation schemas', () => {
 
       const result = userCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('first_name')
+      expect(result.error?.issues?.[0]?.path).toContain('first_name')
     })
 
     it('should reject missing required fields', () => {
@@ -121,7 +121,7 @@ describe('user validation schemas', () => {
 
       const result = userCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('role_ids')
+      expect(result.error?.issues?.[0]?.path).toContain('role_ids')
     })
   })
 
@@ -168,7 +168,7 @@ describe('user validation schemas', () => {
 
       const result = userUpdateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('email')
+      expect(result.error?.issues?.[0]?.path).toContain('email')
     })
 
     it('should reject weak password in update', () => {
@@ -178,7 +178,7 @@ describe('user validation schemas', () => {
 
       const result = userUpdateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('password')
+      expect(result.error?.issues?.[0]?.path).toContain('password')
     })
 
     it('should reject invalid role UUIDs in update', () => {
@@ -188,7 +188,7 @@ describe('user validation schemas', () => {
 
       const result = userUpdateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Invalid role ID')
+      expect(result.error?.issues?.[0]?.message).toBe('Invalid role ID')
     })
 
     it('should reject XSS attempts in names during update', () => {
@@ -198,7 +198,7 @@ describe('user validation schemas', () => {
 
       const result = userUpdateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('first_name')
+      expect(result.error?.issues?.[0]?.path).toContain('first_name')
     })
   })
 
@@ -251,7 +251,7 @@ describe('user validation schemas', () => {
 
       const result = userQuerySchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('email')
+      expect(result.error?.issues?.[0]?.path).toContain('email')
     })
 
     it('should reject invalid boolean strings', () => {
@@ -261,7 +261,7 @@ describe('user validation schemas', () => {
 
       const result = userQuerySchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('is_active')
+      expect(result.error?.issues?.[0]?.path).toContain('is_active')
     })
 
     it('should reject overly long search strings', () => {
@@ -272,7 +272,7 @@ describe('user validation schemas', () => {
 
       const result = userQuerySchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('search')
+      expect(result.error?.issues?.[0]?.path).toContain('search')
     })
   })
 
@@ -298,8 +298,8 @@ describe('user validation schemas', () => {
 
       const result = passwordChangeSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe("Passwords don't match")
-      expect(result.error?.issues[0].path).toContain('confirm_password')
+      expect(result.error?.issues?.[0]?.message).toBe("Passwords don't match")
+      expect(result.error?.issues?.[0]?.path).toContain('confirm_password')
     })
 
     it('should reject missing current password', () => {
@@ -310,7 +310,7 @@ describe('user validation schemas', () => {
 
       const result = passwordChangeSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('current_password')
+      expect(result.error?.issues?.[0]?.path).toContain('current_password')
     })
 
     it('should reject empty current password', () => {
@@ -322,7 +322,7 @@ describe('user validation schemas', () => {
 
       const result = passwordChangeSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('current_password')
+      expect(result.error?.issues?.[0]?.path).toContain('current_password')
     })
 
     it('should reject weak new password', () => {
@@ -334,7 +334,7 @@ describe('user validation schemas', () => {
 
       const result = passwordChangeSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('new_password')
+      expect(result.error?.issues?.[0]?.path).toContain('new_password')
     })
 
     it('should reject weak current password', () => {
@@ -346,7 +346,7 @@ describe('user validation schemas', () => {
 
       const result = passwordChangeSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('current_password')
+      expect(result.error?.issues?.[0]?.path).toContain('current_password')
     })
   })
 
@@ -368,7 +368,7 @@ describe('user validation schemas', () => {
 
       const result = userParamsSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Invalid user ID')
+      expect(result.error?.issues?.[0]?.message).toBe('Invalid user ID')
     })
 
     it('should reject non-UUID strings', () => {
@@ -378,7 +378,7 @@ describe('user validation schemas', () => {
 
       const result = userParamsSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('id')
+      expect(result.error?.issues?.[0]?.path).toContain('id')
     })
 
     it('should reject missing id', () => {
@@ -386,7 +386,7 @@ describe('user validation schemas', () => {
 
       const result = userParamsSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('id')
+      expect(result.error?.issues?.[0]?.path).toContain('id')
     })
 
     it('should reject empty id', () => {
@@ -396,7 +396,7 @@ describe('user validation schemas', () => {
 
       const result = userParamsSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('id')
+      expect(result.error?.issues?.[0]?.path).toContain('id')
     })
   })
 })

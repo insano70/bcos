@@ -544,7 +544,7 @@ describe('content-security utilities', () => {
     })
 
     it('should handle null/undefined names', () => {
-      render(<SafeUserName firstName={null} lastName={undefined} />)
+      render(<SafeUserName firstName={null} />)
 
       const element = screen.getByText('Unknown User')
       expect(element).toBeInTheDocument()

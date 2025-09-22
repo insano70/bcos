@@ -67,7 +67,7 @@ describe('practice validation schemas', () => {
 
       const result = practiceCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Practice name is required')
+      expect(result.error?.issues?.[0]?.message).toBe('Practice name is required')
     })
 
     it('should reject overly long name', () => {
@@ -80,7 +80,7 @@ describe('practice validation schemas', () => {
 
       const result = practiceCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Practice name must not exceed 255 characters')
+      expect(result.error?.issues?.[0]?.message).toBe('Practice name must not exceed 255 characters')
     })
 
     it('should reject empty domain', () => {
@@ -92,7 +92,7 @@ describe('practice validation schemas', () => {
 
       const result = practiceCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Domain is required')
+      expect(result.error?.issues?.[0]?.message).toBe('Domain is required')
     })
 
     it('should reject invalid domain characters', () => {
@@ -104,7 +104,7 @@ describe('practice validation schemas', () => {
 
       const result = practiceCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Domain must contain only letters, numbers, dots, and hyphens')
+      expect(result.error?.issues?.[0]?.message).toBe('Domain must contain only letters, numbers, dots, and hyphens')
     })
 
     it('should reject invalid template UUID', () => {
@@ -116,7 +116,7 @@ describe('practice validation schemas', () => {
 
       const result = practiceCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Invalid template ID')
+      expect(result.error?.issues?.[0]?.message).toBe('Invalid template ID')
     })
 
     it('should reject invalid owner user UUID', () => {
@@ -129,7 +129,7 @@ describe('practice validation schemas', () => {
 
       const result = practiceCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Invalid user ID')
+      expect(result.error?.issues?.[0]?.message).toBe('Invalid user ID')
     })
 
     it('should reject missing required fields', () => {
@@ -141,7 +141,7 @@ describe('practice validation schemas', () => {
 
       const result = practiceCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('template_id')
+      expect(result.error?.issues?.[0]?.path).toContain('template_id')
     })
   })
 
@@ -205,7 +205,7 @@ describe('practice validation schemas', () => {
 
       const result = practiceUpdateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Domain must contain only letters, numbers, dots, and hyphens')
+      expect(result.error?.issues?.[0]?.message).toBe('Domain must contain only letters, numbers, dots, and hyphens')
     })
 
     it('should reject invalid status values', () => {
@@ -215,7 +215,7 @@ describe('practice validation schemas', () => {
 
       const result = practiceUpdateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('status')
+      expect(result.error?.issues?.[0]?.path).toContain('status')
     })
 
     it('should accept valid status values', () => {
@@ -268,7 +268,7 @@ describe('practice validation schemas', () => {
 
       const result = practiceQuerySchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('status')
+      expect(result.error?.issues?.[0]?.path).toContain('status')
     })
 
     it('should reject invalid template UUID', () => {
@@ -278,7 +278,7 @@ describe('practice validation schemas', () => {
 
       const result = practiceQuerySchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('template_id')
+      expect(result.error?.issues?.[0]?.path).toContain('template_id')
     })
 
     it('should reject overly long search strings', () => {
@@ -289,7 +289,7 @@ describe('practice validation schemas', () => {
 
       const result = practiceQuerySchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('search')
+      expect(result.error?.issues?.[0]?.path).toContain('search')
     })
   })
 
@@ -354,7 +354,7 @@ describe('practice validation schemas', () => {
 
       const result = practiceAttributesUpdateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('email')
+      expect(result.error?.issues?.[0]?.path).toContain('email')
     })
 
     it('should validate URL formats', () => {
@@ -364,7 +364,7 @@ describe('practice validation schemas', () => {
 
       const result = practiceAttributesUpdateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Invalid logo URL')
+      expect(result.error?.issues?.[0]?.message).toBe('Invalid logo URL')
     })
 
     it('should allow relative URLs', () => {
@@ -386,7 +386,7 @@ describe('practice validation schemas', () => {
 
       const result = practiceAttributesUpdateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Invalid hex color format')
+      expect(result.error?.issues?.[0]?.message).toBe('Invalid hex color format')
     })
 
     it('should accept valid hex colors', () => {
@@ -409,7 +409,7 @@ describe('practice validation schemas', () => {
 
       const result = practiceAttributesUpdateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('about_text')
+      expect(result.error?.issues?.[0]?.path).toContain('about_text')
     })
 
     it('should validate business hours structure', () => {
@@ -441,7 +441,7 @@ describe('practice validation schemas', () => {
 
       const result = practiceAttributesUpdateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Invalid gallery image URL')
+      expect(result.error?.issues?.[0]?.message).toBe('Invalid gallery image URL')
     })
   })
 
@@ -463,7 +463,7 @@ describe('practice validation schemas', () => {
 
       const result = practiceParamsSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Invalid practice ID')
+      expect(result.error?.issues?.[0]?.message).toBe('Invalid practice ID')
     })
 
     it('should reject missing id', () => {
@@ -471,7 +471,7 @@ describe('practice validation schemas', () => {
 
       const result = practiceParamsSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('id')
+      expect(result.error?.issues?.[0]?.path).toContain('id')
     })
   })
 })

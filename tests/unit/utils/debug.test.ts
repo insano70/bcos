@@ -9,13 +9,13 @@ describe('debug utilities', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // Reset NODE_ENV for each test
-    delete process.env.NODE_ENV
+    vi.unstubAllEnvs()
   })
 
   describe('debugLog', () => {
     describe('in development environment', () => {
       beforeEach(() => {
-        process.env.NODE_ENV = 'development'
+        vi.stubEnv('NODE_ENV', 'development')
       })
 
       it('should log auth messages with emoji prefix', () => {
@@ -89,7 +89,7 @@ describe('debug utilities', () => {
 
     describe('in production environment', () => {
       beforeEach(() => {
-        process.env.NODE_ENV = 'production'
+        vi.stubEnv('NODE_ENV', 'production')
       })
 
       it('should not log any debug messages in production', () => {
@@ -105,7 +105,7 @@ describe('debug utilities', () => {
 
     describe('in test environment', () => {
       beforeEach(() => {
-        process.env.NODE_ENV = 'test'
+        vi.stubEnv('NODE_ENV', 'test')
       })
 
       it('should not log any debug messages in test environment', () => {
@@ -127,7 +127,7 @@ describe('debug utilities', () => {
   describe('errorLog', () => {
     describe('in development environment', () => {
       beforeEach(() => {
-        process.env.NODE_ENV = 'development'
+        vi.stubEnv('NODE_ENV', 'development')
       })
 
       it('should log errors with full details in development', () => {
@@ -182,7 +182,7 @@ describe('debug utilities', () => {
 
     describe('in production environment', () => {
       beforeEach(() => {
-        process.env.NODE_ENV = 'production'
+        vi.stubEnv('NODE_ENV', 'production')
       })
 
       it('should sanitize error information in production', () => {
@@ -252,9 +252,9 @@ describe('debug utilities', () => {
         errorLog(message)
 
         const call = consoleErrorSpy.mock.calls[0]
-        expect(call[1]).toHaveProperty('timestamp')
-        expect(typeof call[1].timestamp).toBe('string')
-        expect(call[1].timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)
+        expect(call?.[1]).toHaveProperty('timestamp')
+        expect(typeof call?.[1]?.timestamp).toBe('string')
+        expect(call?.[1]?.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)
       })
     })
   })

@@ -145,26 +145,26 @@ describe('color-utils', () => {
     it('should generate correct CSS custom properties', () => {
       const styles = generateSSRColorStyles(testColors)
 
-      expect(styles['--color-primary']).toBe('#2174EA')
-      expect(styles['--color-secondary']).toBe('#F8FAFC')
-      expect(styles['--color-accent']).toBe('#5696FF')
-      expect(styles['--color-primary-600']).toBe('#2174EA')
+      expect((styles as Record<string, string>)['--color-primary']).toBe('#2174EA')
+      expect((styles as Record<string, string>)['--color-secondary']).toBe('#F8FAFC')
+      expect((styles as Record<string, string>)['--color-accent']).toBe('#5696FF')
+      expect((styles as Record<string, string>)['--color-primary-600']).toBe('#2174EA')
     })
 
     it('should generate opacity variants', () => {
       const styles = generateSSRColorStyles(testColors)
 
-      expect(styles['--color-primary-50']).toBe('rgba(33, 116, 234, 0.05)')
-      expect(styles['--color-primary-100']).toBe('rgba(33, 116, 234, 0.1)')
-      expect(styles['--color-primary-200']).toBe('rgba(33, 116, 234, 0.2)')
+      expect((styles as Record<string, string>)['--color-primary-50']).toBe('rgba(33, 116, 234, 0.05)')
+      expect((styles as Record<string, string>)['--color-primary-100']).toBe('rgba(33, 116, 234, 0.1)')
+      expect((styles as Record<string, string>)['--color-primary-200']).toBe('rgba(33, 116, 234, 0.2)')
     })
 
     it('should generate darkened variants', () => {
       const styles = generateSSRColorStyles(testColors)
 
-      expect(styles['--color-primary-700']).toBe('#1e68d3')
-      expect(styles['--color-primary-800']).toBe('#1a5dbb')
-      expect(styles['--color-accent-700']).toBe('#4d87e6')
+      expect((styles as Record<string, string>)['--color-primary-700']).toBe('#1e68d3')
+      expect((styles as Record<string, string>)['--color-primary-800']).toBe('#1a5dbb')
+      expect((styles as Record<string, string>)['--color-accent-700']).toBe('#4d87e6')
     })
 
     it('should handle invalid colors gracefully', () => {
@@ -175,7 +175,7 @@ describe('color-utils', () => {
       }
 
       const styles = generateSSRColorStyles(invalidColors)
-      expect(styles['--color-primary-50']).toBe('#invalid')
+      expect((styles as Record<string, string>)['--color-primary-50']).toBe('#invalid')
     })
   })
 

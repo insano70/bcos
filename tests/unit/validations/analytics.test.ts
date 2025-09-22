@@ -47,7 +47,7 @@ describe('analytics validation schemas', () => {
 
       const result = chartCategoryCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Name is required')
+      expect(result.error?.issues?.[0]?.message).toBe('Name is required')
     })
 
     it('should reject overly long category name', () => {
@@ -58,7 +58,7 @@ describe('analytics validation schemas', () => {
 
       const result = chartCategoryCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Name too long')
+      expect(result.error?.issues?.[0]?.message).toBe('Name too long')
     })
 
     it('should reject overly long description', () => {
@@ -70,7 +70,7 @@ describe('analytics validation schemas', () => {
 
       const result = chartCategoryCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Description too long')
+      expect(result.error?.issues?.[0]?.message).toBe('Description too long')
     })
 
     it('should reject invalid parent category ID', () => {
@@ -81,7 +81,7 @@ describe('analytics validation schemas', () => {
 
       const result = chartCategoryCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('ID must be a positive integer')
+      expect(result.error?.issues?.[0]?.message).toBe('ID must be a positive integer')
     })
 
     it('should accept string numbers for parent category ID', () => {
@@ -123,7 +123,7 @@ describe('analytics validation schemas', () => {
 
       const result = chartCategoryUpdateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Name is required')
+      expect(result.error?.issues?.[0]?.message).toBe('Name is required')
     })
 
     it('should accept valid parent category ID', () => {
@@ -155,7 +155,7 @@ describe('analytics validation schemas', () => {
 
       const result = chartCategoryParamsSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('ID must be a positive integer')
+      expect(result.error?.issues?.[0]?.message).toBe('ID must be a positive integer')
     })
 
     it('should accept string category ID', () => {
@@ -258,7 +258,7 @@ describe('analytics validation schemas', () => {
 
       const result = chartDefinitionCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Name is required')
+      expect(result.error?.issues?.[0]?.message).toBe('Name is required')
     })
 
     it('should reject invalid chart type', () => {
@@ -270,7 +270,7 @@ describe('analytics validation schemas', () => {
 
       const result = chartDefinitionCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('chart_type')
+      expect(result.error?.issues?.[0]?.path).toContain('chart_type')
     })
 
     it('should reject empty data source', () => {
@@ -282,7 +282,7 @@ describe('analytics validation schemas', () => {
 
       const result = chartDefinitionCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Data source is required')
+      expect(result.error?.issues?.[0]?.message).toBe('Data source is required')
     })
 
     it('should validate all chart types', () => {
@@ -354,7 +354,7 @@ describe('analytics validation schemas', () => {
 
       const result = chartDefinitionParamsSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Invalid UUID format')
+      expect(result.error?.issues?.[0]?.message).toBe('Invalid UUID format')
     })
   })
 
@@ -396,7 +396,7 @@ describe('analytics validation schemas', () => {
 
       const result = dashboardCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Too many charts')
+      expect(result.error?.issues?.[0]?.message).toBe('Too many charts')
     })
 
     it('should reject invalid chart UUIDs', () => {
@@ -407,7 +407,7 @@ describe('analytics validation schemas', () => {
 
       const result = dashboardCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Invalid UUID format')
+      expect(result.error?.issues?.[0]?.message).toBe('Invalid UUID format')
     })
   })
 
@@ -450,7 +450,7 @@ describe('analytics validation schemas', () => {
 
       const result = dashboardParamsSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Invalid UUID format')
+      expect(result.error?.issues?.[0]?.message).toBe('Invalid UUID format')
     })
   })
 
@@ -472,7 +472,7 @@ describe('analytics validation schemas', () => {
 
       const result = favoriteCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Invalid UUID format')
+      expect(result.error?.issues?.[0]?.message).toBe('Invalid UUID format')
     })
   })
 
@@ -494,7 +494,7 @@ describe('analytics validation schemas', () => {
 
       const result = favoriteDeleteSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Invalid UUID format')
+      expect(result.error?.issues?.[0]?.message).toBe('Invalid UUID format')
     })
   })
 
@@ -549,7 +549,7 @@ describe('analytics validation schemas', () => {
 
       const result = analyticsQuerySchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('sort_by')
+      expect(result.error?.issues?.[0]?.path).toContain('sort_by')
     })
 
     it('should reject invalid sort_order values', () => {
@@ -559,7 +559,7 @@ describe('analytics validation schemas', () => {
 
       const result = analyticsQuerySchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('sort_order')
+      expect(result.error?.issues?.[0]?.path).toContain('sort_order')
     })
 
     it('should reject invalid page number', () => {
@@ -569,7 +569,7 @@ describe('analytics validation schemas', () => {
 
       const result = analyticsQuerySchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('page')
+      expect(result.error?.issues?.[0]?.path).toContain('page')
     })
 
     it('should reject invalid limit range', () => {
@@ -579,7 +579,7 @@ describe('analytics validation schemas', () => {
 
       const result = analyticsQuerySchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('limit')
+      expect(result.error?.issues?.[0]?.path).toContain('limit')
     })
 
     it('should reject overly long search string', () => {
@@ -590,7 +590,7 @@ describe('analytics validation schemas', () => {
 
       const result = analyticsQuerySchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('search')
+      expect(result.error?.issues?.[0]?.path).toContain('search')
     })
   })
 
@@ -627,7 +627,7 @@ describe('analytics validation schemas', () => {
 
       const result = bulkOperationSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('At least one chart ID required')
+      expect(result.error?.issues?.[0]?.message).toBe('At least one chart ID required')
     })
 
     it('should reject too many chart IDs', () => {
@@ -642,7 +642,7 @@ describe('analytics validation schemas', () => {
 
       const result = bulkOperationSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Too many charts')
+      expect(result.error?.issues?.[0]?.message).toBe('Too many charts')
     })
 
     it('should reject too many dashboard IDs', () => {
@@ -658,7 +658,7 @@ describe('analytics validation schemas', () => {
 
       const result = bulkOperationSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Too many dashboards')
+      expect(result.error?.issues?.[0]?.message).toBe('Too many dashboards')
     })
 
     it('should reject invalid operation type', () => {
@@ -669,7 +669,7 @@ describe('analytics validation schemas', () => {
 
       const result = bulkOperationSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('operation')
+      expect(result.error?.issues?.[0]?.path).toContain('operation')
     })
 
     it('should validate all operation types', () => {
@@ -721,7 +721,7 @@ describe('analytics validation schemas', () => {
 
       const result = dataSourceSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Name is required')
+      expect(result.error?.issues?.[0]?.message).toBe('Name is required')
     })
 
     it('should reject empty connection string', () => {
@@ -733,7 +733,7 @@ describe('analytics validation schemas', () => {
 
       const result = dataSourceSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Connection string required')
+      expect(result.error?.issues?.[0]?.message).toBe('Connection string required')
     })
 
     it('should reject invalid source type', () => {
@@ -745,7 +745,7 @@ describe('analytics validation schemas', () => {
 
       const result = dataSourceSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('source_type')
+      expect(result.error?.issues?.[0]?.path).toContain('source_type')
     })
 
     it('should validate all source types', () => {

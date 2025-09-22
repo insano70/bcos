@@ -61,7 +61,7 @@ describe('role validation schemas', () => {
 
       const result = roleQuerySchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('is_active')
+      expect(result.error?.issues?.[0]?.path).toContain('is_active')
     })
 
     it('should reject invalid organization UUID', () => {
@@ -71,7 +71,7 @@ describe('role validation schemas', () => {
 
       const result = roleQuerySchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('organization_id')
+      expect(result.error?.issues?.[0]?.path).toContain('organization_id')
     })
 
     it('should reject overly long name', () => {
@@ -82,7 +82,7 @@ describe('role validation schemas', () => {
 
       const result = roleQuerySchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('name')
+      expect(result.error?.issues?.[0]?.path).toContain('name')
     })
 
     it('should reject overly long search string', () => {
@@ -93,7 +93,7 @@ describe('role validation schemas', () => {
 
       const result = roleQuerySchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('search')
+      expect(result.error?.issues?.[0]?.path).toContain('search')
     })
   })
 
@@ -142,7 +142,7 @@ describe('role validation schemas', () => {
 
       const result = roleCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Role name is required')
+      expect(result.error?.issues?.[0]?.message).toBe('Role name is required')
     })
 
     it('should reject overly long name', () => {
@@ -154,7 +154,7 @@ describe('role validation schemas', () => {
 
       const result = roleCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Role name must not exceed 100 characters')
+      expect(result.error?.issues?.[0]?.message).toBe('Role name must not exceed 100 characters')
     })
 
     it('should reject overly long description', () => {
@@ -167,7 +167,7 @@ describe('role validation schemas', () => {
 
       const result = roleCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Description must not exceed 1000 characters')
+      expect(result.error?.issues?.[0]?.message).toBe('Description must not exceed 1000 characters')
     })
 
     it('should reject empty permission_ids array', () => {
@@ -178,7 +178,7 @@ describe('role validation schemas', () => {
 
       const result = roleCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('At least one permission is required')
+      expect(result.error?.issues?.[0]?.message).toBe('At least one permission is required')
     })
 
     it('should reject invalid permission UUIDs', () => {
@@ -189,7 +189,7 @@ describe('role validation schemas', () => {
 
       const result = roleCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toEqual(['permission_ids', 0])
+      expect(result.error?.issues?.[0]?.path).toEqual(['permission_ids', 0])
     })
 
     it('should reject invalid organization UUID', () => {
@@ -201,7 +201,7 @@ describe('role validation schemas', () => {
 
       const result = roleCreateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('organization_id')
+      expect(result.error?.issues?.[0]?.path).toContain('organization_id')
     })
 
     it('should accept valid organization_id', () => {
@@ -267,7 +267,7 @@ describe('role validation schemas', () => {
 
       const result = roleUpdateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Role name is required')
+      expect(result.error?.issues?.[0]?.message).toBe('Role name is required')
     })
 
     it('should reject overly long name in updates', () => {
@@ -278,7 +278,7 @@ describe('role validation schemas', () => {
 
       const result = roleUpdateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Role name must not exceed 100 characters')
+      expect(result.error?.issues?.[0]?.message).toBe('Role name must not exceed 100 characters')
     })
 
     it('should reject overly long description in updates', () => {
@@ -289,7 +289,7 @@ describe('role validation schemas', () => {
 
       const result = roleUpdateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Description must not exceed 1000 characters')
+      expect(result.error?.issues?.[0]?.message).toBe('Description must not exceed 1000 characters')
     })
 
     it('should reject invalid permission UUIDs in updates', () => {
@@ -299,7 +299,7 @@ describe('role validation schemas', () => {
 
       const result = roleUpdateSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toEqual(['permission_ids', 0])
+      expect(result.error?.issues?.[0]?.path).toEqual(['permission_ids', 0])
     })
 
     it('should accept valid permission_ids array in updates', () => {

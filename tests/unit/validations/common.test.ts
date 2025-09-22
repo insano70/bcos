@@ -34,14 +34,14 @@ describe('common validation schemas', () => {
       invalidUuids.forEach(uuid => {
         const result = uuidSchema.safeParse(uuid)
         expect(result.success).toBe(false)
-        expect(result.error?.issues[0].message).toBe('Invalid UUID format')
+        expect(result.error?.issues?.[0]?.message).toBe('Invalid UUID format')
       })
     })
 
     it('should reject empty string', () => {
       const result = uuidSchema.safeParse('')
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Invalid UUID format')
+      expect(result.error?.issues?.[0]?.message).toBe('Invalid UUID format')
     })
   })
 
@@ -169,7 +169,7 @@ describe('common validation schemas', () => {
 
       const result = sortSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].path).toContain('order')
+      expect(result.error?.issues?.[0]?.path).toContain('order')
     })
 
     it('should accept valid sort orders', () => {
@@ -240,7 +240,7 @@ describe('common validation schemas', () => {
 
       const result = searchSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Search term must not exceed 255 characters')
+      expect(result.error?.issues?.[0]?.message).toBe('Search term must not exceed 255 characters')
     })
 
     it('should handle empty search term after sanitization', () => {
@@ -289,7 +289,7 @@ describe('common validation schemas', () => {
 
       const result = fileUploadSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Filename is required')
+      expect(result.error?.issues?.[0]?.message).toBe('Filename is required')
     })
 
     it('should reject invalid content types', () => {
@@ -302,7 +302,7 @@ describe('common validation schemas', () => {
           size: 100000
         })
         expect(result.success).toBe(false)
-        expect(result.error?.issues[0].message).toBe('Only image files are allowed')
+        expect(result.error?.issues?.[0]?.message).toBe('Only image files are allowed')
       })
     })
 
@@ -315,7 +315,7 @@ describe('common validation schemas', () => {
 
       const result = fileUploadSchema.safeParse(invalidData)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('File size must not exceed 5MB')
+      expect(result.error?.issues?.[0]?.message).toBe('File size must not exceed 5MB')
     })
 
     it('should accept files at maximum size', () => {
@@ -357,7 +357,7 @@ describe('common validation schemas', () => {
       invalidColors.forEach(color => {
         const result = colorSchema.safeParse(color)
         expect(result.success).toBe(false)
-        expect(result.error?.issues[0].message).toBe('Invalid hex color format')
+        expect(result.error?.issues?.[0]?.message).toBe('Invalid hex color format')
       })
     })
 
@@ -400,14 +400,14 @@ describe('common validation schemas', () => {
     it('should reject empty domain', () => {
       const result = domainSchema.safeParse('')
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Domain is required')
+      expect(result.error?.issues?.[0]?.message).toBe('Domain is required')
     })
 
     it('should reject overly long domain', () => {
       const longDomain = 'a'.repeat(256)
       const result = domainSchema.safeParse(longDomain)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Domain must not exceed 255 characters')
+      expect(result.error?.issues?.[0]?.message).toBe('Domain must not exceed 255 characters')
     })
 
     it('should reject invalid domain characters', () => {
@@ -422,7 +422,7 @@ describe('common validation schemas', () => {
       invalidDomains.forEach(domain => {
         const result = domainSchema.safeParse(domain)
         expect(result.success).toBe(false)
-        expect(result.error?.issues[0].message).toBe('Domain must contain only letters, numbers, dots, and hyphens')
+        expect(result.error?.issues?.[0]?.message).toBe('Domain must contain only letters, numbers, dots, and hyphens')
       })
     })
   })
@@ -464,7 +464,7 @@ describe('common validation schemas', () => {
       invalidEmails.forEach(email => {
         const result = emailSchema.safeParse(email)
         expect(result.success).toBe(false)
-        expect(result.error?.issues[0].message).toBe('Invalid email address')
+        expect(result.error?.issues?.[0]?.message).toBe('Invalid email address')
       })
     })
 
@@ -472,7 +472,7 @@ describe('common validation schemas', () => {
       const longEmail = 'a'.repeat(250) + '@example.com'
       const result = emailSchema.safeParse(longEmail)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Email must not exceed 255 characters')
+      expect(result.error?.issues?.[0]?.message).toBe('Email must not exceed 255 characters')
     })
   })
 
@@ -503,7 +503,7 @@ describe('common validation schemas', () => {
       invalidPhones.forEach(phone => {
         const result = phoneSchema.safeParse(phone)
         expect(result.success).toBe(false)
-        expect(result.error?.issues[0].message).toBe('Invalid phone number format')
+        expect(result.error?.issues?.[0]?.message).toBe('Invalid phone number format')
       })
     })
 
@@ -511,7 +511,7 @@ describe('common validation schemas', () => {
       const longPhone = '+123456789012345678901' // 21 characters
       const result = phoneSchema.safeParse(longPhone)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('Invalid phone number format')
+      expect(result.error?.issues?.[0]?.message).toBe('Invalid phone number format')
     })
   })
 
@@ -542,7 +542,7 @@ describe('common validation schemas', () => {
       invalidUrls.forEach(url => {
         const result = urlSchema.safeParse(url)
         expect(result.success).toBe(false)
-        expect(result.error?.issues[0].message).toBe('Invalid URL format')
+        expect(result.error?.issues?.[0]?.message).toBe('Invalid URL format')
       })
     })
 
@@ -550,7 +550,7 @@ describe('common validation schemas', () => {
       const longUrl = 'https://example.com/' + 'a'.repeat(500)
       const result = urlSchema.safeParse(longUrl)
       expect(result.success).toBe(false)
-      expect(result.error?.issues[0].message).toBe('URL must not exceed 500 characters')
+      expect(result.error?.issues?.[0]?.message).toBe('URL must not exceed 500 characters')
     })
   })
 })
