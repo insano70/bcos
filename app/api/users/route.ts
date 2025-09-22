@@ -17,7 +17,6 @@ import {
   logValidationError 
 } from '@/lib/logger';
 import { createAPILogger } from '@/lib/logger/api-features';
-import { isPhase2MigrationEnabled } from '@/lib/logger/phase2-migration-flags';
 
 const getUsersHandler = async (request: NextRequest, userContext: UserContext) => {
     const startTime = Date.now()
@@ -26,28 +25,20 @@ const getUsersHandler = async (request: NextRequest, userContext: UserContext) =
     const apiLogger = createAPILogger(request, 'user-management')
     const logger = apiLogger.getLogger()
     
-    // Enhanced user list request logging
-    if (isPhase2MigrationEnabled('enableEnhancedUserAPIs')) {
-      apiLogger.logRequest({
-        authType: 'session',
-        userId: userContext.user_id,
-        ...(userContext.current_organization_id && { organizationId: userContext.current_organization_id })
-      })
-      
-      // Business intelligence for user management
-      apiLogger.getLogger().debug('User management analytics', {
-        operation: 'list_users',
-        requestingUserRole: userContext.roles?.[0]?.name || 'unknown',
-        isSuperAdmin: userContext.is_super_admin,
-        organizationScope: userContext.current_organization_id
-      })
-    } else {
-      // Legacy logging fallback
-      logger.info('Users list request initiated', {
-        requestingUserId: userContext.user_id,
-        organizationId: userContext.current_organization_id
-      })
-    }
+    // Enhanced user list request logging - permanently enabled
+    apiLogger.logRequest({
+      authType: 'session',
+      userId: userContext.user_id,
+      ...(userContext.current_organization_id && { organizationId: userContext.current_organization_id })
+    })
+    
+    // Business intelligence for user management
+    apiLogger.getLogger().debug('User management analytics', {
+      operation: 'list_users',
+      requestingUserRole: userContext.roles?.[0]?.name || 'unknown',
+      isSuperAdmin: userContext.is_super_admin,
+      organizationScope: userContext.current_organization_id
+    })
 
     try {
       const { searchParams } = new URL(request.url)

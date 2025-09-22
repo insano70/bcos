@@ -6,7 +6,6 @@
 import { db } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import { createAppLogger } from '@/lib/logger/factory';
-import { isPhase3MigrationEnabled } from '@/lib/logger/phase3-migration-flags';
 import {
   users,
   roles,
@@ -311,7 +310,7 @@ export async function getCachedUserContextSafe(userId: string): Promise<UserCont
   const isDev = process.env.NODE_ENV === 'development';
   
   // Enhanced cached user context logging
-  if (isPhase3MigrationEnabled('enableEnhancedCachedUserContextLogging')) {
+  // Enhanced logging permanently enabled {
     rbacCacheLogger.info('Cached user context loading initiated', {
       userId,
       operation: 'get_cached_user_context_safe',
@@ -324,7 +323,7 @@ export async function getCachedUserContextSafe(userId: string): Promise<UserCont
   const cacheKey = `cached_user_context:${userId}`;
   if (requestCache.has(cacheKey)) {
     // Enhanced request cache hit analytics
-    if (isPhase3MigrationEnabled('enableEnhancedCachedUserContextLogging')) {
+    // Enhanced logging permanently enabled {
       rbacCacheLogger.debug('Request cache analytics', {
         userId,
         cacheType: 'request_scoped',

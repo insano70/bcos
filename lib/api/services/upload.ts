@@ -5,7 +5,6 @@ import { nanoid } from 'nanoid'
 import sharp from 'sharp'
 import { logger } from '@/lib/logger'
 import { createAppLogger } from '@/lib/logger/factory'
-import { isPhase2MigrationEnabled } from '@/lib/logger/phase2-migration-flags'
 
 /**
  * Enterprise File Upload Service
@@ -76,7 +75,7 @@ export class FileUploadService {
     }
 
     // Enhanced upload operation logging
-    if (isPhase2MigrationEnabled('enableEnhancedUploadServiceLogging')) {
+    // Enhanced logging permanently enabled {
       FileUploadService.universalLogger.info('File upload operation initiated', {
         fileCount: files.length,
         maxAllowed: opts.maxFiles,
@@ -99,7 +98,7 @@ export class FileUploadService {
 
     // Validate file count
     if (files.length > opts.maxFiles) {
-      if (isPhase2MigrationEnabled('enableEnhancedUploadServiceLogging')) {
+      // Enhanced logging permanently enabled {
         FileUploadService.universalLogger.security('file_upload_violation', 'medium', {
           action: 'file_count_exceeded',
           threat: 'resource_abuse',
@@ -138,7 +137,7 @@ export class FileUploadService {
     }
 
     // Enhanced upload completion logging
-    if (isPhase2MigrationEnabled('enableEnhancedUploadServiceLogging')) {
+    // Enhanced logging permanently enabled {
       const duration = Date.now() - startTime
       
       // Business intelligence for upload analytics

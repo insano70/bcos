@@ -23,7 +23,6 @@ import {
   CorrelationContextManager 
 } from '@/lib/logger'
 import { createAPILogger } from '@/lib/logger/api-features'
-import { isPhase2MigrationEnabled } from '@/lib/logger/phase2-migration-flags'
 
 /**
  * Custom Login Endpoint
@@ -36,19 +35,11 @@ const loginHandler = async (request: NextRequest) => {
   const apiLogger = createAPILogger(request, 'authentication')
   const logger = apiLogger.getLogger()
   
-  // Enhanced login attempt logging
-  if (isPhase2MigrationEnabled('enableEnhancedLoginLogging')) {
-    apiLogger.logRequest({
-      authType: 'none',
-      suspicious: false
-    })
-  } else {
-    // Fallback to legacy logging
-    logger.info('Login attempt initiated', {
-      endpoint: '/api/auth/login',
-      method: 'POST'
-    })
-  }
+  // Enhanced login attempt logging - permanently enabled
+  apiLogger.logRequest({
+    authType: 'none',
+    suspicious: false
+  })
 
   try {
     // Apply rate limiting
@@ -79,27 +70,18 @@ const loginHandler = async (request: NextRequest) => {
     logPerformanceMetric(logger, 'lockout_check', Date.now() - lockoutStartTime)
     
     if (lockoutStatus.locked) {
-      // Enhanced account lockout logging
-      if (isPhase2MigrationEnabled('enableEnhancedLoginLogging')) {
-        apiLogger.logAuth('login_attempt', false, {
-          reason: 'account_locked',
-          sessionDuration: lockoutStatus.lockedUntil ? 
-            Math.ceil((new Date(lockoutStatus.lockedUntil).getTime() - Date.now()) / 60000) : 0 // minutes
-        })
-        
-        apiLogger.logSecurity('account_lockout_triggered', 'medium', {
-          blocked: true,
-          reason: 'multiple_failed_attempts',
-          action: 'login_blocked'
-        })
-      } else {
-        // Legacy logging fallback
-        logger.warn('Account lockout detected', {
-          email: email.replace(/(.{2}).*@/, '$1***@'),
-          lockedUntil: lockoutStatus.lockedUntil
-        })
-        logAPIAuth(logger, 'login_attempt', false, undefined, 'account_locked')
-      }
+      // Enhanced account lockout logging - permanently enabled
+      apiLogger.logAuth('login_attempt', false, {
+        reason: 'account_locked',
+        sessionDuration: lockoutStatus.lockedUntil ? 
+          Math.ceil((new Date(lockoutStatus.lockedUntil).getTime() - Date.now()) / 60000) : 0 // minutes
+      })
+      
+      apiLogger.logSecurity('account_lockout_triggered', 'medium', {
+        blocked: true,
+        reason: 'multiple_failed_attempts',
+        action: 'login_blocked'
+      })
 
       await AuditLogger.logAuth({
         action: 'account_locked',
@@ -180,26 +162,18 @@ const loginHandler = async (request: NextRequest) => {
     logPerformanceMetric(logger, 'password_verification', Date.now() - passwordStartTime)
     
     if (!isValidPassword) {
-      // Enhanced password failure logging
-      if (isPhase2MigrationEnabled('enableEnhancedLoginLogging')) {
-        apiLogger.logAuth('login_attempt', false, {
-          userId: user.user_id,
-          reason: 'invalid_password'
-        })
-        
-        apiLogger.logSecurity('authentication_failure', 'medium', {
-          action: 'password_verification_failed',
-          userId: user.user_id,
-          threat: 'credential_attack',
-          blocked: true
-        })
-      } else {
-        // Legacy logging fallback
-        logger.warn('Password verification failed', {
-          userId: user.user_id,
-          email: email.replace(/(.{2}).*@/, '$1***@')
-        })
-      }
+      // Enhanced password failure logging - permanently enabled
+      apiLogger.logAuth('login_attempt', false, {
+        userId: user.user_id,
+        reason: 'invalid_password'
+      })
+      
+      apiLogger.logSecurity('authentication_failure', 'medium', {
+        action: 'password_verification_failed',
+        userId: user.user_id,
+        threat: 'credential_attack',
+        blocked: true
+      })
 
       // Record failed attempt
       const lockoutResult = await AccountSecurity.recordFailedAttempt(email)
@@ -325,38 +299,29 @@ const loginHandler = async (request: NextRequest) => {
       sessionId: tokenPair.sessionId
     })
 
-    // Enhanced successful authentication logging
-    if (isPhase2MigrationEnabled('enableEnhancedLoginLogging')) {
-      // Enhanced authentication success logging
-      apiLogger.logAuth('login_success', true, {
-        userId: user.user_id,
-        ...(userContext?.current_organization_id && { 
-          organizationId: userContext.current_organization_id 
-        }),
-        sessionDuration: remember ? 2592000 : 86400, // 30 days or 24 hours in seconds
-        permissions: userContext?.all_permissions?.map(p => p.name) || []
-      })
-      
-      // Business intelligence logging  
-      apiLogger.logBusiness('user_authentication', 'sessions', 'success', {
-        recordsProcessed: 1,
-        businessRules: ['password_verification', 'account_lockout_check', 'rbac_context_load'],
-        notifications: 0 // No notifications sent during login
-      })
-      
-      // Security success event
-      apiLogger.logSecurity('successful_authentication', 'low', {
-        action: 'authentication_granted',
-        userId: user.user_id,
-        reason: 'valid_credentials'
-      })
-    } else {
-      // Legacy logging fallback
-      logger.info('Login completed successfully', {
-        userId: user.user_id,
-        sessionId: tokenPair.sessionId,
-      })
-    }
+    // Enhanced successful authentication logging - permanently enabled
+    apiLogger.logAuth('login_success', true, {
+      userId: user.user_id,
+      ...(userContext?.current_organization_id && { 
+        organizationId: userContext.current_organization_id 
+      }),
+      sessionDuration: remember ? 2592000 : 86400, // 30 days or 24 hours in seconds
+      permissions: userContext?.all_permissions?.map(p => p.name) || []
+    })
+    
+    // Business intelligence logging  
+    apiLogger.logBusiness('user_authentication', 'sessions', 'success', {
+      recordsProcessed: 1,
+      businessRules: ['password_verification', 'account_lockout_check', 'rbac_context_load'],
+      notifications: 0 // No notifications sent during login
+    })
+    
+    // Security success event
+    apiLogger.logSecurity('successful_authentication', 'low', {
+      action: 'authentication_granted',
+      userId: user.user_id,
+      reason: 'valid_credentials'
+    })
 
     // Log successful login to audit system
     await AuditLogger.logAuth({
@@ -379,28 +344,18 @@ const loginHandler = async (request: NextRequest) => {
 
     const totalDuration = Date.now() - startTime
 
-    // Enhanced completion logging
-    if (isPhase2MigrationEnabled('enableEnhancedLoginLogging')) {
-      // Log successful response with enhanced metrics
-      apiLogger.logResponse(200, {
-        recordCount: 1,
-        processingTimeBreakdown: {
-          validation: validationStartTime ? Date.now() - validationStartTime : 0,
-          lockoutCheck: lockoutStartTime ? Date.now() - lockoutStartTime : 0,
-          passwordVerification: passwordStartTime ? Date.now() - passwordStartTime : 0,
-          rbacContextFetch: rbacStartTime ? Date.now() - rbacStartTime : 0,
-          tokenGeneration: tokenStartTime ? Date.now() - tokenStartTime : 0,
-          cookieSetup: cookieStartTime ? Date.now() - cookieStartTime : 0
-        }
-      })
-    } else {
-      // Legacy completion logging
-      logAPIAuth(logger, 'login_complete', true, user.user_id)
-      logPerformanceMetric(logger, 'total_login_duration', totalDuration, {
-        userId: user.user_id,
-        success: true
-      })
-    }
+    // Enhanced completion logging - permanently enabled
+    apiLogger.logResponse(200, {
+      recordCount: 1,
+      processingTimeBreakdown: {
+        validation: validationStartTime ? Date.now() - validationStartTime : 0,
+        lockoutCheck: lockoutStartTime ? Date.now() - lockoutStartTime : 0,
+        passwordVerification: passwordStartTime ? Date.now() - passwordStartTime : 0,
+        rbacContextFetch: rbacStartTime ? Date.now() - rbacStartTime : 0,
+        tokenGeneration: tokenStartTime ? Date.now() - tokenStartTime : 0,
+        cookieSetup: cookieStartTime ? Date.now() - cookieStartTime : 0
+      }
+    })
 
     // Generate new authenticated CSRF token tied to the user
     const csrfToken = await UnifiedCSRFProtection.setCSRFToken(user.user_id)

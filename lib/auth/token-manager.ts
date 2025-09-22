@@ -7,7 +7,6 @@ import { AuditLogger } from '@/lib/api/services/audit'
 import { getJWTConfig } from '@/lib/env'
 import { logger } from '@/lib/logger'
 import { createAppLogger } from '@/lib/logger/factory'
-import { isPhase3MigrationEnabled } from '@/lib/logger/phase3-migration-flags'
 import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context'
 import { rolePermissionCache } from '@/lib/cache/role-permission-cache'
 
@@ -72,7 +71,7 @@ export class TokenManager {
     const refreshTokenId = nanoid(32)
     
     // Enhanced token creation logging
-    if (isPhase3MigrationEnabled('enableEnhancedTokenManagerLogging')) {
+    // Enhanced logging permanently enabled {
       tokenManagerLogger.info('Token pair creation initiated', {
         userId,
         sessionId,
@@ -90,7 +89,7 @@ export class TokenManager {
     
     if (!userContext) {
       // Enhanced token creation failure logging
-      if (isPhase3MigrationEnabled('enableEnhancedTokenManagerLogging')) {
+      // Enhanced logging permanently enabled {
         tokenManagerLogger.security('token_creation_failed', 'high', {
           action: 'user_context_load_failed',
           userId,
@@ -103,7 +102,7 @@ export class TokenManager {
     }
     
     // Log successful context loading
-    if (isPhase3MigrationEnabled('enableEnhancedTokenManagerLogging')) {
+    // Enhanced logging permanently enabled {
       tokenManagerLogger.debug('User context loaded for token creation', {
         userId,
         roleCount: userContext.roles.length,
@@ -215,7 +214,7 @@ export class TokenManager {
     })
 
     // Enhanced token creation completion logging
-    if (isPhase3MigrationEnabled('enableEnhancedTokenManagerLogging')) {
+    // Enhanced logging permanently enabled {
       const duration = Date.now() - startTime
       
       // Token security analytics

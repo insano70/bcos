@@ -5,7 +5,6 @@
 
 import type { NextRequest } from 'next/server';
 import { createAppLogger } from '@/lib/logger/factory';
-import { createConditionalLogger, isMigrationEnabled, MigrationLogger } from '@/lib/logger/migration-flags';
 
 // Create CSRF security logger with enhanced features
 const csrfLogger = createAppLogger('csrf-monitoring', {
@@ -14,7 +13,6 @@ const csrfLogger = createAppLogger('csrf-monitoring', {
   module: 'csrf-monitor'
 });
 
-const migrationLogger = MigrationLogger.getInstance();
 
 /**
  * CSRF failure event data
@@ -132,11 +130,6 @@ export class CSRFSecurityMonitor {
       timestamp: new Date(event.timestamp).toISOString()
     };
 
-    // Log migration event for monitoring
-    migrationLogger.logMigration('phase1', 'csrf-monitoring', 'enhanced_security_logging', {
-      severity: event.severity,
-      reason: event.reason
-    });
 
     // Use enhanced security logging method
     csrfLogger.security('csrf_validation_failure', event.severity, {
@@ -237,12 +230,6 @@ export class CSRFSecurityMonitor {
   private static async sendAlert(alert: SecurityAlert): Promise<void> {
     const isDevelopment = process.env.NODE_ENV === 'development';
     
-    // Log migration event for monitoring
-    migrationLogger.logMigration('phase1', 'csrf-monitoring', 'security_alert_triggered', {
-      alertType: alert.type,
-      severity: alert.severity,
-      eventCount: alert.events.length
-    });
 
     // Use enhanced security logging
     csrfLogger.security('csrf_security_alert', alert.severity, {

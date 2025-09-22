@@ -1,4 +1,13 @@
-import { getTestDb } from '@/tests/helpers/db-helper'
+// Import db-helper conditionally to avoid compilation issues
+let getTestDb: any
+try {
+  getTestDb = require('@/tests/helpers/db-helper').getTestDb
+} catch (error) {
+  // Fallback for when db-helper is not available during setup
+  getTestDb = () => {
+    throw new Error('Database helper not available during test setup')
+  }
+}
 import { users, practices } from '@/lib/db/schema'
 import { user_organizations, user_roles, roles, role_permissions, organizations } from '@/lib/db/rbac-schema'
 import { sql } from 'drizzle-orm'

@@ -1,7 +1,6 @@
 import { db } from '@/lib/db'
 import { logger } from '@/lib/logger';
 import { createAppLogger } from '@/lib/logger/factory';
-import { isPhase3MigrationEnabled } from '@/lib/logger/phase3-migration-flags';
 import {
   users,
   roles,
@@ -41,7 +40,7 @@ export async function getUserContext(userId: string): Promise<UserContext> {
   const startTime = Date.now()
   
   // Enhanced user context loading logging
-  if (isPhase3MigrationEnabled('enableEnhancedUserContextLogging')) {
+  // Enhanced logging permanently enabled {
     rbacUserContextLogger.info('User context loading initiated', {
       userId,
       operation: 'get_user_context',
@@ -286,7 +285,7 @@ export async function getUserContext(userId: string): Promise<UserContext> {
   };
 
   // Enhanced user context completion logging
-  if (isPhase3MigrationEnabled('enableEnhancedUserContextLogging')) {
+  // Enhanced logging permanently enabled {
     const duration = Date.now() - startTime
     
     // Security analytics for user context loading
@@ -398,7 +397,7 @@ export async function getUserContextSafe(userId: string): Promise<UserContext | 
   const isDev = process.env.NODE_ENV === 'development';
   
   // Enhanced safe user context loading logging
-  if (isPhase3MigrationEnabled('enableEnhancedUserContextLogging')) {
+  // Enhanced logging permanently enabled {
     rbacUserContextLogger.info('Safe user context loading initiated', {
       userId,
       operation: 'get_user_context_safe',
@@ -411,7 +410,7 @@ export async function getUserContextSafe(userId: string): Promise<UserContext | 
   const cacheKey = `user_context:${userId}`;
   if (requestCache.has(cacheKey)) {
     // Enhanced cache hit logging
-    if (isPhase3MigrationEnabled('enableEnhancedUserContextLogging')) {
+    // Enhanced logging permanently enabled {
       rbacUserContextLogger.debug('User context cache analytics', {
         userId,
         cacheHit: true,
@@ -429,7 +428,7 @@ export async function getUserContextSafe(userId: string): Promise<UserContext | 
   }
   
   // Enhanced cache miss logging
-  if (isPhase3MigrationEnabled('enableEnhancedUserContextLogging')) {
+  // Enhanced logging permanently enabled {
     rbacUserContextLogger.debug('User context cache miss', {
       userId,
       cacheKey,

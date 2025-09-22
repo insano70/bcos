@@ -36,9 +36,6 @@ vi.mock('@/lib/logger/factory', () => ({
   }))
 }))
 
-vi.mock('@/lib/logger/phase3-migration-flags', () => ({
-  isPhase3MigrationEnabled: vi.fn(() => false)
-}))
 
 vi.mock('@/lib/rbac/cached-user-context', () => ({
   getCachedUserContextSafe: vi.fn()

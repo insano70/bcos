@@ -4,7 +4,6 @@ import { nanoid } from 'nanoid'
 import { AuditLogger } from './audit'
 import { logger } from '@/lib/logger'
 import { createAppLogger } from '@/lib/logger/factory'
-import { isPhase2MigrationEnabled } from '@/lib/logger/phase2-migration-flags'
 
 /**
  * Enterprise Session Management Service
@@ -63,7 +62,7 @@ export async function createSession(
   const now = new Date()
 
   // Enhanced session creation logging
-  if (isPhase2MigrationEnabled('enableEnhancedSessionServiceLogging')) {
+  // Enhanced logging permanently enabled {
     sessionLogger.info('Session creation initiated', {
       userId,
       deviceFingerprint: deviceInfo.fingerprint,
@@ -81,7 +80,7 @@ export async function createSession(
   const sessionLimitStart = Date.now()
   await enforceConcurrentSessionLimits(userId)
   
-  if (isPhase2MigrationEnabled('enableEnhancedSessionServiceLogging')) {
+  // Enhanced logging permanently enabled {
     sessionLogger.timing('Session limit enforcement completed', sessionLimitStart, {
       userId,
       operation: 'concurrent_session_check'
@@ -140,7 +139,7 @@ export async function createSession(
   await AuditLogger.logAuth(auditData)
 
   // Enhanced session creation success logging
-  if (isPhase2MigrationEnabled('enableEnhancedSessionServiceLogging')) {
+  // Enhanced logging permanently enabled {
     // Session lifecycle logging
     sessionLogger.info('Session created successfully', {
       sessionId,

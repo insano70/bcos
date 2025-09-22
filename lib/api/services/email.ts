@@ -1,7 +1,6 @@
 import { Resend } from 'resend'
 import { logger } from '@/lib/logger'
 import { createAppLogger } from '@/lib/logger/factory'
-import { isPhase2MigrationEnabled } from '@/lib/logger/phase2-migration-flags'
 
 /**
  * Professional Email Service
@@ -52,14 +51,12 @@ export class EmailService {
   static async sendWelcomeEmail(email: string, firstName: string, lastName: string): Promise<void> {
     const startTime = Date.now()
     
-    // Enhanced welcome email logging
-    if (isPhase2MigrationEnabled('enableEnhancedEmailServiceLogging')) {
-      EmailService.universalLogger.info('Welcome email workflow initiated', {
-        recipientEmail: '[REDACTED]', // PII protection
-        templateType: 'welcome',
-        userOnboarding: true
-      })
-    }
+    // Enhanced welcome email logging - permanently enabled
+    EmailService.universalLogger.info('Welcome email workflow initiated', {
+      recipientEmail: '[REDACTED]', // PII protection
+      templateType: 'welcome',
+      userOnboarding: true
+    })
     
     const template = EmailService.getWelcomeTemplate({ firstName, lastName })
     
@@ -72,16 +69,14 @@ export class EmailService {
       ...(template.text && { text: template.text })
     })
     
-    // Enhanced business intelligence for welcome emails
-    if (isPhase2MigrationEnabled('enableEnhancedEmailServiceLogging')) {
-      EmailService.universalLogger.debug('User onboarding analytics', {
-        eventType: 'welcome_email_sent',
-        onboardingStep: 'email_welcome',
-        userEngagement: 'email_delivered',
-        templateUsed: 'welcome_professional',
-        duration: Date.now() - startTime
-      })
-    }
+    // Enhanced business intelligence for welcome emails - permanently enabled
+    EmailService.universalLogger.debug('User onboarding analytics', {
+      eventType: 'welcome_email_sent',
+      onboardingStep: 'email_welcome',
+      userEngagement: 'email_delivered',
+      templateUsed: 'welcome_professional',
+      duration: Date.now() - startTime
+    })
   }
 
   /**
@@ -177,7 +172,7 @@ export class EmailService {
       }
       
       // Enhanced email operation logging
-      if (isPhase2MigrationEnabled('enableEnhancedEmailServiceLogging')) {
+      // Enhanced logging permanently enabled {
         EmailService.universalLogger.info('Email sending initiated', {
           template: options.template,
           recipientCount: Array.isArray(options.to) ? options.to.length : 1,
@@ -192,7 +187,7 @@ export class EmailService {
 
       if (result.error) {
         // Enhanced error logging for external API failures
-        if (isPhase2MigrationEnabled('enableEnhancedEmailServiceLogging')) {
+        // Enhanced logging permanently enabled {
           EmailService.universalLogger.error('Email API call failed', result.error, {
             service: 'resend',
             endpoint: '/emails/send',
@@ -216,7 +211,7 @@ export class EmailService {
       }
 
       // Enhanced success logging
-      if (isPhase2MigrationEnabled('enableEnhancedEmailServiceLogging')) {
+      // Enhanced logging permanently enabled {
         // External API monitoring
         EmailService.universalLogger.debug('External API monitoring', {
           service: 'resend',
@@ -244,19 +239,11 @@ export class EmailService {
           externalAPITime: apiCallDuration,
           totalTime: Date.now() - startTime
         })
-      } else {
-        // Legacy logging fallback
-        logger.info('Email sent successfully', {
-          to: options.to,
-          emailId: result.data?.id,
-          subject: options.subject,
-          operation: 'sendEmail'
-        })
       }
       
     } catch (error) {
       // Enhanced error handling
-      if (isPhase2MigrationEnabled('enableEnhancedEmailServiceLogging')) {
+      // Enhanced logging permanently enabled {
         EmailService.universalLogger.error('Email service error', error instanceof Error ? error : new Error(String(error)), {
           template: options.template,
           recipientCount: Array.isArray(options.to) ? options.to.length : 1,
