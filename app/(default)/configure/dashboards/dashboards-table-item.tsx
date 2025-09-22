@@ -23,6 +23,20 @@ export default function DashboardsTableItem({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   
+  // Close dropdown when clicking outside - must be at top level
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   // Safety check - if dashboard is invalid, render error row
   if (!dashboard || !dashboard.dashboard_id) {
     return (
@@ -37,20 +51,6 @@ export default function DashboardsTableItem({
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onCheckboxChange(dashboard.dashboard_id, e.target.checked);
   };
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
 
   const handleEdit = () => {
     onEdit?.(dashboard);

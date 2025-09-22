@@ -84,8 +84,8 @@ export class FileUploadService {
     for (const file of files) {
       try {
         const fileResult = await FileUploadService.processFile(file, opts)
-        if (fileResult.success) {
-          result.files.push(fileResult.file!)
+        if (fileResult.success && fileResult.file) {
+          result.files.push(fileResult.file)
         } else {
           result.errors.push(...fileResult.errors)
           result.success = false

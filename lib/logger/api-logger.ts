@@ -51,7 +51,7 @@ export function logAPIRequest(logger: APILogger, request: NextRequest): void {
   const contentLength = request.headers.get('content-length')
   
   logger.info('API Request Started', {
-    contentLength: contentLength ? parseInt(contentLength) : undefined,
+    contentLength: contentLength ? parseInt(contentLength, 10) : undefined,
     headers: sanitizeHeaders(request.headers)
   })
 }

@@ -14,8 +14,7 @@ interface DashboardsTableProps {
 export default function DashboardsTable({ dashboards, onEdit, onDelete, onPreview }: DashboardsTableProps) {
   // Filter out invalid dashboards and map to have 'id' property for useItemSelection
   const validDashboards = dashboards.filter(dashboard => 
-    dashboard && 
-    dashboard.dashboard_id && 
+    dashboard?.dashboard_id && 
     typeof dashboard.dashboard_id === 'string' &&
     dashboard.dashboard_id.trim().length > 0
   );

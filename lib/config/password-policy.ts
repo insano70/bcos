@@ -86,7 +86,7 @@ export function getPasswordPolicyDescription(): string {
  * Create Zod password validation schema using centralized policy
  * Use this in all password creation/change forms
  */
-export function createPasswordSchema(fieldName: string = 'password') {
+export function createPasswordSchema(_fieldName: string = 'password') {
   return z.string()
     .min(PASSWORD_POLICY.MIN_LENGTH, PASSWORD_POLICY.MESSAGES.TOO_SHORT)
     .max(PASSWORD_POLICY.MAX_LENGTH, PASSWORD_POLICY.MESSAGES.TOO_LONG)

@@ -1,5 +1,5 @@
 import { db, user_sessions, login_attempts, account_security } from '@/lib/db'
-import { eq, and, gte, lte, desc, count, sql } from 'drizzle-orm'
+import { eq, and, gte, desc, count, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { AuditLogger } from './audit'
 import { logger } from '@/lib/logger'
@@ -70,7 +70,7 @@ export async function createSession(
     throw new Error('Failed to create session')
   }
 
-  const session = sessions[0]
+  const session = sessions[0]!  // Safe: we just checked sessions.length > 0
 
   // Update device tracking
   await updateDeviceTracking(userId, deviceInfo)
@@ -101,17 +101,17 @@ export async function createSession(
   await AuditLogger.logAuth(auditData)
 
   return {
-    sessionId: session!.session_id,
-    userId: session!.user_id,
-    deviceFingerprint: session!.device_fingerprint,
-    deviceName: session!.device_name,
-    ipAddress: session!.ip_address,
-    userAgent: session!.user_agent,
+    sessionId: session.session_id,
+    userId: session.user_id,
+    deviceFingerprint: session.device_fingerprint,
+    deviceName: session.device_name,
+    ipAddress: session.ip_address,
+    userAgent: session.user_agent,
     location: deviceInfo.location || null, // From input, not stored in DB
-    isActive: session!.is_active,
-    lastActivity: session!.last_activity,
+    isActive: session.is_active,
+    lastActivity: session.last_activity,
     expiresAt: expiresAt, // Calculated value
-    createdAt: session!.created_at
+    createdAt: session.created_at
   }
 }
 
@@ -178,7 +178,7 @@ export async function revokeSession(
     // Audit log
     await AuditLogger.logAuth({
       action: 'logout',
-      userId: updatedSessions[0]!.user_id,
+      userId: updatedSessions[0]!.user_id,  // Safe: we just checked length > 0
       metadata: {
         sessionId,
         reason

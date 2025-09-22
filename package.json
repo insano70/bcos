@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p ${PORT:-4001}",
+    "dev:turbo": "next dev --turbo -p ${PORT:-4001}",
+    "dev:warm": "next dev -p ${PORT:-4001} & sleep 5 && node scripts/warmup-dev.js",
     "build": "next build",
     "start": "next start -p ${PORT:-4001}",
     "lint": "biome lint .",

@@ -53,8 +53,9 @@ export async function warmUpRolePermissionCache(): Promise<void> {
         });
       }
       
-      const roleData = rolePermissionsMap.get(row.role_id)!;
-      roleData.permissions.push({
+      const roleData = rolePermissionsMap.get(row.role_id);
+      if (roleData) {
+        roleData.permissions.push({
         permission_id: row.permission_id,
         name: row.permission_name,
         description: row.description || undefined,
@@ -64,7 +65,8 @@ export async function warmUpRolePermissionCache(): Promise<void> {
         is_active: row.is_active ?? true,
         created_at: row.created_at ?? new Date(),
         updated_at: row.updated_at ?? new Date()
-      });
+        });
+      }
     }
     
     // Populate cache
