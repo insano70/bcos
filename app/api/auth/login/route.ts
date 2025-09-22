@@ -11,7 +11,7 @@ import { verifyPassword } from '@/lib/auth/security'
 import { TokenManager } from '@/lib/auth/token-manager'
 import { AccountSecurity } from '@/lib/auth/security'
 import { AuditLogger, BufferedAuditLogger } from '@/lib/logger'
-import { getUserContextSafe } from '@/lib/rbac/user-context'
+import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context'
 import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
 import { publicRoute } from '@/lib/api/route-handler'
 import { 
@@ -206,7 +206,7 @@ const loginHandler = async (request: NextRequest) => {
 
     // Get user's RBAC context to determine roles
     const rbacStartTime = Date.now()
-    const userContext = await getUserContextSafe(user.user_id)
+    const userContext = await getCachedUserContextSafe(user.user_id)
     logPerformanceMetric(logger, 'rbac_context_fetch', Date.now() - rbacStartTime)
 
     logger.debug('User RBAC context loaded', {

@@ -15,7 +15,8 @@ import type {
   Role,
   Organization,
   UserRole,
-  UserOrganization
+  UserOrganization,
+  Permission
 } from '@/lib/types/rbac';
 
 /**
@@ -85,9 +86,9 @@ export async function getUserContext(userId: string): Promise<UserContext> {
     userOrgs.map(org => org.organization_id)
   );
 
-  // 4. Get user's roles with permissions
+  // 4. Get user's roles with permissions (optimized with database-level deduplication)
   const userRolesData = await db
-    .select({
+    .selectDistinct({
       // User role info
       user_role_id: user_roles.user_role_id,
       user_id: user_roles.user_id,
@@ -136,6 +137,8 @@ export async function getUserContext(userId: string): Promise<UserContext> {
   // 5. Transform data into structured format
   const rolesMap = new Map<string, Role>();
   const userRolesMap = new Map<string, UserRole>();
+  // Performance optimization: Use Set for O(1) permission duplicate checking
+  const rolePermissionSets = new Map<string, Set<string>>();
 
   userRolesData.forEach(row => {
     // Build role with permissions
@@ -152,12 +155,16 @@ export async function getUserContext(userId: string): Promise<UserContext> {
         deleted_at: row.role_deleted_at || undefined,
         permissions: []
       });
+      // Initialize permission tracking set for this role
+      rolePermissionSets.set(row.role_id, new Set<string>());
     }
 
     const role = rolesMap.get(row.role_id)!;
+    const permissionSet = rolePermissionSets.get(row.role_id)!;
     
-    // Add permission to role (avoid duplicates)
-    if (!role.permissions.some(p => p.permission_id === row.permission_id)) {
+    // Add permission to role (O(1) duplicate checking with Set)
+    if (!permissionSet.has(row.permission_id)) {
+      permissionSet.add(row.permission_id);
       role.permissions.push({
         permission_id: row.permission_id,
         name: row.permission_name,
@@ -208,12 +215,14 @@ export async function getUserContext(userId: string): Promise<UserContext> {
     }
   }));
 
-  // 7. Get all unique permissions across all roles
-  const allPermissions = Array.from(rolesMap.values())
-    .flatMap(role => role.permissions)
-    .filter((permission, index, array) =>
-      array.findIndex(p => p.permission_id === permission.permission_id) === index
-    );
+  // 7. Get all unique permissions across all roles (O(1) deduplication with Set)
+  const uniquePermissionsMap = new Map<string, Permission>();
+  Array.from(rolesMap.values()).forEach(role => {
+    role.permissions.forEach(permission => {
+      uniquePermissionsMap.set(permission.permission_id, permission);
+    });
+  });
+  const allPermissions = Array.from(uniquePermissionsMap.values());
 
   // 8. Determine admin status
   const isSuperAdmin = Array.from(rolesMap.values()).some(role => 
@@ -324,11 +333,27 @@ async function getAccessibleOrganizations(directOrganizationIds: string[]): Prom
   return Array.from(accessibleOrgs.values());
 }
 
+// Request-scoped cache to prevent multiple getUserContext calls per request
+const requestCache = new Map<string, Promise<UserContext | null>>();
+
 /**
- * Get user context for API route handlers (with error handling)
+ * Get user context for API route handlers (with error handling and request-scoped caching)
  */
 export async function getUserContextSafe(userId: string): Promise<UserContext | null> {
   const isDev = process.env.NODE_ENV === 'development';
+  
+  // Check request-scoped cache first
+  const cacheKey = `user_context:${userId}`;
+  if (requestCache.has(cacheKey)) {
+    if (isDev) {
+      logger.debug('User context cache hit', {
+        userId,
+        operation: 'getUserContext'
+      });
+    }
+    return await requestCache.get(cacheKey)!;
+  }
+  
   if (isDev) {
     logger.debug('Loading user context', {
       userId,
@@ -336,37 +361,48 @@ export async function getUserContextSafe(userId: string): Promise<UserContext | 
     });
   }
   
-  try {
-    const context = await getUserContext(userId);
-    if (isDev) {
-      logger.debug('User context loaded successfully', {
-        userId,
-        rolesCount: context.roles?.length || 0,
-        permissionsCount: context.all_permissions?.length || 0,
-        organizationsCount: context.organizations?.length || 0
-      });
+  // Create promise and cache it immediately to prevent race conditions
+  const contextPromise = (async (): Promise<UserContext | null> => {
+    try {
+      const context = await getUserContext(userId);
+      if (isDev) {
+        logger.debug('User context loaded successfully', {
+          userId,
+          rolesCount: context.roles?.length || 0,
+          permissionsCount: context.all_permissions?.length || 0,
+          organizationsCount: context.organizations?.length || 0
+        });
+      }
+      return context;
+    } catch (error) {
+      // ✅ SECURITY: Use sanitized error logging for production
+      if (process.env.NODE_ENV === 'development') {
+        logger.error('Failed to get user context', {
+          userId,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined
+        });
+      } else {
+        logger.error('Failed to get user context (detailed)', {
+          userId,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          errorName: error instanceof Error ? error.name : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+          timestamp: new Date().toISOString()
+          // Don't log sensitive user context details in production
+        });
+      }
+      return null;
+    } finally {
+      // Clean up cache entry after request completes (prevent memory leaks)
+      setTimeout(() => {
+        requestCache.delete(cacheKey);
+      }, 1000); // Clean up after 1 second
     }
-    return context;
-  } catch (error) {
-    // ✅ SECURITY: Use sanitized error logging for production
-    if (process.env.NODE_ENV === 'development') {
-      logger.error('Failed to get user context', {
-        userId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
-      });
-    } else {
-      logger.error('Failed to get user context (detailed)', {
-        userId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        errorName: error instanceof Error ? error.name : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        timestamp: new Date().toISOString()
-        // Don't log sensitive user context details in production
-      });
-    }
-    return null;
-  }
+  })();
+  
+  requestCache.set(cacheKey, contextPromise);
+  return await contextPromise;
 }
 
 /**

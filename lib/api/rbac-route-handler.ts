@@ -125,11 +125,8 @@ export function rbacRoute(
         return response
       }
 
-      const contextStart = Date.now()
-      const userContext = await getUserContextSafe(session!.user.id)
-      logPerformanceMetric(logger, 'user_context_fetch', Date.now() - contextStart, {
-        userId: session!.user.id
-      })
+      // Use existing user context from auth middleware (avoid duplicate loading)
+      const userContext = session!.userContext
       
       if (!userContext) {
         logger.error('Failed to load user context for RBAC', {

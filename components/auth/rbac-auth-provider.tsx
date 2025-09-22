@@ -133,14 +133,79 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
         if (data.success && data.data?.user) {
           debugLog.auth('Found existing valid session, skipping token refresh');
           
-          // Update auth state with existing session
+          // Extract user context from the response to avoid duplicate loading
+          const apiUser = data.data.user;
+          const userContext: UserContext = {
+            user_id: apiUser.id,
+            email: apiUser.email,
+            first_name: apiUser.firstName,
+            last_name: apiUser.lastName,
+            is_active: true,
+            email_verified: apiUser.emailVerified,
+
+            // RBAC data from API
+            roles: apiUser.roles.map((role: any) => ({
+              role_id: role.id,
+              name: role.name,
+              description: role.description || '',
+              organization_id: undefined,
+              is_system_role: role.isSystemRole,
+              is_active: true,
+              created_at: new Date(),
+              updated_at: new Date(),
+              deleted_at: undefined,
+              permissions: [] // Will be populated from all_permissions
+            })),
+
+            organizations: apiUser.organizations.map((org: any) => ({
+              organization_id: org.id,
+              name: org.name,
+              slug: org.slug,
+              parent_organization_id: undefined,
+              is_active: true,
+              created_at: new Date(),
+              updated_at: new Date(),
+              deleted_at: undefined
+            })),
+
+            accessible_organizations: apiUser.organizations.map((org: any) => ({
+              organization_id: org.id,
+              name: org.name,
+              slug: org.slug,
+              parent_organization_id: undefined,
+              is_active: true,
+              created_at: new Date(),
+              updated_at: new Date(),
+              deleted_at: undefined
+            })),
+
+            user_roles: [], // Not provided by API
+            user_organizations: [], // Not provided by API
+            all_permissions: apiUser.permissions.map((perm: any) => ({
+              permission_id: perm.id || `perm_${perm.name}`,
+              name: perm.name,
+              description: perm.description || '',
+              resource: perm.resource || 'unknown',
+              action: perm.action || 'unknown',
+              scope: perm.scope || 'own',
+              is_active: true,
+              created_at: new Date(),
+              updated_at: new Date()
+            })),
+
+            current_organization_id: apiUser.practiceId,
+            is_super_admin: apiUser.isSuperAdmin,
+            organization_admin_for: apiUser.organizationAdminFor
+          };
+          
+          // Update auth state with existing session and user context
           setState(prev => ({
             ...prev,
             user: data.data.user,
             sessionId: data.data.sessionId,
             isLoading: false,
             isAuthenticated: true,
-            userContext: null, // Will be loaded by useEffect
+            userContext: userContext, // Set user context directly to avoid duplicate loading
             rbacLoading: false,
             rbacError: null
           }));

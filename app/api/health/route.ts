@@ -7,6 +7,8 @@ import {
   logDBHealth,
   logPerformanceMetric 
 } from '@/lib/logger'
+import { initializeCache } from '@/lib/cache/cache-warmer'
+import { cacheAdmin } from '@/lib/utils/cache-monitor'
 
 /**
  * Health Check Endpoint
@@ -23,6 +25,12 @@ const healthHandler = async (request: NextRequest) => {
   })
 
   try {
+    // Initialize cache on first health check (if not already initialized)
+    await initializeCache();
+    
+    // Get cache statistics
+    const cacheStats = cacheAdmin.getStats();
+    
     // Basic system health data
     const systemHealth = {
       status: 'healthy',
@@ -40,6 +48,14 @@ const healthHandler = async (request: NextRequest) => {
         version: process.version,
         platform: process.platform,
         arch: process.arch,
+      },
+      cache: {
+        rolePermissions: {
+          size: cacheStats.size,
+          hits: cacheStats.hits,
+          misses: cacheStats.misses,
+          hitRate: `${cacheStats.hitRate}%`
+        }
       },
       pid: process.pid
     }

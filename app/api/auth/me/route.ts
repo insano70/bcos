@@ -1,6 +1,5 @@
 import { NextRequest } from 'next/server'
-import { requireAuth } from '@/lib/api/middleware/auth'
-import { getUserContextSafe } from '@/lib/rbac/user-context'
+import { requireJWTAuth } from '@/lib/api/middleware/jwt-auth'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { errorLog } from '@/lib/utils/debug'
@@ -15,11 +14,11 @@ export async function GET(request: NextRequest) {
     // RATE LIMITING: Apply API-level rate limiting to prevent user context abuse
     await applyRateLimit(request, 'api')
 
-    // Get authenticated user session
-    const session = await requireAuth(request)
+    // Get authenticated user session with JWT-enhanced data (eliminates database queries!)
+    const session = await requireJWTAuth(request)
 
-    // Get full RBAC context for the user
-    const userContext = await getUserContextSafe(session.user.id)
+    // User context is already available from JWT + cache - no additional database queries needed!
+    const userContext = session.userContext
 
     if (!userContext) {
       return createErrorResponse('User context not found', 404, request)

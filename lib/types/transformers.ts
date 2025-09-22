@@ -3,8 +3,8 @@
  * Properly converts database schema types to TypeScript interfaces
  */
 
-import { Practice, StaffMember, PracticeAttributes } from './practice';
-import { practices, staff_members, templates, practice_attributes } from '../db/schema';
+import type { Practice, StaffMember, PracticeAttributes } from './practice';
+import type { practices, staff_members, templates, practice_attributes } from '../db/schema';
 import type { Template } from '@/lib/hooks/use-templates';
 
 /**

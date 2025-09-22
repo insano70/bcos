@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { requireAuth } from './auth'
 import { cookies } from 'next/headers'
 import { loggers } from '@/lib/logger'
+import type { UserContext } from '@/lib/types/rbac'
 
 /**
  * Global API Authentication Middleware
@@ -78,7 +79,7 @@ export interface AuthResult {
   };
   accessToken: string;
   sessionId: string;
-  userContext: unknown; // Full RBAC context
+  userContext: UserContext | null; // Full RBAC context
 }
 
 export async function applyGlobalAuth(request: NextRequest): Promise<AuthResult | null> {

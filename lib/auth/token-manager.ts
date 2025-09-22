@@ -6,6 +6,8 @@ import { eq, and, gte, lte, } from 'drizzle-orm'
 import { AuditLogger } from '@/lib/api/services/audit'
 import { getJWTConfig } from '@/lib/env'
 import { logger } from '@/lib/logger'
+import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context'
+import { rolePermissionCache } from '@/lib/cache/role-permission-cache'
 
 /**
  * Enterprise JWT + Refresh Token Manager
@@ -59,11 +61,38 @@ export class TokenManager {
     const sessionId = nanoid(32)
     const refreshTokenId = nanoid(32)
     
-    // Create access token (15 minutes)
+    // Load user context to include in JWT (eliminates future database queries)
+    const userContext = await getCachedUserContextSafe(userId)
+    if (!userContext) {
+      throw new Error(`Failed to load user context for JWT creation: ${userId}`)
+    }
+    
+    // Create access token (15 minutes) with enhanced user data
     const accessTokenPayload = {
+      // Security & session
       sub: userId,
       jti: nanoid(), // Unique JWT ID for blacklist capability
       session_id: sessionId,
+      
+      // User data (eliminates user table queries)
+      email: userContext.email,
+      first_name: userContext.first_name,
+      last_name: userContext.last_name,
+      email_verified: userContext.email_verified,
+      
+      // RBAC cache keys (eliminates RBAC queries)
+      role_ids: userContext.roles.map(r => r.role_id),
+      user_role_ids: userContext.user_roles.map(ur => ur.user_role_id),
+      primary_org_id: userContext.current_organization_id,
+      is_super_admin: userContext.is_super_admin,
+      org_admin_for: userContext.organization_admin_for,
+      
+      // Cache versioning for invalidation
+      roles_version: userContext.roles.reduce((acc, role) => {
+        acc[role.role_id] = rolePermissionCache.getRoleVersion(role.role_id)
+        return acc
+      }, {} as Record<string, number>),
+      
       iat: Math.floor(now.getTime() / 1000),
       exp: Math.floor((now.getTime() + TokenManager.ACCESS_TOKEN_DURATION) / 1000)
     }
@@ -193,11 +222,38 @@ export class TokenManager {
 
       const now = new Date()
 
-      // Create new access token
+      // Load fresh user context for the new access token
+      const userContext = await getCachedUserContextSafe(userId)
+      if (!userContext) {
+        throw new Error(`Failed to load user context for token refresh: ${userId}`)
+      }
+
+      // Create new access token with enhanced user data
       const accessTokenPayload = {
+        // Security & session
         sub: userId,
         jti: nanoid(),
         session_id: sessionId,
+        
+        // User data (eliminates user table queries)
+        email: userContext.email,
+        first_name: userContext.first_name,
+        last_name: userContext.last_name,
+        email_verified: userContext.email_verified,
+        
+        // RBAC cache keys (eliminates RBAC queries)
+        role_ids: userContext.roles.map(r => r.role_id),
+        user_role_ids: userContext.user_roles.map(ur => ur.user_role_id),
+        primary_org_id: userContext.current_organization_id,
+        is_super_admin: userContext.is_super_admin,
+        org_admin_for: userContext.organization_admin_for,
+        
+        // Cache versioning for invalidation
+        roles_version: userContext.roles.reduce((acc, role) => {
+          acc[role.role_id] = rolePermissionCache.getRoleVersion(role.role_id)
+          return acc
+        }, {} as Record<string, number>),
+        
         iat: Math.floor(now.getTime() / 1000),
         exp: Math.floor((now.getTime() + TokenManager.ACCESS_TOKEN_DURATION) / 1000)
       }

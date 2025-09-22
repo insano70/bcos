@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { applyRateLimit } from './middleware/rate-limit'
 import { applyGlobalAuth, markAsPublicRoute } from './middleware/global-auth'
 import { createErrorResponse } from './responses/error'
+import type { UserContext } from '@/lib/types/rbac'
 
 // Type for the authentication session (matches AuthResult from global-auth.ts)
 export interface AuthSession {
@@ -21,7 +22,7 @@ export interface AuthSession {
   };
   accessToken: string;
   sessionId: string;
-  userContext: unknown;
+  userContext: UserContext | null;
 }
 
 /**
