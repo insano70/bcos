@@ -4,16 +4,16 @@ import { applyGlobalAuth, markAsPublicRoute } from './middleware/global-auth'
 import { createErrorResponse } from './responses/error'
 
 // Type for the authentication session (matches AuthResult from global-auth.ts)
-interface AuthSession {
+export interface AuthSession {
   user: {
     id: string;
     email: string | null;
     name: string;
     firstName: string | null;
     lastName: string | null;
-    role: string;
+    role: string | undefined;
     emailVerified: boolean | null;
-    practiceId: string | null;
+    practiceId: string | null | undefined;
     roles: string[];
     permissions: string[];
     isSuperAdmin: boolean;
@@ -39,7 +39,7 @@ interface RouteOptions {
  * Wrap an API route handler with automatic security
  */
 export function secureRoute(
-  handler: (request: NextRequest, session?: AuthSession, ...args: unknown[]) => Promise<Response>,
+  handler: (request: NextRequest, session: AuthSession | null, ...args: unknown[]) => Promise<Response>,
   options: RouteOptions = { requireAuth: true, rateLimit: 'api' }
 ) {
   return async (request: NextRequest, ...args: unknown[]): Promise<Response> => {
@@ -93,9 +93,9 @@ export function adminRoute(
   handler: (request: NextRequest, session: AuthSession, ...args: unknown[]) => Promise<Response>,
   options: Omit<RouteOptions, 'requireAuth'> = {}
 ) {
-  return secureRoute(async (request: NextRequest, session: AuthSession, ...args: unknown[]) => {
+  return secureRoute(async (request: NextRequest, session: AuthSession | null, ...args: unknown[]) => {
     // Additional admin check
-    if (session?.user?.role !== 'admin') {
+    if (!session || session.user?.role !== 'admin') {
       return createErrorResponse('Admin access required', 403, request)
     }
     return await handler(request, session, ...args)

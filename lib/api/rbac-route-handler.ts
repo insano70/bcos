@@ -318,7 +318,7 @@ export function legacySecureRoute(
       
       // 3. Call the actual handler (legacy style)
       const handlerStart = Date.now()
-      const response = await handler(request, session, ...args)
+      const response = await handler(request, session || undefined, ...args)
       logPerformanceMetric(logger, 'legacy_handler_execution', Date.now() - handlerStart, {
         userId: session?.user?.id,
         statusCode: response.status
@@ -378,7 +378,7 @@ export function migrateToRBAC(
       })
       
       // Create a session-like object for backward compatibility
-      const legacySession = {
+      const legacySession: AuthSession = {
         user: {
           id: userContext.user_id,
           email: userContext.email,
@@ -386,8 +386,16 @@ export function migrateToRBAC(
           firstName: userContext.first_name,
           lastName: userContext.last_name,
           role: userContext.is_super_admin ? 'super_admin' : 'user',
-          emailVerified: userContext.email_verified
-        }
+          emailVerified: userContext.email_verified,
+          practiceId: userContext.current_organization_id || null,
+          roles: userContext.roles.map(role => role.name),
+          permissions: userContext.all_permissions.map(permission => permission.name),
+          isSuperAdmin: userContext.is_super_admin,
+          organizationAdminFor: userContext.organization_admin_for
+        },
+        accessToken: '', // Legacy compatibility - not used
+        sessionId: '', // Legacy compatibility - not used
+        userContext // Full RBAC context
       }
 
       const handlerStart = Date.now()

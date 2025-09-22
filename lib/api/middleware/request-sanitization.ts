@@ -72,7 +72,7 @@ const PATH_TRAVERSAL_PATTERNS = [
 interface SanitizationResult {
   isValid: boolean
   errors: string[]
-  sanitized?: Record<string, unknown>
+  sanitized?: unknown
 }
 
 /**
@@ -99,7 +99,13 @@ function deepSanitize(obj: unknown, path: string = 'root', errors: string[] = []
   // Handle objects
   const sanitized: Record<string, unknown> = {}
   
-  for (const key in obj) {
+  // Type guard to ensure obj is an object with string keys
+  if (typeof obj !== 'object' || obj === null) {
+    return obj
+  }
+  
+  const objRecord = obj as Record<string, unknown>
+  for (const key in objRecord) {
     // Skip dangerous keys
     if (DANGEROUS_KEYS.includes(key)) {
       errors.push(`Dangerous key '${key}' detected at ${path}`)
@@ -113,7 +119,7 @@ function deepSanitize(obj: unknown, path: string = 'root', errors: string[] = []
     }
 
     // Recursively sanitize the value
-    sanitized[key] = deepSanitize(obj[key], `${path}.${key}`, errors)
+    sanitized[key] = deepSanitize(objRecord[key], `${path}.${key}`, errors)
   }
 
   return sanitized
@@ -185,8 +191,9 @@ function validateDepth(obj: unknown, maxDepth: number = 10, currentDepth: number
     return true
   }
 
-  for (const key in obj) {
-    if (!validateDepth(obj[key], maxDepth, currentDepth + 1)) {
+  const objRecord = obj as Record<string, unknown>
+  for (const key in objRecord) {
+    if (!validateDepth(objRecord[key], maxDepth, currentDepth + 1)) {
       return false
     }
   }
@@ -217,8 +224,10 @@ function validateArraySizes(obj: unknown, maxSize: number = 1000): boolean {
  */
 // Simple logger interface for sanitization
 interface SanitizationLogger {
-  error: (message: string, meta?: unknown) => void;
+  info: (message: string, meta?: unknown) => void;
   warn: (message: string, meta?: unknown) => void;
+  error: (message: string, meta?: unknown) => void;
+  debug: (message: string, meta?: unknown) => void;
 }
 
 export async function sanitizeRequestBody(body: unknown, logger: SanitizationLogger): Promise<SanitizationResult> {

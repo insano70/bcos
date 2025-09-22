@@ -91,7 +91,7 @@ export class UnifiedCSRFProtection {
     }
 
     // Fallback to request.ip or unknown
-    const requestIP = (request as any).ip
+    const requestIP = (request as { ip?: string }).ip
     return UnifiedCSRFProtection.normalizeIP(requestIP || 'unknown')
   }
 

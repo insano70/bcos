@@ -61,7 +61,7 @@ async function _checkRefreshTokenCookie(): Promise<boolean> {
  * Call this at the start of every API route handler
  */
 // Type for the authentication result
-interface AuthResult {
+export interface AuthResult {
   user: {
     id: string;
     email: string | null;
@@ -70,7 +70,7 @@ interface AuthResult {
     lastName: string | null;
     role: string | undefined;
     emailVerified: boolean | null;
-    practiceId: string | null;
+    practiceId: string | null | undefined;
     roles: string[];
     permissions: string[];
     isSuperAdmin: boolean;

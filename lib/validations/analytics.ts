@@ -5,6 +5,47 @@ import { z } from 'zod'
  * Comprehensive validation for analytics endpoints
  */
 
+// Chart configuration schemas
+const chartFilterSchema = z.object({
+  field: z.string(),
+  operator: z.enum(['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'not_in', 'like', 'between']),
+  value: z.union([z.string(), z.number(), z.array(z.string()), z.tuple([z.union([z.string(), z.number()]), z.union([z.string(), z.number()])])])
+})
+
+const multipleSeriesConfigSchema = z.object({
+  seriesId: z.string(),
+  seriesLabel: z.string(),
+  aggregation: z.enum(['sum', 'avg', 'count', 'min', 'max']),
+  color: z.string().optional()
+})
+
+const chartConfigSchema = z.object({
+  chartName: z.string().optional(),
+  chartType: z.enum(['line', 'bar', 'doughnut']).optional(),
+  measure: z.string().optional(),
+  frequency: z.string().optional(),
+  practiceUid: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  groupBy: z.string().optional(),
+  calculatedField: z.string().optional(),
+  advancedFilters: z.array(chartFilterSchema).optional(),
+  useAdvancedFiltering: z.boolean().optional(),
+  useMultipleSeries: z.boolean().optional(),
+  seriesConfigs: z.array(multipleSeriesConfigSchema).optional()
+})
+
+const dataSourceConfigSchema = z.object({
+  table: z.string().optional(),
+  filters: z.array(chartFilterSchema).optional(),
+  orderBy: z.array(z.object({
+    field: z.string(),
+    direction: z.enum(['asc', 'desc'])
+  })).optional(),
+  limit: z.number().optional(),
+  advancedFilters: z.array(chartFilterSchema).optional()
+})
+
 // Common schemas
 const uuidSchema = z.string().uuid('Invalid UUID format')
 const integerIdSchema = z.coerce.number().int().positive('ID must be a positive integer')
@@ -34,9 +75,9 @@ export const chartDefinitionCreateSchema = z.object({
   chart_description: descriptionSchema,
   chart_type: z.enum(['line', 'bar', 'pie', 'area', 'scatter', 'histogram', 'heatmap']),
   chart_category_id: integerIdSchema.optional(),
-  chart_config: z.record(z.string(), z.any()).optional(), // JSON configuration
-  data_source: z.string().min(1, 'Data source is required').max(500),
-  query_config: z.record(z.string(), z.any()).optional(), // JSON query configuration
+  chart_config: chartConfigSchema.optional(), // Properly typed chart configuration
+  data_source: z.union([z.string().min(1, 'Data source is required').max(500), dataSourceConfigSchema]),
+  query_config: dataSourceConfigSchema.optional(), // Properly typed query configuration
   is_active: z.boolean().default(true)
 })
 

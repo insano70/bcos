@@ -263,7 +263,7 @@ export class CSRFClientHelper {
    * Extract token metadata for debugging
    * Safely extracts information from token payload
    */
-  static getTokenMetadata(token: string): Record<string, any> | null {
+  static getTokenMetadata(token: string): Record<string, unknown> | null {
     if (!token) return null
 
     try {

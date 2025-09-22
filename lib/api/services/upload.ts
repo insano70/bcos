@@ -168,17 +168,19 @@ export class FileUploadService {
       return { success: false, errors }
     }
 
+    const processedFile: ProcessedFile = {
+      originalName: file.name,
+      fileName,
+      filePath,
+      fileUrl,
+      mimeType: file.type,
+      size: processedBuffer.length,
+      ...(thumbnail && { thumbnail })
+    }
+
     return {
       success: true,
-      file: {
-        originalName: file.name,
-        fileName,
-        filePath,
-        fileUrl,
-        mimeType: file.type,
-        size: processedBuffer.length,
-        thumbnail
-      },
+      file: processedFile,
       errors: []
     }
   }

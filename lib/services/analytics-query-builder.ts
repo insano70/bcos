@@ -3,6 +3,7 @@ import type {
   AnalyticsQueryParams, 
   AnalyticsQueryResult,
   ChartFilter,
+  ChartFilterValue,
   ChartOrderBy,
   ChartRenderContext 
 } from '@/lib/types/analytics';
@@ -75,7 +76,7 @@ export class AnalyticsQueryBuilder {
   /**
    * Sanitize and validate filter values
    */
-  private sanitizeValue(value: any, operator: string): any {
+  private sanitizeValue(value: unknown, operator: string): unknown {
     if (value === null || value === undefined) {
       return null;
     }
@@ -102,7 +103,7 @@ export class AnalyticsQueryBuilder {
   /**
    * Sanitize individual values based on type
    */
-  private sanitizeSingleValue(value: any): any {
+  private sanitizeSingleValue(value: unknown): unknown {
     if (typeof value === 'string') {
       // For date strings, validate format and return as-is if valid
       if (this.isValidDateString(value)) {
@@ -166,9 +167,9 @@ export class AnalyticsQueryBuilder {
   private async buildWhereClause(
     filters: ChartFilter[], 
     context: ChartRenderContext
-  ): Promise<{ clause: string; params: any[] }> {
+  ): Promise<{ clause: string; params: unknown[] }> {
     const conditions: string[] = [];
-    const params: any[] = [];
+    const params: unknown[] = [];
     let paramIndex = 1;
 
     // Add security filters based on user context
@@ -200,7 +201,11 @@ export class AnalyticsQueryBuilder {
         paramIndex++;
       } else if (filter.operator === 'between') {
         conditions.push(`${filter.field} ${sqlOperator} $${paramIndex} AND $${paramIndex + 1}`);
-        params.push(sanitizedValue[0], sanitizedValue[1]);
+        if (Array.isArray(sanitizedValue) && sanitizedValue.length >= 2) {
+          params.push(sanitizedValue[0], sanitizedValue[1]);
+        } else {
+          throw new Error('Between operator requires array with two values');
+        }
         paramIndex += 2;
       } else {
         conditions.push(`${filter.field} ${sqlOperator} $${paramIndex}`);
@@ -251,7 +256,9 @@ export class AnalyticsQueryBuilder {
         this.logger.info('Analytics query served from cache', {
           params,
           userId: context.user_id,
-          cacheAge: Date.now() - (cachedResult as any).timestamp
+          cacheAge: typeof cachedResult === 'object' && cachedResult !== null && 'timestamp' in cachedResult && typeof cachedResult.timestamp === 'number' 
+            ? Date.now() - cachedResult.timestamp 
+            : 0
         });
         return cachedResult;
       }
@@ -644,10 +651,20 @@ export class AnalyticsQueryBuilder {
   /**
    * Process advanced filters into query filters
    */
-  private processAdvancedFilters(advancedFilters: { conditions?: Array<{ field: string; operator: string; value: unknown }> } | undefined): ChartFilter[] {
+  private processAdvancedFilters(advancedFilters: ChartFilter[] | { conditions?: Array<{ field: string; operator: string; value: unknown }> } | undefined): ChartFilter[] {
     const filters: ChartFilter[] = [];
 
-    if (!advancedFilters || !Array.isArray(advancedFilters.conditions)) {
+    if (!advancedFilters) {
+      return filters;
+    }
+
+    // Handle direct ChartFilter array
+    if (Array.isArray(advancedFilters)) {
+      return advancedFilters;
+    }
+
+    // Handle object with conditions property
+    if (!advancedFilters.conditions || !Array.isArray(advancedFilters.conditions)) {
       return filters;
     }
 
@@ -697,10 +714,16 @@ export class AnalyticsQueryBuilder {
             break;
         }
 
+        // Ensure value is compatible with ChartFilterValue
+        const chartFilterValue: ChartFilterValue = 
+          typeof value === 'string' || typeof value === 'number' || Array.isArray(value) 
+            ? value as ChartFilterValue
+            : String(value);
+
         filters.push({
           field: condition.field,
           operator: operator as ChartFilter['operator'],
-          value: value,
+          value: chartFilterValue,
         });
       }
     }

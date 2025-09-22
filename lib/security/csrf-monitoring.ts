@@ -7,10 +7,10 @@ import type { NextRequest } from 'next/server';
 
 // Edge Runtime compatible logger interface
 interface EdgeLogger {
-  info: (message: string, meta?: Record<string, any>) => void;
-  warn: (message: string, meta?: Record<string, any>) => void;
-  error: (message: string, meta?: Record<string, any>) => void;
-  debug: (message: string, meta?: Record<string, any>) => void;
+  info: (message: string, meta?: Record<string, unknown>) => void;
+  warn: (message: string, meta?: Record<string, unknown>) => void;
+  error: (message: string, meta?: Record<string, unknown>) => void;
+  debug: (message: string, meta?: Record<string, unknown>) => void;
 }
 
 /**
@@ -20,22 +20,22 @@ interface EdgeLogger {
 function createEdgeLogger(): EdgeLogger {
   // Detect if we're in Edge Runtime
   const isEdgeRuntime = typeof process === 'undefined' || 
-                       (globalThis as any).EdgeRuntime !== undefined ||
+                       (globalThis as { EdgeRuntime?: unknown }).EdgeRuntime !== undefined ||
                        typeof process.nextTick === 'undefined';
   
   if (isEdgeRuntime) {
     // Edge Runtime compatible console logger
     return {
-      info: (message: string, meta?: Record<string, any>) => {
+      info: (message: string, meta?: Record<string, unknown>) => {
         console.log('[CSRF-MONITOR]', message, meta ? JSON.stringify(meta) : '');
       },
-      warn: (message: string, meta?: Record<string, any>) => {
+      warn: (message: string, meta?: Record<string, unknown>) => {
         console.warn('[CSRF-MONITOR]', message, meta ? JSON.stringify(meta) : '');
       },
-      error: (message: string, meta?: Record<string, any>) => {
+      error: (message: string, meta?: Record<string, unknown>) => {
         console.error('[CSRF-MONITOR]', message, meta ? JSON.stringify(meta) : '');
       },
-      debug: (message: string, meta?: Record<string, any>) => {
+      debug: (message: string, meta?: Record<string, unknown>) => {
         if (process.env.NODE_ENV === 'development') {
           console.debug('[CSRF-MONITOR]', message, meta ? JSON.stringify(meta) : '');
         }
@@ -53,24 +53,24 @@ function createEdgeLogger(): EdgeLogger {
       const fullLogger = createAPILogger(mockRequest);
       
       return {
-        info: (message: string, meta?: Record<string, any>) => fullLogger.info(message, meta),
-        warn: (message: string, meta?: Record<string, any>) => fullLogger.warn(message, meta),
-        error: (message: string, meta?: Record<string, any>) => fullLogger.error(message, meta),
-        debug: (message: string, meta?: Record<string, any>) => fullLogger.debug(message, meta),
+        info: (message: string, meta?: Record<string, unknown>) => fullLogger.info(message, meta),
+        warn: (message: string, meta?: Record<string, unknown>) => fullLogger.warn(message, meta),
+        error: (message: string, meta?: Record<string, unknown>) => fullLogger.error(message, meta),
+        debug: (message: string, meta?: Record<string, unknown>) => fullLogger.debug(message, meta),
       };
     } catch (error) {
       // Fallback to console if logger import fails
       return {
-        info: (message: string, meta?: Record<string, any>) => {
+        info: (message: string, meta?: Record<string, unknown>) => {
           console.log('[CSRF-MONITOR]', message, meta ? JSON.stringify(meta) : '');
         },
-        warn: (message: string, meta?: Record<string, any>) => {
+        warn: (message: string, meta?: Record<string, unknown>) => {
           console.warn('[CSRF-MONITOR]', message, meta ? JSON.stringify(meta) : '');
         },
-        error: (message: string, meta?: Record<string, any>) => {
+        error: (message: string, meta?: Record<string, unknown>) => {
           console.error('[CSRF-MONITOR]', message, meta ? JSON.stringify(meta) : '');
         },
-        debug: (message: string, meta?: Record<string, any>) => {
+        debug: (message: string, meta?: Record<string, unknown>) => {
           if (process.env.NODE_ENV === 'development') {
             console.debug('[CSRF-MONITOR]', message, meta ? JSON.stringify(meta) : '');
           }
@@ -101,7 +101,7 @@ interface SecurityAlert {
   severity: 'low' | 'medium' | 'high' | 'critical';
   message: string;
   events: CSRFFailureEvent[];
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   timestamp: number;
 }
 

@@ -135,14 +135,16 @@ export class EmailService {
       const resend = EmailService.getResend()
       const fromEmail = process.env.EMAIL_FROM || 'noreply@yourdomain.com'
       
-      const result = await resend.emails.send({
+      const emailData = {
         from: fromEmail,
         to: Array.isArray(options.to) ? options.to : [options.to],
         subject: options.subject,
         html: options.html || '',
         text: options.text || '',
-        attachments: options.attachments
-      })
+        ...(options.attachments && { attachments: options.attachments })
+      }
+      
+      const result = await resend.emails.send(emailData)
 
       if (result.error) {
         throw new Error(`Email sending failed: ${result.error.message}`)
