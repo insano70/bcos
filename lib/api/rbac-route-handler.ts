@@ -7,7 +7,6 @@ import { getUserContextSafe } from '@/lib/rbac/user-context';
 import { createRBACMiddleware, } from '@/lib/rbac/middleware';
 import type { PermissionName, UserContext } from '@/lib/types/rbac';
 import { 
-  createAPILogger, 
   logAPIAuth, 
   logAPIRequest, 
   logAPIResponse,
@@ -17,6 +16,7 @@ import {
   withCorrelation,
   CorrelationContextManager 
 } from '@/lib/logger';
+import { createAPILogger } from '@/lib/logger/api-features';
 
 /**
  * Enhanced API Route Handler with RBAC Integration
@@ -45,8 +45,14 @@ export function rbacRoute(
 ) {
   return withCorrelation(async (request: NextRequest, ...args: unknown[]): Promise<Response> => {
     const startTime = Date.now()
-    const logger = createAPILogger(request)
+    const apiLogger = createAPILogger(request, 'rbac-enforcement')
+    const logger = apiLogger.getLogger()
     const url = new URL(request.url)
+    
+    // Enhanced RBAC route request logging
+    apiLogger.logRequest({
+      authType: 'session'
+    })
     
     logger.info('RBAC route initiated', {
       endpoint: url.pathname,
@@ -116,6 +122,15 @@ export function rbacRoute(
         })
         
         const totalDuration = Date.now() - startTime
+        
+        // Enhanced public route completion logging
+        apiLogger.logResponse(response.status, {
+          recordCount: 0,
+          processingTimeBreakdown: {
+            totalDuration
+          }
+        })
+        
         logger.info('Public route completed successfully', {
           endpoint: url.pathname,
           statusCode: response.status,

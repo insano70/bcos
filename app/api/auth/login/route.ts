@@ -109,6 +109,14 @@ const loginHandler = async (request: NextRequest) => {
     logDBOperation(logger, 'SELECT', 'users', dbStartTime, user ? 1 : 0)
       
     if (!user) {
+      // Enhanced security logging for non-existent user attempts
+      apiLogger.logSecurity('authentication_failure', 'medium', {
+        action: 'login_attempt_nonexistent_user',
+        blocked: true,
+        threat: 'credential_attack',
+        reason: 'user_not_found'
+      })
+      
       logger.warn('Login attempt with non-existent user', {
         email: email.replace(/(.{2}).*@/, '$1***@')
       })
@@ -197,6 +205,12 @@ const loginHandler = async (request: NextRequest) => {
       throw AuthenticationError('Invalid email or password')
     }
 
+    // Enhanced authentication success logging
+    apiLogger.logAuth('password_verification', true, {
+      userId: user.user_id,
+      method: 'password'
+    })
+    
     logger.info('Password verification successful', {
       userId: user.user_id
     })

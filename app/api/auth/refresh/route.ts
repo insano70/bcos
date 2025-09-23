@@ -82,6 +82,14 @@ const refreshHandler = async (request: NextRequest) => {
         tokenExpiry: payload.exp ? new Date(payload.exp * 1000).toISOString() : 'unknown'
       })
     } catch (tokenError) {
+      // Enhanced security logging for token validation failure  
+      apiLogger.logSecurity('token_validation_failure', 'high', {
+        action: 'refresh_token_invalid',
+        blocked: true,
+        threat: 'credential_attack',
+        reason: 'invalid_refresh_token'
+      })
+      
       logger.error('Refresh token validation failed', tokenError, {
         tokenLength: refreshToken.length,
         errorType: tokenError instanceof Error ? tokenError.constructor.name : typeof tokenError

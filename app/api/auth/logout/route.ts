@@ -104,6 +104,13 @@ export async function POST(request: NextRequest) {
           })
         }
       } catch (e) {
+        // Enhanced security logging for token blacklisting failure
+        apiLogger.logSecurity('token_blacklist_failure', 'medium', {
+          action: 'logout_token_cleanup_failed',
+          reason: 'blacklist_error',
+          threat: 'token_persistence'
+        })
+        
         logger.warn('Failed to blacklist access token on logout', {
           error: e instanceof Error ? e.message : 'Unknown error',
           operation: 'logout'
