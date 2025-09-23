@@ -67,7 +67,7 @@ type AuditData = AuthAuditData | UserActionAuditData | SystemAuditData | Securit
 // Lazy audit logger creation to prevent initialization issues
 let auditLogger: ReturnType<typeof createAppLogger> | null = null
 
-function getAuditLogger() {
+function getAuditLogger(): ReturnType<typeof createAppLogger> {
   if (!auditLogger) {
     try {
       auditLogger = createAppLogger('audit')
@@ -81,7 +81,7 @@ function getAuditLogger() {
       } as any
     }
   }
-  return auditLogger
+  return auditLogger!
 }
 
 interface BufferedAuditEntry {
@@ -311,7 +311,7 @@ export const BufferedAuditLogger = {
   
   // Utility functions
   getBufferStatus: () => getOptimizedAuditLogger().getBufferStatus(),
-  flushNow: () => optimizedAuditLogger['flushBuffer'](),
+  flushNow: () => getOptimizedAuditLogger()['flushBuffer'](),
   shutdown: () => getOptimizedAuditLogger().shutdown()
 }
 

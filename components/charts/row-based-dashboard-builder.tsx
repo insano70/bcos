@@ -5,6 +5,7 @@ import type { ChartDefinition } from '@/lib/types/analytics';
 import DashboardRowBuilder, { RowBasedDashboardConfig, DashboardRow, DashboardChartSlot } from './dashboard-row-builder';
 import DashboardPreviewModal from '@/components/dashboard-preview-modal';
 import Toast from '@/components/toast';
+import { apiClient } from '@/lib/api/client';
 
 interface RowBasedDashboardBuilderProps {
   editingDashboard?: any;
@@ -223,16 +224,13 @@ export default function RowBasedDashboardBuilder({
       
       const method = isEditMode ? 'PATCH' : 'POST';
 
-      const response = await fetch(url, {
+      const response = await apiClient.request(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(dashboardDefinition)
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || `Failed to ${isEditMode ? 'update' : 'save'} dashboard`);
-      }
+      // apiClient.request returns the parsed response directly, so no need to check response.ok
+      // If there's an error, it will throw automatically
 
       setToastMessage(`Dashboard "${dashboardConfig.dashboardName}" ${isEditMode ? 'updated' : 'saved'} successfully!`);
       setToastType('success');

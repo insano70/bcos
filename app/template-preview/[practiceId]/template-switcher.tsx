@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import type { ComponentType } from 'react';
-import type { Practice, PracticeAttributes, StaffMember, ColorStyles } from '@/lib/types/practice';
+import type { Practice, PracticeAttributes, StaffMember, ColorStyles, PracticeComment } from '@/lib/types/practice';
 import { getTemplateDefaultColors, getColorStyles } from '@/lib/utils/color-utils';
 
 interface TemplateSwitcherProps {
   practice: Practice;
   attributes: PracticeAttributes;
   staff: StaffMember[];
+  comments: PracticeComment[];
   initialTemplate: string;
   initialColorStyles: ColorStyles;
 }
@@ -17,6 +18,7 @@ export default function TemplateSwitcher({
   practice,
   attributes,
   staff,
+  comments,
   initialTemplate,
   initialColorStyles
 }: TemplateSwitcherProps) {
@@ -131,10 +133,11 @@ export default function TemplateSwitcher({
 
   return (
     <div className={`transition-opacity duration-300 ${isLoading ? 'opacity-50' : 'opacity-100'}`}>
-      <TemplateComponent
+      <TemplateComponent 
         practice={practice}
         attributes={attributes}
         staff={staff}
+        comments={comments}
         colorStyles={colorStyles}
       />
     </div>

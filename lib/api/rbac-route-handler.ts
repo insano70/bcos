@@ -149,7 +149,10 @@ export function rbacRoute(
           reason: 'context_load_failure'
         })
         
-        apiLogger.logAuth( 'rbac_check', false, session!.user.id, 'context_load_failure')
+        apiLogger.logAuth('rbac_check', false, {
+          userId: session!.user.id,
+          reason: 'context_load_failure'
+        })
         return createErrorResponse('Failed to load user context', 500, request) as Response
       }
 
@@ -185,7 +188,9 @@ export function rbacRoute(
           rbacDuration
         })
         
-        apiLogger.logAuth( 'rbac_check', true, userContext.user_id)
+        apiLogger.logAuth('rbac_check', true, {
+          userId: userContext.user_id
+        })
         
         // 5. Call the actual handler with user context
         const handlerStart = Date.now()
@@ -212,13 +217,16 @@ export function rbacRoute(
           rbacDuration
         })
         
-        apiLogger.logSecurity( 'rbac_permission_denied', 'medium', {
+        apiLogger.logSecurity('rbac_permission_denied', 'medium', {
           userId: userContext.user_id,
-          requiredPermissions: Array.isArray(options.permission) ? options.permission : [options.permission],
-          endpoint: url.pathname
+          action: 'permission_check',
+          reason: 'insufficient_permissions'
         })
         
-        apiLogger.logAuth( 'rbac_check', false, userContext.user_id, 'permission_denied')
+        apiLogger.logAuth('rbac_check', false, {
+          userId: userContext.user_id,
+          reason: 'permission_denied'
+        })
         return rbacResult as Response
       }
       
@@ -280,7 +288,7 @@ export function legacySecureRoute(
 ) {
   return async (request: NextRequest, ...args: unknown[]): Promise<Response> => {
     const startTime = Date.now()
-    const logger = createAPILogger(request)
+    const apiLogger = createAPILogger(request)
     const url = new URL(request.url)
     
     apiLogger.info('Legacy secure route initiated', {
@@ -312,9 +320,13 @@ export function legacySecureRoute(
         })
         
         if (session?.user?.id) {
-          apiLogger.logAuth( 'legacy_auth', true, session.user.id)
+          apiLogger.logAuth('legacy_auth', true, {
+            userId: session.user.id
+          })
         } else {
-          apiLogger.logAuth( 'legacy_auth', false, undefined, 'no_session')
+          apiLogger.logAuth('legacy_auth', false, {
+            reason: 'no_session'
+          })
         }
       } else if (options.publicReason) {
         markAsPublicRoute(options.publicReason)
@@ -325,7 +337,7 @@ export function legacySecureRoute(
       
       // 3. Call the actual handler (legacy style)
       const handlerStart = Date.now()
-      const response = await handler(request, session, ...args)
+      const response = await handler(request, session || undefined, ...args)
       apiLogger.timing( 'legacy_handler_execution', handlerStart, {
         userId: session?.user?.id,
         statusCode: response.status
@@ -376,7 +388,7 @@ export function migrateToRBAC(
   return rbacRoute(
     // Convert legacy handler to RBAC handler
     async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
-      const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id)
+      const apiLogger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id)
       
       apiLogger.debug('Legacy handler migration', {
         userId: userContext.user_id,
@@ -398,7 +410,7 @@ export function migrateToRBAC(
       }
 
       const handlerStart = Date.now()
-      const response = await legacyHandler(request, legacySession, ...args)
+      const response = await legacyHandler(request, legacySession as AuthSession, ...args)
       apiLogger.timing( 'legacy_handler_execution', handlerStart, {
         userId: userContext.user_id,
         statusCode: response.status
@@ -431,7 +443,7 @@ export function webhookRoute(
 ) {
   return async (request: NextRequest, ...args: unknown[]): Promise<Response> => {
     const startTime = Date.now()
-    const logger = createAPILogger(request)
+    const apiLogger = createAPILogger(request)
     const url = new URL(request.url)
     
     apiLogger.info('Webhook request initiated', {
@@ -472,9 +484,9 @@ export function webhookRoute(
           endpoint: url.pathname
         })
         
-        apiLogger.logSecurity( 'webhook_signature_invalid', 'high', {
-          source: options.source,
-          endpoint: url.pathname
+        apiLogger.logSecurity('webhook_signature_invalid', 'high', {
+          action: `webhook_verification_${options.source}`,
+          reason: 'invalid_signature'
         })
         
         return createErrorResponse('Invalid webhook signature', 401, request)
@@ -529,10 +541,9 @@ export function webhookRoute(
         errorType: error && typeof error === 'object' && 'constructor' in error && error.constructor && 'name' in error.constructor ? String(error.constructor.name) : typeof error
       })
       
-      apiLogger.logSecurity( 'webhook_processing_error', 'high', {
-        source: options.source,
-        endpoint: url.pathname,
-        error: error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error'
+      apiLogger.logSecurity('webhook_processing_error', 'high', {
+        action: `webhook_processing_${options.source}`,
+        reason: 'processing_failure'
       })
       
       apiLogger.timing( 'webhook_total_duration', totalDuration, {

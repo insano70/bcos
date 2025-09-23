@@ -1,17 +1,7 @@
 import { db } from '@/lib/db';
 import { practice_comments } from '@/lib/db/schema';
 import { eq, desc, and, isNull } from 'drizzle-orm';
-
-export interface PracticeComment {
-  comment_id: string;
-  practice_id: string;
-  commenter_name: string | null;
-  commenter_location: string | null;
-  comment: string;
-  rating: string; // numeric comes as string from DB
-  display_order: number;
-  created_at: Date;
-}
+import type { PracticeComment } from '@/lib/types/practice';
 
 /**
  * Fetch featured comments for a practice (for carousel display)
@@ -32,7 +22,7 @@ export async function getFeaturedComments(practiceId: string): Promise<PracticeC
       commenter_location: comment.commenter_location,
       comment: comment.comment,
       rating: comment.rating,
-      display_order: comment.display_order,
+      display_order: comment.display_order ?? 0, // default to 0 if null
       created_at: comment.created_at,
     }));
   } catch (error) {
@@ -59,7 +49,7 @@ export async function getAllComments(practiceId: string): Promise<PracticeCommen
       commenter_location: comment.commenter_location,
       comment: comment.comment,
       rating: comment.rating,
-      display_order: comment.display_order,
+      display_order: comment.display_order ?? 0, // default to 0 if null
       created_at: comment.created_at,
     }));
   } catch (error) {

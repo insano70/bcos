@@ -1,21 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import type { PracticeComment } from '@/lib/types/practice';
 
 interface ReviewCarouselProps {
   colorStyles: any;
   comments: PracticeComment[];
-}
-
-interface PracticeComment {
-  comment_id: string;
-  practice_id: string;
-  commenter_name: string | null;
-  commenter_location: string | null;
-  comment: string;
-  rating: string;
-  display_order: number;
-  created_at: Date;
 }
 
 export default function ReviewCarousel({ colorStyles, comments }: ReviewCarouselProps) {

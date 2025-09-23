@@ -301,7 +301,7 @@ export class UnifiedCSRFProtection {
     } catch (error) {
       const isDevelopment = (process.env.NODE_ENV || globalThis.process?.env?.NODE_ENV) === 'development'
       if (isDevelopment) {
-        csrfSecurityLogger.debug('🔍 CSRF Anonymous Validation Error:', error)
+        csrfSecurityLogger.debug('🔍 CSRF Anonymous Validation Error:', { error })
       }
       return false
     }
@@ -384,7 +384,7 @@ export class UnifiedCSRFProtection {
       // This is handled gracefully - token is still returned for manual setting
       const isDevelopment = (process.env.NODE_ENV || globalThis.process?.env?.NODE_ENV) === 'development'
       if (isDevelopment) {
-        csrfSecurityLogger.debug('Cookie setting failed (Edge Runtime context):', error)
+        csrfSecurityLogger.debug('Cookie setting failed (Edge Runtime context):', { error })
       }
     }
     

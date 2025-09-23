@@ -2,6 +2,7 @@ import { db, practices, practice_attributes, staff_members, templates } from '@/
 import { eq, isNull, and } from 'drizzle-orm';
 import { getTemplateComponent } from '@/lib/template-loader';
 import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
+import { getFeaturedComments } from '@/lib/services/practice-comments';
 import { notFound } from 'next/navigation';
 import { transformPractice, transformPracticeAttributes, transformStaffMember } from '@/lib/types/transformers'
 import type { PracticeAttributes } from '@/lib/types/practice';
@@ -60,8 +61,39 @@ export async function generateMetadata({ params }: { params: Promise<{ domain: s
   }
 
   return {
-    title: data.attributes.meta_title || `${data.practice.name} - Rheumatology Care`,
+    title: data.attributes.meta_title || `${data.practice.name} - Expert Rheumatology Care`,
     description: data.attributes.meta_description || `Expert rheumatology care at ${data.practice.name}`,
+    keywords: 'rheumatology, arthritis, lupus, rheumatologist, autoimmune, joint pain',
+    openGraph: {
+      title: data.attributes.meta_title || `${data.practice.name} - Expert Rheumatology Care`,
+      description: data.attributes.meta_description || `Expert rheumatology care at ${data.practice.name}`,
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary',
+      title: data.attributes.meta_title || `${data.practice.name} - Expert Rheumatology Care`,
+      description: data.attributes.meta_description || `Expert rheumatology care at ${data.practice.name}`,
+    },
+    other: {
+      'application/ld+json': JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "MedicalBusiness",
+        "name": data.practice.name,
+        "description": data.attributes.about_text || "Expert rheumatology care",
+        "url": `https://${data.practice.domain}`,
+        "telephone": data.attributes.phone,
+        "email": data.attributes.email,
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": `${data.attributes.address_line1} ${data.attributes.address_line2 || ''}`.trim(),
+          "addressLocality": data.attributes.city,
+          "addressRegion": data.attributes.state,
+          "postalCode": data.attributes.zip_code
+        },
+        "medicalSpecialty": "Rheumatology",
+        "priceRange": "$$"
+      })
+    }
   };
 }
 
@@ -78,6 +110,9 @@ export default async function PracticeWebsite({
   }
 
   const { practice, template, attributes, staff } = data;
+
+  // Fetch comments for this practice
+  const comments = await getFeaturedComments(practice.practice_id);
 
   // Attributes and staff are already transformed/parsed by the transformers
   const parsedAttributes = attributes;
@@ -100,6 +135,7 @@ export default async function PracticeWebsite({
       practice={practice}
       attributes={parsedAttributes}
       staff={parsedStaff}
+      comments={comments}
       colorStyles={colorStyles}
     />
   );

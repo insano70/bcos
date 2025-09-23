@@ -158,7 +158,10 @@ export const errorLog = (message: string, error?: unknown, context?: unknown) =>
     });
 
     // Also log sanitized data to console for test compatibility
-    console.error(`❌ ${message}`, { error: sanitizedError, ...sanitizedContext });
+    console.error(`❌ ${message}`, { 
+      error: sanitizedError, 
+      ...(typeof sanitizedContext === 'object' && sanitizedContext !== null ? sanitizedContext : { context: sanitizedContext })
+    });
 
     // Enhanced security logging for production errors
     errorLogger.security('production_error_logged', 'medium', {
