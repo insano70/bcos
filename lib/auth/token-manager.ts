@@ -5,7 +5,14 @@ import { db, refresh_tokens, token_blacklist, user_sessions, login_attempts, } f
 import { eq, and, gte, lte, } from 'drizzle-orm'
 import { AuditLogger } from '@/lib/api/services/audit'
 import { getJWTConfig } from '@/lib/env'
-import { logger } from '@/lib/logger'
+import { createAppLogger } from '@/lib/logger/factory'
+
+// Create Universal Logger for token management operations
+const tokenLogger = createAppLogger('token-manager', {
+  component: 'security',
+  feature: 'jwt-management',
+  module: 'token-manager'
+})
 
 /**
  * Enterprise JWT + Refresh Token Manager
@@ -278,7 +285,7 @@ export class TokenManager {
       }
 
     } catch (error) {
-      logger.error('Token refresh error', {
+      tokenLogger.error('Token refresh error', {
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
         refreshToken: refreshToken ? 'present' : 'missing'
@@ -369,7 +376,7 @@ export class TokenManager {
 
       return true
     } catch (error) {
-      logger.error('Token revocation error', {
+      tokenLogger.error('Token revocation error', {
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
         userId: 'unknown' // userId may not be available if JWT verification fails
@@ -536,7 +543,7 @@ export class TokenManager {
       .delete(token_blacklist)
       .where(lte(token_blacklist.expires_at, now))
 
-    logger.info('Token cleanup completed', {
+    tokenLogger.info('Token cleanup completed', {
       expiredRefreshTokens: expiredRefreshTokens.length || 0,
       expiredBlacklistEntries: expiredBlacklistEntries.length || 0,
       operation: 'cleanupExpiredTokens'

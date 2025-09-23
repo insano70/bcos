@@ -1,5 +1,12 @@
 import { Resend } from 'resend'
-import { logger } from '@/lib/logger'
+import { createAppLogger } from '@/lib/logger/factory'
+
+// Create Universal Logger for email service operations  
+const emailLogger = createAppLogger('email-service', {
+  component: 'communications',
+  feature: 'email-delivery',
+  module: 'email-service'
+})
 
 /**
  * Professional Email Service
@@ -110,7 +117,7 @@ export class EmailService {
     const adminEmails = process.env.ADMIN_NOTIFICATION_EMAILS?.split(',') || []
     
     if (adminEmails.length === 0) {
-      logger.warn('No admin notification emails configured', {
+      emailLogger.warn('No admin notification emails configured', {
         operation: 'sendAdminNotification',
         reason: 'ADMIN_NOTIFICATION_EMAILS not set'
       })
@@ -148,14 +155,14 @@ export class EmailService {
         throw new Error(`Email sending failed: ${result.error.message}`)
       }
 
-      logger.info('Email sent successfully', {
+      emailLogger.info('Email sent successfully', {
         to: options.to,
         emailId: result.data?.id,
         subject: options.subject,
         operation: 'sendEmail'
       })
     } catch (error) {
-      logger.error('Email sending error', {
+      emailLogger.error('Email sending error', {
         to: options.to,
         subject: options.subject,
         error: error instanceof Error ? error.message : 'Unknown error',

@@ -4,7 +4,14 @@
  */
 
 import { db } from '@/lib/db';
-import { logger } from '@/lib/logger';
+import { createAppLogger } from '@/lib/logger/factory';
+
+// Create Universal Logger for RBAC cache operations
+const rbacCacheLogger = createAppLogger('rbac-cache', {
+  component: 'performance',
+  feature: 'rbac-caching',
+  module: 'cached-user-context'
+});
 import {
   users,
   roles,

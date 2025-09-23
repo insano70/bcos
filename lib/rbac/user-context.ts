@@ -1,5 +1,12 @@
 import { db } from '@/lib/db'
-import { logger } from '@/lib/logger';
+import { createAppLogger } from '@/lib/logger/factory';
+
+// Create Universal Logger for RBAC user context operations
+const rbacContextLogger = createAppLogger('rbac-user-context', {
+  component: 'security',
+  feature: 'rbac-analytics',
+  module: 'user-context'
+});
 import {
   users,
   roles,
@@ -288,7 +295,7 @@ async function getAccessibleOrganizations(directOrganizationIds: string[]): Prom
         accessibleOrgs.set(org.organization_id, org);
       });
     } catch (error) {
-      logger.warn('Failed to get organization hierarchy', {
+      rbacContextLogger.warn('Failed to get organization hierarchy', {
         organizationId: orgId,
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined
@@ -346,7 +353,7 @@ export async function getUserContextSafe(userId: string): Promise<UserContext | 
   const cacheKey = `user_context:${userId}`;
   if (requestCache.has(cacheKey)) {
     if (isDev) {
-      logger.debug('User context cache hit', {
+      rbacContextLogger.debug('User context cache hit', {
         userId,
         operation: 'getUserContext'
       });
@@ -355,7 +362,7 @@ export async function getUserContextSafe(userId: string): Promise<UserContext | 
   }
   
   if (isDev) {
-    logger.debug('Loading user context', {
+    rbacContextLogger.debug('Loading user context', {
       userId,
       operation: 'getUserContext'
     });
@@ -366,7 +373,7 @@ export async function getUserContextSafe(userId: string): Promise<UserContext | 
     try {
       const context = await getUserContext(userId);
       if (isDev) {
-        logger.debug('User context loaded successfully', {
+        rbacContextLogger.debug('User context loaded successfully', {
           userId,
           rolesCount: context.roles?.length || 0,
           permissionsCount: context.all_permissions?.length || 0,
@@ -377,13 +384,13 @@ export async function getUserContextSafe(userId: string): Promise<UserContext | 
     } catch (error) {
       // ✅ SECURITY: Use sanitized error logging for production
       if (process.env.NODE_ENV === 'development') {
-        logger.error('Failed to get user context', {
+        rbacContextLogger.error('Failed to get user context', {
           userId,
           error: error instanceof Error ? error.message : 'Unknown error',
           stack: error instanceof Error ? error.stack : undefined
         });
       } else {
-        logger.error('Failed to get user context (detailed)', {
+        rbacContextLogger.error('Failed to get user context (detailed)', {
           userId,
           error: error instanceof Error ? error.message : 'Unknown error',
           errorName: error instanceof Error ? error.name : 'Unknown error',
@@ -427,7 +434,7 @@ export async function validateUserExists(userId: string): Promise<boolean> {
 
     return user?.is_active === true;
   } catch (error) {
-    logger.error('Error validating user', {
+    rbacContextLogger.error('Error validating user', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined
     });
