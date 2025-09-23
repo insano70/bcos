@@ -178,7 +178,6 @@ export class SecurityStack extends cdk.Stack {
         effect: iam.Effect.ALLOW,
         actions: [
           'logs:CreateLogGroup',
-          'logs:DescribeLogGroups',
           'logs:PutRetentionPolicy',
           'logs:TagLogGroup',
         ],
@@ -186,6 +185,18 @@ export class SecurityStack extends cdk.Stack {
           `arn:aws:logs:us-east-1:${this.account}:log-group:/ecs/bcos-*`,
           `arn:aws:logs:us-east-1:${this.account}:log-group:/ecs/bcos-*:*`,
         ],
+      })
+    );
+
+    // DescribeLogGroups requires broader permissions
+    this.githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'CloudWatchLogsDescribe',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'logs:DescribeLogGroups',
+        ],
+        resources: ['*'], // DescribeLogGroups requires * resource
       })
     );
 

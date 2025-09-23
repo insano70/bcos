@@ -136,7 +136,7 @@
   "WAFProtectionWAFLogGroupC4D17A54": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/aws/waf/bcos-staging-1758669308392",
+    "LogGroupName": "/aws/waf/bcos-staging-1758669978359",
     "RetentionInDays": 30,
     "Tags": [
      {

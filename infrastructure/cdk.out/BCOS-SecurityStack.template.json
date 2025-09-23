@@ -354,7 +354,6 @@
       {
        "Action": [
         "logs:CreateLogGroup",
-        "logs:DescribeLogGroups",
         "logs:PutRetentionPolicy",
         "logs:TagLogGroup"
        ],
@@ -364,6 +363,12 @@
         "arn:aws:logs:us-east-1:854428944440:log-group:/ecs/bcos-*:*"
        ],
        "Sid": "CloudWatchLogsAccess"
+      },
+      {
+       "Action": "logs:DescribeLogGroups",
+       "Effect": "Allow",
+       "Resource": "*",
+       "Sid": "CloudWatchLogsDescribe"
       },
       {
        "Action": [
