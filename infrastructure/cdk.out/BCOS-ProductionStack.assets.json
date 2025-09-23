@@ -1,16 +1,16 @@
 {
   "version": "48.0.0",
   "files": {
-    "ce6ffdc40788cac310e8caafbd41afc8453c630ae3c0941153cc2b6d36a8540c": {
+    "cd1711989db28edf67f828210bde25b9479b21b32ef9c65743c71ce721a2e6f9": {
       "displayName": "BCOS-ProductionStack Template",
       "source": {
         "path": "BCOS-ProductionStack.template.json",
         "packaging": "file"
       },
       "destinations": {
-        "854428944440-us-east-1-93215aec": {
+        "854428944440-us-east-1-2b12185d": {
           "bucketName": "cdk-hnb659fds-assets-854428944440-us-east-1",
-          "objectKey": "ce6ffdc40788cac310e8caafbd41afc8453c630ae3c0941153cc2b6d36a8540c.json",
+          "objectKey": "cd1711989db28edf67f828210bde25b9479b21b32ef9c65743c71ce721a2e6f9.json",
           "region": "us-east-1",
           "assumeRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-file-publishing-role-854428944440-us-east-1"
         }

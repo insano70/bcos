@@ -151,7 +151,6 @@ export class SecurityStack extends cdk.Stack {
         actions: [
           'ecs:UpdateService',
           'ecs:DescribeServices',
-          'ecs:DescribeTaskDefinition',
           'ecs:RegisterTaskDefinition',
         ],
         resources: [
@@ -159,6 +158,16 @@ export class SecurityStack extends cdk.Stack {
           `arn:aws:ecs:us-east-1:${this.account}:service/bcos-*-cluster/bcos-*-service`,
           `arn:aws:ecs:us-east-1:${this.account}:task-definition/bcos-*`,
         ],
+      })
+    );
+
+    // DescribeTaskDefinition requires * resource
+    this.githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'ECSDescribeTaskDefinition',
+        effect: iam.Effect.ALLOW,
+        actions: ['ecs:DescribeTaskDefinition'],
+        resources: ['*'],
       })
     );
 

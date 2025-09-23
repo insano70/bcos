@@ -101,7 +101,7 @@
   "SecureContainerLogGroup7C38C890": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/ecs/bcos-staging-1758420193221",
+    "LogGroupName": "/ecs/bcos-staging-1758647975824",
     "RetentionInDays": 30,
     "Tags": [
      {
@@ -444,7 +444,7 @@
   "WAFProtectionWAFLogGroupC4D17A54": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/aws/waf/bcos-staging-1758420193244",
+    "LogGroupName": "/aws/waf/bcos-staging-1758647975841",
     "RetentionInDays": 30,
     "Tags": [
      {
