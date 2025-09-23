@@ -6,7 +6,7 @@ import type {
 import { getCssVariable } from '@/components/utils/utils';
 import { createAppLogger } from '@/lib/logger/factory';
 
-// Create Universal Logger for chart transformer - runtime adaptive
+// Use Universal Logging System - dynamic imports prevent Winston bundling in client contexts
 const chartLogger = createAppLogger('chart-transformer', {
   component: 'analytics',
   feature: 'data-transformation',

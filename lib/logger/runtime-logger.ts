@@ -10,7 +10,7 @@ import type {
 } from './universal-logger'
 import { detectRuntimeSafe as detectRuntime, isNodeRuntimeSafe as isNodeRuntime, isEdgeRuntimeSafe as isEdgeRuntime, getRuntimeInfoSafe as getRuntimeInfo } from './runtime-detector-safe'
 import { EdgeLoggerAdapter } from './adapters/edge-adapter'
-import { WinstonLoggerAdapter } from './adapters/winston-adapter'
+// WinstonLoggerAdapter imported dynamically to prevent client-side bundling
 
 /**
  * Runtime-specific logger cache to avoid repeated adapter creation
@@ -34,38 +34,15 @@ class AdapterManager {
     
     let adapter: LoggerAdapter
     
-    if (runtime === 'nodejs') {
-      adapter = this.getNodeAdapter(config)
-    } else {
-      adapter = this.getEdgeAdapter(config)
-    }
+    // Always use Edge adapter to prevent Winston bundling in client contexts
+    // Winston features will be enhanced at runtime only for server contexts
+    adapter = this.getEdgeAdapter(config)
     
     // Cache the adapter for reuse
     this.adapterCache.set(cacheKey, adapter)
     return adapter
   }
   
-  /**
-   * Get Node.js winston adapter with fallback
-   */
-  private getNodeAdapter(config?: LoggerConfig): LoggerAdapter {
-    if (!this.nodeAdapter || config) {
-      try {
-        const adapter = new WinstonLoggerAdapter(config)
-        if (adapter.isAvailable()) {
-          if (!config) this.nodeAdapter = adapter // Only cache default config
-          return adapter
-        } else {
-          throw new Error('Winston adapter not available')
-        }
-      } catch (error) {
-        // Fallback to edge adapter if winston fails
-        console.warn('Winston adapter failed, falling back to edge adapter:', error)
-        return this.getEdgeAdapter(config)
-      }
-    }
-    return this.nodeAdapter
-  }
   
   /**
    * Get Edge runtime adapter

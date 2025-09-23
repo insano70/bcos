@@ -46,7 +46,7 @@ async function getRolePermissions(roleId: string, roleName: string): Promise<Per
   }
 
   // Cache miss - query database
-  logger.debug('Role permissions cache miss, querying database', {
+  rbacCacheLogger.debug('Role permissions cache miss, querying database', {
     roleId,
     roleName
   });
@@ -311,7 +311,7 @@ export async function getCachedUserContextSafe(userId: string): Promise<UserCont
   const cacheKey = `cached_user_context:${userId}`;
   if (requestCache.has(cacheKey)) {
     if (isDev) {
-      logger.debug('Request-scoped user context cache hit', {
+      rbacCacheLogger.debug('Request-scoped user context cache hit', {
         userId,
         operation: 'getCachedUserContext'
       });
@@ -325,7 +325,7 @@ export async function getCachedUserContextSafe(userId: string): Promise<UserCont
       const context = await getCachedUserContext(userId);
       if (isDev) {
         const stats = rolePermissionCache.getStats();
-        logger.debug('Cached user context loaded successfully', {
+        rbacCacheLogger.debug('Cached user context loaded successfully', {
           userId,
           rolesCount: context.roles?.length || 0,
           permissionsCount: context.all_permissions?.length || 0,
@@ -335,7 +335,7 @@ export async function getCachedUserContextSafe(userId: string): Promise<UserCont
       }
       return context;
     } catch (error) {
-      logger.error('Failed to get cached user context', {
+      rbacCacheLogger.error('Failed to get cached user context', {
         userId,
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined
