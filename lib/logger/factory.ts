@@ -5,7 +5,7 @@
 
 import type { NextRequest } from 'next/server'
 import type { UniversalLogger, LoggerConfig } from './universal-logger'
-import { createUniversalLogger, createTrackedLogger } from './runtime-logger'
+import { AppLogger } from './simple-logger'
 
 /**
  * Create application logger with module-specific context
@@ -16,7 +16,8 @@ export function createAppLogger(
   context?: Record<string, unknown>,
   config?: LoggerConfig
 ): UniversalLogger {
-  return createUniversalLogger(module, context, config)
+  // Streamlined: Direct SimpleLogger usage (no adapter abstraction)
+  return new AppLogger(module, context, config)
 }
 
 /**
@@ -39,7 +40,8 @@ export function createAPILogger(
     ...(request.headers.get('user-agent') && { userAgent: request.headers.get('user-agent') || 'unknown' })
   }
 
-  return createUniversalLogger('api', context, config)
+  // Streamlined: Direct SimpleLogger usage (no adapter abstraction)
+  return new AppLogger('api', context, config)
 }
 
 /**
@@ -51,7 +53,8 @@ export function createTrackedAppLogger(
   context?: Record<string, unknown>,
   config?: LoggerConfig
 ): UniversalLogger {
-  return createTrackedLogger(module, context, config)
+  // Streamlined: Direct SimpleLogger usage (tracking simplified)
+  return new AppLogger(module, context, config)
 }
 
 /**
@@ -94,11 +97,7 @@ function extractIPAddress(request: NextRequest): string {
 export type { LogContext, LogData } from './universal-logger'
 export type { LoggerConfig } from './universal-logger'
 
-// Re-export runtime utilities
-export { 
-  getLoggerDiagnostics, 
-  clearLoggerCache, 
-  createLoggerWithAdapter 
-} from './runtime-logger'
+// Runtime utilities removed in simplified architecture
+// No longer needed: getLoggerDiagnostics, clearLoggerCache, createLoggerWithAdapter
 
 export default logger

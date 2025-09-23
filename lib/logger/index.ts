@@ -3,14 +3,22 @@
  * Export all logging functionality from a single entry point
  */
 
-// Core structured logger
+// Core structured logger (simplified)
 export { 
   createAppLogger, 
   logger, 
-  loggers,
-  type LogContext,
-  LOG_LEVELS 
-} from './winston-logger'
+  loggers
+} from './factory'
+
+export { type LogContext } from './universal-logger'
+
+// Simplified log levels
+export const LOG_LEVELS = {
+  debug: 3,
+  info: 2,
+  warn: 1,
+  error: 0
+}
 
 // API-specific logging
 export {
@@ -89,6 +97,6 @@ export {
   performanceAggregator
 } from './metrics'
 
-// Default exports for common use cases
-import { logger as defaultLogger } from './winston-logger'
+// Default exports for common use cases (simplified)
+import { logger as defaultLogger } from './factory'
 export default defaultLogger

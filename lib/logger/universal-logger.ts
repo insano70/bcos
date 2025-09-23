@@ -4,7 +4,9 @@
  */
 
 // Re-export existing types for compatibility
-export type { LogContext, LogData } from './winston-logger'
+// LogContext and LogData types defined locally
+export type LogContext = Record<string, unknown>
+export type LogData = Record<string, unknown>
 
 /**
  * Universal logger interface that provides all logging functionality

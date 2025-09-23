@@ -4,7 +4,7 @@
  */
 
 import { AuditLogger } from '@/lib/api/services/audit'
-import { createAppLogger } from './winston-logger'
+import { createAppLogger } from './factory'
 
 // Define LogData locally for audit optimizer
 type LogData = Record<string, unknown>

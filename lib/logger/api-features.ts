@@ -5,7 +5,7 @@
 
 import type { NextRequest } from 'next/server'
 import type { UniversalLogger } from './universal-logger'
-import { createUniversalLogger } from './runtime-logger'
+import { createAppLogger } from './factory'
 
 // Enhanced interfaces for API logging
 export interface APIRequestContext extends Record<string, unknown> {
@@ -61,7 +61,7 @@ export class APILogger {
   ) {
     this.startTime = Date.now()
     this.requestContext = this.buildRequestContext(request)
-    this.logger = createUniversalLogger(module, this.requestContext)
+    this.logger = createAppLogger(module, this.requestContext)
   }
 
   /**

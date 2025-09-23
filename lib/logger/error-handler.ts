@@ -3,7 +3,7 @@
  * Provides structured error logging with full context
  */
 
-import { createAppLogger } from './winston-logger'
+import { createAppLogger } from './factory'
 import type { NextRequest } from 'next/server'
 
 const errorLogger = createAppLogger('error')
