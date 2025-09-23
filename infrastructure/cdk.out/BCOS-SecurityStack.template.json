@@ -366,6 +366,15 @@
        "Sid": "CloudWatchLogsAccess"
       },
       {
+       "Action": [
+        "ssm:GetParameter",
+        "ssm:GetParameters"
+       ],
+       "Effect": "Allow",
+       "Resource": "arn:aws:ssm:us-east-1:854428944440:parameter/cdk-bootstrap/*",
+       "Sid": "SSMBootstrapAccess"
+      },
+      {
        "Action": "iam:PassRole",
        "Condition": {
         "StringEquals": {

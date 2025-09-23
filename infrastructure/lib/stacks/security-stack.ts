@@ -189,6 +189,21 @@ export class SecurityStack extends cdk.Stack {
       })
     );
 
+    // SSM permissions for CDK bootstrap version checking
+    this.githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'SSMBootstrapAccess',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'ssm:GetParameter',
+          'ssm:GetParameters',
+        ],
+        resources: [
+          `arn:aws:ssm:us-east-1:${this.account}:parameter/cdk-bootstrap/*`,
+        ],
+      })
+    );
+
     // ECS Task Execution Role (for AWS service calls)
     this.ecsTaskExecutionRole = new iam.Role(this, 'ECSTaskExecutionRole', {
       roleName: 'BCOS-ECSTaskExecutionRole',
