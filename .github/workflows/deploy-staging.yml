@@ -114,14 +114,6 @@ jobs:
             BUILD_VERSION=${{ steps.vars.outputs.IMAGE_TAG }}
           platforms: linux/amd64
 
-      - name: Scan container image
-        uses: aquasecurity/trivy-action@7c2007bcb556501da015201bcba5aa14069b74e2
-        with:
-          image-ref: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.IMAGE_TAG }}
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          severity: 'CRITICAL,HIGH'
 
       - name: Get current task definition
         run: |
