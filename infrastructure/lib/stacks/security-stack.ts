@@ -66,7 +66,7 @@ export class SecurityStack extends cdk.Stack {
     this.ecrRepository = new ecr.Repository(this, 'BCOSRepository', {
       repositoryName: 'bcos',
       imageScanOnPush: true,
-      imageTagMutability: ecr.TagMutability.IMMUTABLE,
+      imageTagMutability: ecr.TagMutability.MUTABLE,
       encryptionKey: this.kmsKey,
       lifecycleRules: [
         {
