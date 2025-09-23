@@ -61,16 +61,14 @@ export async function createSession(
   const sessionId = nanoid(32)
   const now = new Date()
 
-  // Enhanced session creation logging
-  // Enhanced logging permanently enabled {
-    sessionLogger.info('Session creation initiated', {
-      userId,
-      deviceFingerprint: deviceInfo.fingerprint,
-      deviceName: deviceInfo.name,
-      rememberMe,
-      ipAddress: deviceInfo.ipAddress
-    })
-  }
+  // Enhanced session creation logging - permanently enabled
+  sessionLogger.info('Session creation initiated', {
+    userId,
+    deviceFingerprint: deviceInfo.fingerprint,
+    deviceName: deviceInfo.name,
+    rememberMe,
+    ipAddress: deviceInfo.ipAddress
+  })
 
   // Calculate expiration based on remember me preference
   const expirationHours = rememberMe ? 24 * 30 : 24 // 30 days or 24 hours
@@ -80,12 +78,11 @@ export async function createSession(
   const sessionLimitStart = Date.now()
   await enforceConcurrentSessionLimits(userId)
   
-  // Enhanced logging permanently enabled {
-    sessionLogger.timing('Session limit enforcement completed', sessionLimitStart, {
-      userId,
-      operation: 'concurrent_session_check'
-    })
-  }
+  // Enhanced logging permanently enabled
+  sessionLogger.timing('Session limit enforcement completed', sessionLimitStart, {
+    userId,
+    operation: 'concurrent_session_check'
+  })
 
   // Create session record
   const sessions = await db
@@ -138,36 +135,34 @@ export async function createSession(
   }
   await AuditLogger.logAuth(auditData)
 
-  // Enhanced session creation success logging
-  // Enhanced logging permanently enabled {
-    // Session lifecycle logging
-    sessionLogger.info('Session created successfully', {
-      sessionId,
-      userId,
-      sessionType: rememberMe ? 'persistent' : 'temporary',
-      expirationHours,
-      deviceTracking: true,
-      duration: Date.now() - startTime
-    })
-    
-    // Business intelligence for session analytics
-    sessionLogger.debug('Session analytics', {
-      sessionCreationType: 'authentication_success',
-      deviceType: getDeviceType(deviceInfo.userAgent),
-      sessionDuration: rememberMe ? '30_days' : '24_hours',
-      concurrentSessionsEnforced: true,
-      ipGeolocation: 'tracked' // Could be enhanced with actual geo data
-    })
-    
-    // Security monitoring for session creation
-    sessionLogger.security('session_created', 'low', {
-      action: 'session_establishment',
-      userId,
-      threat: 'none',
-      deviceFingerprint: deviceInfo.fingerprint,
-      ipAddress: deviceInfo.ipAddress
-    })
-  }
+  // Enhanced session creation success logging - permanently enabled
+  // Session lifecycle logging
+  sessionLogger.info('Session created successfully', {
+    sessionId,
+    userId,
+    sessionType: rememberMe ? 'persistent' : 'temporary',
+    expirationHours,
+    deviceTracking: true,
+    duration: Date.now() - startTime
+  })
+  
+  // Business intelligence for session analytics
+  sessionLogger.debug('Session analytics', {
+    sessionCreationType: 'authentication_success',
+    deviceType: getDeviceType(deviceInfo.userAgent),
+    sessionDuration: rememberMe ? '30_days' : '24_hours',
+    concurrentSessionsEnforced: true,
+    ipGeolocation: 'tracked' // Could be enhanced with actual geo data
+  })
+  
+  // Security monitoring for session creation
+  sessionLogger.security('session_created', 'low', {
+    action: 'session_establishment',
+    userId,
+    threat: 'none',
+    deviceFingerprint: deviceInfo.fingerprint,
+    ipAddress: deviceInfo.ipAddress
+  })
 
   return {
     sessionId: session.session_id,

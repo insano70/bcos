@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, boolean, timestamp, index, text, integer } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, boolean, timestamp, index, text, integer, numeric } from 'drizzle-orm/pg-core';
 
 // Import audit logs table
 export { audit_logs } from './audit-schema';
@@ -182,5 +182,24 @@ export const staff_members = pgTable(
     practiceIdx: index('idx_staff_members_practice_id').on(table.practice_id),
     displayOrderIdx: index('idx_staff_members_display_order').on(table.practice_id, table.display_order),
     activeIdx: index('idx_staff_members_active').on(table.is_active),
+  })
+);
+
+// Customer comments/reviews for practices
+export const practice_comments = pgTable(
+  'practice_comments',
+  {
+    comment_id: uuid('comment_id').primaryKey().defaultRandom(),
+    practice_id: uuid('practice_id').references(() => practices.practice_id, { onDelete: 'cascade' }).notNull(),
+    commenter_name: varchar('commenter_name', { length: 255 }),
+    commenter_location: varchar('commenter_location', { length: 255 }),
+    comment: text('comment').notNull(),
+    rating: numeric('rating').notNull(),
+    display_order: integer('display_order').default(0),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    practiceIdx: index('idx_practice_comments_practice_id').on(table.practice_id),
+    displayOrderIdx: index('idx_practice_comments_display_order').on(table.practice_id, table.display_order),
   })
 );

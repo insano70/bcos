@@ -71,6 +71,13 @@
       "when": 1758200673228,
       "tag": "0009_rename_chart_display_configs_to_configurations",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1758639850414,
+      "tag": "0010_melodic_albert_cleary",
+      "breakpoints": true
     }
   ]
 }

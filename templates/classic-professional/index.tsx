@@ -1,8 +1,10 @@
 import type { TemplateProps } from '@/lib/types/practice';
 import Head from 'next/head';
 import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
+import { getFeaturedComments } from '@/lib/services/practice-comments';
 import Header from './components/header';
 import Hero from './components/hero';
+import ReviewCarousel from './components/review-carousel';
 import About from './components/about';
 import Gallery from './components/gallery';
 import Services from './components/services';
@@ -11,7 +13,7 @@ import Contact from './components/contact';
 import AppointmentForm from './components/appointment-form';
 import Footer from './components/footer';
 
-export default function ClassicProfessionalTemplate({ 
+export default async function ClassicProfessionalTemplate({ 
   practice, 
   attributes, 
   staff 
@@ -26,6 +28,9 @@ export default function ClassicProfessionalTemplate({
   
   // Generate color styles for SSR-compatible rendering
   const colorStyles = getColorStyles(brandColors);
+
+  // Fetch comments for this practice
+  const comments = await getFeaturedComments(practice.practice_id);
 
   return (
     <>
@@ -73,6 +78,9 @@ export default function ClassicProfessionalTemplate({
         
         {/* Hero section */}
         <Hero practice={practice} attributes={attributes} colorStyles={colorStyles} />
+        
+        {/* Review Carousel section */}
+        <ReviewCarousel colorStyles={colorStyles} comments={comments} />
         
         {/* About section */}
         <About practice={practice} attributes={attributes} colorStyles={colorStyles} />

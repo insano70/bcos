@@ -74,9 +74,8 @@ export class FileUploadService {
       errors: []
     }
 
-    // Enhanced upload operation logging
-    // Enhanced logging permanently enabled {
-      FileUploadService.universalLogger.info('File upload operation initiated', {
+    // Enhanced upload operation logging - permanently enabled
+    FileUploadService.universalLogger.info('File upload operation initiated', {
         fileCount: files.length,
         maxAllowed: opts.maxFiles,
         allowedTypes: opts.allowedTypes,
@@ -94,19 +93,17 @@ export class FileUploadService {
         maxFileSize: opts.maxFileSize,
         securityValidation: 'initiated'
       })
-    }
 
     // Validate file count
     if (files.length > opts.maxFiles) {
-      // Enhanced logging permanently enabled {
-        FileUploadService.universalLogger.security('file_upload_violation', 'medium', {
-          action: 'file_count_exceeded',
-          threat: 'resource_abuse',
-          blocked: true,
-          attemptedCount: files.length,
-          allowedCount: opts.maxFiles
-        })
-      }
+      // Enhanced logging permanently enabled
+      FileUploadService.universalLogger.security('file_upload_violation', 'medium', {
+        action: 'file_count_exceeded',
+        threat: 'resource_abuse',
+        blocked: true,
+        attemptedCount: files.length,
+        allowedCount: opts.maxFiles
+      })
       
       result.errors.push(`Maximum ${opts.maxFiles} files allowed`)
       result.success = false
@@ -136,9 +133,8 @@ export class FileUploadService {
       }
     }
 
-    // Enhanced upload completion logging
-    // Enhanced logging permanently enabled {
-      const duration = Date.now() - startTime
+    // Enhanced upload completion logging - permanently enabled
+    const duration = Date.now() - startTime
       
       // Business intelligence for upload analytics
       FileUploadService.universalLogger.info('File upload analytics', {
@@ -175,7 +171,6 @@ export class FileUploadService {
         successCount: result.files.length,
         errorCount: result.errors.length
       })
-    }
 
     return result
   }
