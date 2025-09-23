@@ -11,10 +11,10 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'node',
-    setupFiles: ['./tests/setup/test-setup.ts'],
+    setupFiles: ['./tests/setup/unit-setup.ts'],
     globalSetup: ['./tests/setup/global-setup.ts'],
     globals: true,
-    
+
     // Enable true parallel execution
     pool: 'forks',
     poolOptions: {
@@ -24,22 +24,22 @@ export default defineConfig({
         execArgv: ['--max-old-space-size=4096'] // Increase memory for test processes
       }
     },
-    
+
     // Maximize parallel execution
     maxConcurrency: Math.min(cpus().length, 8), // Use available CPUs, max 8
     fileParallelism: true, // Run test files in parallel
-    
+
     // Timeouts for database operations
     testTimeout: 30000,
     hookTimeout: 30000,
-    
+
     // Retry failed tests once (useful for flaky database tests)
     retry: 1,
-    
+
     // Reporter configuration
     reporters: process.env.CI ? ['junit', 'github-actions'] : ['verbose'],
     ...(process.env.CI && { outputFile: './test-results.xml' }),
-    
+
     // Coverage configuration
     coverage: {
       provider: 'v8',

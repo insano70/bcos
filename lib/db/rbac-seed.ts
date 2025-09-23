@@ -6,7 +6,14 @@ import {
   organizations 
 } from './schema';
 import { inArray, count } from 'drizzle-orm';
-import { logger } from '@/lib/logger';
+import { createAppLogger } from '@/lib/rbacLogger/factory';
+
+// Create RBAC seed rbacLogger with enhanced context
+const rbacLogger = createAppLogger('rbac-seed', {
+  component: 'security',
+  feature: 'rbac-initialization',
+  module: 'rbac-seed'
+});
 
 /**
  * RBAC Seed Data for Healthcare Practice Management System
@@ -359,14 +366,14 @@ const SAMPLE_ORGANIZATIONS = [
  * Seed the RBAC system with base permissions, roles, and sample data
  */
 export async function seedRBACData() {
-  logger.info('Starting RBAC seed process', {
+  rbacLogger.info('Starting RBAC seed process', {
     operation: 'seedRBAC',
     phase: 'start'
   });
 
   try {
     // 1. Insert base permissions
-    logger.info('Inserting base permissions', {
+    rbacLogger.info('Inserting base permissions', {
       operation: 'seedRBAC',
       phase: 'permissions'
     });
@@ -375,13 +382,13 @@ export async function seedRBACData() {
       .values(BASE_PERMISSIONS)
       .returning();
     
-    logger.info('Created permissions', {
+    rbacLogger.info('Created permissions', {
       count: insertedPermissions.length,
       operation: 'seedRBAC'
     });
 
     // 2. Insert sample organizations
-    logger.info('Inserting sample organizations', {
+    rbacLogger.info('Inserting sample organizations', {
       operation: 'seedRBAC',
       phase: 'organizations'
     });
@@ -390,13 +397,13 @@ export async function seedRBACData() {
       .values(SAMPLE_ORGANIZATIONS)
       .returning();
     
-    logger.info('Created organizations', {
+    rbacLogger.info('Created organizations', {
       count: insertedOrganizations.length,
       operation: 'seedRBAC'
     });
 
     // 3. Insert base roles
-    logger.info('Inserting base roles', {
+    rbacLogger.info('Inserting base roles', {
       operation: 'seedRBAC',
       phase: 'roles'
     });
@@ -432,39 +439,39 @@ export async function seedRBACData() {
       }
     }
 
-    logger.info('Created roles with permissions', {
+    rbacLogger.info('Created roles with permissions', {
       count: insertedRoles.length,
       operation: 'seedRBAC'
     });
 
     // 4. Summary
-    logger.info('RBAC seed completed successfully', {
+    rbacLogger.info('RBAC seed completed successfully', {
       operation: 'seedRBAC',
       phase: 'completed'
     });
-    logger.info('RBAC seed summary', {
+    rbacLogger.info('RBAC seed summary', {
       operation: 'seedRBAC',
       phase: 'summary'
     });
-    logger.info('Permissions created', {
+    rbacLogger.info('Permissions created', {
       count: insertedPermissions.length,
       operation: 'seedRBAC'
     });
-    logger.info('Roles created', {
+    rbacLogger.info('Roles created', {
       count: insertedRoles.length,
       operation: 'seedRBAC'
     });
-    logger.info('Organizations created', {
+    rbacLogger.info('Organizations created', {
       count: insertedOrganizations.length,
       operation: 'seedRBAC'
     });
-    logger.info('Available roles', {
+    rbacLogger.info('Available roles', {
       operation: 'seedRBAC',
       phase: 'roleList'
     });
     insertedRoles.forEach(role => {
       if (role) {
-        logger.info('Role available', {
+        rbacLogger.info('Role available', {
           name: role.name,
           description: role.description,
           operation: 'seedRBAC'
@@ -479,7 +486,7 @@ export async function seedRBACData() {
     };
 
   } catch (error) {
-    logger.error('RBAC seed failed', {
+    rbacLogger.error('RBAC seed failed', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
       operation: 'seedRBAC'
@@ -492,7 +499,7 @@ export async function seedRBACData() {
  * Clear all RBAC data (for testing/development)
  */
 export async function clearRBACData() {
-  logger.info('Clearing RBAC data', {
+  rbacLogger.info('Clearing RBAC data', {
     operation: 'clearRBAC',
     phase: 'start'
   });
@@ -504,12 +511,12 @@ export async function clearRBACData() {
     await db.delete(permissions);
     await db.delete(organizations);
     
-    logger.info('RBAC data cleared successfully', {
+    rbacLogger.info('RBAC data cleared successfully', {
       operation: 'clearRBAC',
       phase: 'completed'
     });
   } catch (error) {
-    logger.error('Failed to clear RBAC data', {
+    rbacLogger.error('Failed to clear RBAC data', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
       operation: 'clearRBAC'
@@ -529,7 +536,7 @@ export async function checkRBACDataExists(): Promise<boolean> {
     
     return (result?.count ?? 0) > 0;
   } catch (error) {
-    logger.error('Error checking RBAC data', {
+    rbacLogger.error('Error checking RBAC data', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
       operation: 'checkRBAC'

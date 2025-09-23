@@ -53,9 +53,11 @@ const loginHandler = async (request: NextRequest) => {
     const { email, password, remember } = validatedData
     logPerformanceMetric(logger, 'request_validation', Date.now() - validationStartTime)
 
-    logger.info('Login validation successful', {
+    // Enhanced validation success logging
+    apiLogger.logAuth('login_validation', true, {
       email: email.replace(/(.{2}).*@/, '$1***@'), // Partially mask email
-      rememberMe: remember
+      rememberMe: remember,
+      validationDuration: Date.now() - validationStartTime
     })
 
     // Extract device info

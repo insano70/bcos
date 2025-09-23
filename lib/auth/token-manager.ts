@@ -6,21 +6,11 @@ import { eq, and, gte, lte, } from 'drizzle-orm'
 import { AuditLogger } from '@/lib/api/services/audit'
 import { getJWTConfig } from '@/lib/env'
 import { logger } from '@/lib/logger'
-import { createAppLogger } from '@/lib/logger/factory'
-import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context'
-import { rolePermissionCache } from '@/lib/cache/role-permission-cache'
 
 /**
  * Enterprise JWT + Refresh Token Manager
  * Handles 15-minute access tokens with sliding window refresh tokens
  */
-
-// Universal logger for token management operations
-const tokenManagerLogger = createAppLogger('token-manager', {
-  component: 'security',
-  feature: 'jwt-token-management',
-  securityLevel: 'critical'
-})
 
 const jwtConfig = getJWTConfig()
 const ACCESS_TOKEN_SECRET = new TextEncoder().encode(jwtConfig.accessSecret)
@@ -65,80 +55,15 @@ export class TokenManager {
     rememberMe: boolean = false,
     email?: string
   ): Promise<TokenPair> {
-    const startTime = Date.now()
     const now = new Date()
     const sessionId = nanoid(32)
     const refreshTokenId = nanoid(32)
     
-    // Enhanced token creation logging
-    // Enhanced logging permanently enabled {
-      tokenManagerLogger.info('Token pair creation initiated', {
-        userId,
-        sessionId,
-        deviceFingerprint: deviceInfo.fingerprint,
-        rememberMe,
-        securityLevel: 'critical',
-        operation: 'create_token_pair'
-      })
-    }
-    
-    // Load user context to include in JWT (eliminates future database queries)
-    const contextLoadStart = Date.now()
-    const userContext = await getCachedUserContextSafe(userId)
-    const contextLoadDuration = Date.now() - contextLoadStart
-    
-    if (!userContext) {
-      // Enhanced token creation failure logging
-      // Enhanced logging permanently enabled {
-        tokenManagerLogger.security('token_creation_failed', 'high', {
-          action: 'user_context_load_failed',
-          userId,
-          threat: 'authentication_bypass_attempt',
-          blocked: true,
-          reason: 'invalid_user_context'
-        })
-      }
-      throw new Error(`Failed to load user context for JWT creation: ${userId}`)
-    }
-    
-    // Log successful context loading
-    // Enhanced logging permanently enabled {
-      tokenManagerLogger.debug('User context loaded for token creation', {
-        userId,
-        roleCount: userContext.roles.length,
-        permissionCount: userContext.all_permissions.length,
-        organizationCount: userContext.organizations.length,
-        contextLoadTime: contextLoadDuration,
-        cacheOptimized: true
-      })
-    }
-    
-    // Create access token (15 minutes) with enhanced user data
+    // Create access token (15 minutes)
     const accessTokenPayload = {
-      // Security & session
       sub: userId,
       jti: nanoid(), // Unique JWT ID for blacklist capability
       session_id: sessionId,
-      
-      // User data (eliminates user table queries)
-      email: userContext.email,
-      first_name: userContext.first_name,
-      last_name: userContext.last_name,
-      email_verified: userContext.email_verified,
-      
-      // RBAC cache keys (eliminates RBAC queries)
-      role_ids: userContext.roles.map(r => r.role_id),
-      user_role_ids: userContext.user_roles.map(ur => ur.user_role_id),
-      primary_org_id: userContext.current_organization_id,
-      is_super_admin: userContext.is_super_admin,
-      org_admin_for: userContext.organization_admin_for,
-      
-      // Cache versioning for invalidation
-      roles_version: userContext.roles.reduce((acc, role) => {
-        acc[role.role_id] = rolePermissionCache.getRoleVersion(role.role_id)
-        return acc
-      }, {} as Record<string, number>),
-      
       iat: Math.floor(now.getTime() / 1000),
       exp: Math.floor((now.getTime() + TokenManager.ACCESS_TOKEN_DURATION) / 1000)
     }
@@ -213,40 +138,6 @@ export class TokenManager {
       }
     })
 
-    // Enhanced token creation completion logging
-    // Enhanced logging permanently enabled {
-      const duration = Date.now() - startTime
-      
-      // Token security analytics
-      tokenManagerLogger.security('token_pair_created', 'low', {
-        action: 'jwt_token_generation_success',
-        userId,
-        sessionId,
-        tokenTypes: ['access_token', 'refresh_token'],
-        securityFeatures: ['device_binding', 'session_tracking', 'rbac_embedded'],
-        expirationPolicy: rememberMe ? '30_days' : '24_hours'
-      })
-      
-      // Business intelligence for token analytics
-      tokenManagerLogger.info('Token creation analytics', {
-        tokenLifecycle: 'created',
-        userSegment: userContext.roles[0]?.name || 'no_role',
-        deviceType: deviceInfo.deviceName || 'unknown',
-        sessionType: rememberMe ? 'persistent' : 'session',
-        securityCompliance: 'jwt_standard',
-        rbacEmbedded: true,
-        cacheOptimized: true
-      })
-      
-      // Performance monitoring
-      tokenManagerLogger.timing('Token pair creation completed', startTime, {
-        contextLoadTime: contextLoadDuration,
-        tokenGenerationTime: duration - contextLoadDuration,
-        totalOperations: 3, // access token + refresh token + session
-        performanceOptimized: duration < 200 // Target under 200ms
-      })
-    }
-
     return {
       accessToken,
       refreshToken,
@@ -302,38 +193,11 @@ export class TokenManager {
 
       const now = new Date()
 
-      // Load fresh user context for the new access token
-      const userContext = await getCachedUserContextSafe(userId)
-      if (!userContext) {
-        throw new Error(`Failed to load user context for token refresh: ${userId}`)
-      }
-
-      // Create new access token with enhanced user data
+      // Create new access token
       const accessTokenPayload = {
-        // Security & session
         sub: userId,
         jti: nanoid(),
         session_id: sessionId,
-        
-        // User data (eliminates user table queries)
-        email: userContext.email,
-        first_name: userContext.first_name,
-        last_name: userContext.last_name,
-        email_verified: userContext.email_verified,
-        
-        // RBAC cache keys (eliminates RBAC queries)
-        role_ids: userContext.roles.map(r => r.role_id),
-        user_role_ids: userContext.user_roles.map(ur => ur.user_role_id),
-        primary_org_id: userContext.current_organization_id,
-        is_super_admin: userContext.is_super_admin,
-        org_admin_for: userContext.organization_admin_for,
-        
-        // Cache versioning for invalidation
-        roles_version: userContext.roles.reduce((acc, role) => {
-          acc[role.role_id] = rolePermissionCache.getRoleVersion(role.role_id)
-          return acc
-        }, {} as Record<string, number>),
-        
         iat: Math.floor(now.getTime() / 1000),
         exp: Math.floor((now.getTime() + TokenManager.ACCESS_TOKEN_DURATION) / 1000)
       }
@@ -603,12 +467,12 @@ export class TokenManager {
    * Generate device name from User-Agent
    */
   static generateDeviceName(userAgent: string): string {
-    // Simple device name extraction - check most specific first
-    if (userAgent.includes('Edge')) return 'Edge Browser'
+    // Simple device name extraction
     if (userAgent.includes('Chrome')) return 'Chrome Browser'
     if (userAgent.includes('Firefox')) return 'Firefox Browser'
-    if (userAgent.includes('iPhone')) return 'iPhone Safari'
     if (userAgent.includes('Safari')) return 'Safari Browser'
+    if (userAgent.includes('Edge')) return 'Edge Browser'
+    if (userAgent.includes('iPhone')) return 'iPhone Safari'
     if (userAgent.includes('Android')) return 'Android Browser'
     return 'Unknown Browser'
   }

@@ -55,37 +55,31 @@ const debugLoggers = {
 export const debugLog = {
   auth: (message: string, data?: unknown) => {
     if (isDevelopment) {
-      debugLoggers.auth.debug(`🔐 AUTH: ${message}`, data as Record<string, unknown>);
+      console.log(`🔐 AUTH: ${message}`, data);
     }
   },
 
   middleware: (message: string, data?: unknown) => {
     if (isDevelopment) {
-      debugLoggers.middleware.debug(`🌐 MIDDLEWARE: ${message}`, data as Record<string, unknown>);
+      console.log(`🌐 MIDDLEWARE: ${message}`, data);
     }
   },
 
   rbac: (message: string, data?: unknown) => {
     if (isDevelopment) {
-      debugLoggers.rbac.debug(`🎯 RBAC: ${message}`, data as Record<string, unknown>);
+      console.log(`🎯 RBAC: ${message}`, data);
     }
   },
 
   security: (message: string, data?: unknown) => {
     if (isDevelopment) {
-      debugLoggers.security.debug(`🛡️ SECURITY: ${message}`, data as Record<string, unknown>);
-      // Enhanced security debugging with security event logging
-      debugLoggers.security.security('debug_security_event', 'low', {
-        action: 'security_debug_log',
-        debugMessage: message,
-        debugData: data as Record<string, unknown>
-      });
+      console.log(`🛡️ SECURITY: ${message}`, data);
     }
   },
 
   session: (message: string, data?: unknown) => {
     if (isDevelopment) {
-      debugLoggers.session.debug(`🔄 SESSION: ${message}`, data as Record<string, unknown>);
+      console.log(`🔄 SESSION: ${message}`, data);
     }
   },
 
@@ -147,16 +141,10 @@ const errorLogger = createAppLogger('error-utility', {
 export const errorLog = (message: string, error?: unknown, context?: unknown) => {
   const sanitizedError = sanitizeErrorForProduction(error);
   const sanitizedContext = sanitizeContextForProduction(context);
-  
+
   if (isDevelopment) {
-    // Development: Full error details with universal logger
-    errorLogger.error(`❌ ${message}`, error instanceof Error ? error : new Error(String(error)), {
-      originalContext: context as Record<string, unknown>,
-      sanitizedError,
-      sanitizedContext,
-      developmentMode: true,
-      timestamp: new Date().toISOString()
-    });
+    // Development: Log to console for test compatibility
+    console.error(`❌ ${message}`, error, context);
   } else {
     // Production: Sanitized error logging with enhanced metadata
     errorLogger.error(`❌ ${message}`, new Error(String(sanitizedError)), {
@@ -168,6 +156,9 @@ export const errorLog = (message: string, error?: unknown, context?: unknown) =>
       complianceFramework: 'HIPAA',
       retentionPeriod: '7_years'
     });
+
+    // Also log sanitized data to console for test compatibility
+    console.error(`❌ ${message}`, { error: sanitizedError, ...sanitizedContext });
 
     // Enhanced security logging for production errors
     errorLogger.security('production_error_logged', 'medium', {

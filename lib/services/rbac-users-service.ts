@@ -1,7 +1,6 @@
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import { db } from '@/lib/db';
 import { createAppLogger } from '@/lib/logger/factory';
-import { isPhase3MigrationEnabled } from '@/lib/logger/phase3-migration-flags';
 import { users, user_organizations, organizations } from '@/lib/db/schema';
 import { user_roles, roles } from '@/lib/db/rbac-schema';
 import { eq, and, inArray, isNull, like, or, count } from 'drizzle-orm';
@@ -353,7 +352,7 @@ export class RBACUsersService extends BaseRBACService {
     const startTime = Date.now()
     
     // Enhanced user creation logging
-    if (isPhase3MigrationEnabled('enableEnhancedRBACUsersServiceLogging')) {
+    if (true) {
       rbacUsersLogger.info('User creation initiated', {
         requestingUserId: this.userContext.user_id,
         targetOrganizationId: userData.organization_id,
@@ -368,7 +367,7 @@ export class RBACUsersService extends BaseRBACService {
     this.requireOrganizationAccess(userData.organization_id);
     
     // Enhanced permission validation success logging
-    if (isPhase3MigrationEnabled('enableEnhancedRBACUsersServiceLogging')) {
+    if (true) {
       rbacUsersLogger.security('user_creation_authorized', 'low', {
         action: 'permission_check_passed',
         userId: this.userContext.user_id,
@@ -413,7 +412,7 @@ export class RBACUsersService extends BaseRBACService {
     }
 
     // Enhanced user creation completion logging
-    if (isPhase3MigrationEnabled('enableEnhancedRBACUsersServiceLogging')) {
+    if (true) {
       const duration = Date.now() - startTime
       
       // Business intelligence for user creation

@@ -8,12 +8,12 @@ import { AuditLogger, BufferedAuditLogger } from '@/lib/logger'
 import { requireAuth } from '@/lib/api/middleware/auth'
 import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
 import { 
-  createAPILogger, 
   logAPIAuth, 
   logPerformanceMetric,
   withCorrelation,
   CorrelationContextManager 
 } from '@/lib/logger'
+import { createAPILogger } from '@/lib/logger/api-features'
 
 /**
  * Refresh Token Endpoint
@@ -22,11 +22,17 @@ import {
  */
 const refreshHandler = async (request: NextRequest) => {
   const startTime = Date.now()
-  const logger = createAPILogger(request)
+  const apiLogger = createAPILogger(request, 'auth-refresh')
+  const logger = apiLogger.getLogger()
   
   // Store refresh token for error handling (declared at function level)
   let refreshTokenForError: string | undefined
 
+  // Enhanced token refresh request logging
+  apiLogger.logRequest({
+    authType: 'session'
+  })
+  
   logger.info('Token refresh initiated', {
     endpoint: '/api/auth/refresh',
     method: 'POST'

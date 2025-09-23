@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import '@/tests/setup/integration-setup' // Import integration setup for database access
 import { createTestUser } from '@/tests/factories'
 import { getCurrentTransaction } from '@/tests/helpers/db-helper'
 import { generateUniqueEmail } from '@/tests/helpers/unique-generator'

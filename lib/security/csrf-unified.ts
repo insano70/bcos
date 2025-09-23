@@ -210,10 +210,11 @@ export class UnifiedCSRFProtection {
       
       if (!encodedPayload || !signature) {
         if (isDevelopment) {
-          console.log('🔍 CSRF Token Parse Failed:', {
+          csrfSecurityLogger.debug('CSRF token parse failed', {
             tokenLength: token.length,
             hasDot: token.includes('.'),
-            parts: token.split('.').length
+            parts: token.split('.').length,
+            component: 'token-validation'
           })
         }
         return false
@@ -242,7 +243,7 @@ export class UnifiedCSRFProtection {
       
       if (!isSignatureValid) {
         if (isDevelopment) {
-          console.log('🔍 CSRF Signature Invalid')
+          csrfSecurityLogger.debug('🔍 CSRF Signature Invalid')
         }
         return false
       }
@@ -252,7 +253,7 @@ export class UnifiedCSRFProtection {
       
       if (payload.type !== 'anonymous') {
         if (isDevelopment) {
-          console.log('🔍 CSRF Token Type Mismatch:', {
+          csrfSecurityLogger.debug('🔍 CSRF Token Type Mismatch:', {
             expected: 'anonymous',
             actual: payload.type
           })
@@ -277,7 +278,7 @@ export class UnifiedCSRFProtection {
       )
       
       if (!isValid && isDevelopment) {
-        console.log('🔍 CSRF Anonymous Validation Failed:', {
+        csrfSecurityLogger.debug('🔍 CSRF Anonymous Validation Failed:', {
           payload: {
             ip: payload.ip,
             userAgent: payload.userAgent?.substring(0, 30) + '...',
@@ -300,7 +301,7 @@ export class UnifiedCSRFProtection {
     } catch (error) {
       const isDevelopment = (process.env.NODE_ENV || globalThis.process?.env?.NODE_ENV) === 'development'
       if (isDevelopment) {
-        console.log('🔍 CSRF Anonymous Validation Error:', error)
+        csrfSecurityLogger.debug('🔍 CSRF Anonymous Validation Error:', error)
       }
       return false
     }
@@ -383,7 +384,7 @@ export class UnifiedCSRFProtection {
       // This is handled gracefully - token is still returned for manual setting
       const isDevelopment = (process.env.NODE_ENV || globalThis.process?.env?.NODE_ENV) === 'development'
       if (isDevelopment) {
-        console.log('Cookie setting failed (Edge Runtime context):', error)
+        csrfSecurityLogger.debug('Cookie setting failed (Edge Runtime context):', error)
       }
     }
     
@@ -705,7 +706,7 @@ export class UnifiedCSRFProtection {
           // This handles legacy tokens during migration
           const isDevelopment = (process.env.NODE_ENV || globalThis.process?.env?.NODE_ENV) === 'development'
           if (isDevelopment) {
-            console.log('CSRF token parsing failed, using legacy validation')
+            csrfSecurityLogger.debug('CSRF token parsing failed, using legacy validation')
           }
         }
 

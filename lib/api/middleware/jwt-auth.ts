@@ -8,7 +8,6 @@ import { AuthenticationError } from '../responses/error'
 import { rolePermissionCache } from '@/lib/cache/role-permission-cache'
 import { debugLog } from '@/lib/utils/debug'
 import { createAppLogger } from '@/lib/logger/factory'
-import { isPhase2MigrationEnabled } from '@/lib/logger/phase2-migration-flags'
 import type { UserContext, Role, Permission } from '@/lib/types/rbac'
 
 // Universal logger for JWT authentication middleware
@@ -136,7 +135,7 @@ export async function requireJWTAuth(request: Request): Promise<JWTAuthSession> 
   const startTime = Date.now()
   
   // Enhanced JWT authentication logging
-  if (isPhase2MigrationEnabled('enableEnhancedJWTMiddleware')) {
+  if (true) {
     jwtAuthLogger.info('JWT authentication middleware initiated', {
       url: request.url,
       method: request.method,
@@ -173,7 +172,7 @@ export async function requireJWTAuth(request: Request): Promise<JWTAuthSession> 
   
   if (!accessToken) {
     // Enhanced missing token logging
-    if (isPhase2MigrationEnabled('enableEnhancedJWTMiddleware')) {
+    if (true) {
       jwtAuthLogger.security('jwt_authentication_failed', 'medium', {
         action: 'token_missing',
         threat: 'unauthorized_access',
@@ -191,7 +190,7 @@ export async function requireJWTAuth(request: Request): Promise<JWTAuthSession> 
   
   if (!payload) {
     // Enhanced token validation failure
-    if (isPhase2MigrationEnabled('enableEnhancedJWTMiddleware')) {
+    if (true) {
       jwtAuthLogger.security('jwt_token_validation_failed', 'high', {
         action: 'invalid_jwt',
         threat: 'credential_attack',
@@ -204,7 +203,7 @@ export async function requireJWTAuth(request: Request): Promise<JWTAuthSession> 
   }
   
   // Enhanced successful JWT validation logging
-  if (isPhase2MigrationEnabled('enableEnhancedJWTMiddleware')) {
+  if (true) {
     jwtAuthLogger.auth('jwt_validation', true, {
       userId: payload.sub as string,
       sessionId: payload.session_id as string,
@@ -246,7 +245,7 @@ export async function requireJWTAuth(request: Request): Promise<JWTAuthSession> 
   }
   
   // Enhanced JWT authentication success logging
-  if (isPhase2MigrationEnabled('enableEnhancedJWTMiddleware')) {
+  if (true) {
     const duration = Date.now() - startTime
     
     // JWT authentication pipeline completion
