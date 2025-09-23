@@ -256,7 +256,7 @@
   "SecureContainerLogGroup7C38C890": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/ecs/bcos-production-1758666214191",
+    "LogGroupName": "/ecs/bcos-production-1758669308403",
     "RetentionInDays": 90,
     "Tags": [
      {
@@ -767,7 +767,7 @@
   "WAFProtectionWAFLogGroupC4D17A54": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/aws/waf/bcos-production-1758666214206",
+    "LogGroupName": "/aws/waf/bcos-production-1758669308431",
     "RetentionInDays": 90,
     "Tags": [
      {

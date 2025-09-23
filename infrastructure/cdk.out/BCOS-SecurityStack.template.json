@@ -375,6 +375,51 @@
        "Sid": "SSMBootstrapAccess"
       },
       {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Resource": [
+        "arn:aws:iam::854428944440:role/cdk-hnb659fds-deploy-role-854428944440-us-east-1",
+        "arn:aws:iam::854428944440:role/cdk-hnb659fds-file-publishing-role-854428944440-us-east-1",
+        "arn:aws:iam::854428944440:role/cdk-hnb659fds-lookup-role-854428944440-us-east-1"
+       ],
+       "Sid": "CDKBootstrapAssumeRoles"
+      },
+      {
+       "Action": [
+        "s3:GetBucketLocation",
+        "s3:GetObject",
+        "s3:ListBucket",
+        "s3:PutObject"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        "arn:aws:s3:::cdk-hnb659fds-assets-854428944440-us-east-1",
+        "arn:aws:s3:::cdk-hnb659fds-assets-854428944440-us-east-1/*"
+       ],
+       "Sid": "CDKAssetsBucketAccess"
+      },
+      {
+       "Action": [
+        "cloudformation:CreateChangeSet",
+        "cloudformation:CreateStack",
+        "cloudformation:DeleteChangeSet",
+        "cloudformation:DeleteStack",
+        "cloudformation:DescribeChangeSet",
+        "cloudformation:DescribeStackEvents",
+        "cloudformation:DescribeStackResources",
+        "cloudformation:DescribeStacks",
+        "cloudformation:ExecuteChangeSet",
+        "cloudformation:GetStackPolicy",
+        "cloudformation:GetTemplate",
+        "cloudformation:ListChangeSets",
+        "cloudformation:ListStackResources",
+        "cloudformation:UpdateStack"
+       ],
+       "Effect": "Allow",
+       "Resource": "arn:aws:cloudformation:us-east-1:854428944440:stack/BCOS-*/*",
+       "Sid": "CloudFormationAccess"
+      },
+      {
        "Action": "iam:PassRole",
        "Condition": {
         "StringEquals": {

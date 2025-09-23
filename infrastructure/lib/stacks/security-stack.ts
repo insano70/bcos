@@ -204,6 +204,67 @@ export class SecurityStack extends cdk.Stack {
       })
     );
 
+    // CDK bootstrap permissions for asset publishing and deployment
+    this.githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'CDKBootstrapAssumeRoles',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'sts:AssumeRole',
+        ],
+        resources: [
+          `arn:aws:iam::${this.account}:role/cdk-hnb659fds-deploy-role-${this.account}-us-east-1`,
+          `arn:aws:iam::${this.account}:role/cdk-hnb659fds-file-publishing-role-${this.account}-us-east-1`,
+          `arn:aws:iam::${this.account}:role/cdk-hnb659fds-lookup-role-${this.account}-us-east-1`,
+        ],
+      })
+    );
+
+    // CDK assets bucket access
+    this.githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'CDKAssetsBucketAccess',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          's3:GetObject',
+          's3:PutObject',
+          's3:GetBucketLocation',
+          's3:ListBucket',
+        ],
+        resources: [
+          `arn:aws:s3:::cdk-hnb659fds-assets-${this.account}-us-east-1`,
+          `arn:aws:s3:::cdk-hnb659fds-assets-${this.account}-us-east-1/*`,
+        ],
+      })
+    );
+
+    // CloudFormation permissions for CDK stack operations
+    this.githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'CloudFormationAccess',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'cloudformation:CreateStack',
+          'cloudformation:UpdateStack',
+          'cloudformation:DeleteStack',
+          'cloudformation:DescribeStacks',
+          'cloudformation:DescribeStackEvents',
+          'cloudformation:DescribeStackResources',
+          'cloudformation:GetTemplate',
+          'cloudformation:ListStackResources',
+          'cloudformation:CreateChangeSet',
+          'cloudformation:ExecuteChangeSet',
+          'cloudformation:DescribeChangeSet',
+          'cloudformation:DeleteChangeSet',
+          'cloudformation:ListChangeSets',
+          'cloudformation:GetStackPolicy',
+        ],
+        resources: [
+          `arn:aws:cloudformation:us-east-1:${this.account}:stack/BCOS-*/*`,
+        ],
+      })
+    );
+
     // ECS Task Execution Role (for AWS service calls)
     this.ecsTaskExecutionRole = new iam.Role(this, 'ECSTaskExecutionRole', {
       roleName: 'BCOS-ECSTaskExecutionRole',
