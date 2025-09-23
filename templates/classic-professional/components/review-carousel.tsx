@@ -8,19 +8,76 @@ interface ReviewCarouselProps {
   comments: PracticeComment[];
 }
 
+// Fallback sample comments if no real data exists
+const FALLBACK_COMMENTS = [
+    {
+      comment_id: '1',
+      practice_id: 'demo',
+      commenter_name: 'Sarah Johnson',
+      commenter_location: 'Austin, TX',
+      comment: 'Dr. Thompson and her team provided exceptional care during my lupus diagnosis and treatment journey.',
+      rating: '5',
+      display_order: 1,
+      created_at: new Date()
+    },
+    {
+      comment_id: '2', 
+      practice_id: 'demo',
+      commenter_name: 'Michael Rodriguez',
+      commenter_location: null,
+      comment: 'The infusion therapy here is world-class, and the staff always makes me feel comfortable and well-cared for.',
+      rating: '5',
+      display_order: 2,
+      created_at: new Date()
+    },
+    {
+      comment_id: '3',
+      practice_id: 'demo',
+      commenter_name: null,
+      commenter_location: null, 
+      comment: 'After years of joint pain, I finally found relief with the personalized treatment plan from this practice.',
+      rating: '5',
+      display_order: 3,
+      created_at: new Date()
+    },
+    {
+      comment_id: '4',
+      practice_id: 'demo',
+      commenter_name: 'Jennifer Martinez',
+      commenter_location: 'Dallas, TX',
+      comment: 'The comprehensive approach to treating my arthritis has given me my life back. Highly recommend!',
+      rating: '5',
+      display_order: 4,
+      created_at: new Date()
+    },
+    {
+      comment_id: '5',
+      practice_id: 'demo', 
+      commenter_name: 'Robert Chen',
+      commenter_location: 'Houston, TX',
+      comment: 'Professional, compassionate care with cutting-edge treatments. Best rheumatology practice in the area.',
+      rating: '5',
+      display_order: 5,
+      created_at: new Date()
+    }
+];
+
 export default function ReviewCarousel({ colorStyles, comments }: ReviewCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
+  // Use real comments if available, otherwise use fallback
+  const displayComments = comments && comments.length > 0 ? comments : FALLBACK_COMMENTS;
+
   // Auto-advance every 5 seconds
   useEffect(() => {
-    if (comments.length === 0) return;
+    if (displayComments.length === 0) return;
     
     const interval = setInterval(() => {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % comments.length);
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % displayComments.length);
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [comments.length]);
+  }, [displayComments.length]);
 
   const renderStars = () => {
     return (
@@ -42,12 +99,11 @@ export default function ReviewCarousel({ colorStyles, comments }: ReviewCarousel
     setCurrentIndex(index);
   };
 
-  // Return early if no comments
-  if (!comments || comments.length === 0) {
+  if (!displayComments || displayComments.length === 0) {
     return null;
   }
 
-  const currentComment = comments[currentIndex];
+  const currentComment = displayComments[currentIndex];
 
   if (!currentComment) {
     return null;
@@ -93,7 +149,7 @@ export default function ReviewCarousel({ colorStyles, comments }: ReviewCarousel
 
           {/* Carousel indicators */}
           <div className="flex justify-center mt-8 space-x-2">
-            {comments.map((_, index) => (
+            {displayComments.map((_, index) => (
               <button
                 key={index}
                 onClick={() => goToSlide(index)}
