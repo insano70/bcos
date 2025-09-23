@@ -127,6 +127,36 @@ jobs:
           container-name: bcos
           image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.IMAGE_TAG }}
 
+      - name: Check if ECS service exists
+        id: check-service
+        run: |
+          if aws ecs describe-services --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} --services ${{ steps.vars.outputs.ECS_SERVICE }} --query 'services[0].serviceName' --output text 2>/dev/null; then
+            echo "service-exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "service-exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create ECS service (if it doesn't exist)
+        if: steps.check-service.outputs.service-exists == 'false'
+        run: |
+          # Get target group ARN from CDK stack outputs
+          TARGET_GROUP_ARN=$(aws cloudformation describe-stacks --stack-name BCOS-StagingStack --query 'Stacks[0].Outputs[?OutputKey==`StagingTargetGroupArn`].OutputValue' --output text)
+          
+          # Create ECS service with proper load balancer configuration
+          aws ecs create-service \
+            --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} \
+            --service-name ${{ steps.vars.outputs.ECS_SERVICE }} \
+            --task-definition ${{ steps.vars.outputs.ECS_TASK_DEFINITION }} \
+            --desired-count 1 \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[subnet-1d132031,subnet-6f277e63,subnet-095fa406c94abb01f,subnet-2563a41a],securityGroups=[sg-01fa0ee93963bd614],assignPublicIp=DISABLED}" \
+            --load-balancers "targetGroupArn=${TARGET_GROUP_ARN},containerName=bcos,containerPort=3000" \
+            --health-check-grace-period-seconds 300 \
+            --deployment-configuration "maximumPercent=200,minimumHealthyPercent=50" \
+            --enable-execute-command
+          
+          echo "✅ ECS service created successfully"
+
       - name: Deploy to ECS
         uses: aws-actions/amazon-ecs-deploy-task-definition@df9643053eda01f169e64a0e60233aacca83799a # v1.4.11
         with:
