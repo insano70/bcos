@@ -109,7 +109,7 @@ export class StagingStack extends cdk.Stack {
       secret: secret,
       cpu: stagingConfig.ecs.cpu,
       memory: stagingConfig.ecs.memory,
-      containerPort: 80,
+      containerPort: 3000,
       environmentVariables: {
         ENVIRONMENT: environment,
         NEXT_PUBLIC_APP_URL: `https://${stagingConfig.domain}`,

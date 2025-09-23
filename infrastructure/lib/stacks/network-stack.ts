@@ -93,7 +93,7 @@ export class NetworkStack extends cdk.Stack {
 
     this.ecsSecurityGroup.addIngressRule(
       ec2.Peer.securityGroupId(this.albSecurityGroup.securityGroupId),
-      ec2.Port.tcp(80),
+      ec2.Port.tcp(3000),
       'Allow HTTP traffic from ALB'
     );
 
