@@ -4,7 +4,7 @@ import { eq, sql, and } from 'drizzle-orm';
 import { hashPassword } from '../auth/password';
 import * as fs from 'fs';
 import * as path from 'path';
-import { createAppLogger } from '@/lib/dbSeedLogger/factory';
+import { createAppLogger } from '@/lib/logger/factory';
 
 // Create Universal Logger for database seeding operations
 const dbSeedLogger = createAppLogger('database-seed', {

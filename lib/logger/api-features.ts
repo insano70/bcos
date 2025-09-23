@@ -303,10 +303,43 @@ export class APILogger {
   }
 
   /**
+   * Basic logging methods - delegate to underlying logger
+   */
+  info(message: string, data?: Record<string, unknown>): void {
+    this.logger.info(message, data)
+  }
+
+  warn(message: string, data?: Record<string, unknown>): void {
+    this.logger.warn(message, data)
+  }
+
+  error(message: string, error?: Error | unknown, data?: Record<string, unknown>): void {
+    this.logger.error(message, error, data)
+  }
+
+  debug(message: string, data?: Record<string, unknown>): void {
+    this.logger.debug(message, data)
+  }
+
+  /**
    * Create child logger with additional context
    */
   child(context: Record<string, unknown>, module?: string): UniversalLogger {
     return this.logger.child(context, module)
+  }
+
+  /**
+   * Performance timing method
+   */
+  timing(message: string, startTime: number, data?: Record<string, unknown>): void {
+    this.logger.timing(message, startTime, data)
+  }
+
+  /**
+   * Create logger with user context
+   */
+  withUser(userId: string, organizationId?: string): UniversalLogger {
+    return this.logger.withUser(userId, organizationId)
   }
 
   /**

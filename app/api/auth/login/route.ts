@@ -55,7 +55,13 @@ const loginHandler = async (request: NextRequest) => {
 
     // Enhanced validation success logging
     apiLogger.logAuth('login_validation', true, {
-      email: email.replace(/(.{2}).*@/, '$1***@'), // Partially mask email
+      method: 'session', // This will be a session-based login
+      sessionDuration: remember ? 86400 * 30 : 86400 // 30 days if remember, else 1 day
+    })
+    
+    // Log validation details separately with PII masking
+    apiLogger.info('Login validation completed', {
+      emailMasked: email.replace(/(.{2}).*@/, '$1***@'),
       rememberMe: remember,
       validationDuration: Date.now() - validationStartTime
     })
@@ -208,7 +214,7 @@ const loginHandler = async (request: NextRequest) => {
     // Enhanced authentication success logging
     apiLogger.logAuth('password_verification', true, {
       userId: user.user_id,
-      method: 'password'
+      method: 'session' // This login will create a session
     })
     
     logger.info('Password verification successful', {

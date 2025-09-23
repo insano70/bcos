@@ -6,7 +6,7 @@ import {
   organizations 
 } from './schema';
 import { inArray, count } from 'drizzle-orm';
-import { createAppLogger } from '@/lib/rbacLogger/factory';
+import { createAppLogger } from '@/lib/logger/factory';
 
 // Create RBAC seed rbacLogger with enhanced context
 const rbacLogger = createAppLogger('rbac-seed', {

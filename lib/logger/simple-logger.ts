@@ -170,8 +170,8 @@ export class AppLogger implements SimpleLogger {
   
   private shouldLog(level: string): boolean {
     const levels: Record<string, number> = { debug: 3, info: 2, warn: 1, error: 0 }
-    const configLevel = levels[this.config.level || 'info']
-    const logLevel = levels[level]
+    const configLevel = levels[this.config.level || 'info'] ?? 2 // default to info level
+    const logLevel = levels[level] ?? 2 // default to info level if unknown
     return logLevel <= configLevel
   }
 
