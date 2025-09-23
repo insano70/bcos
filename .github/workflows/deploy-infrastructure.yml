@@ -169,15 +169,15 @@ jobs:
         run: |
           # Deploy shared stacks first if they don't exist
           if ! aws cloudformation describe-stacks --stack-name BCOS-SecurityStack --region ${{ env.AWS_REGION }} 2>/dev/null; then
-            npx cdk deploy BCOS-SecurityStack --require-approval never
+            npx cdk deploy BCOS-SecurityStack --require-approval never --context vpcId=${{ secrets.VPC_ID || 'vpc-febca387' }}
           fi
           
           if ! aws cloudformation describe-stacks --stack-name BCOS-NetworkStack --region ${{ env.AWS_REGION }} 2>/dev/null; then
-            npx cdk deploy BCOS-NetworkStack --require-approval never --context vpcId=${{ secrets.VPC_ID }}
+            npx cdk deploy BCOS-NetworkStack --require-approval never --context vpcId=${{ secrets.VPC_ID || 'vpc-febca387' }}
           fi
           
           # Deploy staging stack
-          npx cdk deploy BCOS-StagingStack --require-approval never --context vpcId=${{ secrets.VPC_ID }}
+          npx cdk deploy BCOS-StagingStack --require-approval never --context vpcId=${{ secrets.VPC_ID || 'vpc-febca387' }}
 
   # Deploy to Production (from main branch)
   deploy-production:
@@ -211,11 +211,11 @@ jobs:
         working-directory: infrastructure
         run: |
           # Deploy shared stacks first (if not already deployed)
-          npx cdk deploy BCOS-SecurityStack --require-approval never
-          npx cdk deploy BCOS-NetworkStack --require-approval never --context vpcId=${{ secrets.VPC_ID }}
+          npx cdk deploy BCOS-SecurityStack --require-approval never --context vpcId=${{ secrets.VPC_ID || 'vpc-febca387' }}
+          npx cdk deploy BCOS-NetworkStack --require-approval never --context vpcId=${{ secrets.VPC_ID || 'vpc-febca387' }}
           
           # Deploy production stack
-          npx cdk deploy BCOS-ProductionStack --require-approval never --context vpcId=${{ secrets.VPC_ID }}
+          npx cdk deploy BCOS-ProductionStack --require-approval never --context vpcId=${{ secrets.VPC_ID || 'vpc-febca387' }}
 
       - name: Verify production deployment
         working-directory: infrastructure
@@ -268,14 +268,10 @@ jobs:
         run: |
           if [ -n "${{ github.event.inputs.stack }}" ]; then
             echo "Deploying specific stack: ${{ github.event.inputs.stack }}"
-            if [[ "${{ github.event.inputs.stack }}" == "SecurityStack" ]]; then
-              npx cdk deploy BCOS-${{ github.event.inputs.stack }} --require-approval never
-            else
-              npx cdk deploy BCOS-${{ github.event.inputs.stack }} --require-approval never --context vpcId=${{ secrets.VPC_ID }}
-            fi
+            npx cdk deploy BCOS-${{ github.event.inputs.stack }} --require-approval never --context vpcId=${{ secrets.VPC_ID || 'vpc-febca387' }}
           else
             echo "Deploying all stacks"
-            npx cdk deploy --all --require-approval never --context vpcId=${{ secrets.VPC_ID }}
+            npx cdk deploy --all --require-approval never --context vpcId=${{ secrets.VPC_ID || 'vpc-febca387' }}
           fi
 
   # Destroy infrastructure (DANGEROUS)
@@ -318,9 +314,9 @@ jobs:
         run: |
           if [ -n "${{ github.event.inputs.stack }}" ]; then
             echo "Destroying specific stack: ${{ github.event.inputs.stack }}"
-            npx cdk destroy BCOS-${{ github.event.inputs.stack }} --force
+            npx cdk destroy BCOS-${{ github.event.inputs.stack }} --force --context vpcId=${{ secrets.VPC_ID || 'vpc-febca387' }}
           else
             echo "Destroying all application stacks (keeping shared resources)"
-            npx cdk destroy BCOS-ProductionStack BCOS-StagingStack --force
+            npx cdk destroy BCOS-ProductionStack BCOS-StagingStack --force --context vpcId=${{ secrets.VPC_ID || 'vpc-febca387' }}
             echo "⚠️ Shared stacks (Security, Network) preserved for safety"
           fi
