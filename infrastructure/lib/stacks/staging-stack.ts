@@ -120,14 +120,14 @@ export class StagingStack extends cdk.Stack {
     this.targetGroup = new elbv2.ApplicationTargetGroup(this, 'StagingTargetGroup', {
       targetGroupName: 'bcos-staging-tg',
       vpc: vpc,
-      port: 80,
+      port: 3000,
       protocol: elbv2.ApplicationProtocol.HTTP,
       targetType: elbv2.TargetType.IP,
       healthCheck: {
         enabled: true,
         path: '/health',
         protocol: elbv2.Protocol.HTTP,
-        port: '80',
+        port: '3000',
         interval: cdk.Duration.seconds(30),
         timeout: cdk.Duration.seconds(10),
         healthyThresholdCount: 2,

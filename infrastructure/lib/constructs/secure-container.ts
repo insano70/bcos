@@ -86,7 +86,7 @@ export class SecureContainer extends Construct {
       secret,
       cpu,
       memory,
-      containerPort = 80,
+      containerPort = 3000,
       environmentVariables = {},
     } = props;
 
@@ -151,7 +151,7 @@ export class SecureContainer extends Construct {
       // Environment variables (non-sensitive)
       environment: {
         NODE_ENV: environment,
-        PORT: '80', // Force application to run on port 80 for ALB compatibility
+        PORT: containerPort.toString(), // Use configurable containerPort (3000 for non-privileged)
         AWS_REGION: cdk.Stack.of(this).region,
         ...environmentVariables,
       },
@@ -163,7 +163,6 @@ export class SecureContainer extends Construct {
         JWT_SECRET: ecs.Secret.fromSecretsManager(secret, 'JWT_SECRET'),
         JWT_REFRESH_SECRET: ecs.Secret.fromSecretsManager(secret, 'JWT_REFRESH_SECRET'),
         CSRF_SECRET: ecs.Secret.fromSecretsManager(secret, 'CSRF_SECRET'),
-        RESEND_API_KEY: ecs.Secret.fromSecretsManager(secret, 'RESEND_API_KEY'),
         EMAIL_FROM: ecs.Secret.fromSecretsManager(secret, 'EMAIL_FROM'),
         ADMIN_NOTIFICATION_EMAILS: ecs.Secret.fromSecretsManager(secret, 'ADMIN_NOTIFICATION_EMAILS'),
       },

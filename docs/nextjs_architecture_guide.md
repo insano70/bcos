@@ -1155,8 +1155,7 @@ DATABASE_URL=postgresql://user:password@localhost:5432/database
 CSRF_SECRET=32-character-csrf-secret-string
 BCRYPT_ROUNDS=12
 
-# Email
-RESEND_API_KEY=your-resend-api-key
+# Email (optional - gracefully degrades without API key)
 EMAIL_FROM=noreply@yourdomain.com
 
 # App

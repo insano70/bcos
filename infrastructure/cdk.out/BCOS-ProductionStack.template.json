@@ -256,7 +256,7 @@
   "SecureContainerLogGroup7C38C890": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/ecs/bcos-production-1758647975860",
+    "LogGroupName": "/ecs/bcos-production-1758656192547",
     "RetentionInDays": 90,
     "Tags": [
      {
@@ -458,20 +458,6 @@
             "Fn::ImportValue": "BCOS-ProductionSecret-Arn"
            },
            ":CSRF_SECRET::"
-          ]
-         ]
-        }
-       },
-       {
-        "Name": "RESEND_API_KEY",
-        "ValueFrom": {
-         "Fn::Join": [
-          "",
-          [
-           {
-            "Fn::ImportValue": "BCOS-ProductionSecret-Arn"
-           },
-           ":RESEND_API_KEY::"
           ]
          ]
         }
@@ -781,7 +767,7 @@
   "WAFProtectionWAFLogGroupC4D17A54": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/aws/waf/bcos-production-1758647975862",
+    "LogGroupName": "/aws/waf/bcos-production-1758656192548",
     "RetentionInDays": 90,
     "Tags": [
      {

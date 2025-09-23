@@ -101,7 +101,7 @@
   "SecureContainerLogGroup7C38C890": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/ecs/bcos-staging-1758647975824",
+    "LogGroupName": "/ecs/bcos-staging-1758656192496",
     "RetentionInDays": 30,
     "Tags": [
      {
@@ -223,10 +223,6 @@
         "ValueFrom": "arn:aws:secretsmanager:us-east-1:854428944440:secret:staging/bcos-secrets-vDmCm7:CSRF_SECRET::"
        },
        {
-        "Name": "RESEND_API_KEY",
-        "ValueFrom": "arn:aws:secretsmanager:us-east-1:854428944440:secret:staging/bcos-secrets-vDmCm7:RESEND_API_KEY::"
-       },
-       {
         "Name": "EMAIL_FROM",
         "ValueFrom": "arn:aws:secretsmanager:us-east-1:854428944440:secret:staging/bcos-secrets-vDmCm7:EMAIL_FROM::"
        },
@@ -292,7 +288,7 @@
     "HealthCheckEnabled": true,
     "HealthCheckIntervalSeconds": 30,
     "HealthCheckPath": "/health",
-    "HealthCheckPort": "80",
+    "HealthCheckPort": "3000",
     "HealthCheckProtocol": "HTTP",
     "HealthCheckTimeoutSeconds": 10,
     "HealthyThresholdCount": 2,
@@ -300,7 +296,7 @@
      "HttpCode": "200"
     },
     "Name": "bcos-staging-tg",
-    "Port": 80,
+    "Port": 3000,
     "Protocol": "HTTP",
     "Tags": [
      {
@@ -444,7 +440,7 @@
   "WAFProtectionWAFLogGroupC4D17A54": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/aws/waf/bcos-staging-1758647975841",
+    "LogGroupName": "/aws/waf/bcos-staging-1758656192521",
     "RetentionInDays": 30,
     "Tags": [
      {

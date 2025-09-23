@@ -40,11 +40,21 @@ export class EmailService {
     if (!EmailService.resend) {
       const apiKey = process.env.RESEND_API_KEY
       if (!apiKey) {
-        throw new Error('RESEND_API_KEY environment variable is not set')
+        console.warn('Email service disabled - RESEND_API_KEY not configured')
+        // Create a mock instance that logs instead of sending
+        EmailService.resend = {
+          emails: {
+            send: async (params: unknown) => {
+              console.log('Mock email send (RESEND_API_KEY not configured):', params)
+              return { data: { id: 'mock-email-id' }, error: null }
+            }
+          }
+        } as Resend
+      } else {
+        EmailService.resend = new Resend(apiKey)
       }
-      EmailService.resend = new Resend(apiKey)
     }
-    return EmailService.resend
+    return EmailService.resend as Resend
   }
 
   /**

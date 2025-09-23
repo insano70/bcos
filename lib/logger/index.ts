@@ -10,7 +10,7 @@ export {
   loggers
 } from './factory'
 
-export { type LogContext } from './universal-logger'
+export type { LogContext } from './universal-logger'
 
 // Simplified log levels
 export const LOG_LEVELS = {

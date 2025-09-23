@@ -334,7 +334,6 @@
       {
        "Action": [
         "ecs:DescribeServices",
-        "ecs:DescribeTaskDefinition",
         "ecs:RegisterTaskDefinition",
         "ecs:UpdateService"
        ],
@@ -345,6 +344,12 @@
         "arn:aws:ecs:us-east-1:854428944440:task-definition/bcos-*"
        ],
        "Sid": "ECSAccess"
+      },
+      {
+       "Action": "ecs:DescribeTaskDefinition",
+       "Effect": "Allow",
+       "Resource": "*",
+       "Sid": "ECSDescribeTaskDefinition"
       },
       {
        "Action": "iam:PassRole",
