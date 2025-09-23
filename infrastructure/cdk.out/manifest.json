@@ -26,7 +26,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-deploy-role-854428944440-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-cfn-exec-role-854428944440-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/316fb2527d6d05825d60c03f298b77b22460f2fa49afc724812a8efa6f6c93e5.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/e031a476f15171d5b6374b5f4d80f2e16a5816790357867b51f5a2545f54f7e9.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -508,7 +508,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-deploy-role-854428944440-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-cfn-exec-role-854428944440-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/31fc7c234658eef9ec943c27bf5a7242dc46ab1b7a81d623229237fd3870a1e4.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/7e5a527c806330d9d963039752d1f656ecc261d7fb48f53dfc0e45b9565606cf.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -559,18 +559,6 @@
             ]
           }
         ],
-        "/BCOS-StagingStack/ExecutionRole/Policy/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ExecutionRolePolicy79A7F477"
-          }
-        ],
-        "/BCOS-StagingStack/ECSSecurityGroup/from BCOSStagingStackALBSecurityGroupD6638EC0:3000": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ECSSecurityGroupfromBCOSStagingStackALBSecurityGroupD6638EC030008A8A5A2A"
-          }
-        ],
         "/BCOS-StagingStack/StagingCluster/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -583,28 +571,10 @@
             "data": "StagingCluster050706F7"
           }
         ],
-        "/BCOS-StagingStack/SecureContainer/LogGroup/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "SecureContainerLogGroup7C38C890"
-          }
-        ],
-        "/BCOS-StagingStack/SecureContainer/TaskDefinition/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "SecureContainerTaskDefinition0F11F2CE"
-          }
-        ],
         "/BCOS-StagingStack/StagingTargetGroup/Resource": [
           {
             "type": "aws:cdk:logicalId",
             "data": "StagingTargetGroupD48C3A0A"
-          }
-        ],
-        "/BCOS-StagingStack/StagingService/Service": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StagingService806CCFE9"
           }
         ],
         "/BCOS-StagingStack/StagingListenerRule/Resource": [
@@ -649,94 +619,10 @@
             "data": "WAFProtectionWebACLAssociation99F41F81"
           }
         ],
-        "/BCOS-StagingStack/Monitoring/AlertTopic/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MonitoringAlertTopicB48B06C2"
-          }
-        ],
-        "/BCOS-StagingStack/Monitoring/AlertTopic/devops@bendcare.com/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MonitoringAlertTopicdevopsbendcarecom391FF08D"
-          }
-        ],
-        "/BCOS-StagingStack/Monitoring/Dashboard/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MonitoringDashboard0C3675C6"
-          }
-        ],
-        "/BCOS-StagingStack/Monitoring/ECS-RunningTaskCount/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MonitoringECSRunningTaskCountC68C6B7E"
-          }
-        ],
-        "/BCOS-StagingStack/Monitoring/ECS-HighCPU/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MonitoringECSHighCPUD613B585"
-          }
-        ],
-        "/BCOS-StagingStack/Monitoring/ECS-HighMemory/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MonitoringECSHighMemory70B6EEFF"
-          }
-        ],
-        "/BCOS-StagingStack/Monitoring/ALB-UnhealthyTargets/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MonitoringALBUnhealthyTargets1B401F1C"
-          }
-        ],
-        "/BCOS-StagingStack/Monitoring/ALB-High5XXErrors/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MonitoringALBHigh5XXErrorsDC9620C6"
-          }
-        ],
-        "/BCOS-StagingStack/Monitoring/ALB-HighResponseTime/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MonitoringALBHighResponseTime9F0A3BED"
-          }
-        ],
-        "/BCOS-StagingStack/Monitoring/ErrorLogFilter/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MonitoringErrorLogFilter08658ED9"
-          }
-        ],
-        "/BCOS-StagingStack/Monitoring/App-HighErrorRate/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MonitoringAppHighErrorRate13F231B1"
-          }
-        ],
-        "/BCOS-StagingStack/Monitoring/HealthCheckFailureFilter/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MonitoringHealthCheckFailureFilter3774F405"
-          }
-        ],
-        "/BCOS-StagingStack/Monitoring/App-HealthCheckFailures/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "MonitoringAppHealthCheckFailures127D4107"
-          }
-        ],
         "/BCOS-StagingStack/StagingClusterName": [
           {
             "type": "aws:cdk:logicalId",
             "data": "StagingClusterName"
-          }
-        ],
-        "/BCOS-StagingStack/StagingServiceName": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "StagingServiceName"
           }
         ],
         "/BCOS-StagingStack/StagingURL": [
@@ -806,7 +692,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-deploy-role-854428944440-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-cfn-exec-role-854428944440-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/7d3e025e92b48cb4ad6196c47fbd798ffee838b104ede0d0d14babc9356d2d2f.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/3eeb96b57fbb3379cec703acf0bcd83286bcb0f4000c7dec0fb28494a55cc87e.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [

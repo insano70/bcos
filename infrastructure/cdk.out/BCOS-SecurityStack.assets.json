@@ -16,16 +16,16 @@
         }
       }
     },
-    "316fb2527d6d05825d60c03f298b77b22460f2fa49afc724812a8efa6f6c93e5": {
+    "e031a476f15171d5b6374b5f4d80f2e16a5816790357867b51f5a2545f54f7e9": {
       "displayName": "BCOS-SecurityStack Template",
       "source": {
         "path": "BCOS-SecurityStack.template.json",
         "packaging": "file"
       },
       "destinations": {
-        "854428944440-us-east-1-e3066e55": {
+        "854428944440-us-east-1-9f6d93f7": {
           "bucketName": "cdk-hnb659fds-assets-854428944440-us-east-1",
-          "objectKey": "316fb2527d6d05825d60c03f298b77b22460f2fa49afc724812a8efa6f6c93e5.json",
+          "objectKey": "e031a476f15171d5b6374b5f4d80f2e16a5816790357867b51f5a2545f54f7e9.json",
           "region": "us-east-1",
           "assumeRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-file-publishing-role-854428944440-us-east-1"
         }

@@ -352,6 +352,20 @@
        "Sid": "ECSDescribeTaskDefinition"
       },
       {
+       "Action": [
+        "logs:CreateLogGroup",
+        "logs:DescribeLogGroups",
+        "logs:PutRetentionPolicy",
+        "logs:TagLogGroup"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        "arn:aws:logs:us-east-1:854428944440:log-group:/ecs/bcos-*",
+        "arn:aws:logs:us-east-1:854428944440:log-group:/ecs/bcos-*:*"
+       ],
+       "Sid": "CloudWatchLogsAccess"
+      },
+      {
        "Action": "iam:PassRole",
        "Condition": {
         "StringEquals": {

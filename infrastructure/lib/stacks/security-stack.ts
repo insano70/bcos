@@ -171,6 +171,24 @@ export class SecurityStack extends cdk.Stack {
       })
     );
 
+    // CloudWatch Logs access for ECS service creation and management
+    this.githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'CloudWatchLogsAccess',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'logs:CreateLogGroup',
+          'logs:DescribeLogGroups',
+          'logs:PutRetentionPolicy',
+          'logs:TagLogGroup',
+        ],
+        resources: [
+          `arn:aws:logs:us-east-1:${this.account}:log-group:/ecs/bcos-*`,
+          `arn:aws:logs:us-east-1:${this.account}:log-group:/ecs/bcos-*:*`,
+        ],
+      })
+    );
+
     // ECS Task Execution Role (for AWS service calls)
     this.ecsTaskExecutionRole = new iam.Role(this, 'ECSTaskExecutionRole', {
       roleName: 'BCOS-ECSTaskExecutionRole',
