@@ -115,9 +115,48 @@ jobs:
           platforms: linux/amd64
 
 
-      - name: Get current task definition
+      - name: Get current task definition (or create empty one)
         run: |
-          aws ecs describe-task-definition --task-definition ${{ steps.vars.outputs.ECS_TASK_DEFINITION }} --query taskDefinition > task-definition.json
+          if aws ecs describe-task-definition --task-definition ${{ steps.vars.outputs.ECS_TASK_DEFINITION }} --query taskDefinition > task-definition.json 2>/dev/null; then
+            echo "✅ Existing task definition found"
+          else
+            echo "⚠️ No existing task definition found, creating minimal one"
+            # Create minimal task definition JSON for first deployment
+            cat > task-definition.json << EOF
+          {
+            "family": "${{ steps.vars.outputs.ECS_TASK_DEFINITION }}",
+            "networkMode": "awsvpc",
+            "requiresCompatibilities": ["FARGATE"],
+            "cpu": "256",
+            "memory": "512",
+            "executionRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/BCOS-ECSTaskExecutionRole",
+            "taskRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/BCOS-ECSTaskRole",
+            "containerDefinitions": [
+              {
+                "name": "bcos",
+                "image": "placeholder:latest",
+                "portMappings": [
+                  {
+                    "containerPort": 3000,
+                    "hostPort": 3000,
+                    "protocol": "tcp",
+                    "name": "http"
+                  }
+                ],
+                "essential": true,
+                "logConfiguration": {
+                  "logDriver": "awslogs",
+                  "options": {
+                    "awslogs-group": "/ecs/bcos-${{ steps.vars.outputs.TARGET_ENV }}",
+                    "awslogs-region": "${{ env.AWS_REGION }}",
+                    "awslogs-stream-prefix": "ecs"
+                  }
+                }
+              }
+            ]
+          }
+          EOF
+          fi
 
       - name: Update ECS task definition
         id: task-def
@@ -126,6 +165,25 @@ jobs:
           task-definition: task-definition.json
           container-name: bcos
           image: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.IMAGE_TAG }}
+
+      - name: Ensure CloudWatch log group exists
+        run: |
+          LOG_GROUP="/ecs/bcos-${{ steps.vars.outputs.TARGET_ENV }}"
+          if ! aws logs describe-log-groups --log-group-name-prefix "${LOG_GROUP}" --query 'logGroups[?logGroupName==`'${LOG_GROUP}'`]' --output text | grep -q "${LOG_GROUP}"; then
+            echo "Creating log group: ${LOG_GROUP}"
+            aws logs create-log-group --log-group-name "${LOG_GROUP}"
+            aws logs put-retention-policy --log-group-name "${LOG_GROUP}" --retention-in-days 30
+          else
+            echo "✅ Log group already exists: ${LOG_GROUP}"
+          fi
+
+      - name: Register task definition
+        id: register-task-def
+        run: |
+          # Register the task definition to get the full ARN
+          TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://${{ steps.task-def.outputs.task-definition }} --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "task-definition-arn=${TASK_DEF_ARN}" >> $GITHUB_OUTPUT
+          echo "✅ Task definition registered: ${TASK_DEF_ARN}"
 
       - name: Check if ECS service exists
         id: check-service
@@ -146,7 +204,7 @@ jobs:
           aws ecs create-service \
             --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} \
             --service-name ${{ steps.vars.outputs.ECS_SERVICE }} \
-            --task-definition ${{ steps.vars.outputs.ECS_TASK_DEFINITION }} \
+            --task-definition ${{ steps.register-task-def.outputs.task-definition-arn }} \
             --desired-count 1 \
             --launch-type FARGATE \
             --network-configuration "awsvpcConfiguration={subnets=[subnet-1d132031,subnet-6f277e63,subnet-095fa406c94abb01f,subnet-2563a41a],securityGroups=[sg-01fa0ee93963bd614],assignPublicIp=DISABLED}" \
@@ -158,12 +216,20 @@ jobs:
           echo "✅ ECS service created successfully"
 
       - name: Deploy to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@df9643053eda01f169e64a0e60233aacca83799a # v1.4.11
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ steps.vars.outputs.ECS_SERVICE }}
-          cluster: ${{ steps.vars.outputs.ECS_CLUSTER }}
-          wait-for-service-stability: true
+        run: |
+          # Update existing service to use new task definition
+          aws ecs update-service \
+            --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} \
+            --service ${{ steps.vars.outputs.ECS_SERVICE }} \
+            --task-definition ${{ steps.register-task-def.outputs.task-definition-arn }}
+          
+          # Wait for service stability
+          echo "⏳ Waiting for service to reach steady state..."
+          aws ecs wait services-stable \
+            --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} \
+            --services ${{ steps.vars.outputs.ECS_SERVICE }}
+          
+          echo "✅ ECS deployment completed successfully"
 
       - name: Verify deployment
         run: |
