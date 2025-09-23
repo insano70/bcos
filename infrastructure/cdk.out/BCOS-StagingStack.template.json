@@ -39,18 +39,18 @@
     "aws:cdk:path": "BCOS-StagingStack/ExecutionRole/Policy/Resource"
    }
   },
-  "ECSSecurityGroupfromBCOSStagingStackALBSecurityGroupD6638EC0806BE7CBF9": {
+  "ECSSecurityGroupfromBCOSStagingStackALBSecurityGroupD6638EC030008A8A5A2A": {
    "Type": "AWS::EC2::SecurityGroupIngress",
    "Properties": {
     "Description": "Load balancer to target",
-    "FromPort": 80,
+    "FromPort": 3000,
     "GroupId": "sg-01fa0ee93963bd614",
     "IpProtocol": "tcp",
     "SourceSecurityGroupId": "sg-01fa0ee93963bd614",
-    "ToPort": 80
+    "ToPort": 3000
    },
    "Metadata": {
-    "aws:cdk:path": "BCOS-StagingStack/ECSSecurityGroup/from BCOSStagingStackALBSecurityGroupD6638EC0:80"
+    "aws:cdk:path": "BCOS-StagingStack/ECSSecurityGroup/from BCOSStagingStackALBSecurityGroupD6638EC0:3000"
    }
   },
   "StagingClusterD0FDCA09": {
@@ -101,7 +101,7 @@
   "SecureContainerLogGroup7C38C890": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/ecs/bcos-staging-1758656192496",
+    "LogGroupName": "/ecs/bcos-staging-1758660316600",
     "RetentionInDays": 30,
     "Tags": [
      {
@@ -137,7 +137,7 @@
        },
        {
         "Name": "PORT",
-        "Value": "80"
+        "Value": "3000"
        },
        {
         "Name": "AWS_REGION",
@@ -156,7 +156,7 @@
       "HealthCheck": {
        "Command": [
         "CMD-SHELL",
-        "curl -f http://localhost:80/health || exit 1"
+        "curl -f http://localhost:3000/health || exit 1"
        ],
        "Interval": 30,
        "Retries": 3,
@@ -194,7 +194,7 @@
       "Name": "bcos",
       "PortMappings": [
        {
-        "ContainerPort": 80,
+        "ContainerPort": 3000,
         "Name": "http",
         "Protocol": "tcp"
        }
@@ -348,7 +348,7 @@
     "LoadBalancers": [
      {
       "ContainerName": "bcos",
-      "ContainerPort": 80,
+      "ContainerPort": 3000,
       "TargetGroupArn": {
        "Ref": "StagingTargetGroupD48C3A0A"
       }
@@ -440,7 +440,7 @@
   "WAFProtectionWAFLogGroupC4D17A54": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/aws/waf/bcos-staging-1758656192521",
+    "LogGroupName": "/aws/waf/bcos-staging-1758660316623",
     "RetentionInDays": 30,
     "Tags": [
      {

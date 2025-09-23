@@ -137,11 +137,11 @@
     "aws:cdk:path": "BCOS-ProductionStack/TaskRole/Policy/Resource"
    }
   },
-  "ECSSecurityGroupfromBCOSProductionStackALBSecurityGroup5746FAE880A2D069D8": {
+  "ECSSecurityGroupfromBCOSProductionStackALBSecurityGroup5746FAE830001927BF23": {
    "Type": "AWS::EC2::SecurityGroupIngress",
    "Properties": {
     "Description": "Load balancer to target",
-    "FromPort": 80,
+    "FromPort": 3000,
     "GroupId": {
      "Fn::ImportValue": "BCOS-ECSSecurityGroup-Id"
     },
@@ -149,10 +149,10 @@
     "SourceSecurityGroupId": {
      "Fn::ImportValue": "BCOS-ECSSecurityGroup-Id"
     },
-    "ToPort": 80
+    "ToPort": 3000
    },
    "Metadata": {
-    "aws:cdk:path": "BCOS-ProductionStack/ECSSecurityGroup/from BCOSProductionStackALBSecurityGroup5746FAE8:80"
+    "aws:cdk:path": "BCOS-ProductionStack/ECSSecurityGroup/from BCOSProductionStackALBSecurityGroup5746FAE8:3000"
    }
   },
   "ExecuteCommandLogGroup3D257AE9": {
@@ -256,7 +256,7 @@
   "SecureContainerLogGroup7C38C890": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/ecs/bcos-production-1758656192547",
+    "LogGroupName": "/ecs/bcos-production-1758660316647",
     "RetentionInDays": 90,
     "Tags": [
      {
@@ -300,7 +300,7 @@
        },
        {
         "Name": "PORT",
-        "Value": "80"
+        "Value": "3000"
        },
        {
         "Name": "AWS_REGION",
@@ -319,7 +319,7 @@
       "HealthCheck": {
        "Command": [
         "CMD-SHELL",
-        "curl -f http://localhost:80/health || exit 1"
+        "curl -f http://localhost:3000/health || exit 1"
        ],
        "Interval": 30,
        "Retries": 3,
@@ -384,7 +384,7 @@
       "Name": "bcos",
       "PortMappings": [
        {
-        "ContainerPort": 80,
+        "ContainerPort": 3000,
         "Name": "http",
         "Protocol": "tcp"
        }
@@ -560,7 +560,7 @@
     "HealthCheckEnabled": true,
     "HealthCheckIntervalSeconds": 15,
     "HealthCheckPath": "/health",
-    "HealthCheckPort": "80",
+    "HealthCheckPort": "3000",
     "HealthCheckProtocol": "HTTP",
     "HealthCheckTimeoutSeconds": 5,
     "HealthyThresholdCount": 2,
@@ -568,7 +568,7 @@
      "HttpCode": "200"
     },
     "Name": "bcos-production-tg",
-    "Port": 80,
+    "Port": 3000,
     "Protocol": "HTTP",
     "Tags": [
      {
@@ -648,7 +648,7 @@
     "LoadBalancers": [
      {
       "ContainerName": "bcos",
-      "ContainerPort": 80,
+      "ContainerPort": 3000,
       "TargetGroupArn": {
        "Ref": "ProductionTargetGroup8A92AA3C"
       }
@@ -767,7 +767,7 @@
   "WAFProtectionWAFLogGroupC4D17A54": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/aws/waf/bcos-production-1758656192548",
+    "LogGroupName": "/aws/waf/bcos-production-1758660316648",
     "RetentionInDays": 90,
     "Tags": [
      {

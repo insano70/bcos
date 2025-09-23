@@ -221,7 +221,7 @@
     "SecurityGroupIngress": [
      {
       "Description": "Allow HTTP traffic from ALB",
-      "FromPort": 80,
+      "FromPort": 3000,
       "IpProtocol": "tcp",
       "SourceSecurityGroupId": {
        "Fn::GetAtt": [
@@ -229,7 +229,7 @@
         "GroupId"
        ]
       },
-      "ToPort": 80
+      "ToPort": 3000
      },
      {
       "CidrIp": "10.104.172.0/22",

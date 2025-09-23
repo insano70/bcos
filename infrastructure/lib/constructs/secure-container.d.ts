@@ -43,7 +43,7 @@ export interface SecureContainerProps {
      */
     memory: number;
     /**
-     * Container port (default: 80)
+     * Container port (default: 3000)
      */
     containerPort?: number;
     /**

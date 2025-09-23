@@ -153,7 +153,7 @@
     "ImageScanningConfiguration": {
      "ScanOnPush": true
     },
-    "ImageTagMutability": "IMMUTABLE",
+    "ImageTagMutability": "MUTABLE",
     "LifecyclePolicy": {
      "LifecyclePolicyText": "{\"rules\":[{\"rulePriority\":1,\"description\":\"Keep last 10 production images\",\"selection\":{\"tagStatus\":\"tagged\",\"tagPrefixList\":[\"v\",\"release\"],\"countType\":\"imageCountMoreThan\",\"countNumber\":10},\"action\":{\"type\":\"expire\"}},{\"rulePriority\":2,\"description\":\"Keep last 5 staging images\",\"selection\":{\"tagStatus\":\"tagged\",\"tagPrefixList\":[\"staging\"],\"countType\":\"imageCountMoreThan\",\"countNumber\":5},\"action\":{\"type\":\"expire\"}},{\"rulePriority\":3,\"description\":\"Delete untagged images after 7 days\",\"selection\":{\"tagStatus\":\"untagged\",\"countType\":\"sinceImagePushed\",\"countNumber\":7,\"countUnit\":\"days\"},\"action\":{\"type\":\"expire\"}}]}"
     },
