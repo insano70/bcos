@@ -180,8 +180,12 @@ jobs:
       - name: Register task definition
         id: register-task-def
         run: |
-          # Register the task definition to get the full ARN
-          TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://${{ steps.task-def.outputs.task-definition }} --query 'taskDefinition.taskDefinitionArn' --output text)
+          # Clean task definition JSON by removing read-only fields
+          CLEAN_TASK_DEF=$(cat ${{ steps.task-def.outputs.task-definition }} | jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy, .placementConstraints)')
+          echo "${CLEAN_TASK_DEF}" > clean-task-definition.json
+          
+          # Register the cleaned task definition
+          TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://clean-task-definition.json --query 'taskDefinition.taskDefinitionArn' --output text)
           echo "task-definition-arn=${TASK_DEF_ARN}" >> $GITHUB_OUTPUT
           echo "✅ Task definition registered: ${TASK_DEF_ARN}"
 
