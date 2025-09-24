@@ -115,18 +115,22 @@ jobs:
           platforms: linux/amd64
 
 
-      - name: Create task definition with correct configuration
+      - name: Get current task definition and fix health check
         run: |
-          echo "🔧 Creating fresh task definition with correct health checks and resources"
-          # Always create a fresh task definition to ensure correct configuration
-          # Create task definition JSON with correct health checks and enhanced resources
-          cat > task-definition.json << EOF
+          if aws ecs describe-task-definition --task-definition ${{ steps.vars.outputs.ECS_TASK_DEFINITION }} --query taskDefinition > task-definition.json 2>/dev/null; then
+            echo "✅ Existing task definition found, fixing health check path"
+            # Fix health check path from /health to /api/health
+            jq '.containerDefinitions[0].healthCheck.command[1] = "curl -f http://localhost:3000/api/health || exit 1"' task-definition.json > fixed-task-definition.json
+            mv fixed-task-definition.json task-definition.json
+          else
+            echo "⚠️ No existing task definition found, creating minimal one"
+            cat > task-definition.json << EOF
           {
             "family": "${{ steps.vars.outputs.ECS_TASK_DEFINITION }}",
             "networkMode": "awsvpc",
             "requiresCompatibilities": ["FARGATE"],
-            "cpu": "2048",
-            "memory": "8192",
+            "cpu": "256",
+            "memory": "512",
             "executionRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/BCOS-ECSTaskExecutionRole",
             "taskRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/BCOS-ECSTaskRole",
             "containerDefinitions": [
@@ -142,34 +146,6 @@ jobs:
                   }
                 ],
                 "essential": true,
-                "environment": [
-                  {
-                    "name": "NODE_ENV",
-                    "value": "production"
-                  },
-                  {
-                    "name": "PORT", 
-                    "value": "3000"
-                  },
-                  {
-                    "name": "AWS_REGION",
-                    "value": "${{ env.AWS_REGION }}"
-                  },
-                  {
-                    "name": "ENVIRONMENT",
-                    "value": "${{ steps.vars.outputs.TARGET_ENV }}"
-                  },
-                  {
-                    "name": "NEXT_PUBLIC_APP_URL",
-                    "value": "https://staging.bendcare.com"
-                  }
-                ],
-                "secrets": [
-                  {
-                    "name": "DATABASE_URL",
-                    "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:DATABASE_URL::"
-                  }
-                ],
                 "healthCheck": {
                   "command": [
                     "CMD-SHELL",
@@ -192,6 +168,7 @@ jobs:
             ]
           }
           EOF
+          fi
 
       - name: Update ECS task definition
         id: task-def
