@@ -56,7 +56,7 @@ RUN mkdir -p .next/cache && \
 
 # Set environment variables
 ENV NODE_ENV=production
-ENV PORT=80
+ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # Security: Use non-root user

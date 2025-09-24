@@ -3,6 +3,7 @@
   "domain": "staging.bendcare.com",
   "hostedZoneName": "bendcare.com",
   "certificateValidationDomain": "staging.bendcare.com",
+  "alertEmails": ["devops@bendcare.com"],
   "ecs": {
     "clusterName": "bcos-staging-cluster",
     "serviceName": "bcos-staging-service",

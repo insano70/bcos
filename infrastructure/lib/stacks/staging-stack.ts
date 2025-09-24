@@ -35,18 +35,18 @@ export class StagingStack extends cdk.Stack {
       vpcId: vpcId,
     });
 
-    // Use hardcoded values from the deployed stacks for now (to avoid CloudFormation function issues)
-    const kmsKeyArn = 'arn:aws:kms:us-east-1:854428944440:key/1d56416b-b0da-4f9a-8bf3-7517b7d066c2';
-    const ecrRepositoryArn = 'arn:aws:ecr:us-east-1:854428944440:repository/bcos';
-    const ecsTaskExecutionRoleArn = 'arn:aws:iam::854428944440:role/BCOS-ECSTaskExecutionRole';
-    const ecsTaskRoleArn = 'arn:aws:iam::854428944440:role/BCOS-ECSTaskRole';
-    const stagingSecretArn = 'arn:aws:secretsmanager:us-east-1:854428944440:secret:staging/bcos-secrets-vDmCm7';
-    const albArn = 'arn:aws:elasticloadbalancing:us-east-1:854428944440:loadbalancer/app/BCOS-N-Appli-rIo4btfCQRZj/ac6744264a6b1239';
-    const albDnsName = 'BCOS-N-Appli-rIo4btfCQRZj-401564420.us-east-1.elb.amazonaws.com';
-    const albCanonicalHostedZoneId = 'Z35SXDOTRQ7X7K';
-    const httpsListenerArn = 'arn:aws:elasticloadbalancing:us-east-1:854428944440:listener/app/BCOS-N-Appli-rIo4btfCQRZj/ac6744264a6b1239/93962089e0bad510';
-    const hostedZoneId = 'Z05961102TVIVESKQ4GAL';
-    const ecsSecurityGroupId = 'sg-01fa0ee93963bd614';
+    // Import values from other stacks using CloudFormation exports
+    const kmsKeyArn = cdk.Fn.importValue('BCOS-KMS-Key-Arn');
+    const ecrRepositoryArn = cdk.Fn.importValue('BCOS-ECRRepository-Arn');
+    const ecsTaskExecutionRoleArn = cdk.Fn.importValue('BCOS-ECSTaskExecutionRole-Arn');
+    const ecsTaskRoleArn = cdk.Fn.importValue('BCOS-ECSTaskRole-Arn');
+    const stagingSecretArn = cdk.Fn.importValue('BCOS-StagingSecret-Arn');
+    const albArn = cdk.Fn.importValue('BCOS-LoadBalancer-Arn');
+    const albDnsName = cdk.Fn.importValue('BCOS-LoadBalancer-DnsName');
+    const albCanonicalHostedZoneId = cdk.Fn.importValue('BCOS-LoadBalancer-CanonicalHostedZoneId');
+    const httpsListenerArn = cdk.Fn.importValue('BCOS-HTTPSListener-Arn');
+    const hostedZoneId = cdk.Fn.importValue('BCOS-HostedZone-Id');
+    const ecsSecurityGroupId = cdk.Fn.importValue('BCOS-ECSSecurityGroup-Id');
 
     // Import KMS key
     const kmsKey = cdk.aws_kms.Key.fromKeyArn(this, 'KMSKey', kmsKeyArn);

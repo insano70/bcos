@@ -1,0 +1,36 @@
+{
+  "organization": {
+    "name": "BCOS",
+    "displayName": "BendCare OS",
+    "domain": "bendcare.com"
+  },
+  "aws": {
+    "region": "us-east-1",
+    "cdkBootstrapQualifier": "hnb659fds"
+  },
+  "networking": {
+    "hostedZoneName": "bendcare.com",
+    "sslCertificateValidationMethod": "DNS"
+  },
+  "alerts": {
+    "productionEmails": ["production-alerts@bendcare.com"],
+    "stagingEmails": ["devops@bendcare.com"],
+    "securityEmails": ["security@bendcare.com"]
+  },
+  "repositories": {
+    "github": {
+      "owner": "insano70",
+      "name": "bcos",
+      "branches": {
+        "production": "main",
+        "staging": "staging"
+      }
+    }
+  },
+  "defaults": {
+    "adminUser": {
+      "email": "admin@bendcare.com",
+      "username": "admin"
+    }
+  }
+}

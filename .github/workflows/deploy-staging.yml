@@ -115,6 +115,18 @@ jobs:
           platforms: linux/amd64
 
 
+      - name: Get secrets ARN from CloudFormation
+        id: get-secrets-arn
+        run: |
+          # Get the secret ARN dynamically from CloudFormation stack outputs
+          if [ "${{ steps.vars.outputs.TARGET_ENV }}" = "production" ]; then
+            SECRET_ARN=$(aws cloudformation describe-stacks --stack-name BCOS-SecurityStack --query 'Stacks[0].Outputs[?OutputKey==`ProductionSecretArn`].OutputValue' --output text)
+          else
+            SECRET_ARN=$(aws cloudformation describe-stacks --stack-name BCOS-SecurityStack --query 'Stacks[0].Outputs[?OutputKey==`StagingSecretArn`].OutputValue' --output text)
+          fi
+          echo "secret-arn=${SECRET_ARN}" >> $GITHUB_OUTPUT
+          echo "✅ Secret ARN resolved: ${SECRET_ARN}"
+
       - name: Get current task definition and fix health check
         run: |
           if aws ecs describe-task-definition --task-definition ${{ steps.vars.outputs.ECS_TASK_DEFINITION }} --query taskDefinition > task-definition.json 2>/dev/null; then
@@ -122,51 +134,51 @@ jobs:
             # Fix health check path from /health to /api/health
             jq '.containerDefinitions[0].healthCheck.command[1] = "curl -f http://localhost:3000/api/health || exit 1"' task-definition.json > fixed-health-task-definition.json
             
-            # Add ALL secrets from Secrets Manager
-            jq '.containerDefinitions[0].secrets = [
+            # Add ALL secrets from Secrets Manager using dynamic ARN
+            jq --arg SECRET_ARN "${{ steps.get-secrets-arn.outputs.secret-arn }}" '.containerDefinitions[0].secrets = [
               {
                 "name": "NODE_ENV",
-                "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:NODE_ENV::"
+                "valueFrom": ($SECRET_ARN + ":NODE_ENV::")
               },
               {
                 "name": "PORT",
-                "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:PORT::"
+                "valueFrom": ($SECRET_ARN + ":PORT::")
               },
               {
                 "name": "SKIP_ENV_VALIDATION",
-                "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:SKIP_ENV_VALIDATION::"
+                "valueFrom": ($SECRET_ARN + ":SKIP_ENV_VALIDATION::")
               },
               {
                 "name": "DATABASE_URL",
-                "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:DATABASE_URL::"
+                "valueFrom": ($SECRET_ARN + ":DATABASE_URL::")
               },
               {
                 "name": "ANALYTICS_DATABASE_URL",
-                "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:ANALYTICS_DATABASE_URL::"
+                "valueFrom": ($SECRET_ARN + ":ANALYTICS_DATABASE_URL::")
               },
               {
                 "name": "JWT_SECRET", 
-                "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:JWT_SECRET::"
+                "valueFrom": ($SECRET_ARN + ":JWT_SECRET::")
               },
               {
                 "name": "JWT_REFRESH_SECRET",
-                "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:JWT_REFRESH_SECRET::"
+                "valueFrom": ($SECRET_ARN + ":JWT_REFRESH_SECRET::")
               },
               {
                 "name": "CSRF_SECRET",
-                "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:CSRF_SECRET::"
+                "valueFrom": ($SECRET_ARN + ":CSRF_SECRET::")
               },
               {
                 "name": "EMAIL_FROM",
-                "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:EMAIL_FROM::"
+                "valueFrom": ($SECRET_ARN + ":EMAIL_FROM::")
               },
               {
                 "name": "ADMIN_NOTIFICATION_EMAILS",
-                "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:ADMIN_NOTIFICATION_EMAILS::"
+                "valueFrom": ($SECRET_ARN + ":ADMIN_NOTIFICATION_EMAILS::")
               },
               {
                 "name": "NEXT_PUBLIC_APP_URL",
-                "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:NEXT_PUBLIC_APP_URL::"
+                "valueFrom": ($SECRET_ARN + ":NEXT_PUBLIC_APP_URL::")
               }
             ]' fixed-health-task-definition.json > task-definition.json
           else
@@ -266,6 +278,12 @@ jobs:
           TARGET_GROUP_ARN=$(aws cloudformation describe-stacks --stack-name BCOS-StagingStack --query 'Stacks[0].Outputs[?OutputKey==`StagingTargetGroupArn`].OutputValue' --output text)
           echo "🎯 Target Group ARN: ${TARGET_GROUP_ARN}"
           
+          # Get network configuration from CloudFormation exports
+          PRIVATE_SUBNETS=$(aws cloudformation describe-stacks --stack-name BCOS-NetworkStack --query 'Stacks[0].Outputs[?OutputKey==`PrivateSubnetIds`].OutputValue' --output text)
+          ECS_SECURITY_GROUP=$(aws cloudformation describe-stacks --stack-name BCOS-NetworkStack --query 'Stacks[0].Outputs[?OutputKey==`ECSSecurityGroupId`].OutputValue' --output text)
+          echo "🔗 Private Subnets: ${PRIVATE_SUBNETS}"
+          echo "🛡️  ECS Security Group: ${ECS_SECURITY_GROUP}"
+          
           # Create ECS service with proper load balancer configuration
           echo "🚀 Creating ECS service: ${{ steps.vars.outputs.ECS_SERVICE }}"
           aws ecs create-service \
@@ -274,7 +292,7 @@ jobs:
             --task-definition ${{ steps.register-task-def.outputs.task-definition-arn }} \
             --desired-count 1 \
             --launch-type FARGATE \
-            --network-configuration "awsvpcConfiguration={subnets=[subnet-1d132031,subnet-6f277e63,subnet-095fa406c94abb01f,subnet-2563a41a],securityGroups=[sg-01fa0ee93963bd614],assignPublicIp=DISABLED}" \
+            --network-configuration "awsvpcConfiguration={subnets=[${PRIVATE_SUBNETS}],securityGroups=[${ECS_SECURITY_GROUP}],assignPublicIp=DISABLED}" \
             --load-balancers "targetGroupArn=${TARGET_GROUP_ARN},containerName=bcos,containerPort=3000" \
             --health-check-grace-period-seconds 300 \
             --deployment-configuration "maximumPercent=200,minimumHealthyPercent=50" \

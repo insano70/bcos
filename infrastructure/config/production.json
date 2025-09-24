@@ -3,6 +3,7 @@
   "domain": "app.bendcare.com",
   "hostedZoneName": "bendcare.com",
   "certificateValidationDomain": "app.bendcare.com",
+  "alertEmails": ["production-alerts@bendcare.com"],
   "ecs": {
     "clusterName": "bcos-production-cluster",
     "serviceName": "bcos-production-service", 

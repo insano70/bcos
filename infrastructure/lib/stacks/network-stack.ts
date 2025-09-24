@@ -256,5 +256,13 @@ export class NetworkStack extends cdk.Stack {
       description: 'ECS Security Group ID',
       exportName: 'BCOS-ECSSecurityGroup-Id',
     });
+
+    // Export private subnet IDs for ECS tasks
+    const privateSubnets = this.vpc.privateSubnets;
+    new cdk.CfnOutput(this, 'PrivateSubnetIds', {
+      value: cdk.Fn.join(',', privateSubnets.map(subnet => subnet.subnetId)),
+      description: 'Comma-separated list of private subnet IDs for ECS tasks',
+      exportName: 'BCOS-PrivateSubnet-Ids',
+    });
   }
 }

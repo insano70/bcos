@@ -106,8 +106,8 @@ export class SecurityStack extends cdk.Stack {
           },
           StringLike: {
             'token.actions.githubusercontent.com:sub': [
-              'repo:pstewart/bcos:ref:refs/heads/main',
-              'repo:pstewart/bcos:ref:refs/heads/staging',
+            'repo:insano70/bcos:ref:refs/heads/main',
+            'repo:insano70/bcos:ref:refs/heads/staging',
             ],
           },
         }
@@ -211,12 +211,15 @@ export class SecurityStack extends cdk.Stack {
           'ssm:GetParameters',
         ],
         resources: [
-          `arn:aws:ssm:us-east-1:${this.account}:parameter/cdk-bootstrap/*`,
+          `arn:aws:ssm:us-east-1:${this.account}:parameter/cdk-bootstrap/${cdkBootstrapQualifier}/*`,
         ],
       })
     );
 
     // CDK bootstrap permissions for asset publishing and deployment
+    // Get CDK bootstrap qualifier from context or use default
+    const cdkBootstrapQualifier = this.node.tryGetContext('bootstrapQualifier') || 'hnb659fds';
+    
     this.githubActionsRole.addToPolicy(
       new iam.PolicyStatement({
         sid: 'CDKBootstrapAssumeRoles',
@@ -225,9 +228,9 @@ export class SecurityStack extends cdk.Stack {
           'sts:AssumeRole',
         ],
         resources: [
-          `arn:aws:iam::${this.account}:role/cdk-hnb659fds-deploy-role-${this.account}-us-east-1`,
-          `arn:aws:iam::${this.account}:role/cdk-hnb659fds-file-publishing-role-${this.account}-us-east-1`,
-          `arn:aws:iam::${this.account}:role/cdk-hnb659fds-lookup-role-${this.account}-us-east-1`,
+          `arn:aws:iam::${this.account}:role/cdk-${cdkBootstrapQualifier}-deploy-role-${this.account}-us-east-1`,
+          `arn:aws:iam::${this.account}:role/cdk-${cdkBootstrapQualifier}-file-publishing-role-${this.account}-us-east-1`,
+          `arn:aws:iam::${this.account}:role/cdk-${cdkBootstrapQualifier}-lookup-role-${this.account}-us-east-1`,
         ],
       })
     );
@@ -244,8 +247,8 @@ export class SecurityStack extends cdk.Stack {
           's3:ListBucket',
         ],
         resources: [
-          `arn:aws:s3:::cdk-hnb659fds-assets-${this.account}-us-east-1`,
-          `arn:aws:s3:::cdk-hnb659fds-assets-${this.account}-us-east-1/*`,
+          `arn:aws:s3:::cdk-${cdkBootstrapQualifier}-assets-${this.account}-us-east-1`,
+          `arn:aws:s3:::cdk-${cdkBootstrapQualifier}-assets-${this.account}-us-east-1/*`,
         ],
       })
     );
@@ -311,7 +314,7 @@ export class SecurityStack extends cdk.Stack {
       generateSecretString: {
         secretStringTemplate: JSON.stringify({ 
           NODE_ENV: 'production',
-          PORT: '4001'
+          PORT: '3000'
         }),
         generateStringKey: 'JWT_SECRET',
         excludeCharacters: '"@/\\',
@@ -327,7 +330,7 @@ export class SecurityStack extends cdk.Stack {
       generateSecretString: {
         secretStringTemplate: JSON.stringify({ 
           NODE_ENV: 'staging',
-          PORT: '4001'
+          PORT: '3000'
         }),
         generateStringKey: 'JWT_SECRET',
         excludeCharacters: '"@/\\',
@@ -377,6 +380,12 @@ export class SecurityStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ECRRepositoryName', {
       value: this.ecrRepository.repositoryName,
       description: 'ECR Repository name for BCOS container images',
+    });
+
+    new cdk.CfnOutput(this, 'ECRRepositoryArn', {
+      value: this.ecrRepository.repositoryArn,
+      description: 'ECR Repository ARN for BCOS container images',
+      exportName: 'BCOS-ECRRepository-Arn',
     });
 
     new cdk.CfnOutput(this, 'ECSTaskExecutionRoleArn', {
