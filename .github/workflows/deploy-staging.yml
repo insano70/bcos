@@ -118,10 +118,29 @@ jobs:
       - name: Get current task definition and fix health check
         run: |
           if aws ecs describe-task-definition --task-definition ${{ steps.vars.outputs.ECS_TASK_DEFINITION }} --query taskDefinition > task-definition.json 2>/dev/null; then
-            echo "✅ Existing task definition found, fixing health check path"
+            echo "✅ Existing task definition found, fixing health check path and adding missing secrets"
             # Fix health check path from /health to /api/health
-            jq '.containerDefinitions[0].healthCheck.command[1] = "curl -f http://localhost:3000/api/health || exit 1"' task-definition.json > fixed-task-definition.json
-            mv fixed-task-definition.json task-definition.json
+            jq '.containerDefinitions[0].healthCheck.command[1] = "curl -f http://localhost:3000/api/health || exit 1"' task-definition.json > fixed-health-task-definition.json
+            
+            # Add missing secrets from Secrets Manager
+            jq '.containerDefinitions[0].secrets = [
+              {
+                "name": "DATABASE_URL",
+                "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:DATABASE_URL::"
+              },
+              {
+                "name": "JWT_SECRET", 
+                "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:JWT_SECRET::"
+              },
+              {
+                "name": "JWT_REFRESH_SECRET",
+                "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:JWT_REFRESH_SECRET::"
+              },
+              {
+                "name": "CSRF_SECRET",
+                "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:CSRF_SECRET::"
+              }
+            ]' fixed-health-task-definition.json > task-definition.json
           else
             echo "⚠️ No existing task definition found, creating minimal one"
             cat > task-definition.json << EOF
