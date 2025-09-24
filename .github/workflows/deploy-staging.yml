@@ -142,6 +142,34 @@ jobs:
                   }
                 ],
                 "essential": true,
+                "environment": [
+                  {
+                    "name": "NODE_ENV",
+                    "value": "production"
+                  },
+                  {
+                    "name": "PORT", 
+                    "value": "3000"
+                  },
+                  {
+                    "name": "AWS_REGION",
+                    "value": "${{ env.AWS_REGION }}"
+                  },
+                  {
+                    "name": "ENVIRONMENT",
+                    "value": "${{ steps.vars.outputs.TARGET_ENV }}"
+                  },
+                  {
+                    "name": "NEXT_PUBLIC_APP_URL",
+                    "value": "https://staging.bendcare.com"
+                  }
+                ],
+                "secrets": [
+                  {
+                    "name": "DATABASE_URL",
+                    "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets"
+                  }
+                ],
                 "healthCheck": {
                   "command": [
                     "CMD-SHELL",
