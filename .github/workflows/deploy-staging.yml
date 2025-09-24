@@ -115,14 +115,12 @@ jobs:
           platforms: linux/amd64
 
 
-      - name: Get current task definition (or create empty one)
+      - name: Create task definition with correct configuration
         run: |
-          if aws ecs describe-task-definition --task-definition ${{ steps.vars.outputs.ECS_TASK_DEFINITION }} --query taskDefinition > task-definition.json 2>/dev/null; then
-            echo "✅ Existing task definition found"
-          else
-            echo "⚠️ No existing task definition found, creating minimal one"
-            # Create minimal task definition JSON for first deployment
-            cat > task-definition.json << EOF
+          echo "🔧 Creating fresh task definition with correct health checks and resources"
+          # Always create a fresh task definition to ensure correct configuration
+          # Create task definition JSON with correct health checks and enhanced resources
+          cat > task-definition.json << EOF
           {
             "family": "${{ steps.vars.outputs.ECS_TASK_DEFINITION }}",
             "networkMode": "awsvpc",
@@ -166,7 +164,6 @@ jobs:
             ]
           }
           EOF
-          fi
 
       - name: Update ECS task definition
         id: task-def
