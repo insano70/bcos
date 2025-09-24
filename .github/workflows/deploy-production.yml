@@ -196,16 +196,12 @@ jobs:
           echo "🔍 Verifying production deployment..."
           sleep 90  # Allow time for deployment to stabilize
           
-          # Health check
-          HEALTH_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://app.bendcare.com/health || echo "000")
-          
-          # API check
-          API_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://app.bendcare.com/api/health || echo "000")
+          # Health check (using correct API endpoint)
+          HEALTH_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://app.bendcare.com/api/health || echo "000")
           
           echo "Health endpoint: $HEALTH_RESPONSE"
-          echo "API endpoint: $API_RESPONSE"
           
-          if [ "$HEALTH_RESPONSE" -eq 200 ] && [ "$API_RESPONSE" -eq 200 ]; then
+          if [ "$HEALTH_RESPONSE" -eq 200 ]; then
             echo "✅ Production deployment verified successfully"
             echo "deployment-status=success" >> $GITHUB_OUTPUT
           else

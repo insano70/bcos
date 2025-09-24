@@ -8,8 +8,8 @@
     "serviceName": "bcos-staging-service",
     "taskDefinitionFamily": "bcos-staging",
     "desiredCount": 1,
-    "cpu": 512,
-    "memory": 1024,
+    "cpu": 2048,
+    "memory": 8192,
     "autoScaling": {
       "enabled": false,
       "minCapacity": 1,

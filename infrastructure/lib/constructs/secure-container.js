@@ -92,7 +92,7 @@ class SecureContainer extends constructs_1.Construct {
             }),
             // Health check
             healthCheck: {
-                command: ['CMD-SHELL', `curl -f http://localhost:${containerPort}/health || exit 1`],
+                command: ['CMD-SHELL', `curl -f http://localhost:${containerPort}/api/health || exit 1`],
                 interval: cdk.Duration.seconds(30),
                 timeout: cdk.Duration.seconds(5),
                 retries: 3,
