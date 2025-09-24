@@ -256,7 +256,7 @@
   "SecureContainerLogGroup7C38C890": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/ecs/bcos-production-1758681810862",
+    "LogGroupName": "/ecs/bcos-production-1758708411510",
     "RetentionInDays": 90,
     "Tags": [
      {
@@ -559,7 +559,7 @@
    "Properties": {
     "HealthCheckEnabled": true,
     "HealthCheckIntervalSeconds": 15,
-    "HealthCheckPath": "/health",
+    "HealthCheckPath": "/api/health",
     "HealthCheckPort": "3000",
     "HealthCheckProtocol": "HTTP",
     "HealthCheckTimeoutSeconds": 5,
@@ -767,7 +767,7 @@
   "WAFProtectionWAFLogGroupC4D17A54": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/aws/waf/bcos-production-1758681810876",
+    "LogGroupName": "/aws/waf/bcos-production-1758708411520",
     "RetentionInDays": 90,
     "Tags": [
      {

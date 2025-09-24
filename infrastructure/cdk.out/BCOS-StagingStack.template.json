@@ -51,7 +51,7 @@
    "Properties": {
     "HealthCheckEnabled": true,
     "HealthCheckIntervalSeconds": 30,
-    "HealthCheckPath": "/health",
+    "HealthCheckPath": "/api/health",
     "HealthCheckPort": "3000",
     "HealthCheckProtocol": "HTTP",
     "HealthCheckTimeoutSeconds": 10,
@@ -136,7 +136,7 @@
   "WAFProtectionWAFLogGroupC4D17A54": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/aws/waf/bcos-staging-1758681810853",
+    "LogGroupName": "/aws/waf/bcos-staging-1758708411502",
     "RetentionInDays": 30,
     "Tags": [
      {

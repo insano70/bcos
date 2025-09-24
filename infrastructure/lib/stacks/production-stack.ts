@@ -137,7 +137,7 @@ export class ProductionStack extends cdk.Stack {
       targetType: elbv2.TargetType.IP,
       healthCheck: {
         enabled: true,
-        path: '/health',
+        path: '/api/health',
         protocol: elbv2.Protocol.HTTP,
         port: '3000',
         interval: cdk.Duration.seconds(15),
