@@ -17,6 +17,9 @@ export class SecurityStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    // Get CDK bootstrap qualifier from context or use default
+    const cdkBootstrapQualifier = this.node.tryGetContext('bootstrapQualifier') || 'hnb659fds';
+
     // Create KMS key for encryption
     this.kmsKey = new kms.Key(this, 'BCOSEncryptionKey', {
       description: 'BCOS encryption key for logs, secrets, and ECR',
@@ -217,9 +220,6 @@ export class SecurityStack extends cdk.Stack {
     );
 
     // CDK bootstrap permissions for asset publishing and deployment
-    // Get CDK bootstrap qualifier from context or use default
-    const cdkBootstrapQualifier = this.node.tryGetContext('bootstrapQualifier') || 'hnb659fds';
-    
     this.githubActionsRole.addToPolicy(
       new iam.PolicyStatement({
         sid: 'CDKBootstrapAssumeRoles',
