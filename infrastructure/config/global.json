@@ -32,5 +32,24 @@
       "email": "admin@bendcare.com",
       "username": "admin"
     }
+  },
+  "application": {
+    "containerPort": 3000,
+    "healthCheckPath": "/api/health",
+    "healthCheck": {
+      "interval": 30,
+      "timeout": 10,
+      "retries": 3,
+      "startPeriod": 60,
+      "healthyThreshold": 2,
+      "unhealthyThreshold": 5
+    },
+    "container": {
+      "name": "bcos",
+      "user": "1001"
+    },
+    "logGroup": {
+      "prefix": "/ecs/bcos"
+    }
   }
 }

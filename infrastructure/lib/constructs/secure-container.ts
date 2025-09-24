@@ -92,7 +92,7 @@ export class SecureContainer extends Construct {
 
     // Create CloudWatch log group (using AWS managed encryption to avoid circular dependency)
     this.logGroup = new logs.LogGroup(this, 'LogGroup', {
-      logGroupName: `/ecs/bcos-${environment}-${Date.now()}`,
+      logGroupName: `/ecs/bcos-${environment}`,
       retention: environment === 'production' ? logs.RetentionDays.THREE_MONTHS : logs.RetentionDays.ONE_MONTH,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
@@ -124,7 +124,7 @@ export class SecureContainer extends Construct {
       
       // Security settings
       user: '1001', // Non-root user
-      readonlyRootFilesystem: true,
+      readonlyRootFilesystem: false, // Next.js requires write access to .next/cache
       
       // Linux parameters for additional security (Fargate compatible)
       linuxParameters: new ecs.LinuxParameters(this, 'LinuxParameters', {

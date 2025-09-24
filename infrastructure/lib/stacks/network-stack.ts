@@ -117,6 +117,13 @@ export class NetworkStack extends cdk.Stack {
       'Allow DNS UDP'
     );
 
+    // Allow outbound HTTPS for external services (databases, APIs)
+    this.ecsSecurityGroup.addEgressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(443),
+      'Allow HTTPS to external services'
+    );
+
     // Create VPC Endpoints for ECS tasks in private subnets
     const vpcEndpoints = [
       {
