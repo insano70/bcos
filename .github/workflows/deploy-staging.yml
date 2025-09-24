@@ -240,9 +240,7 @@ jobs:
           echo "⏳ Waiting for service to reach steady state..."
           aws ecs wait services-stable \
             --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} \
-            --services ${{ steps.vars.outputs.ECS_SERVICE }} \
-            --max-attempts 30 \
-            --delay 10
+            --services ${{ steps.vars.outputs.ECS_SERVICE }}
           
           echo "✅ ECS deployment completed successfully"
 
