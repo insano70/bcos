@@ -121,7 +121,8 @@ jobs:
           if aws ecs describe-task-definition --task-definition ${{ steps.vars.outputs.ECS_TASK_DEFINITION }} --query taskDefinition > task-definition.json 2>/dev/null; then
             echo "✅ Existing task definition found, fixing health check path"
             # Fix health check path from /health to /api/health (CDK handles all secrets)
-            jq '.containerDefinitions[0].healthCheck.command[1] = "curl -f http://localhost:3000/api/health || exit 1"' task-definition.json > task-definition.json
+            jq '.containerDefinitions[0].healthCheck.command[1] = "curl -f http://localhost:3000/api/health || exit 1"' task-definition.json > task-definition-fixed.json
+            mv task-definition-fixed.json task-definition.json
           else
             echo "⚠️ No existing task definition found, creating minimal one"
             cat > task-definition.json << EOF
