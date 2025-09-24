@@ -167,10 +167,6 @@ jobs:
               {
                 "name": "ADMIN_NOTIFICATION_EMAILS",
                 "valueFrom": ($SECRET_ARN + ":ADMIN_NOTIFICATION_EMAILS::")
-              },
-              {
-                "name": "NEXT_PUBLIC_APP_URL",
-                "valueFrom": ($SECRET_ARN + ":NEXT_PUBLIC_APP_URL::")
               }
             ]' fixed-health-task-definition.json > task-definition.json
           else
