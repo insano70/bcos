@@ -337,50 +337,36 @@ export default function DashboardRowBuilder({
                           const startDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'gte');
                           const endDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'lte');
 
-                          // Calculate exact dimensions available within this container
+                          // Use responsive sizing based on container
                           const controlsHeight = 60; // Height of chart controls section
                           const availableHeight = row.heightPx - controlsHeight; // Remaining height for chart
-                          const chartWidth = Math.max(200, Math.floor(chart.widthPercentage * 8)); // Scale width based on percentage
-                          const chartHeight = Math.max(100, availableHeight - 20); // Account for padding, ensure minimum height
+                          const minHeight = Math.min(Math.max(availableHeight * 0.6, 200), availableHeight - 20);
+                          const maxHeight = Math.max(availableHeight - 10, minHeight); // Ensure chart stays within container
 
                           return (
                             <div 
-                              className="w-full overflow-hidden"
+                              className="w-full h-full flex flex-col overflow-hidden"
                               style={{ 
-                                height: `${availableHeight}px`,
-                                maxHeight: `${availableHeight}px`,
-                                maxWidth: '100%',
-                                transform: 'scale(1)', // Force containing block
-                                transformOrigin: 'top left'
+                                minHeight: `${minHeight}px`
                               }}
                             >
-                              <div 
-                                style={{
-                                  width: `${chartWidth}px`,
-                                  height: `${chartHeight}px`,
-                                  maxWidth: '100%',
-                                  maxHeight: '100%',
-                                  overflow: 'hidden',
-                                  transform: chartWidth > (chart.widthPercentage * 8) ? `scale(${(chart.widthPercentage * 8) / chartWidth})` : 'scale(1)',
-                                  transformOrigin: 'top left'
-                                }}
-                              >
-                                <AnalyticsChart
-                                  chartType={chart.chartDefinition.chart_type as any}
-                                  {...(measureFilter?.value && { measure: measureFilter.value as MeasureType })}
-                                  {...(frequencyFilter?.value && { frequency: frequencyFilter.value as FrequencyType })}
-                                  practice={practiceFilter?.value?.toString()}
-                                  startDate={startDateFilter?.value?.toString()}
-                                  endDate={endDateFilter?.value?.toString()}
-                                  groupBy={chartConfig.series?.groupBy || 'provider_name'}
-                                  width={chartWidth}
-                                  height={chartHeight}
-                                  title={chart.chartDefinition.chart_name}
-                                  calculatedField={(chartConfig as any).calculatedField}
-                                  advancedFilters={(dataSource as any).advancedFilters || []}
-                                  {...((chartConfig as any).seriesConfigs && (chartConfig as any).seriesConfigs.length > 0 ? { multipleSeries: (chartConfig as any).seriesConfigs } : {})}
-                                />
-                              </div>
+                              <AnalyticsChart
+                                chartType={chart.chartDefinition.chart_type as any}
+                                {...(measureFilter?.value && { measure: measureFilter.value as MeasureType })}
+                                {...(frequencyFilter?.value && { frequency: frequencyFilter.value as FrequencyType })}
+                                practice={practiceFilter?.value?.toString()}
+                                startDate={startDateFilter?.value?.toString()}
+                                endDate={endDateFilter?.value?.toString()}
+                                groupBy={chartConfig.series?.groupBy || 'provider_name'}
+                                title={chart.chartDefinition.chart_name}
+                                calculatedField={(chartConfig as any).calculatedField}
+                                advancedFilters={(dataSource as any).advancedFilters || []}
+                                {...((chartConfig as any).seriesConfigs && (chartConfig as any).seriesConfigs.length > 0 ? { multipleSeries: (chartConfig as any).seriesConfigs } : {})}
+                                className="w-full h-full flex-1"
+                                responsive={true}
+                                minHeight={minHeight}
+                                maxHeight={maxHeight}
+                              />
                             </div>
                           );
                         })()}

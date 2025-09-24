@@ -48,6 +48,7 @@ export interface LoggerConfig {
   format?: 'json' | 'pretty'
   silent?: boolean
   sanitizeData?: boolean
+  suppressFields?: string[]
 }
 
 /**

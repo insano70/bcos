@@ -108,6 +108,7 @@ export default function BarChart01({ data, width, height }: BarChartProps) {
           duration: 500,
         },
         maintainAspectRatio: false,
+        responsive: true,
         resizeDelay: 200,
       },
       plugins: [
@@ -202,6 +203,20 @@ export default function BarChart01({ data, width, height }: BarChartProps) {
     }
     chart.update('none');
   }, [theme]);
+
+  // Handle dimension changes for responsive behavior
+  useEffect(() => {
+    if (!chart || !canvas.current) return;
+
+    const canvasElement = canvas.current;
+    
+    // Update canvas dimensions
+    canvasElement.width = width;
+    canvasElement.height = height;
+    
+    // Resize the chart
+    chart.resize();
+  }, [chart, width, height]);
 
   return (
     <>

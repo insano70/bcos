@@ -1,7 +1,7 @@
 {
   "organization": {
     "name": "BCOS",
-    "displayName": "BendCare OS",
+    "displayName": "BendcareOS",
     "domain": "bendcare.com"
   },
   "aws": {

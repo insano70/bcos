@@ -126,6 +126,7 @@ const LineChart01 = forwardRef<HTMLCanvasElement, LineChart01Props>(function Lin
           mode: 'nearest',
         },
         maintainAspectRatio: false,
+        responsive: true,
         resizeDelay: 200,
       },
     });
@@ -147,6 +148,20 @@ const LineChart01 = forwardRef<HTMLCanvasElement, LineChart01Props>(function Lin
     }
     chart.update('none');
   }, [theme]);
+
+  // Handle dimension changes for responsive behavior
+  useEffect(() => {
+    if (!chart || !canvas.current) return;
+
+    const canvasElement = canvas.current;
+    
+    // Update canvas dimensions
+    canvasElement.width = width;
+    canvasElement.height = height;
+    
+    // Resize the chart
+    chart.resize();
+  }, [chart, width, height]);
 
   return <canvas ref={canvas} width={width} height={height}></canvas>;
 });
