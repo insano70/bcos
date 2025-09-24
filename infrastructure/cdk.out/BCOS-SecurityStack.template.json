@@ -333,6 +333,7 @@
       },
       {
        "Action": [
+        "ecs:CreateService",
         "ecs:DescribeServices",
         "ecs:RegisterTaskDefinition",
         "ecs:UpdateService"

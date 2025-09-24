@@ -149,6 +149,7 @@ export class SecurityStack extends cdk.Stack {
         sid: 'ECSAccess',
         effect: iam.Effect.ALLOW,
         actions: [
+          'ecs:CreateService',
           'ecs:UpdateService',
           'ecs:DescribeServices',
           'ecs:RegisterTaskDefinition',
