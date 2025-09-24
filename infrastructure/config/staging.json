@@ -34,7 +34,8 @@
   },
   "tags": {
     "Environment": "staging",
-    "CostCenter": "Development",
-    "Backup": "weekly"
+    "CostCenter": "Development", 
+    "Backup": "weekly",
+    "DeploymentVersion": "v2.0-enhanced-resources"
   }
 }

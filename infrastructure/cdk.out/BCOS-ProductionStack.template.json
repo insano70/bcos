@@ -256,7 +256,7 @@
   "SecureContainerLogGroup7C38C890": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/ecs/bcos-production-1758708411510",
+    "LogGroupName": "/ecs/bcos-production-1758710152165",
     "RetentionInDays": 90,
     "Tags": [
      {
@@ -292,7 +292,7 @@
    "Properties": {
     "ContainerDefinitions": [
      {
-      "Cpu": 1024,
+      "Cpu": 2048,
       "Environment": [
        {
         "Name": "NODE_ENV",
@@ -319,7 +319,7 @@
       "HealthCheck": {
        "Command": [
         "CMD-SHELL",
-        "curl -f http://localhost:3000/health || exit 1"
+        "curl -f http://localhost:3000/api/health || exit 1"
        ],
        "Interval": 30,
        "Retries": 3,
@@ -380,7 +380,7 @@
         "awslogs-datetime-format": "%Y-%m-%d %H:%M:%S"
        }
       },
-      "Memory": 2048,
+      "Memory": 8192,
       "Name": "bcos",
       "PortMappings": [
        {
@@ -502,12 +502,12 @@
       "User": "1001"
      }
     ],
-    "Cpu": "1024",
+    "Cpu": "2048",
     "ExecutionRoleArn": {
      "Fn::ImportValue": "BCOS-ECSTaskExecutionRole-Arn"
     },
     "Family": "bcos-production",
-    "Memory": "2048",
+    "Memory": "8192",
     "NetworkMode": "awsvpc",
     "RequiresCompatibilities": [
      "FARGATE"
@@ -767,7 +767,7 @@
   "WAFProtectionWAFLogGroupC4D17A54": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/aws/waf/bcos-production-1758708411520",
+    "LogGroupName": "/aws/waf/bcos-production-1758710152178",
     "RetentionInDays": 90,
     "Tags": [
      {
