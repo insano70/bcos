@@ -209,27 +209,67 @@ jobs:
             echo "✅ Task definition file exists: ${{ steps.task-def.outputs.task-definition }}"
             echo "📄 Current family/revision in file:"
             jq -r '.family + ":" + (.revision // "no-revision" | tostring)' "${{ steps.task-def.outputs.task-definition }}"
+            
+            # CRITICAL DEBUG: Check if aws-actions output contains any ARN
+            if jq -e '.taskDefinitionArn' "${{ steps.task-def.outputs.task-definition }}" >/dev/null 2>&1; then
+              EXISTING_ARN=$(jq -r '.taskDefinitionArn' "${{ steps.task-def.outputs.task-definition }}")
+              EXISTING_VERSION=$(echo "${EXISTING_ARN}" | sed 's/.*://')
+              echo "⚠️  WARNING: aws-actions output contains ARN: ${EXISTING_ARN} (version ${EXISTING_VERSION})"
+              echo "🔍 This ARN will be REMOVED before registration"
+            else
+              echo "✅ No ARN found in aws-actions output (good)"
+            fi
           else
             echo "❌ Task definition file missing: ${{ steps.task-def.outputs.task-definition }}"
             exit 1
           fi
           
           # Clean task definition JSON by removing read-only fields
+          echo "🧹 Cleaning task definition by removing read-only fields..."
           CLEAN_TASK_DEF=$(cat ${{ steps.task-def.outputs.task-definition }} | jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy, .placementConstraints)')
           echo "${CLEAN_TASK_DEF}" > clean-task-definition.json
+          
+          # Debug: Verify cleaned task definition has no ARN
+          if jq -e '.taskDefinitionArn' clean-task-definition.json >/dev/null 2>&1; then
+            echo "❌ ERROR: Cleaned task definition still contains ARN!"
+            jq -r '.taskDefinitionArn' clean-task-definition.json
+            exit 1
+          else
+            echo "✅ Cleaned task definition has no ARN (good)"
+          fi
           
           # Debug: Show cleaned task definition family
           echo "🧹 Cleaned task definition family:"
           jq -r '.family' clean-task-definition.json
           
-          # Register the cleaned task definition
-          TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://clean-task-definition.json --query 'taskDefinition.taskDefinitionArn' --output text)
+          # Register the cleaned task definition and capture the ARN
+          echo "📝 Registering new task definition..."
+          REGISTER_OUTPUT=$(aws ecs register-task-definition --cli-input-json file://clean-task-definition.json)
+          TASK_DEF_ARN=$(echo "${REGISTER_OUTPUT}" | jq -r '.taskDefinition.taskDefinitionArn')
+          
+          # Verify we got a valid ARN
+          if [ -z "${TASK_DEF_ARN}" ] || [ "${TASK_DEF_ARN}" == "null" ]; then
+            echo "❌ ERROR: Failed to get task definition ARN from registration"
+            echo "Register output: ${REGISTER_OUTPUT}"
+            exit 1
+          fi
+          
+          # Set output and display results
           echo "task-definition-arn=${TASK_DEF_ARN}" >> $GITHUB_OUTPUT
           echo "✅ Task definition registered: ${TASK_DEF_ARN}"
           
           # Debug: Extract and display version number
           TASK_DEF_VERSION=$(echo "${TASK_DEF_ARN}" | sed 's/.*://')
           echo "🏷️  NEW TASK DEFINITION VERSION: ${TASK_DEF_VERSION}"
+          
+          # CRITICAL DEBUG: Verify our output variable is set correctly
+          echo "🔍 DEBUG: Verifying output variable..."
+          if [ -f "$GITHUB_OUTPUT" ]; then
+            echo "📋 Contents of GITHUB_OUTPUT:"
+            grep "task-definition-arn" "$GITHUB_OUTPUT" || echo "❌ task-definition-arn not found in GITHUB_OUTPUT"
+          else
+            echo "❌ GITHUB_OUTPUT file not found"
+          fi
 
       - name: Check if ECS service exists
         id: check-service
@@ -273,22 +313,61 @@ jobs:
 
       - name: Deploy to ECS
         run: |
-          # Debug: Show what task definition ARN we're about to use
-          echo "🔍 DEBUG: Task definition ARN for deployment:"
-          echo "ARN: ${{ steps.register-task-def.outputs.task-definition-arn }}"
-          DEPLOY_VERSION=$(echo "${{ steps.register-task-def.outputs.task-definition-arn }}" | sed 's/.*://')
-          echo "🏷️  DEPLOYING VERSION: ${DEPLOY_VERSION}"
+          # CRITICAL DEBUG: Verify what ARN we're about to use
+          echo "🔍 CRITICAL DEBUG: Task definition ARN for deployment:"
+          DEPLOY_ARN="${{ steps.register-task-def.outputs.task-definition-arn }}"
+          echo "📋 Raw ARN from step output: ${DEPLOY_ARN}"
+          
+          # Validate the ARN format and extract version
+          if [[ "${DEPLOY_ARN}" =~ ^arn:aws:ecs:.*:task-definition/.*:([0-9]+)$ ]]; then
+            DEPLOY_VERSION="${BASH_REMATCH[1]}"
+            echo "🏷️  DEPLOYING VERSION: ${DEPLOY_VERSION}"
+            echo "✅ ARN format is valid"
+          else
+            echo "❌ ERROR: Invalid ARN format: ${DEPLOY_ARN}"
+            echo "🔍 Expected format: arn:aws:ecs:region:account:task-definition/family:version"
+            exit 1
+          fi
+          
+          # Double-check by querying the task definition to ensure it exists
+          echo "🔍 Verifying task definition exists..."
+          if aws ecs describe-task-definition --task-definition "${DEPLOY_ARN}" --query 'taskDefinition.taskDefinitionArn' --output text >/dev/null 2>&1; then
+            echo "✅ Task definition confirmed to exist in AWS"
+          else
+            echo "❌ ERROR: Task definition does not exist in AWS!"
+            echo "🔍 ARN being checked: ${DEPLOY_ARN}"
+            exit 1
+          fi
           
           # Check if service was just created or already exists
           if [ "${{ steps.check-service.outputs.service-exists }}" == "false" ]; then
             echo "🎉 Service was just created, waiting for initial deployment..."
+            echo "🔍 Service will automatically use task definition: ${DEPLOY_ARN}"
           else
             echo "🔄 Updating existing service with new task definition..."
-            echo "Command: aws ecs update-service --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} --service ${{ steps.vars.outputs.ECS_SERVICE }} --task-definition ${{ steps.register-task-def.outputs.task-definition-arn }}"
-            aws ecs update-service \
+            echo "🚀 Command: aws ecs update-service --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} --service ${{ steps.vars.outputs.ECS_SERVICE }} --task-definition ${DEPLOY_ARN}"
+            
+            # Execute the update command
+            UPDATE_OUTPUT=$(aws ecs update-service \
               --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} \
               --service ${{ steps.vars.outputs.ECS_SERVICE }} \
-              --task-definition ${{ steps.register-task-def.outputs.task-definition-arn }}
+              --task-definition "${DEPLOY_ARN}")
+            
+            # Verify what task definition the service is now using
+            UPDATED_TASK_DEF=$(echo "${UPDATE_OUTPUT}" | jq -r '.service.taskDefinition')
+            UPDATED_VERSION=$(echo "${UPDATED_TASK_DEF}" | sed 's/.*://')
+            echo "📋 Service updated to use task definition: ${UPDATED_TASK_DEF}"
+            echo "🏷️  Service now uses version: ${UPDATED_VERSION}"
+            
+            # Verify versions match
+            if [ "${DEPLOY_VERSION}" == "${UPDATED_VERSION}" ]; then
+              echo "✅ SUCCESS: Deployed version matches expected version"
+            else
+              echo "❌ ERROR: Version mismatch!"
+              echo "🎯 Expected: ${DEPLOY_VERSION}"
+              echo "🎯 Actual: ${UPDATED_VERSION}"
+              exit 1
+            fi
           fi
           
           # Wait for service stability
@@ -299,15 +378,43 @@ jobs:
           
           echo "✅ ECS deployment completed successfully"
           
-          # Debug: Verify what version actually got deployed
-          echo "🔍 DEBUG: Checking deployed task definition version:"
-          if DEPLOYED_ARN=$(aws ecs describe-services --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} --services ${{ steps.vars.outputs.ECS_SERVICE }} --query 'services[0].taskDefinition' --output text 2>/dev/null); then
-            DEPLOYED_VERSION=$(echo "${DEPLOYED_ARN}" | sed 's/.*://')
-            echo "🚀 ACTUALLY DEPLOYED VERSION: ${DEPLOYED_VERSION}"
-            echo "🚀 ACTUALLY DEPLOYED ARN: ${DEPLOYED_ARN}"
+          # FINAL DEBUG: Comprehensive verification of what's actually running
+          echo ""
+          echo "🔍 FINAL VERIFICATION: What task definition is actually running?"
+          echo "=================================================="
+          
+          # Get service task definition
+          if SERVICE_TASK_DEF=$(aws ecs describe-services --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} --services ${{ steps.vars.outputs.ECS_SERVICE }} --query 'services[0].taskDefinition' --output text 2>/dev/null); then
+            SERVICE_VERSION=$(echo "${SERVICE_TASK_DEF}" | sed 's/.*://')
+            echo "📋 SERVICE shows task definition: ${SERVICE_TASK_DEF}"
+            echo "🏷️  SERVICE version: ${SERVICE_VERSION}"
           else
-            echo "❌ Could not retrieve deployed task definition"
+            echo "❌ Could not retrieve service task definition"
+            exit 1
           fi
+          
+          # Get actual running tasks
+          echo ""
+          echo "🔍 Checking what tasks are actually running:"
+          RUNNING_TASKS=$(aws ecs list-tasks --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} --service-name ${{ steps.vars.outputs.ECS_SERVICE }} --desired-status RUNNING --query 'taskArns' --output text)
+          
+          if [ -n "${RUNNING_TASKS}" ] && [ "${RUNNING_TASKS}" != "None" ]; then
+            echo "🏃 Running tasks found, checking their task definitions:"
+            for TASK_ARN in ${RUNNING_TASKS}; do
+              TASK_DEF=$(aws ecs describe-tasks --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} --tasks ${TASK_ARN} --query 'tasks[0].taskDefinitionArn' --output text)
+              TASK_VERSION=$(echo "${TASK_DEF}" | sed 's/.*://')
+              echo "  📋 Task ${TASK_ARN##*/} uses: ${TASK_DEF} (version ${TASK_VERSION})"
+            done
+          else
+            echo "⚠️  No running tasks found"
+          fi
+          
+          # Final summary
+          echo ""
+          echo "📊 DEPLOYMENT SUMMARY:"
+          echo "🎯 Expected version: ${DEPLOY_VERSION:-N/A}"
+          echo "📋 Service version: ${SERVICE_VERSION}"
+          echo "=================================================="
 
       - name: Verify deployment
         run: |
