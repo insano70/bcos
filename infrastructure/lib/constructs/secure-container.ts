@@ -158,6 +158,7 @@ export class SecureContainer extends Construct {
 
       // Secrets from Secrets Manager
       secrets: {
+        SKIP_ENV_VALIDATION: ecs.Secret.fromSecretsManager(secret, 'SKIP_ENV_VALIDATION'),
         DATABASE_URL: ecs.Secret.fromSecretsManager(secret, 'DATABASE_URL'),
         ANALYTICS_DATABASE_URL: ecs.Secret.fromSecretsManager(secret, 'ANALYTICS_DATABASE_URL'),
         JWT_SECRET: ecs.Secret.fromSecretsManager(secret, 'JWT_SECRET'),
