@@ -122,11 +122,27 @@ jobs:
             # Fix health check path from /health to /api/health
             jq '.containerDefinitions[0].healthCheck.command[1] = "curl -f http://localhost:3000/api/health || exit 1"' task-definition.json > fixed-health-task-definition.json
             
-            # Add missing secrets from Secrets Manager
+            # Add ALL secrets from Secrets Manager
             jq '.containerDefinitions[0].secrets = [
+              {
+                "name": "NODE_ENV",
+                "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:NODE_ENV::"
+              },
+              {
+                "name": "PORT",
+                "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:PORT::"
+              },
+              {
+                "name": "SKIP_ENV_VALIDATION",
+                "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:SKIP_ENV_VALIDATION::"
+              },
               {
                 "name": "DATABASE_URL",
                 "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:DATABASE_URL::"
+              },
+              {
+                "name": "ANALYTICS_DATABASE_URL",
+                "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:ANALYTICS_DATABASE_URL::"
               },
               {
                 "name": "JWT_SECRET", 
@@ -139,6 +155,18 @@ jobs:
               {
                 "name": "CSRF_SECRET",
                 "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:CSRF_SECRET::"
+              },
+              {
+                "name": "EMAIL_FROM",
+                "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:EMAIL_FROM::"
+              },
+              {
+                "name": "ADMIN_NOTIFICATION_EMAILS",
+                "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:ADMIN_NOTIFICATION_EMAILS::"
+              },
+              {
+                "name": "NEXT_PUBLIC_APP_URL",
+                "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:NEXT_PUBLIC_APP_URL::"
               }
             ]' fixed-health-task-definition.json > task-definition.json
           else
