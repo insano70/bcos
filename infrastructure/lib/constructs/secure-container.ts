@@ -139,11 +139,11 @@ export class SecureContainer extends Construct {
         datetimeFormat: '%Y-%m-%d %H:%M:%S',
       }),
 
-      // Health check
+      // Health check (uses hostname to match Next.js network binding)
       healthCheck: {
-        command: ['CMD-SHELL', `curl -f http://localhost:${containerPort}/api/health || exit 1`],
+        command: ['CMD-SHELL', `HOSTNAME=$(hostname) && curl -f http://$HOSTNAME:${containerPort}/api/health || exit 1`],
         interval: cdk.Duration.seconds(30),
-        timeout: cdk.Duration.seconds(5),
+        timeout: cdk.Duration.seconds(10),
         retries: 3,
         startPeriod: cdk.Duration.seconds(60),
       },
