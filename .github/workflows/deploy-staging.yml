@@ -20,7 +20,7 @@ on:
       force_deploy:
         description: 'Force deployment even if checks fail'
         required: false
-        default: 'false'
+        default: false
         type: boolean
 
 env:
