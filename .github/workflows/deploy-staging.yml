@@ -265,8 +265,8 @@ jobs:
 
       - name: Verify deployment
         run: |
-          # Wait for deployment to complete
-          sleep 60
+          # Wait for deployment to complete (Next.js apps need more startup time)
+          sleep 120
           
           # Set health check URL based on environment
           if [ "${{ steps.vars.outputs.TARGET_ENV }}" = "production" ]; then
