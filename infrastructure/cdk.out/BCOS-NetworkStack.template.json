@@ -216,6 +216,13 @@
       "FromPort": 53,
       "IpProtocol": "udp",
       "ToPort": 53
+     },
+     {
+      "CidrIp": "0.0.0.0/0",
+      "Description": "Allow HTTPS to external services",
+      "FromPort": 443,
+      "IpProtocol": "tcp",
+      "ToPort": 443
      }
     ],
     "SecurityGroupIngress": [
@@ -595,6 +602,13 @@
    },
    "Export": {
     "Name": "BCOS-ECSSecurityGroup-Id"
+   }
+  },
+  "PrivateSubnetIds": {
+   "Description": "Comma-separated list of private subnet IDs for ECS tasks",
+   "Value": "subnet-095fa406c94abb01f,subnet-1d132031,subnet-2563a41a,subnet-6f277e63",
+   "Export": {
+    "Name": "BCOS-PrivateSubnet-Ids"
    }
   },
   "LoadBalancerDNS": {

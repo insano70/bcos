@@ -377,7 +377,7 @@
         "ssm:GetParameters"
        ],
        "Effect": "Allow",
-       "Resource": "arn:aws:ssm:us-east-1:854428944440:parameter/cdk-bootstrap/*",
+       "Resource": "arn:aws:ssm:us-east-1:854428944440:parameter/cdk-bootstrap/hnb659fds/*",
        "Sid": "SSMBootstrapAccess"
       },
       {
@@ -611,7 +611,7 @@
      "GenerateStringKey": "JWT_SECRET",
      "IncludeSpace": false,
      "PasswordLength": 64,
-     "SecretStringTemplate": "{\"NODE_ENV\":\"production\",\"PORT\":\"4001\"}"
+     "SecretStringTemplate": "{\"NODE_ENV\":\"production\",\"PORT\":\"3000\"}"
     },
     "KmsKeyId": {
      "Fn::GetAtt": [
@@ -636,7 +636,7 @@
      "GenerateStringKey": "JWT_SECRET",
      "IncludeSpace": false,
      "PasswordLength": 64,
-     "SecretStringTemplate": "{\"NODE_ENV\":\"staging\",\"PORT\":\"4001\"}"
+     "SecretStringTemplate": "{\"NODE_ENV\":\"staging\",\"PORT\":\"3000\"}"
     },
     "KmsKeyId": {
      "Fn::GetAtt": [
@@ -685,6 +685,18 @@
    "Description": "ECR Repository name for BCOS container images",
    "Value": {
     "Ref": "BCOSRepository8278F407"
+   }
+  },
+  "ECRRepositoryArn": {
+   "Description": "ECR Repository ARN for BCOS container images",
+   "Value": {
+    "Fn::GetAtt": [
+     "BCOSRepository8278F407",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "BCOS-ECRRepository-Arn"
    }
   },
   "ECSTaskExecutionRoleArn": {

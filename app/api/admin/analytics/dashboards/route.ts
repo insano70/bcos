@@ -108,7 +108,8 @@ const createDashboardHandler = async (request: NextRequest, userContext: UserCon
         layout_config: validatedData.layout_config || {},
         dashboard_category_id: validatedData.dashboard_category_id,
         created_by: userContext.user_id,
-        is_active: validatedData.is_active
+        is_active: validatedData.is_active,
+        is_published: validatedData.is_published
       })
       .returning();
 

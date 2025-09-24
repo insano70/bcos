@@ -89,6 +89,7 @@ const updateDashboardHandler = async (request: NextRequest, userContext: UserCon
     if (validatedData.layout_config !== undefined) updateData.layout_config = validatedData.layout_config;
     if (validatedData.dashboard_category_id !== undefined) updateData.dashboard_category_id = validatedData.dashboard_category_id;
     if (validatedData.is_active !== undefined) updateData.is_active = validatedData.is_active;
+    if (validatedData.is_published !== undefined) updateData.is_published = validatedData.is_published;
 
     const [updatedDashboard] = await db
       .update(dashboards)

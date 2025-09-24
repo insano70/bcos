@@ -337,17 +337,19 @@ export default function DashboardRowBuilder({
                           const startDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'gte');
                           const endDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'lte');
 
-                          // Use responsive sizing based on container
-                          const controlsHeight = 60; // Height of chart controls section
+                          // Use responsive sizing based on container - respect configured dimensions
+                          const controlsHeight = 60; // Height of chart controls section  
                           const availableHeight = row.heightPx - controlsHeight; // Remaining height for chart
-                          const minHeight = Math.min(Math.max(availableHeight * 0.6, 200), availableHeight - 20);
-                          const maxHeight = Math.max(availableHeight - 10, minHeight); // Ensure chart stays within container
+                          const minHeight = Math.max(150, Math.min(availableHeight * 0.6, 200));
+                          const maxHeight = availableHeight; // Respect dashboard configuration
 
                           return (
                             <div 
-                              className="w-full h-full flex flex-col overflow-hidden"
+                              className="w-full flex flex-col"
                               style={{ 
-                                minHeight: `${minHeight}px`
+                                height: `${availableHeight}px`,
+                                maxHeight: `${availableHeight}px`,
+                                overflow: 'hidden'
                               }}
                             >
                               <AnalyticsChart

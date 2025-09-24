@@ -1,0 +1,78 @@
+{
+  "containerDefinitions": [
+    {
+      "name": "bcos",
+      "image": "854428944440.dkr.ecr.us-east-1.amazonaws.com/bcos:staging-b4755cf3aac0733fb1bfe2783088ac92fa187a33",
+      "cpu": 0,
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "hostPort": 3000,
+          "protocol": "tcp",
+          "name": "http"
+        }
+      ],
+      "essential": true,
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "AWS_REGION",
+          "value": "us-east-1"
+        },
+        {
+          "name": "PORT",
+          "value": "3000"
+        },
+        {
+          "name": "NEXT_PUBLIC_APP_URL",
+          "value": "https://staging.bendcare.com"
+        },
+        {
+          "name": "ENVIRONMENT",
+          "value": "staging"
+        },
+        {
+          "name": "SKIP_ENV_VALIDATION",
+          "value": "true"
+        }
+      ],
+      "mountPoints": [],
+      "volumesFrom": [],
+      "secrets": [],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/bcos-staging",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 10,
+        "retries": 3,
+        "startPeriod": 60
+      },
+      "systemControls": [],
+      "readonlyRootFilesystem": false
+    }
+  ],
+  "family": "bcos-staging",
+  "taskRoleArn": "arn:aws:iam::854428944440:role/BCOS-ECSTaskRole",
+  "executionRoleArn": "arn:aws:iam::854428944440:role/BCOS-ECSTaskExecutionRole",
+  "networkMode": "awsvpc",
+  "volumes": [],
+  "placementConstraints": [],
+  "requiresCompatibilities": [
+    "FARGATE"
+  ],
+  "cpu": "2048",
+  "memory": "8192"
+}

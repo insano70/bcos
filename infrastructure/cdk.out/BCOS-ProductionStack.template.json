@@ -256,7 +256,7 @@
   "SecureContainerLogGroup7C38C890": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/ecs/bcos-production-1758710152165",
+    "LogGroupName": "/ecs/bcos-production",
     "RetentionInDays": 90,
     "Tags": [
      {
@@ -324,7 +324,7 @@
        "Interval": 30,
        "Retries": 3,
        "StartPeriod": 60,
-       "Timeout": 5
+       "Timeout": 10
       },
       "Image": {
        "Fn::Join": [
@@ -390,8 +390,22 @@
        }
       ],
       "Privileged": false,
-      "ReadonlyRootFilesystem": true,
+      "ReadonlyRootFilesystem": false,
       "Secrets": [
+       {
+        "Name": "SKIP_ENV_VALIDATION",
+        "ValueFrom": {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "BCOS-ProductionSecret-Arn"
+           },
+           ":SKIP_ENV_VALIDATION::"
+          ]
+         ]
+        }
+       },
        {
         "Name": "DATABASE_URL",
         "ValueFrom": {
@@ -767,7 +781,7 @@
   "WAFProtectionWAFLogGroupC4D17A54": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/aws/waf/bcos-production-1758710152178",
+    "LogGroupName": "/aws/waf/bcos-production-1758751751237",
     "RetentionInDays": 90,
     "Tags": [
      {

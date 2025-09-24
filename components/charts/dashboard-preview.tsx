@@ -194,11 +194,9 @@ export default function DashboardPreview({
           const startDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'gte');
           const endDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'lte');
 
-          // Use responsive sizing instead of fixed calculations
-          // Height is now managed by CSS grid and responsive container
-          const baseHeight = dashboardChart.position.h * 100; // Base height for grid position
-          const minHeight = Math.max(baseHeight, 200); // Minimum height based on grid position
-          const maxHeight = Math.min(baseHeight + 150, 600); // Cap maximum height to prevent overflow
+          // Use responsive sizing that respects dashboard configuration
+          const baseHeight = dashboardChart.position.h * 150; // Height from dashboard configuration
+          const containerHeight = Math.max(baseHeight, 250); // Minimum reasonable height
           
           // Determine responsive column span classes like dashboard cards
           let colSpanClass = 'col-span-full';
@@ -218,7 +216,9 @@ export default function DashboardPreview({
               className={`${colSpanClass} flex flex-col`}
               style={{ 
                 marginBottom: `${previewConfig.layout.margin}px`,
-                minHeight: `${minHeight}px`
+                height: `${containerHeight}px`,
+                maxHeight: `${containerHeight}px`,
+                overflow: 'hidden'
               }}
             >
               <AnalyticsChart
@@ -235,8 +235,8 @@ export default function DashboardPreview({
                 {...((chartConfig as any).seriesConfigs && (chartConfig as any).seriesConfigs.length > 0 ? { multipleSeries: (chartConfig as any).seriesConfigs } : {})}
                 className="w-full h-full flex-1"
                 responsive={true}
-                minHeight={minHeight}
-                maxHeight={maxHeight}
+                minHeight={200}
+                maxHeight={containerHeight - 100}
               />
             </div>
           );

@@ -26,7 +26,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-deploy-role-854428944440-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-cfn-exec-role-854428944440-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/ee4ab35698b5b62731247a5bb7604ece0fa8fbbc0950bec14e60eeb8a53187d2.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/284a49e7d16d22a5b41fbb2cb11ac431d5e14e323254c0eff7bdf03e5a663a8a.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -181,6 +181,12 @@
             "data": "ECRRepositoryName"
           }
         ],
+        "/BCOS-SecurityStack/ECRRepositoryArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ECRRepositoryArn"
+          }
+        ],
         "/BCOS-SecurityStack/ECSTaskExecutionRoleArn": [
           {
             "type": "aws:cdk:logicalId",
@@ -269,7 +275,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-deploy-role-854428944440-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-cfn-exec-role-854428944440-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/e1affcd5c1d24a3f1b1a99954c0d8a05e0e05287f303ffc49c7d7f1ffdfb3553.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/9e2e4eece7e6fe7ec800574ce16efa43f8e646692375ada605a59de5055aef32.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -455,6 +461,12 @@
             "data": "ECSSecurityGroupId"
           }
         ],
+        "/BCOS-NetworkStack/PrivateSubnetIds": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PrivateSubnetIds"
+          }
+        ],
         "/BCOS-NetworkStack/LoadBalancerDNS": [
           {
             "type": "aws:cdk:logicalId",
@@ -499,6 +511,7 @@
         "tags": {
           "Backup": "weekly",
           "CostCenter": "Development",
+          "DeploymentVersion": "v2.0-enhanced-resources",
           "Environment": "staging",
           "ManagedBy": "CDK",
           "Owner": "DevOps",
@@ -508,7 +521,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-deploy-role-854428944440-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-cfn-exec-role-854428944440-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/d487a4d526155a71203114ace8da161f320bf73872e4b32c87ce8579586ca684.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/dcd763cf0eaf5bd5813490fb731051b11d43fc824e538315d9735f56363dee4a.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -535,6 +548,10 @@
               {
                 "Key": "CostCenter",
                 "Value": "Development"
+              },
+              {
+                "Key": "DeploymentVersion",
+                "Value": "v2.0-enhanced-resources"
               },
               {
                 "Key": "Environment",
@@ -692,7 +709,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-deploy-role-854428944440-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-cfn-exec-role-854428944440-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/338609405b1a4ac494d6ae37e3e38c83197e31bff43a042d226625415b130588.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/98e0d36c9eb62b3a4599e6b0d439166448bf855b8ab87b02ed3a6ee27d0fd8bc.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [

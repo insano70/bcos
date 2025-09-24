@@ -55,16 +55,23 @@ export default function ResponsiveChartContainer({
       // Apply minimum width (prevent zero/negative values)
       width = Math.max(width, 300);
 
-      // Calculate height based on constraints
+      // Calculate height based on constraints - respect maxHeight from dashboard config
       if (aspectRatio) {
         // Use aspect ratio if specified
         height = Math.floor(width / aspectRatio);
-      } else if (height < minHeight) {
-        // Use container height but respect minimum
-        height = Math.max(height, minHeight);
+      } else {
+        // Use container height if available, but respect maxHeight constraints
+        const containerHeight = Math.floor(containerRect.height);
+        if (containerHeight > 0) {
+          // Use the smaller of container height or maxHeight to respect configuration
+          height = Math.min(containerHeight, maxHeight);
+        } else {
+          // Fallback to minHeight if container height is not available
+          height = Math.min(minHeight, maxHeight);
+        }
       }
 
-      // Apply maximum height constraint
+      // Final constraint: never exceed maxHeight (dashboard configuration)
       height = Math.min(height, maxHeight);
 
       // Only update if dimensions actually changed (prevent unnecessary re-renders)
@@ -107,11 +114,9 @@ export default function ResponsiveChartContainer({
     updateDimensions();
   }, [minHeight, maxHeight, aspectRatio]);
 
-  // Clone the child element and inject responsive dimensions
+  // Clone the child element - let CSS handle sizing
   const chartElement = cloneElement(children, {
-    ...(children.props as any),
-    width: dimensions.width,
-    height: dimensions.height
+    ...(children.props as any)
   });
 
   return (
@@ -120,7 +125,8 @@ export default function ResponsiveChartContainer({
       className={`w-full h-full ${className}`}
       style={{
         minHeight: `${minHeight}px`,
-        maxHeight: `${maxHeight}px`
+        maxHeight: `${maxHeight}px`,
+        overflow: 'hidden'
       }}
     >
       {chartElement}
@@ -162,7 +168,12 @@ export function useResponsiveChartDimensions(
       if (aspectRatio) {
         height = Math.floor(width / aspectRatio);
       } else {
-        height = Math.max(height, minHeight);
+        const containerHeight = Math.floor(containerRect.height);
+        if (containerHeight > 0) {
+          height = Math.min(containerHeight, maxHeight);
+        } else {
+          height = Math.min(minHeight, maxHeight);
+        }
       }
 
       height = Math.min(height, maxHeight);

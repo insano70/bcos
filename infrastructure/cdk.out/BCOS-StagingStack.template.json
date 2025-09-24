@@ -21,6 +21,10 @@
       "Value": "Development"
      },
      {
+      "Key": "DeploymentVersion",
+      "Value": "v2.0-enhanced-resources"
+     },
+     {
       "Key": "Environment",
       "Value": "staging"
      }
@@ -72,6 +76,10 @@
       "Value": "Development"
      },
      {
+      "Key": "DeploymentVersion",
+      "Value": "v2.0-enhanced-resources"
+     },
+     {
       "Key": "Environment",
       "Value": "staging"
      }
@@ -111,7 +119,9 @@
       }
      }
     ],
-    "ListenerArn": "arn:aws:elasticloadbalancing:us-east-1:854428944440:listener/app/BCOS-N-Appli-rIo4btfCQRZj/ac6744264a6b1239/93962089e0bad510",
+    "ListenerArn": {
+     "Fn::ImportValue": "BCOS-HTTPSListener-Arn"
+    },
     "Priority": 100
    },
    "Metadata": {
@@ -122,10 +132,24 @@
    "Type": "AWS::Route53::RecordSet",
    "Properties": {
     "AliasTarget": {
-     "DNSName": "dualstack.BCOS-N-Appli-rIo4btfCQRZj-401564420.us-east-1.elb.amazonaws.com",
-     "HostedZoneId": "Z35SXDOTRQ7X7K"
+     "DNSName": {
+      "Fn::Join": [
+       "",
+       [
+        "dualstack.",
+        {
+         "Fn::ImportValue": "BCOS-LoadBalancer-DnsName"
+        }
+       ]
+      ]
+     },
+     "HostedZoneId": {
+      "Fn::ImportValue": "BCOS-LoadBalancer-CanonicalHostedZoneId"
+     }
     },
-    "HostedZoneId": "Z05961102TVIVESKQ4GAL",
+    "HostedZoneId": {
+     "Fn::ImportValue": "BCOS-HostedZone-Id"
+    },
     "Name": "staging.bendcare.com.",
     "Type": "A"
    },
@@ -136,7 +160,7 @@
   "WAFProtectionWAFLogGroupC4D17A54": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/aws/waf/bcos-staging-1758710152152",
+    "LogGroupName": "/aws/waf/bcos-staging-1758751751213",
     "RetentionInDays": 30,
     "Tags": [
      {
@@ -146,6 +170,10 @@
      {
       "Key": "CostCenter",
       "Value": "Development"
+     },
+     {
+      "Key": "DeploymentVersion",
+      "Value": "v2.0-enhanced-resources"
      },
      {
       "Key": "Environment",
@@ -258,6 +286,10 @@
       "Value": "Development"
      },
      {
+      "Key": "DeploymentVersion",
+      "Value": "v2.0-enhanced-resources"
+     },
+     {
       "Key": "Environment",
       "Value": "staging"
      },
@@ -279,7 +311,9 @@
   "WAFProtectionWebACLAssociation99F41F81": {
    "Type": "AWS::WAFv2::WebACLAssociation",
    "Properties": {
-    "ResourceArn": "arn:aws:elasticloadbalancing:us-east-1:854428944440:loadbalancer/app/BCOS-N-Appli-rIo4btfCQRZj/ac6744264a6b1239",
+    "ResourceArn": {
+     "Fn::ImportValue": "BCOS-LoadBalancer-Arn"
+    },
     "WebACLArn": {
      "Fn::GetAtt": [
       "WAFProtectionWebACLA37FE6E3",

@@ -153,17 +153,20 @@ const LineChart01 = forwardRef<HTMLCanvasElement, LineChart01Props>(function Lin
   useEffect(() => {
     if (!chart || !canvas.current) return;
 
-    const canvasElement = canvas.current;
-    
-    // Update canvas dimensions
-    canvasElement.width = width;
-    canvasElement.height = height;
-    
-    // Resize the chart
+    // Let Chart.js handle responsive sizing automatically
     chart.resize();
   }, [chart, width, height]);
 
-  return <canvas ref={canvas} width={width} height={height}></canvas>;
+  return (
+    <canvas 
+      ref={canvas} 
+      style={{ 
+        width: '100%', 
+        height: '100%',
+        display: 'block'
+      }}
+    />
+  );
 });
 
 export default LineChart01;

@@ -102,12 +102,14 @@ export const dashboards = pgTable(
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
     is_active: boolean('is_active').default(true),
+    is_published: boolean('is_published').default(false),
   },
   (table) => ({
     dashboardNameIdx: index('idx_dashboards_name').on(table.dashboard_name),
     createdByIdx: index('idx_dashboards_created_by').on(table.created_by),
     categoryIdx: index('idx_dashboards_category').on(table.dashboard_category_id),
     activeIdx: index('idx_dashboards_active').on(table.is_active),
+    publishedIdx: index('idx_dashboards_published').on(table.is_published),
   })
 );
 

@@ -415,26 +415,19 @@ export default function AnalyticsChart({
   return (
     <div className={`flex flex-col bg-white dark:bg-gray-800 shadow-sm rounded-xl ${className}`}>
       {/* Chart Header */}
-      <header className="px-5 py-4 border-b border-gray-100 dark:border-gray-700/60 flex items-center justify-between">
+      <header className="px-4 py-2 border-b border-gray-100 dark:border-gray-700/60 flex items-center justify-between">
         <div>
           <h2 className="font-semibold text-gray-800 dark:text-gray-100">
             {title || `${measure} - ${frequency}`}
           </h2>
-          {metadata && (
-            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Query time: {metadata.query_time_ms}ms
-              {metadata.cache_hit && ' (cached)'}
-              {metadata.analytics_db_latency_ms && ` • DB: ${metadata.analytics_db_latency_ms}ms`}
-            </div>
-          )}
         </div>
         
         {/* Chart Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {/* Export Dropdown */}
           <div className="relative group">
             <button
-              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               title="Export chart"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -468,7 +461,7 @@ export default function AnalyticsChart({
           <button
             onClick={fetchChartData}
             disabled={isLoading}
-            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-50"
+            className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-50"
             title="Refresh chart data"
           >
             <svg 
@@ -489,7 +482,7 @@ export default function AnalyticsChart({
       </header>
 
       {/* Chart Content */}
-      <div className="flex-1 p-5">
+      <div className="flex-1 p-2">
         {renderChart()}
       </div>
     </div>
