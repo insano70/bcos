@@ -192,19 +192,23 @@ jobs:
       - name: Check if ECS service exists
         id: check-service
         run: |
-          if aws ecs describe-services --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} --services ${{ steps.vars.outputs.ECS_SERVICE }} --query 'services[0].serviceName' --output text 2>/dev/null; then
+          if aws ecs describe-services --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} --services ${{ steps.vars.outputs.ECS_SERVICE }} --query 'services[?status!=`INACTIVE`]' --output text 2>/dev/null | grep -q .; then
             echo "service-exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Service exists and is active"
           else
-            echo "service-exists=false" >> $GITHUB_OUTPUT
+            echo "service-exists=false" >> $GITHUB_OUTPUT  
+            echo "⚠️ Service does not exist or is inactive"
           fi
 
-      - name: Create ECS service (if it doesn't exist)
+      - name: Create ECS service (if it doesn't exist)  
         if: steps.check-service.outputs.service-exists == 'false'
         run: |
           # Get target group ARN from CDK stack outputs
           TARGET_GROUP_ARN=$(aws cloudformation describe-stacks --stack-name BCOS-StagingStack --query 'Stacks[0].Outputs[?OutputKey==`StagingTargetGroupArn`].OutputValue' --output text)
+          echo "🎯 Target Group ARN: ${TARGET_GROUP_ARN}"
           
           # Create ECS service with proper load balancer configuration
+          echo "🚀 Creating ECS service: ${{ steps.vars.outputs.ECS_SERVICE }}"
           aws ecs create-service \
             --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} \
             --service-name ${{ steps.vars.outputs.ECS_SERVICE }} \
@@ -217,21 +221,28 @@ jobs:
             --deployment-configuration "maximumPercent=200,minimumHealthyPercent=50" \
             --enable-execute-command
           
-          echo "✅ ECS service created successfully"
+          echo "✅ ECS service created successfully: ${{ steps.vars.outputs.ECS_SERVICE }}"
 
       - name: Deploy to ECS
         run: |
-          # Update existing service to use new task definition
-          aws ecs update-service \
-            --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} \
-            --service ${{ steps.vars.outputs.ECS_SERVICE }} \
-            --task-definition ${{ steps.register-task-def.outputs.task-definition-arn }}
+          # Check if service was just created or already exists
+          if [ "${{ steps.check-service.outputs.service-exists }}" == "false" ]; then
+            echo "🎉 Service was just created, waiting for initial deployment..."
+          else
+            echo "🔄 Updating existing service with new task definition..."
+            aws ecs update-service \
+              --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} \
+              --service ${{ steps.vars.outputs.ECS_SERVICE }} \
+              --task-definition ${{ steps.register-task-def.outputs.task-definition-arn }}
+          fi
           
           # Wait for service stability
           echo "⏳ Waiting for service to reach steady state..."
           aws ecs wait services-stable \
             --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} \
-            --services ${{ steps.vars.outputs.ECS_SERVICE }}
+            --services ${{ steps.vars.outputs.ECS_SERVICE }} \
+            --max-attempts 30 \
+            --delay 10
           
           echo "✅ ECS deployment completed successfully"
 
