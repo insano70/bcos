@@ -127,8 +127,8 @@ jobs:
             "family": "${{ steps.vars.outputs.ECS_TASK_DEFINITION }}",
             "networkMode": "awsvpc",
             "requiresCompatibilities": ["FARGATE"],
-            "cpu": "256",
-            "memory": "512",
+            "cpu": "2048",
+            "memory": "8192",
             "executionRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/BCOS-ECSTaskExecutionRole",
             "taskRoleArn": "arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/BCOS-ECSTaskRole",
             "containerDefinitions": [
@@ -144,6 +144,16 @@ jobs:
                   }
                 ],
                 "essential": true,
+                "healthCheck": {
+                  "command": [
+                    "CMD-SHELL",
+                    "curl -f http://localhost:3000/api/health || exit 1"
+                  ],
+                  "interval": 30,
+                  "timeout": 5,
+                  "retries": 3,
+                  "startPeriod": 60
+                },
                 "logConfiguration": {
                   "logDriver": "awslogs",
                   "options": {
@@ -251,10 +261,10 @@ jobs:
           
           # Set health check URL based on environment
           if [ "${{ steps.vars.outputs.TARGET_ENV }}" = "production" ]; then
-            HEALTH_URL="https://app.bendcare.com/health"
+            HEALTH_URL="https://app.bendcare.com/api/health"
             APP_URL="https://app.bendcare.com"
           else
-            HEALTH_URL="https://staging.bendcare.com/health"
+            HEALTH_URL="https://staging.bendcare.com/api/health"
             APP_URL="https://staging.bendcare.com"
           fi
           
