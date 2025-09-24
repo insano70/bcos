@@ -134,16 +134,8 @@ jobs:
             # Fix health check path from /health to /api/health
             jq '.containerDefinitions[0].healthCheck.command[1] = "curl -f http://localhost:3000/api/health || exit 1"' task-definition.json > fixed-health-task-definition.json
             
-            # Add ALL secrets from Secrets Manager using dynamic ARN
+            # Add secrets from Secrets Manager using dynamic ARN (excluding conflicts with environment variables)
             jq --arg SECRET_ARN "${{ steps.get-secrets-arn.outputs.secret-arn }}" '.containerDefinitions[0].secrets = [
-              {
-                "name": "NODE_ENV",
-                "valueFrom": ($SECRET_ARN + ":NODE_ENV::")
-              },
-              {
-                "name": "PORT",
-                "valueFrom": ($SECRET_ARN + ":PORT::")
-              },
               {
                 "name": "SKIP_ENV_VALIDATION",
                 "valueFrom": ($SECRET_ARN + ":SKIP_ENV_VALIDATION::")
