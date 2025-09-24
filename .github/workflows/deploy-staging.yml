@@ -167,7 +167,7 @@ jobs:
                 "secrets": [
                   {
                     "name": "DATABASE_URL",
-                    "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets"
+                    "valueFrom": "arn:aws:secretsmanager:${{ env.AWS_REGION }}:${{ secrets.AWS_ACCOUNT_ID }}:secret:${{ steps.vars.outputs.TARGET_ENV }}/bcos-secrets-vDmCm7:DATABASE_URL::"
                   }
                 ],
                 "healthCheck": {
