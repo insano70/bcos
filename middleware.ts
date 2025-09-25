@@ -25,7 +25,8 @@ function isCSRFExempt(pathname: string): boolean {
 }
 
 export async function middleware(request: NextRequest) {
-  const hostname = request.nextUrl.hostname
+  // Use Host header for original hostname when behind load balancer
+  const hostname = request.headers.get('host') || request.nextUrl.hostname
   const pathname = request.nextUrl.pathname
   const search = request.nextUrl.search
   let response = NextResponse.next()
