@@ -8,6 +8,9 @@ import { logger } from '@/lib/logger'
 import { requireAuth } from '@/lib/api/middleware/auth'
 import { CSRFProtection } from '@/lib/security/csrf'
 import { db, token_blacklist } from '@/lib/db'
+
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
 import { errorLog } from '@/lib/utils/debug'
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
 
