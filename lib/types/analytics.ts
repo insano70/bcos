@@ -255,4 +255,5 @@ export interface DashboardListItem {
   created_at: string;
   updated_at: string;
   is_active: boolean;
+  is_published?: boolean;
 }
