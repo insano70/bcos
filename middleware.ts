@@ -263,6 +263,42 @@ export async function middleware(request: NextRequest) {
     return response // Continue
   }
 
+  // Handle bendcare.com admin domains (app, staging, dev, development, test)
+  if (hostname === 'app.bendcare.com' || 
+      hostname === 'staging.bendcare.com' || 
+      hostname === 'dev.bendcare.com' || 
+      hostname === 'development.bendcare.com' || 
+      hostname === 'test.bendcare.com') {
+    
+    if (!isPublicPath(pathname)) {
+      const accessToken = request.cookies.get('access-token')?.value
+      let isAuthenticated = false
+      
+      if (accessToken) {
+        // Use access token validation (consistent with admin subdomain)
+        try {
+          const { jwtVerify } = await import('jose')
+          const ACCESS_TOKEN_SECRET = new TextEncoder().encode(getJWTConfig().accessSecret)
+          await jwtVerify(accessToken, ACCESS_TOKEN_SECRET)
+          isAuthenticated = true
+        } catch (error) {
+          debugLog.middleware('Access token validation failed:', error)
+        }
+      }
+
+      if (!isAuthenticated) {
+        const signInUrl = new URL('/signin', request.url)
+        signInUrl.searchParams.set('callbackUrl', `${pathname}${search}`)
+        response = NextResponse.redirect(signInUrl)
+        return addSecurityHeaders(response)
+      }
+
+      response = addNoStoreHeaders(response)
+    }
+
+    return response // Continue
+  }
+
   // All other domains: Rewrite to practice website
   // Extract the domain (remove www. if present)
   const domain = hostname.startsWith('www.') ? hostname.slice(4) : hostname
