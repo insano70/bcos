@@ -63,6 +63,7 @@ export interface MonitoringProps {
 export class Monitoring extends Construct {
   public readonly alertTopic: sns.Topic;
   public readonly dashboard: cloudwatch.Dashboard;
+  private readonly alarms: { [key: string]: cloudwatch.Alarm } = {};
 
   constructor(scope: Construct, id: string, props: MonitoringProps) {
     super(scope, id);
@@ -112,9 +113,9 @@ export class Monitoring extends Construct {
     // Add widgets to dashboard
     this.addDashboardWidgets(ecsService, ecsCluster, loadBalancer, targetGroup, environment);
 
-    // Create composite alarm for service health
+    // Create composite alarm for service health (using stored alarm references)
     if (environment === 'production') {
-      this.createCompositeAlarms(environment);
+      this.createCompositeAlarmsFixed(environment);
     }
   }
 
@@ -127,7 +128,7 @@ export class Monitoring extends Construct {
     };
 
     // Service running task count alarm
-    createAlarm('ECS-RunningTaskCount', {
+    this.alarms['ecs-low-task-count'] = createAlarm('ECS-RunningTaskCount', {
       alarmName: `BCOS-${environment}-ECS-LowTaskCount`,
       alarmDescription: `ECS service has fewer running tasks than desired for ${environment}`,
       metric: new cloudwatch.Metric({
@@ -205,7 +206,7 @@ export class Monitoring extends Construct {
       : targetGroup.targetGroupArn.split('/').slice(1).join('/');
 
     // Unhealthy target alarm
-    createAlarmWithAction('ALB-UnhealthyTargets', {
+    this.alarms['alb-unhealthy-targets'] = createAlarmWithAction('ALB-UnhealthyTargets', {
       alarmName: `BCOS-${environment}-ALB-UnhealthyTargets`,
       alarmDescription: `ALB has unhealthy targets for ${environment}`,
       metric: new cloudwatch.Metric({
@@ -401,30 +402,24 @@ export class Monitoring extends Construct {
     );
   }
 
-  private createCompositeAlarms(environment: string): void {
-    // Service health composite alarm (production only)
-    const compositeAlarm = new cloudwatch.CompositeAlarm(this, 'ServiceHealth-Composite', {
-      compositeAlarmName: `BCOS-${environment}-ServiceHealth`,
-      alarmDescription: `Overall service health for ${environment}`,
-      alarmRule: cloudwatch.AlarmRule.anyOf(
-        cloudwatch.AlarmRule.fromAlarm(
-          cloudwatch.Alarm.fromAlarmArn(
-            this,
-            'RefECSTaskCount',
-            `arn:aws:cloudwatch:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:alarm:BCOS-${environment}-ECS-LowTaskCount`
+  private createCompositeAlarmsFixed(environment: string): void {
+    // Service health composite alarm (production only) - using stored alarm references
+    if (this.alarms['ecs-low-task-count'] && this.alarms['alb-unhealthy-targets']) {
+      const compositeAlarm = new cloudwatch.CompositeAlarm(this, 'ServiceHealth-Composite', {
+        compositeAlarmName: `BCOS-${environment}-ServiceHealth`,
+        alarmDescription: `Overall service health for ${environment}`,
+        alarmRule: cloudwatch.AlarmRule.anyOf(
+          cloudwatch.AlarmRule.fromAlarm(
+            this.alarms['ecs-low-task-count'],
+            cloudwatch.AlarmState.ALARM
           ),
-          cloudwatch.AlarmState.ALARM
+          cloudwatch.AlarmRule.fromAlarm(
+            this.alarms['alb-unhealthy-targets'],
+            cloudwatch.AlarmState.ALARM
+          )
         ),
-        cloudwatch.AlarmRule.fromAlarm(
-          cloudwatch.Alarm.fromAlarmArn(
-            this,
-            'RefUnhealthyTargets',
-            `arn:aws:cloudwatch:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:alarm:BCOS-${environment}-ALB-UnhealthyTargets`
-          ),
-          cloudwatch.AlarmState.ALARM
-        )
-      ),
-    });
-    compositeAlarm.addAlarmAction(new cloudwatchActions.SnsAction(this.alertTopic));
+      });
+      compositeAlarm.addAlarmAction(new cloudwatchActions.SnsAction(this.alertTopic));
+    }
   }
 }

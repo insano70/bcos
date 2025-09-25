@@ -121,7 +121,7 @@ export class ProductionStack extends cdk.Stack {
       secret: secret,
       cpu: productionConfig.ecs.cpu,
       memory: productionConfig.ecs.memory,
-      containerPort: 80,
+      containerPort: 3000,
       environmentVariables: {
         ENVIRONMENT: environment,
         NEXT_PUBLIC_APP_URL: `https://${productionConfig.domain}`,
@@ -132,14 +132,14 @@ export class ProductionStack extends cdk.Stack {
     this.targetGroup = new elbv2.ApplicationTargetGroup(this, 'ProductionTargetGroup', {
       targetGroupName: 'bcos-production-tg',
       vpc: vpc,
-      port: 80,
+      port: 3000,
       protocol: elbv2.ApplicationProtocol.HTTP,
       targetType: elbv2.TargetType.IP,
       healthCheck: {
         enabled: true,
-        path: '/health',
+        path: '/api/health',
         protocol: elbv2.Protocol.HTTP,
-        port: '80',
+        port: '3000',
         interval: cdk.Duration.seconds(15),
         timeout: cdk.Duration.seconds(5),
         healthyThresholdCount: 2,
