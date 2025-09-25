@@ -182,14 +182,17 @@ export class ProductionStack extends cdk.Stack {
       action: elbv2.ListenerAction.forward([this.targetGroup]),
     });
 
-    // Create Route53 record for production domain
-    new route53.ARecord(this, 'ProductionARecord', {
-      zone: hostedZone,
-      recordName: 'app',
-      target: route53.RecordTarget.fromAlias(
-        new route53targets.LoadBalancerTarget(loadBalancer)
-      ),
-    });
+    // Route53 A record for app.bendcare.com already exists, managed externally
+    // The A record pointing app.bendcare.com to the load balancer is already configured
+    // and should not be managed by this stack to avoid conflicts
+    
+    // new route53.ARecord(this, 'ProductionARecord', {
+    //   zone: hostedZone,
+    //   recordName: 'app',
+    //   target: route53.RecordTarget.fromAlias(
+    //     new route53targets.LoadBalancerTarget(loadBalancer)
+    //   ),
+    // });
 
     // WAF protection temporarily disabled - shared ALB already has staging WAF
     // The staging and production environments share the same ALB, and AWS only allows
