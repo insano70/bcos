@@ -110,8 +110,8 @@ export class SecureContainer extends Construct {
       },
     });
 
-    // Container image URI
-    const imageUri = `${ecrRepository.repositoryUri}:latest`;
+    // Container image URI - use static format to avoid CloudFormation token issues
+    const imageUri = `${cdk.Stack.of(this).account}.dkr.ecr.${cdk.Stack.of(this).region}.amazonaws.com/bcos:latest`;
 
     // Define container with security hardening
     this.container = this.taskDefinition.addContainer('app', {
@@ -151,7 +151,7 @@ export class SecureContainer extends Construct {
       // Environment variables (non-sensitive)
       environment: {
         NODE_ENV: environment,
-        PORT: '80', // Force application to run on port 80 for ALB compatibility
+        PORT: containerPort.toString(), // Application port
         AWS_REGION: cdk.Stack.of(this).region,
         ...environmentVariables,
       },
