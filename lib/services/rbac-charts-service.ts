@@ -92,7 +92,10 @@ export class RBACChartsService extends BaseRBACService {
     const conditions = [];
 
     if (options.category_id) {
-      conditions.push(eq(chart_definitions.chart_category_id, parseInt(options.category_id)));
+      const categoryId = parseInt(options.category_id);
+      if (!isNaN(categoryId) && categoryId > 0) {
+        conditions.push(eq(chart_definitions.chart_category_id, categoryId));
+      }
     }
 
     if (options.is_active !== undefined) {
@@ -120,7 +123,7 @@ export class RBACChartsService extends BaseRBACService {
       chart_name: chart.chart_definitions!.chart_name,
       chart_description: chart.chart_definitions!.chart_description || undefined,
       chart_type: chart.chart_definitions!.chart_type,
-      data_source: chart.chart_definitions!.data_source as Record<string, unknown>,
+      data_source: chart.chart_definitions!.data_source as string | Record<string, unknown>,
       chart_config: chart.chart_definitions!.chart_config as Record<string, unknown>,
       chart_category_id: chart.chart_definitions!.chart_category_id || undefined,
       created_by: chart.chart_definitions!.created_by,
@@ -153,7 +156,10 @@ export class RBACChartsService extends BaseRBACService {
     const conditions = [];
 
     if (options.category_id) {
-      conditions.push(eq(chart_definitions.chart_category_id, parseInt(options.category_id)));
+      const categoryId = parseInt(options.category_id);
+      if (!isNaN(categoryId) && categoryId > 0) {
+        conditions.push(eq(chart_definitions.chart_category_id, categoryId));
+      }
     }
 
     if (options.is_active !== undefined) {
@@ -200,7 +206,7 @@ export class RBACChartsService extends BaseRBACService {
       chart_name: chart.chart_definitions!.chart_name,
       chart_description: chart.chart_definitions!.chart_description || undefined,
       chart_type: chart.chart_definitions!.chart_type,
-      data_source: chart.chart_definitions!.data_source as Record<string, unknown>,
+      data_source: chart.chart_definitions!.data_source as string | Record<string, unknown>,
       chart_config: chart.chart_definitions!.chart_config as Record<string, unknown>,
       chart_category_id: chart.chart_definitions!.chart_category_id || undefined,
       created_by: chart.chart_definitions!.created_by,
@@ -228,15 +234,13 @@ export class RBACChartsService extends BaseRBACService {
     const startTime = Date.now();
 
     // Enhanced chart creation logging
-    if (true) {
-      rbacChartsLogger.info('Chart creation initiated', {
-        requestingUserId: this.userContext.user_id,
-        chartName: chartData.chart_name,
-        chartType: chartData.chart_type,
-        operation: 'create_chart',
-        securityLevel: 'medium'
-      });
-    }
+    rbacChartsLogger.info('Chart creation initiated', {
+      requestingUserId: this.userContext.user_id,
+      chartName: chartData.chart_name,
+      chartType: chartData.chart_type,
+      operation: 'create_chart',
+      securityLevel: 'medium'
+    });
 
     this.requirePermission('analytics:read:all', undefined);
 
@@ -267,13 +271,44 @@ export class RBACChartsService extends BaseRBACService {
       totalRequestTime: Date.now() - startTime
     });
 
-    // Return the created chart with metadata
-    return this.getChartById(newChart.chart_definition_id).then(chart => {
-      if (!chart) {
-        throw new Error('Failed to retrieve created chart');
-      }
-      return chart;
-    });
+    // Return the created chart with metadata (more efficient single query)
+    const createdCharts = await db
+      .select()
+      .from(chart_definitions)
+      .leftJoin(chart_categories, eq(chart_definitions.chart_category_id, chart_categories.chart_category_id))
+      .leftJoin(users, eq(chart_definitions.created_by, users.user_id))
+      .where(eq(chart_definitions.chart_definition_id, newChart.chart_definition_id))
+      .limit(1);
+
+    if (createdCharts.length === 0) {
+      throw new Error('Failed to retrieve created chart');
+    }
+
+    const createdChart = createdCharts[0]!; // Safe: we just checked createdCharts.length > 0
+    return {
+      chart_definition_id: createdChart.chart_definitions!.chart_definition_id,
+      chart_name: createdChart.chart_definitions!.chart_name,
+      chart_description: createdChart.chart_definitions!.chart_description || undefined,
+      chart_type: createdChart.chart_definitions!.chart_type,
+      data_source: createdChart.chart_definitions!.data_source as string | Record<string, unknown>,
+      chart_config: createdChart.chart_definitions!.chart_config as Record<string, unknown>,
+      chart_category_id: createdChart.chart_definitions!.chart_category_id || undefined,
+      created_by: createdChart.chart_definitions!.created_by,
+      created_at: createdChart.chart_definitions!.created_at?.toISOString() || new Date().toISOString(),
+      updated_at: createdChart.chart_definitions!.updated_at?.toISOString() || new Date().toISOString(),
+      is_active: createdChart.chart_definitions!.is_active ?? true,
+      category: createdChart.chart_categories ? {
+        chart_category_id: createdChart.chart_categories.chart_category_id,
+        category_name: createdChart.chart_categories.category_name,
+        category_description: createdChart.chart_categories.category_description || undefined,
+      } : undefined,
+      creator: createdChart.users ? {
+        user_id: createdChart.users.user_id,
+        first_name: createdChart.users.first_name || '',
+        last_name: createdChart.users.last_name || '',
+        email: createdChart.users.email
+      } : undefined,
+    };
   }
 
   /**
@@ -321,13 +356,44 @@ export class RBACChartsService extends BaseRBACService {
       updatedBy: this.userContext.user_id
     });
 
-    // Return the updated chart with metadata
-    return this.getChartById(chartId).then(chart => {
-      if (!chart) {
-        throw new Error('Failed to retrieve updated chart');
-      }
-      return chart;
-    });
+    // Return the updated chart with metadata (more efficient single query)
+    const updatedCharts = await db
+      .select()
+      .from(chart_definitions)
+      .leftJoin(chart_categories, eq(chart_definitions.chart_category_id, chart_categories.chart_category_id))
+      .leftJoin(users, eq(chart_definitions.created_by, users.user_id))
+      .where(eq(chart_definitions.chart_definition_id, chartId))
+      .limit(1);
+
+    if (updatedCharts.length === 0) {
+      throw new Error('Failed to retrieve updated chart');
+    }
+
+    const updatedChartData = updatedCharts[0]!; // Safe: we just checked updatedCharts.length > 0
+    return {
+      chart_definition_id: updatedChartData.chart_definitions!.chart_definition_id,
+      chart_name: updatedChartData.chart_definitions!.chart_name,
+      chart_description: updatedChartData.chart_definitions!.chart_description || undefined,
+      chart_type: updatedChartData.chart_definitions!.chart_type,
+      data_source: updatedChartData.chart_definitions!.data_source as string | Record<string, unknown>,
+      chart_config: updatedChartData.chart_definitions!.chart_config as Record<string, unknown>,
+      chart_category_id: updatedChartData.chart_definitions!.chart_category_id || undefined,
+      created_by: updatedChartData.chart_definitions!.created_by,
+      created_at: updatedChartData.chart_definitions!.created_at?.toISOString() || new Date().toISOString(),
+      updated_at: updatedChartData.chart_definitions!.updated_at?.toISOString() || new Date().toISOString(),
+      is_active: updatedChartData.chart_definitions!.is_active ?? true,
+      category: updatedChartData.chart_categories ? {
+        chart_category_id: updatedChartData.chart_categories.chart_category_id,
+        category_name: updatedChartData.chart_categories.category_name,
+        category_description: updatedChartData.chart_categories.category_description || undefined,
+      } : undefined,
+      creator: updatedChartData.users ? {
+        user_id: updatedChartData.users.user_id,
+        first_name: updatedChartData.users.first_name || '',
+        last_name: updatedChartData.users.last_name || '',
+        email: updatedChartData.users.email
+      } : undefined,
+    };
   }
 
   /**
