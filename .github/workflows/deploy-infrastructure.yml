@@ -248,12 +248,10 @@ jobs:
 
       - name: Deploy production infrastructure
         working-directory: infrastructure
+        env:
+          VPC_ID: ${{ secrets.VPC_ID }}
         run: |
-          # Deploy shared stacks first (if not already deployed)
-          npx cdk deploy BCOS-SecurityStack --require-approval never
-          npx cdk deploy BCOS-NetworkStack --require-approval never --context vpcId=${{ secrets.VPC_ID }}
-          
-          # Deploy production stack
+          # Deploy production stack only (shared stacks already deployed)
           npx cdk deploy BCOS-ProductionStack --require-approval never --context vpcId=${{ secrets.VPC_ID }}
 
       - name: Verify production deployment
