@@ -102,7 +102,7 @@ export class ProductionStack extends cdk.Stack {
         logging: ecs.ExecuteCommandLogging.OVERRIDE,
         logConfiguration: {
           cloudWatchLogGroup: new logs.LogGroup(this, 'ExecuteCommandLogGroup', {
-            logGroupName: '/ecs/execute-command/bcos-production',
+            logGroupName: `/ecs/execute-command/bcos-production-${Date.now()}`,
             retention: logs.RetentionDays.ONE_MONTH,
           }),
           cloudWatchEncryptionEnabled: true,
