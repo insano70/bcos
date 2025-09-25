@@ -119,8 +119,6 @@ jobs:
             NODE_ENV=production
             NEXT_TELEMETRY_DISABLED=1
             BUILD_VERSION=${{ needs.validate.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           platforms: linux/amd64
 
       - name: Scan production image for vulnerabilities
