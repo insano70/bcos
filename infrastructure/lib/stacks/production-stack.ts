@@ -251,31 +251,27 @@ export class ProductionStack extends cdk.Stack {
         scaleInCooldown: cdk.Duration.seconds(productionConfig.ecs.autoScaling.scaleInCooldown),
       });
 
-      // Request count based scaling (ALB)
-      const loadBalancerFullName = cdk.Token.isUnresolved(albArn) 
-        ? 'dummy-alb-name' 
-        : albArn.split('/').slice(1).join('/');
-      const targetGroupFullName = cdk.Token.isUnresolved(this.targetGroup.targetGroupArn) 
-        ? 'dummy-tg-name' 
-        : this.targetGroup.targetGroupArn.split('/').slice(1).join('/');
+      // Skip request count based scaling for now due to CloudFormation token limitations
+      // The ALB ARN is a CloudFormation import token that cannot be parsed during synthesis
+      // TODO: Re-enable once we have a solution for parsing imported ARNs
+      
+      // const requestCountMetric = new cdk.aws_cloudwatch.Metric({
+      //   namespace: 'AWS/ApplicationELB',
+      //   metricName: 'RequestCountPerTarget',
+      //   dimensionsMap: {
+      //     LoadBalancer: 'dummy-alb-name',
+      //     TargetGroup: 'dummy-tg-name',
+      //   },
+      //   statistic: 'Sum',
+      //   period: cdk.Duration.minutes(1),
+      // });
 
-      const requestCountMetric = new cdk.aws_cloudwatch.Metric({
-        namespace: 'AWS/ApplicationELB',
-        metricName: 'RequestCountPerTarget',
-        dimensionsMap: {
-          LoadBalancer: loadBalancerFullName,
-          TargetGroup: targetGroupFullName,
-        },
-        statistic: 'Sum',
-        period: cdk.Duration.minutes(1),
-      });
-
-      scalableTarget.scaleToTrackMetric('ProductionRequestScaling', {
-        targetValue: 1000, // Requests per target per minute
-        customMetric: requestCountMetric,
-        scaleOutCooldown: cdk.Duration.seconds(productionConfig.ecs.autoScaling.scaleOutCooldown),
-        scaleInCooldown: cdk.Duration.seconds(productionConfig.ecs.autoScaling.scaleInCooldown),
-      });
+      // scalableTarget.scaleToTrackMetric('ProductionRequestScaling', {
+      //   targetValue: 1000, // Requests per target per minute
+      //   customMetric: requestCountMetric,
+      //   scaleOutCooldown: cdk.Duration.seconds(productionConfig.ecs.autoScaling.scaleOutCooldown),
+      //   scaleInCooldown: cdk.Duration.seconds(productionConfig.ecs.autoScaling.scaleInCooldown),
+      // });
 
       // Scheduled scaling for business hours
       scalableTarget.scaleOnSchedule('ProductionBusinessHoursScaling', {
