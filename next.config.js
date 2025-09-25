@@ -8,6 +8,8 @@ const nextConfig = {
     // Enable optimizations
     optimizePackageImports: ['@headlessui/react', '@tanstack/react-query'],
   },
+  // Skip static generation for API routes during build
+  output: 'standalone',
   // Security headers (additional to middleware)
   headers: async () => [
     {
