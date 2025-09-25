@@ -11,22 +11,6 @@ const nextConfig = {
     // Enable optimizations
     optimizePackageImports: ['@headlessui/react', '@tanstack/react-query'],
   },
-  // Security headers (additional to middleware)
-  headers: async () => [
-    {
-      source: '/(.*)',
-      headers: [
-        {
-          key: 'X-DNS-Prefetch-Control',
-          value: 'off'
-        },
-        {
-          key: 'X-Frame-Options', 
-          value: 'DENY'
-        }
-      ],
-    },
-  ],
 };
 
 module.exports = nextConfig;
