@@ -21,7 +21,7 @@ export class ProductionStack extends cdk.Stack {
   public readonly ecsCluster: ecs.Cluster;
   public readonly ecsService: ecs.FargateService;
   public readonly targetGroup: elbv2.ApplicationTargetGroup;
-  public readonly wafProtection: WafProtection;
+  public readonly wafProtection?: WafProtection;
   public readonly monitoring: Monitoring;
 
   constructor(scope: Construct, id: string, props: ProductionStackProps) {
@@ -191,18 +191,23 @@ export class ProductionStack extends cdk.Stack {
       ),
     });
 
-    // Create WAF protection with enhanced rules
-    this.wafProtection = new WafProtection(this, 'WAFProtection', {
-      environment: environment,
-      kmsKey: kmsKey,
-      rateLimitPerIP: productionConfig.waf.rateLimitPerIP,
-      enableGeoBlocking: productionConfig.waf.geoBlocking?.enabled || false,
-      blockedCountries: productionConfig.waf.geoBlocking?.blockedCountries || [],
-      enableManagedRules: true,
-    });
+    // WAF protection temporarily disabled - shared ALB already has staging WAF
+    // The staging and production environments share the same ALB, and AWS only allows
+    // one WAF Web ACL per load balancer. The existing staging WAF protects both environments.
+    // TODO: Consider creating a unified WAF that handles both staging and production traffic
+    
+    // Placeholder for WAF protection (disabled)
+    // this.wafProtection = new WafProtection(this, 'WAFProtection', {
+    //   environment: environment,
+    //   kmsKey: kmsKey,
+    //   rateLimitPerIP: productionConfig.waf.rateLimitPerIP,
+    //   enableGeoBlocking: productionConfig.waf.geoBlocking?.enabled || false,
+    //   blockedCountries: productionConfig.waf.geoBlocking?.blockedCountries || [],
+    //   enableManagedRules: true,
+    // });
 
-    // Associate WAF with load balancer
-    this.wafProtection.associateWithLoadBalancer(albArn);
+    // Associate WAF with load balancer (disabled - conflicts with staging WAF)
+    // this.wafProtection.associateWithLoadBalancer(albArn);
 
     // Create comprehensive monitoring
     this.monitoring = new Monitoring(this, 'Monitoring', {
