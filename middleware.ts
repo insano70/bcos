@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { addSecurityHeaders, getContentSecurityPolicy, addRateLimitHeaders } from '@/lib/security/headers'
+import { addSecurityHeaders, getEnhancedContentSecurityPolicy, addRateLimitHeaders, generateCSPNonces, type CSPNonces } from '@/lib/security/headers'
 import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
 import { getJWTConfig } from '@/lib/env'
 import { isPublicApiRoute } from '@/lib/api/middleware/global-auth'
@@ -26,16 +26,39 @@ function isCSRFExempt(pathname: string): boolean {
 
 export async function middleware(request: NextRequest) {
   // Use Host header for original hostname when behind load balancer
-  const hostname = request.headers.get('host') || request.nextUrl.hostname
+  const hostHeader = request.headers.get('host') || request.nextUrl.hostname || 'localhost'
+  const hostname = hostHeader.split(':')[0] || 'localhost' // Remove port for comparison, with fallback
   const pathname = request.nextUrl.pathname
   const search = request.nextUrl.search
-  let response = NextResponse.next()
-
+  
+  // Generate CSP nonces for this request
+  const cspNonces = generateCSPNonces()
+  
+  // Create new request headers with nonces for SSR components to access
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-script-nonce', cspNonces.scriptNonce)
+  requestHeaders.set('x-style-nonce', cspNonces.styleNonce)
+  requestHeaders.set('x-nonce-timestamp', cspNonces.timestamp.toString())
+  requestHeaders.set('x-nonce-environment', cspNonces.environment)
+  
+  // Create response with modified request headers
+  let response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  })
+  
   // Apply security headers to all responses
   response = addSecurityHeaders(response)
   
-  // Add Content Security Policy
-  response.headers.set('Content-Security-Policy', getContentSecurityPolicy())
+  // Add enhanced Content Security Policy with nonces
+  response.headers.set('Content-Security-Policy', getEnhancedContentSecurityPolicy(cspNonces))
+  
+  // Also add nonce headers to response for debugging/monitoring
+  response.headers.set('X-Script-Nonce', cspNonces.scriptNonce)
+  response.headers.set('X-Style-Nonce', cspNonces.styleNonce)
+  response.headers.set('X-Nonce-Timestamp', cspNonces.timestamp.toString())
+  response.headers.set('X-Nonce-Environment', cspNonces.environment)
 
   // GLOBAL RATE LIMITING: Apply before any other processing to prevent abuse
   // Skip rate limiting for static files and internal Next.js routes
@@ -188,47 +211,51 @@ export async function middleware(request: NextRequest) {
   if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('192.168.')) {
     debugLog.middleware('Processing request for:', pathname)
 
-    // Default-deny: protect all non-public routes
-    if (!isPublicPath(pathname)) {
-      debugLog.middleware('Protected route detected')
-
-      // ✅ STANDARDIZED: Use access token for page authentication (consistent with API routes)
-      const accessToken = request.cookies.get('access-token')?.value
-      let isAuthenticated = false
-
-      debugLog.middleware('Checking auth for path:', pathname)
-      debugLog.middleware('Access token cookie exists:', !!accessToken)
-
-      if (accessToken) {
-        debugLog.middleware('Validating access token...')
-        // Validate access token (same as API routes)
-        try {
-          const jwtConfig = getJWTConfig()
-          const { jwtVerify } = await import('jose')
-          const ACCESS_TOKEN_SECRET = new TextEncoder().encode(jwtConfig.accessSecret)
-          await jwtVerify(accessToken, ACCESS_TOKEN_SECRET)
-          isAuthenticated = true
-          debugLog.middleware('Access token validation successful - allowing access')
-        } catch (error) {
-          debugLog.middleware('Access token validation failed:', error instanceof Error ? error.message : String(error))
-        }
-      } else {
-        debugLog.middleware('No access token found in cookies')
-      }
-
-      if (!isAuthenticated) {
-        debugLog.middleware('User not authenticated - redirecting to login')
-        const signInUrl = new URL('/signin', request.url)
-        signInUrl.searchParams.set('callbackUrl', `${pathname}${search}`)
-        debugLog.middleware('Redirect URL:', signInUrl.toString())
-        response = NextResponse.redirect(signInUrl)
-        return addSecurityHeaders(response)
-      } else {
-        debugLog.middleware('User authenticated - allowing request to proceed')
-      }
-
-      response = addNoStoreHeaders(response)
+    // Public paths (signin, reset-password, etc.) - allow through immediately
+    if (isPublicPath(pathname)) {
+      debugLog.middleware('Public path detected, allowing through:', pathname)
+      return response
     }
+
+    // Default-deny: protect all non-public routes
+    debugLog.middleware('Protected route detected')
+
+    // ✅ STANDARDIZED: Use access token for page authentication (consistent with API routes)
+    const accessToken = request.cookies.get('access-token')?.value
+    let isAuthenticated = false
+
+    debugLog.middleware('Checking auth for path:', pathname)
+    debugLog.middleware('Access token cookie exists:', !!accessToken)
+
+    if (accessToken) {
+      debugLog.middleware('Validating access token...')
+      // Validate access token (same as API routes)
+      try {
+        const jwtConfig = getJWTConfig()
+        const { jwtVerify } = await import('jose')
+        const ACCESS_TOKEN_SECRET = new TextEncoder().encode(jwtConfig.accessSecret)
+        await jwtVerify(accessToken, ACCESS_TOKEN_SECRET)
+        isAuthenticated = true
+        debugLog.middleware('Access token validation successful - allowing access')
+      } catch (error) {
+        debugLog.middleware('Access token validation failed:', error instanceof Error ? error.message : String(error))
+      }
+    } else {
+      debugLog.middleware('No access token found in cookies')
+    }
+
+    if (!isAuthenticated) {
+      debugLog.middleware('User not authenticated - redirecting to login')
+      const signInUrl = new URL('/signin', request.url)
+      signInUrl.searchParams.set('callbackUrl', `${pathname}${search}`)
+      debugLog.middleware('Redirect URL:', signInUrl.toString())
+      response = NextResponse.redirect(signInUrl)
+      return addSecurityHeaders(response)
+    } else {
+      debugLog.middleware('User authenticated - allowing request to proceed')
+    }
+
+    response = addNoStoreHeaders(response)
     
     return response // Continue
   }

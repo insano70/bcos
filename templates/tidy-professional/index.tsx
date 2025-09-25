@@ -1,6 +1,7 @@
 import type { TemplateProps } from '@/lib/types/practice';
 import Head from 'next/head';
 import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
+import { NonceStyle } from '@/lib/security/nonce-components';
 import Header from './components/header';
 import Hero from './components/hero';
 import About from './components/about';
@@ -106,8 +107,7 @@ export default function TidyProfessionalTemplate({
       </div>
 
       {/* Custom Styles for Tidy Professional Template */}
-      <style dangerouslySetInnerHTML={{
-        __html: `
+      <NonceStyle>{`
         .font-playfair-display {
           font-family: 'Playfair Display', serif;
         }
@@ -184,8 +184,7 @@ export default function TidyProfessionalTemplate({
         .animate-delay-300 {
           animation-delay: 300ms;
         }
-        `
-      }} />
+        `}</NonceStyle>
     </>
   );
 }
