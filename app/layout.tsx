@@ -25,6 +25,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   
   return (
     <html lang="en" className={`${inter.variable}`} suppressHydrationWarning>
+      <head>
+        {/* Google Fonts with CSP-friendly preconnect */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* Load fonts via link tag for better CSP control */}
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       {/* suppressHydrationWarning: https://github.com/vercel/next.js/issues/44343 */}
       <body className="font-inter antialiased bg-gray-100 dark:bg-gray-900 text-gray-600 dark:text-gray-400">
         <NonceProvider

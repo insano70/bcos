@@ -52,6 +52,7 @@ export async function middleware(request: NextRequest) {
   response = addSecurityHeaders(response)
   
   // Add enhanced Content Security Policy with nonces
+  // Use more permissive CSP in development to avoid blocking development tools
   response.headers.set('Content-Security-Policy', getEnhancedContentSecurityPolicy(cspNonces))
   
   // Also add nonce headers to response for debugging/monitoring

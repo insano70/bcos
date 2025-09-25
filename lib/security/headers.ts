@@ -86,26 +86,24 @@ export function getEnhancedContentSecurityPolicy(nonces?: CSPNonces): string {
     'default-src': ["'self'"],
     'script-src': [
       "'self'",
-      // ✅ SECURITY: Strict nonce-only policy for inline scripts
-      ...(nonces ? [`'nonce-${nonces.scriptNonce}'`] : []),
-      // Allow unsafe-eval only in development for Next.js hot reload
-      ...(isDevelopment ? ["'unsafe-eval'"] : []),
-      // Remove unsafe-inline in production - nonce required
-      ...(isDevelopment && !nonces ? ["'unsafe-inline'"] : []),
+      // ✅ SECURITY: Strict nonce-only policy for inline scripts (only in production)
+      ...(nonces && !isDevelopment ? [`'nonce-${nonces.scriptNonce}'`] : []),
+      // Allow unsafe-eval and unsafe-inline in development for Next.js hot reload and dev tools
+      ...(isDevelopment ? ["'unsafe-eval'", "'unsafe-inline'"] : []),
       // Trusted CDNs for charts and UI libraries
       'https://cdn.jsdelivr.net',
-      'https://unpkg.com',
-      // Next.js chunks and webpack runtime
-      ...(isDevelopment ? ["'unsafe-eval'"] : [])
+      'https://unpkg.com'
     ],
     'style-src': [
       "'self'",
-      // ✅ SECURITY: Separate nonce for styles
-      ...(nonces ? [`'nonce-${nonces.styleNonce}'`] : []),
-      // Allow unsafe-inline only in development for CSS-in-JS and hot reload
-      ...(isDevelopment && !nonces ? ["'unsafe-inline'"] : []),
-      // Google Fonts
-      'https://fonts.googleapis.com'
+      // ✅ SECURITY: Separate nonce for styles (only in production)
+      ...(nonces && !isDevelopment ? [`'nonce-${nonces.styleNonce}'`] : []),
+      // Allow unsafe-inline in development for CSS-in-JS and hot reload
+      ...(isDevelopment ? ["'unsafe-inline'"] : []),
+      // Google Fonts domain for CSS loading
+      'https://fonts.googleapis.com',
+      // Allow specific Google Fonts inline styles via hash (if needed)
+      // 'sha256-U3w8g9zoVsMnDN6Hfid8EpmRUCOk1l61yOWRUVy2/Zc='
     ],
     'img-src': [
       "'self'",
