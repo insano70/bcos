@@ -28,6 +28,7 @@ export class ProductionStack extends cdk.Stack {
     super(scope, id, props);
 
     const environment = 'production';
+    // Ready for deployment with all CloudFormation token issues resolved
 
     // Get VPC ID from context or environment variable
     const vpcId = this.node.tryGetContext('vpcId') || process.env.VPC_ID;
