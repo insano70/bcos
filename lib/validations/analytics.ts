@@ -87,15 +87,33 @@ export const chartDefinitionParamsSchema = z.object({
   chartId: uuidSchema
 })
 
+// Chart position validation schema
+const chartPositionSchema = z.object({
+  x: z.number().int().min(0, 'X coordinate must be non-negative'),
+  y: z.number().int().min(0, 'Y coordinate must be non-negative'),
+  w: z.number().int().min(1, 'Width must be at least 1').max(12, 'Width cannot exceed 12'),
+  h: z.number().int().min(1, 'Height must be at least 1')
+});
+
 // Dashboard Schemas
 export const dashboardCreateSchema = z.object({
   dashboard_name: nameSchema,
   dashboard_description: descriptionSchema,
   dashboard_category_id: integerIdSchema.optional(),
   chart_ids: z.array(uuidSchema).max(50, 'Too many charts').optional(),
+  chart_positions: z.array(chartPositionSchema).max(50, 'Too many chart positions').optional(),
   layout_config: z.record(z.string(), z.any()).optional(), // JSON layout configuration
   is_active: z.boolean().default(true),
   is_published: z.boolean().default(false)
+}).refine((data) => {
+  // Data integrity check: if both chart_ids and chart_positions are provided, they must have the same length
+  if (data.chart_ids && data.chart_positions) {
+    return data.chart_ids.length === data.chart_positions.length;
+  }
+  return true;
+}, {
+  message: 'chart_ids and chart_positions arrays must have the same length',
+  path: ['chart_positions']
 })
 
 export const dashboardUpdateSchema = dashboardCreateSchema.partial()

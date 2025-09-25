@@ -110,11 +110,16 @@ const updateDashboardHandler = async (request: NextRequest, userContext: UserCon
 
       // Add new chart associations
       if (validatedData.chart_ids.length > 0) {
-        const chartAssociations = validatedData.chart_ids.map((chartId: string, index: number) => ({
-          dashboard_id: params.dashboardId,
-          chart_definition_id: chartId,
-          position_config: { x: 0, y: index, w: 6, h: 4 } // Default layout
-        }));
+        const chartAssociations = validatedData.chart_ids.map((chartId: string, index: number) => {
+          // Use provided positions or fall back to defaults
+          const position = validatedData.chart_positions?.[index] || { x: 0, y: index, w: 6, h: 4 };
+          
+          return {
+            dashboard_id: params.dashboardId,
+            chart_definition_id: chartId,
+            position_config: position
+          };
+        });
 
         await db
           .insert(dashboard_charts)

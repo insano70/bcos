@@ -90,6 +90,7 @@ const createDashboardHandler = async (request: NextRequest, userContext: UserCon
       dashboard_description: validatedData.dashboard_description,
       dashboard_category_id: validatedData.dashboard_category_id,
       chart_ids: validatedData.chart_ids,
+      chart_positions: validatedData.chart_positions,
       layout_config: validatedData.layout_config,
       is_active: validatedData.is_active,
       is_published: validatedData.is_published
