@@ -70,15 +70,13 @@ jobs:
           fi
 
   # Testing disabled - perform offline
-  # security-scan:
-  # test:
 
   # Build Production Image
   build:
     runs-on: ubuntu-latest
     environment: production
-    needs: [validate, security-scan, test]
-    if: always() && needs.validate.outputs.should-deploy == 'true' && (success() || github.event.inputs.skip_tests == 'true')
+    needs: [validate]
+    if: needs.validate.outputs.should-deploy == 'true'
     timeout-minutes: 15
     outputs:
       image-digest: ${{ steps.build.outputs.digest }}
