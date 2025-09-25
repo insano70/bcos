@@ -97,7 +97,10 @@ export class RBACDashboardsService extends BaseRBACService {
     }
 
     if (options.category_id) {
-      conditions.push(eq(dashboards.dashboard_category_id, parseInt(options.category_id)));
+      const categoryId = parseInt(options.category_id);
+      if (!isNaN(categoryId) && categoryId > 0) {
+        conditions.push(eq(dashboards.dashboard_category_id, categoryId));
+      }
     }
 
     if (options.search) {
@@ -109,51 +112,86 @@ export class RBACDashboardsService extends BaseRBACService {
       );
     }
 
-    // Fetch dashboards with creator and category info
+    // Fetch dashboards with creator, category info, and chart counts in single query
     const dashboardList = await db
-      .select()
+      .select({
+        // Dashboard fields
+        dashboard_id: dashboards.dashboard_id,
+        dashboard_name: dashboards.dashboard_name,
+        dashboard_description: dashboards.dashboard_description,
+        layout_config: dashboards.layout_config,
+        dashboard_category_id: dashboards.dashboard_category_id,
+        created_by: dashboards.created_by,
+        created_at: dashboards.created_at,
+        updated_at: dashboards.updated_at,
+        is_active: dashboards.is_active,
+        is_published: dashboards.is_published,
+        // Category fields
+        chart_category_id: chart_categories.chart_category_id,
+        category_name: chart_categories.category_name,
+        category_description: chart_categories.category_description,
+        // Creator fields
+        user_id: users.user_id,
+        first_name: users.first_name,
+        last_name: users.last_name,
+        email: users.email,
+        // Chart count (aggregated)
+        chart_count: count(dashboard_charts.chart_definition_id)
+      })
       .from(dashboards)
       .leftJoin(chart_categories, eq(dashboards.dashboard_category_id, chart_categories.chart_category_id))
       .leftJoin(users, eq(dashboards.created_by, users.user_id))
+      .leftJoin(dashboard_charts, eq(dashboards.dashboard_id, dashboard_charts.dashboard_id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .groupBy(
+        dashboards.dashboard_id,
+        dashboards.dashboard_name,
+        dashboards.dashboard_description,
+        dashboards.layout_config,
+        dashboards.dashboard_category_id,
+        dashboards.created_by,
+        dashboards.created_at,
+        dashboards.updated_at,
+        dashboards.is_active,
+        dashboards.is_published,
+        chart_categories.chart_category_id,
+        chart_categories.category_name,
+        chart_categories.category_description,
+        users.user_id,
+        users.first_name,
+        users.last_name,
+        users.email
+      )
       .orderBy(desc(dashboards.created_at))
       .limit(options.limit || 50)
       .offset(options.offset || 0);
 
-    // Get chart count for each dashboard
-    const dashboardsWithChartCount = await Promise.all(
-      dashboardList.map(async (dashboard) => {
-        const [chartCount] = await db
-          .select({ count: count() })
-          .from(dashboard_charts)
-          .where(eq(dashboard_charts.dashboard_id, dashboard.dashboards.dashboard_id));
-
-        return {
-          dashboard_id: dashboard.dashboards.dashboard_id,
-          dashboard_name: dashboard.dashboards.dashboard_name,
-          dashboard_description: dashboard.dashboards.dashboard_description || undefined,
-          layout_config: dashboard.dashboards.layout_config as Record<string, unknown> || {},
-          dashboard_category_id: dashboard.dashboards.dashboard_category_id || undefined,
-          created_by: dashboard.dashboards.created_by,
-          created_at: (dashboard.dashboards.created_at || new Date()).toISOString(),
-          updated_at: (dashboard.dashboards.updated_at || new Date()).toISOString(),
-          is_active: dashboard.dashboards.is_active,
-          is_published: dashboard.dashboards.is_published,
-          chart_count: chartCount?.count || 0,
-          category: dashboard.chart_categories ? {
-            chart_category_id: dashboard.chart_categories.chart_category_id,
-            category_name: dashboard.chart_categories.category_name,
-            category_description: dashboard.chart_categories.category_description || undefined
-          } : undefined,
-          creator: dashboard.users ? {
-            user_id: dashboard.users.user_id,
-            first_name: dashboard.users.first_name,
-            last_name: dashboard.users.last_name,
-            email: dashboard.users.email
-          } : undefined
-        } as DashboardWithCharts;
-      })
-    );
+    // Transform to DashboardWithCharts format
+    const dashboardsWithChartCount: DashboardWithCharts[] = dashboardList.map((dashboard) => ({
+      dashboard_id: dashboard.dashboard_id,
+      dashboard_name: dashboard.dashboard_name,
+      dashboard_description: dashboard.dashboard_description || undefined,
+      layout_config: dashboard.layout_config as Record<string, unknown> || {},
+      dashboard_category_id: dashboard.dashboard_category_id || undefined,
+      created_by: dashboard.created_by,
+      created_at: (dashboard.created_at || new Date()).toISOString(),
+      updated_at: (dashboard.updated_at || new Date()).toISOString(),
+      is_active: dashboard.is_active ?? true,
+      is_published: dashboard.is_published ?? false,
+      chart_count: Number(dashboard.chart_count) || 0,
+      category: dashboard.chart_category_id ? {
+        chart_category_id: dashboard.chart_category_id,
+        category_name: dashboard.category_name || '',
+        category_description: dashboard.category_description || undefined
+      } : undefined,
+      creator: dashboard.user_id ? {
+        user_id: dashboard.user_id,
+        first_name: dashboard.first_name || '',
+        last_name: dashboard.last_name || '',
+        email: dashboard.email || ''
+      } : undefined,
+      charts: [] // Charts are loaded separately in getDashboardById for individual dashboards
+    }));
 
     return dashboardsWithChartCount;
   }
@@ -254,7 +292,10 @@ export class RBACDashboardsService extends BaseRBACService {
     }
 
     if (options.category_id) {
-      conditions.push(eq(dashboards.dashboard_category_id, parseInt(options.category_id)));
+      const categoryId = parseInt(options.category_id);
+      if (!isNaN(categoryId) && categoryId > 0) {
+        conditions.push(eq(dashboards.dashboard_category_id, categoryId));
+      }
     }
 
     if (options.search) {
@@ -281,14 +322,12 @@ export class RBACDashboardsService extends BaseRBACService {
     const startTime = Date.now();
 
     // Enhanced dashboard creation logging
-    if (true) {
-      rbacDashboardsLogger.info('Dashboard creation initiated', {
-        requestingUserId: this.userContext.user_id,
-        dashboardName: dashboardData.dashboard_name,
-        operation: 'create_dashboard',
-        securityLevel: 'medium'
-      });
-    }
+    rbacDashboardsLogger.info('Dashboard creation initiated', {
+      requestingUserId: this.userContext.user_id,
+      dashboardName: dashboardData.dashboard_name,
+      operation: 'create_dashboard',
+      securityLevel: 'medium'
+    });
 
     this.requirePermission('analytics:read:all', undefined);
 
@@ -323,44 +362,103 @@ export class RBACDashboardsService extends BaseRBACService {
         .values(chartAssociations);
     }
 
-    // Return dashboard with full details
-    const createdDashboard = await this.getDashboardById(newDashboard.dashboard_id);
-    if (!createdDashboard) {
+    // Return dashboard with full details (more efficient single query)
+    const createdDashboards = await db
+      .select()
+      .from(dashboards)
+      .leftJoin(chart_categories, eq(dashboards.dashboard_category_id, chart_categories.chart_category_id))
+      .leftJoin(users, eq(dashboards.created_by, users.user_id))
+      .where(eq(dashboards.dashboard_id, newDashboard.dashboard_id))
+      .limit(1);
+
+    if (createdDashboards.length === 0) {
       throw new Error('Failed to retrieve created dashboard');
     }
 
+    const createdDashboardData = createdDashboards[0]!; // Safe: we just checked createdDashboards.length > 0
+
+    // Get chart details for the created dashboard
+    const chartDetails = await db
+      .select({
+        chart_definition_id: chart_definitions.chart_definition_id,
+        chart_name: chart_definitions.chart_name,
+        chart_description: chart_definitions.chart_description,
+        chart_type: chart_definitions.chart_type,
+        position_config: dashboard_charts.position_config
+      })
+      .from(dashboard_charts)
+      .innerJoin(chart_definitions, eq(dashboard_charts.chart_definition_id, chart_definitions.chart_definition_id))
+      .where(eq(dashboard_charts.dashboard_id, newDashboard.dashboard_id))
+      .orderBy(dashboard_charts.added_at);
+
+    // Get chart count
+    const [chartCount] = await db
+      .select({ count: count() })
+      .from(dashboard_charts)
+      .where(eq(dashboard_charts.dashboard_id, newDashboard.dashboard_id));
+
+    const createdDashboard: DashboardWithCharts = {
+      dashboard_id: createdDashboardData.dashboards.dashboard_id,
+      dashboard_name: createdDashboardData.dashboards.dashboard_name,
+      dashboard_description: createdDashboardData.dashboards.dashboard_description || undefined,
+      layout_config: createdDashboardData.dashboards.layout_config as Record<string, unknown> || {},
+      dashboard_category_id: createdDashboardData.dashboards.dashboard_category_id || undefined,
+      created_by: createdDashboardData.dashboards.created_by,
+      created_at: createdDashboardData.dashboards.created_at?.toISOString() || new Date().toISOString(),
+      updated_at: createdDashboardData.dashboards.updated_at?.toISOString() || new Date().toISOString(),
+      is_active: createdDashboardData.dashboards.is_active ?? true,
+      is_published: createdDashboardData.dashboards.is_published ?? false,
+      chart_count: chartCount?.count || 0,
+      category: createdDashboardData.chart_categories ? {
+        chart_category_id: createdDashboardData.chart_categories.chart_category_id,
+        category_name: createdDashboardData.chart_categories.category_name,
+        category_description: createdDashboardData.chart_categories.category_description || undefined
+      } : undefined,
+      creator: createdDashboardData.users ? {
+        user_id: createdDashboardData.users.user_id,
+        first_name: createdDashboardData.users.first_name,
+        last_name: createdDashboardData.users.last_name,
+        email: createdDashboardData.users.email
+      } : undefined,
+      charts: chartDetails.map(chart => ({
+        chart_definition_id: chart.chart_definition_id,
+        chart_name: chart.chart_name,
+        chart_description: chart.chart_description || undefined,
+        chart_type: chart.chart_type,
+        position_config: chart.position_config as Record<string, unknown> || undefined
+      }))
+    };
+
     // Enhanced dashboard creation completion logging
-    if (true) {
-      const duration = Date.now() - startTime;
+    const duration = Date.now() - startTime;
 
-      // Business intelligence for dashboard creation
-      rbacDashboardsLogger.info('Dashboard creation analytics', {
-        operation: 'dashboard_created',
-        newDashboardId: newDashboard.dashboard_id,
-        dashboardName: dashboardData.dashboard_name,
-        createdByUserId: this.userContext.user_id,
-        chartCount: dashboardData.chart_ids?.length || 0,
-        categoryId: dashboardData.dashboard_category_id,
-        isPublished: dashboardData.is_published ?? false,
-        duration
-      });
+    // Business intelligence for dashboard creation
+    rbacDashboardsLogger.info('Dashboard creation analytics', {
+      operation: 'dashboard_created',
+      newDashboardId: newDashboard.dashboard_id,
+      dashboardName: dashboardData.dashboard_name,
+      createdByUserId: this.userContext.user_id,
+      chartCount: dashboardData.chart_ids?.length || 0,
+      categoryId: dashboardData.dashboard_category_id,
+      isPublished: dashboardData.is_published ?? false,
+      duration
+    });
 
-      // Security event for dashboard creation
-      rbacDashboardsLogger.security('dashboard_created', 'low', {
-        action: 'dashboard_creation_success',
-        userId: this.userContext.user_id,
-        newDashboardId: newDashboard.dashboard_id,
-        dashboardName: dashboardData.dashboard_name,
-        chartCount: dashboardData.chart_ids?.length || 0,
-        complianceValidated: true
-      });
+    // Security event for dashboard creation
+    rbacDashboardsLogger.security('dashboard_created', 'low', {
+      action: 'dashboard_creation_success',
+      userId: this.userContext.user_id,
+      newDashboardId: newDashboard.dashboard_id,
+      dashboardName: dashboardData.dashboard_name,
+      chartCount: dashboardData.chart_ids?.length || 0,
+      complianceValidated: true
+    });
 
-      // Performance monitoring
-      rbacDashboardsLogger.timing('Dashboard creation completed', startTime, {
-        chartAssociationsIncluded: (dashboardData.chart_ids?.length || 0) > 0,
-        databaseOperations: dashboardData.chart_ids?.length ? 2 : 1 // dashboard insert + chart associations
-      });
-    }
+    // Performance monitoring
+    rbacDashboardsLogger.timing('Dashboard creation completed', startTime, {
+      chartAssociationsIncluded: (dashboardData.chart_ids?.length || 0) > 0,
+      databaseOperations: dashboardData.chart_ids?.length ? 2 : 1 // dashboard insert + chart associations
+    });
 
     return createdDashboard;
   }
@@ -426,11 +524,72 @@ export class RBACDashboardsService extends BaseRBACService {
       return dashboard;
     });
 
-    // Return updated dashboard with full details
-    const dashboardWithCharts = await this.getDashboardById(dashboardId);
-    if (!dashboardWithCharts) {
+    // Return updated dashboard with full details (more efficient single query)
+    const updatedDashboards = await db
+      .select()
+      .from(dashboards)
+      .leftJoin(chart_categories, eq(dashboards.dashboard_category_id, chart_categories.chart_category_id))
+      .leftJoin(users, eq(dashboards.created_by, users.user_id))
+      .where(eq(dashboards.dashboard_id, dashboardId))
+      .limit(1);
+
+    if (updatedDashboards.length === 0) {
       throw new Error('Failed to retrieve updated dashboard');
     }
+
+    const updatedDashboardData = updatedDashboards[0]!; // Safe: we just checked updatedDashboards.length > 0
+
+    // Get chart details for the updated dashboard
+    const chartDetails = await db
+      .select({
+        chart_definition_id: chart_definitions.chart_definition_id,
+        chart_name: chart_definitions.chart_name,
+        chart_description: chart_definitions.chart_description,
+        chart_type: chart_definitions.chart_type,
+        position_config: dashboard_charts.position_config
+      })
+      .from(dashboard_charts)
+      .innerJoin(chart_definitions, eq(dashboard_charts.chart_definition_id, chart_definitions.chart_definition_id))
+      .where(eq(dashboard_charts.dashboard_id, dashboardId))
+      .orderBy(dashboard_charts.added_at);
+
+    // Get chart count
+    const [chartCount] = await db
+      .select({ count: count() })
+      .from(dashboard_charts)
+      .where(eq(dashboard_charts.dashboard_id, dashboardId));
+
+    const dashboardWithCharts: DashboardWithCharts = {
+      dashboard_id: updatedDashboardData.dashboards.dashboard_id,
+      dashboard_name: updatedDashboardData.dashboards.dashboard_name,
+      dashboard_description: updatedDashboardData.dashboards.dashboard_description || undefined,
+      layout_config: updatedDashboardData.dashboards.layout_config as Record<string, unknown> || {},
+      dashboard_category_id: updatedDashboardData.dashboards.dashboard_category_id || undefined,
+      created_by: updatedDashboardData.dashboards.created_by,
+      created_at: updatedDashboardData.dashboards.created_at?.toISOString() || new Date().toISOString(),
+      updated_at: updatedDashboardData.dashboards.updated_at?.toISOString() || new Date().toISOString(),
+      is_active: updatedDashboardData.dashboards.is_active ?? true,
+      is_published: updatedDashboardData.dashboards.is_published ?? false,
+      chart_count: chartCount?.count || 0,
+      category: updatedDashboardData.chart_categories ? {
+        chart_category_id: updatedDashboardData.chart_categories.chart_category_id,
+        category_name: updatedDashboardData.chart_categories.category_name,
+        category_description: updatedDashboardData.chart_categories.category_description || undefined
+      } : undefined,
+      creator: updatedDashboardData.users ? {
+        user_id: updatedDashboardData.users.user_id,
+        first_name: updatedDashboardData.users.first_name,
+        last_name: updatedDashboardData.users.last_name,
+        email: updatedDashboardData.users.email
+      } : undefined,
+      charts: chartDetails.map(chart => ({
+        chart_definition_id: chart.chart_definition_id,
+        chart_name: chart.chart_name,
+        chart_description: chart.chart_description || undefined,
+        chart_type: chart.chart_type,
+        position_config: chart.position_config as Record<string, unknown> || undefined
+      }))
+    };
 
     return dashboardWithCharts;
   }
