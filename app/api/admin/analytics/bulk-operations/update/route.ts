@@ -4,6 +4,9 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { bulkChartOperationsService } from '@/lib/services/bulk-chart-operations';
 
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
+
 /**
  * POST /api/admin/analytics/bulk-operations/update
  * Start a bulk update operation
