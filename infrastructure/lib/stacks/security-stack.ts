@@ -109,6 +109,8 @@ export class SecurityStack extends cdk.Stack {
           },
           StringLike: {
             'token.actions.githubusercontent.com:sub': [
+            'repo:insano70/bcos:environment:staging',
+            'repo:insano70/bcos:environment:production',
             'repo:insano70/bcos:ref:refs/heads/main',
             'repo:insano70/bcos:ref:refs/heads/staging',
             ],

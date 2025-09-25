@@ -91,7 +91,14 @@ export class StagingStage extends cdk.Stage {
       minHealthyPercent: 50,
       maxHealthyPercent: 200,
       vpcSubnets: {
-        subnetType: cdk.aws_ec2.SubnetType.PRIVATE_WITH_EGRESS,
+        subnetFilters: [
+          cdk.aws_ec2.SubnetFilter.byIds([
+            'subnet-1d132031', // us-east-1c
+            'subnet-6f277e63', // us-east-1f  
+            'subnet-2563a41a', // us-east-1e
+            // Exclude subnet-095fa406c94abb01f (us-east-1a) - no ALB subnet in this AZ
+          ])
+        ]
       },
       securityGroups: [networkStack.ecsSecurityGroup],
       assignPublicIp: false,

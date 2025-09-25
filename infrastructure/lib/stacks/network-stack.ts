@@ -124,6 +124,13 @@ export class NetworkStack extends cdk.Stack {
       'Allow HTTPS to external services'
     );
 
+    // Allow outbound PostgreSQL for database connections
+    this.ecsSecurityGroup.addEgressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(5432),
+      'Allow PostgreSQL database connections'
+    );
+
     // Create VPC Endpoints for ECS tasks in private subnets
     const vpcEndpoints = [
       {
