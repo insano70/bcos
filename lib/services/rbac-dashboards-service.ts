@@ -54,8 +54,8 @@ export interface DashboardWithCharts {
   layout_config: Record<string, unknown>;
   dashboard_category_id: number | undefined;
   created_by: string;
-  created_at: Date;
-  updated_at: Date;
+  created_at: string;
+  updated_at: string;
   is_active: boolean;
   is_published: boolean;
   chart_count: number;
@@ -135,8 +135,8 @@ export class RBACDashboardsService extends BaseRBACService {
           layout_config: dashboard.dashboards.layout_config as Record<string, unknown> || {},
           dashboard_category_id: dashboard.dashboards.dashboard_category_id || undefined,
           created_by: dashboard.dashboards.created_by,
-          created_at: dashboard.dashboards.created_at || new Date(),
-          updated_at: dashboard.dashboards.updated_at || new Date(),
+          created_at: (dashboard.dashboards.created_at || new Date()).toISOString(),
+          updated_at: (dashboard.dashboards.updated_at || new Date()).toISOString(),
           is_active: dashboard.dashboards.is_active,
           is_published: dashboard.dashboards.is_published,
           chart_count: chartCount?.count || 0,
@@ -209,8 +209,8 @@ export class RBACDashboardsService extends BaseRBACService {
       layout_config: dashboard.dashboards.layout_config as Record<string, unknown> || {},
       dashboard_category_id: dashboard.dashboards.dashboard_category_id || undefined,
       created_by: dashboard.dashboards.created_by,
-      created_at: dashboard.dashboards.created_at || new Date(),
-      updated_at: dashboard.dashboards.updated_at || new Date(),
+      created_at: (dashboard.dashboards.created_at || new Date()).toISOString(),
+      updated_at: (dashboard.dashboards.updated_at || new Date()).toISOString(),
       is_active: dashboard.dashboards.is_active ?? true,
       is_published: dashboard.dashboards.is_published ?? false,
       chart_count: chartCount?.count || 0,

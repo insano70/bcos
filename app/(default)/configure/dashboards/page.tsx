@@ -81,8 +81,8 @@ export default function DashboardsPage() {
           created_by: item.created_by,
           creator_name: item.creator?.first_name,
           creator_last_name: item.creator?.last_name,
-          created_at: item.created_at.toISOString(),
-          updated_at: item.updated_at.toISOString(),
+          created_at: item.created_at,
+          updated_at: item.updated_at,
           is_active: item.is_active,
           is_published: item.is_published,
         };
