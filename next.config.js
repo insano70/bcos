@@ -10,8 +10,6 @@ const nextConfig = {
   },
   // Skip static generation for API routes during build
   output: 'standalone',
-  // Force dynamic rendering for all API routes to prevent build errors
-  generateStaticParams: false,
   // Security headers (additional to middleware)
   headers: async () => [
     {

@@ -19,6 +19,13 @@ ENV NODE_ENV=${NODE_ENV}
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV BUILD_VERSION=${BUILD_VERSION}
 ENV SKIP_ENV_VALIDATION=true
+# Minimal environment variables for build-time validation
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+ENV ANALYTICS_DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+ENV JWT_SECRET="dummy-jwt-secret-for-build-validation-only-not-used-in-production"
+ENV JWT_REFRESH_SECRET="dummy-refresh-secret-for-build-validation-only-not-used"
+ENV CSRF_SECRET="dummy-csrf-secret-for-build-validation"
+ENV NEXT_PUBLIC_APP_URL="https://app.bendcare.com"
 
 RUN pnpm build
 
@@ -56,18 +63,18 @@ RUN mkdir -p .next/cache && \
 
 # Set environment variables
 ENV NODE_ENV=production
-ENV PORT=80
+ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # Security: Use non-root user
 USER bcos
 
 # Expose port
-EXPOSE 80
+EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:80/health || exit 1
+    CMD curl -f http://localhost:3000/api/health || exit 1
 
 # Use dumb-init as PID 1 for proper signal handling
 ENTRYPOINT ["dumb-init", "--"]
