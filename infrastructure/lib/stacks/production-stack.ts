@@ -165,10 +165,11 @@ export class ProductionStack extends cdk.Stack {
       },
       securityGroups: [ecsSecurityGroup],
       assignPublicIp: false,
-      healthCheckGracePeriod: cdk.Duration.seconds(120),
-      circuitBreaker: {
-        rollback: true,
-      },
+      healthCheckGracePeriod: cdk.Duration.seconds(300),
+      // Temporarily disable circuit breaker for initial deployment
+      // circuitBreaker: {
+      //   rollback: true,
+      // },
       enableExecuteCommand: true, // For debugging (requires proper IAM permissions)
     });
 
