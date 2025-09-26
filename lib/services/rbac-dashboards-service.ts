@@ -1,6 +1,6 @@
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import { db } from '@/lib/db';
-import { createAppLogger } from '@/lib/logger/factory';
+import { createAppLogger } from '@/lib/logger';
 import { dashboards, dashboard_charts, chart_definitions, chart_categories, users } from '@/lib/db/schema';
 import { eq, and, inArray, isNull, like, or, count, desc } from 'drizzle-orm';
 import type { UserContext } from '@/lib/types/rbac';
