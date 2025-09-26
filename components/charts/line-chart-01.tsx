@@ -160,11 +160,7 @@ const LineChart01 = forwardRef<HTMLCanvasElement, LineChart01Props>(function Lin
   return (
     <canvas 
       ref={canvas} 
-      style={{ 
-        width: '100%', 
-        height: '100%',
-        display: 'block'
-      }}
+      className="chart-canvas"
     />
   );
 });

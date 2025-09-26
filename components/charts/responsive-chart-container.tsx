@@ -122,11 +122,10 @@ export default function ResponsiveChartContainer({
   return (
     <div
       ref={containerRef}
-      className={`w-full h-full ${className}`}
+      className={`chart-container-responsive ${className}`}
       style={{
         minHeight: `${minHeight}px`,
-        maxHeight: `${maxHeight}px`,
-        overflow: 'hidden'
+        maxHeight: `${maxHeight}px`
       }}
     >
       {chartElement}

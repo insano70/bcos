@@ -348,7 +348,7 @@ export default function AnalyticsChart({
           {errorContainer}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center" style={{ width, height }}>
+        <div className="chart-error-container" style={{ width, height }}>
           {errorContainer}
         </div>
       );
@@ -369,7 +369,7 @@ export default function AnalyticsChart({
           {noDataContainer}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center" style={{ width, height }}>
+        <div className="chart-error-container" style={{ width, height }}>
           {noDataContainer}
         </div>
       );
