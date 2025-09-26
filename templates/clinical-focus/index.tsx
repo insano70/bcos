@@ -1,6 +1,7 @@
 import type { TemplateProps } from '@/lib/types/practice';
 import Head from 'next/head';
 import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
+import { PracticeCSSInjector } from '@/components/practice-css-injector';
 
 export default function ClinicalFocusTemplate({ 
   practice, 
@@ -24,7 +25,10 @@ export default function ClinicalFocusTemplate({
         <meta name="description" content={attributes.meta_description || `Academic excellence in rheumatology research and patient care at ${practice.name}`} />
       </Head>
 
-      <div className="min-h-screen" style={templateColorStyles.secondary}>
+      {/* Inject practice-specific CSS custom properties */}
+      <PracticeCSSInjector colors={brandColors} practiceId={practice.practice_id} />
+
+      <div className="min-h-screen bg-practice-secondary">
         {/* Header */}
         <header className="bg-white border-b border-slate-200">
           <div className="max-w-7xl mx-auto px-4 py-4">
@@ -41,7 +45,7 @@ export default function ClinicalFocusTemplate({
         </header>
 
         {/* Hero */}
-        <section className="py-20 text-white" style={{ background: `linear-gradient(to right, ${templateColorStyles.primary.backgroundColor}, ${templateColorStyles.accent.backgroundColor})` }}>
+        <section className="py-20 text-white gradient-practice">
           <div className="max-w-7xl mx-auto px-4 text-center">
             <h1 className="text-5xl font-bold mb-6">Advancing Rheumatology Through Research</h1>
             <p className="text-xl mb-8 max-w-3xl mx-auto">
@@ -129,7 +133,7 @@ export default function ClinicalFocusTemplate({
                 Interested in participating in clinical trials or receiving care from our research team?
               </p>
               <div className="text-center">
-                <a href={`tel:${attributes.phone}`} className="px-8 py-3 rounded font-semibold transition-colors" style={templateColorStyles.primary}>
+                <a href={`tel:${attributes.phone}`} className="px-8 py-3 rounded font-semibold transition-colors bg-practice-primary">
                   Call {attributes.phone}
                 </a>
               </div>
@@ -168,7 +172,7 @@ export default function ClinicalFocusTemplate({
         </section>
 
         {/* Footer */}
-        <footer className="text-white py-8" style={templateColorStyles.primary}>
+        <footer className="text-white py-8 bg-practice-primary">
           <div className="max-w-7xl mx-auto px-4 text-center">
             <p>© {new Date().getFullYear()} {practice.name}. Advancing medicine through research.</p>
           </div>

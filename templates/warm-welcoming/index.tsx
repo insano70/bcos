@@ -2,6 +2,7 @@ import type { TemplateProps } from '@/lib/types/practice';
 import Head from 'next/head';
 import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
 import { JSONLD } from '@/lib/security/nonce-components';
+import { PracticeCSSInjector } from '@/components/practice-css-injector';
 import Header from './components/header';
 import Hero from './components/hero';
 import About from './components/about';
@@ -61,7 +62,10 @@ export default function WarmWelcomingTemplate({
         }} />
       </Head>
 
-      <div className="min-h-screen" style={templateColorStyles.secondary}>
+      {/* Inject practice-specific CSS custom properties */}
+      <PracticeCSSInjector colors={brandColors} practiceId={practice.practice_id} />
+
+      <div className="min-h-screen bg-practice-secondary">
         {/* Header with navigation */}
         <Header practice={practice} attributes={attributes} colorStyles={templateColorStyles} />
         
@@ -78,13 +82,13 @@ export default function WarmWelcomingTemplate({
         <Providers staff={staff} colorStyles={templateColorStyles} />
         
         {/* Appointment Form Section */}
-        <section className="py-20" style={templateColorStyles.primaryBg100}>
+        <section className="py-20 bg-practice-primary-100">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-serif mb-4" style={templateColorStyles.primaryText}>
+              <h2 className="text-3xl md:text-4xl font-serif mb-4 text-practice-primary">
                 Schedule Your Visit
               </h2>
-              <p className="text-lg" style={templateColorStyles.primaryText}>
+              <p className="text-lg text-practice-primary">
                 We're here to help you feel better. Let's start your journey to wellness together.
               </p>
             </div>

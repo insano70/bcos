@@ -130,6 +130,7 @@ export default async function PracticeWebsite({
     secondary: parsedAttributes.secondary_color || defaultColors.secondary,
     accent: parsedAttributes.accent_color || defaultColors.accent,
   };
+  // Legacy colorStyles for backward compatibility during migration
   const colorStyles = getColorStyles(brandColors);
 
   // Dynamically load the correct template component

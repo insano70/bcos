@@ -166,3 +166,22 @@
     background-color: var(--swatch-color);
   }
 }
+
+/* Template theming utilities (CSP-compliant) */
+@layer utilities {
+  .bg-practice-primary { background-color: var(--practice-primary); color: white; }
+  .bg-practice-secondary { background-color: var(--practice-secondary); }
+  .bg-practice-accent { background-color: var(--practice-accent); color: white; }
+  
+  .text-practice-primary { color: var(--practice-primary); }
+  .text-practice-secondary { color: var(--practice-secondary); }
+  .text-practice-accent { color: var(--practice-accent); }
+  
+  .border-practice-primary { border-color: var(--practice-primary); color: var(--practice-primary); }
+  .border-practice-accent { border-color: var(--practice-accent); color: var(--practice-accent); }
+  
+  .bg-practice-primary-50 { background-color: var(--practice-primary-50); }
+  .bg-practice-primary-100 { background-color: var(--practice-primary-100); }
+  
+  .gradient-practice { background: var(--practice-gradient); }
+}

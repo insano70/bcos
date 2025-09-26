@@ -150,7 +150,39 @@ export function generateColorCSS(colors: BrandColors): string {
 }
 
 /**
- * Get direct style objects for SSR-compatible rendering
+ * Get CSS custom properties for practice theming (CSP-compliant)
+ */
+export function getPracticeCSS(colors: BrandColors): string {
+  const primaryRgb = hexToRgb(colors.primary);
+  const secondaryRgb = hexToRgb(colors.secondary);
+  const accentRgb = hexToRgb(colors.accent);
+  
+  return `
+    :root {
+      --practice-primary: ${colors.primary};
+      --practice-primary-rgb: ${primaryRgb ? `${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}` : '0, 174, 239'};
+      --practice-primary-50: ${hexToRgba(colors.primary, 0.05)};
+      --practice-primary-100: ${hexToRgba(colors.primary, 0.1)};
+      --practice-primary-text: ${colors.primary};
+      --practice-primary-border: ${colors.primary};
+      
+      --practice-secondary: ${colors.secondary};
+      --practice-secondary-rgb: ${secondaryRgb ? `${secondaryRgb.r}, ${secondaryRgb.g}, ${secondaryRgb.b}` : '255, 255, 255'};
+      --practice-secondary-text: ${colors.secondary};
+      
+      --practice-accent: ${colors.accent};
+      --practice-accent-rgb: ${accentRgb ? `${accentRgb.r}, ${accentRgb.g}, ${accentRgb.b}` : '68, 192, 174'};
+      --practice-accent-text: ${colors.accent};
+      --practice-accent-border: ${colors.accent};
+      
+      --practice-gradient: linear-gradient(to right, ${colors.primary}, ${colors.accent});
+    }
+  `.trim();
+}
+
+/**
+ * Get direct style objects for SSR-compatible rendering (legacy)
+ * @deprecated Use getPracticeCSS and CSS classes instead for CSP compliance
  */
 export function getColorStyles(colors: BrandColors): import('@/lib/types/practice').ColorStyles {
   return {

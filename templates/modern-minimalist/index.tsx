@@ -2,6 +2,7 @@ import type { TemplateProps } from '@/lib/types/practice';
 import Head from 'next/head';
 import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
 import { JSONLD } from '@/lib/security/nonce-components';
+import { PracticeCSSInjector } from '@/components/practice-css-injector';
 import Header from './components/header';
 import Hero from './components/hero';
 import About from './components/about';
@@ -61,7 +62,10 @@ export default function ModernMinimalistTemplate({
         }} />
       </Head>
 
-      <div className="min-h-screen" style={templateColorStyles.secondary}>
+      {/* Inject practice-specific CSS custom properties */}
+      <PracticeCSSInjector colors={brandColors} practiceId={practice.practice_id} />
+
+      <div className="min-h-screen bg-practice-secondary">
         {/* Header with navigation */}
         <Header practice={practice} attributes={attributes} colorStyles={templateColorStyles} />
         
