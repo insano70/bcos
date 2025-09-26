@@ -45,6 +45,19 @@ export function createErrorResponse(
     errorMessage = 'Unknown error'
   }
 
+  // Construct proper external URL for error path (avoid internal AWS DNS)
+  let externalPath: string | undefined
+  if (request?.url) {
+    try {
+      const url = new URL(request.url)
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001'
+      externalPath = `${baseUrl}${url.pathname}${url.search}`
+    } catch {
+      // Fallback to original URL if parsing fails
+      externalPath = request.url
+    }
+  }
+
   const response: ErrorResponse = {
     success: false,
     error: errorMessage,
@@ -52,7 +65,7 @@ export function createErrorResponse(
     details: errorDetails,
     meta: {
       timestamp: new Date().toISOString(),
-      ...(request?.url && { path: request.url })
+      ...(externalPath && { path: externalPath })
     }
   }
 
