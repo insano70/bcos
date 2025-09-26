@@ -129,8 +129,8 @@ export async function middleware(request: NextRequest) {
 
   // Handle API routes
   if (pathname.startsWith('/api/')) {
-    // Request sanitization for JSON bodies
-    if (['POST', 'PUT', 'PATCH'].includes(request.method)) {
+    // Request sanitization for JSON bodies (skip for CSP reports - they contain policy strings that trigger false positives)
+    if (['POST', 'PUT', 'PATCH'].includes(request.method) && pathname !== '/api/security/csp-report') {
       try {
         // Clone the request to read the body
         const clonedRequest = request.clone()
