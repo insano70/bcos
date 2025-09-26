@@ -34,7 +34,7 @@ export async function middleware(request: NextRequest) {
   const search = request.nextUrl.search
   
   // Generate CSP nonces for this request (from develop - better system)
-  const { generateCSPNonces } = await import('@/lib/security/nonce-server')
+  const { generateCSPNonces } = await import('@/lib/security/headers')
   const cspNonces = generateCSPNonces()
   
   // Create new request headers with nonces for SSR components to access
