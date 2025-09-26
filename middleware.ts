@@ -25,7 +25,9 @@ function isCSRFExempt(pathname: string): boolean {
 }
 
 export async function middleware(request: NextRequest) {
-  const hostname = request.nextUrl.hostname
+  // Get hostname from X-Forwarded-Host header (ALB) or fallback to request hostname
+  const forwardedHost = request.headers.get('x-forwarded-host')
+  const hostname = forwardedHost || request.nextUrl.hostname
   const pathname = request.nextUrl.pathname
   const search = request.nextUrl.search
   let response = NextResponse.next()
@@ -216,7 +218,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Debug logging for hostname routing
-  console.log(`🔍 Middleware Debug: hostname="${hostname}", isAdmin=${isAdminSubdomain(hostname)}, pathname="${pathname}"`)
+  console.log(`🔍 Middleware Debug: forwardedHost="${forwardedHost}", hostname="${hostname}", isAdmin=${isAdminSubdomain(hostname)}, pathname="${pathname}"`)
 
   if (isAdminSubdomain(hostname)) {
     console.log(`✅ Admin subdomain detected: ${hostname}`);
