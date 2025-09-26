@@ -13,6 +13,7 @@ const CSRF_EXEMPT_PATHS = [
   '/api/health',          // Health check endpoint (GET only, no state change)
   '/api/csrf',            // CSRF token generation endpoint (can't require CSRF to get CSRF)
   '/api/webhooks/',       // All webhook endpoints (external services)
+  '/api/security/csp-report', // CSP violation reporting (automated browser requests)
   // Note: login, register, and refresh are NOT exempt - they all require CSRF protection
   // - login/register use anonymous CSRF tokens
   // - refresh uses authenticated CSRF tokens

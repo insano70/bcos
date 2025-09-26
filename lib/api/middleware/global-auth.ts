@@ -20,6 +20,7 @@ const PUBLIC_API_ROUTES = new Set([
   '/api/csrf',       // ✅ Public endpoint for token generation
   '/api/webhooks/stripe', // ✅ Webhooks don't need CSRF (external)
   '/api/webhooks/resend', // ✅ Webhooks don't need CSRF (external)
+  '/api/security/csp-report', // ✅ CSP violation reporting (automated browser requests)
   // Practice website API (public facing)
   '/api/practices/by-domain', // If this exists for public practice sites
 ])

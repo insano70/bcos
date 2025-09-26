@@ -50,6 +50,7 @@ export function createErrorResponse(
   if (request?.url) {
     try {
       const url = new URL(request.url)
+      // For server-side error responses, use NEXT_PUBLIC_APP_URL (set per environment)
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001'
       externalPath = `${baseUrl}${url.pathname}${url.search}`
     } catch {

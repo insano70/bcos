@@ -125,7 +125,10 @@ export class CSRFClientHelper {
     }
 
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001';
+      // Use current domain instead of hardcoded NEXT_PUBLIC_APP_URL to avoid CORS issues
+      const baseUrl = typeof window !== 'undefined' 
+        ? window.location.origin 
+        : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001');
       const response = await fetch(`${baseUrl}/api/csrf/validate`, {
         method: 'POST',
         headers: {
