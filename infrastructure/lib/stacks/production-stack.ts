@@ -165,14 +165,7 @@ export class ProductionStack extends cdk.Stack {
       action: elbv2.ListenerAction.forward([this.targetGroup]),
     });
 
-    // Create Route53 record for production domain
-    new route53.ARecord(this, 'ProductionARecord', {
-      zone: hostedZone,
-      recordName: 'app',
-      target: route53.RecordTarget.fromAlias(
-        new route53targets.LoadBalancerTarget(loadBalancer)
-      ),
-    });
+    // Skip Route53 A record - app.bendcare.com already exists
 
     // Skip WAF creation - shared ALB already has staging WAF
     // AWS only allows one WAF Web ACL per load balancer
