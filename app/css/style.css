@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=fallback');
+/* Google Fonts loaded via link tag in layout for better CSP compatibility */
 
 @import 'tailwindcss';
 @import './additional-styles/utility-patterns.css' layer(components);

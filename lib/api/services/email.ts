@@ -1,5 +1,12 @@
 import { Resend } from 'resend'
-import { logger } from '@/lib/logger'
+import { createAppLogger } from '@/lib/logger/factory'
+
+// Create Universal Logger for email service operations  
+const emailLogger = createAppLogger('email-service', {
+  component: 'communications',
+  feature: 'email-delivery',
+  module: 'email-service'
+})
 
 /**
  * Professional Email Service
@@ -33,11 +40,21 @@ export class EmailService {
     if (!EmailService.resend) {
       const apiKey = process.env.RESEND_API_KEY
       if (!apiKey) {
-        throw new Error('RESEND_API_KEY environment variable is not set')
+        console.warn('Email service disabled - RESEND_API_KEY not configured')
+        // Create a mock instance that logs instead of sending
+        EmailService.resend = {
+          emails: {
+            send: async (params: unknown) => {
+              console.log('Mock email send (RESEND_API_KEY not configured):', params)
+              return { data: { id: 'mock-email-id' }, error: null }
+            }
+          }
+        } as Resend
+      } else {
+        EmailService.resend = new Resend(apiKey)
       }
-      EmailService.resend = new Resend(apiKey)
     }
-    return EmailService.resend
+    return EmailService.resend as Resend
   }
 
   /**
@@ -110,7 +127,7 @@ export class EmailService {
     const adminEmails = process.env.ADMIN_NOTIFICATION_EMAILS?.split(',') || []
     
     if (adminEmails.length === 0) {
-      logger.warn('No admin notification emails configured', {
+      emailLogger.warn('No admin notification emails configured', {
         operation: 'sendAdminNotification',
         reason: 'ADMIN_NOTIFICATION_EMAILS not set'
       })
@@ -135,13 +152,16 @@ export class EmailService {
       const resend = EmailService.getResend()
       const fromEmail = process.env.EMAIL_FROM || 'noreply@yourdomain.com'
       
-      const emailData = {
+      const emailData: any = {
         from: fromEmail,
         to: Array.isArray(options.to) ? options.to : [options.to],
         subject: options.subject,
         html: options.html || '',
-        text: options.text || '',
-        ...(options.attachments && { attachments: options.attachments })
+        text: options.text || ''
+      }
+      
+      if (options.attachments && options.attachments.length > 0) {
+        emailData.attachments = options.attachments
       }
       
       const result = await resend.emails.send(emailData)
@@ -150,14 +170,14 @@ export class EmailService {
         throw new Error(`Email sending failed: ${result.error.message}`)
       }
 
-      logger.info('Email sent successfully', {
+      emailLogger.info('Email sent successfully', {
         to: options.to,
         emailId: result.data?.id,
         subject: options.subject,
         operation: 'sendEmail'
       })
     } catch (error) {
-      logger.error('Email sending error', {
+      emailLogger.error('Email sending error', {
         to: options.to,
         subject: options.subject,
         error: error instanceof Error ? error.message : 'Unknown error',

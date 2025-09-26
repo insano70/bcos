@@ -9,17 +9,25 @@ import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { createRBACUsersService } from '@/lib/services/rbac-users-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { 
-  createAPILogger, 
   logDBOperation, 
   logPerformanceMetric 
 } from '@/lib/logger';
+import { createAPILogger } from '@/lib/logger/api-features';
 
 const getUserHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
+  const apiLogger = createAPILogger(request, 'user-management')
+  const logger = apiLogger.getLogger().withUser(userContext.user_id, userContext.current_organization_id);
   
   try {
     const { id: userId } = await extractRouteParams(args[0], userParamsSchema);
+    
+    // Enhanced user retrieval request logging
+    apiLogger.logRequest({
+      authType: 'session',
+      userId: userContext.user_id,
+      ...(userContext.current_organization_id && { organizationId: userContext.current_organization_id })
+    })
     
     logger.info('Get user request initiated', {
       targetUserId: userId,

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import BarChart01 from './bar-chart-01';
 import { getCssVariable } from '@/components/utils/utils';
+import ResponsiveChartContainer from './responsive-chart-container';
 
 interface ChargesPaymentsData {
   practice: string;
@@ -20,12 +21,20 @@ interface ChargesPaymentsChartProps {
   practiceUid?: string;
   width?: number;
   height?: number;
+  responsive?: boolean; // Enable responsive behavior
+  minHeight?: number; // Minimum height for responsive mode
+  maxHeight?: number; // Maximum height for responsive mode
+  aspectRatio?: number; // Fixed aspect ratio for responsive mode
 }
 
 export default function ChargesPaymentsChart({ 
   practiceUid = '114', 
   width = 595, 
-  height = 248 
+  height = 248,
+  responsive = false,
+  minHeight = 200,
+  maxHeight = 600,
+  aspectRatio
 }: ChargesPaymentsChartProps) {
   const [chartData, setChartData] = useState<{
     labels: string[];
@@ -173,8 +182,21 @@ export default function ChargesPaymentsChart({
         </div>
       </header>
       {/* Chart built with Chart.js 3 */}
-      {/* Change the height attribute to adjust the chart height */}
-      <BarChart01 data={chartData} width={width} height={height} />
+      {/* Chart with responsive or fixed sizing */}
+      <div className={responsive ? "flex-1 w-full" : ""}>
+        {responsive ? (
+          <ResponsiveChartContainer
+            minHeight={minHeight}
+            maxHeight={maxHeight}
+            {...(aspectRatio && { aspectRatio })}
+            className="w-full h-full"
+          >
+            <BarChart01 data={chartData} width={width} height={height} />
+          </ResponsiveChartContainer>
+        ) : (
+          <BarChart01 data={chartData} width={width} height={height} />
+        )}
+      </div>
     </div>
   );
 }

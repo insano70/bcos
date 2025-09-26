@@ -1,5 +1,6 @@
 import { db, audit_logs } from '@/lib/db'
 import { logger } from '@/lib/logger'
+import { createAppLogger } from '@/lib/logger/factory'
 import { nanoid } from 'nanoid'
 
 /**
@@ -24,6 +25,10 @@ export interface AuditLogEntry {
 }
 
 class AuditLoggerService {
+  private universalLogger = createAppLogger('audit-service', {
+    component: 'audit-system',
+    feature: 'compliance-logging'
+  })
   /**
    * Log authentication events
    */
@@ -35,6 +40,27 @@ class AuditLoggerService {
     userAgent?: string
     metadata?: Record<string, unknown>
   }): Promise<void> {
+    const severity = data.action === 'login_failed' || data.action === 'account_locked' ? 'high' : 'medium'
+    
+    // Enhanced audit logging with universal logger - permanently enabled
+    this.universalLogger.auth(data.action, data.action !== 'login_failed' && data.action !== 'account_locked', {
+      userId: data.userId,
+      ipAddress: data.ipAddress,
+      userAgent: data.userAgent,
+      email: data.email,
+      ...data.metadata
+    })
+    
+    // Business intelligence for audit operations
+    this.universalLogger.info('Audit event processed', {
+      eventType: 'auth',
+      action: data.action,
+      severity,
+      complianceFramework: 'HIPAA',
+      retentionPeriod: '7_years'
+    })
+    
+    // Always maintain database audit trail for compliance
     await this.log({
       event_type: 'auth',
       action: data.action,
@@ -45,7 +71,7 @@ class AuditLoggerService {
         email: data.email,
         ...data.metadata
       },
-      severity: data.action === 'login_failed' || data.action === 'account_locked' ? 'high' : 'medium'
+      severity
     })
   }
 
@@ -61,6 +87,28 @@ class AuditLoggerService {
     userAgent?: string
     metadata?: Record<string, unknown>
   }): Promise<void> {
+    // Enhanced user action logging - permanently enabled
+    this.universalLogger.info('User action audit', {
+      action: data.action,
+      userId: data.userId,
+      resourceType: data.resourceType,
+      resourceId: data.resourceId,
+      ipAddress: data.ipAddress,
+      userAgent: data.userAgent,
+      complianceFramework: 'HIPAA',
+      dataClassification: 'audit_trail',
+      retentionPeriod: '7_years',
+      ...data.metadata
+    })
+    
+    // Business intelligence for user behavior
+    this.universalLogger.debug('User behavior analytics', {
+      userActionType: data.action,
+      resourceAccessed: data.resourceType,
+      sessionMetadata: data.metadata
+    })
+    
+    // Always maintain database audit trail for compliance
     await this.log({
       event_type: 'user_action',
       action: data.action,

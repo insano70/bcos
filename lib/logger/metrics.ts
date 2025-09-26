@@ -4,7 +4,7 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server'
-import { createAppLogger } from './winston-logger'
+import { createAppLogger } from './factory'
 
 const metricsLogger = createAppLogger('metrics')
 

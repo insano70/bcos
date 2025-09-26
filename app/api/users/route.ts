@@ -12,19 +12,32 @@ import { db } from '@/lib/db';
 import { user_roles } from '@/lib/db/rbac-schema';
 import { eq } from 'drizzle-orm';
 import { 
-  createAPILogger, 
   logDBOperation, 
   logPerformanceMetric,
   logValidationError 
 } from '@/lib/logger';
+import { createAPILogger } from '@/lib/logger/api-features';
 
 const getUsersHandler = async (request: NextRequest, userContext: UserContext) => {
     const startTime = Date.now()
-    const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id)
     
-    logger.info('Users list request initiated', {
-      requestingUserId: userContext.user_id,
-      organizationId: userContext.current_organization_id
+    // Create enhanced API logger for user management
+    const apiLogger = createAPILogger(request, 'user-management')
+    const logger = apiLogger.getLogger()
+    
+    // Enhanced user list request logging - permanently enabled
+    apiLogger.logRequest({
+      authType: 'session',
+      userId: userContext.user_id,
+      ...(userContext.current_organization_id && { organizationId: userContext.current_organization_id })
+    })
+    
+    // Business intelligence for user management
+    apiLogger.getLogger().debug('User management analytics', {
+      operation: 'list_users',
+      requestingUserRole: userContext.roles?.[0]?.name || 'unknown',
+      isSuperAdmin: userContext.is_super_admin,
+      organizationScope: userContext.current_organization_id
     })
 
     try {
@@ -137,7 +150,8 @@ export const GET = rbacRoute(
 
 const createUserHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now()
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id)
+  const apiLogger = createAPILogger(request, 'user-management')
+  const logger = apiLogger.getLogger()
   
   logger.info('User creation request initiated', {
     createdByUserId: userContext.user_id,

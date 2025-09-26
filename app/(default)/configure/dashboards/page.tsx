@@ -3,32 +3,9 @@
 import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import type { DashboardListItem } from '@/lib/types/analytics';
+import type { DashboardWithCharts } from '@/lib/services/rbac-dashboards-service';
 import DashboardsTable from './dashboards-table';
 
-// Type for the joined query result from the API with chart count
-type JoinedDashboardQueryResult = {
-  dashboards: {
-    dashboard_id: string;
-    dashboard_name: string;
-    dashboard_description?: string | null;
-    dashboard_category_id?: number | null;
-    created_by: string;
-    created_at: string;
-    updated_at: string;
-    is_active: boolean;
-  } | null;
-  chart_categories: {
-    chart_category_id: number;
-    category_name: string;
-    category_description?: string | null;
-  } | null;
-  users: {
-    user_id: string;
-    first_name?: string | null;
-    last_name?: string | null;
-  } | null;
-  chart_count: number;
-};
 import DeleteButton from '@/components/delete-button';
 import DateSelect from '@/components/date-select';
 import FilterButton from '@/components/dropdown-filter';
@@ -82,40 +59,32 @@ export default function DashboardsPage() {
         sampleDashboard: dashboards[0]
       });
       
-      // Transform joined API data to flat DashboardListItem structure
-      const transformedDashboards: DashboardListItem[] = (dashboards as JoinedDashboardQueryResult[])
-        .map((item: JoinedDashboardQueryResult, index: number): DashboardListItem | null => {
-        // Handle joined data structure from API (leftJoin returns nested objects)
-        const dashboardDef = item.dashboards;
-        const category = item.chart_categories;
-        const user = item.users;
+      // Transform flattened API data to DashboardListItem structure
+      const transformedDashboards: DashboardListItem[] = (dashboards as DashboardWithCharts[])
+        .map((item: DashboardWithCharts, index: number): DashboardListItem | null => {
+        // Handle flattened data structure from new API service
+        console.log(`🔄 Transforming dashboard ${index}:`, item);
 
-        // If dashboards is null (shouldn't happen in a proper query), skip this item
-        if (!dashboardDef) {
-          console.warn(`⚠️ Skipping dashboard ${index}: missing dashboards`);
+        // Validate required fields
+        if (!item.dashboard_id || !item.dashboard_name) {
+          console.warn(`⚠️ Skipping dashboard ${index}: missing required fields`);
           return null;
         }
-        
-        console.log(`🔄 Transforming dashboard ${index}:`, {
-          original: item,
-          dashboardDef,
-          category,
-          user
-        });
-        
+
         return {
-          dashboard_id: dashboardDef.dashboard_id,
-          dashboard_name: dashboardDef.dashboard_name,
-          dashboard_description: dashboardDef.dashboard_description || undefined,
-          dashboard_category_id: dashboardDef.dashboard_category_id || undefined,
-          category_name: category?.category_name || undefined,
-          chart_count: item.chart_count,
-          created_by: dashboardDef.created_by,
-          creator_name: user?.first_name || undefined,
-          creator_last_name: user?.last_name || undefined,
-          created_at: dashboardDef.created_at,
-          updated_at: dashboardDef.updated_at,
-          is_active: dashboardDef.is_active,
+          dashboard_id: item.dashboard_id,
+          dashboard_name: item.dashboard_name,
+          dashboard_description: item.dashboard_description,
+          dashboard_category_id: item.dashboard_category_id,
+          category_name: item.category?.category_name,
+          chart_count: item.chart_count || 0,
+          created_by: item.created_by,
+          creator_name: item.creator?.first_name,
+          creator_last_name: item.creator?.last_name,
+          created_at: item.created_at,
+          updated_at: item.updated_at,
+          is_active: item.is_active,
+          is_published: item.is_published,
         };
       }).filter((item): item is DashboardListItem => item !== null);
       

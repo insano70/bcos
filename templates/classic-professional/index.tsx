@@ -1,8 +1,8 @@
 import type { TemplateProps } from '@/lib/types/practice';
-import Head from 'next/head';
 import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
 import Header from './components/header';
 import Hero from './components/hero';
+import ReviewCarousel from './components/review-carousel';
 import About from './components/about';
 import Gallery from './components/gallery';
 import Services from './components/services';
@@ -14,7 +14,8 @@ import Footer from './components/footer';
 export default function ClassicProfessionalTemplate({ 
   practice, 
   attributes, 
-  staff 
+  staff,
+  comments = []
 }: TemplateProps) {
   // Get colors for this practice or use template defaults
   const defaultColors = getTemplateDefaultColors('classic-professional');
@@ -28,51 +29,15 @@ export default function ClassicProfessionalTemplate({
   const colorStyles = getColorStyles(brandColors);
 
   return (
-    <>
-      {/* SEO and Meta Tags */}
-      <Head>
-        <title>{attributes.meta_title || `${practice.name} - Expert Rheumatology Care`}</title>
-        <meta name="description" content={attributes.meta_description || `Expert rheumatology care at ${practice.name}`} />
-        <meta name="keywords" content="rheumatology, arthritis, lupus, rheumatologist, autoimmune, joint pain" />
-        <meta property="og:title" content={attributes.meta_title || `${practice.name} - Expert Rheumatology Care`} />
-        <meta property="og:description" content={attributes.meta_description || `Expert rheumatology care at ${practice.name}`} />
-        <meta property="og:type" content="website" />
-        <meta name="twitter:card" content="summary" />
-        <meta name="twitter:title" content={attributes.meta_title || `${practice.name} - Expert Rheumatology Care`} />
-        <meta name="twitter:description" content={attributes.meta_description || `Expert rheumatology care at ${practice.name}`} />
-        
-        {/* Medical Practice Structured Data */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "MedicalBusiness",
-              "name": practice.name,
-              "description": attributes.about_text || "Expert rheumatology care",
-              "url": `https://${practice.domain}`,
-              "telephone": attributes.phone,
-              "email": attributes.email,
-              "address": {
-                "@type": "PostalAddress",
-                "streetAddress": `${attributes.address_line1} ${attributes.address_line2 || ''}`.trim(),
-                "addressLocality": attributes.city,
-                "addressRegion": attributes.state,
-                "postalCode": attributes.zip_code
-              },
-              "medicalSpecialty": "Rheumatology",
-              "priceRange": "$$"
-            })
-          }}
-        />
-      </Head>
-
-      <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white">
         {/* Header with navigation */}
         <Header practice={practice} attributes={attributes} colorStyles={colorStyles} />
         
         {/* Hero section */}
         <Hero practice={practice} attributes={attributes} colorStyles={colorStyles} />
+        
+        {/* Review Carousel section */}
+        <ReviewCarousel colorStyles={colorStyles} comments={comments} />
         
         {/* About section */}
         <About practice={practice} attributes={attributes} colorStyles={colorStyles} />
@@ -107,6 +72,5 @@ export default function ClassicProfessionalTemplate({
         {/* Footer */}
         <Footer practice={practice} attributes={attributes} colorStyles={colorStyles} />
       </div>
-    </>
   );
 }

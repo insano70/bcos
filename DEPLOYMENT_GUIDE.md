@@ -145,7 +145,6 @@ aws secretsmanager put-secret-value \
     "JWT_SECRET": "your-super-secure-64-char-production-jwt-secret-here",
     "JWT_REFRESH_SECRET": "your-different-64-char-refresh-secret-here",
     "CSRF_SECRET": "your-32-char-csrf-secret-here",
-    "RESEND_API_KEY": "re_your_production_resend_key",
     "EMAIL_FROM": "noreply@bendcare.com",
     "ADMIN_NOTIFICATION_EMAILS": "alerts@bendcare.com,ops@bendcare.com",
     "NEXT_PUBLIC_APP_URL": "https://app.bendcare.com"
@@ -164,7 +163,6 @@ aws secretsmanager put-secret-value \
     "JWT_SECRET": "your-staging-jwt-secret-64-chars",
     "JWT_REFRESH_SECRET": "your-staging-refresh-secret-64-chars", 
     "CSRF_SECRET": "your-staging-csrf-secret-32-chars",
-    "RESEND_API_KEY": "re_your_staging_resend_key",
     "EMAIL_FROM": "staging@bendcare.com",
     "ADMIN_NOTIFICATION_EMAILS": "dev@bendcare.com",
     "NEXT_PUBLIC_APP_URL": "https://staging.bendcare.com"

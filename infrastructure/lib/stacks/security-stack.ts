@@ -17,6 +17,9 @@ export class SecurityStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
+    // Get CDK bootstrap qualifier from context or use default
+    const cdkBootstrapQualifier = this.node.tryGetContext('bootstrapQualifier') || 'hnb659fds';
+
     // Create KMS key for encryption
     this.kmsKey = new kms.Key(this, 'BCOSEncryptionKey', {
       description: 'BCOS encryption key for logs, secrets, and ECR',
@@ -66,7 +69,7 @@ export class SecurityStack extends cdk.Stack {
     this.ecrRepository = new ecr.Repository(this, 'BCOSRepository', {
       repositoryName: 'bcos',
       imageScanOnPush: true,
-      imageTagMutability: ecr.TagMutability.IMMUTABLE,
+      imageTagMutability: ecr.TagMutability.MUTABLE,
       encryptionKey: this.kmsKey,
       lifecycleRules: [
         {
@@ -106,8 +109,10 @@ export class SecurityStack extends cdk.Stack {
           },
           StringLike: {
             'token.actions.githubusercontent.com:sub': [
-              'repo:pstewart/bcos:ref:refs/heads/main',
-              'repo:pstewart/bcos:ref:refs/heads/staging',
+            'repo:insano70/bcos:environment:staging',
+            'repo:insano70/bcos:environment:production',
+            'repo:insano70/bcos:ref:refs/heads/main',
+            'repo:insano70/bcos:ref:refs/heads/staging',
             ],
           },
         }
@@ -149,15 +154,130 @@ export class SecurityStack extends cdk.Stack {
         sid: 'ECSAccess',
         effect: iam.Effect.ALLOW,
         actions: [
+          'ecs:CreateService',
           'ecs:UpdateService',
           'ecs:DescribeServices',
-          'ecs:DescribeTaskDefinition',
           'ecs:RegisterTaskDefinition',
         ],
         resources: [
           `arn:aws:ecs:us-east-1:${this.account}:cluster/bcos-*-cluster`,
           `arn:aws:ecs:us-east-1:${this.account}:service/bcos-*-cluster/bcos-*-service`,
           `arn:aws:ecs:us-east-1:${this.account}:task-definition/bcos-*`,
+        ],
+      })
+    );
+
+    // DescribeTaskDefinition requires * resource
+    this.githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'ECSDescribeTaskDefinition',
+        effect: iam.Effect.ALLOW,
+        actions: ['ecs:DescribeTaskDefinition'],
+        resources: ['*'],
+      })
+    );
+
+    // CloudWatch Logs access for ECS service creation and management
+    this.githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'CloudWatchLogsAccess',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'logs:CreateLogGroup',
+          'logs:PutRetentionPolicy',
+          'logs:TagLogGroup',
+        ],
+        resources: [
+          `arn:aws:logs:us-east-1:${this.account}:log-group:/ecs/bcos-*`,
+          `arn:aws:logs:us-east-1:${this.account}:log-group:/ecs/bcos-*:*`,
+        ],
+      })
+    );
+
+    // DescribeLogGroups requires broader permissions
+    this.githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'CloudWatchLogsDescribe',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'logs:DescribeLogGroups',
+        ],
+        resources: ['*'], // DescribeLogGroups requires * resource
+      })
+    );
+
+    // SSM permissions for CDK bootstrap version checking
+    this.githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'SSMBootstrapAccess',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'ssm:GetParameter',
+          'ssm:GetParameters',
+        ],
+        resources: [
+          `arn:aws:ssm:us-east-1:${this.account}:parameter/cdk-bootstrap/${cdkBootstrapQualifier}/*`,
+        ],
+      })
+    );
+
+    // CDK bootstrap permissions for asset publishing and deployment
+    this.githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'CDKBootstrapAssumeRoles',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'sts:AssumeRole',
+        ],
+        resources: [
+          `arn:aws:iam::${this.account}:role/cdk-${cdkBootstrapQualifier}-deploy-role-${this.account}-us-east-1`,
+          `arn:aws:iam::${this.account}:role/cdk-${cdkBootstrapQualifier}-file-publishing-role-${this.account}-us-east-1`,
+          `arn:aws:iam::${this.account}:role/cdk-${cdkBootstrapQualifier}-lookup-role-${this.account}-us-east-1`,
+        ],
+      })
+    );
+
+    // CDK assets bucket access
+    this.githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'CDKAssetsBucketAccess',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          's3:GetObject',
+          's3:PutObject',
+          's3:GetBucketLocation',
+          's3:ListBucket',
+        ],
+        resources: [
+          `arn:aws:s3:::cdk-${cdkBootstrapQualifier}-assets-${this.account}-us-east-1`,
+          `arn:aws:s3:::cdk-${cdkBootstrapQualifier}-assets-${this.account}-us-east-1/*`,
+        ],
+      })
+    );
+
+    // CloudFormation permissions for CDK stack operations
+    this.githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'CloudFormationAccess',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'cloudformation:CreateStack',
+          'cloudformation:UpdateStack',
+          'cloudformation:DeleteStack',
+          'cloudformation:DescribeStacks',
+          'cloudformation:DescribeStackEvents',
+          'cloudformation:DescribeStackResources',
+          'cloudformation:GetTemplate',
+          'cloudformation:ListStackResources',
+          'cloudformation:CreateChangeSet',
+          'cloudformation:ExecuteChangeSet',
+          'cloudformation:DescribeChangeSet',
+          'cloudformation:DeleteChangeSet',
+          'cloudformation:ListChangeSets',
+          'cloudformation:GetStackPolicy',
+        ],
+        resources: [
+          `arn:aws:cloudformation:us-east-1:${this.account}:stack/BCOS-*/*`,
         ],
       })
     );
@@ -196,7 +316,7 @@ export class SecurityStack extends cdk.Stack {
       generateSecretString: {
         secretStringTemplate: JSON.stringify({ 
           NODE_ENV: 'production',
-          PORT: '4001'
+          PORT: '3000'
         }),
         generateStringKey: 'JWT_SECRET',
         excludeCharacters: '"@/\\',
@@ -212,7 +332,7 @@ export class SecurityStack extends cdk.Stack {
       generateSecretString: {
         secretStringTemplate: JSON.stringify({ 
           NODE_ENV: 'staging',
-          PORT: '4001'
+          PORT: '3000'
         }),
         generateStringKey: 'JWT_SECRET',
         excludeCharacters: '"@/\\',
@@ -262,6 +382,12 @@ export class SecurityStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ECRRepositoryName', {
       value: this.ecrRepository.repositoryName,
       description: 'ECR Repository name for BCOS container images',
+    });
+
+    new cdk.CfnOutput(this, 'ECRRepositoryArn', {
+      value: this.ecrRepository.repositoryArn,
+      description: 'ECR Repository ARN for BCOS container images',
+      exportName: 'BCOS-ECRRepository-Arn',
     });
 
     new cdk.CfnOutput(this, 'ECSTaskExecutionRoleArn', {

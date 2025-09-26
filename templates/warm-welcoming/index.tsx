@@ -1,6 +1,7 @@
 import type { TemplateProps } from '@/lib/types/practice';
 import Head from 'next/head';
 import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
+import { JSONLD } from '@/lib/security/nonce-components';
 import Header from './components/header';
 import Hero from './components/hero';
 import About from './components/about';
@@ -14,8 +15,7 @@ export default function WarmWelcomingTemplate({
   practice, 
   attributes, 
   staff,
-  colorStyles,
-  nonce = ''
+  colorStyles 
 }: TemplateProps) {
   // Generate color styles if not provided
   const defaultColors = getTemplateDefaultColors('warm-welcoming');
@@ -41,33 +41,27 @@ export default function WarmWelcomingTemplate({
         <meta name="twitter:description" content={attributes.meta_description || `Warm, compassionate rheumatology care at ${practice.name}`} />
         
         {/* Medical Practice Structured Data */}
-        <script
-          type="application/ld+json"
-          nonce={nonce}
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "MedicalBusiness",
-              "name": practice.name,
-              "description": attributes.about_text || "Compassionate, patient-centered rheumatology care",
-              "url": `https://${practice.domain}`,
-              "telephone": attributes.phone,
-              "email": attributes.email,
-              "address": {
-                "@type": "PostalAddress",
-                "streetAddress": `${attributes.address_line1} ${attributes.address_line2 || ''}`.trim(),
-                "addressLocality": attributes.city,
-                "addressRegion": attributes.state,
-                "postalCode": attributes.zip_code
-              },
-              "medicalSpecialty": "Rheumatology",
-              "priceRange": "$$"
-            })
-          }}
-        />
+        <JSONLD data={{
+          "@context": "https://schema.org",
+          "@type": "MedicalBusiness",
+          "name": practice.name,
+          "description": attributes.about_text || "Compassionate, patient-centered rheumatology care",
+          "url": `https://${practice.domain}`,
+          "telephone": attributes.phone,
+          "email": attributes.email,
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": `${attributes.address_line1} ${attributes.address_line2 || ''}`.trim(),
+            "addressLocality": attributes.city,
+            "addressRegion": attributes.state,
+            "postalCode": attributes.zip_code
+          },
+          "medicalSpecialty": "Rheumatology",
+          "priceRange": "$$"
+        }} />
       </Head>
 
-      <div className="min-h-screen" style={templateColorStyles.secondary} nonce={nonce}>
+      <div className="min-h-screen" style={templateColorStyles.secondary}>
         {/* Header with navigation */}
         <Header practice={practice} attributes={attributes} colorStyles={templateColorStyles} />
         
@@ -84,13 +78,13 @@ export default function WarmWelcomingTemplate({
         <Providers staff={staff} colorStyles={templateColorStyles} />
         
         {/* Appointment Form Section */}
-        <section className="py-20" style={templateColorStyles.primaryBg100} nonce={nonce}>
+        <section className="py-20" style={templateColorStyles.primaryBg100}>
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-serif mb-4" style={templateColorStyles.primaryText} nonce={nonce}>
+              <h2 className="text-3xl md:text-4xl font-serif mb-4" style={templateColorStyles.primaryText}>
                 Schedule Your Visit
               </h2>
-              <p className="text-lg" style={templateColorStyles.primaryText} nonce={nonce}>
+              <p className="text-lg" style={templateColorStyles.primaryText}>
                 We're here to help you feel better. Let's start your journey to wellness together.
               </p>
             </div>

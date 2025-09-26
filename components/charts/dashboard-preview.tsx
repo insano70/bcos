@@ -194,9 +194,9 @@ export default function DashboardPreview({
           const startDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'gte');
           const endDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'lte');
 
-          // Calculate responsive dimensions following dashboard card pattern
-          const baseWidth = 389; // Base width from dashboard cards
-          const baseHeight = dashboardChart.position.h * 150; // Scale height based on position height
+          // Use responsive sizing that respects dashboard configuration
+          const baseHeight = dashboardChart.position.h * 150; // Height from dashboard configuration
+          const containerHeight = Math.max(baseHeight, 250); // Minimum reasonable height
           
           // Determine responsive column span classes like dashboard cards
           let colSpanClass = 'col-span-full';
@@ -213,8 +213,13 @@ export default function DashboardPreview({
           return (
             <div
               key={dashboardChart.id}
-              className={`${colSpanClass}`}
-              style={{ marginBottom: `${previewConfig.layout.margin}px` }}
+              className={`${colSpanClass} flex flex-col`}
+              style={{ 
+                marginBottom: `${previewConfig.layout.margin}px`,
+                height: `${containerHeight}px`,
+                maxHeight: `${containerHeight}px`,
+                overflow: 'hidden'
+              }}
             >
               <AnalyticsChart
                 chartType={chartDef.chart_type as any}
@@ -224,13 +229,14 @@ export default function DashboardPreview({
                 startDate={startDateFilter?.value?.toString()}
                 endDate={endDateFilter?.value?.toString()}
                 groupBy={chartConfig.series?.groupBy || 'provider_name'}
-                width={baseWidth}
-                height={Math.min(baseHeight, 400)}
                 title={chartDef.chart_name}
                 calculatedField={(chartConfig as any).calculatedField}
                 advancedFilters={(dataSource as any).advancedFilters || []}
                 {...((chartConfig as any).seriesConfigs && (chartConfig as any).seriesConfigs.length > 0 ? { multipleSeries: (chartConfig as any).seriesConfigs } : {})}
-                className="w-full h-full"
+                className="w-full h-full flex-1"
+                responsive={true}
+                minHeight={200}
+                maxHeight={containerHeight - 100}
               />
             </div>
           );

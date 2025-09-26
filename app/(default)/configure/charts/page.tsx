@@ -3,32 +3,9 @@
 import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ChartDefinition } from '@/lib/types/analytics';
+import type { ChartWithMetadata } from '@/lib/services/rbac-charts-service';
 import ChartsTable, { type ChartDefinitionListItem } from './charts-table';
 
-// Type for the joined query result from the API
-type JoinedChartQueryResult = {
-  chart_definitions: {
-    chart_definition_id: string;
-    chart_name: string;
-    chart_description?: string | null;
-    chart_type: string;
-    chart_category_id?: number | null;
-    created_by: string;
-    created_at: string;
-    updated_at: string;
-    is_active: boolean;
-  } | null;
-  chart_categories: {
-    chart_category_id: number;
-    category_name: string;
-    category_description?: string | null;
-  } | null;
-  users: {
-    user_id: string;
-    first_name?: string | null;
-    last_name?: string | null;
-  } | null;
-};
 import DeleteButton from '@/components/delete-button';
 import DateSelect from '@/components/date-select';
 import FilterButton from '@/components/dropdown-filter';
@@ -106,40 +83,24 @@ export default function ChartBuilderPage() {
         sampleChart: charts[0]
       });
       
-      // Transform joined API data to flat ChartDefinitionListItem structure
-      const transformedCharts: ChartDefinitionListItem[] = (charts as JoinedChartQueryResult[])
-        .map((item: JoinedChartQueryResult, index: number): ChartDefinitionListItem | null => {
-        // Handle joined data structure from API (leftJoin returns nested objects)
-        const chartDef = item.chart_definitions;
-        const category = item.chart_categories;
-        const user = item.users;
-
-        // If chart_definitions is null (shouldn't happen in a proper query), skip this item
-        if (!chartDef) {
-          console.warn(`⚠️ Skipping chart ${index}: missing chart_definitions`);
-          return null;
-        }
-
-        console.log(`🔄 Transforming chart ${index}:`, {
-          original: item,
-          chartDef,
-          category,
-          user
-        });
+      // Transform flattened API data to ChartDefinitionListItem structure
+      const transformedCharts: ChartDefinitionListItem[] = (charts as ChartWithMetadata[])
+        .map((item: ChartWithMetadata, index: number): ChartDefinitionListItem | null => {
+        console.log(`🔄 Transforming chart ${index}:`, item);
 
         return {
-          chart_definition_id: chartDef.chart_definition_id,
-          chart_name: chartDef.chart_name,
-          chart_description: chartDef.chart_description ?? undefined,
-          chart_type: chartDef.chart_type as ChartDefinitionListItem['chart_type'],
-          chart_category_id: chartDef.chart_category_id || undefined,
-          category_name: category?.category_name || undefined,
-          created_by: chartDef.created_by,
-          creator_name: user?.first_name || undefined,
-          creator_last_name: user?.last_name || undefined,
-          created_at: chartDef.created_at,
-          updated_at: chartDef.updated_at,
-          is_active: chartDef.is_active,
+          chart_definition_id: item.chart_definition_id,
+          chart_name: item.chart_name,
+          chart_description: item.chart_description,
+          chart_type: item.chart_type as ChartDefinitionListItem['chart_type'],
+          chart_category_id: item.chart_category_id,
+          category_name: item.category?.category_name,
+          created_by: item.created_by,
+          creator_name: item.creator?.first_name,
+          creator_last_name: item.creator?.last_name,
+          created_at: item.created_at,
+          updated_at: item.updated_at,
+          is_active: item.is_active,
         };
       }).filter((item): item is ChartDefinitionListItem => item !== null);
       

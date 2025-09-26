@@ -93,7 +93,7 @@ export class NetworkStack extends cdk.Stack {
 
     this.ecsSecurityGroup.addIngressRule(
       ec2.Peer.securityGroupId(this.albSecurityGroup.securityGroupId),
-      ec2.Port.tcp(80),
+      ec2.Port.tcp(3000),
       'Allow HTTP traffic from ALB'
     );
 
@@ -115,6 +115,20 @@ export class NetworkStack extends cdk.Stack {
       ec2.Peer.anyIpv4(),
       ec2.Port.udp(53),
       'Allow DNS UDP'
+    );
+
+    // Allow outbound HTTPS for external services (databases, APIs)
+    this.ecsSecurityGroup.addEgressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(443),
+      'Allow HTTPS to external services'
+    );
+
+    // Allow outbound PostgreSQL for database connections
+    this.ecsSecurityGroup.addEgressRule(
+      ec2.Peer.anyIpv4(),
+      ec2.Port.tcp(5432),
+      'Allow PostgreSQL database connections'
     );
 
     // Create VPC Endpoints for ECS tasks in private subnets
@@ -255,6 +269,14 @@ export class NetworkStack extends cdk.Stack {
       value: this.ecsSecurityGroup.securityGroupId,
       description: 'ECS Security Group ID',
       exportName: 'BCOS-ECSSecurityGroup-Id',
+    });
+
+    // Export private subnet IDs for ECS tasks
+    const privateSubnets = this.vpc.privateSubnets;
+    new cdk.CfnOutput(this, 'PrivateSubnetIds', {
+      value: cdk.Fn.join(',', privateSubnets.map(subnet => subnet.subnetId)),
+      description: 'Comma-separated list of private subnet IDs for ECS tasks',
+      exportName: 'BCOS-PrivateSubnet-Ids',
     });
   }
 }

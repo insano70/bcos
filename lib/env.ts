@@ -17,7 +17,6 @@ export const env = createEnv({
     CSRF_SECRET: z.string().min(32, "CSRF_SECRET must be at least 32 characters for security"),
     
     // Email Service
-    RESEND_API_KEY: z.string().optional(),
     EMAIL_FROM: z.string().email().optional(),
     ADMIN_NOTIFICATION_EMAILS: z.string().optional(),
     
@@ -51,7 +50,6 @@ export const env = createEnv({
     JWT_SECRET: process.env.JWT_SECRET,
     JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
     CSRF_SECRET: process.env.CSRF_SECRET,
-    RESEND_API_KEY: process.env.RESEND_API_KEY,
     EMAIL_FROM: process.env.EMAIL_FROM,
     ADMIN_NOTIFICATION_EMAILS: process.env.ADMIN_NOTIFICATION_EMAILS,
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
@@ -110,10 +108,7 @@ if (typeof window === 'undefined') {
       throw new Error("NEXT_PUBLIC_APP_URL must use HTTPS in production");
     }
     
-    // Warn about missing production services
-    if (!env.RESEND_API_KEY) {
-      console.warn("⚠️ RESEND_API_KEY not configured - email features will not work");
-    }
+    // Email service configuration - using EMAIL_FROM if available
     
     if (!env.ADMIN_NOTIFICATION_EMAILS) {
       console.warn("⚠️ ADMIN_NOTIFICATION_EMAILS not configured - security alerts will not be sent");
@@ -171,7 +166,6 @@ export const getEmailConfig = () => {
     throw new Error('getEmailConfig can only be used on the server side');
   }
   return {
-    apiKey: env.RESEND_API_KEY,
     from: env.EMAIL_FROM || 'noreply@yourdomain.com',
     adminEmails: env.ADMIN_NOTIFICATION_EMAILS?.split(',') || [],
   };

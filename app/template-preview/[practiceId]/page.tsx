@@ -95,6 +95,7 @@ export default async function TemplatePreview({
         practice={practice}
         attributes={attributes}
         staff={staff}
+        comments={[]} // Empty comments for preview mode
         initialTemplate={template.slug}
         initialColorStyles={colorStyles}
       />

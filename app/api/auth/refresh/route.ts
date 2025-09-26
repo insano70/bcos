@@ -12,12 +12,12 @@ import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
 export const dynamic = 'force-dynamic';
 
 import { 
-  createAPILogger, 
   logAPIAuth, 
   logPerformanceMetric,
   withCorrelation,
   CorrelationContextManager 
 } from '@/lib/logger'
+import { createAPILogger } from '@/lib/logger/api-features'
 
 /**
  * Refresh Token Endpoint
@@ -26,11 +26,17 @@ import {
  */
 const refreshHandler = async (request: NextRequest) => {
   const startTime = Date.now()
-  const logger = createAPILogger(request)
+  const apiLogger = createAPILogger(request, 'auth-refresh')
+  const logger = apiLogger.getLogger()
   
   // Store refresh token for error handling (declared at function level)
   let refreshTokenForError: string | undefined
 
+  // Enhanced token refresh request logging
+  apiLogger.logRequest({
+    authType: 'session'
+  })
+  
   logger.info('Token refresh initiated', {
     endpoint: '/api/auth/refresh',
     method: 'POST'
@@ -80,6 +86,14 @@ const refreshHandler = async (request: NextRequest) => {
         tokenExpiry: payload.exp ? new Date(payload.exp * 1000).toISOString() : 'unknown'
       })
     } catch (tokenError) {
+      // Enhanced security logging for token validation failure  
+      apiLogger.logSecurity('token_validation_failure', 'high', {
+        action: 'refresh_token_invalid',
+        blocked: true,
+        threat: 'credential_attack',
+        reason: 'invalid_refresh_token'
+      })
+      
       logger.error('Refresh token validation failed', tokenError, {
         tokenLength: refreshToken.length,
         errorType: tokenError instanceof Error ? tokenError.constructor.name : typeof tokenError

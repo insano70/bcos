@@ -1,0 +1,58 @@
+{
+  "organization": {
+    "name": "BCOS",
+    "displayName": "BendcareOS",
+    "domain": "bendcare.com"
+  },
+  "aws": {
+    "region": "us-east-1",
+    "cdkBootstrapQualifier": "hnb659fds"
+  },
+  "networking": {
+    "hostedZoneName": "bendcare.com",
+    "sslCertificateValidationMethod": "DNS"
+  },
+  "alerts": {
+    "productionEmails": ["production-alerts@bendcare.com"],
+    "stagingEmails": ["devops@bendcare.com"],
+    "securityEmails": ["security@bendcare.com"]
+  },
+  "repositories": {
+    "github": {
+      "owner": "insano70",
+      "name": "bcos",
+      "branches": {
+        "production": "main",
+        "staging": "staging"
+      }
+    }
+  },
+  "defaults": {
+    "adminUser": {
+      "email": "admin@bendcare.com",
+      "username": "admin"
+    }
+  },
+  "deployment": {
+    "lastUpdated": "2025-09-25T08:15:00Z"
+  },
+  "application": {
+    "containerPort": 3000,
+    "healthCheckPath": "/api/health",
+    "healthCheck": {
+      "interval": 30,
+      "timeout": 10,
+      "retries": 3,
+      "startPeriod": 60,
+      "healthyThreshold": 2,
+      "unhealthyThreshold": 5
+    },
+    "container": {
+      "name": "bcos",
+      "user": "1001"
+    },
+    "logGroup": {
+      "prefix": "/ecs/bcos"
+    }
+  }
+}

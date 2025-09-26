@@ -1,5 +1,6 @@
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import { db } from '@/lib/db';
+import { createAppLogger } from '@/lib/logger/factory';
 import { users, user_organizations, organizations } from '@/lib/db/schema';
 import { user_roles, roles } from '@/lib/db/rbac-schema';
 import { eq, and, inArray, isNull, like, or, count } from 'drizzle-orm';
@@ -11,6 +12,13 @@ import { PermissionDeniedError } from '@/lib/types/rbac';
  * Enhanced Users Service with RBAC
  * Provides user management with automatic permission checking and data filtering
  */
+
+// Universal logger for RBAC user service operations
+const rbacUsersLogger = createAppLogger('rbac-users-service', {
+  component: 'business-logic',
+  feature: 'user-management',
+  businessIntelligence: true
+})
 
 export interface CreateUserData {
   email: string;
@@ -341,10 +349,32 @@ export class RBACUsersService extends BaseRBACService {
    * Create a new user with permission checking
    */
   async createUser(userData: CreateUserData): Promise<UserWithOrganizations> {
+    const startTime = Date.now()
+    
+    // Enhanced user creation logging
+    if (true) {
+      rbacUsersLogger.info('User creation initiated', {
+        requestingUserId: this.userContext.user_id,
+        targetOrganizationId: userData.organization_id,
+        operation: 'create_user',
+        securityLevel: 'high'
+      })
+    }
+    
     this.requirePermission('users:create:organization', undefined, userData.organization_id);
     
     // Verify user can create in this organization
     this.requireOrganizationAccess(userData.organization_id);
+    
+    // Enhanced permission validation success logging
+    if (true) {
+      rbacUsersLogger.security('user_creation_authorized', 'low', {
+        action: 'permission_check_passed',
+        userId: this.userContext.user_id,
+        targetOrganization: userData.organization_id,
+        requiredPermission: 'users:create:organization'
+      })
+    }
 
     // Hash password
     const hashedPassword = await hashPassword(userData.password);
@@ -379,6 +409,38 @@ export class RBACUsersService extends BaseRBACService {
     const userWithOrgs = await this.getUserById(newUser.user_id);
     if (!userWithOrgs) {
       throw new Error('Failed to retrieve created user');
+    }
+
+    // Enhanced user creation completion logging
+    if (true) {
+      const duration = Date.now() - startTime
+      
+      // Business intelligence for user creation
+      rbacUsersLogger.info('User creation analytics', {
+        operation: 'user_created',
+        newUserId: newUser.user_id,
+        organizationId: userData.organization_id,
+        createdByUserId: this.userContext.user_id,
+        userSegment: 'new_user',
+        emailVerified: userData.email_verified ?? false,
+        duration
+      })
+      
+      // Security event for user creation
+      rbacUsersLogger.security('user_account_created', 'medium', {
+        action: 'account_creation_success',
+        userId: this.userContext.user_id,
+        newAccountId: newUser.user_id,
+        organizationId: userData.organization_id,
+        complianceValidated: true
+      })
+      
+      // Performance monitoring
+      rbacUsersLogger.timing('User creation completed', startTime, {
+        passwordHashingIncluded: true,
+        rbacValidationIncluded: true,
+        databaseOperations: 3 // user insert + org assignment + retrieval
+      })
     }
 
     await this.logPermissionCheck('users:create:organization', newUser.user_id, userData.organization_id);

@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ChartData, AnalyticsQueryParams, MeasureType, FrequencyType, ChartFilter, MultipleSeriesConfig } from '@/lib/types/analytics';
+import type { ResponsiveChartProps } from '@/lib/types/responsive-charts';
 import { simplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
 import { calculatedFieldsService } from '@/lib/services/calculated-fields';
 import { chartExportService } from '@/lib/services/chart-export';
 import { usageAnalyticsService } from '@/lib/services/usage-analytics';
 import ChartErrorBoundary from './chart-error-boundary';
 import { ChartSkeleton } from '@/components/ui/loading-skeleton';
+import ResponsiveChartContainer from './responsive-chart-container';
 
 // Import existing chart components
 import LineChart01 from './line-chart-01';
@@ -15,7 +17,7 @@ import BarChart01 from './bar-chart-01';
 import AnalyticsBarChart from './analytics-bar-chart';
 import DoughnutChart from './doughnut-chart';
 
-interface AnalyticsChartProps {
+interface AnalyticsChartProps extends ResponsiveChartProps {
   chartType: 'line' | 'bar' | 'doughnut';
   measure?: MeasureType;
   frequency?: FrequencyType;
@@ -71,7 +73,12 @@ export default function AnalyticsChart({
   className = '',
   calculatedField, // Phase 3: Calculated fields
   advancedFilters = [], // Phase 3: Advanced filters
-  multipleSeries = [] // Phase 3: Multiple series
+  multipleSeries = [], // Phase 3: Multiple series
+  // Responsive sizing options
+  responsive = false,
+  minHeight = 200,
+  maxHeight = 800,
+  aspectRatio
 }: AnalyticsChartProps) {
   const [chartData, setChartData] = useState<ChartData>({ labels: [], datasets: [] });
   const [isLoading, setIsLoading] = useState(true);
@@ -311,12 +318,18 @@ export default function AnalyticsChart({
 
   const renderChart = () => {
     if (isLoading) {
-      return <ChartSkeleton width={width} height={height} />;
+      return responsive ? (
+        <div className="w-full h-full flex items-center justify-center" style={{ minHeight: `${minHeight}px` }}>
+          <ChartSkeleton width={400} height={200} />
+        </div>
+      ) : (
+        <ChartSkeleton width={width} height={height} />
+      );
     }
 
     if (error) {
-      return (
-        <div className="flex flex-col items-center justify-center" style={{ width, height }}>
+      const errorContainer = (
+        <div className="flex flex-col items-center justify-center">
           <div className="text-red-500 mb-2">⚠️ Chart Error</div>
           <div className="text-sm text-gray-600 dark:text-gray-400 text-center px-4">
             {error}
@@ -329,15 +342,35 @@ export default function AnalyticsChart({
           </button>
         </div>
       );
+
+      return responsive ? (
+        <div className="w-full h-full flex items-center justify-center" style={{ minHeight: `${minHeight}px` }}>
+          {errorContainer}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center" style={{ width, height }}>
+          {errorContainer}
+        </div>
+      );
     }
 
     if (chartData.datasets.length === 0) {
-      return (
-        <div className="flex flex-col items-center justify-center" style={{ width, height }}>
+      const noDataContainer = (
+        <div className="flex flex-col items-center justify-center">
           <div className="text-gray-500 mb-2">📊 No Data</div>
           <div className="text-sm text-gray-600 dark:text-gray-400 text-center px-4">
             No data available for the selected criteria.
           </div>
+        </div>
+      );
+
+      return responsive ? (
+        <div className="w-full h-full flex items-center justify-center" style={{ minHeight: `${minHeight}px` }}>
+          {noDataContainer}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center" style={{ width, height }}>
+          {noDataContainer}
         </div>
       );
     }
@@ -356,36 +389,45 @@ export default function AnalyticsChart({
       }
     };
 
-    return (
+    const chartComponent = (
       <ChartErrorBoundary>
         {renderChartComponent()}
       </ChartErrorBoundary>
     );
+
+    // Wrap in responsive container if responsive mode is enabled
+    if (responsive) {
+      return (
+        <ResponsiveChartContainer
+          minHeight={minHeight}
+          maxHeight={maxHeight}
+          {...(aspectRatio && { aspectRatio })}
+          className="w-full h-full"
+        >
+          {chartComponent}
+        </ResponsiveChartContainer>
+      );
+    }
+
+    return chartComponent;
   };
 
   return (
     <div className={`flex flex-col bg-white dark:bg-gray-800 shadow-sm rounded-xl ${className}`}>
       {/* Chart Header */}
-      <header className="px-5 py-4 border-b border-gray-100 dark:border-gray-700/60 flex items-center justify-between">
+      <header className="px-4 py-2 border-b border-gray-100 dark:border-gray-700/60 flex items-center justify-between">
         <div>
           <h2 className="font-semibold text-gray-800 dark:text-gray-100">
             {title || `${measure} - ${frequency}`}
           </h2>
-          {metadata && (
-            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Query time: {metadata.query_time_ms}ms
-              {metadata.cache_hit && ' (cached)'}
-              {metadata.analytics_db_latency_ms && ` • DB: ${metadata.analytics_db_latency_ms}ms`}
-            </div>
-          )}
         </div>
         
         {/* Chart Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {/* Export Dropdown */}
           <div className="relative group">
             <button
-              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               title="Export chart"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -419,7 +461,7 @@ export default function AnalyticsChart({
           <button
             onClick={fetchChartData}
             disabled={isLoading}
-            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-50"
+            className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-50"
             title="Refresh chart data"
           >
             <svg 
@@ -440,7 +482,7 @@ export default function AnalyticsChart({
       </header>
 
       {/* Chart Content */}
-      <div className="flex-1 p-5">
+      <div className="flex-1 p-2">
         {renderChart()}
       </div>
     </div>

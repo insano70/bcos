@@ -28,7 +28,7 @@ export async function getCurrentUserFromToken(accessToken: string) {
       name: `${user.first_name} ${user.last_name}`,
       firstName: user.first_name,
       lastName: user.last_name,
-      role: 'admin',
+      role: 'admin', // Default role for backward compatibility with existing tests
       emailVerified: user.email_verified,
       practiceId: undefined // TODO: Add practice relationship logic
     }

@@ -18,16 +18,14 @@ import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context'
 import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
 import { publicRoute } from '@/lib/api/route-handler'
 import { 
-  createAPILogger, 
   logAPIAuth, 
-  logAPIRequest, 
-  logAPIResponse,
   logDBOperation,
   logSecurityEvent,
   logPerformanceMetric,
   withCorrelation,
   CorrelationContextManager 
 } from '@/lib/logger'
+import { createAPILogger } from '@/lib/logger/api-features'
 
 /**
  * Custom Login Endpoint
@@ -35,12 +33,15 @@ import {
  */
 const loginHandler = async (request: NextRequest) => {
   const startTime = Date.now()
-  const logger = createAPILogger(request)
   
-  // Log incoming authentication request
-  logger.info('Login attempt initiated', {
-    endpoint: '/api/auth/login',
-    method: 'POST'
+  // Create enhanced API logger for authentication
+  const apiLogger = createAPILogger(request, 'authentication')
+  const logger = apiLogger.getLogger()
+  
+  // Enhanced login attempt logging - permanently enabled
+  apiLogger.logRequest({
+    authType: 'none',
+    suspicious: false
   })
 
   try {
@@ -55,9 +56,17 @@ const loginHandler = async (request: NextRequest) => {
     const { email, password, remember } = validatedData
     logPerformanceMetric(logger, 'request_validation', Date.now() - validationStartTime)
 
-    logger.info('Login validation successful', {
-      email: email.replace(/(.{2}).*@/, '$1***@'), // Partially mask email
-      rememberMe: remember
+    // Enhanced validation success logging
+    apiLogger.logAuth('login_validation', true, {
+      method: 'session', // This will be a session-based login
+      sessionDuration: remember ? 86400 * 30 : 86400 // 30 days if remember, else 1 day
+    })
+    
+    // Log validation details separately with PII masking
+    apiLogger.info('Login validation completed', {
+      emailMasked: email.replace(/(.{2}).*@/, '$1***@'),
+      rememberMe: remember,
+      validationDuration: Date.now() - validationStartTime
     })
 
     // Extract device info
@@ -72,9 +81,17 @@ const loginHandler = async (request: NextRequest) => {
     logPerformanceMetric(logger, 'lockout_check', Date.now() - lockoutStartTime)
     
     if (lockoutStatus.locked) {
-      logger.warn('Account lockout detected', {
-        email: email.replace(/(.{2}).*@/, '$1***@'),
-        lockedUntil: lockoutStatus.lockedUntil
+      // Enhanced account lockout logging - permanently enabled
+      apiLogger.logAuth('login_attempt', false, {
+        reason: 'account_locked',
+        sessionDuration: lockoutStatus.lockedUntil ? 
+          Math.ceil((new Date(lockoutStatus.lockedUntil).getTime() - Date.now()) / 60000) : 0 // minutes
+      })
+      
+      apiLogger.logSecurity('account_lockout_triggered', 'medium', {
+        blocked: true,
+        reason: 'multiple_failed_attempts',
+        action: 'login_blocked'
       })
 
       await AuditLogger.logAuth({
@@ -88,7 +105,6 @@ const loginHandler = async (request: NextRequest) => {
         }
       })
       
-      logAPIAuth(logger, 'login_attempt', false, undefined, 'account_locked')
       throw AuthenticationError('Account temporarily locked due to multiple failed attempts. Please try again later.')
     }
 
@@ -102,6 +118,14 @@ const loginHandler = async (request: NextRequest) => {
     logDBOperation(logger, 'SELECT', 'users', dbStartTime, user ? 1 : 0)
       
     if (!user) {
+      // Enhanced security logging for non-existent user attempts
+      apiLogger.logSecurity('authentication_failure', 'medium', {
+        action: 'login_attempt_nonexistent_user',
+        blocked: true,
+        threat: 'credential_attack',
+        reason: 'user_not_found'
+      })
+      
       logger.warn('Login attempt with non-existent user', {
         email: email.replace(/(.{2}).*@/, '$1***@')
       })
@@ -157,9 +181,17 @@ const loginHandler = async (request: NextRequest) => {
     logPerformanceMetric(logger, 'password_verification', Date.now() - passwordStartTime)
     
     if (!isValidPassword) {
-      logger.warn('Password verification failed', {
+      // Enhanced password failure logging - permanently enabled
+      apiLogger.logAuth('login_attempt', false, {
         userId: user.user_id,
-        email: email.replace(/(.{2}).*@/, '$1***@')
+        reason: 'invalid_password'
+      })
+      
+      apiLogger.logSecurity('authentication_failure', 'medium', {
+        action: 'password_verification_failed',
+        userId: user.user_id,
+        threat: 'credential_attack',
+        blocked: true
       })
 
       // Record failed attempt
@@ -182,6 +214,12 @@ const loginHandler = async (request: NextRequest) => {
       throw AuthenticationError('Invalid email or password')
     }
 
+    // Enhanced authentication success logging
+    apiLogger.logAuth('password_verification', true, {
+      userId: user.user_id,
+      method: 'session' // This login will create a session
+    })
+    
     logger.info('Password verification successful', {
       userId: user.user_id
     })
@@ -286,7 +324,31 @@ const loginHandler = async (request: NextRequest) => {
       sessionId: tokenPair.sessionId
     })
 
-    // Log successful login
+    // Enhanced successful authentication logging - permanently enabled
+    apiLogger.logAuth('login_success', true, {
+      userId: user.user_id,
+      ...(userContext?.current_organization_id && { 
+        organizationId: userContext.current_organization_id 
+      }),
+      sessionDuration: remember ? 2592000 : 86400, // 30 days or 24 hours in seconds
+      permissions: userContext?.all_permissions?.map(p => p.name) || []
+    })
+    
+    // Business intelligence logging  
+    apiLogger.logBusiness('user_authentication', 'sessions', 'success', {
+      recordsProcessed: 1,
+      businessRules: ['password_verification', 'account_lockout_check', 'rbac_context_load'],
+      notifications: 0 // No notifications sent during login
+    })
+    
+    // Security success event
+    apiLogger.logSecurity('successful_authentication', 'low', {
+      action: 'authentication_granted',
+      userId: user.user_id,
+      reason: 'valid_credentials'
+    })
+
+    // Log successful login to audit system
     await AuditLogger.logAuth({
       action: 'login',
       userId: user.user_id,
@@ -306,19 +368,18 @@ const loginHandler = async (request: NextRequest) => {
     const primaryRole = userRoles.length > 0 ? userRoles[0] : 'user';
 
     const totalDuration = Date.now() - startTime
-    
-    logger.info('Login completed successfully', {
-      userId: user.user_id,
-      sessionId: tokenPair.sessionId,
-      roleCount: userRoles.length,
-      primaryRole,
-      totalDuration
-    })
 
-    logAPIAuth(logger, 'login_complete', true, user.user_id)
-    logPerformanceMetric(logger, 'total_login_duration', totalDuration, {
-      userId: user.user_id,
-      success: true
+    // Enhanced completion logging - permanently enabled
+    apiLogger.logResponse(200, {
+      recordCount: 1,
+      processingTimeBreakdown: {
+        validation: validationStartTime ? Date.now() - validationStartTime : 0,
+        lockoutCheck: lockoutStartTime ? Date.now() - lockoutStartTime : 0,
+        passwordVerification: passwordStartTime ? Date.now() - passwordStartTime : 0,
+        rbacContextFetch: rbacStartTime ? Date.now() - rbacStartTime : 0,
+        tokenGeneration: tokenStartTime ? Date.now() - tokenStartTime : 0,
+        cookieSetup: cookieStartTime ? Date.now() - cookieStartTime : 0
+      }
     })
 
     // Generate new authenticated CSRF token tied to the user

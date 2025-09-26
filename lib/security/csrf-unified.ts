@@ -8,6 +8,15 @@ import { nanoid } from 'nanoid'
 import { cookies } from 'next/headers'
 import type { NextRequest } from 'next/server'
 import { CSRFSecurityMonitor } from './csrf-monitoring'
+import { createAppLogger } from '@/lib/logger/factory'
+
+// Enhanced security logger for CSRF protection
+const csrfSecurityLogger = createAppLogger('csrf-unified', {
+  component: 'security', 
+  feature: 'csrf-protection',
+  module: 'csrf-unified',
+  securityLevel: 'critical'
+})
 
 /**
  * Unified CSRF Protection class that works in both Edge Runtime and Node.js
@@ -201,10 +210,11 @@ export class UnifiedCSRFProtection {
       
       if (!encodedPayload || !signature) {
         if (isDevelopment) {
-          console.log('🔍 CSRF Token Parse Failed:', {
+          csrfSecurityLogger.debug('CSRF token parse failed', {
             tokenLength: token.length,
             hasDot: token.includes('.'),
-            parts: token.split('.').length
+            parts: token.split('.').length,
+            component: 'token-validation'
           })
         }
         return false
@@ -233,7 +243,7 @@ export class UnifiedCSRFProtection {
       
       if (!isSignatureValid) {
         if (isDevelopment) {
-          console.log('🔍 CSRF Signature Invalid')
+          csrfSecurityLogger.debug('🔍 CSRF Signature Invalid')
         }
         return false
       }
@@ -243,7 +253,7 @@ export class UnifiedCSRFProtection {
       
       if (payload.type !== 'anonymous') {
         if (isDevelopment) {
-          console.log('🔍 CSRF Token Type Mismatch:', {
+          csrfSecurityLogger.debug('🔍 CSRF Token Type Mismatch:', {
             expected: 'anonymous',
             actual: payload.type
           })
@@ -268,7 +278,7 @@ export class UnifiedCSRFProtection {
       )
       
       if (!isValid && isDevelopment) {
-        console.log('🔍 CSRF Anonymous Validation Failed:', {
+        csrfSecurityLogger.debug('🔍 CSRF Anonymous Validation Failed:', {
           payload: {
             ip: payload.ip,
             userAgent: payload.userAgent?.substring(0, 30) + '...',
@@ -291,7 +301,7 @@ export class UnifiedCSRFProtection {
     } catch (error) {
       const isDevelopment = (process.env.NODE_ENV || globalThis.process?.env?.NODE_ENV) === 'development'
       if (isDevelopment) {
-        console.log('🔍 CSRF Anonymous Validation Error:', error)
+        csrfSecurityLogger.debug('🔍 CSRF Anonymous Validation Error:', { error })
       }
       return false
     }
@@ -374,7 +384,7 @@ export class UnifiedCSRFProtection {
       // This is handled gracefully - token is still returned for manual setting
       const isDevelopment = (process.env.NODE_ENV || globalThis.process?.env?.NODE_ENV) === 'development'
       if (isDevelopment) {
-        console.log('Cookie setting failed (Edge Runtime context):', error)
+        csrfSecurityLogger.debug('Cookie setting failed (Edge Runtime context):', { error })
       }
     }
     
@@ -444,11 +454,16 @@ export class UnifiedCSRFProtection {
       const isDualTokenEndpoint = UnifiedCSRFProtection.isDualTokenEndpoint(pathname)
       
       if (!headerToken) {
-        // Always log missing header tokens for security monitoring
-        console.error('CSRF validation failed: Missing header token', {
+        // Enhanced security logging for missing header tokens
+        csrfSecurityLogger.security('csrf_header_token_missing', 'medium', {
+          action: 'csrf_validation_failed',
+          reason: 'missing_header_token',
           pathname,
           ip: UnifiedCSRFProtection.getRequestIP(request),
-          timestamp: new Date().toISOString()
+          userAgent: request.headers.get('user-agent')?.substring(0, 100),
+          timestamp: new Date().toISOString(),
+          threat: 'csrf_attack_attempt',
+          blocked: true
         })
         
         // Record failure for security monitoring
@@ -460,10 +475,16 @@ export class UnifiedCSRFProtection {
         // For anonymous-only endpoints (register, forgot-password), validate against request fingerprint
         const isValid = await UnifiedCSRFProtection.validateAnonymousToken(request, headerToken)
         if (!isValid) {
-          console.error('CSRF anonymous token validation failed', {
+          csrfSecurityLogger.security('csrf_anonymous_token_invalid', 'medium', {
+            action: 'anonymous_token_validation_failed',
+            reason: 'invalid_anonymous_token',
             pathname,
             ip: UnifiedCSRFProtection.getRequestIP(request),
-            timestamp: new Date().toISOString()
+            userAgent: request.headers.get('user-agent')?.substring(0, 100),
+            timestamp: new Date().toISOString(),
+            threat: 'csrf_token_forgery',
+            blocked: true,
+            endpointType: 'anonymous'
           })
           
           // Record failure for security monitoring
@@ -482,10 +503,16 @@ export class UnifiedCSRFProtection {
               // Validate as anonymous token (no cookie required)
               const isValid = await UnifiedCSRFProtection.validateAnonymousToken(request, headerToken)
               if (!isValid) {
-                console.error('CSRF anonymous token validation failed on dual endpoint', {
+                csrfSecurityLogger.security('csrf_dual_anonymous_token_invalid', 'medium', {
+                  action: 'dual_endpoint_anonymous_validation_failed',
+                  reason: 'invalid_anonymous_token_on_dual_endpoint',
                   pathname,
                   ip: UnifiedCSRFProtection.getRequestIP(request),
-                  timestamp: new Date().toISOString()
+                  userAgent: request.headers.get('user-agent')?.substring(0, 100),
+                  timestamp: new Date().toISOString(),
+                  threat: 'csrf_token_forgery',
+                  blocked: true,
+                  endpointType: 'dual_anonymous_mode'
                 })
                 CSRFSecurityMonitor.recordFailure(request, 'anonymous_token_validation_failed_dual_endpoint', 'medium')
               }
@@ -493,9 +520,18 @@ export class UnifiedCSRFProtection {
             } else if (payload.type === 'authenticated') {
               // Validate as authenticated token (require cookie and signature validation)
               if (!cookieToken) {
-                console.error('CSRF validation failed: Missing cookie token for authenticated token on dual endpoint', {
+                csrfSecurityLogger.security('csrf_dual_cookie_token_missing', 'medium', {
+                  action: 'dual_endpoint_cookie_validation_failed',
+                  reason: 'missing_cookie_token_for_authenticated_token',
                   pathname,
-                  timestamp: new Date().toISOString()
+                  ip: UnifiedCSRFProtection.getRequestIP(request),
+                  userAgent: request.headers.get('user-agent')?.substring(0, 100),
+                  timestamp: new Date().toISOString(),
+                  threat: 'csrf_attack_attempt',
+                  blocked: true,
+                  endpointType: 'dual_authenticated_mode',
+                  hasHeader: true,
+                  hasCookie: false
                 })
                 CSRFSecurityMonitor.recordFailure(request, 'missing_cookie_token_dual_endpoint', 'medium')
                 return false
@@ -504,9 +540,17 @@ export class UnifiedCSRFProtection {
               // Validate authenticated token signature
               const isTokenValid = await UnifiedCSRFProtection.validateAuthenticatedToken(headerToken)
               if (!isTokenValid) {
-                console.error('CSRF authenticated token signature invalid on dual endpoint', {
+                csrfSecurityLogger.security('csrf_dual_authenticated_token_invalid', 'high', {
+                  action: 'dual_endpoint_signature_validation_failed',
+                  reason: 'invalid_authenticated_token_signature',
                   pathname,
-                  timestamp: new Date().toISOString()
+                  ip: UnifiedCSRFProtection.getRequestIP(request),
+                  userAgent: request.headers.get('user-agent')?.substring(0, 100),
+                  timestamp: new Date().toISOString(),
+                  threat: 'csrf_token_tampering',
+                  blocked: true,
+                  endpointType: 'dual_authenticated_mode',
+                  validationStage: 'signature_verification'
                 })
                 CSRFSecurityMonitor.recordFailure(request, 'authenticated_token_signature_invalid_dual_endpoint', 'medium')
                 return false
@@ -515,9 +559,17 @@ export class UnifiedCSRFProtection {
               // Verify double-submit cookie pattern
               const isDoubleSubmitValid = UnifiedCSRFProtection.constantTimeCompare(headerToken, cookieToken)
               if (!isDoubleSubmitValid) {
-                console.error('CSRF double-submit validation failed on dual endpoint', {
+                csrfSecurityLogger.security('csrf_dual_double_submit_failed', 'high', {
+                  action: 'dual_endpoint_double_submit_validation_failed',
+                  reason: 'header_cookie_token_mismatch',
                   pathname,
-                  timestamp: new Date().toISOString()
+                  ip: UnifiedCSRFProtection.getRequestIP(request),
+                  userAgent: request.headers.get('user-agent')?.substring(0, 100),
+                  timestamp: new Date().toISOString(),
+                  threat: 'csrf_token_tampering',
+                  blocked: true,
+                  endpointType: 'dual_authenticated_mode',
+                  validationStage: 'double_submit_cookie_verification'
                 })
                 CSRFSecurityMonitor.recordFailure(request, 'double_submit_validation_failed_dual_endpoint', 'medium')
               }
@@ -525,30 +577,52 @@ export class UnifiedCSRFProtection {
             }
           }
         } catch (parseError) {
-          // If token parsing fails, reject it
-          console.error('CSRF token parsing failed on dual endpoint', {
+          // Enhanced token parsing failure logging
+          csrfSecurityLogger.security('csrf_token_parsing_failed', 'medium', {
+            action: 'dual_endpoint_token_parsing_failed',
+            reason: 'malformed_token_structure',
             pathname,
-            timestamp: new Date().toISOString()
+            ip: UnifiedCSRFProtection.getRequestIP(request),
+            userAgent: request.headers.get('user-agent')?.substring(0, 100),
+            timestamp: new Date().toISOString(),
+            threat: 'csrf_token_tampering',
+            blocked: true,
+            endpointType: 'dual_mode',
+            parseError: parseError instanceof Error ? parseError.message : String(parseError)
           })
           CSRFSecurityMonitor.recordFailure(request, 'token_parsing_failed_dual_endpoint', 'medium')
           return false
         }
 
         // If we get here, token type wasn't recognized
-        console.error('CSRF unrecognized token type on dual endpoint', {
+        csrfSecurityLogger.security('csrf_unrecognized_token_type', 'medium', {
+          action: 'dual_endpoint_unrecognized_token_type',
+          reason: 'unknown_token_type',
           pathname,
-          timestamp: new Date().toISOString()
+          ip: UnifiedCSRFProtection.getRequestIP(request),
+          userAgent: request.headers.get('user-agent')?.substring(0, 100),
+          timestamp: new Date().toISOString(),
+          threat: 'csrf_token_forgery',
+          blocked: true,
+          endpointType: 'dual_mode'
         })
         CSRFSecurityMonitor.recordFailure(request, 'unrecognized_token_type_dual_endpoint', 'medium')
         return false
       } else {
         // For authenticated endpoints, require both header and cookie tokens
         if (!cookieToken) {
-          console.error('CSRF validation failed: Missing cookie token for authenticated endpoint', {
+          csrfSecurityLogger.security('csrf_cookie_token_missing', 'medium', {
+            action: 'authenticated_endpoint_cookie_validation_failed',
+            reason: 'missing_cookie_token_for_authenticated_endpoint',
             pathname,
+            ip: UnifiedCSRFProtection.getRequestIP(request),
+            userAgent: request.headers.get('user-agent')?.substring(0, 100),
+            timestamp: new Date().toISOString(),
+            threat: 'csrf_attack_attempt',
+            blocked: true,
+            endpointType: 'authenticated',
             hasHeader: true,
-            hasCookie: false,
-            timestamp: new Date().toISOString()
+            hasCookie: false
           })
           
           // Record failure for security monitoring
@@ -564,12 +638,18 @@ export class UnifiedCSRFProtection {
             
             // Security check: prevent anonymous tokens on protected endpoints
             if (payload.type === 'anonymous') {
-              console.error('SECURITY VIOLATION: Anonymous CSRF token used on protected endpoint', {
+              csrfSecurityLogger.security('csrf_security_violation_anonymous_on_protected', 'high', {
+                action: 'security_violation_detected',
+                reason: 'anonymous_token_used_on_protected_endpoint',
                 pathname,
                 ip: UnifiedCSRFProtection.getRequestIP(request),
-                userAgent: request.headers.get('user-agent')?.substring(0, 50),
+                userAgent: request.headers.get('user-agent')?.substring(0, 100),
                 timestamp: new Date().toISOString(),
-                severity: 'high'
+                threat: 'privilege_escalation_attempt',
+                blocked: true,
+                endpointType: 'protected',
+                violationType: 'anonymous_token_on_authenticated_endpoint',
+                securityImpact: 'high'
               })
               
               // Record high-severity failure for security monitoring
@@ -581,9 +661,17 @@ export class UnifiedCSRFProtection {
             if (payload.type === 'authenticated') {
               const isTokenValid = await UnifiedCSRFProtection.validateAuthenticatedToken(headerToken)
               if (!isTokenValid) {
-                console.error('CSRF authenticated token signature invalid', {
+                csrfSecurityLogger.security('csrf_authenticated_token_invalid', 'high', {
+                  action: 'authenticated_endpoint_signature_validation_failed',
+                  reason: 'invalid_authenticated_token_signature',
                   pathname,
-                  timestamp: new Date().toISOString()
+                  ip: UnifiedCSRFProtection.getRequestIP(request),
+                  userAgent: request.headers.get('user-agent')?.substring(0, 100),
+                  timestamp: new Date().toISOString(),
+                  threat: 'csrf_token_tampering',
+                  blocked: true,
+                  endpointType: 'authenticated',
+                  validationStage: 'signature_verification'
                 })
                 
                 // Record failure for security monitoring
@@ -594,9 +682,17 @@ export class UnifiedCSRFProtection {
               // Verify double-submit cookie pattern (constant-time comparison)
               const isDoubleSubmitValid = UnifiedCSRFProtection.constantTimeCompare(headerToken, cookieToken)
               if (!isDoubleSubmitValid) {
-                console.error('CSRF double-submit validation failed', {
+                csrfSecurityLogger.security('csrf_double_submit_failed', 'high', {
+                  action: 'authenticated_endpoint_double_submit_validation_failed',
+                  reason: 'header_cookie_token_mismatch',
                   pathname,
-                  timestamp: new Date().toISOString()
+                  ip: UnifiedCSRFProtection.getRequestIP(request),
+                  userAgent: request.headers.get('user-agent')?.substring(0, 100),
+                  timestamp: new Date().toISOString(),
+                  threat: 'csrf_token_tampering',
+                  blocked: true,
+                  endpointType: 'authenticated',
+                  validationStage: 'double_submit_cookie_verification'
                 })
                 
                 // Record failure for security monitoring
@@ -610,16 +706,24 @@ export class UnifiedCSRFProtection {
           // This handles legacy tokens during migration
           const isDevelopment = (process.env.NODE_ENV || globalThis.process?.env?.NODE_ENV) === 'development'
           if (isDevelopment) {
-            console.log('CSRF token parsing failed, using legacy validation')
+            csrfSecurityLogger.debug('CSRF token parsing failed, using legacy validation')
           }
         }
 
         // Fallback: simple double-submit pattern for legacy tokens
         const isValid = UnifiedCSRFProtection.constantTimeCompare(headerToken, cookieToken)
         if (!isValid) {
-          console.error('CSRF legacy token validation failed', {
+          csrfSecurityLogger.security('csrf_legacy_token_validation_failed', 'low', {
+            action: 'legacy_token_validation_failed',
+            reason: 'legacy_double_submit_pattern_failed',
             pathname,
-            timestamp: new Date().toISOString()
+            ip: UnifiedCSRFProtection.getRequestIP(request),
+            userAgent: request.headers.get('user-agent')?.substring(0, 100),
+            timestamp: new Date().toISOString(),
+            threat: 'csrf_attack_attempt',
+            blocked: true,
+            endpointType: 'authenticated_legacy',
+            validationMethod: 'simple_double_submit'
           })
           
           // Record failure for security monitoring
@@ -628,10 +732,18 @@ export class UnifiedCSRFProtection {
         return isValid
       }
     } catch (error) {
-      console.error('CSRF verification error:', {
-        error: error instanceof Error ? error.message : 'Unknown error',
+      csrfSecurityLogger.security('csrf_verification_system_error', 'high', {
+        action: 'csrf_verification_system_failure',
+        reason: 'unexpected_error_during_verification',
         pathname: request.nextUrl.pathname,
-        timestamp: new Date().toISOString()
+        ip: UnifiedCSRFProtection.getRequestIP(request),
+        userAgent: request.headers.get('user-agent')?.substring(0, 100),
+        timestamp: new Date().toISOString(),
+        threat: 'system_instability',
+        blocked: true,
+        errorType: error instanceof Error ? error.name : 'unknown',
+        errorMessage: error instanceof Error ? error.message : String(error),
+        systemError: true
       })
       
       // Record failure for security monitoring

@@ -150,6 +150,7 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
           duration: 500,
         },
         maintainAspectRatio: false,
+        responsive: true,
         resizeDelay: 200,
       },
       plugins: [
@@ -171,6 +172,9 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
               button.style.display = 'inline-flex';
               button.style.alignItems = 'center';
               button.style.opacity = item.hidden ? '.3' : '';
+              button.style.minWidth = '0'; // Allow shrinking
+              button.style.maxWidth = '200px'; // Limit button width
+              button.style.margin = '2px'; // Compact spacing
               button.onclick = () => {
                 c.setDatasetVisibility(item.datasetIndex!, !c.isDatasetVisible(item.datasetIndex!));
                 c.update();
@@ -191,15 +195,19 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
               labelContainer.style.alignItems = 'center';
               const value = document.createElement('span');
               value.classList.add('text-gray-800', 'dark:text-gray-100');
-              value.style.fontSize = '30px';
-              value.style.lineHeight = 'calc(2.25 / 1.875)';
-              value.style.fontWeight = '700';
-              value.style.marginRight = '8px';
+              value.style.fontSize = '18px'; // Reduced from 30px
+              value.style.lineHeight = '1.4';
+              value.style.fontWeight = '600'; // Reduced from 700
+              value.style.marginRight = '6px'; // Reduced from 8px
               value.style.pointerEvents = 'none';
               const label = document.createElement('span');
               label.classList.add('text-gray-500', 'dark:text-gray-400');
-              label.style.fontSize = '14px';
-              label.style.lineHeight = 'calc(1.25 / 0.875)';
+              label.style.fontSize = '12px'; // Reduced from 14px
+              label.style.lineHeight = '1.3';
+              label.style.whiteSpace = 'nowrap';
+              label.style.overflow = 'hidden';
+              label.style.textOverflow = 'ellipsis';
+              label.style.maxWidth = '120px'; // Limit label width
               // Calculate total for this dataset
               const dataset = c.data.datasets[item.datasetIndex!];
               const dataArray = dataset?.data || [];
@@ -278,15 +286,38 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
     chart.update('none');
   }, [theme]);
 
+  // Handle dimension changes for responsive behavior
+  useEffect(() => {
+    if (!chart || !canvas.current) return;
+
+    // Let Chart.js handle responsive sizing automatically
+    chart.resize();
+  }, [chart, width, height]);
+
   return (
-    <>
-      <div className="px-5 py-3">
-        <ul ref={legend} className="flex flex-wrap gap-x-4"></ul>
+    <div className="w-full h-full flex flex-col">
+      <div className="px-3 py-2 flex-shrink-0 overflow-hidden">
+        <ul 
+          ref={legend} 
+          className="flex flex-wrap gap-x-2 gap-y-1"
+          style={{
+            maxHeight: '80px', // Limit legend height
+            overflowY: 'auto',
+            overflowX: 'hidden'
+          }}
+        ></ul>
       </div>
-      <div className="grow">
-        <canvas ref={canvas} width={width} height={height}></canvas>
+      <div className="flex-1 min-h-0">
+        <canvas 
+          ref={canvas} 
+          style={{ 
+            width: '100%', 
+            height: '100%',
+            display: 'block'
+          }}
+        />
       </div>
-    </>
+    </div>
   );
 });
 

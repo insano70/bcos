@@ -170,8 +170,8 @@ export class AppLogger implements SimpleLogger {
   
   private shouldLog(level: string): boolean {
     const levels: Record<string, number> = { debug: 3, info: 2, warn: 1, error: 0 }
-    const configLevel = levels[this.config.level || 'info']
-    const logLevel = levels[level]
+    const configLevel = levels[this.config.level || 'info'] ?? 2 // default to info level
+    const logLevel = levels[level] ?? 2 // default to info level if unknown
     return logLevel <= configLevel
   }
 
@@ -184,10 +184,21 @@ export class AppLogger implements SimpleLogger {
   }
 
   private buildMetadata(data?: Record<string, unknown>): Record<string, unknown> {
-    return {
+    const metadata = {
       ...this.context,
       ...(data || {})
     }
+
+    // Apply field suppression if configured
+    if (this.config.suppressFields && this.config.suppressFields.length > 0) {
+      const suppressed = { ...metadata }
+      this.config.suppressFields.forEach(field => {
+        delete suppressed[field]
+      })
+      return suppressed
+    }
+
+    return metadata
   }
 
   /**
@@ -227,10 +238,25 @@ export class AppLogger implements SimpleLogger {
 
   private isSensitiveKey(key: string): boolean {
     const sensitiveKeys = [
-      'password', 'token', 'secret', 'key', 'auth', 'authorization', 'cookie',
+      'password', 'token', 'secret', 'key', 'authorization', 'cookie',
       'ssn', 'medicalRecordNumber', 'patientId', 'email', 'phone', 'address'
     ]
-    return sensitiveKeys.some(sensitive => key.toLowerCase().includes(sensitive))
+
+    const lowerKey = key.toLowerCase()
+
+    // More specific auth-related patterns (avoid over-broad 'auth' matching)
+    if (lowerKey.includes('auth')) {
+      // Only redact if it's clearly sensitive auth data
+      return lowerKey.includes('token') ||
+             lowerKey.includes('secret') ||
+             lowerKey.includes('password') ||
+             lowerKey === 'authorization' ||
+             lowerKey === 'auth_token' ||
+             lowerKey === 'access_token' ||
+             lowerKey === 'refresh_token'
+    }
+
+    return sensitiveKeys.some(sensitive => lowerKey.includes(sensitive))
   }
 
   private sanitizeStringValue(key: string, value: string): string {

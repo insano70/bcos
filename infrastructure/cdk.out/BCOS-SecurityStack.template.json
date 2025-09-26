@@ -153,7 +153,7 @@
     "ImageScanningConfiguration": {
      "ScanOnPush": true
     },
-    "ImageTagMutability": "IMMUTABLE",
+    "ImageTagMutability": "MUTABLE",
     "LifecyclePolicy": {
      "LifecyclePolicyText": "{\"rules\":[{\"rulePriority\":1,\"description\":\"Keep last 10 production images\",\"selection\":{\"tagStatus\":\"tagged\",\"tagPrefixList\":[\"v\",\"release\"],\"countType\":\"imageCountMoreThan\",\"countNumber\":10},\"action\":{\"type\":\"expire\"}},{\"rulePriority\":2,\"description\":\"Keep last 5 staging images\",\"selection\":{\"tagStatus\":\"tagged\",\"tagPrefixList\":[\"staging\"],\"countType\":\"imageCountMoreThan\",\"countNumber\":5},\"action\":{\"type\":\"expire\"}},{\"rulePriority\":3,\"description\":\"Delete untagged images after 7 days\",\"selection\":{\"tagStatus\":\"untagged\",\"countType\":\"sinceImagePushed\",\"countNumber\":7,\"countUnit\":\"days\"},\"action\":{\"type\":\"expire\"}}]}"
     },
@@ -333,8 +333,8 @@
       },
       {
        "Action": [
+        "ecs:CreateService",
         "ecs:DescribeServices",
-        "ecs:DescribeTaskDefinition",
         "ecs:RegisterTaskDefinition",
         "ecs:UpdateService"
        ],
@@ -345,6 +345,85 @@
         "arn:aws:ecs:us-east-1:854428944440:task-definition/bcos-*"
        ],
        "Sid": "ECSAccess"
+      },
+      {
+       "Action": "ecs:DescribeTaskDefinition",
+       "Effect": "Allow",
+       "Resource": "*",
+       "Sid": "ECSDescribeTaskDefinition"
+      },
+      {
+       "Action": [
+        "logs:CreateLogGroup",
+        "logs:PutRetentionPolicy",
+        "logs:TagLogGroup"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        "arn:aws:logs:us-east-1:854428944440:log-group:/ecs/bcos-*",
+        "arn:aws:logs:us-east-1:854428944440:log-group:/ecs/bcos-*:*"
+       ],
+       "Sid": "CloudWatchLogsAccess"
+      },
+      {
+       "Action": "logs:DescribeLogGroups",
+       "Effect": "Allow",
+       "Resource": "*",
+       "Sid": "CloudWatchLogsDescribe"
+      },
+      {
+       "Action": [
+        "ssm:GetParameter",
+        "ssm:GetParameters"
+       ],
+       "Effect": "Allow",
+       "Resource": "arn:aws:ssm:us-east-1:854428944440:parameter/cdk-bootstrap/hnb659fds/*",
+       "Sid": "SSMBootstrapAccess"
+      },
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Resource": [
+        "arn:aws:iam::854428944440:role/cdk-hnb659fds-deploy-role-854428944440-us-east-1",
+        "arn:aws:iam::854428944440:role/cdk-hnb659fds-file-publishing-role-854428944440-us-east-1",
+        "arn:aws:iam::854428944440:role/cdk-hnb659fds-lookup-role-854428944440-us-east-1"
+       ],
+       "Sid": "CDKBootstrapAssumeRoles"
+      },
+      {
+       "Action": [
+        "s3:GetBucketLocation",
+        "s3:GetObject",
+        "s3:ListBucket",
+        "s3:PutObject"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        "arn:aws:s3:::cdk-hnb659fds-assets-854428944440-us-east-1",
+        "arn:aws:s3:::cdk-hnb659fds-assets-854428944440-us-east-1/*"
+       ],
+       "Sid": "CDKAssetsBucketAccess"
+      },
+      {
+       "Action": [
+        "cloudformation:CreateChangeSet",
+        "cloudformation:CreateStack",
+        "cloudformation:DeleteChangeSet",
+        "cloudformation:DeleteStack",
+        "cloudformation:DescribeChangeSet",
+        "cloudformation:DescribeStackEvents",
+        "cloudformation:DescribeStackResources",
+        "cloudformation:DescribeStacks",
+        "cloudformation:ExecuteChangeSet",
+        "cloudformation:GetStackPolicy",
+        "cloudformation:GetTemplate",
+        "cloudformation:ListChangeSets",
+        "cloudformation:ListStackResources",
+        "cloudformation:UpdateStack"
+       ],
+       "Effect": "Allow",
+       "Resource": "arn:aws:cloudformation:us-east-1:854428944440:stack/BCOS-*/*",
+       "Sid": "CloudFormationAccess"
       },
       {
        "Action": "iam:PassRole",
@@ -532,7 +611,7 @@
      "GenerateStringKey": "JWT_SECRET",
      "IncludeSpace": false,
      "PasswordLength": 64,
-     "SecretStringTemplate": "{\"NODE_ENV\":\"production\",\"PORT\":\"4001\"}"
+     "SecretStringTemplate": "{\"NODE_ENV\":\"production\",\"PORT\":\"3000\"}"
     },
     "KmsKeyId": {
      "Fn::GetAtt": [
@@ -557,7 +636,7 @@
      "GenerateStringKey": "JWT_SECRET",
      "IncludeSpace": false,
      "PasswordLength": 64,
-     "SecretStringTemplate": "{\"NODE_ENV\":\"staging\",\"PORT\":\"4001\"}"
+     "SecretStringTemplate": "{\"NODE_ENV\":\"staging\",\"PORT\":\"3000\"}"
     },
     "KmsKeyId": {
      "Fn::GetAtt": [
@@ -606,6 +685,18 @@
    "Description": "ECR Repository name for BCOS container images",
    "Value": {
     "Ref": "BCOSRepository8278F407"
+   }
+  },
+  "ECRRepositoryArn": {
+   "Description": "ECR Repository ARN for BCOS container images",
+   "Value": {
+    "Fn::GetAtt": [
+     "BCOSRepository8278F407",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "BCOS-ECRRepository-Arn"
    }
   },
   "ECSTaskExecutionRoleArn": {

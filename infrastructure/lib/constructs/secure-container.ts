@@ -54,7 +54,7 @@ export interface SecureContainerProps {
   memory: number;
 
   /**
-   * Container port (default: 80)
+   * Container port (default: 3000)
    */
   containerPort?: number;
 
@@ -86,13 +86,13 @@ export class SecureContainer extends Construct {
       secret,
       cpu,
       memory,
-      containerPort = 80,
+      containerPort = 3000,
       environmentVariables = {},
     } = props;
 
     // Create CloudWatch log group (using AWS managed encryption to avoid circular dependency)
     this.logGroup = new logs.LogGroup(this, 'LogGroup', {
-      logGroupName: `/ecs/bcos-${environment}-${Date.now()}`,
+      logGroupName: `/ecs/bcos-${environment}`,
       retention: environment === 'production' ? logs.RetentionDays.THREE_MONTHS : logs.RetentionDays.ONE_MONTH,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
@@ -110,8 +110,8 @@ export class SecureContainer extends Construct {
       },
     });
 
-    // Container image URI - use static format to avoid CloudFormation token issues
-    const imageUri = `${cdk.Stack.of(this).account}.dkr.ecr.${cdk.Stack.of(this).region}.amazonaws.com/bcos:latest`;
+    // Container image URI
+    const imageUri = `${ecrRepository.repositoryUri}:latest`;
 
     // Define container with security hardening
     this.container = this.taskDefinition.addContainer('app', {
@@ -124,7 +124,7 @@ export class SecureContainer extends Construct {
       
       // Security settings
       user: '1001', // Non-root user
-      readonlyRootFilesystem: true,
+      readonlyRootFilesystem: false, // Next.js requires write access to .next/cache
       
       // Linux parameters for additional security (Fargate compatible)
       linuxParameters: new ecs.LinuxParameters(this, 'LinuxParameters', {
@@ -139,11 +139,11 @@ export class SecureContainer extends Construct {
         datetimeFormat: '%Y-%m-%d %H:%M:%S',
       }),
 
-      // Health check
+      // Health check (optimized /api/health endpoint should respond quickly now)
       healthCheck: {
-        command: ['CMD-SHELL', `curl -f http://localhost:${containerPort}/health || exit 1`],
+        command: ['CMD-SHELL', `curl -f http://localhost:${containerPort}/api/health || exit 1`],
         interval: cdk.Duration.seconds(30),
-        timeout: cdk.Duration.seconds(5),
+        timeout: cdk.Duration.seconds(10),
         retries: 3,
         startPeriod: cdk.Duration.seconds(60),
       },
@@ -151,19 +151,19 @@ export class SecureContainer extends Construct {
       // Environment variables (non-sensitive)
       environment: {
         NODE_ENV: environment,
-        PORT: containerPort.toString(), // Application port
+        PORT: containerPort.toString(), // Use configurable containerPort (3000 for non-privileged)
         AWS_REGION: cdk.Stack.of(this).region,
         ...environmentVariables,
       },
 
       // Secrets from Secrets Manager
       secrets: {
+        SKIP_ENV_VALIDATION: ecs.Secret.fromSecretsManager(secret, 'SKIP_ENV_VALIDATION'),
         DATABASE_URL: ecs.Secret.fromSecretsManager(secret, 'DATABASE_URL'),
         ANALYTICS_DATABASE_URL: ecs.Secret.fromSecretsManager(secret, 'ANALYTICS_DATABASE_URL'),
         JWT_SECRET: ecs.Secret.fromSecretsManager(secret, 'JWT_SECRET'),
         JWT_REFRESH_SECRET: ecs.Secret.fromSecretsManager(secret, 'JWT_REFRESH_SECRET'),
         CSRF_SECRET: ecs.Secret.fromSecretsManager(secret, 'CSRF_SECRET'),
-        RESEND_API_KEY: ecs.Secret.fromSecretsManager(secret, 'RESEND_API_KEY'),
         EMAIL_FROM: ecs.Secret.fromSecretsManager(secret, 'EMAIL_FROM'),
         ADMIN_NOTIFICATION_EMAILS: ecs.Secret.fromSecretsManager(secret, 'ADMIN_NOTIFICATION_EMAILS'),
       },

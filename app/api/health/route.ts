@@ -4,19 +4,17 @@ import { createErrorResponse } from '@/lib/api/responses/error'
 import { publicRoute } from '@/lib/api/rbac-route-handler'
 import { 
   createAPILogger, 
-  logDBHealth,
   logPerformanceMetric 
 } from '@/lib/logger'
-import { initializeCache } from '@/lib/cache/cache-warmer'
-import { cacheAdmin } from '@/lib/utils/cache-monitor'
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
 
 /**
- * Health Check Endpoint
- * Public endpoint for monitoring system health and status
- * Used by load balancers, monitoring tools, and uptime checkers
+ * Health Check Endpoint (Optimized for Speed)
+ * Lightweight endpoint for load balancer health checks
+ * Removed expensive operations (database, cache initialization) for sub-second response
+ * For detailed health info, use /api/health/db or /api/health/services
  */
 const healthHandler = async (request: NextRequest) => {
   const startTime = Date.now()
@@ -28,13 +26,7 @@ const healthHandler = async (request: NextRequest) => {
   })
 
   try {
-    // Initialize cache on first health check (if not already initialized)
-    await initializeCache();
-    
-    // Get cache statistics
-    const cacheStats = cacheAdmin.getStats();
-    
-    // Basic system health data
+    // Fast, lightweight system health data (no database or expensive operations)
     const systemHealth = {
       status: 'healthy',
       timestamp: new Date().toISOString(),
@@ -51,14 +43,6 @@ const healthHandler = async (request: NextRequest) => {
         version: process.version,
         platform: process.platform,
         arch: process.arch,
-      },
-      cache: {
-        rolePermissions: {
-          size: cacheStats.size,
-          hits: cacheStats.hits,
-          misses: cacheStats.misses,
-          hitRate: `${cacheStats.hitRate}%`
-        }
       },
       pid: process.pid
     }

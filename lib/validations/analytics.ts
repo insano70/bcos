@@ -94,7 +94,8 @@ export const dashboardCreateSchema = z.object({
   dashboard_category_id: integerIdSchema.optional(),
   chart_ids: z.array(uuidSchema).max(50, 'Too many charts').optional(),
   layout_config: z.record(z.string(), z.any()).optional(), // JSON layout configuration
-  is_active: z.boolean().default(true)
+  is_active: z.boolean().default(true),
+  is_published: z.boolean().default(false)
 })
 
 export const dashboardUpdateSchema = dashboardCreateSchema.partial()

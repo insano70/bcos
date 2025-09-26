@@ -128,11 +128,24 @@ export interface ColorStyles {
   };
 }
 
+// Practice comment interface
+export interface PracticeComment {
+  comment_id: string;
+  practice_id: string;
+  commenter_name: string | null;
+  commenter_location: string | null;
+  comment: string;
+  rating: string;
+  display_order: number;
+  created_at: Date;
+}
+
 // Template props interface - what all templates receive
 export interface TemplateProps {
   practice: Practice;
   attributes: PracticeAttributes;
   staff: StaffMember[];
+  comments?: PracticeComment[]; // Optional customer reviews for carousel
   colorStyles?: ColorStyles; // Dynamic color styles for the template
   nonce?: string; // CSP nonce for inline scripts and styles
 }

@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import '@/tests/setup/integration-setup' // Import integration setup for database access
 import {
   createTestUser,
   createTestOrganization,

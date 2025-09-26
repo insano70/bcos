@@ -3,7 +3,8 @@
  * Provides automatic logging for database operations
  */
 
-import { createAppLogger, type LogData } from './winston-logger'
+import { createAppLogger } from './factory'
+type LogData = Record<string, unknown>
 
 const dbLogger = createAppLogger('database')
 

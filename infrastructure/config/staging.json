@@ -3,13 +3,14 @@
   "domain": "staging.bendcare.com",
   "hostedZoneName": "bendcare.com",
   "certificateValidationDomain": "staging.bendcare.com",
+  "alertEmails": ["devops@bendcare.com"],
   "ecs": {
     "clusterName": "bcos-staging-cluster",
     "serviceName": "bcos-staging-service",
     "taskDefinitionFamily": "bcos-staging",
     "desiredCount": 1,
-    "cpu": 512,
-    "memory": 1024,
+    "cpu": 2048,
+    "memory": 8192,
     "autoScaling": {
       "enabled": false,
       "minCapacity": 1,
@@ -34,7 +35,8 @@
   },
   "tags": {
     "Environment": "staging",
-    "CostCenter": "Development",
-    "Backup": "weekly"
+    "CostCenter": "Development", 
+    "Backup": "weekly",
+    "DeploymentVersion": "v2.0-enhanced-resources"
   }
 }

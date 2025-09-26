@@ -4,7 +4,8 @@
  */
 
 import type { NextRequest } from 'next/server'
-import { createAppLogger, type LogContext } from './winston-logger'
+import { createAppLogger } from './factory'
+import type { LogContext } from './universal-logger'
 
 // Logger interface for API logging functions
 interface APILogger {

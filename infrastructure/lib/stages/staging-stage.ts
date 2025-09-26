@@ -55,7 +55,7 @@ export class StagingStage extends cdk.Stage {
       secret: securityStack.stagingSecret,
       cpu: stagingConfig.ecs.cpu,
       memory: stagingConfig.ecs.memory,
-      containerPort: 80,
+      containerPort: 3000,
       environmentVariables: {
         ENVIRONMENT: environment,
         NEXT_PUBLIC_APP_URL: `https://${stagingConfig.domain}`,
@@ -66,14 +66,14 @@ export class StagingStage extends cdk.Stage {
     this.targetGroup = new elbv2.ApplicationTargetGroup(this.stack, 'StagingTargetGroup', {
       targetGroupName: 'bcos-staging-tg',
       vpc: networkStack.vpc,
-      port: 80,
+      port: 3000,
       protocol: elbv2.ApplicationProtocol.HTTP,
       targetType: elbv2.TargetType.IP,
       healthCheck: {
         enabled: true,
-        path: '/health',
+        path: '/api/health',
         protocol: elbv2.Protocol.HTTP,
-        port: '80',
+        port: '3000',
         interval: cdk.Duration.seconds(30),
         timeout: cdk.Duration.seconds(10),
         healthyThresholdCount: 2,
@@ -91,7 +91,14 @@ export class StagingStage extends cdk.Stage {
       minHealthyPercent: 50,
       maxHealthyPercent: 200,
       vpcSubnets: {
-        subnetType: cdk.aws_ec2.SubnetType.PRIVATE_WITH_EGRESS,
+        subnetFilters: [
+          cdk.aws_ec2.SubnetFilter.byIds([
+            'subnet-1d132031', // us-east-1c
+            'subnet-6f277e63', // us-east-1f  
+            'subnet-2563a41a', // us-east-1e
+            // Exclude subnet-095fa406c94abb01f (us-east-1a) - no ALB subnet in this AZ
+          ])
+        ]
       },
       securityGroups: [networkStack.ecsSecurityGroup],
       assignPublicIp: false,

@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { apiClient } from '@/lib/api/client';
 import { type UserContext } from '@/lib/types/rbac';
-import { debugLog, errorLog } from '@/lib/utils/debug';
+import { clientDebugLog as debugLog, clientErrorLog as errorLog } from '@/lib/utils/debug-client';
 import { CSRFClientHelper } from '@/lib/security/csrf-client';
 
 /**

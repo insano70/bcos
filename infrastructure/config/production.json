@@ -3,13 +3,14 @@
   "domain": "app.bendcare.com",
   "hostedZoneName": "bendcare.com",
   "certificateValidationDomain": "app.bendcare.com",
+  "alertEmails": ["production-alerts@bendcare.com"],
   "ecs": {
     "clusterName": "bcos-production-cluster",
     "serviceName": "bcos-production-service", 
     "taskDefinitionFamily": "bcos-production",
     "desiredCount": 2,
-    "cpu": 1024,
-    "memory": 2048,
+    "cpu": 2048,
+    "memory": 8192,
     "autoScaling": {
       "enabled": true,
       "minCapacity": 2,

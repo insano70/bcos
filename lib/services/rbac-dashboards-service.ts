@@ -23,7 +23,6 @@ export interface CreateDashboardData {
   dashboard_description?: string | undefined;
   dashboard_category_id?: number | undefined;
   chart_ids?: string[] | undefined;
-  chart_positions?: Record<string, unknown>[] | undefined;
   layout_config?: Record<string, unknown> | undefined;
   is_active?: boolean | undefined;
   is_published?: boolean | undefined;
@@ -34,7 +33,6 @@ export interface UpdateDashboardData {
   dashboard_description?: string;
   dashboard_category_id?: number;
   chart_ids?: string[];
-  chart_positions?: Record<string, unknown>[];
   layout_config?: Record<string, unknown>;
   is_active?: boolean;
   is_published?: boolean;
@@ -353,16 +351,11 @@ export class RBACDashboardsService extends BaseRBACService {
 
     // Add charts to dashboard if provided
     if (dashboardData.chart_ids && dashboardData.chart_ids.length > 0) {
-      const chartAssociations = dashboardData.chart_ids.map((chartId: string, index: number) => {
-        // Use provided positions or fall back to defaults
-        const position = dashboardData.chart_positions?.[index] || { x: 0, y: index, w: 6, h: 4 };
-        
-        return {
-          dashboard_id: newDashboard.dashboard_id,
-          chart_definition_id: chartId,
-          position_config: position
-        };
-      });
+      const chartAssociations = dashboardData.chart_ids.map((chartId: string, index: number) => ({
+        dashboard_id: newDashboard.dashboard_id,
+        chart_definition_id: chartId,
+        position_config: { x: 0, y: index, w: 6, h: 4 } // Default layout
+      }));
 
       await db
         .insert(dashboard_charts)
@@ -518,16 +511,11 @@ export class RBACDashboardsService extends BaseRBACService {
 
         // Then add the new chart associations if provided
         if (updateData.chart_ids.length > 0) {
-          const chartAssociations = updateData.chart_ids.map((chartId: string, index: number) => {
-            // Use provided positions or fall back to defaults
-            const position = updateData.chart_positions?.[index] || { x: 0, y: index, w: 6, h: 4 };
-            
-            return {
-              dashboard_id: dashboardId,
-              chart_definition_id: chartId,
-              position_config: position
-            };
-          });
+          const chartAssociations = updateData.chart_ids.map((chartId: string, index: number) => ({
+            dashboard_id: dashboardId,
+            chart_definition_id: chartId,
+            position_config: { x: 0, y: index, w: 6, h: 4 } // Default layout
+          }));
 
           await tx.insert(dashboard_charts).values(chartAssociations);
         }

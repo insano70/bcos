@@ -61,6 +61,7 @@ const DoughnutChart = forwardRef<HTMLCanvasElement, DoughnutProps>(function Doug
           duration: 500,
         },
         maintainAspectRatio: false,
+        responsive: true,
         resizeDelay: 200,
       },
       plugins: [
@@ -140,13 +141,43 @@ const DoughnutChart = forwardRef<HTMLCanvasElement, DoughnutProps>(function Doug
     chart.update('none');
   }, [theme]);
 
+  // Handle dimension changes for responsive behavior
+  useEffect(() => {
+    if (!chart || !canvas.current) return;
+
+    const canvasElement = canvas.current;
+    
+    // Update canvas dimensions
+    canvasElement.width = width;
+    canvasElement.height = height;
+    
+    // Resize the chart
+    chart.resize();
+  }, [chart, width, height]);
+
   return (
-    <div className="grow flex flex-col justify-center">
-      <div>
-        <canvas ref={canvas} width={width} height={height}></canvas>
+    <div className="w-full h-full flex flex-col">
+      <div className="flex-1 min-h-0 flex items-center justify-center">
+        <canvas 
+          ref={canvas}
+          style={{ 
+            width: '100%', 
+            height: '100%',
+            display: 'block',
+            maxHeight: '100%'
+          }}
+        />
       </div>
-      <div className="px-5 pt-2 pb-6">
-        <ul ref={legend} className="flex flex-wrap justify-center -m-1"></ul>
+      <div className="px-3 pt-2 pb-4 flex-shrink-0 overflow-hidden">
+        <ul 
+          ref={legend} 
+          className="flex flex-wrap justify-center gap-x-2 gap-y-1"
+          style={{
+            maxHeight: '80px', // Limit legend height
+            overflowY: 'auto',
+            overflowX: 'hidden'
+          }}
+        ></ul>
       </div>
     </div>
   );

@@ -3,7 +3,8 @@
  * Provides backward-compatible interface while migrating to structured logging
  */
 
-import { loggers, createAppLogger, type LogData } from './winston-logger'
+import { loggers, createAppLogger } from './factory'
+type LogData = Record<string, unknown>
 
 /**
  * Migrated debug logging interface

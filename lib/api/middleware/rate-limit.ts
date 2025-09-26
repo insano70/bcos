@@ -51,7 +51,7 @@ class InMemoryRateLimiter {
 // Rate limiter instances
 export const globalRateLimiter = new InMemoryRateLimiter(15 * 60 * 1000, 100) // 100 req/15min
 export const authRateLimiter = new InMemoryRateLimiter(15 * 60 * 1000, 20)    // 20 req/15min (increased for refresh tokens)
-export const apiRateLimiter = new InMemoryRateLimiter(60 * 1000, 30)          // 30 req/min
+export const apiRateLimiter = new InMemoryRateLimiter(60 * 1000, 200)         // 200 req/min
 
 export function getRateLimitKey(request: Request, prefix = ''): string {
   const ip = request.headers.get('x-forwarded-for') || 
@@ -66,7 +66,7 @@ export async function applyRateLimit(
 ): Promise<{ success: boolean; remaining: number; resetTime: number; limit: number; windowMs: number }> {
   const rateLimitKey = getRateLimitKey(request, type)
   let limiter = apiRateLimiter
-  let limit = 30
+  let limit = 200
   let windowMs = 60 * 1000
   
   switch (type) {
@@ -81,7 +81,7 @@ export async function applyRateLimit(
       windowMs = 60 * 1000
       break
     case 'api':
-      limit = 30
+      limit = 200
       windowMs = 60 * 1000
       break
   }

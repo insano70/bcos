@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { addSecurityHeaders, getContentSecurityPolicy, addRateLimitHeaders } from '@/lib/security/headers'
+import { addSecurityHeaders, getEnhancedContentSecurityPolicy, addRateLimitHeaders, generateCSPNonces, type CSPNonces } from '@/lib/security/headers'
 import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
 import { getJWTConfig } from '@/lib/env'
 import { isPublicApiRoute } from '@/lib/api/middleware/global-auth'
 import { debugLog } from '@/lib/utils/debug'
 import { sanitizeRequestBody } from '@/lib/api/middleware/request-sanitization'
-import { createEdgeAPILogger } from '@/lib/logger/edge-logger'
+import { createAPILogger } from '@/lib/logger/api-features'
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
 
 // CSRF exempt paths - these endpoints handle their own security or don't need CSRF
@@ -25,23 +25,44 @@ function isCSRFExempt(pathname: string): boolean {
 }
 
 export async function middleware(request: NextRequest) {
-  // Get hostname from X-Forwarded-Host header (ALB) or fallback to request hostname
+  // PRODUCTION FIX: Use X-Forwarded-Host from ALB, fallback to Host header for development
   const forwardedHost = request.headers.get('x-forwarded-host')
-  const hostname = forwardedHost || request.nextUrl.hostname
+  const hostHeader = request.headers.get('host')
+  const rawHostname = forwardedHost || hostHeader || request.nextUrl.hostname || 'localhost'
+  const hostname = rawHostname.split(':')[0] || 'localhost' // Remove port for comparison
   const pathname = request.nextUrl.pathname
   const search = request.nextUrl.search
-  let response = NextResponse.next()
-
-  // Generate CSP nonce for this request
-  const { generateCSPNonce } = await import('@/lib/security/headers')
-  const nonce = generateCSPNonce()
+  
+  // Generate CSP nonces for this request (from develop - better system)
+  const { generateCSPNonces } = await import('@/lib/security/nonce-server')
+  const cspNonces = generateCSPNonces()
+  
+  // Create new request headers with nonces for SSR components to access
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-script-nonce', cspNonces.scriptNonce)
+  requestHeaders.set('x-style-nonce', cspNonces.styleNonce)
+  requestHeaders.set('x-nonce-timestamp', cspNonces.timestamp.toString())
+  requestHeaders.set('x-nonce-environment', cspNonces.environment)
+  
+  // Create response with modified request headers
+  let response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  })
   
   // Apply security headers to all responses
   response = addSecurityHeaders(response)
   
-  // Add Content Security Policy with nonce
-  response.headers.set('Content-Security-Policy', getContentSecurityPolicy(nonce))
-  response.headers.set('x-csp-nonce', nonce) // Pass nonce to the app
+  // Add enhanced Content Security Policy with nonces (from develop - better system)
+  const { getEnhancedContentSecurityPolicy } = await import('@/lib/security/headers')
+  response.headers.set('Content-Security-Policy', getEnhancedContentSecurityPolicy(cspNonces))
+  
+  // Also add nonce headers to response for debugging/monitoring
+  response.headers.set('X-Script-Nonce', cspNonces.scriptNonce)
+  response.headers.set('X-Style-Nonce', cspNonces.styleNonce)
+  response.headers.set('X-Nonce-Timestamp', cspNonces.timestamp.toString())
+  response.headers.set('X-Nonce-Environment', cspNonces.environment)
 
   // GLOBAL RATE LIMITING: Apply before any other processing to prevent abuse
   // Skip rate limiting for static files and internal Next.js routes
@@ -108,10 +129,33 @@ export async function middleware(request: NextRequest) {
         const body = await clonedRequest.json().catch(() => null)
         
         if (body) {
-          const logger = createEdgeAPILogger(request)
-          const sanitizationResult = await sanitizeRequestBody(body, logger)
+          const apiLogger = createAPILogger(request, 'middleware')
+          const universalLogger = apiLogger.getLogger()
+          
+          // Create compatible logger for sanitization function
+          const sanitizationLogger = {
+            info: (message: string, meta?: unknown) => universalLogger.info(message, meta as Record<string, unknown>),
+            warn: (message: string, meta?: unknown) => universalLogger.warn(message, meta as Record<string, unknown>),
+            error: (message: string, meta?: unknown) => universalLogger.error(message, undefined, meta as Record<string, unknown>),
+            debug: (message: string, meta?: unknown) => universalLogger.debug(message, meta as Record<string, unknown>)
+          }
+          
+          const sanitizationResult = await sanitizeRequestBody(body, sanitizationLogger)
           
           if (!sanitizationResult.isValid) {
+            // Enhanced request sanitization logging
+            apiLogger.logValidation(sanitizationResult.errors.map(error => ({
+              field: 'request_body',
+              message: error,
+              code: 'INVALID_REQUEST_DATA'
+            })))
+            
+            apiLogger.logSecurity('request_sanitization_failed', 'medium', {
+              reason: 'invalid_request_data',
+              action: 'blocked_request',
+              threat: 'data_injection'
+            })
+            
             debugLog.middleware(`Request sanitization failed for ${pathname}: ${sanitizationResult.errors.join(', ')}`)
             return new NextResponse(
               JSON.stringify({ 
@@ -171,47 +215,51 @@ export async function middleware(request: NextRequest) {
   if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.includes('192.168.')) {
     debugLog.middleware('Processing request for:', pathname)
 
-    // Default-deny: protect all non-public routes
-    if (!isPublicPath(pathname)) {
-      debugLog.middleware('Protected route detected')
-
-      // ✅ STANDARDIZED: Use access token for page authentication (consistent with API routes)
-      const accessToken = request.cookies.get('access-token')?.value
-      let isAuthenticated = false
-
-      debugLog.middleware('Checking auth for path:', pathname)
-      debugLog.middleware('Access token cookie exists:', !!accessToken)
-
-      if (accessToken) {
-        debugLog.middleware('Validating access token...')
-        // Validate access token (same as API routes)
-        try {
-          const jwtConfig = getJWTConfig()
-          const { jwtVerify } = await import('jose')
-          const ACCESS_TOKEN_SECRET = new TextEncoder().encode(jwtConfig.accessSecret)
-          await jwtVerify(accessToken, ACCESS_TOKEN_SECRET)
-          isAuthenticated = true
-          debugLog.middleware('Access token validation successful - allowing access')
-        } catch (error) {
-          debugLog.middleware('Access token validation failed:', error instanceof Error ? error.message : String(error))
-        }
-      } else {
-        debugLog.middleware('No access token found in cookies')
-      }
-
-      if (!isAuthenticated) {
-        debugLog.middleware('User not authenticated - redirecting to login')
-        const signInUrl = new URL('/signin', request.url)
-        signInUrl.searchParams.set('callbackUrl', `${pathname}${search}`)
-        debugLog.middleware('Redirect URL:', signInUrl.toString())
-        response = NextResponse.redirect(signInUrl)
-        return addSecurityHeaders(response)
-      } else {
-        debugLog.middleware('User authenticated - allowing request to proceed')
-      }
-
-      response = addNoStoreHeaders(response)
+    // Public paths (signin, reset-password, etc.) - allow through immediately
+    if (isPublicPath(pathname)) {
+      debugLog.middleware('Public path detected, allowing through:', pathname)
+      return response
     }
+
+    // Default-deny: protect all non-public routes
+    debugLog.middleware('Protected route detected')
+
+    // ✅ STANDARDIZED: Use access token for page authentication (consistent with API routes)
+    const accessToken = request.cookies.get('access-token')?.value
+    let isAuthenticated = false
+
+    debugLog.middleware('Checking auth for path:', pathname)
+    debugLog.middleware('Access token cookie exists:', !!accessToken)
+
+    if (accessToken) {
+      debugLog.middleware('Validating access token...')
+      // Validate access token (same as API routes)
+      try {
+        const jwtConfig = getJWTConfig()
+        const { jwtVerify } = await import('jose')
+        const ACCESS_TOKEN_SECRET = new TextEncoder().encode(jwtConfig.accessSecret)
+        await jwtVerify(accessToken, ACCESS_TOKEN_SECRET)
+        isAuthenticated = true
+        debugLog.middleware('Access token validation successful - allowing access')
+      } catch (error) {
+        debugLog.middleware('Access token validation failed:', error instanceof Error ? error.message : String(error))
+      }
+    } else {
+      debugLog.middleware('No access token found in cookies')
+    }
+
+    if (!isAuthenticated) {
+      debugLog.middleware('User not authenticated - redirecting to login')
+      const signInUrl = new URL('/signin', request.url)
+      signInUrl.searchParams.set('callbackUrl', `${pathname}${search}`)
+      debugLog.middleware('Redirect URL:', signInUrl.toString())
+      response = NextResponse.redirect(signInUrl)
+      return addSecurityHeaders(response)
+    } else {
+      debugLog.middleware('User authenticated - allowing request to proceed')
+    }
+
+    response = addNoStoreHeaders(response)
     
     return response // Continue
   }
@@ -243,6 +291,42 @@ export async function middleware(request: NextRequest) {
       
       if (accessToken) {
         // ✅ STANDARDIZED: Use access token validation (consistent with dev environment)
+        try {
+          const { jwtVerify } = await import('jose')
+          const ACCESS_TOKEN_SECRET = new TextEncoder().encode(getJWTConfig().accessSecret)
+          await jwtVerify(accessToken, ACCESS_TOKEN_SECRET)
+          isAuthenticated = true
+        } catch (error) {
+          debugLog.middleware('Access token validation failed:', error)
+        }
+      }
+
+      if (!isAuthenticated) {
+        const signInUrl = new URL('/signin', request.url)
+        signInUrl.searchParams.set('callbackUrl', `${pathname}${search}`)
+        response = NextResponse.redirect(signInUrl)
+        return addSecurityHeaders(response)
+      }
+
+      response = addNoStoreHeaders(response)
+    }
+
+    return response // Continue
+  }
+
+  // Handle bendcare.com admin domains (app, staging, dev, development, test)
+  if (hostname === 'app.bendcare.com' || 
+      hostname === 'staging.bendcare.com' || 
+      hostname === 'dev.bendcare.com' || 
+      hostname === 'development.bendcare.com' || 
+      hostname === 'test.bendcare.com') {
+    
+    if (!isPublicPath(pathname)) {
+      const accessToken = request.cookies.get('access-token')?.value
+      let isAuthenticated = false
+      
+      if (accessToken) {
+        // Use access token validation (consistent with admin subdomain)
         try {
           const { jwtVerify } = await import('jose')
           const ACCESS_TOKEN_SECRET = new TextEncoder().encode(getJWTConfig().accessSecret)

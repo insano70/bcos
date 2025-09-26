@@ -158,7 +158,7 @@
   "ExecuteCommandLogGroup3D257AE9": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/ecs/execute-command/bcos-production-1758876464003",
+    "LogGroupName": "/ecs/execute-command/bcos-production",
     "RetentionInDays": 30,
     "Tags": [
      {
@@ -256,7 +256,7 @@
   "SecureContainerLogGroup7C38C890": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/ecs/bcos-production-1758876464004",
+    "LogGroupName": "/ecs/bcos-production",
     "RetentionInDays": 90,
     "Tags": [
      {
@@ -292,7 +292,7 @@
    "Properties": {
     "ContainerDefinitions": [
      {
-      "Cpu": 1024,
+      "Cpu": 2048,
       "Environment": [
        {
         "Name": "NODE_ENV",
@@ -319,14 +319,52 @@
       "HealthCheck": {
        "Command": [
         "CMD-SHELL",
-        "curl -f http://localhost:3000/health || exit 1"
+        "curl -f http://localhost:3000/api/health || exit 1"
        ],
        "Interval": 30,
        "Retries": 3,
        "StartPeriod": 60,
-       "Timeout": 5
+       "Timeout": 10
       },
-      "Image": "854428944440.dkr.ecr.us-east-1.amazonaws.com/bcos:latest",
+      "Image": {
+       "Fn::Join": [
+        "",
+        [
+         {
+          "Fn::Select": [
+           4,
+           {
+            "Fn::Split": [
+             ":",
+             {
+              "Fn::ImportValue": "BCOS-ECRRepositoryUri"
+             }
+            ]
+           }
+          ]
+         },
+         ".dkr.ecr.",
+         {
+          "Fn::Select": [
+           3,
+           {
+            "Fn::Split": [
+             ":",
+             {
+              "Fn::ImportValue": "BCOS-ECRRepositoryUri"
+             }
+            ]
+           }
+          ]
+         },
+         ".",
+         {
+          "Ref": "AWS::URLSuffix"
+         },
+         "/bcos:latest"
+        ]
+       ]
+      },
       "LinuxParameters": {
        "Capabilities": {},
        "InitProcessEnabled": true
@@ -342,7 +380,7 @@
         "awslogs-datetime-format": "%Y-%m-%d %H:%M:%S"
        }
       },
-      "Memory": 2048,
+      "Memory": 8192,
       "Name": "bcos",
       "PortMappings": [
        {
@@ -352,8 +390,22 @@
        }
       ],
       "Privileged": false,
-      "ReadonlyRootFilesystem": true,
+      "ReadonlyRootFilesystem": false,
       "Secrets": [
+       {
+        "Name": "SKIP_ENV_VALIDATION",
+        "ValueFrom": {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::ImportValue": "BCOS-ProductionSecret-Arn"
+           },
+           ":SKIP_ENV_VALIDATION::"
+          ]
+         ]
+        }
+       },
        {
         "Name": "DATABASE_URL",
         "ValueFrom": {
@@ -425,20 +477,6 @@
         }
        },
        {
-        "Name": "RESEND_API_KEY",
-        "ValueFrom": {
-         "Fn::Join": [
-          "",
-          [
-           {
-            "Fn::ImportValue": "BCOS-ProductionSecret-Arn"
-           },
-           ":RESEND_API_KEY::"
-          ]
-         ]
-        }
-       },
-       {
         "Name": "EMAIL_FROM",
         "ValueFrom": {
          "Fn::Join": [
@@ -478,12 +516,12 @@
       "User": "1001"
      }
     ],
-    "Cpu": "1024",
+    "Cpu": "2048",
     "ExecutionRoleArn": {
      "Fn::ImportValue": "BCOS-ECSTaskExecutionRole-Arn"
     },
     "Family": "bcos-production",
-    "Memory": "2048",
+    "Memory": "8192",
     "NetworkMode": "awsvpc",
     "RequiresCompatibilities": [
      "FARGATE"
@@ -606,13 +644,20 @@
       "Enable": false,
       "Rollback": false
      },
+     "DeploymentCircuitBreaker": {
+      "Enable": true,
+      "Rollback": true
+     },
      "MaximumPercent": 200,
      "MinimumHealthyPercent": 50
+    },
+    "DeploymentController": {
+     "Type": "ECS"
     },
     "DesiredCount": 2,
     "EnableECSManagedTags": false,
     "EnableExecuteCommand": true,
-    "HealthCheckGracePeriodSeconds": 300,
+    "HealthCheckGracePeriodSeconds": 120,
     "LaunchType": "FARGATE",
     "LoadBalancers": [
      {
@@ -702,6 +747,268 @@
    },
    "Metadata": {
     "aws:cdk:path": "BCOS-ProductionStack/ProductionListenerRule/Resource"
+   }
+  },
+  "ProductionARecordFE483908": {
+   "Type": "AWS::Route53::RecordSet",
+   "Properties": {
+    "AliasTarget": {
+     "DNSName": {
+      "Fn::Join": [
+       "",
+       [
+        "dualstack.",
+        {
+         "Fn::ImportValue": "BCOS-LoadBalancer-DnsName"
+        }
+       ]
+      ]
+     },
+     "HostedZoneId": {
+      "Fn::ImportValue": "BCOS-LoadBalancer-CanonicalHostedZoneId"
+     }
+    },
+    "HostedZoneId": {
+     "Fn::ImportValue": "BCOS-HostedZone-Id"
+    },
+    "Name": "app.bendcare.com.",
+    "Type": "A"
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-ProductionStack/ProductionARecord/Resource"
+   }
+  },
+  "WAFProtectionWAFLogGroupC4D17A54": {
+   "Type": "AWS::Logs::LogGroup",
+   "Properties": {
+    "LogGroupName": "/aws/waf/bcos-production-1758751751237",
+    "RetentionInDays": 90,
+    "Tags": [
+     {
+      "Key": "Backup",
+      "Value": "daily"
+     },
+     {
+      "Key": "Compliance",
+      "Value": "required"
+     },
+     {
+      "Key": "CostCenter",
+      "Value": "Operations"
+     },
+     {
+      "Key": "Environment",
+      "Value": "production"
+     },
+     {
+      "Key": "Monitoring",
+      "Value": "enhanced"
+     }
+    ]
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "BCOS-ProductionStack/WAFProtection/WAFLogGroup/Resource"
+   }
+  },
+  "WAFProtectionWebACLA37FE6E3": {
+   "Type": "AWS::WAFv2::WebACL",
+   "Properties": {
+    "DefaultAction": {
+     "Allow": {}
+    },
+    "Description": "WAF protection for BCOS production environment",
+    "Name": "BCOS-production-WebACL",
+    "Rules": [
+     {
+      "Name": "AWS-AWSManagedRulesCommonRuleSet",
+      "OverrideAction": {
+       "None": {}
+      },
+      "Priority": 1,
+      "Statement": {
+       "ManagedRuleGroupStatement": {
+        "ExcludedRules": [],
+        "Name": "AWSManagedRulesCommonRuleSet",
+        "VendorName": "AWS"
+       }
+      },
+      "VisibilityConfig": {
+       "CloudWatchMetricsEnabled": true,
+       "MetricName": "CommonRuleSet-production",
+       "SampledRequestsEnabled": true
+      }
+     },
+     {
+      "Name": "AWS-AWSManagedRulesKnownBadInputsRuleSet",
+      "OverrideAction": {
+       "None": {}
+      },
+      "Priority": 2,
+      "Statement": {
+       "ManagedRuleGroupStatement": {
+        "Name": "AWSManagedRulesKnownBadInputsRuleSet",
+        "VendorName": "AWS"
+       }
+      },
+      "VisibilityConfig": {
+       "CloudWatchMetricsEnabled": true,
+       "MetricName": "KnownBadInputs-production",
+       "SampledRequestsEnabled": true
+      }
+     },
+     {
+      "Name": "AWS-AWSManagedRulesOWASPTopTenRuleSet",
+      "OverrideAction": {
+       "None": {}
+      },
+      "Priority": 3,
+      "Statement": {
+       "ManagedRuleGroupStatement": {
+        "Name": "AWSManagedRulesOWASPTopTenRuleSet",
+        "VendorName": "AWS"
+       }
+      },
+      "VisibilityConfig": {
+       "CloudWatchMetricsEnabled": true,
+       "MetricName": "OWASPTopTen-production",
+       "SampledRequestsEnabled": true
+      }
+     },
+     {
+      "Action": {
+       "Block": {}
+      },
+      "Name": "RateLimitRule-production",
+      "Priority": 4,
+      "Statement": {
+       "RateBasedStatement": {
+        "AggregateKeyType": "IP",
+        "Limit": 1000,
+        "ScopeDownStatement": {
+         "NotStatement": {
+          "Statement": {
+           "ByteMatchStatement": {
+            "FieldToMatch": {
+             "UriPath": {}
+            },
+            "PositionalConstraint": "STARTS_WITH",
+            "SearchString": "/health",
+            "TextTransformations": [
+             {
+              "Priority": 0,
+              "Type": "LOWERCASE"
+             }
+            ]
+           }
+          }
+         }
+        }
+       }
+      },
+      "VisibilityConfig": {
+       "CloudWatchMetricsEnabled": true,
+       "MetricName": "RateLimit-production",
+       "SampledRequestsEnabled": true
+      }
+     },
+     {
+      "Action": {
+       "Block": {}
+      },
+      "Name": "APIAbuseProtection-production",
+      "Priority": 5,
+      "Statement": {
+       "AndStatement": {
+        "Statements": [
+         {
+          "ByteMatchStatement": {
+           "FieldToMatch": {
+            "UriPath": {}
+           },
+           "PositionalConstraint": "STARTS_WITH",
+           "SearchString": "/api/",
+           "TextTransformations": [
+            {
+             "Priority": 0,
+             "Type": "LOWERCASE"
+            }
+           ]
+          }
+         },
+         {
+          "RateBasedStatement": {
+           "AggregateKeyType": "IP",
+           "Limit": 500
+          }
+         }
+        ]
+       }
+      },
+      "VisibilityConfig": {
+       "CloudWatchMetricsEnabled": true,
+       "MetricName": "APIAbuseProtection-production",
+       "SampledRequestsEnabled": true
+      }
+     }
+    ],
+    "Scope": "REGIONAL",
+    "Tags": [
+     {
+      "Key": "Application",
+      "Value": "BCOS"
+     },
+     {
+      "Key": "Backup",
+      "Value": "daily"
+     },
+     {
+      "Key": "Compliance",
+      "Value": "required"
+     },
+     {
+      "Key": "CostCenter",
+      "Value": "Operations"
+     },
+     {
+      "Key": "Environment",
+      "Value": "production"
+     },
+     {
+      "Key": "ManagedBy",
+      "Value": "CDK"
+     },
+     {
+      "Key": "Monitoring",
+      "Value": "enhanced"
+     }
+    ],
+    "VisibilityConfig": {
+     "CloudWatchMetricsEnabled": true,
+     "MetricName": "BCOS-production-WebACL",
+     "SampledRequestsEnabled": true
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-ProductionStack/WAFProtection/WebACL"
+   }
+  },
+  "WAFProtectionWebACLAssociation99F41F81": {
+   "Type": "AWS::WAFv2::WebACLAssociation",
+   "Properties": {
+    "ResourceArn": {
+     "Fn::ImportValue": "BCOS-LoadBalancer-Arn"
+    },
+    "WebACLArn": {
+     "Fn::GetAtt": [
+      "WAFProtectionWebACLA37FE6E3",
+      "Arn"
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-ProductionStack/WAFProtection/WebACLAssociation"
    }
   },
   "MonitoringAlertTopicB48B06C2": {
@@ -1278,28 +1585,7 @@
     ],
     "AlarmDescription": "Overall service health for production",
     "AlarmName": "BCOS-production-ServiceHealth",
-    "AlarmRule": {
-     "Fn::Join": [
-      "",
-      [
-       "(ALARM(\"",
-       {
-        "Fn::GetAtt": [
-         "MonitoringECSRunningTaskCountC68C6B7E",
-         "Arn"
-        ]
-       },
-       "\") OR ALARM(\"",
-       {
-        "Fn::GetAtt": [
-         "MonitoringALBUnhealthyTargets1B401F1C",
-         "Arn"
-        ]
-       },
-       "\"))"
-      ]
-     ]
-    },
+    "AlarmRule": "(ALARM(\"arn:aws:cloudwatch:us-east-1:854428944440:alarm:BCOS-production-ECS-LowTaskCount\") OR ALARM(\"arn:aws:cloudwatch:us-east-1:854428944440:alarm:BCOS-production-ALB-UnhealthyTargets\"))",
     "Tags": [
      {
       "Key": "Backup",
@@ -1465,10 +1751,43 @@
     "aws:cdk:path": "BCOS-ProductionStack/ProductionScalableTarget/ProductionMemoryScaling/Resource"
    }
   },
+  "ProductionScalableTargetProductionRequestScalingA2BB279D": {
+   "Type": "AWS::ApplicationAutoScaling::ScalingPolicy",
+   "Properties": {
+    "PolicyName": "BCOSProductionStackProductionScalableTargetProductionRequestScaling067FBF9F",
+    "PolicyType": "TargetTrackingScaling",
+    "ScalingTargetId": {
+     "Ref": "ProductionScalableTarget99484CA2"
+    },
+    "TargetTrackingScalingPolicyConfiguration": {
+     "CustomizedMetricSpecification": {
+      "Dimensions": [
+       {
+        "Name": "LoadBalancer",
+        "Value": "dummy-alb-name"
+       },
+       {
+        "Name": "TargetGroup",
+        "Value": "dummy-tg-name"
+       }
+      ],
+      "MetricName": "RequestCountPerTarget",
+      "Namespace": "AWS/ApplicationELB",
+      "Statistic": "Sum"
+     },
+     "ScaleInCooldown": 600,
+     "ScaleOutCooldown": 300,
+     "TargetValue": 1000
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "BCOS-ProductionStack/ProductionScalableTarget/ProductionRequestScaling/Resource"
+   }
+  },
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/2VSwW7bMAz9lt0VdTM6oNcsRYcBKRbYuQ+0zLpsZMkgpbSB4X+vZGeJs5303qNIPVIsdPHtu/76Bd5lZZrDylKthyqAOagSxUc2qFLsz4CGdYm9FwqeTz9AUBF0eth5S+akNi/ujEpvMdN8jgpNoROp0ESmcPrJPva/XMsooqxvRQ9b305qzrngZwxM5olsQM6BJc9FU97GRjlH/4cb6MGk93bsj9Qgr0W8IQjknagn4BYC7kEOj/hCjrKck/9VvAtADnmhbcnFjx0wdJieudSqkI9kpr7PMLm0IIGM9dDUYMEZcu2x0MO679OgJi/7lI3h0v6SLm5tKbWUbJRxnuySj0pcGsbe92SmEhOoYi2Gqf/b2JKPKlmKzTsE86qHR5DX2gM3+dqVrC1wl6Uz8N3083jRb5VRwdUuxODFgE3tplVKAGqLc2uTl1tlPvacNi4lVHPedaluhHHM0u8Y+hhG5XyD+k3ujsW9fkgr/CZEK44uUIe6nM9Py1/Bit8CAAA="
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/2VTy27bMBD8lt5ptlUaoFdXQYoALmpIBnosVtRa2ZgiBT7sGoL+vUvKteX0Is4Mua/BqpDF50f56QOc/Eq1h5WmRo51AHUQFXobnULBd79HVE5WOFhPwbrzN/AoCHo5bq0mdRbl3lxQZTUmms5JoCokkxpVdBTO352Nw4vpHHovtO28HDe2y2qKueIfGBypZ9IBXbpY8pSU40od/eX2f1jCAIrrbZ09Uotu7b1VBIGs8eIZXAcBd+APT7gnQ0lOwe8VawKQQbfQNmTiny046JHLXHPV6I6k8twXyF1q8IGUttA2oMEoMt2xkON6GNio3MuOozFcx1/SxasN8UjcRhVnZ5d8Evw64OMD561QWddm7zOqMUziBPtUlMVf2KzLjbiihSeT8IYt3dmBVG4kgzo2Xjka/tmz5JPgwWJ7gqBe5fgE/rWxMBe/kbUG1ydpBvmbN6e0fd4kvL64VyYBt/EhBusVaLaPV5MBNBpnq3JX98p87BxvMAfUc9xtSe+EaUrSzxiGyE4Z26J88x+PxRf5lX+JN0+0ctEE6lFW8/kXT+vrsy8DAAA="
    },
    "Metadata": {
     "aws:cdk:path": "BCOS-ProductionStack/CDKMetadata/Default"
@@ -1476,6 +1795,30 @@
   }
  },
  "Outputs": {
+  "WAFProtectionWebACLArnA98AA05F": {
+   "Description": "WAF Web ACL ARN for production",
+   "Value": {
+    "Fn::GetAtt": [
+     "WAFProtectionWebACLA37FE6E3",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "BCOS-production-WebACL-Arn"
+   }
+  },
+  "WAFProtectionWebACLId14CD2052": {
+   "Description": "WAF Web ACL ID for production",
+   "Value": {
+    "Fn::GetAtt": [
+     "WAFProtectionWebACLA37FE6E3",
+     "Id"
+    ]
+   },
+   "Export": {
+    "Name": "BCOS-production-WebACL-Id"
+   }
+  },
   "ProductionClusterName": {
    "Description": "Production ECS Cluster Name",
    "Value": {
