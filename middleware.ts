@@ -218,7 +218,17 @@ export async function middleware(request: NextRequest) {
 
   // Check for admin/development subdomains (standardized authentication)
   const isAdminSubdomain = (host: string): boolean => {
-    const adminSubdomains = ['app.bendcare.com', 'test.bendcare.com', 'dev.bendcare.com', 'development.bendcare.com', 'staging.bendcare.com']
+    const adminSubdomains = [
+      'app.bendcare.com', 
+      'test.bendcare.com', 
+      'dev.bendcare.com', 
+      'development.bendcare.com', 
+      'staging.bendcare.com',
+      'localhost',
+      'localhost:4001',
+      '127.0.0.1',
+      '127.0.0.1:4001'
+    ]
     return adminSubdomains.includes(host)
   }
 
