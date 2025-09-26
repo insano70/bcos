@@ -3,15 +3,13 @@ import { logCacheStats, monitorCacheHealth, cacheAdmin } from '@/lib/utils/cache
 import { logger } from '@/lib/logger'
 
 // Mock the cache
-const mockRolePermissionCache = {
-  getStats: vi.fn(),
-  invalidateAll: vi.fn(),
-  invalidate: vi.fn(),
-  getCachedRoleIds: vi.fn()
-}
-
 vi.mock('@/lib/cache/role-permission-cache', () => ({
-  rolePermissionCache: mockRolePermissionCache
+  rolePermissionCache: {
+    getStats: vi.fn(),
+    invalidateAll: vi.fn(),
+    invalidate: vi.fn(),
+    getCachedRoleIds: vi.fn()
+  }
 }))
 
 vi.mock('@/lib/logger', () => ({
@@ -22,8 +20,14 @@ vi.mock('@/lib/logger', () => ({
 }))
 
 describe('cache-monitor utilities', () => {
-  beforeEach(() => {
+  let mockRolePermissionCache: any
+
+  beforeEach(async () => {
     vi.clearAllMocks()
+    
+    // Get reference to the mocked cache
+    const { rolePermissionCache } = await import('@/lib/cache/role-permission-cache')
+    mockRolePermissionCache = vi.mocked(rolePermissionCache)
   })
 
   describe('logCacheStats', () => {

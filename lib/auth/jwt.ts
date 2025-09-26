@@ -33,19 +33,30 @@ export async function refreshJWT(token: string): Promise<string | null> {
   const payload = await verifyJWT(token)
   if (!payload) return null
   
-  return await signJWT({
-    ...(payload.sub && { sub: payload.sub }),
-    email: payload.email,
-    role: payload.role,
-    firstName: payload.firstName,
-    lastName: payload.lastName
-  })
+  try {
+    return await signJWT({
+      ...(payload.sub && { sub: payload.sub }),
+      email: payload.email,
+      role: payload.role,
+      firstName: payload.firstName,
+      lastName: payload.lastName
+    })
+  } catch (error) {
+    logger.error('JWT refresh signing failed', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      operation: 'refreshJWT'
+    })
+    return null
+  }
 }
 
 export function extractTokenFromRequest(request: Request): string | null {
   const authHeader = request.headers.get('Authorization')
   if (authHeader?.startsWith('Bearer ')) {
-    return authHeader.slice(7)
+    const token = authHeader.slice(7)
+    // Return empty string for malformed Bearer tokens (just "Bearer " with no token)
+    return token || ''
   }
   return null
 }

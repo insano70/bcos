@@ -17,32 +17,44 @@ vi.mock('@/lib/config/password-policy', () => ({
 }))
 
 // Mock database
-const mockDbSelect = vi.fn()
-const mockDbUpdate = vi.fn()
-const mockDbInsert = vi.fn()
-
-vi.mock('@/lib/db', () => ({
-  db: {
-    select: mockDbSelect,
-    update: mockDbUpdate,
-    insert: mockDbInsert
-  },
-  account_security: {
-    user_id: 'user_id',
-    failed_login_attempts: 'failed_login_attempts',
-    last_failed_attempt: 'last_failed_attempt',
-    locked_until: 'locked_until',
-    suspicious_activity_detected: 'suspicious_activity_detected'
-  },
-  users: {
-    user_id: 'user_id',
-    email: 'email'
+vi.mock('@/lib/db', () => {
+  const mockDbSelect = vi.fn()
+  const mockDbUpdate = vi.fn()
+  const mockDbInsert = vi.fn()
+  
+  return {
+    db: {
+      select: mockDbSelect,
+      update: mockDbUpdate,
+      insert: mockDbInsert
+    },
+    account_security: {
+      user_id: 'user_id',
+      failed_login_attempts: 'failed_login_attempts',
+      last_failed_attempt: 'last_failed_attempt',
+      locked_until: 'locked_until',
+      suspicious_activity_detected: 'suspicious_activity_detected'
+    },
+    users: {
+      user_id: 'user_id',
+      email: 'email'
+    }
   }
-}))
+})
 
 describe('security authentication logic', () => {
-  beforeEach(() => {
+  let mockDbSelect: ReturnType<typeof vi.fn>
+  let mockDbUpdate: ReturnType<typeof vi.fn>
+  let mockDbInsert: ReturnType<typeof vi.fn>
+
+  beforeEach(async () => {
     vi.clearAllMocks()
+    
+    // Get references to the mocked functions
+    const { db } = await import('@/lib/db')
+    mockDbSelect = vi.mocked(db.select)
+    mockDbUpdate = vi.mocked(db.update)
+    mockDbInsert = vi.mocked(db.insert)
   })
 
   describe('PasswordService', () => {

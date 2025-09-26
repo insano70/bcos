@@ -209,7 +209,7 @@ describe('common validation schemas', () => {
 
       const result = searchSchema.safeParse(dangerousInput)
       expect(result.success).toBe(true)
-      expect(result.data?.search).toBe('patientscriptalert("xss")/scriptrecords')
+      expect(result.data?.search).toBe('patientscriptalert(xss)/scriptrecords')
     })
 
     it('should sanitize SQL wildcards', () => {

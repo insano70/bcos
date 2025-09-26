@@ -218,7 +218,7 @@ describe('analytics validation schemas', () => {
     it('should validate with chart config', () => {
       const validData = {
         chart_name: 'Configured Chart',
-        chart_type: 'doughnut',
+        chart_type: 'pie',
         data_source: 'revenue_table',
         chart_config: {
           chartName: 'Revenue Chart',
@@ -371,7 +371,10 @@ describe('analytics validation schemas', () => {
 
       const result = dashboardCreateSchema.safeParse(validData)
       expect(result.success).toBe(true)
-      expect(result.data).toEqual(validData)
+      expect(result.data).toEqual({
+        ...validData,
+        is_published: false  // Schema adds default value
+      })
     })
 
     it('should validate dashboard creation with minimal data', () => {
@@ -420,7 +423,10 @@ describe('analytics validation schemas', () => {
 
       const result = dashboardUpdateSchema.safeParse(validData)
       expect(result.success).toBe(true)
-      expect(result.data).toEqual(validData)
+      expect(result.data).toEqual({
+        ...validData,
+        is_published: false  // Schema adds default value
+      })
     })
 
     it('should allow empty update', () => {

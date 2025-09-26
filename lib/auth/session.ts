@@ -28,9 +28,9 @@ export async function getCurrentUserFromToken(accessToken: string) {
       name: `${user.first_name} ${user.last_name}`,
       firstName: user.first_name,
       lastName: user.last_name,
-      role: 'admin', // Default role for backward compatibility with existing tests
+      role: (payload.role as string) || 'user', // Use role from JWT payload
       emailVerified: user.email_verified,
-      practiceId: undefined // TODO: Add practice relationship logic
+      practiceId: (payload.practiceId as string) || undefined // Use practiceId from JWT payload
     }
   } catch (_error) {
     return null

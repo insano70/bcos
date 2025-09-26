@@ -59,13 +59,16 @@ export function stripHtml(html: string): string {
   }
 
   return html
-    .replace(/<[^>]*>/g, '')
+    .replace(/<br\s*\/?>/gi, '\n')  // Convert <br> tags to newlines
+    .replace(/<\/p>/gi, '\n')       // Convert closing </p> tags to newlines
+    .replace(/<[^>]*>/g, '')        // Remove all other HTML tags
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#x27;/g, "'")
     .replace(/&nbsp;/g, ' ')
+    .replace(/\n\s*\n/g, '\n')      // Clean up multiple newlines
     .trim();
 }
 
@@ -82,11 +85,11 @@ export function sanitizeUrl(url: string): string {
     return '#';
   }
 
-  // Ensure relative URLs or safe absolute URLs
-  if (url.startsWith('//') || url.match(/^https?:\/\//i)) {
+  // Check if URL has a protocol
+  if (url.includes(':')) {
     try {
       const urlObj = new URL(url);
-      // Only allow HTTP/HTTPS
+      // Only allow HTTP/HTTPS protocols
       if (!['http:', 'https:'].includes(urlObj.protocol)) {
         return '#';
       }
@@ -96,8 +99,18 @@ export function sanitizeUrl(url: string): string {
     }
   }
 
-  // Relative URL - should be safe
-  return url;
+  // Allow relative URLs (no protocol)
+  if (url.startsWith('/') || url.startsWith('#')) {
+    return url;
+  }
+
+  // For other relative URLs without protocol, allow them
+  if (!url.includes('://')) {
+    return url;
+  }
+
+  // Reject everything else
+  return '#';
 }
 
 /**

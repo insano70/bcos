@@ -23,6 +23,10 @@ vi.mock('isomorphic-dompurify', () => ({
 }))
 
 describe('html-sanitizer utilities', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   describe('sanitizeHtml', () => {
     it('should sanitize HTML using DOMPurify with configured options', () => {
       const html = '<p>Hello <strong>world</strong></p><script>alert("xss")</script>'
