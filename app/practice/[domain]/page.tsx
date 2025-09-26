@@ -3,6 +3,7 @@ import { eq, isNull, and } from 'drizzle-orm';
 import { getTemplateComponent } from '@/lib/template-loader';
 import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
 import { transformPractice, transformPracticeAttributes, transformStaffMember } from '@/lib/types/transformers'
 import type { PracticeAttributes } from '@/lib/types/practice';
 
@@ -77,6 +78,10 @@ export default async function PracticeWebsite({
     notFound();
   }
 
+  // Get CSP nonce from middleware headers
+  const headersList = await headers();
+  const nonce = headersList.get('x-csp-nonce') || '';
+
   const { practice, template, attributes, staff } = data;
 
   // Attributes and staff are already transformed/parsed by the transformers
@@ -101,6 +106,7 @@ export default async function PracticeWebsite({
       attributes={parsedAttributes}
       staff={parsedStaff}
       colorStyles={colorStyles}
+      nonce={nonce}
     />
   );
 }

@@ -14,7 +14,8 @@ export default function WarmWelcomingTemplate({
   practice, 
   attributes, 
   staff,
-  colorStyles 
+  colorStyles,
+  nonce = ''
 }: TemplateProps) {
   // Generate color styles if not provided
   const defaultColors = getTemplateDefaultColors('warm-welcoming');
@@ -42,6 +43,7 @@ export default function WarmWelcomingTemplate({
         {/* Medical Practice Structured Data */}
         <script
           type="application/ld+json"
+          nonce={nonce}
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
@@ -65,7 +67,7 @@ export default function WarmWelcomingTemplate({
         />
       </Head>
 
-      <div className="min-h-screen" style={templateColorStyles.secondary}>
+      <div className="min-h-screen" style={templateColorStyles.secondary} nonce={nonce}>
         {/* Header with navigation */}
         <Header practice={practice} attributes={attributes} colorStyles={templateColorStyles} />
         
@@ -82,13 +84,13 @@ export default function WarmWelcomingTemplate({
         <Providers staff={staff} colorStyles={templateColorStyles} />
         
         {/* Appointment Form Section */}
-        <section className="py-20" style={templateColorStyles.primaryBg100}>
+        <section className="py-20" style={templateColorStyles.primaryBg100} nonce={nonce}>
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-serif mb-4" style={templateColorStyles.primaryText}>
+              <h2 className="text-3xl md:text-4xl font-serif mb-4" style={templateColorStyles.primaryText} nonce={nonce}>
                 Schedule Your Visit
               </h2>
-              <p className="text-lg" style={templateColorStyles.primaryText}>
+              <p className="text-lg" style={templateColorStyles.primaryText} nonce={nonce}>
                 We're here to help you feel better. Let's start your journey to wellness together.
               </p>
             </div>

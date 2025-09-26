@@ -4,6 +4,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
+import { useNonce } from '@/app/nonce-context';
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -41,6 +42,7 @@ const SplitText: React.FC<SplitTextProps> = ({
   const ref = useRef<HTMLParagraphElement>(null);
   const animationCompletedRef = useRef(false);
   const [fontsLoaded, setFontsLoaded] = useState<boolean>(false);
+  const nonce = useNonce();
 
   useEffect(() => {
     if (document.fonts.status === 'loaded') {
@@ -112,13 +114,13 @@ const SplitText: React.FC<SplitTextProps> = ({
   const splitText = (text: string, type: string) => {
     if (type.includes('chars')) {
       return text.split('').map((char, index) => (
-        <span key={index} className="split-char inline-block" style={{ display: 'inline-block' }}>
+        <span key={index} className="split-char inline-block" style={{ display: 'inline-block' }} nonce={nonce}>
           {char === ' ' ? '\u00A0' : char}
         </span>
       ));
     } else if (type.includes('words')) {
       return text.split(' ').map((word, index) => (
-        <span key={index} className="split-word inline-block" style={{ display: 'inline-block' }}>
+        <span key={index} className="split-word inline-block" style={{ display: 'inline-block' }} nonce={nonce}>
           {word}
           {index < text.split(' ').length - 1 && '\u00A0'}
         </span>
@@ -139,43 +141,43 @@ const SplitText: React.FC<SplitTextProps> = ({
     switch (tag) {
       case 'h1':
         return (
-          <h1 ref={ref} style={style} className={classes}>
+          <h1 ref={ref} style={style} className={classes} nonce={nonce}>
             {content}
           </h1>
         );
       case 'h2':
         return (
-          <h2 ref={ref} style={style} className={classes}>
+          <h2 ref={ref} style={style} className={classes} nonce={nonce}>
             {content}
           </h2>
         );
       case 'h3':
         return (
-          <h3 ref={ref} style={style} className={classes}>
+          <h3 ref={ref} style={style} className={classes} nonce={nonce}>
             {content}
           </h3>
         );
       case 'h4':
         return (
-          <h4 ref={ref} style={style} className={classes}>
+          <h4 ref={ref} style={style} className={classes} nonce={nonce}>
             {content}
           </h4>
         );
       case 'h5':
         return (
-          <h5 ref={ref} style={style} className={classes}>
+          <h5 ref={ref} style={style} className={classes} nonce={nonce}>
             {content}
           </h5>
         );
       case 'h6':
         return (
-          <h6 ref={ref} style={style} className={classes}>
+          <h6 ref={ref} style={style} className={classes} nonce={nonce}>
             {content}
           </h6>
         );
       default:
         return (
-          <p ref={ref} style={style} className={classes}>
+          <p ref={ref} style={style} className={classes} nonce={nonce}>
             {content}
           </p>
         );

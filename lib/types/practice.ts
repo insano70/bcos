@@ -134,4 +134,5 @@ export interface TemplateProps {
   attributes: PracticeAttributes;
   staff: StaffMember[];
   colorStyles?: ColorStyles; // Dynamic color styles for the template
+  nonce?: string; // CSP nonce for inline scripts and styles
 }
