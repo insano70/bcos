@@ -185,8 +185,7 @@ export default function AppointmentForm({ practice, attributes, colorStyles }: A
                 <div className="text-center">
                   <button
                     type="submit"
-                    className="btn text-white px-8 py-4 text-lg group"
-                    style={colorStyles.primary}
+                    className="btn text-white px-8 py-4 text-lg group bg-practice-primary"
                   >
                     Request Appointment
                     <span className="tracking-normal text-blue-300 group-hover:translate-x-0.5 transition-transform duration-150 ease-in-out ml-1">
@@ -206,8 +205,7 @@ export default function AppointmentForm({ practice, attributes, colorStyles }: A
                   {attributes.phone && (
                     <a 
                       href={`tel:${attributes.phone}`}
-                      className="text-sm font-medium hover:text-blue-600 transition-colors"
-                      style={colorStyles.primaryText}
+                      className="text-sm font-medium hover:text-blue-600 transition-colors text-practice-primary"
                     >
                       Call {attributes.phone}
                     </a>
@@ -215,8 +213,7 @@ export default function AppointmentForm({ practice, attributes, colorStyles }: A
                   {attributes.email && (
                     <a 
                       href={`mailto:${attributes.email}`}
-                      className="text-sm font-medium hover:text-blue-600 transition-colors"
-                      style={colorStyles.primaryText}
+                      className="text-sm font-medium hover:text-blue-600 transition-colors text-practice-primary"
                     >
                       Email Us
                     </a>

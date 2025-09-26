@@ -21,7 +21,7 @@ export default function Header({ practice, attributes, colorStyles }: HeaderProp
                 className="h-8 w-auto"
               />
             ) : (
-              <div className="text-2xl font-bold font-playfair-display" style={colorStyles.primaryText}>
+              <div className="text-2xl font-bold font-playfair-display text-practice-primary">
                 {practice.name}
               </div>
             )}
@@ -81,8 +81,7 @@ export default function Header({ practice, attributes, colorStyles }: HeaderProp
               <li>
                 <a 
                   href="#appointment" 
-                  className="font-medium px-3 lg:px-5 py-2 flex items-center transition duration-150 ease-in-out group"
-                  style={colorStyles.primaryText}
+                  className="font-medium px-3 lg:px-5 py-2 flex items-center transition duration-150 ease-in-out group text-practice-primary"
                 >
                   Schedule Appointment 
                   <span className="tracking-normal group-hover:translate-x-0.5 transition-transform duration-150 ease-in-out ml-1">

@@ -1,5 +1,6 @@
 import type { TemplateProps } from '@/lib/types/practice';
 import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
+import { PracticeCSSInjector } from '@/components/practice-css-injector';
 import Header from './components/header';
 import Hero from './components/hero';
 import ReviewCarousel from './components/review-carousel';
@@ -29,7 +30,11 @@ export default function ClassicProfessionalTemplate({
   const colorStyles = getColorStyles(brandColors);
 
   return (
-    <div className="min-h-screen bg-white">
+    <>
+      {/* Inject practice-specific CSS custom properties */}
+      <PracticeCSSInjector colors={brandColors} practiceId={practice.practice_id} />
+
+      <div className="min-h-screen bg-white bg-practice-secondary">
         {/* Header with navigation */}
         <Header practice={practice} attributes={attributes} colorStyles={colorStyles} />
         
@@ -52,7 +57,7 @@ export default function ClassicProfessionalTemplate({
         <Providers staff={staff} colorStyles={colorStyles} />
         
         {/* Appointment Form Section */}
-        <section className="py-20" style={colorStyles.primaryBg50}>
+        <section className="py-20 bg-practice-primary-50">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
@@ -72,5 +77,6 @@ export default function ClassicProfessionalTemplate({
         {/* Footer */}
         <Footer practice={practice} attributes={attributes} colorStyles={colorStyles} />
       </div>
+    </>
   );
 }

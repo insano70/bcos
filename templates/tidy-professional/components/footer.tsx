@@ -27,7 +27,7 @@ export default function Footer({ practice, attributes, colorStyles }: FooterProp
                   className="h-8 w-auto"
                 />
               ) : (
-                <div className="text-2xl font-bold font-playfair-display" style={colorStyles.primaryText}>
+                <div className="text-2xl font-bold font-playfair-display text-practice-primary">
                   {practice.name}
                 </div>
               )}

@@ -46,11 +46,11 @@ export default function AppointmentForm({ colorStyles }: { colorStyles?: any }) 
 
   if (isSubmitted) {
     return (
-      <div className="border rounded-lg p-6 text-center" style={{ ...(colorStyles?.primaryBg50 || { backgroundColor: '#f0f9ff' }), borderColor: colorStyles?.primary?.backgroundColor || '#2563eb' }}>
-        <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={colorStyles?.primaryBg100 || { backgroundColor: '#dbeafe' }}>
-          <span className="text-2xl" style={colorStyles?.primaryText || { color: '#2563eb' }}>✓</span>
+      <div className="border rounded-lg p-6 text-center bg-practice-primary-50 border-practice-primary">
+        <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-practice-primary-100">
+          <span className="text-2xl text-practice-primary">✓</span>
         </div>
-        <h3 className="text-lg font-semibold mb-2" style={colorStyles?.primaryText || { color: '#2563eb' }}>
+        <h3 className="text-lg font-semibold mb-2 text-practice-primary">
           Appointment Request Submitted
         </h3>
         <p style={colorStyles?.primaryText || { color: '#2563eb' }}>

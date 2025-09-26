@@ -141,8 +141,7 @@ describe('TokenManager', () => {
       } as any)
 
       // Mock database - token is blacklisted
-      const { db } = await import('@/lib/db')
-      const mockDb = vi.mocked(db)
+      const mockDb: any = require('@/lib/db').db
       mockDb.select.mockReturnValue({
         from: vi.fn(() => ({
           where: vi.fn(() => ({
@@ -181,8 +180,7 @@ describe('TokenManager', () => {
         protectedHeader: { alg: 'HS256' }
       } as any)
 
-      const { db } = await import('@/lib/db')
-      const mockDb = vi.mocked(db)
+      const mockDb: any = require('@/lib/db').db
       const now = new Date()
 
       vi.useFakeTimers()
@@ -225,8 +223,7 @@ describe('TokenManager', () => {
         { tokenId: 'token-2' }
       ]
 
-      const { db } = await import('@/lib/db')
-      const mockDb = vi.mocked(db)
+      const mockDb: any = require('@/lib/db').db
 
       // Mock getting active tokens
       mockDb.select.mockReturnValueOnce({
@@ -246,8 +243,7 @@ describe('TokenManager', () => {
       const userId = 'user-123'
       const mockActiveTokens: any[] = []
 
-      const { db } = await import('@/lib/db')
-      const mockDb = vi.mocked(db)
+      const mockDb: any = require('@/lib/db').db
 
       // Mock getting active tokens - empty array
       mockDb.select.mockReturnValueOnce({
@@ -342,8 +338,7 @@ describe('TokenManager', () => {
       const mockExpiredTokens = [{ count: 5 }]
       const mockExpiredBlacklist = [{ count: 3 }]
 
-      const { db } = await import('@/lib/db')
-      const mockDb = vi.mocked(db)
+      const mockDb: any = require('@/lib/db').db
       mockDb.update.mockResolvedValue(mockExpiredTokens)
       mockDb.delete.mockResolvedValue(mockExpiredBlacklist)
 
@@ -361,8 +356,7 @@ describe('TokenManager', () => {
       const mockExpiredTokens: any[] = []
       const mockExpiredBlacklist: any[] = []
 
-      const { db } = await import('@/lib/db')
-      const mockDb = vi.mocked(db)
+      const mockDb: any = require('@/lib/db').db
       mockDb.update.mockResolvedValue(mockExpiredTokens)
       mockDb.delete.mockResolvedValue(mockExpiredBlacklist)
 
@@ -476,8 +470,7 @@ describe('TokenManager', () => {
         rotation_count: 1
       }
 
-      const { db } = await import('@/lib/db')
-      const mockDb = vi.mocked(db)
+      const mockDb: any = require('@/lib/db').db
       mockDb.select.mockReturnValue({
         from: vi.fn(() => ({
           where: vi.fn(() => ({
@@ -557,8 +550,7 @@ describe('TokenManager', () => {
       } as any)
 
       // Mock token record lookup - no record found
-      const { db } = await import('@/lib/db')
-      const mockDb = vi.mocked(db)
+      const mockDb: any = require('@/lib/db').db
       mockDb.select.mockReturnValue({
         from: vi.fn(() => ({
           where: vi.fn(() => ({

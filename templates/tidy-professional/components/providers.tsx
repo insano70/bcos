@@ -223,8 +223,7 @@ export default function Providers({ practice, attributes, staff, colorStyles }: 
           <div className="text-center">
             <a 
               href="#appointment" 
-              className="btn text-white group"
-              style={colorStyles.primary}
+              className="btn text-white group bg-practice-primary"
             >
               Meet Our Team
               <span className="tracking-normal text-blue-300 group-hover:translate-x-0.5 transition-transform duration-150 ease-in-out ml-1">

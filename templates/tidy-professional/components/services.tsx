@@ -14,7 +14,7 @@ export default function Services({ practice, attributes, colorStyles }: Services
       description: "Comprehensive care for rheumatoid arthritis, osteoarthritis, and other joint conditions.",
       icon: (
         <svg className="w-16 h-16 mb-4" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-          <rect className="fill-current" style={colorStyles.primary} width="64" height="64" rx="32" />
+          <rect className="fill-practice-primary" width="64" height="64" rx="32" />
           <path className="fill-white" d="M32 16c-8.837 0-16 7.163-16 16s7.163 16 16 16 16-7.163 16-16-7.163-16-16-16zm0 28c-6.627 0-12-5.373-12-12s5.373-12 12-12 12 5.373 12 12-5.373 12-12 12zm-2-18h4v8h-4v-8zm0 10h4v4h-4v-4z"/>
         </svg>
       )
@@ -24,7 +24,7 @@ export default function Services({ practice, attributes, colorStyles }: Services
       description: "Expert diagnosis and treatment of lupus, scleroderma, and other autoimmune conditions.",
       icon: (
         <svg className="w-16 h-16 mb-4" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-          <rect className="fill-current" style={colorStyles.primary} width="64" height="64" rx="32" />
+          <rect className="fill-practice-primary" width="64" height="64" rx="32" />
           <path className="fill-white" d="M32 18c-7.732 0-14 6.268-14 14s6.268 14 14 14 14-6.268 14-14-6.268-14-14-14zm0 24c-5.523 0-10-4.477-10-10s4.477-10 10-10 10 4.477 10 10-4.477 10-10 10zm-1-15h2v6h-2v-6zm0 8h2v2h-2v-2z"/>
         </svg>
       )
@@ -34,7 +34,7 @@ export default function Services({ practice, attributes, colorStyles }: Services
       description: "State-of-the-art infusion center for biologic medications and specialized treatments.",
       icon: (
         <svg className="w-16 h-16 mb-4" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-          <rect className="fill-current" style={colorStyles.primary} width="64" height="64" rx="32" />
+          <rect className="fill-practice-primary" width="64" height="64" rx="32" />
           <path className="fill-white" d="M28 18v4h8v-4h-8zm-4 8v20h16V26H24zm12 16h-8v-12h8v12zm-6-10h4v8h-4v-8z"/>
         </svg>
       )
@@ -44,7 +44,7 @@ export default function Services({ practice, attributes, colorStyles }: Services
       description: "Minimally invasive joint injections for pain relief and improved mobility.",
       icon: (
         <svg className="w-16 h-16 mb-4" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-          <rect className="fill-current" style={colorStyles.primary} width="64" height="64" rx="32" />
+          <rect className="fill-practice-primary" width="64" height="64" rx="32" />
           <path className="fill-white" d="M32 16l-8 8v24h16V24l-8-8zm4 28h-8v-16h8v16zm-6-14h4v12h-4V30z"/>
         </svg>
       )
@@ -54,7 +54,7 @@ export default function Services({ practice, attributes, colorStyles }: Services
       description: "Comprehensive bone health evaluation and treatment for osteoporosis prevention.",
       icon: (
         <svg className="w-16 h-16 mb-4" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-          <rect className="fill-current" style={colorStyles.primary} width="64" height="64" rx="32" />
+          <rect className="fill-practice-primary" width="64" height="64" rx="32" />
           <path className="fill-white" d="M32 18c-2 0-4 1-4 3v22c0 2 2 3 4 3s4-1 4-3V21c0-2-2-3-4-3zm0 22c-1.1 0-2-.9-2-2V22c0-1.1.9-2 2-2s2 .9 2 2v16c0 1.1-.9 2-2 2z"/>
         </svg>
       )
@@ -64,7 +64,7 @@ export default function Services({ practice, attributes, colorStyles }: Services
       description: "Access to cutting-edge clinical trials and the latest treatment innovations.",
       icon: (
         <svg className="w-16 h-16 mb-4" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-          <rect className="fill-current" style={colorStyles.primary} width="64" height="64" rx="32" />
+          <rect className="fill-practice-primary" width="64" height="64" rx="32" />
           <path className="fill-white" d="M32 16c-8.837 0-16 7.163-16 16s7.163 16 16 16 16-7.163 16-16-7.163-16-16-16zm0 28c-6.627 0-12-5.373-12-12s5.373-12 12-12 12 5.373 12 12-5.373 12-12 12zm-1-18h2v8h6v2h-8v-10z"/>
         </svg>
       )
