@@ -27,11 +27,17 @@ export async function POST(request: NextRequest) {
   try {
     // Parse the CSP violation report
     const report: CSPViolationReport = await request.json()
-    const violation = report['csp-report']
     
-    if (!violation) {
-      logger.warn('Invalid CSP report format received', { report })
-      return NextResponse.json({ error: 'Invalid report format' }, { status: 400 })
+    // Handle both standard and non-standard CSP report formats
+    const violation = report['csp-report'] || report
+    
+    if (!violation || !violation['violated-directive']) {
+      logger.warn('Invalid CSP report format received', { 
+        report: report,
+        hasStandardFormat: !!report['csp-report'],
+        violationKeys: Object.keys(violation || {})
+      })
+      return NextResponse.json({ received: true }, { status: 200 }) // Accept anyway for monitoring
     }
     
     // Log the violation with appropriate severity

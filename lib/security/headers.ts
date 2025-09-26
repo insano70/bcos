@@ -86,8 +86,11 @@ export function getEnhancedContentSecurityPolicy(nonces?: CSPNonces): string {
     'default-src': ["'self'"],
     'script-src': [
       "'self'",
-      // ✅ SECURITY: Strict nonce-only policy for inline scripts (only in production)
-      ...(nonces && !isDevelopment ? [`'nonce-${nonces.scriptNonce}'`] : []),
+      // ✅ SECURITY: Nonce for custom inline scripts
+      ...(nonces ? [`'nonce-${nonces.scriptNonce}'`] : []),
+      // ✅ HYBRID APPROACH: SHA256 hashes for Next.js core scripts (App Router limitation)
+      "'sha256-n46vPwSWuMC0W703pBofImv82Z26xo4LXymv0E9caPk='", // Next.js hydration
+      "'sha256-skqujXORqzxt1aE0NNXxujEanPTX6raoqSscTV/Ww/Y='", // Next.js runtime
       // Allow unsafe-eval and unsafe-inline in development for Next.js hot reload and dev tools
       ...(isDevelopment ? ["'unsafe-eval'", "'unsafe-inline'"] : []),
       // Trusted CDNs for charts and UI libraries
@@ -96,14 +99,15 @@ export function getEnhancedContentSecurityPolicy(nonces?: CSPNonces): string {
     ],
     'style-src': [
       "'self'",
-      // ✅ SECURITY: Separate nonce for styles (only in production)
-      ...(nonces && !isDevelopment ? [`'nonce-${nonces.styleNonce}'`] : []),
+      // ✅ SECURITY: Nonce for custom inline styles
+      ...(nonces ? [`'nonce-${nonces.styleNonce}'`] : []),
+      // ✅ HYBRID APPROACH: SHA256 hashes for Next.js core styles (App Router limitation)
+      "'sha256-zlqnbDt84zf1iSefLU/ImC54isoprH/MRiVZGskwexk='", // Next.js inline styles
+      "'sha256-skqujXORqzxt1aE0NNXxujEanPTX6raoqSscTV/Ww/Y='", // Next.js runtime styles
       // Allow unsafe-inline in development for CSS-in-JS and hot reload
       ...(isDevelopment ? ["'unsafe-inline'"] : []),
       // Google Fonts domain for CSS loading
-      'https://fonts.googleapis.com',
-      // Allow specific Google Fonts inline styles via hash (if needed)
-      // 'sha256-U3w8g9zoVsMnDN6Hfid8EpmRUCOk1l61yOWRUVy2/Zc='
+      'https://fonts.googleapis.com'
     ],
     'img-src': [
       "'self'",

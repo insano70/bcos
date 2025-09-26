@@ -57,7 +57,14 @@ export async function middleware(request: NextRequest) {
   
   // Add enhanced Content Security Policy with nonces (from develop - better system)
   const { getEnhancedContentSecurityPolicy } = await import('@/lib/security/headers')
-  response.headers.set('Content-Security-Policy', getEnhancedContentSecurityPolicy(cspNonces))
+  const cspPolicy = getEnhancedContentSecurityPolicy(cspNonces)
+  
+  // Use report-only mode in development for easier debugging
+  const cspHeader = process.env.NODE_ENV === 'development' 
+    ? 'Content-Security-Policy-Report-Only'
+    : 'Content-Security-Policy'
+  
+  response.headers.set(cspHeader, cspPolicy)
   
   // Also add nonce headers to response for debugging/monitoring
   response.headers.set('X-Script-Nonce', cspNonces.scriptNonce)
