@@ -131,6 +131,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Set outputs
+        id: build
         run: |
           IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ needs.validate.outputs.version }}"
           echo "image-uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
