@@ -28,6 +28,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" className={`${inter.variable}`} suppressHydrationWarning>
       {/* suppressHydrationWarning: https://github.com/vercel/next.js/issues/44343 */}
       <head>
+        {/* CSP nonce meta tag for Next.js internal scripts */}
+        <meta name="csp-nonce" content={nonce} />
         {/* Pass nonce to client components via window global */}
         <script
           nonce={nonce}
