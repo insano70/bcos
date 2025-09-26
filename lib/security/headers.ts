@@ -65,8 +65,9 @@ export function getContentSecurityPolicy(nonce?: string): string {
       ...(nonce ? [`'nonce-${nonce}'`] : []),
       // Allow unsafe-eval only in development for Next.js hot reload
       ...(isDevelopment ? ["'unsafe-eval'"] : []),
-      // Only allow unsafe-inline as last resort in development
-      ...(isDevelopment && !nonce ? ["'unsafe-inline'"] : []),
+      // TEMPORARY FIX: Allow unsafe-inline for Next.js hydration scripts
+      // TODO: Implement proper nonce-based CSP for production
+      "'unsafe-inline'",
       // Trusted CDNs for charts and UI libraries
       'https://cdn.jsdelivr.net',
       'https://unpkg.com'
