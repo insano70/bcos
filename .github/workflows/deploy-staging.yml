@@ -1,8 +1,8 @@
-name: Deploy Application
+name: Deploy Application (Unified)
 
 on:
   push:
-    branches: [staging]
+    branches: [staging, main]
   workflow_dispatch:
     inputs:
       environment:
@@ -28,7 +28,7 @@ env:
   ECR_REPOSITORY: bcos
 
 concurrency:
-  group: staging-deployment-${{ github.ref }}
+  group: deployment-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -44,15 +44,21 @@ jobs:
   # Build and Deploy
   deploy:
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment || 'staging' }}
+    environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'production' || 'staging') }}
     if: ${{ !failure() || github.event.inputs.force_deploy == 'true' }}
     timeout-minutes: 20
     steps:
       - name: Set deployment variables
         id: vars
         run: |
-          # Determine target environment
+          # Determine target environment based on branch or manual input
           if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+            echo "TARGET_ENV=production" >> $GITHUB_OUTPUT
+            echo "ECS_SERVICE=bcos-production-service" >> $GITHUB_OUTPUT
+            echo "ECS_CLUSTER=bcos-production-cluster" >> $GITHUB_OUTPUT
+            echo "ECS_TASK_DEFINITION=bcos-production" >> $GITHUB_OUTPUT
+            echo "IMAGE_TAG=production-${{ github.sha }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
             echo "TARGET_ENV=production" >> $GITHUB_OUTPUT
             echo "ECS_SERVICE=bcos-production-service" >> $GITHUB_OUTPUT
             echo "ECS_CLUSTER=bcos-production-cluster" >> $GITHUB_OUTPUT
@@ -150,10 +156,10 @@ jobs:
           
           # Set health check URL based on environment
           if [ "${{ steps.vars.outputs.TARGET_ENV }}" = "production" ]; then
-            HEALTH_URL="https://app.bendcare.com/health"
+            HEALTH_URL="https://app.bendcare.com/api/health"
             APP_URL="https://app.bendcare.com"
           else
-            HEALTH_URL="https://staging.bendcare.com/health"
+            HEALTH_URL="https://staging.bendcare.com/api/health"
             APP_URL="https://staging.bendcare.com"
           fi
           
