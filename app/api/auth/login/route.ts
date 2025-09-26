@@ -8,6 +8,9 @@ import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
 import { validateRequest } from '@/lib/api/middleware/validation'
 import { loginSchema } from '@/lib/validations/auth'
 import { verifyPassword } from '@/lib/auth/security'
+
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
 import { TokenManager } from '@/lib/auth/token-manager'
 import { AccountSecurity } from '@/lib/auth/security'
 import { AuditLogger, BufferedAuditLogger } from '@/lib/logger'

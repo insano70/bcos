@@ -5,6 +5,9 @@ import { createErrorResponse } from '@/lib/api/responses/error'
 import { errorLog } from '@/lib/utils/debug'
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
 
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
+
 /**
  * Get current user with full RBAC context
  * Provides complete user information including roles, permissions, and organization access

@@ -10,6 +10,9 @@ import {
 import { initializeCache } from '@/lib/cache/cache-warmer'
 import { cacheAdmin } from '@/lib/utils/cache-monitor'
 
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
+
 /**
  * Health Check Endpoint
  * Public endpoint for monitoring system health and status

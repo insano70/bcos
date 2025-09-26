@@ -7,6 +7,10 @@ import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
 import { AuditLogger, BufferedAuditLogger } from '@/lib/logger'
 import { requireAuth } from '@/lib/api/middleware/auth'
 import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
+
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
+
 import { 
   createAPILogger, 
   logAPIAuth, 

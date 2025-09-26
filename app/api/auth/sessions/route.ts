@@ -8,6 +8,9 @@ import { TokenManager } from '@/lib/auth/token-manager'
 import { rbacRoute } from '@/lib/api/rbac-route-handler'
 import { validateRequest } from '@/lib/api/middleware/validation'
 import type { UserContext } from '@/lib/types/rbac'
+
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
 import { 
   createAPILogger, 
   logDBOperation,
