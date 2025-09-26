@@ -7,7 +7,6 @@ import * as applicationautoscaling from 'aws-cdk-lib/aws-applicationautoscaling'
 import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 import { SecureContainer } from '../constructs/secure-container';
-import { WafProtection } from '../constructs/waf-protection';
 import { Monitoring } from '../constructs/monitoring';
 import productionConfig from '../../config/production.json';
 
@@ -19,7 +18,7 @@ export class ProductionStack extends cdk.Stack {
   public readonly ecsCluster: ecs.Cluster;
   public readonly ecsService: ecs.FargateService;
   public readonly targetGroup: elbv2.ApplicationTargetGroup;
-  public readonly wafProtection: WafProtection;
+  // WAF protection handled by staging WAF on shared ALB
   public readonly monitoring: Monitoring;
 
   constructor(scope: Construct, id: string, props: ProductionStackProps) {
@@ -109,7 +108,7 @@ export class ProductionStack extends cdk.Stack {
       secret: secret,
       cpu: productionConfig.ecs.cpu,
       memory: productionConfig.ecs.memory,
-      containerPort: 80,
+      containerPort: 3000,
       environmentVariables: {
         ENVIRONMENT: environment,
         NEXT_PUBLIC_APP_URL: `https://${productionConfig.domain}`,
@@ -120,14 +119,14 @@ export class ProductionStack extends cdk.Stack {
     this.targetGroup = new elbv2.ApplicationTargetGroup(this, 'ProductionTargetGroup', {
       targetGroupName: 'bcos-production-tg',
       vpc: vpc,
-      port: 80,
+      port: 3000,
       protocol: elbv2.ApplicationProtocol.HTTP,
       targetType: elbv2.TargetType.IP,
       healthCheck: {
         enabled: true,
-        path: '/health',
+        path: '/api/health',
         protocol: elbv2.Protocol.HTTP,
-        port: '80',
+        port: '3000',
         interval: cdk.Duration.seconds(30),
         timeout: cdk.Duration.seconds(10),
         healthyThresholdCount: 2,
@@ -175,18 +174,8 @@ export class ProductionStack extends cdk.Stack {
       ),
     });
 
-    // Create WAF protection
-    this.wafProtection = new WafProtection(this, 'WAFProtection', {
-      environment: environment,
-      kmsKey: kmsKey,
-      rateLimitPerIP: productionConfig.waf.rateLimitPerIP,
-      enableGeoBlocking: productionConfig.waf.geoBlocking?.enabled || false,
-      blockedCountries: productionConfig.waf.geoBlocking?.blockedCountries || [],
-      enableManagedRules: true,
-    });
-
-    // Associate WAF with load balancer
-    this.wafProtection.associateWithLoadBalancer(albArn);
+    // Skip WAF creation - shared ALB already has staging WAF
+    // AWS only allows one WAF Web ACL per load balancer
 
     // Create monitoring
     this.monitoring = new Monitoring(this, 'Monitoring', {
