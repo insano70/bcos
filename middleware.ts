@@ -215,7 +215,11 @@ export async function middleware(request: NextRequest) {
     return adminSubdomains.includes(host)
   }
 
+  // Debug logging for hostname routing
+  console.log(`🔍 Middleware Debug: hostname="${hostname}", isAdmin=${isAdminSubdomain(hostname)}, pathname="${pathname}"`)
+
   if (isAdminSubdomain(hostname)) {
+    console.log(`✅ Admin subdomain detected: ${hostname}`);
     if (!isPublicPath(pathname)) {
       const accessToken = request.cookies.get('access-token')?.value
       let isAuthenticated = false
@@ -246,6 +250,8 @@ export async function middleware(request: NextRequest) {
   }
 
   // All other domains: Rewrite to practice website
+  console.log(`❌ Practice website mode: hostname="${hostname}", redirecting to /practice/${hostname}${pathname}`)
+  
   // Extract the domain (remove www. if present)
   const domain = hostname.startsWith('www.') ? hostname.slice(4) : hostname
   
