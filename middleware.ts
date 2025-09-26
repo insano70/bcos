@@ -32,11 +32,16 @@ export async function middleware(request: NextRequest) {
   const search = request.nextUrl.search
   let response = NextResponse.next()
 
+  // Generate CSP nonce for this request
+  const { generateCSPNonce } = await import('@/lib/security/headers')
+  const nonce = generateCSPNonce()
+  
   // Apply security headers to all responses
   response = addSecurityHeaders(response)
   
-  // Add Content Security Policy
-  response.headers.set('Content-Security-Policy', getContentSecurityPolicy())
+  // Add Content Security Policy with nonce
+  response.headers.set('Content-Security-Policy', getContentSecurityPolicy(nonce))
+  response.headers.set('x-csp-nonce', nonce) // Pass nonce to the app
 
   // GLOBAL RATE LIMITING: Apply before any other processing to prevent abuse
   // Skip rate limiting for static files and internal Next.js routes
