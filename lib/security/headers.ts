@@ -67,6 +67,11 @@ export function getContentSecurityPolicy(nonce?: string): string {
       ...(isDevelopment ? ["'unsafe-eval'"] : []),
       // Only allow unsafe-inline as last resort in development
       ...(isDevelopment && !nonce ? ["'unsafe-inline'"] : []),
+      // Next.js 15 inline script hashes (from CSP violation reports)
+      "'sha256-MXIBnafo4DyrDppi6qU1sKLdKZ6LO8EKIuGA+4RLjGA='",
+      "'sha256-rSyf/hrZZou2MwFt8LiZLiUHmcYhEhAeAoP2TwQCOKI='", 
+      "'sha256-tTRjRAsoPitw/zk0hwT1fz1ma0YhhXzyDjUIRG7acmw='",
+      "'sha256-d+XP0L09R+kALVGxuTf20uAA8E2LZVuKmWcX2/6Lixw='",
       // Trusted CDNs for charts and UI libraries
       'https://cdn.jsdelivr.net',
       'https://unpkg.com'
