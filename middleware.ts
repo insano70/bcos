@@ -209,8 +209,13 @@ export async function middleware(request: NextRequest) {
     return response // Continue
   }
 
-  // Production: Check for admin subdomain or app.bendcare.com (standardized authentication)
-  if (hostname.startsWith('admin.') || hostname === 'app.bendcare.com') {
+  // Check for admin/development subdomains (standardized authentication)
+  const isAdminSubdomain = (host: string): boolean => {
+    const adminSubdomains = ['app.bendcare.com', 'test.bendcare.com', 'dev.bendcare.com', 'development.bendcare.com', 'staging.bendcare.com']
+    return adminSubdomains.includes(host)
+  }
+
+  if (isAdminSubdomain(hostname)) {
     if (!isPublicPath(pathname)) {
       const accessToken = request.cookies.get('access-token')?.value
       let isAuthenticated = false
