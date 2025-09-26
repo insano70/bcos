@@ -125,7 +125,8 @@ export class CSRFClientHelper {
     }
 
     try {
-      const response = await fetch('/api/csrf/validate', {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001';
+      const response = await fetch(`${baseUrl}/api/csrf/validate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -246,7 +246,8 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
 
       // Fetch new token from server
       debugLog.auth('Fetching new CSRF token...');
-      const resp = await fetch('/api/csrf', { 
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001';
+      const resp = await fetch(`${baseUrl}/api/csrf`, { 
         method: 'GET', 
         credentials: 'include' 
       });
