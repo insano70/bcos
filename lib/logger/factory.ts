@@ -4,7 +4,8 @@
  */
 
 import type { NextRequest } from 'next/server'
-import type { UniversalLogger, LoggerConfig } from './universal-logger'
+import type { LoggerConfig } from './universal-logger'
+import type { SimpleLogger } from './simple-logger'
 import { AppLogger } from './simple-logger'
 
 /**
@@ -15,7 +16,7 @@ export function createAppLogger(
   module: string, 
   context?: Record<string, unknown>,
   config?: LoggerConfig
-): UniversalLogger {
+): SimpleLogger {
   // Streamlined: Direct SimpleLogger usage (no adapter abstraction)
   return new AppLogger(module, context, config)
 }
@@ -27,7 +28,7 @@ export function createAppLogger(
 export function createAPILogger(
   request: NextRequest,
   config?: LoggerConfig
-): UniversalLogger {
+): SimpleLogger {
   const url = new URL(request.url)
   const searchParams = Object.fromEntries(url.searchParams)
   
@@ -52,7 +53,7 @@ export function createTrackedAppLogger(
   module: string,
   context?: Record<string, unknown>,
   config?: LoggerConfig
-): UniversalLogger {
+): SimpleLogger {
   // Streamlined: Direct SimpleLogger usage (tracking simplified)
   return new AppLogger(module, context, config)
 }
