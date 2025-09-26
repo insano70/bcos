@@ -122,7 +122,8 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
       
       // First, check if we already have a valid authentication state from cookies
       // Try to validate existing session without forcing a refresh
-      const checkResponse = await fetch('/api/auth/me', {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001';
+      const checkResponse = await fetch(`${baseUrl}/api/auth/me`, {
         method: 'GET',
         credentials: 'include' // Include httpOnly cookies
       });
@@ -301,7 +302,8 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
       debugLog.auth('Loading user context for:', state.user.id);
       
       // Fetch user context via API (server-side database access)
-      const response = await fetch('/api/auth/me', {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001';
+      const response = await fetch(`${baseUrl}/api/auth/me`, {
         method: 'GET',
         credentials: 'include' // Include httpOnly cookies
       });
@@ -433,7 +435,8 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
 
         debugLog.auth(`Login attempt ${attempt + 1}/${maxRetries} with CSRF token`);
 
-        const response = await fetch('/api/auth/login', {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001';
+        const response = await fetch(`${baseUrl}/api/auth/login`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -523,7 +526,8 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
 
       // Call logout endpoint
       const csrfToken = (await ensureCsrfToken()) || '';
-      await fetch('/api/auth/logout', {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001';
+      await fetch(`${baseUrl}/api/auth/logout`, {
         method: 'POST',
         headers: {
           'x-csrf-token': csrfToken
@@ -565,7 +569,8 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     try {
       const csrfToken = state.csrfToken || (await ensureCsrfToken()) || '';
       
-      const response = await fetch('/api/auth/refresh', {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001';
+      const response = await fetch(`${baseUrl}/api/auth/refresh`, {
         method: 'POST',
         headers: {
           'x-csrf-token': csrfToken
