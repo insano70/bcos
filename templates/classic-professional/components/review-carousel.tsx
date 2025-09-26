@@ -85,8 +85,7 @@ export default function ReviewCarousel({ colorStyles, comments }: ReviewCarousel
         {[...Array(5)].map((_, i) => (
           <span
             key={i}
-            className="text-2xl"
-            style={{ color: '#FFD700' }}
+            className="text-2xl text-yellow-400"
           >
             ★
           </span>

@@ -14,7 +14,7 @@ export default function About({ practice, attributes, colorStyles }: AboutProps)
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
             About {practice.name}
           </h2>
-          <div className="w-24 h-1 mx-auto" style={{ backgroundColor: colorStyles.primary.backgroundColor }}></div>
+          <div className="w-24 h-1 mx-auto bg-practice-primary"></div>
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -26,7 +26,7 @@ export default function About({ practice, attributes, colorStyles }: AboutProps)
             )}
             
             {attributes.mission_statement && (
-              <div className="p-6 rounded-lg" style={colorStyles.primaryBg50}>
+              <div className="p-6 rounded-lg bg-practice-primary-50">
                 <h3 className="text-xl font-semibold text-gray-900 mb-3">Our Mission</h3>
                 <p className="text-gray-700 italic">"{attributes.mission_statement}"</p>
               </div>
@@ -35,8 +35,8 @@ export default function About({ practice, attributes, colorStyles }: AboutProps)
           
           <div className="space-y-6">
             <div className="flex items-start">
-              <div className="w-12 h-12 rounded-lg flex items-center justify-center mr-4" style={colorStyles.primaryBg100}>
-                <span className="text-xl" style={colorStyles.primaryText}>⭐</span>
+              <div className="w-12 h-12 rounded-lg flex items-center justify-center mr-4 bg-practice-primary-100">
+                <span className="text-xl text-practice-primary">⭐</span>
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Expert Care</h3>
@@ -45,8 +45,8 @@ export default function About({ practice, attributes, colorStyles }: AboutProps)
             </div>
             
             <div className="flex items-start">
-              <div className="w-12 h-12 rounded-lg flex items-center justify-center mr-4" style={colorStyles.primaryBg100}>
-                <span className="text-xl" style={colorStyles.primaryText}>🔬</span>
+              <div className="w-12 h-12 rounded-lg flex items-center justify-center mr-4 bg-practice-primary-100">
+                <span className="text-xl text-practice-primary">🔬</span>
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Latest Research</h3>
@@ -55,8 +55,8 @@ export default function About({ practice, attributes, colorStyles }: AboutProps)
             </div>
             
             <div className="flex items-start">
-              <div className="w-12 h-12 rounded-lg flex items-center justify-center mr-4" style={colorStyles.primaryBg100}>
-                <span className="text-xl" style={colorStyles.primaryText}>❤️</span>
+              <div className="w-12 h-12 rounded-lg flex items-center justify-center mr-4 bg-practice-primary-100">
+                <span className="text-xl text-practice-primary">❤️</span>
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Patient-Centered</h3>

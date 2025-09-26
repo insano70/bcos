@@ -8,7 +8,7 @@ interface HeroProps {
 
 export default function Hero({ practice, attributes, colorStyles }: HeroProps) {
   return (
-    <section className="relative py-20" style={colorStyles.primaryGradient}>
+    <section className="relative py-20 gradient-practice">
       {/* Background image if provided */}
       {attributes.hero_image_url && (
         <div 
@@ -21,7 +21,7 @@ export default function Hero({ practice, attributes, colorStyles }: HeroProps) {
         <div className="text-center">
           {/* Welcome message */}
           {attributes.welcome_message && (
-            <p className="font-semibold text-lg mb-4" style={colorStyles.primaryText}>
+            <p className="font-semibold text-lg mb-4 text-practice-primary">
               {attributes.welcome_message}
             </p>
           )}
@@ -42,15 +42,13 @@ export default function Hero({ practice, attributes, colorStyles }: HeroProps) {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
               type="button"
-              className="px-8 py-4 rounded-lg text-lg font-semibold transition-colors"
-              style={colorStyles.primary}
+              className="px-8 py-4 rounded-lg text-lg font-semibold transition-colors bg-practice-primary"
             >
               Schedule Appointment
             </button>
             <button
               type="button"
-              className="bg-white px-8 py-4 rounded-lg text-lg font-semibold border-2 transition-colors"
-              style={colorStyles.primaryBorder}
+              className="bg-white px-8 py-4 rounded-lg text-lg font-semibold border-2 transition-colors border-practice-primary"
             >
               Learn More
             </button>

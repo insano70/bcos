@@ -54,8 +54,7 @@ export default function Header({ practice, attributes, colorStyles }: HeaderProp
             )}
             <a 
               href="#appointment" 
-              className="px-4 py-2 text-sm font-light transition-colors"
-              style={colorStyles.primary}
+              className="px-4 py-2 text-sm font-light transition-colors bg-practice-primary"
             >
               Schedule
             </a>

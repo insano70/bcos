@@ -55,12 +55,12 @@ export default function Contact({ practice, attributes, colorStyles }: ContactPr
             
             {attributes.phone && (
               <div className="flex items-center mb-4">
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center mr-4" style={colorStyles.primaryBg100}>
-                  <span style={colorStyles.primaryText}>📞</span>
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center mr-4 bg-practice-primary-100">
+                  <span className="text-practice-primary">📞</span>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Phone</p>
-                  <a href={`tel:${attributes.phone}`} className="font-semibold transition-colors hover:opacity-80" style={colorStyles.primaryText}>
+                  <a href={`tel:${attributes.phone}`} className="font-semibold transition-colors hover:opacity-80 text-practice-primary">
                     {attributes.phone}
                   </a>
                 </div>
@@ -69,12 +69,12 @@ export default function Contact({ practice, attributes, colorStyles }: ContactPr
             
             {attributes.email && (
               <div className="flex items-center mb-4">
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center mr-4" style={colorStyles.primaryBg100}>
-                  <span style={colorStyles.primaryText}>✉️</span>
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center mr-4 bg-practice-primary-100">
+                  <span className="text-practice-primary">✉️</span>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Email</p>
-                  <a href={`mailto:${attributes.email}`} className="font-semibold transition-colors hover:opacity-80" style={colorStyles.primaryText}>
+                  <a href={`mailto:${attributes.email}`} className="font-semibold transition-colors hover:opacity-80 text-practice-primary">
                     {attributes.email}
                   </a>
                 </div>
@@ -83,8 +83,8 @@ export default function Contact({ practice, attributes, colorStyles }: ContactPr
             
             {(attributes.address_line1 || attributes.city) && (
               <div className="flex items-start">
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center mr-4" style={colorStyles.primaryBg100}>
-                  <span style={colorStyles.primaryText}>📍</span>
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center mr-4 bg-practice-primary-100">
+                  <span className="text-practice-primary">📍</span>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Address</p>
@@ -135,7 +135,7 @@ export default function Contact({ practice, attributes, colorStyles }: ContactPr
               <div className="space-y-2">
                 {attributes.insurance_accepted.map((insurance, index) => (
                   <div key={`insurance-${index}-${insurance.replace(/\s+/g, '-').toLowerCase()}`} className="flex items-center">
-                    <span className="w-2 h-2 rounded-full mr-3" style={colorStyles.primary}></span>
+                    <span className="w-2 h-2 rounded-full mr-3 bg-practice-primary"></span>
                     <span className="text-gray-700">{insurance}</span>
                   </div>
                 ))}

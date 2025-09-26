@@ -53,7 +53,7 @@ export default function RowBasedDashboardBuilder({
       if (editingDashboard.charts && Array.isArray(editingDashboard.charts)) {
         const rowsMap = new Map<number, DashboardChartSlot[]>();
         
-        editingDashboard.charts.forEach((chartAssoc: any) => {
+        editingDashboard.charts.forEach((chartAssoc: any, index: number) => {
           const y = chartAssoc.position_config?.y || 0;
           const chartDefinition = availableCharts.find(chart => 
             chart.chart_definition_id === chartAssoc.chart_definition_id
@@ -61,7 +61,7 @@ export default function RowBasedDashboardBuilder({
 
           if (chartDefinition) {
             const chartSlot: DashboardChartSlot = {
-              id: `chart-${y}-${chartAssoc.chart_definition_id}-${Date.now()}`, // Unique ID with row context
+              id: `chart-${y}-${chartAssoc.dashboard_chart_id}-${index}`, // Use dashboard_chart_id for uniqueness
               chartDefinitionId: chartAssoc.chart_definition_id,
               chartDefinition,
               widthPercentage: Math.round((chartAssoc.position_config?.w || 6) / 12 * 100) // Convert 12-col grid to percentage

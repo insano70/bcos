@@ -53,14 +53,13 @@ export default function AppointmentForm({ colorStyles }: { colorStyles?: any }) 
         <h3 className="text-lg font-semibold mb-2 text-practice-primary">
           Appointment Request Submitted
         </h3>
-        <p style={colorStyles?.primaryText || { color: '#2563eb' }}>
+        <p className="text-practice-primary">
           Thank you! We'll contact you within 24 hours to confirm your appointment.
         </p>
         <button
           type="button"
           onClick={() => setIsSubmitted(false)}
-          className="mt-4 font-medium transition-colors hover:opacity-80"
-          style={colorStyles?.primaryText || { color: '#2563eb' }}
+          className="mt-4 font-medium transition-colors hover:opacity-80 text-practice-primary"
         >
           Submit Another Request
         </button>
@@ -220,8 +219,7 @@ export default function AppointmentForm({ colorStyles }: { colorStyles?: any }) 
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full py-3 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          style={colorStyles?.primary || { backgroundColor: '#2563eb', color: 'white' }}
+          className="w-full py-3 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-practice-primary text-white"
         >
           {isSubmitting ? 'Submitting...' : 'Request Appointment'}
         </button>

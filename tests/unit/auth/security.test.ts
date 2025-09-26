@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import bcrypt from 'bcrypt'
 import { PasswordService, AccountSecurity, verifyPassword, hashPassword } from '@/lib/auth/security'
+import { validatePasswordStrength } from '@/lib/config/password-policy'
 import { db } from '@/lib/db'
 
 // Mock bcrypt functions
@@ -120,7 +121,6 @@ describe('security authentication logic', () => {
         const password = 'TestPassword123!'
         const mockResult = { isValid: true, errors: [] }
 
-        const { validatePasswordStrength } = require('@/lib/config/password-policy')
         vi.mocked(validatePasswordStrength).mockReturnValue(mockResult)
 
         const result = PasswordService.validatePasswordStrength(password)
@@ -136,7 +136,6 @@ describe('security authentication logic', () => {
           errors: ['Password must be at least 12 characters', 'Password must contain uppercase letter']
         }
 
-        const { validatePasswordStrength } = require('@/lib/config/password-policy')
         vi.mocked(validatePasswordStrength).mockReturnValue(mockResult)
 
         const result = PasswordService.validatePasswordStrength(password)

@@ -25,7 +25,7 @@ export default function Services({ attributes, colorStyles }: ServicesProps) {
           {services.map((service: string, index: number) => (
             <div key={index} className="group">
               <div className="bg-gray-50 p-8 hover:bg-gray-100 transition-colors">
-                <div className="w-12 h-12 flex items-center justify-center mb-6 transition-colors" style={colorStyles.primary}>
+                <div className="w-12 h-12 flex items-center justify-center mb-6 transition-colors bg-practice-primary">
                   <span className="text-xl">⚕️</span>
                 </div>
                 <h3 className="text-xl font-light text-gray-900 mb-3">

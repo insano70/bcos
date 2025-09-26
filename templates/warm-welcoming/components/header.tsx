@@ -54,8 +54,7 @@ export default function Header({ practice, attributes, colorStyles }: HeaderProp
             )}
             <a 
               href="#appointment" 
-              className="px-6 py-2 rounded-full text-sm transition-colors"
-              style={colorStyles.primary}
+              className="px-6 py-2 rounded-full text-sm transition-colors bg-practice-primary"
             >
               Book Appointment
             </a>

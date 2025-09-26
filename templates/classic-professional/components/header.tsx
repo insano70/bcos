@@ -20,7 +20,7 @@ export default function Header({ practice, attributes, colorStyles }: HeaderProp
                 className="h-10 w-auto"
               />
             ) : (
-              <div className="h-10 w-10 rounded-lg flex items-center justify-center" style={colorStyles.primary}>
+              <div className="h-10 w-10 rounded-lg flex items-center justify-center bg-practice-primary">
                 <span className="text-white font-bold text-lg">🏥</span>
               </div>
             )}
@@ -31,16 +31,16 @@ export default function Header({ practice, attributes, colorStyles }: HeaderProp
 
           {/* Navigation */}
           <nav className="hidden md:flex space-x-8">
-            <a href="#about" className="text-gray-700 font-medium transition-colors hover:opacity-80" style={colorStyles.primaryText}>
+            <a href="#about" className="text-gray-700 font-medium transition-colors hover:opacity-80 text-practice-primary">
               About
             </a>
-            <a href="#services" className="text-gray-700 font-medium transition-colors hover:opacity-80" style={colorStyles.primaryText}>
+            <a href="#services" className="text-gray-700 font-medium transition-colors hover:opacity-80 text-practice-primary">
               Services
             </a>
-            <a href="#providers" className="text-gray-700 font-medium transition-colors hover:opacity-80" style={colorStyles.primaryText}>
+            <a href="#providers" className="text-gray-700 font-medium transition-colors hover:opacity-80 text-practice-primary">
               Our Team
             </a>
-            <a href="#contact" className="text-gray-700 font-medium transition-colors hover:opacity-80" style={colorStyles.primaryText}>
+            <a href="#contact" className="text-gray-700 font-medium transition-colors hover:opacity-80 text-practice-primary">
               Contact
             </a>
           </nav>
@@ -50,16 +50,14 @@ export default function Header({ practice, attributes, colorStyles }: HeaderProp
             {attributes.phone && (
               <a
                 href={`tel:${attributes.phone}`}
-                className="font-semibold transition-colors"
-                style={colorStyles.primaryText}
+                className="font-semibold transition-colors text-practice-primary"
               >
                 {attributes.phone}
               </a>
             )}
             <button
               type="button"
-              className="px-4 py-2 rounded-lg transition-colors"
-              style={colorStyles.primary}
+              className="px-4 py-2 rounded-lg transition-colors bg-practice-primary"
             >
               Schedule Appointment
             </button>

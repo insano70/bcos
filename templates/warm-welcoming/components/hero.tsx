@@ -24,15 +24,13 @@ export default function Hero({ practice, attributes, colorStyles }: HeroProps) {
             <div className="flex flex-col sm:flex-row gap-4">
               <a 
                 href="#appointment" 
-                className="px-8 py-4 text-lg rounded-full transition-colors text-center shadow-lg"
-                style={colorStyles.primary}
+                className="px-8 py-4 text-lg rounded-full transition-colors text-center shadow-lg bg-practice-primary"
               >
                 Schedule a Visit
               </a>
               <a 
                 href="#about" 
-                className="border-2 px-8 py-4 text-lg rounded-full transition-colors text-center"
-                style={colorStyles.primaryBorder}
+                className="border-2 px-8 py-4 text-lg rounded-full transition-colors text-center border-practice-primary"
               >
                 Learn More
               </a>

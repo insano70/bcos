@@ -8,7 +8,7 @@ interface FooterProps {
 
 export default function Footer({ practice, attributes, colorStyles }: FooterProps) {
   return (
-    <footer className="text-white py-12" style={colorStyles.primary}>
+    <footer className="text-white py-12 bg-practice-primary">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           <p className="text-gray-300">

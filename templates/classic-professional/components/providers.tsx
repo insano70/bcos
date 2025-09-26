@@ -32,8 +32,8 @@ export default function Providers({ staff, colorStyles }: ProvidersProps) {
                     className="w-full h-128 object-cover"
                   />
                 ) : (
-                  <div className="w-full h-128 flex items-center justify-center" style={colorStyles.primaryBg100}>
-                    <span className="text-8xl" style={colorStyles.primaryText}>👨‍⚕️</span>
+                  <div className="w-full h-128 flex items-center justify-center bg-practice-primary-100">
+                    <span className="text-8xl text-practice-primary">👨‍⚕️</span>
                   </div>
                 )}
               </div>
@@ -45,7 +45,7 @@ export default function Providers({ staff, colorStyles }: ProvidersProps) {
                 </h3>
                 
                 {provider.title && (
-                  <p className="font-semibold mb-2" style={colorStyles.primaryText}>
+                  <p className="font-semibold mb-2 text-practice-primary">
                     {provider.title}
                   </p>
                 )}
@@ -69,8 +69,7 @@ export default function Providers({ staff, colorStyles }: ProvidersProps) {
                       {provider.specialties.map((specialty, index) => (
                         <span
                           key={index}
-                          className="inline-block text-xs px-2 py-1 rounded-full"
-                          style={{ ...colorStyles.primaryBg100, ...colorStyles.primaryText }}
+                          className="inline-block text-xs px-2 py-1 rounded-full bg-practice-primary-100 text-practice-primary"
                         >
                           {specialty}
                         </span>
