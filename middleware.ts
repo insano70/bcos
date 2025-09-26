@@ -209,8 +209,8 @@ export async function middleware(request: NextRequest) {
     return response // Continue
   }
 
-  // Production: Check for admin subdomain (standardized authentication)
-  if (hostname.startsWith('admin.')) {
+  // Production: Check for admin subdomain or app.bendcare.com (standardized authentication)
+  if (hostname.startsWith('admin.') || hostname === 'app.bendcare.com') {
     if (!isPublicPath(pathname)) {
       const accessToken = request.cookies.get('access-token')?.value
       let isAuthenticated = false

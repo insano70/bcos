@@ -101,7 +101,7 @@
   "SecureContainerLogGroup7C38C890": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/ecs/bcos-staging-1758420193221",
+    "LogGroupName": "/ecs/bcos-staging-1758876463955",
     "RetentionInDays": 30,
     "Tags": [
      {
@@ -163,18 +163,7 @@
        "StartPeriod": 60,
        "Timeout": 5
       },
-      "Image": {
-       "Fn::Join": [
-        "",
-        [
-         "854428944440.dkr.ecr.us-east-1.",
-         {
-          "Ref": "AWS::URLSuffix"
-         },
-         "/bcos:latest"
-        ]
-       ]
-      },
+      "Image": "854428944440.dkr.ecr.us-east-1.amazonaws.com/bcos:latest",
       "LinuxParameters": {
        "Capabilities": {},
        "InitProcessEnabled": true
@@ -444,7 +433,7 @@
   "WAFProtectionWAFLogGroupC4D17A54": {
    "Type": "AWS::Logs::LogGroup",
    "Properties": {
-    "LogGroupName": "/aws/waf/bcos-staging-1758420193244",
+    "LogGroupName": "/aws/waf/bcos-staging-1758876463980",
     "RetentionInDays": 30,
     "Tags": [
      {
@@ -674,7 +663,7 @@
        {
         "Ref": "AWS::Region"
        },
-       "\",\"metrics\":[[\"AWS/ApplicationELB\",\"RequestCount\",\"LoadBalancer\",\"app/BCOS-N-Appli-rIo4btfCQRZj/ac6744264a6b1239\",{\"stat\":\"Sum\"}],[\"AWS/ApplicationELB\",\"TargetResponseTime\",\"LoadBalancer\",\"app/BCOS-N-Appli-rIo4btfCQRZj/ac6744264a6b1239\",{\"yAxis\":\"right\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":12,\"height\":6,\"x\":0,\"y\":12,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Application Errors - staging\",\"region\":\"",
+       "\",\"metrics\":[[\"AWS/ApplicationELB\",\"RequestCount\",\"LoadBalancer\",\"dummy-alb-name\",{\"stat\":\"Sum\"}],[\"AWS/ApplicationELB\",\"TargetResponseTime\",\"LoadBalancer\",\"dummy-alb-name\",{\"yAxis\":\"right\"}]],\"yAxis\":{}}},{\"type\":\"metric\",\"width\":12,\"height\":6,\"x\":0,\"y\":12,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Application Errors - staging\",\"region\":\"",
        {
         "Ref": "AWS::Region"
        },
@@ -861,7 +850,7 @@
     "Dimensions": [
      {
       "Name": "LoadBalancer",
-      "Value": "app/BCOS-N-Appli-rIo4btfCQRZj/ac6744264a6b1239"
+      "Value": "dummy-alb-name"
      },
      {
       "Name": "TargetGroup",
@@ -907,7 +896,7 @@
     "Dimensions": [
      {
       "Name": "LoadBalancer",
-      "Value": "app/BCOS-N-Appli-rIo4btfCQRZj/ac6744264a6b1239"
+      "Value": "dummy-alb-name"
      }
     ],
     "EvaluationPeriods": 2,
@@ -949,7 +938,7 @@
     "Dimensions": [
      {
       "Name": "LoadBalancer",
-      "Value": "app/BCOS-N-Appli-rIo4btfCQRZj/ac6744264a6b1239"
+      "Value": "dummy-alb-name"
      }
     ],
     "EvaluationPeriods": 3,

@@ -508,7 +508,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-deploy-role-854428944440-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-cfn-exec-role-854428944440-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/c2ca6db3740e4ae1b41cdade899fc42788ca86f4316dfce9f7c738483ff835f8.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/91bd243ba1fc014dcef456ec28c3fe8887ee46ce96120fe18eec3f7f5f9ed0a6.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -593,6 +593,36 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "SecureContainerTaskDefinition0F11F2CE"
+          }
+        ],
+        "/BCOS-StagingStack/SecureContainer/TaskDefinition/app": [
+          {
+            "type": "aws:cdk:warning",
+            "data": "Proper policies need to be attached before pulling from ECR repository, or use 'fromEcrRepository'. [ack: @aws-cdk/aws-ecs:ecrImageRequiresPolicy]",
+            "trace": [
+              "Annotations.addMessage (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/core/lib/annotations.js:1:1916)",
+              "Annotations.addWarningV2 (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/core/lib/annotations.js:1:834)",
+              "RepositoryImage.bind (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/aws-ecs/lib/images/repository.js:1:1244)",
+              "new ContainerDefinition2 (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/aws-ecs/lib/container-definition.js:1:3778)",
+              "new ContainerDefinition2 (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/core/lib/prop-injectable.js:1:426)",
+              "WrappedClass.addContainer (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/aws-ecs/lib/base/task-definition.js:1:11258)",
+              "WrappedClass.descriptor.value (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/core/lib/metadata-resource.js:1:2234)",
+              "new SecureContainer (/Users/pstewart/bcos/infrastructure/lib/constructs/secure-container.ts:2:2329)",
+              "new StagingStack (/Users/pstewart/bcos/infrastructure/lib/stacks/staging-stack.ts:2:4656)",
+              "/Users/pstewart/bcos/infrastructure/bin/bcos-app.ts:3:2023",
+              "Object.<anonymous> (/Users/pstewart/bcos/infrastructure/bin/bcos-app.ts:4:3)",
+              "Module._compile (node:internal/modules/cjs/loader:1760:14)",
+              "Object.transformer (/Users/pstewart/bcos/infrastructure/node_modules/tsx/dist/register-D46fvsV_.cjs:3:1104)",
+              "Module.load (node:internal/modules/cjs/loader:1480:32)",
+              "Module._load (node:internal/modules/cjs/loader:1299:12)",
+              "TracingChannel.traceSync (node:diagnostics_channel:322:14)",
+              "wrapModuleLoad (node:internal/modules/cjs/loader:244:24)",
+              "cjsLoader (node:internal/modules/esm/translators:329:5)",
+              "ModuleWrap.<anonymous> (node:internal/modules/esm/translators:221:7)",
+              "ModuleJob.run (node:internal/modules/esm/module_job:371:25)",
+              "onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:702:26)",
+              "asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)"
+            ]
           }
         ],
         "/BCOS-StagingStack/StagingTargetGroup/Resource": [
@@ -806,7 +836,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-deploy-role-854428944440-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::854428944440:role/cdk-hnb659fds-cfn-exec-role-854428944440-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/ce6ffdc40788cac310e8caafbd41afc8453c630ae3c0941153cc2b6d36a8540c.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-854428944440-us-east-1/2bf5feff679bd493a2f3417713cebc0432639c24af361f705e6181c82aeb446a.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -877,10 +907,10 @@
             "data": "TaskRolePolicy470C6022"
           }
         ],
-        "/BCOS-ProductionStack/ECSSecurityGroup/from BCOSProductionStackALBSecurityGroup5746FAE8:80": [
+        "/BCOS-ProductionStack/ECSSecurityGroup/from BCOSProductionStackALBSecurityGroup5746FAE8:3000": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "ECSSecurityGroupfromBCOSProductionStackALBSecurityGroup5746FAE880A2D069D8"
+            "data": "ECSSecurityGroupfromBCOSProductionStackALBSecurityGroup5746FAE830001927BF23"
           }
         ],
         "/BCOS-ProductionStack/ExecuteCommandLogGroup/Resource": [
@@ -913,6 +943,36 @@
             "data": "SecureContainerTaskDefinition0F11F2CE"
           }
         ],
+        "/BCOS-ProductionStack/SecureContainer/TaskDefinition/app": [
+          {
+            "type": "aws:cdk:warning",
+            "data": "Proper policies need to be attached before pulling from ECR repository, or use 'fromEcrRepository'. [ack: @aws-cdk/aws-ecs:ecrImageRequiresPolicy]",
+            "trace": [
+              "Annotations.addMessage (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/core/lib/annotations.js:1:1916)",
+              "Annotations.addWarningV2 (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/core/lib/annotations.js:1:834)",
+              "RepositoryImage.bind (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/aws-ecs/lib/images/repository.js:1:1244)",
+              "new ContainerDefinition2 (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/aws-ecs/lib/container-definition.js:1:3778)",
+              "new ContainerDefinition2 (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/core/lib/prop-injectable.js:1:426)",
+              "WrappedClass.addContainer (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/aws-ecs/lib/base/task-definition.js:1:11258)",
+              "WrappedClass.descriptor.value (/Users/pstewart/bcos/infrastructure/node_modules/aws-cdk-lib/core/lib/metadata-resource.js:1:2234)",
+              "new SecureContainer (/Users/pstewart/bcos/infrastructure/lib/constructs/secure-container.ts:2:2329)",
+              "new ProductionStack (/Users/pstewart/bcos/infrastructure/lib/stacks/production-stack.ts:2:4677)",
+              "/Users/pstewart/bcos/infrastructure/bin/bcos-app.ts:3:2250",
+              "Object.<anonymous> (/Users/pstewart/bcos/infrastructure/bin/bcos-app.ts:4:3)",
+              "Module._compile (node:internal/modules/cjs/loader:1760:14)",
+              "Object.transformer (/Users/pstewart/bcos/infrastructure/node_modules/tsx/dist/register-D46fvsV_.cjs:3:1104)",
+              "Module.load (node:internal/modules/cjs/loader:1480:32)",
+              "Module._load (node:internal/modules/cjs/loader:1299:12)",
+              "TracingChannel.traceSync (node:diagnostics_channel:322:14)",
+              "wrapModuleLoad (node:internal/modules/cjs/loader:244:24)",
+              "cjsLoader (node:internal/modules/esm/translators:329:5)",
+              "ModuleWrap.<anonymous> (node:internal/modules/esm/translators:221:7)",
+              "ModuleJob.run (node:internal/modules/esm/module_job:371:25)",
+              "onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:702:26)",
+              "asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)"
+            ]
+          }
+        ],
         "/BCOS-ProductionStack/ProductionTargetGroup/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -929,42 +989,6 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "ProductionListenerRule694DE0B1"
-          }
-        ],
-        "/BCOS-ProductionStack/ProductionARecord/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ProductionARecordFE483908"
-          }
-        ],
-        "/BCOS-ProductionStack/WAFProtection/WAFLogGroup/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "WAFProtectionWAFLogGroupC4D17A54"
-          }
-        ],
-        "/BCOS-ProductionStack/WAFProtection/WebACL": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "WAFProtectionWebACLA37FE6E3"
-          }
-        ],
-        "/BCOS-ProductionStack/WAFProtection/WebACLArn": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "WAFProtectionWebACLArnA98AA05F"
-          }
-        ],
-        "/BCOS-ProductionStack/WAFProtection/WebACLId": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "WAFProtectionWebACLId14CD2052"
-          }
-        ],
-        "/BCOS-ProductionStack/WAFProtection/WebACLAssociation": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "WAFProtectionWebACLAssociation99F41F81"
           }
         ],
         "/BCOS-ProductionStack/Monitoring/AlertTopic/Resource": [
@@ -1073,12 +1097,6 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "ProductionScalableTargetProductionMemoryScaling314EF30E"
-          }
-        ],
-        "/BCOS-ProductionStack/ProductionScalableTarget/ProductionRequestScaling/Resource": [
-          {
-            "type": "aws:cdk:logicalId",
-            "data": "ProductionScalableTargetProductionRequestScalingA2BB279D"
           }
         ],
         "/BCOS-ProductionStack/ProductionClusterName": [

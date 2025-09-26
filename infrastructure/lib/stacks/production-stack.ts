@@ -1,13 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
-import * as route53 from 'aws-cdk-lib/aws-route53';
-import * as route53targets from 'aws-cdk-lib/aws-route53-targets';
-import * as applicationautoscaling from 'aws-cdk-lib/aws-applicationautoscaling';
-import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
-import { SecureContainer } from '../constructs/secure-container';
-import { Monitoring } from '../constructs/monitoring';
 import productionConfig from '../../config/production.json';
 
 interface ProductionStackProps extends cdk.StackProps {
@@ -16,10 +10,9 @@ interface ProductionStackProps extends cdk.StackProps {
 
 export class ProductionStack extends cdk.Stack {
   public readonly ecsCluster: ecs.Cluster;
-  public readonly ecsService: ecs.FargateService;
   public readonly targetGroup: elbv2.ApplicationTargetGroup;
   // WAF protection handled by staging WAF on shared ALB
-  public readonly monitoring: Monitoring;
+  // ECS service and monitoring created by application deployment
 
   constructor(scope: Construct, id: string, props: ProductionStackProps) {
     super(scope, id, props);
@@ -97,23 +90,7 @@ export class ProductionStack extends cdk.Stack {
       enableFargateCapacityProviders: true,
     });
 
-    // Create secure container construct
-    const secureContainer = new SecureContainer(this, 'SecureContainer', {
-      environment: environment,
-      cluster: this.ecsCluster as ecs.ICluster,
-      ecrRepository: ecrRepository,
-      kmsKey: kmsKey,
-      executionRole: executionRole,
-      taskRole: taskRole,
-      secret: secret,
-      cpu: productionConfig.ecs.cpu,
-      memory: productionConfig.ecs.memory,
-      containerPort: 3000,
-      environmentVariables: {
-        ENVIRONMENT: environment,
-        NEXT_PUBLIC_APP_URL: `https://${productionConfig.domain}`,
-      },
-    });
+    // SecureContainer (task definition) not created in infrastructure - matches actual BCOS-StagingStack behavior
 
     // Create target group for production
     this.targetGroup = new elbv2.ApplicationTargetGroup(this, 'ProductionTargetGroup', {
@@ -135,27 +112,7 @@ export class ProductionStack extends cdk.Stack {
       },
     });
 
-    // Create ECS Fargate Service
-    this.ecsService = new ecs.FargateService(this, 'ProductionService', {
-      serviceName: productionConfig.ecs.serviceName,
-      cluster: this.ecsCluster as ecs.ICluster,
-      taskDefinition: secureContainer.taskDefinition,
-      desiredCount: productionConfig.ecs.desiredCount,
-      minHealthyPercent: 50,
-      maxHealthyPercent: 200,
-      vpcSubnets: {
-        subnetType: cdk.aws_ec2.SubnetType.PRIVATE_WITH_EGRESS,
-      },
-      securityGroups: [ecsSecurityGroup],
-      assignPublicIp: false,
-      healthCheckGracePeriod: cdk.Duration.seconds(300),
-      // circuitBreaker: {
-      //   rollback: true,
-      // }, // Disabled temporarily for initial deployment
-    });
-
-    // Associate service with target group
-    this.ecsService.attachToApplicationTargetGroup(this.targetGroup);
+    // ECS Service not created in infrastructure - matches actual BCOS-StagingStack behavior
 
     // Set target group as default action for HTTPS listener
     new elbv2.ApplicationListenerRule(this, 'ProductionListenerRule', {
@@ -170,45 +127,9 @@ export class ProductionStack extends cdk.Stack {
     // Skip WAF creation - shared ALB already has staging WAF
     // AWS only allows one WAF Web ACL per load balancer
 
-    // Create monitoring
-    this.monitoring = new Monitoring(this, 'Monitoring', {
-      environment: environment,
-      kmsKey: kmsKey,
-      ecsService: this.ecsService,
-      ecsCluster: this.ecsCluster as ecs.ICluster,
-      loadBalancer: loadBalancer,
-      targetGroup: this.targetGroup,
-      logGroup: secureContainer.logGroup,
-      alertEmails: ['production-alerts@bendcare.com'],
-      enableDetailedMonitoring: productionConfig.monitoring.detailedMonitoring,
-    });
+    // Monitoring not created in infrastructure - matches actual BCOS-StagingStack behavior
 
-    // Configure auto scaling (if enabled)
-    if (productionConfig.ecs.autoScaling.enabled) {
-      const scalableTarget = new applicationautoscaling.ScalableTarget(this, 'ProductionScalableTarget', {
-        serviceNamespace: applicationautoscaling.ServiceNamespace.ECS,
-        scalableDimension: 'ecs:service:DesiredCount',
-        resourceId: `service/${this.ecsCluster.clusterName}/${this.ecsService.serviceName}`,
-        minCapacity: productionConfig.ecs.autoScaling.minCapacity,
-        maxCapacity: productionConfig.ecs.autoScaling.maxCapacity,
-      });
-
-      // CPU-based scaling
-      scalableTarget.scaleToTrackMetric('ProductionCPUScaling', {
-        targetValue: productionConfig.ecs.autoScaling.targetCpuUtilization,
-        predefinedMetric: applicationautoscaling.PredefinedMetric.ECS_SERVICE_AVERAGE_CPU_UTILIZATION,
-        scaleOutCooldown: cdk.Duration.seconds(productionConfig.ecs.autoScaling.scaleOutCooldown),
-        scaleInCooldown: cdk.Duration.seconds(productionConfig.ecs.autoScaling.scaleInCooldown),
-      });
-
-      // Memory-based scaling
-      scalableTarget.scaleToTrackMetric('ProductionMemoryScaling', {
-        targetValue: productionConfig.ecs.autoScaling.targetMemoryUtilization,
-        predefinedMetric: applicationautoscaling.PredefinedMetric.ECS_SERVICE_AVERAGE_MEMORY_UTILIZATION,
-        scaleOutCooldown: cdk.Duration.seconds(productionConfig.ecs.autoScaling.scaleOutCooldown),
-        scaleInCooldown: cdk.Duration.seconds(productionConfig.ecs.autoScaling.scaleInCooldown),
-      });
-    }
+    // Auto scaling not created in infrastructure - matches actual BCOS-StagingStack behavior
 
     // Apply tags
     Object.entries(productionConfig.tags).forEach(([key, value]) => {
@@ -222,11 +143,7 @@ export class ProductionStack extends cdk.Stack {
       exportName: 'BCOS-Production-ClusterName',
     });
 
-    new cdk.CfnOutput(this, 'ProductionServiceName', {
-      value: this.ecsService.serviceName,
-      description: 'Production ECS Service Name',
-      exportName: 'BCOS-Production-ServiceName',
-    });
+    // ECS Service name will be created by application deployment
 
     new cdk.CfnOutput(this, 'ProductionURL', {
       value: `https://${productionConfig.domain}`,
@@ -240,10 +157,6 @@ export class ProductionStack extends cdk.Stack {
       exportName: 'BCOS-Production-TargetGroupArn',
     });
 
-    new cdk.CfnOutput(this, 'ProductionDashboardURL', {
-      value: `https://console.aws.amazon.com/cloudwatch/home?region=${cdk.Stack.of(this).region}#dashboards:name=BCOS-${environment}-Dashboard`,
-      description: 'Production CloudWatch Dashboard URL',
-      exportName: 'BCOS-Production-DashboardURL',
-    });
+    // Dashboard will be created by application deployment
   }
 }
