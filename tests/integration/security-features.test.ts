@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
+import '@/tests/setup/integration-setup' // Import integration setup for database access
 import { createTestUser } from '@/tests/factories/user-factory'
 import { sanitizeHtml, stripHtml, sanitizeUrl } from '@/lib/utils/html-sanitizer'
 import { createSafeTextSchema, sanitizeText } from '@/lib/validations/sanitization'

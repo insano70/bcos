@@ -17,37 +17,43 @@ vi.mock('@/lib/auth/token-manager', () => ({
 }))
 
 // Mock database with simpler approach
-const mockDbLimit = vi.fn().mockResolvedValue([])
-
-vi.mock('@/lib/db', () => ({
-  db: {
-    select: vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          limit: mockDbLimit
+vi.mock('@/lib/db', () => {
+  const mockDbLimit = vi.fn().mockResolvedValue([])
+  
+  return {
+    db: {
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: mockDbLimit
+          })
         })
       })
-    })
-  },
-  users: {
-    user_id: 'user_id',
-    email: 'email',
-    first_name: 'first_name',
-    last_name: 'last_name',
-    is_active: 'is_active',
-    email_verified: 'email_verified'
+    },
+    users: {
+      user_id: 'user_id',
+      email: 'email',
+      first_name: 'first_name',
+      last_name: 'last_name',
+      is_active: 'is_active',
+      email_verified: 'email_verified'
+    },
+    // Export the mock function so tests can access it
+    _mockDbLimit: mockDbLimit
   }
-}))
+})
 
 describe('session authentication logic', () => {
   let mockDb: any
+  let mockDbLimit: any
 
   beforeEach(async () => {
     vi.clearAllMocks()
     
     // Get reference to the mocked database
-    const { db } = await import('@/lib/db')
-    mockDb = vi.mocked(db)
+    const dbModule = await import('@/lib/db')
+    mockDb = vi.mocked(dbModule.db)
+    mockDbLimit = (dbModule as any)._mockDbLimit
   })
 
   describe('getCurrentUserFromToken', () => {

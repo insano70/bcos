@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
+import '@/tests/setup/integration-setup' // Import integration setup for database access
 import { TokenManager } from '@/lib/auth/token-manager'
 import { createTestUser } from '@/tests/factories/user-factory'
 

@@ -31,44 +31,18 @@ vi.mock('@/lib/logger/factory', () => ({
   createAppLogger: vi.fn(() => ({
     info: vi.fn(),
     debug: vi.fn(),
+    error: vi.fn(),
     security: vi.fn(),
     timing: vi.fn()
   }))
 }))
 
-// Mock database
+// Mock database with comprehensive structure and method chaining
 vi.mock('@/lib/db', () => ({
   db: {
-    select: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    insert: vi.fn()
-  },
-  blacklisted_tokens: {},
-  refresh_tokens: {}
-}))
-
-
-vi.mock('@/lib/rbac/cached-user-context', () => ({
-  getCachedUserContextSafe: vi.fn()
-}))
-
-vi.mock('@/lib/cache/role-permission-cache', () => ({
-  rolePermissionCache: {
-    getRoleVersion: vi.fn(() => 1)
-  }
-}))
-
-vi.mock('@/lib/api/services/audit', () => ({
-  AuditLogger: {
-    logAuth: vi.fn(),
-    logSecurity: vi.fn()
-  }
-}))
-
-vi.mock('@/lib/db', () => ({
-  db: {
-    insert: vi.fn(),
+    insert: vi.fn(() => ({
+      values: vi.fn(() => Promise.resolve({ insertId: 1 }))
+    })),
     select: vi.fn(() => ({
       from: vi.fn(() => ({
         where: vi.fn(() => ({
@@ -78,9 +52,18 @@ vi.mock('@/lib/db', () => ({
         }))
       }))
     })),
-    update: vi.fn(),
-    delete: vi.fn()
+    update: vi.fn(() => ({
+      set: vi.fn(() => ({
+        where: vi.fn(() => Promise.resolve({ affectedRows: 1 }))
+      }))
+    })),
+    delete: vi.fn(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => Promise.resolve({ affectedRows: 1 }))
+      }))
+    }))
   },
+  blacklisted_tokens: {},
   refresh_tokens: {},
   token_blacklist: {},
   user_sessions: {},
@@ -99,10 +82,27 @@ vi.mock('@/lib/cache/role-permission-cache', () => ({
   }
 }))
 
+vi.mock('@/lib/api/services/audit', () => ({
+  AuditLogger: {
+    logAuth: vi.fn(),
+    logSecurity: vi.fn()
+  }
+}))
+
 describe('TokenManager', () => {
-  beforeEach(() => {
+  let mockDb: any
+  let mockGetCachedUserContextSafe: any
+  
+  beforeEach(async () => {
     vi.clearAllMocks()
     vi.mocked(nanoid).mockReturnValue('mock-nano-id')
+    
+    // Get references to mocked modules
+    const dbModule = await import('@/lib/db')
+    mockDb = vi.mocked(dbModule.db)
+    
+    const rbacModule = await import('@/lib/rbac/cached-user-context')
+    mockGetCachedUserContextSafe = vi.mocked(rbacModule.getCachedUserContextSafe)
   })
 
   describe('validateAccessToken', () => {
@@ -141,7 +141,6 @@ describe('TokenManager', () => {
       } as any)
 
       // Mock database - token is blacklisted
-      const mockDb: any = require('@/lib/db').db
       mockDb.select.mockReturnValue({
         from: vi.fn(() => ({
           where: vi.fn(() => ({
@@ -180,7 +179,6 @@ describe('TokenManager', () => {
         protectedHeader: { alg: 'HS256' }
       } as any)
 
-      const mockDb: any = require('@/lib/db').db
       const now = new Date()
 
       vi.useFakeTimers()
@@ -223,7 +221,6 @@ describe('TokenManager', () => {
         { tokenId: 'token-2' }
       ]
 
-      const mockDb: any = require('@/lib/db').db
 
       // Mock getting active tokens
       mockDb.select.mockReturnValueOnce({
@@ -243,7 +240,6 @@ describe('TokenManager', () => {
       const userId = 'user-123'
       const mockActiveTokens: any[] = []
 
-      const mockDb: any = require('@/lib/db').db
 
       // Mock getting active tokens - empty array
       mockDb.select.mockReturnValueOnce({
@@ -338,7 +334,6 @@ describe('TokenManager', () => {
       const mockExpiredTokens = [{ count: 5 }]
       const mockExpiredBlacklist = [{ count: 3 }]
 
-      const mockDb: any = require('@/lib/db').db
       mockDb.update.mockResolvedValue(mockExpiredTokens)
       mockDb.delete.mockResolvedValue(mockExpiredBlacklist)
 
@@ -356,7 +351,6 @@ describe('TokenManager', () => {
       const mockExpiredTokens: any[] = []
       const mockExpiredBlacklist: any[] = []
 
-      const mockDb: any = require('@/lib/db').db
       mockDb.update.mockResolvedValue(mockExpiredTokens)
       mockDb.delete.mockResolvedValue(mockExpiredBlacklist)
 
@@ -394,8 +388,7 @@ describe('TokenManager', () => {
         organization_admin_for: []
       }
 
-      const { getCachedUserContextSafe } = require('@/lib/rbac/cached-user-context')
-      vi.mocked(getCachedUserContextSafe).mockResolvedValue(mockUserContext)
+      mockGetCachedUserContextSafe.mockResolvedValue(mockUserContext)
 
       // Mock JWT signing
       const mockSignJWT = {
@@ -431,8 +424,7 @@ describe('TokenManager', () => {
         deviceName: 'Chrome Browser'
       }
 
-      const { getCachedUserContextSafe } = require('@/lib/rbac/cached-user-context')
-      vi.mocked(getCachedUserContextSafe).mockResolvedValue(null)
+      mockGetCachedUserContextSafe.mockResolvedValue(null)
 
       await expect(TokenManager.createTokenPair(userId, deviceInfo))
         .rejects
@@ -470,7 +462,6 @@ describe('TokenManager', () => {
         rotation_count: 1
       }
 
-      const mockDb: any = require('@/lib/db').db
       mockDb.select.mockReturnValue({
         from: vi.fn(() => ({
           where: vi.fn(() => ({
@@ -492,8 +483,7 @@ describe('TokenManager', () => {
         organization_admin_for: []
       }
 
-      const { getCachedUserContextSafe } = require('@/lib/rbac/cached-user-context')
-      vi.mocked(getCachedUserContextSafe).mockResolvedValue(mockUserContext)
+      mockGetCachedUserContextSafe.mockResolvedValue(mockUserContext)
 
       // Mock JWT signing
       const mockSignJWT = {
@@ -550,7 +540,6 @@ describe('TokenManager', () => {
       } as any)
 
       // Mock token record lookup - no record found
-      const mockDb: any = require('@/lib/db').db
       mockDb.select.mockReturnValue({
         from: vi.fn(() => ({
           where: vi.fn(() => ({

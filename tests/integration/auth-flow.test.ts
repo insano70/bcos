@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
+import '@/tests/setup/integration-setup' // Import integration setup for database access
 import { createTestUser } from '@/tests/factories/user-factory'
 import { createTestOrganization } from '@/tests/factories/organization-factory'
 import { createTestRole } from '@/tests/factories/role-factory'

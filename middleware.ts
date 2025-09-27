@@ -358,6 +358,17 @@ export async function middleware(request: NextRequest) {
   // Extract the domain (remove www. if present)
   const domain = hostname.startsWith('www.') ? hostname.slice(4) : hostname
   
+  // Debug logging for custom domain routing
+  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'staging') {
+    console.log('🌐 Custom domain detected:', {
+      originalHostname: rawHostname,
+      processedHostname: hostname,
+      extractedDomain: domain,
+      pathname,
+      rewriteTo: `/practice/${domain}${pathname}`
+    })
+  }
+  
   // Rewrite to practice route
   const url = request.nextUrl.clone()
   url.pathname = `/practice/${domain}${pathname}`

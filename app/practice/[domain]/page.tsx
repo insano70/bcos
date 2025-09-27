@@ -9,20 +9,37 @@ import { transformPractice, transformPracticeAttributes, transformStaffMember } 
 import type { PracticeAttributes } from '@/lib/types/practice';
 
 async function getPracticeByDomain(domain: string) {
-  // Get practice by domain
-  const [practice] = await db
-    .select()
-    .from(practices)
-    .leftJoin(templates, eq(practices.template_id, templates.template_id))
-    .where(and(
-      eq(practices.domain, domain),
-      eq(practices.status, 'active'),
-      isNull(practices.deleted_at)
-    ))
-    .limit(1);
+  console.log('🔍 getPracticeByDomain called with domain:', domain);
+  
+  try {
+    // Get practice by domain
+    const [practice] = await db
+      .select()
+      .from(practices)
+      .leftJoin(templates, eq(practices.template_id, templates.template_id))
+      .where(and(
+        eq(practices.domain, domain),
+        eq(practices.status, 'active'),
+        isNull(practices.deleted_at)
+      ))
+      .limit(1);
 
-  if (!practice) {
-    return null;
+    console.log('🔍 Database query result:', practice ? 'Found practice' : 'No practice found');
+
+    if (!practice) {
+      console.log('❌ No practice found for domain:', domain);
+      return null;
+    }
+
+    console.log('✅ Practice found:', {
+      id: practice.practices.practice_id,
+      name: practice.practices.name,
+      domain: practice.practices.domain,
+      status: practice.practices.status
+    });
+  } catch (error) {
+    console.error('❌ Error in getPracticeByDomain:', error);
+    throw error;
   }
 
   // Get practice attributes
