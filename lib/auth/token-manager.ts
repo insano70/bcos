@@ -1,6 +1,6 @@
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose'
 import { nanoid } from 'nanoid'
-import { createHash } from 'crypto'
+import { createHash } from 'node:crypto'
 import { db, refresh_tokens, token_blacklist, user_sessions, login_attempts, } from '@/lib/db'
 import { eq, and, gte, lte, } from 'drizzle-orm'
 import { AuditLogger } from '@/lib/api/services/audit'

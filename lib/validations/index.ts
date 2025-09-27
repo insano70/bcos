@@ -3,8 +3,6 @@
  * Single entry point for all validation schemas and utilities
  */
 
-import { z } from 'zod';
-
 // Authentication schemas
 export { 
   loginSchema, 

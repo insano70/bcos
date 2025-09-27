@@ -135,14 +135,12 @@ export async function requireJWTAuth(request: Request): Promise<JWTAuthSession> 
   const startTime = Date.now()
   
   // Enhanced JWT authentication logging
-  if (true) {
-    jwtAuthLogger.info('JWT authentication middleware initiated', {
-      url: request.url,
-      method: request.method,
-      hasAuthHeader: !!request.headers.get('Authorization'),
-      hasCookieHeader: !!request.headers.get('Cookie')
-    })
-  }
+  jwtAuthLogger.info('JWT authentication middleware initiated', {
+    url: request.url,
+    method: request.method,
+    hasAuthHeader: !!request.headers.get('Authorization'),
+    hasCookieHeader: !!request.headers.get('Cookie')
+  })
   
   // Extract access token from Authorization header OR httpOnly cookie
   const authHeader = request.headers.get('Authorization')
@@ -172,14 +170,12 @@ export async function requireJWTAuth(request: Request): Promise<JWTAuthSession> 
   
   if (!accessToken) {
     // Enhanced missing token logging
-    if (true) {
-      jwtAuthLogger.security('jwt_authentication_failed', 'medium', {
-        action: 'token_missing',
-        threat: 'unauthorized_access',
-        blocked: true,
-        reason: 'no_jwt_token'
-      })
-    }
+    jwtAuthLogger.security('jwt_authentication_failed', 'medium', {
+      action: 'token_missing',
+      threat: 'unauthorized_access',
+      blocked: true,
+      reason: 'no_jwt_token'
+    })
     throw AuthenticationError('Access token required')
   }
   
@@ -190,27 +186,23 @@ export async function requireJWTAuth(request: Request): Promise<JWTAuthSession> 
   
   if (!payload) {
     // Enhanced token validation failure
-    if (true) {
-      jwtAuthLogger.security('jwt_token_validation_failed', 'high', {
-        action: 'invalid_jwt',
-        threat: 'credential_attack',
-        blocked: true,
-        tokenSource,
-        validationTime: tokenValidationDuration
-      })
-    }
+    jwtAuthLogger.security('jwt_token_validation_failed', 'high', {
+      action: 'invalid_jwt',
+      threat: 'credential_attack',
+      blocked: true,
+      tokenSource,
+      validationTime: tokenValidationDuration
+    })
     throw AuthenticationError('Invalid or expired access token')
   }
   
   // Enhanced successful JWT validation logging
-  if (true) {
-    jwtAuthLogger.auth('jwt_validation', true, {
-      userId: payload.sub as string,
-      sessionId: payload.session_id as string,
-      tokenSource,
-      validationDuration: tokenValidationDuration
-    })
-  }
+  jwtAuthLogger.auth('jwt_validation', true, {
+    userId: payload.sub as string,
+    sessionId: payload.session_id as string,
+    tokenSource,
+    validationDuration: tokenValidationDuration
+  })
   
   const userId = payload.sub as string
   
@@ -245,10 +237,9 @@ export async function requireJWTAuth(request: Request): Promise<JWTAuthSession> 
   }
   
   // Enhanced JWT authentication success logging
-  if (true) {
-    const duration = Date.now() - startTime
-    
-    // JWT authentication pipeline completion
+  const duration = Date.now() - startTime
+  
+  // JWT authentication pipeline completion
     jwtAuthLogger.info('JWT authentication completed', {
       userId,
       sessionId: payload.session_id as string,
@@ -274,16 +265,6 @@ export async function requireJWTAuth(request: Request): Promise<JWTAuthSession> 
       cacheEnabled: userContext !== null,
       totalOperations: user.roles.length + user.permissions.length
     })
-  } else {
-    // Legacy debug logging
-    debugLog.auth('JWT authentication successful', {
-      userId,
-      email: user.email,
-      rolesCount: user.roles.length,
-      permissionsCount: user.permissions.length,
-      usedCache: userContext !== null
-    })
-  }
   
   // Return session-like object with JWT-derived information
   return {

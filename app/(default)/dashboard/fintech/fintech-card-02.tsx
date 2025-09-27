@@ -79,9 +79,8 @@ export default function FintechCard02() {
               </div>
               <div className="relative w-full h-2 bg-gray-600 rounded-sm">
                 <div
-                  className="absolute inset-0 bg-green-400 rounded-full"
+                  className="absolute inset-0 bg-green-400 rounded-full progress-bar-50"
                   aria-hidden="true"
-                  style={{ width: '50%' }}
                 />
               </div>
             </div>
@@ -94,9 +93,8 @@ export default function FintechCard02() {
               </div>
               <div className="relative w-full h-2 bg-gray-600 rounded-sm">
                 <div
-                  className="absolute inset-0 bg-green-400 rounded-full"
+                  className="absolute inset-0 bg-green-400 rounded-full progress-bar-35"
                   aria-hidden="true"
-                  style={{ width: '35%' }}
                 />
               </div>
             </div>

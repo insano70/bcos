@@ -1,5 +1,4 @@
 import { pgTable, integer, varchar, text, boolean, timestamp, jsonb, index, decimal, uuid } from 'drizzle-orm/pg-core';
-import { users } from './schema';
 
 /**
  * Chart Configuration Schema

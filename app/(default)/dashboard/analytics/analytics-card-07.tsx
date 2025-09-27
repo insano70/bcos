@@ -19,9 +19,8 @@ export default function AnalyticsCard06() {
               {/* Item */}
               <li className="relative px-2 py-1">
                 <div
-                  className="absolute inset-0 bg-sky-100 dark:bg-sky-500/20 rounded-r"
+                  className="absolute inset-0 bg-sky-100 dark:bg-sky-500/20 rounded-r progress-bar-82"
                   aria-hidden="true"
-                  style={{ width: '82%' }}
                 ></div>
                 <div className="relative flex justify-between space-x-2">
                   <div>🇨🇮 Ireland</div>
@@ -31,9 +30,8 @@ export default function AnalyticsCard06() {
               {/* Item */}
               <li className="relative px-2 py-1">
                 <div
-                  className="absolute inset-0 bg-sky-100 dark:bg-sky-500/20 rounded-r"
+                  className="absolute inset-0 bg-sky-100 dark:bg-sky-500/20 rounded-r progress-bar-70"
                   aria-hidden="true"
-                  style={{ width: '70%' }}
                 ></div>
                 <div className="relative flex justify-between space-x-2">
                   <div>🇺🇸 United States</div>
@@ -43,9 +41,8 @@ export default function AnalyticsCard06() {
               {/* Item */}
               <li className="relative px-2 py-1">
                 <div
-                  className="absolute inset-0 bg-sky-100 dark:bg-sky-500/20 rounded-r"
+                  className="absolute inset-0 bg-sky-100 dark:bg-sky-500/20 rounded-r progress-bar-60"
                   aria-hidden="true"
-                  style={{ width: '60%' }}
                 ></div>
                 <div className="relative flex justify-between space-x-2">
                   <div>🇩🇪 Germany</div>
@@ -55,9 +52,8 @@ export default function AnalyticsCard06() {
               {/* Item */}
               <li className="relative px-2 py-1">
                 <div
-                  className="absolute inset-0 bg-sky-100 dark:bg-sky-500/20 rounded-r"
+                  className="absolute inset-0 bg-sky-100 dark:bg-sky-500/20 rounded-r progress-bar-44"
                   aria-hidden="true"
-                  style={{ width: '44%' }}
                 ></div>
                 <div className="relative flex justify-between space-x-2">
                   <div>🇮🇹 Italy</div>
@@ -67,9 +63,8 @@ export default function AnalyticsCard06() {
               {/* Item */}
               <li className="relative px-2 py-1">
                 <div
-                  className="absolute inset-0 bg-sky-100 dark:bg-sky-500/20 rounded-r"
+                  className="absolute inset-0 bg-sky-100 dark:bg-sky-500/20 rounded-r progress-bar-40"
                   aria-hidden="true"
-                  style={{ width: '40%' }}
                 ></div>
                 <div className="relative flex justify-between space-x-2">
                   <div>🇬🇧 United Kingdom</div>
@@ -79,9 +74,8 @@ export default function AnalyticsCard06() {
               {/* Item */}
               <li className="relative px-2 py-1">
                 <div
-                  className="absolute inset-0 bg-sky-100 dark:bg-sky-500/20 rounded-r"
+                  className="absolute inset-0 bg-sky-100 dark:bg-sky-500/20 rounded-r progress-bar-30"
                   aria-hidden="true"
-                  style={{ width: '30%' }}
                 ></div>
                 <div className="relative flex justify-between space-x-2">
                   <div>🇫🇷 France</div>
@@ -91,9 +85,8 @@ export default function AnalyticsCard06() {
               {/* Item */}
               <li className="relative px-2 py-1">
                 <div
-                  className="absolute inset-0 bg-sky-100 dark:bg-sky-500/20 rounded-r"
+                  className="absolute inset-0 bg-sky-100 dark:bg-sky-500/20 rounded-r progress-bar-22"
                   aria-hidden="true"
-                  style={{ width: '22%' }}
                 ></div>
                 <div className="relative flex justify-between space-x-2">
                   <div>🇮🇳 India</div>
@@ -103,9 +96,8 @@ export default function AnalyticsCard06() {
               {/* Item */}
               <li className="relative px-2 py-1">
                 <div
-                  className="absolute inset-0 bg-sky-100 dark:bg-sky-500/20 rounded-r"
+                  className="absolute inset-0 bg-sky-100 dark:bg-sky-500/20 rounded-r progress-bar-12"
                   aria-hidden="true"
-                  style={{ width: '12%' }}
                 ></div>
                 <div className="relative flex justify-between space-x-2">
                   <div>🇸🇬 Singapore</div>

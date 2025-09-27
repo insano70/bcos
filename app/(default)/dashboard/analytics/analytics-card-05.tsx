@@ -19,9 +19,8 @@ export default function AnalyticsCard05() {
               {/* Item */}
               <li className="relative px-2 py-1">
                 <div
-                  className="absolute inset-0 bg-violet-100 dark:bg-violet-500/20 rounded-r"
+                  className="absolute inset-0 bg-violet-100 dark:bg-violet-500/20 rounded-r progress-bar-82"
                   aria-hidden="true"
-                  style={{ width: '82%' }}
                 ></div>
                 <div className="relative flex justify-between space-x-2">
                   <div>Google</div>
@@ -31,9 +30,8 @@ export default function AnalyticsCard05() {
               {/* Item */}
               <li className="relative px-2 py-1">
                 <div
-                  className="absolute inset-0 bg-violet-100 dark:bg-violet-500/20 rounded-r"
+                  className="absolute inset-0 bg-violet-100 dark:bg-violet-500/20 rounded-r progress-bar-70"
                   aria-hidden="true"
-                  style={{ width: '70%' }}
                 ></div>
                 <div className="relative flex justify-between space-x-2">
                   <div>Indiehackers.com</div>
@@ -43,9 +41,8 @@ export default function AnalyticsCard05() {
               {/* Item */}
               <li className="relative px-2 py-1">
                 <div
-                  className="absolute inset-0 bg-violet-100 dark:bg-violet-500/20 rounded-r"
+                  className="absolute inset-0 bg-violet-100 dark:bg-violet-500/20 rounded-r progress-bar-60"
                   aria-hidden="true"
-                  style={{ width: '60%' }}
                 ></div>
                 <div className="relative flex justify-between space-x-2">
                   <div>DuckDuckGo</div>
@@ -55,9 +52,8 @@ export default function AnalyticsCard05() {
               {/* Item */}
               <li className="relative px-2 py-1">
                 <div
-                  className="absolute inset-0 bg-violet-100 dark:bg-violet-500/20 rounded-r"
+                  className="absolute inset-0 bg-violet-100 dark:bg-violet-500/20 rounded-r progress-bar-44"
                   aria-hidden="true"
-                  style={{ width: '44%' }}
                 ></div>
                 <div className="relative flex justify-between space-x-2">
                   <div>Hacker News</div>
@@ -67,9 +63,8 @@ export default function AnalyticsCard05() {
               {/* Item */}
               <li className="relative px-2 py-1">
                 <div
-                  className="absolute inset-0 bg-violet-100 dark:bg-violet-500/20 rounded-r"
+                  className="absolute inset-0 bg-violet-100 dark:bg-violet-500/20 rounded-r progress-bar-40"
                   aria-hidden="true"
-                  style={{ width: '40%' }}
                 ></div>
                 <div className="relative flex justify-between space-x-2">
                   <div>Github.com</div>
@@ -79,9 +74,8 @@ export default function AnalyticsCard05() {
               {/* Item */}
               <li className="relative px-2 py-1">
                 <div
-                  className="absolute inset-0 bg-violet-100 dark:bg-violet-500/20 rounded-r"
+                  className="absolute inset-0 bg-violet-100 dark:bg-violet-500/20 rounded-r progress-bar-30"
                   aria-hidden="true"
-                  style={{ width: '30%' }}
                 ></div>
                 <div className="relative flex justify-between space-x-2">
                   <div>Madewithvuejs.com</div>
@@ -91,9 +85,8 @@ export default function AnalyticsCard05() {
               {/* Item */}
               <li className="relative px-2 py-1">
                 <div
-                  className="absolute inset-0 bg-violet-100 dark:bg-violet-500/20 rounded-r"
+                  className="absolute inset-0 bg-violet-100 dark:bg-violet-500/20 rounded-r progress-bar-22"
                   aria-hidden="true"
-                  style={{ width: '22%' }}
                 ></div>
                 <div className="relative flex justify-between space-x-2">
                   <div>Producthunt.com</div>
@@ -103,9 +96,8 @@ export default function AnalyticsCard05() {
               {/* Item */}
               <li className="relative px-2 py-1">
                 <div
-                  className="absolute inset-0 bg-violet-100 dark:bg-violet-500/20 rounded-r"
+                  className="absolute inset-0 bg-violet-100 dark:bg-violet-500/20 rounded-r progress-bar-12"
                   aria-hidden="true"
-                  style={{ width: '12%' }}
                 ></div>
                 <div className="relative flex justify-between space-x-2">
                   <div>Dev.to</div>

@@ -1,4 +1,6 @@
 
+import { z } from 'zod';
+
 /**
  * Password Policy Configuration - Single Source of Truth
  * Centralized password requirements for healthcare practice management system

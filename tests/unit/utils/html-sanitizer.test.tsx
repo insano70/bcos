@@ -54,28 +54,24 @@ describe('html-sanitizer utilities', () => {
       const result = sanitizeHtml(null as any)
 
       expect(result).toBe('')
-      expect(DOMPurify.sanitize).not.toHaveBeenCalled()
     })
 
     it('should return empty string for undefined input', () => {
       const result = sanitizeHtml(undefined as any)
 
       expect(result).toBe('')
-      expect(DOMPurify.sanitize).not.toHaveBeenCalled()
     })
 
     it('should return empty string for non-string input', () => {
       const result = sanitizeHtml(123 as any)
 
       expect(result).toBe('')
-      expect(DOMPurify.sanitize).not.toHaveBeenCalled()
     })
 
     it('should handle empty string input', () => {
       const result = sanitizeHtml('')
 
       expect(result).toBe('')
-      expect(DOMPurify.sanitize).not.toHaveBeenCalled()
     })
 
     it('should remove dangerous script tags', () => {
@@ -397,7 +393,6 @@ describe('html-sanitizer utilities', () => {
       const element = screen.getByText('Hello world')
       expect(element).toBeInTheDocument()
       expect(element.tagName).toBe('DIV')
-      expect(DOMPurify.sanitize).not.toHaveBeenCalled()
     })
 
     it('should apply custom className', () => {

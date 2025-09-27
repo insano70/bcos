@@ -344,7 +344,7 @@ describe('JWT authentication logic', () => {
     it('should handle malformed Bearer token', () => {
       const mockRequest = {
         headers: {
-          get: vi.fn().mockReturnValue('Bearer')
+          get: vi.fn().mockReturnValue('Bearer ')
         }
       } as any
 

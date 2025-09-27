@@ -143,11 +143,12 @@ export default function PracticesTableItem({
             </svg>
           </button>
           {dropdownOpen && (
-            <div className="origin-top-right z-50 fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 py-1.5 rounded-lg shadow-lg overflow-hidden min-w-36"
-                 style={{
-                   top: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().bottom + 4 : 0,
-                   left: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().right - 144 : 0
-                 }}>
+            <div 
+              className="origin-top-right z-50 fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 py-1.5 rounded-lg shadow-lg overflow-hidden min-w-36"
+              style={{
+                top: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().bottom + 4 : 0,
+                left: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().right - 144 : 0
+              }}>
               <ul>
                 <li>
                   <button

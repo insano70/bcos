@@ -105,7 +105,7 @@ export async function createSession(
     throw new Error('Failed to create session')
   }
 
-  const session = sessions[0]!  // Safe: we just checked sessions.length > 0
+  const session = sessions[0]  // Safe: we just checked sessions.length > 0
 
   // Update device tracking
   await updateDeviceTracking(userId, deviceInfo)
@@ -242,7 +242,7 @@ export async function revokeSession(
     // Audit log
     await AuditLogger.logAuth({
       action: 'logout',
-      userId: updatedSessions[0]!.user_id,  // Safe: we just checked length > 0
+      userId: updatedSessions[0]?.user_id,  // Safe: we just checked length > 0
       metadata: {
         sessionId,
         reason

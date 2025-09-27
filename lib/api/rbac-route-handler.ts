@@ -133,24 +133,24 @@ export function rbacRoute(
       }
 
       const contextStart = Date.now()
-      const userContext = await getUserContextSafe(session!.user.id)
+      const userContext = await getUserContextSafe(session?.user?.id)
       apiLogger.timing( 'user_context_fetch', contextStart, {
-        userId: session!.user.id
+        userId: session?.user?.id
       })
       
       if (!userContext) {
         apiLogger.error('Failed to load user context for RBAC', {
-          userId: session!.user.id,
-          sessionEmail: session!.user.email
+          userId: session?.user?.id,
+          sessionEmail: session?.user?.email
         })
         
         apiLogger.logSecurity( 'rbac_context_failed', 'high', {
-          userId: session!.user.id,
+          userId: session?.user?.id,
           reason: 'context_load_failure'
         })
         
         apiLogger.logAuth('rbac_check', false, {
-          userId: session!.user.id,
+          userId: session?.user?.id,
           reason: 'context_load_failure'
         })
         return createErrorResponse('Failed to load user context', 500, request) as Response
