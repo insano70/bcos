@@ -331,7 +331,7 @@ export class SecurityStack extends cdk.Stack {
       encryptionKey: this.kmsKey,
       generateSecretString: {
         secretStringTemplate: JSON.stringify({ 
-          NODE_ENV: 'staging',
+          NODE_ENV: 'production',
           PORT: '3000'
         }),
         generateStringKey: 'JWT_SECRET',

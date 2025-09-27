@@ -253,12 +253,15 @@ const refreshHandler = async (request: NextRequest) => {
 
     // Set secure cookies for both tokens
     const cookieSetupStart = Date.now()
-    const isProduction = process.env.NODE_ENV === 'production'
+    // Use NODE_ENV to determine cookie security (staging should use NODE_ENV=production)
+    const isSecureEnvironment = process.env.NODE_ENV === 'production'
 
     logger.debug('Preparing refresh token cookies', {
       userId,
       sessionId: tokenPair.sessionId,
-      isProduction,
+      nodeEnv: process.env.NODE_ENV,
+      environment: process.env.ENVIRONMENT,
+      isSecureEnvironment,
       refreshTokenLength: tokenPair.refreshToken.length,
       accessTokenLength: tokenPair.accessToken.length
     })
@@ -266,7 +269,7 @@ const refreshHandler = async (request: NextRequest) => {
     // Set HTTP-only refresh token cookie (server-only)
     response.cookies.set('refresh-token', tokenPair.refreshToken, {
       httpOnly: true,
-      secure: isProduction,
+      secure: isSecureEnvironment,
       sameSite: 'strict',
       path: '/',
       maxAge: 30 * 24 * 60 * 60 // 30 days (will be shorter for standard mode)
@@ -275,7 +278,7 @@ const refreshHandler = async (request: NextRequest) => {
     // Set secure access token cookie (server-only, secure)
     response.cookies.set('access-token', tokenPair.accessToken, {
       httpOnly: true, // ✅ SECURE: JavaScript cannot access this token
-      secure: isProduction,
+      secure: isSecureEnvironment,
       sameSite: 'strict',
       path: '/',
       maxAge: 15 * 60 // 15 minutes

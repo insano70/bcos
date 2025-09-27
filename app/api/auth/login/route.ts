@@ -269,11 +269,14 @@ const loginHandler = async (request: NextRequest) => {
     // Set secure httpOnly cookies for both tokens
     const cookieStartTime = Date.now()
     const cookieStore = await cookies()
-    const isProduction = process.env.NODE_ENV === 'production'
+    // Use NODE_ENV to determine cookie security (staging should use NODE_ENV=production)
+    const isSecureEnvironment = process.env.NODE_ENV === 'production'
     const maxAge = remember ? 30 * 24 * 60 * 60 : 7 * 24 * 60 * 60 // 30 days or 7 days
 
     logger.debug('Preparing authentication cookies', {
-      isProduction,
+      nodeEnv: process.env.NODE_ENV,
+      environment: process.env.ENVIRONMENT,
+      isSecureEnvironment,
       maxAge,
       rememberMe: remember,
       refreshTokenLength: tokenPair.refreshToken.length,
@@ -283,7 +286,7 @@ const loginHandler = async (request: NextRequest) => {
     // Set HTTP-only refresh token cookie (server-only)
     const refreshResult = cookieStore.set('refresh-token', tokenPair.refreshToken, {
       httpOnly: true,
-      secure: isProduction,
+      secure: isSecureEnvironment,
       sameSite: 'strict',
       path: '/',
       maxAge
@@ -292,7 +295,7 @@ const loginHandler = async (request: NextRequest) => {
     // Set secure access token cookie (server-only, much more secure)
     const accessResult = cookieStore.set('access-token', tokenPair.accessToken, {
       httpOnly: true, // ✅ SECURE: JavaScript cannot access this token
-      secure: isProduction,
+      secure: isSecureEnvironment,
       sameSite: 'strict',
       path: '/',
       maxAge: 15 * 60 // 15 minutes

@@ -50,10 +50,11 @@ export interface MonitoringProps {
 export declare class Monitoring extends Construct {
     readonly alertTopic: sns.Topic;
     readonly dashboard: cloudwatch.Dashboard;
+    private readonly alarms;
     constructor(scope: Construct, id: string, props: MonitoringProps);
     private createECSAlarms;
     private createALBAlarms;
     private createApplicationLogAlarms;
     private addDashboardWidgets;
-    private createCompositeAlarms;
+    private createCompositeAlarmsFixed;
 }
