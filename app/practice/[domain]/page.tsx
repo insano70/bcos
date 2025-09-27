@@ -37,35 +37,35 @@ async function getPracticeByDomain(domain: string) {
       domain: practice.practices.domain,
       status: practice.practices.status
     });
+
+    // Get practice attributes
+    const [attributes] = await db
+      .select()
+      .from(practice_attributes)
+      .where(eq(practice_attributes.practice_id, practice.practices.practice_id))
+      .limit(1);
+
+    // Get staff members
+    const staff = await db
+      .select()
+      .from(staff_members)
+      .where(and(
+        eq(staff_members.practice_id, practice.practices.practice_id),
+        eq(staff_members.is_active, true),
+        isNull(staff_members.deleted_at)
+      ))
+      .orderBy(staff_members.display_order);
+
+    return {
+      practice: transformPractice(practice.practices),
+      template: practice.templates,
+      attributes: attributes ? transformPracticeAttributes(attributes) : {} as PracticeAttributes,
+      staff: staff.map(transformStaffMember),
+    };
   } catch (error) {
     console.error('❌ Error in getPracticeByDomain:', error);
     throw error;
   }
-
-  // Get practice attributes
-  const [attributes] = await db
-    .select()
-    .from(practice_attributes)
-    .where(eq(practice_attributes.practice_id, practice.practices.practice_id))
-    .limit(1);
-
-  // Get staff members
-  const staff = await db
-    .select()
-    .from(staff_members)
-    .where(and(
-      eq(staff_members.practice_id, practice.practices.practice_id),
-      eq(staff_members.is_active, true),
-      isNull(staff_members.deleted_at)
-    ))
-    .orderBy(staff_members.display_order);
-
-  return {
-    practice: transformPractice(practice.practices),
-    template: practice.templates,
-    attributes: attributes ? transformPracticeAttributes(attributes) : {} as PracticeAttributes,
-    staff: staff.map(transformStaffMember),
-  };
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ domain: string }> }) {

@@ -359,7 +359,7 @@ export async function middleware(request: NextRequest) {
   const domain = hostname.startsWith('www.') ? hostname.slice(4) : hostname
   
   // Debug logging for custom domain routing
-  if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'staging') {
+  if (process.env.NODE_ENV === 'development' || process.env.ENVIRONMENT === 'staging') {
     console.log('🌐 Custom domain detected:', {
       originalHostname: rawHostname,
       processedHostname: hostname,
