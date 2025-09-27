@@ -92,7 +92,7 @@ export class RBACChartsService extends BaseRBACService {
     const conditions = [];
 
     if (options.category_id) {
-      const categoryId = parseInt(options.category_id);
+      const categoryId = parseInt(options.category_id, 10);
       if (!isNaN(categoryId) && categoryId > 0) {
         conditions.push(eq(chart_definitions.chart_category_id, categoryId));
       }
@@ -156,7 +156,7 @@ export class RBACChartsService extends BaseRBACService {
     const conditions = [];
 
     if (options.category_id) {
-      const categoryId = parseInt(options.category_id);
+      const categoryId = parseInt(options.category_id, 10);
       if (!isNaN(categoryId) && categoryId > 0) {
         conditions.push(eq(chart_definitions.chart_category_id, categoryId));
       }
@@ -199,20 +199,26 @@ export class RBACChartsService extends BaseRBACService {
       return null;
     }
 
-    const chart = charts[0]!; // Safe: we just checked charts.length > 0
+    const chart = charts[0];
+    if (!chart || !chart.chart_definitions) {
+      // Extra safety: should not happen after length check and join
+      rbacChartsLogger.warn('Chart result had length > 0 but first item or chart_definitions was null', { chartId });
+      return null;
+    }
 
+    const chartDef = chart.chart_definitions;
     return {
-      chart_definition_id: chart.chart_definitions!.chart_definition_id,
-      chart_name: chart.chart_definitions!.chart_name,
-      chart_description: chart.chart_definitions!.chart_description || undefined,
-      chart_type: chart.chart_definitions!.chart_type,
-      data_source: chart.chart_definitions!.data_source as string | Record<string, unknown>,
-      chart_config: chart.chart_definitions!.chart_config as Record<string, unknown>,
-      chart_category_id: chart.chart_definitions!.chart_category_id || undefined,
-      created_by: chart.chart_definitions!.created_by,
-      created_at: chart.chart_definitions!.created_at?.toISOString() || new Date().toISOString(),
-      updated_at: chart.chart_definitions!.updated_at?.toISOString() || new Date().toISOString(),
-      is_active: chart.chart_definitions!.is_active ?? true,
+      chart_definition_id: chartDef.chart_definition_id,
+      chart_name: chartDef.chart_name,
+      chart_description: chartDef.chart_description || undefined,
+      chart_type: chartDef.chart_type,
+      data_source: chartDef.data_source as string | Record<string, unknown>,
+      chart_config: chartDef.chart_config as Record<string, unknown>,
+      chart_category_id: chartDef.chart_category_id || undefined,
+      created_by: chartDef.created_by,
+      created_at: chartDef.created_at?.toISOString() || new Date().toISOString(),
+      updated_at: chartDef.updated_at?.toISOString() || new Date().toISOString(),
+      is_active: chartDef.is_active ?? true,
       category: chart.chart_categories ? {
         chart_category_id: chart.chart_categories.chart_category_id,
         category_name: chart.chart_categories.category_name,
@@ -284,19 +290,26 @@ export class RBACChartsService extends BaseRBACService {
       throw new Error('Failed to retrieve created chart');
     }
 
-    const createdChart = createdCharts[0]!; // Safe: we just checked createdCharts.length > 0
+    const createdChart = createdCharts[0];
+    if (!createdChart || !createdChart.chart_definitions) {
+      // Extra safety: should not happen after length check
+      rbacChartsLogger.error('Created chart result had length > 0 but first item or chart_definitions was null');
+      throw new Error('Failed to retrieve created chart data');
+    }
+
+    const createdChartDef = createdChart.chart_definitions;
     return {
-      chart_definition_id: createdChart.chart_definitions!.chart_definition_id,
-      chart_name: createdChart.chart_definitions!.chart_name,
-      chart_description: createdChart.chart_definitions!.chart_description || undefined,
-      chart_type: createdChart.chart_definitions!.chart_type,
-      data_source: createdChart.chart_definitions!.data_source as string | Record<string, unknown>,
-      chart_config: createdChart.chart_definitions!.chart_config as Record<string, unknown>,
-      chart_category_id: createdChart.chart_definitions!.chart_category_id || undefined,
-      created_by: createdChart.chart_definitions!.created_by,
-      created_at: createdChart.chart_definitions!.created_at?.toISOString() || new Date().toISOString(),
-      updated_at: createdChart.chart_definitions!.updated_at?.toISOString() || new Date().toISOString(),
-      is_active: createdChart.chart_definitions!.is_active ?? true,
+      chart_definition_id: createdChartDef.chart_definition_id,
+      chart_name: createdChartDef.chart_name,
+      chart_description: createdChartDef.chart_description || undefined,
+      chart_type: createdChartDef.chart_type,
+      data_source: createdChartDef.data_source as string | Record<string, unknown>,
+      chart_config: createdChartDef.chart_config as Record<string, unknown>,
+      chart_category_id: createdChartDef.chart_category_id || undefined,
+      created_by: createdChartDef.created_by,
+      created_at: createdChartDef.created_at?.toISOString() || new Date().toISOString(),
+      updated_at: createdChartDef.updated_at?.toISOString() || new Date().toISOString(),
+      is_active: createdChartDef.is_active ?? true,
       category: createdChart.chart_categories ? {
         chart_category_id: createdChart.chart_categories.chart_category_id,
         category_name: createdChart.chart_categories.category_name,
@@ -369,19 +382,26 @@ export class RBACChartsService extends BaseRBACService {
       throw new Error('Failed to retrieve updated chart');
     }
 
-    const updatedChartData = updatedCharts[0]!; // Safe: we just checked updatedCharts.length > 0
+    const updatedChartData = updatedCharts[0];
+    if (!updatedChartData || !updatedChartData.chart_definitions) {
+      // Extra safety: should not happen after length check
+      rbacChartsLogger.error('Updated chart result had length > 0 but first item or chart_definitions was null');
+      throw new Error('Failed to retrieve updated chart data');
+    }
+
+    const updatedChartDef = updatedChartData.chart_definitions;
     return {
-      chart_definition_id: updatedChartData.chart_definitions!.chart_definition_id,
-      chart_name: updatedChartData.chart_definitions!.chart_name,
-      chart_description: updatedChartData.chart_definitions!.chart_description || undefined,
-      chart_type: updatedChartData.chart_definitions!.chart_type,
-      data_source: updatedChartData.chart_definitions!.data_source as string | Record<string, unknown>,
-      chart_config: updatedChartData.chart_definitions!.chart_config as Record<string, unknown>,
-      chart_category_id: updatedChartData.chart_definitions!.chart_category_id || undefined,
-      created_by: updatedChartData.chart_definitions!.created_by,
-      created_at: updatedChartData.chart_definitions!.created_at?.toISOString() || new Date().toISOString(),
-      updated_at: updatedChartData.chart_definitions!.updated_at?.toISOString() || new Date().toISOString(),
-      is_active: updatedChartData.chart_definitions!.is_active ?? true,
+      chart_definition_id: updatedChartDef.chart_definition_id,
+      chart_name: updatedChartDef.chart_name,
+      chart_description: updatedChartDef.chart_description || undefined,
+      chart_type: updatedChartDef.chart_type,
+      data_source: updatedChartDef.data_source as string | Record<string, unknown>,
+      chart_config: updatedChartDef.chart_config as Record<string, unknown>,
+      chart_category_id: updatedChartDef.chart_category_id || undefined,
+      created_by: updatedChartDef.created_by,
+      created_at: updatedChartDef.created_at?.toISOString() || new Date().toISOString(),
+      updated_at: updatedChartDef.updated_at?.toISOString() || new Date().toISOString(),
+      is_active: updatedChartDef.is_active ?? true,
       category: updatedChartData.chart_categories ? {
         chart_category_id: updatedChartData.chart_categories.chart_category_id,
         category_name: updatedChartData.chart_categories.category_name,

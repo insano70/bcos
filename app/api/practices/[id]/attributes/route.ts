@@ -44,7 +44,7 @@ const getPracticeAttributesHandler = async (request: NextRequest, userContext: U
       throw new Error('Access denied: You do not have permission to view attributes for this practice')
     }
 
-    // Get practice attributes
+    // Get practice attributes (should exist from practice creation)
     const [attributes] = await db
       .select()
       .from(practice_attributes)
@@ -121,7 +121,7 @@ const updatePracticeAttributesHandler = async (request: NextRequest, userContext
       updated_at: new Date(),
     }
 
-    // Update practice attributes
+    // Update practice attributes (record should exist from practice creation)
     const [updatedAttributes] = await db
       .update(practice_attributes)
       .set(updateData)
@@ -164,7 +164,7 @@ const updatePracticeAttributesHandler = async (request: NextRequest, userContext
 export const GET = rbacRoute(
   getPracticeAttributesHandler,
   {
-    permission: ['practices:read:own', 'practices:read:all'],
+    permission: ['practices:read:own', 'practices:read:all', 'practices:create:all'],
     extractResourceId: extractors.practiceId,
     extractOrganizationId: extractors.organizationId,
     rateLimit: 'api'
@@ -174,7 +174,7 @@ export const GET = rbacRoute(
 export const PUT = rbacRoute(
   updatePracticeAttributesHandler,
   {
-    permission: ['practices:update:own', 'practices:manage:all'],
+    permission: ['practices:update:own', 'practices:manage:all', 'practices:create:all'],
     extractResourceId: extractors.practiceId,
     extractOrganizationId: extractors.organizationId,
     rateLimit: 'api'

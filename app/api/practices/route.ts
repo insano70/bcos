@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { db, practices, templates, users } from '@/lib/db';
+import { db, practices, practice_attributes, templates, users } from '@/lib/db';
 import { eq, isNull, and, asc, desc, sql } from 'drizzle-orm';
 import { createSuccessResponse, createPaginatedResponse } from '@/lib/api/responses/success';
 import { createErrorResponse, ConflictError, ValidationError } from '@/lib/api/responses/error';
@@ -150,6 +150,32 @@ const createPracticeHandler = async (request: NextRequest, userContext: UserCont
     if (!newPractice) {
       throw new Error('Failed to create practice');
     }
+
+    // Create default practice attributes record
+    await db
+      .insert(practice_attributes)
+      .values({
+        practice_id: newPractice.practice_id,
+        // Default business hours
+        business_hours: JSON.stringify({
+          sunday: { closed: true },
+          monday: { open: '09:00', close: '17:00', closed: false },
+          tuesday: { open: '09:00', close: '17:00', closed: false },
+          wednesday: { open: '09:00', close: '17:00', closed: false },
+          thursday: { open: '09:00', close: '17:00', closed: false },
+          friday: { open: '09:00', close: '17:00', closed: false },
+          saturday: { closed: true }
+        }),
+        // Default empty arrays for JSON fields
+        services: JSON.stringify([]),
+        insurance_accepted: JSON.stringify([]),
+        conditions_treated: JSON.stringify([]),
+        gallery_images: JSON.stringify([]),
+        // Default brand colors
+        primary_color: '#00AEEF',
+        secondary_color: '#FFFFFF',
+        accent_color: '#44C0AE',
+      });
 
     return createSuccessResponse({
       id: newPractice.practice_id,

@@ -3,6 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useState } from 'react';
+import { useAuth } from '@/components/auth/rbac-auth-provider';
 import ImageUpload from '@/components/image-upload';
 import ColorPicker from '@/components/color-picker';
 import StaffListEmbedded from '@/components/staff-list-embedded';
@@ -65,21 +66,65 @@ async function fetchPracticeAttributes(practiceId: string) {
   return response.json();
 }
 
-async function updatePracticeAttributes(practiceId: string, data: Omit<PracticeFormData, 'template_id' | 'name'>) {
-  const response = await fetch(`/api/practices/${practiceId}/attributes`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-    body: JSON.stringify(data),
-  });
+async function updatePracticeAttributes(practiceId: string, data: Omit<PracticeFormData, 'template_id' | 'name'>, csrfToken?: string) {
+  console.log('🔄 updatePracticeAttributes called with practiceId:', practiceId);
+  console.log('🔄 Raw data:', JSON.stringify(data, null, 2));
   
-  if (!response.ok) {
-    throw new Error('Failed to update practice attributes');
+  // Clean the data - convert empty strings to undefined for optional fields
+  const cleanedData = Object.fromEntries(
+    Object.entries(data).map(([key, value]) => [
+      key,
+      value === '' ? undefined : value
+    ])
+  );
+  
+  // Remove undefined values to avoid sending them
+  const filteredData = Object.fromEntries(
+    Object.entries(cleanedData).filter(([_, value]) => value !== undefined)
+  );
+  
+  console.log('🔄 Cleaned data being sent:', JSON.stringify(filteredData, null, 2));
+  
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  
+  // Add CSRF token if available
+  if (csrfToken) {
+    headers['x-csrf-token'] = csrfToken;
   }
   
-  return response.json();
+  const response = await fetch(`/api/practices/${practiceId}/attributes`, {
+    method: 'PUT',
+    headers,
+    credentials: 'include',
+    body: JSON.stringify(filteredData),
+  });
+  
+  console.log('📡 Response status:', response.status, response.statusText);
+  
+  if (!response.ok) {
+    // Get detailed error information
+    let errorDetails = 'Unknown error';
+    try {
+      const errorData = await response.json();
+      errorDetails = errorData.message || errorData.error || JSON.stringify(errorData);
+      console.error('❌ API Error Details:', errorDetails);
+    } catch (_e) {
+      try {
+        errorDetails = await response.text();
+        console.error('❌ API Error Text:', errorDetails);
+      } catch (_e2) {
+        console.error('❌ API Error - Could not parse response');
+      }
+    }
+    
+    throw new Error(`Failed to update practice attributes: ${errorDetails}`);
+  }
+  
+  const result = await response.json();
+  console.log('✅ Update successful:', result);
+  return result;
 }
 
 interface PracticeConfigFormProps {
@@ -97,6 +142,7 @@ export default function PracticeConfigForm({
   const practiceId = practice.practice_id;
   const queryClient = useQueryClient();
   const uid = useId();
+  const { ensureCsrfToken } = useAuth();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
@@ -181,13 +227,24 @@ export default function PracticeConfigForm({
     }
     
     try {
-      // Update practice info (name, template) if changed
+      // Get CSRF token once for all API calls
+      const csrfToken = await ensureCsrfToken();
       
+      // Update practice info (name, template) if changed
       if (Object.keys(practiceChanges).length > 0) {
-        console.log('📝 Updating practice info:', practiceChanges);
+        
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        
+        // Add CSRF token if available
+        if (csrfToken) {
+          headers['x-csrf-token'] = csrfToken;
+        }
+        
         const response = await fetch(`/api/practices/${practiceId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           credentials: 'include',
           body: JSON.stringify(practiceChanges),
         });
@@ -204,13 +261,10 @@ export default function PracticeConfigForm({
       const { name: _name, template_id: _template_id, ...attributesData } = data;
       
       // Make the API call (no optimistic update to avoid cache corruption)
-      console.log('📡 Making API call...');
-      const result = await updatePracticeAttributes(practiceId, attributesData);
-      console.log('✅ API call successful:', result);
+      const result = await updatePracticeAttributes(practiceId, attributesData, csrfToken || undefined);
       
       // Extract actual data from API response
       const actualData = result.data || result;
-      console.log('📦 Extracted actual data:', actualData);
       
       // Update cache with the actual data structure
       queryClient.setQueryData(['practice-attributes', practiceId], actualData);

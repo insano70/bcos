@@ -310,13 +310,20 @@ export async function getCachedUserContextSafe(userId: string): Promise<UserCont
   // Check request-scoped cache first
   const cacheKey = `cached_user_context:${userId}`;
   if (requestCache.has(cacheKey)) {
-    if (isDev) {
-      rbacCacheLogger.debug('Request-scoped user context cache hit', {
-        userId,
-        operation: 'getCachedUserContext'
-      });
+    const cachedContext = await requestCache.get(cacheKey);
+    if (cachedContext) {
+      if (isDev) {
+        rbacCacheLogger.debug('Request-scoped user context cache hit', {
+          userId,
+          operation: 'getCachedUserContext'
+        });
+      }
+      return cachedContext;
     }
-    return await requestCache.get(cacheKey)!;
+    // Cache had key but returned null/undefined - continue with fresh load
+    if (isDev) {
+      rbacCacheLogger.warn('Request cache had key but returned null value', { userId, cacheKey });
+    }
   }
   
   // Create promise and cache it immediately to prevent race conditions

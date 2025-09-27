@@ -133,6 +133,12 @@ function sanitizeString(value: string, path: string, errors: string[]): string {
     return value
   }
 
+  // Skip SQL injection checks for hex color values
+  const isHexColor = /^#[0-9A-Fa-f]{6}$/.test(value);
+  if (isHexColor) {
+    return value; // Hex colors are safe, skip all injection checks
+  }
+
   // Check for SQL injection
   for (const pattern of SQL_INJECTION_PATTERNS) {
     if (pattern.test(value)) {

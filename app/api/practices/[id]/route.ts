@@ -177,7 +177,7 @@ const deletePracticeHandler = async (request: NextRequest, userContext: UserCont
 export const GET = rbacRoute(
   getPracticeHandler,
   {
-    permission: ['practices:read:own', 'practices:read:all'],
+    permission: ['practices:read:own', 'practices:read:all', 'practices:create:all'],
     extractResourceId: extractors.practiceId,
     extractOrganizationId: extractors.organizationId,
     rateLimit: 'api'
@@ -187,7 +187,7 @@ export const GET = rbacRoute(
 export const PUT = rbacRoute(
   updatePracticeHandler,
   {
-    permission: ['practices:update:own', 'practices:manage:all'],
+    permission: ['practices:update:own', 'practices:manage:all', 'practices:create:all'],
     extractResourceId: extractors.practiceId,
     extractOrganizationId: extractors.organizationId,
     rateLimit: 'api'

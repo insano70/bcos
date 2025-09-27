@@ -247,7 +247,7 @@ export class UsageAnalyticsService {
     });
 
     const peakHours = Object.entries(hourlyAccess)
-      .map(([hour, count]) => ({ hour: parseInt(hour), accessCount: count }))
+      .map(([hour, count]) => ({ hour: parseInt(hour, 10), accessCount: count }))
       .sort((a, b) => b.accessCount - a.accessCount)
       .slice(0, 5);
 

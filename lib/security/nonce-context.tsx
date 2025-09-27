@@ -105,11 +105,15 @@ export function useNonceAttributes(): {
 /**
  * Server-side utility to safely access nonces
  * Returns null if context is not available (for SSR safety)
+ * Follows React hooks rules by calling useContext unconditionally
  */
 export function useNonceSafe(): NonceContextValue | null {
-  try {
-    return useNonce()
-  } catch {
+  const context = useContext(NonceContext)
+  
+  // Return null if context is not available (e.g., during SSR or outside provider)
+  if (!context) {
     return null
   }
+  
+  return context
 }

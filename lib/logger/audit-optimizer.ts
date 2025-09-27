@@ -77,11 +77,24 @@ function getAuditLogger(): ReturnType<typeof createAppLogger> {
         info: (message: string, data?: Record<string, unknown>) => console.log(`[AUDIT] ${message}`, data),
         warn: (message: string, data?: Record<string, unknown>) => console.warn(`[AUDIT] ${message}`, data),
         error: (message: string, error?: Error, data?: Record<string, unknown>) => console.error(`[AUDIT] ${message}`, error, data),
-        debug: (message: string, data?: Record<string, unknown>) => console.debug(`[AUDIT] ${message}`, data)
-      } as any
+        debug: (message: string, data?: Record<string, unknown>) => console.debug(`[AUDIT] ${message}`, data),
+        // Context management methods
+        child: (context: Record<string, unknown>, module?: string) => auditLogger as ReturnType<typeof createAppLogger>,
+        withRequest: (request: Request | { headers: Headers; url: string; method: string }) => auditLogger as ReturnType<typeof createAppLogger>,
+        withUser: (userId: string, organizationId?: string) => auditLogger as ReturnType<typeof createAppLogger>,
+        // Specialized logging methods (fallback implementations)
+        timing: (message: string, startTime: number, data?: Record<string, unknown>) => console.log(`[AUDIT:TIMING] ${message} (${Date.now() - startTime}ms)`, data),
+        http: (message: string, statusCode: number, duration?: number, data?: Record<string, unknown>) => console.log(`[AUDIT:HTTP] ${message} ${statusCode}${duration ? ` (${duration}ms)` : ''}`, data),
+        db: (operation: string, table: string, duration?: number, data?: Record<string, unknown>) => console.log(`[AUDIT:DB] ${operation} on ${table}${duration ? ` (${duration}ms)` : ''}`, data),
+        auth: (action: string, success: boolean, data?: Record<string, unknown>) => console.log(`[AUDIT:AUTH] ${action} ${success ? 'SUCCESS' : 'FAILED'}`, data),
+        security: (event: string, severity: 'low' | 'medium' | 'high' | 'critical', data?: Record<string, unknown>) => console.warn(`[AUDIT:SECURITY:${severity.toUpperCase()}] ${event}`, data)
+      }
     }
   }
-  return auditLogger!
+  if (!auditLogger) {
+    throw new Error('Audit logger initialization failed')
+  }
+  return auditLogger
 }
 
 interface BufferedAuditEntry {

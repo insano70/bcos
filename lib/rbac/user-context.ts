@@ -166,8 +166,14 @@ export async function getUserContext(userId: string): Promise<UserContext> {
       rolePermissionSets.set(row.role_id, new Set<string>());
     }
 
-    const role = rolesMap.get(row.role_id)!;
-    const permissionSet = rolePermissionSets.get(row.role_id)!;
+    const role = rolesMap.get(row.role_id);
+    const permissionSet = rolePermissionSets.get(row.role_id);
+    
+    if (!role || !permissionSet) {
+      // This should not happen given our logic above, but we handle it safely
+      console.warn(`RBAC: Missing role or permission set for role_id: ${row.role_id}`);
+      return; // Early return from forEach iteration
+    }
     
     // Add permission to role (O(1) duplicate checking with Set)
     if (!permissionSet.has(row.permission_id)) {
@@ -197,7 +203,7 @@ export async function getUserContext(userId: string): Promise<UserContext> {
         expires_at: row.expires_at || undefined,
         is_active: row.user_role_is_active ?? true,
         created_at: row.user_role_created_at ?? new Date(),
-        role: role
+        role: role as Role // Safe: early return ensures role is defined
       });
     }
   });
@@ -352,13 +358,20 @@ export async function getUserContextSafe(userId: string): Promise<UserContext | 
   // Check request-scoped cache first
   const cacheKey = `user_context:${userId}`;
   if (requestCache.has(cacheKey)) {
-    if (isDev) {
-      rbacContextLogger.debug('User context cache hit', {
-        userId,
-        operation: 'getUserContext'
-      });
+    const cachedContext = await requestCache.get(cacheKey);
+    if (cachedContext) {
+      if (isDev) {
+        rbacContextLogger.debug('User context cache hit', {
+          userId,
+          operation: 'getUserContext'
+        });
+      }
+      return cachedContext;
     }
-    return await requestCache.get(cacheKey)!;
+    // Cache had key but returned null/undefined - continue with fresh load
+    if (isDev) {
+      rbacContextLogger.warn('Cache had key but returned null value', { userId, cacheKey });
+    }
   }
   
   if (isDev) {

@@ -45,7 +45,7 @@ export class RequestMetricsCollector {
       path: url.pathname,
       startTime: Date.now(),
       requestSize: this.getRequestSize(request),
-      ...(request.headers.get('user-agent') && { userAgent: request.headers.get('user-agent')! }),
+      ...(request.headers.get('user-agent') && { userAgent: request.headers.get('user-agent') || 'Unknown' }),
       ipAddress: request.headers.get('x-forwarded-for') || 
                  request.headers.get('x-real-ip') || 
                  'unknown',

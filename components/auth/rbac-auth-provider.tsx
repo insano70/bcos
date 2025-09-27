@@ -40,6 +40,7 @@ export interface RBACAuthContextType extends RBACAuthState {
   logout: () => Promise<void>;
   refreshToken: () => Promise<void>;
   refreshUserContext: () => Promise<void>;
+  ensureCsrfToken: () => Promise<string | null>;
 }
 
 const RBACAuthContext = createContext<RBACAuthContextType | undefined>(undefined);
@@ -662,7 +663,8 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     login,
     logout,
     refreshToken,
-    refreshUserContext
+    refreshUserContext,
+    ensureCsrfToken
   };
 
   return (

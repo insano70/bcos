@@ -24,6 +24,24 @@ interface RetentionPolicy {
   complianceFramework?: 'HIPAA' | 'SOX' | 'GDPR';
 }
 
+interface CompliancePolicy {
+  id: string;
+  name: string;
+  framework: 'HIPAA' | 'SOX' | 'GDPR' | 'PCI-DSS';
+  compliant: boolean;
+  component?: string;
+  description?: string;
+  lastChecked?: Date;
+}
+
+interface ComplianceAssessment {
+  component: string;
+  compliant: boolean;
+  framework?: 'HIPAA' | 'SOX' | 'GDPR';
+  nextAction: string;
+  dueDate: Date;
+}
+
 interface LogAggregation {
   timeWindow: '1m' | '5m' | '15m' | '1h' | '1d';
   metrics: {
@@ -423,7 +441,7 @@ class LogVolumeManager {
   /**
    * Generate compliance recommendations
    */
-  private generateComplianceRecommendations(policies: any[]): string[] {
+  private generateComplianceRecommendations(policies: ComplianceAssessment[]): string[] {
     const recommendations = [];
     
     const nonCompliant = policies.filter(p => !p.compliant);

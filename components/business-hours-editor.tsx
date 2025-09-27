@@ -143,7 +143,7 @@ export default function BusinessHoursEditor({
             };
             onChange(weekdayHours);
           }}
-          className="px-3 py-1.5 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+          className="px-3 py-1.5 text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
         >
           Standard Hours (M-F 9am-5pm)
         </button>
@@ -157,7 +157,7 @@ export default function BusinessHoursEditor({
             }), {} as BusinessHours);
             onChange(allClosed);
           }}
-          className="px-3 py-1.5 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+          className="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
         >
           All Closed
         </button>

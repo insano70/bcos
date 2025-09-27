@@ -80,7 +80,7 @@ export class APILogger {
       ipAddress: this.extractIPAddress(request),
       contentType: request.headers.get('content-type') || undefined,
       contentLength: request.headers.get('content-length') ? 
-        parseInt(request.headers.get('content-length')!, 10) : undefined,
+        parseInt(request.headers.get('content-length') || '0', 10) : undefined,
       timestamp: this.startTime
     }
   }
@@ -426,7 +426,7 @@ export function withAPILogging<T>(
         response.status,
         {
           ...(response.headers.get('content-length') && { 
-            size: parseInt(response.headers.get('content-length')!, 10) 
+            size: parseInt(response.headers.get('content-length') || '0', 10) 
           }),
           cacheHit: response.headers.get('x-cache-status') === 'HIT'
         }

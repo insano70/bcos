@@ -78,7 +78,7 @@ export default function ImageUpload({
       <div className="flex items-center space-x-4">
         {/* Current image preview */}
         {currentImage && (
-          <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100">
+          <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
             <img
               src={currentImage}
               alt="Current image"
@@ -102,7 +102,7 @@ export default function ImageUpload({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isUploading ? (
               <>
@@ -123,10 +123,10 @@ export default function ImageUpload({
           </button>
           
           {error && (
-            <p className="text-red-600 text-xs mt-1">{error}</p>
+            <p className="text-red-600 dark:text-red-400 text-xs mt-1">{error}</p>
           )}
           
-          <p className="text-gray-500 text-xs mt-1">
+          <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">
             JPG, PNG, or WebP. Max 5MB.
           </p>
         </div>

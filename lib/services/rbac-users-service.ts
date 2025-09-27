@@ -287,12 +287,29 @@ export class RBACUsersService extends BaseRBACService {
     }
 
     // Build user object with organizations
-    const firstResult = results[0]!;
+    const firstResult = results[0];
+    if (!firstResult) {
+      // Extra safety: should not happen after length check
+      rbacUsersLogger.warn('User result had length > 0 but first item was null', { userId });
+      return null;
+    }
+
+    if (!firstResult.user_id || !firstResult.email || !firstResult.first_name || !firstResult.last_name) {
+      rbacUsersLogger.error('User result missing required fields', { 
+        userId,
+        hasUserId: !!firstResult.user_id,
+        hasEmail: !!firstResult.email,
+        hasFirstName: !!firstResult.first_name,
+        hasLastName: !!firstResult.last_name
+      });
+      return null;
+    }
+
     const userObj: UserWithOrganizations = {
-      user_id: firstResult.user_id!,
-      email: firstResult.email!,
-      first_name: firstResult.first_name!,
-      last_name: firstResult.last_name!,
+      user_id: firstResult.user_id,
+      email: firstResult.email,
+      first_name: firstResult.first_name,
+      last_name: firstResult.last_name,
       email_verified: firstResult.email_verified ?? false,
       is_active: firstResult.is_active ?? true,
       created_at: firstResult.created_at ?? new Date(),

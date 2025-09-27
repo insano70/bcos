@@ -29,6 +29,20 @@ export interface SimpleLogger {
 }
 
 /**
+ * Log entry structure for sanitization purposes
+ */
+interface LogEntry {
+  level: string
+  message: string
+  metadata?: Record<string, unknown>
+  timestamp: string
+  module?: string
+  requestId?: string
+  userId?: string
+  organizationId?: string
+}
+
+/**
  * Streamlined Logger Implementation
  * Preserves all valuable EdgeAdapter features without abstraction complexity
  */
@@ -88,7 +102,7 @@ export class AppLogger implements SimpleLogger {
   withRequest(request: Request | { headers: Headers; url: string; method: string }): SimpleLogger {
     const requestContext = {
       requestUrl: request.url,
-      requestMethod: (request as any).method || 'GET'
+      requestMethod: 'method' in request ? request.method : 'GET'
     }
     return this.child(requestContext)
   }
@@ -204,32 +218,36 @@ export class AppLogger implements SimpleLogger {
   /**
    * PII Sanitization (preserve healthcare compliance features)
    */
-  private sanitizeLogEntry(entry: any): any {
+  private sanitizeLogEntry(entry: LogEntry): LogEntry {
     const sanitized = { ...entry }
     
     // Sanitize sensitive data patterns
     if (sanitized.metadata) {
-      sanitized.metadata = this.sanitizeData(sanitized.metadata)
+      sanitized.metadata = this.sanitizeData(sanitized.metadata) as Record<string, unknown>
     }
     
     return sanitized
   }
 
-  private sanitizeData(obj: any): any {
+  private sanitizeData(obj: unknown): unknown {
     if (typeof obj !== 'object' || obj === null) return obj
     
-    const sanitized = Array.isArray(obj) ? [] : {}
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.sanitizeData(item))
+    }
     
-    for (const [key, value] of Object.entries(obj)) {
+    const sanitized: Record<string, unknown> = {}
+    
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
       // Healthcare-specific PII sanitization
       if (this.isSensitiveKey(key)) {
-        (sanitized as any)[key] = '[REDACTED]'
+        sanitized[key] = '[REDACTED]'
       } else if (typeof value === 'object' && value !== null) {
-        (sanitized as any)[key] = this.sanitizeData(value)
+        sanitized[key] = this.sanitizeData(value)
       } else if (typeof value === 'string') {
-        (sanitized as any)[key] = this.sanitizeStringValue(key, value)
+        sanitized[key] = this.sanitizeStringValue(key, value)
       } else {
-        (sanitized as any)[key] = value
+        sanitized[key] = value
       }
     }
     

@@ -8,7 +8,7 @@
 const isClientContext = typeof window !== 'undefined' || 
                        typeof document !== 'undefined' ||
                        (typeof globalThis !== 'undefined' && 
-                        (globalThis as any).window !== undefined);
+                        'window' in globalThis && globalThis.window !== undefined);
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 

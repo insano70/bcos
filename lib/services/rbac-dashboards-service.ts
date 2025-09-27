@@ -99,8 +99,8 @@ export class RBACDashboardsService extends BaseRBACService {
     }
 
     if (options.category_id) {
-      const categoryId = parseInt(options.category_id);
-      if (!isNaN(categoryId) && categoryId > 0) {
+      const categoryId = parseInt(options.category_id, 10);
+      if (!Number.isNaN(categoryId) && categoryId > 0) {
         conditions.push(eq(dashboards.dashboard_category_id, categoryId));
       }
     }
@@ -220,7 +220,12 @@ export class RBACDashboardsService extends BaseRBACService {
       return null;
     }
 
-    const dashboard = dashboardResult[0]!; // Safe after length check
+    const dashboard = dashboardResult[0];
+    if (!dashboard) {
+      // Extra safety: should not happen after length check, but handle gracefully
+      rbacDashboardsLogger.warn('Dashboard result had length > 0 but first item was null', { dashboardId });
+      return null;
+    }
 
     // Get chart count
     const [chartCount] = await db
@@ -294,8 +299,8 @@ export class RBACDashboardsService extends BaseRBACService {
     }
 
     if (options.category_id) {
-      const categoryId = parseInt(options.category_id);
-      if (!isNaN(categoryId) && categoryId > 0) {
+      const categoryId = parseInt(options.category_id, 10);
+      if (!Number.isNaN(categoryId) && categoryId > 0) {
         conditions.push(eq(dashboards.dashboard_category_id, categoryId));
       }
     }
@@ -382,7 +387,12 @@ export class RBACDashboardsService extends BaseRBACService {
       throw new Error('Failed to retrieve created dashboard');
     }
 
-    const createdDashboardData = createdDashboards[0]!; // Safe: we just checked createdDashboards.length > 0
+    const createdDashboardData = createdDashboards[0];
+    if (!createdDashboardData) {
+      // Extra safety: should not happen after length check
+      rbacDashboardsLogger.error('Created dashboard result had length > 0 but first item was null');
+      throw new Error('Failed to retrieve created dashboard data');
+    }
 
     // Get chart details for the created dashboard
     const chartDetails = await db
@@ -549,7 +559,12 @@ export class RBACDashboardsService extends BaseRBACService {
       throw new Error('Failed to retrieve updated dashboard');
     }
 
-    const updatedDashboardData = updatedDashboards[0]!; // Safe: we just checked updatedDashboards.length > 0
+    const updatedDashboardData = updatedDashboards[0];
+    if (!updatedDashboardData) {
+      // Extra safety: should not happen after length check
+      rbacDashboardsLogger.error('Updated dashboard result had length > 0 but first item was null');
+      throw new Error('Failed to retrieve updated dashboard data');
+    }
 
     // Get chart details for the updated dashboard
     const chartDetails = await db

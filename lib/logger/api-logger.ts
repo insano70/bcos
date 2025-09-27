@@ -39,7 +39,7 @@ export function createAPILogger(request: NextRequest) {
     path: url.pathname,
     query: Object.keys(searchParams).length > 0 ? searchParams : {} as Record<string, string>,
     ipAddress: extractIPAddress(request),
-    ...(request.headers.get('user-agent') && { userAgent: request.headers.get('user-agent')! })
+    ...(request.headers.get('user-agent') && { userAgent: request.headers.get('user-agent') || 'Unknown' })
   }
 
   return apiLogger.child(context)

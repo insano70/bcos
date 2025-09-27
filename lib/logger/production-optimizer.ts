@@ -94,10 +94,34 @@ class ProductionOptimizer {
     }
   }
 
+  /**
+   * Type-safe environment parsing with fallback
+   */
+  private parseEnvironment(env: string | undefined): 'production' | 'staging' | 'development' {
+    if (env === 'production' || env === 'staging' || env === 'development') {
+      return env
+    }
+    return 'development'
+  }
+
+  /**
+   * Type-safe log level parsing with fallback
+   */
+  private parseLogLevel(level: string | undefined): 'error' | 'warn' | 'info' | 'debug' {
+    if (level === 'error' || level === 'warn' || level === 'info' || level === 'debug') {
+      return level
+    }
+    return 'info'
+  }
+
   constructor(config?: Partial<ProductionConfig>) {
+    // Type-safe environment variable parsing
+    const environment = this.parseEnvironment(process.env.NODE_ENV)
+    const logLevel = this.parseLogLevel(process.env.LOG_LEVEL)
+    
     this.config = {
-      environment: (process.env.NODE_ENV as any) || 'development',
-      logLevel: (process.env.LOG_LEVEL as any) || 'info',
+      environment,
+      logLevel,
       sampling: {
         debug: process.env.NODE_ENV === 'production' ? 0.01 : 1.0, // 1% in prod
         info: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,   // 10% in prod
@@ -473,7 +497,7 @@ export const productionOptimizer = {
   },
   
   // Proxy methods for backward compatibility
-  shouldSample: (level: string, context?: any) => {
+  shouldSample: (level: string, context?: Record<string, unknown>) => {
     return productionOptimizer.instance.shouldSample(level, context);
   },
   
@@ -485,7 +509,7 @@ export const productionOptimizer = {
     return productionOptimizer.instance.getStats();
   },
   
-  updateConfig: (updates: any) => {
+  updateConfig: (updates: Partial<ProductionConfig>) => {
     return productionOptimizer.instance.updateConfig(updates);
   }
 };
