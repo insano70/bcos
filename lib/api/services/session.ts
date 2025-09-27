@@ -43,9 +43,9 @@ export interface SessionInfo {
 
 export interface DeviceInfo {
   fingerprint: string
-  name: string
+  deviceName: string
   ipAddress: string
-  userAgent?: string
+  userAgent: string
   location?: string
 }
 
@@ -65,7 +65,7 @@ export async function createSession(
   sessionLogger.info('Session creation initiated', {
     userId,
     deviceFingerprint: deviceInfo.fingerprint,
-    deviceName: deviceInfo.name,
+    deviceName: deviceInfo.deviceName,
     rememberMe,
     ipAddress: deviceInfo.ipAddress
   })
@@ -91,7 +91,7 @@ export async function createSession(
       session_id: sessionId,
       user_id: userId,
       device_fingerprint: deviceInfo.fingerprint,
-      device_name: deviceInfo.name,
+      device_name: deviceInfo.deviceName,
       ip_address: deviceInfo.ipAddress,
       user_agent: deviceInfo.userAgent,
       remember_me: rememberMe,
@@ -106,6 +106,10 @@ export async function createSession(
   }
 
   const session = sessions[0]  // Safe: we just checked sessions.length > 0
+  
+  if (!session) {
+    throw new Error('Failed to retrieve created session')
+  }
 
   // Update device tracking
   await updateDeviceTracking(userId, deviceInfo)
@@ -239,10 +243,15 @@ export async function revokeSession(
     .returning()
 
   if (updatedSessions && updatedSessions.length > 0) {
+    const session = updatedSessions[0]
+    if (!session?.user_id) {
+      throw new Error('Failed to retrieve user_id from terminated session')
+    }
+    
     // Audit log
     await AuditLogger.logAuth({
       action: 'logout',
-      userId: updatedSessions[0]?.user_id,  // Safe: we just checked length > 0
+      userId: session.user_id,
       metadata: {
         sessionId,
         reason

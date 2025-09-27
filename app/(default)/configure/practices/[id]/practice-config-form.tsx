@@ -121,12 +121,11 @@ export default function PracticeConfigForm({
   const logoUrl = watch('logo_url');
   const heroImageUrl = watch('hero_image_url');
 
-  // Reset form when fresh data loads - WITH DEBUGGING
+  // Reset form when fresh data loads - but only when data actually changes, not when form becomes dirty
   useEffect(() => {
     console.log('🔄 useEffect triggered - attributes changed');
     console.log('Attributes:', attributes);
     console.log('Practice:', practice);
-    console.log('isDirty:', isDirty);
     
     if (attributes) {
       const resetData = {
@@ -166,7 +165,7 @@ export default function PracticeConfigForm({
       console.log('📝 Resetting form with data:', resetData);
       reset(resetData);
     }
-  }, [attributes, currentPractice, reset, practice, isDirty]);
+  }, [attributes, currentPractice, reset, practice]);
 
   const onSubmit = async (data: PracticeFormData) => {
     console.log('💾 Form submit started with data:', data);

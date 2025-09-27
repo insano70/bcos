@@ -133,24 +133,32 @@ export function rbacRoute(
       }
 
       const contextStart = Date.now()
-      const userContext = await getUserContextSafe(session?.user?.id)
+      
+      // Additional safety check - session and user should exist at this point due to earlier guards
+      if (!session?.user?.id) {
+        apiLogger.error('Missing session user ID after authentication check')
+        return createErrorResponse('Authentication required', 401, request) as Response
+      }
+      
+      const userId = session.user.id // Now TypeScript knows this is defined
+      const userContext = await getUserContextSafe(userId)
       apiLogger.timing( 'user_context_fetch', contextStart, {
-        userId: session?.user?.id
+        userId
       })
       
       if (!userContext) {
         apiLogger.error('Failed to load user context for RBAC', {
-          userId: session?.user?.id,
-          sessionEmail: session?.user?.email
+          userId,
+          sessionEmail: session.user.email
         })
         
         apiLogger.logSecurity( 'rbac_context_failed', 'high', {
-          userId: session?.user?.id,
+          userId,
           reason: 'context_load_failure'
         })
         
         apiLogger.logAuth('rbac_check', false, {
-          userId: session?.user?.id,
+          userId,
           reason: 'context_load_failure'
         })
         return createErrorResponse('Failed to load user context', 500, request) as Response

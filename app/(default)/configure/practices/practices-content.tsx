@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import DeleteButton from '@/components/delete-button';
 import DateSelect from '@/components/date-select';
 import FilterButton from '@/components/dropdown-filter';
 import PracticesTable from './practices-table';
 import PaginationClassic from '@/components/pagination-classic';
+import AddPracticeModal from '@/components/add-practice-modal';
 import { usePractices } from '@/lib/hooks/use-practices';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { usePracticePermissions } from '@/lib/hooks/use-permissions';
@@ -13,6 +15,7 @@ import { usePagination } from '@/lib/hooks/use-pagination';
 export default function PracticesContent() {
   const { data: practices, isLoading, error, refetch } = usePractices();
   const _practicePermissions = usePracticePermissions();
+  const [isAddPracticeModalOpen, setIsAddPracticeModalOpen] = useState(false);
 
   // Pagination
   const pagination = usePagination(practices, { itemsPerPage: 10 });
@@ -131,6 +134,7 @@ export default function PracticesContent() {
             <button
               type="button"
               disabled={isLoading}
+              onClick={() => setIsAddPracticeModalOpen(true)}
               className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg
@@ -187,6 +191,16 @@ export default function PracticesContent() {
           onNext={pagination.goToNext}
         />
       </div>
+
+      {/* Add Practice Modal */}
+      <AddPracticeModal
+        isOpen={isAddPracticeModalOpen}
+        onClose={() => setIsAddPracticeModalOpen(false)}
+        onSuccess={() => {
+          // Refresh practices list after successful creation
+          refetch();
+        }}
+      />
     </div>
   );
 }

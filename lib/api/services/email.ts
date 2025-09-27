@@ -152,7 +152,16 @@ export class EmailService {
       const resend = EmailService.getResend()
       const fromEmail = process.env.EMAIL_FROM || 'noreply@yourdomain.com'
       
-      const emailData: any = {
+      interface ResendEmailData {
+        from: string
+        to: string[]
+        subject: string
+        html: string
+        text: string
+        attachments?: Array<{ filename: string; content: string | Buffer }>
+      }
+
+      const emailData: ResendEmailData = {
         from: fromEmail,
         to: Array.isArray(options.to) ? options.to : [options.to],
         subject: options.subject,

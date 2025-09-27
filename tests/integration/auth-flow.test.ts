@@ -18,7 +18,7 @@ describe('Authentication Flow Integration', () => {
     testOrg = await createTestOrganization()
     testRole = await createTestRole({ 
       name: 'test_admin',
-      organization_id: testOrg.organization_id 
+      organizationId: testOrg.organization_id 
     })
     testUser = await createTestUser({
       email: 'authtest@example.com',

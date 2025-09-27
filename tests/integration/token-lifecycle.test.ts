@@ -22,7 +22,9 @@ describe('Token Lifecycle Integration', () => {
       // 1. Create token pair
       const deviceInfo = {
         userAgent: 'Test Browser',
-        ipAddress: '127.0.0.1'
+        ipAddress: '127.0.0.1',
+        fingerprint: 'test-fingerprint-1',
+        deviceName: 'Test Device 1'
       }
       
       const tokenPair = await TokenManager.createTokenPair(
@@ -69,14 +71,16 @@ describe('Token Lifecycle Integration', () => {
       
       // 6. Cleanup expired tokens
       const cleanupCounts = await TokenManager.cleanupExpiredTokens()
-      expect(cleanupCounts.expiredTokens).toBeGreaterThanOrEqual(0)
-      expect(cleanupCounts.expiredBlacklist).toBeGreaterThanOrEqual(0)
+      expect(cleanupCounts.refreshTokens).toBeGreaterThanOrEqual(0)
+      expect(cleanupCounts.blacklistEntries).toBeGreaterThanOrEqual(0)
     })
 
     it('should handle token blacklisting', async () => {
       const deviceInfo = {
         userAgent: 'Test Browser',
-        ipAddress: '127.0.0.1'
+        ipAddress: '127.0.0.1',
+        fingerprint: 'test-fingerprint-2',
+        deviceName: 'Test Device 2'
       }
       
       // Create token
@@ -93,7 +97,7 @@ describe('Token Lifecycle Integration', () => {
       
       // Revoke all user tokens (should blacklist)
       const revokeAllResult = await TokenManager.revokeAllUserTokens(testUser.user_id)
-      expect(revokeAllResult.revokedCount).toBeGreaterThanOrEqual(1)
+      expect(revokeAllResult).toBeGreaterThanOrEqual(1)
       
       // Token should now be invalid
       const payload2 = await TokenManager.validateAccessToken(tokenPair.accessToken)
@@ -103,12 +107,16 @@ describe('Token Lifecycle Integration', () => {
     it('should handle device-specific token management', async () => {
       const device1 = {
         userAgent: 'Chrome Browser',
-        ipAddress: '127.0.0.1'
+        ipAddress: '127.0.0.1',
+        fingerprint: 'test-fingerprint-chrome',
+        deviceName: 'Chrome Device'
       }
       
       const device2 = {
         userAgent: 'Firefox Browser', 
-        ipAddress: '127.0.0.1'
+        ipAddress: '127.0.0.1',
+        fingerprint: 'test-fingerprint-firefox',
+        deviceName: 'Firefox Device'
       }
       
       // Create tokens for different devices
@@ -120,7 +128,7 @@ describe('Token Lifecycle Integration', () => {
       expect(await TokenManager.validateAccessToken(tokens2.accessToken)).toBeDefined()
       
       // Revoke device 1 only
-      await TokenManager.revokeRefreshToken(tokens1.refreshToken, 'device_logout')
+      await TokenManager.revokeRefreshToken(tokens1.refreshToken, 'logout')
       
       // Device 1 should be invalid, device 2 should still work
       expect(await TokenManager.validateAccessToken(tokens1.accessToken)).toBeNull()

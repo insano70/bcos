@@ -17,12 +17,14 @@ vi.mock('@/lib/auth/token-manager', () => ({
 }))
 
 // Mock database with simpler approach
+const mockDbLimit = vi.fn().mockResolvedValue([])
+
 vi.mock('@/lib/db', () => ({
   db: {
     select: vi.fn().mockReturnValue({
       from: vi.fn().mockReturnValue({
         where: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue([])
+          limit: mockDbLimit
         })
       })
     })
