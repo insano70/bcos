@@ -16,19 +16,16 @@ vi.mock('@/lib/auth/token-manager', () => ({
   }
 }))
 
-// Mock database
-const mockDbSelect = vi.fn()
-const mockDbFrom = vi.fn()
-const mockDbWhere = vi.fn()
-const mockDbLimit = vi.fn()
-
+// Mock database with simpler approach
 vi.mock('@/lib/db', () => ({
   db: {
-    select: vi.fn(() => ({
-      from: mockDbFrom,
-      where: mockDbWhere,
-      limit: mockDbLimit
-    }))
+    select: vi.fn().mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue([])
+        })
+      })
+    })
   },
   users: {
     user_id: 'user_id',
@@ -41,18 +38,14 @@ vi.mock('@/lib/db', () => ({
 }))
 
 describe('session authentication logic', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
+  let mockDb: any
 
-    // Reset mock chain
-    mockDbFrom.mockReturnValue({
-      where: mockDbWhere,
-      limit: mockDbLimit
-    })
-    mockDbWhere.mockReturnValue({
-      limit: mockDbLimit
-    })
-    mockDbLimit.mockResolvedValue([])
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    
+    // Get reference to the mocked database
+    const { db } = await import('@/lib/db')
+    mockDb = vi.mocked(db)
   })
 
   describe('getCurrentUserFromToken', () => {

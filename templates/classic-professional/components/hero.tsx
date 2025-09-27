@@ -12,8 +12,8 @@ export default function Hero({ practice, attributes, colorStyles }: HeroProps) {
       {/* Background image if provided */}
       {attributes.hero_image_url && (
         <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-10"
-          style={{ backgroundImage: `url(${attributes.hero_image_url})` }}
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-10 hero-background-image"
+          style={{ '--hero-background-image': `url(${attributes.hero_image_url})` } as React.CSSProperties}
         />
       )}
       

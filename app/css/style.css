@@ -214,3 +214,40 @@
     background-color: var(--preview-color);
   }
 }
+
+/* Loading skeleton utilities (CSP-compliant) */
+@layer utilities {
+  .skeleton-container {
+    width: var(--skeleton-width);
+    height: var(--skeleton-height);
+  }
+  
+  .skeleton-chart-area {
+    height: var(--chart-area-height);
+  }
+  
+  .skeleton-random-bar {
+    height: var(--random-bar-height);
+  }
+  
+  .skeleton-grid {
+    grid-template-columns: var(--grid-columns);
+  }
+  
+  /* Common skeleton dimensions */
+  .skeleton-w-200 { width: 200px; }
+  .skeleton-w-400 { width: 400px; }
+  .skeleton-w-600 { width: 600px; }
+  .skeleton-w-800 { width: 800px; }
+  .skeleton-h-200 { height: 200px; }
+  .skeleton-h-300 { height: 300px; }
+  .skeleton-h-400 { height: 400px; }
+  .skeleton-h-500 { height: 500px; }
+}
+
+/* Template background image utilities (CSP-compliant) */
+@layer utilities {
+  .hero-background-image {
+    background-image: var(--hero-background-image);
+  }
+}

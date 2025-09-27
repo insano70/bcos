@@ -9,21 +9,35 @@ interface SkeletonProps {
 
 // Basic skeleton component
 export function Skeleton({ className = '', style }: SkeletonProps) {
+  // Use CSS custom properties for dynamic styling (CSP-compliant)
+  const dynamicStyle = style && Object.keys(style).length > 0 
+    ? { ...Object.fromEntries(Object.entries(style).map(([key, value]) => [`--${key}`, value])), ...style }
+    : undefined;
+    
   return (
-    <div className={`animate-pulse bg-gray-200 dark:bg-gray-700 rounded ${className}`} style={style} />
+    <div 
+      className={`animate-pulse bg-gray-200 dark:bg-gray-700 rounded ${className}`} 
+      style={dynamicStyle}
+    />
   );
 }
 
 // Chart skeleton
 export function ChartSkeleton({ width = 800, height = 400 }: { width?: number; height?: number }) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg p-4" style={{ width, height }}>
+    <div 
+      className="bg-white dark:bg-gray-800 rounded-lg p-4 skeleton-container" 
+      style={{ '--skeleton-width': `${width}px`, '--skeleton-height': `${height}px` } as React.CSSProperties}
+    >
       <div className="space-y-4">
         {/* Chart title skeleton */}
         <Skeleton className="h-6 w-48" />
         
         {/* Chart area skeleton */}
-        <div className="relative" style={{ height: height - 80 }}>
+        <div 
+          className="relative skeleton-chart-area" 
+          style={{ '--chart-area-height': `${height - 80}px` } as React.CSSProperties}
+        >
           {/* Y-axis labels */}
           <div className="absolute left-0 top-0 h-full flex flex-col justify-between py-4">
             {[...Array(5)].map((_, i) => (
@@ -38,8 +52,8 @@ export function ChartSkeleton({ width = 800, height = 400 }: { width?: number; h
               {[...Array(8)].map((_, i) => (
                 <Skeleton 
                   key={i} 
-                  className="w-8" 
-                  style={{ height: `${Math.random() * 60 + 20}%` }}
+                  className="w-8 skeleton-random-bar" 
+                  style={{ '--random-bar-height': `${Math.random() * 60 + 20}%` } as React.CSSProperties}
                 />
               ))}
             </div>
@@ -63,7 +77,10 @@ export function TableSkeleton({ rows = 5, columns = 4 }: { rows?: number; column
     <div className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden">
       {/* Header */}
       <div className="border-b border-gray-200 dark:border-gray-700 p-4">
-        <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
+        <div 
+          className="grid gap-4 skeleton-grid" 
+          style={{ '--grid-columns': `repeat(${columns}, 1fr)` } as React.CSSProperties}
+        >
           {[...Array(columns)].map((_, i) => (
             <Skeleton key={i} className="h-4 w-24" />
           ))}
@@ -73,7 +90,10 @@ export function TableSkeleton({ rows = 5, columns = 4 }: { rows?: number; column
       {/* Rows */}
       {[...Array(rows)].map((_, rowIndex) => (
         <div key={rowIndex} className="border-b border-gray-200 dark:border-gray-700 p-4">
-          <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${columns}, 1fr)` }}>
+          <div 
+          className="grid gap-4 skeleton-grid" 
+          style={{ '--grid-columns': `repeat(${columns}, 1fr)` } as React.CSSProperties}
+        >
             {[...Array(columns)].map((_, colIndex) => (
               <Skeleton key={colIndex} className="h-4 w-full" />
             ))}
