@@ -283,3 +283,4 @@ export default function AddPracticeModal({ isOpen, onClose, onSuccess }: AddPrac
     </Transition>
   );
 }
+
