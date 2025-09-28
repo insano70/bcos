@@ -21,11 +21,46 @@ export default function AppointmentForm() {
     e.preventDefault();
     setIsSubmitting(true);
     
-    // Simulate form submission
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setIsSubmitting(false);
-    setIsSubmitted(true);
+    try {
+      const response = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+          preferredDate: formData.preferredDate,
+          preferredTime: formData.preferredTime,
+          reason: formData.reason,
+          message: formData.message,
+          practiceEmail: 'appointments@practice.com' // This should be configurable per practice
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit appointment request');
+      }
+
+      setIsSubmitted(true);
+      setFormData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        preferredDate: '',
+        preferredTime: '',
+        reason: '',
+        message: ''
+      });
+    } catch (error) {
+      console.error('Error submitting appointment request:', error);
+      // TODO: Show error message to user
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {

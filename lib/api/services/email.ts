@@ -1,5 +1,6 @@
-import { Resend } from 'resend'
+import * as nodemailer from 'nodemailer'
 import { createAppLogger } from '@/lib/logger/factory'
+import { getEmailConfig } from '@/lib/env'
 
 // Create Universal Logger for email service operations  
 const emailLogger = createAppLogger('email-service', {
@@ -34,27 +35,44 @@ interface EmailOptions {
 }
 
 export class EmailService {
-  private static resend: Resend | null = null
+  private static transporter: nodemailer.Transporter | null = null
 
-  private static getResend(): Resend {
-    if (!EmailService.resend) {
-      const apiKey = process.env.RESEND_API_KEY
-      if (!apiKey) {
-        console.warn('Email service disabled - RESEND_API_KEY not configured')
-        // Create a mock instance that logs instead of sending
-        EmailService.resend = {
-          emails: {
-            send: async (params: unknown) => {
-              console.log('Mock email send (RESEND_API_KEY not configured):', params)
-              return { data: { id: 'mock-email-id' }, error: null }
-            }
+  private static getTransporter(): nodemailer.Transporter {
+    if (!EmailService.transporter) {
+      const config = getEmailConfig()
+      
+      if (!config.smtp.username || !config.smtp.password || !config.smtp.endpoint) {
+        emailLogger.warn('Email service disabled - AWS SES credentials not configured')
+        // Create a mock transporter that logs instead of sending
+        EmailService.transporter = {
+          sendMail: async (mailOptions: nodemailer.SendMailOptions) => {
+            emailLogger.info('Mock email send (SES not configured)', { 
+              to: mailOptions.to, 
+              subject: mailOptions.subject 
+            })
+            return { messageId: 'mock-email-id', response: 'Mock email sent' }
           }
-        } as Resend
+        } as nodemailer.Transporter
       } else {
-        EmailService.resend = new Resend(apiKey)
+        EmailService.transporter = nodemailer.createTransport({
+          host: config.smtp.endpoint,
+          port: config.smtp.startTlsPort,
+          secure: false, // Use STARTTLS
+          auth: {
+            user: config.smtp.username,
+            pass: config.smtp.password,
+          },
+          tls: {
+            // Don't fail on invalid certificates for development
+            rejectUnauthorized: process.env.NODE_ENV === 'production',
+          },
+        })
       }
     }
-    return EmailService.resend as Resend
+    if (!EmailService.transporter) {
+      throw new Error('Failed to initialize email service');
+    }
+    return EmailService.transporter
   }
 
   /**
@@ -149,39 +167,31 @@ export class EmailService {
    */
   private static async send(options: EmailOptions): Promise<void> {
     try {
-      const resend = EmailService.getResend()
-      const fromEmail = process.env.EMAIL_FROM || 'noreply@yourdomain.com'
+      const transporter = EmailService.getTransporter()
+      const config = getEmailConfig()
       
-      interface ResendEmailData {
-        from: string
-        to: string[]
-        subject: string
-        html: string
-        text: string
-        attachments?: Array<{ filename: string; content: string | Buffer }>
-      }
-
-      const emailData: ResendEmailData = {
-        from: fromEmail,
+      const mailOptions: nodemailer.SendMailOptions = {
+        from: `${config.from.name} <${config.from.email}>`,
         to: Array.isArray(options.to) ? options.to : [options.to],
+        replyTo: config.replyTo,
         subject: options.subject,
         html: options.html || '',
-        text: options.text || ''
+        text: options.text || '',
       }
       
       if (options.attachments && options.attachments.length > 0) {
-        emailData.attachments = options.attachments
+        mailOptions.attachments = options.attachments.map(attachment => ({
+          filename: attachment.filename,
+          content: attachment.content,
+          contentType: attachment.contentType
+        }))
       }
       
-      const result = await resend.emails.send(emailData)
-
-      if (result.error) {
-        throw new Error(`Email sending failed: ${result.error.message}`)
-      }
+      const result = await transporter.sendMail(mailOptions)
 
       emailLogger.info('Email sent successfully', {
         to: options.to,
-        emailId: result.data?.id,
+        emailId: result.messageId,
         subject: options.subject,
         operation: 'sendEmail'
       })
@@ -491,6 +501,200 @@ export class EmailService {
       Environment: ${process.env.NODE_ENV || 'unknown'}
     `
     
+    return { subject, html, text }
+  }
+
+  /**
+   * Send appointment request notification
+   */
+  static async sendAppointmentRequest(
+    practiceEmail: string,
+    formData: {
+      firstName: string
+      lastName: string
+      email: string
+      phone: string
+      preferredDate?: string
+      preferredTime?: string
+      reason?: string
+      message?: string
+    }
+  ): Promise<void> {
+    const template = EmailService.getAppointmentRequestTemplate(formData)
+    
+    await EmailService.send({
+      to: practiceEmail,
+      subject: template.subject,
+      html: template.html,
+      ...(template.text && { text: template.text })
+    })
+
+    emailLogger.info('Appointment request email sent', {
+      practiceEmail,
+      patientEmail: formData.email,
+      patientName: `${formData.firstName} ${formData.lastName}`,
+      operation: 'sendAppointmentRequest'
+    })
+  }
+
+  /**
+   * Send contact form submission notification
+   */
+  static async sendContactForm(
+    practiceEmail: string,
+    formData: {
+      name: string
+      email: string
+      phone?: string
+      subject: string
+      message: string
+    }
+  ): Promise<void> {
+    const template = EmailService.getContactFormTemplate(formData)
+    
+    await EmailService.send({
+      to: practiceEmail,
+      subject: template.subject,
+      html: template.html,
+      ...(template.text && { text: template.text })
+    })
+
+    emailLogger.info('Contact form email sent', {
+      practiceEmail,
+      contactEmail: formData.email,
+      contactName: formData.name,
+      operation: 'sendContactForm'
+    })
+  }
+
+  /**
+   * Appointment request email template
+   */
+  private static getAppointmentRequestTemplate(formData: {
+    firstName: string
+    lastName: string
+    email: string
+    phone: string
+    preferredDate?: string
+    preferredTime?: string
+    reason?: string
+    message?: string
+  }): EmailTemplate {
+    const subject = `New Appointment Request - ${formData.firstName} ${formData.lastName}`
+    
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>New Appointment Request</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h1 style="color: #2c3e50; margin: 0;">New Appointment Request</h1>
+          </div>
+          
+          <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e9ecef;">
+            <h2 style="color: #495057; margin-top: 0;">Patient Information</h2>
+            <p><strong>Name:</strong> ${formData.firstName} ${formData.lastName}</p>
+            <p><strong>Email:</strong> <a href="mailto:${formData.email}">${formData.email}</a></p>
+            <p><strong>Phone:</strong> <a href="tel:${formData.phone}">${formData.phone}</a></p>
+            
+            ${formData.preferredDate ? `<p><strong>Preferred Date:</strong> ${formData.preferredDate}</p>` : ''}
+            ${formData.preferredTime ? `<p><strong>Preferred Time:</strong> ${formData.preferredTime}</p>` : ''}
+            ${formData.reason ? `<p><strong>Reason for Visit:</strong> ${formData.reason}</p>` : ''}
+            
+            ${formData.message ? `
+              <h3 style="color: #495057;">Additional Message</h3>
+              <p style="background: #f8f9fa; padding: 15px; border-radius: 4px; border-left: 4px solid #007bff;">${formData.message}</p>
+            ` : ''}
+          </div>
+          
+          <div style="margin-top: 20px; padding: 15px; background: #e7f3ff; border-radius: 4px;">
+            <p style="margin: 0; font-size: 14px; color: #0066cc;">
+              <strong>Next Steps:</strong> Please contact the patient within 24 hours to confirm their appointment.
+            </p>
+          </div>
+        </body>
+      </html>
+    `
+    
+    const text = `New Appointment Request
+
+Patient Information:
+Name: ${formData.firstName} ${formData.lastName}
+Email: ${formData.email}
+Phone: ${formData.phone}
+${formData.preferredDate ? `Preferred Date: ${formData.preferredDate}` : ''}
+${formData.preferredTime ? `Preferred Time: ${formData.preferredTime}` : ''}
+${formData.reason ? `Reason for Visit: ${formData.reason}` : ''}
+
+${formData.message ? `Additional Message:\n${formData.message}` : ''}
+
+Next Steps: Please contact the patient within 24 hours to confirm their appointment.`
+
+    return { subject, html, text }
+  }
+
+  /**
+   * Contact form email template
+   */
+  private static getContactFormTemplate(formData: {
+    name: string
+    email: string
+    phone?: string
+    subject: string
+    message: string
+  }): EmailTemplate {
+    const subject = `Contact Form: ${formData.subject} - ${formData.name}`
+    
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Contact Form Submission</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h1 style="color: #2c3e50; margin: 0;">Contact Form Submission</h1>
+          </div>
+          
+          <div style="background: white; padding: 20px; border-radius: 8px; border: 1px solid #e9ecef;">
+            <h2 style="color: #495057; margin-top: 0;">Contact Information</h2>
+            <p><strong>Name:</strong> ${formData.name}</p>
+            <p><strong>Email:</strong> <a href="mailto:${formData.email}">${formData.email}</a></p>
+            ${formData.phone ? `<p><strong>Phone:</strong> <a href="tel:${formData.phone}">${formData.phone}</a></p>` : ''}
+            <p><strong>Subject:</strong> ${formData.subject}</p>
+            
+            <h3 style="color: #495057;">Message</h3>
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 4px; border-left: 4px solid #28a745;">
+              ${formData.message.replace(/\n/g, '<br>')}
+            </div>
+          </div>
+          
+          <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 4px;">
+            <p style="margin: 0; font-size: 14px; color: #856404;">
+              <strong>Reply to:</strong> <a href="mailto:${formData.email}">${formData.email}</a>
+            </p>
+          </div>
+        </body>
+      </html>
+    `
+    
+    const text = `Contact Form Submission
+
+Contact Information:
+Name: ${formData.name}
+Email: ${formData.email}
+${formData.phone ? `Phone: ${formData.phone}` : ''}
+Subject: ${formData.subject}
+
+Message:
+${formData.message}
+
+Reply to: ${formData.email}`
+
     return { subject, html, text }
   }
 }

@@ -66,13 +66,17 @@ async function checkEmailService(): Promise<{ name: string; healthy: boolean; re
   // Email service is optional and handled gracefully when not configured
   // Always return healthy since the service degrades gracefully
   const result: { name: string; healthy: boolean; responseTime: number; error?: string } = {
-    name: 'Email Service',
+    name: 'Email Service (AWS SES)',
     healthy: true,
     responseTime: Date.now() - startTime,
   }
   
-  if (!process.env.RESEND_API_KEY) {
-    result.error = 'API key not configured (using mock implementation)'
+  const hasCredentials = process.env.SMTP_USERNAME && 
+                        process.env.SMTP_PASSWORD && 
+                        process.env.SMTP_ENDPOINT
+  
+  if (!hasCredentials) {
+    result.error = 'AWS SES credentials not configured (using mock implementation)'
   }
   
   return result

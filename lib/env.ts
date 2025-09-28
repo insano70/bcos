@@ -16,8 +16,16 @@ export const env = createEnv({
     JWT_REFRESH_SECRET: z.string().min(32, "JWT_REFRESH_SECRET must be at least 32 characters for security"),
     CSRF_SECRET: z.string().min(32, "CSRF_SECRET must be at least 32 characters for security"),
     
-    // Email Service
-    EMAIL_FROM: z.string().email().optional(),
+    // Email Service - AWS SES Configuration
+    SMTP_USERNAME: z.string().optional(),
+    SMTP_PASSWORD: z.string().optional(),
+    SMTP_ENDPOINT: z.string().optional(),
+    SMTP_STARTTLS_PORT: z.string().transform(val => val ? parseInt(val, 10) : 587).optional(),
+    SMTP_TLS_WRAPPER_PORT: z.string().transform(val => val ? parseInt(val, 10) : 465).optional(),
+    SMTP_FROM_EMAIL: z.string().email().optional(),
+    SMTP_FROM_NAME: z.string().optional(),
+    SMTP_REPLY_TO: z.string().email().optional(),
+    SMTP_REGION: z.string().optional(),
     ADMIN_NOTIFICATION_EMAILS: z.string().optional(),
     
     // External Services
@@ -50,7 +58,15 @@ export const env = createEnv({
     JWT_SECRET: process.env.JWT_SECRET,
     JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
     CSRF_SECRET: process.env.CSRF_SECRET,
-    EMAIL_FROM: process.env.EMAIL_FROM,
+    SMTP_USERNAME: process.env.SMTP_USERNAME,
+    SMTP_PASSWORD: process.env.SMTP_PASSWORD,
+    SMTP_ENDPOINT: process.env.SMTP_ENDPOINT,
+    SMTP_STARTTLS_PORT: process.env.SMTP_STARTTLS_PORT,
+    SMTP_TLS_WRAPPER_PORT: process.env.SMTP_TLS_WRAPPER_PORT,
+    SMTP_FROM_EMAIL: process.env.SMTP_FROM_EMAIL,
+    SMTP_FROM_NAME: process.env.SMTP_FROM_NAME,
+    SMTP_REPLY_TO: process.env.SMTP_REPLY_TO,
+    SMTP_REGION: process.env.SMTP_REGION,
     ADMIN_NOTIFICATION_EMAILS: process.env.ADMIN_NOTIFICATION_EMAILS,
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
     RESEND_WEBHOOK_SECRET: process.env.RESEND_WEBHOOK_SECRET,
@@ -166,7 +182,19 @@ export const getEmailConfig = () => {
     throw new Error('getEmailConfig can only be used on the server side');
   }
   return {
-    from: env.EMAIL_FROM || 'noreply@yourdomain.com',
+    smtp: {
+      username: env.SMTP_USERNAME,
+      password: env.SMTP_PASSWORD,
+      endpoint: env.SMTP_ENDPOINT || 'email-smtp.us-east-1.amazonaws.com',
+      startTlsPort: env.SMTP_STARTTLS_PORT || 587,
+      tlsWrapperPort: env.SMTP_TLS_WRAPPER_PORT || 465,
+      region: env.SMTP_REGION || 'us-east-1'
+    },
+    from: {
+      email: env.SMTP_FROM_EMAIL || 'noreply@yourdomain.com',
+      name: env.SMTP_FROM_NAME || 'Bendcare Thrive'
+    },
+    replyTo: env.SMTP_REPLY_TO || env.SMTP_FROM_EMAIL || 'noreply@yourdomain.com',
     adminEmails: env.ADMIN_NOTIFICATION_EMAILS?.split(',') || [],
   };
 };

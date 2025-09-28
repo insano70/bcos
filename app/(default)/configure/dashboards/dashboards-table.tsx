@@ -9,9 +9,11 @@ interface DashboardsTableProps {
   onEdit?: (dashboard: DashboardListItem) => void;
   onDelete?: (dashboard: DashboardListItem) => void;
   onPreview?: (dashboard: DashboardListItem) => void;
+  onPublish?: (dashboard: DashboardListItem) => void;
+  onUnpublish?: (dashboard: DashboardListItem) => void;
 }
 
-export default function DashboardsTable({ dashboards, onEdit, onDelete, onPreview }: DashboardsTableProps) {
+export default function DashboardsTable({ dashboards, onEdit, onDelete, onPreview, onPublish, onUnpublish }: DashboardsTableProps) {
   // Filter out invalid dashboards and map to have 'id' property for useItemSelection
   const validDashboards = dashboards.filter(dashboard => 
     dashboard?.dashboard_id && 
@@ -76,6 +78,9 @@ export default function DashboardsTable({ dashboards, onEdit, onDelete, onPrevie
                   <div className="font-semibold text-left">Category</div>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
+                  <div className="font-semibold text-center">Status</div>
+                </th>
+                <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
                   <div className="font-semibold text-left">Created By</div>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
@@ -90,7 +95,7 @@ export default function DashboardsTable({ dashboards, onEdit, onDelete, onPrevie
             <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
               {validDashboards.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-2 first:pl-5 last:pr-5 py-12 text-center">
+                  <td colSpan={9} className="px-2 first:pl-5 last:pr-5 py-12 text-center">
                     <div className="text-gray-500 dark:text-gray-400">
                       📊 {dashboards.length > 0 ? 'No valid dashboards found' : 'No dashboards found'}
                     </div>
@@ -112,6 +117,8 @@ export default function DashboardsTable({ dashboards, onEdit, onDelete, onPrevie
                     {...(onEdit && { onEdit })}
                     {...(onDelete && { onDelete })}
                     {...(onPreview && { onPreview })}
+                    {...(onPublish && { onPublish })}
+                    {...(onUnpublish && { onUnpublish })}
                   />
                 ))
               )}

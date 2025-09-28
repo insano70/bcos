@@ -472,15 +472,19 @@ export class TokenManager {
 
   /**
    * Generate device name from User-Agent
+   * SECURITY: Accurate device detection for audit trails and security monitoring
    */
   static generateDeviceName(userAgent: string): string {
-    // Simple device name extraction
-    if (userAgent.includes('Chrome')) return 'Chrome Browser'
-    if (userAgent.includes('Firefox')) return 'Firefox Browser'
-    if (userAgent.includes('Safari')) return 'Safari Browser'
-    if (userAgent.includes('Edge')) return 'Edge Browser'
+    // Check most specific patterns first to avoid false positives
+    // Note: Edge contains "Chrome", iPhone contains "Safari", Android contains "Chrome"
+    
+    if (userAgent.includes('Edg/')) return 'Edge Browser' // Edge uses "Edg/" not "Edge"
     if (userAgent.includes('iPhone')) return 'iPhone Safari'
     if (userAgent.includes('Android')) return 'Android Browser'
+    if (userAgent.includes('Firefox')) return 'Firefox Browser'
+    if (userAgent.includes('Chrome')) return 'Chrome Browser' // Check Chrome after Edge/Android
+    if (userAgent.includes('Safari')) return 'Safari Browser' // Check Safari after iPhone
+    
     return 'Unknown Browser'
   }
 

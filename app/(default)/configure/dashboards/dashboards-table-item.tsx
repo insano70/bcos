@@ -10,6 +10,8 @@ interface DashboardsTableItemProps {
   onEdit?: (dashboard: DashboardListItem) => void;
   onDelete?: (dashboard: DashboardListItem) => void;
   onPreview?: (dashboard: DashboardListItem) => void;
+  onPublish?: (dashboard: DashboardListItem) => void;
+  onUnpublish?: (dashboard: DashboardListItem) => void;
 }
 
 export default function DashboardsTableItem({
@@ -19,6 +21,8 @@ export default function DashboardsTableItem({
   onEdit,
   onDelete,
   onPreview,
+  onPublish,
+  onUnpublish,
 }: DashboardsTableItemProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -41,7 +45,7 @@ export default function DashboardsTableItem({
   if (!dashboard || !dashboard.dashboard_id) {
     return (
       <tr>
-        <td colSpan={8} className="px-2 first:pl-5 last:pr-5 py-3 text-center text-red-500">
+        <td colSpan={9} className="px-2 first:pl-5 last:pr-5 py-3 text-center text-red-500">
           ❌ Invalid dashboard data
         </td>
       </tr>
@@ -64,6 +68,16 @@ export default function DashboardsTableItem({
 
   const handlePreview = () => {
     onPreview?.(dashboard);
+    setDropdownOpen(false);
+  };
+
+  const handlePublish = () => {
+    onPublish?.(dashboard);
+    setDropdownOpen(false);
+  };
+
+  const handleUnpublish = () => {
+    onUnpublish?.(dashboard);
     setDropdownOpen(false);
   };
 
@@ -128,6 +142,25 @@ export default function DashboardsTableItem({
             <span className="text-gray-400 dark:text-gray-500 italic">Uncategorized</span>
           )}
         </div>
+      </td>
+
+      {/* Status */}
+      <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap text-center">
+        {dashboard.is_published ? (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200">
+            <svg className="w-1.5 h-1.5 mr-1.5" fill="currentColor" viewBox="0 0 8 8">
+              <circle cx={4} cy={4} r={3} />
+            </svg>
+            Published
+          </span>
+        ) : (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200">
+            <svg className="w-1.5 h-1.5 mr-1.5" fill="currentColor" viewBox="0 0 8 8">
+              <circle cx={4} cy={4} r={3} />
+            </svg>
+            Under Development
+          </span>
+        )}
       </td>
 
       {/* Created By */}
@@ -212,6 +245,29 @@ export default function DashboardsTableItem({
                     Preview Dashboard
                   </button>
                 </li>
+                {/* Publish/Unpublish actions - shown conditionally based on status */}
+                {!dashboard.is_published && onPublish && (
+                  <li>
+                    <button
+                      type="button"
+                      className="font-medium text-sm text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 flex py-1 px-3 w-full text-left"
+                      onClick={handlePublish}
+                    >
+                      Publish Dashboard
+                    </button>
+                  </li>
+                )}
+                {dashboard.is_published && onUnpublish && (
+                  <li>
+                    <button
+                      type="button"
+                      className="font-medium text-sm text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 flex py-1 px-3 w-full text-left"
+                      onClick={handleUnpublish}
+                    >
+                      Unpublish Dashboard
+                    </button>
+                  </li>
+                )}
                 {onDelete && (
                   <li>
                     <button

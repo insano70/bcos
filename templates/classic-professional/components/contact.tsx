@@ -1,6 +1,7 @@
 import type { Practice, PracticeAttributes, ColorStyles } from '@/lib/types/practice';
 import { parseBusinessHours, parseInsurance } from '@/lib/utils/json-parser';
 import { formatBusinessHours } from '@/lib/utils/business-hours-formatter';
+import ContactForm from './contact-form';
 
 interface BusinessHourInfo {
   day: string;
@@ -48,7 +49,7 @@ export default function Contact({ practice, attributes, colorStyles }: ContactPr
           </p>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-12">
           {/* Contact Information */}
           <div className="bg-white rounded-lg shadow-sm p-8">
             <h3 className="text-xl font-bold text-gray-900 mb-6">Get In Touch</h3>
@@ -145,6 +146,11 @@ export default function Contact({ practice, attributes, colorStyles }: ContactPr
               </p>
             </div>
           )}
+
+          {/* Contact Form */}
+          <div className="lg:col-span-2 xl:col-span-1">
+            <ContactForm colorStyles={colorStyles} practiceEmail={attributes.email || 'contact@practice.com'} />
+          </div>
         </div>
       </div>
     </section>

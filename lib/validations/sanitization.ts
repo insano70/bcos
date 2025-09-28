@@ -13,12 +13,19 @@ import { z } from 'zod';
 export function sanitizeText(input: string): string {
   return input
     .trim()
-    // Remove HTML tags first to extract text content
+    // Remove dangerous script content entirely (including content inside script tags)
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    // Remove other HTML tags to extract text content
     .replace(/<[^>]*>/g, '')
     // Remove dangerous protocol handlers
     .replace(/javascript:/gi, '')
     .replace(/data:/gi, '')
     .replace(/vbscript:/gi, '')
+    // Remove SQL injection patterns and comments
+    .replace(/\/\*[\s\S]*?\*\//g, '') // Remove block comments first
+    .replace(/--.*$/gm, '') // Remove line comments
+    .replace(/[';]\s*(drop|delete|update|insert|create|alter|truncate|exec|execute|union|select)\b.*$/gi, '') // Remove SQL injection after ; or '
+    .replace(/\b(drop|delete|update|insert|create|alter|truncate|exec|execute|union|select)\s+table\b/gi, '') // Remove dangerous SQL keywords
     // Handle dangerous characters appropriately
     .replace(/[<>]/g, '') // Remove < > (dangerous for HTML)
     .replace(/&/g, '&amp;') // Escape & (preserve but make HTML-safe)

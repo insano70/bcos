@@ -29,16 +29,33 @@ export default function AppointmentForm({ colorStyles }: { colorStyles?: any }) 
     setIsSubmitting(true);
     
     try {
-      // TODO: Implement API endpoint for appointment requests
-      console.log('Appointment request:', data);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      const response = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firstName: data.first_name,
+          lastName: data.last_name,
+          email: data.email,
+          phone: data.phone,
+          preferredDate: data.preferred_date,
+          preferredTime: data.preferred_time,
+          reason: data.reason,
+          message: data.message,
+          practiceEmail: 'appointments@practice.com' // This should be configurable per practice
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit appointment request');
+      }
+
       setIsSubmitted(true);
       reset();
     } catch (error) {
       console.error('Error submitting appointment request:', error);
+      // TODO: Show error message to user
     } finally {
       setIsSubmitting(false);
     }

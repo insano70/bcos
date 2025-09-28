@@ -476,7 +476,8 @@ describe('session authentication logic', () => {
       const mockPayload = {
         sub: 'user-123',
         email: 'owner@example.com',
-        role: 'practice_owner'
+        role: 'practice_owner',
+        practiceId: 'practice-456' // Practice ownership comes from JWT payload
       }
       const mockUser = {
         user_id: 'user-123',
@@ -484,8 +485,7 @@ describe('session authentication logic', () => {
         first_name: 'Practice',
         last_name: 'Owner',
         is_active: true,
-        email_verified: true,
-        practiceId: 'practice-456' // User owns this practice
+        email_verified: true
       }
 
       mockTokenManager.validateAccessToken.mockResolvedValue(mockPayload)

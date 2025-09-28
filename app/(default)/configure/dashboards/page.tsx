@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiClient } from '@/lib/api/client';
 import type { DashboardListItem } from '@/lib/types/analytics';
 import type { DashboardWithCharts } from '@/lib/services/rbac-dashboards-service';
 import DashboardsTable from './dashboards-table';
@@ -141,6 +142,58 @@ export default function DashboardsPage() {
     router.push(`/configure/dashboards/${dashboard.dashboard_id}/edit`);
   };
 
+  const handlePublishDashboard = async (dashboard: DashboardListItem) => {
+    try {
+      // Use apiClient which automatically handles CSRF tokens and auth
+      await apiClient.request(`/api/admin/analytics/dashboards/${dashboard.dashboard_id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          is_published: true
+        })
+      });
+
+      // Show success toast
+      setToastMessage(`Dashboard "${dashboard.dashboard_name}" published successfully`);
+      setToastType('success');
+      setToastOpen(true);
+      
+      // Refresh the dashboards list
+      await loadDashboards();
+      
+    } catch (error) {
+      console.error('Failed to publish dashboard:', error);
+      setToastMessage(`Failed to publish dashboard: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setToastType('error');
+      setToastOpen(true);
+    }
+  };
+
+  const handleUnpublishDashboard = async (dashboard: DashboardListItem) => {
+    try {
+      // Use apiClient which automatically handles CSRF tokens and auth
+      await apiClient.request(`/api/admin/analytics/dashboards/${dashboard.dashboard_id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          is_published: false
+        })
+      });
+
+      // Show success toast
+      setToastMessage(`Dashboard "${dashboard.dashboard_name}" unpublished successfully`);
+      setToastType('success');
+      setToastOpen(true);
+      
+      // Refresh the dashboards list
+      await loadDashboards();
+      
+    } catch (error) {
+      console.error('Failed to unpublish dashboard:', error);
+      setToastMessage(`Failed to unpublish dashboard: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setToastType('error');
+      setToastOpen(true);
+    }
+  };
+
   const handlePreviewDashboard = async (dashboard: DashboardListItem) => {
     try {
       console.log('🔍 Loading dashboard for preview:', dashboard.dashboard_id);
@@ -260,6 +313,8 @@ export default function DashboardsPage() {
           onEdit={handleEditDashboard}
           onDelete={handleDeleteClick}
           onPreview={handlePreviewDashboard}
+          onPublish={handlePublishDashboard}
+          onUnpublish={handleUnpublishDashboard}
         />
 
         {/* Pagination */}
