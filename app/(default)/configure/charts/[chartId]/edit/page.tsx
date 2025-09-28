@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import ChartBuilder from '@/components/charts/chart-builder';
 import type { ChartDefinition } from '@/lib/types/analytics';
+import { apiClient } from '@/lib/api/client';
 
 export default function EditChartPage() {
   const params = useParams();
@@ -19,17 +20,16 @@ export default function EditChartPage() {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/admin/analytics/charts/${chartId}`);
-      if (!response.ok) {
-        throw new Error(`Failed to load chart: ${response.status}`);
-      }
-
-      const result = await response.json();
-      const chartResponse = result.data.chart;
+      const result = await apiClient.get<{
+        chart: { chart_definitions?: ChartDefinition } | ChartDefinition;
+      }>(`/api/admin/analytics/charts/${chartId}`);
+      const chartResponse = result.chart;
 
       // Extract chart definition from joined API response
-      const fullChartData = chartResponse.chart_definitions || chartResponse;
-      setChartData(fullChartData);
+      const fullChartData = 'chart_definitions' in chartResponse 
+        ? chartResponse.chart_definitions 
+        : chartResponse;
+      setChartData(fullChartData as ChartDefinition);
     } catch (error) {
       console.error('❌ Failed to load chart for editing:', error);
       setError(error instanceof Error ? error.message : 'Failed to load chart');

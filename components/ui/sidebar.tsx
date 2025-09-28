@@ -11,6 +11,7 @@ import Logo from './logo';
 import { ProtectedComponent } from '../rbac/protected-component';
 import { env } from '@/lib/env';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
+import { usePublishedDashboards } from '@/lib/hooks/use-published-dashboards';
 
 
 export default function Sidebar({ variant = 'default' }: { variant?: 'default' | 'v2' }) {
@@ -22,6 +23,7 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
   const expandOnly = !sidebarExpanded && breakpoint && breakpoint >= 1024 && breakpoint < 1536;
   const isExperimentalMode = env.NEXT_PUBLIC_EXPERIMENTAL_MODE;
   const { rbacLoading } = useAuth();
+  const { dashboards: publishedDashboards, loading: dashboardsLoading } = usePublishedDashboards();
 
   // close on click outside
   useEffect(() => {
@@ -177,6 +179,41 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
                               </span>
                             </SidebarLink>
                           </li>
+                            
+                          {/* Published Dashboards - Protected by Analytics RBAC */}
+                          <ProtectedComponent permission="analytics:read:all">
+                            <>
+                              {/* Show separator if we have published dashboards */}
+                              {publishedDashboards.length > 0 && (
+                                <li className="my-3">
+                                  <hr className="border-gray-200 dark:border-gray-700" />
+                                  <div className="text-xs text-gray-400 dark:text-gray-500 uppercase font-semibold mt-2 mb-1">
+                                    Published Dashboards
+                                  </div>
+                                </li>
+                              )}
+                              
+                              {/* Render published dashboards */}
+                              {!dashboardsLoading && publishedDashboards.map((dashboard) => (
+                                <li key={dashboard.dashboard_id} className="mb-1 last:mb-0">
+                                  <SidebarLink href={`/dashboard/view/${dashboard.dashboard_id}`}>
+                                    <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                                      {dashboard.dashboard_name}
+                                    </span>
+                                  </SidebarLink>
+                                </li>
+                              ))}
+                              
+                              {/* Loading state */}
+                              {dashboardsLoading && (
+                                <li className="mb-1 last:mb-0">
+                                  <div className="text-sm text-gray-400 dark:text-gray-500 pl-4 py-1">
+                                    Loading dashboards...
+                                  </div>
+                                </li>
+                              )}
+                            </>
+                          </ProtectedComponent>
                         </ul>
                       </div>
                     </>

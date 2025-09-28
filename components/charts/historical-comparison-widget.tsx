@@ -8,6 +8,7 @@ import {
   ComparisonPeriod 
 } from '@/lib/services/historical-comparison';
 import { AggAppMeasure, MeasureType, FrequencyType } from '@/lib/types/analytics';
+import { apiClient } from '@/lib/api/client';
 import { LoadingSpinner, Skeleton } from '@/components/ui/loading-skeleton';
 import AnalyticsChart from './analytics-chart';
 
@@ -103,52 +104,26 @@ export default function HistoricalComparisonWidget({
       });
 
       // Execute both requests in parallel
-      const [currentResponse, comparisonResponse] = await Promise.all([
-        fetch(`/api/admin/analytics/measures?${currentParams.toString()}`),
-        fetch(`/api/admin/analytics/measures?${comparisonParams.toString()}`)
-      ]);
-
-      console.log('📡 API Response Status:', {
-        currentOk: currentResponse.ok,
-        currentStatus: currentResponse.status,
-        comparisonOk: comparisonResponse.ok,
-        comparisonStatus: comparisonResponse.status
-      });
-
-      if (!currentResponse.ok || !comparisonResponse.ok) {
-        const currentError = currentResponse.ok ? null : await currentResponse.text();
-        const comparisonError = comparisonResponse.ok ? null : await comparisonResponse.text();
-        
-        console.error('❌ API Request failed:', {
-          currentError,
-          comparisonError
-        });
-        
-        throw new Error(`Failed to fetch comparison data: Current=${currentResponse.status}, Comparison=${comparisonResponse.status}`);
-      }
-
       const [currentData, comparisonData] = await Promise.all([
-        currentResponse.json(),
-        comparisonResponse.json()
+        apiClient.get<any>(`/api/admin/analytics/measures?${currentParams.toString()}`),
+        apiClient.get<any>(`/api/admin/analytics/measures?${comparisonParams.toString()}`)
       ]);
 
       console.log('📊 Raw API Data:', {
         currentData: {
-          success: currentData.success,
-          measureCount: currentData.data?.measures?.length || 0,
-          sampleMeasure: currentData.data?.measures?.[0]
+          measureCount: currentData.measures?.length || 0,
+          sampleMeasure: currentData.measures?.[0]
         },
         comparisonData: {
-          success: comparisonData.success,
-          measureCount: comparisonData.data?.measures?.length || 0,
-          sampleMeasure: comparisonData.data?.measures?.[0]
+          measureCount: comparisonData.measures?.length || 0,
+          sampleMeasure: comparisonData.measures?.[0]
         }
       });
 
       // Perform comparison analysis
       const result = historicalComparisonService.comparePeriodsAnalysis(
-        currentData.data.measures || [],
-        comparisonData.data.measures || [],
+        currentData.measures || [],
+        comparisonData.measures || [],
         selectedComparison.id
       );
 

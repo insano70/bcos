@@ -1,0 +1,227 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useParams, notFound } from 'next/navigation';
+import { apiClient } from '@/lib/api/client';
+import { createAppLogger } from '@/lib/logger/factory';
+import type { Dashboard, DashboardChart } from '@/lib/types/analytics';
+
+const logger = createAppLogger('dashboard-view', {
+  component: 'pages',
+  feature: 'dashboard-viewing'
+});
+
+interface DashboardViewData {
+  dashboard: Dashboard;
+  charts: DashboardChart[];
+}
+
+export default function DashboardViewPage() {
+  const params = useParams();
+  const dashboardId = params.dashboardId as string;
+  
+  const [dashboardData, setDashboardData] = useState<DashboardViewData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (dashboardId) {
+      loadDashboard();
+    }
+  }, [dashboardId]);
+
+  const loadDashboard = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      logger.info('Loading dashboard for viewing', {
+        dashboardId,
+        timestamp: new Date().toISOString()
+      });
+
+      const result = await apiClient.get<{
+        dashboard: { dashboards?: Dashboard } | Dashboard;
+        charts: DashboardChart[];
+      }>(`/api/admin/analytics/dashboards/${dashboardId}`);
+
+      // Extract dashboard data
+      const dashboard = 'dashboards' in result.dashboard 
+        ? result.dashboard.dashboards 
+        : result.dashboard;
+
+      if (!dashboard) {
+        throw new Error('Dashboard data not found');
+      }
+
+      // Type assertion after we've confirmed dashboard exists
+      const dashboardData = dashboard as Dashboard;
+
+      // Check if dashboard is published
+      if (!dashboardData.is_published) {
+        logger.warn('Attempted to view unpublished dashboard', {
+          dashboardId,
+          isPublished: dashboardData.is_published
+        });
+        notFound();
+        return;
+      }
+
+      const charts = result.charts || [];
+
+      setDashboardData({
+        dashboard: dashboardData,
+        charts
+      });
+
+      logger.info('Dashboard loaded successfully for viewing', {
+        dashboardId,
+        dashboardName: dashboardData.dashboard_name,
+        chartCount: charts.length
+      });
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load dashboard';
+      
+      logger.error('Failed to load dashboard for viewing', err, {
+        dashboardId,
+        operation: 'load-dashboard-view'
+      });
+
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
+        <div className="flex items-center justify-center h-96">
+          <div className="flex flex-col items-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-violet-500"></div>
+            <p className="mt-4 text-gray-600 dark:text-gray-400">Loading dashboard...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !dashboardData) {
+    return (
+      <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6">
+          <div className="flex items-center">
+            <svg
+              className="w-6 h-6 text-red-600 dark:text-red-400 mr-3"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+              />
+            </svg>
+            <div>
+              <h3 className="text-red-800 dark:text-red-200 font-medium">Error loading dashboard</h3>
+              <p className="text-red-600 dark:text-red-400 text-sm mt-1">
+                {error || 'Dashboard not found'}
+              </p>
+              <button
+                type="button"
+                onClick={loadDashboard}
+                className="mt-3 btn-sm bg-red-600 hover:bg-red-700 text-white"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const { dashboard, charts } = dashboardData;
+
+  return (
+    <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
+      {/* Dashboard Header */}
+      <div className="sm:flex sm:justify-between sm:items-center mb-8">
+        <div className="mb-4 sm:mb-0">
+          <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
+            {dashboard.dashboard_name}
+          </h1>
+          {dashboard.dashboard_description && (
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
+              {dashboard.dashboard_description}
+            </p>
+          )}
+        </div>
+
+        {/* Dashboard Info */}
+        <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+          <div className="flex items-center">
+            <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            {charts.length} {charts.length === 1 ? 'chart' : 'charts'}
+          </div>
+          <div className="flex items-center">
+            <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Updated {new Date(dashboard.updated_at).toLocaleDateString()}
+          </div>
+        </div>
+      </div>
+
+      {/* Dashboard Content */}
+      {charts.length === 0 ? (
+        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-8">
+          <div className="text-center">
+            <div className="text-gray-400 mb-4">
+              📊 This dashboard doesn't have any charts yet
+            </div>
+            <p className="text-gray-600 dark:text-gray-400">
+              Charts will appear here once they are added to this dashboard.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {charts.map((chart) => (
+              <div
+                key={chart.dashboard_chart_id}
+                className="border border-gray-200 dark:border-gray-700 rounded-lg p-4"
+              >
+                <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                  Chart: {chart.chart_definition_id}
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                  Added: {new Date(chart.added_at).toLocaleDateString()}
+                </p>
+                
+                {/* Placeholder for actual chart rendering */}
+                <div className="mt-4 h-32 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center">
+                  <span className="text-gray-500 dark:text-gray-400">Chart Placeholder</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Published Status Indicator */}
+      <div className="mt-6 flex items-center text-sm text-green-600 dark:text-green-400">
+        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+        </svg>
+        Published Dashboard
+      </div>
+    </div>
+  );
+}

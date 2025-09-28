@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { ChartDefinition } from '@/lib/types/analytics';
 import type { ChartWithMetadata } from '@/lib/services/rbac-charts-service';
 import ChartsTable, { type ChartDefinitionListItem } from './charts-table';
+import { apiClient } from '@/lib/api/client';
 
 import DeleteButton from '@/components/delete-button';
 import DateSelect from '@/components/date-select';
@@ -33,20 +34,7 @@ export default function ChartBuilderPage() {
     try {
       console.log('💾 Saving chart definition:', chartDefinition);
       
-      const response = await fetch('/api/admin/analytics/charts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(chartDefinition),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to save chart');
-      }
-
-      const result = await response.json();
+      const result = await apiClient.post('/api/admin/analytics/charts', chartDefinition);
       console.log('✅ Chart saved successfully:', result);
       
       // Refresh the charts list
@@ -65,19 +53,12 @@ export default function ChartBuilderPage() {
     try {
       console.log('🔍 Loading chart definitions from API...');
       
-      const response = await fetch('/api/admin/analytics/charts');
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const result = await response.json();
+      const result = await apiClient.get<{
+        charts: ChartWithMetadata[];
+      }>('/api/admin/analytics/charts');
       console.log('📊 Raw API Response:', result);
       
-      if (!result.success) {
-        throw new Error(result.message || 'API returned unsuccessful response');
-      }
-      
-      const charts = result.data.charts || [];
+      const charts = result.charts || [];
       console.log('📋 Charts data structure:', {
         count: charts.length,
         sampleChart: charts[0]
@@ -125,17 +106,7 @@ export default function ChartBuilderPage() {
 
   const handleDeleteConfirm = async (chartId: string) => {
     try {
-      const response = await fetch(`/api/admin/analytics/charts/${chartId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete chart');
-      }
+      await apiClient.delete(`/api/admin/analytics/charts/${chartId}`);
 
       // Show success toast
       setToastMessage(`Chart "${chartToDelete?.chart_name}" deleted successfully`);

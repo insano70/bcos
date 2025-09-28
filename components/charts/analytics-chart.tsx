@@ -8,6 +8,7 @@ import { calculatedFieldsService } from '@/lib/services/calculated-fields';
 import { chartExportService } from '@/lib/services/chart-export';
 import { usageAnalyticsService } from '@/lib/services/usage-analytics';
 import ChartErrorBoundary from './chart-error-boundary';
+import { apiClient } from '@/lib/api/client';
 import { ChartSkeleton } from '@/components/ui/loading-skeleton';
 import ResponsiveChartContainer from './responsive-chart-container';
 
@@ -38,21 +39,18 @@ interface AnalyticsChartProps extends ResponsiveChartProps {
 }
 
 interface ApiResponse {
-  success: boolean;
-  data: {
-    measures: any[];
-    pagination: {
-      total_count: number;
-      limit: number;
-      offset: number;
-      has_more: boolean;
-    };
-    metadata: {
-      query_time_ms: number;
-      cache_hit: boolean;
-      analytics_db_latency_ms?: number;
-      generatedAt: string;
-    };
+  measures: any[];
+  pagination: {
+    total_count: number;
+    limit: number;
+    offset: number;
+    has_more: boolean;
+  };
+  metadata: {
+    query_time_ms: number;
+    cache_hit: boolean;
+    analytics_db_latency_ms?: number;
+    generatedAt: string;
   };
 }
 
@@ -83,7 +81,7 @@ export default function AnalyticsChart({
   const [chartData, setChartData] = useState<ChartData>({ labels: [], datasets: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [metadata, setMetadata] = useState<ApiResponse['data']['metadata'] | null>(null);
+  const [metadata, setMetadata] = useState<ApiResponse['metadata'] | null>(null);
   const [rawData, setRawData] = useState<any[]>([]);
   const chartRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -171,16 +169,9 @@ export default function AnalyticsChart({
 
       // Fetch data from admin analytics API (single series mode)
       console.log('🚀 FETCHING SINGLE SERIES DATA:', { measure, frequency });
-      const response = await fetch(`/api/admin/analytics/measures?${params.toString()}`);
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
-      }
+      const data: ApiResponse = await apiClient.get(`/api/admin/analytics/measures?${params.toString()}`);
 
-      const data: ApiResponse = await response.json();
-
-      if (!data.success || !data.data.measures) {
+      if (!data.measures) {
         throw new Error('Invalid response format from analytics API');
       }
 
@@ -193,7 +184,7 @@ export default function AnalyticsChart({
       // GroupBy mapping completed
 
       // Apply calculated fields if selected
-      let processedMeasures = data.data.measures;
+      let processedMeasures = data.measures;
       if (calculatedField) {
         try {
           console.log('🔍 APPLYING CALCULATED FIELD:', {
@@ -271,8 +262,8 @@ export default function AnalyticsChart({
       // Chart data structure prepared
 
       setChartData(transformedData);
-      setMetadata(data.data.metadata);
-      setRawData(data.data.measures); // Store raw data for export
+      setMetadata(data.metadata);
+      setRawData(data.measures); // Store raw data for export
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch chart data';

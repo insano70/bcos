@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import RowBasedDashboardBuilder from '@/components/charts/row-based-dashboard-builder';
 import type { Dashboard, DashboardChart } from '@/lib/types/analytics';
+import { apiClient } from '@/lib/api/client';
 
 interface DashboardWithCharts extends Dashboard {
   charts: DashboardChart[];
@@ -23,16 +24,14 @@ export default function EditDashboardPage() {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/admin/analytics/dashboards/${dashboardId}`);
-      if (!response.ok) {
-        throw new Error(`Failed to load dashboard: ${response.status}`);
-      }
-
-      const result = await response.json();
-      const dashboardResponse = result.data;
+      const result = await apiClient.get<{
+        dashboard: Dashboard;
+        charts: DashboardChart[];
+      }>(`/api/admin/analytics/dashboards/${dashboardId}`);
+      const dashboardResponse = result;
 
       // Extract dashboard and charts from joined API response
-      const dashboard = dashboardResponse.dashboard.dashboards || dashboardResponse.dashboard;
+      const dashboard = dashboardResponse.dashboard;
       const charts = dashboardResponse.charts || [];
 
       const fullDashboardData: DashboardWithCharts = {

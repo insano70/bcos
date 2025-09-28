@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useState } from 'react';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
+import { apiClient } from '@/lib/api/client';
 import ImageUpload from '@/components/image-upload';
 import ColorPicker from '@/components/color-picker';
 import StaffListEmbedded from '@/components/staff-list-embedded';
@@ -57,13 +58,7 @@ interface PracticeFormData {
 }
 
 async function fetchPracticeAttributes(practiceId: string) {
-  const response = await fetch(`/api/practices/${practiceId}/attributes`, {
-    credentials: 'include'
-  });
-  if (!response.ok) {
-    throw new Error('Failed to fetch practice attributes');
-  }
-  return response.json();
+  return await apiClient.get<any>(`/api/practices/${practiceId}/attributes`);
 }
 
 async function updatePracticeAttributes(practiceId: string, data: Omit<PracticeFormData, 'template_id' | 'name'>, csrfToken?: string) {
@@ -89,40 +84,7 @@ async function updatePracticeAttributes(practiceId: string, data: Omit<PracticeF
     'Content-Type': 'application/json',
   };
   
-  // Add CSRF token if available
-  if (csrfToken) {
-    headers['x-csrf-token'] = csrfToken;
-  }
-  
-  const response = await fetch(`/api/practices/${practiceId}/attributes`, {
-    method: 'PUT',
-    headers,
-    credentials: 'include',
-    body: JSON.stringify(filteredData),
-  });
-  
-  console.log('📡 Response status:', response.status, response.statusText);
-  
-  if (!response.ok) {
-    // Get detailed error information
-    let errorDetails = 'Unknown error';
-    try {
-      const errorData = await response.json();
-      errorDetails = errorData.message || errorData.error || JSON.stringify(errorData);
-      console.error('❌ API Error Details:', errorDetails);
-    } catch (_e) {
-      try {
-        errorDetails = await response.text();
-        console.error('❌ API Error Text:', errorDetails);
-      } catch (_e2) {
-        console.error('❌ API Error - Could not parse response');
-      }
-    }
-    
-    throw new Error(`Failed to update practice attributes: ${errorDetails}`);
-  }
-  
-  const result = await response.json();
+  const result = await apiClient.put(`/api/practices/${practiceId}/attributes`, filteredData);
   console.log('✅ Update successful:', result);
   return result;
 }
@@ -237,18 +199,7 @@ export default function PracticeConfigForm({
           'Content-Type': 'application/json',
         };
         
-        // Add CSRF token if available
-        if (csrfToken) {
-          headers['x-csrf-token'] = csrfToken;
-        }
-        
-        const response = await fetch(`/api/practices/${practiceId}`, {
-          method: 'PUT',
-          headers,
-          credentials: 'include',
-          body: JSON.stringify(practiceChanges),
-        });
-        if (!response.ok) throw new Error('Failed to update practice');
+        await apiClient.put(`/api/practices/${practiceId}`, practiceChanges);
         
         // Update local practice state to reflect changes
         setCurrentPractice(prev => ({ ...prev, ...practiceChanges }));
@@ -264,7 +215,7 @@ export default function PracticeConfigForm({
       const result = await updatePracticeAttributes(practiceId, attributesData, csrfToken || undefined);
       
       // Extract actual data from API response
-      const actualData = result.data || result;
+      const actualData = (result as any).data || result;
       
       // Update cache with the actual data structure
       queryClient.setQueryData(['practice-attributes', practiceId], actualData);

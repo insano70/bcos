@@ -42,19 +42,19 @@ export default function DashboardsPage() {
     try {
       console.log('🔍 Loading dashboard definitions from API...');
       
-      const response = await fetch('/api/admin/analytics/dashboards');
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const result = await response.json();
+      const result = await apiClient.get<{
+        dashboards: DashboardListItem[];
+        metadata: {
+          total_count: number;
+          category_filter?: string;
+          active_filter: boolean;
+          generatedAt: string;
+        };
+      }>('/api/admin/analytics/dashboards');
       console.log('📊 Raw Dashboard API Response:', result);
       
-      if (!result.success) {
-        throw new Error(result.message || 'API returned unsuccessful response');
-      }
-      
-      const dashboards = result.data.dashboards || [];
+      // apiClient automatically unwraps the data, so result is already the data portion
+      const dashboards = result.dashboards || [];
       console.log('📋 Dashboards data structure:', {
         count: dashboards.length,
         sampleDashboard: dashboards[0]
@@ -110,17 +110,7 @@ export default function DashboardsPage() {
 
   const handleDeleteConfirm = async (dashboardId: string) => {
     try {
-      const response = await fetch(`/api/admin/analytics/dashboards/${dashboardId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete dashboard');
-      }
+      await apiClient.delete(`/api/admin/analytics/dashboards/${dashboardId}`);
 
       // Show success toast
       setToastMessage(`Dashboard "${dashboardToDelete?.dashboard_name}" deleted successfully`);
@@ -198,20 +188,24 @@ export default function DashboardsPage() {
     try {
       console.log('🔍 Loading dashboard for preview:', dashboard.dashboard_id);
       
-      const response = await fetch(`/api/admin/analytics/dashboards/${dashboard.dashboard_id}`);
-      if (!response.ok) {
-        throw new Error(`Failed to load dashboard: ${response.status}`);
-      }
-
-      const result = await response.json();
-      const dashboardResponse = result.data;
+      const result = await apiClient.get<{
+        dashboard: { dashboards?: Dashboard } | Dashboard;
+        charts: DashboardChart[];
+      }>(`/api/admin/analytics/dashboards/${dashboard.dashboard_id}`);
+      const dashboardResponse = result;
 
       // Extract dashboard and charts from API response
-      const fullDashboard = dashboardResponse.dashboard.dashboards || dashboardResponse.dashboard;
+      const fullDashboard = 'dashboards' in dashboardResponse.dashboard 
+        ? dashboardResponse.dashboard.dashboards 
+        : dashboardResponse.dashboard;
       const charts = dashboardResponse.charts || [];
 
+      if (!fullDashboard) {
+        throw new Error('Dashboard data not found in response');
+      }
+
       setDashboardToPreview({
-        dashboard: fullDashboard,
+        dashboard: fullDashboard as Dashboard,
         charts
       });
       setPreviewModalOpen(true);

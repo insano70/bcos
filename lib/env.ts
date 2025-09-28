@@ -19,13 +19,10 @@ export const env = createEnv({
     // Email Service - AWS SES Configuration
     SMTP_USERNAME: z.string().optional(),
     SMTP_PASSWORD: z.string().optional(),
-    SMTP_ENDPOINT: z.string().optional(),
-    SMTP_STARTTLS_PORT: z.string().transform(val => val ? parseInt(val, 10) : 587).optional(),
-    SMTP_TLS_WRAPPER_PORT: z.string().transform(val => val ? parseInt(val, 10) : 465).optional(),
     SMTP_FROM_EMAIL: z.string().email().optional(),
     SMTP_FROM_NAME: z.string().optional(),
     SMTP_REPLY_TO: z.string().email().optional(),
-    SMTP_REGION: z.string().optional(),
+    AWS_REGION: z.string().optional(),
     ADMIN_NOTIFICATION_EMAILS: z.string().optional(),
     
     // External Services
@@ -60,13 +57,10 @@ export const env = createEnv({
     CSRF_SECRET: process.env.CSRF_SECRET,
     SMTP_USERNAME: process.env.SMTP_USERNAME,
     SMTP_PASSWORD: process.env.SMTP_PASSWORD,
-    SMTP_ENDPOINT: process.env.SMTP_ENDPOINT,
-    SMTP_STARTTLS_PORT: process.env.SMTP_STARTTLS_PORT,
-    SMTP_TLS_WRAPPER_PORT: process.env.SMTP_TLS_WRAPPER_PORT,
     SMTP_FROM_EMAIL: process.env.SMTP_FROM_EMAIL,
     SMTP_FROM_NAME: process.env.SMTP_FROM_NAME,
     SMTP_REPLY_TO: process.env.SMTP_REPLY_TO,
-    SMTP_REGION: process.env.SMTP_REGION,
+    AWS_REGION: process.env.AWS_REGION,
     ADMIN_NOTIFICATION_EMAILS: process.env.ADMIN_NOTIFICATION_EMAILS,
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
     RESEND_WEBHOOK_SECRET: process.env.RESEND_WEBHOOK_SECRET,
@@ -151,14 +145,34 @@ export const getDatabaseConfig = () => {
   if (typeof window !== 'undefined') {
     throw new Error('getDatabaseConfig can only be used on the server side');
   }
+  
+  // Environment-specific connection pool settings
+  const getPoolSettings = () => {
+    switch (env.NODE_ENV) {
+      case 'production':
+        return {
+          max: 20, // Higher pool size for production load
+          idleTimeoutMillis: 30000, // 30 seconds
+          connectionTimeoutMillis: 2000, // 2 seconds
+        };
+      case 'test':
+        return {
+          max: 2, // Minimal pool for test isolation
+          idleTimeoutMillis: 5000, // 5 seconds
+          connectionTimeoutMillis: 1000, // 1 second
+        };
+      default: // development
+        return {
+          max: 5, // Moderate pool for development
+          idleTimeoutMillis: 10000, // 10 seconds
+          connectionTimeoutMillis: 1500, // 1.5 seconds
+        };
+    }
+  };
+
   return {
     url: env.DATABASE_URL,
-    // Production optimizations
-    ...(env.NODE_ENV === 'production' && {
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
-    })
+    ...getPoolSettings()
   };
 };
 
@@ -181,14 +195,17 @@ export const getEmailConfig = () => {
   if (typeof window !== 'undefined') {
     throw new Error('getEmailConfig can only be used on the server side');
   }
+  
+  const region = env.AWS_REGION || 'us-east-1';
+  
   return {
     smtp: {
       username: env.SMTP_USERNAME,
       password: env.SMTP_PASSWORD,
-      endpoint: env.SMTP_ENDPOINT || 'email-smtp.us-east-1.amazonaws.com',
-      startTlsPort: env.SMTP_STARTTLS_PORT || 587,
-      tlsWrapperPort: env.SMTP_TLS_WRAPPER_PORT || 465,
-      region: env.SMTP_REGION || 'us-east-1'
+      endpoint: `email-smtp.${region}.amazonaws.com`,
+      startTlsPort: 587,
+      tlsWrapperPort: 465,
+      region: region
     },
     from: {
       email: env.SMTP_FROM_EMAIL || 'noreply@yourdomain.com',

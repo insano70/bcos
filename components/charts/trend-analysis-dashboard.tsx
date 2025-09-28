@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { historicalComparisonService } from '@/lib/services/historical-comparison';
 import { AggAppMeasure, MeasureType, FrequencyType } from '@/lib/types/analytics';
 import { LoadingSpinner, CardSkeleton } from '@/components/ui/loading-skeleton';
+import { apiClient } from '@/lib/api/client';
 
 interface TrendAnalysisProps {
   measure: MeasureType;
@@ -54,14 +55,8 @@ export default function TrendAnalysisDashboard({
       if (practiceUid) params.append('practice_uid', practiceUid);
       if (providerName) params.append('provider_name', providerName);
 
-      const response = await fetch(`/api/admin/analytics/measures?${params.toString()}`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch trend data');
-      }
-
-      const data = await response.json();
-      const measures = data.data.measures;
+      const data = await apiClient.get<any>(`/api/admin/analytics/measures?${params.toString()}`);
+      const measures = data.measures;
 
       // Perform trend analysis
       const analysis = historicalComparisonService.analyzeTrend(measures, periods);

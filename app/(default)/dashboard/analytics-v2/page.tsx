@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import DashboardBuilderAdvanced from '@/components/charts/dashboard-builder-advanced';
 import ChargesPaymentsChart from '@/components/charts/charges-payments-chart';
 import { chartExportService } from '@/lib/services/chart-export';
+import { apiClient } from '@/lib/api/client';
 
 export default function AnalyticsV2Page() {
   const [activeView, setActiveView] = useState<'overview' | 'builder' | 'dashboards'>('overview');
@@ -20,23 +21,22 @@ export default function AnalyticsV2Page() {
 
   const loadDashboards = async () => {
     try {
-      const response = await fetch('/api/admin/analytics/dashboards');
-      if (response.ok) {
-        const result = await response.json();
-        setDashboards(result.data.dashboards || []);
-      }
+      // Only load published dashboards for the analytics view
+      const result = await apiClient.get<{
+        dashboards: any[];
+      }>('/api/admin/analytics/dashboards?is_published=true&is_active=true');
+      setDashboards(result.dashboards || []);
     } catch (error) {
-      console.error('Failed to load dashboards:', error);
+      console.error('Failed to load published dashboards:', error);
     }
   };
 
   const loadFavorites = async () => {
     try {
-      const response = await fetch('/api/admin/analytics/favorites');
-      if (response.ok) {
-        const result = await response.json();
-        setFavorites(result.data.favorites || []);
-      }
+      const result = await apiClient.get<{
+        favorites: any[];
+      }>('/api/admin/analytics/favorites');
+      setFavorites(result.favorites || []);
     } catch (error) {
       console.error('Failed to load favorites:', error);
     }
@@ -234,7 +234,7 @@ export default function AnalyticsV2Page() {
         <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              📊 Saved Dashboards
+              📊 Published Dashboards
             </h2>
           </div>
           
@@ -242,7 +242,7 @@ export default function AnalyticsV2Page() {
             {dashboards.length === 0 ? (
               <div className="text-center py-12">
                 <div className="text-gray-500 dark:text-gray-400 mb-4">
-                  🏠 No dashboards found
+                  🏠 No published dashboards found
                 </div>
                 <button
                   onClick={() => setActiveView('builder')}

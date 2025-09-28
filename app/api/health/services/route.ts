@@ -72,8 +72,7 @@ async function checkEmailService(): Promise<{ name: string; healthy: boolean; re
   }
   
   const hasCredentials = process.env.SMTP_USERNAME && 
-                        process.env.SMTP_PASSWORD && 
-                        process.env.SMTP_ENDPOINT
+                        process.env.SMTP_PASSWORD
   
   if (!hasCredentials) {
     result.error = 'AWS SES credentials not configured (using mock implementation)'

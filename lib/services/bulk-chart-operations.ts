@@ -1,4 +1,5 @@
 import type { ChartDefinition, ChartFilter } from '@/lib/types/analytics';
+import { apiClient } from '@/lib/api/client';
 // Note: Using console for client-side logging to avoid winston fs dependency
 // import { logger } from '@/lib/logger';
 
@@ -240,21 +241,12 @@ export class BulkChartOperationsService {
         
         try {
           // This would typically make API calls to update each chart
-          const response = await fetch(`/api/admin/analytics/charts/${chartId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updates.updates)
-          });
+          await apiClient.put(`/api/admin/analytics/charts/${chartId}`, updates.updates);
 
           const result: BulkOperationResult = {
             chartId,
-            success: response.ok
+            success: true
           };
-
-          if (!response.ok) {
-            const error = await response.json();
-            result.error = error.error || 'Update failed';
-          }
 
           operation.results.push(result);
           operation.progress = Math.round(((i + 1) / operation.chartIds.length) * 100);
@@ -305,17 +297,12 @@ export class BulkChartOperationsService {
         if (!chartId) continue;
         
         try {
-          const response = await fetch(`/api/admin/analytics/charts/${chartId}`, {
-            method: 'DELETE'
-          });
+          await apiClient.delete(`/api/admin/analytics/charts/${chartId}`);
 
           const result: BulkOperationResult = {
             chartId,
-            success: response.ok
+            success: true
           };
-          if (!response.ok) {
-            result.error = 'Delete failed';
-          }
           operation.results.push(result);
 
           operation.progress = Math.round(((i + 1) / operation.chartIds.length) * 100);
@@ -414,19 +401,12 @@ export class BulkChartOperationsService {
           if (organizeParams.categoryId) updateData.chart_category_id = organizeParams.categoryId;
           if (organizeParams.newOwner) updateData.created_by = organizeParams.newOwner;
 
-          const response = await fetch(`/api/admin/analytics/charts/${chartId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updateData)
-          });
+          await apiClient.put(`/api/admin/analytics/charts/${chartId}`, updateData);
 
           const result: BulkOperationResult = {
             chartId,
-            success: response.ok
+            success: true
           };
-          if (!response.ok) {
-            result.error = 'Organization failed';
-          }
           operation.results.push(result);
 
           operation.progress = Math.round(((i + 1) / operation.chartIds.length) * 100);
@@ -475,16 +455,13 @@ export class BulkChartOperationsService {
         
         try {
           // Get original chart
-          const response = await fetch(`/api/admin/analytics/charts/${chartId}`);
-          if (!response.ok) throw new Error('Failed to fetch original chart');
-          
-          const originalChart = await response.json();
+          const originalChart = await apiClient.get(`/api/admin/analytics/charts/${chartId}`);
           
           // Create cloned chart with modifications
           const clonedChart = {
-            ...originalChart.data,
+            ...(originalChart as any).data,
             ...modifications,
-            chart_name: `${originalChart.data.chart_name} (Copy)`,
+            chart_name: `${(originalChart as any).data.chart_name} (Copy)`,
             created_by: operatorUserId
           };
 
@@ -492,24 +469,13 @@ export class BulkChartOperationsService {
           delete clonedChart.created_at;
           delete clonedChart.updated_at;
 
-          const createResponse = await fetch('/api/admin/analytics/charts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(clonedChart)
-          });
+          const newChart = await apiClient.post('/api/admin/analytics/charts', clonedChart);
 
           const result: BulkOperationResult = {
             chartId,
-            success: createResponse.ok
+            success: true,
+            data: { newChartId: (newChart as any).data.chart.chart_definition_id }
           };
-
-          if (createResponse.ok) {
-            const newChart = await createResponse.json();
-            result.data = { newChartId: newChart.data.chart.chart_definition_id };
-          } else {
-            const error = await createResponse.json();
-            result.error = error.error || 'Clone failed';
-          }
 
           operation.results.push(result);
           operation.progress = Math.round(((i + 1) / operation.chartIds.length) * 100);

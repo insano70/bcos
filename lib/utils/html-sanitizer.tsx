@@ -60,8 +60,10 @@ export function stripHtml(html: string): string {
 
   return html
     .replace(/<br\s*\/?>/gi, '\n')  // Convert <br> tags to newlines
+    .replace(/<hr\s*\/?>/gi, '\n')  // Convert <hr> tags to newlines
     .replace(/<\/p>/gi, '\n')       // Convert closing </p> tags to newlines
     .replace(/<[^>]*>/g, '')        // Remove all other HTML tags
+    .replace(/<[^>]*$/g, '')        // Remove incomplete/malformed tags at end
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
@@ -82,6 +84,16 @@ export function sanitizeUrl(url: string): string {
 
   // Remove dangerous protocols
   if (url.match(/^(javascript|data|vbscript|file):/i)) {
+    return '#';
+  }
+
+  // Block protocol-relative URLs (security risk)
+  if (url.startsWith('//')) {
+    return '#';
+  }
+
+  // Block URLs with spaces or other dangerous characters
+  if (url.includes(' ') || url.includes('\n') || url.includes('\t')) {
     return '#';
   }
 

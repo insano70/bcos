@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import AnalyticsChart from './analytics-chart';
 import type { Dashboard, DashboardChart, ChartDefinition, MeasureType, FrequencyType } from '@/lib/types/analytics';
+import { apiClient } from '@/lib/api/client';
 
 interface DashboardConfig {
   dashboardName: string;
@@ -51,15 +52,14 @@ export default function DashboardPreview({
 
   const loadChartDefinitions = async () => {
     try {
-      const response = await fetch('/api/admin/analytics/charts?is_active=true');
-      if (response.ok) {
-        const result = await response.json();
-        const charts = (result.data.charts || []).map((item: any) => {
-          return item.chart_definitions || item;
-        }).filter((chart: any) => chart.is_active !== false);
-        
-        setAvailableCharts(charts);
-      }
+      const result = await apiClient.get<{
+        charts: ChartDefinition[];
+      }>('/api/admin/analytics/charts?is_active=true');
+      const charts = (result.charts || []).map((item: ChartDefinition) => {
+        return (item as any).chart_definitions || item;
+      }).filter((chart: ChartDefinition) => chart.is_active !== false);
+      
+      setAvailableCharts(charts);
     } catch (error) {
       console.error('Failed to load chart definitions:', error);
       setError('Failed to load chart definitions for preview');

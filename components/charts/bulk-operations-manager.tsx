@@ -3,55 +3,35 @@
 import { useState, useEffect } from 'react';
 import { ChartDefinition } from '@/lib/types/analytics';
 import { TableSkeleton, LoadingSpinner, Skeleton } from '@/components/ui/loading-skeleton';
+import { apiClient } from '@/lib/api/client';
 // Client-side API service for bulk operations
 const bulkOperationsAPI = {
   async getOperationProgress(operationId: string) {
-    const response = await fetch(`/api/admin/analytics/bulk-operations/${operationId}`);
-    if (!response.ok) throw new Error('Failed to get operation progress');
-    return response.json();
+    return await apiClient.get<{
+      status: string;
+      completed: number;
+      failed: number;
+      progress: number;
+    }>(`/api/admin/analytics/bulk-operations/${operationId}`);
   },
   
   async bulkUpdateCharts(chartIds: string[], updates: any) {
-    const response = await fetch('/api/admin/analytics/bulk-operations/update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chartIds, updates })
-    });
-    if (!response.ok) throw new Error('Failed to start bulk update');
-    const result = await response.json();
+    const result = await apiClient.post<{ operationId: string }>('/api/admin/analytics/bulk-operations/update', { chartIds, updates });
     return result.operationId;
   },
   
   async bulkDeleteCharts(chartIds: string[]) {
-    const response = await fetch('/api/admin/analytics/bulk-operations/delete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chartIds })
-    });
-    if (!response.ok) throw new Error('Failed to start bulk delete');
-    const result = await response.json();
+    const result = await apiClient.post<{ operationId: string }>('/api/admin/analytics/bulk-operations/delete', { chartIds });
     return result.operationId;
   },
   
   async bulkExportCharts(chartIds: string[], format: string) {
-    const response = await fetch('/api/admin/analytics/bulk-operations/export', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chartIds, format })
-    });
-    if (!response.ok) throw new Error('Failed to start bulk export');
-    const result = await response.json();
+    const result = await apiClient.post<{ operationId: string }>('/api/admin/analytics/bulk-operations/export', { chartIds, format });
     return result.operationId;
   },
   
   async bulkCloneCharts(chartIds: string[], targetCategoryId?: string) {
-    const response = await fetch('/api/admin/analytics/bulk-operations/clone', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chartIds, targetCategoryId })
-    });
-    if (!response.ok) throw new Error('Failed to start bulk clone');
-    const result = await response.json();
+    const result = await apiClient.post<{ operationId: string }>('/api/admin/analytics/bulk-operations/clone', { chartIds, targetCategoryId });
     return result.operationId;
   }
 };
@@ -114,11 +94,10 @@ export default function BulkOperationsManager() {
   const loadCharts = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/admin/analytics/charts');
-      if (response.ok) {
-        const result = await response.json();
-        setAvailableCharts(result.data.charts || []);
-      }
+      const result = await apiClient.get<{
+        charts: ChartDefinition[];
+      }>('/api/admin/analytics/charts');
+      setAvailableCharts(result.charts || []);
     } catch (error) {
       console.error('Failed to load charts:', error);
       setToastMessage('Failed to load charts');

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { ChartDefinition } from '@/lib/types/analytics';
 import { CHART_TEMPLATES, createChartFromTemplate } from '@/lib/services/chart-templates';
 import Toast from '@/components/toast';
+import { apiClient } from '@/lib/api/client';
 
 /**
  * Chart Template Management UI
@@ -54,11 +55,10 @@ export default function ChartTemplateManager() {
   const loadCustomTemplates = async () => {
     try {
       // Load user-created templates
-      const response = await fetch('/api/admin/analytics/charts?template=true');
-      if (response.ok) {
-        const result = await response.json();
-        setCustomTemplates(result.data.charts || []);
-      }
+      const result = await apiClient.get<{
+        charts: ChartDefinition[];
+      }>('/api/admin/analytics/charts?template=true');
+      setCustomTemplates(result.charts || []);
     } catch (error) {
       console.error('Failed to load custom templates:', error);
     }
@@ -78,18 +78,7 @@ export default function ChartTemplateManager() {
         currentUserId
       );
 
-      const response = await fetch('/api/admin/analytics/charts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(chartDefinition)
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create chart from template');
-      }
-
-      const result = await response.json();
+      const result = await apiClient.post('/api/admin/analytics/charts', chartDefinition);
       
       setToastMessage(`Chart created successfully from template!`);
       setToastType('success');
@@ -109,21 +98,15 @@ export default function ChartTemplateManager() {
   const saveAsTemplate = async (chartDefinitionId: string, templateName: string) => {
     try {
       // This would typically mark a chart as a template
-      const response = await fetch(`/api/admin/analytics/charts/${chartDefinitionId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          is_template: true,
-          template_name: templateName 
-        })
+      await apiClient.put(`/api/admin/analytics/charts/${chartDefinitionId}`, { 
+        is_template: true,
+        template_name: templateName 
       });
 
-      if (response.ok) {
-        setToastMessage('Chart saved as template successfully!');
-        setToastType('success');
-        setShowToast(true);
-        loadCustomTemplates(); // Refresh the list
-      }
+      setToastMessage('Chart saved as template successfully!');
+      setToastType('success');
+      setShowToast(true);
+      loadCustomTemplates(); // Refresh the list
     } catch (error) {
       setToastMessage('Failed to save template');
       setToastType('error');
@@ -135,16 +118,12 @@ export default function ChartTemplateManager() {
     if (!confirm('Are you sure you want to delete this template?')) return;
 
     try {
-      const response = await fetch(`/api/admin/analytics/charts/${templateId}`, {
-        method: 'DELETE'
-      });
+      await apiClient.delete(`/api/admin/analytics/charts/${templateId}`);
 
-      if (response.ok) {
-        setToastMessage('Template deleted successfully');
-        setToastType('success');
-        setShowToast(true);
-        loadCustomTemplates(); // Refresh the list
-      }
+      setToastMessage('Template deleted successfully');
+      setToastType('success');
+      setShowToast(true);
+      loadCustomTemplates(); // Refresh the list
     } catch (error) {
       setToastMessage('Failed to delete template');
       setToastType('error');

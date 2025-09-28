@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/lib/api/client';
 
 export interface Template {
   id: string; // Maps to template_id in database
@@ -11,17 +12,11 @@ export interface Template {
 }
 
 async function fetchTemplates(): Promise<Template[]> {
-  const response = await fetch('/api/templates', {
-    credentials: 'include'
-  });
-  if (!response.ok) {
-    throw new Error('Failed to fetch templates');
-  }
-  const result = await response.json();
+  const result = await apiClient.get<Template[]>('/api/templates');
   
-  // Handle the standardized API response format
-  if (result.success && Array.isArray(result.data)) {
-    return result.data;
+  // apiClient automatically unwraps standardized responses
+  if (Array.isArray(result)) {
+    return result;
   }
   
   // Fallback for direct array response

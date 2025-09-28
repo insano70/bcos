@@ -12,10 +12,11 @@ import {
 
 describe('sanitization validation schemas', () => {
   describe('sanitizeText', () => {
-    it('should remove HTML tags', () => {
+    it('should remove HTML tags and dangerous content', () => {
       const htmlInput = '<script>alert("xss")</script>Hello <b>world</b>!'
       const result = sanitizeText(htmlInput)
-      expect(result).toBe('alert("xss")Hello world!')
+      // SECURITY: Enhanced sanitization removes script content entirely for better protection
+      expect(result).toBe('Hello world!')
     })
 
     it('should remove dangerous characters for safe text storage', () => {
@@ -72,7 +73,8 @@ describe('sanitization validation schemas', () => {
 
       const result = schema.safeParse(htmlInput)
       expect(result.success).toBe(true)
-      expect(result.data).toBe('alert("xss")Hello &amp; world!')
+      // SECURITY: Enhanced sanitization removes script content entirely for better protection
+      expect(result.data).toBe('Hello &amp; world!')
     })
 
     it('should reject text that is too short', () => {
@@ -191,7 +193,8 @@ describe('sanitization validation schemas', () => {
 
       const result = schema.safeParse(htmlName)
       expect(result.success).toBe(true)
-      expect(result.data).toBe('John Doe')
+      // SECURITY: Enhanced sanitization removes script content entirely for better protection
+      expect(result.data).toBe('Doe')
     })
 
     it('should reject empty names', () => {

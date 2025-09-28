@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import BarChart01 from './bar-chart-01';
 import { getCssVariable } from '@/components/utils/utils';
 import ResponsiveChartContainer from './responsive-chart-container';
+import { apiClient } from '@/lib/api/client';
 
 interface ChargesPaymentsData {
   practice: string;
@@ -57,15 +58,10 @@ export default function ChargesPaymentsChart({
     try {
       console.log('🔍 Fetching Charges & Payments data for practice:', practiceUid);
       
-      const response = await fetch(`/api/admin/analytics/charges-payments?practice_uid=${practiceUid}`);
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      const data: ChargesPaymentsData[] = result.data.data;
+      const result = await apiClient.get<{
+        data: ChargesPaymentsData[];
+      }>(`/api/admin/analytics/charges-payments?practice_uid=${practiceUid}`);
+      const data: ChargesPaymentsData[] = result.data;
 
       console.log('✅ Received Charges & Payments data:', {
         rowCount: data.length,

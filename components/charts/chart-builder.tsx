@@ -5,6 +5,7 @@ import Toast from '@/components/toast';
 import { ChartDefinition, ChartFilter, MeasureType, MultipleSeriesConfig } from '@/lib/types/analytics';
 import { calculatedFieldsService } from '@/lib/services/calculated-fields';
 import { FormSkeleton, Skeleton } from '@/components/ui/loading-skeleton';
+import { apiClient } from '@/lib/api/client';
 
 // Import the new focused components
 import ChartBuilderCore, { ChartConfig } from './chart-builder-core';
@@ -156,32 +157,27 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
     try {
       console.log('🔍 Loading analytics schema information...');
       
-      const response = await fetch('/api/admin/analytics/schema');
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      setSchemaInfo(result.data);
+      const result = await apiClient.get<SchemaInfo>('/api/admin/analytics/schema');
+      setSchemaInfo(result);
       
       // Set default values based on schema
-      if (result.data.availableMeasures.length > 0) {
+      if (result.availableMeasures && result.availableMeasures.length > 0) {
         setChartConfig(prev => ({
           ...prev,
-          measure: result.data.availableMeasures[0].measure
+          measure: result.availableMeasures[0] as any
         }));
       }
       
-      if (result.data.availableFrequencies.length > 0) {
+      if (result.availableFrequencies && result.availableFrequencies.length > 0) {
         setChartConfig(prev => ({
           ...prev,
-          frequency: result.data.availableFrequencies[0].frequency
+          frequency: result.availableFrequencies[0] as any
         }));
       }
 
       console.log('✅ Schema loaded:', {
-        fieldCount: Object.keys(result.data.fields).length,
-        measureCount: result.data.availableMeasures.length
+        fieldCount: result.fields ? Object.keys(result.fields).length : 0,
+        measureCount: result.availableMeasures ? result.availableMeasures.length : 0
       });
       
     } catch (error) {
@@ -297,20 +293,9 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
         ? `/api/admin/analytics/charts/${editingChart?.chart_definition_id}`
         : '/api/admin/analytics/charts';
       
-      const method = isEditMode ? 'PATCH' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(chartDefinition),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || `Failed to ${isEditMode ? 'update' : 'save'} chart`);
-      }
-
-      const result = await response.json();
+      const result = isEditMode 
+        ? await apiClient.patch(url, chartDefinition)
+        : await apiClient.post(url, chartDefinition);
       console.log(`✅ Chart ${isEditMode ? 'updated' : 'saved'} successfully:`, result);
       
       setToastMessage(`Chart "${chartConfig.chartName}" ${isEditMode ? 'updated' : 'saved'} successfully!`);

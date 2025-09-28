@@ -26,6 +26,8 @@ const getDashboardsHandler = async (request: NextRequest, userContext: UserConte
     const { searchParams } = new URL(request.url);
     const categoryId = searchParams.get('category_id');
     const isActive = searchParams.get('is_active') !== 'false';
+    const isPublished = searchParams.get('is_published') === 'true' ? true : 
+                       searchParams.get('is_published') === 'false' ? false : undefined;
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined;
     const offset = searchParams.get('offset') ? parseInt(searchParams.get('offset')!) : undefined;
 
@@ -36,6 +38,7 @@ const getDashboardsHandler = async (request: NextRequest, userContext: UserConte
     const dashboards = await dashboardsService.getDashboards({
       category_id: categoryId || undefined,
       is_active: isActive,
+      is_published: isPublished,
       limit,
       offset
     });
@@ -43,7 +46,8 @@ const getDashboardsHandler = async (request: NextRequest, userContext: UserConte
     // Get total count for pagination
     const totalCount = await dashboardsService.getDashboardCount({
       category_id: categoryId || undefined,
-      is_active: isActive
+      is_active: isActive,
+      is_published: isPublished
     });
 
     return createSuccessResponse({

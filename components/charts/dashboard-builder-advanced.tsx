@@ -547,17 +547,16 @@ export default function EnhancedDashboardBuilder({ editingDashboard, onCancel, o
   const loadCharts = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/admin/analytics/charts?is_active=true');
-      if (response.ok) {
-        const result = await response.json();
-        // Filter to only show active charts and extract chart definitions from API response
-        const charts = (result.data.charts || []).map((item: any) => {
-          // Handle joined API response structure
-          return item.chart_definitions || item;
-        }).filter((chart: any) => chart.is_active !== false);
+      const result = await apiClient.get<{
+        charts: ChartDefinition[];
+      }>('/api/admin/analytics/charts?is_active=true');
+      // Filter to only show active charts and extract chart definitions from API response
+      const charts = (result.charts || []).map((item: ChartDefinition) => {
+        // Handle joined API response structure
+        return (item as any).chart_definitions || item;
+      }).filter((chart: ChartDefinition) => chart.is_active !== false);
         
-        setAvailableCharts(charts);
-      }
+      setAvailableCharts(charts);
     } catch (error) {
       console.error('Failed to load charts:', error);
       setToastMessage('Failed to load available charts');

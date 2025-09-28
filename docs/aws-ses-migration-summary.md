@@ -39,20 +39,24 @@ The email system has been successfully migrated from Resend to Amazon Simple Ema
 The following environment variables need to be configured in staging and production:
 
 ```bash
-# AWS SES SMTP Configuration
+# AWS SES SMTP Configuration (from SES console)
 SMTP_USERNAME=your-ses-smtp-username
 SMTP_PASSWORD=your-ses-smtp-password
-SMTP_ENDPOINT=email-smtp.us-east-1.amazonaws.com
-SMTP_STARTTLS_PORT=587
-SMTP_TLS_WRAPPER_PORT=465
-SMTP_REGION=us-east-1
 
 # Email Configuration
 SMTP_FROM_EMAIL=thrive@bendcare.com
 SMTP_FROM_NAME="Bendcare Thrive"
 SMTP_REPLY_TO=thrive@bendcare.com
 ADMIN_NOTIFICATION_EMAILS=admin@yourdomain.com,security@yourdomain.com
+
+# AWS Region (uses existing AWS_REGION, defaults to us-east-1)
+AWS_REGION=us-east-1
 ```
+
+**Hardcoded Values (no configuration needed):**
+- SMTP endpoint: `email-smtp.{region}.amazonaws.com` (auto-generated)
+- STARTTLS port: `587`
+- TLS wrapper port: `465`
 
 ### AWS SES Setup Requirements
 1. **Verify sender domain/email** in AWS SES console
@@ -65,29 +69,35 @@ ADMIN_NOTIFICATION_EMAILS=admin@yourdomain.com,security@yourdomain.com
 
 ### 1. Staging Environment
 ```bash
-# Update secrets manager with SES credentials
+# Update secrets manager with simplified SES credentials
 aws secretsmanager update-secret --secret-id staging/email-config --secret-string '{
   "SMTP_USERNAME": "your-staging-username",
   "SMTP_PASSWORD": "your-staging-password",
-  "SMTP_FROM_EMAIL": "thrive-staging@bendcare.com"
+  "SMTP_FROM_EMAIL": "thrive-staging@bendcare.com",
+  "SMTP_FROM_NAME": "Bendcare Thrive Staging",
+  "SMTP_REPLY_TO": "thrive-staging@bendcare.com"
 }'
 
-# Remove old Resend secrets
+# Remove old Resend secrets and unused SES variables
 aws secretsmanager delete-secret --secret-id staging/resend-api-key
 ```
 
 ### 2. Production Environment
 ```bash
-# Update secrets manager with SES credentials
+# Update secrets manager with simplified SES credentials
 aws secretsmanager update-secret --secret-id production/email-config --secret-string '{
   "SMTP_USERNAME": "your-production-username", 
   "SMTP_PASSWORD": "your-production-password",
-  "SMTP_FROM_EMAIL": "thrive@bendcare.com"
+  "SMTP_FROM_EMAIL": "thrive@bendcare.com",
+  "SMTP_FROM_NAME": "Bendcare Thrive",
+  "SMTP_REPLY_TO": "thrive@bendcare.com"
 }'
 
-# Remove old Resend secrets
+# Remove old Resend secrets and unused SES variables
 aws secretsmanager delete-secret --secret-id production/resend-api-key
 ```
+
+**Note:** AWS_REGION should already exist in your infrastructure. SMTP endpoint and ports are now hardcoded, reducing the number of required secrets.
 
 ### 3. Test Email Functionality
 ```bash

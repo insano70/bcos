@@ -43,6 +43,7 @@ export interface UpdateDashboardData {
 export interface DashboardQueryOptions {
   category_id?: string | undefined;
   is_active?: boolean | undefined;
+  is_published?: boolean | undefined;
   search?: string | undefined;
   limit?: number | undefined;
   offset?: number | undefined;
@@ -96,6 +97,10 @@ export class RBACDashboardsService extends BaseRBACService {
 
     if (options.is_active !== undefined) {
       conditions.push(eq(dashboards.is_active, options.is_active));
+    }
+
+    if (options.is_published !== undefined) {
+      conditions.push(eq(dashboards.is_published, options.is_published));
     }
 
     if (options.category_id) {
@@ -296,6 +301,10 @@ export class RBACDashboardsService extends BaseRBACService {
 
     if (options.is_active !== undefined) {
       conditions.push(eq(dashboards.is_active, options.is_active));
+    }
+
+    if (options.is_published !== undefined) {
+      conditions.push(eq(dashboards.is_published, options.is_published));
     }
 
     if (options.category_id) {
