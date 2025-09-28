@@ -21,9 +21,8 @@ describe('sanitization validation schemas', () => {
     it('should remove dangerous characters for safe text storage', () => {
       const dangerousInput = 'Hello < > " \' & world'
       const result = sanitizeText(dangerousInput)
-      // SECURITY: Remove dangerous characters to produce clean, safe text
-      // Quotes and apostrophes are kept for readability as they're safe in text context
-      expect(result).toBe('Hello " \' world')
+      // SECURITY: Remove < >, keep quotes for readability, escape & for HTML safety
+      expect(result).toBe('Hello " \' &amp; world')
     })
 
     it('should trim whitespace', () => {

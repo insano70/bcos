@@ -15,6 +15,10 @@ export function sanitizeText(input: string): string {
     .trim()
     // Remove HTML tags first to extract text content
     .replace(/<[^>]*>/g, '')
+    // Remove dangerous protocol handlers
+    .replace(/javascript:/gi, '')
+    .replace(/data:/gi, '')
+    .replace(/vbscript:/gi, '')
     // Handle dangerous characters appropriately
     .replace(/[<>]/g, '') // Remove < > (dangerous for HTML)
     .replace(/&/g, '&amp;') // Escape & (preserve but make HTML-safe)
