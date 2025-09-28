@@ -17,17 +17,29 @@ vi.mock('@/lib/config/password-policy', () => ({
   validatePasswordStrength: vi.fn()
 }))
 
-// Mock database
+// Mock database - standardized pattern with method chaining
 vi.mock('@/lib/db', () => {
-  const mockDbSelect = vi.fn()
-  const mockDbUpdate = vi.fn()
-  const mockDbInsert = vi.fn()
+  const mockSelectResult = vi.fn().mockResolvedValue([])
+  const mockUpdateResult = vi.fn().mockResolvedValue({ affectedRows: 1 })
+  const mockInsertResult = vi.fn().mockResolvedValue({ insertId: 1 })
   
   return {
     db: {
-      select: mockDbSelect,
-      update: mockDbUpdate,
-      insert: mockDbInsert
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: mockSelectResult
+          })
+        })
+      }),
+      update: vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: mockUpdateResult
+        })
+      }),
+      insert: vi.fn().mockReturnValue({
+        values: mockInsertResult
+      })
     },
     account_security: {
       user_id: 'user_id',
@@ -39,23 +51,27 @@ vi.mock('@/lib/db', () => {
     users: {
       user_id: 'user_id',
       email: 'email'
-    }
+    },
+    // Export mock helpers for test access
+    _mockSelectResult: mockSelectResult,
+    _mockUpdateResult: mockUpdateResult,
+    _mockInsertResult: mockInsertResult
   }
 })
 
 describe('security authentication logic', () => {
-  let mockDbSelect: ReturnType<typeof vi.fn>
-  let mockDbUpdate: ReturnType<typeof vi.fn>
-  let mockDbInsert: ReturnType<typeof vi.fn>
+  let mockSelectResult: any
+  let mockUpdateResult: any
+  let mockInsertResult: any
 
   beforeEach(async () => {
     vi.clearAllMocks()
     
-    // Get references to the mocked functions
-    const { db } = await import('@/lib/db')
-    mockDbSelect = vi.mocked(db.select)
-    mockDbUpdate = vi.mocked(db.update)
-    mockDbInsert = vi.mocked(db.insert)
+    // Get references to the standardized mock helpers
+    const dbModule = await import('@/lib/db')
+    mockSelectResult = (dbModule as any)._mockSelectResult
+    mockUpdateResult = (dbModule as any)._mockUpdateResult
+    mockInsertResult = (dbModule as any)._mockInsertResult
   })
 
   describe('PasswordService', () => {
@@ -151,11 +167,11 @@ describe('security authentication logic', () => {
         const identifier = 'test@example.com'
 
         // Mock user lookup
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([{ user_id: 'user-123' }])
         )
         // Mock security record lookup - no record found
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([])
         )
 
@@ -169,11 +185,11 @@ describe('security authentication logic', () => {
         const pastDate = new Date(Date.now() - 10000) // 10 seconds ago
 
         // Mock user lookup
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([{ user_id: 'user-123' }])
         )
         // Mock security record lookup
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([{
             user_id: 'user-123',
             failed_login_attempts: 5,
@@ -184,7 +200,7 @@ describe('security authentication logic', () => {
 
         const result = await AccountSecurity.isAccountLocked(identifier)
 
-        expect(mockDbUpdate).toHaveBeenCalledWith(
+        expect(mockUpdateResult).toHaveBeenCalledWith(
           expect.any(Object), // account_security table
           expect.objectContaining({
             locked_until: null,
@@ -200,11 +216,11 @@ describe('security authentication logic', () => {
         const futureDate = new Date(Date.now() + 60000) // 1 minute from now
 
         // Mock user lookup
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([{ user_id: 'user-123' }])
         )
         // Mock security record lookup
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([{
             user_id: 'user-123',
             failed_login_attempts: 3,
@@ -225,11 +241,11 @@ describe('security authentication logic', () => {
         const identifier = 'test@example.com'
 
         // Mock user lookup
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([{ user_id: 'user-123' }])
         )
         // Mock security record lookup
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([{
             user_id: 'user-123',
             failed_login_attempts: 2,
@@ -247,7 +263,7 @@ describe('security authentication logic', () => {
         const identifier = 'nonexistent@example.com'
 
         // Mock user lookup - no user found
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([])
         )
 
@@ -260,7 +276,7 @@ describe('security authentication logic', () => {
         const identifier = 'test@example.com'
 
         // Mock user lookup to throw error
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.reject(new Error('Database connection failed'))
         )
 
@@ -279,17 +295,17 @@ describe('security authentication logic', () => {
         vi.setSystemTime(now)
 
         // Mock user lookup
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([{ user_id: 'user-123' }])
         )
         // Mock security record lookup - no existing record
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([])
         )
 
         const result = await AccountSecurity.recordFailedAttempt(identifier)
 
-        expect(mockDbInsert).toHaveBeenCalledWith(
+        expect(mockInsertResult).toHaveBeenCalledWith(
           expect.any(Object), // account_security table
           expect.objectContaining({
             user_id: 'user-123',
@@ -312,11 +328,11 @@ describe('security authentication logic', () => {
         vi.setSystemTime(now)
 
         // Mock user lookup
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([{ user_id: 'user-123' }])
         )
         // Mock security record lookup - existing record with 2 attempts
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([{
             user_id: 'user-123',
             failed_login_attempts: 2,
@@ -330,7 +346,7 @@ describe('security authentication logic', () => {
 
         const expectedLockedUntil = new Date(now.getTime() + 60000) // 1 minute lockout
 
-        expect(mockDbUpdate).toHaveBeenCalledWith(
+        expect(mockUpdateResult).toHaveBeenCalledWith(
           expect.any(Object), // account_security table
           expect.objectContaining({
             failed_login_attempts: 3,
@@ -356,11 +372,11 @@ describe('security authentication logic', () => {
         vi.setSystemTime(now)
 
         // Mock user lookup
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([{ user_id: 'user-123' }])
         )
         // Mock security record lookup - existing record with 4 attempts
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([{
             user_id: 'user-123',
             failed_login_attempts: 4,
@@ -386,14 +402,14 @@ describe('security authentication logic', () => {
         const identifier = 'nonexistent@example.com'
 
         // Mock user lookup - no user found
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([])
         )
 
         const result = await AccountSecurity.recordFailedAttempt(identifier)
 
-        expect(mockDbInsert).not.toHaveBeenCalled()
-        expect(mockDbUpdate).not.toHaveBeenCalled()
+        expect(mockInsertResult).not.toHaveBeenCalled()
+        expect(mockUpdateResult).not.toHaveBeenCalled()
         expect(result).toEqual({ locked: false })
       })
 
@@ -401,7 +417,7 @@ describe('security authentication logic', () => {
         const identifier = 'test@example.com'
 
         // Mock user lookup to throw error
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.reject(new Error('Database connection failed'))
         )
 
@@ -416,13 +432,13 @@ describe('security authentication logic', () => {
         const identifier = 'test@example.com'
 
         // Mock user lookup
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([{ user_id: 'user-123' }])
         )
 
         await AccountSecurity.clearFailedAttempts(identifier)
 
-        expect(mockDbUpdate).toHaveBeenCalledWith(
+        expect(mockUpdateResult).toHaveBeenCalledWith(
           expect.any(Object), // account_security table
           expect.objectContaining({
             failed_login_attempts: 0,
@@ -438,20 +454,20 @@ describe('security authentication logic', () => {
         const identifier = 'nonexistent@example.com'
 
         // Mock user lookup - no user found
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([])
         )
 
         await AccountSecurity.clearFailedAttempts(identifier)
 
-        expect(mockDbUpdate).not.toHaveBeenCalled()
+        expect(mockUpdateResult).not.toHaveBeenCalled()
       })
 
       it('should handle database errors gracefully', async () => {
         const identifier = 'test@example.com'
 
         // Mock user lookup to throw error
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.reject(new Error('Database connection failed'))
         )
 
@@ -466,11 +482,11 @@ describe('security authentication logic', () => {
         const identifier = 'test@example.com'
 
         // Mock user lookup
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([{ user_id: 'user-123' }])
         )
         // Mock security record lookup
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([{ failedAttempts: 3 }])
         )
 
@@ -483,11 +499,11 @@ describe('security authentication logic', () => {
         const identifier = 'test@example.com'
 
         // Mock user lookup
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([{ user_id: 'user-123' }])
         )
         // Mock security record lookup - no record
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([])
         )
 
@@ -500,7 +516,7 @@ describe('security authentication logic', () => {
         const identifier = 'nonexistent@example.com'
 
         // Mock user lookup - no user found
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.resolve([])
         )
 
@@ -513,7 +529,7 @@ describe('security authentication logic', () => {
         const identifier = 'test@example.com'
 
         // Mock user lookup to throw error
-        mockDbSelect.mockImplementationOnce(() =>
+        mockSelectResult.mockImplementationOnce(() =>
           Promise.reject(new Error('Database connection failed'))
         )
 
@@ -531,11 +547,11 @@ describe('security authentication logic', () => {
         vi.useFakeTimers()
         vi.setSystemTime(now)
 
-        mockDbUpdate.mockResolvedValue(mockResult)
+        mockUpdateResult.mockResolvedValue(mockResult)
 
         const result = await AccountSecurity.cleanupExpiredLockouts()
 
-        expect(mockDbUpdate).toHaveBeenCalledWith(
+        expect(mockUpdateResult).toHaveBeenCalledWith(
           expect.any(Object), // account_security table
           expect.objectContaining({
             locked_until: null,
@@ -549,7 +565,7 @@ describe('security authentication logic', () => {
       })
 
       it('should return 0 on database error', async () => {
-        mockDbUpdate.mockRejectedValue(new Error('Database error'))
+        mockUpdateResult.mockRejectedValue(new Error('Database error'))
 
         const result = await AccountSecurity.cleanupExpiredLockouts()
 

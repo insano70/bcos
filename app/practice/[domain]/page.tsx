@@ -6,7 +6,7 @@ import { getFeaturedComments } from '@/lib/services/practice-comments';
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
 import { transformPractice, transformPracticeAttributes, transformStaffMember } from '@/lib/types/transformers'
-import type { PracticeAttributes } from '@/lib/types/practice';
+import type { PracticeAttributes, PracticeComment } from '@/lib/types/practice';
 
 async function getPracticeByDomain(domain: string) {
   console.log('🔍 getPracticeByDomain called with domain:', domain);
@@ -133,8 +133,14 @@ export default async function PracticeWebsite({
 
   const { practice, template, attributes, staff } = data;
 
-  // Fetch comments for this practice
-  const comments = await getFeaturedComments(practice.practice_id);
+  // Fetch comments for this practice (handle missing table gracefully)
+  let comments: PracticeComment[] = [];
+  try {
+    comments = await getFeaturedComments(practice.practice_id);
+  } catch (error) {
+    console.log('⚠️ Comments table not available, using empty comments array');
+    comments = [];
+  }
 
   // Attributes and staff are already transformed/parsed by the transformers
   const parsedAttributes = attributes;

@@ -8,24 +8,23 @@ import {
 } from '@/lib/auth/session'
 import { TokenManager } from '@/lib/auth/token-manager'
 import { db } from '@/lib/db'
-
-// Mock TokenManager
+// Use standardized mock pattern based on mock utilities design
 vi.mock('@/lib/auth/token-manager', () => ({
   TokenManager: {
-    validateAccessToken: vi.fn()
+    validateAccessToken: vi.fn().mockResolvedValue({ sub: 'user-123', jti: 'jti-123' })
   }
 }))
 
-// Mock database with simpler approach
 vi.mock('@/lib/db', () => {
-  const mockDbLimit = vi.fn().mockResolvedValue([])
+  // Standardized database mock with method chaining
+  const mockSelectResult = vi.fn().mockResolvedValue([])
   
   return {
     db: {
       select: vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
-            limit: mockDbLimit
+            limit: mockSelectResult
           })
         })
       })
@@ -38,22 +37,26 @@ vi.mock('@/lib/db', () => {
       is_active: 'is_active',
       email_verified: 'email_verified'
     },
-    // Export the mock function so tests can access it
-    _mockDbLimit: mockDbLimit
+    // Export mock helpers for test access
+    _mockSelectResult: mockSelectResult
   }
 })
 
 describe('session authentication logic', () => {
+  let mockTokenManager: any
   let mockDb: any
-  let mockDbLimit: any
+  let mockSelectResult: any
 
   beforeEach(async () => {
     vi.clearAllMocks()
     
-    // Get reference to the mocked database
+    // Get references to the standardized mocks
+    const tokenManagerModule = await import('@/lib/auth/token-manager')
+    mockTokenManager = vi.mocked(tokenManagerModule.TokenManager)
+    
     const dbModule = await import('@/lib/db')
     mockDb = vi.mocked(dbModule.db)
-    mockDbLimit = (dbModule as any)._mockDbLimit
+    mockSelectResult = (dbModule as any)._mockSelectResult
   })
 
   describe('getCurrentUserFromToken', () => {
@@ -75,8 +78,8 @@ describe('session authentication logic', () => {
         email_verified: true
       }
 
-      vi.mocked(TokenManager.validateAccessToken).mockResolvedValue(mockPayload)
-      mockDbLimit.mockResolvedValue([mockUser])
+      mockTokenManager.validateAccessToken.mockResolvedValue(mockPayload)
+      mockSelectResult.mockResolvedValue([mockUser])
 
       const result = await getCurrentUserFromToken(mockToken)
 
@@ -96,7 +99,7 @@ describe('session authentication logic', () => {
     it('should return null for invalid token', async () => {
       const mockToken = 'invalid.jwt.token'
 
-      vi.mocked(TokenManager.validateAccessToken).mockResolvedValue(null)
+      mockTokenManager.validateAccessToken.mockResolvedValue(null)
 
       const result = await getCurrentUserFromToken(mockToken)
 
@@ -120,8 +123,8 @@ describe('session authentication logic', () => {
         email_verified: true
       }
 
-      vi.mocked(TokenManager.validateAccessToken).mockResolvedValue(mockPayload)
-      mockDbLimit.mockResolvedValue([mockUser])
+      mockTokenManager.validateAccessToken.mockResolvedValue(mockPayload)
+      mockSelectResult.mockResolvedValue([mockUser])
 
       const result = await getCurrentUserFromToken(mockToken)
 
@@ -136,8 +139,8 @@ describe('session authentication logic', () => {
         role: 'admin'
       }
 
-      vi.mocked(TokenManager.validateAccessToken).mockResolvedValue(mockPayload)
-      mockDbLimit.mockResolvedValue([]) // No user found
+      mockTokenManager.validateAccessToken.mockResolvedValue(mockPayload)
+      mockSelectResult.mockResolvedValue([]) // No user found
 
       const result = await getCurrentUserFromToken(mockToken)
 
@@ -147,7 +150,7 @@ describe('session authentication logic', () => {
     it('should return null when token validation throws', async () => {
       const mockToken = 'malformed.jwt.token'
 
-      vi.mocked(TokenManager.validateAccessToken).mockRejectedValue(new Error('Invalid token'))
+      mockTokenManager.validateAccessToken.mockRejectedValue(new Error('Invalid token'))
 
       const result = await getCurrentUserFromToken(mockToken)
 
@@ -162,7 +165,7 @@ describe('session authentication logic', () => {
         // Missing sub field
       }
 
-      vi.mocked(TokenManager.validateAccessToken).mockResolvedValue(mockPayload)
+      mockTokenManager.validateAccessToken.mockResolvedValue(mockPayload)
 
       const result = await getCurrentUserFromToken(mockToken)
 
@@ -177,8 +180,9 @@ describe('session authentication logic', () => {
         role: 'admin'
       }
 
-      vi.mocked(TokenManager.validateAccessToken).mockResolvedValue(mockPayload)
-      mockDbLimit.mockRejectedValue(new Error('Database connection failed'))
+      mockTokenManager.validateAccessToken.mockResolvedValue(mockPayload)
+      // Mock database error
+      mockSelectResult.mockRejectedValue(new Error('Database connection failed'))
 
       const result = await getCurrentUserFromToken(mockToken)
 
@@ -201,8 +205,8 @@ describe('session authentication logic', () => {
         email_verified: false
       }
 
-      vi.mocked(TokenManager.validateAccessToken).mockResolvedValue(mockPayload)
-      mockDbLimit.mockResolvedValue([mockUser])
+      mockTokenManager.validateAccessToken.mockResolvedValue(mockPayload)
+      mockSelectResult.mockResolvedValue([mockUser])
 
       const result = await getCurrentUserFromToken(mockToken)
 
@@ -236,8 +240,8 @@ describe('session authentication logic', () => {
         email_verified: true
       }
 
-      vi.mocked(TokenManager.validateAccessToken).mockResolvedValue(mockPayload)
-      mockDbLimit.mockResolvedValue([mockUser])
+      mockTokenManager.validateAccessToken.mockResolvedValue(mockPayload)
+      mockSelectResult.mockResolvedValue([mockUser])
 
       const result = await validateTokenAndGetUser(mockToken)
 
@@ -256,7 +260,7 @@ describe('session authentication logic', () => {
     it('should throw error for invalid token', async () => {
       const mockToken = 'invalid.jwt.token'
 
-      vi.mocked(TokenManager.validateAccessToken).mockResolvedValue(null)
+      mockTokenManager.validateAccessToken.mockResolvedValue(null)
 
       await expect(validateTokenAndGetUser(mockToken))
         .rejects
@@ -279,8 +283,8 @@ describe('session authentication logic', () => {
         email_verified: true
       }
 
-      vi.mocked(TokenManager.validateAccessToken).mockResolvedValue(mockPayload)
-      mockDbLimit.mockResolvedValue([mockUser])
+      mockTokenManager.validateAccessToken.mockResolvedValue(mockPayload)
+      mockSelectResult.mockResolvedValue([mockUser])
 
       await expect(validateTokenAndGetUser(mockToken))
         .rejects
@@ -306,8 +310,8 @@ describe('session authentication logic', () => {
         email_verified: true
       }
 
-      vi.mocked(TokenManager.validateAccessToken).mockResolvedValue(mockPayload)
-      mockDbLimit.mockResolvedValue([mockUser])
+      mockTokenManager.validateAccessToken.mockResolvedValue(mockPayload)
+      mockSelectResult.mockResolvedValue([mockUser])
 
       const result = await requireTokenRole(mockToken, allowedRoles)
 
@@ -331,8 +335,8 @@ describe('session authentication logic', () => {
         email_verified: true
       }
 
-      vi.mocked(TokenManager.validateAccessToken).mockResolvedValue(mockPayload)
-      mockDbLimit.mockResolvedValue([mockUser])
+      mockTokenManager.validateAccessToken.mockResolvedValue(mockPayload)
+      mockSelectResult.mockResolvedValue([mockUser])
 
       await expect(requireTokenRole(mockToken, allowedRoles))
         .rejects
@@ -356,8 +360,8 @@ describe('session authentication logic', () => {
         email_verified: true
       }
 
-      vi.mocked(TokenManager.validateAccessToken).mockResolvedValue(mockPayload)
-      mockDbLimit.mockResolvedValue([mockUser])
+      mockTokenManager.validateAccessToken.mockResolvedValue(mockPayload)
+      mockSelectResult.mockResolvedValue([mockUser])
 
       const result = await requireTokenRole(mockToken, allowedRoles)
 
@@ -381,8 +385,8 @@ describe('session authentication logic', () => {
         email_verified: true
       }
 
-      vi.mocked(TokenManager.validateAccessToken).mockResolvedValue(mockPayload)
-      mockDbLimit.mockResolvedValue([mockUser])
+      mockTokenManager.validateAccessToken.mockResolvedValue(mockPayload)
+      mockSelectResult.mockResolvedValue([mockUser])
 
       await expect(requireTokenRole(mockToken, allowedRoles))
         .rejects
@@ -407,8 +411,8 @@ describe('session authentication logic', () => {
         email_verified: true
       }
 
-      vi.mocked(TokenManager.validateAccessToken).mockResolvedValue(mockPayload)
-      mockDbLimit.mockResolvedValue([mockUser])
+      mockTokenManager.validateAccessToken.mockResolvedValue(mockPayload)
+      mockSelectResult.mockResolvedValue([mockUser])
 
       const result = await requireTokenAdmin(mockToken)
 
@@ -431,8 +435,8 @@ describe('session authentication logic', () => {
         email_verified: true
       }
 
-      vi.mocked(TokenManager.validateAccessToken).mockResolvedValue(mockPayload)
-      mockDbLimit.mockResolvedValue([mockUser])
+      mockTokenManager.validateAccessToken.mockResolvedValue(mockPayload)
+      mockSelectResult.mockResolvedValue([mockUser])
 
       await expect(requireTokenAdmin(mockToken))
         .rejects
@@ -458,8 +462,8 @@ describe('session authentication logic', () => {
         email_verified: true
       }
 
-      vi.mocked(TokenManager.validateAccessToken).mockResolvedValue(mockPayload)
-      mockDbLimit.mockResolvedValue([mockUser])
+      mockTokenManager.validateAccessToken.mockResolvedValue(mockPayload)
+      mockSelectResult.mockResolvedValue([mockUser])
 
       const result = await requireTokenPracticeAccess(mockToken, practiceId)
 
@@ -484,8 +488,8 @@ describe('session authentication logic', () => {
         practiceId: 'practice-456' // User owns this practice
       }
 
-      vi.mocked(TokenManager.validateAccessToken).mockResolvedValue(mockPayload)
-      mockDbLimit.mockResolvedValue([mockUser])
+      mockTokenManager.validateAccessToken.mockResolvedValue(mockPayload)
+      mockSelectResult.mockResolvedValue([mockUser])
 
       const result = await requireTokenPracticeAccess(mockToken, practiceId)
 
@@ -510,8 +514,8 @@ describe('session authentication logic', () => {
         practiceId: 'practice-456' // User owns different practice
       }
 
-      vi.mocked(TokenManager.validateAccessToken).mockResolvedValue(mockPayload)
-      mockDbLimit.mockResolvedValue([mockUser])
+      mockTokenManager.validateAccessToken.mockResolvedValue(mockPayload)
+      mockSelectResult.mockResolvedValue([mockUser])
 
       await expect(requireTokenPracticeAccess(mockToken, practiceId))
         .rejects
@@ -535,8 +539,8 @@ describe('session authentication logic', () => {
         email_verified: true
       }
 
-      vi.mocked(TokenManager.validateAccessToken).mockResolvedValue(mockPayload)
-      mockDbLimit.mockResolvedValue([mockUser])
+      mockTokenManager.validateAccessToken.mockResolvedValue(mockPayload)
+      mockSelectResult.mockResolvedValue([mockUser])
 
       await expect(requireTokenPracticeAccess(mockToken, practiceId))
         .rejects
@@ -561,8 +565,8 @@ describe('session authentication logic', () => {
         practiceId: undefined // No practice assigned
       }
 
-      vi.mocked(TokenManager.validateAccessToken).mockResolvedValue(mockPayload)
-      mockDbLimit.mockResolvedValue([mockUser])
+      mockTokenManager.validateAccessToken.mockResolvedValue(mockPayload)
+      mockSelectResult.mockResolvedValue([mockUser])
 
       await expect(requireTokenPracticeAccess(mockToken, practiceId))
         .rejects

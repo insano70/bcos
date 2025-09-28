@@ -1,6 +1,6 @@
 import type { TemplateProps } from '@/lib/types/practice';
 import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
-import { PracticeCSSInjector } from '@/components/practice-css-injector';
+import { ServerPracticeCSSInjector } from '@/components/practice-css-injector';
 import Header from './components/header';
 import Hero from './components/hero';
 import ReviewCarousel from './components/review-carousel';
@@ -16,7 +16,8 @@ export default function ClassicProfessionalTemplate({
   practice, 
   attributes, 
   staff,
-  comments = []
+  comments = [],
+  nonce
 }: TemplateProps) {
   // Get colors for this practice or use template defaults
   const defaultColors = getTemplateDefaultColors('classic-professional');
@@ -32,7 +33,7 @@ export default function ClassicProfessionalTemplate({
   return (
     <>
       {/* Inject practice-specific CSS custom properties */}
-      <PracticeCSSInjector colors={brandColors} practiceId={practice.practice_id} />
+      <ServerPracticeCSSInjector colors={brandColors} practiceId={practice.practice_id} nonce={nonce || ''} />
 
       <div className="min-h-screen bg-white bg-practice-secondary">
         {/* Header with navigation */}

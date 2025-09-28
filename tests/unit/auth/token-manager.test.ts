@@ -3,14 +3,23 @@ import { SignJWT, jwtVerify } from 'jose'
 import { nanoid } from 'nanoid'
 import { TokenManager } from '@/lib/auth/token-manager'
 
-// Mock dependencies
+// Mock dependencies - standardized pattern
 vi.mock('jose', () => ({
-  SignJWT: vi.fn(),
-  jwtVerify: vi.fn()
+  SignJWT: vi.fn().mockImplementation(() => ({
+    setProtectedHeader: vi.fn().mockReturnThis(),
+    setJti: vi.fn().mockReturnThis(),
+    setIssuedAt: vi.fn().mockReturnThis(),
+    setExpirationTime: vi.fn().mockReturnThis(),
+    sign: vi.fn().mockResolvedValue('mock.jwt.token')
+  })),
+  jwtVerify: vi.fn().mockResolvedValue({
+    payload: { sub: 'user-123', jti: 'jti-123' },
+    protectedHeader: { alg: 'HS256' }
+  })
 }))
 
 vi.mock('nanoid', () => ({
-  nanoid: vi.fn()
+  nanoid: vi.fn().mockReturnValue('mock-nano-id')
 }))
 
 vi.mock('@/lib/env', () => ({
