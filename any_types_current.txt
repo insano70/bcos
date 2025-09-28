@@ -1,0 +1,137 @@
+./app/(default)/dashboard/fintech/fintech-card-01.tsx:64:        backgroundColor: function (context: any) {
+./app/(default)/dashboard/fintech/fintech-card-12.tsx:47:        backgroundColor: function (context: any) {
+./app/(default)/dashboard/fintech/fintech-card-13.tsx:47:        backgroundColor: function (context: any) {
+./app/(default)/dashboard/fintech/fintech-card-07.tsx:43:        backgroundColor: function (context: any) {
+./app/(default)/dashboard/fintech/fintech-card-11.tsx:47:        backgroundColor: function (context: any) {
+./app/(default)/dashboard/fintech/fintech-card-10.tsx:47:        backgroundColor: function (context: any) {
+./app/(default)/dashboard/fintech/fintech-card-08.tsx:19:        backgroundColor: function (context: any) {
+./app/(default)/dashboard/dashboard-card-02.tsx:48:        backgroundColor: function (context: any) {
+./app/(default)/dashboard/dashboard-card-03.tsx:48:        backgroundColor: function (context: any) {
+./app/(default)/dashboard/dashboard-card-01.tsx:48:        backgroundColor: function (context: any) {
+./app/(default)/dashboard/dashboard-card-05.tsx:38:    data.forEach((v: any, i: number) => {
+./app/(default)/dashboard/dashboard-card-05.tsx:84:        backgroundColor: function (context: any) {
+./app/(default)/dashboard/analytics-demo/page.tsx:32:  const handleConfigChange = (key: string, value: any) => {
+./app/(default)/dashboard/analytics/analytics-card-01.tsx:48:        backgroundColor: function (context: any) {
+./app/(default)/dashboard/analytics/analytics-card-02.tsx:48:        backgroundColor: function (context: any) {
+./app/api/admin/analytics/charts/[chartId]/route.ts:77:    const updateData: any = { updated_at: new Date() };
+./app/api/admin/analytics/system/route.ts:213:function calculateSecurityScore(securityEvents: any[]): number {
+./app/api/admin/analytics/system/route.ts:225:function calculateAuthFailureRate(authEvents: any[]): number {
+./app/api/admin/analytics/dashboards/[dashboardId]/route.ts:86:    const updateData: any = { updated_at: new Date() };
+./app/api/search/route.ts:27:  let query: any;
+./app/api/search/route.ts:41:    const results: any = {
+./tests/unit/auth/security.test.ts:63:  let mockSelectResult: any
+./tests/unit/auth/security.test.ts:64:  let mockUpdateResult: any
+./tests/unit/auth/security.test.ts:65:  let mockInsertResult: any
+./tests/unit/auth/token-manager.test.ts:102:  let mockDb: any
+./tests/unit/auth/token-manager.test.ts:103:  let mockGetCachedUserContextSafe: any
+./tests/unit/auth/token-manager.test.ts:250:      const mockActiveTokens: any[] = []
+./tests/unit/auth/token-manager.test.ts:360:      const mockExpiredTokens: any[] = []
+./tests/unit/auth/token-manager.test.ts:361:      const mockExpiredBlacklist: any[] = []
+./tests/unit/auth/session.test.ts:46:  let mockTokenManager: any
+./tests/unit/auth/session.test.ts:47:  let mockDb: any
+./tests/unit/auth/session.test.ts:48:  let mockSelectResult: any
+./tests/unit/utils/cache-monitor.test.ts:23:  let mockRolePermissionCache: any
+./tests/unit/utils/json-parser.test.ts:108:      const fallback: any[] = []
+./tests/integration/auth-flow.test.ts:13:  let testUser: any
+./tests/integration/auth-flow.test.ts:14:  let testOrg: any
+./tests/integration/auth-flow.test.ts:15:  let testRole: any
+./tests/integration/token-lifecycle.test.ts:12:  let testUser: any
+./tests/integration/security-features.test.ts:13:  let testUser: any
+./tests/setup/cleanup.ts:2:let getTestDb: any
+./tests/helpers/rbac-helper.ts:370:    const roleOptions: any = {
+./tests/helpers/db-helper.ts:138:  fn: (tx: any) => Promise<T>
+./docs/ModernTemplate.tsx:7:const Phone = (props: any) => <span {...props}>📞</span>;
+./docs/ModernTemplate.tsx:8:const Mail = (props: any) => <span {...props}>📧</span>;
+./docs/ModernTemplate.tsx:9:const MapPin = (props: any) => <span {...props}>📍</span>;
+./docs/ModernTemplate.tsx:10:const Clock = (props: any) => <span {...props}>🕐</span>;
+./docs/ModernTemplate.tsx:11:const Users = (props: any) => <span {...props}>👥</span>;
+./docs/ModernTemplate.tsx:12:const Award = (props: any) => <span {...props}>🏆</span>;
+./docs/ModernTemplate.tsx:13:const Heart = (props: any) => <span {...props}>❤️</span>;
+./docs/ModernTemplate.tsx:14:const Star = (props: any) => <span {...props}>⭐</span>;
+./docs/ModernTemplate.tsx:15:const Shield = (props: any) => <span {...props}>🛡️</span>;
+./docs/ModernTemplate.tsx:16:const Calendar = (props: any) => <span {...props}>📅</span>;
+./docs/tidy-next/components/mdx/mdx.tsx:45:export function CustomMDX(props: any) {
+./docs/tidy-next/components/mdx/mdx.tsx:49:    onVisitLine(node: any) {
+./docs/tidy-next/components/mdx/mdx.tsx:56:    onVisitHighlightedLine(node: any) {
+./docs/tidy-next/components/mdx/mdx.tsx:60:    onVisitHighlightedWord(node: any) {
+./.next/types/validator.ts:20:  metadata?: any
+./.next/types/validator.ts:21:  viewport?: any
+./.next/types/validator.ts:35:  metadata?: any
+./.next/types/validator.ts:36:  viewport?: any
+./components/auth/rbac-auth-provider.tsx:152:            roles: apiUser.roles.map((role: any) => ({
+./components/auth/rbac-auth-provider.tsx:165:            organizations: apiUser.organizations.map((org: any) => ({
+./components/auth/rbac-auth-provider.tsx:176:            accessible_organizations: apiUser.organizations.map((org: any) => ({
+./components/auth/rbac-auth-provider.tsx:189:            all_permissions: apiUser.permissions.map((perm: any) => ({
+./components/auth/rbac-auth-provider.tsx:359:        roles: apiUser.roles.map((role: any) => ({
+./components/auth/rbac-auth-provider.tsx:372:        organizations: apiUser.organizations.map((org: any) => ({
+./components/auth/rbac-auth-provider.tsx:383:        accessible_organizations: apiUser.accessibleOrganizations.map((org: any) => ({
+./components/auth/rbac-auth-provider.tsx:401:        all_permissions: apiUser.permissions.map((perm: any) => ({
+./components/edit-user-modal.tsx:97:      const updateData: any = {
+./components/charts/analytics-chart.tsx:43:    measures: any[];
+./components/charts/usage-analytics-dashboard.tsx:118:                  labels: performanceData.trends.dailyViews.map((d: any) => d.date),
+./components/charts/usage-analytics-dashboard.tsx:121:                    data: performanceData.trends.dailyViews.map((d: any) => d.views),
+./components/charts/usage-analytics-dashboard.tsx:144:                  labels: performanceData.trends.performanceTrend.map((d: any) => d.date),
+./components/charts/usage-analytics-dashboard.tsx:147:                    data: performanceData.trends.performanceTrend.map((d: any) => d.avgLoadTime),
+./components/charts/usage-analytics-dashboard.tsx:234:            {performanceData.alerts.map((alert: any, index: number) => (
+./components/charts/dashboard-preview.tsx:57:        const charts = (result.data.charts || []).map((item: any) => {
+./components/charts/dashboard-preview.tsx:59:        }).filter((chart: any) => chart.is_active !== false);
+./components/charts/dashboard-preview.tsx:191:          const measureFilter = dataSource.filters?.find((f: any) => f.field === 'measure');
+./components/charts/dashboard-preview.tsx:192:          const frequencyFilter = dataSource.filters?.find((f: any) => f.field === 'frequency');
+./components/charts/dashboard-preview.tsx:193:          const practiceFilter = dataSource.filters?.find((f: any) => f.field === 'practice_uid');
+./components/charts/dashboard-preview.tsx:194:          const startDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'gte');
+./components/charts/dashboard-preview.tsx:195:          const endDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'lte');
+./components/charts/dashboard-row-builder.tsx:334:                          const measureFilter = dataSource.filters?.find((f: any) => f.field === 'measure');
+./components/charts/dashboard-row-builder.tsx:335:                          const frequencyFilter = dataSource.filters?.find((f: any) => f.field === 'frequency');
+./components/charts/dashboard-row-builder.tsx:336:                          const practiceFilter = dataSource.filters?.find((f: any) => f.field === 'practice_uid');
+./components/charts/dashboard-row-builder.tsx:337:                          const startDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'gte');
+./components/charts/dashboard-row-builder.tsx:338:                          const endDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'lte');
+./components/charts/dashboard-builder-advanced.tsx:310:  onDrop: (item: any, position: { x: number; y: number }) => void;
+./components/charts/dashboard-builder-advanced.tsx:317:    drop: (item: any) => {
+./components/charts/dashboard-builder-advanced.tsx:367:  onDrop: (item: any, position: { x: number; y: number }) => void;
+./components/charts/dashboard-builder-advanced.tsx:467:  editingDashboard?: any; // Dashboard with charts to edit
+./components/charts/dashboard-builder-advanced.tsx:517:        const dashboardCharts = editingDashboard.charts.map((chartAssoc: any, index: number) => {
+./components/charts/dashboard-builder-advanced.tsx:529:        }).filter((chart: any) => chart.chartDefinition); // Only include charts that still exist
+./components/charts/dashboard-builder-advanced.tsx:554:        const charts = (result.data.charts || []).map((item: any) => {
+./components/charts/dashboard-builder-advanced.tsx:557:        }).filter((chart: any) => chart.is_active !== false);
+./components/charts/dashboard-builder-advanced.tsx:672:  const handleDrop = useCallback((item: any, position: { x: number; y: number }) => {
+./components/charts/anomaly-rule-configurator.tsx:40:  const updateConfig = (key: string, value: any) => {
+./components/charts/row-based-dashboard-builder.tsx:11:  editingDashboard?: any;
+./components/charts/row-based-dashboard-builder.tsx:56:        editingDashboard.charts.forEach((chartAssoc: any, index: number) => {
+./components/charts/row-based-dashboard-builder.tsx:82:            heightPx: (editingDashboard.layout_config?.rowHeight || 150) * Math.max(1, Math.max(...charts.map((c: any) => editingDashboard.charts.find((ec: any) => ec.chart_definition_id === c.chartDefinitionId)?.position_config?.h || 2))),
+./components/charts/row-based-dashboard-builder.tsx:100:        const charts = (result.data.charts || []).map((item: any) => {
+./components/charts/row-based-dashboard-builder.tsx:102:        }).filter((chart: any) => chart.is_active !== false);
+./components/charts/charges-payments-chart.tsx:41:    datasets: any[];
+./components/charts/bulk-operations-manager.tsx:14:  async bulkUpdateCharts(chartIds: string[], updates: any) {
+./components/charts/chart-builder-schema.tsx:7:  example: any;
+./components/charts/chart-builder-advanced.tsx:17:  example: any;
+./scripts/migrate-services-conditions.ts:52:      const updates: any = {};
+./templates/warm-welcoming/components/hero.tsx:6:  colorStyles: any;
+./templates/warm-welcoming/components/contact.tsx:6:  colorStyles: any;
+./templates/warm-welcoming/components/services.tsx:6:  colorStyles?: any;
+./templates/warm-welcoming/components/footer.tsx:6:  colorStyles: any;
+./templates/warm-welcoming/components/header.tsx:6:  colorStyles: any;
+./templates/warm-welcoming/components/about.tsx:6:  colorStyles: any;
+./templates/warm-welcoming/components/providers.tsx:5:  colorStyles: any;
+./templates/tidy-professional/components/hero.tsx:6:  colorStyles: any;
+./templates/tidy-professional/components/contact.tsx:6:  colorStyles: any;
+./templates/tidy-professional/components/services.tsx:6:  colorStyles: any;
+./templates/tidy-professional/components/footer.tsx:6:  colorStyles: any;
+./templates/tidy-professional/components/header.tsx:6:  colorStyles: any;
+./templates/tidy-professional/components/about.tsx:6:  colorStyles: any;
+./templates/tidy-professional/components/appointment-form.tsx:6:  colorStyles: any;
+./templates/tidy-professional/components/providers.tsx:7:  colorStyles: any;
+./templates/classic-professional/components/gallery.tsx:8:  colorStyles: any;
+./templates/classic-professional/components/hero.tsx:6:  colorStyles: any;
+./templates/classic-professional/components/review-carousel.tsx:7:  colorStyles: any;
+./templates/classic-professional/components/contact.tsx:18:  const renderBusinessHoursJSX = (hours: any) => {
+./templates/classic-professional/components/services.tsx:6:  colorStyles: any;
+./templates/classic-professional/components/footer.tsx:6:  colorStyles: any;
+./templates/classic-professional/components/about.tsx:6:  colorStyles: any;
+./templates/classic-professional/components/appointment-form.tsx:17:export default function AppointmentForm({ colorStyles }: { colorStyles?: any }) {
+./templates/classic-professional/components/providers.tsx:5:  colorStyles: any;
+./templates/modern-minimalist/components/hero.tsx:6:  colorStyles: any;
+./templates/modern-minimalist/components/contact.tsx:8:  colorStyles: any;
+./templates/modern-minimalist/components/services.tsx:6:  colorStyles: any;
+./templates/modern-minimalist/components/header.tsx:6:  colorStyles: any;
+./templates/modern-minimalist/components/about.tsx:6:  colorStyles: any;
+./templates/modern-minimalist/components/providers.tsx:5:  colorStyles: any;

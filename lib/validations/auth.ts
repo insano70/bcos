@@ -15,8 +15,8 @@ export const registerSchema = z.object({
   email: safeEmailSchema, // ✅ ENHANCED: XSS-safe email validation
   password: passwordSchema, // ✅ CENTRALIZED: Uses 12-char policy from single source
   confirmPassword: z.string(),
-  firstName: createNameSchema('First name').refine(name => name.length >= 2, 'First name must be at least 2 characters'), // ✅ ENHANCED: XSS-safe name validation
-  lastName: createNameSchema('Last name').refine(name => name.length >= 2, 'Last name must be at least 2 characters'), // ✅ ENHANCED: XSS-safe name validation
+  firstName: createNameSchema('First name').refine((name: string) => name.length >= 2, 'First name must be at least 2 characters'), // ✅ ENHANCED: XSS-safe name validation
+  lastName: createNameSchema('Last name').refine((name: string) => name.length >= 2, 'Last name must be at least 2 characters'), // ✅ ENHANCED: XSS-safe name validation
   acceptTerms: z.boolean().refine(val => val === true, {
     message: 'You must accept the terms and conditions'
   })

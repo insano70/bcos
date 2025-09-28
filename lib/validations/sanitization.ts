@@ -7,23 +7,20 @@ import { z } from 'zod';
 
 /**
  * Sanitize HTML and dangerous characters from text input
+ * SECURITY: Removes HTML tags and dangerous characters for safe text storage
+ * NOTE: Produces clean, readable text suitable for database storage and display
  */
 export function sanitizeText(input: string): string {
   return input
     .trim()
-    // Remove HTML tags
+    // Remove HTML tags first to extract text content
     .replace(/<[^>]*>/g, '')
-    // Remove potentially dangerous characters
-    .replace(/[<>'"&]/g, (char) => {
-      const entities: Record<string, string> = {
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#x27;',
-        '&': '&amp;'
-      };
-      return entities[char] || char;
-    });
+    // Handle dangerous characters appropriately
+    .replace(/[<>]/g, '') // Remove < > (dangerous for HTML)
+    .replace(/&/g, '&amp;') // Escape & (preserve but make HTML-safe)
+    // Clean up extra whitespace left by character removal
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /**
@@ -41,15 +38,15 @@ export function createSafeTextSchema(
 }
 
 /**
- * Enhanced email schema with normalization
+ * Enhanced email schema with normalization and XSS protection
  */
 export const safeEmailSchema = z.string()
+  .trim()
+  .toLowerCase()
   .email('Invalid email address')
   .max(255, 'Email must not exceed 255 characters')
-  .toLowerCase()
-  .trim()
   .transform(email => {
-    // Additional email sanitization
+    // Additional email sanitization - remove dangerous characters
     return email.replace(/[<>'"&]/g, '');
   });
 
@@ -60,18 +57,21 @@ export function createNameSchema(fieldName: string = 'name') {
   return z.string()
     .min(1, `${fieldName} is required`)
     .max(100, `${fieldName} must not exceed 100 characters`)
-    .regex(/^[a-zA-Z\s'-]+$/, `${fieldName} must contain only letters, spaces, hyphens, and apostrophes`)
-    .transform(sanitizeText);
+    .transform(sanitizeText)
+    .refine((name) => /^[a-zA-Z\s'-]+$/.test(name), {
+      message: `${fieldName} must contain only letters, spaces, hyphens, and apostrophes`
+    });
 }
 
 /**
  * Enhanced domain schema with strict validation
  */
 export const safeDomainSchema = z.string()
+  .trim()
+  .toLowerCase()
   .min(1, 'Domain is required')
   .max(255, 'Domain must not exceed 255 characters')
-  .regex(/^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/, 'Invalid domain format')
-  .transform(val => val.toLowerCase().trim());
+  .regex(/^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/, 'Invalid domain format');
 
 /**
  * Enhanced URL schema with security checks

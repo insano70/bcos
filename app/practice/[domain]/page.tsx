@@ -129,7 +129,7 @@ export default async function PracticeWebsite({
 
   // Get CSP nonce from middleware headers
   const headersList = await headers();
-  const nonce = headersList.get('x-csp-nonce') || '';
+  const nonce = headersList.get('x-style-nonce') || '';
 
   const { practice, template, attributes, staff } = data;
 

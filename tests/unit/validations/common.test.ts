@@ -542,7 +542,8 @@ describe('common validation schemas', () => {
       invalidUrls.forEach(url => {
         const result = urlSchema.safeParse(url)
         expect(result.success).toBe(false)
-        expect(result.error?.issues?.[0]?.message).toBe('Invalid URL format')
+        // Different invalid URLs may have different error messages
+        expect(result.error?.issues?.[0]?.message).toMatch(/Invalid URL format|Only HTTP and HTTPS URLs are allowed/)
       })
     })
 

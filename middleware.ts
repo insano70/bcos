@@ -64,6 +64,11 @@ export async function middleware(request: NextRequest) {
     ? 'Content-Security-Policy-Report-Only'
     : 'Content-Security-Policy'
   
+  // Debug CSP header setting
+  if (process.env.NODE_ENV === 'development' || process.env.ENVIRONMENT === 'staging') {
+    console.log('🔒 Setting CSP header:', cspHeader, 'Policy length:', cspPolicy.length);
+  }
+  
   response.headers.set(cspHeader, cspPolicy)
   
   // Also add nonce headers to response for debugging/monitoring

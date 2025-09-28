@@ -46,19 +46,23 @@ export const domainSchema = z.string()
   .regex(/^[a-zA-Z0-9.-]+$/, 'Domain must contain only letters, numbers, dots, and hyphens')
   .transform(val => val.toLowerCase())
 
-// Email validation
+// Email validation with proper transformation order
 export const emailSchema = z.string()
+  .trim()
+  .toLowerCase()
   .email('Invalid email address')
   .max(255, 'Email must not exceed 255 characters')
-  .toLowerCase()
-  .trim()
 
-// Phone validation
+// Phone validation - requires minimum 7 digits for real phone numbers
 export const phoneSchema = z.string()
-  .regex(/^[+]?[1-9][\d]{0,15}$/, 'Invalid phone number format')
+  .regex(/^[+]?[1-9][\d]{6,15}$/, 'Invalid phone number format')
   .max(20, 'Phone number must not exceed 20 characters')
 
-// URL validation
+// URL validation - only allow HTTP/HTTPS for security
 export const urlSchema = z.string()
   .url('Invalid URL format')
   .max(500, 'URL must not exceed 500 characters')
+  .refine(url => {
+    // Only allow HTTP/HTTPS protocols for security
+    return url.startsWith('http://') || url.startsWith('https://');
+  }, 'Only HTTP and HTTPS URLs are allowed')
