@@ -231,8 +231,8 @@ export default function ChartBuilderAdvanced({
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Historical Comparison */}
                   <HistoricalComparisonWidget
-                    measure={chartConfig.measure as any}
-                    frequency={chartConfig.frequency as any}
+                    measure={typeof chartConfig.measure === 'object' ? (chartConfig.measure as any).measure : chartConfig.measure as any}
+                    frequency={typeof chartConfig.frequency === 'object' ? (chartConfig.frequency as any).frequency : chartConfig.frequency as any}
                     practiceUid={chartConfig.practiceUid}
                     className="h-fit"
                   />

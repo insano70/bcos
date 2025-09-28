@@ -183,17 +183,7 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
                           {/* Published Dashboards - Protected by Analytics RBAC */}
                           <ProtectedComponent permission="analytics:read:all">
                             <>
-                              {/* Show separator if we have published dashboards */}
-                              {publishedDashboards.length > 0 && (
-                                <li className="my-3">
-                                  <hr className="border-gray-200 dark:border-gray-700" />
-                                  <div className="text-xs text-gray-400 dark:text-gray-500 uppercase font-semibold mt-2 mb-1">
-                                    Published Dashboards
-                                  </div>
-                                </li>
-                              )}
-                              
-                              {/* Render published dashboards */}
+                              {/* Render published dashboards as menu items */}
                               {!dashboardsLoading && publishedDashboards.map((dashboard) => (
                                 <li key={dashboard.dashboard_id} className="mb-1 last:mb-0">
                                   <SidebarLink href={`/dashboard/view/${dashboard.dashboard_id}`}>
@@ -203,15 +193,6 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
                                   </SidebarLink>
                                 </li>
                               ))}
-                              
-                              {/* Loading state */}
-                              {dashboardsLoading && (
-                                <li className="mb-1 last:mb-0">
-                                  <div className="text-sm text-gray-400 dark:text-gray-500 pl-4 py-1">
-                                    Loading dashboards...
-                                  </div>
-                                </li>
-                              )}
                             </>
                           </ProtectedComponent>
                         </ul>

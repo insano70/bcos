@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, notFound } from 'next/navigation';
 import { apiClient } from '@/lib/api/client';
 import { createAppLogger } from '@/lib/logger/factory';
+import DashboardView from '@/components/charts/dashboard-view';
 import type { Dashboard, DashboardChart } from '@/lib/types/analytics';
 
 const logger = createAppLogger('dashboard-view', {
@@ -94,6 +95,7 @@ export default function DashboardViewPage() {
     }
   };
 
+
   if (loading) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
@@ -178,42 +180,11 @@ export default function DashboardViewPage() {
         </div>
       </div>
 
-      {/* Dashboard Content */}
-      {charts.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-8">
-          <div className="text-center">
-            <div className="text-gray-400 mb-4">
-              📊 This dashboard doesn't have any charts yet
-            </div>
-            <p className="text-gray-600 dark:text-gray-400">
-              Charts will appear here once they are added to this dashboard.
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {charts.map((chart) => (
-              <div
-                key={chart.dashboard_chart_id}
-                className="border border-gray-200 dark:border-gray-700 rounded-lg p-4"
-              >
-                <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                  Chart: {chart.chart_definition_id}
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 text-sm">
-                  Added: {new Date(chart.added_at).toLocaleDateString()}
-                </p>
-                
-                {/* Placeholder for actual chart rendering */}
-                <div className="mt-4 h-32 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center">
-                  <span className="text-gray-500 dark:text-gray-400">Chart Placeholder</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Dashboard Content - Use DashboardView component */}
+      <DashboardView
+        dashboard={dashboard}
+        dashboardCharts={charts}
+      />
 
       {/* Published Status Indicator */}
       <div className="mt-6 flex items-center text-sm text-green-600 dark:text-green-400">
