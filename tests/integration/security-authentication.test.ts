@@ -7,10 +7,9 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import '@/tests/setup/integration-setup' // Import integration setup for database access
 import { AccountSecurity } from '@/lib/auth/security'
 import { createTestUser } from '@/tests/factories/user-factory'
-import type { TestUser } from '@/tests/types/test-types'
 
 describe('Security Authentication Integration', () => {
-  let testUser: TestUser
+  let testUser: any
 
   beforeEach(async () => {
     testUser = await createTestUser({

@@ -8,10 +8,9 @@ import '@/tests/setup/integration-setup' // Import integration setup for databas
 import { createTestUser } from '@/tests/factories/user-factory'
 import { sanitizeHtml, stripHtml, sanitizeUrl } from '@/lib/utils/html-sanitizer'
 import { createSafeTextSchema, sanitizeText } from '@/lib/validations/sanitization'
-import type { TestUser } from '@/tests/types/test-types'
 
 describe('Security Features Integration', () => {
-  let testUser: TestUser
+  let testUser: any
 
   beforeEach(async () => {
     testUser = await createTestUser({

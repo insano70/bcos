@@ -47,7 +47,18 @@ INSERT INTO public.permissions (name, description, resource, action, scope, is_a
 
 -- API Access Permissions
 ('api:read:organization', 'Read API access for organization', 'api', 'read', 'organization', true),
-('api:write:organization', 'Write API access for organization', 'api', 'write', 'organization', true)
+('api:write:organization', 'Write API access for organization', 'api', 'write', 'organization', true),
+
+-- Data Source Management Permissions
+('data-sources:read:organization', 'Read data sources in organization', 'data-sources', 'read', 'organization', true),
+('data-sources:read:all', 'Read all data sources (super admin)', 'data-sources', 'read', 'all', true),
+('data-sources:create:organization', 'Create data sources in organization', 'data-sources', 'create', 'organization', true),
+('data-sources:create:all', 'Create data sources anywhere (super admin)', 'data-sources', 'create', 'all', true),
+('data-sources:update:organization', 'Update data sources in organization', 'data-sources', 'update', 'organization', true),
+('data-sources:update:all', 'Update all data sources (super admin)', 'data-sources', 'update', 'all', true),
+('data-sources:delete:organization', 'Delete data sources in organization', 'data-sources', 'delete', 'organization', true),
+('data-sources:delete:all', 'Delete all data sources (super admin)', 'data-sources', 'delete', 'all', true),
+('data-sources:manage:all', 'Full data source management (super admin)', 'data-sources', 'manage', 'all', true)
 ON CONFLICT (name) DO UPDATE SET
   description = EXCLUDED.description,
   resource = EXCLUDED.resource,

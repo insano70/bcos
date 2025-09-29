@@ -282,6 +282,17 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
                             </li>
                           </ProtectedComponent>
 
+                          {/* Data Sources - Protected by Data Sources RBAC */}
+                          <ProtectedComponent permission="data-sources:read:organization">
+                            <li className="mb-1 last:mb-0">
+                              <SidebarLink href="/configure/data-sources">
+                                <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                                  Data Sources
+                                </span>
+                              </SidebarLink>
+                            </li>
+                          </ProtectedComponent>
+
                           <ProtectedComponent permission="analytics:read:all">
                             <li className="mb-1 last:mb-0">
                               <SidebarLink href="/configure/dashboards">

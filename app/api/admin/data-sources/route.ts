@@ -6,7 +6,7 @@ import { validateRequest } from '@/lib/api/middleware/validation';
 import { dataSourceCreateRefinedSchema, dataSourceQuerySchema } from '@/lib/validations/data-sources';
 import type { UserContext } from '@/lib/types/rbac';
 import { createAppLogger, logPerformanceMetric } from '@/lib/logger';
-import { createRBACDataSourcesService, type CreateDataSourceData } from '@/lib/services/rbac-data-sources-service';
+import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 
 /**
  * Admin Data Sources CRUD API
@@ -78,8 +78,7 @@ const createDataSourceHandler = async (request: NextRequest, userContext: UserCo
 
   try {
     // Validate request body
-    const body = await request.json();
-    const createData = await validateRequest(body, dataSourceCreateRefinedSchema);
+    const createData = await validateRequest(request, dataSourceCreateRefinedSchema);
 
     // Create service instance and create data source
     const dataSourcesService = createRBACDataSourcesService(userContext);

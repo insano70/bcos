@@ -5,6 +5,7 @@ import { chart_data_sources, chart_data_source_columns } from '@/lib/db/chart-co
 import { eq, and, inArray, isNull, like, or, count, desc, sql } from 'drizzle-orm';
 import type { UserContext } from '@/lib/types/rbac';
 import { PermissionDeniedError } from '@/lib/types/rbac';
+import type { DataSourceCreateInput, DataSourceUpdateInput, DataSourceQueryInput } from '@/lib/validations/data-sources';
 
 /**
  * Enhanced Data Sources Service with RBAC
@@ -18,36 +19,10 @@ const rbacDataSourcesLogger = createAppLogger('rbac-data-sources-service', {
   businessIntelligence: true
 });
 
-export interface CreateDataSourceData {
-  data_source_name: string;
-  data_source_description?: string | undefined;
-  table_name: string;
-  schema_name: string;
-  database_type?: string | undefined;
-  connection_config?: Record<string, unknown> | undefined;
-  is_active?: boolean | undefined;
-  requires_auth?: boolean | undefined;
-}
-
-export interface UpdateDataSourceData {
-  data_source_name?: string | undefined;
-  data_source_description?: string | undefined;
-  table_name?: string | undefined;
-  schema_name?: string | undefined;
-  database_type?: string | undefined;
-  connection_config?: Record<string, unknown> | undefined;
-  is_active?: boolean | undefined;
-  requires_auth?: boolean | undefined;
-}
-
-export interface DataSourceQueryOptions {
-  search?: string | undefined;
-  is_active?: boolean | undefined;
-  database_type?: string | undefined;
-  schema_name?: string | undefined;
-  limit?: number | undefined;
-  offset?: number | undefined;
-}
+// Use validation schema types for consistency
+export type CreateDataSourceData = DataSourceCreateInput;
+export type UpdateDataSourceData = DataSourceUpdateInput;
+export type DataSourceQueryOptions = DataSourceQueryInput;
 
 export interface DataSourceWithMetadata {
   data_source_id: number;
@@ -86,7 +61,7 @@ export class RBACDataSourcesService extends BaseRBACService {
   /**
    * Get data sources with automatic permission-based filtering
    */
-  async getDataSources(options: DataSourceQueryOptions = {}): Promise<DataSourceWithMetadata[]> {
+  async getDataSources(options: DataSourceQueryOptions = { limit: 50, offset: 0 }): Promise<DataSourceWithMetadata[]> {
     this.requirePermission('data-sources:read:organization');
     
     const accessScope = this.getAccessScope('analytics', 'read'); // Use 'analytics' since 'data-sources' may not be defined as ResourceType

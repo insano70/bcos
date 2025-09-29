@@ -11,7 +11,6 @@ import {
   parseEducation,
   parseGalleryImages
 } from '@/lib/utils/json-parser'
-import type { TestJsonArrayFallback } from '@/tests/types/test-types'
 
 // Mock console.warn
 const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -106,7 +105,7 @@ describe('json-parser utilities', () => {
 
     it('should handle array parsing', () => {
       const jsonString = '[1, 2, 3, "four"]'
-      const fallback: TestJsonArrayFallback = []
+      const fallback: any[] = []
 
       const result = safeJsonParse(jsonString, fallback)
 

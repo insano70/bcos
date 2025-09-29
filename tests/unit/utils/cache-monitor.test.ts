@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { logCacheStats, monitorCacheHealth, cacheAdmin } from '@/lib/utils/cache-monitor'
 import { logger } from '@/lib/logger'
-import type { MockRolePermissionCache } from '@/tests/types/test-types'
 
 // Mock the cache
 vi.mock('@/lib/cache/role-permission-cache', () => ({
@@ -21,14 +20,14 @@ vi.mock('@/lib/logger', () => ({
 }))
 
 describe('cache-monitor utilities', () => {
-  let mockRolePermissionCache: MockRolePermissionCache
+  let mockRolePermissionCache: any
 
   beforeEach(async () => {
     vi.clearAllMocks()
     
     // Get reference to the mocked cache
     const { rolePermissionCache } = await import('@/lib/cache/role-permission-cache')
-    mockRolePermissionCache = vi.mocked(rolePermissionCache) as unknown as MockRolePermissionCache
+    mockRolePermissionCache = vi.mocked(rolePermissionCache)
   })
 
   describe('logCacheStats', () => {

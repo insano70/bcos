@@ -9,12 +9,11 @@ import { TokenManager } from '@/lib/auth/token-manager'
 import { createTestUser } from '@/tests/factories/user-factory'
 import { createTestOrganization } from '@/tests/factories/organization-factory'
 import { createTestRole } from '@/tests/factories/role-factory'
-import type { TestUser, TestOrganization, TestRole } from '@/tests/types/test-types'
 
 describe('Authentication Flow Integration', () => {
-  let testUser: TestUser
-  let testOrg: TestOrganization
-  let testRole: TestRole
+  let testUser: any
+  let testOrg: any
+  let testRole: any
 
   beforeEach(async () => {
     // Create test data for auth flow

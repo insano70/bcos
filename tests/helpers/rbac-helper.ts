@@ -367,14 +367,13 @@ export async function createUserWithRoles(
 
   // Create and assign roles
   for (const roleName of roleNames) {
-    const roleOptions = {
+    const roleOptions: any = {
       name: roleName,
       isSystemRole: !organization, // System role if no organization
-      permissions: [] as PermissionName[],
-    } as const
+    }
 
     if (organization?.organization_id) {
-      Object.assign(roleOptions, { organizationId: organization.organization_id })
+      roleOptions.organizationId = organization.organization_id
     }
 
     const role = await createTestRole(roleOptions)

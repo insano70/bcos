@@ -3,10 +3,6 @@ import { SignJWT, jwtVerify } from 'jose'
 import { nanoid } from 'nanoid'
 import { TokenManager } from '@/lib/auth/token-manager'
 
-interface MockDatabase {
-  select: ReturnType<typeof vi.fn>;
-}
-
 // Mock dependencies - standardized pattern
 vi.mock('jose', () => ({
   SignJWT: vi.fn().mockImplementation(() => ({
@@ -101,9 +97,19 @@ vi.mock('@/lib/api/services/audit', () => ({
 }))
 
 describe('TokenManager', () => {
+  let mockDb: any
+  let mockGetCachedUserContextSafe: any
+  
   beforeEach(async () => {
     vi.clearAllMocks()
     vi.mocked(nanoid).mockReturnValue('mock-nano-id')
+    
+    // Get references to mocked modules
+    const dbModule = await import('@/lib/db')
+    mockDb = vi.mocked(dbModule.db)
+    
+    const rbacModule = await import('@/lib/rbac/cached-user-context')
+    mockGetCachedUserContextSafe = vi.mocked(rbacModule.getCachedUserContextSafe)
   })
 
   describe('validateAccessToken', () => {
@@ -113,9 +119,8 @@ describe('TokenManager', () => {
 
       vi.mocked(jwtVerify).mockResolvedValue({
         payload: mockPayload,
-        protectedHeader: { alg: 'HS256' },
-        key: new Uint8Array()
-      })
+        protectedHeader: { alg: 'HS256' }
+      } as any)
 
       // Mock database - no blacklisted token
       const { db } = await import('@/lib/db')
@@ -125,7 +130,7 @@ describe('TokenManager', () => {
             limit: vi.fn(() => [])
           }))
         }))
-      })
+      } as any)
 
       const result = await TokenManager.validateAccessToken(mockToken)
 
@@ -139,13 +144,11 @@ describe('TokenManager', () => {
 
       vi.mocked(jwtVerify).mockResolvedValue({
         payload: mockPayload,
-        protectedHeader: { alg: 'HS256' },
-        key: new Uint8Array()
-      })
+        protectedHeader: { alg: 'HS256' }
+      } as any)
 
       // Mock database - token is blacklisted
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.select).mockReturnValue({
+      mockDb.select.mockReturnValue({
         from: vi.fn(() => ({
           where: vi.fn(() => ({
             limit: vi.fn(() => [{ jti: 'jti-123' }])
@@ -207,12 +210,11 @@ describe('TokenManager', () => {
 
     it('should handle no active tokens', async () => {
       const userId = 'user-123'
-      const mockActiveTokens: unknown[] = []
+      const mockActiveTokens: any[] = []
 
 
       // Mock getting active tokens - empty array
-      const { db } = await import('@/lib/db')
-      vi.mocked(db.select).mockReturnValueOnce({
+      mockDb.select.mockReturnValueOnce({
         from: vi.fn(() => ({
           where: vi.fn(() => mockActiveTokens)
         }))

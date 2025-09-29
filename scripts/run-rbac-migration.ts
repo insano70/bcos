@@ -146,6 +146,71 @@ const BASE_PERMISSIONS = [
     scope: 'all'
   },
 
+  // Data Source Management Permissions
+  {
+    name: 'data-sources:read:organization',
+    description: 'Read data sources in organization',
+    resource: 'data-sources',
+    action: 'read',
+    scope: 'organization'
+  },
+  {
+    name: 'data-sources:read:all',
+    description: 'Read all data sources (super admin)',
+    resource: 'data-sources',
+    action: 'read',
+    scope: 'all'
+  },
+  {
+    name: 'data-sources:create:organization',
+    description: 'Create data sources in organization',
+    resource: 'data-sources',
+    action: 'create',
+    scope: 'organization'
+  },
+  {
+    name: 'data-sources:create:all',
+    description: 'Create data sources anywhere (super admin)',
+    resource: 'data-sources',
+    action: 'create',
+    scope: 'all'
+  },
+  {
+    name: 'data-sources:update:organization',
+    description: 'Update data sources in organization',
+    resource: 'data-sources',
+    action: 'update',
+    scope: 'organization'
+  },
+  {
+    name: 'data-sources:update:all',
+    description: 'Update all data sources (super admin)',
+    resource: 'data-sources',
+    action: 'update',
+    scope: 'all'
+  },
+  {
+    name: 'data-sources:delete:organization',
+    description: 'Delete data sources in organization',
+    resource: 'data-sources',
+    action: 'delete',
+    scope: 'organization'
+  },
+  {
+    name: 'data-sources:delete:all',
+    description: 'Delete all data sources (super admin)',
+    resource: 'data-sources',
+    action: 'delete',
+    scope: 'all'
+  },
+  {
+    name: 'data-sources:manage:all',
+    description: 'Full data source management (super admin)',
+    resource: 'data-sources',
+    action: 'manage',
+    scope: 'all'
+  },
+
   // Role Management Permissions
   {
     name: 'roles:read:organization',
@@ -259,6 +324,11 @@ const BASE_ROLES = [
       'practices:read:all',
       'practices:manage:all',
       'analytics:read:all',
+      'data-sources:read:all',
+      'data-sources:create:all',
+      'data-sources:update:all',
+      'data-sources:delete:all',
+      'data-sources:manage:all',
       'roles:manage:all',
       'settings:read:all',
       'settings:update:all',
@@ -281,6 +351,10 @@ const BASE_ROLES = [
       'practices:staff:manage:own',
       'analytics:read:organization',
       'analytics:export:organization',
+      'data-sources:read:organization',
+      'data-sources:create:organization',
+      'data-sources:update:organization',
+      'data-sources:delete:organization',
       'roles:read:organization',
       'roles:create:organization',
       'roles:update:organization',
@@ -307,6 +381,7 @@ const BASE_ROLES = [
       'practices:staff:manage:own',
       'analytics:read:organization',
       'analytics:export:organization',
+      'data-sources:read:organization',
       'roles:read:organization',
       'settings:read:organization',
       'templates:read:organization',

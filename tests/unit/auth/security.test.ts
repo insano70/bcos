@@ -4,18 +4,6 @@ import { PasswordService, AccountSecurity, verifyPassword, hashPassword } from '
 import { validatePasswordStrength } from '@/lib/config/password-policy'
 import { db } from '@/lib/db'
 
-interface MockSelectResult {
-  rows?: unknown[];
-  rowCount?: number;
-  affectedRows?: number;
-}
-
-interface MockDatabaseResult {
-  affectedRows: number;
-  insertId?: string | number;
-  changedRows?: number;
-}
-
 // Mock bcrypt functions
 vi.mock('bcrypt', () => ({
   default: {
@@ -72,18 +60,18 @@ vi.mock('@/lib/db', () => {
 })
 
 describe('security authentication logic', () => {
-  let mockSelectResult: MockSelectResult
-  let mockUpdateResult: MockDatabaseResult
-  let mockInsertResult: MockDatabaseResult
+  let mockSelectResult: any
+  let mockUpdateResult: any
+  let mockInsertResult: any
 
   beforeEach(async () => {
     vi.clearAllMocks()
     
     // Get references to the standardized mock helpers
     const dbModule = await import('@/lib/db')
-    mockSelectResult = (dbModule as unknown as { _mockSelectResult: MockSelectResult })._mockSelectResult
-    mockUpdateResult = (dbModule as unknown as { _mockUpdateResult: MockDatabaseResult })._mockUpdateResult
-    mockInsertResult = (dbModule as unknown as { _mockInsertResult: MockDatabaseResult })._mockInsertResult
+    mockSelectResult = (dbModule as any)._mockSelectResult
+    mockUpdateResult = (dbModule as any)._mockUpdateResult
+    mockInsertResult = (dbModule as any)._mockInsertResult
   })
 
   describe('PasswordService', () => {
@@ -92,7 +80,7 @@ describe('security authentication logic', () => {
         const password = 'TestPassword123!'
         const mockHash = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfBPjJcZQKXGJ2O'
 
-        vi.mocked(bcrypt.hash).mockResolvedValue(mockHash)
+        ;(bcrypt.hash as any).mockResolvedValueOnce(mockHash)
 
         const result = await PasswordService.hash(password)
 
@@ -103,7 +91,7 @@ describe('security authentication logic', () => {
         const password = 'TestPassword123!'
         const error = new Error('Hashing failed')
 
-        vi.mocked(bcrypt.hash).mockRejectedValue(error)
+        ;(bcrypt.hash as any).mockRejectedValueOnce(error)
 
         await expect(PasswordService.hash(password)).rejects.toThrow('Hashing failed')
       })
@@ -114,7 +102,7 @@ describe('security authentication logic', () => {
         const password = 'TestPassword123!'
         const hash = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfBPjJcZQKXGJ2O'
 
-        vi.mocked(bcrypt.compare).mockResolvedValue(true)
+        ;(bcrypt.compare as any).mockResolvedValueOnce(true)
 
         const result = await PasswordService.verify(password, hash)
 
@@ -125,7 +113,7 @@ describe('security authentication logic', () => {
         const password = 'WrongPassword123!'
         const hash = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfBPjJcZQKXGJ2O'
 
-        vi.mocked(bcrypt.compare).mockResolvedValue(false)
+        ;(bcrypt.compare as any).mockResolvedValueOnce(false)
 
         const result = await PasswordService.verify(password, hash)
 
@@ -136,7 +124,7 @@ describe('security authentication logic', () => {
         const password = 'TestPassword123!'
         const hash = 'invalid-hash'
 
-        vi.mocked(bcrypt.compare).mockRejectedValue(new Error('Invalid hash'))
+        ;(bcrypt.compare as any).mockRejectedValueOnce(new Error('Invalid hash'))
 
         const result = await PasswordService.verify(password, hash)
 

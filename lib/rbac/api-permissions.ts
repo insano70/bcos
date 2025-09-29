@@ -122,6 +122,11 @@ export const ROLE_ACCESS_PATTERNS = {
     'practices:read:all',
     'practices:manage:all',
     'analytics:read:all',
+    'data-sources:read:all',
+    'data-sources:create:all',
+    'data-sources:update:all',
+    'data-sources:delete:all',
+    'data-sources:manage:all',
     'roles:manage:all',
     'settings:read:all',
     'settings:update:all',
@@ -141,6 +146,10 @@ export const ROLE_ACCESS_PATTERNS = {
     'practices:staff:manage:own',
     'analytics:read:organization',
     'analytics:export:organization',
+    'data-sources:read:organization',
+    'data-sources:create:organization',
+    'data-sources:update:organization',
+    'data-sources:delete:organization',
     'roles:read:organization',
     'roles:create:organization',
     'roles:update:organization',
@@ -164,6 +173,7 @@ export const ROLE_ACCESS_PATTERNS = {
     'practices:staff:manage:own',
     'analytics:read:organization',
     'analytics:export:organization',
+    'data-sources:read:organization',
     'roles:read:organization',
     'settings:read:organization',
     'templates:read:organization',
@@ -177,6 +187,7 @@ export const ROLE_ACCESS_PATTERNS = {
     'users:read:organization',
     'practices:read:own',
     'analytics:read:organization',
+    'data-sources:read:organization',
     'templates:read:organization'
   ],
 
@@ -185,6 +196,7 @@ export const ROLE_ACCESS_PATTERNS = {
     'users:read:own',
     'users:update:own',
     'practices:read:own',
+    'data-sources:read:organization',
     'templates:read:organization'
   ]
 } as const;

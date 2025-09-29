@@ -1,7 +1,6 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { sql } from 'drizzle-orm'
-import type { TestDatabaseHelper } from '@/tests/types/test-types'
 
 let testClient: ReturnType<typeof postgres> | null = null
 let testDb: ReturnType<typeof drizzle> | null = null
@@ -136,7 +135,7 @@ export async function rollbackMainTransaction(): Promise<void> {
  * Automatically handles rollback on completion or error
  */
 export async function withTestTransaction<T>(
-  fn: (tx: ReturnType<typeof drizzle>) => Promise<T>
+  fn: (tx: any) => Promise<T>
 ): Promise<T> {
   const tx = await getTestTransaction()
   try {

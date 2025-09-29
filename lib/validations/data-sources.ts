@@ -26,7 +26,7 @@ export const dataSourceCreateSchema = z.object({
     .trim()
     .optional()
     .default('postgresql'),
-  connection_config: z.record(z.unknown())
+  connection_config: z.record(z.string(), z.unknown())
     .optional(),
   is_active: z.boolean()
     .optional()
@@ -63,7 +63,7 @@ export const dataSourceUpdateSchema = z.object({
     .regex(/^[a-zA-Z][a-zA-Z0-9_]*$/, 'Database type must contain only letters, numbers, and underscores')
     .trim()
     .optional(),
-  connection_config: z.record(z.unknown())
+  connection_config: z.record(z.string(), z.unknown())
     .optional(),
   is_active: z.boolean()
     .optional(),
@@ -98,13 +98,11 @@ export const dataSourceQuerySchema = z.object({
     .int()
     .min(1, 'Limit must be at least 1')
     .max(100, 'Limit cannot exceed 100')
-    .optional()
-    .default(50),
+    .optional(),
   offset: z.coerce.number()
     .int()
     .min(0, 'Offset must be non-negative')
     .optional()
-    .default(0)
 });
 
 // Refined schemas with additional business logic validation
