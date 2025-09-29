@@ -144,6 +144,17 @@ export type ApiPermission =
   | 'api:read:organization'
   | 'api:write:organization';
 
+export type DataSourcePermission =
+  | 'data-sources:read:organization'
+  | 'data-sources:read:all'
+  | 'data-sources:create:organization'
+  | 'data-sources:create:all'
+  | 'data-sources:update:organization'
+  | 'data-sources:update:all'
+  | 'data-sources:delete:organization'
+  | 'data-sources:delete:all'
+  | 'data-sources:manage:all';
+
 export type PermissionName = 
   | UserPermission
   | PracticePermission
@@ -151,7 +162,8 @@ export type PermissionName =
   | RolePermission
   | SettingsPermission
   | TemplatePermission
-  | ApiPermission;
+  | ApiPermission
+  | DataSourcePermission;
 
 // Role Types for Healthcare Practices
 export type SystemRoleName = 'super_admin';

@@ -3,6 +3,10 @@ import { SignJWT, jwtVerify } from 'jose'
 import { nanoid } from 'nanoid'
 import { TokenManager } from '@/lib/auth/token-manager'
 
+interface MockDatabase {
+  select: ReturnType<typeof vi.fn>;
+}
+
 // Mock dependencies - standardized pattern
 vi.mock('jose', () => ({
   SignJWT: vi.fn().mockImplementation(() => ({
@@ -97,19 +101,9 @@ vi.mock('@/lib/api/services/audit', () => ({
 }))
 
 describe('TokenManager', () => {
-  let mockDb: any
-  let mockGetCachedUserContextSafe: any
-  
   beforeEach(async () => {
     vi.clearAllMocks()
     vi.mocked(nanoid).mockReturnValue('mock-nano-id')
-    
-    // Get references to mocked modules
-    const dbModule = await import('@/lib/db')
-    mockDb = vi.mocked(dbModule.db)
-    
-    const rbacModule = await import('@/lib/rbac/cached-user-context')
-    mockGetCachedUserContextSafe = vi.mocked(rbacModule.getCachedUserContextSafe)
   })
 
   describe('validateAccessToken', () => {
@@ -120,7 +114,7 @@ describe('TokenManager', () => {
       vi.mocked(jwtVerify).mockResolvedValue({
         payload: mockPayload,
         protectedHeader: { alg: 'HS256' }
-      } as any)
+      } as { payload: MockJWTPayload; protectedHeader: { alg: string } })
 
       // Mock database - no blacklisted token
       const { db } = await import('@/lib/db')
@@ -130,7 +124,7 @@ describe('TokenManager', () => {
             limit: vi.fn(() => [])
           }))
         }))
-      } as any)
+      } as unknown as MockDatabase['select'])
 
       const result = await TokenManager.validateAccessToken(mockToken)
 
@@ -145,7 +139,7 @@ describe('TokenManager', () => {
       vi.mocked(jwtVerify).mockResolvedValue({
         payload: mockPayload,
         protectedHeader: { alg: 'HS256' }
-      } as any)
+      } as { payload: MockJWTPayload; protectedHeader: { alg: string } })
 
       // Mock database - token is blacklisted
       mockDb.select.mockReturnValue({
@@ -210,7 +204,7 @@ describe('TokenManager', () => {
 
     it('should handle no active tokens', async () => {
       const userId = 'user-123'
-      const mockActiveTokens: any[] = []
+      const mockActiveTokens: MockTokenRecord[] = []
 
 
       // Mock getting active tokens - empty array

@@ -7,9 +7,10 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import '@/tests/setup/integration-setup' // Import integration setup for database access
 import { TokenManager } from '@/lib/auth/token-manager'
 import { createTestUser } from '@/tests/factories/user-factory'
+import type { TestUser } from '@/tests/types/test-types'
 
 describe('Token Lifecycle Integration', () => {
-  let testUser: any
+  let testUser: TestUser
 
   beforeEach(async () => {
     testUser = await createTestUser({

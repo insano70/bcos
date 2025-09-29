@@ -358,17 +358,17 @@ export default function PracticeConfigForm({
           <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
             <div className="flex items-center space-x-3">
               <div className="flex space-x-2">
-                <div 
+                <div
                   className="w-8 h-8 rounded color-preview-swatch"
-                  style={{ '--preview-color': watch('primary_color') || '#00AEEF' } as React.CSSProperties}
+                  data-color={watch('primary_color') || '#00AEEF'}
                 />
-                <div 
+                <div
                   className="w-8 h-8 rounded color-preview-swatch"
-                  style={{ '--preview-color': watch('secondary_color') || '#FFFFFF' } as React.CSSProperties}
+                  data-color={watch('secondary_color') || '#FFFFFF'}
                 />
-                <div 
+                <div
                   className="w-8 h-8 rounded color-preview-swatch"
-                  style={{ '--preview-color': watch('accent_color') || '#44C0AE' } as React.CSSProperties}
+                  data-color={watch('accent_color') || '#44C0AE'}
                 />
               </div>
               <span className="text-sm text-gray-600 dark:text-gray-400">

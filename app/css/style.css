@@ -159,11 +159,15 @@
   }
   
   .color-swatch {
-    background-color: var(--swatch-color);
+    background-color: attr(data-color);
   }
   
   .color-preset-swatch {
-    background-color: var(--swatch-color);
+    background-color: attr(data-color);
+  }
+
+  .color-preview-swatch {
+    background-color: attr(data-color);
   }
 }
 

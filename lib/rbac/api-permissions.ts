@@ -39,6 +39,14 @@ export const API_PERMISSIONS: Record<string, PermissionName | PermissionName[]> 
   'GET /api/admin/analytics/practices': ['analytics:read:all'], 
   'GET /api/admin/analytics/system': ['analytics:read:all'],
 
+  // Data Sources API
+  'GET /api/admin/data-sources': ['data-sources:read:organization', 'data-sources:read:all'],
+  'POST /api/admin/data-sources': ['data-sources:create:organization', 'data-sources:create:all'],
+  'GET /api/admin/data-sources/[id]': ['data-sources:read:organization', 'data-sources:read:all'],
+  'PATCH /api/admin/data-sources/[id]': ['data-sources:update:organization', 'data-sources:update:all'],
+  'DELETE /api/admin/data-sources/[id]': ['data-sources:delete:organization', 'data-sources:delete:all'],
+  'POST /api/admin/data-sources/[id]/test': ['data-sources:read:organization', 'data-sources:read:all'],
+
   // Templates API (read-only for most users)
   'GET /api/templates': 'templates:read:organization',
 
@@ -92,6 +100,13 @@ export const RESOURCE_PERMISSIONS = {
   templates: {
     read: ['templates:read:organization'],
     manage: ['templates:manage:all'] // Super admin only
+  },
+  dataSources: {
+    read: ['data-sources:read:organization', 'data-sources:read:all'],
+    create: ['data-sources:create:organization', 'data-sources:create:all'],
+    update: ['data-sources:update:organization', 'data-sources:update:all'],
+    delete: ['data-sources:delete:organization', 'data-sources:delete:all'],
+    manage: ['data-sources:manage:all']
   }
 } as const;
 

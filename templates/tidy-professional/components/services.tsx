@@ -130,10 +130,9 @@ export default function Services({ practice, attributes, colorStyles }: Services
             <p className="text-lg text-slate-600 mb-6">
               Ready to start your journey to better joint health?
             </p>
-            <a 
-              href="#appointment" 
-              className="btn text-white group"
-              style={colorStyles.primary}
+            <a
+              href="#appointment"
+              className="btn text-white group bg-practice-primary"
             >
               Schedule Consultation
               <span className="tracking-normal text-blue-300 group-hover:translate-x-0.5 transition-transform duration-150 ease-in-out ml-1">

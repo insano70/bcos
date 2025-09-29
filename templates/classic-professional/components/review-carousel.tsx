@@ -115,7 +115,7 @@ export default function ReviewCarousel({ colorStyles, comments }: ReviewCarousel
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
             What Our Patients Say
           </h2>
-          <div className="w-24 h-1 mx-auto" style={{ backgroundColor: colorStyles.primary.backgroundColor }}></div>
+          <div className="w-24 h-1 mx-auto bg-practice-primary"></div>
         </div>
 
         <div className="max-w-4xl mx-auto">
@@ -154,14 +154,9 @@ export default function ReviewCarousel({ colorStyles, comments }: ReviewCarousel
                 onClick={() => goToSlide(index)}
                 className={`w-3 h-3 rounded-full transition-all duration-300 ${
                   index === currentIndex
-                    ? 'w-8'
-                    : 'opacity-50 hover:opacity-75'
+                    ? 'w-8 bg-practice-primary'
+                    : 'bg-slate-300 opacity-50 hover:opacity-75'
                 }`}
-                style={{
-                  backgroundColor: index === currentIndex 
-                    ? colorStyles.primary.backgroundColor 
-                    : '#CBD5E1'
-                }}
                 aria-label={`Go to review ${index + 1}`}
               />
             ))}

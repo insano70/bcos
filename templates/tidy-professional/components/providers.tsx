@@ -135,13 +135,9 @@ export default function Providers({ practice, attributes, staff, colorStyles }: 
                       </h5>
                       <div className="flex flex-wrap gap-1 justify-center">
                         {member.specialties.map((specialty, idx) => (
-                          <span 
-                            key={idx} 
-                            className="inline-block px-2 py-1 text-xs rounded-full border"
-                            style={{
-                              borderColor: colorStyles.primary.backgroundColor,
-                              color: colorStyles.primary.backgroundColor
-                            }}
+                          <span
+                            key={idx}
+                            className="inline-block px-2 py-1 text-xs rounded-full border border-practice-primary text-practice-primary"
                           >
                             {specialty}
                           </span>
