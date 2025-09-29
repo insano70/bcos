@@ -1,5 +1,8 @@
 import { useApiQuery, useApiPost, useApiPut, useApiDelete } from './use-api';
-import type { DataSourceCreateInput, DataSourceUpdateInput, DataSourceQueryInput } from '@/lib/validations/data-sources';
+import type { DataSourceCreateInput, DataSourceUpdateInput, DataSourceQueryInput, TableColumnsQueryInput, DataSourceColumnCreateInput, DataSourceColumnUpdateInput, DataSourceColumnQueryInput } from '@/lib/validations/data-sources';
+
+// Re-export types for convenience
+export type { TableColumnsQueryInput, DataSourceColumnCreateInput, DataSourceColumnUpdateInput, DataSourceColumnQueryInput };
 
 export interface DataSource {
   data_source_id: number;
@@ -33,6 +36,39 @@ export interface ConnectionTestResult {
     table_accessible?: boolean;
     sample_row_count?: number;
   };
+}
+
+export interface DataSourceColumn {
+  column_id: number;
+  data_source_id: number;
+  column_name: string;
+  display_name: string;
+  column_description: string | null;
+  data_type: string;
+
+  // Chart functionality flags
+  is_filterable: boolean | null;
+  is_groupable: boolean | null;
+  is_measure: boolean | null;
+  is_dimension: boolean | null;
+  is_date_field: boolean | null;
+
+  // Display and formatting
+  format_type: string | null;
+  sort_order: number | null;
+  default_aggregation: string | null;
+
+  // Security and validation
+  is_sensitive: boolean | null;
+  access_level: string | null;
+  allowed_values: unknown;
+  validation_rules: unknown;
+
+  // Metadata
+  example_value: string | null;
+  is_active: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 // Hook for fetching data sources list
@@ -78,8 +114,8 @@ export function useCreateDataSource() {
 }
 
 // Hook for updating data source
-export function useUpdateDataSource(dataSourceId: number) {
-  return useApiPut<DataSource, UpdateDataSourceData>(`/api/admin/data-sources/${dataSourceId}`);
+export function useUpdateDataSource(dataSourceId: number | null) {
+  return useApiPut<DataSource, UpdateDataSourceData>(`/api/admin/data-sources/${dataSourceId || 0}`);
 }
 
 // Hook for deleting data source
@@ -88,6 +124,79 @@ export function useDeleteDataSource() {
 }
 
 // Hook for testing connection
-export function useTestConnection(dataSourceId: number) {
-  return useApiPost<ConnectionTestResult, Record<string, never>>(`/api/admin/data-sources/${dataSourceId}/test`);
+export function useTestConnection(dataSourceId: number | null) {
+  return useApiPost<ConnectionTestResult, Record<string, never>>(`/api/admin/data-sources/${dataSourceId || 0}/test`);
+}
+
+// Hook for fetching table columns
+export function useTableColumns(query: TableColumnsQueryInput | null) {
+  const queryString = query ? new URLSearchParams({
+    schema_name: query.schema_name,
+    table_name: query.table_name,
+    database_type: query.database_type,
+  }).toString() : '';
+
+  return useApiQuery<{ columns: Array<{
+    column_name: string;
+    data_type: string;
+    is_nullable: boolean;
+    column_default: string | null;
+    ordinal_position: number;
+  }>; metadata: unknown }>(
+    query ? ['table-columns', query.schema_name, query.table_name, query.database_type] : ['table-columns', 'none'],
+    query ? `/api/admin/data-sources?${queryString}` : '',
+    {
+      enabled: !!query,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    }
+  );
+}
+
+// Hook for fetching data source columns
+export function useDataSourceColumns(dataSourceId: number | null, options: Omit<DataSourceColumnQueryInput, 'data_source_id'> = {}) {
+  const queryParams = new URLSearchParams();
+
+  if (options.is_active !== undefined) queryParams.append('is_active', String(options.is_active));
+  if (options.limit) queryParams.append('limit', String(options.limit));
+  if (options.offset) queryParams.append('offset', String(options.offset));
+
+  const queryString = queryParams.toString();
+  const url = dataSourceId ? `/api/admin/data-sources/${dataSourceId}/columns${queryString ? `?${queryString}` : ''}` : '';
+
+  return useApiQuery<{ columns: DataSourceColumn[]; pagination: unknown; metadata: unknown }>(
+    dataSourceId ? ['data-source-columns', dataSourceId, String(options.is_active ?? 'all'), options.limit || 100, options.offset || 0] : ['data-source-columns', 'none'],
+    url,
+    {
+      enabled: !!dataSourceId,
+      staleTime: 2 * 60 * 1000, // 2 minutes
+    }
+  );
+}
+
+// Hook for fetching single data source column
+export function useDataSourceColumn(dataSourceId: number | null, columnId: number | null) {
+  const url = dataSourceId && columnId ? `/api/admin/data-sources/${dataSourceId}/columns/${columnId}` : '';
+  return useApiQuery<{ column: DataSourceColumn }>(
+    columnId ? ['data-source-column', columnId] : ['data-source-column', 'none'],
+    url,
+    {
+      enabled: !!(dataSourceId && columnId),
+      staleTime: 2 * 60 * 1000, // 2 minutes
+    }
+  );
+}
+
+// Hook for creating data source column
+export function useCreateDataSourceColumn(dataSourceId: number) {
+  return useApiPost<DataSourceColumn, DataSourceColumnCreateInput>(`/api/admin/data-sources/${dataSourceId}/columns`);
+}
+
+// Hook for updating data source column
+export function useUpdateDataSourceColumn(dataSourceId: number, columnId: number) {
+  return useApiPut<DataSourceColumn, DataSourceColumnUpdateInput>(`/api/admin/data-sources/${dataSourceId}/columns/${columnId}`);
+}
+
+// Hook for deleting data source column
+export function useDeleteDataSourceColumn(dataSourceId: number, columnId: number) {
+  return useApiDelete<{ deleted: boolean }, string>(`/api/admin/data-sources/${dataSourceId}/columns/${columnId}`);
 }

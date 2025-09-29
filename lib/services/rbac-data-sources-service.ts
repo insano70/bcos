@@ -5,7 +5,7 @@ import { chart_data_sources, chart_data_source_columns } from '@/lib/db/chart-co
 import { eq, and, inArray, isNull, like, or, count, desc, sql } from 'drizzle-orm';
 import type { UserContext } from '@/lib/types/rbac';
 import { PermissionDeniedError } from '@/lib/types/rbac';
-import type { DataSourceCreateInput, DataSourceUpdateInput, DataSourceQueryInput } from '@/lib/validations/data-sources';
+import type { DataSourceCreateInput, DataSourceUpdateInput, DataSourceQueryInput, TableColumnsQueryInput, DataSourceColumnCreateInput, DataSourceColumnUpdateInput, DataSourceColumnQueryInput } from '@/lib/validations/data-sources';
 
 /**
  * Enhanced Data Sources Service with RBAC
@@ -23,6 +23,42 @@ const rbacDataSourcesLogger = createAppLogger('rbac-data-sources-service', {
 export type CreateDataSourceData = DataSourceCreateInput;
 export type UpdateDataSourceData = DataSourceUpdateInput;
 export type DataSourceQueryOptions = DataSourceQueryInput;
+export type CreateDataSourceColumnData = DataSourceColumnCreateInput;
+export type UpdateDataSourceColumnData = DataSourceColumnUpdateInput;
+export type DataSourceColumnQueryOptions = DataSourceColumnQueryInput;
+
+export interface DataSourceColumnWithMetadata {
+  column_id: number;
+  data_source_id: number;
+  column_name: string;
+  display_name: string;
+  column_description: string | null;
+  data_type: string;
+
+  // Chart functionality flags
+  is_filterable: boolean | null;
+  is_groupable: boolean | null;
+  is_measure: boolean | null;
+  is_dimension: boolean | null;
+  is_date_field: boolean | null;
+
+  // Display and formatting
+  format_type: string | null;
+  sort_order: number | null;
+  default_aggregation: string | null;
+
+  // Security and validation
+  is_sensitive: boolean | null;
+  access_level: string | null;
+  allowed_values: unknown;
+  validation_rules: unknown;
+
+  // Metadata
+  example_value: string | null;
+  is_active: boolean | null;
+  created_at: Date | null;
+  updated_at: Date | null;
+}
 
 export interface DataSourceWithMetadata {
   data_source_id: number;
@@ -536,6 +572,396 @@ export class RBACDataSourcesService extends BaseRBACService {
         success: false,
         error: error instanceof Error ? error.message : 'Connection test failed',
       };
+    }
+  }
+
+  /**
+   * Get table columns for a specific schema and table
+   * This method fetches column information from the database metadata
+   */
+  async getTableColumns(query: TableColumnsQueryInput): Promise<Array<{
+    column_name: string;
+    data_type: string;
+    is_nullable: boolean;
+    column_default: string | null;
+    ordinal_position: number;
+  }>> {
+    const startTime = Date.now();
+    rbacDataSourcesLogger.info('Table columns query initiated', {
+      userId: this.userContext.user_id,
+      schema: query.schema_name,
+      table: query.table_name,
+      databaseType: query.database_type,
+    });
+
+    try {
+      // Check permissions before proceeding
+      this.requireAnyPermission(['data-sources:read:organization', 'data-sources:read:all']);
+      
+      // Ensure database context is available
+      if (!this.dbContext) {
+        throw new Error('Database context not available');
+      }
+
+      // Query the information schema to get real column information
+      const columns = await this.dbContext.execute(sql`
+        SELECT 
+          column_name,
+          data_type,
+          is_nullable = 'YES' as is_nullable,
+          column_default,
+          ordinal_position
+        FROM information_schema.columns 
+        WHERE table_schema = ${query.schema_name} 
+          AND table_name = ${query.table_name}
+        ORDER BY ordinal_position
+      `);
+
+      // Transform the result to match our expected format
+      const formattedColumns = columns.map((col: any) => ({
+        column_name: col.column_name,
+        data_type: col.data_type,
+        is_nullable: col.is_nullable,
+        column_default: col.column_default,
+        ordinal_position: col.ordinal_position,
+      }));
+
+      rbacDataSourcesLogger.info('Table columns query completed', {
+        userId: this.userContext.user_id,
+        schema: query.schema_name,
+        table: query.table_name,
+        columnCount: formattedColumns.length,
+        duration: Date.now() - startTime,
+      });
+
+      return formattedColumns;
+
+    } catch (error) {
+      rbacDataSourcesLogger.error('Table columns query failed', {
+        userId: this.userContext.user_id,
+        schema: query.schema_name,
+        table: query.table_name,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Get all columns for a specific data source
+   */
+  async getDataSourceColumns(query: DataSourceColumnQueryOptions): Promise<DataSourceColumnWithMetadata[]> {
+    const startTime = Date.now();
+    rbacDataSourcesLogger.info('Data source columns query initiated', {
+      userId: this.userContext.user_id,
+      dataSourceId: query.data_source_id,
+      isActive: query.is_active,
+      limit: query.limit,
+      offset: query.offset,
+    });
+
+    try {
+      // Check permissions before proceeding
+      this.requireAnyPermission(['data-sources:read:organization', 'data-sources:read:all']);
+      
+      // Ensure database context is available
+      if (!this.dbContext) {
+        throw new Error('Database context not available');
+      }
+
+      // Build the where conditions
+      const whereConditions = [eq(chart_data_source_columns.data_source_id, query.data_source_id)];
+
+      if (query.is_active !== undefined) {
+        whereConditions.push(eq(chart_data_source_columns.is_active, query.is_active));
+      }
+
+      const columns = await this.dbContext
+        .select()
+        .from(chart_data_source_columns)
+        .where(and(...whereConditions))
+        .orderBy(chart_data_source_columns.sort_order, chart_data_source_columns.column_name)
+        .limit(query.limit || 100)
+        .offset(query.offset || 0);
+
+      rbacDataSourcesLogger.info('Data source columns query completed', {
+        userId: this.userContext.user_id,
+        dataSourceId: query.data_source_id,
+        columnCount: columns.length,
+        duration: Date.now() - startTime,
+      });
+
+      return columns;
+
+    } catch (error) {
+      rbacDataSourcesLogger.error('Data source columns query failed', {
+        userId: this.userContext.user_id,
+        dataSourceId: query.data_source_id,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Get single column by ID
+   */
+  async getDataSourceColumnById(columnId: number): Promise<DataSourceColumnWithMetadata | null> {
+    const startTime = Date.now();
+    rbacDataSourcesLogger.info('Data source column get initiated', {
+      userId: this.userContext.user_id,
+      columnId,
+    });
+
+    try {
+      // Check permissions before proceeding
+      this.requireAnyPermission(['data-sources:read:organization', 'data-sources:read:all']);
+      
+      // Ensure database context is available
+      if (!this.dbContext) {
+        throw new Error('Database context not available');
+      }
+
+      const [column] = await this.dbContext
+        .select()
+        .from(chart_data_source_columns)
+        .where(eq(chart_data_source_columns.column_id, columnId))
+        .limit(1);
+
+      rbacDataSourcesLogger.info('Data source column get completed', {
+        userId: this.userContext.user_id,
+        columnId,
+        found: !!column,
+        duration: Date.now() - startTime,
+      });
+
+      return column || null;
+
+    } catch (error) {
+      rbacDataSourcesLogger.error('Data source column get failed', {
+        userId: this.userContext.user_id,
+        columnId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Create a new data source column
+   */
+  async createDataSourceColumn(data: CreateDataSourceColumnData): Promise<DataSourceColumnWithMetadata> {
+    const startTime = Date.now();
+    rbacDataSourcesLogger.info('Data source column creation initiated', {
+      userId: this.userContext.user_id,
+      dataSourceId: data.data_source_id,
+      columnName: data.column_name,
+    });
+
+    try {
+      // Check permissions before proceeding
+      this.requireAnyPermission(['data-sources:create:organization', 'data-sources:create:all']);
+      
+      // Ensure database context is available
+      if (!this.dbContext) {
+        throw new Error('Database context not available');
+      }
+
+      // Execute column creation as atomic transaction
+      const newColumn = await this.dbContext.transaction(async (tx) => {
+        // Check if column already exists for this data source
+        const existingColumn = await tx
+          .select()
+          .from(chart_data_source_columns)
+          .where(and(
+            eq(chart_data_source_columns.data_source_id, data.data_source_id),
+            eq(chart_data_source_columns.column_name, data.column_name)
+          ))
+          .limit(1);
+
+        if (existingColumn.length > 0) {
+          throw new Error(`Column '${data.column_name}' already exists for this data source`);
+        }
+
+        const result = await tx
+          .insert(chart_data_source_columns)
+          .values({
+            data_source_id: data.data_source_id,
+            column_name: data.column_name,
+            display_name: data.display_name,
+            column_description: data.column_description,
+            data_type: data.data_type,
+            is_filterable: data.is_filterable,
+            is_groupable: data.is_groupable,
+            is_measure: data.is_measure,
+            is_dimension: data.is_dimension,
+            is_date_field: data.is_date_field,
+            format_type: data.format_type,
+            sort_order: data.sort_order,
+            default_aggregation: data.default_aggregation,
+            is_sensitive: data.is_sensitive,
+            access_level: data.access_level,
+            allowed_values: data.allowed_values,
+            validation_rules: data.validation_rules,
+            example_value: data.example_value,
+            is_active: data.is_active,
+          })
+          .returning();
+
+        const newColumn = result[0];
+        if (!newColumn) {
+          throw new Error('Failed to create column - no data returned');
+        }
+
+        return newColumn;
+      });
+
+      rbacDataSourcesLogger.info('Data source column creation completed', {
+        userId: this.userContext.user_id,
+        columnId: newColumn.column_id,
+        dataSourceId: data.data_source_id,
+        duration: Date.now() - startTime,
+      });
+
+      return newColumn;
+
+    } catch (error) {
+      rbacDataSourcesLogger.error('Data source column creation failed', {
+        userId: this.userContext.user_id,
+        dataSourceId: data.data_source_id,
+        columnName: data.column_name,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Update a data source column
+   */
+  async updateDataSourceColumn(columnId: number, data: UpdateDataSourceColumnData): Promise<DataSourceColumnWithMetadata | null> {
+    const startTime = Date.now();
+    rbacDataSourcesLogger.info('Data source column update initiated', {
+      userId: this.userContext.user_id,
+      columnId,
+    });
+
+    try {
+      // Check permissions before proceeding
+      this.requireAnyPermission(['data-sources:update:organization', 'data-sources:update:all']);
+      
+      // Ensure database context is available
+      if (!this.dbContext) {
+        throw new Error('Database context not available');
+      }
+
+      const [updatedColumn] = await this.dbContext
+        .update(chart_data_source_columns)
+        .set({
+          display_name: data.display_name,
+          column_description: data.column_description,
+          is_filterable: data.is_filterable,
+          is_groupable: data.is_groupable,
+          is_measure: data.is_measure,
+          is_dimension: data.is_dimension,
+          is_date_field: data.is_date_field,
+          format_type: data.format_type,
+          sort_order: data.sort_order,
+          default_aggregation: data.default_aggregation,
+          is_sensitive: data.is_sensitive,
+          access_level: data.access_level,
+          allowed_values: data.allowed_values,
+          validation_rules: data.validation_rules,
+          example_value: data.example_value,
+          is_active: data.is_active,
+          updated_at: new Date(),
+        })
+        .where(eq(chart_data_source_columns.column_id, columnId))
+        .returning();
+
+      rbacDataSourcesLogger.info('Data source column update completed', {
+        userId: this.userContext.user_id,
+        columnId,
+        updated: !!updatedColumn,
+        duration: Date.now() - startTime,
+      });
+
+      return updatedColumn || null;
+
+    } catch (error) {
+      rbacDataSourcesLogger.error('Data source column update failed', {
+        userId: this.userContext.user_id,
+        columnId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a data source column
+   */
+  async deleteDataSourceColumn(columnId: number): Promise<boolean> {
+    const startTime = Date.now();
+    rbacDataSourcesLogger.info('Data source column deletion initiated', {
+      userId: this.userContext.user_id,
+      columnId,
+    });
+
+    try {
+      // Check permissions before proceeding
+      this.requireAnyPermission(['data-sources:delete:organization', 'data-sources:delete:all']);
+      
+      // Ensure database context is available
+      if (!this.dbContext) {
+        throw new Error('Database context not available');
+      }
+
+      // Execute column deletion as atomic transaction
+      const deleted = await this.dbContext.transaction(async (tx) => {
+        // First check if the column exists
+        const existingColumn = await tx
+          .select({ column_id: chart_data_source_columns.column_id })
+          .from(chart_data_source_columns)
+          .where(eq(chart_data_source_columns.column_id, columnId))
+          .limit(1);
+
+        if (existingColumn.length === 0) {
+          return false; // Column doesn't exist
+        }
+
+        // TODO: Remove column from any existing charts that use it
+        // This would require querying chart_definitions and updating their configurations
+
+        await tx
+          .delete(chart_data_source_columns)
+          .where(eq(chart_data_source_columns.column_id, columnId));
+
+        return true; // Deletion successful
+      });
+
+      rbacDataSourcesLogger.info('Data source column deletion completed', {
+        userId: this.userContext.user_id,
+        columnId,
+        deleted,
+        duration: Date.now() - startTime,
+      });
+
+      return deleted;
+
+    } catch (error) {
+      rbacDataSourcesLogger.error('Data source column deletion failed', {
+        userId: this.userContext.user_id,
+        columnId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+
+      throw error;
     }
   }
 }

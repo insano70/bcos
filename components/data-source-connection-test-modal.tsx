@@ -22,7 +22,8 @@ export default function DataSourceConnectionTestModal({
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
 
-  const testConnectionMutation = dataSource ? useTestConnection(dataSource.data_source_id) : null;
+  // Always call the hook - hooks must be called in the same order every render
+  const testConnectionMutation = useTestConnection(dataSource?.data_source_id || null);
 
   const handleClose = () => {
     setTestResult(null);
@@ -30,7 +31,7 @@ export default function DataSourceConnectionTestModal({
   };
 
   const handleTestConnection = async () => {
-    if (!dataSource || !testConnectionMutation) {
+    if (!dataSource || !dataSource.data_source_id) {
       setToastMessage('No data source selected for testing');
       setToastType('error');
       setShowToast(true);

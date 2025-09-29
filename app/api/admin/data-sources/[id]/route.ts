@@ -4,7 +4,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { dataSourceParamsSchema, dataSourceUpdateRefinedSchema } from '@/lib/validations/data-sources';
+import { dataSourceParamsSchema, dataSourceUpdateRefinedSchema, dataSourceColumnCreateRefinedSchema, dataSourceColumnUpdateRefinedSchema, dataSourceColumnQuerySchema, dataSourceColumnParamsSchema } from '@/lib/validations/data-sources';
 import type { UserContext } from '@/lib/types/rbac';
 import { createAppLogger, logPerformanceMetric } from '@/lib/logger';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';

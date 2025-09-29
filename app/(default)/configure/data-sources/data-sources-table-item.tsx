@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import type { DataSource } from '@/lib/hooks/use-data-sources';
 
 interface DataSourcesTableItemProps {
@@ -185,6 +186,18 @@ export default function DataSourcesTableItem({
                    left: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().right - 176 : 0
                  }}>
               <ul>
+                <li>
+                  <Link
+                    href={`/configure/data-sources/${dataSource.data_source_id}/columns`}
+                    className="font-medium text-sm text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-200 flex items-center py-1 px-3 w-full text-left"
+                    onClick={() => setDropdownOpen(false)}
+                  >
+                    <svg className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0 mr-2" viewBox="0 0 16 16">
+                      <path d="M14 2H2c-.6 0-1 .4-1 1v10c0 .6.4 1 1 1h12c.6 0 1-.4 1-1V3c0-.6-.4-1-1-1zM5 4h2v8H5V4zm4 0h2v8H9V4z" />
+                    </svg>
+                    <span>Configure Columns</span>
+                  </Link>
+                </li>
                 {onTest && (
                   <li>
                     <button

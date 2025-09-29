@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { useForm } from 'react-hook-form';
-import { useCreateDataSource, type CreateDataSourceData } from '@/lib/hooks/use-data-sources';
+import { useCreateDataSource, useTableColumns, type CreateDataSourceData, type TableColumnsQueryInput } from '@/lib/hooks/use-data-sources';
 import Toast from './toast';
 
 interface CreateDataSourceForm {
@@ -90,6 +90,15 @@ export default function AddDataSourceModal({ isOpen, onClose, onSuccess }: AddDa
   };
 
   const formData = watch();
+
+  // Table columns query - only fetch when both schema and table are provided
+  const tableColumnsQuery: TableColumnsQueryInput | null = formData.schema_name && formData.table_name ? {
+    schema_name: formData.schema_name,
+    table_name: formData.table_name,
+    database_type: formData.database_type || 'postgresql',
+  } : null;
+
+  const { data: tableColumnsData, isLoading: isLoadingColumns } = useTableColumns(tableColumnsQuery);
 
   return (
     <>
@@ -278,13 +287,44 @@ export default function AddDataSourceModal({ isOpen, onClose, onSuccess }: AddDa
                             <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                             </svg>
-                            <div>
+                            <div className="flex-1">
                               <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
                                 Table Reference Preview
                               </p>
-                              <p className="text-sm text-blue-700 dark:text-blue-300 font-mono">
+                              <p className="text-sm text-blue-700 dark:text-blue-300 font-mono mb-2">
                                 {formData.schema_name}.{formData.table_name}
                               </p>
+
+                              {/* Columns Display */}
+                              <div className="text-xs">
+                                <p className="font-medium text-blue-800 dark:text-blue-200 mb-1">
+                                  Columns:
+                                </p>
+                                {isLoadingColumns ? (
+                                  <p className="text-blue-600 dark:text-blue-400 italic">Loading columns...</p>
+                                ) : tableColumnsData?.columns && tableColumnsData.columns.length > 0 ? (
+                                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                                    {tableColumnsData.columns.slice(0, 10).map((column, index) => (
+                                      <div key={column.column_name} className="flex items-center justify-between text-blue-700 dark:text-blue-300">
+                                        <span className="font-mono">{column.column_name}</span>
+                                        <span className="text-blue-600 dark:text-blue-400 ml-2">
+                                          {column.data_type}
+                                          {column.is_nullable ? '?' : ''}
+                                        </span>
+                                      </div>
+                                    ))}
+                                    {tableColumnsData.columns.length > 10 && (
+                                      <p className="text-blue-600 dark:text-blue-400 italic">
+                                        ...and {tableColumnsData.columns.length - 10} more columns
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <p className="text-blue-600 dark:text-blue-400 italic">
+                                    No columns found or unable to load columns
+                                  </p>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>

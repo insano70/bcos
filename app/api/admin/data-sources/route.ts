@@ -3,7 +3,7 @@ import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { dataSourceCreateRefinedSchema, dataSourceQuerySchema } from '@/lib/validations/data-sources';
+import { dataSourceCreateRefinedSchema, dataSourceQuerySchema, tableColumnsQuerySchema } from '@/lib/validations/data-sources';
 import type { UserContext } from '@/lib/types/rbac';
 import { createAppLogger, logPerformanceMetric } from '@/lib/logger';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
@@ -98,7 +98,67 @@ const createDataSourceHandler = async (request: NextRequest, userContext: UserCo
   }
 };
 
-export const GET = rbacRoute(getDataSourcesHandler, {
+// GET - Get table columns for schema/table
+const getTableColumnsHandler = async (request: NextRequest, userContext: UserContext) => {
+  const startTime = Date.now();
+  const logger = createAppLogger('admin-data-sources').withUser(userContext.user_id, userContext.current_organization_id);
+
+  logger.info('Table columns request initiated', {
+    requestingUserId: userContext.user_id
+  });
+
+  try {
+    // Validate query parameters
+    const { searchParams } = new URL(request.url);
+    const queryParams = {
+      schema_name: searchParams.get('schema_name') || '',
+      table_name: searchParams.get('table_name') || '',
+      database_type: searchParams.get('database_type') || 'postgresql',
+    };
+
+    const validatedQuery = tableColumnsQuerySchema.parse(queryParams);
+
+    // Create service instance and get table columns
+    const dataSourcesService = createRBACDataSourcesService(userContext);
+    const columns = await dataSourcesService.getTableColumns(validatedQuery);
+
+    const responseData = {
+      columns,
+      metadata: {
+        schema: validatedQuery.schema_name,
+        table: validatedQuery.table_name,
+        databaseType: validatedQuery.database_type,
+        generatedAt: new Date().toISOString(),
+      }
+    };
+
+    logPerformanceMetric(logger, 'table_columns_get', Date.now() - startTime);
+
+    return createSuccessResponse(responseData, 'Table columns retrieved successfully');
+
+  } catch (error) {
+    logger.error('Table columns error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      requestingUserId: userContext.user_id
+    });
+
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+  }
+};
+
+// Combined GET handler for both data sources list and table columns
+const combinedGetHandler = async (request: NextRequest, userContext: UserContext) => {
+  const url = new URL(request.url);
+  const hasColumnsParams = url.searchParams.has('schema_name') && url.searchParams.has('table_name');
+
+  if (hasColumnsParams) {
+    return getTableColumnsHandler(request, userContext);
+  } else {
+    return getDataSourcesHandler(request, userContext);
+  }
+};
+
+export const GET = rbacRoute(combinedGetHandler, {
   permission: ['data-sources:read:organization', 'data-sources:read:all'],
   rateLimit: 'api'
 });
