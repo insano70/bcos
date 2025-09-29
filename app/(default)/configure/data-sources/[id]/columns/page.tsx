@@ -1,5 +1,7 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
+import { SelectedItemsProvider } from '@/app/selected-items-context';
+import { ProtectedComponent } from '@/components/rbac/protected-component';
 import DataSourceColumnsContent from './data-source-columns-content';
 
 interface PageProps {
@@ -21,5 +23,11 @@ export default async function DataSourceColumnsPage({ params }: PageProps) {
     notFound();
   }
 
-  return <DataSourceColumnsContent dataSourceId={dataSourceId} />;
+  return (
+    <ProtectedComponent permission="data-sources:read:organization">
+      <SelectedItemsProvider>
+        <DataSourceColumnsContent dataSourceId={dataSourceId} />
+      </SelectedItemsProvider>
+    </ProtectedComponent>
+  );
 }

@@ -1,5 +1,6 @@
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import { db } from '@/lib/db';
+import { getAnalyticsDb } from '@/lib/services/analytics-db';
 import { createAppLogger } from '@/lib/logger/factory';
 import { chart_data_sources, chart_data_source_columns } from '@/lib/db/chart-config-schema';
 import { eq, and, inArray, isNull, like, or, count, desc, sql } from 'drizzle-orm';
@@ -470,7 +471,9 @@ export class RBACDataSourcesService extends BaseRBACService {
           ) as schema_exists
         `);
         
-        const [schemaResult] = await db.execute(schemaCheckQuery);
+        // Use analytics database for testing external data sources
+        const analyticsDb = getAnalyticsDb();
+        const [schemaResult] = await analyticsDb.execute(schemaCheckQuery);
         const schemaAccessible = (schemaResult as { schema_exists: boolean }).schema_exists;
 
         if (!schemaAccessible) {
@@ -504,7 +507,7 @@ export class RBACDataSourcesService extends BaseRBACService {
             END as sample_row_count
         `);
 
-        const [tableResult] = await db.execute(tableCheckQuery);
+        const [tableResult] = await analyticsDb.execute(tableCheckQuery);
         const result = tableResult as { table_exists: boolean; sample_row_count: number };
         
         const connectionTime = Date.now() - startTime;
@@ -603,8 +606,9 @@ export class RBACDataSourcesService extends BaseRBACService {
         throw new Error('Database context not available');
       }
 
-      // Query the information schema to get real column information
-      const columns = await this.dbContext.execute(sql`
+      // Query the analytics database information schema to get real column information
+      const analyticsDb = getAnalyticsDb();
+      const columns = await analyticsDb.execute(sql`
         SELECT 
           column_name,
           data_type,
