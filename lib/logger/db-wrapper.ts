@@ -80,7 +80,7 @@ export function logSlowQuery(
       operation,
       table,
       duration,
-      query: query ? query.substring(0, 200) + '...' : undefined,
+      query: query ? `${query.substring(0, 200)}...` : undefined,
       paramCount: params?.length || 0,
       severity: duration > 5000 ? 'critical' : duration > 2000 ? 'high' : 'medium'
     })

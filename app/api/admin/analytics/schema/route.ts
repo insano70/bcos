@@ -57,8 +57,8 @@ const schemaHandler = async (request: NextRequest, userContext: UserContext) => 
       description: dataSourceConfig.description || 'Analytics data source',
       totalColumns: dataSourceConfig.columns.length,
       fields: fieldDefinitions,
-      availableMeasures: availableMeasures.map(measure => ({ measure, count: 'N/A' })),
-      availableFrequencies: availableFrequencies.map(frequency => ({ frequency, count: 'N/A' })),
+      availableMeasures: availableMeasures.map(measure => ({ measure })),
+      availableFrequencies: availableFrequencies.map(frequency => ({ frequency })),
       dataSource: dataSourceConfig,
     };
 

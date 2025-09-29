@@ -369,14 +369,12 @@ export class RBACUsersService extends BaseRBACService {
     const startTime = Date.now()
     
     // Enhanced user creation logging
-    if (true) {
-      rbacUsersLogger.info('User creation initiated', {
-        requestingUserId: this.userContext.user_id,
-        targetOrganizationId: userData.organization_id,
-        operation: 'create_user',
-        securityLevel: 'high'
-      })
-    }
+    rbacUsersLogger.info('User creation initiated', {
+      requestingUserId: this.userContext.user_id,
+      targetOrganizationId: userData.organization_id,
+      operation: 'create_user',
+      securityLevel: 'high'
+    })
     
     this.requirePermission('users:create:organization', undefined, userData.organization_id);
     
@@ -384,14 +382,12 @@ export class RBACUsersService extends BaseRBACService {
     this.requireOrganizationAccess(userData.organization_id);
     
     // Enhanced permission validation success logging
-    if (true) {
-      rbacUsersLogger.security('user_creation_authorized', 'low', {
-        action: 'permission_check_passed',
-        userId: this.userContext.user_id,
-        targetOrganization: userData.organization_id,
-        requiredPermission: 'users:create:organization'
-      })
-    }
+    rbacUsersLogger.security('user_creation_authorized', 'low', {
+      action: 'permission_check_passed',
+      userId: this.userContext.user_id,
+      targetOrganization: userData.organization_id,
+      requiredPermission: 'users:create:organization'
+    })
 
     // Hash password
     const hashedPassword = await hashPassword(userData.password);
@@ -429,36 +425,34 @@ export class RBACUsersService extends BaseRBACService {
     }
 
     // Enhanced user creation completion logging
-    if (true) {
-      const duration = Date.now() - startTime
-      
-      // Business intelligence for user creation
-      rbacUsersLogger.info('User creation analytics', {
-        operation: 'user_created',
-        newUserId: newUser.user_id,
-        organizationId: userData.organization_id,
-        createdByUserId: this.userContext.user_id,
-        userSegment: 'new_user',
-        emailVerified: userData.email_verified ?? false,
-        duration
-      })
-      
-      // Security event for user creation
-      rbacUsersLogger.security('user_account_created', 'medium', {
-        action: 'account_creation_success',
-        userId: this.userContext.user_id,
-        newAccountId: newUser.user_id,
-        organizationId: userData.organization_id,
-        complianceValidated: true
-      })
-      
-      // Performance monitoring
-      rbacUsersLogger.timing('User creation completed', startTime, {
-        passwordHashingIncluded: true,
-        rbacValidationIncluded: true,
-        databaseOperations: 3 // user insert + org assignment + retrieval
-      })
-    }
+    const duration = Date.now() - startTime
+    
+    // Business intelligence for user creation
+    rbacUsersLogger.info('User creation analytics', {
+      operation: 'user_created',
+      newUserId: newUser.user_id,
+      organizationId: userData.organization_id,
+      createdByUserId: this.userContext.user_id,
+      userSegment: 'new_user',
+      emailVerified: userData.email_verified ?? false,
+      duration
+    })
+    
+    // Security event for user creation
+    rbacUsersLogger.security('user_account_created', 'medium', {
+      action: 'account_creation_success',
+      userId: this.userContext.user_id,
+      newAccountId: newUser.user_id,
+      organizationId: userData.organization_id,
+      complianceValidated: true
+    })
+    
+    // Performance monitoring
+    rbacUsersLogger.timing('User creation completed', startTime, {
+      passwordHashingIncluded: true,
+      rbacValidationIncluded: true,
+      databaseOperations: 3 // user insert + org assignment + retrieval
+    })
 
     await this.logPermissionCheck('users:create:organization', newUser.user_id, userData.organization_id);
     

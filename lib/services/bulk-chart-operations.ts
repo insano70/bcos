@@ -1,4 +1,5 @@
 import type { ChartDefinition, ChartFilter } from '@/lib/types/analytics';
+import type { SuccessResponse } from '@/lib/api/responses/success';
 import { apiClient } from '@/lib/api/client';
 // Note: Using console for client-side logging to avoid winston fs dependency
 // import { logger } from '@/lib/logger';
@@ -455,26 +456,23 @@ export class BulkChartOperationsService {
         
         try {
           // Get original chart
-          const originalChart = await apiClient.get(`/api/admin/analytics/charts/${chartId}`);
+          const originalChart = await apiClient.get<SuccessResponse<{ chart: ChartDefinition }>>(`/api/admin/analytics/charts/${chartId}`);
           
           // Create cloned chart with modifications
+          const { chart_definition_id, created_at, updated_at, ...chartWithoutIds } = originalChart.data.chart;
           const clonedChart = {
-            ...(originalChart as any).data,
+            ...chartWithoutIds,
             ...modifications,
-            chart_name: `${(originalChart as any).data.chart_name} (Copy)`,
+            chart_name: `${originalChart.data.chart.chart_name} (Copy)`,
             created_by: operatorUserId
           };
 
-          delete clonedChart.chart_definition_id; // Let the API generate new ID
-          delete clonedChart.created_at;
-          delete clonedChart.updated_at;
-
-          const newChart = await apiClient.post('/api/admin/analytics/charts', clonedChart);
+          const newChart = await apiClient.post<SuccessResponse<{ chart: ChartDefinition }>>('/api/admin/analytics/charts', clonedChart);
 
           const result: BulkOperationResult = {
             chartId,
             success: true,
-            data: { newChartId: (newChart as any).data.chart.chart_definition_id }
+            data: { newChartId: newChart.data.chart.chart_definition_id }
           };
 
           operation.results.push(result);

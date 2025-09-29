@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '@/lib/api/client';
 import { createAppLogger } from '@/lib/logger/factory';
 
@@ -23,11 +23,7 @@ export function usePublishedDashboards() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadPublishedDashboards();
-  }, []);
-
-  const loadPublishedDashboards = async () => {
+  const loadPublishedDashboards = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -61,7 +57,11 @@ export function usePublishedDashboards() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadPublishedDashboards();
+  }, [loadPublishedDashboards]);
 
   const refreshDashboards = () => {
     loadPublishedDashboards();

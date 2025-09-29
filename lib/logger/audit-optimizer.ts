@@ -300,6 +300,13 @@ class OptimizedAuditLogger {
     
     return result;
   }
+
+  /**
+   * Public method to flush buffer on demand
+   */
+  async flush(): Promise<void> {
+    await this.flushBuffer();
+  }
 }
 
 // Singleton instance - lazy initialization to prevent startup issues
@@ -324,7 +331,7 @@ export const BufferedAuditLogger = {
   
   // Utility functions
   getBufferStatus: () => getOptimizedAuditLogger().getBufferStatus(),
-  flushNow: () => getOptimizedAuditLogger()['flushBuffer'](),
+  flushNow: () => getOptimizedAuditLogger().flush(),
   shutdown: () => getOptimizedAuditLogger().shutdown()
 }
 

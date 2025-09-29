@@ -14,6 +14,7 @@ import ConditionsEditor from '@/components/conditions-editor';
 import BusinessHoursEditor from '@/components/business-hours-editor';
 import Toast from '@/components/toast';
 import type { Practice, PracticeAttributes, StaffMember, BusinessHours } from '@/lib/types/practice';
+import type { SuccessResponse } from '@/lib/api/responses/success';
 import type { Template } from '@/lib/hooks/use-templates';
 
 interface PracticeFormData {
@@ -57,11 +58,12 @@ interface PracticeFormData {
   accent_color: string;
 }
 
-async function fetchPracticeAttributes(practiceId: string) {
-  return await apiClient.get<any>(`/api/practices/${practiceId}/attributes`);
+async function fetchPracticeAttributes(practiceId: string): Promise<PracticeAttributes> {
+  const response = await apiClient.get<SuccessResponse<PracticeAttributes>>(`/api/practices/${practiceId}/attributes`);
+  return response.data;
 }
 
-async function updatePracticeAttributes(practiceId: string, data: Omit<PracticeFormData, 'template_id' | 'name'>, csrfToken?: string) {
+async function updatePracticeAttributes(practiceId: string, data: Omit<PracticeFormData, 'template_id' | 'name'>, _csrfToken?: string): Promise<SuccessResponse<PracticeAttributes>> {
   console.log('🔄 updatePracticeAttributes called with practiceId:', practiceId);
   console.log('🔄 Raw data:', JSON.stringify(data, null, 2));
   
@@ -80,11 +82,7 @@ async function updatePracticeAttributes(practiceId: string, data: Omit<PracticeF
   
   console.log('🔄 Cleaned data being sent:', JSON.stringify(filteredData, null, 2));
   
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  
-  const result = await apiClient.put(`/api/practices/${practiceId}/attributes`, filteredData);
+  const result = await apiClient.put<SuccessResponse<PracticeAttributes>>(`/api/practices/${practiceId}/attributes`, filteredData);
   console.log('✅ Update successful:', result);
   return result;
 }
@@ -195,10 +193,6 @@ export default function PracticeConfigForm({
       // Update practice info (name, template) if changed
       if (Object.keys(practiceChanges).length > 0) {
         
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
-        
         await apiClient.put(`/api/practices/${practiceId}`, practiceChanges);
         
         // Update local practice state to reflect changes
@@ -215,7 +209,7 @@ export default function PracticeConfigForm({
       const result = await updatePracticeAttributes(practiceId, attributesData, csrfToken || undefined);
       
       // Extract actual data from API response
-      const actualData = (result as any).data || result;
+      const actualData = result.data || result;
       
       // Update cache with the actual data structure
       queryClient.setQueryData(['practice-attributes', practiceId], actualData);

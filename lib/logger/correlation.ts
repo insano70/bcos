@@ -4,7 +4,7 @@
  */
 
 import { nanoid } from 'nanoid'
-import { AsyncLocalStorage } from 'async_hooks'
+import { AsyncLocalStorage } from 'node:async_hooks'
 
 // Correlation context interface
 export interface CorrelationContext {

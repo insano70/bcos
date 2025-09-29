@@ -385,7 +385,7 @@ class ProductionOptimizer {
   ): { message: string; meta: Record<string, unknown> } {
     // Truncate very long messages
     const truncatedMessage = message.length > 500 
-      ? message.substring(0, 497) + '...'
+      ? `${message.substring(0, 497)}...`
       : message;
 
     // Compress large metadata objects
@@ -402,7 +402,7 @@ class ProductionOptimizer {
 
     for (const [key, value] of Object.entries(meta)) {
       if (typeof value === 'string' && value.length > 200) {
-        compressed[key] = value.substring(0, 197) + '...';
+        compressed[key] = `${value.substring(0, 197)}...`;
       } else if (Array.isArray(value) && value.length > 10) {
         compressed[key] = [...value.slice(0, 10), `... +${value.length - 10} more`];
       } else {

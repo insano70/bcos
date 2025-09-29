@@ -8,7 +8,7 @@ import { FormSkeleton, Skeleton } from '@/components/ui/loading-skeleton';
 import { apiClient } from '@/lib/api/client';
 
 // Import the new focused components
-import ChartBuilderCore, { ChartConfig } from './chart-builder-core';
+import ChartBuilderCore, { ChartConfig, DataSource } from './chart-builder-core';
 import ChartBuilderAdvanced from './chart-builder-advanced';
 import ChartBuilderPreview from './chart-builder-preview';
 import ChartBuilderSave from './chart-builder-save';
@@ -27,8 +27,8 @@ interface FieldDefinition {
 
 interface SchemaInfo {
   fields: Record<string, FieldDefinition>;
-  availableMeasures: Array<{ measure: string; count: string }>;
-  availableFrequencies: Array<{ frequency: string; count: string }>;
+  availableMeasures: Array<{ measure: string }>;
+  availableFrequencies: Array<{ frequency: string }>;
 }
 
 // Chart Builder Loading Skeleton
@@ -91,13 +91,41 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
     advancedFilters: [],
     useAdvancedFiltering: false,
     useMultipleSeries: false,
-    seriesConfigs: []
+    seriesConfigs: [],
+    selectedDataSource: null
   });
   
   const [selectedDatePreset, setSelectedDatePreset] = useState<string>('custom');
 
   const [previewKey, setPreviewKey] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Helper function to find data source from saved chart
+  const findDataSourceFromChart = async (tableReference?: string, dataSourceId?: number): Promise<DataSource | null> => {
+    try {
+      // First try to get all data sources to find the correct one
+      const response = await apiClient.get<{ dataSources: DataSource[] }>('/api/admin/analytics/data-sources');
+      const dataSources = response.dataSources || [];
+      
+      // If we have a dataSourceId, use that first
+      if (dataSourceId) {
+        const found = dataSources.find(ds => ds.id === dataSourceId);
+        if (found) return found;
+      }
+      
+      // Otherwise, try to match by table reference
+      if (tableReference) {
+        const [schemaName, tableName] = tableReference.split('.');
+        const found = dataSources.find(ds => ds.schemaName === schemaName && ds.tableName === tableName);
+        if (found) return found;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Failed to find data source for editing:', error);
+      return null;
+    }
+  };
 
   // Load schema information on mount
   useEffect(() => {
@@ -107,77 +135,95 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
   // Populate form when editing
   useEffect(() => {
     if (editingChart && schemaInfo) {
-      // Extract data from chart definition
-      const dataSource = editingChart.data_source as { filters?: ChartFilter[]; advancedFilters?: ChartFilter[] };
-      const chartConfigData = editingChart.chart_config as {
-        calculatedField?: string;
-        seriesConfigs?: MultipleSeriesConfig[];
-        dateRangePreset?: string;
-        series?: { groupBy?: string };
-      } || {};
+      const populateEditForm = async () => {
+        // Extract data from chart definition
+        const dataSource = editingChart.data_source as { table?: string; filters?: ChartFilter[]; advancedFilters?: ChartFilter[] };
+        const chartConfigData = editingChart.chart_config as {
+          calculatedField?: string;
+          seriesConfigs?: MultipleSeriesConfig[];
+          dateRangePreset?: string;
+          series?: { groupBy?: string };
+          dataSourceId?: number;
+        } || {};
 
-      // Find practice UID from filters
-      const practiceFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'practice_uid');
-      const measureFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'measure');
-      const frequencyFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'frequency');
-      const startDateFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'date_index' && f.operator === 'gte');
-      const endDateFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'date_index' && f.operator === 'lte');
+        // Try to find the selected data source by matching table reference or dataSourceId
+        const savedDataSource = await findDataSourceFromChart(dataSource.table, chartConfigData.dataSourceId);
 
-      // Extract advanced configuration
-      const calculatedField = chartConfigData.calculatedField || undefined;
-      const advancedFilters = dataSource.advancedFilters || [];
-      const useAdvancedFiltering = Array.isArray(advancedFilters) && advancedFilters.length > 0;
-      const seriesConfigs = chartConfigData.seriesConfigs || [];
-      const useMultipleSeries = Array.isArray(seriesConfigs) && seriesConfigs.length > 0;
-      const selectedPreset = chartConfigData.dateRangePreset || 'custom';
-      
-      const newConfig = {
-        chartName: editingChart.chart_name || '',
-        chartType: (editingChart.chart_type === 'pie' || editingChart.chart_type === 'area' ? 'bar' : editingChart.chart_type) || 'bar',
-        measure: String(measureFilter?.value || ''),
-        frequency: String(frequencyFilter?.value || ''),
-        practiceUid: practiceFilter?.value?.toString() || '',
-        startDate: String(startDateFilter?.value || '2024-01-01'),
-        endDate: String(endDateFilter?.value || '2025-12-31'),
-        groupBy: chartConfigData.series?.groupBy || 'provider_name',
-        calculatedField,
-        advancedFilters,
-        useAdvancedFiltering,
-        useMultipleSeries,
-        seriesConfigs
+        // Find practice UID from filters
+        const practiceFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'practice_uid');
+        const measureFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'measure');
+        const frequencyFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'frequency');
+        const startDateFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'date_index' && f.operator === 'gte');
+        const endDateFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'date_index' && f.operator === 'lte');
+
+        // Extract advanced configuration
+        const calculatedField = chartConfigData.calculatedField || undefined;
+        const advancedFilters = dataSource.advancedFilters || [];
+        const useAdvancedFiltering = Array.isArray(advancedFilters) && advancedFilters.length > 0;
+        const seriesConfigs = chartConfigData.seriesConfigs || [];
+        const useMultipleSeries = Array.isArray(seriesConfigs) && seriesConfigs.length > 0;
+        const selectedPreset = chartConfigData.dateRangePreset || 'custom';
+        
+        const newConfig = {
+          chartName: editingChart.chart_name || '',
+          chartType: (editingChart.chart_type === 'pie' || editingChart.chart_type === 'area' ? 'bar' : editingChart.chart_type) || 'bar',
+          measure: String(measureFilter?.value || ''),
+          frequency: String(frequencyFilter?.value || ''),
+          practiceUid: practiceFilter?.value?.toString() || '',
+          startDate: String(startDateFilter?.value || '2024-01-01'),
+          endDate: String(endDateFilter?.value || '2025-12-31'),
+          groupBy: chartConfigData.series?.groupBy || 'provider_name',
+          calculatedField,
+          advancedFilters,
+          useAdvancedFiltering,
+          useMultipleSeries,
+          seriesConfigs,
+          selectedDataSource: savedDataSource
+        };
+        
+        setSelectedDatePreset(selectedPreset);
+        setChartConfig(newConfig);
       };
-      
-      setSelectedDatePreset(selectedPreset);
-      
-      setChartConfig(newConfig);
+
+      populateEditForm();
     }
   }, [editingChart, schemaInfo]);
 
-  const loadSchemaInfo = async () => {
+  const loadSchemaInfo = async (dataSource?: DataSource | null) => {
     try {
       console.log('🔍 Loading analytics schema information...');
       
-      const result = await apiClient.get<SchemaInfo>('/api/admin/analytics/schema');
+      // Use the provided data source, or fallback to selected data source, or default
+      const sourceToUse = dataSource || chartConfig.selectedDataSource;
+      const tableName = sourceToUse?.tableName || 'agg_app_measures';
+      const schemaName = sourceToUse?.schemaName || 'ih';
+      
+      console.log(`🔍 Loading schema for: ${schemaName}.${tableName}`);
+      
+      const result = await apiClient.get<SchemaInfo>(`/api/admin/analytics/schema?table=${tableName}&schema=${schemaName}`);
       setSchemaInfo(result);
       
-      // Set default values based on schema
-      if (result.availableMeasures && result.availableMeasures.length > 0) {
-        setChartConfig(prev => ({
-          ...prev,
-          measure: result.availableMeasures[0] as any
-        }));
-      }
-      
-      if (result.availableFrequencies && result.availableFrequencies.length > 0) {
-        setChartConfig(prev => ({
-          ...prev,
-          frequency: result.availableFrequencies[0] as any
-        }));
+      // Set default values based on schema (only if not in edit mode)
+      if (!isEditMode) {
+        if (result.availableMeasures && result.availableMeasures.length > 0) {
+          setChartConfig(prev => ({
+            ...prev,
+            measure: result.availableMeasures[0] as any
+          }));
+        }
+        
+        if (result.availableFrequencies && result.availableFrequencies.length > 0) {
+          setChartConfig(prev => ({
+            ...prev,
+            frequency: result.availableFrequencies[0] as any
+          }));
+        }
       }
 
       console.log('✅ Schema loaded:', {
         fieldCount: result.fields ? Object.keys(result.fields).length : 0,
-        measureCount: result.availableMeasures ? result.availableMeasures.length : 0
+        measureCount: result.availableMeasures ? result.availableMeasures.length : 0,
+        tableName: `${schemaName}.${tableName}`
       });
       
     } catch (error) {
@@ -187,8 +233,33 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
     }
   };
 
-  const updateConfig = (key: keyof ChartConfig, value: string | boolean | ChartFilter[] | undefined) => {
-    setChartConfig(prev => ({ ...prev, [key]: value }));
+  const updateConfig = (key: keyof ChartConfig, value: string | boolean | ChartFilter[] | DataSource | null | undefined) => {
+    // If data source is changing, reload schema and reset related fields
+    if (key === 'selectedDataSource' && value !== chartConfig.selectedDataSource) {
+      console.log('🔄 Data source changed, reloading schema...');
+      setIsLoadingSchema(true);
+      setSchemaInfo(null);
+      
+      // Reset fields that depend on the data source
+      if (!isEditMode) {
+        setChartConfig(prev => ({
+          ...prev,
+          selectedDataSource: value as DataSource | null,
+          measure: '',
+          frequency: '',
+          advancedFilters: [],
+          seriesConfigs: []
+        }));
+      } else {
+        setChartConfig(prev => ({ ...prev, selectedDataSource: value as DataSource | null }));
+      }
+      
+      // Load new schema
+      loadSchemaInfo(value as DataSource | null);
+    } else {
+      // Handle all other config updates normally
+      setChartConfig(prev => ({ ...prev, [key]: value }));
+    }
   };
 
   const handleAdvancedFiltersChange = (filters: ChartFilter[]) => {
@@ -255,6 +326,18 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
     setIsSaving(true);
     
     try {
+      // Validate data source selection
+      if (!chartConfig.selectedDataSource) {
+        setToastMessage('Data source selection is required');
+        setToastType('error');
+        setShowToast(true);
+        setIsSaving(false);
+        return;
+      }
+
+      // Build table reference from selected data source
+      const tableReference = `${chartConfig.selectedDataSource.schemaName}.${chartConfig.selectedDataSource.tableName}`;
+      
       // Create chart definition matching the expected schema
       const chartDefinition = {
         chart_name: chartConfig.chartName,
@@ -269,11 +352,12 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
           // Save additional configuration
           calculatedField: chartConfig.calculatedField,
           dateRangePreset: selectedDatePreset,
-          seriesConfigs: chartConfig.seriesConfigs
+          seriesConfigs: chartConfig.seriesConfigs,
+          dataSourceId: chartConfig.selectedDataSource.id // Store data source reference
         },
         // Save advanced filters in data_source
         data_source: {
-          table: 'ih.agg_app_measures',
+          table: tableReference,
           filters: [
             { field: 'measure', operator: 'eq', value: chartConfig.measure },
             { field: 'frequency', operator: 'eq', value: chartConfig.frequency },

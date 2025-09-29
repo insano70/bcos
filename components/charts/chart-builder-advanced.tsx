@@ -23,8 +23,8 @@ interface FieldDefinition {
 
 interface SchemaInfo {
   fields: Record<string, FieldDefinition>;
-  availableMeasures: Array<{ measure: string; count: string }>;
-  availableFrequencies: Array<{ frequency: string; count: string }>;
+  availableMeasures: Array<{ measure: string }>;
+  availableFrequencies: Array<{ frequency: string }>;
 }
 
 interface ChartBuilderAdvancedProps {

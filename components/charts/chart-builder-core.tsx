@@ -2,6 +2,7 @@
 
 import { ChartFilter, MeasureType, MultipleSeriesConfig } from '@/lib/types/analytics';
 import DateRangePresets from './date-range-presets';
+import DataSourceSelector from './data-source-selector';
 
 interface FieldDefinition {
   name: string;
@@ -16,8 +17,16 @@ interface FieldDefinition {
 
 interface SchemaInfo {
   fields: Record<string, FieldDefinition>;
-  availableMeasures: Array<{ measure: string; count: string }>;
-  availableFrequencies: Array<{ frequency: string; count: string }>;
+  availableMeasures: Array<{ measure: string }>;
+  availableFrequencies: Array<{ frequency: string }>;
+}
+
+export interface DataSource {
+  id: number;
+  name: string;
+  description: string | null;
+  tableName: string;
+  schemaName: string;
 }
 
 export interface ChartConfig {
@@ -34,12 +43,13 @@ export interface ChartConfig {
   useAdvancedFiltering: boolean;
   useMultipleSeries: boolean;
   seriesConfigs: MultipleSeriesConfig[];
+  selectedDataSource: DataSource | null;
 }
 
 interface ChartBuilderCoreProps {
   schemaInfo: SchemaInfo;
   chartConfig: ChartConfig;
-  updateConfig: (key: keyof ChartConfig, value: string | boolean | ChartFilter[] | undefined) => void;
+  updateConfig: (key: keyof ChartConfig, value: string | boolean | ChartFilter[] | DataSource | null | undefined) => void;
   handleDateRangeChange: (presetId: string, startDate: string, endDate: string) => void;
   selectedDatePreset?: string;
 }
@@ -56,6 +66,13 @@ export default function ChartBuilderCore({
       <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
         Basic Configuration
       </h3>
+
+      {/* Data Source Selector */}
+      <DataSourceSelector
+        selectedDataSource={chartConfig.selectedDataSource}
+        onDataSourceChange={(dataSource) => updateConfig('selectedDataSource', dataSource)}
+        className="mb-6"
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Chart Name */}
@@ -102,7 +119,7 @@ export default function ChartBuilderCore({
               <option value="">Select a measure...</option>
               {schemaInfo.availableMeasures.map((measure) => (
                 <option key={measure.measure} value={measure.measure}>
-                  {measure.measure} ({measure.count} records)
+                  {measure.measure}
                 </option>
               ))}
             </select>
@@ -138,7 +155,7 @@ export default function ChartBuilderCore({
             <option value="">All frequencies...</option>
             {schemaInfo.availableFrequencies.map((freq) => (
               <option key={freq.frequency} value={freq.frequency}>
-                {freq.frequency} ({freq.count} records)
+                {freq.frequency}
               </option>
             ))}
           </select>

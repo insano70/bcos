@@ -76,7 +76,7 @@ export function useValidatedForm<T extends FieldValues>({
  */
 export function usePasswordConfirmation(
   passwordFieldName: string = 'password',
-  confirmFieldName: string = 'confirmPassword'
+  _confirmFieldName: string = 'confirmPassword'
 ) {
   return {
     validate: (confirmPassword: string, formValues: Record<string, unknown>) => {

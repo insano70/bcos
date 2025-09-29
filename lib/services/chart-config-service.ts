@@ -69,6 +69,30 @@ export class ChartConfigService {
   private colorPaletteCache = new Map<number, ColorPalette>();
 
   /**
+   * Get all available data sources
+   */
+  async getAllDataSources(): Promise<Array<{ id: number; name: string; description: string | null; tableName: string; schemaName: string }>> {
+    try {
+      const dataSources = await db
+        .select({
+          id: chart_data_sources.data_source_id,
+          name: chart_data_sources.data_source_name,
+          description: chart_data_sources.data_source_description,
+          tableName: chart_data_sources.table_name,
+          schemaName: chart_data_sources.schema_name,
+        })
+        .from(chart_data_sources)
+        .where(eq(chart_data_sources.is_active, true))
+        .orderBy(chart_data_sources.data_source_name);
+
+      return dataSources;
+    } catch (error) {
+      logger.error('Failed to load data sources', { error });
+      return [];
+    }
+  }
+
+  /**
    * Get data source configuration by table name
    */
   async getDataSourceConfig(tableName: string, schemaName: string = 'ih'): Promise<DataSourceConfig | null> {

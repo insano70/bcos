@@ -36,7 +36,7 @@ export function rbacRoute(
   return async (request: NextRequest, ...args: unknown[]): Promise<Response> => {
     const startTime = Date.now()
     const apiLogger = createAPILogger(request, 'rbac-enforcement')
-    const logger = apiLogger.getLogger()
+    const _logger = apiLogger.getLogger()
     const url = new URL(request.url)
     
     // Enhanced RBAC route request logging
@@ -449,7 +449,7 @@ export function webhookRoute(
   handler: (request: NextRequest, body: unknown, rawBody: string) => Promise<Response>,
   options: WebhookRouteOptions
 ) {
-  return async (request: NextRequest, ...args: unknown[]): Promise<Response> => {
+  return async (request: NextRequest, ..._args: unknown[]): Promise<Response> => {
     const startTime = Date.now()
     const apiLogger = createAPILogger(request)
     const url = new URL(request.url)
