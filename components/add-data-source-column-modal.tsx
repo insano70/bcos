@@ -280,6 +280,18 @@ export default function AddDataSourceColumnModal({
                               Date Field - Contains date/time values
                             </label>
                           </div>
+
+                          <div className="flex items-center">
+                            <input
+                              id="add_is_measure_type"
+                              type="checkbox"
+                              {...register('is_measure_type')}
+                              className="form-checkbox"
+                            />
+                            <label htmlFor="add_is_measure_type" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                              Measure Type - Contains formatting information (currency, count, etc.)
+                            </label>
+                          </div>
                         </div>
                       </div>
 

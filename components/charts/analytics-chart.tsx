@@ -36,6 +36,7 @@ interface AnalyticsChartProps extends ResponsiveChartProps {
   calculatedField?: string | undefined; // Phase 3: Calculated fields support
   advancedFilters?: ChartFilter[]; // Phase 3: Advanced filtering support
   multipleSeries?: MultipleSeriesConfig[]; // Phase 3: Multiple series support
+  dataSourceId?: number | undefined; // Data source ID for configurable data sources
 }
 
 interface ApiResponse {
@@ -72,6 +73,7 @@ export default function AnalyticsChart({
   calculatedField, // Phase 3: Calculated fields
   advancedFilters = [], // Phase 3: Advanced filters
   multipleSeries = [], // Phase 3: Multiple series
+  dataSourceId, // Data source ID for configurable data sources
   // Responsive sizing options
   responsive = false,
   minHeight = 200,
@@ -145,6 +147,11 @@ export default function AnalyticsChart({
       // Add calculated field if provided
       if (calculatedField && calculatedField.trim()) {
         params.append('calculated_field', calculatedField);
+      }
+
+      // Add data source ID if provided
+      if (dataSourceId) {
+        params.append('data_source_id', dataSourceId.toString());
       }
 
       // Add multiple series configuration if provided

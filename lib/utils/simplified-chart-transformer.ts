@@ -22,6 +22,17 @@ const chartLogger = createAppLogger('chart-transformer', {
 export class SimplifiedChartTransformer {
 
   /**
+   * Extract measure type from data (assumes all records have same measure type)
+   */
+  private extractMeasureType(measures: AggAppMeasure[]): string {
+    if (measures.length === 0) return 'number';
+    
+    // Get measure type from first record (all should be the same for a single chart)
+    const measureType = measures[0]?.measure_type;
+    return measureType || 'number'; // Default fallback
+  }
+
+  /**
    * Transform pre-aggregated data to Chart.js format
    */
   transformData(
@@ -34,25 +45,41 @@ export class SimplifiedChartTransformer {
       return { labels: [], datasets: [] };
     }
 
+    // Extract measure type from data
+    const measureType = this.extractMeasureType(measures);
+
     chartLogger.debug('🔍 SIMPLIFIED TRANSFORMATION:', {
       recordCount: measures.length,
       chartType,
       groupBy,
+      measureType,
       sampleRecord: measures[0]
     });
 
+    let chartData: ChartData;
     switch (chartType) {
       case 'line':
       case 'area':
-        return this.createTimeSeriesChart(measures, groupBy, chartType === 'area');
+        chartData = this.createTimeSeriesChart(measures, groupBy, chartType === 'area');
+        break;
       case 'bar':
-        return this.createBarChart(measures, groupBy);
+        chartData = this.createBarChart(measures, groupBy);
+        break;
       case 'pie':
       case 'doughnut':
-        return this.createPieChart(measures, groupBy);
+        chartData = this.createPieChart(measures, groupBy);
+        break;
       default:
         throw new Error(`Unsupported chart type: ${chartType}`);
     }
+
+    // Attach measure type to chart data and all datasets
+    chartData.measureType = measureType;
+    chartData.datasets.forEach(dataset => {
+      dataset.measureType = measureType;
+    });
+
+    return chartData;
   }
 
   /**
@@ -424,6 +451,8 @@ export class SimplifiedChartTransformer {
     groupBy: string,
     aggregations: Record<string, 'sum' | 'avg' | 'count' | 'min' | 'max'> = {}
   ): ChartData {
+    // Extract measure type from data
+    const measureType = this.extractMeasureType(measures);
     chartLogger.debug('🔍 ENHANCED MULTI-SERIES INPUT:', {
       measureCount: measures.length,
       groupBy,
@@ -436,7 +465,13 @@ export class SimplifiedChartTransformer {
     const hasSeriesLabels = measures.some(m => m.series_label);
     
     if (hasSeriesLabels) {
-      return this.createMultiSeriesFromTaggedData(measures, aggregations);
+      const chartData = this.createMultiSeriesFromTaggedData(measures, aggregations);
+      // Attach measure type to chart data and all datasets
+      chartData.measureType = measureType;
+      chartData.datasets.forEach(dataset => {
+        dataset.measureType = measureType;
+      });
+      return chartData;
     }
 
     // Original logic for non-tagged data

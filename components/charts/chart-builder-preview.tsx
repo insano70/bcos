@@ -41,6 +41,7 @@ export default function ChartBuilderPreview({
             title={chartConfig.chartName}
             calculatedField={chartConfig.calculatedField}
             advancedFilters={chartConfig.advancedFilters}
+            dataSourceId={chartConfig.selectedDataSource?.id}
             {...(chartConfig.useMultipleSeries && chartConfig.seriesConfigs.length > 0 ? { multipleSeries: chartConfig.seriesConfigs } : {})}
           />
         </div>

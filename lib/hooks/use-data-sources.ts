@@ -19,7 +19,6 @@ export interface DataSource {
   created_by: string | null;
   column_count?: number;
   last_tested?: string | null;
-  connection_status?: 'connected' | 'error' | 'untested';
 }
 
 // Use validation schema types for consistency
@@ -52,6 +51,7 @@ export interface DataSourceColumn {
   is_measure: boolean | null;
   is_dimension: boolean | null;
   is_date_field: boolean | null;
+  is_measure_type: boolean | null;
 
   // Display and formatting
   format_type: string | null;
@@ -199,4 +199,12 @@ export function useUpdateDataSourceColumn(dataSourceId: number, columnId: number
 // Hook for deleting data source column
 export function useDeleteDataSourceColumn(dataSourceId: number, columnId: number) {
   return useApiDelete<{ deleted: boolean }, string>(`/api/admin/data-sources/${dataSourceId}/columns/${columnId}`);
+}
+
+// Hook for introspecting data source columns
+export function useIntrospectDataSource(dataSourceId: number) {
+  return useApiPost<{ 
+    created: number; 
+    columns: DataSourceColumn[] 
+  }, Record<string, never>>(`/api/admin/data-sources/${dataSourceId}/introspect`);
 }

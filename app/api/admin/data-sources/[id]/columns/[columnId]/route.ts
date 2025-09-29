@@ -148,6 +148,11 @@ export const PATCH = rbacRoute(updateDataSourceColumnHandler, {
   rateLimit: 'api'
 });
 
+export const PUT = rbacRoute(updateDataSourceColumnHandler, {
+  permission: ['data-sources:update:organization', 'data-sources:update:all'],
+  rateLimit: 'api'
+});
+
 export const DELETE = rbacRoute(deleteDataSourceColumnHandler, {
   permission: ['data-sources:delete:organization', 'data-sources:delete:all'],
   rateLimit: 'api'

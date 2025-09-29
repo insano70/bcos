@@ -16,6 +16,7 @@ import {
 import type { ChartData } from 'chart.js';
 import 'chartjs-adapter-moment';
 import { formatValue } from '@/components/utils/utils';
+import { simplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
 
 Chart.register(BarController, BarElement, LinearScale, CategoryScale, TimeScale, Tooltip, Legend);
 
@@ -100,7 +101,11 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
             },
             ticks: {
               maxTicksLimit: 5,
-              callback: (value) => formatValue(+value),
+              callback: (value) => {
+                // Get measure type from chart data, fallback to 'number'
+                const measureType = (data as any)?.measureType || 'number';
+                return simplifiedChartTransformer.formatValue(+value, measureType);
+              },
               color: darkMode ? textColor.dark : textColor.light,
             },
             grid: {
@@ -135,7 +140,14 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
                   day: frequency === 'Weekly' ? 'numeric' : undefined
                 });
               },
-              label: (context) => `${context.dataset.label}: ${formatValue(context.parsed.y)}`,
+              label: (context) => {
+                // Get measure type from dataset metadata, fallback to chart data, then to 'number'
+                const measureType = (context.dataset as any)?.measureType || 
+                                  (context.chart.data as any)?.measureType || 
+                                  'number';
+                const formattedValue = simplifiedChartTransformer.formatValue(context.parsed.y, measureType);
+                return `${context.dataset.label}: ${formattedValue}`;
+              },
             },
             bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
             backgroundColor: darkMode ? tooltipBgColor.dark : tooltipBgColor.light,
@@ -238,7 +250,9 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
                 providerName: item.text,
                 calculatedTotal: theValue
               });
-              const valueText = document.createTextNode(formatValue(theValue));
+              // Get measure type from chart data, fallback to 'number'
+              const measureType = (data as any)?.measureType || 'number';
+              const valueText = document.createTextNode(simplifiedChartTransformer.formatValue(theValue, measureType));
               const labelText = document.createTextNode(item.text);
               value.appendChild(valueText);
               label.appendChild(labelText);

@@ -163,6 +163,11 @@ export default function DataSourceColumnsTable({
                         Groupable
                       </span>
                     )}
+                    {column.is_measure_type && (
+                      <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                        Measure Type
+                      </span>
+                    )}
                     {column.is_sensitive && (
                       <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
                         Sensitive

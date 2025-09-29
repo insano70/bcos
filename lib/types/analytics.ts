@@ -119,6 +119,7 @@ export interface ChartDefinition {
 export interface ChartData {
   labels: (string | Date)[];
   datasets: ChartDataset[];
+  measureType?: string; // Global measure type for the chart (e.g., 'currency', 'count')
 }
 
 export interface ChartDataset {
@@ -132,6 +133,7 @@ export interface ChartDataset {
   pointRadius?: number;
   pointHoverRadius?: number;
   pointBackgroundColor?: string;
+  measureType?: string; // Measure type specific to this dataset (e.g., 'currency', 'count')
   pointHoverBackgroundColor?: string;
   pointBorderWidth?: number;
   pointHoverBorderWidth?: number;
@@ -170,6 +172,7 @@ export interface AnalyticsQueryParams {
   advanced_filters?: ChartFilter[];
   calculated_field?: string | undefined;
   multiple_series?: MultipleSeriesConfig[];
+  data_source_id?: number | undefined;
 }
 
 /**

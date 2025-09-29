@@ -9,6 +9,7 @@ import PaginationClassic from '@/components/pagination-classic';
 import AddDataSourceColumnModal from '@/components/add-data-source-column-modal';
 import EditDataSourceColumnModal from '@/components/edit-data-source-column-modal';
 import DeleteDataSourceColumnModal from '@/components/delete-data-source-column-modal';
+import IntrospectDataSourceModal from '@/components/introspect-data-source-modal';
 import { useDataSourceColumns, useDataSource, type DataSourceColumn } from '@/lib/hooks/use-data-sources';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
@@ -31,6 +32,7 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
   const [isAddColumnModalOpen, setIsAddColumnModalOpen] = useState(false);
   const [isEditColumnModalOpen, setIsEditColumnModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isIntrospectModalOpen, setIsIntrospectModalOpen] = useState(false);
   const [selectedColumn, setSelectedColumn] = useState<DataSourceColumn | null>(null);
 
   // Toast notification state
@@ -232,6 +234,28 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
           {/* Filter button */}
           <FilterButton align="right" />
 
+          {/* Introspect button - only show when no columns exist */}
+          {columns.length === 0 && (
+            <ProtectedComponent permission="data-sources:create:organization">
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={() => setIsIntrospectModalOpen(true)}
+                className="btn bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg
+                  className="fill-current shrink-0 xs:hidden"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                >
+                  <path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm0 12c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm1-3H7V4h2v5z" />
+                </svg>
+                <span className="max-xs:sr-only">Introspect</span>
+              </button>
+            </ProtectedComponent>
+          )}
+
           {/* Add column button - protected by RBAC */}
           <ProtectedComponent permission="data-sources:create:organization">
             <button
@@ -332,6 +356,17 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
         }}
         column={selectedColumn}
         dataSourceId={dataSourceId}
+      />
+
+      {/* Introspect Data Source Modal */}
+      <IntrospectDataSourceModal
+        isOpen={isIntrospectModalOpen}
+        onClose={() => setIsIntrospectModalOpen(false)}
+        onSuccess={() => {
+          refetch();
+          showSuccessToast('Columns introspected successfully!');
+        }}
+        dataSource={dataSource}
       />
 
       {/* Toast Notification */}

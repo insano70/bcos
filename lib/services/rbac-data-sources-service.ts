@@ -76,7 +76,6 @@ export interface DataSourceWithMetadata {
   created_by: string | null;
   column_count?: number;
   last_tested?: Date | null;
-  connection_status?: 'connected' | 'error' | 'untested';
 }
 
 export interface ConnectionTestResult {
@@ -191,7 +190,6 @@ export class RBACDataSourcesService extends BaseRBACService {
           return {
             ...dataSource,
             column_count: columnCount?.count || 0,
-            connection_status: 'untested' as const,
           };
         })
       );
@@ -256,7 +254,6 @@ export class RBACDataSourcesService extends BaseRBACService {
       return {
         ...result,
         column_count: columnCount?.count || 0,
-        connection_status: 'untested' as const,
       };
     } catch (error) {
       rbacDataSourcesLogger.error('Failed to retrieve data source', {
@@ -317,7 +314,6 @@ export class RBACDataSourcesService extends BaseRBACService {
       return {
         ...newDataSource,
         column_count: 0,
-        connection_status: 'untested' as const,
       };
     } catch (error) {
       rbacDataSourcesLogger.error('Failed to create data source', {
@@ -384,7 +380,6 @@ export class RBACDataSourcesService extends BaseRBACService {
       return {
         ...updatedDataSource,
         column_count: existing.column_count || 0,
-        connection_status: 'untested' as const,
       };
     } catch (error) {
       rbacDataSourcesLogger.error('Failed to update data source', {
@@ -803,6 +798,7 @@ export class RBACDataSourcesService extends BaseRBACService {
             is_measure: data.is_measure,
             is_dimension: data.is_dimension,
             is_date_field: data.is_date_field,
+            is_measure_type: data.is_measure_type,
             format_type: data.format_type,
             sort_order: data.sort_order,
             default_aggregation: data.default_aggregation,
@@ -873,6 +869,7 @@ export class RBACDataSourcesService extends BaseRBACService {
           is_measure: data.is_measure,
           is_dimension: data.is_dimension,
           is_date_field: data.is_date_field,
+          is_measure_type: data.is_measure_type,
           format_type: data.format_type,
           sort_order: data.sort_order,
           default_aggregation: data.default_aggregation,
@@ -962,6 +959,145 @@ export class RBACDataSourcesService extends BaseRBACService {
       rbacDataSourcesLogger.error('Data source column deletion failed', {
         userId: this.userContext.user_id,
         columnId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Introspect data source columns and create column definitions
+   * Queries the specific table defined in the data source and creates column records
+   */
+  async introspectDataSourceColumns(dataSourceId: number): Promise<{
+    created: number;
+    columns: DataSourceColumnWithMetadata[];
+  }> {
+    const startTime = Date.now();
+    rbacDataSourcesLogger.info('Data source introspection initiated', {
+      userId: this.userContext.user_id,
+      dataSourceId,
+    });
+
+    try {
+      // Check permissions before proceeding
+      this.requireAnyPermission(['data-sources:create:organization', 'data-sources:create:all']);
+      
+      // Ensure database context is available
+      if (!this.dbContext) {
+        throw new Error('Database context not available');
+      }
+
+      // Get the data source to introspect
+      const dataSource = await this.getDataSourceById(dataSourceId);
+      if (!dataSource) {
+        throw new Error('Data source not found');
+      }
+
+      // Check if columns already exist
+      const existingColumns = await this.getDataSourceColumns({ data_source_id: dataSourceId });
+      if (existingColumns.length > 0) {
+        throw new Error('Data source already has column definitions. Delete existing columns before introspecting.');
+      }
+
+      // Query the analytics database for column information
+      const tableColumns = await this.getTableColumns({
+        schema_name: dataSource.schema_name,
+        table_name: dataSource.table_name,
+        database_type: dataSource.database_type || 'postgresql',
+      });
+
+      if (tableColumns.length === 0) {
+        throw new Error(`No columns found in table ${dataSource.schema_name}.${dataSource.table_name}`);
+      }
+
+      // Execute column creation as atomic transaction
+      const createdColumns = await this.dbContext.transaction(async (tx) => {
+        const columnInserts = tableColumns.map((col, index) => {
+          // Intelligent type mapping based on column name and data type
+          const columnName = col.column_name.toLowerCase();
+          const dataType = col.data_type.toLowerCase();
+          
+          // Detect if this is a date field
+          const isDateField = dataType.includes('timestamp') || 
+                             dataType.includes('date') || 
+                             columnName.includes('date') || 
+                             columnName.includes('time') ||
+                             columnName.endsWith('_at');
+
+          // Detect if this is a measure (numeric field that can be aggregated)
+          const isMeasure = (dataType.includes('numeric') || 
+                           dataType.includes('decimal') || 
+                           dataType.includes('float') || 
+                           dataType.includes('double') || 
+                           dataType.includes('integer') ||
+                           dataType.includes('bigint')) &&
+                           !columnName.includes('id') && 
+                           !columnName.includes('count') &&
+                           !isDateField;
+
+          // Detect if this is a dimension (categorical field for grouping)
+          const isDimension = (dataType.includes('varchar') || 
+                              dataType.includes('text') || 
+                              dataType.includes('char')) &&
+                              !columnName.includes('description') &&
+                              !columnName.includes('note') &&
+                              !columnName.includes('comment');
+
+          // Detect if this column contains measure type information (for formatting)
+          const isMeasureType = columnName.match(/^(measure_type|number_format|display_format|format_type|value_type|data_format)$/i) !== null;
+
+          // Create display name from column name
+          const displayName = col.column_name
+            .split('_')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+
+          return {
+            data_source_id: dataSourceId,
+            column_name: col.column_name,
+            display_name: displayName,
+            column_description: `Auto-generated from ${dataSource.schema_name}.${dataSource.table_name}`,
+            data_type: col.data_type,
+            is_filterable: isDimension || isDateField,
+            is_groupable: isDimension || isDateField,
+            is_measure: isMeasure,
+            is_dimension: isDimension,
+            is_date_field: isDateField,
+            is_measure_type: isMeasureType,
+            sort_order: index,
+            is_sensitive: false,
+            access_level: 'all',
+            is_active: true,
+          };
+        });
+
+        // Bulk insert all columns
+        const result = await tx
+          .insert(chart_data_source_columns)
+          .values(columnInserts)
+          .returning();
+
+        return result;
+      });
+
+      rbacDataSourcesLogger.info('Data source introspection completed', {
+        userId: this.userContext.user_id,
+        dataSourceId,
+        columnsCreated: createdColumns.length,
+        duration: Date.now() - startTime,
+      });
+
+      return {
+        created: createdColumns.length,
+        columns: createdColumns,
+      };
+
+    } catch (error) {
+      rbacDataSourcesLogger.error('Data source introspection failed', {
+        userId: this.userContext.user_id,
+        dataSourceId,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
 

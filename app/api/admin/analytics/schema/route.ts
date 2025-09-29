@@ -20,10 +20,29 @@ const schemaHandler = async (request: NextRequest, userContext: UserContext) => 
 
   try {
     const { searchParams } = new URL(request.url);
-    const tableName = searchParams.get('table') || 'agg_app_measures';
-    const schemaName = searchParams.get('schema') || 'ih';
+    const dataSourceIdParam = searchParams.get('data_source_id');
+    let tableName = searchParams.get('table') || 'agg_app_measures';
+    let schemaName = searchParams.get('schema') || 'ih';
 
     console.log('🔍 Loading schema from database configuration...');
+    
+    // If data_source_id is provided, load the data source configuration
+    if (dataSourceIdParam) {
+      const dataSourceId = parseInt(dataSourceIdParam, 10);
+      const { db, chart_data_sources } = await import('@/lib/db');
+      const { eq } = await import('drizzle-orm');
+      
+      const [dataSource] = await db
+        .select()
+        .from(chart_data_sources)
+        .where(eq(chart_data_sources.data_source_id, dataSourceId))
+        .limit(1);
+      
+      if (dataSource) {
+        tableName = dataSource.table_name;
+        schemaName = dataSource.schema_name;
+      }
+    }
     
     // Load data source configuration from database
     const dataSourceConfig = await chartConfigService.getDataSourceConfig(tableName, schemaName);

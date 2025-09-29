@@ -110,12 +110,13 @@ export class AnalyticsQueryBuilder {
         return value;
       }
       
-      // For known measure and frequency values, return as-is (they're from controlled lists)
-      if (this.isKnownMeasureOrFrequency(value)) {
-        return value;
+      // Check if the string contains only safe characters
+      if (this.isSafeString(value)) {
+        return value; // Return as-is if safe
       }
       
-      // For other strings, only remove truly dangerous characters (not letters/spaces)
+      // For potentially unsafe strings, only remove truly dangerous SQL injection characters
+      // Be much more conservative - only remove actual SQL injection threats
       return value.replace(/[';\\x00\\n\\r\\x1a"\\]/g, '');
     }
     
@@ -134,19 +135,13 @@ export class AnalyticsQueryBuilder {
   }
 
   /**
-   * Check if value is a known measure or frequency (safe values)
+   * Check if value is a safe string (contains only safe characters)
    */
-  private isKnownMeasureOrFrequency(value: string): boolean {
-    const knownMeasures = [
-      'Charges by Practice',
-      'Payments by Practice', 
-      'Charges by Provider',
-      'Payments by Provider'
-    ];
-    
-    const knownFrequencies = ['Monthly', 'Weekly', 'Quarterly'];
-    
-    return knownMeasures.includes(value) || knownFrequencies.includes(value);
+  private isSafeString(value: string): boolean {
+    // Allow alphanumeric characters, spaces, hyphens, underscores, and common punctuation
+    // This is much more permissive than the previous approach
+    const safePattern = /^[a-zA-Z0-9\s\-_.,()&]+$/;
+    return safePattern.test(value);
   }
 
   /**
@@ -165,8 +160,10 @@ export class AnalyticsQueryBuilder {
    * Build WHERE clause with parameterized queries
    */
   private async buildWhereClause(
-    filters: ChartFilter[], 
-    context: ChartRenderContext
+    filters: ChartFilter[],
+    context: ChartRenderContext,
+    tableName: string = 'agg_app_measures',
+    schemaName: string = 'ih'
   ): Promise<{ clause: string; params: unknown[] }> {
     const conditions: string[] = [];
     const params: unknown[] = [];
@@ -187,7 +184,7 @@ export class AnalyticsQueryBuilder {
 
     // Add user-specified filters
     for (const filter of filters) {
-      await this.validateField(filter.field, 'agg_app_measures', 'ih');
+      await this.validateField(filter.field, tableName, schemaName);
       this.validateOperator(filter.operator);
 
       const sanitizedValue = this.sanitizeValue(filter.value, filter.operator);
@@ -221,18 +218,39 @@ export class AnalyticsQueryBuilder {
   /**
    * Build ORDER BY clause
    */
-  private async buildOrderByClause(orderBy: ChartOrderBy[]): Promise<string> {
+  private async buildOrderByClause(orderBy: ChartOrderBy[], tableName: string = 'agg_app_measures', schemaName: string = 'ih'): Promise<string> {
     if (orderBy.length === 0) {
-      return 'ORDER BY date_index DESC'; // Default ordering
+      const defaultDateField = tableName === 'agg_chart_data' ? 'date_value' : 'date_index';
+      return `ORDER BY ${defaultDateField} DESC`; // Default ordering
     }
 
     const orderClauses = await Promise.all(orderBy.map(async order => {
-      await this.validateField(order.field, 'agg_app_measures', 'ih');
+      await this.validateField(order.field, tableName, schemaName);
       const direction = order.direction === 'ASC' ? 'ASC' : 'DESC';
       return `${order.field} ${direction}`;
     }));
 
     return `ORDER BY ${orderClauses.join(', ')}`;
+  }
+
+  /**
+   * Get the measure type column name for a data source
+   */
+  private async getMeasureTypeColumn(dataSourceId: number): Promise<string | null> {
+    try {
+      // Query for the column marked as measure type indicator
+      const result = await executeAnalyticsQuery<{ column_name: string }>(`
+        SELECT column_name 
+        FROM chart_data_source_columns 
+        WHERE data_source_id = $1 AND is_measure_type = true AND is_active = true
+        LIMIT 1
+      `, [dataSourceId]);
+      
+      return result && result.length > 0 ? result[0]?.column_name || null : null;
+    } catch (error) {
+      this.logger.warn('Failed to get measure type column', { dataSourceId, error });
+      return null;
+    }
   }
 
   /**
@@ -270,18 +288,45 @@ export class AnalyticsQueryBuilder {
         contextProviders: context.accessible_providers
       });
 
-      // Validate table access
-      await this.validateTable('agg_app_measures', 'ih');
+      // Get data source configuration if data_source_id is provided
+      let dataSourceConfig = null;
+      let tableName = 'agg_app_measures'; // Default fallback for backwards compatibility
+      let schemaName = 'ih';
 
-      // Build filters from params
+      if (params.data_source_id) {
+        // Load data source directly from database using chart config service
+        const { db, chart_data_sources } = await import('@/lib/db');
+        const { eq } = await import('drizzle-orm');
+        
+        const [dataSource] = await db
+          .select()
+          .from(chart_data_sources)
+          .where(eq(chart_data_sources.data_source_id, params.data_source_id))
+          .limit(1);
+        
+        if (dataSource) {
+          tableName = dataSource.table_name;
+          schemaName = dataSource.schema_name;
+          dataSourceConfig = await chartConfigService.getDataSourceConfig(tableName, schemaName);
+        }
+      }
+
+      // Validate table access
+      await this.validateTable(tableName, schemaName);
+
+      // Build filters from params - use column mappings if available
       const filters: ChartFilter[] = [];
+      
+      // Define field mappings based on table type
+      const mainDateField = tableName === 'agg_chart_data' ? 'date_value' : 'date_index';
+      const mainFrequencyField = tableName === 'agg_chart_data' ? 'time_period' : 'frequency';
       
       if (params.measure) {
         filters.push({ field: 'measure', operator: 'eq', value: params.measure });
       }
       
       if (params.frequency) {
-        filters.push({ field: 'frequency', operator: 'eq', value: params.frequency });
+        filters.push({ field: mainFrequencyField, operator: 'eq', value: params.frequency });
       }
       
       if (params.practice) {
@@ -301,11 +346,11 @@ export class AnalyticsQueryBuilder {
       }
       
       if (params.start_date) {
-        filters.push({ field: 'date_index', operator: 'gte', value: params.start_date });
+        filters.push({ field: mainDateField, operator: 'gte', value: params.start_date });
       }
       
       if (params.end_date) {
-        filters.push({ field: 'date_index', operator: 'lte', value: params.end_date });
+        filters.push({ field: mainDateField, operator: 'lte', value: params.end_date });
       }
 
       // Process advanced filters if provided
@@ -315,9 +360,23 @@ export class AnalyticsQueryBuilder {
       }
 
       // Build WHERE clause with security context
-      const { clause: whereClause, params: queryParams } = await this.buildWhereClause(filters, context);
+      const { clause: whereClause, params: queryParams } = await this.buildWhereClause(filters, context, tableName, schemaName);
 
       // Build complete query for pre-aggregated data
+      // Build the query with dynamic table name and column mapping
+      const mainQueryDateField = tableName === 'agg_chart_data' ? 'date_value' : 'date_index';
+      const valueField = tableName === 'agg_chart_data' ? 'numeric_value' : 'measure_value';
+      const mainQueryFrequencyField = tableName === 'agg_chart_data' ? 'time_period' : 'frequency';
+      
+      // Get the dynamic measure type column name for this data source
+      let measureTypeColumn = 'measure_type'; // Default fallback
+      if (params.data_source_id) {
+        const dynamicMeasureTypeColumn = await this.getMeasureTypeColumn(params.data_source_id);
+        if (dynamicMeasureTypeColumn) {
+          measureTypeColumn = dynamicMeasureTypeColumn;
+        }
+      }
+      
       const query = `
         SELECT 
           practice,
@@ -325,13 +384,13 @@ export class AnalyticsQueryBuilder {
           practice_uid,
           provider_name,
           measure,
-          frequency,
-          date_index,
-          measure_value,
-          measure_type
-        FROM ih.agg_app_measures
+          ${mainQueryFrequencyField} as frequency,
+          ${mainQueryDateField} as date_index,
+          ${valueField} as measure_value,
+          ${measureTypeColumn} as measure_type
+        FROM ${schemaName}.${tableName}
         ${whereClause}
-        ORDER BY date_index ASC
+        ORDER BY ${mainQueryDateField} ASC
       `;
 
       // Execute query
@@ -342,13 +401,13 @@ export class AnalyticsQueryBuilder {
       const totalQuery = `
         SELECT 
           CASE 
-            WHEN measure_type = 'currency' THEN SUM(measure_value)::text
+            WHEN ${measureTypeColumn} = 'currency' THEN SUM(${valueField})::text
             ELSE COUNT(*)::text
           END as total,
-          measure_type
-        FROM ih.agg_app_measures
+          ${measureTypeColumn} as measure_type
+        FROM ${schemaName}.${tableName}
         ${whereClause}
-        GROUP BY measure_type
+        GROUP BY ${measureTypeColumn}
       `;
 
       const totalResult = await executeAnalyticsQuery<{ total: string; measure_type: string }>(
@@ -418,18 +477,43 @@ export class AnalyticsQueryBuilder {
       userId: context.user_id
     });
 
+    // Get data source configuration if data_source_id is provided
+    let tableName = 'agg_app_measures'; // Default fallback for backwards compatibility
+    let schemaName = 'ih';
+
+    if (params.data_source_id) {
+      // Load data source directly from database using chart config service
+      const { db, chart_data_sources } = await import('@/lib/db');
+      const { eq } = await import('drizzle-orm');
+      
+      const [dataSource] = await db
+        .select()
+        .from(chart_data_sources)
+        .where(eq(chart_data_sources.data_source_id, params.data_source_id))
+        .limit(1);
+      
+      if (dataSource) {
+        tableName = dataSource.table_name;
+        schemaName = dataSource.schema_name;
+      }
+    }
+
     // Validate table access
-    await this.validateTable('agg_app_measures', 'ih');
+    await this.validateTable(tableName, schemaName);
 
     // Build filters from params (excluding measure - we'll handle that separately)
     const filters: ChartFilter[] = [];
+    
+    // Use column mappings based on table type
+    const msDateField = tableName === 'agg_chart_data' ? 'date_value' : 'date_index';
+    const msFrequencyField = tableName === 'agg_chart_data' ? 'time_period' : 'frequency';
     
     // Add multiple measures using IN operator for efficiency
     const measures = params.multiple_series.map(s => s.measure);
     filters.push({ field: 'measure', operator: 'in', value: measures });
     
     if (params.frequency) {
-      filters.push({ field: 'frequency', operator: 'eq', value: params.frequency });
+      filters.push({ field: msFrequencyField, operator: 'eq', value: params.frequency });
     }
     
     if (params.practice) {
@@ -448,13 +532,13 @@ export class AnalyticsQueryBuilder {
       filters.push({ field: 'provider_name', operator: 'eq', value: params.provider_name });
     }
     
-    if (params.start_date) {
-      filters.push({ field: 'date_index', operator: 'gte', value: params.start_date });
-    }
-    
-    if (params.end_date) {
-      filters.push({ field: 'date_index', operator: 'lte', value: params.end_date });
-    }
+      if (params.start_date) {
+        filters.push({ field: 'date_index', operator: 'gte', value: params.start_date });
+      }
+      
+      if (params.end_date) {
+        filters.push({ field: 'date_index', operator: 'lte', value: params.end_date });
+      }
 
     // Process advanced filters if provided
     if (params.advanced_filters) {
@@ -465,7 +549,9 @@ export class AnalyticsQueryBuilder {
     // Build WHERE clause with security context
     const { clause: whereClause, params: queryParams } = await this.buildWhereClause(filters, context);
 
-    // Build complete query for pre-aggregated data
+    // Build complete query for pre-aggregated data with dynamic table and column mapping
+    const msValueField = tableName === 'agg_chart_data' ? 'numeric_value' : 'measure_value';
+    
     const query = `
       SELECT 
         practice,
@@ -473,13 +559,13 @@ export class AnalyticsQueryBuilder {
         practice_uid,
         provider_name,
         measure,
-        frequency,
-        date_index,
-        measure_value,
+        ${msFrequencyField} as frequency,
+        ${msDateField} as date_index,
+        ${msValueField} as measure_value,
         measure_type
-      FROM ih.agg_app_measures
+      FROM ${schemaName}.${tableName}
       ${whereClause}
-      ORDER BY measure, date_index ASC
+      ORDER BY measure, ${msDateField} ASC
     `;
 
     // Execute query
@@ -532,18 +618,43 @@ export class AnalyticsQueryBuilder {
     params: AnalyticsQueryParams,
     context: ChartRenderContext
   ): Promise<AnalyticsQueryResult> {
+    // Get data source configuration if data_source_id is provided
+    let tableName = 'agg_app_measures'; // Default fallback for backwards compatibility
+    let schemaName = 'ih';
+
+    if (params.data_source_id) {
+      // Load data source directly from database
+      const { db, chart_data_sources } = await import('@/lib/db');
+      const { eq } = await import('drizzle-orm');
+      
+      const [dataSource] = await db
+        .select()
+        .from(chart_data_sources)
+        .where(eq(chart_data_sources.data_source_id, params.data_source_id))
+        .limit(1);
+      
+      if (dataSource) {
+        tableName = dataSource.table_name;
+        schemaName = dataSource.schema_name;
+      }
+    }
+
     // Validate table access
-    await this.validateTable('agg_app_measures', 'ih');
+    await this.validateTable(tableName, schemaName);
 
     // Build filters from params
     const filters: ChartFilter[] = [];
+    
+    // Define field mappings based on table type
+    const dateField = tableName === 'agg_chart_data' ? 'date_value' : 'date_index';
+    const frequencyField = tableName === 'agg_chart_data' ? 'time_period' : 'frequency';
     
     if (params.measure) {
       filters.push({ field: 'measure', operator: 'eq', value: params.measure });
     }
     
     if (params.frequency) {
-      filters.push({ field: 'frequency', operator: 'eq', value: params.frequency });
+      filters.push({ field: frequencyField, operator: 'eq', value: params.frequency });
     }
     
     if (params.practice) {
@@ -562,13 +673,13 @@ export class AnalyticsQueryBuilder {
       filters.push({ field: 'provider_name', operator: 'eq', value: params.provider_name });
     }
     
-    if (params.start_date) {
-      filters.push({ field: 'date_index', operator: 'gte', value: params.start_date });
-    }
-    
-    if (params.end_date) {
-      filters.push({ field: 'date_index', operator: 'lte', value: params.end_date });
-    }
+      if (params.start_date) {
+        filters.push({ field: 'date_index', operator: 'gte', value: params.start_date });
+      }
+      
+      if (params.end_date) {
+        filters.push({ field: 'date_index', operator: 'lte', value: params.end_date });
+      }
 
     // Process advanced filters if provided
     if (params.advanced_filters) {

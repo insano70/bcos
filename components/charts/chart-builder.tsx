@@ -195,12 +195,21 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
       
       // Use the provided data source, or fallback to selected data source, or default
       const sourceToUse = dataSource || chartConfig.selectedDataSource;
-      const tableName = sourceToUse?.tableName || 'agg_app_measures';
-      const schemaName = sourceToUse?.schemaName || 'ih';
       
-      console.log(`🔍 Loading schema for: ${schemaName}.${tableName}`);
+      let apiUrl = '/api/admin/analytics/schema';
+      if (sourceToUse?.id) {
+        // Use data source ID if available (new configurable system)
+        apiUrl += `?data_source_id=${sourceToUse.id}`;
+        console.log(`🔍 Loading schema for data source ID: ${sourceToUse.id}`);
+      } else {
+        // Fallback to table/schema params (legacy system)
+        const tableName = sourceToUse?.tableName || 'agg_app_measures';
+        const schemaName = sourceToUse?.schemaName || 'ih';
+        apiUrl += `?table=${tableName}&schema=${schemaName}`;
+        console.log(`🔍 Loading schema for: ${schemaName}.${tableName}`);
+      }
       
-      const result = await apiClient.get<SchemaInfo>(`/api/admin/analytics/schema?table=${tableName}&schema=${schemaName}`);
+      const result = await apiClient.get<SchemaInfo>(apiUrl);
       setSchemaInfo(result);
       
       // Set default values based on schema (only if not in edit mode)
@@ -223,7 +232,8 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
       console.log('✅ Schema loaded:', {
         fieldCount: result.fields ? Object.keys(result.fields).length : 0,
         measureCount: result.availableMeasures ? result.availableMeasures.length : 0,
-        tableName: `${schemaName}.${tableName}`
+        dataSourceId: sourceToUse?.id,
+        tableName: sourceToUse?.tableName
       });
       
     } catch (error) {

@@ -58,33 +58,18 @@ export default function DataSourcesTableItem({
   };
 
   const getStatusBadge = () => {
-    if (!dataSource.is_active) {
+    if (dataSource.is_active) {
+      return (
+        <div className="inline-flex font-medium bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400 rounded-full text-center px-2.5 py-0.5">
+          Active
+        </div>
+      );
+    } else {
       return (
         <div className="inline-flex font-medium bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 rounded-full text-center px-2.5 py-0.5">
           Inactive
         </div>
       );
-    }
-
-    switch (dataSource.connection_status) {
-      case 'connected':
-        return (
-          <div className="inline-flex font-medium bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400 rounded-full text-center px-2.5 py-0.5">
-            Connected
-          </div>
-        );
-      case 'error':
-        return (
-          <div className="inline-flex font-medium bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 rounded-full text-center px-2.5 py-0.5">
-            Error
-          </div>
-        );
-      default:
-        return (
-          <div className="inline-flex font-medium bg-yellow-100 dark:bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 rounded-full text-center px-2.5 py-0.5">
-            Untested
-          </div>
-        );
     }
   };
 

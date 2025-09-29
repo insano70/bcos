@@ -45,6 +45,7 @@ export const chart_data_source_columns = pgTable(
     is_measure: boolean('is_measure').default(false),
     is_dimension: boolean('is_dimension').default(false),
     is_date_field: boolean('is_date_field').default(false),
+    is_measure_type: boolean('is_measure_type').default(false),
     
     // Display and formatting
     format_type: varchar('format_type', { length: 50 }),
@@ -65,7 +66,7 @@ export const chart_data_source_columns = pgTable(
   },
   (table) => ({
     dataSourceIdx: index('idx_chart_data_source_columns_data_source').on(table.data_source_id),
-    flagsIdx: index('idx_chart_data_source_columns_flags').on(table.is_filterable, table.is_groupable, table.is_measure),
+    flagsIdx: index('idx_chart_data_source_columns_flags').on(table.is_filterable, table.is_groupable, table.is_measure, table.is_measure_type),
     activeIdx: index('idx_chart_data_source_columns_active').on(table.is_active),
     uniqueColumn: index('idx_chart_data_source_columns_unique').on(table.data_source_id, table.column_name),
   })

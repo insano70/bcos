@@ -154,6 +154,7 @@ export const dataSourceColumnCreateSchema = z.object({
   is_measure: z.boolean().optional().default(false),
   is_dimension: z.boolean().optional().default(false),
   is_date_field: z.boolean().optional().default(false),
+  is_measure_type: z.boolean().optional().default(false),
 
   // Display and formatting
   format_type: createSafeTextSchema(0, 50, 'Format type').optional(),
@@ -186,6 +187,7 @@ export const dataSourceColumnUpdateSchema = z.object({
   is_measure: z.boolean().optional(),
   is_dimension: z.boolean().optional(),
   is_date_field: z.boolean().optional(),
+  is_measure_type: z.boolean().optional(),
 
   // Display and formatting
   format_type: createSafeTextSchema(0, 50, 'Format type').optional(),

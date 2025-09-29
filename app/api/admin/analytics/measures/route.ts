@@ -78,6 +78,7 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
       }
     }
 
+    const dataSourceIdParam = searchParams.get('data_source_id');
     const queryParams: AnalyticsQueryParams = {
       measure: searchParams.get('measure') as MeasureType || undefined,
       frequency: searchParams.get('frequency') as FrequencyType || undefined,
@@ -92,6 +93,7 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
       advanced_filters: advancedFilters,
       calculated_field: calculatedField,
       multiple_series: multipleSeries,
+      data_source_id: dataSourceIdParam ? parseInt(dataSourceIdParam, 10) : undefined,
     };
 
     console.log('🔍 PARSED QUERY PARAMS:', {
