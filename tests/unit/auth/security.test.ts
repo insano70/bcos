@@ -92,7 +92,7 @@ describe('security authentication logic', () => {
         const password = 'TestPassword123!'
         const mockHash = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfBPjJcZQKXGJ2O'
 
-        vi.mocked(bcrypt.hash).mockResolvedValueOnce(mockHash)
+        vi.mocked(bcrypt.hash).mockResolvedValue(mockHash)
 
         const result = await PasswordService.hash(password)
 
@@ -103,7 +103,7 @@ describe('security authentication logic', () => {
         const password = 'TestPassword123!'
         const error = new Error('Hashing failed')
 
-        vi.mocked(bcrypt.hash).mockRejectedValueOnce(error)
+        vi.mocked(bcrypt.hash).mockRejectedValue(error)
 
         await expect(PasswordService.hash(password)).rejects.toThrow('Hashing failed')
       })
@@ -114,7 +114,7 @@ describe('security authentication logic', () => {
         const password = 'TestPassword123!'
         const hash = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfBPjJcZQKXGJ2O'
 
-        vi.mocked(bcrypt.compare).mockResolvedValueOnce(true)
+        vi.mocked(bcrypt.compare).mockResolvedValue(true)
 
         const result = await PasswordService.verify(password, hash)
 
@@ -125,7 +125,7 @@ describe('security authentication logic', () => {
         const password = 'WrongPassword123!'
         const hash = '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfBPjJcZQKXGJ2O'
 
-        vi.mocked(bcrypt.compare).mockResolvedValueOnce(false)
+        vi.mocked(bcrypt.compare).mockResolvedValue(false)
 
         const result = await PasswordService.verify(password, hash)
 
@@ -136,7 +136,7 @@ describe('security authentication logic', () => {
         const password = 'TestPassword123!'
         const hash = 'invalid-hash'
 
-        vi.mocked(bcrypt.compare).mockRejectedValueOnce(new Error('Invalid hash'))
+        vi.mocked(bcrypt.compare).mockRejectedValue(new Error('Invalid hash'))
 
         const result = await PasswordService.verify(password, hash)
 

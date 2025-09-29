@@ -9,13 +9,7 @@ import {
 import { TokenManager } from '@/lib/auth/token-manager'
 import { db } from '@/lib/db'
 
-interface MockSelectResult {
-  limit: ReturnType<typeof vi.fn>;
-}
-
-interface MockDatabase {
-  select: ReturnType<typeof vi.fn>;
-}
+// Remove complex type interfaces - use vi.mocked directly
 // Use standardized mock pattern based on mock utilities design
 vi.mock('@/lib/auth/token-manager', () => ({
   TokenManager: {
@@ -51,14 +45,8 @@ vi.mock('@/lib/db', () => {
 })
 
 describe('session authentication logic', () => {
-  let mockSelectResult: ReturnType<typeof vi.fn>
-
   beforeEach(async () => {
     vi.clearAllMocks()
-    
-    // Get references to the standardized mocks
-    const dbModule = await import('@/lib/db')
-    mockSelectResult = (dbModule as { _mockSelectResult: ReturnType<typeof vi.fn> })._mockSelectResult
   })
 
   describe('getCurrentUserFromToken', () => {

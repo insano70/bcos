@@ -113,8 +113,9 @@ describe('TokenManager', () => {
 
       vi.mocked(jwtVerify).mockResolvedValue({
         payload: mockPayload,
-        protectedHeader: { alg: 'HS256' }
-      } as { payload: MockJWTPayload; protectedHeader: { alg: string } })
+        protectedHeader: { alg: 'HS256' },
+        key: new Uint8Array()
+      })
 
       // Mock database - no blacklisted token
       const { db } = await import('@/lib/db')
@@ -124,7 +125,7 @@ describe('TokenManager', () => {
             limit: vi.fn(() => [])
           }))
         }))
-      } as unknown as MockDatabase['select'])
+      })
 
       const result = await TokenManager.validateAccessToken(mockToken)
 
@@ -138,11 +139,13 @@ describe('TokenManager', () => {
 
       vi.mocked(jwtVerify).mockResolvedValue({
         payload: mockPayload,
-        protectedHeader: { alg: 'HS256' }
-      } as { payload: MockJWTPayload; protectedHeader: { alg: string } })
+        protectedHeader: { alg: 'HS256' },
+        key: new Uint8Array()
+      })
 
       // Mock database - token is blacklisted
-      mockDb.select.mockReturnValue({
+      const { db } = await import('@/lib/db')
+      vi.mocked(db.select).mockReturnValue({
         from: vi.fn(() => ({
           where: vi.fn(() => ({
             limit: vi.fn(() => [{ jti: 'jti-123' }])
@@ -204,11 +207,12 @@ describe('TokenManager', () => {
 
     it('should handle no active tokens', async () => {
       const userId = 'user-123'
-      const mockActiveTokens: MockTokenRecord[] = []
+      const mockActiveTokens: unknown[] = []
 
 
       // Mock getting active tokens - empty array
-      mockDb.select.mockReturnValueOnce({
+      const { db } = await import('@/lib/db')
+      vi.mocked(db.select).mockReturnValueOnce({
         from: vi.fn(() => ({
           where: vi.fn(() => mockActiveTokens)
         }))
