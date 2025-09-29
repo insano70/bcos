@@ -239,8 +239,8 @@ export default function ChartBuilderAdvanced({
                   
                   {/* Trend Analysis */}
                   <TrendAnalysisDashboard
-                    measure={chartConfig.measure as any}
-                    frequency={chartConfig.frequency as any}
+                    measure={typeof chartConfig.measure === 'object' ? (chartConfig.measure as any).measure : chartConfig.measure as any}
+                    frequency={typeof chartConfig.frequency === 'object' ? (chartConfig.frequency as any).frequency : chartConfig.frequency as any}
                     practiceUid={chartConfig.practiceUid}
                     periods={12}
                     className="h-fit"
@@ -261,7 +261,7 @@ export default function ChartBuilderAdvanced({
                 
                 {/* Anomaly Rule Configurator */}
                 <AnomalyRuleConfigurator
-                  measure={chartConfig.measure as any}
+                  measure={typeof chartConfig.measure === 'object' ? (chartConfig.measure as any).measure : chartConfig.measure as any}
                   className="h-fit"
                 />
               </div>
