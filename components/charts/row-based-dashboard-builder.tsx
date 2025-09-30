@@ -42,14 +42,8 @@ export default function RowBasedDashboardBuilder({
     if (editingDashboard && availableCharts.length > 0) {
       console.log('📝 Converting grid-based dashboard to row-based:', editingDashboard);
       
-      // Set basic dashboard info
-      setDashboardConfig(prev => ({
-        ...prev,
-        dashboardName: editingDashboard.dashboard_name || '',
-        dashboardDescription: editingDashboard.dashboard_description || ''
-      }));
-
       // Convert grid-based charts to row-based layout
+      let rows: DashboardRow[] = [];
       if (editingDashboard.charts && Array.isArray(editingDashboard.charts)) {
         const rowsMap = new Map<number, DashboardChartSlot[]>();
         
@@ -75,17 +69,22 @@ export default function RowBasedDashboardBuilder({
         });
 
         // Convert map to rows array
-        const rows: DashboardRow[] = Array.from(rowsMap.entries())
+        rows = Array.from(rowsMap.entries())
           .sort(([a], [b]) => a - b) // Sort by Y position
           .map(([y, charts], index) => ({
             id: `row-${y}-${index}`,
             heightPx: (editingDashboard.layout_config?.rowHeight || 150) * Math.max(1, Math.max(...charts.map((c: any) => editingDashboard.charts.find((ec: any) => ec.chart_definition_id === c.chartDefinitionId)?.position_config?.h || 2))),
             charts
           }));
-
-        setDashboardConfig(prev => ({ ...prev, rows }));
         console.log('🔄 Converted to row-based layout:', { originalCharts: editingDashboard.charts.length, rows: rows.length });
       }
+
+      // Set all dashboard info in a single state update to avoid race conditions
+      setDashboardConfig({
+        dashboardName: editingDashboard.dashboard_name || '',
+        dashboardDescription: editingDashboard.dashboard_description || '',
+        rows
+      });
 
       setIsEditMode(true);
     }
@@ -188,7 +187,7 @@ export default function RowBasedDashboardBuilder({
 
     try {
       // Convert row-based config to API format
-      const dashboardDefinition = {
+      const dashboardDefinition: any = {
         dashboard_name: dashboardConfig.dashboardName,
         dashboard_description: dashboardConfig.dashboardDescription,
         layout_config: {
@@ -214,6 +213,11 @@ export default function RowBasedDashboardBuilder({
           }))
         )
       };
+
+      // When editing, preserve the existing is_published status
+      if (isEditMode && editingDashboard) {
+        dashboardDefinition.is_published = editingDashboard.is_published;
+      }
 
       console.log(`💾 ${isEditMode ? 'Updating' : 'Creating'} row-based dashboard:`, dashboardDefinition);
 

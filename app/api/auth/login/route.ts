@@ -175,6 +175,36 @@ const loginHandler = async (request: NextRequest) => {
       emailVerified: user.email_verified
     })
     
+    // Check if user is SSO-only (no password set)
+    if (!user.password_hash) {
+      logger.warn('Password login attempted for SSO-only user', {
+        userId: user.user_id,
+        email: email.replace(/(.{2}).*@/, '$1***@')
+      });
+
+      apiLogger.logSecurity('sso_only_user_password_attempt', 'medium', {
+        action: 'password_login_blocked',
+        userId: user.user_id,
+        blocked: true,
+        threat: 'authentication_bypass_attempt',
+        reason: 'sso_only_user'
+      });
+
+      await AuditLogger.logAuth({
+        action: 'login_failed',
+        userId: user.user_id,
+        ipAddress,
+        userAgent,
+        metadata: {
+          email,
+          reason: 'sso_only_user_password_attempt',
+          correlationId: CorrelationContextManager.getCurrentId()
+        }
+      });
+
+      throw AuthenticationError('This account uses Single Sign-On. Please sign in with Microsoft.');
+    }
+    
     // Verify password
     const passwordStartTime = Date.now()
     const isValidPassword = await verifyPassword(password, user.password_hash)

@@ -55,7 +55,10 @@ export const users = pgTable(
     email: varchar('email', { length: 255 }).unique().notNull(),
     first_name: varchar('first_name', { length: 100 }).notNull(),
     last_name: varchar('last_name', { length: 100 }).notNull(),
-    password_hash: varchar('password_hash', { length: 255 }).notNull(),
+    // password_hash is nullable for SSO-only users
+    // NULL = SSO-only user (SAML authentication required)
+    // NOT NULL = Hybrid user (can use password OR SAML)
+    password_hash: varchar('password_hash', { length: 255 }),
     email_verified: boolean('email_verified').default(false),
     is_active: boolean('is_active').default(true),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),

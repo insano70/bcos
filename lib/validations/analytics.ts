@@ -52,7 +52,7 @@ const chartConfigSchema = z.object({
   
   // Legacy/internal state fields (for backwards compatibility)
   chartName: z.string().optional(),
-  chartType: z.enum(['line', 'bar', 'stacked-bar', 'doughnut']).optional(),
+  chartType: z.enum(['line', 'bar', 'stacked-bar', 'horizontal-bar', 'doughnut']).optional(),
   measure: z.string().optional(),
   frequency: z.string().optional(),
   practiceUid: z.string().optional(),
@@ -103,7 +103,7 @@ export const chartCategoryParamsSchema = z.object({
 export const chartDefinitionCreateSchema = z.object({
   chart_name: nameSchema,
   chart_description: descriptionSchema,
-  chart_type: z.enum(['line', 'bar', 'stacked-bar', 'pie', 'doughnut', 'area', 'scatter', 'histogram', 'heatmap']),
+  chart_type: z.enum(['line', 'bar', 'stacked-bar', 'horizontal-bar', 'pie', 'doughnut', 'area', 'scatter', 'histogram', 'heatmap']),
   chart_category_id: z.union([integerIdSchema, z.null()]).optional(),
   chart_config: chartConfigSchema.optional(), // Properly typed chart configuration
   data_source: z.union([z.string().min(1, 'Data source is required').max(500), dataSourceConfigSchema]),
@@ -146,7 +146,15 @@ export const dashboardCreateSchema = z.object({
   path: ['chart_positions']
 })
 
-export const dashboardUpdateSchema = dashboardCreateSchema.partial()
+// Dashboard update schema - make all fields optional and remove defaults
+// This ensures that only fields explicitly provided are updated
+export const dashboardUpdateSchema = dashboardCreateSchema
+  .partial()
+  .omit({ is_published: true, is_active: true })
+  .extend({
+    is_published: z.boolean().optional(),
+    is_active: z.boolean().optional()
+  })
 
 export const dashboardParamsSchema = z.object({
   dashboardId: uuidSchema

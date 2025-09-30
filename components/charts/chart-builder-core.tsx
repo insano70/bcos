@@ -20,6 +20,7 @@ interface SchemaInfo {
   fields: Record<string, FieldDefinition>;
   availableMeasures: Array<{ measure: string }>;
   availableFrequencies: Array<{ frequency: string }>;
+  availableGroupByFields: Array<{ columnName: string; displayName: string }>;
 }
 
 export interface DataSource {
@@ -32,7 +33,7 @@ export interface DataSource {
 
 export interface ChartConfig {
   chartName: string;
-  chartType: 'line' | 'bar' | 'stacked-bar' | 'doughnut';
+  chartType: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'progress-bar' | 'doughnut';
   measure: string;
   frequency: string;
   practiceUid: string;
@@ -123,6 +124,8 @@ export default function ChartBuilderCore({
           >
             <option value="bar">Bar Chart</option>
             <option value="stacked-bar">Stacked Bar Chart</option>
+            <option value="horizontal-bar">Horizontal Bar Chart</option>
+            <option value="progress-bar">Progress Bar</option>
             <option value="line">Line Chart</option>
             <option value="doughnut">Doughnut Chart</option>
           </select>
@@ -211,9 +214,11 @@ export default function ChartBuilderCore({
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
           >
             <option value="none">No Grouping</option>
-            <option value="practice">Practice</option>
-            <option value="provider_name">Provider</option>
-            <option value="measure">Measure Type</option>
+            {schemaInfo.availableGroupByFields.map((field) => (
+              <option key={field.columnName} value={field.columnName}>
+                {field.displayName}
+              </option>
+            ))}
           </select>
           {chartConfig.chartType === 'stacked-bar' && (
             <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">

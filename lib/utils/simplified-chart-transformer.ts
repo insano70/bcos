@@ -38,7 +38,7 @@ export class SimplifiedChartTransformer {
    */
   transformData(
     measures: AggAppMeasure[],
-    chartType: 'line' | 'bar' | 'pie' | 'doughnut' | 'area',
+    chartType: 'line' | 'bar' | 'horizontal-bar' | 'progress-bar' | 'pie' | 'doughnut' | 'area',
     groupBy: string = 'none',
     paletteId: string = 'default'
   ): ChartData {
@@ -66,6 +66,12 @@ export class SimplifiedChartTransformer {
         break;
       case 'bar':
         chartData = this.createBarChart(measures, groupBy, paletteId);
+        break;
+      case 'horizontal-bar':
+        chartData = this.createHorizontalBarChart(measures, groupBy, paletteId);
+        break;
+      case 'progress-bar':
+        chartData = this.createProgressBarChart(measures, groupBy, paletteId);
         break;
       case 'pie':
       case 'doughnut':
@@ -262,19 +268,29 @@ export class SimplifiedChartTransformer {
         dateMapEntries: Array.from(dateMap.entries())
       });
 
-      datasets.push({
+      // Build dataset with conditional properties based on chart type
+      const dataset: ChartDataset = {
         label: groupKey,
         data,
         borderColor: color || '#00AEEF',
-        backgroundColor: color || '#00AEEF', // Ensure color is always defined
-        fill: filled,
-        tension: 0.4,
-        pointRadius: 3,
-        pointHoverRadius: 5,
+        backgroundColor: color || '#00AEEF',
         borderRadius: 4,
         barPercentage: 0.7,
         categoryPercentage: 0.7,
-      });
+      };
+
+      // Add line chart specific properties
+      if (isTimeSeries || filled) {
+        dataset.fill = filled;
+        dataset.tension = 0.4;
+        dataset.pointRadius = 3;
+        dataset.pointHoverRadius = 5;
+      } else {
+        // Bar chart specific properties - match single-series styling
+        dataset.hoverBackgroundColor = this.adjustColorOpacity(color || '#00AEEF', 0.8);
+      }
+
+      datasets.push(dataset);
 
       colorIndex++;
     });
@@ -390,6 +406,95 @@ export class SimplifiedChartTransformer {
           this.adjustColorOpacity(color, 0.8)
         ),
         borderWidth: 0,
+      }]
+    };
+  }
+
+  /**
+   * Create horizontal bar chart (aggregates across dates by groupBy field)
+   */
+  private createHorizontalBarChart(measures: AggAppMeasure[], groupBy: string, paletteId: string = 'default'): ChartData {
+    if (groupBy === 'none') {
+      throw new Error('Horizontal bar charts require a groupBy field');
+    }
+
+    // Aggregate data by groupBy field, summing across all dates
+    const aggregatedData = new Map<string, number>();
+
+    measures.forEach(measure => {
+      const groupKey = this.getGroupValue(measure, groupBy);
+      const measureValue = typeof measure.measure_value === 'string' 
+        ? parseFloat(measure.measure_value) 
+        : measure.measure_value;
+      
+      const currentValue = aggregatedData.get(groupKey) || 0;
+      aggregatedData.set(groupKey, currentValue + measureValue);
+    });
+
+    // Sort by value (descending) - highest to lowest
+    const sortedEntries = Array.from(aggregatedData.entries())
+      .sort((a, b) => b[1] - a[1]);
+
+    const colors = this.getColorPalette(paletteId);
+    const colorArray = Array.from(colors);
+
+    return {
+      labels: sortedEntries.map(([label]) => label),
+      datasets: [{
+        label: measures[0]?.measure || 'Value',
+        data: sortedEntries.map(([, value]) => value),
+        backgroundColor: colorArray,
+        hoverBackgroundColor: colorArray.map(color => this.adjustColorOpacity(color, 0.8)),
+        borderRadius: 4,
+        barPercentage: 0.7,
+        categoryPercentage: 0.9,
+      }]
+    };
+  }
+
+  /**
+   * Create progress bar chart (same data as horizontal bar but different rendering)
+   */
+  private createProgressBarChart(measures: AggAppMeasure[], groupBy: string, paletteId: string = 'default'): ChartData {
+    if (groupBy === 'none') {
+      throw new Error('Progress bar charts require a groupBy field');
+    }
+
+    // Aggregate data by groupBy field, summing across all dates
+    const aggregatedData = new Map<string, number>();
+
+    measures.forEach(measure => {
+      const groupKey = this.getGroupValue(measure, groupBy);
+      const measureValue = typeof measure.measure_value === 'string' 
+        ? parseFloat(measure.measure_value) 
+        : measure.measure_value;
+      
+      const currentValue = aggregatedData.get(groupKey) || 0;
+      aggregatedData.set(groupKey, currentValue + measureValue);
+    });
+
+    // Sort by value (descending) - highest to lowest
+    const sortedEntries = Array.from(aggregatedData.entries())
+      .sort((a, b) => b[1] - a[1]);
+
+    // Calculate total for percentages
+    const total = sortedEntries.reduce((sum, [, value]) => sum + value, 0);
+
+    // Create data with percentages for progress bars
+    const progressData = sortedEntries.map(([label, value]) => ({
+      label,
+      value,
+      percentage: total > 0 ? (value / total) * 100 : 0
+    }));
+
+    // Store in custom format (Chart.js compatible but will be handled differently)
+    return {
+      labels: progressData.map(d => d.label),
+      datasets: [{
+        label: measures[0]?.measure || 'Value',
+        data: progressData.map(d => d.value),
+        backgroundColor: this.getColorPalette(paletteId)[0] || '#8B5CF6'
+        // Note: Progress bar metadata stored in data array, not as extension
       }]
     };
   }

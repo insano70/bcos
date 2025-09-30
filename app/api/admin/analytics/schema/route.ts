@@ -51,9 +51,10 @@ const schemaHandler = async (request: NextRequest, userContext: UserContext) => 
       return createErrorResponse(`Data source configuration not found: ${schemaName}.${tableName}`, 404);
     }
 
-    // Get available measures and frequencies from database config
+    // Get available measures, frequencies, and groupable fields from database config
     const availableMeasures = await chartConfigService.getAvailableMeasures(tableName, schemaName);
     const availableFrequencies = await chartConfigService.getAvailableFrequencies(tableName, schemaName);
+    const groupableFields = await chartConfigService.getGroupableFields(tableName, schemaName);
 
     // Convert database column configurations to API format
     const fieldDefinitions: Record<string, any> = {};
@@ -78,13 +79,18 @@ const schemaHandler = async (request: NextRequest, userContext: UserContext) => 
       fields: fieldDefinitions,
       availableMeasures: availableMeasures.map(measure => ({ measure })),
       availableFrequencies: availableFrequencies.map(frequency => ({ frequency })),
+      availableGroupByFields: groupableFields.map(field => ({
+        columnName: field.columnName,
+        displayName: field.displayName
+      })),
       dataSource: dataSourceConfig,
     };
 
     console.log('✅ Schema information compiled:', {
       fieldCount: Object.keys(fieldDefinitions).length,
       measureCount: availableMeasures.length,
-      frequencyCount: availableFrequencies.length
+      frequencyCount: availableFrequencies.length,
+      groupByFieldCount: groupableFields.length
     });
 
     logPerformanceMetric(logger, 'analytics_schema_query', Date.now() - startTime);

@@ -7,6 +7,8 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import '@/tests/setup/integration-setup' // Import integration setup for database access
 import { AccountSecurity } from '@/lib/auth/security'
 import { createTestUser } from '@/tests/factories/user-factory'
+import { db, account_security } from '@/lib/db'
+import { eq } from 'drizzle-orm'
 
 describe('Security Authentication Integration', () => {
   let testUser: any
@@ -99,6 +101,89 @@ describe('Security Authentication Integration', () => {
       // Should handle gracefully and return not locked
       const status = await AccountSecurity.isAccountLocked(invalidEmail)
       expect(status.locked).toBe(false)
+    })
+  })
+
+  describe('ensureSecurityRecord - Record Creation and Idempotency', () => {
+    it('should create account_security record with correct HIPAA defaults', async () => {
+      const userId = testUser.user_id
+      
+      // Call ensureSecurityRecord directly
+      const securityRecord = await AccountSecurity.ensureSecurityRecord(userId)
+      
+      // Verify record created with correct defaults
+      expect(securityRecord).toBeDefined()
+      expect(securityRecord.user_id).toBe(userId)
+      expect(securityRecord.failed_login_attempts).toBe(0)
+      expect(securityRecord.max_concurrent_sessions).toBe(3) // HIPAA default
+      expect(securityRecord.require_fresh_auth_minutes).toBe(5)
+      expect(securityRecord.suspicious_activity_detected).toBe(false)
+      expect(securityRecord.locked_until).toBeNull()
+      expect(securityRecord.lockout_reason).toBeNull()
+    })
+
+    it('should be idempotent - multiple sequential calls should not throw errors', async () => {
+      const userId = testUser.user_id
+      
+      // Call ensureSecurityRecord multiple times sequentially
+      const record1 = await AccountSecurity.ensureSecurityRecord(userId)
+      const record2 = await AccountSecurity.ensureSecurityRecord(userId)
+      const record3 = await AccountSecurity.ensureSecurityRecord(userId)
+      
+      // All should succeed and return same user_id
+      expect(record1.user_id).toBe(userId)
+      expect(record2.user_id).toBe(userId)
+      expect(record3.user_id).toBe(userId)
+      
+      // All should have same defaults
+      expect(record1.max_concurrent_sessions).toBe(3)
+      expect(record2.max_concurrent_sessions).toBe(3)
+      expect(record3.max_concurrent_sessions).toBe(3)
+    })
+
+    it('should integrate with isAccountLocked without errors', async () => {
+      const email = testUser.email
+      const userId = testUser.user_id
+      
+      // Ensure record exists
+      await AccountSecurity.ensureSecurityRecord(userId)
+      
+      // Call isAccountLocked which also ensures record exists
+      const lockStatus = await AccountSecurity.isAccountLocked(email)
+      expect(lockStatus.locked).toBe(false)
+      expect(lockStatus.lockedUntil).toBeUndefined()
+    })
+
+    it('should integrate with recordFailedAttempt without errors', async () => {
+      const email = testUser.email
+      const userId = testUser.user_id
+      
+      // Ensure record exists
+      await AccountSecurity.ensureSecurityRecord(userId)
+      
+      // Call recordFailedAttempt
+      const result = await AccountSecurity.recordFailedAttempt(email)
+      expect(result.locked).toBe(false)
+      
+      // After one failure, should not be locked
+      const lockStatus = await AccountSecurity.isAccountLocked(email)
+      expect(lockStatus.locked).toBe(false)
+    })
+  })
+
+  describe('HIPAA Compliance - Security Defaults', () => {
+    it('should create records with HIPAA-compliant defaults', async () => {
+      const userId = testUser.user_id
+      
+      const record = await AccountSecurity.ensureSecurityRecord(userId)
+      
+      // Verify HIPAA-compliant defaults
+      expect(record.max_concurrent_sessions).toBe(3) // Conservative limit
+      expect(record.require_fresh_auth_minutes).toBe(5) // Step-up auth
+      expect(record.failed_login_attempts).toBe(0)
+      expect(record.suspicious_activity_detected).toBe(false)
+      expect(record.locked_until).toBeNull()
+      expect(record.lockout_reason).toBeNull()
     })
   })
 })

@@ -25,19 +25,35 @@ export default function EditDashboardPage() {
       setError(null);
 
       const result = await apiClient.get<{
-        dashboard: Dashboard;
+        dashboard: { dashboards?: Dashboard } | Dashboard;
         charts: DashboardChart[];
       }>(`/api/admin/analytics/dashboards/${dashboardId}`);
       const dashboardResponse = result;
 
       // Extract dashboard and charts from joined API response
-      const dashboard = dashboardResponse.dashboard;
+      // Handle both nested (joined query) and flat dashboard structures
+      const dashboard = 'dashboards' in dashboardResponse.dashboard 
+        ? dashboardResponse.dashboard.dashboards 
+        : dashboardResponse.dashboard;
+
+      if (!dashboard) {
+        throw new Error('Dashboard data not found in response');
+      }
+
+      // Type assertion after we've confirmed dashboard exists
+      const dashboardData = dashboard as Dashboard;
       const charts = dashboardResponse.charts || [];
 
       const fullDashboardData: DashboardWithCharts = {
-        ...dashboard,
+        ...dashboardData,
         charts
       };
+
+      console.log('✅ Dashboard loaded for editing:', {
+        dashboardId,
+        dashboardName: dashboardData.dashboard_name,
+        chartCount: charts.length
+      });
 
       setDashboardData(fullDashboardData);
     } catch (error) {

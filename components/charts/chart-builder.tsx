@@ -29,6 +29,7 @@ interface SchemaInfo {
   fields: Record<string, FieldDefinition>;
   availableMeasures: Array<{ measure: string }>;
   availableFrequencies: Array<{ frequency: string }>;
+  availableGroupByFields: Array<{ columnName: string; displayName: string }>;
 }
 
 // Chart Builder Loading Skeleton
@@ -267,6 +268,17 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
         stackingMode: prev.stackingMode || 'normal',
         colorPalette: prev.colorPalette || 'blue' // Auto-select blue palette for stacked bars
       }));
+    } else if (key === 'chartType' && value === 'horizontal-bar') {
+      // Smart default: When switching to horizontal-bar, require groupBy and set color palette
+      setChartConfig(prev => ({
+        ...prev,
+        [key]: value,
+        // Set groupBy to first available field if currently none, otherwise keep current
+        groupBy: prev.groupBy === 'none' 
+          ? (schemaInfo?.availableGroupByFields?.[0]?.columnName || 'practice_primary')
+          : prev.groupBy,
+        colorPalette: prev.colorPalette || 'blue' // Auto-select blue palette
+      }));
     } else {
       // Handle all other config updates normally
       setChartConfig(prev => ({ ...prev, [key]: value }));
@@ -358,13 +370,15 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
         chart_config: {
           x_axis: { field: 'period_end', label: 'Date', format: 'date' },
           y_axis: { field: 'measure_value', label: 'Amount', format: 'currency' },
-          series: { groupBy: chartConfig.groupBy, colorPalette: 'default' },
+          series: { groupBy: chartConfig.groupBy, colorPalette: chartConfig.colorPalette || 'default' },
           options: { responsive: true, showLegend: true, showTooltips: true, animation: true },
           // Save additional configuration
           calculatedField: chartConfig.calculatedField,
           dateRangePreset: selectedDatePreset,
           seriesConfigs: chartConfig.seriesConfigs,
-          dataSourceId: chartConfig.selectedDataSource.id // Store data source reference
+          dataSourceId: chartConfig.selectedDataSource.id, // Store data source reference
+          stackingMode: chartConfig.stackingMode, // Save stacking mode for stacked-bar charts
+          colorPalette: chartConfig.colorPalette // Save color palette at root level too for easier access
         },
         // Save advanced filters in data_source
         data_source: {

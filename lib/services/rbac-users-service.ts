@@ -1,10 +1,10 @@
 import { BaseRBACService } from '@/lib/rbac/base-service';
-import { db } from '@/lib/db';
+import { db, account_security } from '@/lib/db';
 import { createAppLogger } from '@/lib/logger/factory';
 import { users, user_organizations, organizations } from '@/lib/db/schema';
 import { user_roles, roles } from '@/lib/db/rbac-schema';
 import { eq, and, inArray, isNull, like, or, count } from 'drizzle-orm';
-import { hashPassword } from '@/lib/auth/security';
+import { hashPassword, AccountSecurity } from '@/lib/auth/security';
 import type { UserContext } from '@/lib/types/rbac';
 import { PermissionDeniedError } from '@/lib/types/rbac';
 
@@ -409,6 +409,19 @@ export class RBACUsersService extends BaseRBACService {
       throw new Error('Failed to create user');
     }
 
+    // Proactively create account_security record for defense-in-depth
+    // This ensures the record exists even before first login attempt
+    await AccountSecurity.ensureSecurityRecord(newUser.user_id);
+    
+    rbacUsersLogger.info('Account security record initialized for new user', {
+      userId: newUser.user_id,
+      operation: 'user_creation',
+      securityDefaults: {
+        max_concurrent_sessions: 3,
+        require_fresh_auth_minutes: 5
+      }
+    });
+
     // Add user to organization
     await db
       .insert(user_organizations)
@@ -506,10 +519,12 @@ export class RBACUsersService extends BaseRBACService {
         updated_at: new Date()
       };
 
-      // Hash password if provided
+      // Hash password if provided and track password change
+      let passwordWasChanged = false;
       if (updateData.password) {
         updateFields.password_hash = await hashPassword(updateData.password);
         delete updateFields.password; // Remove plain password from update
+        passwordWasChanged = true;
       }
 
       // Update user
@@ -521,6 +536,26 @@ export class RBACUsersService extends BaseRBACService {
 
       if (!user) {
         throw new Error('Failed to update user');
+      }
+
+      // Track password change in account_security table
+      if (passwordWasChanged) {
+        // Ensure security record exists
+        await AccountSecurity.ensureSecurityRecord(userId);
+        
+        // Update password_changed_at timestamp
+        await tx
+          .update(account_security)
+          .set({
+            password_changed_at: new Date()
+          })
+          .where(eq(account_security.user_id, userId));
+        
+        rbacUsersLogger.info('Password changed for user', {
+          userId,
+          operation: 'password_change',
+          securityTracking: true
+        });
       }
 
       // Update user roles if provided

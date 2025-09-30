@@ -103,7 +103,7 @@ export interface ChartDefinition {
   chart_definition_id: string;
   chart_name: string;
   chart_description?: string;
-  chart_type: 'line' | 'bar' | 'stacked-bar' | 'pie' | 'doughnut' | 'area';
+  chart_type: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'progress-bar' | 'pie' | 'doughnut' | 'area';
   chart_category_id?: number;
   created_by: string;
   created_at: Date;
