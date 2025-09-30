@@ -98,6 +98,18 @@ export class AccountSecurity {
         throw new Error('Failed to create account_security record')
       }
       
+      // Log security event for new record creation
+      securityLogger.security('account_security_record_created', 'low', {
+        action: 'security_record_initialization',
+        userId,
+        reason: 'ensure_on_access',
+        defaults: {
+          max_concurrent_sessions: 3,
+          require_fresh_auth_minutes: 5,
+          failed_login_attempts: 0
+        }
+      })
+      
       return newRecord
     } catch (error) {
       // If the error is a unique constraint violation, the record was created by another request

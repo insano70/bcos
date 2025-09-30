@@ -75,7 +75,137 @@
 - [ ] **1.4** Study logging patterns - Document how to use `createAPILogger`, `apiLogger.logAuth`, `apiLogger.logSecurity`, `apiLogger.logBusiness` correctly
 
 #### Findings
-*Document key patterns and conventions discovered during study phase*
+
+**Critical Patterns from `app/api/auth/login/route.ts`:**
+
+1. **Route Handler Structure**
+   - Uses `publicRoute()` wrapper from `lib/api/route-handler.ts`
+   - Wrapped with `withCorrelation()` for request correlation IDs
+   - Options: `{ rateLimit: 'auth' }` for authentication-specific rate limiting
+
+2. **Logging Pattern** (MUST FOLLOW EXACTLY)
+   ```typescript
+   const apiLogger = createAPILogger(request, 'authentication')
+   const logger = apiLogger.getLogger()
+   
+   apiLogger.logRequest({ authType: 'none', suspicious: false })
+   apiLogger.logAuth('login_validation', true, { ... })
+   apiLogger.logSecurity('authentication_failure', 'medium', { ... })
+   apiLogger.logBusiness('user_authentication', 'sessions', 'success', { ... })
+   apiLogger.logResponse(200, { recordCount: 1, processingTimeBreakdown: { ... } })
+   ```
+
+3. **Error Handling Pattern**
+   - Use `createSuccessResponse()` and `createErrorResponse()` from `lib/api/responses`
+   - Throw `AuthenticationError()` for auth failures
+   - Always log errors with correlation ID
+   - Include PII masking for emails: `email.replace(/(.{2}).*@/, '$1***@')`
+
+4. **Token Generation Pattern**
+   ```typescript
+   const deviceInfo = {
+     ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+     userAgent: request.headers.get('user-agent') || 'unknown',
+     fingerprint: TokenManager.generateDeviceFingerprint(ipAddress, userAgent),
+     deviceName: TokenManager.generateDeviceName(userAgent)
+   }
+   
+   const tokenPair = await TokenManager.createTokenPair(
+     user.user_id,
+     deviceInfo,
+     remember || false,
+     email // For audit logging
+   )
+   ```
+
+5. **Cookie Setting Pattern**
+   ```typescript
+   const cookieStore = await cookies()
+   const isSecureEnvironment = process.env.NODE_ENV === 'production'
+   const maxAge = remember ? 30 * 24 * 60 * 60 : 7 * 24 * 60 * 60
+   
+   cookieStore.set('refresh-token', tokenPair.refreshToken, {
+     httpOnly: true,
+     secure: isSecureEnvironment,
+     sameSite: 'strict',
+     path: '/',
+     maxAge
+   })
+   
+   cookieStore.set('access-token', tokenPair.accessToken, {
+     httpOnly: true,
+     secure: isSecureEnvironment,
+     sameSite: 'strict',
+     path: '/',
+     maxAge: 15 * 60 // 15 minutes
+   })
+   ```
+
+6. **Audit Logging Pattern**
+   ```typescript
+   await AuditLogger.logAuth({
+     action: 'login',
+     userId: user.user_id,
+     ipAddress,
+     userAgent,
+     metadata: {
+       email,
+       sessionId: tokenPair.sessionId,
+       rememberMe: remember,
+       deviceFingerprint,
+       correlationId: CorrelationContextManager.getCurrentId()
+     }
+   })
+   ```
+
+7. **User Context Loading**
+   ```typescript
+   const userContext = await getCachedUserContextSafe(user.user_id)
+   const userRoles = userContext?.roles?.map(r => r.name) || []
+   const primaryRole = userRoles.length > 0 ? userRoles[0] : 'user'
+   ```
+
+8. **Performance Logging**
+   ```typescript
+   const startTime = Date.now()
+   logPerformanceMetric(logger, 'operation_name', Date.now() - startTime, { ... })
+   ```
+
+9. **Rate Limiting**
+   - Auth endpoints: `await applyRateLimit(request, 'auth')` = 5 requests per 15 minutes
+   - API endpoints: `await applyRateLimit(request, 'api')` = 200 requests per minute
+   - Implemented in `lib/api/middleware/rate-limit.ts`
+
+10. **CSRF Token Generation**
+    ```typescript
+    const csrfToken = await UnifiedCSRFProtection.setCSRFToken(user.user_id)
+    // Include in response for authenticated users
+    ```
+
+**Key Security Validations:**
+- Account lockout check via `AccountSecurity.isAccountLocked(email)`
+- `is_active` flag enforcement
+- Password verification with `verifyPassword()`
+- Failed attempt recording: `AccountSecurity.recordFailedAttempt(email)`
+- Clear attempts on success: `AccountSecurity.clearFailedAttempts(email)`
+
+**Response Structure:**
+```typescript
+return createSuccessResponse({
+  user: { id, email, name, firstName, lastName, role, emailVerified, roles, permissions },
+  accessToken: tokenPair.accessToken,
+  sessionId: tokenPair.sessionId,
+  expiresAt: tokenPair.expiresAt.toISOString(),
+  csrfToken
+}, 'Login successful')
+```
+
+**Critical TypeScript Patterns:**
+- NO `any` types anywhere
+- Strict typing on all functions
+- Proper interface definitions from `@/lib/types`
+- Use JWTPayload from 'jose' package
+- DeviceInfo interface exported from token-manager
 
 ---
 
@@ -523,13 +653,25 @@ SAML_LOG_RAW_RESPONSES=false  # Production: disabled for security
 ## Progress Log
 
 ### 2025-09-30
+
+**Morning: Planning & Setup**
 - Created implementation plan with 13 phases
 - Documented all lessons learned from previous attempt
 - Established quality gates and standards
 - Enhanced Phase 3: Added certificate expiration pre-checks, hot reload capability, dual certificate support
 - Enhanced Phase 5: Added email domain validation, SAML callback-specific rate limiting, raw SAML response logging
 - Added new environment variables for security configuration
-- Ready to begin Phase 1: Study Existing Patterns
+
+**Afternoon: ✅ Phase 1 Complete - Pattern Study**
+- Analyzed `app/api/auth/login/route.ts` (439 lines of enterprise authentication)
+- Documented exact patterns for publicRoute, createAPILogger, correlation IDs, error handling
+- Studied rate limiting: auth (5/15min), API (200/min)
+- Analyzed TokenManager.createTokenPair() for device fingerprinting  
+- Documented comprehensive logging patterns
+- Identified critical security validations  
+- **Quality Gate**: ✅ pnpm tsc clean (zero errors at baseline)
+
+**Next: Beginning Phase 2 - Type Definitions**
 
 ---
 

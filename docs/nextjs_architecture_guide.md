@@ -829,39 +829,45 @@ export class PasswordService {
   }
 }
 
-// Account lockout system
+// Account lockout system with database persistence
 export class AccountSecurity {
-  private static failedAttempts = new Map<string, { count: number; lastAttempt: number }>()
-  private static readonly maxFailedAttempts = 5
-  private static readonly lockoutDuration = 15 * 60 * 1000 // 15 minutes
+  private static readonly progressiveLockout = [
+    1 * 60 * 1000,  // 1 minute after 3 attempts
+    5 * 60 * 1000,  // 5 minutes after 4 attempts
+    15 * 60 * 1000  // 15 minutes after 5+ attempts
+  ]
   
-  static isAccountLocked(identifier: string): boolean {
-    const attempts = this.failedAttempts.get(identifier)
-    if (!attempts) return false
-    
-    const now = Date.now()
-    if (now - attempts.lastAttempt > this.lockoutDuration) {
-      this.failedAttempts.delete(identifier)
-      return false
-    }
-    
-    return attempts.count >= this.maxFailedAttempts
+  /**
+   * Ensure account_security record exists for a user
+   * Uses ensure-on-access pattern to guarantee record presence
+   * Creates record with HIPAA-compliant defaults if missing
+   * This method is idempotent and safe to call multiple times
+   */
+  static async ensureSecurityRecord(userId: string): Promise<AccountSecurityRecord> {
+    // Check if record exists, create with defaults if not
+    // Returns existing or newly created record
+    // HIPAA defaults: max_concurrent_sessions: 3, require_fresh_auth_minutes: 5
   }
   
-  static recordFailedAttempt(identifier: string): void {
-    const now = Date.now()
-    const existing = this.failedAttempts.get(identifier)
-    
-    if (existing && now - existing.lastAttempt < this.lockoutDuration) {
-      existing.count++
-      existing.lastAttempt = now
-    } else {
-      this.failedAttempts.set(identifier, { count: 1, lastAttempt: now })
-    }
+  static async isAccountLocked(identifier: string): Promise<{ locked: boolean; lockedUntil?: number }> {
+    // 1. Find user by email
+    // 2. Call ensureSecurityRecord() to guarantee record exists
+    // 3. Check lockout status from database
+    // 4. Clear expired lockouts automatically
   }
   
-  static clearFailedAttempts(identifier: string): void {
-    this.failedAttempts.delete(identifier)
+  static async recordFailedAttempt(identifier: string): Promise<{ locked: boolean; lockedUntil?: number }> {
+    // 1. Find user by email
+    // 2. Call ensureSecurityRecord() to guarantee record exists
+    // 3. Increment failed_login_attempts counter
+    // 4. Apply progressive lockout (3+ attempts)
+    // 5. Update database with new state
+  }
+  
+  static async clearFailedAttempts(identifier: string): Promise<void> {
+    // 1. Find user by email
+    // 2. Call ensureSecurityRecord() to guarantee record exists
+    // 3. Reset all security counters and lockout state
   }
 }
 

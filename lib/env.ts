@@ -29,6 +29,23 @@ export const env = createEnv({
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
     RESEND_WEBHOOK_SECRET: z.string().optional(),
     
+    // SAML SSO Configuration
+    ENTRA_TENANT_ID: z.string().uuid("ENTRA_TENANT_ID must be a valid UUID").optional(),
+    ENTRA_ENTRY_POINT: z.string().url("ENTRA_ENTRY_POINT must be a valid URL").optional(),
+    ENTRA_ISSUER: z.string().url("ENTRA_ISSUER must be a valid URL").optional(),
+    ENTRA_CERT: z.string().optional(), // Certificate content or path
+    
+    SAML_ISSUER: z.string().url("SAML_ISSUER must be a valid URL").optional(),
+    SAML_CALLBACK_URL: z.string().url("SAML_CALLBACK_URL must be a valid URL").optional(),
+    SAML_CERT: z.string().optional(), // SP certificate content or path
+    SAML_PRIVATE_KEY: z.string().optional(), // SP private key content or path
+    
+    SAML_ALLOWED_EMAIL_DOMAINS: z.string().optional(), // Comma-separated list
+    SAML_CERT_EXPIRY_WARNING_DAYS: z.string().transform(val => val ? parseInt(val, 10) : 30).optional(),
+    SAML_CALLBACK_RATE_LIMIT: z.string().transform(val => val ? parseInt(val, 10) : 20).optional(),
+    SAML_LOG_RAW_RESPONSES: z.string().transform(val => val === "true").optional(),
+    SAML_SUCCESS_REDIRECT: z.string().optional(),
+    
     // Node Environment
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   },
@@ -64,6 +81,21 @@ export const env = createEnv({
     ADMIN_NOTIFICATION_EMAILS: process.env.ADMIN_NOTIFICATION_EMAILS,
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
     RESEND_WEBHOOK_SECRET: process.env.RESEND_WEBHOOK_SECRET,
+    
+    // SAML SSO
+    ENTRA_TENANT_ID: process.env.ENTRA_TENANT_ID,
+    ENTRA_ENTRY_POINT: process.env.ENTRA_ENTRY_POINT,
+    ENTRA_ISSUER: process.env.ENTRA_ISSUER,
+    ENTRA_CERT: process.env.ENTRA_CERT,
+    SAML_ISSUER: process.env.SAML_ISSUER,
+    SAML_CALLBACK_URL: process.env.SAML_CALLBACK_URL,
+    SAML_CERT: process.env.SAML_CERT,
+    SAML_PRIVATE_KEY: process.env.SAML_PRIVATE_KEY,
+    SAML_ALLOWED_EMAIL_DOMAINS: process.env.SAML_ALLOWED_EMAIL_DOMAINS,
+    SAML_CERT_EXPIRY_WARNING_DAYS: process.env.SAML_CERT_EXPIRY_WARNING_DAYS,
+    SAML_CALLBACK_RATE_LIMIT: process.env.SAML_CALLBACK_RATE_LIMIT,
+    SAML_LOG_RAW_RESPONSES: process.env.SAML_LOG_RAW_RESPONSES,
+    SAML_SUCCESS_REDIRECT: process.env.SAML_SUCCESS_REDIRECT,
     NODE_ENV: process.env.NODE_ENV,
     
     // Client
@@ -237,4 +269,53 @@ export const getCSRFConfig = () => {
   return {
     secret: env.CSRF_SECRET,
   };
+};
+
+/**
+ * Get SAML SSO configuration
+ * Server-side only - contains sensitive SAML settings
+ */
+export const getSAMLConfig = () => {
+  if (typeof window !== 'undefined') {
+    throw new Error('getSAMLConfig can only be used on the server side');
+  }
+  
+  // Return undefined if SAML is not configured (allows graceful degradation)
+  if (!env.ENTRA_TENANT_ID || !env.SAML_ISSUER || !env.SAML_CALLBACK_URL) {
+    return undefined;
+  }
+  
+  return {
+    // Microsoft Entra Configuration
+    tenantId: env.ENTRA_TENANT_ID,
+    entryPoint: env.ENTRA_ENTRY_POINT || `https://login.microsoftonline.com/${env.ENTRA_TENANT_ID}/saml2`,
+    expectedIssuer: env.ENTRA_ISSUER || `https://sts.windows.net/${env.ENTRA_TENANT_ID}/`,
+    entraCert: env.ENTRA_CERT,
+    
+    // Service Provider Configuration
+    issuer: env.SAML_ISSUER,
+    callbackUrl: env.SAML_CALLBACK_URL,
+    spCert: env.SAML_CERT,
+    spPrivateKey: env.SAML_PRIVATE_KEY,
+    
+    // Security Configuration
+    allowedEmailDomains: env.SAML_ALLOWED_EMAIL_DOMAINS?.split(',').map(d => d.trim()) || [],
+    certExpiryWarningDays: env.SAML_CERT_EXPIRY_WARNING_DAYS || 30,
+    callbackRateLimit: env.SAML_CALLBACK_RATE_LIMIT || 20,
+    logRawResponses: env.SAML_LOG_RAW_RESPONSES || false,
+    
+    // Optional
+    successRedirect: env.SAML_SUCCESS_REDIRECT || '/dashboard',
+  };
+};
+
+/**
+ * Check if SAML SSO is enabled
+ * Server-side only
+ */
+export const isSAMLEnabled = () => {
+  if (typeof window !== 'undefined') {
+    throw new Error('isSAMLEnabled can only be used on the server side');
+  }
+  return getSAMLConfig() !== undefined;
 };

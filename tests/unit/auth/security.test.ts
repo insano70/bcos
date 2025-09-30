@@ -162,6 +162,70 @@ describe('security authentication logic', () => {
   })
 
 
-  // NOTE: AccountSecurity tests moved to integration tests (security-authentication.test.ts)
+  describe('AccountSecurity.ensureSecurityRecord', () => {
+    it('should return existing record when one exists', async () => {
+      const userId = 'test-user-id-123'
+      const existingRecord = {
+        user_id: userId,
+        failed_login_attempts: 2,
+        last_failed_attempt: new Date(),
+        locked_until: null,
+        lockout_reason: null,
+        max_concurrent_sessions: 5,
+        require_fresh_auth_minutes: 10,
+        password_changed_at: null,
+        last_password_reset: null,
+        suspicious_activity_detected: false,
+        created_at: new Date(),
+        updated_at: new Date()
+      }
+      
+      // Mock existing record found
+      mockSelectResult.mockResolvedValueOnce([existingRecord])
+      
+      const result = await AccountSecurity.ensureSecurityRecord(userId)
+      
+      expect(result).toEqual(existingRecord)
+      expect(db.select).toHaveBeenCalled()
+    })
+
+    it('should create new record with HIPAA defaults when none exists', async () => {
+      const userId = 'test-user-id-456'
+      const newRecord = {
+        user_id: userId,
+        failed_login_attempts: 0,
+        last_failed_attempt: null,
+        locked_until: null,
+        lockout_reason: null,
+        max_concurrent_sessions: 3,
+        require_fresh_auth_minutes: 5,
+        password_changed_at: null,
+        last_password_reset: null,
+        suspicious_activity_detected: false,
+        created_at: new Date(),
+        updated_at: new Date()
+      }
+      
+      // Mock no existing record, then successful insert
+      mockSelectResult.mockResolvedValueOnce([]) // No existing record
+      
+      const mockInsert = vi.fn().mockReturnValue({
+        values: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([newRecord])
+        })
+      })
+      ;(db.insert as any).mockReturnValue(mockInsert())
+      
+      const result = await AccountSecurity.ensureSecurityRecord(userId)
+      
+      expect(result).toBeDefined()
+      expect(result.user_id).toBe(userId)
+      expect(result.max_concurrent_sessions).toBe(3)
+      expect(result.require_fresh_auth_minutes).toBe(5)
+      expect(result.failed_login_attempts).toBe(0)
+    })
+  })
+
+  // NOTE: Most AccountSecurity tests are in integration tests (security-authentication.test.ts)
   // Database-heavy account lockout operations are better tested with real database transactions
 })

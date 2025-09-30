@@ -1,4 +1,4 @@
-import { db, user_sessions, login_attempts, account_security } from '@/lib/db'
+import { db, user_sessions, login_attempts } from '@/lib/db'
 import { eq, and, gte, desc, count, sql } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 import { AuditLogger } from './audit'
