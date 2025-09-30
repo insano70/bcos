@@ -56,7 +56,7 @@ function DraggableChart({ chart, onAddChart }: DraggableChartProps) {
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
-  }));
+  }), [chart.chart_definition_id]);
 
   return (
     <div
@@ -98,7 +98,7 @@ function DashboardChartItem({ dashboardChart, dashboardConfig, onMove, onRemove,
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
-  }));
+  }), [dashboardChart.id, dashboardChart.position]);
 
   return (
     <div
@@ -113,7 +113,7 @@ function DashboardChartItem({ dashboardChart, dashboardConfig, onMove, onRemove,
     >
       {/* Drag Handle */}
       <div
-        ref={drag as any}
+        ref={dashboardChart.chartDefinition ? drag as any : null}
         className="absolute top-2 left-2 right-2 h-6 bg-gray-100 dark:bg-gray-600 rounded cursor-move flex items-center justify-center group"
       >
         <div className="flex space-x-1">

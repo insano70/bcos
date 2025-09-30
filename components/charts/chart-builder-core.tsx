@@ -33,7 +33,7 @@ export interface DataSource {
 
 export interface ChartConfig {
   chartName: string;
-  chartType: 'line' | 'bar' | 'stacked-bar' | 'doughnut';
+  chartType: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'doughnut';
   measure: string;
   frequency: string;
   practiceUid: string;
@@ -124,6 +124,7 @@ export default function ChartBuilderCore({
           >
             <option value="bar">Bar Chart</option>
             <option value="stacked-bar">Stacked Bar Chart</option>
+            <option value="horizontal-bar">Horizontal Bar Chart</option>
             <option value="line">Line Chart</option>
             <option value="doughnut">Doughnut Chart</option>
           </select>

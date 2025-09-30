@@ -17,10 +17,11 @@ import LineChart01 from './line-chart-01';
 import BarChart01 from './bar-chart-01';
 import AnalyticsBarChart from './analytics-bar-chart';
 import AnalyticsStackedBarChart from './analytics-stacked-bar-chart';
+import AnalyticsHorizontalBarChart from './analytics-horizontal-bar-chart';
 import DoughnutChart from './doughnut-chart';
 
 interface AnalyticsChartProps extends ResponsiveChartProps {
-  chartType: 'line' | 'bar' | 'stacked-bar' | 'doughnut';
+  chartType: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'doughnut';
   measure?: MeasureType;
   frequency?: FrequencyType;
   practice?: string | undefined;
@@ -159,6 +160,11 @@ export default function AnalyticsChart({
         params.append('data_source_id', dataSourceId.toString());
       }
 
+      // Add groupBy parameter if provided
+      if (groupBy && groupBy !== 'none') {
+        params.append('group_by', groupBy);
+      }
+
       // Add multiple series configuration if provided
       if (multipleSeries && multipleSeries.length > 0) {
         console.log('🔍 MULTIPLE SERIES CONFIG:', {
@@ -187,11 +193,8 @@ export default function AnalyticsChart({
         throw new Error('Invalid response format from analytics API');
       }
 
-      // Map groupBy values correctly
-      let mappedGroupBy = 'none';
-      if (groupBy === 'practice_uid' || groupBy === 'practice') mappedGroupBy = 'practice';
-      if (groupBy === 'provider_uid' || groupBy === 'provider_name') mappedGroupBy = 'provider_name';
-      if (groupBy === 'measure') mappedGroupBy = 'measure';
+      // Use groupBy directly - no hard-coded mapping needed
+      const mappedGroupBy = groupBy || 'none';
 
       // GroupBy mapping completed
 
@@ -392,6 +395,8 @@ export default function AnalyticsChart({
           return <AnalyticsBarChart ref={chartRef} data={chartData} width={width} height={height} frequency={frequency} />;
         case 'stacked-bar':
           return <AnalyticsStackedBarChart ref={chartRef} data={chartData} width={width} height={height} frequency={frequency} stackingMode={stackingMode} />;
+        case 'horizontal-bar':
+          return <AnalyticsHorizontalBarChart ref={chartRef} data={chartData} width={width} height={height} />;
         case 'doughnut':
           return <DoughnutChart ref={chartRef} data={chartData} width={width} height={height} />;
         default:

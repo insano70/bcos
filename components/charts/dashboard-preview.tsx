@@ -232,6 +232,9 @@ export default function DashboardPreview({
                 title={chartDef.chart_name}
                 calculatedField={(chartConfig as any).calculatedField}
                 advancedFilters={(dataSource as any).advancedFilters || []}
+                dataSourceId={(chartConfig as any).dataSourceId}
+                stackingMode={(chartConfig as any).stackingMode}
+                colorPalette={(chartConfig as any).colorPalette}
                 {...((chartConfig as any).seriesConfigs && (chartConfig as any).seriesConfigs.length > 0 ? { multipleSeries: (chartConfig as any).seriesConfigs } : {})}
                 className="w-full h-full flex-1"
                 responsive={true}
