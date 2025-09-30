@@ -25,6 +25,7 @@ interface SchemaInfo {
   fields: Record<string, FieldDefinition>;
   availableMeasures: Array<{ measure: string }>;
   availableFrequencies: Array<{ frequency: string }>;
+  availableGroupByFields: Array<{ columnName: string; displayName: string }>;
 }
 
 interface ChartBuilderAdvancedProps {
