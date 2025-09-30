@@ -36,7 +36,8 @@ const AnalyticsHorizontalBarChart = forwardRef<HTMLCanvasElement, AnalyticsHoriz
 
   useEffect(() => {
     const ctx = canvas.current;
-    if (!ctx) return;
+    // Ensure canvas is mounted and has a parent element before creating chart
+    if (!ctx || !ctx.parentElement) return;
 
     const newChart = new Chart(ctx, {
       type: 'bar',
@@ -211,7 +212,14 @@ const AnalyticsHorizontalBarChart = forwardRef<HTMLCanvasElement, AnalyticsHoriz
     });
 
     setChart(newChart);
-    return () => newChart.destroy();
+    return () => {
+      try {
+        newChart.destroy();
+      } catch (error) {
+        // Ignore errors during cleanup
+        console.warn('Chart cleanup warning:', error);
+      }
+    };
   }, [data]);
 
   useEffect(() => {
@@ -244,10 +252,15 @@ const AnalyticsHorizontalBarChart = forwardRef<HTMLCanvasElement, AnalyticsHoriz
 
   // Handle dimension changes for responsive behavior
   useEffect(() => {
-    if (!chart || !canvas.current) return;
+    if (!chart || !canvas.current || !canvas.current.parentElement) return;
 
     // Let Chart.js handle responsive sizing automatically
-    chart.resize();
+    try {
+      chart.resize();
+    } catch (error) {
+      // Ignore resize errors if chart is being unmounted
+      console.warn('Chart resize warning:', error);
+    }
   }, [chart, width, height]);
 
   return (

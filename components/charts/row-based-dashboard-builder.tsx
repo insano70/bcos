@@ -41,15 +41,11 @@ export default function RowBasedDashboardBuilder({
   useEffect(() => {
     if (editingDashboard && availableCharts.length > 0) {
       console.log('📝 Converting grid-based dashboard to row-based:', editingDashboard);
+      console.log('📝 Dashboard name from editingDashboard:', editingDashboard.dashboard_name);
+      console.log('📝 Available charts count:', availableCharts.length);
       
-      // Set basic dashboard info
-      setDashboardConfig(prev => ({
-        ...prev,
-        dashboardName: editingDashboard.dashboard_name || '',
-        dashboardDescription: editingDashboard.dashboard_description || ''
-      }));
-
       // Convert grid-based charts to row-based layout
+      let rows: DashboardRow[] = [];
       if (editingDashboard.charts && Array.isArray(editingDashboard.charts)) {
         const rowsMap = new Map<number, DashboardChartSlot[]>();
         
@@ -75,17 +71,25 @@ export default function RowBasedDashboardBuilder({
         });
 
         // Convert map to rows array
-        const rows: DashboardRow[] = Array.from(rowsMap.entries())
+        rows = Array.from(rowsMap.entries())
           .sort(([a], [b]) => a - b) // Sort by Y position
           .map(([y, charts], index) => ({
             id: `row-${y}-${index}`,
             heightPx: (editingDashboard.layout_config?.rowHeight || 150) * Math.max(1, Math.max(...charts.map((c: any) => editingDashboard.charts.find((ec: any) => ec.chart_definition_id === c.chartDefinitionId)?.position_config?.h || 2))),
             charts
           }));
-
-        setDashboardConfig(prev => ({ ...prev, rows }));
         console.log('🔄 Converted to row-based layout:', { originalCharts: editingDashboard.charts.length, rows: rows.length });
       }
+
+      // Set all dashboard info in a single state update to avoid race conditions
+      const newConfig = {
+        dashboardName: editingDashboard.dashboard_name || '',
+        dashboardDescription: editingDashboard.dashboard_description || '',
+        rows
+      };
+      
+      console.log('📝 Setting dashboard config:', newConfig);
+      setDashboardConfig(newConfig);
 
       setIsEditMode(true);
     }
@@ -305,7 +309,10 @@ export default function RowBasedDashboardBuilder({
             <input
               type="text"
               value={dashboardConfig.dashboardName}
-              onChange={(e) => setDashboardConfig(prev => ({ ...prev, dashboardName: e.target.value }))}
+              onChange={(e) => {
+                console.log('📝 Dashboard name changed to:', e.target.value);
+                setDashboardConfig(prev => ({ ...prev, dashboardName: e.target.value }));
+              }}
               placeholder="Enter dashboard name"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
             />
