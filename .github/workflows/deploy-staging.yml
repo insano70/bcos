@@ -120,7 +120,125 @@ jobs:
             BUILD_VERSION=${{ steps.vars.outputs.IMAGE_TAG }}
           platforms: linux/amd64
 
+      - name: Ensure migration CloudWatch log group exists
+        run: |
+          MIGRATION_LOG_GROUP="/ecs/bcos-migrations-${{ steps.vars.outputs.TARGET_ENV }}"
+          if ! aws logs describe-log-groups --log-group-name-prefix "${MIGRATION_LOG_GROUP}" --query 'logGroups[?logGroupName==`'${MIGRATION_LOG_GROUP}'`]' --output text | grep -q "${MIGRATION_LOG_GROUP}"; then
+            echo "Creating migration log group: ${MIGRATION_LOG_GROUP}"
+            aws logs create-log-group --log-group-name "${MIGRATION_LOG_GROUP}"
+            aws logs put-retention-policy --log-group-name "${MIGRATION_LOG_GROUP}" --retention-in-days 30
+          else
+            echo "✅ Migration log group already exists: ${MIGRATION_LOG_GROUP}"
+          fi
 
+      - name: Register migration task definition
+        id: migration-task-def
+        run: |
+          # Get network configuration from CloudFormation exports
+          PRIVATE_SUBNETS=$(aws cloudformation describe-stacks --stack-name BCOS-NetworkStack --query 'Stacks[0].Outputs[?OutputKey==`PrivateSubnetIds`].OutputValue' --output text)
+          ECS_SECURITY_GROUP=$(aws cloudformation describe-stacks --stack-name BCOS-NetworkStack --query 'Stacks[0].Outputs[?OutputKey==`ECSSecurityGroupId`].OutputValue' --output text)
+          
+          # Get IAM role ARNs from CloudFormation exports
+          EXECUTION_ROLE_ARN=$(aws cloudformation describe-stacks --stack-name BCOS-SecurityStack --query 'Stacks[0].Outputs[?OutputKey==`ECSTaskExecutionRoleArn`].OutputValue' --output text)
+          TASK_ROLE_ARN=$(aws cloudformation describe-stacks --stack-name BCOS-SecurityStack --query 'Stacks[0].Outputs[?OutputKey==`ECSTaskRoleArn`].OutputValue' --output text)
+          
+          # Determine secret ARN based on environment
+          if [ "${{ steps.vars.outputs.TARGET_ENV }}" = "production" ]; then
+            SECRET_ARN=$(aws cloudformation describe-stacks --stack-name BCOS-SecurityStack --query 'Stacks[0].Outputs[?OutputKey==`ProductionSecretArn`].OutputValue' --output text)
+          else
+            SECRET_ARN=$(aws cloudformation describe-stacks --stack-name BCOS-SecurityStack --query 'Stacks[0].Outputs[?OutputKey==`StagingSecretArn`].OutputValue' --output text)
+          fi
+          
+          # Create migration task definition JSON
+          cat > migration-task-definition.json << EOF
+          {
+            "family": "bcos-migration-${{ steps.vars.outputs.TARGET_ENV }}",
+            "networkMode": "awsvpc",
+            "requiresCompatibilities": ["FARGATE"],
+            "cpu": "256",
+            "memory": "512",
+            "executionRoleArn": "${EXECUTION_ROLE_ARN}",
+            "taskRoleArn": "${TASK_ROLE_ARN}",
+            "containerDefinitions": [{
+              "name": "migration-runner",
+              "image": "${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.IMAGE_TAG }}",
+              "command": ["node", "--import", "tsx/esm", "scripts/run-migrations.ts"],
+              "essential": true,
+              "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                  "awslogs-group": "/ecs/bcos-migrations-${{ steps.vars.outputs.TARGET_ENV }}",
+                  "awslogs-region": "${{ env.AWS_REGION }}",
+                  "awslogs-stream-prefix": "migration"
+                }
+              },
+              "secrets": [
+                {
+                  "name": "DATABASE_URL",
+                  "valueFrom": "${SECRET_ARN}:DATABASE_URL::"
+                }
+              ],
+              "environment": [
+                {
+                  "name": "NODE_ENV",
+                  "value": "production"
+                }
+              ]
+            }]
+          }
+          EOF
+          
+          # Register the task definition
+          TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://migration-task-definition.json --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "migration-task-def-arn=${TASK_DEF_ARN}" >> $GITHUB_OUTPUT
+          echo "✅ Registered migration task definition: ${TASK_DEF_ARN}"
+
+      - name: Run database migrations
+        run: |
+          # Get network configuration from CloudFormation exports
+          PRIVATE_SUBNETS=$(aws cloudformation describe-stacks --stack-name BCOS-NetworkStack --query 'Stacks[0].Outputs[?OutputKey==`PrivateSubnetIds`].OutputValue' --output text)
+          ECS_SECURITY_GROUP=$(aws cloudformation describe-stacks --stack-name BCOS-NetworkStack --query 'Stacks[0].Outputs[?OutputKey==`ECSSecurityGroupId`].OutputValue' --output text)
+          
+          echo "🔄 Running database migrations..."
+          echo "📊 Environment: ${{ steps.vars.outputs.TARGET_ENV }}"
+          echo "🗄️  Using task definition: ${{ steps.migration-task-def.outputs.migration-task-def-arn }}"
+          
+          # Run migration task
+          TASK_ARN=$(aws ecs run-task \
+            --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} \
+            --task-definition ${{ steps.migration-task-def.outputs.migration-task-def-arn }} \
+            --network-configuration "awsvpcConfiguration={subnets=[${PRIVATE_SUBNETS}],securityGroups=[${ECS_SECURITY_GROUP}],assignPublicIp=DISABLED}" \
+            --launch-type FARGATE \
+            --query 'tasks[0].taskArn' \
+            --output text)
+          
+          echo "📝 Migration task started: ${TASK_ARN}"
+          
+          # Wait for migration task to complete (timeout after 10 minutes)
+          echo "⏳ Waiting for migrations to complete..."
+          aws ecs wait tasks-stopped --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} --tasks ${TASK_ARN} --cli-read-timeout 600 || {
+            echo "⚠️  Wait command timed out or failed"
+          }
+          
+          # Check migration task result
+          TASK_INFO=$(aws ecs describe-tasks --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} --tasks ${TASK_ARN})
+          EXIT_CODE=$(echo "${TASK_INFO}" | jq -r '.tasks[0].containers[0].exitCode // "null"')
+          STOPPED_REASON=$(echo "${TASK_INFO}" | jq -r '.tasks[0].stoppedReason // "Unknown"')
+          LAST_STATUS=$(echo "${TASK_INFO}" | jq -r '.tasks[0].lastStatus')
+          
+          echo "📊 Migration task status: ${LAST_STATUS}"
+          echo "🔢 Exit code: ${EXIT_CODE}"
+          
+          if [ "${EXIT_CODE}" != "0" ]; then
+            echo "❌ Migration failed with exit code: ${EXIT_CODE}"
+            echo "Reason: ${STOPPED_REASON}"
+            echo ""
+            echo "📋 Check migration logs at:"
+            echo "https://console.aws.amazon.com/cloudwatch/home?region=${{ env.AWS_REGION }}#logsV2:log-groups/log-group/\$252Fecs\$252Fbcos-migrations-${{ steps.vars.outputs.TARGET_ENV }}"
+            exit 1
+          fi
+          
+          echo "✅ Database migrations completed successfully"
 
       - name: Get current task definition
         run: |

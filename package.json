@@ -32,6 +32,7 @@
     "test:debug": "vitest run --reporter=verbose --no-coverage",
     "test:debug:single": "vitest run --pool=forks --poolOptions.forks.singleFork=true --reporter=verbose --no-coverage",
     "db:seed": "tsx --env-file=.env.local lib/db/seed.ts",
+    "db:migrate": "tsx scripts/run-migrations.ts",
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:psql": "./lib/db/db-utils.sh",

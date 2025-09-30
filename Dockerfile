@@ -55,6 +55,11 @@ COPY --from=builder --chown=bcos:nodejs /app/.next/static ./.next/static
 # Copy runtime dependencies
 COPY --from=builder --chown=bcos:nodejs /app/node_modules ./node_modules
 
+# Copy migration files and scripts for database migrations
+COPY --from=builder --chown=bcos:nodejs /app/lib/db/migrations ./lib/db/migrations
+COPY --from=builder --chown=bcos:nodejs /app/scripts/run-migrations.ts ./scripts/run-migrations.ts
+COPY --from=builder --chown=bcos:nodejs /app/drizzle.config.ts ./drizzle.config.ts
+
 # Create writable directories for Next.js
 RUN mkdir -p .next/cache && \
     chown -R bcos:nodejs .next/cache && \

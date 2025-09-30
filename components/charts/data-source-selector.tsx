@@ -38,6 +38,11 @@ export default function DataSourceSelector({
       
       const response = await apiClient.get<{ dataSources: DataSource[] }>('/api/admin/analytics/data-sources');
       setDataSources(response.dataSources || []);
+      
+      // Auto-select first data source if none is selected
+      if (!selectedDataSource && response.dataSources.length > 0 && response.dataSources[0]) {
+        onDataSourceChange(response.dataSources[0]);
+      }
     } catch (err) {
       console.error('Failed to load data sources:', err);
       setError(err instanceof Error ? err.message : 'Failed to load data sources');

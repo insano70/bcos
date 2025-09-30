@@ -50,11 +50,12 @@ export interface ChartConfig {
 }
 
 interface ChartBuilderCoreProps {
-  schemaInfo: SchemaInfo;
+  schemaInfo: SchemaInfo | null;
   chartConfig: ChartConfig;
   updateConfig: (key: keyof ChartConfig, value: string | boolean | ChartFilter[] | DataSource | null | undefined) => void;
   handleDateRangeChange: (presetId: string, startDate: string, endDate: string) => void;
   selectedDatePreset?: string;
+  isLoadingSchema: boolean;
 }
 
 export default function ChartBuilderCore({
@@ -62,7 +63,8 @@ export default function ChartBuilderCore({
   chartConfig,
   updateConfig,
   handleDateRangeChange,
-  selectedDatePreset = 'custom'
+  selectedDatePreset = 'custom',
+  isLoadingSchema
 }: ChartBuilderCoreProps) {
   return (
     <div className="space-y-6">
@@ -70,14 +72,31 @@ export default function ChartBuilderCore({
         Basic Configuration
       </h3>
 
-      {/* Data Source Selector */}
+      {/* Data Source Selector - Always Visible */}
       <DataSourceSelector
         selectedDataSource={chartConfig.selectedDataSource}
         onDataSourceChange={(dataSource) => updateConfig('selectedDataSource', dataSource)}
         className="mb-6"
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Schema-dependent fields - Conditional */}
+      {isLoadingSchema ? (
+        <div className="text-center py-8">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500 mb-3"></div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Loading schema for {chartConfig.selectedDataSource?.name}...
+          </p>
+        </div>
+      ) : !schemaInfo ? (
+        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+          <svg className="mx-auto h-12 w-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+          </svg>
+          <p className="mb-2">Please select a data source to begin</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Chart Name */}
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -108,14 +127,6 @@ export default function ChartBuilderCore({
             <option value="doughnut">Doughnut Chart</option>
           </select>
         </div>
-      </div>
-
-      {/* Color Palette Selector - Full Width */}
-      <div className="mt-6">
-        <ColorPaletteSelector
-          value={chartConfig.colorPalette || 'default'}
-          onChange={(paletteId) => updateConfig('colorPalette', paletteId)}
-        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
@@ -189,16 +200,6 @@ export default function ChartBuilderCore({
           />
         </div>
 
-        {/* Date Range Selection */}
-        <div className="md:col-span-2">
-          <DateRangePresets
-            onDateRangeChange={handleDateRangeChange}
-            currentStartDate={chartConfig.startDate}
-            currentEndDate={chartConfig.endDate}
-            selectedPreset={selectedDatePreset}
-          />
-        </div>
-
         {/* Group By */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -232,7 +233,27 @@ export default function ChartBuilderCore({
             </div>
           )}
         </div>
+
+        {/* Date Range Selection */}
+        <div className="md:col-span-2">
+          <DateRangePresets
+            onDateRangeChange={handleDateRangeChange}
+            currentStartDate={chartConfig.startDate}
+            currentEndDate={chartConfig.endDate}
+            selectedPreset={selectedDatePreset}
+          />
+        </div>
       </div>
+
+      {/* Color Palette Selector - Full Width */}
+      <div className="mt-6">
+        <ColorPaletteSelector
+          value={chartConfig.colorPalette || 'default'}
+          onChange={(paletteId) => updateConfig('colorPalette', paletteId)}
+        />
+      </div>
+        </>
+      )}
     </div>
   );
 }

@@ -466,31 +466,26 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
       <div className="px-6 py-6">
         {currentStep === 'configure' && (
           <div className="space-y-6">
-            {schemaInfo ? (
-              <>
-                <ChartBuilderCore
-                  key={isEditMode ? `edit-${editingChart?.chart_definition_id}` : 'create'}
-                  schemaInfo={schemaInfo}
-                  chartConfig={chartConfig}
-                  updateConfig={updateConfig}
-                  handleDateRangeChange={handleDatePresetChange}
-                  selectedDatePreset={selectedDatePreset}
-                />
-                
-                <ChartBuilderAdvanced
-                  schemaInfo={schemaInfo}
-                  chartConfig={chartConfig}
-                  updateConfig={updateConfig}
-                  handleAdvancedFiltersChange={handleAdvancedFiltersChange}
-                  addSeries={addSeries}
-                  updateSeries={updateSeries}
-                  removeSeries={removeSeries}
-                />
-              </>
-            ) : (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                <p className="mb-2">Please select a data source to begin</p>
-              </div>
+            <ChartBuilderCore
+              key={isEditMode ? `edit-${editingChart?.chart_definition_id}` : 'create'}
+              schemaInfo={schemaInfo}
+              chartConfig={chartConfig}
+              updateConfig={updateConfig}
+              handleDateRangeChange={handleDatePresetChange}
+              selectedDatePreset={selectedDatePreset}
+              isLoadingSchema={isLoadingSchema}
+            />
+            
+            {schemaInfo && (
+              <ChartBuilderAdvanced
+                schemaInfo={schemaInfo}
+                chartConfig={chartConfig}
+                updateConfig={updateConfig}
+                handleAdvancedFiltersChange={handleAdvancedFiltersChange}
+                addSeries={addSeries}
+                updateSeries={updateSeries}
+                removeSeries={removeSeries}
+              />
             )}
 
             {schemaInfo && (
