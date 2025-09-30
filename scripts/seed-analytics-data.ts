@@ -45,7 +45,7 @@ const MEASURES = {
   'CPO Invoices': { type: 'currency', min: 2000, max: 75000 },
 };
 
-const TIME_PERIODS = ['Weekly', 'Monthly', 'Quarterly'];
+const TIME_PERIODS = ['Daily', 'Weekly', 'Monthly', 'Quarterly'];
 
 /**
  * Generate random number within range
@@ -145,6 +145,22 @@ function generateDateRanges() {
     }
   }
 
+  // Daily periods (every day from Jan 1 to current date)
+  const startDate = new Date(currentYear, 0, 1); // Jan 1, 2025
+  const dayInMs = 24 * 60 * 60 * 1000;
+  
+  for (let d = new Date(startDate); d <= currentDate; d = new Date(d.getTime() + dayInMs)) {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = monthNames[d.getMonth()];
+    const day = d.getDate();
+    
+    ranges.push({
+      period: 'Daily',
+      endDate: new Date(d),
+      displayDate: `${month} ${day}, ${currentYear}`
+    });
+  }
+
   return ranges;
 }
 
@@ -161,7 +177,10 @@ function generateNumericValue(measure: string, timePeriod: string): number {
   let baseMax = measureConfig.max;
 
   // Adjust ranges based on time period
-  if (timePeriod === 'Weekly') {
+  if (timePeriod === 'Daily') {
+    baseMin = Math.floor(baseMin * 0.033); // Daily is ~1/30th of monthly
+    baseMax = Math.floor(baseMax * 0.033);
+  } else if (timePeriod === 'Weekly') {
     baseMin = Math.floor(baseMin * 0.2); // Weekly is ~20% of monthly
     baseMax = Math.floor(baseMax * 0.3);
   } else if (timePeriod === 'Quarterly') {
@@ -240,6 +259,11 @@ async function generateAnalyticsData() {
         const measureConfig = MEASURES[measureName as keyof typeof MEASURES];
         
         for (const dateRange of dateRanges) {
+          // Skip daily data for measures other than 'Cash Transfer'
+          if (dateRange.period === 'Daily' && measureName !== 'Cash Transfer') {
+            continue;
+          }
+          
           // Add some randomness - not every provider has data for every period/measure
           if (Math.random() < 0.85) { // 85% chance of having data
             records.push({
@@ -319,7 +343,7 @@ async function generateAnalyticsData() {
     console.log('\n🎉 Analytics Data Generation Complete!');
     console.log(`📊 Generated ${insertedCount} records for ${PRACTICE_NAME}`);
     console.log(`👥 ${PROVIDERS.length} providers across ${Object.keys(MEASURES).length} measures`);
-    console.log(`📅 ${dateRanges.length} time periods (Weekly, Monthly, Quarterly)`);
+    console.log(`📅 ${dateRanges.length} time periods (Daily for Cash Transfer, Weekly, Monthly, Quarterly for all)`);
     console.log(`📈 Statistics:`, stats[0]);
 
   } catch (error) {

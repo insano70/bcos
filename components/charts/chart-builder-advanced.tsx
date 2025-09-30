@@ -108,6 +108,26 @@ export default function ChartBuilderAdvanced({
         )}
       </div>
 
+      {/* Stacking Mode - Only for stacked-bar charts */}
+      {chartConfig.chartType === 'stacked-bar' && (
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Stacking Mode
+          </label>
+          <select
+            value={chartConfig.stackingMode || 'normal'}
+            onChange={(e) => updateConfig('stackingMode', e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+          >
+            <option value="normal">Normal Stacked</option>
+            <option value="percentage">100% Stacked (Percentage)</option>
+          </select>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            Normal: Show actual values stacked. Percentage: Normalize to 100% to compare proportions.
+          </p>
+        </div>
+      )}
+
       {/* Multiple Series Toggle */}
       {(chartConfig.chartType === 'line' || chartConfig.chartType === 'bar') && (
         <div className="mb-6">

@@ -5,6 +5,7 @@ import type {
 } from '@/lib/types/analytics';
 import { getCssVariable } from '@/components/utils/utils';
 import { createAppLogger } from '@/lib/logger/factory';
+import { getPaletteColors } from '@/lib/services/color-palettes';
 
 // Use Universal Logging System - dynamic imports prevent Winston bundling in client contexts
 const chartLogger = createAppLogger('chart-transformer', {
@@ -38,7 +39,8 @@ export class SimplifiedChartTransformer {
   transformData(
     measures: AggAppMeasure[],
     chartType: 'line' | 'bar' | 'pie' | 'doughnut' | 'area',
-    groupBy: string = 'none'
+    groupBy: string = 'none',
+    paletteId: string = 'default'
   ): ChartData {
 
     if (measures.length === 0) {
@@ -60,14 +62,14 @@ export class SimplifiedChartTransformer {
     switch (chartType) {
       case 'line':
       case 'area':
-        chartData = this.createTimeSeriesChart(measures, groupBy, chartType === 'area');
+        chartData = this.createTimeSeriesChart(measures, groupBy, chartType === 'area', paletteId);
         break;
       case 'bar':
-        chartData = this.createBarChart(measures, groupBy);
+        chartData = this.createBarChart(measures, groupBy, paletteId);
         break;
       case 'pie':
       case 'doughnut':
-        chartData = this.createPieChart(measures, groupBy);
+        chartData = this.createPieChart(measures, groupBy, paletteId);
         break;
       default:
         throw new Error(`Unsupported chart type: ${chartType}`);
@@ -88,7 +90,8 @@ export class SimplifiedChartTransformer {
   private createTimeSeriesChart(
     measures: AggAppMeasure[], 
     groupBy: string,
-    filled: boolean = false
+    filled: boolean = false,
+    paletteId: string = 'default'
   ): ChartData {
     
     if (groupBy === 'none') {
@@ -137,14 +140,14 @@ export class SimplifiedChartTransformer {
       };
     } else {
       // Multiple series - group by specified field  
-      return this.createMultiSeriesChart(measures, groupBy, filled, true);
+      return this.createMultiSeriesChart(measures, groupBy, filled, true, paletteId);
     }
   }
 
   /**
    * Create bar chart
    */
-  private createBarChart(measures: AggAppMeasure[], groupBy: string): ChartData {
+  private createBarChart(measures: AggAppMeasure[], groupBy: string, paletteId: string = 'default'): ChartData {
     
     if (groupBy === 'none') {
       // Single series - use date_index as actual dates for Chart.js time axis
@@ -172,7 +175,7 @@ export class SimplifiedChartTransformer {
       };
     } else {
       // Multiple series - group by provider/practice
-      return this.createMultiSeriesChart(measures, groupBy, false);
+      return this.createMultiSeriesChart(measures, groupBy, false, false, paletteId);
     }
   }
 
@@ -183,7 +186,8 @@ export class SimplifiedChartTransformer {
     measures: AggAppMeasure[], 
     groupBy: string,
     filled: boolean = false,
-    isTimeSeries: boolean = false
+    isTimeSeries: boolean = false,
+    paletteId: string = 'default'
   ): ChartData {
     
     // Group data by the groupBy field and date
@@ -243,7 +247,7 @@ export class SimplifiedChartTransformer {
 
     // Create datasets for each group
     const datasets: ChartDataset[] = [];
-    const colors = this.getColorPalette();
+    const colors = this.getColorPalette(paletteId);
     let colorIndex = 0;
 
     groupedData.forEach((dateMap, groupKey) => {
@@ -350,7 +354,7 @@ export class SimplifiedChartTransformer {
   /**
    * Create pie/doughnut chart
    */
-  private createPieChart(measures: AggAppMeasure[], groupBy: string): ChartData {
+  private createPieChart(measures: AggAppMeasure[], groupBy: string, paletteId: string = 'default'): ChartData {
     const groupField = groupBy === 'none' ? 'measure' : groupBy;
     const groupedData = new Map<string, number>();
     
@@ -366,7 +370,7 @@ export class SimplifiedChartTransformer {
 
     const labels = Array.from(groupedData.keys());
     const data = labels.map(label => groupedData.get(label) || 0);
-    const colors = this.getColorPalette();
+    const colors = this.getColorPalette(paletteId);
 
     chartLogger.debug('🔍 PIE CHART DATA:', {
       groupField,
@@ -414,13 +418,8 @@ export class SimplifiedChartTransformer {
    * Get color palette for charts
    * Enhanced with multiple palette support
    */
-  private getColorPalette(): string[] {
-    // Enhanced default palette with better color distribution
-    return [
-      '#00AEEF', '#67bfff', '#3ec972', '#f0bb33', '#ff5656', 
-      'oklch(65.6% 0.241 354.308)', 'oklch(58.5% 0.233 277.117)', 'oklch(70.5% 0.213 47.604)',
-      '#8B5CF6', '#F59E0B', '#EF4444', '#10B981', '#3B82F6', '#6366F1', '#8B5A2B', '#EC4899'
-    ];
+  private getColorPalette(paletteId: string = 'default'): readonly string[] {
+    return getPaletteColors(paletteId);
   }
 
   /**
@@ -449,7 +448,8 @@ export class SimplifiedChartTransformer {
   createEnhancedMultiSeriesChart(
     measures: AggAppMeasure[],
     groupBy: string,
-    aggregations: Record<string, 'sum' | 'avg' | 'count' | 'min' | 'max'> = {}
+    aggregations: Record<string, 'sum' | 'avg' | 'count' | 'min' | 'max'> = {},
+    paletteId: string = 'default'
   ): ChartData {
     // Extract measure type from data
     const measureType = this.extractMeasureType(measures);
@@ -465,7 +465,7 @@ export class SimplifiedChartTransformer {
     const hasSeriesLabels = measures.some(m => m.series_label);
     
     if (hasSeriesLabels) {
-      const chartData = this.createMultiSeriesFromTaggedData(measures, aggregations);
+      const chartData = this.createMultiSeriesFromTaggedData(measures, aggregations, paletteId);
       // Attach measure type to chart data and all datasets
       chartData.measureType = measureType;
       chartData.datasets.forEach(dataset => {
@@ -506,7 +506,7 @@ export class SimplifiedChartTransformer {
     );
 
     const datasets: ChartDataset[] = [];
-    const colors = this.getColorPalette();
+    const colors = this.getColorPalette(paletteId);
     let colorIndex = 0;
 
     groupedData.forEach((dateMap, groupKey) => {
@@ -559,7 +559,8 @@ export class SimplifiedChartTransformer {
    */
   createMultiSeriesFromTaggedData(
     measures: AggAppMeasure[], // Tagged measures with series_label, etc.
-    aggregations: Record<string, 'sum' | 'avg' | 'count' | 'min' | 'max'> = {}
+    aggregations: Record<string, 'sum' | 'avg' | 'count' | 'min' | 'max'> = {},
+    paletteId: string = 'default'
   ): ChartData {
     chartLogger.debug('🔍 CREATING MULTI-SERIES FROM TAGGED DATA:', {
       measureCount: measures.length,
@@ -598,7 +599,7 @@ export class SimplifiedChartTransformer {
     );
 
     const datasets: ChartDataset[] = [];
-    const colors = this.getColorPalette();
+    const colors = this.getColorPalette(paletteId);
     let colorIndex = 0;
 
     groupedBySeries.forEach((dateMap, seriesLabel) => {

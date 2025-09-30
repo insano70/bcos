@@ -3,6 +3,7 @@
 import { ChartFilter, MeasureType, MultipleSeriesConfig } from '@/lib/types/analytics';
 import DateRangePresets from './date-range-presets';
 import DataSourceSelector from './data-source-selector';
+import ColorPaletteSelector from './color-palette-selector';
 
 interface FieldDefinition {
   name: string;
@@ -31,7 +32,7 @@ export interface DataSource {
 
 export interface ChartConfig {
   chartName: string;
-  chartType: 'line' | 'bar' | 'doughnut';
+  chartType: 'line' | 'bar' | 'stacked-bar' | 'doughnut';
   measure: string;
   frequency: string;
   practiceUid: string;
@@ -44,6 +45,8 @@ export interface ChartConfig {
   useMultipleSeries: boolean;
   seriesConfigs: MultipleSeriesConfig[];
   selectedDataSource: DataSource | null;
+  stackingMode?: 'normal' | 'percentage';
+  colorPalette?: string;
 }
 
 interface ChartBuilderCoreProps {
@@ -100,11 +103,22 @@ export default function ChartBuilderCore({
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
           >
             <option value="bar">Bar Chart</option>
+            <option value="stacked-bar">Stacked Bar Chart</option>
             <option value="line">Line Chart</option>
             <option value="doughnut">Doughnut Chart</option>
           </select>
         </div>
+      </div>
 
+      {/* Color Palette Selector - Full Width */}
+      <div className="mt-6">
+        <ColorPaletteSelector
+          value={chartConfig.colorPalette || 'default'}
+          onChange={(paletteId) => updateConfig('colorPalette', paletteId)}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
         {/* Measure - Hidden when multiple series is enabled */}
         {!chartConfig.useMultipleSeries ? (
           <div>
@@ -200,6 +214,23 @@ export default function ChartBuilderCore({
             <option value="provider_name">Provider</option>
             <option value="measure">Measure Type</option>
           </select>
+          {chartConfig.chartType === 'stacked-bar' && (
+            <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+              <div className="flex items-start">
+                <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+                <div>
+                  <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                    Stacked Bar Charts
+                  </p>
+                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                    Stacked bars show each group (Provider, Practice, etc.) as a colored segment in a single bar per time period. Select a Group By option to create multiple stack segments.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

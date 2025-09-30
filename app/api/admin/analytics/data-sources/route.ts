@@ -48,3 +48,4 @@ export const GET = rbacRoute(dataSourcesHandler, {
   permission: 'analytics:read:all',
   rateLimit: 'api'
 });
+

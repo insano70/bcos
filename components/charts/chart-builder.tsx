@@ -266,6 +266,15 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
       
       // Load new schema
       loadSchemaInfo(value as DataSource | null);
+    } else if (key === 'chartType' && value === 'stacked-bar') {
+      // Smart default: When switching to stacked-bar, auto-set groupBy to provider_name if currently none
+      setChartConfig(prev => ({
+        ...prev,
+        [key]: value,
+        groupBy: prev.groupBy === 'none' ? 'provider_name' : prev.groupBy,
+        stackingMode: prev.stackingMode || 'normal',
+        colorPalette: prev.colorPalette || 'blue' // Auto-select blue palette for stacked bars
+      }));
     } else {
       // Handle all other config updates normally
       setChartConfig(prev => ({ ...prev, [key]: value }));

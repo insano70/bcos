@@ -16,10 +16,11 @@ import ResponsiveChartContainer from './responsive-chart-container';
 import LineChart01 from './line-chart-01';
 import BarChart01 from './bar-chart-01';
 import AnalyticsBarChart from './analytics-bar-chart';
+import AnalyticsStackedBarChart from './analytics-stacked-bar-chart';
 import DoughnutChart from './doughnut-chart';
 
 interface AnalyticsChartProps extends ResponsiveChartProps {
-  chartType: 'line' | 'bar' | 'doughnut';
+  chartType: 'line' | 'bar' | 'stacked-bar' | 'doughnut';
   measure?: MeasureType;
   frequency?: FrequencyType;
   practice?: string | undefined;
@@ -37,6 +38,8 @@ interface AnalyticsChartProps extends ResponsiveChartProps {
   advancedFilters?: ChartFilter[]; // Phase 3: Advanced filtering support
   multipleSeries?: MultipleSeriesConfig[]; // Phase 3: Multiple series support
   dataSourceId?: number | undefined; // Data source ID for configurable data sources
+  stackingMode?: 'normal' | 'percentage'; // Stacking mode for stacked-bar charts
+  colorPalette?: string; // Color palette ID for chart colors
 }
 
 interface ApiResponse {
@@ -74,6 +77,8 @@ export default function AnalyticsChart({
   advancedFilters = [], // Phase 3: Advanced filters
   multipleSeries = [], // Phase 3: Multiple series
   dataSourceId, // Data source ID for configurable data sources
+  stackingMode = 'normal', // Stacking mode for stacked-bar charts
+  colorPalette = 'default', // Color palette for chart colors
   // Responsive sizing options
   responsive = false,
   minHeight = 200,
@@ -234,7 +239,8 @@ export default function AnalyticsChart({
         transformedData = simplifiedChartTransformer.createEnhancedMultiSeriesChart(
           processedMeasures,
           'measure', // Group by measure for multiple series
-          aggregations
+          aggregations,
+          colorPalette
         );
         
         console.log('🔍 MULTI-SERIES RESULT:', {
@@ -250,10 +256,14 @@ export default function AnalyticsChart({
           dataCount: processedMeasures.length
         });
         
+        // Map stacked-bar to bar for data transformation (stacking is handled in chart config)
+        const transformChartType = chartType === 'stacked-bar' ? 'bar' : chartType;
+        
         transformedData = simplifiedChartTransformer.transformData(
           processedMeasures,
-          chartType,
-          mappedGroupBy
+          transformChartType,
+          mappedGroupBy,
+          colorPalette
         );
         
         console.log('🔍 SINGLE-SERIES RESULT:', {
@@ -380,6 +390,8 @@ export default function AnalyticsChart({
           return <LineChart01 ref={chartRef} data={chartData} width={width} height={height} />;
         case 'bar':
           return <AnalyticsBarChart ref={chartRef} data={chartData} width={width} height={height} frequency={frequency} />;
+        case 'stacked-bar':
+          return <AnalyticsStackedBarChart ref={chartRef} data={chartData} width={width} height={height} frequency={frequency} stackingMode={stackingMode} />;
         case 'doughnut':
           return <DoughnutChart ref={chartRef} data={chartData} width={width} height={height} />;
         default:

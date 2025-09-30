@@ -42,6 +42,8 @@ export default function ChartBuilderPreview({
             calculatedField={chartConfig.calculatedField}
             advancedFilters={chartConfig.advancedFilters}
             dataSourceId={chartConfig.selectedDataSource?.id}
+            stackingMode={chartConfig.stackingMode || 'normal'}
+            colorPalette={chartConfig.colorPalette || 'default'}
             {...(chartConfig.useMultipleSeries && chartConfig.seriesConfigs.length > 0 ? { multipleSeries: chartConfig.seriesConfigs } : {})}
           />
         </div>

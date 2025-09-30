@@ -25,3 +25,4 @@ AND data_source_id IN (
 -- Add comment to document the purpose
 COMMENT ON COLUMN chart_data_source_columns.is_measure_type IS 
 'Indicates this column contains measure type information (currency, count, etc.) used for chart formatting';
+

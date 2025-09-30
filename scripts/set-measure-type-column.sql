@@ -21,3 +21,4 @@ SELECT
 FROM chart_data_source_columns cdsc
 JOIN chart_data_sources cds ON cdsc.data_source_id = cds.data_source_id
 WHERE cdsc.is_measure_type = true;
+
