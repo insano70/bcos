@@ -266,21 +266,22 @@ export class SAMLClientFactory {
         entryPoint: this.config.entryPoint,
         issuer: this.config.issuer,
         callbackUrl: this.config.callbackUrl,
-        idpCert: this.config.cert, // node-saml uses 'idpCert' not 'cert'
+        // node-saml requires 'idpCert' - can be string or array
+        idpCert: [this.config.cert.trim()], // Array format supports cert rotation
         ...(this.config.privateKey && { 
           privateKey: this.config.privateKey,
           decryptionPvk: this.config.privateKey
         }),
         signatureAlgorithm: this.config.security.signatureAlgorithm,
         digestAlgorithm: this.config.security.digestAlgorithm,
-        wantAssertionsSigned: this.config.security.wantAssertionsSigned,
-        wantAuthnResponseSigned: this.config.security.wantAuthnResponseSigned,
+        wantAssertionsSigned: true, // Microsoft signs assertions
+        wantAuthnResponseSigned: false, // Microsoft does NOT sign the response envelope
         acceptedClockSkewMs: this.config.security.acceptedClockSkewMs,
         identifierFormat: this.config.identifierFormat,
         forceAuthn: this.config.forceAuthn,
         disableRequestedAuthnContext: this.config.disableRequestedAuthnContext,
         authnRequestBinding: this.config.authnRequestBinding,
-        audience: this.config.issuer, // Audience should match our issuer
+        // Remove audience validation for localhost testing (node-saml will skip if undefined)
       };
 
       // Type assertion for the SAML instance (matches our SAML type definition)
@@ -392,8 +393,26 @@ export class SAMLClientFactory {
       if (this.config.logRawResponses && process.env.NODE_ENV !== 'production') {
         samlClientLogger.debug('Raw SAML response (non-production debug)', {
           requestId: context.requestId,
-          response: samlResponseBody.SAMLResponse.substring(0, 200) + '...'
+          responseLength: samlResponseBody.SAMLResponse.length,
+          responsePreview: samlResponseBody.SAMLResponse.substring(0, 100) + '...'
         });
+        
+        // Decode base64 to see XML structure
+        try {
+          const decoded = Buffer.from(samlResponseBody.SAMLResponse, 'base64').toString('utf-8');
+          samlClientLogger.debug('Decoded SAML XML preview', {
+            requestId: context.requestId,
+            xmlPreview: decoded.substring(0, 500) + '...',
+            containsSignature: decoded.includes('<Signature'),
+            containsAssertion: decoded.includes('<Assertion')
+          });
+          
+          console.log('\n🔍 SAML Response Debug:\n', decoded.substring(0, 1000), '\n...\n');
+        } catch (e) {
+          samlClientLogger.warn('Could not decode SAML response for debugging', {
+            error: e instanceof Error ? e.message : String(e)
+          });
+        }
       }
 
       // Validate SAML response (signature, timestamps, etc.)

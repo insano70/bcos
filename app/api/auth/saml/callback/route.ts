@@ -432,11 +432,55 @@ const samlCallbackHandler = async (request: NextRequest) => {
       totalDuration
     });
 
-    // Redirect to success page (dashboard or original callback URL)
+    // Return HTML with meta refresh to give browser time to process cookies
+    // Direct server redirect causes middleware to check cookies before browser receives them
     const samlConfig = getSAMLConfig();
-    const successUrl = new URL(samlConfig?.successRedirect || '/dashboard', request.url);
+    const successUrl = samlConfig?.successRedirect || '/dashboard';
     
-    return NextResponse.redirect(successUrl);
+    const htmlResponse = new NextResponse(
+      `<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="refresh" content="0;url=${successUrl}">
+  <title>Authentication Successful</title>
+</head>
+<body>
+  <p>Authentication successful. Redirecting...</p>
+  <script>window.location.href = '${successUrl}';</script>
+</body>
+</html>`,
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+        },
+      }
+    );
+    
+    // Set cookies on the HTML response
+    htmlResponse.cookies.set('refresh-token', tokenPair.refreshToken, {
+      httpOnly: true,
+      secure: isSecureEnvironment,
+      sameSite: 'strict',
+      path: '/',
+      maxAge
+    });
+    
+    htmlResponse.cookies.set('access-token', tokenPair.accessToken, {
+      httpOnly: true,
+      secure: isSecureEnvironment,
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 15 * 60 // 15 minutes
+    });
+    
+    logger.info('SAML success response with cookies and client redirect', {
+      requestId: authContext.requestId,
+      redirectTo: successUrl,
+      cookiesAttached: 2
+    });
+    
+    return htmlResponse;
 
   } catch (error) {
     const totalDuration = Date.now() - startTime;
@@ -477,6 +521,7 @@ const samlCallbackHandler = async (request: NextRequest) => {
     });
 
     // Redirect back to login page with error
+    // Use 303 status to change POST to GET
     const errorUrl = new URL('/signin', request.url);
     
     // Map errors to user-friendly messages
@@ -494,7 +539,7 @@ const samlCallbackHandler = async (request: NextRequest) => {
       errorUrl.searchParams.set('error', 'saml_validation_failed');
     }
 
-    return NextResponse.redirect(errorUrl);
+    return NextResponse.redirect(errorUrl, 303); // 303 = See Other (POST → GET)
   }
 };
 

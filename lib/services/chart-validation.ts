@@ -28,7 +28,7 @@ const LEGACY_ALLOWED_FIELDS = [
 ] as const;
 
 // Allowed chart types
-const ALLOWED_CHART_TYPES = ['line', 'bar', 'stacked-bar', 'horizontal-bar', 'pie', 'doughnut', 'area'] as const;
+const ALLOWED_CHART_TYPES = ['line', 'bar', 'stacked-bar', 'horizontal-bar', 'progress-bar', 'pie', 'doughnut', 'area'] as const;
 
 // Allowed operators for filters
 const ALLOWED_OPERATORS = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'not_in', 'like', 'between'] as const;

@@ -144,9 +144,19 @@ const samlLoginHandler = async (request: NextRequest) => {
   } catch (error) {
     const totalDuration = Date.now() - startTime;
 
+    // Enhanced error logging with full details
     logger.error('SAML login initiation failed', error, {
       totalDuration,
-      errorType: error instanceof Error ? error.constructor.name : typeof error
+      errorType: error instanceof Error ? error.constructor.name : typeof error,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined
+    });
+    
+    // Also log to console for immediate visibility
+    console.error('❌ SAML Login Error:', {
+      message: error instanceof Error ? error.message : String(error),
+      type: error instanceof Error ? error.constructor.name : typeof error,
+      stack: error instanceof Error ? error.stack?.split('\n').slice(0, 5) : undefined
     });
 
     // Enhanced error logging

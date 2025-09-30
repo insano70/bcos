@@ -18,10 +18,11 @@ import BarChart01 from './bar-chart-01';
 import AnalyticsBarChart from './analytics-bar-chart';
 import AnalyticsStackedBarChart from './analytics-stacked-bar-chart';
 import AnalyticsHorizontalBarChart from './analytics-horizontal-bar-chart';
+import AnalyticsProgressBarChart from './analytics-progress-bar-chart';
 import DoughnutChart from './doughnut-chart';
 
 interface AnalyticsChartProps extends ResponsiveChartProps {
-  chartType: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'doughnut';
+  chartType: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'progress-bar' | 'doughnut';
   measure?: MeasureType;
   frequency?: FrequencyType;
   practice?: string | undefined;
@@ -259,7 +260,7 @@ export default function AnalyticsChart({
           dataCount: processedMeasures.length
         });
         
-        // Map stacked-bar to bar for data transformation (stacking is handled in chart config)
+        // Map stacked-bar to bar for data transformation (progress-bar uses its own method)
         const transformChartType = chartType === 'stacked-bar' ? 'bar' : chartType;
         
         transformedData = simplifiedChartTransformer.transformData(
@@ -397,6 +398,24 @@ export default function AnalyticsChart({
           return <AnalyticsStackedBarChart ref={chartRef} data={chartData} width={width} height={height} frequency={frequency} stackingMode={stackingMode} />;
         case 'horizontal-bar':
           return <AnalyticsHorizontalBarChart ref={chartRef} data={chartData} width={width} height={height} />;
+        case 'progress-bar':
+          // Progress bar uses custom CSS rendering, not Chart.js
+          // Reconstruct progress data from chartData
+          const dataset = chartData.datasets[0];
+          const total = dataset?.data.reduce((sum: number, val: number) => sum + val, 0) || 0;
+          const progressData = chartData.labels.map((label, index) => ({
+            label: String(label),
+            value: Number(dataset?.data[index] || 0),
+            percentage: total > 0 ? (Number(dataset?.data[index] || 0) / total) * 100 : 0
+          }));
+          return (
+            <AnalyticsProgressBarChart
+              data={progressData}
+              colorPalette={colorPalette}
+              measureType={chartData.measureType}
+              height={height}
+            />
+          );
         case 'doughnut':
           return <DoughnutChart ref={chartRef} data={chartData} width={width} height={height} />;
         default:

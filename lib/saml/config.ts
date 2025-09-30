@@ -396,7 +396,8 @@ async function getSPCertificate(): Promise<{ certificate: string; info: SAMLCert
 }
 
 /**
- * Get SP (Service Provider) private key with caching
+ * Get SP (Service Provider) private key
+ * Note: Private keys are NOT certificates, so we don't use certificate caching/parsing
  */
 async function getSPPrivateKey(): Promise<string | undefined> {
   const envConfig = getSAMLConfig();
@@ -404,17 +405,21 @@ async function getSPPrivateKey(): Promise<string | undefined> {
     return undefined; // SP private key is optional
   }
 
-  const result = await certificateCache.get('sp_private_key', async () => {
-    // Production: Load from Secrets Manager
-    if (process.env.NODE_ENV === 'production' && envConfig.spPrivateKey?.startsWith('arn:')) {
-      return await loadCertificateFromSecretsManager(envConfig.spPrivateKey, 'SAML_PRIVATE_KEY');
-    }
+  // Production: Load from Secrets Manager
+  if (process.env.NODE_ENV === 'production' && envConfig.spPrivateKey.startsWith('arn:')) {
+    return await loadCertificateFromSecretsManager(envConfig.spPrivateKey, 'SAML_PRIVATE_KEY');
+  }
 
-    // Development/Staging: Load from file or env var
-    return loadCertificateFromFS(envConfig.spPrivateKey, 'SAML_PRIVATE_KEY');
+  // Development/Staging: Load from file or env var
+  // Private keys don't go through certificate cache since they're not X509 certificates
+  const privateKey = loadCertificateFromFS(envConfig.spPrivateKey, 'SAML_PRIVATE_KEY');
+  
+  samlConfigLogger.debug('SP private key loaded', {
+    length: privateKey.length,
+    type: 'RSA_PRIVATE_KEY'
   });
 
-  return result.certificate;
+  return privateKey;
 }
 
 /**

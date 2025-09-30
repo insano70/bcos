@@ -38,7 +38,7 @@ export class SimplifiedChartTransformer {
    */
   transformData(
     measures: AggAppMeasure[],
-    chartType: 'line' | 'bar' | 'horizontal-bar' | 'pie' | 'doughnut' | 'area',
+    chartType: 'line' | 'bar' | 'horizontal-bar' | 'progress-bar' | 'pie' | 'doughnut' | 'area',
     groupBy: string = 'none',
     paletteId: string = 'default'
   ): ChartData {
@@ -69,6 +69,9 @@ export class SimplifiedChartTransformer {
         break;
       case 'horizontal-bar':
         chartData = this.createHorizontalBarChart(measures, groupBy, paletteId);
+        break;
+      case 'progress-bar':
+        chartData = this.createProgressBarChart(measures, groupBy, paletteId);
         break;
       case 'pie':
       case 'doughnut':
@@ -445,6 +448,53 @@ export class SimplifiedChartTransformer {
         borderRadius: 4,
         barPercentage: 0.7,
         categoryPercentage: 0.9,
+      }]
+    };
+  }
+
+  /**
+   * Create progress bar chart (same data as horizontal bar but different rendering)
+   */
+  private createProgressBarChart(measures: AggAppMeasure[], groupBy: string, paletteId: string = 'default'): ChartData {
+    if (groupBy === 'none') {
+      throw new Error('Progress bar charts require a groupBy field');
+    }
+
+    // Aggregate data by groupBy field, summing across all dates
+    const aggregatedData = new Map<string, number>();
+
+    measures.forEach(measure => {
+      const groupKey = this.getGroupValue(measure, groupBy);
+      const measureValue = typeof measure.measure_value === 'string' 
+        ? parseFloat(measure.measure_value) 
+        : measure.measure_value;
+      
+      const currentValue = aggregatedData.get(groupKey) || 0;
+      aggregatedData.set(groupKey, currentValue + measureValue);
+    });
+
+    // Sort by value (descending) - highest to lowest
+    const sortedEntries = Array.from(aggregatedData.entries())
+      .sort((a, b) => b[1] - a[1]);
+
+    // Calculate total for percentages
+    const total = sortedEntries.reduce((sum, [, value]) => sum + value, 0);
+
+    // Create data with percentages for progress bars
+    const progressData = sortedEntries.map(([label, value]) => ({
+      label,
+      value,
+      percentage: total > 0 ? (value / total) * 100 : 0
+    }));
+
+    // Store in custom format (Chart.js compatible but will be handled differently)
+    return {
+      labels: progressData.map(d => d.label),
+      datasets: [{
+        label: measures[0]?.measure || 'Value',
+        data: progressData.map(d => d.value),
+        backgroundColor: this.getColorPalette(paletteId)[0] || '#8B5CF6'
+        // Note: Progress bar metadata stored in data array, not as extension
       }]
     };
   }
