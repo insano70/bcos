@@ -203,11 +203,3 @@ export const practice_comments = pgTable(
     displayOrderIdx: index('idx_practice_comments_display_order').on(table.practice_id, table.display_order),
   })
 );
-
-// TEST TABLE: Dummy table to verify automated migrations work
-// This will be dropped in a subsequent migration after verification
-export const dummy_table = pgTable('dummy_table', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  test_data: text('test_data'),
-  created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
