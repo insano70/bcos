@@ -722,7 +722,7 @@ export default function EnhancedDashboardBuilder({ editingDashboard, onCancel, o
     setIsSaving(true);
 
     try {
-      const dashboardDefinition = {
+      const dashboardDefinition: any = {
         dashboard_name: dashboardConfig.dashboardName,
         dashboard_description: dashboardConfig.dashboardDescription,
         layout_config: {
@@ -733,6 +733,11 @@ export default function EnhancedDashboardBuilder({ editingDashboard, onCancel, o
         chart_ids: dashboardConfig.charts.map(chart => chart.chartDefinitionId),
         chart_positions: dashboardConfig.charts.map(chart => chart.position)
       };
+
+      // When editing, preserve the existing is_published status
+      if (isEditMode && editingDashboard) {
+        dashboardDefinition.is_published = editingDashboard.is_published;
+      }
 
       console.log(`💾 ${isEditMode ? 'Updating' : 'Creating'} dashboard:`, dashboardDefinition);
 

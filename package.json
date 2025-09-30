@@ -37,7 +37,8 @@
     "db:push": "drizzle-kit push",
     "db:generate": "drizzle-kit generate",
     "db:psql": "./lib/db/db-utils.sh",
-    "db:check": "./lib/db/db-utils.sh -c 'SELECT current_database();'"
+    "db:check": "./lib/db/db-utils.sh -c 'SELECT current_database();'",
+    "db:backfill:account-security": "tsx --env-file=.env.local scripts/backfill-account-security.ts"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

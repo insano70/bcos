@@ -146,7 +146,15 @@ export const dashboardCreateSchema = z.object({
   path: ['chart_positions']
 })
 
-export const dashboardUpdateSchema = dashboardCreateSchema.partial()
+// Dashboard update schema - make all fields optional and remove defaults
+// This ensures that only fields explicitly provided are updated
+export const dashboardUpdateSchema = dashboardCreateSchema
+  .partial()
+  .omit({ is_published: true, is_active: true })
+  .extend({
+    is_published: z.boolean().optional(),
+    is_active: z.boolean().optional()
+  })
 
 export const dashboardParamsSchema = z.object({
   dashboardId: uuidSchema

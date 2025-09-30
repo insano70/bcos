@@ -41,8 +41,6 @@ export default function RowBasedDashboardBuilder({
   useEffect(() => {
     if (editingDashboard && availableCharts.length > 0) {
       console.log('📝 Converting grid-based dashboard to row-based:', editingDashboard);
-      console.log('📝 Dashboard name from editingDashboard:', editingDashboard.dashboard_name);
-      console.log('📝 Available charts count:', availableCharts.length);
       
       // Convert grid-based charts to row-based layout
       let rows: DashboardRow[] = [];
@@ -82,14 +80,11 @@ export default function RowBasedDashboardBuilder({
       }
 
       // Set all dashboard info in a single state update to avoid race conditions
-      const newConfig = {
+      setDashboardConfig({
         dashboardName: editingDashboard.dashboard_name || '',
         dashboardDescription: editingDashboard.dashboard_description || '',
         rows
-      };
-      
-      console.log('📝 Setting dashboard config:', newConfig);
-      setDashboardConfig(newConfig);
+      });
 
       setIsEditMode(true);
     }
@@ -192,7 +187,7 @@ export default function RowBasedDashboardBuilder({
 
     try {
       // Convert row-based config to API format
-      const dashboardDefinition = {
+      const dashboardDefinition: any = {
         dashboard_name: dashboardConfig.dashboardName,
         dashboard_description: dashboardConfig.dashboardDescription,
         layout_config: {
@@ -218,6 +213,11 @@ export default function RowBasedDashboardBuilder({
           }))
         )
       };
+
+      // When editing, preserve the existing is_published status
+      if (isEditMode && editingDashboard) {
+        dashboardDefinition.is_published = editingDashboard.is_published;
+      }
 
       console.log(`💾 ${isEditMode ? 'Updating' : 'Creating'} row-based dashboard:`, dashboardDefinition);
 
@@ -309,10 +309,7 @@ export default function RowBasedDashboardBuilder({
             <input
               type="text"
               value={dashboardConfig.dashboardName}
-              onChange={(e) => {
-                console.log('📝 Dashboard name changed to:', e.target.value);
-                setDashboardConfig(prev => ({ ...prev, dashboardName: e.target.value }));
-              }}
+              onChange={(e) => setDashboardConfig(prev => ({ ...prev, dashboardName: e.target.value }))}
               placeholder="Enter dashboard name"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
             />
