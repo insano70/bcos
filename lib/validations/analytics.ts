@@ -20,6 +20,37 @@ const multipleSeriesConfigSchema = z.object({
 })
 
 const chartConfigSchema = z.object({
+  // Database structure fields
+  x_axis: z.object({
+    field: z.string(),
+    label: z.string(),
+    format: z.string()
+  }).optional(),
+  y_axis: z.object({
+    field: z.string(),
+    label: z.string(),
+    format: z.string()
+  }).optional(),
+  series: z.object({
+    groupBy: z.string().optional(),
+    colorPalette: z.string().optional()
+  }).optional(),
+  options: z.object({
+    responsive: z.boolean().optional(),
+    showLegend: z.boolean().optional(),
+    showTooltips: z.boolean().optional(),
+    animation: z.boolean().optional()
+  }).optional(),
+  
+  // Additional configuration fields
+  calculatedField: z.string().optional(),
+  dateRangePreset: z.string().optional(),
+  seriesConfigs: z.array(multipleSeriesConfigSchema).optional(),
+  dataSourceId: z.number().optional(),
+  stackingMode: z.enum(['normal', 'percentage']).optional(),
+  colorPalette: z.string().optional(),
+  
+  // Legacy/internal state fields (for backwards compatibility)
   chartName: z.string().optional(),
   chartType: z.enum(['line', 'bar', 'stacked-bar', 'doughnut']).optional(),
   measure: z.string().optional(),
@@ -28,25 +59,22 @@ const chartConfigSchema = z.object({
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   groupBy: z.string().optional(),
-  calculatedField: z.string().optional(),
   advancedFilters: z.array(chartFilterSchema).optional(),
   useAdvancedFiltering: z.boolean().optional(),
-  useMultipleSeries: z.boolean().optional(),
-  seriesConfigs: z.array(multipleSeriesConfigSchema).optional(),
-  stackingMode: z.enum(['normal', 'percentage']).optional(),
-  colorPalette: z.string().optional()
-})
+  useMultipleSeries: z.boolean().optional()
+}).passthrough()
 
 const dataSourceConfigSchema = z.object({
   table: z.string().optional(),
   filters: z.array(chartFilterSchema).optional(),
   orderBy: z.array(z.object({
     field: z.string(),
-    direction: z.enum(['asc', 'desc'])
+    direction: z.enum(['asc', 'desc', 'ASC', 'DESC']) // Support both cases
   })).optional(),
+  groupBy: z.union([z.string(), z.array(z.string())]).optional(), // Support string or array
   limit: z.number().optional(),
   advancedFilters: z.array(chartFilterSchema).optional()
-})
+}).passthrough()
 
 // Common schemas
 const uuidSchema = z.string().uuid('Invalid UUID format')
@@ -76,7 +104,7 @@ export const chartDefinitionCreateSchema = z.object({
   chart_name: nameSchema,
   chart_description: descriptionSchema,
   chart_type: z.enum(['line', 'bar', 'stacked-bar', 'pie', 'doughnut', 'area', 'scatter', 'histogram', 'heatmap']),
-  chart_category_id: integerIdSchema.optional(),
+  chart_category_id: z.union([integerIdSchema, z.null()]).optional(),
   chart_config: chartConfigSchema.optional(), // Properly typed chart configuration
   data_source: z.union([z.string().min(1, 'Data source is required').max(500), dataSourceConfigSchema]),
   query_config: dataSourceConfigSchema.optional(), // Properly typed query configuration

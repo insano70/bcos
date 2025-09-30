@@ -85,8 +85,22 @@ const createChartHandler = async (request: NextRequest, userContext: UserContext
   });
 
   try {
+    // Parse and log request body for debugging
+    const requestBody = await request.json();
+    console.log('📥 Received chart definition request:', JSON.stringify(requestBody, null, 2));
+    
     // Validate request body with Zod
-    const validatedData = await validateRequest(request, chartDefinitionCreateSchema);
+    const validationResult = chartDefinitionCreateSchema.safeParse(requestBody);
+    
+    if (!validationResult.success) {
+      const errorDetails = validationResult.error.issues.map(issue => 
+        `${issue.path.join('.')}: ${issue.message}`
+      ).join(', ');
+      console.error('❌ Validation failed:', JSON.stringify(validationResult.error.issues, null, 2));
+      return createErrorResponse(`Validation failed: ${errorDetails}`, 400);
+    }
+    
+    const validatedData = validationResult.data;
 
     // Create service instance and create chart
     const chartsService = createRBACChartsService(userContext);
@@ -96,7 +110,7 @@ const createChartHandler = async (request: NextRequest, userContext: UserContext
       chart_type: validatedData.chart_type,
       data_source: validatedData.data_source,
       chart_config: validatedData.chart_config,
-      chart_category_id: validatedData.chart_category_id,
+      chart_category_id: validatedData.chart_category_id ?? undefined,
       is_active: validatedData.is_active
     });
 
