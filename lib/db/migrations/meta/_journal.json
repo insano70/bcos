@@ -64,6 +64,13 @@
       "when": 1758737685203,
       "tag": "0011_unique_mandrill",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1759236700000,
+      "tag": "0012_test_dummy_table",
+      "breakpoints": true
     }
   ]
 }
