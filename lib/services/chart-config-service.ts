@@ -29,6 +29,8 @@ export interface ColumnConfig {
   isMeasure: boolean;
   isDimension: boolean;
   isDateField: boolean;
+  isMeasureType?: boolean;
+  isTimePeriod?: boolean;
   formatType?: string;
   sortOrder: number;
   defaultAggregation?: string;
@@ -149,6 +151,8 @@ export class ChartConfigService {
             isMeasure: col.is_measure ?? false,
             isDimension: col.is_dimension ?? false,
             isDateField: col.is_date_field ?? false,
+            isMeasureType: col.is_measure_type ?? false,
+            isTimePeriod: col.is_time_period ?? false,
             sortOrder: col.sort_order ?? 0,
           };
           
@@ -394,18 +398,48 @@ export class ChartConfigService {
 
   /**
    * Get available frequencies from data source by querying actual data
+   * Dynamically finds the time period column using is_time_period flag
    */
   async getAvailableFrequencies(tableName: string, schemaName: string = 'ih'): Promise<string[]> {
     try {
-      // Query the actual data source for distinct frequencies
+      // Get data source configuration to find the time period column
+      const config = await this.getDataSourceConfig(tableName, schemaName);
+      
+      if (!config) {
+        console.warn('Data source config not found, using fallback frequencies');
+        return ['Monthly', 'Weekly', 'Quarterly'];
+      }
+      
+      // Find the column marked as time period
+      const timePeriodColumn = config.columns.find(col => col.isTimePeriod === true);
+      
+      if (!timePeriodColumn) {
+        console.warn('No time period column found in data source, using fallback frequencies');
+        return ['Monthly', 'Weekly', 'Quarterly'];
+      }
+      
+      // Query the actual data source for distinct frequencies using the identified column
       const { executeAnalyticsQuery } = await import('./analytics-db');
       const frequencies = await executeAnalyticsQuery(`
-        SELECT DISTINCT frequency 
+        SELECT DISTINCT ${timePeriodColumn.columnName} 
         FROM ${schemaName}.${tableName} 
-        ORDER BY frequency
+        WHERE ${timePeriodColumn.columnName} IS NOT NULL
+        ORDER BY ${timePeriodColumn.columnName}
       `, []);
       
-      return frequencies.map((row) => (row as { frequency: string }).frequency).filter(Boolean);
+      // Extract values using the dynamic column name
+      const values = frequencies
+        .map((row) => (row as Record<string, unknown>)[timePeriodColumn.columnName])
+        .filter(Boolean)
+        .map(val => String(val));
+      
+      console.log('✅ Loaded frequencies dynamically:', {
+        tableName,
+        timePeriodColumn: timePeriodColumn.columnName,
+        frequenciesFound: values
+      });
+      
+      return values.length > 0 ? values : ['Monthly', 'Weekly', 'Quarterly'];
     } catch (error) {
       console.warn('Failed to load frequencies from database, using fallback:', error);
       return ['Monthly', 'Weekly', 'Quarterly'];

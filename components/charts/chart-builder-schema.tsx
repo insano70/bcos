@@ -18,10 +18,14 @@ interface SchemaInfo {
 }
 
 interface ChartBuilderSchemaProps {
-  schemaInfo: SchemaInfo;
+  schemaInfo: SchemaInfo | null;
 }
 
 export default function ChartBuilderSchema({ schemaInfo }: ChartBuilderSchemaProps) {
+  if (!schemaInfo) {
+    return null;
+  }
+
   return (
     <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4">
       <details className="group">

@@ -52,6 +52,7 @@ export interface DataSourceColumn {
   is_dimension: boolean | null;
   is_date_field: boolean | null;
   is_measure_type: boolean | null;
+  is_time_period: boolean | null;
 
   // Display and formatting
   format_type: string | null;

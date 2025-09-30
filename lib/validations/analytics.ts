@@ -21,7 +21,7 @@ const multipleSeriesConfigSchema = z.object({
 
 const chartConfigSchema = z.object({
   chartName: z.string().optional(),
-  chartType: z.enum(['line', 'bar', 'doughnut']).optional(),
+  chartType: z.enum(['line', 'bar', 'stacked-bar', 'doughnut']).optional(),
   measure: z.string().optional(),
   frequency: z.string().optional(),
   practiceUid: z.string().optional(),
@@ -32,7 +32,9 @@ const chartConfigSchema = z.object({
   advancedFilters: z.array(chartFilterSchema).optional(),
   useAdvancedFiltering: z.boolean().optional(),
   useMultipleSeries: z.boolean().optional(),
-  seriesConfigs: z.array(multipleSeriesConfigSchema).optional()
+  seriesConfigs: z.array(multipleSeriesConfigSchema).optional(),
+  stackingMode: z.enum(['normal', 'percentage']).optional(),
+  colorPalette: z.string().optional()
 })
 
 const dataSourceConfigSchema = z.object({
@@ -73,7 +75,7 @@ export const chartCategoryParamsSchema = z.object({
 export const chartDefinitionCreateSchema = z.object({
   chart_name: nameSchema,
   chart_description: descriptionSchema,
-  chart_type: z.enum(['line', 'bar', 'pie', 'area', 'scatter', 'histogram', 'heatmap']),
+  chart_type: z.enum(['line', 'bar', 'stacked-bar', 'pie', 'doughnut', 'area', 'scatter', 'histogram', 'heatmap']),
   chart_category_id: integerIdSchema.optional(),
   chart_config: chartConfigSchema.optional(), // Properly typed chart configuration
   data_source: z.union([z.string().min(1, 'Data source is required').max(500), dataSourceConfigSchema]),

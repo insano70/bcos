@@ -42,6 +42,8 @@ export interface DataSourceColumnWithMetadata {
   is_measure: boolean | null;
   is_dimension: boolean | null;
   is_date_field: boolean | null;
+  is_measure_type: boolean | null;
+  is_time_period: boolean | null;
 
   // Display and formatting
   format_type: string | null;
@@ -799,6 +801,7 @@ export class RBACDataSourcesService extends BaseRBACService {
             is_dimension: data.is_dimension,
             is_date_field: data.is_date_field,
             is_measure_type: data.is_measure_type,
+            is_time_period: data.is_time_period,
             format_type: data.format_type,
             sort_order: data.sort_order,
             default_aggregation: data.default_aggregation,
@@ -870,6 +873,7 @@ export class RBACDataSourcesService extends BaseRBACService {
           is_dimension: data.is_dimension,
           is_date_field: data.is_date_field,
           is_measure_type: data.is_measure_type,
+          is_time_period: data.is_time_period,
           format_type: data.format_type,
           sort_order: data.sort_order,
           default_aggregation: data.default_aggregation,
@@ -1048,6 +1052,9 @@ export class RBACDataSourcesService extends BaseRBACService {
           // Detect if this column contains measure type information (for formatting)
           const isMeasureType = columnName.match(/^(measure_type|number_format|display_format|format_type|value_type|data_format)$/i) !== null;
 
+          // Detect if this column contains time period/frequency information
+          const isTimePeriod = columnName.match(/^(time_period|frequency|period|time_unit|period_type)$/i) !== null;
+
           // Create display name from column name
           const displayName = col.column_name
             .split('_')
@@ -1066,6 +1073,7 @@ export class RBACDataSourcesService extends BaseRBACService {
             is_dimension: isDimension,
             is_date_field: isDateField,
             is_measure_type: isMeasureType,
+            is_time_period: isTimePeriod,
             sort_order: index,
             is_sensitive: false,
             access_level: 'all',

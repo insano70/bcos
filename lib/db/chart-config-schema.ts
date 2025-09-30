@@ -46,6 +46,7 @@ export const chart_data_source_columns = pgTable(
     is_dimension: boolean('is_dimension').default(false),
     is_date_field: boolean('is_date_field').default(false),
     is_measure_type: boolean('is_measure_type').default(false),
+    is_time_period: boolean('is_time_period').default(false),
     
     // Display and formatting
     format_type: varchar('format_type', { length: 50 }),

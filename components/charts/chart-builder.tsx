@@ -71,7 +71,7 @@ interface ChartBuilderProps {
 
 export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveSuccess }: ChartBuilderProps = {}) {
   const [schemaInfo, setSchemaInfo] = useState<SchemaInfo | null>(null);
-  const [isLoadingSchema, setIsLoadingSchema] = useState(true);
+  const [isLoadingSchema, setIsLoadingSchema] = useState(false);
   const [currentStep, setCurrentStep] = useState<'configure' | 'preview'>('configure');
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -127,10 +127,13 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
     }
   };
 
-  // Load schema information on mount
+  // Load schema information when data source is selected
   useEffect(() => {
-    loadSchemaInfo();
-  }, []);
+    if (chartConfig.selectedDataSource) {
+      setIsLoadingSchema(true);
+      loadSchemaInfo(chartConfig.selectedDataSource);
+    }
+  }, [chartConfig.selectedDataSource?.id]); // Track by ID to avoid object reference issues
 
   // Populate form when editing
   useEffect(() => {
@@ -213,20 +216,13 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
       setSchemaInfo(result);
       
       // Set default values based on schema (only if not in edit mode)
-      if (!isEditMode) {
-        if (result.availableMeasures && result.availableMeasures.length > 0) {
-          setChartConfig(prev => ({
-            ...prev,
-            measure: result.availableMeasures[0] as any
-          }));
-        }
-        
-        if (result.availableFrequencies && result.availableFrequencies.length > 0) {
-          setChartConfig(prev => ({
-            ...prev,
-            frequency: result.availableFrequencies[0] as any
-          }));
-        }
+      // Batch updates to prevent multiple re-renders
+      if (!isEditMode && (result.availableMeasures?.length > 0 || result.availableFrequencies?.length > 0)) {
+        setChartConfig(prev => ({
+          ...prev,
+          ...(result.availableMeasures?.length > 0 && { measure: result.availableMeasures[0] as any }),
+          ...(result.availableFrequencies?.length > 0 && { frequency: result.availableFrequencies[0] as any })
+        }));
       }
 
       console.log('✅ Schema loaded:', {
@@ -244,13 +240,12 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
   };
 
   const updateConfig = (key: keyof ChartConfig, value: string | boolean | ChartFilter[] | DataSource | null | undefined) => {
-    // If data source is changing, reload schema and reset related fields
+    // If data source is changing, reset related fields
     if (key === 'selectedDataSource' && value !== chartConfig.selectedDataSource) {
-      console.log('🔄 Data source changed, reloading schema...');
-      setIsLoadingSchema(true);
-      setSchemaInfo(null);
+      console.log('🔄 Data source changed...');
       
       // Reset fields that depend on the data source
+      // Note: Schema will be loaded by the useEffect hook that watches selectedDataSource
       if (!isEditMode) {
         setChartConfig(prev => ({
           ...prev,
@@ -263,9 +258,6 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
       } else {
         setChartConfig(prev => ({ ...prev, selectedDataSource: value as DataSource | null }));
       }
-      
-      // Load new schema
-      loadSchemaInfo(value as DataSource | null);
     } else if (key === 'chartType' && value === 'stacked-bar') {
       // Smart default: When switching to stacked-bar, auto-set groupBy to provider_name if currently none
       setChartConfig(prev => ({
@@ -428,16 +420,6 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
     return <ChartBuilderSkeleton />;
   }
 
-  if (!schemaInfo) {
-    return (
-      <div className="max-w-4xl mx-auto bg-white dark:bg-gray-800 shadow-sm rounded-xl p-8">
-        <div className="text-center text-red-500">
-          Failed to load analytics schema. Please check your database connection.
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-6xl mx-auto bg-white dark:bg-gray-800 shadow-sm rounded-xl">
       {/* Header */}
@@ -484,33 +466,43 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
       <div className="px-6 py-6">
         {currentStep === 'configure' && (
           <div className="space-y-6">
-            <ChartBuilderCore
-              key={isEditMode ? `edit-${editingChart?.chart_definition_id}` : 'create'}
-              schemaInfo={schemaInfo}
-              chartConfig={chartConfig}
-              updateConfig={updateConfig}
-              handleDateRangeChange={handleDatePresetChange}
-              selectedDatePreset={selectedDatePreset}
-            />
-            
-            <ChartBuilderAdvanced
-              schemaInfo={schemaInfo}
-              chartConfig={chartConfig}
-              updateConfig={updateConfig}
-              handleAdvancedFiltersChange={handleAdvancedFiltersChange}
-              addSeries={addSeries}
-              updateSeries={updateSeries}
-              removeSeries={removeSeries}
-            />
+            {schemaInfo ? (
+              <>
+                <ChartBuilderCore
+                  key={isEditMode ? `edit-${editingChart?.chart_definition_id}` : 'create'}
+                  schemaInfo={schemaInfo}
+                  chartConfig={chartConfig}
+                  updateConfig={updateConfig}
+                  handleDateRangeChange={handleDatePresetChange}
+                  selectedDatePreset={selectedDatePreset}
+                />
+                
+                <ChartBuilderAdvanced
+                  schemaInfo={schemaInfo}
+                  chartConfig={chartConfig}
+                  updateConfig={updateConfig}
+                  handleAdvancedFiltersChange={handleAdvancedFiltersChange}
+                  addSeries={addSeries}
+                  updateSeries={updateSeries}
+                  removeSeries={removeSeries}
+                />
+              </>
+            ) : (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <p className="mb-2">Please select a data source to begin</p>
+              </div>
+            )}
 
-            <div className="flex justify-end">
-              <button
-                onClick={handlePreview}
-                className="px-6 py-2 bg-violet-500 text-white rounded-md hover:bg-violet-600 transition-colors"
-              >
-                Preview Chart
-              </button>
-            </div>
+            {schemaInfo && (
+              <div className="flex justify-end">
+                <button
+                  onClick={handlePreview}
+                  className="px-6 py-2 bg-violet-500 text-white rounded-md hover:bg-violet-600 transition-colors"
+                >
+                  Preview Chart
+                </button>
+              </div>
+            )}
           </div>
         )}
 

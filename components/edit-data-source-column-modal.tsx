@@ -52,6 +52,7 @@ export default function EditDataSourceColumnModal({
       setValue('is_dimension', column.is_dimension || false);
       setValue('is_date_field', column.is_date_field || false);
       setValue('is_measure_type', column.is_measure_type || false);
+      setValue('is_time_period', column.is_time_period || false);
       setValue('format_type', column.format_type || undefined);
       setValue('sort_order', column.sort_order || 0);
       setValue('default_aggregation', column.default_aggregation || undefined);
@@ -273,6 +274,18 @@ export default function EditDataSourceColumnModal({
                             />
                             <label htmlFor="edit_is_measure_type" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                               Measure Type - Contains formatting information (currency, count, etc.)
+                            </label>
+                          </div>
+
+                          <div className="flex items-center">
+                            <input
+                              id="edit_is_time_period"
+                              type="checkbox"
+                              {...register('is_time_period')}
+                              className="form-checkbox"
+                            />
+                            <label htmlFor="edit_is_time_period" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                              Time Period - Contains frequency/period values (Monthly, Weekly, etc.)
                             </label>
                           </div>
                         </div>

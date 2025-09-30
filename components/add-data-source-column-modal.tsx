@@ -292,6 +292,18 @@ export default function AddDataSourceColumnModal({
                               Measure Type - Contains formatting information (currency, count, etc.)
                             </label>
                           </div>
+
+                          <div className="flex items-center">
+                            <input
+                              id="add_is_time_period"
+                              type="checkbox"
+                              {...register('is_time_period')}
+                              className="form-checkbox"
+                            />
+                            <label htmlFor="add_is_time_period" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                              Time Period - Contains frequency/period values (Monthly, Weekly, etc.)
+                            </label>
+                          </div>
                         </div>
                       </div>
 
