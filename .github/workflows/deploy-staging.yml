@@ -162,7 +162,7 @@ jobs:
             "containerDefinitions": [{
               "name": "migration-runner",
               "image": "${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.IMAGE_TAG }}",
-              "command": ["node", "--import", "tsx/esm", "scripts/run-migrations.ts"],
+              "command": ["npx", "tsx", "scripts/run-migrations.ts"],
               "essential": true,
               "logConfiguration": {
                 "logDriver": "awslogs",
