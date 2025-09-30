@@ -1,5 +1,19 @@
 # Database Migration Deployment Guide
 
+## ⚠️ CRITICAL: First-Time Setup Required
+
+**Before using automated migrations**, you **MUST** run the one-time seeding script on staging and production databases. See [Migration Seeding Guide](./migration-seeding-guide.md) for detailed instructions.
+
+**Why?** Your databases have migrations that were run manually before Drizzle tracking existed. Without seeding the migrations table, automated deployments will fail when trying to re-run existing migrations.
+
+**Quick Start:**
+1. Read [Migration Seeding Guide](./migration-seeding-guide.md)
+2. Run seeding script on staging: `pnpm db:migrate:seed`
+3. Run seeding script on production: `pnpm db:migrate:seed`
+4. Then proceed with automated deployments
+
+---
+
 ## Overview
 
 Automated Drizzle database migrations are now integrated into the CI/CD pipeline. Migrations run automatically during each deployment, before the application is updated.
