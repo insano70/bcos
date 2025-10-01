@@ -345,3 +345,4 @@ export function isSAMLError(error: unknown): error is SAMLConfigError | SAMLVali
     error instanceof SAMLCertificateError
   );
 }
+
