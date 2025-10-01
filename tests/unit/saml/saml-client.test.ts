@@ -122,6 +122,39 @@ describe('SAML Client', () => {
       expect(result.error).toBe('Replay attack detected')
       expect(result.validations.notReplay).toBe(false)
     })
+
+    it('should use database-backed replay prevention', async () => {
+      const samlClient = createSAMLClientMock()
+      const validResult = createMockValidationResults().success
+
+      // First call should succeed (assertion ID not in database)
+      samlClient.validateResponse.mockResolvedValueOnce(validResult)
+
+      const result1 = await samlClient.validateResponse('base64-saml-response', {
+        requestId: 'test-123',
+        ipAddress: '127.0.0.1',
+        userAgent: 'Test Browser',
+        timestamp: new Date()
+      })
+
+      expect(result1.success).toBe(true)
+      expect(result1.validations.notReplay).toBe(true)
+
+      // Second call with same assertion ID should fail (replay detected)
+      const replayDetected = createMockValidationResults().replayDetected
+      samlClient.validateResponse.mockResolvedValueOnce(replayDetected)
+
+      const result2 = await samlClient.validateResponse('base64-saml-response', {
+        requestId: 'test-456',
+        ipAddress: '192.168.1.1',
+        userAgent: 'Different Browser',
+        timestamp: new Date()
+      })
+
+      expect(result2.success).toBe(false)
+      expect(result2.error).toBe('Replay attack detected')
+      expect(result2.validations.notReplay).toBe(false)
+    })
   })
 
   describe('Profile Extraction', () => {
