@@ -189,8 +189,8 @@ export class CommittedChartFactory extends BaseFactory<CommittedChart, CreateCha
    * Track chart dependencies (user who created it)
    */
   protected override trackDependencies(id: string, data: CommittedChart): void {
-    // Chart depends on its creator
-    if (data.created_by && this.idGenerator.isTestId(data.created_by)) {
+    // Chart depends on its creator - always track since UUIDs are DB-generated
+    if (data.created_by) {
       this.cleanupTracker.addDependency(id, data.created_by)
     }
 

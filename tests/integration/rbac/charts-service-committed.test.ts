@@ -46,13 +46,28 @@ import { nanoid } from 'nanoid'
 describe('RBAC Charts Service - Comprehensive Tests', () => {
   let scope: ScopedFactoryCollection
   let scopeId: string
+  let serviceCreatedChartIds: string[] = []
 
   beforeEach(() => {
     scopeId = `chart-test-${nanoid(8)}`
     scope = createTestScope(scopeId)
+    serviceCreatedChartIds = []
   })
 
   afterEach(async () => {
+    // Clean up service-created charts first
+    if (serviceCreatedChartIds.length > 0) {
+      try {
+        const { db } = await import('@/lib/db')
+        const { chart_definitions } = await import('@/lib/db/schema')
+        const { inArray } = await import('drizzle-orm')
+        await db.delete(chart_definitions).where(inArray(chart_definitions.chart_definition_id, serviceCreatedChartIds))
+      } catch (error) {
+        // Ignore cleanup errors - they might already be deleted
+      }
+    }
+
+    // Then cleanup factory-created objects
     await scope.cleanup()
   })
 
@@ -493,6 +508,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       }
 
       const result = await chartsService.createChart(chartData)
+      serviceCreatedChartIds.push(result.chart_definition_id)
 
       expect(result).toBeDefined()
       expect(result.chart_name).toBe('New Sales Chart')
@@ -519,6 +535,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       }
 
       const result = await chartsService.createChart(chartData)
+      serviceCreatedChartIds.push(result.chart_definition_id)
 
       expect(result.chart_definition_id).toBeTruthy()
       expect(result.data_source).toBe('api/sales/monthly')
@@ -548,6 +565,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       }
 
       const result = await chartsService.createChart(chartData)
+      serviceCreatedChartIds.push(result.chart_definition_id)
 
       expect(result.chart_definition_id).toBeTruthy()
       expect(result.data_source).toEqual(dataSource)
@@ -598,6 +616,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       }
 
       const result = await chartsService.createChart(chartData)
+      serviceCreatedChartIds.push(result.chart_definition_id)
 
       expect(result.chart_config).toEqual(chartConfig)
     })
@@ -620,6 +639,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
       }
 
       const result = await chartsService.createChart(chartData)
+      serviceCreatedChartIds.push(result.chart_definition_id)
 
       expect(result.is_active).toBeDefined()
       expect(result.chart_config).toBeDefined()
@@ -644,6 +664,7 @@ describe('RBAC Charts Service - Comprehensive Tests', () => {
 
       // Service does not validate chart_name - validation should happen at API layer
       const result = await chartsService.createChart(chartData)
+      serviceCreatedChartIds.push(result.chart_definition_id)
       expect(result.chart_name).toBe('')
     })
 

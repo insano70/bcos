@@ -167,8 +167,8 @@ export class CommittedDashboardFactory extends BaseFactory<
     id: string,
     data: CommittedDashboard
   ): void {
-    // Dashboard depends on its creator
-    if (data.created_by && this.idGenerator.isTestId(data.created_by)) {
+    // Dashboard depends on its creator - always track since UUIDs are DB-generated
+    if (data.created_by) {
       this.cleanupTracker.addDependency(id, data.created_by)
     }
 

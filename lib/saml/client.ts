@@ -35,6 +35,10 @@ import type {
   SAMLValidationError,
   SAMLAuthContext
 } from '@/lib/types/saml';
+import { checkAndTrackAssertion } from './replay-prevention';
+import { AuditLogger } from '@/lib/api/services/audit';
+import { db, account_security, users } from '@/lib/db';
+import { eq } from 'drizzle-orm';
 
 // Create logger for SAML client operations
 const samlClientLogger = createAppLogger('saml-client', {
@@ -42,95 +46,6 @@ const samlClientLogger = createAppLogger('saml-client', {
   feature: 'saml-sso',
   module: 'client'
 });
-
-/**
- * In-memory store for tracking used assertion IDs (replay attack prevention)
- * In production, this should be moved to Redis or database
- */
-class AssertionIDStore {
-  private usedIDs = new Map<string, Date>();
-  private readonly MAX_ENTRIES = 10000;
-  private readonly EXPIRY_MS = 60 * 60 * 1000; // 1 hour
-
-  /**
-   * Check if assertion ID has been used
-   */
-  isUsed(assertionID: string): boolean {
-    const entry = this.usedIDs.get(assertionID);
-    
-    if (!entry) {
-      return false;
-    }
-
-    // Check if entry has expired
-    if (Date.now() - entry.getTime() > this.EXPIRY_MS) {
-      this.usedIDs.delete(assertionID);
-      return false;
-    }
-
-    return true;
-  }
-
-  /**
-   * Mark assertion ID as used
-   */
-  markUsed(assertionID: string): void {
-    // Clean up old entries if approaching limit
-    if (this.usedIDs.size >= this.MAX_ENTRIES) {
-      this.cleanup();
-    }
-
-    this.usedIDs.set(assertionID, new Date());
-    
-    samlClientLogger.debug('Assertion ID marked as used', {
-      assertionID: assertionID.substring(0, 20) + '...',
-      totalTracked: this.usedIDs.size
-    });
-  }
-
-  /**
-   * Clean up expired entries
-   */
-  private cleanup(): void {
-    const now = Date.now();
-    let removed = 0;
-
-    // Convert iterator to array for TypeScript compatibility
-    for (const [id, timestamp] of Array.from(this.usedIDs.entries())) {
-      if (now - timestamp.getTime() > this.EXPIRY_MS) {
-        this.usedIDs.delete(id);
-        removed++;
-      }
-    }
-
-    samlClientLogger.info('Assertion ID store cleanup completed', {
-      removed,
-      remaining: this.usedIDs.size
-    });
-  }
-
-  /**
-   * Get statistics
-   */
-  getStats(): { total: number; oldestEntry: Date | null } {
-    let oldest: Date | null = null;
-
-    // Convert iterator to array for TypeScript compatibility
-    for (const timestamp of Array.from(this.usedIDs.values())) {
-      if (!oldest || timestamp < oldest) {
-        oldest = timestamp;
-      }
-    }
-
-    return {
-      total: this.usedIDs.size,
-      oldestEntry: oldest
-    };
-  }
-}
-
-// Global assertion ID store (TODO: Move to Redis in production)
-const assertionStore = new AssertionIDStore();
 
 /**
  * Transform node-saml Profile to our SAMLProfile interface
