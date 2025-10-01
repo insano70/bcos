@@ -18,6 +18,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { getSAMLConfig, isSAMLEnabled } from '@/lib/env';
 import { createAppLogger } from '@/lib/logger/factory';
+import { fetchIdPCertificateFromMetadata } from './metadata-fetcher';
 import type {
   SAMLConfig,
   SAMLCertificateInfo,
@@ -357,21 +358,92 @@ async function loadCertificateFromSecretsManager(secretKey: string, certName: st
 
 /**
  * Get IdP (Entra) certificate with caching
+ * 
+ * Strategy:
+ * - Production: Automatically fetch from Microsoft's metadata endpoint
+ * - Development: Try metadata fetch, fall back to file if ENTRA_CERT is configured
+ * 
+ * The certificateCache.get() method:
+ * - Takes a loader function that returns the raw certificate string
+ * - Automatically parses certificate info and validates it
+ * - Returns { certificate, info }
  */
 async function getIdPCertificate(): Promise<{ certificate: string; info: SAMLCertificateInfo }> {
-  return await certificateCache.get('idp_cert', async () => {
+  return await certificateCache.get('idp_cert', async (): Promise<string> => {
     const envConfig = getSAMLConfig();
-    if (!envConfig?.entraCert) {
-      throw new Error('ENTRA_CERT is not configured');
+    if (!envConfig) {
+      throw new Error('SAML configuration is not available');
     }
 
-    // Production: Load from Secrets Manager
-    if (process.env.NODE_ENV === 'production' && envConfig.entraCert.startsWith('arn:')) {
-      return await loadCertificateFromSecretsManager(envConfig.entraCert, 'ENTRA_CERT');
+    // DUAL CERTIFICATE SUPPORT for rotation scenarios
+    // Microsoft publishes new certs in metadata before using them for signing
+    // We need to try BOTH the metadata cert AND the file cert during rotation
+    
+    const certificates: string[] = [];
+    let metadataCert: string | null = null;
+    let fileCert: string | null = null;
+    
+    // Always try to fetch from metadata first
+    try {
+      samlConfigLogger.info('Fetching IDP certificate from metadata', {
+        tenantId: envConfig.tenantId,
+        appId: envConfig.appId
+      });
+      metadataCert = await fetchIdPCertificateFromMetadata(envConfig.tenantId, envConfig.appId);
+      certificates.push(metadataCert);
+    } catch (error) {
+      samlConfigLogger.warn('Metadata fetch failed', {
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
-
-    // Development/Staging: Load from file or env var
-    return loadCertificateFromFS(envConfig.entraCert, 'ENTRA_CERT');
+    
+    // Also load from file if available (for dual-cert support during rotation)
+    if (envConfig.entraCert) {
+      try {
+        fileCert = loadCertificateFromFS(envConfig.entraCert, 'ENTRA_CERT');
+        
+        // Only add file cert if it's different from metadata cert
+        if (metadataCert) {
+          const crypto = await import('node:crypto');
+          const metadataFingerprint = new crypto.X509Certificate(metadataCert).fingerprint256;
+          const fileFingerprint = new crypto.X509Certificate(fileCert).fingerprint256;
+          
+          if (metadataFingerprint !== fileFingerprint) {
+            samlConfigLogger.warn('Certificate rotation detected - using BOTH certificates', {
+              metadataFingerprint: metadataFingerprint.substring(0, 20) + '...',
+              fileFingerprint: fileFingerprint.substring(0, 20) + '...'
+            });
+            certificates.push(fileCert);
+          }
+        } else {
+          // No metadata cert, use file as primary
+          certificates.push(fileCert);
+        }
+      } catch (error) {
+        samlConfigLogger.warn('File certificate load failed', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+    
+    // Must have at least one certificate
+    if (certificates.length === 0) {
+      throw new Error('No IDP certificates available - both metadata fetch and file load failed');
+    }
+    
+    // Return the primary certificate (first one)
+    // The SAML client will be configured with ALL certificates for validation
+    const primaryCert = certificates[0];
+    if (!primaryCert) {
+      throw new Error('Primary certificate is undefined - this should not happen');
+    }
+    
+    samlConfigLogger.info('IDP certificates loaded', {
+      count: certificates.length,
+      source: certificates.length > 1 ? 'metadata+file (dual-cert rotation)' : (metadataCert ? 'metadata' : 'file')
+    });
+    
+    return primaryCert;
   });
 }
 

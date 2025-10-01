@@ -31,6 +31,7 @@ export const env = createEnv({
     
     // SAML SSO Configuration
     ENTRA_TENANT_ID: z.string().uuid("ENTRA_TENANT_ID must be a valid UUID").optional(),
+    ENTRA_APP_ID: z.string().uuid("ENTRA_APP_ID must be a valid UUID").optional(), // Application ID for app-specific metadata
     ENTRA_ENTRY_POINT: z.string().url("ENTRA_ENTRY_POINT must be a valid URL").optional(),
     ENTRA_ISSUER: z.string().url("ENTRA_ISSUER must be a valid URL").optional(),
     ENTRA_CERT: z.string().optional(), // Certificate content or path
@@ -84,6 +85,7 @@ export const env = createEnv({
     
     // SAML SSO
     ENTRA_TENANT_ID: process.env.ENTRA_TENANT_ID,
+    ENTRA_APP_ID: process.env.ENTRA_APP_ID,
     ENTRA_ENTRY_POINT: process.env.ENTRA_ENTRY_POINT,
     ENTRA_ISSUER: process.env.ENTRA_ISSUER,
     ENTRA_CERT: process.env.ENTRA_CERT,
@@ -288,6 +290,7 @@ export const getSAMLConfig = () => {
   return {
     // Microsoft Entra Configuration
     tenantId: env.ENTRA_TENANT_ID,
+    appId: env.ENTRA_APP_ID, // Application ID for app-specific metadata
     entryPoint: env.ENTRA_ENTRY_POINT || `https://login.microsoftonline.com/${env.ENTRA_TENANT_ID}/saml2`,
     expectedIssuer: env.ENTRA_ISSUER || `https://sts.windows.net/${env.ENTRA_TENANT_ID}/`,
     entraCert: env.ENTRA_CERT,
