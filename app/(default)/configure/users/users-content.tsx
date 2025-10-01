@@ -186,7 +186,10 @@ export default function UsersContent() {
           <FilterButton align="right" />
 
           {/* Add user button - protected by RBAC */}
-          <ProtectedComponent permission="users:create:organization">
+          <ProtectedComponent
+            permissions={["users:create:organization", "users:manage:all"]}
+            requireAll={false}
+          >
             <button
               type="button"
               disabled={isLoading}
