@@ -12,5 +12,6 @@
  */
 
 export * from './user-factory'
+export * from './organization-factory'
 export * from './dashboard-factory'
 export * from './chart-factory'

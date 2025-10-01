@@ -32,8 +32,7 @@ const getChartsHandler = async (request: NextRequest, userContext: UserContext) 
     const chartsService = createRBACChartsService(userContext);
     const charts = await chartsService.getCharts({
       category_id: categoryId || undefined,
-      is_active: isActive,
-      limit: 50 // Default limit, can be made configurable later
+      is_active: isActive
     });
 
     const totalCount = await chartsService.getChartCount({

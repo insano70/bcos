@@ -170,8 +170,8 @@ export class RBACDashboardsService extends BaseRBACService {
         users.email
       )
       .orderBy(desc(dashboards.created_at))
-      .limit(options.limit || 50)
-      .offset(options.offset || 0);
+      .limit(options.limit ?? 1000000)
+      .offset(options.offset ?? 0);
 
     // Transform to DashboardWithCharts format
     const dashboardsWithChartCount: DashboardWithCharts[] = dashboardList.map((dashboard) => ({
