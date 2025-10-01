@@ -169,7 +169,6 @@ export default function DashboardPreview({
               <div
                 key={dashboardChart.id}
                 className={`${colSpanClass} flex flex-col bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-dashed border-gray-300 dark:border-gray-600`}
-                style={{ marginBottom: `${previewConfig.layout.margin}px` }}
               >
                 <div className="flex items-center justify-center h-48 text-center text-gray-500 dark:text-gray-400">
                   <div>

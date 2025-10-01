@@ -110,8 +110,7 @@ export default function Services({ practice, attributes, colorStyles }: Services
             {services.map((service, index) => (
               <div 
                 key={index}
-                className="relative animate-fade-up text-center" 
-                style={{ animationDelay: `${index * 100}ms` }}
+                className={`relative animate-fade-up text-center animate-delay-${index * 100}`}
               >
                 {service.icon}
                 <h3 className="h4 font-playfair-display mb-2 text-slate-800">

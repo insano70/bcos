@@ -206,3 +206,43 @@ export const practice_comments = pgTable(
     displayOrderIdx: index('idx_practice_comments_display_order').on(table.practice_id, table.display_order),
   })
 );
+
+// SAML Replay Attack Prevention
+// Tracks used SAML assertion IDs to prevent replay attacks
+// Each SAML response can only be used once (enforced by PRIMARY KEY constraint)
+export const samlReplayPrevention = pgTable(
+  'saml_replay_prevention',
+  {
+    // Primary key: SAML Assertion ID (unique identifier from IdP)
+    replayId: text('replay_id').primaryKey(),
+    
+    // InResponseTo: Links SAML response back to original AuthnRequest
+    inResponseTo: text('in_response_to').notNull(),
+    
+    // User context for security monitoring
+    userEmail: text('user_email').notNull(),
+    
+    // Timestamp tracking
+    usedAt: timestamp('used_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+    
+    // Expiry for automatic cleanup (set to assertion NotOnOrAfter + safety margin)
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+    
+    // Security context for audit trail
+    ipAddress: text('ip_address').notNull(),
+    userAgent: text('user_agent'),
+    
+    // Session ID for correlation (nullable as assertion might fail before session creation)
+    sessionId: text('session_id'),
+  },
+  (table) => ({
+    // Index for efficient cleanup of expired entries
+    expiresAtIdx: index('idx_saml_replay_expires_at').on(table.expiresAt),
+    
+    // Index for InResponseTo lookups (request/response correlation)
+    inResponseToIdx: index('idx_saml_replay_in_response_to').on(table.inResponseTo),
+    
+    // Index for user email lookups (security monitoring)
+    userEmailIdx: index('idx_saml_replay_user_email').on(table.userEmail),
+  })
+);

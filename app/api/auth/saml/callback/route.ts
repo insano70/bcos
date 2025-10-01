@@ -34,6 +34,8 @@ import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified';
 import { createSAMLClient } from '@/lib/saml/client';
 import { isSAMLEnabled, getSAMLConfig } from '@/lib/env';
 import type { SAMLAuthContext } from '@/lib/types/saml';
+import { checkAndTrackAssertion } from '@/lib/saml/replay-prevention';
+import { validateSAMLProfile } from '@/lib/saml/input-validator';
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
@@ -164,7 +166,49 @@ const samlCallbackHandler = async (request: NextRequest) => {
     }
 
     const profile = validationResult.profile;
-    const email = profile.email;
+
+    // CRITICAL SECURITY: Validate and sanitize SAML profile data
+    // Defense-in-depth: Even though node-saml validated the response,
+    // we add extra validation to protect against malformed data and injection attempts
+    const profileValidation = validateSAMLProfile({
+      email: profile.email,
+      displayName: profile.displayName,
+      givenName: profile.givenName,
+      surname: profile.surname
+    });
+
+    if (!profileValidation.valid) {
+      apiLogger.logSecurity('saml_profile_validation_failed', 'high', {
+        action: 'authentication_rejected',
+        blocked: true,
+        threat: 'invalid_profile_data',
+        reason: `profile_validation_failed: ${profileValidation.errors.join(', ')}`
+      });
+
+      logger.error('SAML profile validation failed', new Error('Invalid profile data'), {
+        requestId: authContext.requestId,
+        errors: profileValidation.errors,
+        alert: 'POSSIBLE_INJECTION_ATTEMPT'
+      });
+
+      await AuditLogger.logAuth({
+        action: 'login_failed',
+        ipAddress,
+        userAgent,
+        metadata: {
+          authMethod: 'saml',
+          stage: 'profile_validation',
+          reason: 'invalid_profile_data',
+          errors: profileValidation.errors,
+          correlationId: CorrelationContextManager.getCurrentId()
+        }
+      });
+
+      throw AuthenticationError('Invalid profile data');
+    }
+
+    // Use sanitized email from validation
+    const email = profileValidation.sanitized!.email;
 
     logger.info('SAML validation successful', {
       requestId: authContext.requestId,
@@ -176,6 +220,74 @@ const samlCallbackHandler = async (request: NextRequest) => {
     // Enhanced SAML validation success logging
     apiLogger.logAuth('saml_validation_success', true, {
       method: 'session'
+    });
+
+    // CRITICAL SECURITY: Check for replay attack
+    // Must happen AFTER SAML validation but BEFORE creating session
+    // This prevents attackers from reusing intercepted SAML responses
+    const replayCheckStartTime = Date.now();
+    
+    // Extract assertion metadata for replay prevention
+    const assertionId = profile.assertionID || profile.sessionIndex || profile.nameID || `fallback-${Date.now()}`;
+    const inResponseTo = profile.inResponseTo || 'unknown';
+    const assertionExpiry = profile.sessionNotOnOrAfter 
+      ? new Date(profile.sessionNotOnOrAfter)
+      : new Date(Date.now() + 5 * 60 * 1000); // 5 min default
+
+    const replayCheck = await checkAndTrackAssertion(
+      assertionId,
+      inResponseTo,
+      email,
+      ipAddress,
+      userAgent,
+      assertionExpiry
+    );
+
+    logPerformanceMetric(logger, 'replay_attack_check', Date.now() - replayCheckStartTime, {
+      safe: replayCheck.safe
+    });
+
+    if (!replayCheck.safe) {
+      // REPLAY ATTACK DETECTED - This is a critical security event
+      apiLogger.logSecurity('saml_replay_attack_detected', 'critical', {
+        action: 'authentication_rejected',
+        blocked: true,
+        threat: 'replay_attack',
+        reason: replayCheck.reason || 'replay_detected'
+      });
+
+      logger.error('SAML replay attack detected', new Error('Replay attack'), {
+        requestId: authContext.requestId,
+        email: email.replace(/(.{2}).*@/, '$1***@'),
+        assertionId: assertionId.substring(0, 20) + '...',
+        reason: replayCheck.reason,
+        existingUsedAt: replayCheck.details?.existingUsedAt,
+        existingIpAddress: replayCheck.details?.existingIpAddress,
+        alert: 'REPLAY_ATTACK_BLOCKED'
+      });
+
+      await AuditLogger.logAuth({
+        action: 'login_failed',
+        email,
+        ipAddress,
+        userAgent,
+        metadata: {
+          authMethod: 'saml',
+          stage: 'replay_prevention',
+          reason: 'replay_attack_detected',
+          assertionId: assertionId.substring(0, 20) + '...',
+          details: replayCheck.details,
+          correlationId: CorrelationContextManager.getCurrentId(),
+          severity: 'critical'
+        }
+      });
+
+      throw AuthenticationError('Authentication failed - security violation detected');
+    }
+
+    logger.info('SAML replay check passed', {
+      requestId: authContext.requestId,
+      assertionId: assertionId.substring(0, 20) + '...'
     });
 
     // Fetch user from database (pre-provisioning check)

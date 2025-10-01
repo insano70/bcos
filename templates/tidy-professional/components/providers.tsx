@@ -39,8 +39,7 @@ export default function Providers({ practice, attributes, staff, colorStyles }: 
             {activeStaff.slice(0, 3).map((member, index) => (
               <div 
                 key={member.staff_id} 
-                className="relative w-1/3 animate-fade-up" 
-                style={{ animationDelay: `${index * 200}ms` }}
+                className={`relative w-1/3 animate-fade-up animate-delay-${index * 200}`}
               >
                 {member.photo_url ? (
                   <img 
@@ -84,8 +83,7 @@ export default function Providers({ practice, attributes, staff, colorStyles }: 
               {activeStaff.map((member, index) => (
                 <div 
                   key={member.staff_id} 
-                  className="h-full flex flex-col items-center text-center animate-fade-up" 
-                  style={{ animationDelay: `${index * 100}ms` }}
+                  className={`h-full flex flex-col items-center text-center animate-fade-up animate-delay-${index * 100}`}
                 >
                   {/* Profile photo */}
                   <div className="inline-flex w-[80px] h-[80px] mb-4 rounded-full overflow-hidden">

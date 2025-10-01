@@ -12,8 +12,8 @@ export default function Hero({ practice, attributes, colorStyles }: HeroProps) {
       {/* Background image if provided */}
       {attributes.hero_image_url && (
         <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-10 hero-background-image"
-          style={{ '--hero-background-image': `url(${attributes.hero_image_url})` } as React.CSSProperties}
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-10"
+          style={{ backgroundImage: `url(${attributes.hero_image_url})` }}
         />
       )}
       
@@ -57,7 +57,7 @@ export default function Hero({ practice, attributes, colorStyles }: HeroProps) {
           {/* Key highlights */}
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={colorStyles.primary}>
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-practice-primary">
                 <span className="text-white text-2xl">🩺</span>
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Board Certified</h3>
@@ -65,7 +65,7 @@ export default function Hero({ practice, attributes, colorStyles }: HeroProps) {
             </div>
             
             <div className="text-center">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={colorStyles.primary}>
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-practice-primary">
                 <span className="text-white text-2xl">💉</span>
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Advanced Treatments</h3>
@@ -73,7 +73,7 @@ export default function Hero({ practice, attributes, colorStyles }: HeroProps) {
             </div>
             
             <div className="text-center">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={colorStyles.primary}>
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-practice-primary">
                 <span className="text-white text-2xl">🤝</span>
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Compassionate Care</h3>

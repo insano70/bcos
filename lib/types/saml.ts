@@ -102,6 +102,9 @@ export interface SAMLProfile {
   /** Assertion ID (for deduplication) */
   assertionID?: string;
   
+  /** Session expiry timestamp (NotOnOrAfter from assertion) */
+  sessionNotOnOrAfter?: string;
+  
   /** Email address */
   email: string;
   
