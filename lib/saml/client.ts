@@ -35,6 +35,10 @@ import type {
   SAMLValidationError,
   SAMLAuthContext
 } from '@/lib/types/saml';
+import { checkAndTrackAssertion } from './replay-prevention';
+import { AuditLogger } from '@/lib/api/services/audit';
+import { db, account_security, users } from '@/lib/db';
+import { eq } from 'drizzle-orm';
 
 // Create logger for SAML client operations
 const samlClientLogger = createAppLogger('saml-client', {
@@ -42,95 +46,6 @@ const samlClientLogger = createAppLogger('saml-client', {
   feature: 'saml-sso',
   module: 'client'
 });
-
-/**
- * In-memory store for tracking used assertion IDs (replay attack prevention)
- * In production, this should be moved to Redis or database
- */
-class AssertionIDStore {
-  private usedIDs = new Map<string, Date>();
-  private readonly MAX_ENTRIES = 10000;
-  private readonly EXPIRY_MS = 60 * 60 * 1000; // 1 hour
-
-  /**
-   * Check if assertion ID has been used
-   */
-  isUsed(assertionID: string): boolean {
-    const entry = this.usedIDs.get(assertionID);
-    
-    if (!entry) {
-      return false;
-    }
-
-    // Check if entry has expired
-    if (Date.now() - entry.getTime() > this.EXPIRY_MS) {
-      this.usedIDs.delete(assertionID);
-      return false;
-    }
-
-    return true;
-  }
-
-  /**
-   * Mark assertion ID as used
-   */
-  markUsed(assertionID: string): void {
-    // Clean up old entries if approaching limit
-    if (this.usedIDs.size >= this.MAX_ENTRIES) {
-      this.cleanup();
-    }
-
-    this.usedIDs.set(assertionID, new Date());
-    
-    samlClientLogger.debug('Assertion ID marked as used', {
-      assertionID: assertionID.substring(0, 20) + '...',
-      totalTracked: this.usedIDs.size
-    });
-  }
-
-  /**
-   * Clean up expired entries
-   */
-  private cleanup(): void {
-    const now = Date.now();
-    let removed = 0;
-
-    // Convert iterator to array for TypeScript compatibility
-    for (const [id, timestamp] of Array.from(this.usedIDs.entries())) {
-      if (now - timestamp.getTime() > this.EXPIRY_MS) {
-        this.usedIDs.delete(id);
-        removed++;
-      }
-    }
-
-    samlClientLogger.info('Assertion ID store cleanup completed', {
-      removed,
-      remaining: this.usedIDs.size
-    });
-  }
-
-  /**
-   * Get statistics
-   */
-  getStats(): { total: number; oldestEntry: Date | null } {
-    let oldest: Date | null = null;
-
-    // Convert iterator to array for TypeScript compatibility
-    for (const timestamp of Array.from(this.usedIDs.values())) {
-      if (!oldest || timestamp < oldest) {
-        oldest = timestamp;
-      }
-    }
-
-    return {
-      total: this.usedIDs.size,
-      oldestEntry: oldest
-    };
-  }
-}
-
-// Global assertion ID store (TODO: Move to Redis in production)
-const assertionStore = new AssertionIDStore();
 
 /**
  * Transform node-saml Profile to our SAMLProfile interface
@@ -508,9 +423,9 @@ export class SAMLClientFactory {
         throw error;
       }
 
-      // Check for replay attack (assertion ID deduplication)
+      // Check for replay attack (database-backed with audit logging)
       if (profile.assertionID) {
-        const replayCheck = this.checkReplayAttack(profile.assertionID, context.requestId);
+        const replayCheck = await this.checkReplayAttack(profile, context);
         validations.notReplay = replayCheck.valid;
 
         if (!replayCheck.valid) {
@@ -524,16 +439,8 @@ export class SAMLClientFactory {
             }
           } as SAMLValidationError;
 
-          samlClientLogger.error('SAML replay attack detected',
-            new Error(error.message),
-            error.details
-          );
-
           throw error;
         }
-
-        // Mark assertion ID as used
-        assertionStore.markUsed(profile.assertionID);
       }
 
       // Validate email domain (if configured)
@@ -723,21 +630,95 @@ export class SAMLClientFactory {
   }
 
   /**
-   * Check for replay attack
+   * Check for replay attack using database-backed prevention
    */
-  private checkReplayAttack(assertionID: string, requestId: string): { valid: boolean; error?: string } {
-    if (assertionStore.isUsed(assertionID)) {
-      samlClientLogger.warn('Replay attack detected - assertion ID already used', {
-        requestId,
-        assertionID: assertionID.substring(0, 20) + '...',
+  private async checkReplayAttack(
+    profile: SAMLProfile,
+    context: SAMLAuthContext
+  ): Promise<{ valid: boolean; error?: string }> {
+    // Calculate assertion expiry from profile
+    const assertionExpiry = profile.notOnOrAfter
+      ? new Date(profile.notOnOrAfter)
+      : new Date(Date.now() + 3600000); // 1 hour default
+
+    // Check with database (atomic insert prevents race conditions)
+    const replayCheck = await checkAndTrackAssertion(
+      profile.assertionID!,
+      profile.inResponseTo || '',
+      profile.email,
+      context.ipAddress,
+      context.userAgent,
+      assertionExpiry
+    );
+
+    if (!replayCheck.safe) {
+      // Log to audit_logs with CRITICAL severity
+      await AuditLogger.logSecurity({
+        action: 'saml_replay_attack_blocked',
+        ipAddress: context.ipAddress,
+        userAgent: context.userAgent,
+        metadata: {
+          assertionID: profile.assertionID,
+          email: profile.email.replace(/(.{2}).*@/, '$1***@'), // PII masking
+          originalUsedAt: replayCheck.details?.existingUsedAt,
+          originalIP: replayCheck.details?.existingIpAddress,
+          requestId: context.requestId,
+          alert: 'REPLAY_ATTACK_BLOCKED'
+        },
+        severity: 'critical'
+      });
+
+      // Try to find user and mark account suspicious
+      try {
+        const [user] = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, profile.email))
+          .limit(1);
+
+        if (user) {
+          await db
+            .update(account_security)
+            .set({ suspicious_activity_detected: true })
+            .where(eq(account_security.user_id, user.user_id));
+
+          samlClientLogger.warn('Account marked as suspicious due to replay attack', {
+            userId: user.user_id,
+            email: profile.email.replace(/(.{2}).*@/, '$1***@'),
+            requestId: context.requestId
+          });
+        }
+      } catch (error) {
+        // Don't fail authentication on account_security update error
+        samlClientLogger.error('Failed to update account_security for replay attack',
+          error instanceof Error ? error : new Error(String(error)),
+          {
+            email: profile.email.replace(/(.{2}).*@/, '$1***@'),
+            requestId: context.requestId
+          }
+        );
+      }
+
+      samlClientLogger.error('SAML replay attack detected and blocked', new Error(replayCheck.reason || 'Replay attack'), {
+        requestId: context.requestId,
+        assertionID: profile.assertionID?.substring(0, 20) + '...',
+        email: profile.email.replace(/(.{2}).*@/, '$1***@'),
+        originalUsedAt: replayCheck.details?.existingUsedAt,
+        originalIP: replayCheck.details?.existingIpAddress,
+        attemptIP: context.ipAddress,
         securityThreat: 'replay_attack'
       });
 
       return {
         valid: false,
-        error: 'Assertion ID has already been used - possible replay attack'
+        error: replayCheck.reason || 'Assertion ID has already been used - possible replay attack'
       };
     }
+
+    samlClientLogger.debug('Replay check passed - assertion ID tracked in database', {
+      assertionID: profile.assertionID?.substring(0, 20) + '...',
+      requestId: context.requestId
+    });
 
     return { valid: true };
   }
@@ -844,9 +825,3 @@ export function createSAMLClient(clientId?: string): SAMLClientFactory {
   return new SAMLClientFactory(clientId);
 }
 
-/**
- * Get assertion store statistics (for monitoring)
- */
-export function getAssertionStoreStats(): { total: number; oldestEntry: Date | null } {
-  return assertionStore.getStats();
-}

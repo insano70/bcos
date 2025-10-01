@@ -80,68 +80,58 @@ export default function Services({ practice, attributes, colorStyles }: Services
     : defaultServices;
 
   return (
-    <section id="services">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        <div className="py-12 md:py-20">
+    <section id="services" className="py-20 bg-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
-          {/* Section header */}
-          <div className="max-w-3xl mx-auto text-center pb-12">
-            <h2 className="h2 font-playfair-display text-slate-800 mb-4">
-              Comprehensive Rheumatology Services
-            </h2>
-            <p className="text-xl text-slate-600">
-              Expert care for all aspects of rheumatic and autoimmune conditions, 
-              from diagnosis to advanced treatment options.
-            </p>
-          </div>
+        {/* Section header */}
+        <div className="text-center mb-16">
+          <h2 className="font-playfair-display text-4xl md:text-5xl font-bold text-slate-900 mb-6">
+            Comprehensive Rheumatology Services
+          </h2>
+          <p className="text-lg text-slate-600 max-w-3xl mx-auto font-inter">
+            Expert care for all aspects of rheumatic and autoimmune conditions,
+            from diagnosis to advanced treatment options.
+          </p>
+        </div>
 
-          {/* Services grid with decorative lines */}
-          <div className="relative max-w-sm mx-auto grid gap-16 md:grid-cols-2 lg:grid-cols-3 lg:gap-y-20 items-start md:max-w-2xl lg:max-w-none">
-
-            {/* Decorative lines */}
-            <div className="absolute inset-0 -my-8 md:-my-12 pointer-events-none hidden md:flex" aria-hidden="true">
-              <div className="h-full w-full border-l last:border-r odd:hidden lg:odd:block border-slate-100"></div>
-              <div className="h-full w-full border-l last:border-r odd:hidden lg:odd:block border-slate-100"></div>
-              <div className="h-full w-full border-l last:border-r odd:hidden lg:odd:block border-slate-100"></div>
-              <div className="h-full w-full border-l last:border-r odd:hidden lg:odd:block border-slate-100"></div>
-            </div>
-
-            {/* Service items */}
-            {services.map((service, index) => (
-              <div 
-                key={index}
-                className="relative animate-fade-up text-center" 
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                {service.icon}
-                <h3 className="h4 font-playfair-display mb-2 text-slate-800">
+        {/* Services grid - clean card layout */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+          {services.map((service, index) => (
+            <div
+              key={index}
+              className="group bg-slate-50 hover:bg-white rounded-2xl p-8 transition-all duration-300 hover:shadow-xl border border-slate-100 hover:border-practice-primary/20"
+            >
+              <div className="flex flex-col h-full">
+                <div className="mb-6 transform group-hover:scale-110 transition-transform duration-300">
+                  {service.icon}
+                </div>
+                <h3 className="font-playfair-display text-2xl font-semibold mb-3 text-slate-900">
                   {service.title}
                 </h3>
-                <p className="text-lg text-slate-500">
+                <p className="text-slate-600 font-inter leading-relaxed flex-grow">
                   {service.description}
                 </p>
               </div>
-            ))}
-
-          </div>
-
-          {/* Call to action */}
-          <div className="text-center mt-12">
-            <p className="text-lg text-slate-600 mb-6">
-              Ready to start your journey to better joint health?
-            </p>
-            <a
-              href="#appointment"
-              className="btn text-white group bg-practice-primary"
-            >
-              Schedule Consultation
-              <span className="tracking-normal text-blue-300 group-hover:translate-x-0.5 transition-transform duration-150 ease-in-out ml-1">
-                →
-              </span>
-            </a>
-          </div>
-
+            </div>
+          ))}
         </div>
+
+        {/* Call to action */}
+        <div className="text-center">
+          <p className="text-lg text-slate-600 mb-8 font-inter">
+            Ready to start your journey to better joint health?
+          </p>
+          <a
+            href="#appointment"
+            className="inline-flex items-center px-8 py-4 text-lg font-semibold text-white bg-practice-primary rounded-lg hover:opacity-90 transition-opacity duration-200"
+          >
+            Schedule Consultation
+            <svg className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+            </svg>
+          </a>
+        </div>
+
       </div>
     </section>
   );

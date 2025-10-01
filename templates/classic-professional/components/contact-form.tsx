@@ -95,11 +95,7 @@ export default function ContactForm({ colorStyles, practiceEmail = 'contact@prac
           <input
             type="text"
             {...register('name', { required: 'Name is required' })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-70"
-            style={{ 
-              '--tw-ring-color': colorStyles?.primary?.backgroundColor || '#2563eb',
-              '--tw-border-opacity': '0.7'
-            } as React.CSSProperties}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-practice-primary focus:ring-opacity-50 focus:border-opacity-70"
           />
           {errors.name && (
             <p className="text-red-600 text-sm mt-1">{errors.name.message}</p>
@@ -114,11 +110,7 @@ export default function ContactForm({ colorStyles, practiceEmail = 'contact@prac
             <input
               type="email"
               {...register('email', { required: 'Email is required' })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-70"
-              style={{ 
-                '--tw-ring-color': colorStyles?.primary?.backgroundColor || '#2563eb',
-                '--tw-border-opacity': '0.7'
-              } as React.CSSProperties}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-practice-primary focus:ring-opacity-50 focus:border-opacity-70"
             />
             {errors.email && (
               <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>
@@ -132,11 +124,7 @@ export default function ContactForm({ colorStyles, practiceEmail = 'contact@prac
             <input
               type="tel"
               {...register('phone')}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-opacity-50 focus:border-opacity-70"
-              style={{ 
-                '--tw-ring-color': colorStyles?.primary?.backgroundColor || '#2563eb',
-                '--tw-border-opacity': '0.7'
-              } as React.CSSProperties}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-practice-primary focus:ring-opacity-50 focus:border-opacity-70"
             />
           </div>
         </div>

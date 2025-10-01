@@ -114,8 +114,8 @@ export class RBACChartsService extends BaseRBACService {
       .leftJoin(users, eq(chart_definitions.created_by, users.user_id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(chart_definitions.created_at))
-      .limit(options.limit || 50)
-      .offset(options.offset || 0);
+      .limit(options.limit ?? 1000000)
+      .offset(options.offset ?? 0);
 
     // Transform to flattened structure
     return charts.map((chart) => ({

@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { debugLog, errorLog } from '@/lib/utils/debug'
-import '@testing-library/jest-dom'
 
 // Mock the universal logger factory
 vi.mock('@/lib/logger/factory', () => ({

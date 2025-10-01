@@ -3,14 +3,28 @@
  * Provides safe HTML rendering and XSS protection using DOMPurify
  */
 
-import React from 'react';
 import DOMPurify from 'isomorphic-dompurify';
+
+/**
+ * Configuration options for HTML sanitization
+ */
+interface SanitizeOptions {
+  /**
+   * CSP nonce for inline scripts/styles (if scripts/styles are explicitly allowed)
+   * Generally should not be needed as scripts/styles are forbidden by default
+   */
+  nonce?: string;
+  /**
+   * Additional tags to allow beyond the safe defaults
+   */
+  additionalTags?: string[];
+}
 
 /**
  * Sanitize HTML content for safe rendering
  * Uses DOMPurify to remove dangerous tags and attributes while preserving safe HTML
  */
-export function sanitizeHtml(html: string): string {
+export function sanitizeHtml(html: string, options: SanitizeOptions = {}): string {
   if (!html || typeof html !== 'string') {
     return '';
   }
@@ -18,14 +32,44 @@ export function sanitizeHtml(html: string): string {
   // Configure DOMPurify with safe defaults for email content
   const config = {
     ALLOWED_TAGS: [
-      'p', 'br', 'strong', 'b', 'em', 'i', 'u', 'ul', 'ol', 'li',
-      'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote',
-      'a', 'span', 'div' // Additional safe tags for formatted content
+      'p',
+      'br',
+      'strong',
+      'b',
+      'em',
+      'i',
+      'u',
+      'ul',
+      'ol',
+      'li',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6',
+      'blockquote',
+      'a',
+      'span',
+      'div', // Additional safe tags for formatted content
+      ...(options.additionalTags || []),
     ],
     ALLOWED_ATTR: ['href', 'target', 'rel'], // Only allow safe attributes
     ALLOW_DATA_ATTR: false, // Disable data attributes
-    FORBID_TAGS: ['script', 'object', 'embed', 'iframe', 'form', 'input', 'textarea', 'button', 'select'],
-    FORBID_ATTR: ['onclick', 'onload', 'onerror', 'style'] // Forbid event handlers and styles
+    FORBID_TAGS: [
+      'script',
+      'object',
+      'embed',
+      'iframe',
+      'form',
+      'input',
+      'textarea',
+      'button',
+      'select',
+    ],
+    FORBID_ATTR: ['onclick', 'onload', 'onerror', 'style'], // Forbid event handlers and styles
+    // Add nonce support for CSP if provided (though scripts are forbidden by default)
+    ...(options.nonce ? { ADD_ATTR: ['nonce'] } : {}),
   };
 
   return DOMPurify.sanitize(html, config);
@@ -59,18 +103,18 @@ export function stripHtml(html: string): string {
   }
 
   return html
-    .replace(/<br\s*\/?>/gi, '\n')  // Convert <br> tags to newlines
-    .replace(/<hr\s*\/?>/gi, '\n')  // Convert <hr> tags to newlines
-    .replace(/<\/p>/gi, '\n')       // Convert closing </p> tags to newlines
-    .replace(/<[^>]*>/g, '')        // Remove all other HTML tags
-    .replace(/<[^>]*$/g, '')        // Remove incomplete/malformed tags at end
+    .replace(/<br\s*\/?>/gi, '\n') // Convert <br> tags to newlines
+    .replace(/<hr\s*\/?>/gi, '\n') // Convert <hr> tags to newlines
+    .replace(/<\/p>/gi, '\n') // Convert closing </p> tags to newlines
+    .replace(/<[^>]*>/g, '') // Remove all other HTML tags
+    .replace(/<[^>]*$/g, '') // Remove incomplete/malformed tags at end
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#x27;/g, "'")
     .replace(/&nbsp;/g, ' ')
-    .replace(/\n\s*\n/g, '\n')      // Clean up multiple newlines
+    .replace(/\n\s*\n/g, '\n') // Clean up multiple newlines
     .trim();
 }
 
@@ -141,7 +185,7 @@ export function SafeHtmlRenderer({ html, className, stripTags = false }: SafeHtm
   }
 
   const safeHtml = sanitizeHtml(html);
-  
+
   return (
     <div
       className={className}

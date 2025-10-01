@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { ChartDefinition, MeasureType, FrequencyType } from '@/lib/types/analytics';
+import type { ChartDefinition, MeasureType, FrequencyType, ChartFilter } from '@/lib/types/analytics';
 import AnalyticsChart from './analytics-chart';
 
 // New row-based data structures
@@ -331,11 +331,11 @@ export default function DashboardRowBuilder({
                           const chartConfig = chart.chartDefinition.chart_config || {};
                           
                           // Extract filters to get chart parameters
-                          const measureFilter = dataSource.filters?.find((f: any) => f.field === 'measure');
-                          const frequencyFilter = dataSource.filters?.find((f: any) => f.field === 'frequency');
-                          const practiceFilter = dataSource.filters?.find((f: any) => f.field === 'practice_uid');
-                          const startDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'gte');
-                          const endDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'lte');
+                          const measureFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'measure');
+                          const frequencyFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'frequency');
+                          const practiceFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'practice_uid');
+                          const startDateFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'date_index' && f.operator === 'gte');
+                          const endDateFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'date_index' && f.operator === 'lte');
 
                           // Use responsive sizing based on container - respect configured dimensions
                           const controlsHeight = 60; // Height of chart controls section  

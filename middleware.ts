@@ -212,7 +212,7 @@ export async function middleware(request: NextRequest) {
 
   const isPublicPath = (path: string) => {
     return (
-      path === '/signin' || 
+      path === '/signin' ||
       path === '/reset-password' ||
       path === '/signup' ||
       path.startsWith('/reset-password/')

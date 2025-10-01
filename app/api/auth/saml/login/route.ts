@@ -138,7 +138,8 @@ const samlLoginHandler = async (request: NextRequest) => {
       totalDuration
     });
 
-    // Redirect to Microsoft Entra
+    // Redirect directly to Microsoft Entra
+    // Note: Cannot use intermediate branded page as it would exceed Microsoft's query string limit
     return NextResponse.redirect(loginUrl);
 
   } catch (error) {

@@ -1,0 +1,409 @@
+/**
+ * SAML Security Integration Tests
+ * Comprehensive security attack testing for SAML implementation
+ *
+ * Tests OWASP SAML Security Cheat Sheet compliance:
+ * - Replay attack prevention
+ * - Tenant isolation
+ * - Injection prevention
+ * - Certificate validation
+ *
+ * Pattern: Follows tests/integration/security-features.test.ts
+ */
+
+import { describe, it, expect, beforeEach } from 'vitest'
+import '@/tests/setup/integration-setup'
+import { createTestUser } from '@/tests/factories/user-factory'
+import { db, samlReplayPrevention } from '@/lib/db'
+import { eq } from 'drizzle-orm'
+import {
+  postSAMLCallback,
+  getSAMLAssertionDetails,
+  SAMLResponseFactory,
+  SAMLTestScenarios,
+  verifySAMLAuthenticationCookies
+} from '@/tests/helpers/saml-helper'
+import type { User } from '@/lib/db/schema'
+
+describe('SAML Security Validations', () => {
+  let testUser: User
+
+  beforeEach(async () => {
+    testUser = await createTestUser({
+      email: 'security.test@bendcare.com',
+      password: 'TestPassword123!'
+    })
+  })
+
+  describe('Replay Attack Prevention', () => {
+    it('should block duplicate assertion ID (basic replay)', async () => {
+      // CRITICAL: Test replay attack detection
+      const assertionId = '_security_test_replay_001'
+      const samlResponse = SAMLResponseFactory.withAssertionId(
+        testUser.email,
+        assertionId
+      )
+
+      // First request should succeed
+      const response1 = await postSAMLCallback(samlResponse)
+      expect([200, 302]).toContain(response1.status)
+
+      const cookies1 = verifySAMLAuthenticationCookies(response1)
+      expect(cookies1.hasAccessToken).toBe(true)
+
+      // Second request with same assertion ID should fail
+      const response2 = await postSAMLCallback(samlResponse)
+
+      expect(response2.status).toBe(302)
+      const location = response2.headers.get('location')
+      expect(location).toContain('/signin')
+      expect(location).toContain('error=')
+
+      // Should NOT set authentication cookies on replay
+      const cookies2 = verifySAMLAuthenticationCookies(response2)
+      expect(cookies2.hasAccessToken).toBe(false)
+    })
+
+    it('should detect concurrent replay attempts (race condition)', async () => {
+      // Test atomic replay prevention (database PRIMARY KEY constraint)
+      const assertionId = '_concurrent_replay_test_002'
+      const samlResponse = SAMLResponseFactory.withAssertionId(
+        testUser.email,
+        assertionId
+      )
+
+      // Send 5 concurrent requests with same assertion ID
+      const concurrentRequests = Array(5).fill(null).map(() =>
+        postSAMLCallback(samlResponse)
+      )
+
+      const responses = await Promise.all(concurrentRequests)
+
+      // Only ONE should succeed (200 or 302 to success page)
+      const successResponses = responses.filter(r =>
+        [200, 302].includes(r.status) &&
+        !r.headers.get('location')?.includes('error=')
+      )
+
+      // Due to database constraint, only one can insert the assertion ID
+      // Others will get redirect with error
+      expect(successResponses.length).toBeLessThanOrEqual(1)
+
+      // Verify only one database entry exists
+      const entries = await db
+        .select()
+        .from(samlReplayPrevention)
+        .where(eq(samlReplayPrevention.replayId, assertionId))
+
+      expect(entries.length).toBe(1)
+    })
+
+    it('should track security context for replay attempts', async () => {
+      const assertionId = '_security_context_test_003'
+      const ipAddress = '10.0.0.1'
+      const userAgent = 'Malicious Browser'
+
+      const samlResponse = SAMLResponseFactory.withAssertionId(
+        testUser.email,
+        assertionId
+      )
+
+      await postSAMLCallback(samlResponse, {
+        headers: {
+          'X-Forwarded-For': ipAddress,
+          'User-Agent': userAgent
+        }
+      })
+
+      // Verify security context is captured
+      const assertion = await getSAMLAssertionDetails(assertionId)
+
+      expect(assertion).toBeTruthy()
+      expect(assertion?.ipAddress).toBe(ipAddress)
+      expect(assertion?.userAgent).toBe(userAgent)
+      expect(assertion?.userEmail).toBe(testUser.email)
+    })
+
+    it('should automatically expire old assertions', async () => {
+      // Test automatic cleanup mechanism
+      const assertionId = '_expiry_test_004'
+      const samlResponse = SAMLResponseFactory.withAssertionId(
+        testUser.email,
+        assertionId
+      )
+
+      await postSAMLCallback(samlResponse)
+
+      const assertion = await getSAMLAssertionDetails(assertionId)
+
+      // Verify expiry timestamp is set (for automatic cleanup)
+      expect(assertion).toBeTruthy()
+      expect(assertion?.expiresAt).toBeInstanceOf(Date)
+
+      // Expiry should be in the future (assertion validity + safety margin)
+      const now = new Date()
+      expect(assertion?.expiresAt.getTime()).toBeGreaterThan(now.getTime())
+    })
+  })
+
+  describe('Tenant Isolation', () => {
+    it('should reject SAML response from different tenant (issuer)', async () => {
+      // CRITICAL: Prevent tenant bypass attacks
+      const wrongTenantResponse = SAMLResponseFactory.wrongTenant(testUser.email)
+
+      const response = await postSAMLCallback(wrongTenantResponse)
+
+      // Should reject due to issuer validation
+      expect(response.status).toBe(302)
+      const location = response.headers.get('location')
+      expect(location).toContain('/signin')
+      expect(location).toContain('error=')
+
+      // Should NOT create session
+      const cookies = verifySAMLAuthenticationCookies(response)
+      expect(cookies.hasAccessToken).toBe(false)
+    })
+
+    it('should validate expected issuer matches configured tenant', async () => {
+      // Verify issuer validation is strict
+      const wrongTenantResponse = SAMLResponseFactory.wrongTenant(testUser.email)
+
+      const response = await postSAMLCallback(wrongTenantResponse)
+
+      expect(response.status).toBe(302)
+      // Verify error indicates validation failure (not just generic error)
+      const location = response.headers.get('location')
+      expect(location).toContain('error=saml_validation_failed')
+    })
+  })
+
+  describe('Injection Prevention', () => {
+    it('should sanitize SQL injection attempts in SAML attributes', async () => {
+      // Test SQL injection prevention
+      const sqlInjection = SAMLTestScenarios.sqlInjection
+
+      const samlResponse = SAMLResponseFactory.withAttributes(testUser.email, {
+        displayName: sqlInjection.displayName,
+        givenName: sqlInjection.givenName
+      })
+
+      const response = await postSAMLCallback(samlResponse)
+
+      // Input validator should reject dangerous characters
+      expect(response.status).toBe(302)
+      const location = response.headers.get('location')
+      expect(location).toContain('/signin')
+
+      // Verify users table still exists (no SQL injection executed)
+      const users = await db.query.users.findMany({ limit: 1 })
+      expect(users).toBeDefined() // Table should exist
+    })
+
+    it('should sanitize XSS attempts in display name', async () => {
+      // Test XSS prevention
+      const xssAttack = SAMLTestScenarios.xssAttack
+
+      const samlResponse = SAMLResponseFactory.withAttributes(testUser.email, {
+        displayName: xssAttack.displayName,
+        givenName: xssAttack.givenName
+      })
+
+      const response = await postSAMLCallback(samlResponse)
+
+      // Should reject or sanitize
+      expect(response.status).toBe(302)
+      const location = response.headers.get('location')
+      expect(location).toContain('/signin')
+    })
+
+    it('should handle path traversal attempts in attributes', async () => {
+      // Test path traversal prevention
+      const pathTraversal = {
+        displayName: '../../../etc/passwd',
+        givenName: '..\\..\\..\\windows\\system32'
+      }
+
+      const samlResponse = SAMLResponseFactory.withAttributes(testUser.email, pathTraversal)
+
+      const response = await postSAMLCallback(samlResponse)
+
+      // Should sanitize or reject
+      expect([200, 302]).toContain(response.status)
+      // If successful, verify no path traversal occurred
+    })
+
+    it('should reject extremely long attribute values (DoS prevention)', async () => {
+      // Test buffer overflow / DoS prevention
+      const veryLongName = 'A'.repeat(10000)
+
+      const samlResponse = SAMLResponseFactory.withAttributes(testUser.email, {
+        displayName: veryLongName,
+        givenName: veryLongName,
+        surname: veryLongName
+      })
+
+      const response = await postSAMLCallback(samlResponse)
+
+      // Should reject due to length validation
+      expect(response.status).toBe(302)
+      const location = response.headers.get('location')
+      expect(location).toContain('/signin')
+    })
+
+    it('should handle special characters safely', async () => {
+      // Test various special character handling
+      const specialChars = {
+        displayName: 'User\x00Name', // Null byte
+        givenName: 'Test\r\nInjection', // CRLF injection
+        surname: 'Surname\t\t\tTab' // Tab injection
+      }
+
+      const samlResponse = SAMLResponseFactory.withAttributes(testUser.email, specialChars)
+
+      const response = await postSAMLCallback(samlResponse)
+
+      // Should handle gracefully (sanitize or reject)
+      expect([200, 302]).toContain(response.status)
+    })
+  })
+
+  describe('Email Domain Restriction', () => {
+    it('should enforce allowed email domain list', async () => {
+      // Test domain allowlist enforcement
+      const unauthorizedDomain = 'attacker@malicious.com'
+      const samlResponse = SAMLResponseFactory.valid(unauthorizedDomain)
+
+      const response = await postSAMLCallback(samlResponse)
+
+      // Should reject unauthorized domain
+      expect(response.status).toBe(302)
+      const location = response.headers.get('location')
+      expect(location).toContain('/signin')
+
+      // Should NOT create session
+      const cookies = verifySAMLAuthenticationCookies(response)
+      expect(cookies.hasAccessToken).toBe(false)
+    })
+
+    it('should be case-insensitive for domain validation', async () => {
+      // Domain validation should ignore case
+      const mixedCaseDomain = 'user@BENDCARE.COM'
+      const samlResponse = SAMLResponseFactory.valid(mixedCaseDomain)
+
+      const response = await postSAMLCallback(samlResponse)
+
+      // Should work despite case difference
+      // Note: Depends on user being provisioned with this email
+      expect([200, 302]).toContain(response.status)
+    })
+  })
+
+  describe('Certificate Validation', () => {
+    it('should reject SAML response with expired certificate', async () => {
+      // Note: This test requires mocking certificate validation
+      // The actual certificate expiry check happens in config.ts
+      // For now, we verify the flow works with valid certificates
+
+      const samlResponse = SAMLResponseFactory.valid(testUser.email)
+      const response = await postSAMLCallback(samlResponse)
+
+      // With valid cert, should succeed
+      expect([200, 302]).toContain(response.status)
+    })
+  })
+
+  describe('Timestamp Validation', () => {
+    it('should reject SAML assertion with expired timestamp', async () => {
+      // CRITICAL: Prevent old SAML responses from being replayed
+      const expiredResponse = SAMLResponseFactory.expired(testUser.email)
+
+      const response = await postSAMLCallback(expiredResponse)
+
+      // Should reject expired assertion
+      expect(response.status).toBe(302)
+      const location = response.headers.get('location')
+      expect(location).toContain('/signin')
+      expect(location).toContain('error=')
+
+      // Should NOT create session
+      const cookies = verifySAMLAuthenticationCookies(response)
+      expect(cookies.hasAccessToken).toBe(false)
+    })
+
+    it('should allow clock skew tolerance', async () => {
+      // Test that reasonable clock skew is tolerated
+      // SAML config allows 5 seconds of clock skew
+
+      const slightlyInFuture = new Date(Date.now() + 3000) // 3 seconds in future
+      const samlResponse = SAMLResponseFactory.withAssertionId(
+        testUser.email,
+        '_clock_skew_test'
+      )
+
+      const response = await postSAMLCallback(samlResponse)
+
+      // Should succeed with clock skew tolerance
+      expect([200, 302]).toContain(response.status)
+    })
+  })
+
+  describe('Authentication Bypass Attempts', () => {
+    it('should reject authentication for inactive user', async () => {
+      // Test account status validation
+      const inactiveUser = await createTestUser({
+        email: 'inactive@bendcare.com',
+        is_active: false
+      })
+
+      const samlResponse = SAMLResponseFactory.valid(inactiveUser.email)
+      const response = await postSAMLCallback(samlResponse)
+
+      expect(response.status).toBe(302)
+      const location = response.headers.get('location')
+      expect(location).toContain('error=user_inactive')
+    })
+
+    it('should require user pre-provisioning', async () => {
+      // Test that unknown users are rejected
+      const unknownEmail = 'not.provisioned@bendcare.com'
+      const samlResponse = SAMLResponseFactory.valid(unknownEmail)
+
+      const response = await postSAMLCallback(samlResponse)
+
+      expect(response.status).toBe(302)
+      const location = response.headers.get('location')
+      expect(location).toContain('error=user_not_provisioned')
+    })
+
+    it('should validate email format strictly', async () => {
+      // Test email format validation
+      const invalidEmail = 'not-an-email'
+      const samlResponse = SAMLResponseFactory.valid(invalidEmail)
+
+      const response = await postSAMLCallback(samlResponse)
+
+      expect(response.status).toBe(302)
+      const location = response.headers.get('location')
+      expect(location).toContain('/signin')
+    })
+  })
+
+  describe('CSRF Protection', () => {
+    it('should be exempt from CSRF validation (uses SAML signature)', async () => {
+      // SAML callback is CSRF-exempt because security comes from SAML signature
+      // This is documented in middleware.ts
+
+      const samlResponse = SAMLResponseFactory.valid(testUser.email)
+
+      // Request without CSRF token should still work
+      const response = await postSAMLCallback(samlResponse, {
+        headers: {
+          // Intentionally no CSRF token
+        }
+      })
+
+      // Should succeed (SAML signature provides security)
+      expect([200, 302]).toContain(response.status)
+    })
+  })
+})

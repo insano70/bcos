@@ -34,6 +34,8 @@ import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified';
 import { createSAMLClient } from '@/lib/saml/client';
 import { isSAMLEnabled, getSAMLConfig } from '@/lib/env';
 import type { SAMLAuthContext } from '@/lib/types/saml';
+import { checkAndTrackAssertion } from '@/lib/saml/replay-prevention';
+import { validateSAMLProfile } from '@/lib/saml/input-validator';
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
@@ -164,7 +166,49 @@ const samlCallbackHandler = async (request: NextRequest) => {
     }
 
     const profile = validationResult.profile;
-    const email = profile.email;
+
+    // CRITICAL SECURITY: Validate and sanitize SAML profile data
+    // Defense-in-depth: Even though node-saml validated the response,
+    // we add extra validation to protect against malformed data and injection attempts
+    const profileValidation = validateSAMLProfile({
+      email: profile.email,
+      displayName: profile.displayName,
+      givenName: profile.givenName,
+      surname: profile.surname
+    });
+
+    if (!profileValidation.valid) {
+      apiLogger.logSecurity('saml_profile_validation_failed', 'high', {
+        action: 'authentication_rejected',
+        blocked: true,
+        threat: 'invalid_profile_data',
+        reason: `profile_validation_failed: ${profileValidation.errors.join(', ')}`
+      });
+
+      logger.error('SAML profile validation failed', new Error('Invalid profile data'), {
+        requestId: authContext.requestId,
+        errors: profileValidation.errors,
+        alert: 'POSSIBLE_INJECTION_ATTEMPT'
+      });
+
+      await AuditLogger.logAuth({
+        action: 'login_failed',
+        ipAddress,
+        userAgent,
+        metadata: {
+          authMethod: 'saml',
+          stage: 'profile_validation',
+          reason: 'invalid_profile_data',
+          errors: profileValidation.errors,
+          correlationId: CorrelationContextManager.getCurrentId()
+        }
+      });
+
+      throw AuthenticationError('Invalid profile data');
+    }
+
+    // Use sanitized email from validation
+    const email = profileValidation.sanitized!.email;
 
     logger.info('SAML validation successful', {
       requestId: authContext.requestId,
@@ -176,6 +220,74 @@ const samlCallbackHandler = async (request: NextRequest) => {
     // Enhanced SAML validation success logging
     apiLogger.logAuth('saml_validation_success', true, {
       method: 'session'
+    });
+
+    // CRITICAL SECURITY: Check for replay attack
+    // Must happen AFTER SAML validation but BEFORE creating session
+    // This prevents attackers from reusing intercepted SAML responses
+    const replayCheckStartTime = Date.now();
+    
+    // Extract assertion metadata for replay prevention
+    const assertionId = profile.assertionID || profile.sessionIndex || profile.nameID || `fallback-${Date.now()}`;
+    const inResponseTo = profile.inResponseTo || 'unknown';
+    const assertionExpiry = profile.sessionNotOnOrAfter 
+      ? new Date(profile.sessionNotOnOrAfter)
+      : new Date(Date.now() + 5 * 60 * 1000); // 5 min default
+
+    const replayCheck = await checkAndTrackAssertion(
+      assertionId,
+      inResponseTo,
+      email,
+      ipAddress,
+      userAgent,
+      assertionExpiry
+    );
+
+    logPerformanceMetric(logger, 'replay_attack_check', Date.now() - replayCheckStartTime, {
+      safe: replayCheck.safe
+    });
+
+    if (!replayCheck.safe) {
+      // REPLAY ATTACK DETECTED - This is a critical security event
+      apiLogger.logSecurity('saml_replay_attack_detected', 'critical', {
+        action: 'authentication_rejected',
+        blocked: true,
+        threat: 'replay_attack',
+        reason: replayCheck.reason || 'replay_detected'
+      });
+
+      logger.error('SAML replay attack detected', new Error('Replay attack'), {
+        requestId: authContext.requestId,
+        email: email.replace(/(.{2}).*@/, '$1***@'),
+        assertionId: assertionId.substring(0, 20) + '...',
+        reason: replayCheck.reason,
+        existingUsedAt: replayCheck.details?.existingUsedAt,
+        existingIpAddress: replayCheck.details?.existingIpAddress,
+        alert: 'REPLAY_ATTACK_BLOCKED'
+      });
+
+      await AuditLogger.logAuth({
+        action: 'login_failed',
+        email,
+        ipAddress,
+        userAgent,
+        metadata: {
+          authMethod: 'saml',
+          stage: 'replay_prevention',
+          reason: 'replay_attack_detected',
+          assertionId: assertionId.substring(0, 20) + '...',
+          details: replayCheck.details,
+          correlationId: CorrelationContextManager.getCurrentId(),
+          severity: 'critical'
+        }
+      });
+
+      throw AuthenticationError('Authentication failed - security violation detected');
+    }
+
+    logger.info('SAML replay check passed', {
+      requestId: authContext.requestId,
+      assertionId: assertionId.substring(0, 20) + '...'
     });
 
     // Fetch user from database (pre-provisioning check)
@@ -432,31 +544,118 @@ const samlCallbackHandler = async (request: NextRequest) => {
       totalDuration
     });
 
-    // Return HTML with meta refresh to give browser time to process cookies
-    // Direct server redirect causes middleware to check cookies before browser receives them
+    // Return inline HTML with CSP-compliant styling to give browser time to process cookies
+    // This approach avoids middleware interference and ensures reliable cookie delivery
     const samlConfig = getSAMLConfig();
     const successUrl = samlConfig?.successRedirect || '/dashboard';
-    
-    const htmlResponse = new NextResponse(
-      `<!DOCTYPE html>
-<html>
+
+    // Get CSP nonces from request headers (set by middleware)
+    const scriptNonce = request.headers.get('x-script-nonce') || '';
+    const styleNonce = request.headers.get('x-style-nonce') || '';
+
+    // Create styled HTML response with nonces for CSP compliance
+    const htmlContent = `<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta http-equiv="refresh" content="0;url=${successUrl}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Authentication Successful</title>
+  <style nonce="${styleNonce}">
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+      background: #ffffff;
+      color: #1f2937;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: #111827;
+        color: #f9fafb;
+      }
+    }
+    .container {
+      text-align: center;
+      padding: 2rem;
+      max-width: 400px;
+    }
+    h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+      color: #1f2937;
+    }
+    @media (prefers-color-scheme: dark) {
+      h1 {
+        color: #f9fafb;
+      }
+    }
+    .message {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      color: #6b7280;
+      font-size: 1rem;
+    }
+    @media (prefers-color-scheme: dark) {
+      .message {
+        color: #9ca3af;
+      }
+    }
+    .checkmark {
+      width: 1.25rem;
+      height: 1.25rem;
+      color: #10b981;
+    }
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .container {
+      animation: fadeIn 0.5s ease-out;
+    }
+  </style>
 </head>
 <body>
-  <p>Authentication successful. Redirecting...</p>
-  <script>window.location.href = '${successUrl}';</script>
+  <div class="container">
+    <h1>Authenticated!</h1>
+    <div class="message">
+      <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+      </svg>
+      <span>Redirecting to dashboard...</span>
+    </div>
+  </div>
+  <script nonce="${scriptNonce}">
+    // Redirect after short delay to allow cookie processing
+    setTimeout(function() {
+      window.location.href = '${successUrl}';
+    }, 1000);
+  </script>
 </body>
-</html>`,
-      {
-        status: 200,
-        headers: {
-          'Content-Type': 'text/html; charset=utf-8',
-        },
-      }
-    );
-    
+</html>`;
+
+    const htmlResponse = new NextResponse(htmlContent, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+      },
+    });
+
     // Set cookies on the HTML response
     htmlResponse.cookies.set('refresh-token', tokenPair.refreshToken, {
       httpOnly: true,
@@ -465,7 +664,7 @@ const samlCallbackHandler = async (request: NextRequest) => {
       path: '/',
       maxAge
     });
-    
+
     htmlResponse.cookies.set('access-token', tokenPair.accessToken, {
       httpOnly: true,
       secure: isSecureEnvironment,
@@ -473,13 +672,15 @@ const samlCallbackHandler = async (request: NextRequest) => {
       path: '/',
       maxAge: 15 * 60 // 15 minutes
     });
-    
-    logger.info('SAML success response with cookies and client redirect', {
+
+    logger.info('SAML success response with cookies and inline HTML', {
       requestId: authContext.requestId,
       redirectTo: successUrl,
-      cookiesAttached: 2
+      cookiesAttached: 2,
+      hasScriptNonce: !!scriptNonce,
+      hasStyleNonce: !!styleNonce
     });
-    
+
     return htmlResponse;
 
   } catch (error) {

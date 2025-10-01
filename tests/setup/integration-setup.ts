@@ -2,7 +2,9 @@ import { beforeEach, afterEach, afterAll, beforeAll } from 'vitest'
 import { initializeMainTransaction, getTestTransaction, rollbackTransaction, cleanupTestDb } from '@/tests/helpers/db-helper'
 import { emergencyCleanup } from './cleanup'
 import { logger } from '@/lib/logger'
-import '@testing-library/jest-dom'
+
+// Register committed factories with the global registry
+import '@/tests/factories/committed/setup'
 
 // Ensure environment variables are set for tests
 // Only set DATABASE_URL if it's not already set (to avoid overriding existing config)
