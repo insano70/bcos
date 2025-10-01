@@ -398,3 +398,82 @@ export async function createUserWithRoles(
 
   return { user, userContext }
 }
+
+/**
+ * Create a user with specific permissions
+ * Useful for RBAC API testing - creates a user, role, and assigns permissions
+ *
+ * This is a convenience wrapper that combines createTestUser, createTestRole,
+ * and assignRoleToUser to simplify the common pattern of creating a user
+ * with specific permissions for API testing.
+ *
+ * @param permissionNames - Array of permission names (e.g., ['analytics:read:all'])
+ * @param organizationId - Optional organization ID to scope the user to
+ * @param userOptions - Optional user creation options
+ * @returns The created user
+ *
+ * @example
+ * // Create user with analytics read permission
+ * const user = await createUserWithPermissions(['analytics:read:all'])
+ *
+ * // Create user within specific organization
+ * const org = await createTestOrganization()
+ * const user = await createUserWithPermissions(
+ *   ['analytics:read:organization'],
+ *   org.organization_id
+ * )
+ *
+ * // Create user with no permissions (for negative testing)
+ * const restrictedUser = await createUserWithPermissions([])
+ */
+export async function createUserWithPermissions(
+  permissionNames: PermissionName[],
+  organizationId?: string,
+  userOptions: Partial<User> = {}
+): Promise<User> {
+  const tx = getCurrentTransaction()
+
+  // Create the user
+  const user = await createTestUser(userOptions)
+
+  // Look up organization if ID provided
+  let organization: Organization | undefined
+  if (organizationId) {
+    const orgs = await tx
+      .select()
+      .from(organizations)
+      .where(eq(organizations.organization_id, organizationId))
+
+    if (orgs.length > 0) {
+      organization = mapDatabaseOrgToOrg(orgs[0]!)
+      await assignUserToOrganization(user, organization)
+    }
+  }
+
+  // Create a role with the specified permissions using the factory
+  const roleOptions: {
+    name: string
+    description: string
+    isSystemRole: boolean
+    permissions: PermissionName[]
+    organizationId?: string
+  } = {
+    name: `test_role_${user.user_id.substring(0, 8)}`,
+    description: `Test role with ${permissionNames.length} permissions`,
+    isSystemRole: !organizationId,
+    permissions: permissionNames,
+  }
+
+  // Only add organizationId if it exists (exactOptionalPropertyTypes compatibility)
+  if (organizationId) {
+    roleOptions.organizationId = organizationId
+  }
+
+  const role = await createTestRole(roleOptions)
+
+  // Map the role and assign to user
+  const mappedRole: Role = mapDatabaseRoleToRole(role)
+  await assignRoleToUser(user, mappedRole, organization, user)
+
+  return user
+}

@@ -423,10 +423,9 @@ describe('analytics validation schemas', () => {
 
       const result = dashboardUpdateSchema.safeParse(validData)
       expect(result.success).toBe(true)
-      expect(result.data).toEqual({
-        ...validData,
-        is_published: false  // Schema adds default value
-      })
+      // Update schema explicitly removes defaults from is_published and is_active
+      // Only fields explicitly provided should be in the result
+      expect(result.data).toEqual(validData)
     })
 
     it('should allow empty update', () => {

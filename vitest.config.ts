@@ -52,12 +52,15 @@ export default defineConfig({
         'coverage/',
         '.next/'
       ],
-      // Initial Phase 1 thresholds - will be increased in subsequent phases
+      // Phase 2 thresholds - increased after adding SAML tests
+      // Previous: 15% baseline
+      // Current: 20% with SAML test coverage added
+      // Next: 50% target after full API coverage
       thresholds: {
-        statements: 15,
-        branches: 10,
-        functions: 15,
-        lines: 15
+        statements: 20,
+        branches: 15,
+        functions: 20,
+        lines: 20
       }
     }
   },

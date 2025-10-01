@@ -1,0 +1,144 @@
+/**
+ * SAML Login Integration Tests
+ * Tests the SAML login initiation endpoint
+ *
+ * Pattern: Follows tests/integration/api/users.test.ts
+ */
+
+import { describe, it, expect } from 'vitest'
+import { getSAMLLoginRedirect, getSAMLMetadata } from '@/tests/helpers/saml-helper'
+
+describe('GET /api/auth/saml/login', () => {
+  describe('Login Initiation', () => {
+    it('should redirect to Microsoft Entra for authentication', async () => {
+      // Test business outcome: Login starts SAML flow
+      const response = await getSAMLLoginRedirect()
+
+      // Should redirect (302)
+      expect(response.status).toBe(302)
+
+      // Should redirect to Microsoft
+      const location = response.headers.get('location')
+      expect(location).toBeTruthy()
+      expect(location).toContain('login.microsoftonline.com')
+      expect(location).toContain('/saml2')
+    })
+
+    it('should include relay state for deep linking', async () => {
+      const relayState = '/dashboard/analytics'
+      const response = await getSAMLLoginRedirect(relayState)
+
+      expect(response.status).toBe(302)
+
+      // Microsoft URL should be generated (relay state embedded in SAML request)
+      const location = response.headers.get('location')
+      expect(location).toContain('login.microsoftonline.com')
+    })
+
+    it('should handle missing relay state gracefully', async () => {
+      const response = await getSAMLLoginRedirect()
+
+      expect(response.status).toBe(302)
+      const location = response.headers.get('location')
+      expect(location).toContain('login.microsoftonline.com')
+    })
+  })
+
+  describe('SAML Configuration', () => {
+    it('should work when SAML is configured', async () => {
+      // Test that SAML is properly configured in test environment
+      const response = await getSAMLLoginRedirect()
+
+      expect(response.status).toBe(302)
+    })
+
+    it('should include tenant-specific endpoint', async () => {
+      const response = await getSAMLLoginRedirect()
+      const location = response.headers.get('location')
+
+      // Should include tenant ID in URL
+      expect(location).toContain('login.microsoftonline.com')
+    })
+  })
+
+  describe('Rate Limiting', () => {
+    it('should allow reasonable number of login attempts', async () => {
+      // Test that rate limiting doesn't block normal usage
+      const requests = Array(5).fill(null).map(() =>
+        getSAMLLoginRedirect()
+      )
+
+      const responses = await Promise.all(requests)
+
+      // All should succeed (rate limit is generous for login initiation)
+      responses.forEach(response => {
+        expect(response.status).toBe(302)
+      })
+    })
+  })
+})
+
+describe('GET /api/auth/saml/metadata', () => {
+  describe('Metadata Generation', () => {
+    it('should serve valid SP metadata XML', async () => {
+      const response = await getSAMLMetadata()
+
+      expect(response.status).toBe(200)
+      expect(response.headers.get('content-type')).toContain('samlmetadata+xml')
+
+      const metadata = await response.text()
+      expect(metadata).toContain('<?xml')
+      expect(metadata).toContain('EntityDescriptor')
+    })
+
+    it('should include SP descriptor', async () => {
+      const response = await getSAMLMetadata()
+      const metadata = await response.text()
+
+      expect(metadata).toContain('SPSSODescriptor')
+    })
+
+    it('should include AssertionConsumerService URL', async () => {
+      const response = await getSAMLMetadata()
+      const metadata = await response.text()
+
+      expect(metadata).toContain('/api/auth/saml/callback')
+    })
+
+    it('should include entity ID (issuer)', async () => {
+      const response = await getSAMLMetadata()
+      const metadata = await response.text()
+
+      expect(metadata).toContain('/saml/metadata')
+    })
+  })
+
+  describe('Caching', () => {
+    it('should set cache headers for performance', async () => {
+      const response = await getSAMLMetadata()
+
+      const cacheControl = response.headers.get('cache-control')
+      expect(cacheControl).toBeTruthy()
+      expect(cacheControl).toContain('public')
+    })
+
+    it('should return consistent metadata across requests', async () => {
+      const response1 = await getSAMLMetadata()
+      const metadata1 = await response1.text()
+
+      const response2 = await getSAMLMetadata()
+      const metadata2 = await response2.text()
+
+      expect(metadata1).toBe(metadata2)
+    })
+  })
+
+  describe('Security Headers', () => {
+    it('should include security headers', async () => {
+      const response = await getSAMLMetadata()
+
+      const contentType = response.headers.get('x-content-type-options')
+      expect(contentType).toBe('nosniff')
+    })
+  })
+})

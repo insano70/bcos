@@ -1,3 +1,4 @@
 {
-    "kiroAgent.configureMCP": "Enabled"
+    "kiroAgent.configureMCP": "Enabled",
+    "claude-code.selectedModel": "claude-sonnet-4-5"
 }

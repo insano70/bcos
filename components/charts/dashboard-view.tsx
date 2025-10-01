@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import AnalyticsChart from './analytics-chart';
-import type { Dashboard, DashboardChart, ChartDefinition, MeasureType, FrequencyType } from '@/lib/types/analytics';
+import type { Dashboard, DashboardChart, ChartDefinition, MeasureType, FrequencyType, ChartFilter } from '@/lib/types/analytics';
 import { apiClient } from '@/lib/api/client';
 
 interface DashboardViewProps {
@@ -141,11 +141,11 @@ export default function DashboardView({
           const chartConfig = chartDef.chart_config || {};
           
           // Extract filters to get chart parameters
-          const measureFilter = dataSource.filters?.find((f: any) => f.field === 'measure');
-          const frequencyFilter = dataSource.filters?.find((f: any) => f.field === 'frequency');
-          const practiceFilter = dataSource.filters?.find((f: any) => f.field === 'practice_uid');
-          const startDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'gte');
-          const endDateFilter = dataSource.filters?.find((f: any) => f.field === 'date_index' && f.operator === 'lte');
+          const measureFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'measure');
+          const frequencyFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'frequency');
+          const practiceFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'practice_uid');
+          const startDateFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'date_index' && f.operator === 'gte');
+          const endDateFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'date_index' && f.operator === 'lte');
 
           // Use responsive sizing that respects dashboard configuration
           const baseHeight = dashboardChart.position.h * 150; // Height from dashboard configuration
