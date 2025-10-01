@@ -105,3 +105,4 @@ export const GET = publicRoute(
   'SAML SP metadata - public endpoint for Entra configuration',
   { rateLimit: 'api' }
 );
+

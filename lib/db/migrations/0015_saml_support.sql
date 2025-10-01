@@ -27,3 +27,4 @@ COMMENT ON COLUMN users.password_hash IS
 
 -- Migration completed successfully
 COMMIT;
+
