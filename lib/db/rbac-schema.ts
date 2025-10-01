@@ -1,5 +1,5 @@
-import { pgTable, uuid, varchar, text, boolean, timestamp, index } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
+import { boolean, index, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 
 /**
  * RBAC Database Schema for Enterprise Role-Based Access Control
@@ -60,7 +60,9 @@ export const roles = pgTable(
     role_id: uuid('role_id').primaryKey().defaultRandom(),
     name: varchar('name', { length: 100 }).notNull(), // e.g., 'admin', 'manager', 'user'
     description: text('description'),
-    organization_id: uuid('organization_id').references(() => organizations.organization_id, { onDelete: 'cascade' }),
+    organization_id: uuid('organization_id').references(() => organizations.organization_id, {
+      onDelete: 'cascade',
+    }),
     is_system_role: boolean('is_system_role').default(false), // true for global roles like 'super_admin'
     is_active: boolean('is_active').default(true),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
@@ -84,15 +86,22 @@ export const role_permissions = pgTable(
   'role_permissions',
   {
     role_permission_id: uuid('role_permission_id').primaryKey().defaultRandom(),
-    role_id: uuid('role_id').notNull().references(() => roles.role_id, { onDelete: 'cascade' }),
-    permission_id: uuid('permission_id').notNull().references(() => permissions.permission_id, { onDelete: 'cascade' }),
+    role_id: uuid('role_id')
+      .notNull()
+      .references(() => roles.role_id, { onDelete: 'cascade' }),
+    permission_id: uuid('permission_id')
+      .notNull()
+      .references(() => permissions.permission_id, { onDelete: 'cascade' }),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
   (table) => ({
     roleIdx: index('idx_role_permissions_role').on(table.role_id),
     permissionIdx: index('idx_role_permissions_permission').on(table.permission_id),
     // Ensure unique role-permission combinations
-    uniqueRolePermissionIdx: index('idx_unique_role_permission').on(table.role_id, table.permission_id),
+    uniqueRolePermissionIdx: index('idx_unique_role_permission').on(
+      table.role_id,
+      table.permission_id
+    ),
   })
 );
 
@@ -102,8 +111,12 @@ export const user_roles = pgTable(
   {
     user_role_id: uuid('user_role_id').primaryKey().defaultRandom(),
     user_id: uuid('user_id').notNull(), // References users.user_id (from main schema)
-    role_id: uuid('role_id').notNull().references(() => roles.role_id, { onDelete: 'cascade' }),
-    organization_id: uuid('organization_id').references(() => organizations.organization_id, { onDelete: 'cascade' }),
+    role_id: uuid('role_id')
+      .notNull()
+      .references(() => roles.role_id, { onDelete: 'cascade' }),
+    organization_id: uuid('organization_id').references(() => organizations.organization_id, {
+      onDelete: 'cascade',
+    }),
     granted_by: uuid('granted_by'), // References users.user_id - who granted this role
     granted_at: timestamp('granted_at', { withTimezone: true }).defaultNow(),
     expires_at: timestamp('expires_at', { withTimezone: true }), // Optional: for temporary role assignments
@@ -118,7 +131,11 @@ export const user_roles = pgTable(
     activeIdx: index('idx_user_roles_active').on(table.is_active),
     expiresAtIdx: index('idx_user_roles_expires_at').on(table.expires_at),
     // Ensure unique user-role-organization combinations
-    uniqueUserRoleOrgIdx: index('idx_unique_user_role_org').on(table.user_id, table.role_id, table.organization_id),
+    uniqueUserRoleOrgIdx: index('idx_unique_user_role_org').on(
+      table.user_id,
+      table.role_id,
+      table.organization_id
+    ),
   })
 );
 
@@ -128,7 +145,9 @@ export const user_organizations = pgTable(
   {
     user_organization_id: uuid('user_organization_id').primaryKey().defaultRandom(),
     user_id: uuid('user_id').notNull(), // References users.user_id (from main schema)
-    organization_id: uuid('organization_id').notNull().references(() => organizations.organization_id, { onDelete: 'cascade' }),
+    organization_id: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.organization_id, { onDelete: 'cascade' }),
     is_active: boolean('is_active').default(true),
     joined_at: timestamp('joined_at', { withTimezone: true }).defaultNow(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
@@ -139,7 +158,10 @@ export const user_organizations = pgTable(
     activeIdx: index('idx_user_organizations_active').on(table.is_active),
     joinedAtIdx: index('idx_user_organizations_joined_at').on(table.joined_at),
     // Ensure unique user-organization combinations
-    uniqueUserOrgIdx: index('idx_unique_user_organization').on(table.user_id, table.organization_id),
+    uniqueUserOrgIdx: index('idx_unique_user_organization').on(
+      table.user_id,
+      table.organization_id
+    ),
   })
 );
 
@@ -148,7 +170,7 @@ export const organizationsRelations = relations(organizations, ({ one, many }) =
   parent: one(organizations, {
     fields: [organizations.parent_organization_id],
     references: [organizations.organization_id],
-    relationName: 'parent_child'
+    relationName: 'parent_child',
   }),
   children: many(organizations, { relationName: 'parent_child' }),
   roles: many(roles),
@@ -159,7 +181,7 @@ export const organizationsRelations = relations(organizations, ({ one, many }) =
 export const rolesRelations = relations(roles, ({ one, many }) => ({
   organization: one(organizations, {
     fields: [roles.organization_id],
-    references: [organizations.organization_id]
+    references: [organizations.organization_id],
   }),
   rolePermissions: many(role_permissions),
   userRoles: many(user_roles),
@@ -172,28 +194,28 @@ export const permissionsRelations = relations(permissions, ({ many }) => ({
 export const rolePermissionsRelations = relations(role_permissions, ({ one }) => ({
   role: one(roles, {
     fields: [role_permissions.role_id],
-    references: [roles.role_id]
+    references: [roles.role_id],
   }),
   permission: one(permissions, {
     fields: [role_permissions.permission_id],
-    references: [permissions.permission_id]
+    references: [permissions.permission_id],
   }),
 }));
 
 export const userRolesRelations = relations(user_roles, ({ one }) => ({
   role: one(roles, {
     fields: [user_roles.role_id],
-    references: [roles.role_id]
+    references: [roles.role_id],
   }),
   organization: one(organizations, {
     fields: [user_roles.organization_id],
-    references: [organizations.organization_id]
+    references: [organizations.organization_id],
   }),
 }));
 
 export const userOrganizationsRelations = relations(user_organizations, ({ one }) => ({
   organization: one(organizations, {
     fields: [user_organizations.organization_id],
-    references: [organizations.organization_id]
+    references: [organizations.organization_id],
   }),
 }));

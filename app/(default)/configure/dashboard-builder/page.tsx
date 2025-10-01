@@ -52,10 +52,7 @@ export default function DashboardBuilderPage() {
       </div>
 
       {/* Dashboard Builder */}
-      <RowBasedDashboardBuilder
-        onCancel={handleCancel}
-        onSaveSuccess={handleSaveSuccess}
-      />
+      <RowBasedDashboardBuilder onCancel={handleCancel} onSaveSuccess={handleSaveSuccess} />
     </div>
   );
 }

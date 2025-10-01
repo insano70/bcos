@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import type { DataSourceColumn } from '@/lib/hooks/use-data-sources';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
+import type { DataSourceColumn } from '@/lib/hooks/use-data-sources';
 
 interface DataSourceColumnsTableProps {
   columns: DataSourceColumn[];
@@ -11,7 +11,7 @@ interface DataSourceColumnsTableProps {
 export default function DataSourceColumnsTable({
   columns,
   onEdit,
-  onDelete
+  onDelete,
 }: DataSourceColumnsTableProps) {
   const [sortConfig, setSortConfig] = useState<{
     key: keyof DataSourceColumn;
@@ -19,9 +19,9 @@ export default function DataSourceColumnsTable({
   } | null>(null);
 
   const handleSort = (key: keyof DataSourceColumn) => {
-    setSortConfig(current => ({
+    setSortConfig((current) => ({
       key,
-      direction: current?.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+      direction: current?.key === key && current.direction === 'asc' ? 'desc' : 'asc',
     }));
   };
 
@@ -47,8 +47,18 @@ export default function DataSourceColumnsTable({
   const getSortIcon = (key: keyof DataSourceColumn) => {
     if (sortConfig?.key !== key) {
       return (
-        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+        <svg
+          className="w-4 h-4 text-gray-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
+          />
         </svg>
       );
     }
@@ -74,15 +84,15 @@ export default function DataSourceColumnsTable({
 
     return (
       <div className="flex flex-wrap gap-1">
-        {types.map(type => (
+        {types.map((type) => (
           <span
             key={type}
             className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
               type === 'Measure'
                 ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
                 : type === 'Dimension'
-                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                  : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
             }`}
           >
             {type}
@@ -139,18 +149,14 @@ export default function DataSourceColumnsTable({
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  <div className="text-gray-900 dark:text-gray-100">
-                    {column.display_name}
-                  </div>
+                  <div className="text-gray-900 dark:text-gray-100">{column.display_name}</div>
                 </td>
                 <td className="px-4 py-3">
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
                     {column.data_type}
                   </span>
                 </td>
-                <td className="px-4 py-3">
-                  {getColumnTypeBadge(column)}
-                </td>
+                <td className="px-4 py-3">{getColumnTypeBadge(column)}</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap gap-1">
                     {column.is_filterable && (
@@ -181,11 +187,13 @@ export default function DataSourceColumnsTable({
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    column.is_active
-                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                      : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                  }`}>
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      column.is_active
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                        : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                    }`}
+                  >
                     {column.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </td>
@@ -198,8 +206,18 @@ export default function DataSourceColumnsTable({
                         className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
                         title="Edit column"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                          />
                         </svg>
                       </button>
                     </ProtectedComponent>
@@ -211,8 +229,18 @@ export default function DataSourceColumnsTable({
                         className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
                         title="Delete column"
                       >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
                         </svg>
                       </button>
                     </ProtectedComponent>
@@ -226,10 +254,22 @@ export default function DataSourceColumnsTable({
 
       {columns.length === 0 && (
         <div className="px-4 py-8 text-center">
-          <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          <svg
+            className="mx-auto h-12 w-12 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
           </svg>
-          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No columns configured</h3>
+          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+            No columns configured
+          </h3>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Get started by adding columns to this data source.
           </p>

@@ -1,5 +1,5 @@
-import type { AnalyticsQueryParams, AnalyticsQueryResult } from '@/lib/types/analytics';
 import { logger } from '@/lib/logger';
+import type { AnalyticsQueryParams, AnalyticsQueryResult } from '@/lib/types/analytics';
 
 /**
  * Analytics Query Result Caching Service
@@ -34,19 +34,21 @@ export class AnalyticsCache {
       ...params,
       userId, // Include user ID for security
     };
-    
+
     // Sort keys for consistent hashing
     const sortedKeys = Object.keys(keyData).sort();
-    const keyString = sortedKeys.map(key => `${key}:${keyData[key as keyof typeof keyData]}`).join('|');
-    
+    const keyString = sortedKeys
+      .map((key) => `${key}:${keyData[key as keyof typeof keyData]}`)
+      .join('|');
+
     // Simple hash function
     let hash = 0;
     for (let i = 0; i < keyString.length; i++) {
       const char = keyString.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
+      hash = (hash << 5) - hash + char;
       hash = hash & hash; // Convert to 32-bit integer
     }
-    
+
     return `analytics_${Math.abs(hash).toString(36)}`;
   }
 
@@ -56,13 +58,13 @@ export class AnalyticsCache {
   get(params: AnalyticsQueryParams, userId: string): AnalyticsQueryResult | null {
     const key = this.generateCacheKey(params, userId);
     const entry = this.cache.get(key);
-    
+
     if (!entry) {
       return null;
     }
 
     const now = Date.now();
-    
+
     // Check if expired
     if (now - entry.timestamp > entry.ttl) {
       this.cache.delete(key);
@@ -74,23 +76,28 @@ export class AnalyticsCache {
     entry.accessCount++;
     entry.lastAccessed = now;
 
-    logger.debug('Cache hit', { 
-      key, 
+    logger.debug('Cache hit', {
+      key,
       age: now - entry.timestamp,
-      accessCount: entry.accessCount 
+      accessCount: entry.accessCount,
     });
 
     // Mark as cache hit
     return {
       ...entry.data,
-      cache_hit: true
+      cache_hit: true,
     };
   }
 
   /**
    * Store query result in cache
    */
-  set(params: AnalyticsQueryParams, userId: string, data: AnalyticsQueryResult, customTtl?: number): void {
+  set(
+    params: AnalyticsQueryParams,
+    userId: string,
+    data: AnalyticsQueryResult,
+    customTtl?: number
+  ): void {
     const key = this.generateCacheKey(params, userId);
     const now = Date.now();
     const ttl = customTtl || this.DEFAULT_TTL;
@@ -104,7 +111,7 @@ export class AnalyticsCache {
       timestamp: now,
       ttl: intelligentTtl,
       accessCount: 0,
-      lastAccessed: now
+      lastAccessed: now,
     };
 
     // Check cache size and evict if necessary
@@ -114,25 +121,29 @@ export class AnalyticsCache {
 
     this.cache.set(key, entry);
 
-    logger.debug('Cache entry stored', { 
-      key, 
+    logger.debug('Cache entry stored', {
+      key,
       ttl: intelligentTtl,
       dataSize: data.data.length,
-      queryTime: data.query_time_ms
+      queryTime: data.query_time_ms,
     });
   }
 
   /**
    * Calculate intelligent TTL based on query characteristics
    */
-  private calculateIntelligentTtl(params: AnalyticsQueryParams, data: AnalyticsQueryResult, defaultTtl: number): number {
+  private calculateIntelligentTtl(
+    params: AnalyticsQueryParams,
+    data: AnalyticsQueryResult,
+    defaultTtl: number
+  ): number {
     let ttl = defaultTtl;
 
     // Longer TTL for historical data (older start dates)
     if (params.start_date) {
       const startDate = new Date(params.start_date);
       const monthsAgo = (Date.now() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30);
-      
+
       if (monthsAgo > 6) {
         ttl = ttl * 4; // 20 minutes for historical data
       } else if (monthsAgo > 3) {
@@ -151,7 +162,11 @@ export class AnalyticsCache {
     }
 
     // Shorter TTL for real-time data (current month)
-    if (params.frequency === 'Weekly' || (params.end_date && new Date(params.end_date) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))) {
+    if (
+      params.frequency === 'Weekly' ||
+      (params.end_date &&
+        new Date(params.end_date) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
+    ) {
       ttl = ttl * 0.5; // 2.5 minutes for recent data
     }
 
@@ -163,20 +178,20 @@ export class AnalyticsCache {
    */
   private evictLeastRecentlyUsed(): void {
     const entries = Array.from(this.cache.entries());
-    
+
     // Sort by last accessed time (oldest first)
     entries.sort((a, b) => a[1].lastAccessed - b[1].lastAccessed);
-    
+
     // Remove oldest 10% of entries
     const toRemove = Math.ceil(entries.length * 0.1);
-    
+
     for (let i = 0; i < toRemove; i++) {
       this.cache.delete(entries[i]?.[0] || '');
     }
 
-    logger.debug('Cache eviction completed', { 
+    logger.debug('Cache eviction completed', {
       removedEntries: toRemove,
-      remainingEntries: this.cache.size 
+      remainingEntries: this.cache.size,
     });
   }
 
@@ -195,9 +210,9 @@ export class AnalyticsCache {
     }
 
     if (removedCount > 0) {
-      logger.debug('Cache cleanup completed', { 
+      logger.debug('Cache cleanup completed', {
         removedExpired: removedCount,
-        remainingEntries: this.cache.size 
+        remainingEntries: this.cache.size,
       });
     }
   }
@@ -223,7 +238,7 @@ export class AnalyticsCache {
   } {
     const entries = Array.from(this.cache.values());
     const totalAccess = entries.reduce((sum, entry) => sum + entry.accessCount, 0);
-    const totalHits = entries.filter(entry => entry.accessCount > 0).length;
+    const totalHits = entries.filter((entry) => entry.accessCount > 0).length;
 
     const result: {
       size: number;
@@ -236,12 +251,12 @@ export class AnalyticsCache {
       maxSize: this.MAX_CACHE_SIZE,
       hitRate: totalAccess > 0 ? (totalHits / totalAccess) * 100 : 0,
     };
-    
+
     if (entries.length > 0) {
-      result.oldestEntry = new Date(Math.min(...entries.map(e => e.timestamp)));
-      result.newestEntry = new Date(Math.max(...entries.map(e => e.timestamp)));
+      result.oldestEntry = new Date(Math.min(...entries.map((e) => e.timestamp)));
+      result.newestEntry = new Date(Math.max(...entries.map((e) => e.timestamp)));
     }
-    
+
     return result;
   }
 
@@ -250,7 +265,7 @@ export class AnalyticsCache {
    */
   invalidatePattern(pattern: Partial<AnalyticsQueryParams>): number {
     let invalidatedCount = 0;
-    
+
     for (const [key, entry] of Array.from(this.cache.entries())) {
       // Simple pattern matching - in production you'd want more sophisticated matching
       const shouldInvalidate = Object.entries(pattern).every(([patternKey, patternValue]) => {
@@ -263,10 +278,10 @@ export class AnalyticsCache {
       }
     }
 
-    logger.info('Cache invalidation completed', { 
+    logger.info('Cache invalidation completed', {
       pattern,
       invalidatedCount,
-      remainingEntries: this.cache.size 
+      remainingEntries: this.cache.size,
     });
 
     return invalidatedCount;

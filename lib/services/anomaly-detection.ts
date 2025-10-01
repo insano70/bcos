@@ -46,29 +46,29 @@ export const DEFAULT_THRESHOLDS: AnomalyThreshold[] = [
     name: 'Minor Change',
     description: '10-25% change from expected value',
     threshold: 10,
-    severity: 'low'
+    severity: 'low',
   },
   {
     id: 'significant_change',
     name: 'Significant Change',
     description: '25-50% change from expected value',
     threshold: 25,
-    severity: 'medium'
+    severity: 'medium',
   },
   {
     id: 'major_change',
     name: 'Major Change',
     description: '50-100% change from expected value',
     threshold: 50,
-    severity: 'high'
+    severity: 'high',
   },
   {
     id: 'critical_change',
     name: 'Critical Change',
     description: 'Over 100% change from expected value',
     threshold: 100,
-    severity: 'critical'
-  }
+    severity: 'critical',
+  },
 ];
 
 export class AnomalyDetectionService {
@@ -78,10 +78,7 @@ export class AnomalyDetectionService {
   /**
    * Detect anomalies in chart data
    */
-  detectAnomalies(
-    measures: AggAppMeasure[],
-    ruleId?: string
-  ): AnomalyAlert[] {
+  detectAnomalies(measures: AggAppMeasure[], ruleId?: string): AnomalyAlert[] {
     if (measures.length < 3) {
       return []; // Need at least 3 data points for anomaly detection
     }
@@ -91,19 +88,18 @@ export class AnomalyDetectionService {
     const thresholds = rule?.thresholds || DEFAULT_THRESHOLDS;
 
     // Sort by date to analyze trends
-    const sortedMeasures = measures.sort((a, b) => 
-      new Date(a.date_index).getTime() - new Date(b.date_index).getTime()
+    const sortedMeasures = measures.sort(
+      (a, b) => new Date(a.date_index).getTime() - new Date(b.date_index).getTime()
     );
 
     const latestMeasure = sortedMeasures[sortedMeasures.length - 1];
     if (!latestMeasure) return [];
-    
+
     const expectedValue = this.calculateExpectedValue(sortedMeasures);
     const currentValue = latestMeasure.measure_value;
-    
-    const percentageChange = expectedValue !== 0 
-      ? Math.abs((currentValue - expectedValue) / expectedValue) * 100
-      : 0;
+
+    const percentageChange =
+      expectedValue !== 0 ? Math.abs((currentValue - expectedValue) / expectedValue) * 100 : 0;
 
     // Check against thresholds
     for (const threshold of thresholds.sort((a, b) => b.threshold - a.threshold)) {
@@ -119,12 +115,12 @@ export class AnomalyDetectionService {
           expectedValue,
           percentageChange,
           description: `${threshold.name}: ${latestMeasure.measure} changed by ${percentageChange.toFixed(1)}% (${currentValue.toLocaleString()} vs expected ${expectedValue.toLocaleString()})`,
-          isResolved: false
+          isResolved: false,
         };
 
         alerts.push(alert);
         this.alerts.set(alert.id, alert);
-        
+
         if (typeof window !== 'undefined') {
           console.warn('Anomaly detected', {
             alertId: alert.id,
@@ -132,7 +128,7 @@ export class AnomalyDetectionService {
             severity: alert.severity,
             percentageChange: alert.percentageChange,
             currentValue: alert.currentValue,
-            expectedValue: alert.expectedValue
+            expectedValue: alert.expectedValue,
           });
         }
 
@@ -148,20 +144,20 @@ export class AnomalyDetectionService {
    */
   createRule(rule: Omit<AnomalyDetectionRule, 'id' | 'lastChecked'>): string {
     const ruleId = `rule_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     const fullRule: AnomalyDetectionRule = {
       ...rule,
-      id: ruleId
+      id: ruleId,
     };
 
     this.rules.set(ruleId, fullRule);
-    
+
     if (typeof window !== 'undefined') {
       console.info('Anomaly detection rule created', {
         ruleId,
         chartDefinitionId: rule.chartDefinitionId,
         measure: rule.measure,
-        thresholdCount: rule.thresholds.length
+        thresholdCount: rule.thresholds.length,
       });
     }
 
@@ -189,11 +185,11 @@ export class AnomalyDetectionService {
    */
   deleteRule(ruleId: string): boolean {
     const deleted = this.rules.delete(ruleId);
-    
+
     if (deleted && typeof window !== 'undefined') {
       console.info('Anomaly detection rule deleted', { ruleId });
     }
-    
+
     return deleted;
   }
 
@@ -201,14 +197,14 @@ export class AnomalyDetectionService {
    * Get all active rules
    */
   getActiveRules(): AnomalyDetectionRule[] {
-    return Array.from(this.rules.values()).filter(rule => rule.isActive);
+    return Array.from(this.rules.values()).filter((rule) => rule.isActive);
   }
 
   /**
    * Get unresolved alerts
    */
   getUnresolvedAlerts(): AnomalyAlert[] {
-    return Array.from(this.alerts.values()).filter(alert => !alert.isResolved);
+    return Array.from(this.alerts.values()).filter((alert) => !alert.isResolved);
   }
 
   /**
@@ -221,9 +217,9 @@ export class AnomalyDetectionService {
     alert.isResolved = true;
     alert.resolvedAt = new Date();
     alert.resolvedBy = resolvedBy;
-    
+
     this.alerts.set(alertId, alert);
-    
+
     if (typeof window !== 'undefined') {
       console.info('Anomaly alert resolved', { alertId, resolvedBy });
     }
@@ -243,7 +239,7 @@ export class AnomalyDetectionService {
         if (typeof window === 'undefined') {
           // Dynamic import to avoid circular dependencies
           const { EmailService } = await import('../api/services/email');
-          
+
           await EmailService.sendSystemNotification(
             `Anomaly Detected: ${alert.measure}`,
             alert.description,
@@ -253,7 +249,7 @@ export class AnomalyDetectionService {
               measure: alert.measure,
               percentageChange: alert.percentageChange,
               currentValue: alert.currentValue,
-              expectedValue: alert.expectedValue
+              expectedValue: alert.expectedValue,
             }
           );
         }
@@ -262,15 +258,14 @@ export class AnomalyDetectionService {
           console.info('Anomaly alert sent', {
             alertId: alert.id,
             emailCount: rule.alertEmails.length,
-            severity: alert.severity
+            severity: alert.severity,
           });
         }
-
       } catch (error) {
         if (typeof window !== 'undefined') {
           console.error('Failed to send anomaly alert', {
             alertId: alert.id,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : 'Unknown error',
           });
         }
       }
@@ -288,15 +283,14 @@ export class AnomalyDetectionService {
       try {
         // This would typically fetch data for the specific chart/measure
         // For now, we'll skip the actual data fetching since it requires chart context
-        
+
         rule.lastChecked = new Date();
         this.rules.set(rule.id, rule);
-        
       } catch (error) {
         if (typeof window !== 'undefined') {
           console.error('Anomaly detection failed for rule', {
             ruleId: rule.id,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : 'Unknown error',
           });
         }
       }
@@ -313,24 +307,27 @@ export class AnomalyDetectionService {
   private calculateExpectedValue(measures: AggAppMeasure[]): number {
     // Simple moving average of the last 3 periods (excluding current)
     const historicalValues = measures.slice(0, -1).slice(-3);
-    
+
     if (historicalValues.length === 0) return 0;
-    
-    return historicalValues.reduce((sum, measure) => {
-      const value = typeof measure.measure_value === 'string' 
-        ? parseFloat(measure.measure_value) 
-        : measure.measure_value;
-      return sum + (isNaN(value) ? 0 : value);
-    }, 0) / historicalValues.length;
+
+    return (
+      historicalValues.reduce((sum, measure) => {
+        const value =
+          typeof measure.measure_value === 'string'
+            ? parseFloat(measure.measure_value)
+            : measure.measure_value;
+        return sum + (isNaN(value) ? 0 : value);
+      }, 0) / historicalValues.length
+    );
   }
 
   private simpleForecast(values: number[]): number {
     if (values.length < 2) return values[0] || 0;
-    
+
     // Simple linear trend extrapolation
     const recent = values.slice(-2);
     const trend = (recent[1] ?? 0) - (recent[0] ?? 0);
-    
+
     return (recent[1] ?? 0) + trend;
   }
 }

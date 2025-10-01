@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
 import { createAppLogger } from '@/lib/logger/factory';
 
@@ -12,7 +12,7 @@ export interface PublishedDashboard {
 
 const logger = createAppLogger('use-published-dashboards', {
   component: 'hooks',
-  feature: 'dashboard-navigation'
+  feature: 'dashboard-navigation',
 });
 
 /**
@@ -27,9 +27,9 @@ export function usePublishedDashboards() {
     try {
       setLoading(true);
       setError(null);
-      
+
       logger.info('Loading published dashboards for navigation', {
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
 
       // Fetch only published and active dashboards
@@ -38,18 +38,19 @@ export function usePublishedDashboards() {
       }>('/api/admin/analytics/dashboards?is_published=true&is_active=true');
 
       const publishedDashboards = result.dashboards || [];
-      
+
       logger.info('Published dashboards loaded successfully', {
         count: publishedDashboards.length,
-        dashboardIds: publishedDashboards.map(d => d.dashboard_id)
+        dashboardIds: publishedDashboards.map((d) => d.dashboard_id),
       });
 
       setDashboards(publishedDashboards);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load published dashboards';
-      
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to load published dashboards';
+
       logger.error('Failed to load published dashboards', err, {
-        operation: 'load-published-dashboards'
+        operation: 'load-published-dashboards',
       });
 
       setError(errorMessage);
@@ -71,6 +72,6 @@ export function usePublishedDashboards() {
     dashboards,
     loading,
     error,
-    refreshDashboards
+    refreshDashboards,
   };
 }

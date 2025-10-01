@@ -1,5 +1,10 @@
-import type { ChartDefinition, ChartFilter, ChartDataSourceConfig, ChartConfig } from '@/lib/types/analytics';
 import { logger } from '@/lib/logger';
+import type {
+  ChartConfig,
+  ChartDataSourceConfig,
+  ChartDefinition,
+  ChartFilter,
+} from '@/lib/types/analytics';
 import { chartConfigService } from './chart-config-service';
 
 /**
@@ -12,7 +17,7 @@ import { chartConfigService } from './chart-config-service';
 const LEGACY_ALLOWED_TABLES = ['ih.gr_app_measures'] as const;
 const LEGACY_ALLOWED_FIELDS = [
   'practice_uid',
-  'provider_uid', 
+  'provider_uid',
   'measure',
   'measure_format',
   'period_based_on',
@@ -24,14 +29,34 @@ const LEGACY_ALLOWED_FIELDS = [
   'last_period_value',
   'last_year_value',
   'pct_change_vs_last_period',
-  'pct_change_vs_last_year'
+  'pct_change_vs_last_year',
 ] as const;
 
 // Allowed chart types
-const ALLOWED_CHART_TYPES = ['line', 'bar', 'stacked-bar', 'horizontal-bar', 'progress-bar', 'pie', 'doughnut', 'area'] as const;
+const ALLOWED_CHART_TYPES = [
+  'line',
+  'bar',
+  'stacked-bar',
+  'horizontal-bar',
+  'progress-bar',
+  'pie',
+  'doughnut',
+  'area',
+] as const;
 
 // Allowed operators for filters
-const ALLOWED_OPERATORS = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'not_in', 'like', 'between'] as const;
+const ALLOWED_OPERATORS = [
+  'eq',
+  'neq',
+  'gt',
+  'gte',
+  'lt',
+  'lte',
+  'in',
+  'not_in',
+  'like',
+  'between',
+] as const;
 
 export interface ValidationResult {
   isValid: boolean;
@@ -40,7 +65,6 @@ export interface ValidationResult {
 }
 
 export class ChartValidator {
-  
   /**
    * Get allowed fields dynamically from chart config service
    */
@@ -52,7 +76,9 @@ export class ChartValidator {
 
       return columnConfigs.map((col) => col.column_name);
     } catch (error) {
-      logger.warn('Failed to load dynamic field validation, falling back to legacy fields', { error });
+      logger.warn('Failed to load dynamic field validation, falling back to legacy fields', {
+        error,
+      });
       return [...LEGACY_ALLOWED_FIELDS];
     }
   }
@@ -65,7 +91,9 @@ export class ChartValidator {
       const dataSourceConfig = await chartConfigService.getDataSourceConfig('ih.agg_app_measures');
       return [dataSourceConfig?.tableName || 'ih.agg_app_measures'];
     } catch (error) {
-      logger.warn('Failed to load dynamic table validation, falling back to legacy tables', { error });
+      logger.warn('Failed to load dynamic table validation, falling back to legacy tables', {
+        error,
+      });
       return [...LEGACY_ALLOWED_TABLES];
     }
   }
@@ -85,7 +113,9 @@ export class ChartValidator {
     if (!definition.chart_type) {
       errors.push('Chart type is required');
     } else if (!ALLOWED_CHART_TYPES.includes(definition.chart_type)) {
-      errors.push(`Invalid chart type: ${definition.chart_type}. Allowed: ${ALLOWED_CHART_TYPES.join(', ')}`);
+      errors.push(
+        `Invalid chart type: ${definition.chart_type}. Allowed: ${ALLOWED_CHART_TYPES.join(', ')}`
+      );
     }
 
     if (!definition.data_source) {
@@ -117,7 +147,7 @@ export class ChartValidator {
     return {
       isValid: errors.length === 0,
       errors,
-      warnings
+      warnings,
     };
   }
 
@@ -133,7 +163,9 @@ export class ChartValidator {
     if (!dataSource.table) {
       errors.push('Data source table is required');
     } else if (!allowedTables.includes(dataSource.table)) {
-      errors.push(`Unauthorized table access: ${dataSource.table}. Allowed: ${allowedTables.join(', ')}`);
+      errors.push(
+        `Unauthorized table access: ${dataSource.table}. Allowed: ${allowedTables.join(', ')}`
+      );
     }
 
     // Validate filters
@@ -187,7 +219,9 @@ export class ChartValidator {
     if (!filter.operator) {
       errors.push('Filter operator is required');
     } else if (!ALLOWED_OPERATORS.includes(filter.operator)) {
-      errors.push(`Invalid filter operator: ${filter.operator}. Allowed: ${ALLOWED_OPERATORS.join(', ')}`);
+      errors.push(
+        `Invalid filter operator: ${filter.operator}. Allowed: ${ALLOWED_OPERATORS.join(', ')}`
+      );
     }
 
     // Validate value based on operator
@@ -259,7 +293,7 @@ export class ChartValidator {
    */
   async validateForCreation(definition: Partial<ChartDefinition>): Promise<ValidationResult> {
     const baseValidation = await this.validateChartDefinition(definition);
-    
+
     // Additional creation-specific validations
     if (!definition.created_by) {
       baseValidation.errors.push('created_by is required for creation');

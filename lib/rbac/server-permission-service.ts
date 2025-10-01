@@ -1,15 +1,15 @@
-import { PermissionChecker } from './permission-checker';
+import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { practices } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
-import type { UserContext, PermissionName, PermissionCheckResult } from '@/lib/types/rbac';
+import type { PermissionCheckResult, PermissionName, UserContext } from '@/lib/types/rbac';
+import { PermissionChecker } from './permission-checker';
 
 /**
  * Server-side Permission Service
- * 
+ *
  * Extends the client-safe PermissionChecker with database lookup capabilities.
  * Use this for server-side permission validation that requires database queries.
- * 
+ *
  * This service handles:
  * - Practice ownership verification
  * - Other resource ownership checks that require database access
@@ -34,8 +34,11 @@ export class ServerPermissionService {
     organizationId?: string
   ): Promise<PermissionCheckResult> {
     // First do the basic permission check
-    const basicResult = this.checker.checkPermission(permissionName, { resourceId, organizationId });
-    
+    const basicResult = this.checker.checkPermission(permissionName, {
+      resourceId,
+      organizationId,
+    });
+
     // If the basic check failed or if it doesn't involve resource ownership, return as-is
     if (!basicResult.granted || !resourceId || basicResult.scope !== 'own') {
       return basicResult;
@@ -43,14 +46,14 @@ export class ServerPermissionService {
 
     // For 'own' scope permissions with a resourceId, we need to verify ownership
     const [resource] = permissionName.split(':');
-    
+
     if (resource === 'practices') {
       const ownsResource = await this.checkPracticeOwnership(resourceId);
       if (!ownsResource) {
         return {
           granted: false,
           scope: 'own',
-          reason: `Access denied: User ${this.userContext.user_id} does not own practice ${resourceId}`
+          reason: `Access denied: User ${this.userContext.user_id} does not own practice ${resourceId}`,
         };
       }
     }
@@ -76,7 +79,7 @@ export class ServerPermissionService {
         permission: permissionName,
         resourceId,
         organizationId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       return false;
     }
@@ -113,7 +116,7 @@ export class ServerPermissionService {
     organizationId?: string
   ): Promise<void> {
     const result = await this.checkPermission(permissionName, resourceId, organizationId);
-    
+
     if (!result.granted) {
       const { PermissionDeniedError } = await import('@/lib/types/rbac');
       throw new PermissionDeniedError(permissionName, resourceId, organizationId);

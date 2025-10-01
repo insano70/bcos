@@ -1,6 +1,6 @@
-import { useApiQuery, useApiPost, useApiPut, useApiDelete, useApiMutation } from './use-api';
 import { apiClient } from '@/lib/api/client';
-import type { StaffMember, Education } from '@/lib/types/practice';
+import type { Education, StaffMember } from '@/lib/types/practice';
+import { useApiDelete, useApiMutation, useApiPost, useApiPut, useApiQuery } from './use-api';
 
 export interface CreateStaffData {
   practice_id: string;
@@ -31,15 +31,11 @@ export interface UpdateStaffData {
  * Hook to fetch staff members for a practice
  */
 export function useStaff(practiceId: string) {
-  return useApiQuery<StaffMember[]>(
-    ['staff', practiceId],
-    `/api/practices/${practiceId}/staff`,
-    {
-      enabled: !!practiceId,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes
-    }
-  );
+  return useApiQuery<StaffMember[]>(['staff', practiceId], `/api/practices/${practiceId}/staff`, {
+    enabled: !!practiceId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  });
 }
 
 /**
@@ -69,12 +65,13 @@ export function useCreateStaff() {
  * Hook to update a staff member
  */
 export function useUpdateStaff() {
-  return useApiMutation<StaffMember, { practiceId: string; staffId: string; data: UpdateStaffData }>(
-    async ({ practiceId, staffId, data }) => {
-      const url = `/api/practices/${practiceId}/staff/${staffId}`;
-      return apiClient.put<StaffMember>(url, data);
-    }
-  );
+  return useApiMutation<
+    StaffMember,
+    { practiceId: string; staffId: string; data: UpdateStaffData }
+  >(async ({ practiceId, staffId, data }) => {
+    const url = `/api/practices/${practiceId}/staff/${staffId}`;
+    return apiClient.put<StaffMember>(url, data);
+  });
 }
 
 /**
@@ -90,7 +87,8 @@ export function useDeleteStaff() {
  * Hook to reorder staff members
  */
 export function useReorderStaff() {
-  return useApiPut<StaffMember[], { practiceId: string; data: { staffId: string; newOrder: number }[] }>(
-    ({ practiceId }) => `/api/practices/${practiceId}/staff/reorder`
-  );
+  return useApiPut<
+    StaffMember[],
+    { practiceId: string; data: { staffId: string; newOrder: number }[] }
+  >(({ practiceId }) => `/api/practices/${practiceId}/staff/reorder`);
 }

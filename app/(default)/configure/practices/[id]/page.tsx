@@ -3,12 +3,17 @@ export const metadata = {
   description: 'Edit rheumatology practice configuration',
 };
 
-import { notFound } from 'next/navigation';
-import { db, practices, practice_attributes, staff_members, templates } from '@/lib/db';
 import { eq } from 'drizzle-orm';
+import { notFound } from 'next/navigation';
+import { db, practice_attributes, practices, staff_members, templates } from '@/lib/db';
+import type { PracticeAttributes } from '@/lib/types/practice';
+import {
+  transformPractice,
+  transformPracticeAttributes,
+  transformStaffMember,
+  transformTemplate,
+} from '@/lib/types/transformers';
 import PracticeConfigForm from './practice-config-form';
-import type { PracticeAttributes, } from '@/lib/types/practice';
-import { transformPractice, transformStaffMember, transformTemplate, transformPracticeAttributes } from '@/lib/types/transformers';
 
 async function getPracticeData(practiceId: string) {
   const [practice] = await db
@@ -35,17 +40,13 @@ async function getPracticeData(practiceId: string) {
 
   return {
     practice: transformPractice(practice),
-    attributes: attributes ? transformPracticeAttributes(attributes) : {} as PracticeAttributes,
+    attributes: attributes ? transformPracticeAttributes(attributes) : ({} as PracticeAttributes),
     staff: staff.map(transformStaffMember),
     allTemplates: allTemplates.map(transformTemplate),
   };
 }
 
-export default async function EditPracticePage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function EditPracticePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const data = await getPracticeData(id);
 

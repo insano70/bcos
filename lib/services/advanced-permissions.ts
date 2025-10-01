@@ -1,5 +1,5 @@
-import { db, chart_permissions, chart_definitions } from '@/lib/db';
-import { eq, and, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
+import { chart_definitions, chart_permissions, db } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import type { AnalyticsQueryParams, ChartFilter } from '@/lib/types/analytics';
 
@@ -42,7 +42,6 @@ export interface DataAccessPolicy {
 }
 
 export class AdvancedPermissionsService {
-
   /**
    * Grant chart permission to user
    */
@@ -68,14 +67,13 @@ export class AdvancedPermissionsService {
         chartDefinitionId,
         userId,
         permissionType,
-        grantedBy
+        grantedBy,
       });
-
     } catch (error) {
       logger.error('Failed to grant chart permission', {
         chartDefinitionId,
         userId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -84,10 +82,7 @@ export class AdvancedPermissionsService {
   /**
    * Revoke chart permission from user
    */
-  async revokeChartPermission(
-    chartDefinitionId: string,
-    userId: string
-  ): Promise<void> {
+  async revokeChartPermission(chartDefinitionId: string, userId: string): Promise<void> {
     try {
       await db
         .delete(chart_permissions)
@@ -99,12 +94,11 @@ export class AdvancedPermissionsService {
         );
 
       logger.info('Chart permission revoked', { chartDefinitionId, userId });
-
     } catch (error) {
       logger.error('Failed to revoke chart permission', {
         chartDefinitionId,
         userId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -133,16 +127,16 @@ export class AdvancedPermissionsService {
 
       // Check permission hierarchy: admin > edit > view
       const permissionLevels = { view: 1, edit: 2, admin: 3 };
-      const userLevel = permissionLevels[permission.permission_type as keyof typeof permissionLevels];
+      const userLevel =
+        permissionLevels[permission.permission_type as keyof typeof permissionLevels];
       const requiredLevel = permissionLevels[requiredPermission];
 
       return userLevel >= requiredLevel;
-
     } catch (error) {
       logger.error('Permission check failed', {
         chartDefinitionId,
         userId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       return false;
     }
@@ -151,17 +145,19 @@ export class AdvancedPermissionsService {
   /**
    * Get user's accessible charts with permissions
    */
-  async getUserAccessibleCharts(userId: string): Promise<Array<{
-    chart: {
-      chart_definition_id: string;
-      chart_name: string;
-      chart_type: string;
-      chart_description?: string | null;
-      is_active: boolean | null;
-    };
-    permission: string;
-    dataFilters?: ChartFilter[];
-  }>> {
+  async getUserAccessibleCharts(userId: string): Promise<
+    Array<{
+      chart: {
+        chart_definition_id: string;
+        chart_name: string;
+        chart_type: string;
+        chart_description?: string | null;
+        is_active: boolean | null;
+      };
+      permission: string;
+      dataFilters?: ChartFilter[];
+    }>
+  > {
     try {
       const userCharts = await db
         .select({
@@ -177,28 +173,22 @@ export class AdvancedPermissionsService {
           chart_definitions,
           eq(chart_permissions.chart_definition_id, chart_definitions.chart_definition_id)
         )
-        .where(
-          and(
-            eq(chart_permissions.user_id, userId),
-            eq(chart_definitions.is_active, true)
-          )
-        );
+        .where(and(eq(chart_permissions.user_id, userId), eq(chart_definitions.is_active, true)));
 
-      return userCharts.map(row => ({
+      return userCharts.map((row) => ({
         chart: {
           chart_definition_id: row.chartDefinitionId,
           chart_name: row.chartName,
           chart_type: row.chartType,
           chart_description: row.chartDescription,
-          is_active: row.isActive
+          is_active: row.isActive,
         },
-        permission: row.permissionType || 'view'
+        permission: row.permissionType || 'view',
       }));
-
     } catch (error) {
       logger.error('Failed to get user accessible charts', {
         userId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       return [];
     }
@@ -270,9 +260,9 @@ export class AdvancedPermissionsService {
           allowedMeasures: [],
           temporalAccess: {
             maxHistoryDays: 0, // No limit
-            allowFutureData: true
+            allowFutureData: true,
           },
-          aggregationLevel: 'detailed'
+          aggregationLevel: 'detailed',
         };
 
       case 'admin':
@@ -286,9 +276,9 @@ export class AdvancedPermissionsService {
           allowedMeasures: [],
           temporalAccess: {
             maxHistoryDays: 365 * 3, // 3 years
-            allowFutureData: false
+            allowFutureData: false,
           },
-          aggregationLevel: 'detailed'
+          aggregationLevel: 'detailed',
         };
 
       case 'manager':
@@ -302,9 +292,9 @@ export class AdvancedPermissionsService {
           allowedMeasures: [],
           temporalAccess: {
             maxHistoryDays: 365, // 1 year
-            allowFutureData: false
+            allowFutureData: false,
           },
-          aggregationLevel: 'summary'
+          aggregationLevel: 'summary',
         };
 
       default: // Regular user
@@ -318,9 +308,9 @@ export class AdvancedPermissionsService {
           allowedMeasures: ['Charges by Provider', 'Payments by Provider'], // Basic measures only
           temporalAccess: {
             maxHistoryDays: 90, // 3 months
-            allowFutureData: false
+            allowFutureData: false,
           },
-          aggregationLevel: 'totals_only'
+          aggregationLevel: 'totals_only',
         };
     }
   }
@@ -336,33 +326,32 @@ export class AdvancedPermissionsService {
     try {
       // Check basic chart permission
       const hasPermission = await this.hasChartPermission(chartDefinitionId, userId, 'view');
-      
+
       if (!hasPermission) {
         return {
           allowed: false,
-          reason: 'No permission to access this chart'
+          reason: 'No permission to access this chart',
         };
       }
 
       // Apply data-level filtering based on user's access policy
       // This would typically involve checking user's practice/provider assignments
       // For now, return basic validation
-      
+
       return {
         allowed: true,
-        filteredData: requestedData
+        filteredData: requestedData,
       };
-
     } catch (error) {
       logger.error('Chart access validation failed', {
         chartDefinitionId,
         userId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
-      
+
       return {
         allowed: false,
-        reason: 'Access validation failed'
+        reason: 'Access validation failed',
       };
     }
   }
@@ -383,26 +372,25 @@ export class AdvancedPermissionsService {
     try {
       // This would typically involve complex queries joining users, charts, and permissions
       // For now, return placeholder data structure
-      
+
       return {
         totalPermissions: 0,
         permissionsByType: {
           view: 0,
           edit: 0,
-          admin: 0
+          admin: 0,
         },
-        recentGrants: []
+        recentGrants: [],
       };
-
     } catch (error) {
       logger.error('Failed to get permission summary', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
-      
+
       return {
         totalPermissions: 0,
         permissionsByType: {},
-        recentGrants: []
+        recentGrants: [],
       };
     }
   }

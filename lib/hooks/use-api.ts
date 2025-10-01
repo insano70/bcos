@@ -1,4 +1,10 @@
-import { useQuery, useMutation, useQueryClient, type UseQueryOptions, type UseMutationOptions } from '@tanstack/react-query';
+import {
+  type UseMutationOptions,
+  type UseQueryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 
 /**
@@ -21,7 +27,7 @@ export function useApiQuery<T>(
   return useQuery<T, ApiError>({
     queryKey,
     queryFn: () => apiClient.get<T>(endpoint),
-    ...options
+    ...options,
   });
 }
 
@@ -34,7 +40,7 @@ export function useApiMutation<TData, TVariables = void>(
 ) {
   return useMutation<TData, ApiError, TVariables>({
     mutationFn,
-    ...options
+    ...options,
   });
 }
 
@@ -45,13 +51,10 @@ export function useApiPost<TData, TVariables = Record<string, unknown>>(
   endpoint: string | ((variables: TVariables) => string),
   options?: UseMutationOptions<TData, ApiError, TVariables>
 ) {
-  return useApiMutation<TData, TVariables>(
-    async (variables) => {
-      const url = typeof endpoint === 'function' ? endpoint(variables) : endpoint;
-      return apiClient.post<TData>(url, variables);
-    },
-    options
-  );
+  return useApiMutation<TData, TVariables>(async (variables) => {
+    const url = typeof endpoint === 'function' ? endpoint(variables) : endpoint;
+    return apiClient.post<TData>(url, variables);
+  }, options);
 }
 
 /**
@@ -61,13 +64,10 @@ export function useApiPut<TData, TVariables = Record<string, unknown>>(
   endpoint: string | ((variables: TVariables) => string),
   options?: UseMutationOptions<TData, ApiError, TVariables>
 ) {
-  return useApiMutation<TData, TVariables>(
-    async (variables) => {
-      const url = typeof endpoint === 'function' ? endpoint(variables) : endpoint;
-      return apiClient.put<TData>(url, variables);
-    },
-    options
-  );
+  return useApiMutation<TData, TVariables>(async (variables) => {
+    const url = typeof endpoint === 'function' ? endpoint(variables) : endpoint;
+    return apiClient.put<TData>(url, variables);
+  }, options);
 }
 
 /**
@@ -77,13 +77,10 @@ export function useApiDelete<TData = void, TVariables = string>(
   endpoint: string | ((variables: TVariables) => string),
   options?: UseMutationOptions<TData, ApiError, TVariables>
 ) {
-  return useApiMutation<TData, TVariables>(
-    async (variables) => {
-      const url = typeof endpoint === 'function' ? endpoint(variables) : endpoint;
-      return apiClient.delete<TData>(url);
-    },
-    options
-  );
+  return useApiMutation<TData, TVariables>(async (variables) => {
+    const url = typeof endpoint === 'function' ? endpoint(variables) : endpoint;
+    return apiClient.delete<TData>(url);
+  }, options);
 }
 
 /**
@@ -91,9 +88,9 @@ export function useApiDelete<TData = void, TVariables = string>(
  */
 export function useInvalidateQueries() {
   const queryClient = useQueryClient();
-  
+
   return (queryKeys: (string | number)[][]) => {
-    queryKeys.forEach(queryKey => {
+    queryKeys.forEach((queryKey) => {
       queryClient.invalidateQueries({ queryKey });
     });
   };
@@ -104,7 +101,7 @@ export function useInvalidateQueries() {
  */
 export function useUpdateQueryData() {
   const queryClient = useQueryClient();
-  
+
   return <T>(queryKey: (string | number)[], updater: (oldData: T | undefined) => T) => {
     queryClient.setQueryData(queryKey, updater);
   };

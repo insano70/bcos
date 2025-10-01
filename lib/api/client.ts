@@ -5,53 +5,51 @@
 
 interface AuthContext {
   // accessToken removed - now handled server-side via httpOnly cookies + middleware
-  csrfToken?: string | null | undefined
-  refreshToken?: () => Promise<void>
-  logout?: () => Promise<void>
+  csrfToken?: string | null | undefined;
+  refreshToken?: () => Promise<void>;
+  logout?: () => Promise<void>;
 }
 
 interface ApiClientOptions {
-  headers?: HeadersInit
-  includeAuth?: boolean
+  headers?: HeadersInit;
+  includeAuth?: boolean;
 }
 
 class ApiClient {
-  private baseUrl: string
-  private authContext: AuthContext | null = null
+  private baseUrl: string;
+  private authContext: AuthContext | null = null;
 
   constructor() {
     // Use current domain instead of hardcoded NEXT_PUBLIC_APP_URL to avoid CORS issues
-    this.baseUrl = typeof window !== 'undefined' 
-      ? window.location.origin 
-      : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001')
+    this.baseUrl =
+      typeof window !== 'undefined'
+        ? window.location.origin
+        : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001';
   }
 
   /**
    * Set auth context for handling authentication errors
    */
   setAuthContext(authContext: AuthContext) {
-    this.authContext = authContext
+    this.authContext = authContext;
   }
 
   /**
    * Make an authenticated API request
    */
-  async request<T>(
-    endpoint: string,
-    options: RequestInit & ApiClientOptions = {}
-  ): Promise<T> {
-    const { headers = {}, includeAuth = true, ...requestOptions } = options
+  async request<T>(endpoint: string, options: RequestInit & ApiClientOptions = {}): Promise<T> {
+    const { headers = {}, includeAuth = true, ...requestOptions } = options;
 
     // API request logging (client-side debug)
     if (process.env.NODE_ENV === 'development') {
-      console.log('🚀 API Client Request:', endpoint, { hasAuthContext: !!this.authContext })
+      console.log('🚀 API Client Request:', endpoint, { hasAuthContext: !!this.authContext });
     }
 
     // Build request headers
     const requestHeaders = new Headers({
       'Content-Type': 'application/json',
-      ...(headers as Record<string, string>)
-    })
+      ...(headers as Record<string, string>),
+    });
 
     // Authentication header automatically added by middleware from httpOnly cookies
     // No client-side token management needed for security
@@ -59,90 +57,94 @@ class ApiClient {
     // Add CSRF token for state-changing operations
     if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(requestOptions.method || 'GET')) {
       if (this.authContext?.csrfToken) {
-        requestHeaders.set('x-csrf-token', this.authContext.csrfToken)
+        requestHeaders.set('x-csrf-token', this.authContext.csrfToken);
       }
     }
 
-    const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint}`
+    const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint}`;
 
     try {
       const response = await fetch(url, {
         ...requestOptions,
         headers: requestHeaders,
-        credentials: 'include' // Include cookies for refresh tokens
-      })
+        credentials: 'include', // Include cookies for refresh tokens
+      });
 
       // Handle 401 Unauthorized - Session expired
       if (response.status === 401) {
         // Session expiry logging (client-side debug)
         if (process.env.NODE_ENV === 'development') {
-          console.log('API request returned 401 - session expired, attempting token refresh...')
+          console.log('API request returned 401 - session expired, attempting token refresh...');
         }
-        
+
         // Try to refresh token first
         if (this.authContext?.refreshToken && includeAuth) {
           try {
-            await this.authContext.refreshToken()
-            
+            await this.authContext.refreshToken();
+
             // Retry the original request (token refresh updates httpOnly cookies)
             const retryResponse = await fetch(url, {
               ...requestOptions,
               headers: requestHeaders,
-              credentials: 'include'
-            })
-            
+              credentials: 'include',
+            });
+
             if (retryResponse.ok) {
-              const data = await retryResponse.json()
-              return data.data || data // Handle standardized API response format
+              const data = await retryResponse.json();
+              return data.data || data; // Handle standardized API response format
             }
-            
+
             // If retry still fails with 401, session is truly expired
             if (retryResponse.status === 401) {
-              this.handleSessionExpired()
-              throw new Error('Session expired - redirecting to login')
+              this.handleSessionExpired();
+              throw new Error('Session expired - redirecting to login');
             }
           } catch (refreshError) {
             // Token refresh failure logging (client-side debug)
             if (process.env.NODE_ENV === 'development') {
-              console.log('Token refresh failed:', refreshError)
+              console.log('Token refresh failed:', refreshError);
             }
-            this.handleSessionExpired()
-            throw new Error('Session expired - redirecting to login')
+            this.handleSessionExpired();
+            throw new Error('Session expired - redirecting to login');
           }
         } else {
           // No refresh capability, redirect to login
-          this.handleSessionExpired()
-          throw new Error('Session expired - redirecting to login')
+          this.handleSessionExpired();
+          throw new Error('Session expired - redirecting to login');
         }
       }
 
       // Handle other HTTP errors
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       // Parse successful response
-      const data = await response.json()
-      
+      const data = await response.json();
+
       // Handle standardized API response format
       if (data.success !== undefined) {
-        return data.data || data
+        return data.data || data;
       }
-      
-      return data
 
+      return data;
     } catch (error) {
       // Network or parsing errors
-      if (error && typeof error === 'object' && 'message' in error && String(error.message).includes('Session expired')) {
-        throw error // Re-throw session expired errors
+      if (
+        error &&
+        typeof error === 'object' &&
+        'message' in error &&
+        String(error.message).includes('Session expired')
+      ) {
+        throw error; // Re-throw session expired errors
       }
-      
+
       // API request failure logging (client-side debug)
       if (process.env.NODE_ENV === 'development') {
-        console.error(`API request failed [${requestOptions.method || 'GET'} ${endpoint}]:`, error)
+        console.error(`API request failed [${requestOptions.method || 'GET'} ${endpoint}]:`, error);
       }
-      
+
       // Safe error message extraction
       let errorMessage = 'Network error occurred';
       if (error && typeof error === 'object' && 'message' in error) {
@@ -150,8 +152,8 @@ class ApiClient {
       } else if (typeof error === 'string') {
         errorMessage = error;
       }
-      
-      throw new Error(errorMessage)
+
+      throw new Error(errorMessage);
     }
   }
 
@@ -161,59 +163,59 @@ class ApiClient {
   private handleSessionExpired() {
     // Session expiry redirect logging (client-side debug)
     if (process.env.NODE_ENV === 'development') {
-      console.log('Session expired - redirecting to login page')
+      console.log('Session expired - redirecting to login page');
     }
-    
+
     // Clear auth context if available
     if (this.authContext?.logout) {
       // Don't await this as it might fail, just clear local state
-      this.authContext.logout().catch(() => {})
+      this.authContext.logout().catch(() => {});
     }
 
     // Get current path for redirect after login
-    const currentPath = window.location.pathname + window.location.search
-    const loginUrl = `/signin?callbackUrl=${encodeURIComponent(currentPath)}`
-    
+    const currentPath = window.location.pathname + window.location.search;
+    const loginUrl = `/signin?callbackUrl=${encodeURIComponent(currentPath)}`;
+
     // Force redirect to login page
-    window.location.href = loginUrl
+    window.location.href = loginUrl;
   }
 
   /**
    * Convenience methods for common HTTP verbs
    */
   async get<T>(endpoint: string, options?: ApiClientOptions): Promise<T> {
-    return this.request<T>(endpoint, { ...options, method: 'GET' })
+    return this.request<T>(endpoint, { ...options, method: 'GET' });
   }
 
   async post<T>(endpoint: string, data?: unknown, options?: ApiClientOptions): Promise<T> {
     return this.request<T>(endpoint, {
       ...options,
       method: 'POST',
-      body: data ? JSON.stringify(data) : null
-    })
+      body: data ? JSON.stringify(data) : null,
+    });
   }
 
   async put<T>(endpoint: string, data?: unknown, options?: ApiClientOptions): Promise<T> {
     return this.request<T>(endpoint, {
       ...options,
       method: 'PUT',
-      body: data ? JSON.stringify(data) : null
-    })
+      body: data ? JSON.stringify(data) : null,
+    });
   }
 
   async patch<T>(endpoint: string, data?: unknown, options?: ApiClientOptions): Promise<T> {
     return this.request<T>(endpoint, {
       ...options,
       method: 'PATCH',
-      body: data ? JSON.stringify(data) : null
-    })
+      body: data ? JSON.stringify(data) : null,
+    });
   }
 
   async delete<T>(endpoint: string, options?: ApiClientOptions): Promise<T> {
-    return this.request<T>(endpoint, { ...options, method: 'DELETE' })
+    return this.request<T>(endpoint, { ...options, method: 'DELETE' });
   }
 }
 
 // Export singleton instance
-export const apiClient = new ApiClient()
-export default apiClient
+export const apiClient = new ApiClient();
+export default apiClient;

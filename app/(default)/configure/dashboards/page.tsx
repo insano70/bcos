@@ -1,22 +1,20 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiClient } from '@/lib/api/client';
-import type { DashboardListItem } from '@/lib/types/analytics';
-import type { DashboardWithCharts } from '@/lib/services/rbac-dashboards-service';
-import DashboardsTable from './dashboards-table';
-
-import DeleteButton from '@/components/delete-button';
+import React, { useCallback, useState } from 'react';
+import { SelectedItemsProvider } from '@/app/selected-items-context';
+import DashboardPreviewModal from '@/components/dashboard-preview-modal';
 import DateSelect from '@/components/date-select';
+import DeleteButton from '@/components/delete-button';
+import DeleteDashboardModal from '@/components/delete-dashboard-modal';
 import FilterButton from '@/components/dropdown-filter';
 import PaginationClassic from '@/components/pagination-classic';
-import { SelectedItemsProvider } from '@/app/selected-items-context';
-import DeleteDashboardModal from '@/components/delete-dashboard-modal';
-import DashboardPreviewModal from '@/components/dashboard-preview-modal';
 import Toast from '@/components/toast';
-import type { Dashboard, DashboardChart } from '@/lib/types/analytics';
+import { apiClient } from '@/lib/api/client';
 import { usePagination } from '@/lib/hooks/use-pagination';
+import type { DashboardWithCharts } from '@/lib/services/rbac-dashboards-service';
+import type { Dashboard, DashboardChart, DashboardListItem } from '@/lib/types/analytics';
+import DashboardsTable from './dashboards-table';
 
 export default function DashboardsPage() {
   const router = useRouter();
@@ -38,10 +36,10 @@ export default function DashboardsPage() {
 
   const loadDashboards = useCallback(async () => {
     setError(null);
-    
+
     try {
       console.log('🔍 Loading dashboard definitions from API...');
-      
+
       const result = await apiClient.get<{
         dashboards: DashboardListItem[];
         metadata: {
@@ -52,48 +50,49 @@ export default function DashboardsPage() {
         };
       }>('/api/admin/analytics/dashboards');
       console.log('📊 Raw Dashboard API Response:', result);
-      
+
       // apiClient automatically unwraps the data, so result is already the data portion
       const dashboards = result.dashboards || [];
       console.log('📋 Dashboards data structure:', {
         count: dashboards.length,
-        sampleDashboard: dashboards[0]
+        sampleDashboard: dashboards[0],
       });
-      
+
       // Transform flattened API data to DashboardListItem structure
       const transformedDashboards: DashboardListItem[] = (dashboards as DashboardWithCharts[])
         .map((item: DashboardWithCharts, index: number): DashboardListItem | null => {
-        // Handle flattened data structure from new API service
-        console.log(`🔄 Transforming dashboard ${index}:`, item);
+          // Handle flattened data structure from new API service
+          console.log(`🔄 Transforming dashboard ${index}:`, item);
 
-        // Validate required fields
-        if (!item.dashboard_id || !item.dashboard_name) {
-          console.warn(`⚠️ Skipping dashboard ${index}: missing required fields`);
-          return null;
-        }
+          // Validate required fields
+          if (!item.dashboard_id || !item.dashboard_name) {
+            console.warn(`⚠️ Skipping dashboard ${index}: missing required fields`);
+            return null;
+          }
 
-        return {
-          dashboard_id: item.dashboard_id,
-          dashboard_name: item.dashboard_name,
-          dashboard_description: item.dashboard_description,
-          dashboard_category_id: item.dashboard_category_id,
-          category_name: item.category?.category_name,
-          chart_count: item.chart_count || 0,
-          created_by: item.created_by,
-          creator_name: item.creator?.first_name,
-          creator_last_name: item.creator?.last_name,
-          created_at: item.created_at,
-          updated_at: item.updated_at,
-          is_active: item.is_active,
-          is_published: item.is_published,
-        };
-      }).filter((item): item is DashboardListItem => item !== null);
-      
+          return {
+            dashboard_id: item.dashboard_id,
+            dashboard_name: item.dashboard_name,
+            dashboard_description: item.dashboard_description,
+            dashboard_category_id: item.dashboard_category_id,
+            category_name: item.category?.category_name,
+            chart_count: item.chart_count || 0,
+            created_by: item.created_by,
+            creator_name: item.creator?.first_name,
+            creator_last_name: item.creator?.last_name,
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+            is_active: item.is_active,
+            is_published: item.is_published,
+          };
+        })
+        .filter((item): item is DashboardListItem => item !== null);
+
       console.log('✅ Transformed dashboards:', {
         count: transformedDashboards.length,
-        sampleTransformed: transformedDashboards[0]
+        sampleTransformed: transformedDashboards[0],
       });
-      
+
       setSavedDashboards(transformedDashboards);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load dashboards';
@@ -116,13 +115,14 @@ export default function DashboardsPage() {
       setToastMessage(`Dashboard "${dashboardToDelete?.dashboard_name}" deleted successfully`);
       setToastType('success');
       setToastOpen(true);
-      
+
       // Refresh the dashboards list
       await loadDashboards();
-      
     } catch (error) {
       console.error('Failed to delete dashboard:', error);
-      setToastMessage(`Failed to delete dashboard: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setToastMessage(
+        `Failed to delete dashboard: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
       setToastType('error');
       setToastOpen(true);
     }
@@ -138,21 +138,22 @@ export default function DashboardsPage() {
       await apiClient.request(`/api/admin/analytics/dashboards/${dashboard.dashboard_id}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          is_published: true
-        })
+          is_published: true,
+        }),
       });
 
       // Show success toast
       setToastMessage(`Dashboard "${dashboard.dashboard_name}" published successfully`);
       setToastType('success');
       setToastOpen(true);
-      
+
       // Refresh the dashboards list
       await loadDashboards();
-      
     } catch (error) {
       console.error('Failed to publish dashboard:', error);
-      setToastMessage(`Failed to publish dashboard: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setToastMessage(
+        `Failed to publish dashboard: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
       setToastType('error');
       setToastOpen(true);
     }
@@ -164,21 +165,22 @@ export default function DashboardsPage() {
       await apiClient.request(`/api/admin/analytics/dashboards/${dashboard.dashboard_id}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          is_published: false
-        })
+          is_published: false,
+        }),
       });
 
       // Show success toast
       setToastMessage(`Dashboard "${dashboard.dashboard_name}" unpublished successfully`);
       setToastType('success');
       setToastOpen(true);
-      
+
       // Refresh the dashboards list
       await loadDashboards();
-      
     } catch (error) {
       console.error('Failed to unpublish dashboard:', error);
-      setToastMessage(`Failed to unpublish dashboard: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setToastMessage(
+        `Failed to unpublish dashboard: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
       setToastType('error');
       setToastOpen(true);
     }
@@ -187,7 +189,7 @@ export default function DashboardsPage() {
   const handlePreviewDashboard = async (dashboard: DashboardListItem) => {
     try {
       console.log('🔍 Loading dashboard for preview:', dashboard.dashboard_id);
-      
+
       const result = await apiClient.get<{
         dashboard: { dashboards?: Dashboard } | Dashboard;
         charts: DashboardChart[];
@@ -195,9 +197,10 @@ export default function DashboardsPage() {
       const dashboardResponse = result;
 
       // Extract dashboard and charts from API response
-      const fullDashboard = 'dashboards' in dashboardResponse.dashboard 
-        ? dashboardResponse.dashboard.dashboards 
-        : dashboardResponse.dashboard;
+      const fullDashboard =
+        'dashboards' in dashboardResponse.dashboard
+          ? dashboardResponse.dashboard.dashboards
+          : dashboardResponse.dashboard;
       const charts = dashboardResponse.charts || [];
 
       if (!fullDashboard) {
@@ -206,13 +209,14 @@ export default function DashboardsPage() {
 
       setDashboardToPreview({
         dashboard: fullDashboard as Dashboard,
-        charts
+        charts,
       });
       setPreviewModalOpen(true);
-      
     } catch (error) {
       console.error('❌ Failed to load dashboard for preview:', error);
-      setToastMessage(`Failed to load dashboard preview: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setToastMessage(
+        `Failed to load dashboard preview: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
       setToastType('error');
       setToastOpen(true);
     }
@@ -247,10 +251,10 @@ export default function DashboardsPage() {
               />
             </svg>
             <div>
-              <h3 className="text-red-800 dark:text-red-200 font-medium">Error loading dashboard definitions</h3>
-              <p className="text-red-600 dark:text-red-400 text-sm mt-1">
-                {error}
-              </p>
+              <h3 className="text-red-800 dark:text-red-200 font-medium">
+                Error loading dashboard definitions
+              </h3>
+              <p className="text-red-600 dark:text-red-400 text-sm mt-1">{error}</p>
               <button
                 type="button"
                 onClick={() => loadDashboards()}
@@ -293,7 +297,12 @@ export default function DashboardsPage() {
               onClick={handleCreateDashboard}
               className="btn bg-violet-500 hover:bg-violet-600 text-white"
             >
-              <svg className="fill-current shrink-0 xs:hidden" width="16" height="16" viewBox="0 0 16 16">
+              <svg
+                className="fill-current shrink-0 xs:hidden"
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+              >
                 <path d="m7 7V3c0-.6.4-1 1-1s1 .4 1 1v4h4c.6 0 1 .4 1 1s-.4 1-1 1H9v4c0 .6-.4 1-1 1s-1-.4-1-1V9H3c-.6 0-1-.4-1-1s.4-1 1-1h4Z" />
               </svg>
               <span className="max-xs:sr-only">Create Dashboard</span>
@@ -314,7 +323,7 @@ export default function DashboardsPage() {
         {/* Pagination */}
         {savedDashboards.length > 0 && (
           <div className="mt-8">
-            <PaginationClassic 
+            <PaginationClassic
               currentPage={pagination.currentPage}
               totalItems={pagination.totalItems}
               itemsPerPage={pagination.itemsPerPage}
@@ -351,15 +360,14 @@ export default function DashboardsPage() {
         )}
 
         {/* Toast Notifications */}
-        <Toast 
-          type={toastType} 
-          open={toastOpen} 
+        <Toast
+          type={toastType}
+          open={toastOpen}
           setOpen={setToastOpen}
           className="fixed bottom-4 right-4 z-50"
         >
           {toastMessage}
         </Toast>
-
       </div>
     </SelectedItemsProvider>
   );

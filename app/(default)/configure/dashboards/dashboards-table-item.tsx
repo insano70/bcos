@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { DashboardListItem } from '@/lib/types/analytics';
 
 interface DashboardsTableItemProps {
@@ -26,7 +26,7 @@ export default function DashboardsTableItem({
 }: DashboardsTableItemProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  
+
   // Close dropdown when clicking outside - must be at top level
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -51,7 +51,7 @@ export default function DashboardsTableItem({
       </tr>
     );
   }
-  
+
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onCheckboxChange(dashboard.dashboard_id, e.target.checked);
   };
@@ -130,7 +130,9 @@ export default function DashboardsTableItem({
 
       {/* Chart Count */}
       <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap text-center">
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getChartCountBadgeColor(dashboard.chart_count)}`}>
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getChartCountBadgeColor(dashboard.chart_count)}`}
+        >
           {dashboard.chart_count} {dashboard.chart_count === 1 ? 'chart' : 'charts'}
         </span>
       </td>
@@ -166,26 +168,19 @@ export default function DashboardsTableItem({
       {/* Created By */}
       <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
         <div className="text-gray-800 dark:text-gray-100">
-          {dashboard.creator_name && dashboard.creator_last_name 
+          {dashboard.creator_name && dashboard.creator_last_name
             ? `${dashboard.creator_name} ${dashboard.creator_last_name}`
-            : dashboard.created_by || 'Unknown'
-          }
+            : dashboard.created_by || 'Unknown'}
         </div>
       </td>
 
       {/* Created Date */}
       <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
         <div className="text-gray-800 dark:text-gray-100">
-          {dashboard.created_at 
-            ? new Date(dashboard.created_at).toLocaleDateString()
-            : 'Unknown'
-          }
+          {dashboard.created_at ? new Date(dashboard.created_at).toLocaleDateString() : 'Unknown'}
         </div>
         <div className="text-xs text-gray-500 dark:text-gray-400">
-          {dashboard.created_at 
-            ? new Date(dashboard.created_at).toLocaleTimeString()
-            : ''
-          }
+          {dashboard.created_at ? new Date(dashboard.created_at).toLocaleTimeString() : ''}
         </div>
       </td>
 
@@ -200,18 +195,27 @@ export default function DashboardsTableItem({
             onClick={() => setDropdownOpen(!dropdownOpen)}
           >
             <span className="sr-only">Menu</span>
-            <svg className="w-8 h-8 fill-current text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400" viewBox="0 0 32 32">
+            <svg
+              className="w-8 h-8 fill-current text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400"
+              viewBox="0 0 32 32"
+            >
               <circle cx="16" cy="16" r="2" />
               <circle cx="10" cy="16" r="2" />
               <circle cx="22" cy="16" r="2" />
             </svg>
           </button>
           {dropdownOpen && (
-            <div className="origin-top-right z-50 fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 py-1.5 rounded-lg shadow-lg overflow-hidden min-w-36"
-                 style={{
-                   top: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().bottom + 4 : 0,
-                   left: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().right - 144 : 0
-                 }}>
+            <div
+              className="origin-top-right z-50 fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 py-1.5 rounded-lg shadow-lg overflow-hidden min-w-36"
+              style={{
+                top: dropdownRef.current
+                  ? dropdownRef.current.getBoundingClientRect().bottom + 4
+                  : 0,
+                left: dropdownRef.current
+                  ? dropdownRef.current.getBoundingClientRect().right - 144
+                  : 0,
+              }}
+            >
               <ul>
                 {onEdit && (
                   <li>

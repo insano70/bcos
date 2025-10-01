@@ -19,12 +19,12 @@ export function safeJsonParse<T>(
 
   try {
     const parsed = JSON.parse(jsonString);
-    
+
     if (schema) {
       const result = schema.safeParse(parsed);
       return result.success ? result.data : null;
     }
-    
+
     return parsed;
   } catch {
     return null;
@@ -52,29 +52,29 @@ export const businessHoursSchema = z.object({
   thursday: z.string().optional(),
   friday: z.string().optional(),
   saturday: z.string().optional(),
-  sunday: z.string().optional()
+  sunday: z.string().optional(),
 });
 
 export const serviceSchema = z.object({
   name: z.string().max(255),
   description: z.string().max(1000).optional(),
-  category: z.string().max(100).optional()
+  category: z.string().max(100).optional(),
 });
 
 export const insuranceSchema = z.object({
   name: z.string().max(255),
-  accepted: z.boolean().default(true)
+  accepted: z.boolean().default(true),
 });
 
 export const conditionSchema = z.object({
   name: z.string().max(255),
-  description: z.string().max(500).optional()
+  description: z.string().max(500).optional(),
 });
 
 export const galleryImageSchema = z.object({
   url: z.string().url().max(500),
   alt: z.string().max(255).optional(),
-  caption: z.string().max(500).optional()
+  caption: z.string().max(500).optional(),
 });
 
 export const specialtySchema = z.string().max(255);
@@ -82,7 +82,10 @@ export const specialtySchema = z.string().max(255);
 export const educationSchema = z.object({
   degree: z.string().max(255),
   school: z.string().max(255),
-  year: z.string().max(4).regex(/^\d{4}$/, 'Must be a valid year')
+  year: z
+    .string()
+    .max(4)
+    .regex(/^\d{4}$/, 'Must be a valid year'),
 });
 
 /**

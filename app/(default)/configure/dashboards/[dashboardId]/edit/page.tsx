@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
 import RowBasedDashboardBuilder from '@/components/charts/row-based-dashboard-builder';
-import type { Dashboard, DashboardChart } from '@/lib/types/analytics';
 import { apiClient } from '@/lib/api/client';
+import type { Dashboard, DashboardChart } from '@/lib/types/analytics';
 
 interface DashboardWithCharts extends Dashboard {
   charts: DashboardChart[];
@@ -32,9 +32,10 @@ export default function EditDashboardPage() {
 
       // Extract dashboard and charts from joined API response
       // Handle both nested (joined query) and flat dashboard structures
-      const dashboard = 'dashboards' in dashboardResponse.dashboard 
-        ? dashboardResponse.dashboard.dashboards 
-        : dashboardResponse.dashboard;
+      const dashboard =
+        'dashboards' in dashboardResponse.dashboard
+          ? dashboardResponse.dashboard.dashboards
+          : dashboardResponse.dashboard;
 
       if (!dashboard) {
         throw new Error('Dashboard data not found in response');
@@ -46,13 +47,13 @@ export default function EditDashboardPage() {
 
       const fullDashboardData: DashboardWithCharts = {
         ...dashboardData,
-        charts
+        charts,
       };
 
       console.log('✅ Dashboard loaded for editing:', {
         dashboardId,
         dashboardName: dashboardData.dashboard_name,
-        chartCount: charts.length
+        chartCount: charts.length,
       });
 
       setDashboardData(fullDashboardData);
@@ -108,7 +109,9 @@ export default function EditDashboardPage() {
               />
             </svg>
             <div>
-              <h3 className="text-red-800 dark:text-red-200 font-medium">Error loading dashboard</h3>
+              <h3 className="text-red-800 dark:text-red-200 font-medium">
+                Error loading dashboard
+              </h3>
               <p className="text-red-600 dark:text-red-400 text-sm mt-1">{error}</p>
               <div className="mt-3 space-x-3">
                 <button
@@ -137,7 +140,9 @@ export default function EditDashboardPage() {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
         <div className="text-center py-12">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Dashboard not found</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+            Dashboard not found
+          </h3>
           <p className="text-gray-600 dark:text-gray-400 mt-2">
             The dashboard you're looking for doesn't exist or has been deleted.
           </p>

@@ -11,14 +11,14 @@ import { logger } from '@/lib/logger';
  */
 export function logCacheStats(): void {
   const stats = rolePermissionCache.getStats();
-  
+
   if (stats.hits + stats.misses > 0) {
     logger.info('Cache Performance Stats', {
       hits: stats.hits,
       misses: stats.misses,
       hitRate: `${stats.hitRate}%`,
       cacheSize: stats.size,
-      totalRequests: stats.hits + stats.misses
+      totalRequests: stats.hits + stats.misses,
     });
   }
 }
@@ -29,23 +29,24 @@ export function logCacheStats(): void {
 export function monitorCacheHealth(): void {
   const stats = rolePermissionCache.getStats();
   const totalRequests = stats.hits + stats.misses;
-  
-  if (totalRequests > 10) { // Only monitor after some requests
+
+  if (totalRequests > 10) {
+    // Only monitor after some requests
     if (stats.hitRate < 50) {
       logger.warn('Low cache hit rate detected', {
         hitRate: stats.hitRate,
         recommendations: [
           'Check if roles are being modified frequently',
           'Verify cache TTL settings',
-          'Consider warming up cache on startup'
-        ]
+          'Consider warming up cache on startup',
+        ],
       });
     }
-    
+
     if (stats.size > 100) {
       logger.warn('Large cache size detected', {
         cacheSize: stats.size,
-        recommendation: 'Consider implementing cache size limits'
+        recommendation: 'Consider implementing cache size limits',
       });
     }
   }
@@ -58,5 +59,5 @@ export const cacheAdmin = {
   getStats: () => rolePermissionCache.getStats(),
   clearCache: () => rolePermissionCache.invalidateAll(),
   invalidateRole: (roleId: string) => rolePermissionCache.invalidate(roleId),
-  getCachedRoleIds: () => rolePermissionCache.getCachedRoleIds()
+  getCachedRoleIds: () => rolePermissionCache.getCachedRoleIds(),
 };

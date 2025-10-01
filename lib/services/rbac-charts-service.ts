@@ -1,8 +1,8 @@
-import { BaseRBACService } from '@/lib/rbac/base-service';
+import { and, count, desc, eq, inArray, isNull, like, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
+import { chart_categories, chart_definitions, dashboard_charts, users } from '@/lib/db/schema';
 import { createAppLogger } from '@/lib/logger/factory';
-import { chart_definitions, chart_categories, users, dashboard_charts } from '@/lib/db/schema';
-import { eq, and, inArray, isNull, like, or, count, desc } from 'drizzle-orm';
+import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { PermissionDeniedError } from '@/lib/types/rbac';
 
@@ -15,8 +15,8 @@ import { PermissionDeniedError } from '@/lib/types/rbac';
 const rbacChartsLogger = createAppLogger('rbac-charts-service', {
   component: 'business-logic',
   feature: 'chart-management',
-  businessIntelligence: true
-})
+  businessIntelligence: true,
+});
 
 export interface CreateChartData {
   chart_name: string;
@@ -58,17 +58,21 @@ export interface ChartWithMetadata {
   created_at: string;
   updated_at: string;
   is_active: boolean;
-  category: {
-    chart_category_id: number;
-    category_name: string;
-    category_description: string | undefined;
-  } | undefined;
-  creator: {
-    user_id: string;
-    first_name: string;
-    last_name: string;
-    email: string;
-  } | undefined;
+  category:
+    | {
+        chart_category_id: number;
+        category_name: string;
+        category_description: string | undefined;
+      }
+    | undefined;
+  creator:
+    | {
+        user_id: string;
+        first_name: string;
+        last_name: string;
+        email: string;
+      }
+    | undefined;
 }
 
 /**
@@ -84,9 +88,7 @@ export class RBACChartsService extends BaseRBACService {
    * Get charts list with RBAC filtering, pagination, and metadata joins
    */
   async getCharts(options: ChartQueryOptions = {}): Promise<ChartWithMetadata[]> {
-    this.requireAnyPermission([
-      'analytics:read:all'
-    ]);
+    this.requireAnyPermission(['analytics:read:all']);
 
     // Build where conditions
     const conditions = [];
@@ -110,7 +112,10 @@ export class RBACChartsService extends BaseRBACService {
     const charts = await db
       .select()
       .from(chart_definitions)
-      .leftJoin(chart_categories, eq(chart_definitions.chart_category_id, chart_categories.chart_category_id))
+      .leftJoin(
+        chart_categories,
+        eq(chart_definitions.chart_category_id, chart_categories.chart_category_id)
+      )
       .leftJoin(users, eq(chart_definitions.created_by, users.user_id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(chart_definitions.created_at))
@@ -130,17 +135,21 @@ export class RBACChartsService extends BaseRBACService {
       created_at: chart.chart_definitions!.created_at?.toISOString() || new Date().toISOString(),
       updated_at: chart.chart_definitions!.updated_at?.toISOString() || new Date().toISOString(),
       is_active: chart.chart_definitions!.is_active ?? true,
-      category: chart.chart_categories ? {
-        chart_category_id: chart.chart_categories.chart_category_id,
-        category_name: chart.chart_categories.category_name,
-        category_description: chart.chart_categories.category_description || undefined,
-      } : undefined,
-      creator: chart.users ? {
-        user_id: chart.users.user_id,
-        first_name: chart.users.first_name || '',
-        last_name: chart.users.last_name || '',
-        email: chart.users.email
-      } : undefined,
+      category: chart.chart_categories
+        ? {
+            chart_category_id: chart.chart_categories.chart_category_id,
+            category_name: chart.chart_categories.category_name,
+            category_description: chart.chart_categories.category_description || undefined,
+          }
+        : undefined,
+      creator: chart.users
+        ? {
+            user_id: chart.users.user_id,
+            first_name: chart.users.first_name || '',
+            last_name: chart.users.last_name || '',
+            email: chart.users.email,
+          }
+        : undefined,
     }));
   }
 
@@ -148,9 +157,7 @@ export class RBACChartsService extends BaseRBACService {
    * Get chart count for pagination
    */
   async getChartCount(options: ChartQueryOptions = {}): Promise<number> {
-    this.requireAnyPermission([
-      'analytics:read:all'
-    ]);
+    this.requireAnyPermission(['analytics:read:all']);
 
     // Build where conditions
     const conditions = [];
@@ -182,15 +189,16 @@ export class RBACChartsService extends BaseRBACService {
    * Get a specific chart by ID with permission checking
    */
   async getChartById(chartId: string): Promise<ChartWithMetadata | null> {
-    this.requireAnyPermission([
-      'analytics:read:all'
-    ]);
+    this.requireAnyPermission(['analytics:read:all']);
 
     // Get chart with category and creator info
     const charts = await db
       .select()
       .from(chart_definitions)
-      .leftJoin(chart_categories, eq(chart_definitions.chart_category_id, chart_categories.chart_category_id))
+      .leftJoin(
+        chart_categories,
+        eq(chart_definitions.chart_category_id, chart_categories.chart_category_id)
+      )
       .leftJoin(users, eq(chart_definitions.created_by, users.user_id))
       .where(eq(chart_definitions.chart_definition_id, chartId))
       .limit(1);
@@ -202,7 +210,10 @@ export class RBACChartsService extends BaseRBACService {
     const chart = charts[0];
     if (!chart || !chart.chart_definitions) {
       // Extra safety: should not happen after length check and join
-      rbacChartsLogger.warn('Chart result had length > 0 but first item or chart_definitions was null', { chartId });
+      rbacChartsLogger.warn(
+        'Chart result had length > 0 but first item or chart_definitions was null',
+        { chartId }
+      );
       return null;
     }
 
@@ -219,17 +230,21 @@ export class RBACChartsService extends BaseRBACService {
       created_at: chartDef.created_at?.toISOString() || new Date().toISOString(),
       updated_at: chartDef.updated_at?.toISOString() || new Date().toISOString(),
       is_active: chartDef.is_active ?? true,
-      category: chart.chart_categories ? {
-        chart_category_id: chart.chart_categories.chart_category_id,
-        category_name: chart.chart_categories.category_name,
-        category_description: chart.chart_categories.category_description || undefined,
-      } : undefined,
-      creator: chart.users ? {
-        user_id: chart.users.user_id,
-        first_name: chart.users.first_name || '',
-        last_name: chart.users.last_name || '',
-        email: chart.users.email
-      } : undefined,
+      category: chart.chart_categories
+        ? {
+            chart_category_id: chart.chart_categories.chart_category_id,
+            category_name: chart.chart_categories.category_name,
+            category_description: chart.chart_categories.category_description || undefined,
+          }
+        : undefined,
+      creator: chart.users
+        ? {
+            user_id: chart.users.user_id,
+            first_name: chart.users.first_name || '',
+            last_name: chart.users.last_name || '',
+            email: chart.users.email,
+          }
+        : undefined,
     };
   }
 
@@ -245,7 +260,7 @@ export class RBACChartsService extends BaseRBACService {
       chartName: chartData.chart_name,
       chartType: chartData.chart_type,
       operation: 'create_chart',
-      securityLevel: 'medium'
+      securityLevel: 'medium',
     });
 
     this.requirePermission('analytics:read:all', undefined);
@@ -261,7 +276,7 @@ export class RBACChartsService extends BaseRBACService {
         chart_config: chartData.chart_config || {},
         chart_category_id: chartData.chart_category_id || null,
         created_by: this.userContext.user_id,
-        is_active: chartData.is_active ?? true
+        is_active: chartData.is_active ?? true,
       })
       .returning();
 
@@ -274,14 +289,17 @@ export class RBACChartsService extends BaseRBACService {
       chartName: newChart.chart_name,
       chartType: newChart.chart_type,
       createdBy: this.userContext.user_id,
-      totalRequestTime: Date.now() - startTime
+      totalRequestTime: Date.now() - startTime,
     });
 
     // Return the created chart with metadata (more efficient single query)
     const createdCharts = await db
       .select()
       .from(chart_definitions)
-      .leftJoin(chart_categories, eq(chart_definitions.chart_category_id, chart_categories.chart_category_id))
+      .leftJoin(
+        chart_categories,
+        eq(chart_definitions.chart_category_id, chart_categories.chart_category_id)
+      )
       .leftJoin(users, eq(chart_definitions.created_by, users.user_id))
       .where(eq(chart_definitions.chart_definition_id, newChart.chart_definition_id))
       .limit(1);
@@ -293,7 +311,9 @@ export class RBACChartsService extends BaseRBACService {
     const createdChart = createdCharts[0];
     if (!createdChart || !createdChart.chart_definitions) {
       // Extra safety: should not happen after length check
-      rbacChartsLogger.error('Created chart result had length > 0 but first item or chart_definitions was null');
+      rbacChartsLogger.error(
+        'Created chart result had length > 0 but first item or chart_definitions was null'
+      );
       throw new Error('Failed to retrieve created chart data');
     }
 
@@ -310,17 +330,21 @@ export class RBACChartsService extends BaseRBACService {
       created_at: createdChartDef.created_at?.toISOString() || new Date().toISOString(),
       updated_at: createdChartDef.updated_at?.toISOString() || new Date().toISOString(),
       is_active: createdChartDef.is_active ?? true,
-      category: createdChart.chart_categories ? {
-        chart_category_id: createdChart.chart_categories.chart_category_id,
-        category_name: createdChart.chart_categories.category_name,
-        category_description: createdChart.chart_categories.category_description || undefined,
-      } : undefined,
-      creator: createdChart.users ? {
-        user_id: createdChart.users.user_id,
-        first_name: createdChart.users.first_name || '',
-        last_name: createdChart.users.last_name || '',
-        email: createdChart.users.email
-      } : undefined,
+      category: createdChart.chart_categories
+        ? {
+            chart_category_id: createdChart.chart_categories.chart_category_id,
+            category_name: createdChart.chart_categories.category_name,
+            category_description: createdChart.chart_categories.category_description || undefined,
+          }
+        : undefined,
+      creator: createdChart.users
+        ? {
+            user_id: createdChart.users.user_id,
+            first_name: createdChart.users.first_name || '',
+            last_name: createdChart.users.last_name || '',
+            email: createdChart.users.email,
+          }
+        : undefined,
     };
   }
 
@@ -342,11 +366,14 @@ export class RBACChartsService extends BaseRBACService {
       const updateFields: Partial<typeof chart_definitions.$inferInsert> = {};
 
       if (updateData.chart_name !== undefined) updateFields.chart_name = updateData.chart_name;
-      if (updateData.chart_description !== undefined) updateFields.chart_description = updateData.chart_description;
+      if (updateData.chart_description !== undefined)
+        updateFields.chart_description = updateData.chart_description;
       if (updateData.chart_type !== undefined) updateFields.chart_type = updateData.chart_type;
       if (updateData.data_source !== undefined) updateFields.data_source = updateData.data_source;
-      if (updateData.chart_config !== undefined) updateFields.chart_config = updateData.chart_config;
-      if (updateData.chart_category_id !== undefined) updateFields.chart_category_id = updateData.chart_category_id;
+      if (updateData.chart_config !== undefined)
+        updateFields.chart_config = updateData.chart_config;
+      if (updateData.chart_category_id !== undefined)
+        updateFields.chart_category_id = updateData.chart_category_id;
       if (updateData.is_active !== undefined) updateFields.is_active = updateData.is_active;
 
       // Update the chart
@@ -366,14 +393,17 @@ export class RBACChartsService extends BaseRBACService {
     rbacChartsLogger.info('Chart updated successfully', {
       chartId: updatedChart.chart_definition_id,
       chartName: updatedChart.chart_name,
-      updatedBy: this.userContext.user_id
+      updatedBy: this.userContext.user_id,
     });
 
     // Return the updated chart with metadata (more efficient single query)
     const updatedCharts = await db
       .select()
       .from(chart_definitions)
-      .leftJoin(chart_categories, eq(chart_definitions.chart_category_id, chart_categories.chart_category_id))
+      .leftJoin(
+        chart_categories,
+        eq(chart_definitions.chart_category_id, chart_categories.chart_category_id)
+      )
       .leftJoin(users, eq(chart_definitions.created_by, users.user_id))
       .where(eq(chart_definitions.chart_definition_id, chartId))
       .limit(1);
@@ -385,7 +415,9 @@ export class RBACChartsService extends BaseRBACService {
     const updatedChartData = updatedCharts[0];
     if (!updatedChartData || !updatedChartData.chart_definitions) {
       // Extra safety: should not happen after length check
-      rbacChartsLogger.error('Updated chart result had length > 0 but first item or chart_definitions was null');
+      rbacChartsLogger.error(
+        'Updated chart result had length > 0 but first item or chart_definitions was null'
+      );
       throw new Error('Failed to retrieve updated chart data');
     }
 
@@ -402,17 +434,22 @@ export class RBACChartsService extends BaseRBACService {
       created_at: updatedChartDef.created_at?.toISOString() || new Date().toISOString(),
       updated_at: updatedChartDef.updated_at?.toISOString() || new Date().toISOString(),
       is_active: updatedChartDef.is_active ?? true,
-      category: updatedChartData.chart_categories ? {
-        chart_category_id: updatedChartData.chart_categories.chart_category_id,
-        category_name: updatedChartData.chart_categories.category_name,
-        category_description: updatedChartData.chart_categories.category_description || undefined,
-      } : undefined,
-      creator: updatedChartData.users ? {
-        user_id: updatedChartData.users.user_id,
-        first_name: updatedChartData.users.first_name || '',
-        last_name: updatedChartData.users.last_name || '',
-        email: updatedChartData.users.email
-      } : undefined,
+      category: updatedChartData.chart_categories
+        ? {
+            chart_category_id: updatedChartData.chart_categories.chart_category_id,
+            category_name: updatedChartData.chart_categories.category_name,
+            category_description:
+              updatedChartData.chart_categories.category_description || undefined,
+          }
+        : undefined,
+      creator: updatedChartData.users
+        ? {
+            user_id: updatedChartData.users.user_id,
+            first_name: updatedChartData.users.first_name || '',
+            last_name: updatedChartData.users.last_name || '',
+            email: updatedChartData.users.email,
+          }
+        : undefined,
     };
   }
 
@@ -431,9 +468,7 @@ export class RBACChartsService extends BaseRBACService {
     // Execute chart deletion and cleanup as atomic transaction
     await db.transaction(async (tx) => {
       // First, remove all dashboard associations
-      await tx
-        .delete(dashboard_charts)
-        .where(eq(dashboard_charts.chart_definition_id, chartId));
+      await tx.delete(dashboard_charts).where(eq(dashboard_charts.chart_definition_id, chartId));
 
       // Then delete the chart
       const [deletedChart] = await tx
@@ -449,7 +484,7 @@ export class RBACChartsService extends BaseRBACService {
     rbacChartsLogger.info('Chart deleted successfully', {
       chartId,
       chartName: existingChart.chart_name,
-      deletedBy: this.userContext.user_id
+      deletedBy: this.userContext.user_id,
     });
   }
 }

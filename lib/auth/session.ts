@@ -1,6 +1,6 @@
-import { TokenManager } from './token-manager'
-import { db, users } from '@/lib/db'
-import { eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm';
+import { db, users } from '@/lib/db';
+import { TokenManager } from './token-manager';
 
 /**
  * Updated session utilities for JWT + Refresh Token strategy
@@ -9,19 +9,15 @@ import { eq } from 'drizzle-orm'
 
 export async function getCurrentUserFromToken(accessToken: string) {
   try {
-    const payload = await TokenManager.validateAccessToken(accessToken)
-    if (!payload) return null
-    
-    const userId = payload.sub as string
-    
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.user_id, userId))
-      .limit(1)
-    
-    if (!user || !user.is_active) return null
-    
+    const payload = await TokenManager.validateAccessToken(accessToken);
+    if (!payload) return null;
+
+    const userId = payload.sub as string;
+
+    const [user] = await db.select().from(users).where(eq(users.user_id, userId)).limit(1);
+
+    if (!user || !user.is_active) return null;
+
     return {
       id: user.user_id,
       email: user.email,
@@ -30,45 +26,45 @@ export async function getCurrentUserFromToken(accessToken: string) {
       lastName: user.last_name,
       role: (payload.role as string) || 'user', // Use role from JWT payload
       emailVerified: user.email_verified,
-      practiceId: (payload.practiceId as string) || undefined // Use practiceId from JWT payload
-    }
+      practiceId: (payload.practiceId as string) || undefined, // Use practiceId from JWT payload
+    };
   } catch (_error) {
-    return null
+    return null;
   }
 }
 
 export async function validateTokenAndGetUser(accessToken: string) {
-  const user = await getCurrentUserFromToken(accessToken)
+  const user = await getCurrentUserFromToken(accessToken);
   if (!user) {
-    throw new Error('Authentication required')
+    throw new Error('Authentication required');
   }
-  return user
+  return user;
 }
 
 export async function requireTokenRole(accessToken: string, allowedRoles: string[]) {
-  const user = await validateTokenAndGetUser(accessToken)
+  const user = await validateTokenAndGetUser(accessToken);
   if (!allowedRoles.includes(user.role)) {
-    throw new Error(`Access denied. Required role: ${allowedRoles.join(' or ')}`)
+    throw new Error(`Access denied. Required role: ${allowedRoles.join(' or ')}`);
   }
-  return user
+  return user;
 }
 
 export async function requireTokenAdmin(accessToken: string) {
-  return await requireTokenRole(accessToken, ['admin'])
+  return await requireTokenRole(accessToken, ['admin']);
 }
 
 export async function requireTokenPracticeAccess(accessToken: string, practiceId: string) {
-  const user = await validateTokenAndGetUser(accessToken)
-  
+  const user = await validateTokenAndGetUser(accessToken);
+
   // Admins can access any practice
   if (user.role === 'admin') {
-    return user
+    return user;
   }
-  
+
   // Practice owners can only access their own practice
   if (user.role === 'practice_owner' && user.practiceId === practiceId) {
-    return user
+    return user;
   }
-  
-  throw new Error('You do not have access to this practice')
+
+  throw new Error('You do not have access to this practice');
 }

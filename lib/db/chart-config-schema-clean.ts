@@ -1,4 +1,15 @@
-import { pgTable, integer, varchar, text, boolean, timestamp, jsonb, index, decimal, uuid } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  decimal,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  varchar,
+} from 'drizzle-orm/pg-core';
 
 /**
  * Chart Configuration Schema
@@ -33,30 +44,32 @@ export const chart_data_source_columns = pgTable(
   'chart_data_source_columns',
   {
     column_id: integer('column_id').primaryKey().generatedByDefaultAsIdentity(),
-    data_source_id: integer('data_source_id').references(() => chart_data_sources.data_source_id, { onDelete: 'cascade' }).notNull(),
+    data_source_id: integer('data_source_id')
+      .references(() => chart_data_sources.data_source_id, { onDelete: 'cascade' })
+      .notNull(),
     column_name: varchar('column_name', { length: 100 }).notNull(),
     display_name: varchar('display_name', { length: 100 }).notNull(),
     column_description: text('column_description'),
     data_type: varchar('data_type', { length: 50 }).notNull(),
-    
+
     // Chart functionality flags
     is_filterable: boolean('is_filterable').default(false),
     is_groupable: boolean('is_groupable').default(false),
     is_measure: boolean('is_measure').default(false),
     is_dimension: boolean('is_dimension').default(false),
     is_date_field: boolean('is_date_field').default(false),
-    
+
     // Display and formatting
     format_type: varchar('format_type', { length: 50 }),
     sort_order: integer('sort_order').default(0),
     default_aggregation: varchar('default_aggregation', { length: 20 }),
-    
+
     // Security and validation
     is_sensitive: boolean('is_sensitive').default(false),
     access_level: varchar('access_level', { length: 20 }).default('all'),
     allowed_values: jsonb('allowed_values'),
     validation_rules: jsonb('validation_rules'),
-    
+
     // Metadata
     example_value: text('example_value'),
     is_active: boolean('is_active').default(true),
@@ -65,9 +78,16 @@ export const chart_data_source_columns = pgTable(
   },
   (table) => ({
     dataSourceIdx: index('idx_chart_data_source_columns_data_source').on(table.data_source_id),
-    flagsIdx: index('idx_chart_data_source_columns_flags').on(table.is_filterable, table.is_groupable, table.is_measure),
+    flagsIdx: index('idx_chart_data_source_columns_flags').on(
+      table.is_filterable,
+      table.is_groupable,
+      table.is_measure
+    ),
     activeIdx: index('idx_chart_data_source_columns_active').on(table.is_active),
-    uniqueColumn: index('idx_chart_data_source_columns_unique').on(table.data_source_id, table.column_name),
+    uniqueColumn: index('idx_chart_data_source_columns_unique').on(
+      table.data_source_id,
+      table.column_name
+    ),
   })
 );
 
@@ -75,38 +95,45 @@ export const chart_data_source_columns = pgTable(
 export const chart_display_configurations = pgTable(
   'chart_display_configurations',
   {
-    display_configuration_id: integer('display_configuration_id').primaryKey().generatedByDefaultAsIdentity(),
+    display_configuration_id: integer('display_configuration_id')
+      .primaryKey()
+      .generatedByDefaultAsIdentity(),
     chart_type: varchar('chart_type', { length: 50 }).notNull(),
     frequency: varchar('frequency', { length: 20 }),
-    
+
     // Chart.js axis configuration
     x_axis_config: jsonb('x_axis_config'),
     y_axis_config: jsonb('y_axis_config'),
-    
+
     // Display settings
     default_width: integer('default_width').default(800),
     default_height: integer('default_height').default(400),
     padding_config: jsonb('padding_config'),
-    
+
     // Time axis settings
     time_unit: varchar('time_unit', { length: 20 }),
     time_display_format: varchar('time_display_format', { length: 50 }),
     time_tooltip_format: varchar('time_tooltip_format', { length: 50 }),
-    
+
     // Chart options
     show_legend: boolean('show_legend').default(true),
     show_tooltips: boolean('show_tooltips').default(true),
     enable_animation: boolean('enable_animation').default(true),
-    
-    default_color_palette_id: integer('default_color_palette_id').references(() => color_palettes.palette_id),
-    
+
+    default_color_palette_id: integer('default_color_palette_id').references(
+      () => color_palettes.palette_id
+    ),
+
     is_default: boolean('is_default').default(false),
     is_active: boolean('is_active').default(true),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },
   (table) => ({
-    typeFreqIdx: index('idx_chart_display_configurations_type_freq').on(table.chart_type, table.frequency),
+    typeFreqIdx: index('idx_chart_display_configurations_type_freq').on(
+      table.chart_type,
+      table.frequency
+    ),
     defaultIdx: index('idx_chart_display_configurations_default').on(table.is_default),
     activeIdx: index('idx_chart_display_configurations_active').on(table.is_active),
   })
@@ -120,15 +147,15 @@ export const color_palettes = pgTable(
     palette_name: varchar('palette_name', { length: 100 }).notNull(),
     palette_description: text('palette_description'),
     colors: jsonb('colors').notNull(),
-    
+
     // Usage context
     palette_type: varchar('palette_type', { length: 50 }).default('general'),
     max_colors: integer('max_colors'),
-    
+
     // Accessibility
     is_colorblind_safe: boolean('is_colorblind_safe').default(false),
     contrast_ratio: decimal('contrast_ratio', { precision: 3, scale: 2 }),
-    
+
     // Metadata
     is_default: boolean('is_default').default(false),
     is_system: boolean('is_system').default(false),

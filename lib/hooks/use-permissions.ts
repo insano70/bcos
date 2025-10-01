@@ -1,15 +1,15 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import { PermissionChecker } from '@/lib/rbac/permission-checker';
 import type {
-  UserContext,
+  AccessScope,
+  ActionType,
+  Organization,
+  Permission,
   PermissionName,
   ResourceType,
-  ActionType,
-  AccessScope,
-  Permission,
-  Organization,
-  UsePermissionsReturn
+  UsePermissionsReturn,
+  UserContext,
 } from '@/lib/types/rbac';
 
 /**
@@ -37,7 +37,7 @@ export function usePermissions(): UsePermissionsReturn {
     if (!checker || !userContext) {
       return false;
     }
-    
+
     try {
       return checker.hasPermission(permission, resourceId, organizationId);
     } catch (error) {
@@ -55,7 +55,7 @@ export function usePermissions(): UsePermissionsReturn {
     organizationId?: string
   ): boolean => {
     if (!checker || !userContext) return false;
-    
+
     try {
       return checker.hasAnyPermission(permissions, resourceId, organizationId);
     } catch (error) {
@@ -73,7 +73,7 @@ export function usePermissions(): UsePermissionsReturn {
     organizationId?: string
   ): boolean => {
     if (!checker || !userContext) return false;
-    
+
     try {
       return checker.hasAllPermissions(permissions, resourceId, organizationId);
     } catch (error) {
@@ -87,7 +87,7 @@ export function usePermissions(): UsePermissionsReturn {
 
   const canAccessResource = (resource: ResourceType, action: ActionType): boolean => {
     if (!checker) return false;
-    
+
     try {
       checker.getAccessScope(resource, action);
       return true;
@@ -98,7 +98,7 @@ export function usePermissions(): UsePermissionsReturn {
 
   const getAccessScope = (resource: ResourceType, action: ActionType): AccessScope | null => {
     if (!checker) return null;
-    
+
     try {
       return checker.getAccessScope(resource, action);
     } catch (_error) {
@@ -141,7 +141,7 @@ export function usePermissions(): UsePermissionsReturn {
     isSuperAdmin: userContext?.is_super_admin || false,
     isOrganizationAdmin,
     currentOrganization: getCurrentOrganization(),
-    accessibleOrganizations
+    accessibleOrganizations,
   };
 }
 
@@ -160,21 +160,18 @@ export function useUserPermissions() {
     canReadUsers: permissions.hasAnyPermission([
       'users:read:own',
       'users:read:organization',
-      'users:read:all'
+      'users:read:all',
     ]),
     canCreateUsers: permissions.hasPermission('users:create:organization'),
-    canUpdateUsers: permissions.hasAnyPermission([
-      'users:update:own',
-      'users:update:organization'
-    ]),
+    canUpdateUsers: permissions.hasAnyPermission(['users:update:own', 'users:update:organization']),
     canDeleteUsers: permissions.hasPermission('users:delete:organization'),
     canManageUsers: permissions.hasAnyPermission([
       'users:create:organization',
       'users:update:organization',
-      'users:delete:organization'
+      'users:delete:organization',
     ]),
     canReadOwnProfile: permissions.hasPermission('users:read:own'),
-    canUpdateOwnProfile: permissions.hasPermission('users:update:own')
+    canUpdateOwnProfile: permissions.hasPermission('users:update:own'),
   };
 }
 
@@ -186,15 +183,12 @@ export function usePracticePermissions() {
 
   return {
     ...permissions,
-    canReadPractices: permissions.hasAnyPermission([
-      'practices:read:own',
-      'practices:read:all'
-    ]),
+    canReadPractices: permissions.hasAnyPermission(['practices:read:own', 'practices:read:all']),
     canUpdatePractices: permissions.hasPermission('practices:update:own'),
     canManagePracticeStaff: permissions.hasPermission('practices:staff:manage:own'),
     canCreatePractices: permissions.hasPermission('practices:create:all'),
     canManageAllPractices: permissions.hasPermission('practices:manage:all'),
-    canDeletePractices: permissions.hasPermission('practices:manage:all')
+    canDeletePractices: permissions.hasPermission('practices:manage:all'),
   };
 }
 
@@ -208,10 +202,10 @@ export function useAnalyticsPermissions() {
     ...permissions,
     canReadAnalytics: permissions.hasAnyPermission([
       'analytics:read:organization',
-      'analytics:read:all'
+      'analytics:read:all',
     ]),
     canExportAnalytics: permissions.hasPermission('analytics:export:organization'),
-    canReadAllAnalytics: permissions.hasPermission('analytics:read:all')
+    canReadAllAnalytics: permissions.hasPermission('analytics:read:all'),
   };
 }
 
@@ -230,9 +224,9 @@ export function useRolePermissions() {
     canManageRoles: permissions.hasAnyPermission([
       'roles:create:organization',
       'roles:update:organization',
-      'roles:delete:organization'
+      'roles:delete:organization',
     ]),
-    canManageAllRoles: permissions.hasPermission('roles:manage:all')
+    canManageAllRoles: permissions.hasPermission('roles:manage:all'),
   };
 }
 
@@ -246,14 +240,14 @@ export function useSettingsPermissions() {
     ...permissions,
     canReadSettings: permissions.hasAnyPermission([
       'settings:read:organization',
-      'settings:read:all'
+      'settings:read:all',
     ]),
     canUpdateSettings: permissions.hasAnyPermission([
       'settings:update:organization',
-      'settings:update:all'
+      'settings:update:all',
     ]),
     canReadAllSettings: permissions.hasPermission('settings:read:all'),
-    canUpdateAllSettings: permissions.hasPermission('settings:update:all')
+    canUpdateAllSettings: permissions.hasPermission('settings:update:all'),
   };
 }
 
@@ -266,7 +260,7 @@ export function useTemplatePermissions() {
   return {
     ...permissions,
     canReadTemplates: permissions.hasPermission('templates:read:organization'),
-    canManageTemplates: permissions.hasPermission('templates:manage:all')
+    canManageTemplates: permissions.hasPermission('templates:manage:all'),
   };
 }
 
@@ -280,10 +274,7 @@ export function useApiPermissions() {
     ...permissions,
     canReadAPI: permissions.hasPermission('api:read:organization'),
     canWriteAPI: permissions.hasPermission('api:write:organization'),
-    hasApiAccess: permissions.hasAnyPermission([
-      'api:read:organization',
-      'api:write:organization'
-    ])
+    hasApiAccess: permissions.hasAnyPermission(['api:read:organization', 'api:write:organization']),
   };
 }
 
@@ -297,38 +288,50 @@ export function useResourcePermissions(
 ) {
   const permissions = usePermissions();
 
-  return useMemo(() => ({
-    canRead: permissions.hasAnyPermission([
-      `${resourceType}:read:own`,
-      `${resourceType}:read:organization`,
-      `${resourceType}:read:all`
-    ] as PermissionName[], resourceId, organizationId),
+  return useMemo(
+    () => ({
+      canRead: permissions.hasAnyPermission(
+        [
+          `${resourceType}:read:own`,
+          `${resourceType}:read:organization`,
+          `${resourceType}:read:all`,
+        ] as PermissionName[],
+        resourceId,
+        organizationId
+      ),
 
-    canUpdate: permissions.hasAnyPermission([
-      `${resourceType}:update:own`,
-      `${resourceType}:update:organization`
-    ] as PermissionName[], resourceId, organizationId),
+      canUpdate: permissions.hasAnyPermission(
+        [`${resourceType}:update:own`, `${resourceType}:update:organization`] as PermissionName[],
+        resourceId,
+        organizationId
+      ),
 
-    canDelete: permissions.hasPermission(
-      `${resourceType}:delete:organization` as PermissionName,
-      resourceId,
-      organizationId
-    ),
+      canDelete: permissions.hasPermission(
+        `${resourceType}:delete:organization` as PermissionName,
+        resourceId,
+        organizationId
+      ),
 
-    canCreate: permissions.hasPermission(
-      `${resourceType}:create:organization` as PermissionName,
-      resourceId,
-      organizationId
-    ),
+      canCreate: permissions.hasPermission(
+        `${resourceType}:create:organization` as PermissionName,
+        resourceId,
+        organizationId
+      ),
 
-    hasAnyAccess: permissions.hasAnyPermission([
-      `${resourceType}:read:own`,
-      `${resourceType}:read:organization`,
-      `${resourceType}:read:all`,
-      `${resourceType}:update:own`,
-      `${resourceType}:update:organization`
-    ] as PermissionName[], resourceId, organizationId)
-  }), [permissions, resourceType, resourceId, organizationId]);
+      hasAnyAccess: permissions.hasAnyPermission(
+        [
+          `${resourceType}:read:own`,
+          `${resourceType}:read:organization`,
+          `${resourceType}:read:all`,
+          `${resourceType}:update:own`,
+          `${resourceType}:update:organization`,
+        ] as PermissionName[],
+        resourceId,
+        organizationId
+      ),
+    }),
+    [permissions, resourceType, resourceId, organizationId]
+  );
 }
 
 /**
@@ -342,12 +345,22 @@ export function useOrganizationPermissions(organizationId?: string) {
 
     return {
       organizationId: targetOrgId,
-      canAccess: targetOrgId ? permissions.hasPermission('practices:read:own', undefined, targetOrgId) : false,
-      canManage: targetOrgId ? permissions.hasPermission('practices:update:own', undefined, targetOrgId) : false,
-      canManageStaff: targetOrgId ? permissions.hasPermission('practices:staff:manage:own', undefined, targetOrgId) : false,
-      canViewAnalytics: targetOrgId ? permissions.hasPermission('analytics:read:organization', undefined, targetOrgId) : false,
-      canExportData: targetOrgId ? permissions.hasPermission('analytics:export:organization', undefined, targetOrgId) : false,
-      isAdmin: targetOrgId ? permissions.isOrganizationAdmin(targetOrgId) : false
+      canAccess: targetOrgId
+        ? permissions.hasPermission('practices:read:own', undefined, targetOrgId)
+        : false,
+      canManage: targetOrgId
+        ? permissions.hasPermission('practices:update:own', undefined, targetOrgId)
+        : false,
+      canManageStaff: targetOrgId
+        ? permissions.hasPermission('practices:staff:manage:own', undefined, targetOrgId)
+        : false,
+      canViewAnalytics: targetOrgId
+        ? permissions.hasPermission('analytics:read:organization', undefined, targetOrgId)
+        : false,
+      canExportData: targetOrgId
+        ? permissions.hasPermission('analytics:export:organization', undefined, targetOrgId)
+        : false,
+      isAdmin: targetOrgId ? permissions.isOrganizationAdmin(targetOrgId) : false,
     };
   }, [permissions, organizationId]);
 }
@@ -363,30 +376,33 @@ export function usePermissionSummary() {
 
     return {
       totalPermissions: allPermissions.length,
-      permissionsByResource: allPermissions.reduce((acc, permission) => {
-        const resource = permission.resource;
-        if (!acc[resource]) {
-          acc[resource] = [];
-        }
-        acc[resource].push(permission);
-        return acc;
-      }, {} as Record<string, Permission[]>),
+      permissionsByResource: allPermissions.reduce(
+        (acc, permission) => {
+          const resource = permission.resource;
+          if (!acc[resource]) {
+            acc[resource] = [];
+          }
+          acc[resource].push(permission);
+          return acc;
+        },
+        {} as Record<string, Permission[]>
+      ),
 
       scopes: {
-        hasOwnScope: allPermissions.some(p => p.scope === 'own'),
-        hasOrgScope: allPermissions.some(p => p.scope === 'organization'),
-        hasAllScope: allPermissions.some(p => p.scope === 'all')
+        hasOwnScope: allPermissions.some((p) => p.scope === 'own'),
+        hasOrgScope: allPermissions.some((p) => p.scope === 'organization'),
+        hasAllScope: allPermissions.some((p) => p.scope === 'all'),
       },
 
       adminStatus: {
         isSuperAdmin: permissions.isSuperAdmin,
-        isOrgAdmin: permissions.accessibleOrganizations.some(org =>
+        isOrgAdmin: permissions.accessibleOrganizations.some((org) =>
           permissions.isOrganizationAdmin(org.organization_id)
         ),
-        adminForOrgs: permissions.accessibleOrganizations.filter(org =>
+        adminForOrgs: permissions.accessibleOrganizations.filter((org) =>
           permissions.isOrganizationAdmin(org.organization_id)
-        )
-      }
+        ),
+      },
     };
   }, [permissions]);
 }

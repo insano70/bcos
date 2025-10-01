@@ -4,99 +4,90 @@
  */
 
 // Core structured logger (simplified)
-export { 
-  createAppLogger, 
-  logger, 
-  loggers
-} from './factory'
+export {
+  createAppLogger,
+  logger,
+  loggers,
+} from './factory';
 
-export type { LogContext } from './universal-logger'
+export type { LogContext } from './universal-logger';
 
 // Simplified log levels
 export const LOG_LEVELS = {
   debug: 3,
   info: 2,
   warn: 1,
-  error: 0
-}
+  error: 0,
+};
 
+// Audit logging services
+export { AuditLogger } from '../api/services/audit';
 // API-specific logging
 export {
   createAPILogger,
+  logAPIAuth,
   logAPIRequest,
   logAPIResponse,
   logDBOperation,
-  logAPIAuth,
-  logValidationError,
+  logPerformanceMetric,
   logRateLimit,
   logSecurityEvent,
-  logPerformanceMetric
-} from './api-logger'
-
-// Middleware functions
-export {
-  withLogging,
-  withRBACLogging,
-  withPerformanceLogging
-} from './middleware'
-
-
+  logValidationError,
+} from './api-logger';
+export { BufferedAuditLogger } from './audit-optimizer';
 // Correlation and tracing
 export {
-  CorrelationIdGenerator,
+  type CorrelationContext,
   CorrelationContextManager,
+  CorrelationHeaders,
+  CorrelationHelpers,
+  CorrelationIdGenerator,
+  withBackgroundJobCorrelation,
   withCorrelation,
   withDBCorrelation,
   withExternalAPICorrelation,
-  withBackgroundJobCorrelation,
   withScheduledTaskCorrelation,
-  CorrelationHeaders,
-  CorrelationHelpers,
-  type CorrelationContext
-} from './correlation'
-
+} from './correlation';
 // Database monitoring
 export {
-  withDBLogging,
-  logSlowQuery,
   logDBConnection,
+  logDBHealth,
   logDBTransaction,
-  logDBHealth
-} from './db-wrapper'
-
+  logSlowQuery,
+  withDBLogging,
+} from './db-wrapper';
 // Error handling
 export {
-  ContextualError,
-  ValidationError,
   AuthenticationError,
   AuthorizationError,
-  NotFoundError,
   ConflictError,
-  RateLimitError,
+  ContextualError,
+  createErrorHandler,
+  createRateLimitError,
+  createValidationError,
   DatabaseError,
   handleError,
-  createErrorHandler,
-  withErrorHandling,
+  NotFoundError,
+  RateLimitError,
+  ValidationError,
   withDBErrorHandling,
-  createValidationError,
-  createRateLimitError
-} from './error-handler'
-
-// Audit logging services
-export { AuditLogger } from '../api/services/audit'
-export {
-  BufferedAuditLogger
-} from './audit-optimizer'
-
+  withErrorHandling,
+} from './error-handler';
 // Metrics and monitoring
 export {
-  RequestMetricsCollector,
   PerformanceAggregator,
-  withRequestMetrics,
+  performanceAggregator,
+  RequestMetricsCollector,
   requestMetrics,
-  performanceAggregator
-} from './metrics'
+  withRequestMetrics,
+} from './metrics';
+// Middleware functions
+export {
+  withLogging,
+  withPerformanceLogging,
+  withRBACLogging,
+} from './middleware';
 
 // Default exports for common use cases (simplified)
-import { logger as defaultLogger } from './factory'
-export default defaultLogger
+import { logger as defaultLogger } from './factory';
+export default defaultLogger;

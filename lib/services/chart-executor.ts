@@ -1,8 +1,12 @@
-import type { ChartDefinition, ChartRenderContext, AnalyticsQueryResult } from '@/lib/types/analytics';
-import type { ValidationResult } from './chart-validation';
-import { analyticsQueryBuilder } from './analytics-query-builder';
-import { chartValidator } from './chart-validation';
 import { logger } from '@/lib/logger';
+import type {
+  AnalyticsQueryResult,
+  ChartDefinition,
+  ChartRenderContext,
+} from '@/lib/types/analytics';
+import { analyticsQueryBuilder } from './analytics-query-builder';
+import type { ValidationResult } from './chart-validation';
+import { chartValidator } from './chart-validation';
 
 /**
  * Chart Executor Service
@@ -10,7 +14,6 @@ import { logger } from '@/lib/logger';
  */
 
 export class ChartExecutor {
-  
   /**
    * Execute a chart definition and return data
    */
@@ -19,7 +22,6 @@ export class ChartExecutor {
     context: ChartRenderContext,
     additionalFilters: Record<string, unknown> = {}
   ): Promise<AnalyticsQueryResult> {
-    
     // Validate chart definition
     const validation = await chartValidator.validateChartDefinition(chartDefinition);
     if (!validation.isValid) {
@@ -30,31 +32,30 @@ export class ChartExecutor {
       chartId: chartDefinition.chart_definition_id,
       chartName: chartDefinition.chart_name,
       chartType: chartDefinition.chart_type,
-      userId: context.user_id
+      userId: context.user_id,
     });
 
     try {
       // Convert chart definition to analytics query parameters
       const queryParams = this.convertToQueryParams(chartDefinition, additionalFilters);
-      
+
       // Execute the query using the analytics query builder
       const result = await analyticsQueryBuilder.queryMeasures(queryParams, context);
-      
+
       logger.info('Chart definition executed successfully', {
         chartId: chartDefinition.chart_definition_id,
         resultCount: result.data.length,
-        queryTime: result.query_time_ms
+        queryTime: result.query_time_ms,
       });
 
       return result;
-      
     } catch (error) {
       logger.error('Chart definition execution failed', {
         chartId: chartDefinition.chart_definition_id,
         error: error instanceof Error ? error.message : 'Unknown error',
-        userId: context.user_id
+        userId: context.user_id,
       });
-      
+
       throw error;
     }
   }
@@ -62,7 +63,10 @@ export class ChartExecutor {
   /**
    * Convert chart definition to analytics query parameters
    */
-  private convertToQueryParams(chartDefinition: ChartDefinition, additionalFilters: Record<string, unknown> = {}) {
+  private convertToQueryParams(
+    chartDefinition: ChartDefinition,
+    additionalFilters: Record<string, unknown> = {}
+  ) {
     const dataSource = chartDefinition.data_source;
     const params: Record<string, unknown> = {};
 
@@ -115,18 +119,17 @@ export class ChartExecutor {
       // This would fetch from the database - simplified for now
       // In a real implementation, this would use the chart definitions CRUD API
       logger.info('Fetching chart definition', { chartDefinitionId });
-      
+
       // TODO: Implement actual database fetch
       // const [chart] = await db.select().from(chart_definitions).where(eq(chart_definitions.chart_definition_id, chartDefinitionId));
-      
+
       return null; // Placeholder
-      
     } catch (error) {
       logger.error('Failed to fetch chart definition', {
         chartDefinitionId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
-      
+
       throw error;
     }
   }
@@ -139,9 +142,8 @@ export class ChartExecutor {
     context: ChartRenderContext,
     additionalFilters: Record<string, unknown> = {}
   ): Promise<AnalyticsQueryResult> {
-    
     const chartDefinition = await this.getChartDefinition(chartDefinitionId);
-    
+
     if (!chartDefinition) {
       throw new Error(`Chart definition not found: ${chartDefinitionId}`);
     }
@@ -157,25 +159,24 @@ export class ChartExecutor {
     context: ChartRenderContext,
     additionalFilters: Record<string, unknown> = {}
   ): Promise<{ result: AnalyticsQueryResult; validation: ValidationResult }> {
-    
     // Validate first
     const validation = await chartValidator.validateChartDefinition(chartDefinition);
-    
+
     if (!validation.isValid) {
       return {
         result: {
           data: [],
           total_count: 0,
           query_time_ms: 0,
-          cache_hit: false
+          cache_hit: false,
         },
-        validation
+        validation,
       };
     }
 
     // Execute if valid
     const result = await this.executeChart(chartDefinition, context, additionalFilters);
-    
+
     return { result, validation };
   }
 }

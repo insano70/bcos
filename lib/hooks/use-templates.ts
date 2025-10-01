@@ -13,17 +13,17 @@ export interface Template {
 
 async function fetchTemplates(): Promise<Template[]> {
   const result = await apiClient.get<Template[]>('/api/templates');
-  
+
   // apiClient automatically unwraps standardized responses
   if (Array.isArray(result)) {
     return result;
   }
-  
+
   // Fallback for direct array response
   if (Array.isArray(result)) {
     return result;
   }
-  
+
   throw new Error('Invalid response format from templates API');
 }
 

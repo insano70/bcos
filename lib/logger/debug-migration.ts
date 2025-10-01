@@ -3,8 +3,9 @@
  * Provides backward-compatible interface while migrating to structured logging
  */
 
-import { loggers, createAppLogger } from './factory'
-type LogData = Record<string, unknown>
+import { createAppLogger, loggers } from './factory';
+
+type LogData = Record<string, unknown>;
 
 /**
  * Migrated debug logging interface
@@ -12,25 +13,25 @@ type LogData = Record<string, unknown>
  */
 export const debugLog = {
   auth: (message: string, data?: LogData) => {
-    loggers.auth.debug(message, data)
+    loggers.auth.debug(message, data);
   },
 
   middleware: (message: string, data?: LogData) => {
-    loggers.api.debug(`Middleware: ${message}`, data)
+    loggers.api.debug(`Middleware: ${message}`, data);
   },
 
   rbac: (message: string, data?: LogData) => {
-    loggers.rbac.debug(message, data)
+    loggers.rbac.debug(message, data);
   },
 
   security: (message: string, data?: LogData) => {
-    loggers.security.debug(message, data)
+    loggers.security.debug(message, data);
   },
 
   session: (message: string, data?: LogData) => {
-    loggers.auth.debug(`Session: ${message}`, data)
-  }
-}
+    loggers.auth.debug(`Session: ${message}`, data);
+  },
+};
 
 /**
  * Migrated error logging function
@@ -38,14 +39,14 @@ export const debugLog = {
  */
 export const errorLog = (message: string, error?: Error | unknown, context?: LogData) => {
   // Create a temporary logger for error logging if we don't have a specific context
-  const logger = createAppLogger('error')
-  
+  const logger = createAppLogger('error');
+
   if (context) {
-    logger.error(message, error, context)
+    logger.error(message, error, context);
   } else {
-    logger.error(message, error)
+    logger.error(message, error);
   }
-}
+};
 
 /**
  * Migration notice for developers
@@ -74,9 +75,9 @@ Benefits of migration:
 - ✅ Better error context preservation
 
 This compatibility layer will be removed in a future version.
-`
+`;
 
 // Log migration notice in development
 if (process.env.NODE_ENV === 'development') {
-  console.log(MIGRATION_NOTICE)
+  console.log(MIGRATION_NOTICE);
 }

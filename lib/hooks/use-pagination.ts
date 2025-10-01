@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 export interface PaginationResult<T> {
   currentPage: number;
@@ -59,13 +59,13 @@ export function usePagination<T>(
 
   const goToNext = () => {
     if (hasNext) {
-      setCurrentPage(prev => prev + 1);
+      setCurrentPage((prev) => prev + 1);
     }
   };
 
   const goToPrevious = () => {
     if (hasPrevious) {
-      setCurrentPage(prev => prev - 1);
+      setCurrentPage((prev) => prev - 1);
     }
   };
 

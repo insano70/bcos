@@ -36,7 +36,7 @@ export class ChartRefreshScheduler {
   scheduleChart(chartDefinitionId: string, intervalMinutes: number = 30): void {
     const intervalMs = intervalMinutes * 60 * 1000;
     const now = new Date();
-    
+
     const schedule: RefreshSchedule = {
       chartDefinitionId,
       refreshInterval: intervalMs,
@@ -44,7 +44,7 @@ export class ChartRefreshScheduler {
       nextRefresh: new Date(now.getTime() + intervalMs),
       isActive: true,
       retryCount: 0,
-      maxRetries: 3
+      maxRetries: 3,
     };
 
     this.schedules.set(chartDefinitionId, schedule);
@@ -59,7 +59,7 @@ export class ChartRefreshScheduler {
     logger.info('Chart refresh scheduled', {
       chartDefinitionId,
       intervalMinutes,
-      nextRefresh: schedule.nextRefresh
+      nextRefresh: schedule.nextRefresh,
     });
   }
 
@@ -93,7 +93,7 @@ export class ChartRefreshScheduler {
       id: jobId,
       chartDefinitionId,
       scheduledTime: new Date(),
-      status: 'running'
+      status: 'running',
     };
 
     this.jobs.set(jobId, job);
@@ -122,12 +122,11 @@ export class ChartRefreshScheduler {
       logger.info('Chart refresh completed', {
         chartDefinitionId,
         jobId,
-        duration: job.duration
+        duration: job.duration,
       });
-
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
+
       // Update job status
       job.status = 'failed';
       job.error = errorMessage;
@@ -139,23 +138,26 @@ export class ChartRefreshScheduler {
       if (schedule && schedule.retryCount < schedule.maxRetries) {
         schedule.retryCount++;
         this.schedules.set(chartDefinitionId, schedule);
-        
+
         // Retry after 5 minutes
-        setTimeout(() => {
-          this.refreshChart(chartDefinitionId);
-        }, 5 * 60 * 1000);
+        setTimeout(
+          () => {
+            this.refreshChart(chartDefinitionId);
+          },
+          5 * 60 * 1000
+        );
 
         logger.warn('Chart refresh failed, retrying', {
           chartDefinitionId,
           retryCount: schedule.retryCount,
           maxRetries: schedule.maxRetries,
-          error: errorMessage
+          error: errorMessage,
         });
       } else {
         logger.error('Chart refresh failed permanently', {
           chartDefinitionId,
           error: errorMessage,
-          retryCount: schedule?.retryCount || 0
+          retryCount: schedule?.retryCount || 0,
         });
       }
     }
@@ -172,7 +174,7 @@ export class ChartRefreshScheduler {
    * Get all active schedules
    */
   getActiveSchedules(): RefreshSchedule[] {
-    return Array.from(this.schedules.values()).filter(schedule => schedule.isActive);
+    return Array.from(this.schedules.values()).filter((schedule) => schedule.isActive);
   }
 
   /**
@@ -189,7 +191,7 @@ export class ChartRefreshScheduler {
    */
   cleanupOldJobs(): void {
     const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 hours ago
-    
+
     for (const [jobId, job] of Array.from(this.jobs.entries())) {
       if (job.scheduledTime < cutoffTime) {
         this.jobs.delete(jobId);
@@ -197,7 +199,7 @@ export class ChartRefreshScheduler {
     }
 
     logger.debug('Old refresh jobs cleaned up', {
-      remainingJobs: this.jobs.size
+      remainingJobs: this.jobs.size,
     });
   }
 
@@ -206,9 +208,12 @@ export class ChartRefreshScheduler {
    */
   initialize(): void {
     // Clean up old jobs every hour
-    setInterval(() => {
-      this.cleanupOldJobs();
-    }, 60 * 60 * 1000);
+    setInterval(
+      () => {
+        this.cleanupOldJobs();
+      },
+      60 * 60 * 1000
+    );
 
     logger.info('Chart refresh scheduler initialized');
   }
@@ -221,9 +226,9 @@ export class ChartRefreshScheduler {
     for (const intervalId of Array.from(this.intervals.values())) {
       clearInterval(intervalId);
     }
-    
+
     this.intervals.clear();
-    
+
     // Mark all schedules as inactive
     for (const [chartId, schedule] of Array.from(this.schedules.entries())) {
       schedule.isActive = false;

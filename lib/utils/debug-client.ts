@@ -67,16 +67,16 @@ export const clientDebugLog = {
       console.log(`⚡ PERFORMANCE: ${message}`, {
         duration,
         performanceOptimized: duration < 100,
-        ...(data && typeof data === 'object' ? data : { data })
+        ...(data && typeof data === 'object' ? data : { data }),
       });
-      
+
       if (duration > 100) {
         console.warn(`Slow client operation: ${message} took ${duration}ms`);
       }
     } else if (isDevelopment) {
       console.log(`⚡ PERFORMANCE: ${message}`, data);
     }
-  }
+  },
 };
 
 /**
@@ -91,7 +91,7 @@ export const clientErrorLog = (message: string, error?: unknown, context?: unkno
     console.error(`❌ CLIENT ERROR: ${message}`, {
       error: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString(),
-      context: typeof context === 'object' ? '[CONTEXT_OBJECT]' : context
+      context: typeof context === 'object' ? '[CONTEXT_OBJECT]' : context,
     });
   }
 };
@@ -101,8 +101,8 @@ export const clientErrorLog = (message: string, error?: unknown, context?: unkno
  * Specialized for React component errors
  */
 export const clientComponentError = (
-  componentName: string, 
-  error: unknown, 
+  componentName: string,
+  error: unknown,
   props?: Record<string, unknown>
 ) => {
   if (isDevelopment) {
@@ -112,7 +112,7 @@ export const clientComponentError = (
       error: error instanceof Error ? error.message : 'Unknown error',
       timestamp: new Date().toISOString(),
       componentName,
-      hasProps: !!props
+      hasProps: !!props,
     });
   }
 };
@@ -125,13 +125,13 @@ export const clientTiming = (label: string, startTime: number, threshold = 100) 
   if (isDevelopment) {
     const duration = Date.now() - startTime;
     const isSlowOperation = duration > threshold;
-    
+
     console.log(`⏱️ CLIENT TIMING: ${label}`, {
       duration,
       threshold,
-      isSlowOperation
+      isSlowOperation,
     });
-    
+
     if (isSlowOperation) {
       console.warn(`Slow client operation: ${label} took ${duration}ms`);
     }
@@ -155,9 +155,9 @@ export const clientAssert = (condition: boolean, message: string, context?: unkn
     console.error('💥 CLIENT ASSERTION FAILED:', {
       assertion: message,
       context,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
-    
+
     // In development, throw to halt execution
     throw assertionError;
   }

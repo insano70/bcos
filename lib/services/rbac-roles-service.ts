@@ -1,6 +1,6 @@
+import { and, eq, ilike, inArray, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { roles, role_permissions, permissions, organizations } from '@/lib/db/rbac-schema';
-import { eq, and, or, ilike, inArray } from 'drizzle-orm';
+import { organizations, permissions, role_permissions, roles } from '@/lib/db/rbac-schema';
 import type { UserContext } from '@/lib/types/rbac';
 
 export interface RoleFilters {
@@ -34,31 +34,21 @@ export interface RoleWithPermissions {
  * Handles role management with automatic permission-based filtering
  */
 export function createRBACRolesService(userContext: UserContext) {
-  const hasManageAllPermission = userContext.all_permissions?.some(p =>
-    p.name === 'roles:manage:all'
-  ) || false;
+  const hasManageAllPermission =
+    userContext.all_permissions?.some((p) => p.name === 'roles:manage:all') || false;
 
-  const hasReadAllPermission = userContext.all_permissions?.some(p =>
-    p.name === 'roles:read:all'
-  ) || false;
+  const hasReadAllPermission =
+    userContext.all_permissions?.some((p) => p.name === 'roles:read:all') || false;
 
-  const hasReadOrganizationPermission = userContext.all_permissions?.some(p =>
-    p.name === 'roles:read:organization'
-  ) || false;
+  const hasReadOrganizationPermission =
+    userContext.all_permissions?.some((p) => p.name === 'roles:read:organization') || false;
 
-  const hasReadOwnPermission = userContext.all_permissions?.some(p =>
-    p.name === 'roles:read:own'
-  ) || false;
+  const hasReadOwnPermission =
+    userContext.all_permissions?.some((p) => p.name === 'roles:read:own') || false;
 
   return {
     async getRoles(filters: RoleFilters = {}) {
-      const {
-        search,
-        is_active,
-        organization_id,
-        limit = 50,
-        offset = 0
-      } = filters;
+      const { search, is_active, organization_id, limit = 50, offset = 0 } = filters;
 
       // Build the where conditions based on user permissions
       const whereConditions = [];
@@ -105,8 +95,11 @@ export function createRBACRolesService(userContext: UserContext) {
 
       // Filter by specific organization if requested and user has permission
       if (organization_id) {
-        if (hasManageAllPermission || hasReadAllPermission ||
-            (hasReadOrganizationPermission && organization_id === userContext.current_organization_id)) {
+        if (
+          hasManageAllPermission ||
+          hasReadAllPermission ||
+          (hasReadOrganizationPermission && organization_id === userContext.current_organization_id)
+        ) {
           whereConditions.push(eq(roles.organization_id, organization_id));
         }
       }
@@ -114,17 +107,12 @@ export function createRBACRolesService(userContext: UserContext) {
       // Search filter
       if (search) {
         whereConditions.push(
-          or(
-            ilike(roles.name, `%${search}%`),
-            ilike(roles.description, `%${search}%`)
-          )
+          or(ilike(roles.name, `%${search}%`), ilike(roles.description, `%${search}%`))
         );
       }
 
       // Build the final where clause
-      const whereClause = whereConditions.length > 0
-        ? and(...whereConditions)
-        : undefined;
+      const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
 
       // Query roles with their permissions
       const rolesWithPermissions = await db
@@ -166,7 +154,7 @@ export function createRBACRolesService(userContext: UserContext) {
             is_system_role: row.is_system_role ?? false,
             is_active: row.is_active ?? true,
             created_at: row.created_at ?? new Date(),
-            permissions: []
+            permissions: [],
           });
         }
 
@@ -219,14 +207,9 @@ export function createRBACRolesService(userContext: UserContext) {
         return 0;
       }
 
-      const whereClause = whereConditions.length > 0
-        ? and(...whereConditions)
-        : undefined;
+      const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
 
-      const result = await db
-        .select({ count: roles.role_id })
-        .from(roles)
-        .where(whereClause);
+      const result = await db.select({ count: roles.role_id }).from(roles).where(whereClause);
 
       return result.length;
     },
@@ -263,8 +246,8 @@ export function createRBACRolesService(userContext: UserContext) {
         return null;
       }
       const rolePermissions = rolesWithPermissions
-        .filter(r => r.permission_id)
-        .map(r => ({
+        .filter((r) => r.permission_id)
+        .map((r) => ({
           permission_id: r.permission_id!,
           name: r.permission_name!,
           description: r.permission_description,
@@ -281,8 +264,8 @@ export function createRBACRolesService(userContext: UserContext) {
         is_system_role: row.is_system_role ?? false,
         is_active: row.is_active ?? true,
         created_at: row.created_at ?? new Date(),
-        permissions: rolePermissions
+        permissions: rolePermissions,
       };
-    }
+    },
   };
 }

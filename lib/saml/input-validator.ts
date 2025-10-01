@@ -1,6 +1,6 @@
 /**
  * SAML Input Validation and Sanitization
- * 
+ *
  * Provides defense-in-depth validation for SAML profile data before database operations.
  * Even though node-saml validates the SAML response, we add an extra layer of validation
  * to protect against:
@@ -8,7 +8,7 @@
  * - SQL injection attempts
  * - XSS attempts
  * - Unexpected data types
- * 
+ *
  * @module lib/saml/input-validator
  */
 
@@ -17,7 +17,7 @@ import { createAppLogger } from '@/lib/logger/factory';
 const validatorLogger = createAppLogger('saml-input-validator', {
   component: 'security',
   feature: 'saml-sso',
-  module: 'input-validation'
+  module: 'input-validation',
 });
 
 /**
@@ -38,7 +38,8 @@ export interface ValidationResult {
  * Email validation regex (RFC 5322 simplified)
  * Prevents SQL injection characters in email
  */
-const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+const EMAIL_REGEX =
+  /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
 
 /**
  * Name validation regex
@@ -54,10 +55,10 @@ const DANGEROUS_CHARS = /[<>;"'`\\]/;
 
 /**
  * Validate and sanitize SAML profile data
- * 
+ *
  * This function provides defense-in-depth validation even though node-saml
  * has already validated the SAML response structure and signature.
- * 
+ *
  * @param profile - Raw SAML profile data from node-saml
  * @returns ValidationResult with sanitized data or errors
  */
@@ -74,7 +75,7 @@ export function validateSAMLProfile(profile: {
     errors.push('Email is required and must be a string');
     validatorLogger.warn('SAML profile validation failed: missing email', {
       hasEmail: !!profile.email,
-      emailType: typeof profile.email
+      emailType: typeof profile.email,
     });
     return { valid: false, errors };
   }
@@ -87,7 +88,7 @@ export function validateSAMLProfile(profile: {
     errors.push('Email format is invalid');
     validatorLogger.warn('SAML profile validation failed: invalid email format', {
       emailLength: email.length,
-      containsDangerous: DANGEROUS_CHARS.test(email)
+      containsDangerous: DANGEROUS_CHARS.test(email),
     });
     return { valid: false, errors };
   }
@@ -97,7 +98,7 @@ export function validateSAMLProfile(profile: {
     errors.push('Email contains dangerous characters');
     validatorLogger.error('SAML profile validation failed: dangerous characters in email', {
       email: email.substring(0, 5) + '***',
-      alert: 'POSSIBLE_INJECTION_ATTEMPT'
+      alert: 'POSSIBLE_INJECTION_ATTEMPT',
     });
     return { valid: false, errors };
   }
@@ -106,7 +107,7 @@ export function validateSAMLProfile(profile: {
   if (email.length > 255) {
     errors.push('Email exceeds maximum length');
     validatorLogger.warn('SAML profile validation failed: email too long', {
-      emailLength: email.length
+      emailLength: email.length,
     });
     return { valid: false, errors };
   }
@@ -125,7 +126,7 @@ export function validateSAMLProfile(profile: {
           errors.push('Display name contains invalid characters');
           validatorLogger.warn('Invalid display name format', {
             length: displayName.length,
-            containsDangerous: DANGEROUS_CHARS.test(displayName)
+            containsDangerous: DANGEROUS_CHARS.test(displayName),
           });
         } else if (displayName.length > 200) {
           errors.push('Display name exceeds maximum length');
@@ -176,7 +177,7 @@ export function validateSAMLProfile(profile: {
   if (errors.length > 0) {
     validatorLogger.warn('SAML profile validation completed with errors', {
       errorCount: errors.length,
-      errors: errors.slice(0, 3) // Log first 3 errors
+      errors: errors.slice(0, 3), // Log first 3 errors
     });
     return { valid: false, errors };
   }
@@ -186,30 +187,27 @@ export function validateSAMLProfile(profile: {
     email: email.substring(0, 5) + '***',
     hasDisplayName: !!sanitized.displayName,
     hasGivenName: !!sanitized.givenName,
-    hasSurname: !!sanitized.surname
+    hasSurname: !!sanitized.surname,
   });
 
   return {
     valid: true,
     errors: [],
-    sanitized
+    sanitized,
   };
 }
 
 /**
  * Validate email domain against allowlist
- * 
+ *
  * Provides additional security by restricting SAML authentication
  * to specific email domains.
- * 
+ *
  * @param email - Email address to validate
  * @param allowedDomains - Array of allowed email domains
  * @returns boolean - true if email domain is allowed
  */
-export function validateEmailDomain(
-  email: string,
-  allowedDomains: string[]
-): boolean {
+export function validateEmailDomain(email: string, allowedDomains: string[]): boolean {
   if (!allowedDomains || allowedDomains.length === 0) {
     // No domain restrictions
     return true;
@@ -220,15 +218,13 @@ export function validateEmailDomain(
     return false;
   }
 
-  const isAllowed = allowedDomains.some(
-    domain => emailDomain === domain.toLowerCase()
-  );
+  const isAllowed = allowedDomains.some((domain) => emailDomain === domain.toLowerCase());
 
   if (!isAllowed) {
     validatorLogger.warn('Email domain not in allowlist', {
       emailDomain,
       allowedDomains: allowedDomains.length,
-      alert: 'DOMAIN_RESTRICTION_VIOLATED'
+      alert: 'DOMAIN_RESTRICTION_VIOLATED',
     });
   }
 
@@ -238,15 +234,12 @@ export function validateEmailDomain(
 /**
  * Sanitize string for safe logging
  * Removes potentially dangerous characters and truncates long strings
- * 
+ *
  * @param value - String to sanitize
  * @param maxLength - Maximum length (default 100)
  * @returns Sanitized string safe for logging
  */
-export function sanitizeForLogging(
-  value: string | undefined,
-  maxLength = 100
-): string {
+export function sanitizeForLogging(value: string | undefined, maxLength = 100): string {
   if (!value) {
     return '[empty]';
   }
@@ -261,4 +254,3 @@ export function sanitizeForLogging(
 
   return sanitized;
 }
-

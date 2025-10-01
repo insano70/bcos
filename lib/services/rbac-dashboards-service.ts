@@ -1,8 +1,14 @@
-import { BaseRBACService } from '@/lib/rbac/base-service';
+import { and, count, desc, eq, inArray, isNull, like, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
+import {
+  chart_categories,
+  chart_definitions,
+  dashboard_charts,
+  dashboards,
+  users,
+} from '@/lib/db/schema';
 import { createAppLogger } from '@/lib/logger/factory';
-import { dashboards, dashboard_charts, chart_definitions, chart_categories, users } from '@/lib/db/schema';
-import { eq, and, inArray, isNull, like, or, count, desc } from 'drizzle-orm';
+import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { PermissionDeniedError } from '@/lib/types/rbac';
 
@@ -15,8 +21,8 @@ import { PermissionDeniedError } from '@/lib/types/rbac';
 const rbacDashboardsLogger = createAppLogger('rbac-dashboards-service', {
   component: 'business-logic',
   feature: 'dashboard-management',
-  businessIntelligence: true
-})
+  businessIntelligence: true,
+});
 
 export interface CreateDashboardData {
   dashboard_name: string;
@@ -62,17 +68,21 @@ export interface DashboardWithCharts {
   is_active: boolean;
   is_published: boolean;
   chart_count: number;
-  category: {
-    chart_category_id: number;
-    category_name: string;
-    category_description: string | undefined;
-  } | undefined;
-  creator: {
-    user_id: string;
-    first_name: string;
-    last_name: string;
-    email: string;
-  } | undefined;
+  category:
+    | {
+        chart_category_id: number;
+        category_name: string;
+        category_description: string | undefined;
+      }
+    | undefined;
+  creator:
+    | {
+        user_id: string;
+        first_name: string;
+        last_name: string;
+        email: string;
+      }
+    | undefined;
   charts: {
     chart_definition_id: string;
     chart_name: string;
@@ -87,10 +97,7 @@ export class RBACDashboardsService extends BaseRBACService {
    * Get dashboards with automatic permission-based filtering
    */
   async getDashboards(options: DashboardQueryOptions = {}): Promise<DashboardWithCharts[]> {
-    this.requireAnyPermission([
-      'analytics:read:organization',
-      'analytics:read:all'
-    ]);
+    this.requireAnyPermission(['analytics:read:organization', 'analytics:read:all']);
 
     // Build query conditions
     const conditions = [];
@@ -143,10 +150,13 @@ export class RBACDashboardsService extends BaseRBACService {
         last_name: users.last_name,
         email: users.email,
         // Chart count (aggregated)
-        chart_count: count(dashboard_charts.chart_definition_id)
+        chart_count: count(dashboard_charts.chart_definition_id),
       })
       .from(dashboards)
-      .leftJoin(chart_categories, eq(dashboards.dashboard_category_id, chart_categories.chart_category_id))
+      .leftJoin(
+        chart_categories,
+        eq(dashboards.dashboard_category_id, chart_categories.chart_category_id)
+      )
       .leftJoin(users, eq(dashboards.created_by, users.user_id))
       .leftJoin(dashboard_charts, eq(dashboards.dashboard_id, dashboard_charts.dashboard_id))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
@@ -178,7 +188,7 @@ export class RBACDashboardsService extends BaseRBACService {
       dashboard_id: dashboard.dashboard_id,
       dashboard_name: dashboard.dashboard_name,
       dashboard_description: dashboard.dashboard_description || undefined,
-      layout_config: dashboard.layout_config as Record<string, unknown> || {},
+      layout_config: (dashboard.layout_config as Record<string, unknown>) || {},
       dashboard_category_id: dashboard.dashboard_category_id || undefined,
       created_by: dashboard.created_by,
       created_at: (dashboard.created_at || new Date()).toISOString(),
@@ -186,18 +196,22 @@ export class RBACDashboardsService extends BaseRBACService {
       is_active: dashboard.is_active ?? true,
       is_published: dashboard.is_published ?? false,
       chart_count: Number(dashboard.chart_count) || 0,
-      category: dashboard.chart_category_id ? {
-        chart_category_id: dashboard.chart_category_id,
-        category_name: dashboard.category_name || '',
-        category_description: dashboard.category_description || undefined
-      } : undefined,
-      creator: dashboard.user_id ? {
-        user_id: dashboard.user_id,
-        first_name: dashboard.first_name || '',
-        last_name: dashboard.last_name || '',
-        email: dashboard.email || ''
-      } : undefined,
-      charts: [] // Charts are loaded separately in getDashboardById for individual dashboards
+      category: dashboard.chart_category_id
+        ? {
+            chart_category_id: dashboard.chart_category_id,
+            category_name: dashboard.category_name || '',
+            category_description: dashboard.category_description || undefined,
+          }
+        : undefined,
+      creator: dashboard.user_id
+        ? {
+            user_id: dashboard.user_id,
+            first_name: dashboard.first_name || '',
+            last_name: dashboard.last_name || '',
+            email: dashboard.email || '',
+          }
+        : undefined,
+      charts: [], // Charts are loaded separately in getDashboardById for individual dashboards
     }));
 
     return dashboardsWithChartCount;
@@ -207,16 +221,16 @@ export class RBACDashboardsService extends BaseRBACService {
    * Get a specific dashboard by ID with permission checking
    */
   async getDashboardById(dashboardId: string): Promise<DashboardWithCharts | null> {
-    this.requireAnyPermission([
-      'analytics:read:organization',
-      'analytics:read:all'
-    ]);
+    this.requireAnyPermission(['analytics:read:organization', 'analytics:read:all']);
 
     // Get dashboard with creator and category info
     const dashboardResult = await db
       .select()
       .from(dashboards)
-      .leftJoin(chart_categories, eq(dashboards.dashboard_category_id, chart_categories.chart_category_id))
+      .leftJoin(
+        chart_categories,
+        eq(dashboards.dashboard_category_id, chart_categories.chart_category_id)
+      )
       .leftJoin(users, eq(dashboards.created_by, users.user_id))
       .where(eq(dashboards.dashboard_id, dashboardId))
       .limit(1);
@@ -228,7 +242,9 @@ export class RBACDashboardsService extends BaseRBACService {
     const dashboard = dashboardResult[0];
     if (!dashboard) {
       // Extra safety: should not happen after length check, but handle gracefully
-      rbacDashboardsLogger.warn('Dashboard result had length > 0 but first item was null', { dashboardId });
+      rbacDashboardsLogger.warn('Dashboard result had length > 0 but first item was null', {
+        dashboardId,
+      });
       return null;
     }
 
@@ -245,10 +261,13 @@ export class RBACDashboardsService extends BaseRBACService {
         chart_name: chart_definitions.chart_name,
         chart_description: chart_definitions.chart_description,
         chart_type: chart_definitions.chart_type,
-        position_config: dashboard_charts.position_config
+        position_config: dashboard_charts.position_config,
       })
       .from(dashboard_charts)
-      .innerJoin(chart_definitions, eq(dashboard_charts.chart_definition_id, chart_definitions.chart_definition_id))
+      .innerJoin(
+        chart_definitions,
+        eq(dashboard_charts.chart_definition_id, chart_definitions.chart_definition_id)
+      )
       .where(eq(dashboard_charts.dashboard_id, dashboardId))
       .orderBy(dashboard_charts.added_at);
 
@@ -256,7 +275,7 @@ export class RBACDashboardsService extends BaseRBACService {
       dashboard_id: dashboard.dashboards.dashboard_id,
       dashboard_name: dashboard.dashboards.dashboard_name,
       dashboard_description: dashboard.dashboards.dashboard_description || undefined,
-      layout_config: dashboard.dashboards.layout_config as Record<string, unknown> || {},
+      layout_config: (dashboard.dashboards.layout_config as Record<string, unknown>) || {},
       dashboard_category_id: dashboard.dashboards.dashboard_category_id || undefined,
       created_by: dashboard.dashboards.created_by,
       created_at: (dashboard.dashboards.created_at || new Date()).toISOString(),
@@ -264,24 +283,28 @@ export class RBACDashboardsService extends BaseRBACService {
       is_active: dashboard.dashboards.is_active ?? true,
       is_published: dashboard.dashboards.is_published ?? false,
       chart_count: chartCount?.count || 0,
-      category: dashboard.chart_categories ? {
-        chart_category_id: dashboard.chart_categories.chart_category_id,
-        category_name: dashboard.chart_categories.category_name,
-        category_description: dashboard.chart_categories.category_description || undefined
-      } : undefined,
-      creator: dashboard.users ? {
-        user_id: dashboard.users.user_id,
-        first_name: dashboard.users.first_name,
-        last_name: dashboard.users.last_name,
-        email: dashboard.users.email
-      } : undefined,
-      charts: chartDetails.map(chart => ({
+      category: dashboard.chart_categories
+        ? {
+            chart_category_id: dashboard.chart_categories.chart_category_id,
+            category_name: dashboard.chart_categories.category_name,
+            category_description: dashboard.chart_categories.category_description || undefined,
+          }
+        : undefined,
+      creator: dashboard.users
+        ? {
+            user_id: dashboard.users.user_id,
+            first_name: dashboard.users.first_name,
+            last_name: dashboard.users.last_name,
+            email: dashboard.users.email,
+          }
+        : undefined,
+      charts: chartDetails.map((chart) => ({
         chart_definition_id: chart.chart_definition_id,
         chart_name: chart.chart_name,
         chart_description: chart.chart_description || undefined,
         chart_type: chart.chart_type,
-        position_config: chart.position_config as Record<string, unknown> || undefined
-      }))
+        position_config: (chart.position_config as Record<string, unknown>) || undefined,
+      })),
     };
 
     return dashboardWithCharts;
@@ -291,10 +314,7 @@ export class RBACDashboardsService extends BaseRBACService {
    * Get dashboard count for pagination
    */
   async getDashboardCount(options: DashboardQueryOptions = {}): Promise<number> {
-    this.requireAnyPermission([
-      'analytics:read:organization',
-      'analytics:read:all'
-    ]);
+    this.requireAnyPermission(['analytics:read:organization', 'analytics:read:all']);
 
     // Build query conditions
     const conditions = [];
@@ -342,7 +362,7 @@ export class RBACDashboardsService extends BaseRBACService {
       requestingUserId: this.userContext.user_id,
       dashboardName: dashboardData.dashboard_name,
       operation: 'create_dashboard',
-      securityLevel: 'medium'
+      securityLevel: 'medium',
     });
 
     this.requirePermission('analytics:read:all', undefined);
@@ -357,7 +377,7 @@ export class RBACDashboardsService extends BaseRBACService {
         dashboard_category_id: dashboardData.dashboard_category_id,
         created_by: this.userContext.user_id,
         is_active: dashboardData.is_active ?? true,
-        is_published: dashboardData.is_published ?? false
+        is_published: dashboardData.is_published ?? false,
       })
       .returning();
 
@@ -370,24 +390,25 @@ export class RBACDashboardsService extends BaseRBACService {
       const chartAssociations = dashboardData.chart_ids.map((chartId: string, index: number) => {
         // Use provided positions or fall back to defaults
         const position = dashboardData.chart_positions?.[index] || { x: 0, y: index, w: 6, h: 4 };
-        
+
         return {
           dashboard_id: newDashboard.dashboard_id,
           chart_definition_id: chartId,
-          position_config: position
+          position_config: position,
         };
       });
 
-      await db
-        .insert(dashboard_charts)
-        .values(chartAssociations);
+      await db.insert(dashboard_charts).values(chartAssociations);
     }
 
     // Return dashboard with full details (more efficient single query)
     const createdDashboards = await db
       .select()
       .from(dashboards)
-      .leftJoin(chart_categories, eq(dashboards.dashboard_category_id, chart_categories.chart_category_id))
+      .leftJoin(
+        chart_categories,
+        eq(dashboards.dashboard_category_id, chart_categories.chart_category_id)
+      )
       .leftJoin(users, eq(dashboards.created_by, users.user_id))
       .where(eq(dashboards.dashboard_id, newDashboard.dashboard_id))
       .limit(1);
@@ -410,10 +431,13 @@ export class RBACDashboardsService extends BaseRBACService {
         chart_name: chart_definitions.chart_name,
         chart_description: chart_definitions.chart_description,
         chart_type: chart_definitions.chart_type,
-        position_config: dashboard_charts.position_config
+        position_config: dashboard_charts.position_config,
       })
       .from(dashboard_charts)
-      .innerJoin(chart_definitions, eq(dashboard_charts.chart_definition_id, chart_definitions.chart_definition_id))
+      .innerJoin(
+        chart_definitions,
+        eq(dashboard_charts.chart_definition_id, chart_definitions.chart_definition_id)
+      )
       .where(eq(dashboard_charts.dashboard_id, newDashboard.dashboard_id))
       .orderBy(dashboard_charts.added_at);
 
@@ -427,32 +451,40 @@ export class RBACDashboardsService extends BaseRBACService {
       dashboard_id: createdDashboardData.dashboards.dashboard_id,
       dashboard_name: createdDashboardData.dashboards.dashboard_name,
       dashboard_description: createdDashboardData.dashboards.dashboard_description || undefined,
-      layout_config: createdDashboardData.dashboards.layout_config as Record<string, unknown> || {},
+      layout_config:
+        (createdDashboardData.dashboards.layout_config as Record<string, unknown>) || {},
       dashboard_category_id: createdDashboardData.dashboards.dashboard_category_id || undefined,
       created_by: createdDashboardData.dashboards.created_by,
-      created_at: createdDashboardData.dashboards.created_at?.toISOString() || new Date().toISOString(),
-      updated_at: createdDashboardData.dashboards.updated_at?.toISOString() || new Date().toISOString(),
+      created_at:
+        createdDashboardData.dashboards.created_at?.toISOString() || new Date().toISOString(),
+      updated_at:
+        createdDashboardData.dashboards.updated_at?.toISOString() || new Date().toISOString(),
       is_active: createdDashboardData.dashboards.is_active ?? true,
       is_published: createdDashboardData.dashboards.is_published ?? false,
       chart_count: chartCount?.count || 0,
-      category: createdDashboardData.chart_categories ? {
-        chart_category_id: createdDashboardData.chart_categories.chart_category_id,
-        category_name: createdDashboardData.chart_categories.category_name,
-        category_description: createdDashboardData.chart_categories.category_description || undefined
-      } : undefined,
-      creator: createdDashboardData.users ? {
-        user_id: createdDashboardData.users.user_id,
-        first_name: createdDashboardData.users.first_name,
-        last_name: createdDashboardData.users.last_name,
-        email: createdDashboardData.users.email
-      } : undefined,
-      charts: chartDetails.map(chart => ({
+      category: createdDashboardData.chart_categories
+        ? {
+            chart_category_id: createdDashboardData.chart_categories.chart_category_id,
+            category_name: createdDashboardData.chart_categories.category_name,
+            category_description:
+              createdDashboardData.chart_categories.category_description || undefined,
+          }
+        : undefined,
+      creator: createdDashboardData.users
+        ? {
+            user_id: createdDashboardData.users.user_id,
+            first_name: createdDashboardData.users.first_name,
+            last_name: createdDashboardData.users.last_name,
+            email: createdDashboardData.users.email,
+          }
+        : undefined,
+      charts: chartDetails.map((chart) => ({
         chart_definition_id: chart.chart_definition_id,
         chart_name: chart.chart_name,
         chart_description: chart.chart_description || undefined,
         chart_type: chart.chart_type,
-        position_config: chart.position_config as Record<string, unknown> || undefined
-      }))
+        position_config: (chart.position_config as Record<string, unknown>) || undefined,
+      })),
     };
 
     // Enhanced dashboard creation completion logging
@@ -467,7 +499,7 @@ export class RBACDashboardsService extends BaseRBACService {
       chartCount: dashboardData.chart_ids?.length || 0,
       categoryId: dashboardData.dashboard_category_id,
       isPublished: dashboardData.is_published ?? false,
-      duration
+      duration,
     });
 
     // Security event for dashboard creation
@@ -477,13 +509,13 @@ export class RBACDashboardsService extends BaseRBACService {
       newDashboardId: newDashboard.dashboard_id,
       dashboardName: dashboardData.dashboard_name,
       chartCount: dashboardData.chart_ids?.length || 0,
-      complianceValidated: true
+      complianceValidated: true,
     });
 
     // Performance monitoring
     rbacDashboardsLogger.timing('Dashboard creation completed', startTime, {
       chartAssociationsIncluded: (dashboardData.chart_ids?.length || 0) > 0,
-      databaseOperations: dashboardData.chart_ids?.length ? 2 : 1 // dashboard insert + chart associations
+      databaseOperations: dashboardData.chart_ids?.length ? 2 : 1, // dashboard insert + chart associations
     });
 
     return createdDashboard;
@@ -492,7 +524,10 @@ export class RBACDashboardsService extends BaseRBACService {
   /**
    * Update a dashboard with permission checking
    */
-  async updateDashboard(dashboardId: string, updateData: UpdateDashboardData): Promise<DashboardWithCharts> {
+  async updateDashboard(
+    dashboardId: string,
+    updateData: UpdateDashboardData
+  ): Promise<DashboardWithCharts> {
     this.requirePermission('analytics:read:all', undefined);
 
     // Check if dashboard exists
@@ -514,7 +549,7 @@ export class RBACDashboardsService extends BaseRBACService {
         updated_at: Date;
       }> = {
         ...updateData,
-        updated_at: new Date()
+        updated_at: new Date(),
       };
 
       // Update dashboard
@@ -531,20 +566,18 @@ export class RBACDashboardsService extends BaseRBACService {
       // Update chart associations if provided
       if (updateData.chart_ids !== undefined) {
         // First, remove all current chart associations
-        await tx
-          .delete(dashboard_charts)
-          .where(eq(dashboard_charts.dashboard_id, dashboardId));
+        await tx.delete(dashboard_charts).where(eq(dashboard_charts.dashboard_id, dashboardId));
 
         // Then add the new chart associations if provided
         if (updateData.chart_ids.length > 0) {
           const chartAssociations = updateData.chart_ids.map((chartId: string, index: number) => {
             // Use provided positions or fall back to defaults
             const position = updateData.chart_positions?.[index] || { x: 0, y: index, w: 6, h: 4 };
-            
+
             return {
               dashboard_id: dashboardId,
               chart_definition_id: chartId,
-              position_config: position
+              position_config: position,
             };
           });
 
@@ -559,7 +592,10 @@ export class RBACDashboardsService extends BaseRBACService {
     const updatedDashboards = await db
       .select()
       .from(dashboards)
-      .leftJoin(chart_categories, eq(dashboards.dashboard_category_id, chart_categories.chart_category_id))
+      .leftJoin(
+        chart_categories,
+        eq(dashboards.dashboard_category_id, chart_categories.chart_category_id)
+      )
       .leftJoin(users, eq(dashboards.created_by, users.user_id))
       .where(eq(dashboards.dashboard_id, dashboardId))
       .limit(1);
@@ -582,10 +618,13 @@ export class RBACDashboardsService extends BaseRBACService {
         chart_name: chart_definitions.chart_name,
         chart_description: chart_definitions.chart_description,
         chart_type: chart_definitions.chart_type,
-        position_config: dashboard_charts.position_config
+        position_config: dashboard_charts.position_config,
       })
       .from(dashboard_charts)
-      .innerJoin(chart_definitions, eq(dashboard_charts.chart_definition_id, chart_definitions.chart_definition_id))
+      .innerJoin(
+        chart_definitions,
+        eq(dashboard_charts.chart_definition_id, chart_definitions.chart_definition_id)
+      )
       .where(eq(dashboard_charts.dashboard_id, dashboardId))
       .orderBy(dashboard_charts.added_at);
 
@@ -599,32 +638,40 @@ export class RBACDashboardsService extends BaseRBACService {
       dashboard_id: updatedDashboardData.dashboards.dashboard_id,
       dashboard_name: updatedDashboardData.dashboards.dashboard_name,
       dashboard_description: updatedDashboardData.dashboards.dashboard_description || undefined,
-      layout_config: updatedDashboardData.dashboards.layout_config as Record<string, unknown> || {},
+      layout_config:
+        (updatedDashboardData.dashboards.layout_config as Record<string, unknown>) || {},
       dashboard_category_id: updatedDashboardData.dashboards.dashboard_category_id || undefined,
       created_by: updatedDashboardData.dashboards.created_by,
-      created_at: updatedDashboardData.dashboards.created_at?.toISOString() || new Date().toISOString(),
-      updated_at: updatedDashboardData.dashboards.updated_at?.toISOString() || new Date().toISOString(),
+      created_at:
+        updatedDashboardData.dashboards.created_at?.toISOString() || new Date().toISOString(),
+      updated_at:
+        updatedDashboardData.dashboards.updated_at?.toISOString() || new Date().toISOString(),
       is_active: updatedDashboardData.dashboards.is_active ?? true,
       is_published: updatedDashboardData.dashboards.is_published ?? false,
       chart_count: chartCount?.count || 0,
-      category: updatedDashboardData.chart_categories ? {
-        chart_category_id: updatedDashboardData.chart_categories.chart_category_id,
-        category_name: updatedDashboardData.chart_categories.category_name,
-        category_description: updatedDashboardData.chart_categories.category_description || undefined
-      } : undefined,
-      creator: updatedDashboardData.users ? {
-        user_id: updatedDashboardData.users.user_id,
-        first_name: updatedDashboardData.users.first_name,
-        last_name: updatedDashboardData.users.last_name,
-        email: updatedDashboardData.users.email
-      } : undefined,
-      charts: chartDetails.map(chart => ({
+      category: updatedDashboardData.chart_categories
+        ? {
+            chart_category_id: updatedDashboardData.chart_categories.chart_category_id,
+            category_name: updatedDashboardData.chart_categories.category_name,
+            category_description:
+              updatedDashboardData.chart_categories.category_description || undefined,
+          }
+        : undefined,
+      creator: updatedDashboardData.users
+        ? {
+            user_id: updatedDashboardData.users.user_id,
+            first_name: updatedDashboardData.users.first_name,
+            last_name: updatedDashboardData.users.last_name,
+            email: updatedDashboardData.users.email,
+          }
+        : undefined,
+      charts: chartDetails.map((chart) => ({
         chart_definition_id: chart.chart_definition_id,
         chart_name: chart.chart_name,
         chart_description: chart.chart_description || undefined,
         chart_type: chart.chart_type,
-        position_config: chart.position_config as Record<string, unknown> || undefined
-      }))
+        position_config: (chart.position_config as Record<string, unknown>) || undefined,
+      })),
     };
 
     return dashboardWithCharts;
@@ -645,9 +692,7 @@ export class RBACDashboardsService extends BaseRBACService {
     // Execute dashboard deletion and chart cleanup as atomic transaction
     await db.transaction(async (tx) => {
       // First, remove all chart associations
-      await tx
-        .delete(dashboard_charts)
-        .where(eq(dashboard_charts.dashboard_id, dashboardId));
+      await tx.delete(dashboard_charts).where(eq(dashboard_charts.dashboard_id, dashboardId));
 
       // Then delete the dashboard
       const [deletedDashboard] = await tx
@@ -664,7 +709,11 @@ export class RBACDashboardsService extends BaseRBACService {
   /**
    * Add a chart to a dashboard
    */
-  async addChartToDashboard(dashboardId: string, chartId: string, positionConfig?: Record<string, unknown>): Promise<void> {
+  async addChartToDashboard(
+    dashboardId: string,
+    chartId: string,
+    positionConfig?: Record<string, unknown>
+  ): Promise<void> {
     this.requirePermission('analytics:read:all', undefined);
 
     // Check if dashboard exists
@@ -677,10 +726,12 @@ export class RBACDashboardsService extends BaseRBACService {
     const [existingAssociation] = await db
       .select()
       .from(dashboard_charts)
-      .where(and(
-        eq(dashboard_charts.dashboard_id, dashboardId),
-        eq(dashboard_charts.chart_definition_id, chartId)
-      ))
+      .where(
+        and(
+          eq(dashboard_charts.dashboard_id, dashboardId),
+          eq(dashboard_charts.chart_definition_id, chartId)
+        )
+      )
       .limit(1);
 
     if (existingAssociation) {
@@ -688,13 +739,11 @@ export class RBACDashboardsService extends BaseRBACService {
     }
 
     // Add chart association
-    await db
-      .insert(dashboard_charts)
-      .values({
-        dashboard_id: dashboardId,
-        chart_definition_id: chartId,
-        position_config: positionConfig || { x: 0, y: 0, w: 6, h: 4 }
-      });
+    await db.insert(dashboard_charts).values({
+      dashboard_id: dashboardId,
+      chart_definition_id: chartId,
+      position_config: positionConfig || { x: 0, y: 0, w: 6, h: 4 },
+    });
   }
 
   /**
@@ -712,10 +761,12 @@ export class RBACDashboardsService extends BaseRBACService {
     // Remove chart association
     const [deletedAssociation] = await db
       .delete(dashboard_charts)
-      .where(and(
-        eq(dashboard_charts.dashboard_id, dashboardId),
-        eq(dashboard_charts.chart_definition_id, chartId)
-      ))
+      .where(
+        and(
+          eq(dashboard_charts.dashboard_id, dashboardId),
+          eq(dashboard_charts.chart_definition_id, chartId)
+        )
+      )
       .returning();
 
     if (!deletedAssociation) {
@@ -726,7 +777,11 @@ export class RBACDashboardsService extends BaseRBACService {
   /**
    * Update chart position in dashboard
    */
-  async updateChartPosition(dashboardId: string, chartId: string, positionConfig: Record<string, unknown>): Promise<void> {
+  async updateChartPosition(
+    dashboardId: string,
+    chartId: string,
+    positionConfig: Record<string, unknown>
+  ): Promise<void> {
     this.requirePermission('analytics:read:all', undefined);
 
     // Check if dashboard exists
@@ -739,12 +794,14 @@ export class RBACDashboardsService extends BaseRBACService {
     const [updatedAssociation] = await db
       .update(dashboard_charts)
       .set({
-        position_config: positionConfig
+        position_config: positionConfig,
       })
-      .where(and(
-        eq(dashboard_charts.dashboard_id, dashboardId),
-        eq(dashboard_charts.chart_definition_id, chartId)
-      ))
+      .where(
+        and(
+          eq(dashboard_charts.dashboard_id, dashboardId),
+          eq(dashboard_charts.chart_definition_id, chartId)
+        )
+      )
       .returning();
 
     if (!updatedAssociation) {

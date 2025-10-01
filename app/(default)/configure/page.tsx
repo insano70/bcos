@@ -3,9 +3,9 @@ export const metadata = {
   description: 'Rheumatology practice management dashboard',
 };
 
+import { and, count, eq, isNull } from 'drizzle-orm';
 import Link from 'next/link';
-import { db, practices, users, staff_members } from '@/lib/db';
-import { count, eq, isNull, and } from 'drizzle-orm';
+import { db, practices, staff_members, users } from '@/lib/db';
 
 async function getDashboardStats() {
   try {
@@ -24,13 +24,10 @@ async function getDashboardStats() {
       .from(staff_members)
       .where(isNull(staff_members.deleted_at));
 
-  const [activePracticeCount] = await db
-    .select({ count: count() })
-    .from(practices)
-    .where(and(
-      eq(practices.status, 'active'),
-      isNull(practices.deleted_at)
-    ));
+    const [activePracticeCount] = await db
+      .select({ count: count() })
+      .from(practices)
+      .where(and(eq(practices.status, 'active'), isNull(practices.deleted_at)));
 
     return {
       totalPractices: practiceCount?.count || 0,
@@ -75,7 +72,9 @@ export default async function ConfigureDashboard() {
               <span className="text-blue-600 text-xl">🏥</span>
             </div>
             <div className="ml-4">
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.totalPractices}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                {stats.totalPractices}
+              </p>
               <p className="text-gray-600 dark:text-gray-400 text-sm">Total Practices</p>
             </div>
           </div>
@@ -87,7 +86,9 @@ export default async function ConfigureDashboard() {
               <span className="text-green-600 text-xl">✅</span>
             </div>
             <div className="ml-4">
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.activePractices}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                {stats.activePractices}
+              </p>
               <p className="text-gray-600 dark:text-gray-400 text-sm">Active Practices</p>
             </div>
           </div>
@@ -99,7 +100,9 @@ export default async function ConfigureDashboard() {
               <span className="text-purple-600 text-xl">👥</span>
             </div>
             <div className="ml-4">
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.totalUsers}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                {stats.totalUsers}
+              </p>
               <p className="text-gray-600 dark:text-gray-400 text-sm">System Users</p>
             </div>
           </div>
@@ -111,7 +114,9 @@ export default async function ConfigureDashboard() {
               <span className="text-yellow-600 text-xl">👨‍⚕️</span>
             </div>
             <div className="ml-4">
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.totalStaff}</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                {stats.totalStaff}
+              </p>
               <p className="text-gray-600 dark:text-gray-400 text-sm">Staff Members</p>
             </div>
           </div>
@@ -134,7 +139,9 @@ export default async function ConfigureDashboard() {
               </div>
               <div>
                 <p className="font-medium text-gray-900 dark:text-gray-100">Manage Practices</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">View and edit rheumatology practices</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  View and edit rheumatology practices
+                </p>
               </div>
             </Link>
 
@@ -147,7 +154,9 @@ export default async function ConfigureDashboard() {
               </div>
               <div>
                 <p className="font-medium text-gray-900 dark:text-gray-100">Manage Users</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">System user administration</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  System user administration
+                </p>
               </div>
             </Link>
           </div>

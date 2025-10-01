@@ -18,7 +18,7 @@ let client: postgres.Sql | null = null;
 export const getDb = () => {
   if (!dbInstance) {
     const config = getDatabaseConfig();
-    
+
     if (!config.url) {
       throw new Error('DATABASE_URL is not configured');
     }
@@ -33,7 +33,7 @@ export const getDb = () => {
       ...(process.env.NODE_ENV === 'production' && {
         ssl: 'require',
         keep_alive: 30,
-      })
+      }),
     });
 
     dbInstance = drizzle(client, {
@@ -68,7 +68,7 @@ export const checkDbHealth = async (): Promise<{
     const latency = Date.now() - startTime;
 
     logger.info('Main database health check passed', { latency });
-    
+
     return {
       isHealthy: true,
       latency,
@@ -76,7 +76,7 @@ export const checkDbHealth = async (): Promise<{
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Main database health check failed', { error: errorMessage });
-    
+
     return {
       isHealthy: false,
       error: errorMessage,
@@ -107,10 +107,10 @@ if (typeof process !== 'undefined') {
   process.on('SIGTERM', closeDb);
 }
 
+export * from './analytics-schema';
+export * from './audit-schema';
+export * from './chart-config-schema';
+export * from './rbac-schema';
+export * from './refresh-token-schema';
 // Re-export all schemas
 export * from './schema';
-export * from './rbac-schema';
-export * from './audit-schema';
-export * from './analytics-schema';
-export * from './chart-config-schema';
-export * from './refresh-token-schema';

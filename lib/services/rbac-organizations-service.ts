@@ -1,14 +1,12 @@
-import { BaseRBACService } from '@/lib/rbac/base-service';
+import { and, count, desc, eq, inArray, isNull, like } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { 
-  organizations, 
-  user_organizations, 
-  practices, 
-  users
-} from '@/lib/db/schema';
-import { eq, and, inArray, isNull, like, desc, count } from 'drizzle-orm';
-import { getOrganizationHierarchy, getOrganizationChildren } from '@/lib/rbac/organization-hierarchy';
-import type { UserContext, Organization } from '@/lib/types/rbac';
+import { organizations, practices, user_organizations, users } from '@/lib/db/schema';
+import { BaseRBACService } from '@/lib/rbac/base-service';
+import {
+  getOrganizationChildren,
+  getOrganizationHierarchy,
+} from '@/lib/rbac/organization-hierarchy';
+import type { Organization, UserContext } from '@/lib/types/rbac';
 
 /**
  * Organizations Service with RBAC
@@ -41,12 +39,14 @@ export interface OrganizationQueryOptions {
 
 export interface OrganizationWithDetails extends Organization {
   member_count: number;
-  practice_info?: {
-    practice_id: string;
-    domain: string;
-    status: string;
-    template_id: string;
-  } | undefined;
+  practice_info?:
+    | {
+        practice_id: string;
+        domain: string;
+        status: string;
+        template_id: string;
+      }
+    | undefined;
   children_count: number;
   parent?: Organization;
 }
@@ -55,20 +55,19 @@ export class RBACOrganizationsService extends BaseRBACService {
   /**
    * Get organizations with automatic permission-based filtering
    */
-  async getOrganizations(options: OrganizationQueryOptions = {}): Promise<OrganizationWithDetails[]> {
+  async getOrganizations(
+    options: OrganizationQueryOptions = {}
+  ): Promise<OrganizationWithDetails[]> {
     const accessScope = this.getAccessScope('practices', 'read');
-    
+
     // Build all where conditions upfront
-    const whereConditions = [
-      eq(organizations.is_active, true),
-      isNull(organizations.deleted_at)
-    ];
+    const whereConditions = [eq(organizations.is_active, true), isNull(organizations.deleted_at)];
 
     // Apply scope-based filtering
     switch (accessScope.scope) {
       case 'own': {
         // User can only see organizations they belong to
-        const userOrgIds = this.userContext.organizations.map(org => org.organization_id);
+        const userOrgIds = this.userContext.organizations.map((org) => org.organization_id);
         if (userOrgIds.length > 0) {
           whereConditions.push(inArray(organizations.organization_id, userOrgIds));
         } else {
@@ -76,7 +75,7 @@ export class RBACOrganizationsService extends BaseRBACService {
         }
         break;
       }
-      
+
       case 'organization': {
         // User can see their accessible organizations
         const accessibleOrgIds = accessScope.organizationIds || [];
@@ -87,7 +86,7 @@ export class RBACOrganizationsService extends BaseRBACService {
         }
         break;
       }
-      
+
       case 'all':
         // Super admin can see all organizations
         break;
@@ -95,16 +94,16 @@ export class RBACOrganizationsService extends BaseRBACService {
 
     // Apply additional filters
     if (options.search) {
-      whereConditions.push(
-        like(organizations.name, `%${options.search}%`)
-      );
+      whereConditions.push(like(organizations.name, `%${options.search}%`));
     }
 
     if (options.parent_organization_id !== undefined) {
       if (options.parent_organization_id === null) {
         whereConditions.push(isNull(organizations.parent_organization_id));
       } else {
-        whereConditions.push(eq(organizations.parent_organization_id, options.parent_organization_id));
+        whereConditions.push(
+          eq(organizations.parent_organization_id, options.parent_organization_id)
+        );
       }
     }
 
@@ -127,7 +126,7 @@ export class RBACOrganizationsService extends BaseRBACService {
         practice_id: practices.practice_id,
         practice_domain: practices.domain,
         practice_status: practices.status,
-        practice_template_id: practices.template_id
+        practice_template_id: practices.template_id,
       })
       .from(organizations)
       .leftJoin(practices, eq(organizations.organization_id, practices.practice_id)) // Map org to practice
@@ -178,12 +177,14 @@ export class RBACOrganizationsService extends BaseRBACService {
         deleted_at: row.deleted_at || undefined,
         member_count: memberCountResult?.count || 0,
         children_count: children.length,
-        practice_info: row.practice_id ? {
-          practice_id: row.practice_id,
-          domain: row.practice_domain || '',
-          status: row.practice_status || 'active',
-          template_id: row.practice_template_id || ''
-        } : undefined
+        practice_info: row.practice_id
+          ? {
+              practice_id: row.practice_id,
+              domain: row.practice_domain || '',
+              status: row.practice_status || 'active',
+              template_id: row.practice_template_id || '',
+            }
+          : undefined,
       };
 
       enhancedResults.push(enhanced);
@@ -196,10 +197,7 @@ export class RBACOrganizationsService extends BaseRBACService {
    * Get a specific organization by ID
    */
   async getOrganizationById(organizationId: string): Promise<OrganizationWithDetails | null> {
-    this.requireAnyPermission([
-      'practices:read:own',
-      'practices:read:all'
-    ], organizationId);
+    this.requireAnyPermission(['practices:read:own', 'practices:read:all'], organizationId);
 
     this.requireOrganizationAccess(organizationId);
 
@@ -233,7 +231,7 @@ export class RBACOrganizationsService extends BaseRBACService {
         name: orgData.name,
         slug: orgData.slug,
         parent_organization_id: orgData.parent_organization_id,
-        is_active: orgData.is_active ?? true
+        is_active: orgData.is_active ?? true,
       })
       .returning();
 
@@ -256,7 +254,7 @@ export class RBACOrganizationsService extends BaseRBACService {
    * Update an organization
    */
   async updateOrganization(
-    organizationId: string, 
+    organizationId: string,
     updateData: UpdateOrganizationData
   ): Promise<OrganizationWithDetails> {
     this.requirePermission('practices:update:own', organizationId);
@@ -287,7 +285,7 @@ export class RBACOrganizationsService extends BaseRBACService {
       .update(organizations)
       .set({
         ...updateData,
-        updated_at: new Date()
+        updated_at: new Date(),
       })
       .where(eq(organizations.organization_id, organizationId))
       .returning();
@@ -339,7 +337,7 @@ export class RBACOrganizationsService extends BaseRBACService {
       .update(organizations)
       .set({
         deleted_at: new Date(),
-        is_active: false
+        is_active: false,
       })
       .where(eq(organizations.organization_id, organizationId));
 
@@ -350,10 +348,7 @@ export class RBACOrganizationsService extends BaseRBACService {
    * Get organization hierarchy for current user
    */
   async getAccessibleHierarchy(rootOrganizationId?: string): Promise<Organization[]> {
-    this.requireAnyPermission([
-      'practices:read:own',
-      'practices:read:all'
-    ]);
+    this.requireAnyPermission(['practices:read:own', 'practices:read:all']);
 
     if (rootOrganizationId) {
       this.requireOrganizationAccess(rootOrganizationId);
@@ -366,7 +361,7 @@ export class RBACOrganizationsService extends BaseRBACService {
 
     for (const org of accessibleOrgs) {
       const hierarchy = await getOrganizationHierarchy(org.organization_id);
-      hierarchy.forEach(hierarchyOrg => {
+      hierarchy.forEach((hierarchyOrg) => {
         hierarchies.set(hierarchyOrg.organization_id, hierarchyOrg);
       });
     }
@@ -379,10 +374,7 @@ export class RBACOrganizationsService extends BaseRBACService {
    */
   async getOrganizationMembers(organizationId: string) {
     this.requireOrganizationAccess(organizationId);
-    this.requireAnyPermission([
-      'users:read:organization',
-      'users:read:all'
-    ]);
+    this.requireAnyPermission(['users:read:organization', 'users:read:all']);
 
     const members = await db
       .select({
@@ -391,7 +383,7 @@ export class RBACOrganizationsService extends BaseRBACService {
         first_name: users.first_name,
         last_name: users.last_name,
         is_active: users.is_active,
-        joined_at: user_organizations.joined_at
+        joined_at: user_organizations.joined_at,
       })
       .from(user_organizations)
       .innerJoin(users, eq(user_organizations.user_id, users.user_id))
@@ -420,8 +412,10 @@ export class RBACOrganizationsService extends BaseRBACService {
       return false;
     }
 
-    return this.checker.hasPermission('practices:update:own', organizationId) ||
-           this.checker.hasPermission('practices:manage:all');
+    return (
+      this.checker.hasPermission('practices:update:own', organizationId) ||
+      this.checker.hasPermission('practices:manage:all')
+    );
   }
 }
 

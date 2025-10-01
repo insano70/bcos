@@ -1,15 +1,15 @@
-import { PermissionChecker } from './permission-checker';
 import type { db } from '@/lib/db';
-import { 
-  type UserContext, 
-  type AccessScope, 
-  type PermissionName,
-  type ResourceType,
+import {
+  type AccessScope,
   type ActionType,
   type DataAccessFilter,
+  OrganizationAccessError,
   PermissionDeniedError,
-  OrganizationAccessError
+  type PermissionName,
+  type ResourceType,
+  type UserContext,
 } from '@/lib/types/rbac';
+import { PermissionChecker } from './permission-checker';
 
 /**
  * Base RBAC Service Class
@@ -17,8 +17,11 @@ import {
  */
 export abstract class BaseRBACService {
   protected checker: PermissionChecker;
-  
-  constructor(protected userContext: UserContext, protected dbContext?: typeof db) {
+
+  constructor(
+    protected userContext: UserContext,
+    protected dbContext?: typeof db
+  ) {
     this.checker = new PermissionChecker(userContext);
   }
 
@@ -95,20 +98,20 @@ export abstract class BaseRBACService {
         return {
           user_id: this.userContext.user_id,
           scope: 'own',
-          accessible_resources: [this.userContext.user_id]
+          accessible_resources: [this.userContext.user_id],
         };
 
       case 'organization':
         return {
           organization_ids: accessScope.organizationIds || [],
           scope: 'organization',
-          accessible_resources: accessScope.organizationIds || []
+          accessible_resources: accessScope.organizationIds || [],
         };
 
       case 'all':
         return {
           scope: 'all',
-          accessible_resources: [] // No filtering needed for 'all' scope
+          accessible_resources: [], // No filtering needed for 'all' scope
         };
 
       default:
@@ -150,31 +153,25 @@ export abstract class BaseRBACService {
    * Get accessible organization IDs for current user
    */
   protected getAccessibleOrganizationIds(): string[] {
-    return this.userContext.accessible_organizations.map(org => org.organization_id);
+    return this.userContext.accessible_organizations.map((org) => org.organization_id);
   }
 
   /**
    * Filter data based on organizational access
    */
-  protected filterByOrganizationalAccess<T extends { organization_id?: string }>(
-    data: T[]
-  ): T[] {
+  protected filterByOrganizationalAccess<T extends { organization_id?: string }>(data: T[]): T[] {
     const accessibleOrgIds = this.getAccessibleOrganizationIds();
-    
-    return data.filter(item => 
-      !item.organization_id || accessibleOrgIds.includes(item.organization_id)
+
+    return data.filter(
+      (item) => !item.organization_id || accessibleOrgIds.includes(item.organization_id)
     );
   }
 
   /**
    * Filter data based on user ownership
    */
-  protected filterByUserOwnership<T extends { user_id?: string }>(
-    data: T[]
-  ): T[] {
-    return data.filter(item => 
-      !item.user_id || item.user_id === this.userContext.user_id
-    );
+  protected filterByUserOwnership<T extends { user_id?: string }>(data: T[]): T[] {
+    return data.filter((item) => !item.user_id || item.user_id === this.userContext.user_id);
   }
 
   /**
@@ -212,11 +209,14 @@ export abstract class BaseRBACService {
     granted = true
   ): Promise<void> {
     // TODO: Implement audit logging in Phase 7
-    console.log(`Permission check: ${this.userContext.user_id} -> ${permission} = ${granted ? 'GRANTED' : 'DENIED'}`, {
-      resourceId,
-      organizationId,
-      timestamp: new Date().toISOString()
-    });
+    console.log(
+      `Permission check: ${this.userContext.user_id} -> ${permission} = ${granted ? 'GRANTED' : 'DENIED'}`,
+      {
+        resourceId,
+        organizationId,
+        timestamp: new Date().toISOString(),
+      }
+    );
   }
 
   /**
@@ -227,7 +227,7 @@ export abstract class BaseRBACService {
     resourceId?: string
   ): { validatedOrgId?: string | undefined; validatedResourceId?: string | undefined } {
     let validatedOrgId = organizationId;
-    
+
     // Use current organization if none specified
     if (!validatedOrgId) {
       validatedOrgId = this.userContext.current_organization_id;
@@ -240,7 +240,7 @@ export abstract class BaseRBACService {
 
     return {
       validatedOrgId,
-      validatedResourceId: resourceId
+      validatedResourceId: resourceId,
     };
   }
 
@@ -261,17 +261,24 @@ export abstract class BaseRBACService {
     organizationId?: string
   ): boolean {
     const permission = `${resource}:${action}:organization` as PermissionName;
-    return this.checker.hasPermission(permission, resourceId, organizationId) ||
-           this.checker.hasPermission(`${resource}:${action}:all` as PermissionName, resourceId, organizationId);
+    return (
+      this.checker.hasPermission(permission, resourceId, organizationId) ||
+      this.checker.hasPermission(
+        `${resource}:${action}:all` as PermissionName,
+        resourceId,
+        organizationId
+      )
+    );
   }
 
   /**
    * Get effective permissions for a resource type
    */
   protected getEffectivePermissions(resource: ResourceType): string[] {
-    return this.checker.getAllPermissions()
-      .filter(permission => permission.resource === resource)
-      .map(permission => permission.name);
+    return this.checker
+      .getAllPermissions()
+      .filter((permission) => permission.resource === resource)
+      .map((permission) => permission.name);
   }
 
   /**
@@ -279,7 +286,7 @@ export abstract class BaseRBACService {
    */
   protected hasManagementPermissions(resource: ResourceType): boolean {
     const managementActions = ['create', 'update', 'delete', 'manage'];
-    return managementActions.some(action =>
+    return managementActions.some((action) =>
       this.canPerformAction(resource, action as ActionType)
     );
   }
@@ -326,8 +333,7 @@ export class ServiceContainer {
    * Check if user context is still valid
    */
   isContextValid(): boolean {
-    return this.userContext.is_active && 
-           this.userContext.accessible_organizations.length > 0;
+    return this.userContext.is_active && this.userContext.accessible_organizations.length > 0;
   }
 
   /**

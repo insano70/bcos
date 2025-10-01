@@ -1,30 +1,30 @@
 /**
  * SAML Replay Attack Prevention Service
- * 
+ *
  * Prevents attackers from reusing intercepted SAML responses to gain unauthorized access.
- * 
+ *
  * How Replay Attacks Work:
  * 1. Attacker intercepts a valid SAML response (network sniffing, XSS, compromised device)
  * 2. Attacker replays the same SAML response to /api/auth/saml/callback
  * 3. Without prevention, they gain access as the victim
- * 
+ *
  * Prevention Strategy:
  * - Track every assertion ID used in database
  * - Reject duplicate assertion IDs (PRIMARY KEY constraint prevents race conditions)
  * - Automatic cleanup of expired entries based on assertion validity period
- * 
+ *
  * @module lib/saml/replay-prevention
  */
 
+import { eq, lt } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { samlReplayPrevention } from '@/lib/db/schema';
-import { eq, lt } from 'drizzle-orm';
 import { createAppLogger } from '@/lib/logger/factory';
 
 const replayLogger = createAppLogger('saml-replay-prevention', {
   component: 'security',
   feature: 'saml-sso',
-  module: 'replay-prevention'
+  module: 'replay-prevention',
 });
 
 /**
@@ -36,19 +36,21 @@ export interface ReplayCheckResult {
   /** Reason if replay detected or other error */
   reason?: string;
   /** Details for security logging */
-  details?: {
-    existingUsedAt: Date;
-    existingIpAddress: string;
-    existingUserAgent: string | undefined;
-  } | undefined;
+  details?:
+    | {
+        existingUsedAt: Date;
+        existingIpAddress: string;
+        existingUserAgent: string | undefined;
+      }
+    | undefined;
 }
 
 /**
  * Check if a SAML assertion has been used before (replay attack detection)
- * 
+ *
  * This function uses the database PRIMARY KEY constraint to atomically prevent
  * duplicate assertion IDs, protecting against race conditions.
- * 
+ *
  * @param assertionId - Unique SAML Assertion ID from IdP
  * @param inResponseTo - SAML InResponseTo field (links to original AuthnRequest)
  * @param userEmail - User email from SAML assertion
@@ -88,25 +90,26 @@ export async function checkAndTrackAssertion(
       assertionId: assertionId.substring(0, 20) + '...',
       userEmail,
       ipAddress,
-      expiresAt: expiresAt.toISOString()
+      expiresAt: expiresAt.toISOString(),
     });
 
     return { safe: true };
   } catch (error) {
     // Check if error is due to duplicate key (replay attack)
     // Drizzle wraps Postgres errors, so check both the error and its cause
-    const isDuplicateKey = 
+    const isDuplicateKey =
       // Check Drizzle error cause (Drizzle wraps Postgres errors)
-      (error instanceof Error && 'cause' in error && 
-       error.cause && typeof error.cause === 'object' && 'code' in error.cause && 
-       error.cause.code === '23505') ||
+      (error instanceof Error &&
+        'cause' in error &&
+        error.cause &&
+        typeof error.cause === 'object' &&
+        'code' in error.cause &&
+        error.cause.code === '23505') ||
       // Check direct Postgres error code (fallback)
       (error && typeof error === 'object' && 'code' in error && error.code === '23505') ||
       // Check error message (last resort)
-      (error instanceof Error && (
-        error.message.includes('duplicate key') || 
-        error.message.includes('unique constraint')
-      ));
+      (error instanceof Error &&
+        (error.message.includes('duplicate key') || error.message.includes('unique constraint')));
 
     if (isDuplicateKey) {
       // Fetch existing entry for security logging
@@ -122,17 +125,19 @@ export async function checkAndTrackAssertion(
         attemptedFromIp: ipAddress,
         originallyUsedAt: existing?.usedAt,
         originallyUsedFromIp: existing?.ipAddress,
-        alert: 'REPLAY_ATTACK_BLOCKED'
+        alert: 'REPLAY_ATTACK_BLOCKED',
       });
 
       return {
         safe: false,
         reason: 'SAML assertion has already been used (replay attack detected)',
-        details: existing ? {
-          existingUsedAt: existing.usedAt,
-          existingIpAddress: existing.ipAddress,
-          existingUserAgent: existing.userAgent || undefined
-        } : undefined
+        details: existing
+          ? {
+              existingUsedAt: existing.usedAt,
+              existingIpAddress: existing.ipAddress,
+              existingUserAgent: existing.userAgent || undefined,
+            }
+          : undefined,
       };
     }
 
@@ -142,31 +147,31 @@ export async function checkAndTrackAssertion(
       errorCode: error && typeof error === 'object' && 'code' in error ? error.code : 'unknown',
       errorName: error instanceof Error ? error.constructor.name : typeof error,
       assertionId: assertionId.substring(0, 20) + '...',
-      userEmail
+      userEmail,
     });
 
     // Fail closed: reject authentication on errors to prevent bypass
     return {
       safe: false,
-      reason: 'Unable to verify SAML assertion uniqueness'
+      reason: 'Unable to verify SAML assertion uniqueness',
     };
   }
 }
 
 /**
  * Cleanup expired replay prevention entries
- * 
+ *
  * Should be run periodically (e.g., daily cron job) to prevent table growth.
  * Deletes all entries where expires_at < NOW().
- * 
+ *
  * @returns Promise<number> - Number of entries deleted
  */
 export async function cleanupExpiredEntries(): Promise<number> {
   try {
     const now = new Date();
-    
+
     replayLogger.info('Starting cleanup of expired SAML replay prevention entries', {
-      cutoffTime: now.toISOString()
+      cutoffTime: now.toISOString(),
     });
 
     const result = await db
@@ -179,13 +184,13 @@ export async function cleanupExpiredEntries(): Promise<number> {
 
     replayLogger.info('Cleanup completed', {
       deletedCount,
-      cutoffTime: now.toISOString()
+      cutoffTime: now.toISOString(),
     });
 
     return deletedCount;
   } catch (error) {
     replayLogger.error('Error during cleanup', {
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
     throw error;
   }
@@ -194,7 +199,7 @@ export async function cleanupExpiredEntries(): Promise<number> {
 /**
  * Get statistics about replay prevention table
  * Useful for monitoring and capacity planning
- * 
+ *
  * @returns Promise<{ totalEntries: number; oldestEntry?: Date; newestEntry?: Date }>
  */
 export async function getReplayPreventionStats(): Promise<{
@@ -210,25 +215,24 @@ export async function getReplayPreventionStats(): Promise<{
       .from(samlReplayPrevention);
 
     const totalEntries = entries.length;
-    
+
     if (totalEntries === 0) {
       return { totalEntries: 0 };
     }
 
-    const dates = entries.map(e => e.usedAt.getTime());
+    const dates = entries.map((e) => e.usedAt.getTime());
     const oldestEntry = new Date(Math.min(...dates));
     const newestEntry = new Date(Math.max(...dates));
 
     return {
       totalEntries,
       oldestEntry,
-      newestEntry
+      newestEntry,
     };
   } catch (error) {
     replayLogger.error('Error getting stats', {
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
     });
     throw error;
   }
 }
-

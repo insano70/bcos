@@ -3,10 +3,10 @@ export const metadata = {
   description: 'Edit practice staff member information',
 };
 
+import { and, eq, isNull } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
-import { db, practices, staff_members } from '@/lib/db';
-import { eq, and, isNull } from 'drizzle-orm';
 import StaffMemberForm from '@/components/staff-member-form';
+import { db, practices, staff_members } from '@/lib/db';
 import { transformStaffMember } from '@/lib/types/transformers';
 
 async function getStaffMemberData(practiceId: string, staffId: string) {
@@ -14,10 +14,7 @@ async function getStaffMemberData(practiceId: string, staffId: string) {
   const [practice] = await db
     .select()
     .from(practices)
-    .where(and(
-      eq(practices.practice_id, practiceId),
-      isNull(practices.deleted_at)
-    ))
+    .where(and(eq(practices.practice_id, practiceId), isNull(practices.deleted_at)))
     .limit(1);
 
   if (!practice) return null;
@@ -26,11 +23,13 @@ async function getStaffMemberData(practiceId: string, staffId: string) {
   const [staffMember] = await db
     .select()
     .from(staff_members)
-    .where(and(
-      eq(staff_members.staff_id, staffId),
-      eq(staff_members.practice_id, practiceId),
-      isNull(staff_members.deleted_at)
-    ))
+    .where(
+      and(
+        eq(staff_members.staff_id, staffId),
+        eq(staff_members.practice_id, practiceId),
+        isNull(staff_members.deleted_at)
+      )
+    )
     .limit(1);
 
   if (!staffMember) return null;
@@ -39,7 +38,7 @@ async function getStaffMemberData(practiceId: string, staffId: string) {
     practice: {
       practice_id: practice.practice_id,
       name: practice.name,
-      domain: practice.domain
+      domain: practice.domain,
     },
     staffMember: transformStaffMember(staffMember),
   };
@@ -64,16 +63,26 @@ export default async function EditStaffMemberPage({
           <nav className="flex mb-4" aria-label="Breadcrumb">
             <ol className="inline-flex items-center space-x-1 md:space-x-2">
               <li className="inline-flex items-center">
-                <a href="/configure/practices" className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                <a
+                  href="/configure/practices"
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
                   Practices
                 </a>
               </li>
               <li>
                 <div className="flex items-center">
                   <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                    <path
+                      fillRule="evenodd"
+                      d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                      clipRule="evenodd"
+                    />
                   </svg>
-                  <a href={`/configure/practices/${practiceId}`} className="ml-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 md:ml-2">
+                  <a
+                    href={`/configure/practices/${practiceId}`}
+                    className="ml-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 md:ml-2"
+                  >
                     {data.practice.name}
                   </a>
                 </div>
@@ -81,7 +90,11 @@ export default async function EditStaffMemberPage({
               <li>
                 <div className="flex items-center">
                   <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                    <path
+                      fillRule="evenodd"
+                      d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                   <span className="ml-1 text-gray-400 md:ml-2">Edit Staff Member</span>
                 </div>
@@ -94,11 +107,7 @@ export default async function EditStaffMemberPage({
         </div>
       </div>
 
-      <StaffMemberForm
-        practiceId={practiceId}
-        staffMember={data.staffMember}
-        mode="edit"
-      />
+      <StaffMemberForm practiceId={practiceId} staffMember={data.staffMember} mode="edit" />
     </div>
   );
 }

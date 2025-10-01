@@ -4,8 +4,8 @@ export const metadata = {
 };
 
 import { SelectedItemsProvider } from '@/app/selected-items-context';
-import UsersContent from './users-content';
 import { UserManagementPageProtection } from '@/components/rbac/protected-page';
+import UsersContent from './users-content';
 
 export default function Users() {
   return (

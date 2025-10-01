@@ -1,4 +1,4 @@
-import { useApiQuery, useApiPost, useApiPut, useApiDelete } from './use-api';
+import { useApiDelete, useApiPost, useApiPut, useApiQuery } from './use-api';
 
 export interface User {
   id: string; // Maps to user_id in database
@@ -42,17 +42,13 @@ export interface UpdateUserData {
 export function useUsers() {
   // Hook called (client-side debug)
   if (process.env.NODE_ENV === 'development') {
-    console.log('👥 useUsers: Hook called (auth handled by middleware)')
+    console.log('👥 useUsers: Hook called (auth handled by middleware)');
   }
 
-  const query = useApiQuery<User[]>(
-    ['users'],
-    '/api/users',
-    {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes
-    }
-  );
+  const query = useApiQuery<User[]>(['users'], '/api/users', {
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  });
 
   // Query state logging (client-side debug)
   if (process.env.NODE_ENV === 'development') {
@@ -60,8 +56,8 @@ export function useUsers() {
       isLoading: query.isLoading,
       hasData: !!query.data,
       hasError: !!query.error,
-      errorMessage: query.error?.message
-    })
+      errorMessage: query.error?.message,
+    });
   }
 
   return query;
@@ -72,14 +68,10 @@ export function useUsers() {
  * Authentication handled by middleware via httpOnly cookies
  */
 export function useUser(userId: string) {
-  return useApiQuery<User>(
-    ['users', userId],
-    `/api/users/${userId}`,
-    {
-      enabled: !!userId,
-      staleTime: 5 * 60 * 1000,
-    }
-  );
+  return useApiQuery<User>(['users', userId], `/api/users/${userId}`, {
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+  });
 }
 
 /**
@@ -93,16 +85,12 @@ export function useCreateUser() {
  * Hook to update a user
  */
 export function useUpdateUser() {
-  return useApiPut<User, { id: string; data: UpdateUserData }>(
-    ({ id }) => `/api/users/${id}`
-  );
+  return useApiPut<User, { id: string; data: UpdateUserData }>(({ id }) => `/api/users/${id}`);
 }
 
 /**
  * Hook to delete a user
  */
 export function useDeleteUser() {
-  return useApiDelete<void, string>(
-    (userId) => `/api/users/${userId}`
-  );
+  return useApiDelete<void, string>((userId) => `/api/users/${userId}`);
 }

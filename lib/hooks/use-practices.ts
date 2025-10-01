@@ -1,4 +1,4 @@
-import { useApiQuery, useApiPost, useApiPut, useApiDelete } from './use-api';
+import { useApiDelete, useApiPost, useApiPut, useApiQuery } from './use-api';
 
 export interface Practice {
   id: string; // Maps to practice_id in database
@@ -29,28 +29,20 @@ export interface UpdatePracticeData {
  * Hook to fetch all practices
  */
 export function usePractices() {
-  return useApiQuery<Practice[]>(
-    ['practices'],
-    '/api/practices',
-    {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes
-    }
-  );
+  return useApiQuery<Practice[]>(['practices'], '/api/practices', {
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  });
 }
 
 /**
  * Hook to fetch a single practice by ID
  */
 export function usePractice(practiceId: string) {
-  return useApiQuery<Practice>(
-    ['practices', practiceId],
-    `/api/practices/${practiceId}`,
-    {
-      enabled: !!practiceId,
-      staleTime: 5 * 60 * 1000,
-    }
-  );
+  return useApiQuery<Practice>(['practices', practiceId], `/api/practices/${practiceId}`, {
+    enabled: !!practiceId,
+    staleTime: 5 * 60 * 1000,
+  });
 }
 
 /**
@@ -73,7 +65,5 @@ export function useUpdatePractice() {
  * Hook to delete a practice
  */
 export function useDeletePractice() {
-  return useApiDelete<void, string>(
-    (practiceId) => `/api/practices/${practiceId}`
-  );
+  return useApiDelete<void, string>((practiceId) => `/api/practices/${practiceId}`);
 }

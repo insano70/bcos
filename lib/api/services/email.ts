@@ -1,13 +1,13 @@
-import * as nodemailer from 'nodemailer'
-import { createAppLogger } from '@/lib/logger/factory'
-import { getEmailConfig } from '@/lib/env'
+import * as nodemailer from 'nodemailer';
+import { getEmailConfig } from '@/lib/env';
+import { createAppLogger } from '@/lib/logger/factory';
 
-// Create Universal Logger for email service operations  
+// Create Universal Logger for email service operations
 const emailLogger = createAppLogger('email-service', {
   component: 'communications',
   feature: 'email-delivery',
-  module: 'email-service'
-})
+  module: 'email-service',
+});
 
 /**
  * Professional Email Service
@@ -15,44 +15,44 @@ const emailLogger = createAppLogger('email-service', {
  */
 
 interface EmailTemplate {
-  subject: string
-  html: string
-  text?: string
+  subject: string;
+  html: string;
+  text?: string;
 }
 
 interface EmailOptions {
-  to: string | string[]
-  subject: string
-  html: string
-  text?: string
-  template?: string
-  variables?: Record<string, string>
+  to: string | string[];
+  subject: string;
+  html: string;
+  text?: string;
+  template?: string;
+  variables?: Record<string, string>;
   attachments?: Array<{
-    filename: string
-    content: Buffer | string
-    contentType?: string
-  }>
+    filename: string;
+    content: Buffer | string;
+    contentType?: string;
+  }>;
 }
 
 export class EmailService {
-  private static transporter: nodemailer.Transporter | null = null
+  private static transporter: nodemailer.Transporter | null = null;
 
   private static getTransporter(): nodemailer.Transporter {
     if (!EmailService.transporter) {
-      const config = getEmailConfig()
-      
+      const config = getEmailConfig();
+
       if (!config.smtp.username || !config.smtp.password || !config.smtp.endpoint) {
-        emailLogger.warn('Email service disabled - AWS SES credentials not configured')
+        emailLogger.warn('Email service disabled - AWS SES credentials not configured');
         // Create a mock transporter that logs instead of sending
         EmailService.transporter = {
           sendMail: async (mailOptions: nodemailer.SendMailOptions) => {
-            emailLogger.info('Mock email send (SES not configured)', { 
-              to: mailOptions.to, 
-              subject: mailOptions.subject 
-            })
-            return { messageId: 'mock-email-id', response: 'Mock email sent' }
-          }
-        } as nodemailer.Transporter
+            emailLogger.info('Mock email send (SES not configured)', {
+              to: mailOptions.to,
+              subject: mailOptions.subject,
+            });
+            return { messageId: 'mock-email-id', response: 'Mock email sent' };
+          },
+        } as nodemailer.Transporter;
       } else {
         EmailService.transporter = nodemailer.createTransport({
           host: config.smtp.endpoint,
@@ -66,100 +66,119 @@ export class EmailService {
             // Don't fail on invalid certificates for development
             rejectUnauthorized: process.env.NODE_ENV === 'production',
           },
-        })
+        });
       }
     }
     if (!EmailService.transporter) {
       throw new Error('Failed to initialize email service');
     }
-    return EmailService.transporter
+    return EmailService.transporter;
   }
 
   /**
    * Send a welcome email to new users
    */
   static async sendWelcomeEmail(email: string, firstName: string, lastName: string): Promise<void> {
-    const template = EmailService.getWelcomeTemplate({ firstName, lastName })
-    
+    const template = EmailService.getWelcomeTemplate({ firstName, lastName });
+
     await EmailService.send({
       to: email,
       subject: template.subject,
       html: template.html,
-      ...(template.text && { text: template.text })
-    })
+      ...(template.text && { text: template.text }),
+    });
   }
 
   /**
    * Send password reset email
    */
-  static async sendPasswordResetEmail(email: string, resetToken: string, firstName: string): Promise<void> {
-    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`
-    const template = EmailService.getPasswordResetTemplate({ firstName, resetUrl })
-    
+  static async sendPasswordResetEmail(
+    email: string,
+    resetToken: string,
+    firstName: string
+  ): Promise<void> {
+    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`;
+    const template = EmailService.getPasswordResetTemplate({ firstName, resetUrl });
+
     await EmailService.send({
       to: email,
       subject: template.subject,
       html: template.html,
-      ...(template.text && { text: template.text })
-    })
+      ...(template.text && { text: template.text }),
+    });
   }
 
   /**
    * Send email verification email
    */
-  static async sendEmailVerificationEmail(email: string, verificationToken: string, firstName: string): Promise<void> {
-    const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${verificationToken}`
-    const template = EmailService.getEmailVerificationTemplate({ firstName, verificationUrl })
-    
+  static async sendEmailVerificationEmail(
+    email: string,
+    verificationToken: string,
+    firstName: string
+  ): Promise<void> {
+    const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${verificationToken}`;
+    const template = EmailService.getEmailVerificationTemplate({ firstName, verificationUrl });
+
     await EmailService.send({
       to: email,
       subject: template.subject,
       html: template.html,
-      ...(template.text && { text: template.text })
-    })
+      ...(template.text && { text: template.text }),
+    });
   }
 
   /**
    * Send practice setup notification to practice owners
    */
-  static async sendPracticeSetupEmail(email: string, practiceName: string, ownerName: string): Promise<void> {
-    const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`
-    const template = EmailService.getPracticeSetupTemplate({ ownerName, practiceName, dashboardUrl })
-    
+  static async sendPracticeSetupEmail(
+    email: string,
+    practiceName: string,
+    ownerName: string
+  ): Promise<void> {
+    const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`;
+    const template = EmailService.getPracticeSetupTemplate({
+      ownerName,
+      practiceName,
+      dashboardUrl,
+    });
+
     await EmailService.send({
       to: email,
       subject: template.subject,
       html: template.html,
-      ...(template.text && { text: template.text })
-    })
+      ...(template.text && { text: template.text }),
+    });
   }
 
   /**
    * Send system notification emails to admins
    */
   static async sendSystemNotification(
-    subject: string, 
-    message: string, 
+    subject: string,
+    message: string,
     details?: Record<string, unknown>
   ): Promise<void> {
-    const adminEmails = process.env.ADMIN_NOTIFICATION_EMAILS?.split(',') || []
-    
+    const adminEmails = process.env.ADMIN_NOTIFICATION_EMAILS?.split(',') || [];
+
     if (adminEmails.length === 0) {
       emailLogger.warn('No admin notification emails configured', {
         operation: 'sendAdminNotification',
-        reason: 'ADMIN_NOTIFICATION_EMAILS not set'
-      })
-      return
+        reason: 'ADMIN_NOTIFICATION_EMAILS not set',
+      });
+      return;
     }
 
-    const template = EmailService.getSystemNotificationTemplate({ message, details: details || {} })
-    
+    const template = EmailService.getSystemNotificationTemplate({
+      message,
+      details: details || {},
+    });
+
     await EmailService.send({
       to: adminEmails,
       subject: `[System Alert] ${subject}`,
       html: template.html,
-      ...(template.text && { text: template.text })
-    })
+      ...(template.text && { text: template.text }),
+    });
   }
 
   /**
@@ -167,9 +186,9 @@ export class EmailService {
    */
   private static async send(options: EmailOptions): Promise<void> {
     try {
-      const transporter = EmailService.getTransporter()
-      const config = getEmailConfig()
-      
+      const transporter = EmailService.getTransporter();
+      const config = getEmailConfig();
+
       const mailOptions: nodemailer.SendMailOptions = {
         from: `${config.from.name} <${config.from.email}>`,
         to: Array.isArray(options.to) ? options.to : [options.to],
@@ -177,33 +196,33 @@ export class EmailService {
         subject: options.subject,
         html: options.html || '',
         text: options.text || '',
-      }
-      
+      };
+
       if (options.attachments && options.attachments.length > 0) {
-        mailOptions.attachments = options.attachments.map(attachment => ({
+        mailOptions.attachments = options.attachments.map((attachment) => ({
           filename: attachment.filename,
           content: attachment.content,
-          contentType: attachment.contentType
-        }))
+          contentType: attachment.contentType,
+        }));
       }
-      
-      const result = await transporter.sendMail(mailOptions)
+
+      const result = await transporter.sendMail(mailOptions);
 
       emailLogger.info('Email sent successfully', {
         to: options.to,
         emailId: result.messageId,
         subject: options.subject,
-        operation: 'sendEmail'
-      })
+        operation: 'sendEmail',
+      });
     } catch (error) {
       emailLogger.error('Email sending error', {
         to: options.to,
         subject: options.subject,
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
-        operation: 'sendEmail'
-      })
-      throw error
+        operation: 'sendEmail',
+      });
+      throw error;
     }
   }
 
@@ -211,8 +230,8 @@ export class EmailService {
    * Welcome email template
    */
   private static getWelcomeTemplate(vars: { firstName: string; lastName: string }): EmailTemplate {
-    const subject = `Welcome to ${process.env.NEXT_PUBLIC_APP_NAME || 'Our Platform'}, ${vars.firstName}!`
-    
+    const subject = `Welcome to ${process.env.NEXT_PUBLIC_APP_NAME || 'Our Platform'}, ${vars.firstName}!`;
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -256,8 +275,8 @@ export class EmailService {
           </div>
         </body>
       </html>
-    `
-    
+    `;
+
     const text = `
       Welcome to ${process.env.NEXT_PUBLIC_APP_NAME || 'Our Platform'}, ${vars.firstName}!
       
@@ -268,17 +287,20 @@ export class EmailService {
       
       Best regards,
       The ${process.env.NEXT_PUBLIC_APP_NAME || 'Platform'} Team
-    `
-    
-    return { subject, html, text }
+    `;
+
+    return { subject, html, text };
   }
 
   /**
    * Password reset email template
    */
-  private static getPasswordResetTemplate(vars: { firstName: string; resetUrl: string }): EmailTemplate {
-    const subject = 'Reset Your Password'
-    
+  private static getPasswordResetTemplate(vars: {
+    firstName: string;
+    resetUrl: string;
+  }): EmailTemplate {
+    const subject = 'Reset Your Password';
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -310,8 +332,8 @@ export class EmailService {
           </div>
         </body>
       </html>
-    `
-    
+    `;
+
     const text = `
       Password Reset Request
       
@@ -326,17 +348,20 @@ export class EmailService {
       
       Best regards,
       The ${process.env.NEXT_PUBLIC_APP_NAME || 'Platform'} Team
-    `
-    
-    return { subject, html, text }
+    `;
+
+    return { subject, html, text };
   }
 
   /**
    * Email verification template
    */
-  private static getEmailVerificationTemplate(vars: { firstName: string; verificationUrl: string }): EmailTemplate {
-    const subject = 'Verify Your Email Address'
-    
+  private static getEmailVerificationTemplate(vars: {
+    firstName: string;
+    verificationUrl: string;
+  }): EmailTemplate {
+    const subject = 'Verify Your Email Address';
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -368,8 +393,8 @@ export class EmailService {
           </div>
         </body>
       </html>
-    `
-    
+    `;
+
     const text = `
       Verify Your Email
       
@@ -384,17 +409,21 @@ export class EmailService {
       
       Best regards,
       The ${process.env.NEXT_PUBLIC_APP_NAME || 'Platform'} Team
-    `
-    
-    return { subject, html, text }
+    `;
+
+    return { subject, html, text };
   }
 
   /**
    * Practice setup notification template
    */
-  private static getPracticeSetupTemplate(vars: { ownerName: string; practiceName: string; dashboardUrl: string }): EmailTemplate {
-    const subject = `Your ${vars.practiceName} Website is Ready!`
-    
+  private static getPracticeSetupTemplate(vars: {
+    ownerName: string;
+    practiceName: string;
+    dashboardUrl: string;
+  }): EmailTemplate {
+    const subject = `Your ${vars.practiceName} Website is Ready!`;
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -435,8 +464,8 @@ export class EmailService {
           </div>
         </body>
       </html>
-    `
-    
+    `;
+
     const text = `
       Your ${vars.practiceName} Website is Ready!
       
@@ -450,21 +479,24 @@ export class EmailService {
       
       Best regards,
       The ${process.env.NEXT_PUBLIC_APP_NAME || 'Platform'} Team
-    `
-    
-    return { subject, html, text }
+    `;
+
+    return { subject, html, text };
   }
 
   /**
    * System notification template
    */
-  private static getSystemNotificationTemplate(vars: { message: string; details?: Record<string, unknown> }): EmailTemplate {
-    const subject = 'System Notification'
-    
-    const detailsHtml = vars.details 
+  private static getSystemNotificationTemplate(vars: {
+    message: string;
+    details?: Record<string, unknown>;
+  }): EmailTemplate {
+    const subject = 'System Notification';
+
+    const detailsHtml = vars.details
       ? `<pre style="background: #f8f9fa; padding: 15px; border-radius: 5px; font-size: 12px; overflow-x: auto;">${JSON.stringify(vars.details, null, 2)}</pre>`
-      : ''
-    
+      : '';
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -488,8 +520,8 @@ export class EmailService {
           </div>
         </body>
       </html>
-    `
-    
+    `;
+
     const text = `
       System Notification
       
@@ -499,9 +531,9 @@ export class EmailService {
       
       Timestamp: ${new Date().toISOString()}
       Environment: ${process.env.NODE_ENV || 'unknown'}
-    `
-    
-    return { subject, html, text }
+    `;
+
+    return { subject, html, text };
   }
 
   /**
@@ -510,31 +542,31 @@ export class EmailService {
   static async sendAppointmentRequest(
     practiceEmail: string,
     formData: {
-      firstName: string
-      lastName: string
-      email: string
-      phone: string
-      preferredDate?: string
-      preferredTime?: string
-      reason?: string
-      message?: string
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone: string;
+      preferredDate?: string;
+      preferredTime?: string;
+      reason?: string;
+      message?: string;
     }
   ): Promise<void> {
-    const template = EmailService.getAppointmentRequestTemplate(formData)
-    
+    const template = EmailService.getAppointmentRequestTemplate(formData);
+
     await EmailService.send({
       to: practiceEmail,
       subject: template.subject,
       html: template.html,
-      ...(template.text && { text: template.text })
-    })
+      ...(template.text && { text: template.text }),
+    });
 
     emailLogger.info('Appointment request email sent', {
       practiceEmail,
       patientEmail: formData.email,
       patientName: `${formData.firstName} ${formData.lastName}`,
-      operation: 'sendAppointmentRequest'
-    })
+      operation: 'sendAppointmentRequest',
+    });
   }
 
   /**
@@ -543,45 +575,45 @@ export class EmailService {
   static async sendContactForm(
     practiceEmail: string,
     formData: {
-      name: string
-      email: string
-      phone?: string
-      subject: string
-      message: string
+      name: string;
+      email: string;
+      phone?: string;
+      subject: string;
+      message: string;
     }
   ): Promise<void> {
-    const template = EmailService.getContactFormTemplate(formData)
-    
+    const template = EmailService.getContactFormTemplate(formData);
+
     await EmailService.send({
       to: practiceEmail,
       subject: template.subject,
       html: template.html,
-      ...(template.text && { text: template.text })
-    })
+      ...(template.text && { text: template.text }),
+    });
 
     emailLogger.info('Contact form email sent', {
       practiceEmail,
       contactEmail: formData.email,
       contactName: formData.name,
-      operation: 'sendContactForm'
-    })
+      operation: 'sendContactForm',
+    });
   }
 
   /**
    * Appointment request email template
    */
   private static getAppointmentRequestTemplate(formData: {
-    firstName: string
-    lastName: string
-    email: string
-    phone: string
-    preferredDate?: string
-    preferredTime?: string
-    reason?: string
-    message?: string
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    preferredDate?: string;
+    preferredTime?: string;
+    reason?: string;
+    message?: string;
   }): EmailTemplate {
-    const subject = `New Appointment Request - ${formData.firstName} ${formData.lastName}`
-    
+    const subject = `New Appointment Request - ${formData.firstName} ${formData.lastName}`;
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -604,10 +636,14 @@ export class EmailService {
             ${formData.preferredTime ? `<p><strong>Preferred Time:</strong> ${formData.preferredTime}</p>` : ''}
             ${formData.reason ? `<p><strong>Reason for Visit:</strong> ${formData.reason}</p>` : ''}
             
-            ${formData.message ? `
+            ${
+              formData.message
+                ? `
               <h3 style="color: #495057;">Additional Message</h3>
               <p style="background: #f8f9fa; padding: 15px; border-radius: 4px; border-left: 4px solid #007bff;">${formData.message}</p>
-            ` : ''}
+            `
+                : ''
+            }
           </div>
           
           <div style="margin-top: 20px; padding: 15px; background: #e7f3ff; border-radius: 4px;">
@@ -617,8 +653,8 @@ export class EmailService {
           </div>
         </body>
       </html>
-    `
-    
+    `;
+
     const text = `New Appointment Request
 
 Patient Information:
@@ -631,23 +667,23 @@ ${formData.reason ? `Reason for Visit: ${formData.reason}` : ''}
 
 ${formData.message ? `Additional Message:\n${formData.message}` : ''}
 
-Next Steps: Please contact the patient within 24 hours to confirm their appointment.`
+Next Steps: Please contact the patient within 24 hours to confirm their appointment.`;
 
-    return { subject, html, text }
+    return { subject, html, text };
   }
 
   /**
    * Contact form email template
    */
   private static getContactFormTemplate(formData: {
-    name: string
-    email: string
-    phone?: string
-    subject: string
-    message: string
+    name: string;
+    email: string;
+    phone?: string;
+    subject: string;
+    message: string;
   }): EmailTemplate {
-    const subject = `Contact Form: ${formData.subject} - ${formData.name}`
-    
+    const subject = `Contact Form: ${formData.subject} - ${formData.name}`;
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -680,8 +716,8 @@ Next Steps: Please contact the patient within 24 hours to confirm their appointm
           </div>
         </body>
       </html>
-    `
-    
+    `;
+
     const text = `Contact Form Submission
 
 Contact Information:
@@ -693,8 +729,8 @@ Subject: ${formData.subject}
 Message:
 ${formData.message}
 
-Reply to: ${formData.email}`
+Reply to: ${formData.email}`;
 
-    return { subject, html, text }
+    return { subject, html, text };
   }
 }

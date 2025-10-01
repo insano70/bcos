@@ -1,22 +1,21 @@
 import {
-  type UserContext,
-  type Permission,
-  type PermissionScope,
   type AccessScope,
+  type ActionType,
+  InsufficientScopeError,
+  OrganizationAccessError,
+  type Permission,
   type PermissionCheckOptions,
   type PermissionCheckResult,
-  type PermissionName,
-  type ResourceType,
-  type ActionType,
   PermissionDeniedError,
-  InsufficientScopeError,
-  OrganizationAccessError
+  type PermissionName,
+  type PermissionScope,
+  type ResourceType,
+  type UserContext,
 } from '@/lib/types/rbac';
-
 
 /**
  * PermissionChecker - Core RBAC Logic Engine
- * 
+ *
  * Handles all permission validation logic for the healthcare practice management system.
  * Implements resource:action:scope permission model with organization hierarchy support.
  */
@@ -29,11 +28,7 @@ export class PermissionChecker {
    * @param resourceId - ID of the resource being accessed (optional)
    * @param organizationId - Organization context (optional)
    */
-  hasPermission(
-    permissionName: string,
-    resourceId?: string,
-    organizationId?: string
-  ): boolean {
+  hasPermission(permissionName: string, resourceId?: string, organizationId?: string): boolean {
     try {
       const result = this.checkPermission(permissionName, { resourceId, organizationId });
       return result.granted;
@@ -44,7 +39,7 @@ export class PermissionChecker {
         permission: permissionName,
         resourceId,
         organizationId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       return false;
     }
@@ -53,12 +48,8 @@ export class PermissionChecker {
   /**
    * Check multiple permissions (OR logic)
    */
-  hasAnyPermission(
-    permissions: string[],
-    resourceId?: string,
-    organizationId?: string
-  ): boolean {
-    return permissions.some(permission =>
+  hasAnyPermission(permissions: string[], resourceId?: string, organizationId?: string): boolean {
+    return permissions.some((permission) =>
       this.hasPermission(permission, resourceId, organizationId)
     );
   }
@@ -66,12 +57,8 @@ export class PermissionChecker {
   /**
    * Check multiple permissions (AND logic)
    */
-  hasAllPermissions(
-    permissions: string[],
-    resourceId?: string,
-    organizationId?: string
-  ): boolean {
-    return permissions.every(permission =>
+  hasAllPermissions(permissions: string[], resourceId?: string, organizationId?: string): boolean {
+    return permissions.every((permission) =>
       this.hasPermission(permission, resourceId, organizationId)
     );
   }
@@ -84,19 +71,23 @@ export class PermissionChecker {
     options: PermissionCheckOptions = {}
   ): PermissionCheckResult {
     const { resourceId, organizationId } = options;
-    const [resource, action, scope] = permissionName.split(':') as [string, string, PermissionScope];
+    const [resource, action, scope] = permissionName.split(':') as [
+      string,
+      string,
+      PermissionScope,
+    ];
 
     // Validate permission format
     if (!resource || !action || !scope) {
       return {
         granted: false,
         scope: 'own',
-        reason: `Invalid permission format: ${permissionName}. Expected format: resource:action:scope`
+        reason: `Invalid permission format: ${permissionName}. Expected format: resource:action:scope`,
       };
     }
 
     // Check if user has the permission through any of their roles
-    const matchingPermissions = this.getUserPermissions().filter(permission => {
+    const matchingPermissions = this.getUserPermissions().filter((permission) => {
       // Exact match
       if (permission.name === permissionName) {
         return true;
@@ -114,32 +105,28 @@ export class PermissionChecker {
       return {
         granted: false,
         scope: 'own',
-        reason: `User does not have permission: ${permissionName}`
+        reason: `User does not have permission: ${permissionName}`,
       };
     }
 
     // Get the highest scope available
-    const highestScope = this.getHighestScope(matchingPermissions.map(p => p.scope));
+    const highestScope = this.getHighestScope(matchingPermissions.map((p) => p.scope));
 
     // Validate scope-specific access
-    const scopeValidation = this.validateScopeAccess(
-      highestScope,
-      resourceId,
-      organizationId
-    );
+    const scopeValidation = this.validateScopeAccess(highestScope, resourceId, organizationId);
 
     if (!scopeValidation.valid) {
       return {
         granted: false,
         scope: highestScope,
-        reason: scopeValidation.reason
+        reason: scopeValidation.reason,
       };
     }
 
     return {
       granted: true,
       scope: highestScope,
-      applicable_organizations: scopeValidation.applicableOrganizations
+      applicable_organizations: scopeValidation.applicableOrganizations,
     };
   }
 
@@ -148,7 +135,7 @@ export class PermissionChecker {
    */
   getAccessScope(resource: ResourceType, action: ActionType): AccessScope {
     const permissions = this.getUserPermissions().filter(
-      p => p.resource === resource && p.action === action
+      (p) => p.resource === resource && p.action === action
     );
 
     if (permissions.length === 0) {
@@ -156,21 +143,23 @@ export class PermissionChecker {
     }
 
     // Return the highest scope available
-    if (permissions.some(p => p.scope === 'all')) {
+    if (permissions.some((p) => p.scope === 'all')) {
       return { scope: 'all' };
     }
 
-    if (permissions.some(p => p.scope === 'organization')) {
+    if (permissions.some((p) => p.scope === 'organization')) {
       return {
         scope: 'organization',
-        organizationIds: this.userContext.accessible_organizations.map(org => org.organization_id)
+        organizationIds: this.userContext.accessible_organizations.map(
+          (org) => org.organization_id
+        ),
       };
     }
 
-    if (permissions.some(p => p.scope === 'own')) {
+    if (permissions.some((p) => p.scope === 'own')) {
       return {
         scope: 'own',
-        userId: this.userContext.user_id
+        userId: this.userContext.user_id,
       };
     }
 
@@ -189,7 +178,7 @@ export class PermissionChecker {
    */
   canAccessOrganization(organizationId: string): boolean {
     return this.userContext.accessible_organizations.some(
-      org => org.organization_id === organizationId && org.is_active
+      (org) => org.organization_id === organizationId && org.is_active
     );
   }
 
@@ -217,7 +206,7 @@ export class PermissionChecker {
     if (!this.userContext.current_organization_id) return null;
 
     return this.userContext.accessible_organizations.find(
-      org => org.organization_id === this.userContext.current_organization_id
+      (org) => org.organization_id === this.userContext.current_organization_id
     );
   }
 
@@ -248,14 +237,10 @@ export class PermissionChecker {
   /**
    * Require a specific scope level (throws if insufficient)
    */
-  requireScope(
-    resource: ResourceType,
-    action: ActionType,
-    requiredScope: PermissionScope
-  ): void {
+  requireScope(resource: ResourceType, action: ActionType, requiredScope: PermissionScope): void {
     try {
       const accessScope = this.getAccessScope(resource, action);
-      
+
       if (!this.isScopeCompatible(accessScope.scope, requiredScope)) {
         throw new InsufficientScopeError(requiredScope, accessScope.scope);
       }
@@ -277,14 +262,14 @@ export class PermissionChecker {
 
     // Flatten permissions from all roles
     const permissions = this.userContext.roles
-      .filter(role => role.is_active)
-      .flatMap(role => role.permissions)
-      .filter(permission => permission.is_active);
+      .filter((role) => role.is_active)
+      .flatMap((role) => role.permissions)
+      .filter((permission) => permission.is_active);
 
     // Deduplicate by permission_id
     const uniquePermissions = permissions.filter(
       (permission, index, array) =>
-        array.findIndex(p => p.permission_id === permission.permission_id) === index
+        array.findIndex((p) => p.permission_id === permission.permission_id) === index
     );
 
     return uniquePermissions;
@@ -292,9 +277,9 @@ export class PermissionChecker {
 
   private isScopeCompatible(userScope: PermissionScope, requiredScope: PermissionScope): boolean {
     const scopeHierarchy: Record<PermissionScope, number> = {
-      'own': 1,
-      'organization': 2,
-      'all': 3
+      own: 1,
+      organization: 2,
+      all: 3,
     };
 
     return scopeHierarchy[userScope] >= scopeHierarchy[requiredScope];
@@ -319,7 +304,7 @@ export class PermissionChecker {
           if (resourceId === this.userContext.user_id) {
             return { valid: true };
           }
-          
+
           // For client-side permission checking, we can't do database lookups
           // So we'll be permissive here and let server-side validation handle the real check
           // TODO: Consider adding owned_practice_ids to UserContext for better client-side checking
@@ -330,24 +315,24 @@ export class PermissionChecker {
       case 'organization': {
         // User can access resources within their accessible organizations
         const targetOrgId = organizationId || this.userContext.current_organization_id;
-        
+
         if (!targetOrgId) {
           return {
             valid: false,
-            reason: 'No organization context provided for organization-scoped permission'
+            reason: 'No organization context provided for organization-scoped permission',
           };
         }
 
         if (!this.canAccessOrganization(targetOrgId)) {
           return {
             valid: false,
-            reason: `Access denied to organization: ${targetOrgId}`
+            reason: `Access denied to organization: ${targetOrgId}`,
           };
         }
 
         return {
           valid: true,
-          applicableOrganizations: [targetOrgId]
+          applicableOrganizations: [targetOrgId],
         };
       }
 
@@ -355,17 +340,18 @@ export class PermissionChecker {
         // Super admin can access all resources
         return {
           valid: true,
-          applicableOrganizations: this.userContext.accessible_organizations.map(org => org.organization_id)
+          applicableOrganizations: this.userContext.accessible_organizations.map(
+            (org) => org.organization_id
+          ),
         };
 
       default:
         return {
           valid: false,
-          reason: `Unknown scope: ${scope}`
+          reason: `Unknown scope: ${scope}`,
         };
     }
   }
-
 }
 
 /**

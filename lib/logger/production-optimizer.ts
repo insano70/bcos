@@ -11,20 +11,20 @@ interface SamplingConfig {
   info: number;
   warn: number;
   error: number;
-  
+
   // Feature-specific sampling
   security: number;
   performance: number;
   business: number;
   authentication: number;
-  
+
   // Volume-based adaptive sampling
   adaptive: {
     enabled: boolean;
     maxLogsPerSecond: number;
     emergencyReduction: number; // Factor to reduce sampling when overwhelmed
   };
-  
+
   // High-frequency operation sampling
   highFrequency: {
     enabled: boolean;
@@ -35,13 +35,13 @@ interface SamplingConfig {
 interface ProductionConfig {
   // Environment configuration
   environment: 'production' | 'staging' | 'development';
-  
+
   // Log level configuration
   logLevel: 'error' | 'warn' | 'info' | 'debug';
-  
+
   // Sampling configuration
   sampling: SamplingConfig;
-  
+
   // Performance optimization
   performance: {
     asyncLogging: boolean;
@@ -49,14 +49,14 @@ interface ProductionConfig {
     flushInterval: number; // milliseconds
     maxMemoryUsage: number; // MB
   };
-  
+
   // Volume management
   volume: {
     maxLogsPerSecond: number;
     rateLimitingEnabled: boolean;
     compressionEnabled: boolean;
   };
-  
+
   // Compliance and retention
   compliance: {
     hipaaMode: boolean;
@@ -69,8 +69,13 @@ class ProductionOptimizer {
   private config: ProductionConfig;
   private logCounts: Map<string, { count: number; timestamp: number }> = new Map();
   private lastFlush = Date.now();
-  private logBuffer: Array<{ level: string; message: string; meta: Record<string, unknown>; timestamp: number }> = [];
-  
+  private logBuffer: Array<{
+    level: string;
+    message: string;
+    meta: Record<string, unknown>;
+    timestamp: number;
+  }> = [];
+
   private readonly optimizerLogger = this.createSafeLogger();
 
   /**
@@ -81,15 +86,19 @@ class ProductionOptimizer {
       return createAppLogger('production-optimizer', {
         component: 'performance',
         feature: 'log-optimization',
-        module: 'production-optimizer'
+        module: 'production-optimizer',
       });
     } catch (error) {
       // Fallback to simple console logger if universal logger fails
       return {
-        info: (message: string, data?: Record<string, unknown>) => console.log(`[OPTIMIZER] ${message}`, data),
-        warn: (message: string, data?: Record<string, unknown>) => console.warn(`[OPTIMIZER] ${message}`, data),
-        error: (message: string, error?: Error, data?: Record<string, unknown>) => console.error(`[OPTIMIZER] ${message}`, error, data),
-        debug: (message: string, data?: Record<string, unknown>) => console.debug(`[OPTIMIZER] ${message}`, data)
+        info: (message: string, data?: Record<string, unknown>) =>
+          console.log(`[OPTIMIZER] ${message}`, data),
+        warn: (message: string, data?: Record<string, unknown>) =>
+          console.warn(`[OPTIMIZER] ${message}`, data),
+        error: (message: string, error?: Error, data?: Record<string, unknown>) =>
+          console.error(`[OPTIMIZER] ${message}`, error, data),
+        debug: (message: string, data?: Record<string, unknown>) =>
+          console.debug(`[OPTIMIZER] ${message}`, data),
       };
     }
   }
@@ -99,9 +108,9 @@ class ProductionOptimizer {
    */
   private parseEnvironment(env: string | undefined): 'production' | 'staging' | 'development' {
     if (env === 'production' || env === 'staging' || env === 'development') {
-      return env
+      return env;
     }
-    return 'development'
+    return 'development';
   }
 
   /**
@@ -109,68 +118,68 @@ class ProductionOptimizer {
    */
   private parseLogLevel(level: string | undefined): 'error' | 'warn' | 'info' | 'debug' {
     if (level === 'error' || level === 'warn' || level === 'info' || level === 'debug') {
-      return level
+      return level;
     }
-    return 'info'
+    return 'info';
   }
 
   constructor(config?: Partial<ProductionConfig>) {
     // Type-safe environment variable parsing
-    const environment = this.parseEnvironment(process.env.NODE_ENV)
-    const logLevel = this.parseLogLevel(process.env.LOG_LEVEL)
-    
+    const environment = this.parseEnvironment(process.env.NODE_ENV);
+    const logLevel = this.parseLogLevel(process.env.LOG_LEVEL);
+
     this.config = {
       environment,
       logLevel,
       sampling: {
         debug: process.env.NODE_ENV === 'production' ? 0.01 : 1.0, // 1% in prod
-        info: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,   // 10% in prod
-        warn: process.env.NODE_ENV === 'production' ? 0.5 : 1.0,   // 50% in prod
+        info: process.env.NODE_ENV === 'production' ? 0.1 : 1.0, // 10% in prod
+        warn: process.env.NODE_ENV === 'production' ? 0.5 : 1.0, // 50% in prod
         error: 1.0, // Always log errors
-        
+
         security: 1.0, // Always log security events
         performance: process.env.NODE_ENV === 'production' ? 0.05 : 1.0, // 5% in prod
-        business: process.env.NODE_ENV === 'production' ? 0.2 : 1.0,     // 20% in prod
+        business: process.env.NODE_ENV === 'production' ? 0.2 : 1.0, // 20% in prod
         authentication: 1.0, // Always log auth events
-        
+
         adaptive: {
           enabled: true,
           maxLogsPerSecond: 1000,
-          emergencyReduction: 0.1 // Reduce to 10% when overwhelmed
+          emergencyReduction: 0.1, // Reduce to 10% when overwhelmed
         },
-        
+
         highFrequency: {
           enabled: true,
           operations: {
-            'database_query': 0.01,    // 1% of DB queries
-            'cache_hit': 0.001,        // 0.1% of cache hits
-            'api_request': 0.05,       // 5% of API requests
-            'validation_check': 0.01,  // 1% of validations
-            'permission_check': 0.02   // 2% of permission checks
-          }
-        }
+            database_query: 0.01, // 1% of DB queries
+            cache_hit: 0.001, // 0.1% of cache hits
+            api_request: 0.05, // 5% of API requests
+            validation_check: 0.01, // 1% of validations
+            permission_check: 0.02, // 2% of permission checks
+          },
+        },
       },
-      
+
       performance: {
         asyncLogging: true,
         bufferSize: 1000,
         flushInterval: 5000, // 5 seconds
-        maxMemoryUsage: 100 // 100 MB
+        maxMemoryUsage: 100, // 100 MB
       },
-      
+
       volume: {
         maxLogsPerSecond: 1000,
         rateLimitingEnabled: true,
-        compressionEnabled: true
+        compressionEnabled: true,
       },
-      
+
       compliance: {
         hipaaMode: true,
         auditTrailRequired: true,
-        retentionPeriod: 2555 // 7 years for HIPAA
+        retentionPeriod: 2555, // 7 years for HIPAA
       },
-      
-      ...config
+
+      ...config,
     };
 
     // Start flush timer if async logging is enabled
@@ -183,10 +192,10 @@ class ProductionOptimizer {
    * Determine if a log should be sampled based on level and context
    */
   shouldSample(
-    level: string, 
-    context?: { 
-      component?: string; 
-      feature?: string; 
+    level: string,
+    context?: {
+      component?: string;
+      feature?: string;
       operation?: string;
       frequency?: 'high' | 'medium' | 'low';
     }
@@ -247,11 +256,16 @@ class ProductionOptimizer {
    */
   private getLevelSamplingRate(level: string): number {
     switch (level) {
-      case 'debug': return this.config.sampling.debug;
-      case 'info': return this.config.sampling.info;
-      case 'warn': return this.config.sampling.warn;
-      case 'error': return this.config.sampling.error;
-      default: return 1.0;
+      case 'debug':
+        return this.config.sampling.debug;
+      case 'info':
+        return this.config.sampling.info;
+      case 'warn':
+        return this.config.sampling.warn;
+      case 'error':
+        return this.config.sampling.error;
+      default:
+        return 1.0;
     }
   }
 
@@ -260,11 +274,16 @@ class ProductionOptimizer {
    */
   private getFeatureSamplingRate(component: string): number {
     switch (component) {
-      case 'security': return this.config.sampling.security;
-      case 'performance': return this.config.sampling.performance;
-      case 'business-logic': return this.config.sampling.business;
-      case 'authentication': return this.config.sampling.authentication;
-      default: return 1.0;
+      case 'security':
+        return this.config.sampling.security;
+      case 'performance':
+        return this.config.sampling.performance;
+      case 'business-logic':
+        return this.config.sampling.business;
+      case 'authentication':
+        return this.config.sampling.authentication;
+      default:
+        return 1.0;
     }
   }
 
@@ -274,7 +293,7 @@ class ProductionOptimizer {
   private isLogVolumeHigh(): boolean {
     const now = Date.now();
     const windowStart = now - 1000; // 1 second window
-    
+
     // Clean old entries
     for (const [key, data] of Array.from(this.logCounts.entries())) {
       if (data.timestamp < windowStart) {
@@ -283,8 +302,10 @@ class ProductionOptimizer {
     }
 
     // Count logs in current window
-    const totalLogs = Array.from(this.logCounts.values())
-      .reduce((sum, data) => sum + data.count, 0);
+    const totalLogs = Array.from(this.logCounts.values()).reduce(
+      (sum, data) => sum + data.count,
+      0
+    );
 
     return totalLogs > this.config.sampling.adaptive.maxLogsPerSecond;
   }
@@ -295,17 +316,18 @@ class ProductionOptimizer {
   private applyAdaptiveSampling(level: string, context?: Record<string, unknown>): boolean {
     const baseRate = this.getLevelSamplingRate(level);
     const adaptiveRate = baseRate * this.config.sampling.adaptive.emergencyReduction;
-    
+
     // Log that adaptive sampling is active
-    if (Math.random() < 0.001) { // Sample 0.1% of these messages
+    if (Math.random() < 0.001) {
+      // Sample 0.1% of these messages
       this.optimizerLogger.warn('Adaptive sampling active due to high log volume', {
         currentRate: adaptiveRate,
         baseRate,
         level,
-        component: context?.component
+        component: context?.component,
       });
     }
-    
+
     return Math.random() <= adaptiveRate;
   }
 
@@ -316,7 +338,7 @@ class ProductionOptimizer {
     const key = `${level}:${component || 'default'}`;
     const now = Date.now();
     const existing = this.logCounts.get(key);
-    
+
     if (existing && now - existing.timestamp < 1000) {
       existing.count++;
     } else {
@@ -328,8 +350,8 @@ class ProductionOptimizer {
    * Optimize log data for performance and compliance
    */
   optimizeLogData(
-    level: string, 
-    message: string, 
+    level: string,
+    message: string,
     meta: Record<string, unknown>
   ): { message: string; meta: Record<string, unknown> } {
     const optimizedMeta = { ...meta };
@@ -339,7 +361,7 @@ class ProductionOptimizer {
       sampled: true,
       timestamp: new Date().toISOString(),
       environment: this.config.environment,
-      optimizerVersion: '1.0.0'
+      optimizerVersion: '1.0.0',
     };
 
     // Add compliance metadata if required
@@ -348,7 +370,7 @@ class ProductionOptimizer {
         framework: 'HIPAA',
         retentionRequired: this.config.compliance.auditTrailRequired,
         retentionPeriod: `${this.config.compliance.retentionPeriod}_days`,
-        dataClassification: this.classifyData(meta)
+        dataClassification: this.classifyData(meta),
       };
     }
 
@@ -366,8 +388,8 @@ class ProductionOptimizer {
   private classifyData(meta: Record<string, unknown>): string {
     // Check for sensitive data patterns
     const sensitiveFields = ['userId', 'email', 'password', 'ssn', 'phone'];
-    const hasSensitiveData = Object.keys(meta).some(key => 
-      sensitiveFields.some(field => key.toLowerCase().includes(field))
+    const hasSensitiveData = Object.keys(meta).some((key) =>
+      sensitiveFields.some((field) => key.toLowerCase().includes(field))
     );
 
     if (hasSensitiveData) return 'SENSITIVE';
@@ -380,13 +402,11 @@ class ProductionOptimizer {
    * Compress log data for storage efficiency
    */
   private compressLogData(
-    message: string, 
+    message: string,
     meta: Record<string, unknown>
   ): { message: string; meta: Record<string, unknown> } {
     // Truncate very long messages
-    const truncatedMessage = message.length > 500 
-      ? `${message.substring(0, 497)}...`
-      : message;
+    const truncatedMessage = message.length > 500 ? `${message.substring(0, 497)}...` : message;
 
     // Compress large metadata objects
     const compressedMeta = this.compressMetadata(meta);
@@ -436,7 +456,7 @@ class ProductionOptimizer {
       this.optimizerLogger.debug('Flushed log buffer', {
         bufferSize,
         memoryUsage: process.memoryUsage().heapUsed / 1024 / 1024, // MB
-        interval: this.config.performance.flushInterval
+        interval: this.config.performance.flushInterval,
       });
     }
   }
@@ -459,12 +479,11 @@ class ProductionOptimizer {
         debug: this.config.sampling.debug,
         info: this.config.sampling.info,
         warn: this.config.sampling.warn,
-        error: this.config.sampling.error
+        error: this.config.sampling.error,
       },
-      currentVolume: Array.from(this.logCounts.values())
-        .reduce((sum, data) => sum + data.count, 0),
+      currentVolume: Array.from(this.logCounts.values()).reduce((sum, data) => sum + data.count, 0),
       bufferSize: this.logBuffer.length,
-      adaptiveSamplingActive: this.isLogVolumeHigh()
+      adaptiveSamplingActive: this.isLogVolumeHigh(),
     };
   }
 
@@ -473,20 +492,20 @@ class ProductionOptimizer {
    */
   updateConfig(updates: Partial<ProductionConfig>): void {
     this.config = { ...this.config, ...updates };
-    
+
     this.optimizerLogger.info('Production optimizer configuration updated', {
       updates: Object.keys(updates),
       newConfig: {
         logLevel: this.config.logLevel,
         environment: this.config.environment,
-        asyncLogging: this.config.performance.asyncLogging
-      }
+        asyncLogging: this.config.performance.asyncLogging,
+      },
     });
   }
 }
 
 // Global production optimizer instance - lazy initialization to prevent startup issues
-let productionOptimizerInstance: ProductionOptimizer | null = null
+let productionOptimizerInstance: ProductionOptimizer | null = null;
 
 export const productionOptimizer = {
   get instance(): ProductionOptimizer {
@@ -495,23 +514,23 @@ export const productionOptimizer = {
     }
     return productionOptimizerInstance;
   },
-  
+
   // Proxy methods for backward compatibility
   shouldSample: (level: string, context?: Record<string, unknown>) => {
     return productionOptimizer.instance.shouldSample(level, context);
   },
-  
+
   recordLog: (level: string, component?: string) => {
     return productionOptimizer.instance.recordLog(level, component);
   },
-  
+
   getStats: () => {
     return productionOptimizer.instance.getStats();
   },
-  
+
   updateConfig: (updates: Partial<ProductionConfig>) => {
     return productionOptimizer.instance.updateConfig(updates);
-  }
+  },
 };
 
 // Export types and classes for advanced usage

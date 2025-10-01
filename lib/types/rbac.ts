@@ -77,7 +77,7 @@ export type PermissionScope = 'own' | 'organization' | 'all';
 
 // Permission name type - format: resource:action:scope (defined below with specific values)
 
-export type ResourceType = 
+export type ResourceType =
   | 'users'
   | 'practices'
   | 'organizations'
@@ -98,7 +98,7 @@ export type ActionType =
   | 'staff:manage';
 
 // Specific Permission Name Types for Type Safety
-export type UserPermission = 
+export type UserPermission =
   | 'users:read:own'
   | 'users:update:own'
   | 'users:read:organization'
@@ -136,13 +136,9 @@ export type SettingsPermission =
   | 'settings:read:all'
   | 'settings:update:all';
 
-export type TemplatePermission =
-  | 'templates:read:organization'
-  | 'templates:manage:all';
+export type TemplatePermission = 'templates:read:organization' | 'templates:manage:all';
 
-export type ApiPermission =
-  | 'api:read:organization'
-  | 'api:write:organization';
+export type ApiPermission = 'api:read:organization' | 'api:write:organization';
 
 export type DataSourcePermission =
   | 'data-sources:read:organization'
@@ -155,7 +151,7 @@ export type DataSourcePermission =
   | 'data-sources:delete:all'
   | 'data-sources:manage:all';
 
-export type PermissionName = 
+export type PermissionName =
   | UserPermission
   | PracticePermission
   | AnalyticsPermission
@@ -168,7 +164,7 @@ export type PermissionName =
 // Role Types for Healthcare Practices
 export type SystemRoleName = 'super_admin';
 
-export type PracticeRoleName = 
+export type PracticeRoleName =
   | 'practice_admin'
   | 'practice_manager'
   | 'practice_staff'
@@ -185,17 +181,17 @@ export interface UserContext {
   last_name: string;
   is_active: boolean;
   email_verified: boolean;
-  
+
   // RBAC information
   roles: Role[];
   organizations: Organization[];
   accessible_organizations: Organization[]; // Includes child organizations
   user_roles: UserRole[];
   user_organizations: UserOrganization[];
-  
+
   // Current context
   current_organization_id?: string | undefined;
-  
+
   // Computed properties
   all_permissions: Permission[];
   is_super_admin: boolean;
@@ -336,25 +332,18 @@ export class RBACError extends Error {
 }
 
 export class PermissionDeniedError extends RBACError {
-  constructor(
-    permission: string,
-    resourceId?: string,
-    organizationId?: string
-  ) {
+  constructor(permission: string, resourceId?: string, organizationId?: string) {
     const message = `Permission denied: ${permission}${resourceId ? ` for resource ${resourceId}` : ''}${organizationId ? ` in organization ${organizationId}` : ''}`;
     super(message, 'PERMISSION_DENIED', 403, {
       permission,
       resourceId,
-      organizationId
+      organizationId,
     });
   }
 }
 
 export class InsufficientScopeError extends RBACError {
-  constructor(
-    requiredScope: PermissionScope,
-    actualScope: PermissionScope
-  ) {
+  constructor(requiredScope: PermissionScope, actualScope: PermissionScope) {
     super(
       `Insufficient scope: required ${requiredScope}, got ${actualScope}`,
       'INSUFFICIENT_SCOPE',
@@ -366,12 +355,9 @@ export class InsufficientScopeError extends RBACError {
 
 export class OrganizationAccessError extends RBACError {
   constructor(organizationId: string) {
-    super(
-      `Access denied to organization: ${organizationId}`,
-      'ORGANIZATION_ACCESS_DENIED',
-      403,
-      { organizationId }
-    );
+    super(`Access denied to organization: ${organizationId}`, 'ORGANIZATION_ACCESS_DENIED', 403, {
+      organizationId,
+    });
   }
 }
 
@@ -390,16 +376,16 @@ export interface RBACConfig {
   enableAuditLogging: boolean;
   enablePermissionCaching: boolean;
   permissionCacheTTL: number; // seconds
-  
+
   // Organization hierarchy
   maxOrganizationDepth: number;
   enableOrganizationInheritance: boolean;
-  
+
   // Security
   enableStrictModeChecking: boolean;
   requireFreshAuthForSensitiveOps: boolean;
   sensitiveOperationMaxAge: number; // minutes
-  
+
   // Performance
   enableQueryOptimization: boolean;
   batchPermissionChecks: boolean;
