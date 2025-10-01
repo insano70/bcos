@@ -135,6 +135,31 @@
   ::file-selector-button {
     border-color: var(--color-gray-200, currentColor);
   }
+
+  /* Universal button interactions */
+  button {
+    cursor: pointer;
+    transition: transform 150ms ease-in-out;
+  }
+
+  button:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  /* Universal link interactions */
+  a {
+    cursor: pointer;
+    transition: opacity 150ms ease-in-out;
+  }
+
+  a:active {
+    opacity: 0.8;
+  }
 }
 
 /* Chart component utilities (CSP-compliant) */

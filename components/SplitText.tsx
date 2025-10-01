@@ -4,7 +4,6 @@ import React, { useRef, useEffect, useState } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
-import { useStyleNonce } from '@/lib/security/nonce-context';
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -42,7 +41,6 @@ const SplitText: React.FC<SplitTextProps> = ({
   const ref = useRef<HTMLParagraphElement>(null);
   const animationCompletedRef = useRef(false);
   const [fontsLoaded, setFontsLoaded] = useState<boolean>(false);
-  const styleNonce = useStyleNonce();
 
   useEffect(() => {
     if (document.fonts.status === 'loaded') {
@@ -54,34 +52,7 @@ const SplitText: React.FC<SplitTextProps> = ({
     }
   }, []);
 
-  // Inject dynamic styles with nonce for CSP compliance
-  useEffect(() => {
-    if (typeof document === 'undefined' || !styleNonce) return;
-
-    const dynamicStyles = `
-      .split-text-align-${textAlign.replace(/[^a-zA-Z0-9-_]/g, '-')} {
-        text-align: ${textAlign};
-      }
-      .split-word-wrap {
-        word-wrap: break-word;
-      }
-      .split-will-change {
-        will-change: transform, opacity;
-      }
-      .split-inline-block {
-        display: inline-block;
-      }
-    `;
-
-    const styleElement = document.createElement('style');
-    styleElement.setAttribute('nonce', styleNonce);
-    styleElement.textContent = dynamicStyles;
-    document.head.appendChild(styleElement);
-
-    return () => {
-      document.head.removeChild(styleElement);
-    };
-  }, [textAlign, styleNonce]);
+  // No manual style injection needed - using CSS custom properties instead
 
   useGSAP(
     () => {
@@ -159,50 +130,56 @@ const SplitText: React.FC<SplitTextProps> = ({
   };
 
   const renderTag = () => {
-    const textAlignClass = `split-text-align-${textAlign.replace(/[^a-zA-Z0-9-_]/g, '-')}`;
-    const classes = `split-parent overflow-hidden inline-block whitespace-normal split-word-wrap split-will-change ${textAlignClass} ${className}`;
+    const classes = `split-parent overflow-hidden inline-block whitespace-normal ${className}`;
     const content = splitText(text, splitType);
+
+    // Use inline styles for dynamic values - CSP compliant for style attributes
+    const inlineStyles: React.CSSProperties = {
+      textAlign,
+      wordWrap: 'break-word',
+      willChange: 'transform, opacity'
+    };
 
     switch (tag) {
       case 'h1':
         return (
-          <h1 ref={ref} className={classes}>
+          <h1 ref={ref} className={classes} style={inlineStyles}>
             {content}
           </h1>
         );
       case 'h2':
         return (
-          <h2 ref={ref} className={classes}>
+          <h2 ref={ref} className={classes} style={inlineStyles}>
             {content}
           </h2>
         );
       case 'h3':
         return (
-          <h3 ref={ref} className={classes}>
+          <h3 ref={ref} className={classes} style={inlineStyles}>
             {content}
           </h3>
         );
       case 'h4':
         return (
-          <h4 ref={ref} className={classes}>
+          <h4 ref={ref} className={classes} style={inlineStyles}>
             {content}
           </h4>
         );
       case 'h5':
         return (
-          <h5 ref={ref} className={classes}>
+          <h5 ref={ref} className={classes} style={inlineStyles}>
             {content}
           </h5>
         );
       case 'h6':
         return (
-          <h6 ref={ref} className={classes}>
+          <h6 ref={ref} className={classes} style={inlineStyles}>
             {content}
           </h6>
         );
       default:
         return (
-          <p ref={ref} className={classes}>
+          <p ref={ref} className={classes} style={inlineStyles}>
             {content}
           </p>
         );

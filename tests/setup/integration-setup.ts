@@ -3,6 +3,9 @@ import { initializeMainTransaction, getTestTransaction, rollbackTransaction, cle
 import { emergencyCleanup } from './cleanup'
 import { logger } from '@/lib/logger'
 
+// Register committed factories with the global registry
+import '@/tests/factories/committed/setup'
+
 // Ensure environment variables are set for tests
 // Only set DATABASE_URL if it's not already set (to avoid overriding existing config)
 if (!process.env.DATABASE_URL) {
