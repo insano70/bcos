@@ -93,10 +93,10 @@ export class PermissionChecker {
         return true;
       }
 
-      // Component match with scope validation
+      // Component match with scope and action validation
       return (
         permission.resource === resource &&
-        permission.action === action &&
+        this.isActionCompatible(permission.action, action) &&
         this.isScopeCompatible(permission.scope, scope as PermissionScope)
       );
     });
@@ -273,6 +273,21 @@ export class PermissionChecker {
     );
 
     return uniquePermissions;
+  }
+
+  private isActionCompatible(userAction: string, requiredAction: string): boolean {
+    // Exact match is always valid
+    if (userAction === requiredAction) {
+      return true;
+    }
+
+    // "manage" action grants all other actions for the resource
+    // This allows templates:manage:all to satisfy templates:read:organization
+    if (userAction === 'manage') {
+      return true;
+    }
+
+    return false;
   }
 
   private isScopeCompatible(userScope: PermissionScope, requiredScope: PermissionScope): boolean {
