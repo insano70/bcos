@@ -11,7 +11,7 @@ import { practiceParamsSchema } from '@/lib/validations/practice';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import type { UserContext } from '@/lib/types/rbac'
-import { logger } from '@/lib/logger';
+import { log } from '@/lib/logger';
 import { parseSpecialties, parseEducation } from '@/lib/utils/safe-json';
 
 const getPracticeStaffHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
@@ -102,15 +102,12 @@ const getPracticeStaffHandler = async (request: NextRequest, userContext: UserCo
     
   } catch (error) {
     const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
-    const errorStack = process.env.NODE_ENV === 'development' && error && typeof error === 'object' && 'stack' in error ? String(error.stack) : undefined;
-    
-    logger.error('Error fetching staff members', {
-      error: errorMessage,
-      stack: errorStack,
+
+    log.error('Error fetching staff members', error, {
       practiceId,
       operation: 'fetchStaffMembers'
     })
-    
+
     const clientErrorMessage = process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
     return createErrorResponse(clientErrorMessage, 500, request)
   }
@@ -181,15 +178,12 @@ const createPracticeStaffHandler = async (request: NextRequest, userContext: Use
     return createSuccessResponse(parsedStaffMember, 'Staff member created successfully');
   } catch (error) {
     const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
-    const errorStack = process.env.NODE_ENV === 'development' && error && typeof error === 'object' && 'stack' in error ? String(error.stack) : undefined;
-    
-    logger.error('Error creating staff member', {
-      error: errorMessage,
-      stack: errorStack,
+
+    log.error('Error creating staff member', error, {
       practiceId,
       operation: 'createStaffMember'
     });
-    
+
     const clientErrorMessage = process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
     return createErrorResponse(clientErrorMessage, 500, request);
   }

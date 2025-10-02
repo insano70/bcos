@@ -9,13 +9,13 @@ import { practiceAttributesUpdateSchema, practiceParamsSchema } from '@/lib/vali
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import type { UserContext } from '@/lib/types/rbac'
-import { logger } from '@/lib/logger';
-import { 
-  parseBusinessHours, 
-  parseServices, 
-  parseInsuranceAccepted, 
-  parseConditionsTreated, 
-  parseGalleryImages 
+import { log } from '@/lib/logger';
+import {
+  parseBusinessHours,
+  parseServices,
+  parseInsuranceAccepted,
+  parseConditionsTreated,
+  parseGalleryImages
 } from '@/lib/utils/json-parser';
 
 const getPracticeAttributesHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
@@ -69,15 +69,12 @@ const getPracticeAttributesHandler = async (request: NextRequest, userContext: U
     
   } catch (error) {
     const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
-    const errorStack = process.env.NODE_ENV === 'development' && error && typeof error === 'object' && 'stack' in error ? String(error.stack) : undefined;
-    
-    logger.error('Error fetching practice attributes', {
-      error: errorMessage,
-      stack: errorStack,
+
+    log.error('Error fetching practice attributes', error, {
       practiceId,
       operation: 'fetchPracticeAttributes'
     })
-    
+
     const clientErrorMessage = process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
     return createErrorResponse(clientErrorMessage, 500, request)
   }
@@ -146,15 +143,12 @@ const updatePracticeAttributesHandler = async (request: NextRequest, userContext
     
   } catch (error) {
     const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
-    const errorStack = process.env.NODE_ENV === 'development' && error && typeof error === 'object' && 'stack' in error ? String(error.stack) : undefined;
-    
-    logger.error('Error updating practice attributes', {
-      error: errorMessage,
-      stack: errorStack,
+
+    log.error('Error updating practice attributes', error, {
       practiceId,
       operation: 'updatePracticeAttributes'
     })
-    
+
     const clientErrorMessage = process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
     return createErrorResponse(clientErrorMessage, 500, request)
   }

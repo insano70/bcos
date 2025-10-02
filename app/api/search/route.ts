@@ -6,7 +6,7 @@ import { createErrorResponse } from '@/lib/api/responses/error'
 import { validateQuery } from '@/lib/api/middleware/validation'
 import { getPagination } from '@/lib/api/utils/request'
 import { rbacRoute } from '@/lib/api/rbac-route-handler'
-import { logger } from '@/lib/logger'
+import { log } from '@/lib/logger'
 import type { UserContext } from '@/lib/types/rbac'
 import { z } from 'zod'
 
@@ -227,9 +227,7 @@ const searchHandler = async (request: NextRequest, userContext: UserContext) => 
     return createSuccessResponse(results, 'Search completed successfully')
     
   } catch (error) {
-    logger.error('Search error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+    log.error('Search error', error, {
       query,
       operation: 'search'
     })
@@ -309,9 +307,7 @@ async function generateSearchSuggestions(query: string): Promise<string[]> {
     
     return fuzzyMatches.slice(0, 5)
   } catch (error) {
-    logger.error('Error generating suggestions', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
+    log.error('Error generating suggestions', error, {
       query,
       operation: 'generateSuggestions'
     })
