@@ -10,11 +10,7 @@ import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import type { UserContext } from '@/lib/types/rbac';
 import { z } from 'zod';
-import { 
-  createAPILogger, 
-  logDBOperation, 
-  logPerformanceMetric 
-} from '@/lib/logger';
+import { log } from '@/lib/logger';
 
 // Validation schema for reorder request
 const reorderRequestSchema = z.object({
@@ -27,17 +23,16 @@ const reorderRequestSchema = z.object({
 
 const reorderStaffHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
+
   try {
     // Extract practice ID from route params
     const practiceParams = await extractRouteParams(args[0], practiceParamsSchema);
     const practiceId = practiceParams.id;
-    
+
     const requestData = await validateRequest(request, reorderRequestSchema);
     const reorderData = requestData.data;
-    
-    logger.info('Reorder staff request initiated', {
+
+    log.info('Reorder staff request initiated', {
       practiceId,
       staffCount: reorderData.length,
       requestingUserId: userContext.user_id
@@ -53,7 +48,7 @@ const reorderStaffHandler = async (request: NextRequest, userContext: UserContex
         isNull(practices.deleted_at)
       ))
       .limit(1);
-    logDBOperation(logger, 'SELECT', 'practices', practiceStart, 1);
+    log.db('SELECT', 'practices', Date.now() - practiceStart, { rowCount: 1 });
 
     if (!practice) {
       throw NotFoundError('Practice');
@@ -74,7 +69,7 @@ const reorderStaffHandler = async (request: NextRequest, userContext: UserContex
         eq(staff_members.practice_id, practiceId),
         isNull(staff_members.deleted_at)
       ));
-    logDBOperation(logger, 'SELECT', 'staff_members', verifyStart, existingStaff.length);
+    log.db('SELECT', 'staff_members', Date.now() - verifyStart, { rowCount: existingStaff.length });
 
     const existingStaffIds = existingStaff.map(s => s.staff_id);
     const invalidStaffIds = staffIds.filter(id => !existingStaffIds.includes(id));
@@ -103,7 +98,7 @@ const reorderStaffHandler = async (request: NextRequest, userContext: UserContex
 
     // Execute all updates
     await Promise.all(updates);
-    logDBOperation(logger, 'UPDATE', 'staff_members', updateStart, reorderData.length);
+    log.db('UPDATE', 'staff_members', Date.now() - updateStart, { rowCount: reorderData.length });
 
     // Get updated staff list to return
     const finalStart = Date.now();
@@ -115,53 +110,32 @@ const reorderStaffHandler = async (request: NextRequest, userContext: UserContex
         isNull(staff_members.deleted_at)
       ))
       .orderBy(staff_members.display_order);
-    logDBOperation(logger, 'SELECT', 'staff_members', finalStart, updatedStaff.length);
+    log.db('SELECT', 'staff_members', Date.now() - finalStart, { rowCount: updatedStaff.length });
 
     const totalDuration = Date.now() - startTime;
-    logger.info('Staff reorder completed successfully', {
+    log.info('Staff reorder completed successfully', {
       practiceId,
       staffCount: reorderData.length,
       totalDuration
-    });
-
-    logPerformanceMetric(logger, 'staff_reorder_total', totalDuration, {
-      success: true,
-      staffCount: reorderData.length
     });
 
     return createSuccessResponse(updatedStaff, 'Staff members reordered successfully');
     
   } catch (error) {
     const totalDuration = Date.now() - startTime;
-    
+
     // Safe error handling without instanceof
     let errorMessage = 'Unknown error';
-    let errorType = 'unknown';
-    let constructorName: string = typeof error;
-    
+
     if (error && typeof error === 'object' && 'message' in error) {
       errorMessage = String(error.message);
-      if ('name' in error) {
-        errorType = String(error.name);
-      }
-      if ('constructor' in error && error.constructor && 'name' in error.constructor) {
-        constructorName = String(error.constructor.name);
-      }
     } else if (typeof error === 'string') {
       errorMessage = error;
-      errorType = 'string';
-      constructorName = 'string';
     }
-    
-    logger.error('Staff reorder request failed', error, {
-      requestingUserId: userContext.user_id,
-      totalDuration,
-      errorType: constructorName
-    });
 
-    logPerformanceMetric(logger, 'staff_reorder_total', totalDuration, {
-      success: false,
-      errorType: errorType
+    log.error('Staff reorder request failed', error, {
+      requestingUserId: userContext.user_id,
+      totalDuration
     });
 
     return createErrorResponse(errorMessage, 500, request);
