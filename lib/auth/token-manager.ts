@@ -5,14 +5,7 @@ import { nanoid } from 'nanoid';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { db, login_attempts, refresh_tokens, token_blacklist, user_sessions } from '@/lib/db';
 import { getJWTConfig } from '@/lib/env';
-import { createAppLogger } from '@/lib/logger/factory';
-
-// Create Universal Logger for token management operations
-const tokenLogger = createAppLogger('token-manager', {
-  component: 'security',
-  feature: 'jwt-management',
-  module: 'token-manager',
-});
+import { log } from '@/lib/logger';
 
 /**
  * Enterprise JWT + Refresh Token Manager
@@ -291,7 +284,7 @@ export class TokenManager {
         sessionId,
       };
     } catch (error) {
-      tokenLogger.error('Token refresh error', {
+      log.error('Token refresh error', {
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
         refreshToken: refreshToken ? 'present' : 'missing',
@@ -382,7 +375,7 @@ export class TokenManager {
 
       return true;
     } catch (error) {
-      tokenLogger.error('Token revocation error', {
+      log.error('Token revocation error', {
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
         userId: 'unknown', // userId may not be available if JWT verification fails
@@ -533,7 +526,7 @@ export class TokenManager {
       .delete(token_blacklist)
       .where(lte(token_blacklist.expires_at, now));
 
-    tokenLogger.info('Token cleanup completed', {
+    log.info('Token cleanup completed', {
       expiredRefreshTokens: expiredRefreshTokens.length || 0,
       expiredBlacklistEntries: expiredBlacklistEntries.length || 0,
       operation: 'cleanupExpiredTokens',

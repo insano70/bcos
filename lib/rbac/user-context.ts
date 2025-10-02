@@ -1,13 +1,5 @@
 import { db } from '@/lib/db';
-import { createAppLogger } from '@/lib/logger/factory';
-
-// Create Universal Logger for RBAC user context operations
-const rbacContextLogger = createAppLogger('rbac-user-context', {
-  component: 'security',
-  feature: 'rbac-analytics',
-  module: 'user-context',
-});
-
+import { log } from '@/lib/logger';
 import { and, eq } from 'drizzle-orm';
 import {
   organizations,
@@ -312,7 +304,7 @@ async function getAccessibleOrganizations(
         accessibleOrgs.set(org.organization_id, org);
       });
     } catch (error) {
-      rbacContextLogger.warn('Failed to get organization hierarchy', {
+      log.warn('Failed to get organization hierarchy', {
         organizationId: orgId,
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
@@ -367,7 +359,7 @@ export async function getUserContextSafe(userId: string): Promise<UserContext | 
     const cachedContext = await requestCache.get(cacheKey);
     if (cachedContext) {
       if (isDev) {
-        rbacContextLogger.debug('User context cache hit', {
+        log.debug('User context cache hit', {
           userId,
           operation: 'getUserContext',
         });
@@ -376,12 +368,12 @@ export async function getUserContextSafe(userId: string): Promise<UserContext | 
     }
     // Cache had key but returned null/undefined - continue with fresh load
     if (isDev) {
-      rbacContextLogger.warn('Cache had key but returned null value', { userId, cacheKey });
+      log.warn('Cache had key but returned null value', { userId, cacheKey });
     }
   }
 
   if (isDev) {
-    rbacContextLogger.debug('Loading user context', {
+    log.debug('Loading user context', {
       userId,
       operation: 'getUserContext',
     });
@@ -392,7 +384,7 @@ export async function getUserContextSafe(userId: string): Promise<UserContext | 
     try {
       const context = await getUserContext(userId);
       if (isDev) {
-        rbacContextLogger.debug('User context loaded successfully', {
+        log.debug('User context loaded successfully', {
           userId,
           rolesCount: context.roles?.length || 0,
           permissionsCount: context.all_permissions?.length || 0,
@@ -403,13 +395,13 @@ export async function getUserContextSafe(userId: string): Promise<UserContext | 
     } catch (error) {
       // ✅ SECURITY: Use sanitized error logging for production
       if (process.env.NODE_ENV === 'development') {
-        rbacContextLogger.error('Failed to get user context', {
+        log.error('Failed to get user context', {
           userId,
           error: error instanceof Error ? error.message : 'Unknown error',
           stack: error instanceof Error ? error.stack : undefined,
         });
       } else {
-        rbacContextLogger.error('Failed to get user context (detailed)', {
+        log.error('Failed to get user context (detailed)', {
           userId,
           error: error instanceof Error ? error.message : 'Unknown error',
           errorName: error instanceof Error ? error.name : 'Unknown error',
@@ -453,7 +445,7 @@ export async function validateUserExists(userId: string): Promise<boolean> {
 
     return user?.is_active === true;
   } catch (error) {
-    rbacContextLogger.error('Error validating user', {
+    log.error('Error validating user', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
     });

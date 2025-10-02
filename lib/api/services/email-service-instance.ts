@@ -7,13 +7,7 @@
 import * as nodemailer from 'nodemailer';
 import { getEmailConfig } from '@/lib/env';
 import { EmailService } from './email';
-import { createAppLogger } from '@/lib/logger/factory';
-
-const emailLogger = createAppLogger('email-service-instance', {
-  component: 'communications',
-  feature: 'email-delivery',
-  module: 'email-service-instance',
-});
+import { log } from '@/lib/logger';
 
 /**
  * Singleton instance of EmailService
@@ -29,12 +23,12 @@ function createTransporter(): nodemailer.Transporter {
   const config = getEmailConfig();
 
   if (!config.smtp.username || !config.smtp.password || !config.smtp.endpoint) {
-    emailLogger.warn('Email service disabled - AWS SES credentials not configured');
+    log.warn('Email service disabled - AWS SES credentials not configured');
 
     // Create a mock transporter that logs instead of sending
     return {
       sendMail: async (mailOptions: nodemailer.SendMailOptions) => {
-        emailLogger.info('Mock email send (SES not configured)', {
+        log.info('Mock email send (SES not configured)', {
           to: mailOptions.to,
           subject: mailOptions.subject,
         });

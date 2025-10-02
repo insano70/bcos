@@ -3,8 +3,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { nanoid } from 'nanoid';
 import sharp from 'sharp';
-import { logger } from '@/lib/logger';
-import { createAppLogger } from '@/lib/logger/factory';
+import { log } from '@/lib/logger';
 
 /**
  * Enterprise File Upload Service
@@ -37,11 +36,6 @@ interface UploadResult {
 }
 
 export class FileUploadService {
-  private static universalLogger = createAppLogger('upload-service', {
-    component: 'file-management',
-    feature: 'secure-uploads',
-  });
-
   private static readonly DEFAULT_OPTIONS: Required<UploadOptions> = {
     allowedTypes: [
       'image/jpeg',
@@ -82,7 +76,7 @@ export class FileUploadService {
     };
 
     // Enhanced upload operation logging - permanently enabled
-    FileUploadService.universalLogger.info('File upload operation initiated', {
+    log.info('File upload operation initiated', {
       fileCount: files.length,
       maxAllowed: opts.maxFiles,
       allowedTypes: opts.allowedTypes,
@@ -93,7 +87,7 @@ export class FileUploadService {
 
     // Security validation logging
     const totalSize = files.reduce((sum, file) => sum + file.size, 0);
-    FileUploadService.universalLogger.security('file_upload_security_check', 'low', {
+    log.security('file_upload_security_check', 'low', {
       action: 'upload_validation',
       fileCount: files.length,
       totalSize,
@@ -104,7 +98,7 @@ export class FileUploadService {
     // Validate file count
     if (files.length > opts.maxFiles) {
       // Enhanced logging permanently enabled
-      FileUploadService.universalLogger.security('file_upload_violation', 'medium', {
+      log.security('file_upload_violation', 'medium', {
         action: 'file_count_exceeded',
         threat: 'resource_abuse',
         blocked: true,
@@ -144,7 +138,7 @@ export class FileUploadService {
     const duration = Date.now() - startTime;
 
     // Business intelligence for upload analytics
-    FileUploadService.universalLogger.info('File upload analytics', {
+    log.info('File upload analytics', {
       totalFiles: files.length,
       successfulFiles: result.files.length,
       failedFiles: result.errors.length,
@@ -157,14 +151,14 @@ export class FileUploadService {
 
     // Security completion logging
     if (result.success) {
-      FileUploadService.universalLogger.security('file_upload_completed', 'low', {
+      log.security('file_upload_completed', 'low', {
         action: 'upload_successful',
         filesProcessed: result.files.length,
         securityValidation: 'passed',
         storageLocation: 'local_filesystem',
       });
     } else {
-      FileUploadService.universalLogger.security('file_upload_failed', 'medium', {
+      log.security('file_upload_failed', 'medium', {
         action: 'upload_failed',
         reason: 'validation_errors',
         errorCount: result.errors.length,
@@ -173,7 +167,7 @@ export class FileUploadService {
     }
 
     // Performance monitoring
-    FileUploadService.universalLogger.timing('Upload operation completed', startTime, {
+    log.timing('Upload operation completed', startTime, {
       fileCount: files.length,
       successCount: result.files.length,
       errorCount: result.errors.length,
@@ -298,9 +292,11 @@ export class FileUploadService {
           return buffer;
       }
     } catch (error) {
-      logger.warn('Image optimization failed, using original', {
+      log.warn('Image optimization failed, using original', {
         error: error instanceof Error ? error.message : 'Unknown error',
         operation: 'optimizeImage',
+        component: 'file-management',
+        feature: 'secure-uploads',
       });
       return buffer;
     }
@@ -337,9 +333,11 @@ export class FileUploadService {
       await writeFile(thumbnailFile, thumbnailBuffer);
       return thumbnailUrl;
     } catch (error) {
-      logger.warn('Thumbnail generation failed', {
+      log.warn('Thumbnail generation failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
         operation: 'generateThumbnail',
+        component: 'file-management',
+        feature: 'secure-uploads',
       });
       return '';
     }
@@ -387,9 +385,10 @@ export class FileUploadService {
 
       return true;
     } catch (error) {
-      logger.error('File deletion failed', {
+      log.error('File deletion failed', error instanceof Error ? error : new Error(String(error)), {
         filePath,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        component: 'file-management',
+        feature: 'secure-uploads',
         stack: error instanceof Error ? error.stack : undefined,
         operation: 'deleteFile',
       });

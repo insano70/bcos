@@ -17,7 +17,7 @@ import { createHash, X509Certificate } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { getSAMLConfig, isSAMLEnabled } from '@/lib/env';
-import { createAppLogger } from '@/lib/logger/factory';
+import { log } from '@/lib/logger';
 import type {
   CertificateCacheEntry,
   SAMLCertificateError,
@@ -28,12 +28,6 @@ import type {
 import { fetchIdPCertificateFromMetadata } from './metadata-fetcher';
 
 // Create logger for SAML configuration operations
-const samlConfigLogger = createAppLogger('saml-config', {
-  component: 'security',
-  feature: 'saml-sso',
-  module: 'config',
-});
-
 /**
  * Certificate Cache Manager
  * Handles caching and validation of SAML certificates
@@ -60,7 +54,7 @@ class CertificateCache {
 
     // Check if cached and not expired
     if (cached && cached.expiresAt > now) {
-      samlConfigLogger.debug('Certificate cache hit', {
+      log.debug('Certificate cache hit', {
         key,
         cachedAt: cached.cachedAt,
         expiresAt: cached.expiresAt,
@@ -73,7 +67,7 @@ class CertificateCache {
     }
 
     // Cache miss or expired - load certificate
-    samlConfigLogger.info('Certificate cache miss - loading certificate', {
+    log.info('Certificate cache miss - loading certificate', {
       key,
       cacheExpired: cached ? cached.expiresAt <= now : false,
     });
@@ -95,7 +89,7 @@ class CertificateCache {
 
     this.cache.set(key, cacheEntry);
 
-    samlConfigLogger.info('Certificate cached successfully', {
+    log.info('Certificate cached successfully', {
       key,
       expiresAt: cacheEntry.expiresAt,
       certValidUntil: info.validUntil,
@@ -151,7 +145,7 @@ class CertificateCache {
         details: { key, error: error instanceof Error ? error.message : String(error) },
       } as SAMLCertificateError;
 
-      samlConfigLogger.error(
+      log.error(
         'Certificate parsing failed',
         new Error(certError.message),
         certError.details
@@ -181,7 +175,7 @@ class CertificateCache {
         },
       } as SAMLCertificateError;
 
-      samlConfigLogger.error(
+      log.error(
         'Certificate expired - rejecting',
         new Error(error.message),
         error.details
@@ -203,7 +197,7 @@ class CertificateCache {
         },
       } as SAMLCertificateError;
 
-      samlConfigLogger.error(
+      log.error(
         'Certificate expires too soon - rejecting startup',
         new Error(error.message),
         error.details
@@ -213,7 +207,7 @@ class CertificateCache {
 
     // Warning if certificate expires soon
     if (info.expiresSoon) {
-      samlConfigLogger.warn('Certificate expires soon - plan rotation', {
+      log.warn('Certificate expires soon - plan rotation', {
         key,
         daysUntilExpiry: info.daysUntilExpiry,
         validUntil: info.validUntil,
@@ -225,7 +219,7 @@ class CertificateCache {
     }
 
     // Log successful validation
-    samlConfigLogger.info('Certificate validated successfully', {
+    log.info('Certificate validated successfully', {
       key,
       fingerprint: `${info.fingerprint.substring(0, 20)}...`,
       validFrom: info.validFrom,
@@ -240,11 +234,11 @@ class CertificateCache {
   invalidate(key?: string): void {
     if (key) {
       this.cache.delete(key);
-      samlConfigLogger.info('Certificate cache invalidated', { key });
+      log.info('Certificate cache invalidated', { key });
     } else {
       this.cache.clear();
       this.cacheVersion++;
-      samlConfigLogger.info('All certificate cache invalidated', { newVersion: this.cacheVersion });
+      log.info('All certificate cache invalidated', { newVersion: this.cacheVersion });
     }
   }
 
@@ -278,7 +272,7 @@ function loadCertificateFromFS(certPathOrContent: string | undefined, certName: 
     try {
       const certPath = resolve(process.cwd(), certPathOrContent);
       const cert = readFileSync(certPath, 'utf-8');
-      samlConfigLogger.debug('Certificate loaded from file', {
+      log.debug('Certificate loaded from file', {
         certName,
         path: certPath,
         length: cert.length,
@@ -288,7 +282,7 @@ function loadCertificateFromFS(certPathOrContent: string | undefined, certName: 
       const err = new Error(
         `Failed to load ${certName} from path '${certPathOrContent}': ${error instanceof Error ? error.message : 'Unknown error'}`
       );
-      samlConfigLogger.error('Certificate file read failed', err, {
+      log.error('Certificate file read failed', err, {
         certName,
         path: certPathOrContent,
       });
@@ -301,7 +295,7 @@ function loadCertificateFromFS(certPathOrContent: string | undefined, certName: 
     !certPathOrContent.includes('BEGIN CERTIFICATE') &&
     !certPathOrContent.includes('BEGIN RSA PRIVATE KEY')
   ) {
-    samlConfigLogger.warn('Certificate content does not contain expected PEM markers', {
+    log.warn('Certificate content does not contain expected PEM markers', {
       certName,
       contentPreview: certPathOrContent.substring(0, 50),
     });
@@ -324,7 +318,7 @@ async function loadCertificateFromSecretsManager(
   // TODO: Uncomment after @aws-sdk/client-secrets-manager is added to package.json
   // This will be activated in Phase 6
 
-  samlConfigLogger.error(
+  log.error(
     'AWS Secrets Manager integration not yet available',
     new Error('Dependency not installed'),
     {
@@ -360,7 +354,7 @@ async function loadCertificateFromSecretsManager(
       throw new Error(`Certificate '${certName}' not found in secret '${secretKey}'`);
     }
 
-    samlConfigLogger.info('Certificate loaded from AWS Secrets Manager', {
+    log.info('Certificate loaded from AWS Secrets Manager', {
       secretKey,
       certName,
       length: certificate.length
@@ -371,7 +365,7 @@ async function loadCertificateFromSecretsManager(
     const err = new Error(
       `Failed to load ${certName} from Secrets Manager '${secretKey}': ${error instanceof Error ? error.message : 'Unknown error'}`
     );
-    samlConfigLogger.error('Secrets Manager certificate load failed', err, {
+    log.error('Secrets Manager certificate load failed', err, {
       secretKey,
       certName
     });
@@ -409,14 +403,14 @@ async function getIdPCertificate(): Promise<{ certificate: string; info: SAMLCer
 
     // Always try to fetch from metadata first
     try {
-      samlConfigLogger.info('Fetching IDP certificate from metadata', {
+      log.info('Fetching IDP certificate from metadata', {
         tenantId: envConfig.tenantId,
         appId: envConfig.appId,
       });
       metadataCert = await fetchIdPCertificateFromMetadata(envConfig.tenantId, envConfig.appId);
       certificates.push(metadataCert);
     } catch (error) {
-      samlConfigLogger.warn('Metadata fetch failed', {
+      log.warn('Metadata fetch failed', {
         error: error instanceof Error ? error.message : String(error),
       });
     }
@@ -433,7 +427,7 @@ async function getIdPCertificate(): Promise<{ certificate: string; info: SAMLCer
           const fileFingerprint = new crypto.X509Certificate(fileCert).fingerprint256;
 
           if (metadataFingerprint !== fileFingerprint) {
-            samlConfigLogger.warn('Certificate rotation detected - using BOTH certificates', {
+            log.warn('Certificate rotation detected - using BOTH certificates', {
               metadataFingerprint: `${metadataFingerprint.substring(0, 20)}...`,
               fileFingerprint: `${fileFingerprint.substring(0, 20)}...`,
             });
@@ -444,7 +438,7 @@ async function getIdPCertificate(): Promise<{ certificate: string; info: SAMLCer
           certificates.push(fileCert);
         }
       } catch (error) {
-        samlConfigLogger.warn('File certificate load failed', {
+        log.warn('File certificate load failed', {
           error: error instanceof Error ? error.message : String(error),
         });
       }
@@ -462,7 +456,7 @@ async function getIdPCertificate(): Promise<{ certificate: string; info: SAMLCer
       throw new Error('Primary certificate is undefined - this should not happen');
     }
 
-    samlConfigLogger.info('IDP certificates loaded', {
+    log.info('IDP certificates loaded', {
       count: certificates.length,
       source:
         certificates.length > 1
@@ -517,7 +511,7 @@ async function getSPPrivateKey(): Promise<string | undefined> {
   // Private keys don't go through certificate cache since they're not X509 certificates
   const privateKey = loadCertificateFromFS(envConfig.spPrivateKey, 'SAML_PRIVATE_KEY');
 
-  samlConfigLogger.debug('SP private key loaded', {
+  log.debug('SP private key loaded', {
     length: privateKey.length,
     type: 'RSA_PRIVATE_KEY',
   });
@@ -547,7 +541,7 @@ export async function buildSAMLConfig(): Promise<SAMLConfig> {
       },
     } as SAMLConfigError;
 
-    samlConfigLogger.error(
+    log.error(
       'SAML configuration incomplete',
       new Error(error.message),
       error.details
@@ -560,7 +554,7 @@ export async function buildSAMLConfig(): Promise<SAMLConfig> {
     throw new Error('SAML configuration returned undefined despite being enabled');
   }
 
-  samlConfigLogger.info('Building SAML configuration', {
+  log.info('Building SAML configuration', {
     environment: process.env.NODE_ENV,
     tenantId: envConfig.tenantId,
     issuer: envConfig.issuer,
@@ -575,7 +569,7 @@ export async function buildSAMLConfig(): Promise<SAMLConfig> {
   const spPrivateKey = await getSPPrivateKey();
 
   // Log certificate information
-  samlConfigLogger.info('SAML certificates loaded', {
+  log.info('SAML certificates loaded', {
     idpCertFingerprint: `${idpCertInfo.fingerprint.substring(0, 20)}...`,
     idpCertExpiry: idpCertInfo.validUntil,
     idpCertDaysRemaining: idpCertInfo.daysUntilExpiry,
@@ -618,7 +612,7 @@ export async function buildSAMLConfig(): Promise<SAMLConfig> {
     logRawResponses: envConfig.logRawResponses,
   };
 
-  samlConfigLogger.info('SAML configuration built successfully', {
+  log.info('SAML configuration built successfully', {
     duration: Date.now() - startTime,
     allowedDomains: config.allowedEmailDomains.length,
     certExpiryWarning: config.certExpiryWarningDays,
@@ -670,7 +664,7 @@ function validateConfigurationURLs(envConfig: ReturnType<typeof getSAMLConfig>):
         },
       } as SAMLConfigError;
 
-      samlConfigLogger.error(
+      log.error(
         'Configuration validation failed',
         new Error(error.message),
         error.details
@@ -688,7 +682,7 @@ function validateConfigurationURLs(envConfig: ReturnType<typeof getSAMLConfig>):
             details: { name: validation.name, value: validation.value, forbidden },
           } as SAMLConfigError;
 
-          samlConfigLogger.error(
+          log.error(
             'Configuration validation failed - security risk',
             new Error(error.message),
             error.details
@@ -700,7 +694,7 @@ function validateConfigurationURLs(envConfig: ReturnType<typeof getSAMLConfig>):
 
     // Check mustEndWith
     if (validation.mustEndWith && !validation.value.endsWith(validation.mustEndWith)) {
-      samlConfigLogger.warn('Configuration URL format warning', {
+      log.warn('Configuration URL format warning', {
         name: validation.name,
         value: validation.value,
         expected: `should end with '${validation.mustEndWith}'`,
@@ -719,7 +713,7 @@ function validateConfigurationURLs(envConfig: ReturnType<typeof getSAMLConfig>):
         },
       } as SAMLConfigError;
 
-      samlConfigLogger.error(
+      log.error(
         'Configuration validation failed - must use HTTPS',
         new Error(error.message),
         error.details
@@ -728,7 +722,7 @@ function validateConfigurationURLs(envConfig: ReturnType<typeof getSAMLConfig>):
     }
   }
 
-  samlConfigLogger.debug('Configuration URLs validated successfully');
+  log.debug('Configuration URLs validated successfully');
 }
 
 /**
@@ -754,16 +748,16 @@ export function getCertificateCacheStats(): { size: number; keys: string[]; vers
  */
 export async function validateSAMLConfigAtStartup(): Promise<void> {
   if (!isSAMLEnabled()) {
-    samlConfigLogger.info('SAML SSO is disabled - skipping configuration validation');
+    log.info('SAML SSO is disabled - skipping configuration validation');
     return;
   }
 
-  samlConfigLogger.info('Validating SAML configuration at startup...');
+  log.info('Validating SAML configuration at startup...');
 
   try {
     const config = await buildSAMLConfig();
 
-    samlConfigLogger.info('SAML configuration validated successfully at startup', {
+    log.info('SAML configuration validated successfully at startup', {
       tenantId: config.tenantId,
       allowedDomains: config.allowedEmailDomains,
       certExpiryWarning: config.certExpiryWarningDays,
@@ -772,9 +766,9 @@ export async function validateSAMLConfigAtStartup(): Promise<void> {
 
     // Log certificate cache stats
     const cacheStats = getCertificateCacheStats();
-    samlConfigLogger.debug('Certificate cache initialized', cacheStats);
+    log.debug('Certificate cache initialized', cacheStats);
   } catch (error) {
-    samlConfigLogger.error(
+    log.error(
       'SAML configuration validation failed at startup',
       error instanceof Error ? error : new Error(String(error)),
       { error: error instanceof Error ? error.message : String(error) }
@@ -786,7 +780,7 @@ export async function validateSAMLConfigAtStartup(): Promise<void> {
     }
 
     // In development, log warning but allow startup
-    samlConfigLogger.warn('SAML configuration invalid - SSO will not be available', {
+    log.warn('SAML configuration invalid - SSO will not be available', {
       environment: process.env.NODE_ENV,
     });
   }

@@ -36,7 +36,7 @@ type NodeSAMLProfile = Record<string, unknown>;
 import { eq } from 'drizzle-orm';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { account_security, db, users } from '@/lib/db';
-import { createAppLogger } from '@/lib/logger/factory';
+import { log } from '@/lib/logger';
 import type {
   SAMLAuthContext,
   SAMLConfig,
@@ -48,12 +48,6 @@ import { buildSAMLConfig } from './config';
 import { checkAndTrackAssertion } from './replay-prevention';
 
 // Create logger for SAML client operations
-const samlClientLogger = createAppLogger('saml-client', {
-  component: 'security',
-  feature: 'saml-sso',
-  module: 'client',
-});
-
 /**
  * Transform node-saml Profile to our SAMLProfile interface
  * Handles the various claim formats from Microsoft Entra
@@ -166,7 +160,7 @@ export class SAMLClientFactory {
 
   constructor(clientId: string = 'default') {
     this.clientId = clientId;
-    samlClientLogger.debug('SAML client factory created', { clientId });
+    log.debug('SAML client factory created', { clientId });
   }
 
   /**
@@ -178,7 +172,7 @@ export class SAMLClientFactory {
       return this.samlInstance;
     }
 
-    samlClientLogger.info('Initializing SAML client', { clientId: this.clientId });
+    log.info('Initializing SAML client', { clientId: this.clientId });
     const startTime = Date.now();
 
     // Build configuration with certificate loading and validation
@@ -218,7 +212,7 @@ export class SAMLClientFactory {
       // Type assertion for the SAML instance (matches our SAML type definition)
       this.samlInstance = new SAMLConstructor(nodeSAMLConfig) as unknown as SAML;
 
-      samlClientLogger.info('SAML client initialized successfully', {
+      log.info('SAML client initialized successfully', {
         clientId: this.clientId,
         duration: Date.now() - startTime,
         tenantId: this.config.tenantId,
@@ -231,7 +225,7 @@ export class SAMLClientFactory {
 
       return this.samlInstance;
     } catch (error) {
-      samlClientLogger.error(
+      log.error(
         'SAML client initialization failed',
         error instanceof Error ? error : new Error(String(error)),
         {
@@ -253,7 +247,7 @@ export class SAMLClientFactory {
    * Initiates authentication flow
    */
   async createLoginUrl(context: SAMLAuthContext): Promise<string> {
-    samlClientLogger.info('Creating SAML login URL', {
+    log.info('Creating SAML login URL', {
       requestId: context.requestId,
       ipAddress: context.ipAddress,
     });
@@ -267,7 +261,7 @@ export class SAMLClientFactory {
         {} // additional params
       );
 
-      samlClientLogger.info('SAML login URL created successfully', {
+      log.info('SAML login URL created successfully', {
         requestId: context.requestId,
         urlLength: loginUrl.length,
         containsTenantId: this.config?.tenantId ? loginUrl.includes(this.config.tenantId) : false,
@@ -275,7 +269,7 @@ export class SAMLClientFactory {
 
       return loginUrl;
     } catch (error) {
-      samlClientLogger.error(
+      log.error(
         'Failed to create SAML login URL',
         error instanceof Error ? error : new Error(String(error)),
         {
@@ -304,7 +298,7 @@ export class SAMLClientFactory {
       throw new Error('SAML configuration not initialized');
     }
 
-    samlClientLogger.info('Validating SAML response', {
+    log.info('Validating SAML response', {
       requestId: context.requestId,
       ipAddress: context.ipAddress,
       responseLength: samlResponseBody.SAMLResponse?.length || 0,
@@ -324,7 +318,7 @@ export class SAMLClientFactory {
 
       // Log raw SAML response in non-production (for debugging)
       if (this.config.logRawResponses && process.env.NODE_ENV !== 'production') {
-        samlClientLogger.debug('Raw SAML response (non-production debug)', {
+        log.debug('Raw SAML response (non-production debug)', {
           requestId: context.requestId,
           responseLength: samlResponseBody.SAMLResponse.length,
           responsePreview: `${samlResponseBody.SAMLResponse.substring(0, 100)}...`,
@@ -333,7 +327,7 @@ export class SAMLClientFactory {
         // Decode base64 to see XML structure
         try {
           const decoded = Buffer.from(samlResponseBody.SAMLResponse, 'base64').toString('utf-8');
-          samlClientLogger.debug('Decoded SAML XML preview', {
+          log.debug('Decoded SAML XML preview', {
             requestId: context.requestId,
             xmlPreview: `${decoded.substring(0, 500)}...`,
             containsSignature: decoded.includes('<Signature'),
@@ -342,7 +336,7 @@ export class SAMLClientFactory {
 
           console.log('\n🔍 SAML Response Debug:\n', decoded.substring(0, 1000), '\n...\n');
         } catch (e) {
-          samlClientLogger.warn('Could not decode SAML response for debugging', {
+          log.warn('Could not decode SAML response for debugging', {
             error: e instanceof Error ? e.message : String(e),
           });
         }
@@ -352,7 +346,7 @@ export class SAMLClientFactory {
       const startTime = Date.now();
       const response = await saml.validatePostResponseAsync(samlResponseBody);
 
-      samlClientLogger.info('SAML response parsed successfully', {
+      log.info('SAML response parsed successfully', {
         requestId: context.requestId,
         duration: Date.now() - startTime,
         hasProfile: !!response.profile,
@@ -380,7 +374,7 @@ export class SAMLClientFactory {
           },
         } as SAMLValidationError;
 
-        samlClientLogger.error(
+        log.error(
           'SAML issuer validation failed - possible tenant bypass attempt',
           new Error(error.message),
           error.details
@@ -405,7 +399,7 @@ export class SAMLClientFactory {
           },
         } as SAMLValidationError;
 
-        samlClientLogger.error(
+        log.error(
           'SAML audience validation failed',
           new Error(error.message),
           error.details
@@ -435,7 +429,7 @@ export class SAMLClientFactory {
           },
         } as SAMLValidationError;
 
-        samlClientLogger.error(
+        log.error(
           'SAML timestamp validation failed',
           new Error(error.message),
           error.details
@@ -481,7 +475,7 @@ export class SAMLClientFactory {
           },
         } as SAMLValidationError;
 
-        samlClientLogger.error(
+        log.error(
           'SAML email domain validation failed',
           new Error(error.message),
           error.details
@@ -491,7 +485,7 @@ export class SAMLClientFactory {
       }
 
       // All validations passed
-      samlClientLogger.info('SAML validation completed successfully', {
+      log.info('SAML validation completed successfully', {
         requestId: context.requestId,
         email: profile.email.replace(/(.{2}).*@/, '$1***@'), // PII masking
         issuer: profile.issuer,
@@ -519,7 +513,7 @@ export class SAMLClientFactory {
       }
 
       // Wrap other errors
-      samlClientLogger.error(
+      log.error(
         'SAML response validation failed',
         error instanceof Error ? error : new Error(String(error)),
         {
@@ -551,7 +545,7 @@ export class SAMLClientFactory {
     }
 
     if (issuer !== this.config.expectedIssuer) {
-      samlClientLogger.warn('Issuer mismatch - potential tenant bypass attempt', {
+      log.warn('Issuer mismatch - potential tenant bypass attempt', {
         requestId,
         received: issuer,
         expected: this.config.expectedIssuer,
@@ -580,12 +574,12 @@ export class SAMLClientFactory {
 
     if (!audience) {
       // Some IdPs don't include audience - log warning but allow
-      samlClientLogger.warn('No audience in SAML response', { requestId });
+      log.warn('No audience in SAML response', { requestId });
       return { valid: true }; // Allow if not present
     }
 
     if (audience !== this.config.issuer) {
-      samlClientLogger.warn('Audience mismatch', {
+      log.warn('Audience mismatch', {
         requestId,
         received: audience,
         expected: this.config.issuer,
@@ -617,7 +611,7 @@ export class SAMLClientFactory {
       const notBeforeWithSkew = new Date(notBeforeDate.getTime() - clockSkew);
 
       if (now < notBeforeWithSkew) {
-        samlClientLogger.warn('SAML assertion not yet valid', {
+        log.warn('SAML assertion not yet valid', {
           requestId,
           notBefore,
           currentTime: now.toISOString(),
@@ -637,7 +631,7 @@ export class SAMLClientFactory {
       const notOnOrAfterWithSkew = new Date(notOnOrAfterDate.getTime() + clockSkew);
 
       if (now > notOnOrAfterWithSkew) {
-        samlClientLogger.warn('SAML assertion expired', {
+        log.warn('SAML assertion expired', {
           requestId,
           notOnOrAfter,
           currentTime: now.toISOString(),
@@ -706,7 +700,7 @@ export class SAMLClientFactory {
             .set({ suspicious_activity_detected: true })
             .where(eq(account_security.user_id, user.user_id));
 
-          samlClientLogger.warn('Account marked as suspicious due to replay attack', {
+          log.warn('Account marked as suspicious due to replay attack', {
             userId: user.user_id,
             email: profile.email.replace(/(.{2}).*@/, '$1***@'),
             requestId: context.requestId,
@@ -714,7 +708,7 @@ export class SAMLClientFactory {
         }
       } catch (error) {
         // Don't fail authentication on account_security update error
-        samlClientLogger.error(
+        log.error(
           'Failed to update account_security for replay attack',
           error instanceof Error ? error : new Error(String(error)),
           {
@@ -724,7 +718,7 @@ export class SAMLClientFactory {
         );
       }
 
-      samlClientLogger.error(
+      log.error(
         'SAML replay attack detected and blocked',
         new Error(replayCheck.reason || 'Replay attack'),
         {
@@ -744,7 +738,7 @@ export class SAMLClientFactory {
       };
     }
 
-    samlClientLogger.debug('Replay check passed - assertion ID tracked in database', {
+    log.debug('Replay check passed - assertion ID tracked in database', {
       assertionID: `${profile.assertionID?.substring(0, 20)}...`,
       requestId: context.requestId,
     });
@@ -765,7 +759,7 @@ export class SAMLClientFactory {
 
     const emailDomain = email.split('@')[1];
     if (!emailDomain) {
-      samlClientLogger.warn('Email has no domain', {
+      log.warn('Email has no domain', {
         requestId,
         email: email.replace(/(.{2}).*@/, '$1***@'),
       });
@@ -778,7 +772,7 @@ export class SAMLClientFactory {
     );
 
     if (!domainAllowed) {
-      samlClientLogger.warn('Email domain not in allowed list', {
+      log.warn('Email domain not in allowed list', {
         requestId,
         domain: emailDomain,
         allowedDomains: this.config.allowedEmailDomains,
@@ -798,7 +792,7 @@ export class SAMLClientFactory {
    * Generate service provider metadata
    */
   async generateMetadata(): Promise<string> {
-    samlClientLogger.info('Generating SP metadata', { clientId: this.clientId });
+    log.info('Generating SP metadata', { clientId: this.clientId });
 
     const saml = await this.initialize();
 
@@ -808,14 +802,14 @@ export class SAMLClientFactory {
         this.config?.spCert
       );
 
-      samlClientLogger.info('SP metadata generated successfully', {
+      log.info('SP metadata generated successfully', {
         clientId: this.clientId,
         metadataLength: metadata.length,
       });
 
       return metadata;
     } catch (error) {
-      samlClientLogger.error(
+      log.error(
         'Failed to generate SP metadata',
         error instanceof Error ? error : new Error(String(error)),
         {
@@ -839,14 +833,14 @@ export class SAMLClientFactory {
    * Reload configuration (for hot reload)
    */
   async reload(): Promise<void> {
-    samlClientLogger.info('Reloading SAML client configuration', { clientId: this.clientId });
+    log.info('Reloading SAML client configuration', { clientId: this.clientId });
 
     this.samlInstance = null;
     this.config = null;
 
     await this.initialize();
 
-    samlClientLogger.info('SAML client configuration reloaded', { clientId: this.clientId });
+    log.info('SAML client configuration reloaded', { clientId: this.clientId });
   }
 }
 

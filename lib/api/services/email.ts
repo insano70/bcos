@@ -1,13 +1,6 @@
 import * as nodemailer from 'nodemailer';
 import { getEmailConfig } from '@/lib/env';
-import { createAppLogger } from '@/lib/logger/factory';
-
-// Create Universal Logger for email service operations
-const emailLogger = createAppLogger('email-service', {
-  component: 'communications',
-  feature: 'email-delivery',
-  module: 'email-service',
-});
+import { log } from '@/lib/logger';
 
 /**
  * Professional Email Service (Instance-Based)
@@ -124,7 +117,7 @@ export class EmailService {
     const adminEmails = process.env.ADMIN_NOTIFICATION_EMAILS?.split(',') || [];
 
     if (adminEmails.length === 0) {
-      emailLogger.warn('No admin notification emails configured', {
+      log.warn('No admin notification emails configured', {
         operation: 'sendAdminNotification',
         reason: 'ADMIN_NOTIFICATION_EMAILS not set',
       });
@@ -169,7 +162,7 @@ export class EmailService {
       ...(template.text && { text: template.text }),
     });
 
-    emailLogger.info('Appointment request email sent', {
+    log.info('Appointment request email sent', {
       practiceEmail,
       patientEmail: formData.email,
       patientName: `${formData.firstName} ${formData.lastName}`,
@@ -199,7 +192,7 @@ export class EmailService {
       ...(template.text && { text: template.text }),
     });
 
-    emailLogger.info('Contact form email sent', {
+    log.info('Contact form email sent', {
       practiceEmail,
       contactEmail: formData.email,
       contactName: formData.name,
@@ -233,14 +226,14 @@ export class EmailService {
 
       const result = await this.transporter.sendMail(mailOptions);
 
-      emailLogger.info('Email sent successfully', {
+      log.info('Email sent successfully', {
         to: options.to,
         emailId: result.messageId,
         subject: options.subject,
         operation: 'sendEmail',
       });
     } catch (error) {
-      emailLogger.error('Email sending error', {
+      log.error('Email sending error', {
         to: options.to,
         subject: options.subject,
         error: error instanceof Error ? error.message : 'Unknown error',

@@ -7,7 +7,7 @@ import {
   dashboards,
   users,
 } from '@/lib/db/schema';
-import { createAppLogger } from '@/lib/logger/factory';
+import { log } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
 
@@ -17,12 +17,6 @@ import type { UserContext } from '@/lib/types/rbac';
  */
 
 // Universal logger for RBAC dashboard service operations
-const rbacDashboardsLogger = createAppLogger('rbac-dashboards-service', {
-  component: 'business-logic',
-  feature: 'dashboard-management',
-  businessIntelligence: true,
-});
-
 export interface CreateDashboardData {
   dashboard_name: string;
   dashboard_description?: string | undefined;
@@ -241,7 +235,7 @@ export class RBACDashboardsService extends BaseRBACService {
     const dashboard = dashboardResult[0];
     if (!dashboard) {
       // Extra safety: should not happen after length check, but handle gracefully
-      rbacDashboardsLogger.warn('Dashboard result had length > 0 but first item was null', {
+      log.warn('Dashboard result had length > 0 but first item was null', {
         dashboardId,
       });
       return null;
@@ -357,7 +351,7 @@ export class RBACDashboardsService extends BaseRBACService {
     const startTime = Date.now();
 
     // Enhanced dashboard creation logging
-    rbacDashboardsLogger.info('Dashboard creation initiated', {
+    log.info('Dashboard creation initiated', {
       requestingUserId: this.userContext.user_id,
       dashboardName: dashboardData.dashboard_name,
       operation: 'create_dashboard',
@@ -419,7 +413,7 @@ export class RBACDashboardsService extends BaseRBACService {
     const createdDashboardData = createdDashboards[0];
     if (!createdDashboardData) {
       // Extra safety: should not happen after length check
-      rbacDashboardsLogger.error('Created dashboard result had length > 0 but first item was null');
+      log.error('Created dashboard result had length > 0 but first item was null');
       throw new Error('Failed to retrieve created dashboard data');
     }
 
@@ -490,7 +484,7 @@ export class RBACDashboardsService extends BaseRBACService {
     const duration = Date.now() - startTime;
 
     // Business intelligence for dashboard creation
-    rbacDashboardsLogger.info('Dashboard creation analytics', {
+    log.info('Dashboard creation analytics', {
       operation: 'dashboard_created',
       newDashboardId: newDashboard.dashboard_id,
       dashboardName: dashboardData.dashboard_name,
@@ -502,7 +496,7 @@ export class RBACDashboardsService extends BaseRBACService {
     });
 
     // Security event for dashboard creation
-    rbacDashboardsLogger.security('dashboard_created', 'low', {
+    log.security('dashboard_created', 'low', {
       action: 'dashboard_creation_success',
       userId: this.userContext.user_id,
       newDashboardId: newDashboard.dashboard_id,
@@ -512,7 +506,7 @@ export class RBACDashboardsService extends BaseRBACService {
     });
 
     // Performance monitoring
-    rbacDashboardsLogger.timing('Dashboard creation completed', startTime, {
+    log.timing('Dashboard creation completed', startTime, {
       chartAssociationsIncluded: (dashboardData.chart_ids?.length || 0) > 0,
       databaseOperations: dashboardData.chart_ids?.length ? 2 : 1, // dashboard insert + chart associations
     });
@@ -606,7 +600,7 @@ export class RBACDashboardsService extends BaseRBACService {
     const updatedDashboardData = updatedDashboards[0];
     if (!updatedDashboardData) {
       // Extra safety: should not happen after length check
-      rbacDashboardsLogger.error('Updated dashboard result had length > 0 but first item was null');
+      log.error('Updated dashboard result had length > 0 but first item was null');
       throw new Error('Failed to retrieve updated dashboard data');
     }
 

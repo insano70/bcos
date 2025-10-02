@@ -3,54 +3,9 @@
  * Uses universal logger with development-only behavior and enhanced debugging features
  */
 
-import { createAppLogger } from '@/lib/logger/factory';
+import { log } from '@/lib/logger';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
-
-// Create universal debug loggers with component context
-const debugLoggers = {
-  auth: createAppLogger('debug-auth', {
-    component: 'security',
-    feature: 'authentication-debug',
-    module: 'debug-utility',
-  }),
-  middleware: createAppLogger('debug-middleware', {
-    component: 'middleware',
-    feature: 'middleware-debug',
-    module: 'debug-utility',
-  }),
-  rbac: createAppLogger('debug-rbac', {
-    component: 'security',
-    feature: 'rbac-debug',
-    module: 'debug-utility',
-  }),
-  security: createAppLogger('debug-security', {
-    component: 'security',
-    feature: 'security-debug',
-    module: 'debug-utility',
-    securityLevel: 'critical',
-  }),
-  session: createAppLogger('debug-session', {
-    component: 'authentication',
-    feature: 'session-debug',
-    module: 'debug-utility',
-  }),
-  database: createAppLogger('debug-database', {
-    component: 'database',
-    feature: 'database-debug',
-    module: 'debug-utility',
-  }),
-  api: createAppLogger('debug-api', {
-    component: 'api',
-    feature: 'api-debug',
-    module: 'debug-utility',
-  }),
-  business: createAppLogger('debug-business', {
-    component: 'business-logic',
-    feature: 'business-debug',
-    module: 'debug-utility',
-  }),
-};
 
 export const debugLog = {
   auth: (message: string, data?: unknown) => {
@@ -86,19 +41,34 @@ export const debugLog = {
   // Enhanced debug categories
   database: (message: string, data?: unknown) => {
     if (isDevelopment) {
-      debugLoggers.database.debug(`🗄️ DATABASE: ${message}`, data as Record<string, unknown>);
+      log.debug(`🗄️ DATABASE: ${message}`, {
+        ...data as Record<string, unknown>,
+        component: 'database',
+        feature: 'database-debug',
+        module: 'debug-utility',
+      });
     }
   },
 
   api: (message: string, data?: unknown) => {
     if (isDevelopment) {
-      debugLoggers.api.debug(`🌐 API: ${message}`, data as Record<string, unknown>);
+      log.debug(`🌐 API: ${message}`, {
+        ...data as Record<string, unknown>,
+        component: 'api',
+        feature: 'api-debug',
+        module: 'debug-utility',
+      });
     }
   },
 
   business: (message: string, data?: unknown) => {
     if (isDevelopment) {
-      debugLoggers.business.debug(`💼 BUSINESS: ${message}`, data as Record<string, unknown>);
+      log.debug(`💼 BUSINESS: ${message}`, {
+        ...data as Record<string, unknown>,
+        component: 'business-logic',
+        feature: 'business-debug',
+        module: 'debug-utility',
+      });
     }
   },
 
@@ -106,23 +76,34 @@ export const debugLog = {
   performance: (message: string, startTime?: number, data?: unknown) => {
     if (isDevelopment && startTime) {
       const duration = Date.now() - startTime;
-      debugLoggers.api.timing(`⚡ PERFORMANCE: ${message}`, startTime, {
+      log.timing(`⚡ PERFORMANCE: ${message}`, startTime, {
         duration,
         performanceOptimized: duration < 100,
         ...(data as Record<string, unknown>),
+        component: 'api',
+        feature: 'api-debug',
+        module: 'debug-utility',
       });
     } else if (isDevelopment) {
-      debugLoggers.api.debug(`⚡ PERFORMANCE: ${message}`, data as Record<string, unknown>);
+      log.debug(`⚡ PERFORMANCE: ${message}`, {
+        ...data as Record<string, unknown>,
+        component: 'api',
+        feature: 'api-debug',
+        module: 'debug-utility',
+      });
     }
   },
 
   // Context correlation debugging
   correlation: (message: string, correlationId: string, data?: unknown) => {
     if (isDevelopment) {
-      debugLoggers.api.debug(`🔗 CORRELATION: ${message}`, {
+      log.debug(`🔗 CORRELATION: ${message}`, {
         correlationId,
         timestamp: new Date().toISOString(),
         ...(data as Record<string, unknown>),
+        component: 'api',
+        feature: 'api-debug',
+        module: 'debug-utility',
       });
     }
   },
@@ -132,12 +113,6 @@ export const debugLog = {
  * Enhanced Production-safe Error Logging
  * Uses universal logger with automatic sanitization and enhanced error tracking
  */
-const errorLogger = createAppLogger('error-utility', {
-  component: 'error-handling',
-  feature: 'production-safe-errors',
-  module: 'debug-utility',
-});
-
 export const errorLog = (message: string, error?: unknown, context?: unknown) => {
   const sanitizedError = sanitizeErrorForProduction(error);
   const sanitizedContext = sanitizeContextForProduction(context);
@@ -147,7 +122,7 @@ export const errorLog = (message: string, error?: unknown, context?: unknown) =>
     console.error(`❌ ${message}`, error, context);
   } else {
     // Production: Sanitized error logging with enhanced metadata
-    errorLogger.error(`❌ ${message}`, new Error(String(sanitizedError)), {
+    log.error(`❌ ${message}`, new Error(String(sanitizedError)), {
       sanitizedContext,
       productionMode: true,
       errorClassification: 'application_error',
@@ -166,7 +141,7 @@ export const errorLog = (message: string, error?: unknown, context?: unknown) =>
     });
 
     // Enhanced security logging for production errors
-    errorLogger.security('production_error_logged', 'medium', {
+    log.security('production_error_logged', 'medium', {
       action: 'error_handling',
       errorType: typeof error,
       messageSanitized: true,
@@ -188,7 +163,7 @@ export const businessErrorLog = (
   const _sanitizedError = sanitizeErrorForProduction(error);
   const sanitizedContext = sanitizeContextForProduction(context);
 
-  errorLogger.error(
+  log.error(
     `💼 Business Error: ${operation}`,
     error instanceof Error ? error : new Error(String(error)),
     {
@@ -201,7 +176,7 @@ export const businessErrorLog = (
   );
 
   // Business intelligence logging
-  errorLogger.info('Business error analytics', {
+  log.info('Business error analytics', {
     operation,
     errorOccurred: true,
     impactLevel: 'business_operation',
@@ -226,7 +201,7 @@ export const performanceErrorLog = (
   const sanitizedContext = sanitizeContextForProduction(context);
 
   if (error) {
-    errorLogger.error(
+    log.error(
       `⚡ Performance Error: ${operation}`,
       error instanceof Error ? error : new Error(String(error)),
       {
@@ -241,7 +216,7 @@ export const performanceErrorLog = (
   }
 
   // Performance monitoring
-  errorLogger.timing(`Performance issue detected: ${operation}`, Date.now() - duration, {
+  log.timing(`Performance issue detected: ${operation}`, Date.now() - duration, {
     operation,
     duration,
     threshold,
@@ -332,13 +307,21 @@ function sanitizeContextForProduction(context: unknown): unknown {
 
 /**
  * Create a scoped debug logger for specific components
+ * Returns log object with preset context
  */
 export const createDebugLogger = (component: string, feature?: string) => {
-  return createAppLogger(`debug-${component}`, {
+  const context = {
     component,
     feature: feature || `${component}-debug`,
     module: 'debug-utility',
-  });
+  };
+
+  return {
+    debug: (message: string, data?: Record<string, unknown>) => log.debug(message, { ...data, ...context }),
+    info: (message: string, data?: Record<string, unknown>) => log.info(message, { ...data, ...context }),
+    warn: (message: string, data?: Record<string, unknown>) => log.warn(message, { ...data, ...context }),
+    error: (message: string, error?: Error, data?: Record<string, unknown>) => log.error(message, error, { ...data, ...context }),
+  };
 };
 
 /**
@@ -349,18 +332,24 @@ export const debugTiming = (label: string, startTime: number, threshold = 100) =
     const duration = Date.now() - startTime;
     const isSlowOperation = duration > threshold;
 
-    debugLoggers.api.timing(`⏱️ ${label}`, startTime, {
+    log.timing(`⏱️ ${label}`, startTime, {
       duration,
       threshold,
       isSlowOperation,
       performanceOptimized: !isSlowOperation,
+      component: 'api',
+      feature: 'api-debug',
+      module: 'debug-utility',
     });
 
     if (isSlowOperation) {
-      debugLoggers.api.warn(`Slow operation detected: ${label}`, {
+      log.warn(`Slow operation detected: ${label}`, {
         duration,
         threshold,
         exceededBy: duration - threshold,
+        component: 'api',
+        feature: 'api-debug',
+        module: 'debug-utility',
       });
     }
   }
@@ -372,7 +361,7 @@ export const debugTiming = (label: string, startTime: number, threshold = 100) =
 export const debugAssert = (condition: boolean, message: string, context?: unknown) => {
   if (isDevelopment && !condition) {
     const assertionError = new Error(`Assertion failed: ${message}`);
-    errorLogger.error('Debug assertion failed', assertionError, {
+    log.error('Debug assertion failed', assertionError, {
       assertion: message,
       context: context as Record<string, unknown>,
       developmentAssertion: true,

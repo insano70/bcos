@@ -17,15 +17,9 @@
  */
 
 import { X509Certificate } from 'node:crypto';
-import { createAppLogger } from '@/lib/logger/factory';
+import { log } from '@/lib/logger';
 
 // Create logger for metadata operations
-const metadataLogger = createAppLogger('saml-metadata', {
-  component: 'security',
-  feature: 'saml-sso',
-  module: 'metadata-fetcher',
-});
-
 /**
  * Metadata cache entry
  */
@@ -95,7 +89,7 @@ export async function fetchIdPCertificateFromMetadata(
   // Check cache first
   const cached = metadataCache.get(cacheKey);
   if (cached && Date.now() - cached.fetchedAt.getTime() < CACHE_TTL_MS) {
-    metadataLogger.debug('Using cached IDP certificate', {
+    log.debug('Using cached IDP certificate', {
       tenantId,
       appId,
       cacheAge: Date.now() - cached.fetchedAt.getTime(),
@@ -106,7 +100,7 @@ export async function fetchIdPCertificateFromMetadata(
   }
 
   // Fetch fresh metadata
-  metadataLogger.info('Fetching IDP metadata from Microsoft', { tenantId, appId });
+  log.info('Fetching IDP metadata from Microsoft', { tenantId, appId });
 
   // Build metadata URL with optional appid parameter for app-specific certificates
   const metadataUrl = appId
@@ -125,7 +119,7 @@ export async function fetchIdPCertificateFromMetadata(
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
   } catch (error) {
-    metadataLogger.error(
+    log.error(
       'Failed to fetch IDP metadata',
       error instanceof Error ? error : new Error(String(error)),
       {
@@ -140,7 +134,7 @@ export async function fetchIdPCertificateFromMetadata(
   }
 
   if (!response.ok) {
-    metadataLogger.error(
+    log.error(
       'IDP metadata fetch returned error status',
       new Error(`HTTP ${response.status}`),
       {
@@ -155,7 +149,7 @@ export async function fetchIdPCertificateFromMetadata(
   const xml = await response.text();
   const fetchDuration = Date.now() - startTime;
 
-  metadataLogger.debug('IDP metadata fetched successfully', {
+  log.debug('IDP metadata fetched successfully', {
     tenantId,
     duration: fetchDuration,
     xmlLength: xml.length,
@@ -167,7 +161,7 @@ export async function fetchIdPCertificateFromMetadata(
   const certMatch = xml.match(/<X509Certificate>([^<]+)<\/X509Certificate>/);
 
   if (!certMatch || !certMatch[1]) {
-    metadataLogger.error(
+    log.error(
       'No certificate found in metadata XML',
       new Error('Certificate not found'),
       {
@@ -194,7 +188,7 @@ export async function fetchIdPCertificateFromMetadata(
   try {
     x509 = new X509Certificate(pemCert);
   } catch (error) {
-    metadataLogger.error(
+    log.error(
       'Failed to parse extracted certificate',
       error instanceof Error ? error : new Error(String(error)),
       {
@@ -210,7 +204,7 @@ export async function fetchIdPCertificateFromMetadata(
   const validUntil = new Date(x509.validTo);
 
   // Log certificate details
-  metadataLogger.info('IDP certificate extracted from metadata', {
+  log.info('IDP certificate extracted from metadata', {
     tenantId,
     fingerprint: `${fingerprint.substring(0, 20)}...`,
     validFrom: x509.validFrom,
@@ -221,7 +215,7 @@ export async function fetchIdPCertificateFromMetadata(
 
   // Check if certificate rotated (different from cached)
   if (cached && cached.fingerprint !== fingerprint) {
-    metadataLogger.warn('IDP certificate ROTATED - new certificate detected', {
+    log.warn('IDP certificate ROTATED - new certificate detected', {
       tenantId,
       oldFingerprint: `${cached.fingerprint.substring(0, 20)}...`,
       newFingerprint: `${fingerprint.substring(0, 20)}...`,
@@ -234,7 +228,7 @@ export async function fetchIdPCertificateFromMetadata(
   // Warn if certificate expires soon
   const daysUntilExpiry = Math.floor((validUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   if (daysUntilExpiry < 30) {
-    metadataLogger.warn('IDP certificate expires soon', {
+    log.warn('IDP certificate expires soon', {
       tenantId,
       fingerprint: `${fingerprint.substring(0, 20)}...`,
       validUntil: validUntil.toISOString(),
@@ -251,7 +245,7 @@ export async function fetchIdPCertificateFromMetadata(
     validUntil,
   });
 
-  metadataLogger.debug('IDP certificate cached', {
+  log.debug('IDP certificate cached', {
     tenantId,
     cacheSize: metadataCache.size,
     cacheTTL: CACHE_TTL_MS,
@@ -294,10 +288,10 @@ export async function getIdPCertificate(
 export function clearMetadataCache(tenantId?: string): void {
   if (tenantId) {
     metadataCache.delete(tenantId);
-    metadataLogger.info('Metadata cache cleared for tenant', { tenantId });
+    log.info('Metadata cache cleared for tenant', { tenantId });
   } else {
     metadataCache.clear();
-    metadataLogger.info('Metadata cache cleared for all tenants');
+    log.info('Metadata cache cleared for all tenants');
   }
 }
 

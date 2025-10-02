@@ -3,7 +3,7 @@ import { AccountSecurity, hashPassword } from '@/lib/auth/security';
 import { account_security, db } from '@/lib/db';
 import { roles, user_roles } from '@/lib/db/rbac-schema';
 import { organizations, user_organizations, users } from '@/lib/db/schema';
-import { createAppLogger } from '@/lib/logger/factory';
+import { log } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { PermissionDeniedError } from '@/lib/types/rbac';
@@ -14,12 +14,6 @@ import { PermissionDeniedError } from '@/lib/types/rbac';
  */
 
 // Universal logger for RBAC user service operations
-const rbacUsersLogger = createAppLogger('rbac-users-service', {
-  component: 'business-logic',
-  feature: 'user-management',
-  businessIntelligence: true,
-});
-
 export interface CreateUserData {
   email: string;
   password: string;
@@ -303,7 +297,7 @@ export class RBACUsersService extends BaseRBACService {
     const firstResult = results[0];
     if (!firstResult) {
       // Extra safety: should not happen after length check
-      rbacUsersLogger.warn('User result had length > 0 but first item was null', { userId });
+      log.warn('User result had length > 0 but first item was null', { userId });
       return null;
     }
 
@@ -313,7 +307,7 @@ export class RBACUsersService extends BaseRBACService {
       !firstResult.first_name ||
       !firstResult.last_name
     ) {
-      rbacUsersLogger.error('User result missing required fields', {
+      log.error('User result missing required fields', {
         userId,
         hasUserId: !!firstResult.user_id,
         hasEmail: !!firstResult.email,
@@ -394,7 +388,7 @@ export class RBACUsersService extends BaseRBACService {
     const startTime = Date.now();
 
     // Enhanced user creation logging
-    rbacUsersLogger.info('User creation initiated', {
+    log.info('User creation initiated', {
       requestingUserId: this.userContext.user_id,
       targetOrganizationId: userData.organization_id,
       operation: 'create_user',
@@ -407,7 +401,7 @@ export class RBACUsersService extends BaseRBACService {
     this.requireOrganizationAccess(userData.organization_id);
 
     // Enhanced permission validation success logging
-    rbacUsersLogger.security('user_creation_authorized', 'low', {
+    log.security('user_creation_authorized', 'low', {
       action: 'permission_check_passed',
       userId: this.userContext.user_id,
       targetOrganization: userData.organization_id,
@@ -438,7 +432,7 @@ export class RBACUsersService extends BaseRBACService {
     // This ensures the record exists even before first login attempt
     await AccountSecurity.ensureSecurityRecord(newUser.user_id);
 
-    rbacUsersLogger.info('Account security record initialized for new user', {
+    log.info('Account security record initialized for new user', {
       userId: newUser.user_id,
       operation: 'user_creation',
       securityDefaults: {
@@ -464,7 +458,7 @@ export class RBACUsersService extends BaseRBACService {
     const duration = Date.now() - startTime;
 
     // Business intelligence for user creation
-    rbacUsersLogger.info('User creation analytics', {
+    log.info('User creation analytics', {
       operation: 'user_created',
       newUserId: newUser.user_id,
       organizationId: userData.organization_id,
@@ -475,7 +469,7 @@ export class RBACUsersService extends BaseRBACService {
     });
 
     // Security event for user creation
-    rbacUsersLogger.security('user_account_created', 'medium', {
+    log.security('user_account_created', 'medium', {
       action: 'account_creation_success',
       userId: this.userContext.user_id,
       newAccountId: newUser.user_id,
@@ -484,7 +478,7 @@ export class RBACUsersService extends BaseRBACService {
     });
 
     // Performance monitoring
-    rbacUsersLogger.timing('User creation completed', startTime, {
+    log.timing('User creation completed', startTime, {
       passwordHashingIncluded: true,
       rbacValidationIncluded: true,
       databaseOperations: 3, // user insert + org assignment + retrieval
@@ -578,7 +572,7 @@ export class RBACUsersService extends BaseRBACService {
           })
           .where(eq(account_security.user_id, userId));
 
-        rbacUsersLogger.info('Password changed for user', {
+        log.info('Password changed for user', {
           userId,
           operation: 'password_change',
           securityTracking: true,

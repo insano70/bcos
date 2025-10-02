@@ -12,13 +12,7 @@
  * @module lib/saml/input-validator
  */
 
-import { createAppLogger } from '@/lib/logger/factory';
-
-const validatorLogger = createAppLogger('saml-input-validator', {
-  component: 'security',
-  feature: 'saml-sso',
-  module: 'input-validation',
-});
+import { log } from '@/lib/logger';
 
 /**
  * Validation result interface
@@ -73,7 +67,7 @@ export function validateSAMLProfile(profile: {
   // Validate email (REQUIRED)
   if (!profile.email || typeof profile.email !== 'string') {
     errors.push('Email is required and must be a string');
-    validatorLogger.warn('SAML profile validation failed: missing email', {
+    log.warn('SAML profile validation failed: missing email', {
       hasEmail: !!profile.email,
       emailType: typeof profile.email,
     });
@@ -86,7 +80,7 @@ export function validateSAMLProfile(profile: {
   // Check email format
   if (!EMAIL_REGEX.test(email)) {
     errors.push('Email format is invalid');
-    validatorLogger.warn('SAML profile validation failed: invalid email format', {
+    log.warn('SAML profile validation failed: invalid email format', {
       emailLength: email.length,
       containsDangerous: DANGEROUS_CHARS.test(email),
     });
@@ -96,7 +90,7 @@ export function validateSAMLProfile(profile: {
   // Check for dangerous characters in email (SQL injection / XSS attempt)
   if (DANGEROUS_CHARS.test(email)) {
     errors.push('Email contains dangerous characters');
-    validatorLogger.error('SAML profile validation failed: dangerous characters in email', {
+    log.error('SAML profile validation failed: dangerous characters in email', {
       email: `${email.substring(0, 5)}***`,
       alert: 'POSSIBLE_INJECTION_ATTEMPT',
     });
@@ -106,7 +100,7 @@ export function validateSAMLProfile(profile: {
   // Check email length (prevent buffer overflow / DoS)
   if (email.length > 255) {
     errors.push('Email exceeds maximum length');
-    validatorLogger.warn('SAML profile validation failed: email too long', {
+    log.warn('SAML profile validation failed: email too long', {
       emailLength: email.length,
     });
     return { valid: false, errors };
@@ -124,7 +118,7 @@ export function validateSAMLProfile(profile: {
       if (displayName.length > 0) {
         if (!NAME_REGEX.test(displayName)) {
           errors.push('Display name contains invalid characters');
-          validatorLogger.warn('Invalid display name format', {
+          log.warn('Invalid display name format', {
             length: displayName.length,
             containsDangerous: DANGEROUS_CHARS.test(displayName),
           });
@@ -175,7 +169,7 @@ export function validateSAMLProfile(profile: {
 
   // If any validation errors, return invalid
   if (errors.length > 0) {
-    validatorLogger.warn('SAML profile validation completed with errors', {
+    log.warn('SAML profile validation completed with errors', {
       errorCount: errors.length,
       errors: errors.slice(0, 3), // Log first 3 errors
     });
@@ -183,7 +177,7 @@ export function validateSAMLProfile(profile: {
   }
 
   // All validations passed
-  validatorLogger.debug('SAML profile validation successful', {
+  log.debug('SAML profile validation successful', {
     email: `${email.substring(0, 5)}***`,
     hasDisplayName: !!sanitized.displayName,
     hasGivenName: !!sanitized.givenName,
@@ -221,7 +215,7 @@ export function validateEmailDomain(email: string, allowedDomains: string[]): bo
   const isAllowed = allowedDomains.some((domain) => emailDomain === domain.toLowerCase());
 
   if (!isAllowed) {
-    validatorLogger.warn('Email domain not in allowlist', {
+    log.warn('Email domain not in allowlist', {
       emailDomain,
       allowedDomains: allowedDomains.length,
       alert: 'DOMAIN_RESTRICTION_VIOLATED',

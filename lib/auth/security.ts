@@ -2,13 +2,7 @@ import bcrypt from 'bcrypt';
 import { eq, lt } from 'drizzle-orm';
 import { validatePasswordStrength } from '@/lib/config/password-policy';
 import { account_security, db, users } from '@/lib/db';
-import { createAppLogger } from '@/lib/logger/factory';
-
-// Universal logger for account security operations
-const securityLogger = createAppLogger('account-security', {
-  component: 'security',
-  feature: 'account-lockout',
-});
+import { log } from '@/lib/logger';
 
 // Enhanced password security
 export class PasswordService {
@@ -99,7 +93,7 @@ export class AccountSecurity {
       }
 
       // Log security event for new record creation
-      securityLogger.security('account_security_record_created', 'low', {
+      log.security('account_security_record_created', 'low', {
         action: 'security_record_initialization',
         userId,
         reason: 'ensure_on_access',
@@ -127,7 +121,7 @@ export class AccountSecurity {
       }
 
       // For any other error, log and re-throw
-      securityLogger.error('Failed to ensure account security record', {
+      log.error('Failed to ensure account security record', {
         error: error instanceof Error ? error.message : String(error),
         userId,
         operation: 'ensureSecurityRecord',
@@ -181,7 +175,7 @@ export class AccountSecurity {
 
       return { locked: false };
     } catch (error) {
-      securityLogger.error('Error checking account lockout status', {
+      log.error('Error checking account lockout status', {
         error: error instanceof Error ? error.message : String(error),
         identifier,
         operation: 'isAccountLocked',
@@ -243,7 +237,7 @@ export class AccountSecurity {
       }
       return result;
     } catch (error) {
-      securityLogger.error('Error recording failed attempt', {
+      log.error('Error recording failed attempt', {
         error: error instanceof Error ? error.message : String(error),
         identifier,
         operation: 'recordFailedAttempt',
@@ -279,7 +273,7 @@ export class AccountSecurity {
         })
         .where(eq(account_security.user_id, user.user_id));
     } catch (error) {
-      securityLogger.error('Error clearing failed attempts', {
+      log.error('Error clearing failed attempts', {
         error: error instanceof Error ? error.message : String(error),
         identifier,
         operation: 'clearFailedAttempts',
@@ -305,7 +299,7 @@ export class AccountSecurity {
 
       return securityRecord.failed_login_attempts;
     } catch (error) {
-      securityLogger.error('Error getting failed attempt count', {
+      log.error('Error getting failed attempt count', {
         error: error instanceof Error ? error.message : String(error),
         identifier,
         operation: 'getFailedAttemptCount',
@@ -331,7 +325,7 @@ export class AccountSecurity {
 
       return Array.isArray(result) ? result.length : 0;
     } catch (error) {
-      securityLogger.error('Error cleaning up expired lockouts', {
+      log.error('Error cleaning up expired lockouts', {
         error: error instanceof Error ? error.message : String(error),
         operation: 'cleanupExpiredLockouts',
       });

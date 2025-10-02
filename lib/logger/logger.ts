@@ -473,6 +473,24 @@ export const log = {
     });
     console.debug(JSON.stringify(entry));
   },
+
+  /**
+   * Performance timing logging
+   * Use for tracking operation duration
+   * @param message - Description of the operation
+   * @param startTime - Start timestamp (from Date.now())
+   * @param context - Additional context
+   */
+  timing(message: string, startTime: number, context?: Record<string, unknown>) {
+    const duration = Date.now() - startTime;
+    if (!shouldLog('info', context)) return;
+    const entry = buildLogEntry('info', message, undefined, {
+      duration,
+      performanceTiming: true,
+      ...context,
+    });
+    console.log(JSON.stringify(entry));
+  },
 };
 
 // Export correlation utilities as named export

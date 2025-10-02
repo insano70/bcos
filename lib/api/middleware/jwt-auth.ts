@@ -5,16 +5,10 @@
 
 import { TokenManager } from '@/lib/auth/token-manager';
 import { rolePermissionCache } from '@/lib/cache/role-permission-cache';
-import { createAppLogger } from '@/lib/logger/factory';
+import { log } from '@/lib/logger';
 import type { Permission, Role, UserContext } from '@/lib/types/rbac';
 import { debugLog } from '@/lib/utils/debug';
 import { AuthenticationError } from '../responses/error';
-
-// Universal logger for JWT authentication middleware
-const jwtAuthLogger = createAppLogger('jwt-auth-middleware', {
-  component: 'security',
-  feature: 'jwt-authentication',
-});
 
 /**
  * Enhanced auth session with JWT data
@@ -138,7 +132,7 @@ export async function requireJWTAuth(request: Request): Promise<JWTAuthSession> 
   const startTime = Date.now();
 
   // Enhanced JWT authentication logging
-  jwtAuthLogger.info('JWT authentication middleware initiated', {
+  log.info('JWT authentication middleware initiated', {
     url: request.url,
     method: request.method,
     hasAuthHeader: !!request.headers.get('Authorization'),
@@ -173,7 +167,7 @@ export async function requireJWTAuth(request: Request): Promise<JWTAuthSession> 
 
   if (!accessToken) {
     // Enhanced missing token logging
-    jwtAuthLogger.security('jwt_authentication_failed', 'medium', {
+    log.security('jwt_authentication_failed', 'medium', {
       action: 'token_missing',
       threat: 'unauthorized_access',
       blocked: true,
@@ -189,7 +183,7 @@ export async function requireJWTAuth(request: Request): Promise<JWTAuthSession> 
 
   if (!payload) {
     // Enhanced token validation failure
-    jwtAuthLogger.security('jwt_token_validation_failed', 'high', {
+    log.security('jwt_token_validation_failed', 'high', {
       action: 'invalid_jwt',
       threat: 'credential_attack',
       blocked: true,
@@ -200,7 +194,7 @@ export async function requireJWTAuth(request: Request): Promise<JWTAuthSession> 
   }
 
   // Enhanced successful JWT validation logging
-  jwtAuthLogger.auth('jwt_validation', true, {
+  log.auth('jwt_validation', true, {
     userId: payload.sub as string,
     sessionId: payload.session_id as string,
     tokenSource,
@@ -243,7 +237,7 @@ export async function requireJWTAuth(request: Request): Promise<JWTAuthSession> 
   const duration = Date.now() - startTime;
 
   // JWT authentication pipeline completion
-  jwtAuthLogger.info('JWT authentication completed', {
+  log.info('JWT authentication completed', {
     userId,
     sessionId: payload.session_id as string,
     tokenSource,
@@ -254,7 +248,7 @@ export async function requireJWTAuth(request: Request): Promise<JWTAuthSession> 
   });
 
   // Security success event
-  jwtAuthLogger.security('jwt_authentication_successful', 'low', {
+  log.security('jwt_authentication_successful', 'low', {
     action: 'jwt_middleware_success',
     userId,
     tokenValidated: true,
@@ -263,7 +257,7 @@ export async function requireJWTAuth(request: Request): Promise<JWTAuthSession> 
   });
 
   // Performance monitoring
-  jwtAuthLogger.timing('JWT middleware completed', startTime, {
+  log.timing('JWT middleware completed', startTime, {
     tokenValidationTime: tokenValidationDuration,
     cacheEnabled: userContext !== null,
     totalOperations: user.roles.length + user.permissions.length,

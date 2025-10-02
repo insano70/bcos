@@ -1,7 +1,7 @@
 import { and, count, desc, eq, like, or, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { chart_data_source_columns, chart_data_sources } from '@/lib/db/chart-config-schema';
-import { createAppLogger } from '@/lib/logger/factory';
+import { log } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import { getAnalyticsDb } from '@/lib/services/analytics-db';
 import type { UserContext } from '@/lib/types/rbac';
@@ -22,12 +22,6 @@ import type {
  */
 
 // Universal logger for RBAC data sources service operations
-const rbacDataSourcesLogger = createAppLogger('rbac-data-sources-service', {
-  component: 'business-logic',
-  feature: 'data-source-management',
-  businessIntelligence: true,
-});
-
 // Use validation schema types for consistency
 export type CreateDataSourceData = DataSourceCreateInput;
 export type UpdateDataSourceData = DataSourceUpdateInput;
@@ -204,7 +198,7 @@ export class RBACDataSourcesService extends BaseRBACService {
         })
       );
 
-      rbacDataSourcesLogger.info('Data sources retrieved successfully', {
+      log.info('Data sources retrieved successfully', {
         userId: this.userContext.user_id,
         count: enrichedResults.length,
         filters: options,
@@ -212,7 +206,7 @@ export class RBACDataSourcesService extends BaseRBACService {
 
       return enrichedResults;
     } catch (error) {
-      rbacDataSourcesLogger.error('Failed to retrieve data sources', {
+      log.error('Failed to retrieve data sources', {
         userId: this.userContext.user_id,
         error: error instanceof Error ? error.message : 'Unknown error',
         filters: options,
@@ -266,7 +260,7 @@ export class RBACDataSourcesService extends BaseRBACService {
         column_count: columnCount?.count || 0,
       };
     } catch (error) {
-      rbacDataSourcesLogger.error('Failed to retrieve data source', {
+      log.error('Failed to retrieve data source', {
         userId: this.userContext.user_id,
         dataSourceId,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -315,7 +309,7 @@ export class RBACDataSourcesService extends BaseRBACService {
         throw new Error('Failed to create data source - no result returned');
       }
 
-      rbacDataSourcesLogger.info('Data source created successfully', {
+      log.info('Data source created successfully', {
         userId: this.userContext.user_id,
         dataSourceId: newDataSource.data_source_id,
         dataSourceName: newDataSource.data_source_name,
@@ -326,7 +320,7 @@ export class RBACDataSourcesService extends BaseRBACService {
         column_count: 0,
       };
     } catch (error) {
-      rbacDataSourcesLogger.error('Failed to create data source', {
+      log.error('Failed to create data source', {
         userId: this.userContext.user_id,
         error: error instanceof Error ? error.message : 'Unknown error',
         data,
@@ -384,7 +378,7 @@ export class RBACDataSourcesService extends BaseRBACService {
         return null;
       }
 
-      rbacDataSourcesLogger.info('Data source updated successfully', {
+      log.info('Data source updated successfully', {
         userId: this.userContext.user_id,
         dataSourceId,
         changes: data,
@@ -395,7 +389,7 @@ export class RBACDataSourcesService extends BaseRBACService {
         column_count: existing.column_count || 0,
       };
     } catch (error) {
-      rbacDataSourcesLogger.error('Failed to update data source', {
+      log.error('Failed to update data source', {
         userId: this.userContext.user_id,
         dataSourceId,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -432,7 +426,7 @@ export class RBACDataSourcesService extends BaseRBACService {
         return false;
       }
 
-      rbacDataSourcesLogger.info('Data source deleted successfully', {
+      log.info('Data source deleted successfully', {
         userId: this.userContext.user_id,
         dataSourceId,
         dataSourceName: existing.data_source_name,
@@ -440,7 +434,7 @@ export class RBACDataSourcesService extends BaseRBACService {
 
       return true;
     } catch (error) {
-      rbacDataSourcesLogger.error('Failed to delete data source', {
+      log.error('Failed to delete data source', {
         userId: this.userContext.user_id,
         dataSourceId,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -532,7 +526,7 @@ export class RBACDataSourcesService extends BaseRBACService {
           };
         }
 
-        rbacDataSourcesLogger.info('Data source connection test successful', {
+        log.info('Data source connection test successful', {
           userId: this.userContext.user_id,
           dataSourceId,
           tableName: tableReference,
@@ -554,7 +548,7 @@ export class RBACDataSourcesService extends BaseRBACService {
         const errorMessage =
           dbError instanceof Error ? dbError.message : 'Database connection failed';
 
-        rbacDataSourcesLogger.warn('Data source connection test failed', {
+        log.warn('Data source connection test failed', {
           userId: this.userContext.user_id,
           dataSourceId,
           error: errorMessage,
@@ -572,7 +566,7 @@ export class RBACDataSourcesService extends BaseRBACService {
         };
       }
     } catch (error) {
-      rbacDataSourcesLogger.error('Failed to test data source connection', {
+      log.error('Failed to test data source connection', {
         userId: this.userContext.user_id,
         dataSourceId,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -599,7 +593,7 @@ export class RBACDataSourcesService extends BaseRBACService {
     }>
   > {
     const startTime = Date.now();
-    rbacDataSourcesLogger.info('Table columns query initiated', {
+    log.info('Table columns query initiated', {
       userId: this.userContext.user_id,
       schema: query.schema_name,
       table: query.table_name,
@@ -647,7 +641,7 @@ export class RBACDataSourcesService extends BaseRBACService {
         ordinal_position: col.ordinal_position,
       }));
 
-      rbacDataSourcesLogger.info('Table columns query completed', {
+      log.info('Table columns query completed', {
         userId: this.userContext.user_id,
         schema: query.schema_name,
         table: query.table_name,
@@ -657,7 +651,7 @@ export class RBACDataSourcesService extends BaseRBACService {
 
       return formattedColumns;
     } catch (error) {
-      rbacDataSourcesLogger.error('Table columns query failed', {
+      log.error('Table columns query failed', {
         userId: this.userContext.user_id,
         schema: query.schema_name,
         table: query.table_name,
@@ -675,7 +669,7 @@ export class RBACDataSourcesService extends BaseRBACService {
     query: DataSourceColumnQueryOptions
   ): Promise<DataSourceColumnWithMetadata[]> {
     const startTime = Date.now();
-    rbacDataSourcesLogger.info('Data source columns query initiated', {
+    log.info('Data source columns query initiated', {
       userId: this.userContext.user_id,
       dataSourceId: query.data_source_id,
       isActive: query.is_active,
@@ -707,7 +701,7 @@ export class RBACDataSourcesService extends BaseRBACService {
         .limit(query.limit || 100)
         .offset(query.offset || 0);
 
-      rbacDataSourcesLogger.info('Data source columns query completed', {
+      log.info('Data source columns query completed', {
         userId: this.userContext.user_id,
         dataSourceId: query.data_source_id,
         columnCount: columns.length,
@@ -716,7 +710,7 @@ export class RBACDataSourcesService extends BaseRBACService {
 
       return columns;
     } catch (error) {
-      rbacDataSourcesLogger.error('Data source columns query failed', {
+      log.error('Data source columns query failed', {
         userId: this.userContext.user_id,
         dataSourceId: query.data_source_id,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -731,7 +725,7 @@ export class RBACDataSourcesService extends BaseRBACService {
    */
   async getDataSourceColumnById(columnId: number): Promise<DataSourceColumnWithMetadata | null> {
     const startTime = Date.now();
-    rbacDataSourcesLogger.info('Data source column get initiated', {
+    log.info('Data source column get initiated', {
       userId: this.userContext.user_id,
       columnId,
     });
@@ -751,7 +745,7 @@ export class RBACDataSourcesService extends BaseRBACService {
         .where(eq(chart_data_source_columns.column_id, columnId))
         .limit(1);
 
-      rbacDataSourcesLogger.info('Data source column get completed', {
+      log.info('Data source column get completed', {
         userId: this.userContext.user_id,
         columnId,
         found: !!column,
@@ -760,7 +754,7 @@ export class RBACDataSourcesService extends BaseRBACService {
 
       return column || null;
     } catch (error) {
-      rbacDataSourcesLogger.error('Data source column get failed', {
+      log.error('Data source column get failed', {
         userId: this.userContext.user_id,
         columnId,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -777,7 +771,7 @@ export class RBACDataSourcesService extends BaseRBACService {
     data: CreateDataSourceColumnData
   ): Promise<DataSourceColumnWithMetadata> {
     const startTime = Date.now();
-    rbacDataSourcesLogger.info('Data source column creation initiated', {
+    log.info('Data source column creation initiated', {
       userId: this.userContext.user_id,
       dataSourceId: data.data_source_id,
       columnName: data.column_name,
@@ -845,7 +839,7 @@ export class RBACDataSourcesService extends BaseRBACService {
         return newColumn;
       });
 
-      rbacDataSourcesLogger.info('Data source column creation completed', {
+      log.info('Data source column creation completed', {
         userId: this.userContext.user_id,
         columnId: newColumn.column_id,
         dataSourceId: data.data_source_id,
@@ -854,7 +848,7 @@ export class RBACDataSourcesService extends BaseRBACService {
 
       return newColumn;
     } catch (error) {
-      rbacDataSourcesLogger.error('Data source column creation failed', {
+      log.error('Data source column creation failed', {
         userId: this.userContext.user_id,
         dataSourceId: data.data_source_id,
         columnName: data.column_name,
@@ -873,7 +867,7 @@ export class RBACDataSourcesService extends BaseRBACService {
     data: UpdateDataSourceColumnData
   ): Promise<DataSourceColumnWithMetadata | null> {
     const startTime = Date.now();
-    rbacDataSourcesLogger.info('Data source column update initiated', {
+    log.info('Data source column update initiated', {
       userId: this.userContext.user_id,
       columnId,
     });
@@ -913,7 +907,7 @@ export class RBACDataSourcesService extends BaseRBACService {
         .where(eq(chart_data_source_columns.column_id, columnId))
         .returning();
 
-      rbacDataSourcesLogger.info('Data source column update completed', {
+      log.info('Data source column update completed', {
         userId: this.userContext.user_id,
         columnId,
         updated: !!updatedColumn,
@@ -922,7 +916,7 @@ export class RBACDataSourcesService extends BaseRBACService {
 
       return updatedColumn || null;
     } catch (error) {
-      rbacDataSourcesLogger.error('Data source column update failed', {
+      log.error('Data source column update failed', {
         userId: this.userContext.user_id,
         columnId,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -937,7 +931,7 @@ export class RBACDataSourcesService extends BaseRBACService {
    */
   async deleteDataSourceColumn(columnId: number): Promise<boolean> {
     const startTime = Date.now();
-    rbacDataSourcesLogger.info('Data source column deletion initiated', {
+    log.info('Data source column deletion initiated', {
       userId: this.userContext.user_id,
       columnId,
     });
@@ -974,7 +968,7 @@ export class RBACDataSourcesService extends BaseRBACService {
         return true; // Deletion successful
       });
 
-      rbacDataSourcesLogger.info('Data source column deletion completed', {
+      log.info('Data source column deletion completed', {
         userId: this.userContext.user_id,
         columnId,
         deleted,
@@ -983,7 +977,7 @@ export class RBACDataSourcesService extends BaseRBACService {
 
       return deleted;
     } catch (error) {
-      rbacDataSourcesLogger.error('Data source column deletion failed', {
+      log.error('Data source column deletion failed', {
         userId: this.userContext.user_id,
         columnId,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -1002,7 +996,7 @@ export class RBACDataSourcesService extends BaseRBACService {
     columns: DataSourceColumnWithMetadata[];
   }> {
     const startTime = Date.now();
-    rbacDataSourcesLogger.info('Data source introspection initiated', {
+    log.info('Data source introspection initiated', {
       userId: this.userContext.user_id,
       dataSourceId,
     });
@@ -1121,7 +1115,7 @@ export class RBACDataSourcesService extends BaseRBACService {
         return result;
       });
 
-      rbacDataSourcesLogger.info('Data source introspection completed', {
+      log.info('Data source introspection completed', {
         userId: this.userContext.user_id,
         dataSourceId,
         columnsCreated: createdColumns.length,
@@ -1133,7 +1127,7 @@ export class RBACDataSourcesService extends BaseRBACService {
         columns: createdColumns,
       };
     } catch (error) {
-      rbacDataSourcesLogger.error('Data source introspection failed', {
+      log.error('Data source introspection failed', {
         userId: this.userContext.user_id,
         dataSourceId,
         error: error instanceof Error ? error.message : 'Unknown error',

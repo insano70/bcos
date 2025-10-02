@@ -2,20 +2,13 @@ import { and, count, desc, eq, gte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { AccountSecurity } from '@/lib/auth/security';
 import { db, login_attempts, user_sessions } from '@/lib/db';
-import { logger } from '@/lib/logger';
-import { createAppLogger } from '@/lib/logger/factory';
+import { log } from '@/lib/logger';
 import { AuditLogger } from './audit';
 
 /**
  * Enterprise Session Management Service
  * Handles advanced session tracking, device management, and security
  */
-
-// Universal logger for session management
-const sessionLogger = createAppLogger('session-service', {
-  component: 'authentication',
-  feature: 'session-management',
-});
 
 // Helper function for device type detection
 function getDeviceType(userAgent?: string): string {
@@ -65,7 +58,7 @@ export async function createSession(
   const now = new Date();
 
   // Enhanced session creation logging - permanently enabled
-  sessionLogger.info('Session creation initiated', {
+  log.info('Session creation initiated', {
     userId,
     deviceFingerprint: deviceInfo.fingerprint,
     deviceName: deviceInfo.deviceName,
@@ -82,7 +75,7 @@ export async function createSession(
   await enforceConcurrentSessionLimits(userId);
 
   // Enhanced logging permanently enabled
-  sessionLogger.timing('Session limit enforcement completed', sessionLimitStart, {
+  log.timing('Session limit enforcement completed', sessionLimitStart, {
     userId,
     operation: 'concurrent_session_check',
   });
@@ -144,7 +137,7 @@ export async function createSession(
 
   // Enhanced session creation success logging - permanently enabled
   // Session lifecycle logging
-  sessionLogger.info('Session created successfully', {
+  log.info('Session created successfully', {
     sessionId,
     userId,
     sessionType: rememberMe ? 'persistent' : 'temporary',
@@ -154,7 +147,7 @@ export async function createSession(
   });
 
   // Business intelligence for session analytics
-  sessionLogger.debug('Session analytics', {
+  log.debug('Session analytics', {
     sessionCreationType: 'authentication_success',
     deviceType: getDeviceType(deviceInfo.userAgent),
     sessionDuration: rememberMe ? '30_days' : '24_hours',
@@ -163,7 +156,7 @@ export async function createSession(
   });
 
   // Security monitoring for session creation
-  sessionLogger.security('session_created', 'low', {
+  log.security('session_created', 'low', {
     action: 'session_establishment',
     userId,
     threat: 'none',
@@ -365,9 +358,11 @@ async function enforceConcurrentSessionLimits(userId: string): Promise<void> {
 async function updateDeviceTracking(userId: string, deviceInfo: DeviceInfo): Promise<void> {
   // Device tracking functionality removed - trusted_devices table not implemented
   // This is a placeholder for future device tracking implementation
-  logger.debug('Device tracking initiated', {
+  log.debug('Device tracking initiated', {
     userId,
     fingerprint: deviceInfo.fingerprint,
+    component: 'authentication',
+    feature: 'session-management',
     ipAddress: deviceInfo.ipAddress,
   });
 }
@@ -400,8 +395,10 @@ async function logLoginAttempt(
  */
 export async function cleanupExpiredSessions(): Promise<number> {
   // Sessions don't expire in this schema, so no cleanup needed
-  logger.debug("cleanupExpiredSessions called but sessions don't expire in this schema", {
+  log.debug("cleanupExpiredSessions called but sessions don't expire in this schema", {
     operation: 'cleanupExpiredSessions',
+    component: 'authentication',
+    feature: 'session-management',
   });
   return 0;
 }
