@@ -1,9 +1,4 @@
-import type {
-  ChartAccessControl,
-  ChartDefinition,
-  ChartFilter,
-  ChartOrderBy,
-} from '@/lib/types/analytics';
+import type { ChartDefinition, ChartFilter, ChartOrderBy } from '@/lib/types/analytics';
 
 /**
  * Chart Templates

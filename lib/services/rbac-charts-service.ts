@@ -1,10 +1,9 @@
-import { and, count, desc, eq, inArray, isNull, like, or } from 'drizzle-orm';
+import { and, count, desc, eq, like } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { chart_categories, chart_definitions, dashboard_charts, users } from '@/lib/db/schema';
 import { createAppLogger } from '@/lib/logger/factory';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { PermissionDeniedError } from '@/lib/types/rbac';
 
 /**
  * Enhanced Charts Service with RBAC
@@ -80,10 +79,6 @@ export interface ChartWithMetadata {
  * Provides secure chart definition management with automatic permission checking
  */
 export class RBACChartsService extends BaseRBACService {
-  constructor(userContext: UserContext) {
-    super(userContext);
-  }
-
   /**
    * Get charts list with RBAC filtering, pagination, and metadata joins
    */
@@ -95,7 +90,7 @@ export class RBACChartsService extends BaseRBACService {
 
     if (options.category_id) {
       const categoryId = parseInt(options.category_id, 10);
-      if (!isNaN(categoryId) && categoryId > 0) {
+      if (!Number.isNaN(categoryId) && categoryId > 0) {
         conditions.push(eq(chart_definitions.chart_category_id, categoryId));
       }
     }
@@ -123,34 +118,42 @@ export class RBACChartsService extends BaseRBACService {
       .offset(options.offset ?? 0);
 
     // Transform to flattened structure
-    return charts.map((chart) => ({
-      chart_definition_id: chart.chart_definitions!.chart_definition_id,
-      chart_name: chart.chart_definitions!.chart_name,
-      chart_description: chart.chart_definitions!.chart_description || undefined,
-      chart_type: chart.chart_definitions!.chart_type,
-      data_source: chart.chart_definitions!.data_source as string | Record<string, unknown>,
-      chart_config: chart.chart_definitions!.chart_config as Record<string, unknown>,
-      chart_category_id: chart.chart_definitions!.chart_category_id || undefined,
-      created_by: chart.chart_definitions!.created_by,
-      created_at: chart.chart_definitions!.created_at?.toISOString() || new Date().toISOString(),
-      updated_at: chart.chart_definitions!.updated_at?.toISOString() || new Date().toISOString(),
-      is_active: chart.chart_definitions!.is_active ?? true,
-      category: chart.chart_categories
-        ? {
-            chart_category_id: chart.chart_categories.chart_category_id,
-            category_name: chart.chart_categories.category_name,
-            category_description: chart.chart_categories.category_description || undefined,
-          }
-        : undefined,
-      creator: chart.users
-        ? {
-            user_id: chart.users.user_id,
-            first_name: chart.users.first_name || '',
-            last_name: chart.users.last_name || '',
-            email: chart.users.email,
-          }
-        : undefined,
-    }));
+    return charts.map((chart) => {
+      // chart_definitions is never null when selecting from that table
+      const def = chart.chart_definitions;
+      if (!def) {
+        throw new Error('Chart definition unexpectedly null');
+      }
+
+      return {
+        chart_definition_id: def.chart_definition_id,
+        chart_name: def.chart_name,
+        chart_description: def.chart_description || undefined,
+        chart_type: def.chart_type,
+        data_source: def.data_source as string | Record<string, unknown>,
+        chart_config: def.chart_config as Record<string, unknown>,
+        chart_category_id: def.chart_category_id || undefined,
+        created_by: def.created_by,
+        created_at: def.created_at?.toISOString() || new Date().toISOString(),
+        updated_at: def.updated_at?.toISOString() || new Date().toISOString(),
+        is_active: def.is_active ?? true,
+        category: chart.chart_categories
+          ? {
+              chart_category_id: chart.chart_categories.chart_category_id,
+              category_name: chart.chart_categories.category_name,
+              category_description: chart.chart_categories.category_description || undefined,
+            }
+          : undefined,
+        creator: chart.users
+          ? {
+              user_id: chart.users.user_id,
+              first_name: chart.users.first_name || '',
+              last_name: chart.users.last_name || '',
+              email: chart.users.email,
+            }
+          : undefined,
+      };
+    });
   }
 
   /**
@@ -164,7 +167,7 @@ export class RBACChartsService extends BaseRBACService {
 
     if (options.category_id) {
       const categoryId = parseInt(options.category_id, 10);
-      if (!isNaN(categoryId) && categoryId > 0) {
+      if (!Number.isNaN(categoryId) && categoryId > 0) {
         conditions.push(eq(chart_definitions.chart_category_id, categoryId));
       }
     }

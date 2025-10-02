@@ -101,7 +101,7 @@ export class CSRFClientHelper {
         isValid: true,
         shouldRefresh: false,
       };
-    } catch (error) {
+    } catch (_error) {
       return {
         isValid: false,
         reason: 'decode_error',
@@ -254,7 +254,7 @@ export class CSRFClientHelper {
         // Refresh if we're in the next time window (proactive refresh)
         return windowDiff >= 1;
       }
-    } catch (error) {
+    } catch (_error) {
       // If we can't parse the token, refresh it
       return true;
     }
@@ -284,7 +284,7 @@ export class CSRFClientHelper {
         hasUserId: !!payload.userId,
         age: payload.timestamp ? Date.now() - payload.timestamp : null,
       };
-    } catch (error) {
+    } catch (_error) {
       return null;
     }
   }

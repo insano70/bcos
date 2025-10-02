@@ -83,7 +83,7 @@ export class DatabaseError extends ContextualError {
  */
 export function handleError(
   error: Error | ContextualError,
-  request?: NextRequest,
+  _request?: NextRequest,
   additionalContext?: Record<string, unknown>
 ): {
   message: string;

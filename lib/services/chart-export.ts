@@ -222,7 +222,7 @@ export class ChartExportService {
   /**
    * Get export options for different chart types
    */
-  getExportOptionsForChartType(chartType: string): ExportOptions[] {
+  getExportOptionsForChartType(_chartType: string): ExportOptions[] {
     const baseOptions = [
       { format: 'png' as const, width: 1200, height: 800 },
       { format: 'jpeg' as const, width: 1200, height: 800 },

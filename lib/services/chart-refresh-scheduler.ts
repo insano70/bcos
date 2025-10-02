@@ -1,5 +1,4 @@
 import { logger } from '@/lib/logger';
-import { analyticsCache } from './analytics-cache';
 
 /**
  * Chart Data Refresh Scheduler

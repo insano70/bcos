@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { createErrorResponse } from '@/lib/api/responses/error';
-import { db } from '@/lib/db';
 import { type PermissionName, RBACError, type UserContext } from '@/lib/types/rbac';
 import type { AuthResult } from '../api/middleware/global-auth';
 import { PermissionChecker } from './permission-checker';

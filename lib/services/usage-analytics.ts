@@ -45,7 +45,6 @@ export interface SystemPerformanceMetric {
 export class UsageAnalyticsService {
   private chartMetrics = new Map<string, ChartUsageMetric>();
   private userMetrics = new Map<string, UserActivityMetric>();
-  private performanceMetrics: SystemPerformanceMetric[] = [];
   private accessLog: Array<{
     timestamp: Date;
     userId: string;

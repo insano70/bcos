@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { chart_definitions, chart_permissions, db } from '@/lib/db';
 import { logger } from '@/lib/logger';
 import type { AnalyticsQueryParams, ChartFilter } from '@/lib/types/analytics';
@@ -50,8 +50,8 @@ export class AdvancedPermissionsService {
     userId: string,
     permissionType: 'view' | 'edit' | 'admin',
     grantedBy: string,
-    dataFilters?: ChartPermission['dataFilters'],
-    expiresAt?: Date
+    _dataFilters?: ChartPermission['dataFilters'],
+    _expiresAt?: Date
   ): Promise<void> {
     try {
       await db.insert(chart_permissions).values({

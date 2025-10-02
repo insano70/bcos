@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import { PermissionChecker } from '@/lib/rbac/permission-checker';
 import type {
@@ -9,7 +9,6 @@ import type {
   PermissionName,
   ResourceType,
   UsePermissionsReturn,
-  UserContext,
 } from '@/lib/types/rbac';
 
 /**
@@ -23,7 +22,13 @@ import type {
  */
 export function usePermissions(): UsePermissionsReturn {
   // Use the userContext that's already loaded by RBACAuthProvider instead of fetching it again
-  const { user: authUser, isAuthenticated, userContext, rbacLoading, rbacError } = useAuth();
+  const {
+    user: _authUser,
+    isAuthenticated,
+    userContext,
+    rbacLoading: _rbacLoading,
+    rbacError: _rbacError,
+  } = useAuth();
 
   const checker = useMemo(() => {
     return userContext ? new PermissionChecker(userContext) : null;
@@ -111,7 +116,7 @@ export function usePermissions(): UsePermissionsReturn {
     return checker.getAllPermissions();
   };
 
-  const isSuperAdmin = (): boolean => {
+  const _isSuperAdmin = (): boolean => {
     if (!checker) return false;
     return checker.isSuperAdmin();
   };

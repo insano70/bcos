@@ -228,7 +228,7 @@ export class SimplifiedChartTransformer {
 
     // Sort dates chronologically using date_index
     const sortedDates = Array.from(allDates).sort((a, b) => {
-      return new Date(a + 'T00:00:00').getTime() - new Date(b + 'T00:00:00').getTime();
+      return new Date(`${a}T00:00:00`).getTime() - new Date(`${b}T00:00:00`).getTime();
     });
 
     // Filter out dates where no providers have data (all values would be 0)
@@ -248,7 +248,7 @@ export class SimplifiedChartTransformer {
     chartLogger.debug('🔍 DATE PROCESSING:', {
       sortedDateIndexes: sortedDates,
       sampleDate: sortedDates[0],
-      parsedSampleDate: new Date(sortedDates[0] + 'T00:00:00'),
+      parsedSampleDate: new Date(`${sortedDates[0]}T00:00:00`),
     });
 
     chartLogger.debug('🔍 MULTI-SERIES DATA:', {
@@ -314,7 +314,7 @@ export class SimplifiedChartTransformer {
 
     // For bar charts, create readable category labels based on frequency
     const categoryLabels = datesWithData.map((dateStr) => {
-      const date = new Date(dateStr + 'T12:00:00Z');
+      const date = new Date(`${dateStr}T12:00:00Z`);
 
       if (measures[0]?.frequency === 'Quarterly') {
         const quarter = Math.floor(date.getUTCMonth() / 3) + 1;
@@ -351,7 +351,7 @@ export class SimplifiedChartTransformer {
     if (isTimeSeries) {
       // For line charts, handle dates based on frequency
       finalLabels = datesWithData.map((dateStr) => {
-        const date = new Date(dateStr + 'T12:00:00Z');
+        const date = new Date(`${dateStr}T12:00:00Z`);
 
         // Only convert to month-start for Monthly/Quarterly data
         // Keep actual dates for Weekly data
@@ -566,7 +566,7 @@ export class SimplifiedChartTransformer {
    * Format date label based on frequency (consolidated from chart-data-transformer)
    */
   private formatDateLabel(dateIndex: string, frequency: string): string {
-    const date = new Date(dateIndex + 'T12:00:00Z');
+    const date = new Date(`${dateIndex}T12:00:00Z`);
 
     switch (frequency) {
       case 'Weekly':
@@ -637,7 +637,10 @@ export class SimplifiedChartTransformer {
         groupedData.set(groupKey, new Map());
       }
 
-      const dateMap = groupedData.get(groupKey)!;
+      const dateMap = groupedData.get(groupKey);
+      if (!dateMap) {
+        throw new Error(`Date map not found for group key: ${groupKey}`);
+      }
       if (!dateMap.has(dateKey)) {
         dateMap.set(dateKey, []);
       }
@@ -647,11 +650,15 @@ export class SimplifiedChartTransformer {
           ? parseFloat(measure.measure_value)
           : measure.measure_value;
 
-      dateMap.get(dateKey)!.push(measureValue);
+      const dateValues = dateMap.get(dateKey);
+      if (!dateValues) {
+        throw new Error(`Date values not found for date key: ${dateKey}`);
+      }
+      dateValues.push(measureValue);
     });
 
     const sortedDates = Array.from(allDates).sort(
-      (a, b) => new Date(a + 'T00:00:00').getTime() - new Date(b + 'T00:00:00').getTime()
+      (a, b) => new Date(`${a}T00:00:00`).getTime() - new Date(`${b}T00:00:00`).getTime()
     );
 
     const datasets: ChartDataset[] = [];
@@ -696,7 +703,7 @@ export class SimplifiedChartTransformer {
 
     return {
       labels: sortedDates.map((dateStr) => {
-        const date = new Date(dateStr + 'T12:00:00Z');
+        const _date = new Date(`${dateStr}T12:00:00Z`);
         return this.formatDateLabel(dateStr, measures[0]?.frequency || 'Monthly');
       }),
       datasets,
@@ -731,7 +738,10 @@ export class SimplifiedChartTransformer {
         groupedBySeries.set(seriesLabel, new Map());
       }
 
-      const dateMap = groupedBySeries.get(seriesLabel)!;
+      const dateMap = groupedBySeries.get(seriesLabel);
+      if (!dateMap) {
+        throw new Error(`Date map not found for series: ${seriesLabel}`);
+      }
       if (!dateMap.has(dateKey)) {
         dateMap.set(dateKey, []);
       }
@@ -741,11 +751,15 @@ export class SimplifiedChartTransformer {
           ? parseFloat(measure.measure_value)
           : measure.measure_value;
 
-      dateMap.get(dateKey)!.push(measureValue);
+      const dateValues = dateMap.get(dateKey);
+      if (!dateValues) {
+        throw new Error(`Date values not found for date key: ${dateKey}`);
+      }
+      dateValues.push(measureValue);
     });
 
     const sortedDates = Array.from(allDates).sort(
-      (a, b) => new Date(a + 'T00:00:00').getTime() - new Date(b + 'T00:00:00').getTime()
+      (a, b) => new Date(`${a}T00:00:00`).getTime() - new Date(`${b}T00:00:00`).getTime()
     );
 
     const datasets: ChartDataset[] = [];
@@ -802,7 +816,7 @@ export class SimplifiedChartTransformer {
 
     return {
       labels: sortedDates.map((dateStr) => {
-        const date = new Date(dateStr + 'T12:00:00Z');
+        const _date = new Date(`${dateStr}T12:00:00Z`);
         return this.formatDateLabel(dateStr, measures[0]?.frequency || 'Monthly');
       }),
       datasets,

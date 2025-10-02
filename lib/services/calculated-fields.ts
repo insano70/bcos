@@ -73,7 +73,10 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
           });
         }
 
-        const group = grouped.get(key)!;
+        const group = grouped.get(key);
+        if (!group) {
+          throw new Error(`Group not found for key: ${key}`);
+        }
         if (measure.measure.includes('Charges')) {
           group.charges = measure.measure_value;
         } else if (measure.measure.includes('Payments')) {
@@ -82,7 +85,7 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
       });
 
       const ratios: AggAppMeasure[] = [];
-      grouped.forEach((group, key) => {
+      grouped.forEach((group, _key) => {
         if (group.charges && group.payments && group.payments !== 0) {
           const ratio = group.charges / group.payments;
           ratios.push({
@@ -148,7 +151,7 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
       const total = measures.reduce((sum, m) => {
         const value =
           typeof m.measure_value === 'string' ? parseFloat(m.measure_value) : m.measure_value;
-        return sum + (isNaN(value) ? 0 : value);
+        return sum + (Number.isNaN(value) ? 0 : value);
       }, 0);
       const average = total / measures.length;
 

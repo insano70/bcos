@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { practice_comments } from '@/lib/db/schema';
 import type { PracticeComment } from '@/lib/types/practice';

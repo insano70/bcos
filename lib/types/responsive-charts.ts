@@ -52,7 +52,7 @@ export interface ResponsiveChartDefinition {
 /**
  * Utility type for components that can be either fixed or responsive
  */
-export type FlexibleChartProps<T = {}> = T & {
+export type FlexibleChartProps<T = Record<string, never>> = T & {
   // Traditional fixed sizing (backwards compatibility)
   width?: number;
   height?: number;

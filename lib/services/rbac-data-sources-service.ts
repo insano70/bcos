@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, isNull, like, or, sql } from 'drizzle-orm';
+import { and, count, desc, eq, like, or, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { chart_data_source_columns, chart_data_sources } from '@/lib/db/chart-config-schema';
 import { createAppLogger } from '@/lib/logger/factory';
@@ -631,7 +631,15 @@ export class RBACDataSourcesService extends BaseRBACService {
       `);
 
       // Transform the result to match our expected format
-      const formattedColumns = columns.map((col: any) => ({
+      interface InformationSchemaColumn {
+        column_name: string;
+        data_type: string;
+        is_nullable: boolean;
+        column_default: string | null;
+        ordinal_position: number;
+      }
+
+      const formattedColumns = (columns as unknown as InformationSchemaColumn[]).map((col) => ({
         column_name: col.column_name,
         data_type: col.data_type,
         is_nullable: col.is_nullable,

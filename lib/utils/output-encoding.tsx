@@ -120,7 +120,7 @@ export function SafeContent({ content, type, className, maxLength }: SafeContent
   }
 
   if (maxLength && safeContent.length > maxLength) {
-    safeContent = safeContent.slice(0, maxLength) + '...';
+    safeContent = `${safeContent.slice(0, maxLength)}...`;
   }
 
   return <span className={className}>{safeContent}</span>;

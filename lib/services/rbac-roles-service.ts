@@ -1,6 +1,6 @@
-import { and, eq, ilike, inArray, or } from 'drizzle-orm';
+import { and, eq, ilike, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { organizations, permissions, role_permissions, roles } from '@/lib/db/rbac-schema';
+import { permissions, role_permissions, roles } from '@/lib/db/rbac-schema';
 import type { UserContext } from '@/lib/types/rbac';
 
 export interface RoleFilters {
@@ -160,14 +160,20 @@ export function createRBACRolesService(userContext: UserContext) {
 
         // Add permission if it exists
         if (row.permission_id) {
-          const role = roleMap.get(roleId)!;
+          const role = roleMap.get(roleId);
+          if (!role) {
+            throw new Error(`Role ${roleId} not found in roleMap`);
+          }
+          if (!row.permission_name || !row.resource || !row.action || !row.scope) {
+            throw new Error('Permission data incomplete');
+          }
           role.permissions.push({
-            permission_id: row.permission_id!,
-            name: row.permission_name!,
+            permission_id: row.permission_id,
+            name: row.permission_name,
             description: row.permission_description,
-            resource: row.resource!,
-            action: row.action!,
-            scope: row.scope!,
+            resource: row.resource,
+            action: row.action,
+            scope: row.scope,
           });
         }
       }
@@ -247,14 +253,19 @@ export function createRBACRolesService(userContext: UserContext) {
       }
       const rolePermissions = rolesWithPermissions
         .filter((r) => r.permission_id)
-        .map((r) => ({
-          permission_id: r.permission_id!,
-          name: r.permission_name!,
-          description: r.permission_description,
-          resource: r.resource!,
-          action: r.action!,
-          scope: r.scope!,
-        }));
+        .map((r) => {
+          if (!r.permission_id || !r.permission_name || !r.resource || !r.action || !r.scope) {
+            throw new Error('Permission data incomplete for role');
+          }
+          return {
+            permission_id: r.permission_id,
+            name: r.permission_name,
+            description: r.permission_description,
+            resource: r.resource,
+            action: r.action,
+            scope: r.scope,
+          };
+        });
 
       return {
         role_id: row.role_id,

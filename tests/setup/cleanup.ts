@@ -19,6 +19,14 @@ import { debugLog, debugTiming } from '@/lib/utils/debug'
  * Should be used sparingly - transaction rollback is preferred for normal tests
  */
 export async function cleanupTestData() {
+  // CRITICAL: Prevent accidental execution in production
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error(
+      'SAFETY GUARD: cleanupTestData can only be run in test environment. ' +
+      `Current NODE_ENV: ${process.env.NODE_ENV}`
+    );
+  }
+
   const db = getTestDb()
   const startTime = Date.now()
 
@@ -101,6 +109,14 @@ export async function cleanupTestData() {
  * Use with caution - this is more aggressive than normal cleanup
  */
 export async function emergencyCleanup() {
+  // CRITICAL: Prevent accidental execution in production
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error(
+      'SAFETY GUARD: emergencyCleanup can only be run in test environment. ' +
+      `Current NODE_ENV: ${process.env.NODE_ENV}`
+    );
+  }
+
   const db = getTestDb()
   const startTime = Date.now()
 

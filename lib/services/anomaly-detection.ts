@@ -316,19 +316,9 @@ export class AnomalyDetectionService {
           typeof measure.measure_value === 'string'
             ? parseFloat(measure.measure_value)
             : measure.measure_value;
-        return sum + (isNaN(value) ? 0 : value);
+        return sum + (Number.isNaN(value) ? 0 : value);
       }, 0) / historicalValues.length
     );
-  }
-
-  private simpleForecast(values: number[]): number {
-    if (values.length < 2) return values[0] || 0;
-
-    // Simple linear trend extrapolation
-    const recent = values.slice(-2);
-    const trend = (recent[1] ?? 0) - (recent[0] ?? 0);
-
-    return (recent[1] ?? 0) + trend;
   }
 }
 

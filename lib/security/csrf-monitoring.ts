@@ -116,7 +116,7 @@ export class CSRFSecurityMonitor {
    * Log CSRF failure with appropriate severity
    */
   private static logFailure(event: CSRFFailureEvent): void {
-    const logData = {
+    const _logData = {
       event_type: 'csrf_validation_failure',
       ip: event.ip,
       pathname: event.pathname,

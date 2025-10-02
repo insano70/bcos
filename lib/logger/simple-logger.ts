@@ -319,7 +319,7 @@ export class AppLogger implements SimpleLogger {
     return sensitiveKeys.some((sensitive) => lowerKey.includes(sensitive));
   }
 
-  private sanitizeStringValue(key: string, value: string): string {
+  private sanitizeStringValue(_key: string, value: string): string {
     // UUID pattern sanitization
     if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
       return '[UUID]';

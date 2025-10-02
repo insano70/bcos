@@ -96,12 +96,12 @@ export function parseBusinessHours(jsonString: string | null) {
 }
 
 // Define types for the parsed data
-type BusinessHours = z.infer<typeof businessHoursSchema>;
-type Service = z.infer<typeof serviceSchema>;
-type Insurance = z.infer<typeof insuranceSchema>;
-type Condition = z.infer<typeof conditionSchema>;
-type GalleryImage = z.infer<typeof galleryImageSchema>;
-type Education = z.infer<typeof educationSchema>;
+export type BusinessHours = z.infer<typeof businessHoursSchema>;
+export type Service = z.infer<typeof serviceSchema>;
+export type Insurance = z.infer<typeof insuranceSchema>;
+export type Condition = z.infer<typeof conditionSchema>;
+export type GalleryImage = z.infer<typeof galleryImageSchema>;
+export type Education = z.infer<typeof educationSchema>;
 
 export function parseServices(jsonString: string | null): Service[] {
   return safeJsonParseArray(jsonString, serviceSchema);

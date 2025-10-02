@@ -405,7 +405,7 @@ export function createAPILogger(request: NextRequest, module?: string): APILogge
 /**
  * Middleware helper for automatic request/response logging
  */
-export function withAPILogging<T>(
+export function withAPILogging<_T>(
   handler: (request: NextRequest, logger: APILogger) => Promise<Response>,
   module?: string
 ): (request: NextRequest) => Promise<Response> {

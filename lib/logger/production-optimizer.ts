@@ -68,7 +68,6 @@ interface ProductionConfig {
 class ProductionOptimizer {
   private config: ProductionConfig;
   private logCounts: Map<string, { count: number; timestamp: number }> = new Map();
-  private lastFlush = Date.now();
   private logBuffer: Array<{
     level: string;
     message: string;
@@ -88,7 +87,7 @@ class ProductionOptimizer {
         feature: 'log-optimization',
         module: 'production-optimizer',
       });
-    } catch (error) {
+    } catch (_error) {
       // Fallback to simple console logger if universal logger fails
       return {
         info: (message: string, data?: Record<string, unknown>) =>
@@ -350,7 +349,7 @@ class ProductionOptimizer {
    * Optimize log data for performance and compliance
    */
   optimizeLogData(
-    level: string,
+    _level: string,
     message: string,
     meta: Record<string, unknown>
   ): { message: string; meta: Record<string, unknown> } {

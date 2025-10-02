@@ -227,7 +227,7 @@ class CertificateCache {
     // Log successful validation
     samlConfigLogger.info('Certificate validated successfully', {
       key,
-      fingerprint: info.fingerprint.substring(0, 20) + '...',
+      fingerprint: `${info.fingerprint.substring(0, 20)}...`,
       validFrom: info.validFrom,
       validUntil: info.validUntil,
       daysUntilExpiry: info.daysUntilExpiry,
@@ -434,8 +434,8 @@ async function getIdPCertificate(): Promise<{ certificate: string; info: SAMLCer
 
           if (metadataFingerprint !== fileFingerprint) {
             samlConfigLogger.warn('Certificate rotation detected - using BOTH certificates', {
-              metadataFingerprint: metadataFingerprint.substring(0, 20) + '...',
-              fileFingerprint: fileFingerprint.substring(0, 20) + '...',
+              metadataFingerprint: `${metadataFingerprint.substring(0, 20)}...`,
+              fileFingerprint: `${fileFingerprint.substring(0, 20)}...`,
             });
             certificates.push(fileCert);
           }
@@ -576,7 +576,7 @@ export async function buildSAMLConfig(): Promise<SAMLConfig> {
 
   // Log certificate information
   samlConfigLogger.info('SAML certificates loaded', {
-    idpCertFingerprint: idpCertInfo.fingerprint.substring(0, 20) + '...',
+    idpCertFingerprint: `${idpCertInfo.fingerprint.substring(0, 20)}...`,
     idpCertExpiry: idpCertInfo.validUntil,
     idpCertDaysRemaining: idpCertInfo.daysUntilExpiry,
     spCertConfigured: !!spCertResult,

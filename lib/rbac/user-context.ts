@@ -247,7 +247,12 @@ export async function getUserContext(userId: string): Promise<UserContext> {
     .filter(
       (role) => !role.is_system_role && role.name === 'practice_admin' && role.organization_id
     )
-    .map((role) => role.organization_id!)
+    .map((role) => {
+      if (!role.organization_id) {
+        throw new Error('Organization ID required for practice_admin role');
+      }
+      return role.organization_id;
+    })
     .filter(Boolean);
 
   // 9. Build final user context
@@ -262,7 +267,12 @@ export async function getUserContext(userId: string): Promise<UserContext> {
 
     // RBAC data
     roles: Array.from(rolesMap.values()),
-    organizations: userOrganizationsArray.map((uo) => uo.organization!),
+    organizations: userOrganizationsArray.map((uo) => {
+      if (!uo.organization) {
+        throw new Error('Organization data missing for user organization');
+      }
+      return uo.organization;
+    }),
     accessible_organizations: accessibleOrganizations,
     user_roles: Array.from(userRolesMap.values()),
     user_organizations: userOrganizationsArray,

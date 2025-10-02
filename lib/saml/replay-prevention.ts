@@ -87,7 +87,7 @@ export async function checkAndTrackAssertion(
     });
 
     replayLogger.info('SAML assertion tracked successfully', {
-      assertionId: assertionId.substring(0, 20) + '...',
+      assertionId: `${assertionId.substring(0, 20)}...`,
       userEmail,
       ipAddress,
       expiresAt: expiresAt.toISOString(),
@@ -120,7 +120,7 @@ export async function checkAndTrackAssertion(
         .limit(1);
 
       replayLogger.warn('SAML replay attack detected', {
-        assertionId: assertionId.substring(0, 20) + '...',
+        assertionId: `${assertionId.substring(0, 20)}...`,
         attemptedByEmail: userEmail,
         attemptedFromIp: ipAddress,
         originallyUsedAt: existing?.usedAt,
@@ -146,7 +146,7 @@ export async function checkAndTrackAssertion(
       error: error instanceof Error ? error.message : String(error),
       errorCode: error && typeof error === 'object' && 'code' in error ? error.code : 'unknown',
       errorName: error instanceof Error ? error.constructor.name : typeof error,
-      assertionId: assertionId.substring(0, 20) + '...',
+      assertionId: `${assertionId.substring(0, 20)}...`,
       userEmail,
     });
 
@@ -174,7 +174,7 @@ export async function cleanupExpiredEntries(): Promise<number> {
       cutoffTime: now.toISOString(),
     });
 
-    const result = await db
+    const _result = await db
       .delete(samlReplayPrevention)
       .where(lt(samlReplayPrevention.expiresAt, now));
 

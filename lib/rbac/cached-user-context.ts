@@ -24,14 +24,7 @@ import {
   user_roles,
   users,
 } from '@/lib/db/schema';
-import type {
-  Organization,
-  Permission,
-  Role,
-  UserContext,
-  UserOrganization,
-  UserRole,
-} from '@/lib/types/rbac';
+import type { Permission, Role, UserContext, UserRole } from '@/lib/types/rbac';
 
 // Request-scoped cache to prevent multiple getUserContext calls per request
 const requestCache = new Map<string, Promise<UserContext | null>>();
@@ -252,7 +245,12 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
     .filter(
       (role) => !role.is_system_role && role.name === 'practice_admin' && role.organization_id
     )
-    .map((role) => role.organization_id!)
+    .map((role) => {
+      if (!role.organization_id) {
+        throw new Error('Organization ID required for practice_admin role');
+      }
+      return role.organization_id;
+    })
     .filter(Boolean);
 
   // 8. Build final user context

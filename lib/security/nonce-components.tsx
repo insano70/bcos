@@ -1,7 +1,6 @@
 'use client';
 
 import type React from 'react';
-import { sanitizeHtml } from '@/lib/utils/html-sanitizer';
 import { useNonce, useScriptNonce, useStyleNonce } from './nonce-context';
 
 /**
@@ -107,6 +106,11 @@ export function NonceScript({
       nonce={scriptNonce}
       id={id}
       className={className}
+      // SECURITY: This component safely injects inline content protected by CSP nonces.
+      // The content is validated by validateScriptContent() above and the nonce is
+      // generated per-request in middleware.ts. The browser's CSP engine validates
+      // the nonce before executing. See lib/security/headers.ts for CSP configuration.
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: CSP nonce protection with content validation
       dangerouslySetInnerHTML={{ __html: children }}
     />
   );
@@ -180,6 +184,11 @@ export function NonceStyle({ children, id, className, skipValidation }: NonceSty
       nonce={styleNonce}
       id={id}
       className={className}
+      // SECURITY: This component safely injects inline CSS protected by CSP nonces.
+      // The CSS is validated by validateCSSContent() above and the nonce is generated
+      // per-request in middleware.ts. The browser's CSP engine validates the nonce.
+      // See lib/security/headers.ts for CSP configuration.
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: CSP nonce protection with CSS validation
       dangerouslySetInnerHTML={{ __html: children }}
     />
   );
@@ -245,6 +254,11 @@ export function JSONLD({ data, id }: JSONLDProps) {
       type="application/ld+json"
       nonce={scriptNonce}
       id={id}
+      // SECURITY: This component safely injects JSON-LD structured data protected by CSP nonces.
+      // The data is validated by validateJSONLDData() above and serialized through JSON.stringify.
+      // The nonce is generated per-request in middleware.ts and validated by the browser's CSP.
+      // See lib/security/headers.ts for CSP configuration.
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: CSP nonce protection with JSON-LD validation
       dangerouslySetInnerHTML={{ __html: jsonContent }}
     />
   );

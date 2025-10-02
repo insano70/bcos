@@ -69,8 +69,12 @@ export const checkAnalyticsDbHealth = async (): Promise<{
       getAnalyticsDb(); // Initialize connection
     }
 
+    if (!analyticsConnection) {
+      throw new Error('Analytics connection not initialized');
+    }
+
     const startTime = Date.now();
-    await analyticsConnection!`SELECT 1 as health_check`;
+    await analyticsConnection`SELECT 1 as health_check`;
     const latency = Date.now() - startTime;
 
     logger.info('Analytics database health check passed', { latency });
@@ -114,7 +118,12 @@ export const executeAnalyticsQuery = async <T = Record<string, unknown>>(
 
     const startTime = Date.now();
     // Use postgres template literal syntax
-    const result = await analyticsConnection!.unsafe(query, params as PostgresRawParams);
+    const result = await analyticsConnection?.unsafe(query, params as PostgresRawParams);
+
+    if (!result) {
+      throw new Error('Query execution returned undefined result');
+    }
+
     const duration = Date.now() - startTime;
 
     console.log('✅ QUERY RESULT:', {

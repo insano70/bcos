@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, isNull, like, or } from 'drizzle-orm';
+import { and, count, desc, eq, like, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   chart_categories,
@@ -10,7 +10,6 @@ import {
 import { createAppLogger } from '@/lib/logger/factory';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { PermissionDeniedError } from '@/lib/types/rbac';
 
 /**
  * Enhanced Dashboards Service with RBAC
@@ -537,7 +536,7 @@ export class RBACDashboardsService extends BaseRBACService {
     }
 
     // Execute dashboard update and chart management as atomic transaction
-    const updatedDashboard = await db.transaction(async (tx) => {
+    const _updatedDashboard = await db.transaction(async (tx) => {
       // Prepare update data
       const updateFields: Partial<{
         dashboard_name: string;

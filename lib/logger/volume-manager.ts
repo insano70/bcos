@@ -24,7 +24,7 @@ interface RetentionPolicy {
   complianceFramework?: 'HIPAA' | 'SOX' | 'GDPR';
 }
 
-interface CompliancePolicy {
+export interface CompliancePolicy {
   id: string;
   name: string;
   framework: 'HIPAA' | 'SOX' | 'GDPR' | 'PCI-DSS';
@@ -117,7 +117,7 @@ class LogVolumeManager {
         feature: 'log-volume-management',
         module: 'volume-manager',
       });
-    } catch (error) {
+    } catch (_error) {
       // Fallback to simple console logger if universal logger fails
       return {
         info: (message: string, data?: Record<string, unknown>) =>
@@ -213,7 +213,7 @@ class LogVolumeManager {
   /**
    * Record a log entry for volume tracking
    */
-  recordLog(level: string, component: string, size: number = 1): void {
+  recordLog(level: string, component: string, _size: number = 1): void {
     this.metrics.totalLogs++;
 
     // Update storage estimation (rough calculation)

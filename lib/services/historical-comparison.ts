@@ -123,7 +123,7 @@ export class HistoricalComparisonService {
   comparePeriodsAnalysis(
     currentData: AggAppMeasure[],
     comparisonData: AggAppMeasure[],
-    comparisonType: string
+    _comparisonType: string
   ): ComparisonResult {
     const currentTotal = this.calculateTotal(currentData);
     const comparisonTotal = this.calculateTotal(comparisonData);
@@ -214,7 +214,7 @@ export class HistoricalComparisonService {
    */
   analyzeTrend(
     measures: AggAppMeasure[],
-    periods: number = 12
+    _periods: number = 12
   ): {
     trendDirection: 'increasing' | 'decreasing' | 'stable' | 'volatile';
     trendStrength: number; // 0-1 scale
@@ -287,7 +287,7 @@ export class HistoricalComparisonService {
           : measure.measure_value;
 
       // Only add valid numbers
-      return sum + (isNaN(value) ? 0 : value);
+      return sum + (Number.isNaN(value) ? 0 : value);
     }, 0);
   }
 

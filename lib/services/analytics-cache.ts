@@ -266,7 +266,7 @@ export class AnalyticsCache {
   invalidatePattern(pattern: Partial<AnalyticsQueryParams>): number {
     let invalidatedCount = 0;
 
-    for (const [key, entry] of Array.from(this.cache.entries())) {
+    for (const [key, _entry] of Array.from(this.cache.entries())) {
       // Simple pattern matching - in production you'd want more sophisticated matching
       const shouldInvalidate = Object.entries(pattern).every(([patternKey, patternValue]) => {
         return key.includes(`${patternKey}:${patternValue}`);

@@ -70,7 +70,7 @@ export class ChartValidator {
    */
   private async getAllowedFields(): Promise<string[]> {
     try {
-      const dataSourceConfig = await chartConfigService.getDataSourceConfig('ih.agg_app_measures');
+      const _dataSourceConfig = await chartConfigService.getDataSourceConfig('ih.agg_app_measures');
       // TODO: Add getColumnConfigs method to chartConfigService
       const columnConfigs: Array<{ column_name: string }> = []; // Fallback to empty array
 

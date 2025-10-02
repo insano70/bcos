@@ -232,9 +232,11 @@ export class UnifiedCSRFProtection {
         ['verify']
       );
 
-      const signatureBytes = new Uint8Array(
-        signature.match(/.{2}/g)!.map((byte) => parseInt(byte, 16))
-      );
+      const signatureMatch = signature.match(/.{2}/g);
+      if (!signatureMatch) {
+        throw new Error('Invalid signature format');
+      }
+      const signatureBytes = new Uint8Array(signatureMatch.map((byte) => parseInt(byte, 16)));
 
       const isSignatureValid = await globalThis.crypto.subtle.verify(
         'HMAC',
@@ -280,12 +282,12 @@ export class UnifiedCSRFProtection {
         csrfSecurityLogger.debug('🔍 CSRF Anonymous Validation Failed:', {
           payload: {
             ip: payload.ip,
-            userAgent: payload.userAgent?.substring(0, 30) + '...',
+            userAgent: `${payload.userAgent?.substring(0, 30)}...`,
             timeWindow: payload.timeWindow,
           },
           current: {
             ip: currentIp,
-            userAgent: currentUserAgent?.substring(0, 30) + '...',
+            userAgent: `${currentUserAgent?.substring(0, 30)}...`,
             timeWindow: currentTimeWindow,
           },
           matches: {
@@ -330,9 +332,11 @@ export class UnifiedCSRFProtection {
         ['verify']
       );
 
-      const signatureBytes = new Uint8Array(
-        signature.match(/.{2}/g)!.map((byte) => parseInt(byte, 16))
-      );
+      const signatureMatch = signature.match(/.{2}/g);
+      if (!signatureMatch) {
+        throw new Error('Invalid signature format');
+      }
+      const signatureBytes = new Uint8Array(signatureMatch.map((byte) => parseInt(byte, 16)));
 
       const isSignatureValid = await globalThis.crypto.subtle.verify(
         'HMAC',
@@ -357,7 +361,7 @@ export class UnifiedCSRFProtection {
       const maxAge = 24 * 60 * 60 * 1000; // 24 hours
 
       return tokenAge <= maxAge;
-    } catch (error) {
+    } catch (_error) {
       return false;
     }
   }
@@ -399,7 +403,7 @@ export class UnifiedCSRFProtection {
     try {
       const cookieStore = await cookies();
       return cookieStore.get(UnifiedCSRFProtection.cookieName)?.value || null;
-    } catch (error) {
+    } catch (_error) {
       // Edge Runtime context might not have cookies() available
       return null;
     }
@@ -429,7 +433,7 @@ export class UnifiedCSRFProtection {
    */
   static isAnonymousEndpoint(pathname: string): boolean {
     return UnifiedCSRFProtection.ANONYMOUS_TOKEN_ALLOWED_ENDPOINTS.some(
-      (endpoint) => pathname === endpoint || pathname.startsWith(endpoint + '/')
+      (endpoint) => pathname === endpoint || pathname.startsWith(`${endpoint}/`)
     );
   }
 
@@ -438,7 +442,7 @@ export class UnifiedCSRFProtection {
    */
   static isDualTokenEndpoint(pathname: string): boolean {
     return UnifiedCSRFProtection.DUAL_TOKEN_ALLOWED_ENDPOINTS.some(
-      (endpoint) => pathname === endpoint || pathname.startsWith(endpoint + '/')
+      (endpoint) => pathname === endpoint || pathname.startsWith(`${endpoint}/`)
     );
   }
 
@@ -757,7 +761,7 @@ export class UnifiedCSRFProtection {
               return isDoubleSubmitValid;
             }
           }
-        } catch (parseError) {
+        } catch (_parseError) {
           // If token parsing fails, fall back to simple double-submit check
           // This handles legacy tokens during migration
           const isDevelopment =

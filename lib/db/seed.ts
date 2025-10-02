@@ -1,6 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
-import * as fs from 'fs';
-import * as path from 'path';
+import { and, eq } from 'drizzle-orm';
 import { createAppLogger } from '@/lib/logger/factory';
 import { hashPassword } from '../auth/password';
 import { db, practice_attributes, practices, staff_members, templates, users } from './index';

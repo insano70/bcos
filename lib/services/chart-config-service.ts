@@ -118,7 +118,10 @@ export class ChartConfigService {
     const cacheKey = `${schemaName}.${tableName}`;
 
     if (this.dataSourceCache.has(cacheKey)) {
-      return this.dataSourceCache.get(cacheKey)!;
+      const cached = this.dataSourceCache.get(cacheKey);
+      if (cached) {
+        return cached;
+      }
     }
 
     try {
@@ -245,7 +248,10 @@ export class ChartConfigService {
     const cacheKey = `${chartType}-${frequency || 'default'}`;
 
     if (this.displayConfigCache.has(cacheKey)) {
-      return this.displayConfigCache.get(cacheKey)!;
+      const cached = this.displayConfigCache.get(cacheKey);
+      if (cached) {
+        return cached;
+      }
     }
 
     try {
@@ -335,7 +341,10 @@ export class ChartConfigService {
    */
   async getColorPalette(paletteId?: number): Promise<ColorPalette | null> {
     if (paletteId && this.colorPaletteCache.has(paletteId)) {
-      return this.colorPaletteCache.get(paletteId)!;
+      const cached = this.colorPaletteCache.get(paletteId);
+      if (cached) {
+        return cached;
+      }
     }
 
     try {

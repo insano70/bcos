@@ -327,7 +327,7 @@ export class SAMLClientFactory {
         samlClientLogger.debug('Raw SAML response (non-production debug)', {
           requestId: context.requestId,
           responseLength: samlResponseBody.SAMLResponse.length,
-          responsePreview: samlResponseBody.SAMLResponse.substring(0, 100) + '...',
+          responsePreview: `${samlResponseBody.SAMLResponse.substring(0, 100)}...`,
         });
 
         // Decode base64 to see XML structure
@@ -335,7 +335,7 @@ export class SAMLClientFactory {
           const decoded = Buffer.from(samlResponseBody.SAMLResponse, 'base64').toString('utf-8');
           samlClientLogger.debug('Decoded SAML XML preview', {
             requestId: context.requestId,
-            xmlPreview: decoded.substring(0, 500) + '...',
+            xmlPreview: `${decoded.substring(0, 500)}...`,
             containsSignature: decoded.includes('<Signature'),
             containsAssertion: decoded.includes('<Assertion'),
           });
@@ -667,8 +667,11 @@ export class SAMLClientFactory {
       : new Date(Date.now() + 3600000); // 1 hour default
 
     // Check with database (atomic insert prevents race conditions)
+    if (!profile.assertionID) {
+      return { valid: false, error: 'Assertion ID missing from SAML response' };
+    }
     const replayCheck = await checkAndTrackAssertion(
-      profile.assertionID!,
+      profile.assertionID,
       profile.inResponseTo || '',
       profile.email,
       context.ipAddress,
@@ -726,7 +729,7 @@ export class SAMLClientFactory {
         new Error(replayCheck.reason || 'Replay attack'),
         {
           requestId: context.requestId,
-          assertionID: profile.assertionID?.substring(0, 20) + '...',
+          assertionID: `${profile.assertionID?.substring(0, 20)}...`,
           email: profile.email.replace(/(.{2}).*@/, '$1***@'),
           originalUsedAt: replayCheck.details?.existingUsedAt,
           originalIP: replayCheck.details?.existingIpAddress,
@@ -742,7 +745,7 @@ export class SAMLClientFactory {
     }
 
     samlClientLogger.debug('Replay check passed - assertion ID tracked in database', {
-      assertionID: profile.assertionID?.substring(0, 20) + '...',
+      assertionID: `${profile.assertionID?.substring(0, 20)}...`,
       requestId: context.requestId,
     });
 

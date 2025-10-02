@@ -83,7 +83,10 @@ export class RBACUsersService extends BaseRBACService {
     // Apply scope-based filtering
     switch (accessScope.scope) {
       case 'own':
-        whereConditions.push(eq(users.user_id, accessScope.userId!));
+        if (!accessScope.userId) {
+          throw new Error('User ID required for own scope');
+        }
+        whereConditions.push(eq(users.user_id, accessScope.userId));
         break;
 
       case 'organization': {
@@ -189,7 +192,10 @@ export class RBACUsersService extends BaseRBACService {
         });
       }
 
-      const user = usersMap.get(row.user_id)!;
+      const user = usersMap.get(row.user_id);
+      if (!user) {
+        throw new Error(`User unexpectedly not found in map: ${row.user_id}`);
+      }
 
       // Add organization if present and not already added
       if (
@@ -523,7 +529,7 @@ export class RBACUsersService extends BaseRBACService {
     }
 
     // Execute user update and role assignment as atomic transaction
-    const updatedUser = await db.transaction(async (tx) => {
+    const _updatedUser = await db.transaction(async (tx) => {
       // Prepare update data
       const updateFields: Partial<{
         first_name: string;
@@ -753,7 +759,10 @@ export class RBACUsersService extends BaseRBACService {
     // Apply scope-based filtering
     switch (accessScope.scope) {
       case 'own':
-        whereConditions.push(eq(users.user_id, accessScope.userId!));
+        if (!accessScope.userId) {
+          throw new Error('User ID required for own scope');
+        }
+        whereConditions.push(eq(users.user_id, accessScope.userId));
         break;
 
       case 'organization': {

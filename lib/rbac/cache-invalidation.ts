@@ -3,7 +3,6 @@
  * Handles cache invalidation when roles/permissions are modified
  */
 
-import { TokenManager } from '@/lib/auth/token-manager';
 import { rolePermissionCache } from '@/lib/cache/role-permission-cache';
 import { logger } from '@/lib/logger';
 
@@ -112,7 +111,9 @@ export function getCacheStats() {
  * Warm up cache by pre-loading common roles
  */
 export async function warmUpCache(commonRoleIds: string[]): Promise<void> {
-  const { getCachedUserContextSafe } = await import('./cached-user-context');
+  const { getCachedUserContextSafe: _getCachedUserContextSafe } = await import(
+    './cached-user-context'
+  );
 
   logger.info('Warming up role permission cache', {
     roleCount: commonRoleIds.length,

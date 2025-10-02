@@ -76,7 +76,7 @@ function getAuditLogger(): ReturnType<typeof createAppLogger> {
   if (!auditLogger) {
     try {
       auditLogger = createAppLogger('audit');
-    } catch (error) {
+    } catch (_error) {
       // Fallback to console logger if universal logger fails
       auditLogger = {
         info: (message: string, data?: Record<string, unknown>) =>
@@ -88,11 +88,11 @@ function getAuditLogger(): ReturnType<typeof createAppLogger> {
         debug: (message: string, data?: Record<string, unknown>) =>
           console.debug(`[AUDIT] ${message}`, data),
         // Context management methods
-        child: (context: Record<string, unknown>, module?: string) =>
+        child: (_context: Record<string, unknown>, _module?: string) =>
           auditLogger as ReturnType<typeof createAppLogger>,
-        withRequest: (request: Request | { headers: Headers; url: string; method: string }) =>
+        withRequest: (_request: Request | { headers: Headers; url: string; method: string }) =>
           auditLogger as ReturnType<typeof createAppLogger>,
-        withUser: (userId: string, organizationId?: string) =>
+        withUser: (_userId: string, _organizationId?: string) =>
           auditLogger as ReturnType<typeof createAppLogger>,
         // Specialized logging methods (fallback implementations)
         timing: (message: string, startTime: number, data?: Record<string, unknown>) =>

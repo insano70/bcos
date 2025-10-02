@@ -99,7 +99,7 @@ export async function fetchIdPCertificateFromMetadata(
       tenantId,
       appId,
       cacheAge: Date.now() - cached.fetchedAt.getTime(),
-      fingerprint: cached.fingerprint.substring(0, 20) + '...',
+      fingerprint: `${cached.fingerprint.substring(0, 20)}...`,
       validUntil: cached.validUntil.toISOString(),
     });
     return cached.certificate;
@@ -173,7 +173,7 @@ export async function fetchIdPCertificateFromMetadata(
       {
         tenantId,
         xmlLength: xml.length,
-        xmlPreview: xml.substring(0, 200) + '...',
+        xmlPreview: `${xml.substring(0, 200)}...`,
       }
     );
     throw new Error('No signing certificate found in metadata XML');
@@ -185,7 +185,7 @@ export async function fetchIdPCertificateFromMetadata(
   // Format as PEM with proper line breaks (64 characters per line)
   let pemCert = '-----BEGIN CERTIFICATE-----\n';
   for (let i = 0; i < base64Cert.length; i += 64) {
-    pemCert += base64Cert.substring(i, i + 64) + '\n';
+    pemCert += `${base64Cert.substring(i, i + 64)}\n`;
   }
   pemCert += '-----END CERTIFICATE-----\n';
 
@@ -200,7 +200,7 @@ export async function fetchIdPCertificateFromMetadata(
       {
         tenantId,
         error: error instanceof Error ? error.message : String(error),
-        pemPreview: pemCert.substring(0, 100) + '...',
+        pemPreview: `${pemCert.substring(0, 100)}...`,
       }
     );
     throw new Error('Extracted certificate is invalid');
@@ -212,7 +212,7 @@ export async function fetchIdPCertificateFromMetadata(
   // Log certificate details
   metadataLogger.info('IDP certificate extracted from metadata', {
     tenantId,
-    fingerprint: fingerprint.substring(0, 20) + '...',
+    fingerprint: `${fingerprint.substring(0, 20)}...`,
     validFrom: x509.validFrom,
     validUntil: x509.validTo,
     issuer: x509.issuer,
@@ -223,8 +223,8 @@ export async function fetchIdPCertificateFromMetadata(
   if (cached && cached.fingerprint !== fingerprint) {
     metadataLogger.warn('IDP certificate ROTATED - new certificate detected', {
       tenantId,
-      oldFingerprint: cached.fingerprint.substring(0, 20) + '...',
-      newFingerprint: fingerprint.substring(0, 20) + '...',
+      oldFingerprint: `${cached.fingerprint.substring(0, 20)}...`,
+      newFingerprint: `${fingerprint.substring(0, 20)}...`,
       oldValidUntil: cached.validUntil.toISOString(),
       newValidUntil: validUntil.toISOString(),
       alert: 'CERTIFICATE_ROTATION',
@@ -236,7 +236,7 @@ export async function fetchIdPCertificateFromMetadata(
   if (daysUntilExpiry < 30) {
     metadataLogger.warn('IDP certificate expires soon', {
       tenantId,
-      fingerprint: fingerprint.substring(0, 20) + '...',
+      fingerprint: `${fingerprint.substring(0, 20)}...`,
       validUntil: validUntil.toISOString(),
       daysRemaining: daysUntilExpiry,
       alert: 'CERTIFICATE_EXPIRY_WARNING',
@@ -316,7 +316,7 @@ export function getMetadataCacheStats(): {
   const tenants = Array.from(metadataCache.entries()).map(([tenantId, entry]) => ({
     tenantId,
     age: Date.now() - entry.fetchedAt.getTime(),
-    fingerprint: entry.fingerprint.substring(0, 20) + '...',
+    fingerprint: `${entry.fingerprint.substring(0, 20)}...`,
     validUntil: entry.validUntil.toISOString(),
   }));
 

@@ -97,7 +97,7 @@ export function validateSAMLProfile(profile: {
   if (DANGEROUS_CHARS.test(email)) {
     errors.push('Email contains dangerous characters');
     validatorLogger.error('SAML profile validation failed: dangerous characters in email', {
-      email: email.substring(0, 5) + '***',
+      email: `${email.substring(0, 5)}***`,
       alert: 'POSSIBLE_INJECTION_ATTEMPT',
     });
     return { valid: false, errors };
@@ -184,7 +184,7 @@ export function validateSAMLProfile(profile: {
 
   // All validations passed
   validatorLogger.debug('SAML profile validation successful', {
-    email: email.substring(0, 5) + '***',
+    email: `${email.substring(0, 5)}***`,
     hasDisplayName: !!sanitized.displayName,
     hasGivenName: !!sanitized.givenName,
     hasSurname: !!sanitized.surname,
@@ -249,7 +249,7 @@ export function sanitizeForLogging(value: string | undefined, maxLength = 100): 
 
   // Truncate if too long
   if (sanitized.length > maxLength) {
-    sanitized = sanitized.substring(0, maxLength) + '...';
+    sanitized = `${sanitized.substring(0, maxLength)}...`;
   }
 
   return sanitized;

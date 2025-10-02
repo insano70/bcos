@@ -5,7 +5,6 @@ import type {
   AnalyticsQueryResult,
   ChartFilter,
   ChartFilterValue,
-  ChartOrderBy,
   ChartRenderContext,
 } from '@/lib/types/analytics';
 import { analyticsCache } from './analytics-cache';
@@ -158,7 +157,7 @@ export class AnalyticsQueryBuilder {
     const date = new Date(dateString);
     return (
       date instanceof Date &&
-      !isNaN(date.getTime()) &&
+      !Number.isNaN(date.getTime()) &&
       date.toISOString().split('T')[0] === dateString
     );
   }
@@ -220,30 +219,6 @@ export class AnalyticsQueryBuilder {
 
     const clause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     return { clause, params };
-  }
-
-  /**
-   * Build ORDER BY clause
-   */
-  private async buildOrderByClause(
-    orderBy: ChartOrderBy[],
-    tableName: string = 'agg_app_measures',
-    schemaName: string = 'ih'
-  ): Promise<string> {
-    if (orderBy.length === 0) {
-      const defaultDateField = tableName === 'agg_chart_data' ? 'date_value' : 'date_index';
-      return `ORDER BY ${defaultDateField} DESC`; // Default ordering
-    }
-
-    const orderClauses = await Promise.all(
-      orderBy.map(async (order) => {
-        await this.validateField(order.field, tableName, schemaName);
-        const direction = order.direction === 'ASC' ? 'ASC' : 'DESC';
-        return `${order.field} ${direction}`;
-      })
-    );
-
-    return `ORDER BY ${orderClauses.join(', ')}`;
   }
 
   /**
@@ -309,7 +284,7 @@ export class AnalyticsQueryBuilder {
       });
 
       // Get data source configuration if data_source_id is provided
-      let dataSourceConfig = null;
+      let _dataSourceConfig = null;
       let tableName = 'agg_app_measures'; // Default fallback for backwards compatibility
       let schemaName = 'ih';
 
@@ -327,7 +302,7 @@ export class AnalyticsQueryBuilder {
         if (dataSource) {
           tableName = dataSource.table_name;
           schemaName = dataSource.schema_name;
-          dataSourceConfig = await chartConfigService.getDataSourceConfig(tableName, schemaName);
+          _dataSourceConfig = await chartConfigService.getDataSourceConfig(tableName, schemaName);
         }
       }
 
@@ -600,7 +575,7 @@ export class AnalyticsQueryBuilder {
 
     // Add series metadata to each data point
     const enhancedData = data.map((item) => {
-      const seriesConfig = params.multiple_series!.find((s) => s.measure === item.measure);
+      const seriesConfig = params.multiple_series?.find((s) => s.measure === item.measure);
       return {
         ...item,
         series_id: seriesConfig?.id || item.measure,
@@ -636,126 +611,6 @@ export class AnalyticsQueryBuilder {
     });
 
     return result;
-  }
-
-  /**
-   * Execute a single series query (used internally by queryMultipleSeries)
-   */
-  private async querySingleSeries(
-    params: AnalyticsQueryParams,
-    context: ChartRenderContext
-  ): Promise<AnalyticsQueryResult> {
-    // Get data source configuration if data_source_id is provided
-    let tableName = 'agg_app_measures'; // Default fallback for backwards compatibility
-    let schemaName = 'ih';
-
-    if (params.data_source_id) {
-      // Load data source directly from database
-      const { db, chart_data_sources } = await import('@/lib/db');
-      const { eq } = await import('drizzle-orm');
-
-      const [dataSource] = await db
-        .select()
-        .from(chart_data_sources)
-        .where(eq(chart_data_sources.data_source_id, params.data_source_id))
-        .limit(1);
-
-      if (dataSource) {
-        tableName = dataSource.table_name;
-        schemaName = dataSource.schema_name;
-      }
-    }
-
-    // Validate table access
-    await this.validateTable(tableName, schemaName);
-
-    // Build filters from params
-    const filters: ChartFilter[] = [];
-
-    // Define field mappings based on table type
-    const dateField = tableName === 'agg_chart_data' ? 'date_value' : 'date_index';
-    const frequencyField = tableName === 'agg_chart_data' ? 'time_period' : 'frequency';
-
-    if (params.measure) {
-      filters.push({ field: 'measure', operator: 'eq', value: params.measure });
-    }
-
-    if (params.frequency) {
-      filters.push({ field: frequencyField, operator: 'eq', value: params.frequency });
-    }
-
-    if (params.practice) {
-      filters.push({ field: 'practice', operator: 'eq', value: params.practice });
-    }
-
-    if (params.practice_primary) {
-      filters.push({ field: 'practice_primary', operator: 'eq', value: params.practice_primary });
-    }
-
-    if (params.practice_uid) {
-      filters.push({ field: 'practice_uid', operator: 'eq', value: params.practice_uid });
-    }
-
-    if (params.provider_name) {
-      filters.push({ field: 'provider_name', operator: 'eq', value: params.provider_name });
-    }
-
-    if (params.start_date) {
-      filters.push({ field: 'date_index', operator: 'gte', value: params.start_date });
-    }
-
-    if (params.end_date) {
-      filters.push({ field: 'date_index', operator: 'lte', value: params.end_date });
-    }
-
-    // Process advanced filters if provided
-    if (params.advanced_filters) {
-      const advancedFilters = this.processAdvancedFilters(params.advanced_filters);
-      filters.push(...advancedFilters);
-    }
-
-    // Build WHERE clause with security context
-    const { clause: whereClause, params: queryParams } = await this.buildWhereClause(
-      filters,
-      context
-    );
-
-    // Build complete query for pre-aggregated data
-    const query = `
-      SELECT 
-        practice,
-        practice_primary,
-        practice_uid,
-        provider_name,
-        measure,
-        frequency,
-        date_index,
-        measure_value,
-        measure_type
-      FROM ih.agg_app_measures
-      ${whereClause}
-      ORDER BY date_index ASC
-    `;
-
-    // Execute query
-    const data = await executeAnalyticsQuery<AggAppMeasure>(query, queryParams);
-
-    // Get total count
-    const countQuery = `
-      SELECT COUNT(*) as count
-      FROM ih.agg_app_measures
-      ${whereClause}
-    `;
-
-    const countResult = await executeAnalyticsQuery<{ count: number }>(countQuery, queryParams);
-    const totalCount = countResult[0]?.count || 0;
-
-    return {
-      data,
-      total_count: totalCount,
-      query_time_ms: 0, // Will be calculated by parent method
-      cache_hit: false,
-    };
   }
 
   /**

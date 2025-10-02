@@ -196,7 +196,7 @@ export class BulkChartOperationsService {
   /**
    * Get all operations for a user
    */
-  getUserOperations(userId: string): BulkOperation[] {
+  getUserOperations(_userId: string): BulkOperation[] {
     // This would typically filter by user ID from the operation metadata
     return Array.from(this.operations.values()).sort(
       (a, b) => b.startedAt.getTime() - a.startedAt.getTime()
@@ -225,7 +225,7 @@ export class BulkChartOperationsService {
   private async processBulkUpdate(
     operationId: string,
     updates: BulkUpdateParams,
-    operatorUserId: string
+    _operatorUserId: string
   ): Promise<void> {
     const operation = this.operations.get(operationId);
     if (!operation) return;
@@ -278,7 +278,7 @@ export class BulkChartOperationsService {
     }
   }
 
-  private async processBulkDelete(operationId: string, operatorUserId: string): Promise<void> {
+  private async processBulkDelete(operationId: string, _operatorUserId: string): Promise<void> {
     const operation = this.operations.get(operationId);
     if (!operation) return;
 
@@ -328,7 +328,7 @@ export class BulkChartOperationsService {
   private async processBulkExport(
     operationId: string,
     exportFormat: string,
-    operatorUserId: string
+    _operatorUserId: string
   ): Promise<void> {
     const operation = this.operations.get(operationId);
     if (!operation) return;
@@ -374,7 +374,7 @@ export class BulkChartOperationsService {
   private async processBulkOrganize(
     operationId: string,
     organizeParams: BulkOrganizeParams,
-    operatorUserId: string
+    _operatorUserId: string
   ): Promise<void> {
     const operation = this.operations.get(operationId);
     if (!operation) return;
@@ -449,8 +449,12 @@ export class BulkChartOperationsService {
           );
 
           // Create cloned chart with modifications
-          const { chart_definition_id, created_at, updated_at, ...chartWithoutIds } =
-            originalChart.data.chart;
+          const {
+            chart_definition_id: _chart_definition_id,
+            created_at: _created_at,
+            updated_at: _updated_at,
+            ...chartWithoutIds
+          } = originalChart.data.chart;
           const clonedChart = {
             ...chartWithoutIds,
             ...modifications,
@@ -544,7 +548,12 @@ export class BulkChartOperationsService {
 
     const durations = completed
       .filter((op) => op.completedAt)
-      .map((op) => op.completedAt!.getTime() - op.startedAt.getTime());
+      .map((op) => {
+        if (!op.completedAt) {
+          throw new Error('Completed operation missing completedAt timestamp');
+        }
+        return op.completedAt.getTime() - op.startedAt.getTime();
+      });
     const averageDuration =
       durations.length > 0
         ? durations.reduce((sum, duration) => sum + duration, 0) / durations.length

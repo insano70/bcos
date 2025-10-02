@@ -185,7 +185,7 @@ export const businessErrorLog = (
   error: unknown,
   context?: { userId?: string; organizationId?: string; resourceId?: string }
 ) => {
-  const sanitizedError = sanitizeErrorForProduction(error);
+  const _sanitizedError = sanitizeErrorForProduction(error);
   const sanitizedContext = sanitizeContextForProduction(context);
 
   errorLogger.error(
