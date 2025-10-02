@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { FileUploadService } from '@/lib/api/services/upload'
+import { uploadFiles } from '@/lib/api/services/upload'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { rbacRoute } from '@/lib/api/rbac-route-handler'
@@ -54,7 +54,7 @@ const uploadFilesHandler = async (request: NextRequest, userContext: UserContext
 
     // Upload files
     const uploadStartTime = Date.now()
-    const result = await FileUploadService.uploadFiles(files, {
+    const result = await uploadFiles(files, {
       folder,
       optimizeImages,
       generateThumbnails,
