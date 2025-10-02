@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAPILogger } from '@/lib/logger/api-features'
+import { log } from '@/lib/logger'
 
 /**
  * CSP Violation Report Endpoint
@@ -22,32 +22,30 @@ interface CSPViolationReport {
 }
 
 export async function POST(request: NextRequest) {
-  const logger = createAPILogger(request)
-  
   try {
     // Parse the CSP violation report
     const report: CSPViolationReport = await request.json()
-    
+
     // Handle both standard and non-standard CSP report formats
     const violation = report['csp-report'] || report
-    
+
     if (!violation || !violation['violated-directive']) {
-      logger.warn('Invalid CSP report format received', { 
+      log.info('Invalid CSP report format received', {
         report: report,
         hasStandardFormat: !!report['csp-report'],
         violationKeys: Object.keys(violation || {})
       })
       return NextResponse.json({ received: true }, { status: 200 }) // Accept anyway for monitoring
     }
-    
+
     // Log the violation with appropriate severity
     const violationType = violation['violated-directive']
     const isScriptViolation = violationType?.includes('script-src')
     const isStyleViolation = violationType?.includes('style-src')
-    
+
     // High severity for script violations (potential XSS)
     if (isScriptViolation) {
-      logger.error('CSP Script Violation Detected', {
+      log.security('csp_script_violation', 'critical', {
         documentUri: violation['document-uri'],
         violatedDirective: violation['violated-directive'],
         blockedUri: violation['blocked-uri'],
@@ -56,11 +54,10 @@ export async function POST(request: NextRequest) {
         columnNumber: violation['column-number'],
         scriptSample: violation['script-sample'],
         userAgent: request.headers.get('user-agent'),
-        referer: violation.referrer,
-        severity: 'critical'
+        referer: violation.referrer
       })
     } else if (isStyleViolation) {
-      logger.warn('CSP Style Violation Detected', {
+      log.security('csp_style_violation', 'medium', {
         documentUri: violation['document-uri'],
         violatedDirective: violation['violated-directive'],
         blockedUri: violation['blocked-uri'],
@@ -68,27 +65,24 @@ export async function POST(request: NextRequest) {
         lineNumber: violation['line-number'],
         columnNumber: violation['column-number'],
         userAgent: request.headers.get('user-agent'),
-        referer: violation.referrer,
-        severity: 'medium'
+        referer: violation.referrer
       })
     } else {
-      logger.info('CSP Violation Detected', {
+      log.security('csp_violation', 'low', {
         documentUri: violation['document-uri'],
         violatedDirective: violation['violated-directive'],
         blockedUri: violation['blocked-uri'],
-        sourceFile: violation['source-file'],
-        severity: 'low'
+        sourceFile: violation['source-file']
       })
     }
-    
+
     // Check if this is a practice page violation (critical for business)
     const isPracticePage = violation['document-uri']?.includes('/practice/')
     if (isPracticePage) {
-      logger.error('CSP Violation on Practice Page - Business Impact', {
+      log.security('csp_practice_page_violation', 'critical', {
         documentUri: violation['document-uri'],
         violatedDirective: violation['violated-directive'],
         blockedUri: violation['blocked-uri'],
-        severity: 'critical',
         businessImpact: true,
         practicePageAffected: true
       })
@@ -105,9 +99,9 @@ export async function POST(request: NextRequest) {
     }
     
     return NextResponse.json({ received: true }, { status: 204 })
-    
+
   } catch (error) {
-    logger.error('Failed to process CSP violation report', error)
+    log.error('Failed to process CSP violation report', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
