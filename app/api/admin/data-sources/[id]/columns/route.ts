@@ -6,7 +6,7 @@ import { extractRouteParams } from '@/lib/api/utils/params';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { dataSourceParamsSchema, dataSourceColumnCreateRefinedSchema, dataSourceColumnUpdateRefinedSchema, dataSourceColumnQuerySchema, dataSourceColumnParamsSchema } from '@/lib/validations/data-sources';
 import type { UserContext } from '@/lib/types/rbac';
-import { createAppLogger, logPerformanceMetric } from '@/lib/logger';
+import { log } from '@/lib/logger';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 
 /**
@@ -17,14 +17,13 @@ import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-s
 // GET - List all columns for a data source
 const getDataSourceColumnsHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const startTime = Date.now();
-  const logger = createAppLogger('admin-data-sources').withUser(userContext.user_id, userContext.current_organization_id);
   let dataSourceId: number | undefined;
 
   try {
     const { id } = await extractRouteParams(args[0], dataSourceParamsSchema);
     dataSourceId = parseInt(id, 10);
 
-    logger.info('Data source columns list request initiated', {
+    log.info('Data source columns list request initiated', {
       requestingUserId: userContext.user_id,
       dataSourceId
     });
@@ -57,13 +56,12 @@ const getDataSourceColumnsHandler = async (request: NextRequest, userContext: Us
       }
     };
 
-    logPerformanceMetric(logger, 'data_source_columns_list', Date.now() - startTime);
+    log.info('Data source columns list completed', { duration: Date.now() - startTime });
 
     return createSuccessResponse(responseData, 'Data source columns retrieved successfully');
 
   } catch (error) {
-    logger.error('Data source columns list error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+    log.error('Data source columns list error', error, {
       requestingUserId: userContext.user_id,
       dataSourceId
     });
@@ -75,14 +73,13 @@ const getDataSourceColumnsHandler = async (request: NextRequest, userContext: Us
 // POST - Create new column for a data source
 const createDataSourceColumnHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const startTime = Date.now();
-  const logger = createAppLogger('admin-data-sources').withUser(userContext.user_id, userContext.current_organization_id);
   let dataSourceId: number | undefined;
 
   try {
     const { id } = await extractRouteParams(args[0], dataSourceParamsSchema);
     dataSourceId = parseInt(id, 10);
 
-    logger.info('Data source column creation request initiated', {
+    log.info('Data source column creation request initiated', {
       requestingUserId: userContext.user_id,
       dataSourceId
     });
@@ -97,13 +94,12 @@ const createDataSourceColumnHandler = async (request: NextRequest, userContext: 
     const dataSourcesService = createRBACDataSourcesService(userContext);
     const newColumn = await dataSourcesService.createDataSourceColumn(createData);
 
-    logPerformanceMetric(logger, 'data_source_column_create', Date.now() - startTime);
+    log.info('Data source column created', { duration: Date.now() - startTime });
 
     return createSuccessResponse(newColumn, 'Data source column created successfully');
 
   } catch (error) {
-    logger.error('Data source column creation error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+    log.error('Data source column creation error', error, {
       requestingUserId: userContext.user_id,
       dataSourceId
     });
