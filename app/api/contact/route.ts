@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { publicRoute } from '@/lib/api/rbac-route-handler'
-import { EmailService } from '@/lib/api/services/email'
+import { emailService } from '@/lib/api/services/email-service-instance'
 import { z } from 'zod'
 import { log } from '@/lib/logger'
 
@@ -45,7 +45,7 @@ const handler = async (request: NextRequest) => {
     })
 
     // Send email notification to practice
-    await EmailService.sendContactForm(validatedData.practiceEmail, {
+    await emailService.sendContactForm(validatedData.practiceEmail, {
       name: validatedData.name,
       email: validatedData.email,
       ...(validatedData.phone && { phone: validatedData.phone }),
