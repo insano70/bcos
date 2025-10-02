@@ -4,20 +4,12 @@ import { TokenManager } from '@/lib/auth/token-manager'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
-import { AuditLogger, BufferedAuditLogger } from '@/lib/logger'
+import { AuditLogger, log, correlation } from '@/lib/logger'
 import { requireAuth } from '@/lib/api/middleware/auth'
 import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
-
-import { 
-  logAPIAuth, 
-  logPerformanceMetric,
-  withCorrelation,
-  CorrelationContextManager 
-} from '@/lib/logger'
-import { createAPILogger } from '@/lib/logger/api-features'
 
 /**
  * Refresh Token Endpoint
@@ -26,21 +18,11 @@ import { createAPILogger } from '@/lib/logger/api-features'
  */
 const refreshHandler = async (request: NextRequest) => {
   const startTime = Date.now()
-  const apiLogger = createAPILogger(request, 'auth-refresh')
-  const logger = apiLogger.getLogger()
-  
+
   // Store refresh token for error handling (declared at function level)
   let refreshTokenForError: string | undefined
 
-  // Enhanced token refresh request logging
-  apiLogger.logRequest({
-    authType: 'session'
-  })
-  
-  logger.info('Token refresh initiated', {
-    endpoint: '/api/auth/refresh',
-    method: 'POST'
-  })
+  log.api('POST /api/auth/refresh - Token refresh initiated', request, 0, 0)
 
   try {
     // NOTE: We don't require auth header here since we're validating the refresh token cookie directly
@@ -49,22 +31,22 @@ const refreshHandler = async (request: NextRequest) => {
     // Apply aggressive rate limiting for token refresh
     const rateLimitStart = Date.now()
     await applyRateLimit(request, 'auth')
-    logPerformanceMetric(logger, 'rate_limit_check', Date.now() - rateLimitStart)
+    log.info('Rate limit check completed', { duration: Date.now() - rateLimitStart })
 
     // Get refresh token from httpOnly cookie
     const cookieStart = Date.now()
     const cookieStore = await cookies()
     const refreshToken = cookieStore.get('refresh-token')?.value
-    logPerformanceMetric(logger, 'cookie_retrieval', Date.now() - cookieStart)
+    log.info('Cookie retrieval completed', { duration: Date.now() - cookieStart })
 
-    logger.debug('Refresh token cookie check', {
+    log.debug('Refresh token cookie check', {
       hasRefreshToken: !!refreshToken,
       tokenLength: refreshToken?.length || 0
     })
 
     if (!refreshToken) {
-      logger.warn('Token refresh failed - no refresh token in cookie')
-      logAPIAuth(logger, 'token_refresh', false, undefined, 'no_refresh_token')
+      log.warn('Token refresh failed - no refresh token in cookie')
+      log.auth('token_refresh', false, { reason: 'no_refresh_token' })
       return createErrorResponse('Refresh token not found', 401, request)
     }
 
@@ -79,26 +61,26 @@ const refreshHandler = async (request: NextRequest) => {
       const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET!)
       const { payload } = await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET)
       userId = payload.sub as string
-      logPerformanceMetric(logger, 'refresh_token_validation', Date.now() - tokenValidationStart)
-      
-      logger.debug('Refresh token validated successfully', {
+      log.info('Refresh token validation completed', { duration: Date.now() - tokenValidationStart })
+
+      log.debug('Refresh token validated successfully', {
         userId,
         tokenExpiry: payload.exp ? new Date(payload.exp * 1000).toISOString() : 'unknown'
       })
     } catch (tokenError) {
-      // Enhanced security logging for token validation failure  
-      apiLogger.logSecurity('token_validation_failure', 'high', {
+      // Security logging for token validation failure
+      log.security('token_validation_failure', 'high', {
         action: 'refresh_token_invalid',
         blocked: true,
         threat: 'credential_attack',
         reason: 'invalid_refresh_token'
       })
-      
-      logger.error('Refresh token validation failed', tokenError, {
+
+      log.error('Refresh token validation failed', tokenError, {
         tokenLength: refreshToken.length,
         errorType: tokenError instanceof Error ? tokenError.constructor.name : typeof tokenError
       })
-      logAPIAuth(logger, 'token_refresh', false, undefined, 'invalid_refresh_token')
+      log.auth('token_refresh', false, { reason: 'invalid_refresh_token' })
       return createErrorResponse('Invalid refresh token', 401, request)
     }
 
@@ -111,19 +93,19 @@ const refreshHandler = async (request: NextRequest) => {
       .from(users)
       .where((await import('drizzle-orm')).eq(users.user_id, userId))
       .limit(1)
-    logPerformanceMetric(logger, 'user_lookup', Date.now() - dbStart, { userId })
+    log.db('SELECT', 'users', Date.now() - dbStart, { userId })
 
     if (!user || !user.is_active) {
-      logger.warn('Token refresh failed - user not found or inactive', {
+      log.warn('Token refresh failed - user not found or inactive', {
         userId,
         userExists: !!user,
         userActive: user?.is_active || false
       })
-      logAPIAuth(logger, 'token_refresh', false, userId, user ? 'user_inactive' : 'user_not_found')
+      log.auth('token_refresh', false, { userId, reason: user ? 'user_inactive' : 'user_not_found' })
       return createErrorResponse('User account is inactive', 401, request)
     }
 
-    logger.debug('Active user found for token refresh', {
+    log.debug('Active user found for token refresh', {
       userId: user.user_id,
       userEmail: user.email?.replace(/(.{2}).*@/, '$1***@'), // Mask email
       emailVerified: user.email_verified
@@ -133,7 +115,7 @@ const refreshHandler = async (request: NextRequest) => {
     const contextStart = Date.now()
     const { getUserContextSafe } = await import('@/lib/rbac/user-context')
     const userContext = await getUserContextSafe(user.user_id)
-    logPerformanceMetric(logger, 'rbac_context_fetch', Date.now() - contextStart, { userId })
+    log.info('RBAC context fetched', { duration: Date.now() - contextStart, userId })
 
     // Extract device info
     const deviceStart = Date.now()
@@ -150,9 +132,9 @@ const refreshHandler = async (request: NextRequest) => {
       fingerprint: deviceFingerprint,
       deviceName
     }
-    logPerformanceMetric(logger, 'device_info_generation', Date.now() - deviceStart)
+    log.info('Device info generated', { duration: Date.now() - deviceStart })
 
-    logger.debug('Device information generated for token refresh', {
+    log.debug('Device information generated for token refresh', {
       userId,
       deviceName,
       fingerprintHash: deviceFingerprint.substring(0, 8) + '...'
@@ -161,10 +143,10 @@ const refreshHandler = async (request: NextRequest) => {
     // Rotate tokens
     const tokenRotationStart = Date.now()
     const tokenPair = await TokenManager.refreshTokenPair(refreshToken, deviceInfo)
-    logPerformanceMetric(logger, 'token_rotation', Date.now() - tokenRotationStart, { userId })
+    log.info('Token rotation completed', { duration: Date.now() - tokenRotationStart, userId })
 
     if (!tokenPair) {
-      logger.warn('Token rotation failed', {
+      log.warn('Token rotation failed', {
         userId,
         deviceFingerprint: deviceFingerprint.substring(0, 8) + '...',
         deviceName
@@ -182,15 +164,15 @@ const refreshHandler = async (request: NextRequest) => {
           reason: 'invalid_refresh_token',
           deviceFingerprint,
           deviceName,
-          correlationId: CorrelationContextManager.getCurrentId()
+          correlationId: correlation.current()
         }
       })
 
-      logAPIAuth(logger, 'token_refresh', false, userId, 'token_rotation_failed')
+      log.auth('token_refresh', false, { userId, reason: 'token_rotation_failed' })
       return createErrorResponse('Invalid or expired refresh token', 401, request)
     }
 
-    logger.info('Token rotation successful', {
+    log.info('Token rotation successful', {
       userId,
       sessionId: tokenPair.sessionId,
       newTokensGenerated: true
@@ -208,7 +190,7 @@ const refreshHandler = async (request: NextRequest) => {
         deviceFingerprint,
         deviceName,
         expiresAt: tokenPair.expiresAt.toISOString(),
-        correlationId: CorrelationContextManager.getCurrentId()
+        correlationId: correlation.current()
       }
     })
 
@@ -216,7 +198,7 @@ const refreshHandler = async (request: NextRequest) => {
     const userRoles = userContext?.roles?.map(r => r.name) || [];
     const primaryRole = userRoles.length > 0 ? userRoles[0] : 'user';
 
-    logger.debug('User roles and permissions loaded', {
+    log.debug('User roles and permissions loaded', {
       userId,
       roleCount: userRoles.length,
       primaryRole,
@@ -256,7 +238,7 @@ const refreshHandler = async (request: NextRequest) => {
     // Use NODE_ENV to determine cookie security (staging should use NODE_ENV=production)
     const isSecureEnvironment = process.env.NODE_ENV === 'production'
 
-    logger.debug('Preparing refresh token cookies', {
+    log.debug('Preparing refresh token cookies', {
       userId,
       sessionId: tokenPair.sessionId,
       nodeEnv: process.env.NODE_ENV,
@@ -284,21 +266,23 @@ const refreshHandler = async (request: NextRequest) => {
       maxAge: 15 * 60 // 15 minutes
     })
 
-    logPerformanceMetric(logger, 'cookie_setup', Date.now() - cookieSetupStart, {
+    log.info('Cookie setup completed', {
+      duration: Date.now() - cookieSetupStart,
       userId,
       sessionId: tokenPair.sessionId
     })
 
     const totalDuration = Date.now() - startTime
-    logger.info('Token refresh completed successfully', {
+    log.info('Token refresh completed successfully', {
       userId,
       sessionId: tokenPair.sessionId,
       totalDuration,
       roleCount: userRoles.length
     })
 
-    logAPIAuth(logger, 'token_refresh', true, userId)
-    logPerformanceMetric(logger, 'total_refresh_duration', totalDuration, {
+    log.auth('token_refresh', true, { userId })
+    log.info('Total refresh duration', {
+      duration: totalDuration,
       userId,
       success: true
     })
@@ -307,8 +291,8 @@ const refreshHandler = async (request: NextRequest) => {
     
   } catch (error) {
     const totalDuration = Date.now() - startTime
-    
-    logger.error('Token refresh failed with error', error, {
+
+    log.error('Token refresh failed with error', error, {
       totalDuration,
       errorType: error instanceof Error ? error.constructor.name : typeof error,
       hasRefreshToken: !!refreshTokenForError
@@ -328,13 +312,13 @@ const refreshHandler = async (request: NextRequest) => {
         const REFRESH_TOKEN_SECRET = new TextEncoder().encode(process.env.JWT_REFRESH_SECRET!)
         const { payload } = await jwtVerify(refreshTokenForError, REFRESH_TOKEN_SECRET)
         failedUserId = payload.sub as string
-        
-        logger.debug('Extracted user ID from failed refresh token', {
+
+        log.debug('Extracted user ID from failed refresh token', {
           userId: failedUserId
         })
       }
     } catch (tokenError) {
-      logger.debug('Could not extract user ID from refresh token', {
+      log.debug('Could not extract user ID from refresh token', {
         tokenError: tokenError instanceof Error ? tokenError.message : 'unknown'
       })
     }
@@ -351,28 +335,29 @@ const refreshHandler = async (request: NextRequest) => {
         userAgent,
         metadata: {
           error: error instanceof Error ? error.message : 'Unknown error',
-          correlationId: CorrelationContextManager.getCurrentId()
+          correlationId: correlation.current()
         }
       })
     } catch (authError) {
       // If we can't get authenticated user, log as anonymous security event
-      logger.warn('Logging refresh error as security event due to auth failure', {
+      log.warn('Logging refresh error as security event due to auth failure', {
         authError: authError instanceof Error ? authError.message : 'unknown'
       })
-      
+
       await AuditLogger.logSecurity({
         action: 'token_refresh_error',
         ipAddress,
         metadata: {
           error: error instanceof Error ? error.message : 'Unknown error',
           authFailed: true,
-          correlationId: CorrelationContextManager.getCurrentId()
+          correlationId: correlation.current()
         },
         severity: 'medium'
       })
     }
 
-    logPerformanceMetric(logger, 'total_refresh_duration', totalDuration, {
+    log.info('Total refresh duration', {
+      duration: totalDuration,
       success: false,
       errorType: error instanceof Error ? error.name : 'unknown'
     })
@@ -382,4 +367,7 @@ const refreshHandler = async (request: NextRequest) => {
 }
 
 // Export with correlation wrapper
-export const POST = withCorrelation(refreshHandler)
+export const POST = async (request: NextRequest) => {
+  const correlationId = correlation.generate()
+  return correlation.withContext(correlationId, {}, () => refreshHandler(request))
+}

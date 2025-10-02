@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { createAPILogger, logPerformanceMetric, logSecurityEvent } from '@/lib/logger';
+import { log } from '@/lib/logger';
 import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified';
 import type { UserContext } from '@/lib/types/rbac';
 import { createErrorResponse } from '../responses/error';
@@ -14,17 +14,12 @@ export async function validateCSRFToken(
   endpoint: string,
   action: string
 ): Promise<{ valid: boolean; response?: Response }> {
-  const logger = createAPILogger(request).withUser(
-    userContext.user_id,
-    userContext.current_organization_id
-  );
-
   const csrfStartTime = Date.now();
   const isValidCSRF = await UnifiedCSRFProtection.verifyCSRFToken(request);
-  logPerformanceMetric(logger, 'csrf_validation', Date.now() - csrfStartTime);
+  log.info('CSRF validation completed', { duration: Date.now() - csrfStartTime });
 
   if (!isValidCSRF) {
-    logSecurityEvent(logger, 'csrf_validation_failed', 'high', {
+    log.security('csrf_validation_failed', 'high', {
       endpoint,
       action,
       userId: userContext.user_id,
@@ -36,7 +31,7 @@ export async function validateCSRFToken(
     };
   }
 
-  logger.debug('CSRF validation successful', {
+  log.debug('CSRF validation successful', {
     endpoint,
     action,
   });
