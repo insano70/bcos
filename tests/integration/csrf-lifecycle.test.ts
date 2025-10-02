@@ -6,8 +6,20 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
 import { CSRFClientHelper } from '@/lib/security/csrf-client'
-import { CSRFSecurityMonitor } from '@/lib/security/csrf-monitoring'
 import type { NextRequest } from 'next/server'
+
+// Mock the CSRF monitoring instance to use our test mock
+vi.mock('@/lib/security/csrf-monitoring-instance', async () => {
+  const mock = await import('../helpers/csrf-monitor-mock')
+  return {
+    csrfMonitor: mock.getMockCSRFMonitor(),
+    getCSRFMonitor: () => mock.getMockCSRFMonitor(),
+    resetCSRFMonitor: () => mock.resetMockCSRFMonitor(),
+  }
+})
+
+// Import test helpers
+import { getMockCSRFMonitor } from '../helpers/csrf-monitor-mock'
 
 // Mock environment variables
 const mockEnv = {
@@ -76,7 +88,7 @@ function createMockRequest(options: {
 }
 
 describe('CSRF Token Lifecycle Integration Tests', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     // Set up environment variables
     Object.entries(mockEnv).forEach(([key, value]) => {
       process.env[key] = value
@@ -86,8 +98,9 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
     })
 
     // Clear security monitor state
-    CSRFSecurityMonitor.clearFailureData()
-    
+    const monitor = getMockCSRFMonitor()
+    await monitor.clearAllEvents()
+
     // Clear fetch mock
     mockFetch.mockClear()
   })
@@ -362,7 +375,8 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
       expect(isValid).toBe(false)
 
       // Check that failure was recorded
-      const stats = CSRFSecurityMonitor.getFailureStats()
+      const monitor = getMockCSRFMonitor()
+      const stats = await monitor.getFailureStats()
       expect(stats.totalEvents).toBeGreaterThan(0)
       expect(stats.topIPs).toContainEqual(
         expect.objectContaining({
@@ -390,7 +404,8 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         await UnifiedCSRFProtection.verifyCSRFToken(request)
       }
 
-      const stats = CSRFSecurityMonitor.getFailureStats()
+      const monitor = getMockCSRFMonitor()
+      const stats = await monitor.getFailureStats()
       expect(stats.totalEvents).toBeGreaterThanOrEqual(15)
       
       const attackerStats = stats.topIPs.find(ip => ip.ip === attackIP)
@@ -471,7 +486,8 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
       expect(isValid).toBe(false) // Should reject anonymous token on protected endpoint
 
       // Should also record high-severity security event
-      const stats = CSRFSecurityMonitor.getFailureStats()
+      const monitor = getMockCSRFMonitor()
+      const stats = await monitor.getFailureStats()
       expect(stats.totalEvents).toBeGreaterThan(0)
     })
   })
