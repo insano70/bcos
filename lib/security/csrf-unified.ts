@@ -8,7 +8,7 @@ import { nanoid } from 'nanoid';
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { createAppLogger } from '@/lib/logger/factory';
-import { CSRFSecurityMonitor } from './csrf-monitoring';
+import { csrfMonitor } from './csrf-monitoring-instance';
 
 // Enhanced security logger for CSRF protection
 const csrfSecurityLogger = createAppLogger('csrf-unified', {
@@ -472,7 +472,7 @@ export class UnifiedCSRFProtection {
         });
 
         // Record failure for security monitoring
-        CSRFSecurityMonitor.recordFailure(request, 'missing_header_token', 'medium');
+        await csrfMonitor.recordFailure(request, 'missing_header_token', 'medium');
         return false;
       }
 
@@ -493,7 +493,7 @@ export class UnifiedCSRFProtection {
           });
 
           // Record failure for security monitoring
-          CSRFSecurityMonitor.recordFailure(request, 'anonymous_token_validation_failed', 'medium');
+          await csrfMonitor.recordFailure(request, 'anonymous_token_validation_failed', 'medium');
         }
         return isValid;
       } else if (isDualTokenEndpoint) {
@@ -522,7 +522,7 @@ export class UnifiedCSRFProtection {
                   blocked: true,
                   endpointType: 'dual_anonymous_mode',
                 });
-                CSRFSecurityMonitor.recordFailure(
+                await csrfMonitor.recordFailure(
                   request,
                   'anonymous_token_validation_failed_dual_endpoint',
                   'medium'
@@ -545,7 +545,7 @@ export class UnifiedCSRFProtection {
                   hasHeader: true,
                   hasCookie: false,
                 });
-                CSRFSecurityMonitor.recordFailure(
+                await csrfMonitor.recordFailure(
                   request,
                   'missing_cookie_token_dual_endpoint',
                   'medium'
@@ -569,7 +569,7 @@ export class UnifiedCSRFProtection {
                   endpointType: 'dual_authenticated_mode',
                   validationStage: 'signature_verification',
                 });
-                CSRFSecurityMonitor.recordFailure(
+                await csrfMonitor.recordFailure(
                   request,
                   'authenticated_token_signature_invalid_dual_endpoint',
                   'medium'
@@ -595,7 +595,7 @@ export class UnifiedCSRFProtection {
                   endpointType: 'dual_authenticated_mode',
                   validationStage: 'double_submit_cookie_verification',
                 });
-                CSRFSecurityMonitor.recordFailure(
+                await csrfMonitor.recordFailure(
                   request,
                   'double_submit_validation_failed_dual_endpoint',
                   'medium'
@@ -618,7 +618,7 @@ export class UnifiedCSRFProtection {
             endpointType: 'dual_mode',
             parseError: parseError instanceof Error ? parseError.message : String(parseError),
           });
-          CSRFSecurityMonitor.recordFailure(
+          await csrfMonitor.recordFailure(
             request,
             'token_parsing_failed_dual_endpoint',
             'medium'
@@ -638,7 +638,7 @@ export class UnifiedCSRFProtection {
           blocked: true,
           endpointType: 'dual_mode',
         });
-        CSRFSecurityMonitor.recordFailure(
+        await csrfMonitor.recordFailure(
           request,
           'unrecognized_token_type_dual_endpoint',
           'medium'
@@ -662,7 +662,7 @@ export class UnifiedCSRFProtection {
           });
 
           // Record failure for security monitoring
-          CSRFSecurityMonitor.recordFailure(
+          await csrfMonitor.recordFailure(
             request,
             'missing_cookie_token_authenticated_endpoint',
             'medium'
@@ -697,7 +697,7 @@ export class UnifiedCSRFProtection {
               );
 
               // Record high-severity failure for security monitoring
-              CSRFSecurityMonitor.recordFailure(
+              await csrfMonitor.recordFailure(
                 request,
                 'anonymous_token_on_protected_endpoint',
                 'high'
@@ -724,7 +724,7 @@ export class UnifiedCSRFProtection {
                 });
 
                 // Record failure for security monitoring
-                CSRFSecurityMonitor.recordFailure(
+                await csrfMonitor.recordFailure(
                   request,
                   'authenticated_token_signature_invalid',
                   'medium'
@@ -752,7 +752,7 @@ export class UnifiedCSRFProtection {
                 });
 
                 // Record failure for security monitoring
-                CSRFSecurityMonitor.recordFailure(
+                await csrfMonitor.recordFailure(
                   request,
                   'double_submit_validation_failed',
                   'medium'
@@ -788,7 +788,7 @@ export class UnifiedCSRFProtection {
           });
 
           // Record failure for security monitoring
-          CSRFSecurityMonitor.recordFailure(request, 'legacy_token_validation_failed', 'low');
+          await csrfMonitor.recordFailure(request, 'legacy_token_validation_failed', 'low');
         }
         return isValid;
       }
@@ -809,7 +809,7 @@ export class UnifiedCSRFProtection {
 
       // Record failure for security monitoring
       const errorMessage = error instanceof Error ? error.message : 'unknown_error';
-      CSRFSecurityMonitor.recordFailure(request, `verification_error_${errorMessage}`, 'medium');
+      await csrfMonitor.recordFailure(request, `verification_error_${errorMessage}`, 'medium');
       return false;
     }
   }
