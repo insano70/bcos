@@ -1,32 +1,43 @@
 import bcrypt from 'bcrypt';
 import { eq, lt } from 'drizzle-orm';
-import { validatePasswordStrength } from '@/lib/config/password-policy';
+import { validatePasswordStrength as validatePasswordStrengthPolicy } from '@/lib/config/password-policy';
 import { account_security, db, users } from '@/lib/db';
 import { log } from '@/lib/logger';
 
-// Enhanced password security
-export class PasswordService {
-  private static readonly saltRounds = 12;
+/**
+ * Password Security - Pure Functions Module
+ * Handles password hashing, verification, and strength validation
+ */
 
-  static async hash(password: string): Promise<string> {
-    return await bcrypt.hash(password, PasswordService.saltRounds);
-  }
+/**
+ * Bcrypt salt rounds for password hashing
+ */
+export const BCRYPT_SALT_ROUNDS = 12;
 
-  static async verify(password: string, hash: string): Promise<boolean> {
-    try {
-      return await bcrypt.compare(password, hash);
-    } catch {
-      return false;
-    }
-  }
+/**
+ * Hash a password using bcrypt
+ */
+export async function hashPassword(password: string): Promise<string> {
+  return await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+}
 
-  /**
-   * Validate password strength using centralized policy
-   * ✅ SINGLE SOURCE OF TRUTH: Uses lib/config/password-policy.ts
-   */
-  static validatePasswordStrength(password: string): { isValid: boolean; errors: string[] } {
-    return validatePasswordStrength(password);
+/**
+ * Verify a password against a hash using bcrypt
+ */
+export async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  try {
+    return await bcrypt.compare(password, hash);
+  } catch {
+    return false;
   }
+}
+
+/**
+ * Validate password strength using centralized policy
+ * ✅ SINGLE SOURCE OF TRUTH: Uses lib/config/password-policy.ts
+ */
+export function validatePasswordStrength(password: string): { isValid: boolean; errors: string[] } {
+  return validatePasswordStrengthPolicy(password);
 }
 
 // Account lockout system with database persistence
@@ -333,6 +344,3 @@ export class AccountSecurity {
     }
   }
 }
-
-export const verifyPassword = PasswordService.verify;
-export const hashPassword = PasswordService.hash;

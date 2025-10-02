@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import bcrypt from 'bcrypt'
-import { PasswordService, AccountSecurity, verifyPassword, hashPassword } from '@/lib/auth/security'
-import { validatePasswordStrength } from '@/lib/config/password-policy'
+import { hashPassword, verifyPassword, validatePasswordStrength, AccountSecurity } from '@/lib/auth/security'
+import { validatePasswordStrength as validatePasswordStrengthPolicy } from '@/lib/config/password-policy'
 import { db } from '@/lib/db'
 
 // Mock bcrypt functions
@@ -82,7 +82,7 @@ describe('security authentication logic', () => {
 
         ;(bcrypt.hash as any).mockResolvedValueOnce(mockHash)
 
-        const result = await PasswordService.hash(password)
+        const result = await hashPassword(password)
 
         expect(result).toBe(mockHash)
       })
@@ -93,7 +93,7 @@ describe('security authentication logic', () => {
 
         ;(bcrypt.hash as any).mockRejectedValueOnce(error)
 
-        await expect(PasswordService.hash(password)).rejects.toThrow('Hashing failed')
+        await expect(hashPassword(password)).rejects.toThrow('Hashing failed')
       })
     })
 
@@ -104,7 +104,7 @@ describe('security authentication logic', () => {
 
         ;(bcrypt.compare as any).mockResolvedValueOnce(true)
 
-        const result = await PasswordService.verify(password, hash)
+        const result = await verifyPassword(password, hash)
 
         expect(result).toBe(true)
       })
@@ -115,7 +115,7 @@ describe('security authentication logic', () => {
 
         ;(bcrypt.compare as any).mockResolvedValueOnce(false)
 
-        const result = await PasswordService.verify(password, hash)
+        const result = await verifyPassword(password, hash)
 
         expect(result).toBe(false)
       })
@@ -126,7 +126,7 @@ describe('security authentication logic', () => {
 
         ;(bcrypt.compare as any).mockRejectedValueOnce(new Error('Invalid hash'))
 
-        const result = await PasswordService.verify(password, hash)
+        const result = await verifyPassword(password, hash)
 
         expect(result).toBe(false)
       })
@@ -139,7 +139,7 @@ describe('security authentication logic', () => {
 
         vi.mocked(validatePasswordStrength).mockReturnValue(mockResult)
 
-        const result = PasswordService.validatePasswordStrength(password)
+        const result = validatePasswordStrength(password)
 
         expect(validatePasswordStrength).toHaveBeenCalledWith(password)
         expect(result).toEqual(mockResult)
@@ -154,7 +154,7 @@ describe('security authentication logic', () => {
 
         vi.mocked(validatePasswordStrength).mockReturnValue(mockResult)
 
-        const result = PasswordService.validatePasswordStrength(password)
+        const result = validatePasswordStrength(password)
 
         expect(result).toEqual(mockResult)
       })
