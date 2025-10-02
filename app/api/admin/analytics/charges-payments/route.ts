@@ -4,7 +4,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { executeAnalyticsQuery } from '@/lib/services/analytics-db';
 import type { UserContext } from '@/lib/types/rbac';
-import { createAPILogger, logDBOperation, logPerformanceMetric } from '@/lib/logger';
+import { log } from '@/lib/logger';
 
 /**
  * Admin Analytics - Charges and Payments Chart
@@ -12,9 +12,8 @@ import { createAPILogger, logDBOperation, logPerformanceMetric } from '@/lib/log
  */
 const chargesPaymentsHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
-  logger.info('Charges and Payments analytics request initiated', {
+
+  log.info('Charges and Payments analytics request initiated', {
     requestingUserId: userContext.user_id,
     isSuperAdmin: userContext.is_super_admin
   });
@@ -67,7 +66,7 @@ const chargesPaymentsHandler = async (request: NextRequest, userContext: UserCon
     // Execute the query
     const queryStart = Date.now();
     const data = await executeAnalyticsQuery(query, [practiceUid]);
-    logPerformanceMetric(logger, 'charges_payments_query_execution', Date.now() - queryStart);
+    log.info('Charges payments query completed', { duration: Date.now() - queryStart });
 
     console.log('✅ CHARGES & PAYMENTS RESULT:', {
       rowCount: data.length,
@@ -75,9 +74,9 @@ const chargesPaymentsHandler = async (request: NextRequest, userContext: UserCon
     });
 
     // Log successful operation
-    logDBOperation(logger, 'charges_payments_query', 'ih.gr_app_measures', startTime, data.length);
+    log.db('SELECT', 'ih.gr_app_measures', Date.now() - startTime, { rowCount: data.length });
 
-    logger.info('Charges and Payments analytics completed successfully', {
+    log.info('Charges and Payments analytics completed successfully', {
       resultCount: data.length,
       practiceUid: practiceUid,
       totalRequestTime: Date.now() - startTime
@@ -94,16 +93,11 @@ const chargesPaymentsHandler = async (request: NextRequest, userContext: UserCon
     }, 'Charges and Payments data retrieved successfully');
     
   } catch (error) {
-    logger.error('Charges and Payments analytics error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+    log.error('Charges and Payments analytics error', error, {
       requestingUserId: userContext.user_id
     });
-    
-    logPerformanceMetric(logger, 'charges_payments_request_failed', Date.now() - startTime);
+
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
-  } finally {
-    logPerformanceMetric(logger, 'charges_payments_total', Date.now() - startTime);
   }
 };
 
