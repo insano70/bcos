@@ -4,7 +4,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { chartConfigService } from '@/lib/services/chart-config-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { createAPILogger, logPerformanceMetric } from '@/lib/logger';
+import { log } from '@/lib/logger';
 
 /**
  * Admin Analytics - Data Sources List API
@@ -12,9 +12,8 @@ import { createAPILogger, logPerformanceMetric } from '@/lib/logger';
  */
 const dataSourcesHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
-  logger.info('Data sources list request initiated', {
+
+  log.info('Data sources list request initiated', {
     requestingUserId: userContext.user_id
   });
 
@@ -30,16 +29,15 @@ const dataSourcesHandler = async (request: NextRequest, userContext: UserContext
       }
     };
 
-    logPerformanceMetric(logger, 'data_sources_list_load', Date.now() - startTime);
+    log.info('Data sources loaded', { duration: Date.now() - startTime });
 
     return createSuccessResponse(responseData, 'Data sources retrieved successfully');
-    
+
   } catch (error) {
-    logger.error('Data sources list error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+    log.error('Data sources list error', error, {
       requestingUserId: userContext.user_id
     });
-    
+
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   }
 };
@@ -48,4 +46,3 @@ export const GET = rbacRoute(dataSourcesHandler, {
   permission: 'analytics:read:all',
   rateLimit: 'api'
 });
-

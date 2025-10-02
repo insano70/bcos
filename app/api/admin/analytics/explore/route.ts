@@ -4,7 +4,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { executeAnalyticsQuery } from '@/lib/services/analytics-db';
 import type { UserContext } from '@/lib/types/rbac';
-import { createAPILogger, logPerformanceMetric } from '@/lib/logger';
+import { log } from '@/lib/logger';
 
 /**
  * Admin Analytics - Data Explorer
@@ -12,9 +12,8 @@ import { createAPILogger, logPerformanceMetric } from '@/lib/logger';
  */
 const exploreHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
-  logger.info('Analytics data exploration request initiated', {
+
+  log.info('Analytics data exploration request initiated', {
     requestingUserId: userContext.user_id,
     isSuperAdmin: userContext.is_super_admin
   });
@@ -23,23 +22,23 @@ const exploreHandler = async (request: NextRequest, userContext: UserContext) =>
     // Query to see what practice_uid values exist
     const practicesQuery = `
       SELECT DISTINCT practice_uid, COUNT(*) as record_count
-      FROM ih.gr_app_measures 
-      GROUP BY practice_uid 
-      ORDER BY record_count DESC 
+      FROM ih.gr_app_measures
+      GROUP BY practice_uid
+      ORDER BY record_count DESC
       LIMIT 10
     `;
 
     // Query to see what measures exist
     const measuresQuery = `
       SELECT DISTINCT measure, frequency, COUNT(*) as record_count
-      FROM ih.gr_app_measures 
-      GROUP BY measure, frequency 
+      FROM ih.gr_app_measures
+      GROUP BY measure, frequency
       ORDER BY record_count DESC
     `;
 
     // Query to see date ranges
     const dateRangeQuery = `
-      SELECT 
+      SELECT
         MIN(period_start) as earliest_date,
         MAX(period_end) as latest_date,
         COUNT(*) as total_records
@@ -48,10 +47,10 @@ const exploreHandler = async (request: NextRequest, userContext: UserContext) =>
 
     console.log('🔍 EXPLORING DATA - Practices Query:', practicesQuery);
     const practices = await executeAnalyticsQuery(practicesQuery, []);
-    
+
     console.log('🔍 EXPLORING DATA - Measures Query:', measuresQuery);
     const measures = await executeAnalyticsQuery(measuresQuery, []);
-    
+
     console.log('🔍 EXPLORING DATA - Date Range Query:', dateRangeQuery);
     const dateRange = await executeAnalyticsQuery(dateRangeQuery, []);
 
@@ -69,18 +68,16 @@ const exploreHandler = async (request: NextRequest, userContext: UserContext) =>
     console.log('✅ DATA EXPLORATION RESULTS:', explorationData);
 
     return createSuccessResponse(explorationData, 'Data exploration completed successfully');
-    
+
   } catch (error) {
-    logger.error('Analytics data exploration error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+    log.error('Analytics data exploration error', error, {
       requestingUserId: userContext.user_id
     });
-    
-    logPerformanceMetric(logger, 'analytics_explore_failed', Date.now() - startTime);
+
+    log.info('Analytics explore failed', { duration: Date.now() - startTime });
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   } finally {
-    logPerformanceMetric(logger, 'analytics_explore_total', Date.now() - startTime);
+    log.info('Analytics explore total', { duration: Date.now() - startTime });
   }
 };
 

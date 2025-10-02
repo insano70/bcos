@@ -7,7 +7,7 @@ import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { favoriteCreateSchema, favoriteDeleteSchema } from '@/lib/validations/analytics';
 import type { UserContext } from '@/lib/types/rbac';
-import { createAPILogger, logDBOperation, logPerformanceMetric } from '@/lib/logger';
+import { log } from '@/lib/logger';
 
 /**
  * Admin Analytics - Chart Favorites API
@@ -17,9 +17,8 @@ import { createAPILogger, logDBOperation, logPerformanceMetric } from '@/lib/log
 // GET - List user's favorite charts
 const getFavoritesHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
-  logger.info('User favorites list request initiated', {
+
+  log.info('User favorites list request initiated', {
     requestingUserId: userContext.user_id
   });
 
@@ -44,7 +43,7 @@ const getFavoritesHandler = async (request: NextRequest, userContext: UserContex
       )
       .orderBy(desc(user_chart_favorites.favorited_at));
 
-    logDBOperation(logger, 'user_favorites_list', 'user_chart_favorites', startTime, favorites.length);
+    log.db('SELECT', 'user_chart_favorites', Date.now() - startTime, { rowCount: favorites.length });
 
     return createSuccessResponse({
       favorites: favorites,
@@ -54,13 +53,12 @@ const getFavoritesHandler = async (request: NextRequest, userContext: UserContex
         generatedAt: new Date().toISOString()
       }
     }, 'User favorites retrieved successfully');
-    
+
   } catch (error) {
-    logger.error('User favorites list error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+    log.error('User favorites list error', error, {
       requestingUserId: userContext.user_id
     });
-    
+
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   }
 };
@@ -68,9 +66,8 @@ const getFavoritesHandler = async (request: NextRequest, userContext: UserContex
 // POST - Add chart to favorites
 const addFavoriteHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
-  logger.info('Add chart to favorites request initiated', {
+
+  log.info('Add chart to favorites request initiated', {
     requestingUserId: userContext.user_id
   });
 
@@ -116,9 +113,9 @@ const addFavoriteHandler = async (request: NextRequest, userContext: UserContext
         chart_definition_id: validatedData.chart_definition_id,
       });
 
-    logDBOperation(logger, 'chart_favorite_add', 'user_chart_favorites', startTime, 1);
+    log.db('INSERT', 'user_chart_favorites', Date.now() - startTime, { rowCount: 1 });
 
-    logger.info('Chart added to favorites successfully', {
+    log.info('Chart added to favorites successfully', {
       chartId: validatedData.chart_definition_id,
       userId: userContext.user_id
     });
@@ -126,11 +123,9 @@ const addFavoriteHandler = async (request: NextRequest, userContext: UserContext
     return createSuccessResponse({
       message: 'Chart added to favorites successfully'
     }, 'Chart favorited successfully');
-    
+
   } catch (error) {
-    logger.error('Add chart to favorites error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
+    log.error('Add chart to favorites error', error, {
       requestingUserId: userContext.user_id
     });
     
@@ -145,8 +140,7 @@ const addFavoriteHandler = async (request: NextRequest, userContext: UserContext
 // DELETE - Remove chart from favorites
 const removeFavoriteHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
+
   try {
     // Validate request body with Zod
     const validatedData = await validateRequest(request, favoriteDeleteSchema);
@@ -161,16 +155,14 @@ const removeFavoriteHandler = async (request: NextRequest, userContext: UserCont
         )
       );
 
-    logDBOperation(logger, 'chart_favorite_remove', 'user_chart_favorites', startTime, 1);
+    log.db('DELETE', 'user_chart_favorites', Date.now() - startTime, { rowCount: 1 });
 
     return createSuccessResponse({
       message: 'Chart removed from favorites successfully'
     }, 'Chart unfavorited successfully');
-    
+
   } catch (error) {
-    logger.error('Remove chart from favorites error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
+    log.error('Remove chart from favorites error', error, {
       requestingUserId: userContext.user_id
     });
     

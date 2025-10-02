@@ -7,11 +7,7 @@ import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
 import { requireSuperAdmin } from '@/lib/rbac/middleware'
 import { rbacRoute } from '@/lib/api/rbac-route-handler'
 import type { UserContext } from '@/lib/types/rbac'
-import { 
-  createAPILogger, 
-  logDBOperation, 
-  logPerformanceMetric 
-} from '@/lib/logger'
+import { log } from '@/lib/logger'
 
 /**
  * Admin Analytics - User Metrics
@@ -19,10 +15,9 @@ import {
  */
 const analyticsHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now()
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id)
   let timeframe: string | undefined;
-  
-  logger.info('User analytics request initiated', {
+
+  log.info('User analytics request initiated', {
     requestingUserId: userContext.user_id,
     isSuperAdmin: userContext.is_super_admin
   })
@@ -30,13 +25,13 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
   try {
     const rateLimitStart = Date.now()
     await applyRateLimit(request, 'api')
-    logPerformanceMetric(logger, 'rate_limit_check', Date.now() - rateLimitStart)
-    
+    log.info('Rate limit check completed', { duration: Date.now() - rateLimitStart })
+
     const { searchParams } = new URL(request.url)
     timeframe = searchParams.get('timeframe') || '30d' // 7d, 30d, 90d, 1y
     const startDate = getStartDate(timeframe)
-    
-    logger.debug('User analytics parameters parsed', {
+
+    log.info('User analytics parameters parsed', {
       timeframe,
       startDate: startDate.toISOString()
     })
@@ -171,19 +166,17 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     }
 
     return createSuccessResponse(analytics, 'User analytics retrieved successfully')
-    
+
   } catch (error) {
-    logger.error('User analytics error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+    log.error('User analytics error', error, {
       timeframe,
       requestingUserId: userContext.user_id
     })
-    
-    logPerformanceMetric(logger, 'analytics_request_failed', Date.now() - startTime)
+
+    log.info('Analytics request failed', { duration: Date.now() - startTime })
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   } finally {
-    logPerformanceMetric(logger, 'user_analytics_total', Date.now() - startTime)
+    log.info('User analytics total', { duration: Date.now() - startTime })
   }
 }
 

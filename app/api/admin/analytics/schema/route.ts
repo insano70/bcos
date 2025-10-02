@@ -4,7 +4,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { chartConfigService } from '@/lib/services/chart-config-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { createAPILogger, logPerformanceMetric } from '@/lib/logger';
+import { log } from '@/lib/logger';
 
 /**
  * Admin Analytics - Schema Information
@@ -12,9 +12,8 @@ import { createAPILogger, logPerformanceMetric } from '@/lib/logger';
  */
 const schemaHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
-  logger.info('Analytics schema request initiated', {
+
+  log.info('Analytics schema request initiated', {
     requestingUserId: userContext.user_id
   });
 
@@ -93,16 +92,15 @@ const schemaHandler = async (request: NextRequest, userContext: UserContext) => 
       groupByFieldCount: groupableFields.length
     });
 
-    logPerformanceMetric(logger, 'analytics_schema_query', Date.now() - startTime);
+    log.info('Analytics schema query completed', { duration: Date.now() - startTime });
 
     return createSuccessResponse(schemaInfo, 'Analytics schema information retrieved successfully');
-    
+
   } catch (error) {
-    logger.error('Analytics schema error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+    log.error('Analytics schema error', error, {
       requestingUserId: userContext.user_id
     });
-    
+
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   }
 };
