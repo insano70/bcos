@@ -94,7 +94,7 @@ CREATE INDEX idx_csrf_failures_alert_detection ON csrf_failure_events(ip_address
 ```typescript
 // lib/security/csrf-monitoring-instance.ts
 import { db } from '@/lib/db';
-import { CSRFSecurityMonitor } from './csrf-monitoring-refactored';
+import { CSRFSecurityMonitor } from './csrf-monitoring';
 
 export const csrfMonitor = new CSRFSecurityMonitor(db);
 export function getCSRFMonitor() { return csrfMonitor; }
