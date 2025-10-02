@@ -5,7 +5,7 @@ import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { chartDefinitionCreateSchema } from '@/lib/validations/analytics';
 import type { UserContext } from '@/lib/types/rbac';
-import { createAppLogger } from '@/lib/logger/factory';
+import { log } from '@/lib/logger';
 import { createRBACChartsService } from '@/lib/services/rbac-charts-service';
 
 /**
@@ -16,9 +16,8 @@ import { createRBACChartsService } from '@/lib/services/rbac-charts-service';
 // GET - List all chart definitions
 const getChartsHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
-  const logger = createAppLogger('admin-analytics').withUser(userContext.user_id, userContext.current_organization_id);
 
-  logger.info('Chart definitions list request initiated', {
+  log.info('Chart definitions list request initiated', {
     requestingUserId: userContext.user_id,
     isSuperAdmin: userContext.is_super_admin
   });
@@ -40,7 +39,7 @@ const getChartsHandler = async (request: NextRequest, userContext: UserContext) 
       is_active: isActive
     });
 
-    logger.info('Chart definitions list completed successfully', {
+    log.info('Chart definitions list completed successfully', {
       resultCount: charts.length,
       totalCount,
       categoryFilter: categoryId,
@@ -59,9 +58,7 @@ const getChartsHandler = async (request: NextRequest, userContext: UserContext) 
     }, 'Chart definitions retrieved successfully');
 
   } catch (error) {
-    logger.error('Chart definitions list error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
+    log.error('Chart definitions list error', error, {
       requestingUserId: userContext.user_id
     });
 
@@ -76,9 +73,8 @@ const getChartsHandler = async (request: NextRequest, userContext: UserContext) 
 // POST - Create new chart definition
 const createChartHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
-  const logger = createAppLogger('admin-analytics').withUser(userContext.user_id, userContext.current_organization_id);
 
-  logger.info('Chart definition creation request initiated', {
+  log.info('Chart definition creation request initiated', {
     requestingUserId: userContext.user_id,
     isSuperAdmin: userContext.is_super_admin
   });
@@ -113,7 +109,7 @@ const createChartHandler = async (request: NextRequest, userContext: UserContext
       is_active: validatedData.is_active
     });
 
-    logger.info('Chart definition created successfully', {
+    log.info('Chart definition created successfully', {
       chartId: createdChart.chart_definition_id,
       chartName: createdChart.chart_name,
       chartType: createdChart.chart_type,
@@ -126,9 +122,7 @@ const createChartHandler = async (request: NextRequest, userContext: UserContext
     }, 'Chart definition created successfully');
 
   } catch (error) {
-    logger.error('Chart definition creation error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
+    log.error('Chart definition creation error', error, {
       requestingUserId: userContext.user_id
     });
 
