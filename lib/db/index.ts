@@ -6,7 +6,7 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { getDatabaseConfig } from '@/lib/env';
-import { logger } from '@/lib/logger';
+import { logger } from "@/lib/logger";
 
 // Initialize database connection with connection pooling
 let dbInstance: ReturnType<typeof drizzle> | null = null;
@@ -100,8 +100,8 @@ export const closeDb = async () => {
   }
 };
 
-// Cleanup on process termination
-if (typeof process !== 'undefined') {
+// Cleanup on process termination (only in Node.js runtime, not Edge)
+if (typeof process !== 'undefined' && typeof process.on === 'function') {
   process.on('beforeExit', closeDb);
   process.on('SIGINT', closeDb);
   process.on('SIGTERM', closeDb);
@@ -110,6 +110,7 @@ if (typeof process !== 'undefined') {
 export * from './analytics-schema';
 export * from './audit-schema';
 export * from './chart-config-schema';
+export * from './csrf-schema';
 export * from './rbac-schema';
 export * from './refresh-token-schema';
 // Re-export all schemas

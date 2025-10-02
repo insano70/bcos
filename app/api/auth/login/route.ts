@@ -13,19 +13,10 @@ import { verifyPassword } from '@/lib/auth/security'
 export const dynamic = 'force-dynamic';
 import { TokenManager } from '@/lib/auth/token-manager'
 import { AccountSecurity } from '@/lib/auth/security'
-import { AuditLogger, BufferedAuditLogger } from '@/lib/logger'
+import { AuditLogger, log, correlation } from '@/lib/logger'
 import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context'
 import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
 import { publicRoute } from '@/lib/api/route-handler'
-import { 
-  logAPIAuth, 
-  logDBOperation,
-  logSecurityEvent,
-  logPerformanceMetric,
-  withCorrelation,
-  CorrelationContextManager 
-} from '@/lib/logger'
-import { createAPILogger } from '@/lib/logger/api-features'
 
 /**
  * Custom Login Endpoint
@@ -33,40 +24,28 @@ import { createAPILogger } from '@/lib/logger/api-features'
  */
 const loginHandler = async (request: NextRequest) => {
   const startTime = Date.now()
-  
-  // Create enhanced API logger for authentication
-  const apiLogger = createAPILogger(request, 'authentication')
-  const logger = apiLogger.getLogger()
-  
-  // Enhanced login attempt logging - permanently enabled
-  apiLogger.logRequest({
-    authType: 'none',
-    suspicious: false
-  })
+
+  // Log API request
+  log.api('POST /api/auth/login - Login attempt', request, 0, 0)
 
   try {
     // Apply rate limiting
     const rateLimitStartTime = Date.now()
     await applyRateLimit(request, 'auth')
-    logPerformanceMetric(logger, 'rate_limit_check', Date.now() - rateLimitStartTime)
-    
+    log.info('Rate limit check completed', { duration: Date.now() - rateLimitStartTime })
+
     // Validate request data
     const validationStartTime = Date.now()
     const validatedData = await validateRequest(request, loginSchema)
     const { email, password, remember } = validatedData
-    logPerformanceMetric(logger, 'request_validation', Date.now() - validationStartTime)
+    log.info('Request validation completed', { duration: Date.now() - validationStartTime })
 
-    // Enhanced validation success logging
-    apiLogger.logAuth('login_validation', true, {
-      method: 'session', // This will be a session-based login
-      sessionDuration: remember ? 86400 * 30 : 86400 // 30 days if remember, else 1 day
-    })
-    
-    // Log validation details separately with PII masking
-    apiLogger.info('Login validation completed', {
+    // Validation success logging
+    log.auth('login_validation', true, {
+      method: 'session',
+      sessionDuration: remember ? 86400 * 30 : 86400,
       emailMasked: email.replace(/(.{2}).*@/, '$1***@'),
-      rememberMe: remember,
-      validationDuration: Date.now() - validationStartTime
+      rememberMe: remember
     })
 
     // Extract device info
@@ -78,17 +57,16 @@ const loginHandler = async (request: NextRequest) => {
     // Check account lockout
     const lockoutStartTime = Date.now()
     const lockoutStatus = await AccountSecurity.isAccountLocked(email)
-    logPerformanceMetric(logger, 'lockout_check', Date.now() - lockoutStartTime)
-    
+    log.info('Account lockout check completed', { duration: Date.now() - lockoutStartTime })
+
     if (lockoutStatus.locked) {
-      // Enhanced account lockout logging - permanently enabled
-      apiLogger.logAuth('login_attempt', false, {
+      // Account lockout logging
+      log.auth('login_attempt', false, {
         reason: 'account_locked',
-        sessionDuration: lockoutStatus.lockedUntil ? 
-          Math.ceil((new Date(lockoutStatus.lockedUntil).getTime() - Date.now()) / 60000) : 0 // minutes
+        lockedUntil: lockoutStatus.lockedUntil
       })
-      
-      apiLogger.logSecurity('account_lockout_triggered', 'medium', {
+
+      log.security('account_lockout_triggered', 'medium', {
         blocked: true,
         reason: 'multiple_failed_attempts',
         action: 'login_blocked'
@@ -101,7 +79,7 @@ const loginHandler = async (request: NextRequest) => {
         metadata: {
           email,
           lockedUntil: lockoutStatus.lockedUntil,
-          correlationId: CorrelationContextManager.getCurrentId()
+          correlationId: correlation.current()
         }
       })
       
@@ -115,24 +93,24 @@ const loginHandler = async (request: NextRequest) => {
       .from(users)
       .where(eq(users.email, email))
       .limit(1)
-    logDBOperation(logger, 'SELECT', 'users', dbStartTime, user ? 1 : 0)
-      
+    log.db('SELECT', 'users', Date.now() - dbStartTime, { rowCount: user ? 1 : 0 })
+
     if (!user) {
-      // Enhanced security logging for non-existent user attempts
-      apiLogger.logSecurity('authentication_failure', 'medium', {
+      // Security logging for non-existent user attempts
+      log.security('authentication_failure', 'medium', {
         action: 'login_attempt_nonexistent_user',
         blocked: true,
         threat: 'credential_attack',
         reason: 'user_not_found'
       })
-      
-      logger.warn('Login attempt with non-existent user', {
+
+      log.warn('Login attempt with non-existent user', {
         email: email.replace(/(.{2}).*@/, '$1***@')
       })
 
       // Record failed attempt
       await AccountSecurity.recordFailedAttempt(email)
-      
+
       await AuditLogger.logAuth({
         action: 'login_failed',
         ipAddress,
@@ -140,16 +118,16 @@ const loginHandler = async (request: NextRequest) => {
         metadata: {
           email,
           reason: 'user_not_found',
-          correlationId: CorrelationContextManager.getCurrentId()
+          correlationId: correlation.current()
         }
       })
-      
-      logAPIAuth(logger, 'login_attempt', false, undefined, 'user_not_found')
+
+      log.auth('login_attempt', false, { reason: 'user_not_found' })
       throw AuthenticationError('Invalid email or password')
     }
     
     if (!user.is_active) {
-      logger.warn('Login attempt with inactive user', {
+      log.warn('Login attempt with inactive user', {
         userId: user.user_id,
         email: email.replace(/(.{2}).*@/, '$1***@')
       })
@@ -162,33 +140,33 @@ const loginHandler = async (request: NextRequest) => {
         metadata: {
           email,
           reason: 'user_inactive',
-          correlationId: CorrelationContextManager.getCurrentId()
+          correlationId: correlation.current()
         }
       })
-      
-      logAPIAuth(logger, 'login_attempt', false, user.user_id, 'user_inactive')
+
+      log.auth('login_attempt', false, { userId: user.user_id, reason: 'user_inactive' })
       throw AuthenticationError('Account is inactive')
     }
 
-    logger.debug('User found and active', {
+    log.debug('User found and active', {
       userId: user.user_id,
       emailVerified: user.email_verified
     })
     
     // Check if user is SSO-only (no password set)
     if (!user.password_hash) {
-      logger.warn('Password login attempted for SSO-only user', {
+      log.warn('Password login attempted for SSO-only user', {
         userId: user.user_id,
         email: email.replace(/(.{2}).*@/, '$1***@')
-      });
+      })
 
-      apiLogger.logSecurity('sso_only_user_password_attempt', 'medium', {
+      log.security('sso_only_user_password_attempt', 'medium', {
         action: 'password_login_blocked',
         userId: user.user_id,
         blocked: true,
         threat: 'authentication_bypass_attempt',
         reason: 'sso_only_user'
-      });
+      })
 
       await AuditLogger.logAuth({
         action: 'login_failed',
@@ -198,26 +176,26 @@ const loginHandler = async (request: NextRequest) => {
         metadata: {
           email,
           reason: 'sso_only_user_password_attempt',
-          correlationId: CorrelationContextManager.getCurrentId()
+          correlationId: correlation.current()
         }
-      });
+      })
 
-      throw AuthenticationError('This account uses Single Sign-On. Please sign in with Microsoft.');
+      throw AuthenticationError('This account uses Single Sign-On. Please sign in with Microsoft.')
     }
     
     // Verify password
     const passwordStartTime = Date.now()
     const isValidPassword = await verifyPassword(password, user.password_hash)
-    logPerformanceMetric(logger, 'password_verification', Date.now() - passwordStartTime)
-    
+    log.info('Password verification completed', { duration: Date.now() - passwordStartTime })
+
     if (!isValidPassword) {
-      // Enhanced password failure logging - permanently enabled
-      apiLogger.logAuth('login_attempt', false, {
+      // Password failure logging
+      log.auth('login_attempt', false, {
         userId: user.user_id,
         reason: 'invalid_password'
       })
-      
-      apiLogger.logSecurity('authentication_failure', 'medium', {
+
+      log.security('authentication_failure', 'medium', {
         action: 'password_verification_failed',
         userId: user.user_id,
         threat: 'credential_attack',
@@ -226,7 +204,7 @@ const loginHandler = async (request: NextRequest) => {
 
       // Record failed attempt
       const lockoutResult = await AccountSecurity.recordFailedAttempt(email)
-      
+
       await AuditLogger.logAuth({
         action: 'login_failed',
         userId: user.user_id,
@@ -236,21 +214,20 @@ const loginHandler = async (request: NextRequest) => {
           email,
           reason: 'invalid_password',
           accountLocked: lockoutResult.locked,
-          correlationId: CorrelationContextManager.getCurrentId()
+          correlationId: correlation.current()
         }
       })
-      
-      logAPIAuth(logger, 'login_attempt', false, user.user_id, 'invalid_password')
+
       throw AuthenticationError('Invalid email or password')
     }
 
-    // Enhanced authentication success logging
-    apiLogger.logAuth('password_verification', true, {
+    // Authentication success logging
+    log.auth('password_verification', true, {
       userId: user.user_id,
-      method: 'session' // This login will create a session
+      method: 'session'
     })
-    
-    logger.info('Password verification successful', {
+
+    log.info('Password verification successful', {
       userId: user.user_id
     })
 
@@ -268,9 +245,9 @@ const loginHandler = async (request: NextRequest) => {
       fingerprint: deviceFingerprint,
       deviceName
     }
-    logPerformanceMetric(logger, 'device_info_generation', Date.now() - deviceGenStartTime)
+    log.info('Device info generated', { duration: Date.now() - deviceGenStartTime })
 
-    logger.debug('Device information generated', {
+    log.debug('Device information generated', {
       deviceName,
       fingerprintHash: deviceFingerprint.substring(0, 8) + '...'
     })
@@ -278,9 +255,9 @@ const loginHandler = async (request: NextRequest) => {
     // Get user's RBAC context to determine roles
     const rbacStartTime = Date.now()
     const userContext = await getCachedUserContextSafe(user.user_id)
-    logPerformanceMetric(logger, 'rbac_context_fetch', Date.now() - rbacStartTime)
+    log.info('RBAC context fetched', { duration: Date.now() - rbacStartTime })
 
-    logger.debug('User RBAC context loaded', {
+    log.debug('User RBAC context loaded', {
       userId: user.user_id,
       roleCount: userContext?.roles?.length || 0,
       permissionCount: userContext?.all_permissions?.length || 0
@@ -294,7 +271,7 @@ const loginHandler = async (request: NextRequest) => {
       remember || false,
       email // Pass email for audit logging
     )
-    logPerformanceMetric(logger, 'token_generation', Date.now() - tokenStartTime)
+    log.info('Tokens generated', { duration: Date.now() - tokenStartTime })
 
     // Set secure httpOnly cookies for both tokens
     const cookieStartTime = Date.now()
@@ -303,7 +280,7 @@ const loginHandler = async (request: NextRequest) => {
     const isSecureEnvironment = process.env.NODE_ENV === 'production'
     const maxAge = remember ? 30 * 24 * 60 * 60 : 7 * 24 * 60 * 60 // 30 days or 7 days
 
-    logger.debug('Preparing authentication cookies', {
+    log.debug('Preparing authentication cookies', {
       nodeEnv: process.env.NODE_ENV,
       environment: process.env.ENVIRONMENT,
       isSecureEnvironment,
@@ -336,14 +313,15 @@ const loginHandler = async (request: NextRequest) => {
     const accessCookie = cookieStore.get('access-token')
 
     const cookiesValid = !!refreshCookie?.value && !!accessCookie?.value
-    logPerformanceMetric(logger, 'cookie_setup', Date.now() - cookieStartTime, {
+    log.info('Cookie setup completed', {
+      duration: Date.now() - cookieStartTime,
       cookiesSet: cookiesValid,
       refreshCookieLength: refreshCookie?.value?.length || 0,
       accessCookieLength: accessCookie?.value?.length || 0
     })
 
     if (!cookiesValid) {
-      logger.error('Authentication cookies failed to set', {
+      log.error('Authentication cookies failed to set', undefined, {
         refreshCookieExists: !!refreshCookie,
         accessCookieExists: !!accessCookie,
         refreshHasValue: !!refreshCookie?.value,
@@ -352,30 +330,23 @@ const loginHandler = async (request: NextRequest) => {
       throw new Error('Failed to set authentication cookies')
     }
 
-    logger.info('Authentication cookies set successfully', {
+    log.info('Authentication cookies set successfully', {
       userId: user.user_id,
       sessionId: tokenPair.sessionId
     })
 
-    // Enhanced successful authentication logging - permanently enabled
-    apiLogger.logAuth('login_success', true, {
+    // Successful authentication logging
+    log.auth('login_success', true, {
       userId: user.user_id,
-      ...(userContext?.current_organization_id && { 
-        organizationId: userContext.current_organization_id 
+      ...(userContext?.current_organization_id && {
+        organizationId: userContext.current_organization_id
       }),
-      sessionDuration: remember ? 2592000 : 86400, // 30 days or 24 hours in seconds
+      sessionDuration: remember ? 2592000 : 86400,
       permissions: userContext?.all_permissions?.map(p => p.name) || []
     })
-    
-    // Business intelligence logging  
-    apiLogger.logBusiness('user_authentication', 'sessions', 'success', {
-      recordsProcessed: 1,
-      businessRules: ['password_verification', 'account_lockout_check', 'rbac_context_load'],
-      notifications: 0 // No notifications sent during login
-    })
-    
+
     // Security success event
-    apiLogger.logSecurity('successful_authentication', 'low', {
+    log.security('successful_authentication', 'low', {
       action: 'authentication_granted',
       userId: user.user_id,
       reason: 'valid_credentials'
@@ -392,7 +363,7 @@ const loginHandler = async (request: NextRequest) => {
         sessionId: tokenPair.sessionId,
         rememberMe: remember,
         deviceFingerprint,
-        correlationId: CorrelationContextManager.getCurrentId()
+        correlationId: correlation.current()
       }
     })
 
@@ -402,22 +373,9 @@ const loginHandler = async (request: NextRequest) => {
 
     const totalDuration = Date.now() - startTime
 
-    // Enhanced completion logging - permanently enabled
-    apiLogger.logResponse(200, {
-      recordCount: 1,
-      processingTimeBreakdown: {
-        validation: validationStartTime ? Date.now() - validationStartTime : 0,
-        lockoutCheck: lockoutStartTime ? Date.now() - lockoutStartTime : 0,
-        passwordVerification: passwordStartTime ? Date.now() - passwordStartTime : 0,
-        rbacContextFetch: rbacStartTime ? Date.now() - rbacStartTime : 0,
-        tokenGeneration: tokenStartTime ? Date.now() - tokenStartTime : 0,
-        cookieSetup: cookieStartTime ? Date.now() - cookieStartTime : 0
-      }
-    })
-
     // Generate new authenticated CSRF token tied to the user
     const csrfToken = await UnifiedCSRFProtection.setCSRFToken(user.user_id)
-    
+
     const response = createSuccessResponse({
       user: {
         id: user.user_id,
@@ -435,26 +393,25 @@ const loginHandler = async (request: NextRequest) => {
       expiresAt: tokenPair.expiresAt.toISOString(),
       csrfToken // Include new CSRF token in response
     }, 'Login successful')
-    
-    logger.info('Authenticated CSRF token generated for user', {
+
+    log.info('Authenticated CSRF token generated for user', {
       userId: user.user_id,
       tokenLength: csrfToken.length
     })
+
+    log.api('POST /api/auth/login - Success', request, 200, totalDuration)
     
     return response
     
   } catch (error) {
     const totalDuration = Date.now() - startTime
-    
-    logger.error('Login failed with error', error, {
+
+    log.error('Login failed with error', error, {
       totalDuration,
       errorType: error instanceof Error ? error.constructor.name : typeof error
     })
 
-    logPerformanceMetric(logger, 'total_login_duration', totalDuration, {
-      success: false,
-      errorType: error instanceof Error ? error.name : 'unknown'
-    })
+    log.api('POST /api/auth/login - Error', request, 500, totalDuration)
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
@@ -462,7 +419,10 @@ const loginHandler = async (request: NextRequest) => {
 
 // Export as public route with correlation wrapper
 export const POST = publicRoute(
-  withCorrelation(loginHandler), 
-  'Authentication endpoint - must be public', 
+  async (request: NextRequest) => {
+    const correlationId = correlation.generate()
+    return correlation.withContext(correlationId, {}, () => loginHandler(request))
+  },
+  'Authentication endpoint - must be public',
   { rateLimit: 'auth' }
 )

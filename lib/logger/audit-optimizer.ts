@@ -368,13 +368,15 @@ export const BufferedAuditLogger = {
   shutdown: () => getOptimizedAuditLogger().shutdown(),
 };
 
-// Graceful shutdown handling
-process.on('SIGTERM', () => {
-  void getOptimizedAuditLogger().shutdown();
-});
+// Graceful shutdown handling (only in Node.js runtime, not Edge)
+if (typeof process !== 'undefined' && typeof process.on === 'function') {
+  process.on('SIGTERM', () => {
+    void getOptimizedAuditLogger().shutdown();
+  });
 
-process.on('SIGINT', () => {
-  void getOptimizedAuditLogger().shutdown();
-});
+  process.on('SIGINT', () => {
+    void getOptimizedAuditLogger().shutdown();
+  });
+}
 
 export default BufferedAuditLogger;

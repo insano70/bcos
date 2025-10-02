@@ -88,6 +88,10 @@ export {
   withRBACLogging,
 } from './middleware';
 
+// NEW simplified logger - use this for new code!
+// Provides automatic stack traces, file:line:function capture, correlation tracking
+export { log, correlation } from './logger';
+
 // Default exports for common use cases (simplified)
 import { logger as defaultLogger } from './factory';
 export default defaultLogger;
