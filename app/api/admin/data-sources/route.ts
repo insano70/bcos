@@ -5,7 +5,7 @@ import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { dataSourceCreateRefinedSchema, dataSourceQuerySchema, tableColumnsQuerySchema } from '@/lib/validations/data-sources';
 import type { UserContext } from '@/lib/types/rbac';
-import { createAppLogger, logPerformanceMetric } from '@/lib/logger';
+import { log } from '@/lib/logger';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 
 /**
@@ -16,9 +16,8 @@ import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-s
 // GET - List all data sources
 const getDataSourcesHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
-  const logger = createAppLogger('admin-data-sources').withUser(userContext.user_id, userContext.current_organization_id);
 
-  logger.info('Data sources list request initiated', {
+  log.info('Data sources list request initiated', {
     requestingUserId: userContext.user_id,
     isSuperAdmin: userContext.is_super_admin
   });
@@ -53,16 +52,15 @@ const getDataSourcesHandler = async (request: NextRequest, userContext: UserCont
       }
     };
 
-    logPerformanceMetric(logger, 'data_sources_list', Date.now() - startTime);
+    log.info('Data sources list completed', { duration: Date.now() - startTime });
 
     return createSuccessResponse(responseData, 'Data sources retrieved successfully');
-    
+
   } catch (error) {
-    logger.error('Data sources list error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+    log.error('Data sources list error', error, {
       requestingUserId: userContext.user_id
     });
-    
+
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   }
 };
@@ -70,9 +68,8 @@ const getDataSourcesHandler = async (request: NextRequest, userContext: UserCont
 // POST - Create new data source
 const createDataSourceHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
-  const logger = createAppLogger('admin-data-sources').withUser(userContext.user_id, userContext.current_organization_id);
 
-  logger.info('Data source creation request initiated', {
+  log.info('Data source creation request initiated', {
     requestingUserId: userContext.user_id
   });
 
@@ -84,16 +81,15 @@ const createDataSourceHandler = async (request: NextRequest, userContext: UserCo
     const dataSourcesService = createRBACDataSourcesService(userContext);
     const newDataSource = await dataSourcesService.createDataSource(createData);
 
-    logPerformanceMetric(logger, 'data_source_create', Date.now() - startTime);
+    log.info('Data source created', { duration: Date.now() - startTime });
 
     return createSuccessResponse(newDataSource, 'Data source created successfully');
-    
+
   } catch (error) {
-    logger.error('Data source creation error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+    log.error('Data source creation error', error, {
       requestingUserId: userContext.user_id
     });
-    
+
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   }
 };
@@ -101,9 +97,8 @@ const createDataSourceHandler = async (request: NextRequest, userContext: UserCo
 // GET - Get table columns for schema/table
 const getTableColumnsHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
-  const logger = createAppLogger('admin-data-sources').withUser(userContext.user_id, userContext.current_organization_id);
 
-  logger.info('Table columns request initiated', {
+  log.info('Table columns request initiated', {
     requestingUserId: userContext.user_id
   });
 
@@ -132,13 +127,12 @@ const getTableColumnsHandler = async (request: NextRequest, userContext: UserCon
       }
     };
 
-    logPerformanceMetric(logger, 'table_columns_get', Date.now() - startTime);
+    log.info('Table columns retrieved', { duration: Date.now() - startTime });
 
     return createSuccessResponse(responseData, 'Table columns retrieved successfully');
 
   } catch (error) {
-    logger.error('Table columns error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+    log.error('Table columns error', error, {
       requestingUserId: userContext.user_id
     });
 
