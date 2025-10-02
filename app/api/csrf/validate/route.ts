@@ -6,11 +6,7 @@ import { publicRoute } from '@/lib/api/rbac-route-handler'
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
 import { validateRequest } from '@/lib/api/middleware/validation'
 import { z } from 'zod'
-import { 
-  createAPILogger, 
-  logPerformanceMetric,
-  logSecurityEvent 
-} from '@/lib/logger'
+import { log } from '@/lib/logger'
 
 /**
  * CSRF Token Validation Endpoint
@@ -26,9 +22,8 @@ const validateTokenSchema = z.object({
 
 const validateTokenHandler = async (request: NextRequest) => {
   const startTime = Date.now()
-  const logger = createAPILogger(request)
-  
-  logger.info('CSRF token validation request initiated', {
+
+  log.info('CSRF token validation request initiated', {
     endpoint: '/api/csrf/validate',
     method: 'POST'
   })
@@ -37,23 +32,23 @@ const validateTokenHandler = async (request: NextRequest) => {
     // Apply rate limiting (use 'auth' limits since this is security-related)
     const rateLimitStartTime = Date.now()
     await applyRateLimit(request, 'auth')
-    logPerformanceMetric(logger, 'rate_limit_check', Date.now() - rateLimitStartTime)
-    
+    log.info('Rate limit check completed', { duration: Date.now() - rateLimitStartTime })
+
     // Validate request body (optional)
     const validationStartTime = Date.now()
     const validatedData = await validateRequest(request, validateTokenSchema)
-    logPerformanceMetric(logger, 'request_validation', Date.now() - validationStartTime)
+    log.info('Request validation completed', { duration: Date.now() - validationStartTime })
 
     // Get token to validate
     const headerToken = request.headers.get('x-csrf-token')
     const tokenToValidate = validatedData.token || headerToken
 
     if (!tokenToValidate) {
-      logger.warn('CSRF validation request missing token', {
+      log.info('CSRF validation request missing token', {
         hasHeaderToken: !!headerToken,
         hasBodyToken: !!validatedData.token
       })
-      
+
       return createSuccessResponse({
         valid: false,
         reason: 'missing_token',
@@ -63,7 +58,7 @@ const validateTokenHandler = async (request: NextRequest) => {
 
     // Validate token structure and content
     const validationStart = Date.now()
-    
+
     try {
       // Determine token type by parsing the token itself, not the endpoint
       let isValidToken = false
@@ -95,23 +90,16 @@ const validateTokenHandler = async (request: NextRequest) => {
         isValidToken = false
       }
 
-      logPerformanceMetric(logger, 'token_validation', Date.now() - validationStart)
+      log.info('Token validation completed', { duration: Date.now() - validationStart })
 
       // Log validation result for monitoring
       if (isValidToken) {
-        logger.debug('CSRF token validation successful', {
+        log.info('CSRF token validation successful', {
           tokenType: tokenType,
           validationReason
         })
       } else {
-        logger.warn('CSRF token validation failed', {
-          tokenType: tokenType, 
-          validationReason,
-          tokenLength: tokenToValidate.length
-        })
-        
-        // Log as security event for monitoring
-        logSecurityEvent(logger, 'csrf_token_validation_failed', 'low', {
+        log.security('csrf_token_validation_failed', 'low', {
           endpoint: '/api/csrf/validate',
           reason: validationReason,
           tokenType: tokenType,
@@ -120,7 +108,7 @@ const validateTokenHandler = async (request: NextRequest) => {
       }
 
       const totalDuration = Date.now() - startTime
-      logPerformanceMetric(logger, 'total_validation_duration', totalDuration)
+      log.info('Total validation duration', { duration: totalDuration })
 
       return createSuccessResponse({
         valid: isValidToken,
@@ -130,7 +118,7 @@ const validateTokenHandler = async (request: NextRequest) => {
       }, 'Token validation completed')
 
     } catch (validationError) {
-      logger.error('CSRF token validation error', validationError, {
+      log.error('CSRF token validation error', validationError, {
         tokenLength: tokenToValidate.length
       })
 
@@ -143,13 +131,13 @@ const validateTokenHandler = async (request: NextRequest) => {
 
   } catch (error) {
     const totalDuration = Date.now() - startTime
-    logger.error('CSRF validation endpoint error', error, {
+    log.error('CSRF validation endpoint error', error, {
       totalDuration
     })
-    
+
     return createErrorResponse(
-      error instanceof Error ? error : 'Unknown error', 
-      500, 
+      error instanceof Error ? error : 'Unknown error',
+      500,
       request
     )
   }
@@ -157,13 +145,11 @@ const validateTokenHandler = async (request: NextRequest) => {
 
 // Additional GET endpoint for simple health checks
 const healthCheckHandler = async (request: NextRequest) => {
-  const logger = createAPILogger(request)
-  
   // Simple token presence check without validation
   const headerToken = request.headers.get('x-csrf-token')
   const cookieToken = request.cookies.get('csrf-token')?.value
-  
-  logger.debug('CSRF health check', {
+
+  log.info('CSRF health check', {
     hasHeaderToken: !!headerToken,
     hasCookieToken: !!cookieToken
   })
