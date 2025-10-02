@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm';
 import { chart_definitions, chart_permissions, db } from '@/lib/db';
-import { logger } from '@/lib/logger';
+import { log } from '@/lib/logger';
 import type { AnalyticsQueryParams, ChartFilter } from '@/lib/types/analytics';
 
 /**
@@ -63,14 +63,14 @@ export class AdvancedPermissionsService {
         // Note: dataFilters would need to be stored in a separate table or JSON column
       });
 
-      logger.info('Chart permission granted', {
+      log.info('Chart permission granted', {
         chartDefinitionId,
         userId,
         permissionType,
         grantedBy,
       });
     } catch (error) {
-      logger.error('Failed to grant chart permission', {
+      log.error('Failed to grant chart permission', {
         chartDefinitionId,
         userId,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -93,9 +93,9 @@ export class AdvancedPermissionsService {
           )
         );
 
-      logger.info('Chart permission revoked', { chartDefinitionId, userId });
+      log.info('Chart permission revoked', { chartDefinitionId, userId });
     } catch (error) {
-      logger.error('Failed to revoke chart permission', {
+      log.error('Failed to revoke chart permission', {
         chartDefinitionId,
         userId,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -133,7 +133,7 @@ export class AdvancedPermissionsService {
 
       return userLevel >= requiredLevel;
     } catch (error) {
-      logger.error('Permission check failed', {
+      log.error('Permission check failed', {
         chartDefinitionId,
         userId,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -186,7 +186,7 @@ export class AdvancedPermissionsService {
         permission: row.permissionType || 'view',
       }));
     } catch (error) {
-      logger.error('Failed to get user accessible charts', {
+      log.error('Failed to get user accessible charts', {
         userId,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
@@ -233,7 +233,7 @@ export class AdvancedPermissionsService {
       }
     }
 
-    logger.debug('Data access policy applied', {
+    log.debug('Data access policy applied', {
       userId,
       originalParams: queryParams,
       filteredParams
@@ -343,7 +343,7 @@ export class AdvancedPermissionsService {
         filteredData: requestedData,
       };
     } catch (error) {
-      logger.error('Chart access validation failed', {
+      log.error('Chart access validation failed', {
         chartDefinitionId,
         userId,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -383,7 +383,7 @@ export class AdvancedPermissionsService {
         recentGrants: [],
       };
     } catch (error) {
-      logger.error('Failed to get permission summary', {
+      log.error('Failed to get permission summary', {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
 

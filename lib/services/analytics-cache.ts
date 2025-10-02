@@ -1,4 +1,4 @@
-import { logger } from '@/lib/logger';
+import { log } from '@/lib/logger';
 import type { AnalyticsQueryParams, AnalyticsQueryResult } from '@/lib/types/analytics';
 
 /**
@@ -68,7 +68,7 @@ export class AnalyticsCache {
     // Check if expired
     if (now - entry.timestamp > entry.ttl) {
       this.cache.delete(key);
-      logger.debug('Cache entry expired and removed', { key });
+      log.debug('Cache entry expired and removed', { key });
       return null;
     }
 
@@ -76,7 +76,7 @@ export class AnalyticsCache {
     entry.accessCount++;
     entry.lastAccessed = now;
 
-    logger.debug('Cache hit', {
+    log.debug('Cache hit', {
       key,
       age: now - entry.timestamp,
       accessCount: entry.accessCount,
@@ -121,7 +121,7 @@ export class AnalyticsCache {
 
     this.cache.set(key, entry);
 
-    logger.debug('Cache entry stored', {
+    log.debug('Cache entry stored', {
       key,
       ttl: intelligentTtl,
       dataSize: data.data.length,
@@ -189,7 +189,7 @@ export class AnalyticsCache {
       this.cache.delete(entries[i]?.[0] || '');
     }
 
-    logger.debug('Cache eviction completed', {
+    log.debug('Cache eviction completed', {
       removedEntries: toRemove,
       remainingEntries: this.cache.size,
     });
@@ -210,7 +210,7 @@ export class AnalyticsCache {
     }
 
     if (removedCount > 0) {
-      logger.debug('Cache cleanup completed', {
+      log.debug('Cache cleanup completed', {
         removedExpired: removedCount,
         remainingEntries: this.cache.size,
       });
@@ -223,7 +223,7 @@ export class AnalyticsCache {
   clear(): void {
     const size = this.cache.size;
     this.cache.clear();
-    logger.info('Cache cleared', { previousSize: size });
+    log.info('Cache cleared', { previousSize: size });
   }
 
   /**
@@ -278,7 +278,7 @@ export class AnalyticsCache {
       }
     }
 
-    logger.info('Cache invalidation completed', {
+    log.info('Cache invalidation completed', {
       pattern,
       invalidatedCount,
       remainingEntries: this.cache.size,

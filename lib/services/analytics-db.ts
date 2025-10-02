@@ -5,7 +5,7 @@ import postgres from 'postgres';
 type PostgresRawParams = Parameters<postgres.Sql['unsafe']>[1];
 
 import { getAnalyticsDatabaseConfig } from '@/lib/env';
-import { logger } from '@/lib/logger';
+import { log } from '@/lib/logger';
 
 /**
  * Analytics Database Service
@@ -77,7 +77,7 @@ export const checkAnalyticsDbHealth = async (): Promise<{
     await analyticsConnection`SELECT 1 as health_check`;
     const latency = Date.now() - startTime;
 
-    logger.info('Analytics database health check passed', { latency });
+    log.info('Analytics database health check passed', { latency });
 
     return {
       isHealthy: true,
@@ -85,7 +85,7 @@ export const checkAnalyticsDbHealth = async (): Promise<{
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Analytics database health check failed', { error: errorMessage });
+    log.error('Analytics database health check failed', { error: errorMessage });
 
     return {
       isHealthy: false,
@@ -135,7 +135,7 @@ export const executeAnalyticsQuery = async <T = Record<string, unknown>>(
     return result as unknown as T[];
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Analytics query execution failed', {
+    log.error('Analytics query execution failed', {
       error: errorMessage,
       query: query.substring(0, 100) + (query.length > 100 ? '...' : ''),
     });
@@ -155,10 +155,10 @@ export const closeAnalyticsDb = async () => {
       await analyticsConnection.end();
       analyticsConnection = null;
       analyticsDb = null;
-      logger.info('Analytics database connections closed');
+      log.info('Analytics database connections closed');
     }
   } catch (error) {
-    logger.error('Error closing analytics database connections', { error });
+    log.error('Error closing analytics database connections', { error });
   }
 };
 

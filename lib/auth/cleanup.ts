@@ -1,5 +1,5 @@
 import { AuditLogger } from '@/lib/api/services/audit';
-import { logger } from '@/lib/logger';
+import { log } from '@/lib/logger';
 import { TokenManager } from './token-manager';
 
 /**
@@ -8,7 +8,7 @@ import { TokenManager } from './token-manager';
  */
 export async function runTokenCleanup(): Promise<void> {
   try {
-    logger.info('Starting token cleanup process', {
+    log.info('Starting token cleanup process', {
       operation: 'tokenCleanup',
       scheduled: true,
     });
@@ -25,15 +25,13 @@ export async function runTokenCleanup(): Promise<void> {
       severity: 'low',
     });
 
-    logger.info('Token cleanup completed', {
+    log.info('Token cleanup completed', {
       refreshTokensRemoved: cleanupResult.refreshTokens,
       blacklistEntriesRemoved: cleanupResult.blacklistEntries,
       operation: 'tokenCleanup',
     });
   } catch (error) {
-    logger.error('Token cleanup failed', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+    log.error('Token cleanup failed', error instanceof Error ? error : new Error(String(error)), {
       operation: 'tokenCleanup',
     });
 
@@ -52,7 +50,7 @@ export function scheduleTokenCleanup(): void {
   setInterval(() => {
     void runTokenCleanup();
   }, cleanupInterval);
-  logger.info('Token cleanup scheduled', {
+  log.info('Token cleanup scheduled', {
     interval: '6 hours',
     operation: 'tokenCleanup',
     scheduled: true,

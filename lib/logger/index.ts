@@ -1,9 +1,9 @@
 /**
  * BendCare OS Logging System
  *
- * This is the centralized logging interface for the entire application.
+ * Simplified, production-ready logging with automatic context capture.
  *
- * RECOMMENDED USAGE:
+ * USAGE:
  * import { log } from '@/lib/logger';
  *
  * Available methods:
@@ -25,16 +25,11 @@
  * - correlation.setUser(userId, orgId?) - Set user in current context
  */
 
-// NEW SIMPLIFIED LOGGER - Use this for all new code!
-// Provides automatic stack traces, file:line:function capture, correlation tracking
+// Simplified logger - automatic stack traces, file:line:function capture, correlation tracking
 export { log, correlation } from './logger';
 
-// Audit logging service (still used by some routes)
+// Audit logging service
 export { AuditLogger } from '../api/services/audit';
 
-// Legacy exports for backward compatibility (DEPRECATED - migrate to log.*)
-export { logger, loggers } from './factory';
-
-// Default export (legacy)
-import { logger as defaultLogger } from './factory';
-export default defaultLogger;
+// Default export
+export { log as default } from './logger';
