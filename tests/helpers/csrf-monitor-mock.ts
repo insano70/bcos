@@ -4,7 +4,7 @@
  */
 
 import type { NextRequest } from 'next/server';
-import type { CSRFSeverity, FailureStats } from '@/lib/security/csrf-monitoring-refactored';
+import type { CSRFSeverity, FailureStats } from '@/lib/security/csrf-monitoring';
 
 interface FailureEvent {
   timestamp: Date;

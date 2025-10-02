@@ -4,7 +4,7 @@
  */
 
 import { db } from '@/lib/db';
-import { CSRFSecurityMonitor } from './csrf-monitoring-refactored';
+import { CSRFSecurityMonitor } from './csrf-monitoring';
 
 /**
  * Singleton instance of CSRFSecurityMonitor

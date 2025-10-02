@@ -408,7 +408,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
       const stats = await monitor.getFailureStats()
       expect(stats.totalEvents).toBeGreaterThanOrEqual(15)
       
-      const attackerStats = stats.topIPs.find(ip => ip.ip === attackIP)
+      const attackerStats = stats.topIPs.find((ipStats) => ipStats.ip === attackIP)
       expect(attackerStats).toBeDefined()
       expect(attackerStats?.count).toBeGreaterThanOrEqual(15)
     })
