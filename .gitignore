@@ -41,4 +41,5 @@ next-env.d.ts
 /docs/tidy-next/
 /docs/tidy-next/**/*
 /docs/tidy-professional/
+/docs/archive-ignore/
 

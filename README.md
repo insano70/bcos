@@ -1,37 +1,211 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# BendCare OS
+
+A comprehensive healthcare practice management system built with Next.js, featuring SAML authentication, RBAC, real-time analytics, and more.
+
+## Overview
+
+BendCare OS is a modern, enterprise-grade healthcare platform that provides:
+
+- **Authentication & Authorization**: SAML 2.0 SSO, session management, and role-based access control (RBAC)
+- **Practice Management**: Multi-practice support with organizational hierarchy
+- **Real-time Analytics**: Custom dashboards with chart configurations and data visualization
+- **Security**: CSRF protection, rate limiting, audit logging, and step-up authentication
+- **Infrastructure as Code**: AWS CDK deployment configuration
+
+## Tech Stack
+
+- **Framework**: Next.js 15 (App Router)
+- **Runtime**: React 19
+- **Language**: TypeScript 5 (strict mode)
+- **Database**: PostgreSQL with Drizzle ORM
+- **Authentication**: iron-session, JOSE, @node-saml/node-saml
+- **Styling**: Tailwind CSS 4
+- **Testing**: Vitest with Testing Library
+- **Code Quality**: Biome (linting & formatting)
+- **Package Manager**: pnpm
+- **Infrastructure**: AWS CDK
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js (version specified in package.json)
+- pnpm
+- PostgreSQL database
+- Environment variables configured (see `env.example`)
+
+### Installation
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
+# Install dependencies
+pnpm install
+
+# Set up environment variables
+cp env.example .env.local
+# Edit .env.local with your configuration
+
+# Run database migrations
+pnpm db:migrate
+
+# Seed the database (optional)
+pnpm db:seed
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Development
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+# Start the development server (default port: 4001)
+pnpm dev
 
+# With turbo mode
+pnpm dev:turbo
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/api-routes/introduction) instead of React pages.
+# With warm-up script
+pnpm dev:warm
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+Open [http://localhost:4001](http://localhost:4001) with your browser to see the application.
 
-## Learn More
+### Building
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# Build for production
+pnpm build
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Start production server
+pnpm start
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+## Key Features
 
-## Deploy on Vercel
+### RBAC System
+- Hierarchical role and permission management
+- Organization-level access control
+- Cached permission checking for performance
+- Middleware-based route protection
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### SAML Integration
+- SSO with enterprise identity providers
+- Metadata fetching and validation
+- Replay attack prevention
+- Comprehensive security auditing
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+### Analytics & Dashboards
+- Custom chart configurations
+- Real-time data visualization
+- Calculated fields and aggregations
+- Export capabilities
+
+### Security
+- Content Security Policy with nonce-based script execution
+- CSRF token validation
+- Rate limiting per endpoint
+- Comprehensive audit logging
+- Step-up authentication for sensitive operations
+
+## Project Structure
+
+```
+/app                # Next.js app router pages and layouts
+/components         # Reusable React components
+/lib                # Core business logic
+  /api              # API utilities and middleware
+  /auth             # Authentication services
+  /db               # Database schemas and migrations
+  /rbac             # Role-based access control
+  /saml             # SAML authentication
+  /security         # Security utilities (CSRF, headers)
+  /services         # Business services
+/tests              # Test suites
+  /unit             # Unit tests
+  /integration      # Integration tests
+  /e2e              # End-to-end tests
+/infrastructure     # AWS CDK infrastructure code
+/scripts            # Utility scripts
+/public             # Static assets
+```
+
+## Available Scripts
+
+### Development
+- `pnpm dev` - Start development server
+- `pnpm dev:turbo` - Start with turbo mode
+- `pnpm build` - Build for production
+- `pnpm start` - Start production server
+
+### Code Quality
+- `pnpm lint` - Run Biome linter
+- `pnpm lint:fix` - Fix linting issues
+- `pnpm format` - Format code
+- `pnpm check` - Run Biome check and fix
+
+### Testing
+- `pnpm test` - Run tests in watch mode
+- `pnpm test:run` - Run all tests once
+- `pnpm test:unit` - Run unit tests
+- `pnpm test:integration` - Run integration tests
+- `pnpm test:e2e` - Run end-to-end tests
+- `pnpm test:coverage` - Generate coverage report
+- `pnpm test:saml` - Run SAML-specific tests
+
+### Database
+- `pnpm db:migrate` - Run migrations
+- `pnpm db:seed` - Seed database
+- `pnpm db:push` - Push schema changes
+- `pnpm db:generate` - Generate migrations
+- `pnpm db:psql` - Open PostgreSQL shell
+
+## Environment Variables
+
+See `env.example` for a complete list of required environment variables. Key variables include:
+
+- Database connection settings
+- Session secrets
+- SAML configuration
+- AWS credentials (for production)
+- Email service configuration
+
+## Infrastructure
+
+The project includes AWS CDK infrastructure code in the `/infrastructure` directory for deploying to AWS with:
+
+- ECS Fargate for container orchestration
+- RDS PostgreSQL for the database
+- CloudWatch for logging and monitoring
+- Application Load Balancer
+- VPC with public/private subnets
+
+Refer to [infrastructure/README.md](infrastructure/README.md) for deployment details.
+
+## Testing
+
+The project uses Vitest with comprehensive test coverage:
+
+```bash
+# Run all tests
+pnpm test:run
+
+# Run with coverage
+pnpm test:coverage
+
+# Run specific test suites
+pnpm test:unit
+pnpm test:integration
+pnpm test:saml
+```
+
+## Contributing
+
+This project follows strict code quality standards:
+
+- No `any` types allowed
+- Strict TypeScript mode enabled
+- All changes must pass `pnpm tsc` and `pnpm lint`
+- Security is paramount - all changes must maintain or improve security posture
+- Tests must provide real value, not just coverage
+
+See [CLAUDE.md](CLAUDE.md) for detailed guidelines.
+
+## License
+
+Private - All Rights Reserved
