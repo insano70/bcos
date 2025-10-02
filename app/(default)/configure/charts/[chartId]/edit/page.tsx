@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
 import ChartBuilder from '@/components/charts/chart-builder';
-import type { ChartDefinition } from '@/lib/types/analytics';
 import { apiClient } from '@/lib/api/client';
+import type { ChartDefinition } from '@/lib/types/analytics';
 
 export default function EditChartPage() {
   const params = useParams();
@@ -26,9 +26,8 @@ export default function EditChartPage() {
       const chartResponse = result.chart;
 
       // Extract chart definition from joined API response
-      const fullChartData = 'chart_definitions' in chartResponse 
-        ? chartResponse.chart_definitions 
-        : chartResponse;
+      const fullChartData =
+        'chart_definitions' in chartResponse ? chartResponse.chart_definitions : chartResponse;
       setChartData(fullChartData as ChartDefinition);
     } catch (error) {
       console.error('❌ Failed to load chart for editing:', error);

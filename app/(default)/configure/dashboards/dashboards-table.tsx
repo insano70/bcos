@@ -1,8 +1,8 @@
 'use client';
 
 import { useItemSelection } from '@/components/utils/use-item-selection';
-import DashboardsTableItem from './dashboards-table-item';
 import type { DashboardListItem } from '@/lib/types/analytics';
+import DashboardsTableItem from './dashboards-table-item';
 
 interface DashboardsTableProps {
   dashboards: DashboardListItem[];
@@ -13,27 +13,31 @@ interface DashboardsTableProps {
   onUnpublish?: (dashboard: DashboardListItem) => void;
 }
 
-export default function DashboardsTable({ dashboards, onEdit, onDelete, onPreview, onPublish, onUnpublish }: DashboardsTableProps) {
+export default function DashboardsTable({
+  dashboards,
+  onEdit,
+  onDelete,
+  onPreview,
+  onPublish,
+  onUnpublish,
+}: DashboardsTableProps) {
   // Filter out invalid dashboards and map to have 'id' property for useItemSelection
-  const validDashboards = dashboards.filter(dashboard => 
-    dashboard?.dashboard_id && 
-    typeof dashboard.dashboard_id === 'string' &&
-    dashboard.dashboard_id.trim().length > 0
+  const validDashboards = dashboards.filter(
+    (dashboard) =>
+      dashboard?.dashboard_id &&
+      typeof dashboard.dashboard_id === 'string' &&
+      dashboard.dashboard_id.trim().length > 0
   );
-  
-  const dashboardsWithId = validDashboards.map((dashboard, index) => ({ 
-    ...dashboard, 
+
+  const dashboardsWithId = validDashboards.map((dashboard, index) => ({
+    ...dashboard,
     id: dashboard.dashboard_id,
     // Ensure unique keys by adding index as fallback
-    _uniqueKey: `${dashboard.dashboard_id}-${index}`
+    _uniqueKey: `${dashboard.dashboard_id}-${index}`,
   }));
-  
-  const {
-    selectedItems,
-    isAllSelected,
-    handleCheckboxChange,
-    handleSelectAllChange,
-  } = useItemSelection(dashboardsWithId);
+
+  const { selectedItems, isAllSelected, handleCheckboxChange, handleSelectAllChange } =
+    useItemSelection(dashboardsWithId);
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl relative">
@@ -41,7 +45,7 @@ export default function DashboardsTable({ dashboards, onEdit, onDelete, onPrevie
         <h2 className="font-semibold text-gray-800 dark:text-gray-100">
           All Dashboards{' '}
           <span className="text-gray-400 dark:text-gray-500 font-medium">
-            {validDashboards.filter(dashboard => dashboard.is_active !== false).length}
+            {validDashboards.filter((dashboard) => dashboard.is_active !== false).length}
           </span>
         </h2>
       </header>
@@ -97,13 +101,13 @@ export default function DashboardsTable({ dashboards, onEdit, onDelete, onPrevie
                 <tr>
                   <td colSpan={9} className="px-2 first:pl-5 last:pr-5 py-12 text-center">
                     <div className="text-gray-500 dark:text-gray-400">
-                      📊 {dashboards.length > 0 ? 'No valid dashboards found' : 'No dashboards found'}
+                      📊{' '}
+                      {dashboards.length > 0 ? 'No valid dashboards found' : 'No dashboards found'}
                     </div>
                     <p className="text-gray-600 dark:text-gray-400 text-sm mt-2">
-                      {dashboards.length > 0 
+                      {dashboards.length > 0
                         ? 'Dashboard data appears to be corrupted. Please check the logs.'
-                        : 'Create your first dashboard to get started'
-                      }
+                        : 'Create your first dashboard to get started'}
                     </p>
                   </td>
                 </tr>

@@ -1,32 +1,32 @@
 'use client';
 
 import { useState } from 'react';
-import DeleteButton from '@/components/delete-button';
-import DateSelect from '@/components/date-select';
-import FilterButton from '@/components/dropdown-filter';
-import DataSourcesTable from './data-sources-table';
-import PaginationClassic from '@/components/pagination-classic';
 import AddDataSourceModal from '@/components/add-data-source-modal';
-import EditDataSourceModal from '@/components/edit-data-source-modal';
-import DataSourceConnectionTestModal from '@/components/data-source-connection-test-modal';
-import DeleteDataSourceModal from '@/components/delete-data-source-modal';
-import { useDataSources, type DataSource } from '@/lib/hooks/use-data-sources';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
+import DataSourceConnectionTestModal from '@/components/data-source-connection-test-modal';
+import DateSelect from '@/components/date-select';
+import DeleteButton from '@/components/delete-button';
+import DeleteDataSourceModal from '@/components/delete-data-source-modal';
+import FilterButton from '@/components/dropdown-filter';
+import EditDataSourceModal from '@/components/edit-data-source-modal';
+import PaginationClassic from '@/components/pagination-classic';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
-import { usePagination } from '@/lib/hooks/use-pagination';
 import Toast from '@/components/toast';
+import { type DataSource, useDataSources } from '@/lib/hooks/use-data-sources';
+import { usePagination } from '@/lib/hooks/use-pagination';
+import DataSourcesTable from './data-sources-table';
 
 export default function DataSourcesContent() {
   // Component rendered (client-side debug)
   if (process.env.NODE_ENV === 'development') {
     console.log('🗄️ DataSourcesContent: Component rendered');
   }
-  
+
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { data: response, isLoading, error, refetch } = useDataSources({ limit: 50, offset: 0 });
 
   const dataSources = response?.dataSources || [];
-  
+
   // State for modals and selected items
   const [isAddDataSourceModalOpen, setIsAddDataSourceModalOpen] = useState(false);
   const [isEditDataSourceModalOpen, setIsEditDataSourceModalOpen] = useState(false);
@@ -46,7 +46,7 @@ export default function DataSourcesContent() {
   if (process.env.NODE_ENV === 'development') {
     console.log('👤 DataSourcesContent: Auth state -', {
       isAuthenticated,
-      authLoading
+      authLoading,
     });
   }
 
@@ -57,7 +57,7 @@ export default function DataSourcesContent() {
       dataSourceCount: dataSources.length,
       isLoading,
       hasError: !!error,
-      errorMessage: error?.message
+      errorMessage: error?.message,
     });
   }
 
@@ -99,9 +99,7 @@ export default function DataSourcesContent() {
   if (error) {
     return (
       <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-8">
-        <div className="text-center text-red-500">
-          Failed to load data sources: {error.message}
-        </div>
+        <div className="text-center text-red-500">Failed to load data sources: {error.message}</div>
       </div>
     );
   }
@@ -220,8 +218,8 @@ export default function DataSourcesContent() {
           </div>
         </div>
       ) : (
-        <DataSourcesTable 
-          dataSources={pagination.currentItems} 
+        <DataSourcesTable
+          dataSources={pagination.currentItems}
           onEdit={handleEditDataSource}
           onDelete={handleDeleteDataSource}
           onTest={handleTestDataSource}
@@ -230,7 +228,7 @@ export default function DataSourcesContent() {
 
       {/* Pagination */}
       <div className="mt-8">
-        <PaginationClassic 
+        <PaginationClassic
           currentPage={pagination.currentPage}
           totalItems={pagination.totalItems}
           itemsPerPage={pagination.itemsPerPage}

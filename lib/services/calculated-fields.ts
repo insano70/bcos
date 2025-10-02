@@ -23,8 +23,8 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
     dependencies: ['measure_value', 'date_index'],
     calculate: (measures: AggAppMeasure[]) => {
       // Sort by date to calculate period-over-period growth
-      const sorted = measures.sort((a, b) => 
-        new Date(a.date_index).getTime() - new Date(b.date_index).getTime()
+      const sorted = measures.sort(
+        (a, b) => new Date(a.date_index).getTime() - new Date(b.date_index).getTime()
       );
 
       return sorted.map((measure, index) => {
@@ -34,7 +34,7 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
             ...measure,
             measure: 'Growth Rate',
             measure_value: 0,
-            measure_type: 'percentage'
+            measure_type: 'percentage',
           };
         }
 
@@ -46,10 +46,10 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
           ...measure,
           measure: 'Growth Rate',
           measure_value: Math.round(growthRate * 100) / 100, // Round to 2 decimal places
-          measure_type: 'percentage'
+          measure_type: 'percentage',
         };
       });
-    }
+    },
   },
   {
     id: 'charges_to_payments_ratio',
@@ -59,18 +59,24 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
     dependencies: ['measure', 'measure_value'],
     calculate: (measures: AggAppMeasure[]) => {
       // Group by provider and date to calculate ratios
-      const grouped = new Map<string, { charges?: number; payments?: number; date: string; provider: string }>();
+      const grouped = new Map<
+        string,
+        { charges?: number; payments?: number; date: string; provider: string }
+      >();
 
-      measures.forEach(measure => {
+      measures.forEach((measure) => {
         const key = `${measure.provider_name}_${measure.date_index}`;
         if (!grouped.has(key)) {
           grouped.set(key, {
             date: measure.date_index,
-            provider: measure.provider_name
+            provider: measure.provider_name,
           });
         }
 
-        const group = grouped.get(key)!;
+        const group = grouped.get(key);
+        if (!group) {
+          throw new Error(`Group not found for key: ${key}`);
+        }
         if (measure.measure.includes('Charges')) {
           group.charges = measure.measure_value;
         } else if (measure.measure.includes('Payments')) {
@@ -79,7 +85,7 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
       });
 
       const ratios: AggAppMeasure[] = [];
-      grouped.forEach((group, key) => {
+      grouped.forEach((group, _key) => {
         if (group.charges && group.payments && group.payments !== 0) {
           const ratio = group.charges / group.payments;
           ratios.push({
@@ -91,13 +97,13 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
             frequency: measures[0]?.frequency || 'Monthly',
             date_index: group.date,
             measure_value: Math.round(ratio * 100) / 100,
-            measure_type: 'ratio'
+            measure_type: 'ratio',
           });
         }
       });
 
       return ratios;
-    }
+    },
   },
   {
     id: 'moving_average',
@@ -106,8 +112,8 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
     formula: '(current + previous + previous2) / 3',
     dependencies: ['measure_value', 'date_index'],
     calculate: (measures: AggAppMeasure[]) => {
-      const sorted = measures.sort((a, b) => 
-        new Date(a.date_index).getTime() - new Date(b.date_index).getTime()
+      const sorted = measures.sort(
+        (a, b) => new Date(a.date_index).getTime() - new Date(b.date_index).getTime()
       );
 
       return sorted.map((measure, index) => {
@@ -117,7 +123,7 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
             ...measure,
             measure: 'Moving Average (3 periods)',
             measure_value: measure.measure_value, // Use actual value
-            measure_type: 'currency'
+            measure_type: 'currency',
           };
         }
 
@@ -130,10 +136,10 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
           ...measure,
           measure: 'Moving Average (3 periods)',
           measure_value: Math.round(average),
-          measure_type: 'currency'
+          measure_type: 'currency',
         };
       });
-    }
+    },
   },
   {
     id: 'variance_from_average',
@@ -143,37 +149,36 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
     dependencies: ['measure_value'],
     calculate: (measures: AggAppMeasure[]) => {
       const total = measures.reduce((sum, m) => {
-        const value = typeof m.measure_value === 'string' 
-          ? parseFloat(m.measure_value) 
-          : m.measure_value;
-        return sum + (isNaN(value) ? 0 : value);
+        const value =
+          typeof m.measure_value === 'string' ? parseFloat(m.measure_value) : m.measure_value;
+        return sum + (Number.isNaN(value) ? 0 : value);
       }, 0);
       const average = total / measures.length;
 
-      return measures.map(measure => {
-        const measureValue = typeof measure.measure_value === 'string' 
-          ? parseFloat(measure.measure_value) 
-          : measure.measure_value;
+      return measures.map((measure) => {
+        const measureValue =
+          typeof measure.measure_value === 'string'
+            ? parseFloat(measure.measure_value)
+            : measure.measure_value;
         const variance = average !== 0 ? ((measureValue - average) / average) * 100 : 0;
 
         return {
           ...measure,
           measure: 'Variance from Average',
           measure_value: Math.round(variance * 100) / 100,
-          measure_type: 'percentage'
+          measure_type: 'percentage',
         };
       });
-    }
-  }
+    },
+  },
 ];
 
 export class CalculatedFieldsService {
-  
   /**
    * Apply calculated field to measures data
    */
   applyCalculatedField(calculatedFieldId: string, measures: AggAppMeasure[]): AggAppMeasure[] {
-    const field = CALCULATED_FIELDS.find(f => f.id === calculatedFieldId);
+    const field = CALCULATED_FIELDS.find((f) => f.id === calculatedFieldId);
     if (!field) {
       throw new Error(`Calculated field not found: ${calculatedFieldId}`);
     }
@@ -191,11 +196,14 @@ export class CalculatedFieldsService {
   /**
    * Validate if calculated field can be applied to given measures
    */
-  validateCalculatedField(calculatedFieldId: string, measures: AggAppMeasure[]): {
+  validateCalculatedField(
+    calculatedFieldId: string,
+    measures: AggAppMeasure[]
+  ): {
     canApply: boolean;
     missingDependencies: string[];
   } {
-    const field = CALCULATED_FIELDS.find(f => f.id === calculatedFieldId);
+    const field = CALCULATED_FIELDS.find((f) => f.id === calculatedFieldId);
     if (!field) {
       return { canApply: false, missingDependencies: [] };
     }
@@ -207,11 +215,11 @@ export class CalculatedFieldsService {
     // Check if all required fields are present in the data
     const sampleMeasure = measures[0];
     const availableFields = sampleMeasure ? Object.keys(sampleMeasure) : [];
-    const missingDependencies = field.dependencies.filter(dep => !availableFields.includes(dep));
+    const missingDependencies = field.dependencies.filter((dep) => !availableFields.includes(dep));
 
     return {
       canApply: missingDependencies.length === 0,
-      missingDependencies
+      missingDependencies,
     };
   }
 }

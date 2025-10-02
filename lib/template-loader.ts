@@ -1,9 +1,9 @@
 import ClassicProfessionalTemplate from '@/templates/classic-professional';
-import ModernMinimalistTemplate from '@/templates/modern-minimalist';
-import WarmWelcomingTemplate from '@/templates/warm-welcoming';
 import ClinicalFocusTemplate from '@/templates/clinical-focus';
 import CommunityPracticeTemplate from '@/templates/community-practice';
+import ModernMinimalistTemplate from '@/templates/modern-minimalist';
 import TidyProfessionalTemplate from '@/templates/tidy-professional';
+import WarmWelcomingTemplate from '@/templates/warm-welcoming';
 
 // Template mapping
 const TEMPLATE_MAP = {
@@ -28,7 +28,8 @@ export function getAllTemplateOptions() {
     {
       slug: 'classic-professional',
       name: 'Classic Professional',
-      description: 'Traditional medical practice layout inspired by established rheumatology clinics',
+      description:
+        'Traditional medical practice layout inspired by established rheumatology clinics',
     },
     {
       slug: 'modern-minimalist',

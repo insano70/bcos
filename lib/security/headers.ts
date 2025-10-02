@@ -1,5 +1,5 @@
-import type { NextResponse } from 'next/server'
-import { nanoid } from 'nanoid'
+import { nanoid } from 'nanoid';
+import type { NextResponse } from 'next/server';
 
 /**
  * Security headers configuration for production-grade security
@@ -7,38 +7,38 @@ import { nanoid } from 'nanoid'
  */
 export function addSecurityHeaders(response: NextResponse): NextResponse {
   // Prevent clickjacking attacks
-  response.headers.set('X-Frame-Options', 'DENY')
-  
+  response.headers.set('X-Frame-Options', 'DENY');
+
   // Prevent MIME type sniffing
-  response.headers.set('X-Content-Type-Options', 'nosniff')
-  
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+
   // Control referrer information
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
-  
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
   // Legacy XSS protection (modern browsers use CSP)
-  response.headers.set('X-XSS-Protection', '1; mode=block')
-  
+  response.headers.set('X-XSS-Protection', '1; mode=block');
+
   // Control browser features and APIs
   response.headers.set(
     'Permissions-Policy',
     'camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()'
-  )
-  
+  );
+
   // Prevent DNS prefetching
-  response.headers.set('X-DNS-Prefetch-Control', 'off')
-  
+  response.headers.set('X-DNS-Prefetch-Control', 'off');
+
   // Prevent downloading of untrusted content
-  response.headers.set('X-Download-Options', 'noopen')
-  
+  response.headers.set('X-Download-Options', 'noopen');
+
   // HSTS (HTTP Strict Transport Security) - only in production with HTTPS
   if (process.env.NODE_ENV === 'production') {
     response.headers.set(
       'Strict-Transport-Security',
       'max-age=31536000; includeSubDomains; preload'
-    )
+    );
   }
-  
-  return response
+
+  return response;
 }
 
 /**
@@ -60,16 +60,18 @@ export interface CSPNonces {
 }
 
 export function generateCSPNonces(): CSPNonces {
-  const isDevelopment = process.env.NODE_ENV === 'development'
-  const environment = isDevelopment 
-    ? 'development' 
-    : (process.env.NEXT_PUBLIC_APP_URL?.includes('staging') ? 'staging' : 'production')
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const environment = isDevelopment
+    ? 'development'
+    : process.env.NEXT_PUBLIC_APP_URL?.includes('staging')
+      ? 'staging'
+      : 'production';
 
   return {
     scriptNonce: nanoid(16),
-    styleNonce: nanoid(16), 
+    styleNonce: nanoid(16),
     timestamp: Date.now(),
-    environment
+    environment,
   };
 }
 
@@ -79,8 +81,8 @@ export function generateCSPNonces(): CSPNonces {
  * ✅ SECURITY: Requires nonces for all inline content in production
  */
 export function getEnhancedContentSecurityPolicy(nonces?: CSPNonces): string {
-  const isDevelopment = process.env.NODE_ENV === 'development'
-  
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
   // Base CSP directives with strict nonce requirements
   const csp = {
     'default-src': ["'self'"],
@@ -95,7 +97,7 @@ export function getEnhancedContentSecurityPolicy(nonces?: CSPNonces): string {
       ...(isDevelopment ? ["'unsafe-eval'", "'unsafe-inline'"] : []),
       // Trusted CDNs for charts and UI libraries
       'https://cdn.jsdelivr.net',
-      'https://unpkg.com'
+      'https://unpkg.com',
     ],
     'style-src': [
       "'self'",
@@ -107,7 +109,7 @@ export function getEnhancedContentSecurityPolicy(nonces?: CSPNonces): string {
       // Allow unsafe-inline in development for CSS-in-JS and hot reload
       ...(isDevelopment ? ["'unsafe-inline'"] : []),
       // Google Fonts domain for CSS loading
-      'https://fonts.googleapis.com'
+      'https://fonts.googleapis.com',
     ],
     'img-src': [
       "'self'",
@@ -115,13 +117,13 @@ export function getEnhancedContentSecurityPolicy(nonces?: CSPNonces): string {
       'blob:', // For generated images (canvas, charts)
       'https:', // Allow all HTTPS images
       // Add your CDN/storage domains here
-      ...(process.env.NEXT_PUBLIC_STORAGE_DOMAIN ? [process.env.NEXT_PUBLIC_STORAGE_DOMAIN] : [])
+      ...(process.env.NEXT_PUBLIC_STORAGE_DOMAIN ? [process.env.NEXT_PUBLIC_STORAGE_DOMAIN] : []),
     ],
     'font-src': [
       "'self'",
       'data:', // For base64 encoded fonts
       'https://fonts.gstatic.com',
-      'https://fonts.googleapis.com' // Sometimes fonts come from here too
+      'https://fonts.googleapis.com', // Sometimes fonts come from here too
     ],
     'connect-src': [
       "'self'",
@@ -131,7 +133,7 @@ export function getEnhancedContentSecurityPolicy(nonces?: CSPNonces): string {
       ...(isDevelopment ? ['ws://localhost:*', 'wss://localhost:*'] : []),
       // External services (add as needed)
       ...(process.env.RESEND_API_URL ? [process.env.RESEND_API_URL] : []),
-      ...(process.env.STRIPE_API_URL ? [process.env.STRIPE_API_URL] : [])
+      ...(process.env.STRIPE_API_URL ? [process.env.STRIPE_API_URL] : []),
     ],
     'frame-src': ["'none'"], // Prevent embedding in frames
     'object-src': ["'none'"], // Prevent Flash and other plugins
@@ -140,23 +142,23 @@ export function getEnhancedContentSecurityPolicy(nonces?: CSPNonces): string {
     'frame-ancestors': ["'none'"], // Prevent embedding (same as X-Frame-Options)
     'upgrade-insecure-requests': [], // Upgrade HTTP to HTTPS in production
     // Add report-uri for CSP violation monitoring
-    'report-uri': process.env.NODE_ENV === 'production' ? ['/api/security/csp-report'] : []
-  }
-  
+    'report-uri': process.env.NODE_ENV === 'production' ? ['/api/security/csp-report'] : [],
+  };
+
   // Remove upgrade-insecure-requests in development
   if (isDevelopment) {
-    const { 'upgrade-insecure-requests': _, ...devCsp } = csp
+    const { 'upgrade-insecure-requests': _, ...devCsp } = csp;
     return Object.entries(devCsp)
       .filter(([_, sources]) => sources.length > 0)
       .map(([directive, sources]) => `${directive} ${sources.join(' ')}`)
-      .join('; ')
+      .join('; ');
   }
-  
+
   // Convert to CSP string
   return Object.entries(csp)
     .filter(([_, sources]) => sources.length > 0)
     .map(([directive, sources]) => `${directive} ${sources.join(' ')}`)
-    .join('; ')
+    .join('; ');
 }
 
 /**
@@ -165,18 +167,18 @@ export function getEnhancedContentSecurityPolicy(nonces?: CSPNonces): string {
  */
 export function getContentSecurityPolicy(nonce?: string): string {
   if (!nonce) {
-    return getEnhancedContentSecurityPolicy()
+    return getEnhancedContentSecurityPolicy();
   }
-  
+
   // Convert single nonce to dual nonces for backwards compatibility
   const legacyNonces: CSPNonces = {
     scriptNonce: nonce,
     styleNonce: nonce,
     timestamp: Date.now(),
-    environment: process.env.NODE_ENV === 'development' ? 'development' : 'production'
-  }
-  
-  return getEnhancedContentSecurityPolicy(legacyNonces)
+    environment: process.env.NODE_ENV === 'development' ? 'development' : 'production',
+  };
+
+  return getEnhancedContentSecurityPolicy(legacyNonces);
 }
 
 /**
@@ -186,11 +188,11 @@ export function addRateLimitHeaders(
   response: NextResponse,
   result: { remaining: number; resetTime: number }
 ): NextResponse {
-  response.headers.set('X-RateLimit-Remaining', result.remaining.toString())
-  response.headers.set('X-RateLimit-Reset', Math.ceil(result.resetTime / 1000).toString())
-  response.headers.set('X-RateLimit-Policy', 'sliding-window')
-  
-  return response
+  response.headers.set('X-RateLimit-Remaining', result.remaining.toString());
+  response.headers.set('X-RateLimit-Reset', Math.ceil(result.resetTime / 1000).toString());
+  response.headers.set('X-RateLimit-Policy', 'sliding-window');
+
+  return response;
 }
 
 /**
@@ -201,19 +203,19 @@ export function addCORSHeaders(response: NextResponse, origin?: string): NextRes
     process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001',
     'https://admin.yourdomain.com', // Admin subdomain
     // Add other allowed origins
-  ]
-  
+  ];
+
   if (origin && allowedOrigins.includes(origin)) {
-    response.headers.set('Access-Control-Allow-Origin', origin)
+    response.headers.set('Access-Control-Allow-Origin', origin);
   }
-  
-  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
+
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   response.headers.set(
     'Access-Control-Allow-Headers',
     'Content-Type, Authorization, X-CSRF-Token, X-Requested-With'
-  )
-  response.headers.set('Access-Control-Allow-Credentials', 'true')
-  response.headers.set('Access-Control-Max-Age', '86400') // 24 hours
-  
-  return response
+  );
+  response.headers.set('Access-Control-Allow-Credentials', 'true');
+  response.headers.set('Access-Control-Max-Age', '86400'); // 24 hours
+
+  return response;
 }

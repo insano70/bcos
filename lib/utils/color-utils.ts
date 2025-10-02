@@ -44,12 +44,15 @@ export function getTemplateDefaultColors(templateSlug: string): BrandColors {
       accent: '#5696FF', // lighter blue
     },
   };
-  
-  return defaults[templateSlug] || defaults['classic-professional'] || {
-    primary: '#3B82F6',
-    secondary: '#1E40AF', 
-    accent: '#F59E0B'
-  };
+
+  return (
+    defaults[templateSlug] ||
+    defaults['classic-professional'] || {
+      primary: '#3B82F6',
+      secondary: '#1E40AF',
+      accent: '#F59E0B',
+    }
+  );
 }
 
 /**
@@ -57,11 +60,13 @@ export function getTemplateDefaultColors(templateSlug: string): BrandColors {
  */
 export function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result ? {
-    r: parseInt(result[1] || '0', 16),
-    g: parseInt(result[2] || '0', 16),
-    b: parseInt(result[3] || '0', 16)
-  } : null;
+  return result
+    ? {
+        r: parseInt(result[1] || '0', 16),
+        g: parseInt(result[2] || '0', 16),
+        b: parseInt(result[3] || '0', 16),
+      }
+    : null;
 }
 
 /**
@@ -79,12 +84,12 @@ export function hexToRgba(hex: string, opacity: number): string {
 export function darkenColor(hex: string, percent: number): string {
   const rgb = hexToRgb(hex);
   if (!rgb) return hex;
-  
-  const factor = 1 - (percent / 100);
+
+  const factor = 1 - percent / 100;
   const r = Math.round(rgb.r * factor);
   const g = Math.round(rgb.g * factor);
   const b = Math.round(rgb.b * factor);
-  
+
   return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
 }
 
@@ -119,7 +124,7 @@ export function generateColorCSS(colors: BrandColors): string {
   const primaryRgb = hexToRgb(colors.primary);
   const secondaryRgb = hexToRgb(colors.secondary);
   const accentRgb = hexToRgb(colors.accent);
-  
+
   return `
     :root {
       --color-primary: ${colors.primary};
@@ -156,7 +161,7 @@ export function getPracticeCSS(colors: BrandColors): string {
   const primaryRgb = hexToRgb(colors.primary);
   const secondaryRgb = hexToRgb(colors.secondary);
   const accentRgb = hexToRgb(colors.accent);
-  
+
   return `
     :root {
       --practice-primary: ${colors.primary};
@@ -207,7 +212,7 @@ export function getColorStyles(colors: BrandColors): import('@/lib/types/practic
     primaryGradient: {
       background: `linear-gradient(to right, ${hexToRgba(colors.primary, 0.05)}, ${hexToRgba(colors.primary, 0.1)})`,
     },
-    
+
     // Secondary styles
     secondary: {
       backgroundColor: colors.secondary,
@@ -215,7 +220,7 @@ export function getColorStyles(colors: BrandColors): import('@/lib/types/practic
     secondaryText: {
       color: colors.secondary,
     },
-    
+
     // Accent styles
     accent: {
       backgroundColor: colors.accent,

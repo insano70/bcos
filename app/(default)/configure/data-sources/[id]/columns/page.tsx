@@ -1,5 +1,5 @@
-import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { SelectedItemsProvider } from '@/app/selected-items-context';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import DataSourceColumnsContent from './data-source-columns-content';

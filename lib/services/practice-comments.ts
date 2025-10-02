@@ -1,6 +1,6 @@
+import { desc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { practice_comments } from '@/lib/db/schema';
-import { eq, desc, and, isNull } from 'drizzle-orm';
 import type { PracticeComment } from '@/lib/types/practice';
 
 /**
@@ -15,7 +15,7 @@ export async function getFeaturedComments(practiceId: string): Promise<PracticeC
       .where(eq(practice_comments.practice_id, practiceId))
       .orderBy(practice_comments.display_order, desc(practice_comments.created_at));
 
-    return comments.map(comment => ({
+    return comments.map((comment) => ({
       comment_id: comment.comment_id,
       practice_id: comment.practice_id,
       commenter_name: comment.commenter_name,
@@ -42,7 +42,7 @@ export async function getAllComments(practiceId: string): Promise<PracticeCommen
       .where(eq(practice_comments.practice_id, practiceId))
       .orderBy(desc(practice_comments.created_at));
 
-    return comments.map(comment => ({
+    return comments.map((comment) => ({
       comment_id: comment.comment_id,
       practice_id: comment.practice_id,
       commenter_name: comment.commenter_name,

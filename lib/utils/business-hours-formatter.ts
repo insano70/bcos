@@ -12,7 +12,7 @@ const DAYS_ORDER = [
   { key: 'wednesday', label: 'Wednesday' },
   { key: 'thursday', label: 'Thursday' },
   { key: 'friday', label: 'Friday' },
-  { key: 'saturday', label: 'Saturday' }
+  { key: 'saturday', label: 'Saturday' },
 ] as const;
 
 /**
@@ -22,21 +22,21 @@ const DAYS_ORDER = [
  */
 export function formatTime(time: string): string {
   if (!time) return '';
-  
+
   const timeParts = time.split(':').map(Number);
   const hours = timeParts[0];
   const minutes = timeParts[1];
-  
+
   if (hours === undefined || minutes === undefined) return '';
-  
+
   const period = hours >= 12 ? 'PM' : 'AM';
   const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-  
+
   // Only show minutes if they're not :00
   if (minutes === 0) {
     return `${displayHours} ${period}`;
   }
-  
+
   return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
 }
 
@@ -49,7 +49,7 @@ export function formatDaySchedule(schedule: DaySchedule): string {
   if (schedule.closed || !schedule.open || !schedule.close) {
     return 'Closed';
   }
-  
+
   return `${formatTime(schedule.open)} to ${formatTime(schedule.close)}`;
 }
 
@@ -66,11 +66,11 @@ export function formatBusinessHours(businessHours: BusinessHours): Array<{
   return DAYS_ORDER.map(({ key, label }) => {
     const schedule = businessHours[key];
     const hours = formatDaySchedule(schedule);
-    
+
     return {
       day: label,
       hours,
-      isClosed: schedule.closed || false
+      isClosed: schedule.closed || false,
     };
   });
 }
@@ -82,32 +82,32 @@ export function formatBusinessHours(businessHours: BusinessHours): Array<{
  */
 export function getBusinessHoursSummary(businessHours: BusinessHours): string {
   const formattedHours = formatBusinessHours(businessHours);
-  const openDays = formattedHours.filter(day => !day.isClosed);
-  
+  const openDays = formattedHours.filter((day) => !day.isClosed);
+
   if (openDays.length === 0) {
     return 'Closed';
   }
-  
+
   // Check if weekdays have the same hours
   const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-  const weekdayHours = formattedHours.filter(day => weekdays.includes(day.day) && !day.isClosed);
-  
+  const weekdayHours = formattedHours.filter((day) => weekdays.includes(day.day) && !day.isClosed);
+
   if (weekdayHours.length === 5 && weekdayHours[0]) {
     const firstWeekdayHours = weekdayHours[0].hours;
-    const allWeekdaysSame = weekdayHours.every(day => day.hours === firstWeekdayHours);
-    
+    const allWeekdaysSame = weekdayHours.every((day) => day.hours === firstWeekdayHours);
+
     if (allWeekdaysSame) {
-      const weekend = formattedHours.filter(day => ['Saturday', 'Sunday'].includes(day.day));
-      const weekendClosed = weekend.every(day => day.isClosed);
-      
+      const weekend = formattedHours.filter((day) => ['Saturday', 'Sunday'].includes(day.day));
+      const weekendClosed = weekend.every((day) => day.isClosed);
+
       if (weekendClosed) {
         return `Mon-Fri ${firstWeekdayHours}`;
       }
     }
   }
-  
+
   // If not a standard pattern, just show open days
-  return openDays.map(day => `${day.day.slice(0, 3)} ${day.hours}`).join(', ');
+  return openDays.map((day) => `${day.day.slice(0, 3)} ${day.hours}`).join(', ');
 }
 
 /**
@@ -119,17 +119,17 @@ export function isCurrentlyOpen(businessHours: BusinessHours): boolean {
   const now = new Date();
   const dayIndex = now.getDay();
   const currentDayInfo = DAYS_ORDER[dayIndex];
-  
+
   if (!currentDayInfo) return false;
-  
+
   const currentDay = currentDayInfo.key;
   const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
-  
+
   const todaySchedule = businessHours[currentDay];
-  
+
   if (todaySchedule.closed || !todaySchedule.open || !todaySchedule.close) {
     return false;
   }
-  
+
   return currentTime >= todaySchedule.open && currentTime <= todaySchedule.close;
 }

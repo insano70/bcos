@@ -1,29 +1,30 @@
-import { db } from '@/lib/db'
+import { db } from '@/lib/db';
 import { createAppLogger } from '@/lib/logger/factory';
 
 // Create Universal Logger for RBAC user context operations
 const rbacContextLogger = createAppLogger('rbac-user-context', {
   component: 'security',
   feature: 'rbac-analytics',
-  module: 'user-context'
+  module: 'user-context',
 });
+
+import { and, eq } from 'drizzle-orm';
 import {
-  users,
-  roles,
-  permissions,
-  user_roles,
   organizations,
+  permissions,
   role_permissions,
-  user_organizations
+  roles,
+  user_organizations,
+  user_roles,
+  users,
 } from '@/lib/db/schema';
-import { eq, and, } from 'drizzle-orm';
 import type {
-  UserContext,
-  Role,
   Organization,
-  UserRole,
+  Permission,
+  Role,
+  UserContext,
   UserOrganization,
-  Permission
+  UserRole,
 } from '@/lib/types/rbac';
 
 /**
@@ -46,7 +47,7 @@ export async function getUserContext(userId: string): Promise<UserContext> {
       is_active: users.is_active,
       email_verified: users.email_verified,
       created_at: users.created_at,
-      updated_at: users.updated_at
+      updated_at: users.updated_at,
     })
     .from(users)
     .where(eq(users.user_id, userId))
@@ -76,7 +77,7 @@ export async function getUserContext(userId: string): Promise<UserContext> {
       org_is_active: organizations.is_active,
       org_created_at: organizations.created_at,
       org_updated_at: organizations.updated_at,
-      org_deleted_at: organizations.deleted_at
+      org_deleted_at: organizations.deleted_at,
     })
     .from(user_organizations)
     .innerJoin(organizations, eq(user_organizations.organization_id, organizations.organization_id))
@@ -90,7 +91,7 @@ export async function getUserContext(userId: string): Promise<UserContext> {
 
   // 3. Get accessible organizations (includes children via hierarchy)
   const accessibleOrganizations = await getAccessibleOrganizations(
-    userOrgs.map(org => org.organization_id)
+    userOrgs.map((org) => org.organization_id)
   );
 
   // 4. Get user's roles with permissions (optimized with database-level deduplication)
@@ -106,7 +107,7 @@ export async function getUserContext(userId: string): Promise<UserContext> {
       expires_at: user_roles.expires_at,
       user_role_is_active: user_roles.is_active,
       user_role_created_at: user_roles.created_at,
-      
+
       // Role info
       role_name: roles.name,
       role_description: roles.description,
@@ -116,7 +117,7 @@ export async function getUserContext(userId: string): Promise<UserContext> {
       role_created_at: roles.created_at,
       role_updated_at: roles.updated_at,
       role_deleted_at: roles.deleted_at,
-      
+
       // Permission info
       permission_id: permissions.permission_id,
       permission_name: permissions.name,
@@ -126,7 +127,7 @@ export async function getUserContext(userId: string): Promise<UserContext> {
       scope: permissions.scope,
       permission_is_active: permissions.is_active,
       permission_created_at: permissions.created_at,
-      permission_updated_at: permissions.updated_at
+      permission_updated_at: permissions.updated_at,
     })
     .from(user_roles)
     .innerJoin(roles, eq(user_roles.role_id, roles.role_id))
@@ -147,7 +148,7 @@ export async function getUserContext(userId: string): Promise<UserContext> {
   // Performance optimization: Use Set for O(1) permission duplicate checking
   const rolePermissionSets = new Map<string, Set<string>>();
 
-  userRolesData.forEach(row => {
+  userRolesData.forEach((row) => {
     // Build role with permissions
     if (!rolesMap.has(row.role_id)) {
       rolesMap.set(row.role_id, {
@@ -160,7 +161,7 @@ export async function getUserContext(userId: string): Promise<UserContext> {
         created_at: row.role_created_at ?? new Date(),
         updated_at: row.role_updated_at ?? new Date(),
         deleted_at: row.role_deleted_at || undefined,
-        permissions: []
+        permissions: [],
       });
       // Initialize permission tracking set for this role
       rolePermissionSets.set(row.role_id, new Set<string>());
@@ -168,13 +169,13 @@ export async function getUserContext(userId: string): Promise<UserContext> {
 
     const role = rolesMap.get(row.role_id);
     const permissionSet = rolePermissionSets.get(row.role_id);
-    
+
     if (!role || !permissionSet) {
       // This should not happen given our logic above, but we handle it safely
       console.warn(`RBAC: Missing role or permission set for role_id: ${row.role_id}`);
       return; // Early return from forEach iteration
     }
-    
+
     // Add permission to role (O(1) duplicate checking with Set)
     if (!permissionSet.has(row.permission_id)) {
       permissionSet.add(row.permission_id);
@@ -187,7 +188,7 @@ export async function getUserContext(userId: string): Promise<UserContext> {
         scope: row.scope as 'own' | 'organization' | 'all',
         is_active: row.permission_is_active ?? true,
         created_at: row.permission_created_at ?? new Date(),
-        updated_at: row.permission_updated_at ?? new Date()
+        updated_at: row.permission_updated_at ?? new Date(),
       });
     }
 
@@ -203,13 +204,13 @@ export async function getUserContext(userId: string): Promise<UserContext> {
         expires_at: row.expires_at || undefined,
         is_active: row.user_role_is_active ?? true,
         created_at: row.user_role_created_at ?? new Date(),
-        role: role as Role // Safe: early return ensures role is defined
+        role: role as Role, // Safe: early return ensures role is defined
       });
     }
   });
 
   // 6. Build user organizations array
-  const userOrganizationsArray: UserOrganization[] = userOrgs.map(org => ({
+  const userOrganizationsArray: UserOrganization[] = userOrgs.map((org) => ({
     user_organization_id: org.user_organization_id,
     user_id: org.user_id,
     organization_id: org.organization_id,
@@ -224,31 +225,34 @@ export async function getUserContext(userId: string): Promise<UserContext> {
       is_active: org.org_is_active ?? true,
       created_at: org.org_created_at ?? new Date(),
       updated_at: org.org_updated_at ?? new Date(),
-      deleted_at: org.org_deleted_at || undefined
-    }
+      deleted_at: org.org_deleted_at || undefined,
+    },
   }));
 
   // 7. Get all unique permissions across all roles (O(1) deduplication with Set)
   const uniquePermissionsMap = new Map<string, Permission>();
-  Array.from(rolesMap.values()).forEach(role => {
-    role.permissions.forEach(permission => {
+  Array.from(rolesMap.values()).forEach((role) => {
+    role.permissions.forEach((permission) => {
       uniquePermissionsMap.set(permission.permission_id, permission);
     });
   });
   const allPermissions = Array.from(uniquePermissionsMap.values());
 
   // 8. Determine admin status
-  const isSuperAdmin = Array.from(rolesMap.values()).some(role => 
-    role.is_system_role && role.name === 'super_admin'
+  const isSuperAdmin = Array.from(rolesMap.values()).some(
+    (role) => role.is_system_role && role.name === 'super_admin'
   );
 
   const organizationAdminFor = Array.from(rolesMap.values())
-    .filter(role => 
-      !role.is_system_role && 
-      role.name === 'practice_admin' && 
-      role.organization_id
+    .filter(
+      (role) => !role.is_system_role && role.name === 'practice_admin' && role.organization_id
     )
-    .map(role => role.organization_id!)
+    .map((role) => {
+      if (!role.organization_id) {
+        throw new Error('Organization ID required for practice_admin role');
+      }
+      return role.organization_id;
+    })
     .filter(Boolean);
 
   // 9. Build final user context
@@ -263,7 +267,12 @@ export async function getUserContext(userId: string): Promise<UserContext> {
 
     // RBAC data
     roles: Array.from(rolesMap.values()),
-    organizations: userOrganizationsArray.map(uo => uo.organization!),
+    organizations: userOrganizationsArray.map((uo) => {
+      if (!uo.organization) {
+        throw new Error('Organization data missing for user organization');
+      }
+      return uo.organization;
+    }),
     accessible_organizations: accessibleOrganizations,
     user_roles: Array.from(userRolesMap.values()),
     user_organizations: userOrganizationsArray,
@@ -274,7 +283,7 @@ export async function getUserContext(userId: string): Promise<UserContext> {
     // Computed properties
     all_permissions: allPermissions,
     is_super_admin: isSuperAdmin,
-    organization_admin_for: organizationAdminFor
+    organization_admin_for: organizationAdminFor,
   };
 
   return userContext;
@@ -283,7 +292,9 @@ export async function getUserContext(userId: string): Promise<UserContext> {
 /**
  * Get organizations accessible to user (includes children via hierarchy)
  */
-async function getAccessibleOrganizations(directOrganizationIds: string[]): Promise<Organization[]> {
+async function getAccessibleOrganizations(
+  directOrganizationIds: string[]
+): Promise<Organization[]> {
   if (directOrganizationIds.length === 0) {
     return [];
   }
@@ -297,16 +308,16 @@ async function getAccessibleOrganizations(directOrganizationIds: string[]): Prom
   for (const orgId of directOrganizationIds) {
     try {
       const hierarchy = await getOrganizationHierarchy(orgId);
-      hierarchy.forEach(org => {
+      hierarchy.forEach((org) => {
         accessibleOrgs.set(org.organization_id, org);
       });
     } catch (error) {
       rbacContextLogger.warn('Failed to get organization hierarchy', {
         organizationId: orgId,
         error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
+        stack: error instanceof Error ? error.stack : undefined,
       });
-      
+
       // Fallback: add just the direct organization
       const [org] = await db
         .select({
@@ -317,15 +328,10 @@ async function getAccessibleOrganizations(directOrganizationIds: string[]): Prom
           is_active: organizations.is_active,
           created_at: organizations.created_at,
           updated_at: organizations.updated_at,
-          deleted_at: organizations.deleted_at
+          deleted_at: organizations.deleted_at,
         })
         .from(organizations)
-        .where(
-          and(
-            eq(organizations.organization_id, orgId),
-            eq(organizations.is_active, true)
-          )
-        )
+        .where(and(eq(organizations.organization_id, orgId), eq(organizations.is_active, true)))
         .limit(1);
 
       if (org) {
@@ -337,7 +343,7 @@ async function getAccessibleOrganizations(directOrganizationIds: string[]): Prom
           is_active: org.is_active ?? true,
           created_at: org.created_at ?? new Date(),
           updated_at: org.updated_at ?? new Date(),
-          deleted_at: org.deleted_at || undefined
+          deleted_at: org.deleted_at || undefined,
         });
       }
     }
@@ -354,7 +360,7 @@ const requestCache = new Map<string, Promise<UserContext | null>>();
  */
 export async function getUserContextSafe(userId: string): Promise<UserContext | null> {
   const isDev = process.env.NODE_ENV === 'development';
-  
+
   // Check request-scoped cache first
   const cacheKey = `user_context:${userId}`;
   if (requestCache.has(cacheKey)) {
@@ -363,7 +369,7 @@ export async function getUserContextSafe(userId: string): Promise<UserContext | 
       if (isDev) {
         rbacContextLogger.debug('User context cache hit', {
           userId,
-          operation: 'getUserContext'
+          operation: 'getUserContext',
         });
       }
       return cachedContext;
@@ -373,14 +379,14 @@ export async function getUserContextSafe(userId: string): Promise<UserContext | 
       rbacContextLogger.warn('Cache had key but returned null value', { userId, cacheKey });
     }
   }
-  
+
   if (isDev) {
     rbacContextLogger.debug('Loading user context', {
       userId,
-      operation: 'getUserContext'
+      operation: 'getUserContext',
     });
   }
-  
+
   // Create promise and cache it immediately to prevent race conditions
   const contextPromise = (async (): Promise<UserContext | null> => {
     try {
@@ -390,7 +396,7 @@ export async function getUserContextSafe(userId: string): Promise<UserContext | 
           userId,
           rolesCount: context.roles?.length || 0,
           permissionsCount: context.all_permissions?.length || 0,
-          organizationsCount: context.organizations?.length || 0
+          organizationsCount: context.organizations?.length || 0,
         });
       }
       return context;
@@ -400,7 +406,7 @@ export async function getUserContextSafe(userId: string): Promise<UserContext | 
         rbacContextLogger.error('Failed to get user context', {
           userId,
           error: error instanceof Error ? error.message : 'Unknown error',
-          stack: error instanceof Error ? error.stack : undefined
+          stack: error instanceof Error ? error.stack : undefined,
         });
       } else {
         rbacContextLogger.error('Failed to get user context (detailed)', {
@@ -408,7 +414,7 @@ export async function getUserContextSafe(userId: string): Promise<UserContext | 
           error: error instanceof Error ? error.message : 'Unknown error',
           errorName: error instanceof Error ? error.name : 'Unknown error',
           stack: error instanceof Error ? error.stack : undefined,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
           // Don't log sensitive user context details in production
         });
       }
@@ -420,7 +426,7 @@ export async function getUserContextSafe(userId: string): Promise<UserContext | 
       }, 1000); // Clean up after 1 second
     }
   })();
-  
+
   requestCache.set(cacheKey, contextPromise);
   return await contextPromise;
 }
@@ -449,7 +455,7 @@ export async function validateUserExists(userId: string): Promise<boolean> {
   } catch (error) {
     rbacContextLogger.error('Error validating user', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
     });
     return false;
   }

@@ -112,7 +112,7 @@ export const COLOR_PALETTES = {
  */
 export function getColorPalette(paletteId: string = 'default'): ColorPalette {
   const validIds = ['default', 'blue', 'green', 'warm', 'purple'] as const;
-  const id = validIds.includes(paletteId as typeof validIds[number]) ? paletteId : 'default';
+  const id = validIds.includes(paletteId as (typeof validIds)[number]) ? paletteId : 'default';
   return COLOR_PALETTES[id as keyof typeof COLOR_PALETTES];
 }
 

@@ -1,12 +1,20 @@
-import { BaseRBACService } from '@/lib/rbac/base-service';
+import { and, count, desc, eq, like, or, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { getAnalyticsDb } from '@/lib/services/analytics-db';
+import { chart_data_source_columns, chart_data_sources } from '@/lib/db/chart-config-schema';
 import { createAppLogger } from '@/lib/logger/factory';
-import { chart_data_sources, chart_data_source_columns } from '@/lib/db/chart-config-schema';
-import { eq, and, inArray, isNull, like, or, count, desc, sql } from 'drizzle-orm';
+import { BaseRBACService } from '@/lib/rbac/base-service';
+import { getAnalyticsDb } from '@/lib/services/analytics-db';
 import type { UserContext } from '@/lib/types/rbac';
 import { PermissionDeniedError } from '@/lib/types/rbac';
-import type { DataSourceCreateInput, DataSourceUpdateInput, DataSourceQueryInput, TableColumnsQueryInput, DataSourceColumnCreateInput, DataSourceColumnUpdateInput, DataSourceColumnQueryInput } from '@/lib/validations/data-sources';
+import type {
+  DataSourceColumnCreateInput,
+  DataSourceColumnQueryInput,
+  DataSourceColumnUpdateInput,
+  DataSourceCreateInput,
+  DataSourceQueryInput,
+  DataSourceUpdateInput,
+  TableColumnsQueryInput,
+} from '@/lib/validations/data-sources';
 
 /**
  * Enhanced Data Sources Service with RBAC
@@ -17,7 +25,7 @@ import type { DataSourceCreateInput, DataSourceUpdateInput, DataSourceQueryInput
 const rbacDataSourcesLogger = createAppLogger('rbac-data-sources-service', {
   component: 'business-logic',
   feature: 'data-source-management',
-  businessIntelligence: true
+  businessIntelligence: true,
 });
 
 // Use validation schema types for consistency
@@ -99,17 +107,17 @@ export class RBACDataSourcesService extends BaseRBACService {
   /**
    * Get data sources with automatic permission-based filtering
    */
-  async getDataSources(options: DataSourceQueryOptions = { limit: 50, offset: 0 }): Promise<DataSourceWithMetadata[]> {
+  async getDataSources(
+    options: DataSourceQueryOptions = { limit: 50, offset: 0 }
+  ): Promise<DataSourceWithMetadata[]> {
     this.requirePermission('data-sources:read:organization');
-    
-    const accessScope = this.getAccessScope('analytics', 'read'); // Use 'analytics' since 'data-sources' may not be defined as ResourceType
-    
-    // Build all where conditions upfront
-    const whereConditions = [
-      eq(chart_data_sources.is_active, true)
-    ];
 
-    // Apply scope-based filtering  
+    const accessScope = this.getAccessScope('analytics', 'read'); // Use 'analytics' since 'data-sources' may not be defined as ResourceType
+
+    // Build all where conditions upfront
+    const whereConditions = [eq(chart_data_sources.is_active, true)];
+
+    // Apply scope-based filtering
     switch (accessScope.scope) {
       case 'organization': {
         // For data sources, organization scoping means created by users in accessible orgs
@@ -119,11 +127,11 @@ export class RBACDataSourcesService extends BaseRBACService {
         }
         break;
       }
-      
+
       case 'all':
         // No additional filtering for super admin
         break;
-      
+
       default:
         // No 'own' scope for data sources - they're org-wide resources
         return [];
@@ -330,7 +338,10 @@ export class RBACDataSourcesService extends BaseRBACService {
   /**
    * Update a data source
    */
-  async updateDataSource(dataSourceId: number, data: UpdateDataSourceData): Promise<DataSourceWithMetadata | null> {
+  async updateDataSource(
+    dataSourceId: number,
+    data: UpdateDataSourceData
+  ): Promise<DataSourceWithMetadata | null> {
     this.requirePermission('data-sources:update:organization');
 
     try {
@@ -455,11 +466,11 @@ export class RBACDataSourcesService extends BaseRBACService {
       }
 
       const startTime = Date.now();
-      
+
       try {
         // Test basic connectivity to the table
         const tableReference = `${dataSource.schema_name}.${dataSource.table_name}`;
-        
+
         // Test schema accessibility
         const schemaCheckQuery = sql.raw(`
           SELECT EXISTS (
@@ -467,7 +478,7 @@ export class RBACDataSourcesService extends BaseRBACService {
             WHERE schema_name = '${dataSource.schema_name}'
           ) as schema_exists
         `);
-        
+
         // Use analytics database for testing external data sources
         const analyticsDb = getAnalyticsDb();
         const [schemaResult] = await analyticsDb.execute(schemaCheckQuery);
@@ -506,7 +517,7 @@ export class RBACDataSourcesService extends BaseRBACService {
 
         const [tableResult] = await analyticsDb.execute(tableCheckQuery);
         const result = tableResult as { table_exists: boolean; sample_row_count: number };
-        
+
         const connectionTime = Date.now() - startTime;
 
         if (!result.table_exists) {
@@ -538,11 +549,11 @@ export class RBACDataSourcesService extends BaseRBACService {
             sample_row_count: result.sample_row_count,
           },
         };
-
       } catch (dbError) {
         const connectionTime = Date.now() - startTime;
-        const errorMessage = dbError instanceof Error ? dbError.message : 'Database connection failed';
-        
+        const errorMessage =
+          dbError instanceof Error ? dbError.message : 'Database connection failed';
+
         rbacDataSourcesLogger.warn('Data source connection test failed', {
           userId: this.userContext.user_id,
           dataSourceId,
@@ -560,7 +571,6 @@ export class RBACDataSourcesService extends BaseRBACService {
           },
         };
       }
-
     } catch (error) {
       rbacDataSourcesLogger.error('Failed to test data source connection', {
         userId: this.userContext.user_id,
@@ -579,13 +589,15 @@ export class RBACDataSourcesService extends BaseRBACService {
    * Get table columns for a specific schema and table
    * This method fetches column information from the database metadata
    */
-  async getTableColumns(query: TableColumnsQueryInput): Promise<Array<{
-    column_name: string;
-    data_type: string;
-    is_nullable: boolean;
-    column_default: string | null;
-    ordinal_position: number;
-  }>> {
+  async getTableColumns(query: TableColumnsQueryInput): Promise<
+    Array<{
+      column_name: string;
+      data_type: string;
+      is_nullable: boolean;
+      column_default: string | null;
+      ordinal_position: number;
+    }>
+  > {
     const startTime = Date.now();
     rbacDataSourcesLogger.info('Table columns query initiated', {
       userId: this.userContext.user_id,
@@ -597,7 +609,7 @@ export class RBACDataSourcesService extends BaseRBACService {
     try {
       // Check permissions before proceeding
       this.requireAnyPermission(['data-sources:read:organization', 'data-sources:read:all']);
-      
+
       // Ensure database context is available
       if (!this.dbContext) {
         throw new Error('Database context not available');
@@ -619,7 +631,15 @@ export class RBACDataSourcesService extends BaseRBACService {
       `);
 
       // Transform the result to match our expected format
-      const formattedColumns = columns.map((col: any) => ({
+      interface InformationSchemaColumn {
+        column_name: string;
+        data_type: string;
+        is_nullable: boolean;
+        column_default: string | null;
+        ordinal_position: number;
+      }
+
+      const formattedColumns = (columns as unknown as InformationSchemaColumn[]).map((col) => ({
         column_name: col.column_name,
         data_type: col.data_type,
         is_nullable: col.is_nullable,
@@ -636,7 +656,6 @@ export class RBACDataSourcesService extends BaseRBACService {
       });
 
       return formattedColumns;
-
     } catch (error) {
       rbacDataSourcesLogger.error('Table columns query failed', {
         userId: this.userContext.user_id,
@@ -652,7 +671,9 @@ export class RBACDataSourcesService extends BaseRBACService {
   /**
    * Get all columns for a specific data source
    */
-  async getDataSourceColumns(query: DataSourceColumnQueryOptions): Promise<DataSourceColumnWithMetadata[]> {
+  async getDataSourceColumns(
+    query: DataSourceColumnQueryOptions
+  ): Promise<DataSourceColumnWithMetadata[]> {
     const startTime = Date.now();
     rbacDataSourcesLogger.info('Data source columns query initiated', {
       userId: this.userContext.user_id,
@@ -665,7 +686,7 @@ export class RBACDataSourcesService extends BaseRBACService {
     try {
       // Check permissions before proceeding
       this.requireAnyPermission(['data-sources:read:organization', 'data-sources:read:all']);
-      
+
       // Ensure database context is available
       if (!this.dbContext) {
         throw new Error('Database context not available');
@@ -694,7 +715,6 @@ export class RBACDataSourcesService extends BaseRBACService {
       });
 
       return columns;
-
     } catch (error) {
       rbacDataSourcesLogger.error('Data source columns query failed', {
         userId: this.userContext.user_id,
@@ -719,7 +739,7 @@ export class RBACDataSourcesService extends BaseRBACService {
     try {
       // Check permissions before proceeding
       this.requireAnyPermission(['data-sources:read:organization', 'data-sources:read:all']);
-      
+
       // Ensure database context is available
       if (!this.dbContext) {
         throw new Error('Database context not available');
@@ -739,7 +759,6 @@ export class RBACDataSourcesService extends BaseRBACService {
       });
 
       return column || null;
-
     } catch (error) {
       rbacDataSourcesLogger.error('Data source column get failed', {
         userId: this.userContext.user_id,
@@ -754,7 +773,9 @@ export class RBACDataSourcesService extends BaseRBACService {
   /**
    * Create a new data source column
    */
-  async createDataSourceColumn(data: CreateDataSourceColumnData): Promise<DataSourceColumnWithMetadata> {
+  async createDataSourceColumn(
+    data: CreateDataSourceColumnData
+  ): Promise<DataSourceColumnWithMetadata> {
     const startTime = Date.now();
     rbacDataSourcesLogger.info('Data source column creation initiated', {
       userId: this.userContext.user_id,
@@ -765,7 +786,7 @@ export class RBACDataSourcesService extends BaseRBACService {
     try {
       // Check permissions before proceeding
       this.requireAnyPermission(['data-sources:create:organization', 'data-sources:create:all']);
-      
+
       // Ensure database context is available
       if (!this.dbContext) {
         throw new Error('Database context not available');
@@ -777,10 +798,12 @@ export class RBACDataSourcesService extends BaseRBACService {
         const existingColumn = await tx
           .select()
           .from(chart_data_source_columns)
-          .where(and(
-            eq(chart_data_source_columns.data_source_id, data.data_source_id),
-            eq(chart_data_source_columns.column_name, data.column_name)
-          ))
+          .where(
+            and(
+              eq(chart_data_source_columns.data_source_id, data.data_source_id),
+              eq(chart_data_source_columns.column_name, data.column_name)
+            )
+          )
           .limit(1);
 
         if (existingColumn.length > 0) {
@@ -830,7 +853,6 @@ export class RBACDataSourcesService extends BaseRBACService {
       });
 
       return newColumn;
-
     } catch (error) {
       rbacDataSourcesLogger.error('Data source column creation failed', {
         userId: this.userContext.user_id,
@@ -846,7 +868,10 @@ export class RBACDataSourcesService extends BaseRBACService {
   /**
    * Update a data source column
    */
-  async updateDataSourceColumn(columnId: number, data: UpdateDataSourceColumnData): Promise<DataSourceColumnWithMetadata | null> {
+  async updateDataSourceColumn(
+    columnId: number,
+    data: UpdateDataSourceColumnData
+  ): Promise<DataSourceColumnWithMetadata | null> {
     const startTime = Date.now();
     rbacDataSourcesLogger.info('Data source column update initiated', {
       userId: this.userContext.user_id,
@@ -856,7 +881,7 @@ export class RBACDataSourcesService extends BaseRBACService {
     try {
       // Check permissions before proceeding
       this.requireAnyPermission(['data-sources:update:organization', 'data-sources:update:all']);
-      
+
       // Ensure database context is available
       if (!this.dbContext) {
         throw new Error('Database context not available');
@@ -896,7 +921,6 @@ export class RBACDataSourcesService extends BaseRBACService {
       });
 
       return updatedColumn || null;
-
     } catch (error) {
       rbacDataSourcesLogger.error('Data source column update failed', {
         userId: this.userContext.user_id,
@@ -921,7 +945,7 @@ export class RBACDataSourcesService extends BaseRBACService {
     try {
       // Check permissions before proceeding
       this.requireAnyPermission(['data-sources:delete:organization', 'data-sources:delete:all']);
-      
+
       // Ensure database context is available
       if (!this.dbContext) {
         throw new Error('Database context not available');
@@ -958,7 +982,6 @@ export class RBACDataSourcesService extends BaseRBACService {
       });
 
       return deleted;
-
     } catch (error) {
       rbacDataSourcesLogger.error('Data source column deletion failed', {
         userId: this.userContext.user_id,
@@ -987,7 +1010,7 @@ export class RBACDataSourcesService extends BaseRBACService {
     try {
       // Check permissions before proceeding
       this.requireAnyPermission(['data-sources:create:organization', 'data-sources:create:all']);
-      
+
       // Ensure database context is available
       if (!this.dbContext) {
         throw new Error('Database context not available');
@@ -1002,7 +1025,9 @@ export class RBACDataSourcesService extends BaseRBACService {
       // Check if columns already exist
       const existingColumns = await this.getDataSourceColumns({ data_source_id: dataSourceId });
       if (existingColumns.length > 0) {
-        throw new Error('Data source already has column definitions. Delete existing columns before introspecting.');
+        throw new Error(
+          'Data source already has column definitions. Delete existing columns before introspecting.'
+        );
       }
 
       // Query the analytics database for column information
@@ -1013,7 +1038,9 @@ export class RBACDataSourcesService extends BaseRBACService {
       });
 
       if (tableColumns.length === 0) {
-        throw new Error(`No columns found in table ${dataSource.schema_name}.${dataSource.table_name}`);
+        throw new Error(
+          `No columns found in table ${dataSource.schema_name}.${dataSource.table_name}`
+        );
       }
 
       // Execute column creation as atomic transaction
@@ -1022,43 +1049,50 @@ export class RBACDataSourcesService extends BaseRBACService {
           // Intelligent type mapping based on column name and data type
           const columnName = col.column_name.toLowerCase();
           const dataType = col.data_type.toLowerCase();
-          
+
           // Detect if this is a date field
-          const isDateField = dataType.includes('timestamp') || 
-                             dataType.includes('date') || 
-                             columnName.includes('date') || 
-                             columnName.includes('time') ||
-                             columnName.endsWith('_at');
+          const isDateField =
+            dataType.includes('timestamp') ||
+            dataType.includes('date') ||
+            columnName.includes('date') ||
+            columnName.includes('time') ||
+            columnName.endsWith('_at');
 
           // Detect if this is a measure (numeric field that can be aggregated)
-          const isMeasure = (dataType.includes('numeric') || 
-                           dataType.includes('decimal') || 
-                           dataType.includes('float') || 
-                           dataType.includes('double') || 
-                           dataType.includes('integer') ||
-                           dataType.includes('bigint')) &&
-                           !columnName.includes('id') && 
-                           !columnName.includes('count') &&
-                           !isDateField;
+          const isMeasure =
+            (dataType.includes('numeric') ||
+              dataType.includes('decimal') ||
+              dataType.includes('float') ||
+              dataType.includes('double') ||
+              dataType.includes('integer') ||
+              dataType.includes('bigint')) &&
+            !columnName.includes('id') &&
+            !columnName.includes('count') &&
+            !isDateField;
 
           // Detect if this is a dimension (categorical field for grouping)
-          const isDimension = (dataType.includes('varchar') || 
-                              dataType.includes('text') || 
-                              dataType.includes('char')) &&
-                              !columnName.includes('description') &&
-                              !columnName.includes('note') &&
-                              !columnName.includes('comment');
+          const isDimension =
+            (dataType.includes('varchar') ||
+              dataType.includes('text') ||
+              dataType.includes('char')) &&
+            !columnName.includes('description') &&
+            !columnName.includes('note') &&
+            !columnName.includes('comment');
 
           // Detect if this column contains measure type information (for formatting)
-          const isMeasureType = columnName.match(/^(measure_type|number_format|display_format|format_type|value_type|data_format)$/i) !== null;
+          const isMeasureType =
+            columnName.match(
+              /^(measure_type|number_format|display_format|format_type|value_type|data_format)$/i
+            ) !== null;
 
           // Detect if this column contains time period/frequency information
-          const isTimePeriod = columnName.match(/^(time_period|frequency|period|time_unit|period_type)$/i) !== null;
+          const isTimePeriod =
+            columnName.match(/^(time_period|frequency|period|time_unit|period_type)$/i) !== null;
 
           // Create display name from column name
           const displayName = col.column_name
             .split('_')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
             .join(' ');
 
           return {
@@ -1082,10 +1116,7 @@ export class RBACDataSourcesService extends BaseRBACService {
         });
 
         // Bulk insert all columns
-        const result = await tx
-          .insert(chart_data_source_columns)
-          .values(columnInserts)
-          .returning();
+        const result = await tx.insert(chart_data_source_columns).values(columnInserts).returning();
 
         return result;
       });
@@ -1101,7 +1132,6 @@ export class RBACDataSourcesService extends BaseRBACService {
         created: createdColumns.length,
         columns: createdColumns,
       };
-
     } catch (error) {
       rbacDataSourcesLogger.error('Data source introspection failed', {
         userId: this.userContext.user_id,

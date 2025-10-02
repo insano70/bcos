@@ -7,10 +7,15 @@ import { logger } from '@/lib/logger'
 import '@/tests/factories/committed/setup'
 
 // Ensure environment variables are set for tests
-// Only set DATABASE_URL if it's not already set (to avoid overriding existing config)
+// CRITICAL: DATABASE_URL must be set in environment - never hardcode credentials
 if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = 'postgresql://bcos_d:oRMgpg2micRfQVXz7Bfbr@localhost:5432/bcos_d';
+  throw new Error(
+    'DATABASE_URL environment variable is required for integration tests. ' +
+    'Set it in your .env.test or CI environment.'
+  );
 }
+
+// JWT secrets can have defaults for testing (not sensitive in test environment)
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-that-is-at-least-32-characters-long-for-security';
 process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'test-refresh-secret-that-is-at-least-32-characters-long';
 

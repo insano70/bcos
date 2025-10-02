@@ -1,6 +1,6 @@
-'use client'
+'use client';
 
-import { createContext, useContext } from 'react'
+import { createContext, useContext } from 'react';
 
 /**
  * CSP Nonce Context
@@ -10,48 +10,44 @@ import { createContext, useContext } from 'react'
 
 export interface NonceContextValue {
   /** Nonce for inline script tags */
-  scriptNonce: string
+  scriptNonce: string;
   /** Nonce for inline style tags */
-  styleNonce: string
+  styleNonce: string;
   /** Timestamp when nonces were generated (for debugging) */
-  timestamp: number
+  timestamp: number;
   /** Environment the nonces were generated for */
-  environment: 'development' | 'staging' | 'production'
+  environment: 'development' | 'staging' | 'production';
 }
 
-const NonceContext = createContext<NonceContextValue | null>(null)
+const NonceContext = createContext<NonceContextValue | null>(null);
 
 /**
  * Nonce Provider Component
  * Should be used at the root of the application to provide nonces to all components
  */
 export interface NonceProviderProps {
-  scriptNonce: string
-  styleNonce: string
-  timestamp: number
-  environment: 'development' | 'staging' | 'production'
-  children: React.ReactNode
+  scriptNonce: string;
+  styleNonce: string;
+  timestamp: number;
+  environment: 'development' | 'staging' | 'production';
+  children: React.ReactNode;
 }
 
-export function NonceProvider({ 
-  scriptNonce, 
-  styleNonce, 
-  timestamp, 
-  environment, 
-  children 
+export function NonceProvider({
+  scriptNonce,
+  styleNonce,
+  timestamp,
+  environment,
+  children,
 }: NonceProviderProps) {
   const value: NonceContextValue = {
     scriptNonce,
     styleNonce,
     timestamp,
-    environment
-  }
+    environment,
+  };
 
-  return (
-    <NonceContext.Provider value={value}>
-      {children}
-    </NonceContext.Provider>
-  )
+  return <NonceContext.Provider value={value}>{children}</NonceContext.Provider>;
 }
 
 /**
@@ -59,13 +55,15 @@ export function NonceProvider({
  * Throws an error if used outside of NonceProvider
  */
 export function useNonce(): NonceContextValue {
-  const context = useContext(NonceContext)
-  
+  const context = useContext(NonceContext);
+
   if (!context) {
-    throw new Error('useNonce must be used within a NonceProvider. Ensure NonceProvider is rendered in your layout.')
+    throw new Error(
+      'useNonce must be used within a NonceProvider. Ensure NonceProvider is rendered in your layout.'
+    );
   }
-  
-  return context
+
+  return context;
 }
 
 /**
@@ -73,8 +71,8 @@ export function useNonce(): NonceContextValue {
  * Convenience hook for components that only need script nonce
  */
 export function useScriptNonce(): string {
-  const { scriptNonce } = useNonce()
-  return scriptNonce
+  const { scriptNonce } = useNonce();
+  return scriptNonce;
 }
 
 /**
@@ -82,8 +80,8 @@ export function useScriptNonce(): string {
  * Convenience hook for components that only need style nonce
  */
 export function useStyleNonce(): string {
-  const { styleNonce } = useNonce()
-  return styleNonce
+  const { styleNonce } = useNonce();
+  return styleNonce;
 }
 
 /**
@@ -91,15 +89,15 @@ export function useStyleNonce(): string {
  * Returns an object that can be spread into element props
  */
 export function useNonceAttributes(): {
-  scriptNonceAttr: { nonce: string }
-  styleNonceAttr: { nonce: string }
+  scriptNonceAttr: { nonce: string };
+  styleNonceAttr: { nonce: string };
 } {
-  const { scriptNonce, styleNonce } = useNonce()
-  
+  const { scriptNonce, styleNonce } = useNonce();
+
   return {
     scriptNonceAttr: { nonce: scriptNonce },
-    styleNonceAttr: { nonce: styleNonce }
-  }
+    styleNonceAttr: { nonce: styleNonce },
+  };
 }
 
 /**
@@ -108,12 +106,12 @@ export function useNonceAttributes(): {
  * Follows React hooks rules by calling useContext unconditionally
  */
 export function useNonceSafe(): NonceContextValue | null {
-  const context = useContext(NonceContext)
-  
+  const context = useContext(NonceContext);
+
   // Return null if context is not available (e.g., during SSR or outside provider)
   if (!context) {
-    return null
+    return null;
   }
-  
-  return context
+
+  return context;
 }

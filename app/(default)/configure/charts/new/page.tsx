@@ -52,10 +52,7 @@ export default function NewChartPage() {
       </div>
 
       {/* Chart Builder */}
-      <ChartBuilder
-        onCancel={handleCancel}
-        onSaveSuccess={handleSaveSuccess}
-      />
+      <ChartBuilder onCancel={handleCancel} onSaveSuccess={handleSaveSuccess} />
     </div>
   );
 }

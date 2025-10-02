@@ -3,6 +3,7 @@ import postgres from 'postgres';
 
 // Type alias for postgres.js raw parameters (external library requirement)
 type PostgresRawParams = Parameters<postgres.Sql['unsafe']>[1];
+
 import { getAnalyticsDatabaseConfig } from '@/lib/env';
 import { logger } from '@/lib/logger';
 
@@ -21,7 +22,7 @@ let analyticsConnection: postgres.Sql | null = null;
 export const getAnalyticsDb = () => {
   if (!analyticsDb) {
     const config = getAnalyticsDatabaseConfig();
-    
+
     if (!config.url) {
       throw new Error('ANALYTICS_DATABASE_URL is not configured');
     }
@@ -52,15 +53,15 @@ export const checkAnalyticsDbHealth = async (): Promise<{
   error?: string;
 }> => {
   // Use logger directly
-  
+
   try {
     const config = getAnalyticsDatabaseConfig();
-    
+
     // If no analytics database URL is configured, return unhealthy
     if (!config.url) {
       return {
         isHealthy: false,
-        error: 'ANALYTICS_DATABASE_URL not configured'
+        error: 'ANALYTICS_DATABASE_URL not configured',
       };
     }
 
@@ -68,12 +69,16 @@ export const checkAnalyticsDbHealth = async (): Promise<{
       getAnalyticsDb(); // Initialize connection
     }
 
+    if (!analyticsConnection) {
+      throw new Error('Analytics connection not initialized');
+    }
+
     const startTime = Date.now();
-    await analyticsConnection!`SELECT 1 as health_check`;
+    await analyticsConnection`SELECT 1 as health_check`;
     const latency = Date.now() - startTime;
 
     logger.info('Analytics database health check passed', { latency });
-    
+
     return {
       isHealthy: true,
       latency,
@@ -81,7 +86,7 @@ export const checkAnalyticsDbHealth = async (): Promise<{
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error('Analytics database health check failed', { error: errorMessage });
-    
+
     return {
       isHealthy: false,
       error: errorMessage,
@@ -98,7 +103,7 @@ export const executeAnalyticsQuery = async <T = Record<string, unknown>>(
   params: unknown[] = []
 ): Promise<T[]> => {
   // Use logger directly
-  
+
   try {
     if (!analyticsConnection) {
       getAnalyticsDb(); // Initialize connection
@@ -108,28 +113,33 @@ export const executeAnalyticsQuery = async <T = Record<string, unknown>>(
     console.log('🔍 EXECUTING SQL:', {
       sql: query,
       parameters: params,
-      paramCount: params.length 
+      paramCount: params.length,
     });
 
     const startTime = Date.now();
     // Use postgres template literal syntax
-    const result = await analyticsConnection!.unsafe(query, params as PostgresRawParams);
+    const result = await analyticsConnection?.unsafe(query, params as PostgresRawParams);
+
+    if (!result) {
+      throw new Error('Query execution returned undefined result');
+    }
+
     const duration = Date.now() - startTime;
 
-    console.log('✅ QUERY RESULT:', { 
+    console.log('✅ QUERY RESULT:', {
       duration: `${duration}ms`,
       rowCount: result.length,
-      sampleData: result.length > 0 ? result[0] : null
+      sampleData: result.length > 0 ? result[0] : null,
     });
 
     return result as unknown as T[];
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    logger.error('Analytics query execution failed', { 
+    logger.error('Analytics query execution failed', {
       error: errorMessage,
       query: query.substring(0, 100) + (query.length > 100 ? '...' : ''),
     });
-    
+
     throw new Error(`Analytics query failed: ${errorMessage}`);
   }
 };
@@ -139,7 +149,7 @@ export const executeAnalyticsQuery = async <T = Record<string, unknown>>(
  */
 export const closeAnalyticsDb = async () => {
   // Use logger directly
-  
+
   try {
     if (analyticsConnection) {
       await analyticsConnection.end();

@@ -27,9 +27,7 @@ export interface AggAppMeasure {
 /**
  * Supported measure types from the actual data in ih.agg_app_measures
  */
-export type MeasureType = 
-  | 'Charges by Provider'
-  | 'Payments by Provider';
+export type MeasureType = 'Charges by Provider' | 'Payments by Provider';
 
 /**
  * Supported frequency types
@@ -56,8 +54,8 @@ export interface ChartFilter {
 export type ChartFilterValue =
   | string
   | number
-  | string[]  // for 'in'/'not_in' operators
-  | [string | number, string | number]  // for 'between' operator
+  | string[] // for 'in'/'not_in' operators
+  | [string | number, string | number]; // for 'between' operator
 
 export interface ChartOrderBy {
   field: string;
@@ -103,7 +101,15 @@ export interface ChartDefinition {
   chart_definition_id: string;
   chart_name: string;
   chart_description?: string;
-  chart_type: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'progress-bar' | 'pie' | 'doughnut' | 'area';
+  chart_type:
+    | 'line'
+    | 'bar'
+    | 'stacked-bar'
+    | 'horizontal-bar'
+    | 'progress-bar'
+    | 'pie'
+    | 'doughnut'
+    | 'area';
   chart_category_id?: number;
   created_by: string;
   created_at: Date;
@@ -203,7 +209,10 @@ export interface ChartTemplate {
   template_id: string;
   template_name: string;
   template_description: string;
-  chart_definition: Omit<ChartDefinition, 'chart_definition_id' | 'created_by' | 'created_at' | 'updated_at'>;
+  chart_definition: Omit<
+    ChartDefinition,
+    'chart_definition_id' | 'created_by' | 'created_at' | 'updated_at'
+  >;
   is_system_template: boolean;
 }
 

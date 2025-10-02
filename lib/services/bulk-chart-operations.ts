@@ -1,6 +1,6 @@
-import type { ChartDefinition, ChartFilter } from '@/lib/types/analytics';
-import type { SuccessResponse } from '@/lib/api/responses/success';
 import { apiClient } from '@/lib/api/client';
+import type { SuccessResponse } from '@/lib/api/responses/success';
+import type { ChartDefinition, ChartFilter } from '@/lib/types/analytics';
 // Note: Using console for client-side logging to avoid winston fs dependency
 // import { logger } from '@/lib/logger';
 
@@ -54,7 +54,7 @@ export class BulkChartOperationsService {
     operatorUserId: string
   ): Promise<string> {
     const operationId = `bulk_update_${Date.now()}`;
-    
+
     const operation: BulkOperation = {
       id: operationId,
       type: 'update',
@@ -63,7 +63,7 @@ export class BulkChartOperationsService {
       status: 'pending',
       progress: 0,
       startedAt: new Date(),
-      results: []
+      results: [],
     };
 
     this.operations.set(operationId, operation);
@@ -77,12 +77,9 @@ export class BulkChartOperationsService {
   /**
    * Bulk delete charts
    */
-  async bulkDeleteCharts(
-    chartIds: string[],
-    operatorUserId: string
-  ): Promise<string> {
+  async bulkDeleteCharts(chartIds: string[], operatorUserId: string): Promise<string> {
     const operationId = `bulk_delete_${Date.now()}`;
-    
+
     const operation: BulkOperation = {
       id: operationId,
       type: 'delete',
@@ -91,7 +88,7 @@ export class BulkChartOperationsService {
       status: 'pending',
       progress: 0,
       startedAt: new Date(),
-      results: []
+      results: [],
     };
 
     this.operations.set(operationId, operation);
@@ -111,7 +108,7 @@ export class BulkChartOperationsService {
     operatorUserId: string
   ): Promise<string> {
     const operationId = `bulk_export_${Date.now()}`;
-    
+
     const operation: BulkOperation = {
       id: operationId,
       type: 'export',
@@ -120,7 +117,7 @@ export class BulkChartOperationsService {
       status: 'pending',
       progress: 0,
       startedAt: new Date(),
-      results: []
+      results: [],
     };
 
     this.operations.set(operationId, operation);
@@ -140,7 +137,7 @@ export class BulkChartOperationsService {
     operatorUserId: string
   ): Promise<string> {
     const operationId = `bulk_organize_${Date.now()}`;
-    
+
     const operation: BulkOperation = {
       id: operationId,
       type: 'organize',
@@ -149,7 +146,7 @@ export class BulkChartOperationsService {
       status: 'pending',
       progress: 0,
       startedAt: new Date(),
-      results: []
+      results: [],
     };
 
     this.operations.set(operationId, operation);
@@ -169,7 +166,7 @@ export class BulkChartOperationsService {
     operatorUserId: string
   ): Promise<string> {
     const operationId = `bulk_clone_${Date.now()}`;
-    
+
     const operation: BulkOperation = {
       id: operationId,
       type: 'clone',
@@ -178,7 +175,7 @@ export class BulkChartOperationsService {
       status: 'pending',
       progress: 0,
       startedAt: new Date(),
-      results: []
+      results: [],
     };
 
     this.operations.set(operationId, operation);
@@ -199,10 +196,11 @@ export class BulkChartOperationsService {
   /**
    * Get all operations for a user
    */
-  getUserOperations(userId: string): BulkOperation[] {
+  getUserOperations(_userId: string): BulkOperation[] {
     // This would typically filter by user ID from the operation metadata
-    return Array.from(this.operations.values())
-      .sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
+    return Array.from(this.operations.values()).sort(
+      (a, b) => b.startedAt.getTime() - a.startedAt.getTime()
+    );
   }
 
   /**
@@ -217,7 +215,7 @@ export class BulkChartOperationsService {
     operation.status = 'failed';
     operation.error = 'Operation cancelled by user';
     operation.completedAt = new Date();
-    
+
     this.operations.set(operationId, operation);
 
     console.info('Bulk operation cancelled', { operationId });
@@ -227,7 +225,7 @@ export class BulkChartOperationsService {
   private async processBulkUpdate(
     operationId: string,
     updates: BulkUpdateParams,
-    operatorUserId: string
+    _operatorUserId: string
   ): Promise<void> {
     const operation = this.operations.get(operationId);
     if (!operation) return;
@@ -239,25 +237,24 @@ export class BulkChartOperationsService {
       for (let i = 0; i < operation.chartIds.length; i++) {
         const chartId = operation.chartIds[i];
         if (!chartId) continue;
-        
+
         try {
           // This would typically make API calls to update each chart
           await apiClient.put(`/api/admin/analytics/charts/${chartId}`, updates.updates);
 
           const result: BulkOperationResult = {
             chartId,
-            success: true
+            success: true,
           };
 
           operation.results.push(result);
           operation.progress = Math.round(((i + 1) / operation.chartIds.length) * 100);
           this.operations.set(operationId, operation);
-
         } catch (error) {
           operation.results.push({
             chartId,
             success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : 'Unknown error',
           });
         }
       }
@@ -269,9 +266,8 @@ export class BulkChartOperationsService {
       console.info('Bulk update completed', {
         operationId,
         totalCharts: operation.chartIds.length,
-        successCount: operation.results.filter(r => r.success).length
+        successCount: operation.results.filter((r) => r.success).length,
       });
-
     } catch (error) {
       operation.status = 'failed';
       operation.error = error instanceof Error ? error.message : 'Unknown error';
@@ -282,10 +278,7 @@ export class BulkChartOperationsService {
     }
   }
 
-  private async processBulkDelete(
-    operationId: string,
-    operatorUserId: string
-  ): Promise<void> {
+  private async processBulkDelete(operationId: string, _operatorUserId: string): Promise<void> {
     const operation = this.operations.get(operationId);
     if (!operation) return;
 
@@ -296,24 +289,23 @@ export class BulkChartOperationsService {
       for (let i = 0; i < operation.chartIds.length; i++) {
         const chartId = operation.chartIds[i];
         if (!chartId) continue;
-        
+
         try {
           await apiClient.delete(`/api/admin/analytics/charts/${chartId}`);
 
           const result: BulkOperationResult = {
             chartId,
-            success: true
+            success: true,
           };
           operation.results.push(result);
 
           operation.progress = Math.round(((i + 1) / operation.chartIds.length) * 100);
           this.operations.set(operationId, operation);
-
         } catch (error) {
           operation.results.push({
             chartId,
             success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : 'Unknown error',
           });
         }
       }
@@ -323,7 +315,6 @@ export class BulkChartOperationsService {
       this.operations.set(operationId, operation);
 
       console.info('Bulk delete completed', { operationId });
-
     } catch (error) {
       operation.status = 'failed';
       operation.error = error instanceof Error ? error.message : 'Unknown error';
@@ -337,7 +328,7 @@ export class BulkChartOperationsService {
   private async processBulkExport(
     operationId: string,
     exportFormat: string,
-    operatorUserId: string
+    _operatorUserId: string
   ): Promise<void> {
     const operation = this.operations.get(operationId);
     if (!operation) return;
@@ -351,14 +342,14 @@ export class BulkChartOperationsService {
       for (let i = 0; i < operation.chartIds.length; i++) {
         const chartId = operation.chartIds[i];
         if (!chartId) continue;
-        
+
         // Simulate export processing
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
 
         operation.results.push({
           chartId,
           success: true,
-          data: { exportUrl: `/exports/chart_${chartId}.${exportFormat}` }
+          data: { exportUrl: `/exports/chart_${chartId}.${exportFormat}` },
         });
 
         operation.progress = Math.round(((i + 1) / operation.chartIds.length) * 100);
@@ -370,7 +361,6 @@ export class BulkChartOperationsService {
       this.operations.set(operationId, operation);
 
       console.info('Bulk export completed', { operationId, exportFormat });
-
     } catch (error) {
       operation.status = 'failed';
       operation.error = error instanceof Error ? error.message : 'Unknown error';
@@ -384,7 +374,7 @@ export class BulkChartOperationsService {
   private async processBulkOrganize(
     operationId: string,
     organizeParams: BulkOrganizeParams,
-    operatorUserId: string
+    _operatorUserId: string
   ): Promise<void> {
     const operation = this.operations.get(operationId);
     if (!operation) return;
@@ -396,7 +386,7 @@ export class BulkChartOperationsService {
       for (let i = 0; i < operation.chartIds.length; i++) {
         const chartId = operation.chartIds[i];
         if (!chartId) continue;
-        
+
         try {
           const updateData: Partial<ChartDefinition> = {};
           if (organizeParams.categoryId) updateData.chart_category_id = organizeParams.categoryId;
@@ -406,18 +396,17 @@ export class BulkChartOperationsService {
 
           const result: BulkOperationResult = {
             chartId,
-            success: true
+            success: true,
           };
           operation.results.push(result);
 
           operation.progress = Math.round(((i + 1) / operation.chartIds.length) * 100);
           this.operations.set(operationId, operation);
-
         } catch (error) {
           operation.results.push({
             chartId,
             success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : 'Unknown error',
           });
         }
       }
@@ -427,7 +416,6 @@ export class BulkChartOperationsService {
       this.operations.set(operationId, operation);
 
       console.info('Bulk organize completed', { operationId });
-
     } catch (error) {
       operation.status = 'failed';
       operation.error = error instanceof Error ? error.message : 'Unknown error';
@@ -453,37 +441,46 @@ export class BulkChartOperationsService {
       for (let i = 0; i < operation.chartIds.length; i++) {
         const chartId = operation.chartIds[i];
         if (!chartId) continue;
-        
+
         try {
           // Get original chart
-          const originalChart = await apiClient.get<SuccessResponse<{ chart: ChartDefinition }>>(`/api/admin/analytics/charts/${chartId}`);
-          
+          const originalChart = await apiClient.get<SuccessResponse<{ chart: ChartDefinition }>>(
+            `/api/admin/analytics/charts/${chartId}`
+          );
+
           // Create cloned chart with modifications
-          const { chart_definition_id, created_at, updated_at, ...chartWithoutIds } = originalChart.data.chart;
+          const {
+            chart_definition_id: _chart_definition_id,
+            created_at: _created_at,
+            updated_at: _updated_at,
+            ...chartWithoutIds
+          } = originalChart.data.chart;
           const clonedChart = {
             ...chartWithoutIds,
             ...modifications,
             chart_name: `${originalChart.data.chart.chart_name} (Copy)`,
-            created_by: operatorUserId
+            created_by: operatorUserId,
           };
 
-          const newChart = await apiClient.post<SuccessResponse<{ chart: ChartDefinition }>>('/api/admin/analytics/charts', clonedChart);
+          const newChart = await apiClient.post<SuccessResponse<{ chart: ChartDefinition }>>(
+            '/api/admin/analytics/charts',
+            clonedChart
+          );
 
           const result: BulkOperationResult = {
             chartId,
             success: true,
-            data: { newChartId: newChart.data.chart.chart_definition_id }
+            data: { newChartId: newChart.data.chart.chart_definition_id },
           };
 
           operation.results.push(result);
           operation.progress = Math.round(((i + 1) / operation.chartIds.length) * 100);
           this.operations.set(operationId, operation);
-
         } catch (error) {
           operation.results.push({
             chartId,
             success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
+            error: error instanceof Error ? error.message : 'Unknown error',
           });
         }
       }
@@ -493,7 +490,6 @@ export class BulkChartOperationsService {
       this.operations.set(operationId, operation);
 
       console.info('Bulk clone completed', { operationId });
-
     } catch (error) {
       operation.status = 'failed';
       operation.error = error instanceof Error ? error.message : 'Unknown error';
@@ -520,9 +516,9 @@ export class BulkChartOperationsService {
     return {
       status: operation.status,
       progress: operation.progress,
-      completed: operation.results.filter(r => r.success).length,
-      failed: operation.results.filter(r => !r.success).length,
-      total: operation.chartIds.length
+      completed: operation.results.filter((r) => r.success).length,
+      failed: operation.results.filter((r) => !r.success).length,
+      total: operation.chartIds.length,
     };
   }
 
@@ -536,29 +532,38 @@ export class BulkChartOperationsService {
     averageDuration: number;
   } {
     const operations = Array.from(this.operations.values());
-    const completed = operations.filter(op => op.status === 'completed');
+    const completed = operations.filter((op) => op.status === 'completed');
 
     const operationsByType: Record<string, number> = {};
-    operations.forEach(op => {
+    operations.forEach((op) => {
       operationsByType[op.type] = (operationsByType[op.type] || 0) + 1;
     });
 
     const totalResults = completed.reduce((sum, op) => sum + op.results.length, 0);
-    const successfulResults = completed.reduce((sum, op) => sum + op.results.filter(r => r.success).length, 0);
+    const successfulResults = completed.reduce(
+      (sum, op) => sum + op.results.filter((r) => r.success).length,
+      0
+    );
     const successRate = totalResults > 0 ? (successfulResults / totalResults) * 100 : 0;
 
     const durations = completed
-      .filter(op => op.completedAt)
-      .map(op => op.completedAt!.getTime() - op.startedAt.getTime());
-    const averageDuration = durations.length > 0 
-      ? durations.reduce((sum, duration) => sum + duration, 0) / durations.length
-      : 0;
+      .filter((op) => op.completedAt)
+      .map((op) => {
+        if (!op.completedAt) {
+          throw new Error('Completed operation missing completedAt timestamp');
+        }
+        return op.completedAt.getTime() - op.startedAt.getTime();
+      });
+    const averageDuration =
+      durations.length > 0
+        ? durations.reduce((sum, duration) => sum + duration, 0) / durations.length
+        : 0;
 
     return {
       totalOperations: operations.length,
       operationsByType,
       successRate,
-      averageDuration
+      averageDuration,
     };
   }
 
@@ -567,7 +572,7 @@ export class BulkChartOperationsService {
    */
   cleanupOldOperations(retentionDays: number = 30): void {
     const cutoffDate = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
-    
+
     for (const [operationId, operation] of Array.from(this.operations.entries())) {
       if (operation.startedAt < cutoffDate && operation.status !== 'running') {
         this.operations.delete(operationId);
@@ -576,7 +581,7 @@ export class BulkChartOperationsService {
 
     console.info('Old bulk operations cleaned up', {
       retentionDays,
-      remainingOperations: this.operations.size
+      remainingOperations: this.operations.size,
     });
   }
 }

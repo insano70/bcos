@@ -1,27 +1,32 @@
 'use client';
 
-import { useForm } from 'react-hook-form';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useId, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
-import { apiClient } from '@/lib/api/client';
-import ImageUpload from '@/components/image-upload';
-import ColorPicker from '@/components/color-picker';
-import StaffListEmbedded from '@/components/staff-list-embedded';
-import GalleryManager from '@/components/gallery-manager';
-import ServicesEditor from '@/components/services-editor';
-import ConditionsEditor from '@/components/conditions-editor';
 import BusinessHoursEditor from '@/components/business-hours-editor';
+import ColorPicker from '@/components/color-picker';
+import ConditionsEditor from '@/components/conditions-editor';
+import GalleryManager from '@/components/gallery-manager';
+import ImageUpload from '@/components/image-upload';
+import ServicesEditor from '@/components/services-editor';
+import StaffListEmbedded from '@/components/staff-list-embedded';
 import Toast from '@/components/toast';
-import type { Practice, PracticeAttributes, StaffMember, BusinessHours } from '@/lib/types/practice';
+import { apiClient } from '@/lib/api/client';
 import type { SuccessResponse } from '@/lib/api/responses/success';
 import type { Template } from '@/lib/hooks/use-templates';
+import type {
+  BusinessHours,
+  Practice,
+  PracticeAttributes,
+  StaffMember,
+} from '@/lib/types/practice';
 
 interface PracticeFormData {
   // Practice Settings
   name: string;
   template_id: string;
-  
+
   // Contact Information
   phone: string;
   email: string;
@@ -30,28 +35,28 @@ interface PracticeFormData {
   city: string;
   state: string;
   zip_code: string;
-  
+
   // Content
   about_text: string;
   mission_statement: string;
   welcome_message: string;
-  
+
   // Services & Conditions
   services: string[];
   conditions_treated: string[];
-  
+
   // Business Hours
   business_hours: BusinessHours;
-  
+
   // Images
   logo_url: string;
   hero_image_url: string;
   gallery_images: string[];
-  
+
   // SEO
   meta_title: string;
   meta_description: string;
-  
+
   // Brand Colors
   primary_color: string;
   secondary_color: string;
@@ -59,30 +64,36 @@ interface PracticeFormData {
 }
 
 async function fetchPracticeAttributes(practiceId: string): Promise<PracticeAttributes> {
-  const response = await apiClient.get<SuccessResponse<PracticeAttributes>>(`/api/practices/${practiceId}/attributes`);
+  const response = await apiClient.get<SuccessResponse<PracticeAttributes>>(
+    `/api/practices/${practiceId}/attributes`
+  );
   return response.data;
 }
 
-async function updatePracticeAttributes(practiceId: string, data: Omit<PracticeFormData, 'template_id' | 'name'>, _csrfToken?: string): Promise<SuccessResponse<PracticeAttributes>> {
+async function updatePracticeAttributes(
+  practiceId: string,
+  data: Omit<PracticeFormData, 'template_id' | 'name'>,
+  _csrfToken?: string
+): Promise<SuccessResponse<PracticeAttributes>> {
   console.log('🔄 updatePracticeAttributes called with practiceId:', practiceId);
   console.log('🔄 Raw data:', JSON.stringify(data, null, 2));
-  
+
   // Clean the data - convert empty strings to undefined for optional fields
   const cleanedData = Object.fromEntries(
-    Object.entries(data).map(([key, value]) => [
-      key,
-      value === '' ? undefined : value
-    ])
+    Object.entries(data).map(([key, value]) => [key, value === '' ? undefined : value])
   );
-  
+
   // Remove undefined values to avoid sending them
   const filteredData = Object.fromEntries(
     Object.entries(cleanedData).filter(([_, value]) => value !== undefined)
   );
-  
+
   console.log('🔄 Cleaned data being sent:', JSON.stringify(filteredData, null, 2));
-  
-  const result = await apiClient.put<SuccessResponse<PracticeAttributes>>(`/api/practices/${practiceId}/attributes`, filteredData);
+
+  const result = await apiClient.put<SuccessResponse<PracticeAttributes>>(
+    `/api/practices/${practiceId}/attributes`,
+    filteredData
+  );
   console.log('✅ Update successful:', result);
   return result;
 }
@@ -94,10 +105,10 @@ interface PracticeConfigFormProps {
   allTemplates: Template[];
 }
 
-export default function PracticeConfigForm({ 
-  practice, 
-  attributes: initialAttributes, 
-  allTemplates 
+export default function PracticeConfigForm({
+  practice,
+  attributes: initialAttributes,
+  allTemplates,
 }: PracticeConfigFormProps) {
   const practiceId = practice.practice_id;
   const queryClient = useQueryClient();
@@ -132,7 +143,7 @@ export default function PracticeConfigForm({
     console.log('🔄 useEffect triggered - attributes changed');
     console.log('Attributes:', attributes);
     console.log('Practice:', practice);
-    
+
     if (attributes) {
       const resetData = {
         name: currentPractice?.name || '',
@@ -156,7 +167,7 @@ export default function PracticeConfigForm({
           wednesday: { open: '09:00', close: '17:00', closed: false },
           thursday: { open: '09:00', close: '17:00', closed: false },
           friday: { open: '09:00', close: '17:00', closed: false },
-          saturday: { closed: true }
+          saturday: { closed: true },
         },
         logo_url: attributes.logo_url || '',
         hero_image_url: attributes.hero_image_url || '',
@@ -167,7 +178,7 @@ export default function PracticeConfigForm({
         secondary_color: attributes.secondary_color || '#FFFFFF',
         accent_color: attributes.accent_color || '#44C0AE',
       };
-      
+
       console.log('📝 Resetting form with data:', resetData);
       reset(resetData);
     }
@@ -176,7 +187,7 @@ export default function PracticeConfigForm({
   const onSubmit = async (data: PracticeFormData) => {
     console.log('💾 Form submit started with data:', data);
     setIsSubmitting(true);
-    
+
     // Track practice changes for later use
     const practiceChanges: Partial<Pick<PracticeFormData, 'name' | 'template_id'>> = {};
     if (data.name !== practice?.name) {
@@ -185,40 +196,42 @@ export default function PracticeConfigForm({
     if (data.template_id !== practice?.template_id) {
       practiceChanges.template_id = data.template_id;
     }
-    
+
     try {
       // Get CSRF token once for all API calls
       const csrfToken = await ensureCsrfToken();
-      
+
       // Update practice info (name, template) if changed
       if (Object.keys(practiceChanges).length > 0) {
-        
         await apiClient.put(`/api/practices/${practiceId}`, practiceChanges);
-        
+
         // Update local practice state to reflect changes
-        setCurrentPractice(prev => ({ ...prev, ...practiceChanges }));
-        
+        setCurrentPractice((prev) => ({ ...prev, ...practiceChanges }));
+
         // Invalidate the practices list
         queryClient.invalidateQueries({ queryKey: ['practices'] });
       }
 
       // Update attributes (exclude name and template_id which are handled separately)
       const { name: _name, template_id: _template_id, ...attributesData } = data;
-      
+
       // Make the API call (no optimistic update to avoid cache corruption)
-      const result = await updatePracticeAttributes(practiceId, attributesData, csrfToken || undefined);
-      
+      const result = await updatePracticeAttributes(
+        practiceId,
+        attributesData,
+        csrfToken || undefined
+      );
+
       // Extract actual data from API response
       const actualData = result.data || result;
-      
+
       // Update cache with the actual data structure
       queryClient.setQueryData(['practice-attributes', practiceId], actualData);
       queryClient.invalidateQueries({ queryKey: ['practices'] });
-      
+
       // Show success message
       setShowSuccessToast(true);
       setTimeout(() => setShowSuccessToast(false), 3000);
-      
     } catch (error) {
       console.error('Error updating practice:', error);
       // Revert optimistic update on failure
@@ -235,14 +248,24 @@ export default function PracticeConfigForm({
     window.open(`/template-preview/${practiceId}`, '_blank');
   };
 
-
   if (isLoading) {
     return (
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
         <div className="flex items-center justify-center py-12">
           <svg className="animate-spin h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            />
           </svg>
           <span className="ml-3 text-gray-600">Loading practice configuration...</span>
         </div>
@@ -268,9 +291,12 @@ export default function PracticeConfigForm({
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
             Practice Information
           </h2>
-          
+
           <div>
-            <label htmlFor={`${uid}-name`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              htmlFor={`${uid}-name`}
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               Practice Name *
             </label>
             <input
@@ -280,9 +306,7 @@ export default function PracticeConfigForm({
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Enter practice name"
             />
-            {errors.name && (
-              <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
-            )}
+            {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>}
           </div>
         </div>
 
@@ -291,10 +315,13 @@ export default function PracticeConfigForm({
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
             Website Template
           </h2>
-          
+
           <div className="space-y-4">
             <div>
-              <label htmlFor={`${uid}-template_id`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor={`${uid}-template_id`}
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 Choose Template Design
               </label>
               <select
@@ -313,10 +340,11 @@ export default function PracticeConfigForm({
                 <p className="mt-1 text-sm text-red-600">{errors.template_id.message}</p>
               )}
             </div>
-            
+
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
               <p className="text-sm text-blue-700 dark:text-blue-300">
-                💡 <strong>Tip:</strong> After saving, use the "Preview" button to see how your website looks with the new template.
+                💡 <strong>Tip:</strong> After saving, use the "Preview" button to see how your
+                website looks with the new template.
               </p>
             </div>
           </div>
@@ -330,7 +358,7 @@ export default function PracticeConfigForm({
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
             Customize your website colors to match your practice's brand identity.
           </p>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <ColorPicker
               label="Primary Color"
@@ -354,7 +382,7 @@ export default function PracticeConfigForm({
               description="Highlights and call-to-action elements"
             />
           </div>
-          
+
           <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
             <div className="flex items-center space-x-3">
               <div className="flex space-x-2">
@@ -383,10 +411,13 @@ export default function PracticeConfigForm({
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
             Contact Information
           </h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label htmlFor={`${uid}-phone`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor={`${uid}-phone`}
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 Phone Number
               </label>
               <input
@@ -397,9 +428,12 @@ export default function PracticeConfigForm({
                 placeholder="(555) 123-4567"
               />
             </div>
-            
+
             <div>
-              <label htmlFor={`${uid}-email`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor={`${uid}-email`}
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 Email Address
               </label>
               <input
@@ -410,9 +444,12 @@ export default function PracticeConfigForm({
                 placeholder="info@practice.com"
               />
             </div>
-            
+
             <div>
-              <label htmlFor={`${uid}-address_line1`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor={`${uid}-address_line1`}
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 Address Line 1
               </label>
               <input
@@ -423,9 +460,12 @@ export default function PracticeConfigForm({
                 placeholder="123 Medical Center Drive"
               />
             </div>
-            
+
             <div>
-              <label htmlFor={`${uid}-address_line2`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor={`${uid}-address_line2`}
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 Address Line 2
               </label>
               <input
@@ -436,9 +476,12 @@ export default function PracticeConfigForm({
                 placeholder="Suite 200"
               />
             </div>
-            
+
             <div>
-              <label htmlFor={`${uid}-city`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor={`${uid}-city`}
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 City
               </label>
               <input
@@ -449,9 +492,12 @@ export default function PracticeConfigForm({
                 placeholder="Denver"
               />
             </div>
-            
+
             <div>
-              <label htmlFor={`${uid}-state`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor={`${uid}-state`}
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 State
               </label>
               <input
@@ -462,9 +508,12 @@ export default function PracticeConfigForm({
                 placeholder="CO"
               />
             </div>
-            
+
             <div>
-              <label htmlFor={`${uid}-zip_code`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor={`${uid}-zip_code`}
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 ZIP Code
               </label>
               <input
@@ -483,10 +532,13 @@ export default function PracticeConfigForm({
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
             Website Content
           </h2>
-          
+
           <div className="space-y-6">
             <div>
-              <label htmlFor={`${uid}-welcome_message`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor={`${uid}-welcome_message`}
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 Welcome Message
               </label>
               <input
@@ -497,9 +549,12 @@ export default function PracticeConfigForm({
                 placeholder="Welcome to our rheumatology practice"
               />
             </div>
-            
+
             <div>
-              <label htmlFor={`${uid}-about_text`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor={`${uid}-about_text`}
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 About Text
               </label>
               <textarea
@@ -510,9 +565,12 @@ export default function PracticeConfigForm({
                 placeholder="Describe your practice, experience, and approach to care..."
               />
             </div>
-            
+
             <div>
-              <label htmlFor={`${uid}-mission_statement`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor={`${uid}-mission_statement`}
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 Mission Statement
               </label>
               <textarea
@@ -531,7 +589,7 @@ export default function PracticeConfigForm({
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
             Services & Conditions
           </h2>
-          
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <ServicesEditor
               services={watch('services') || []}
@@ -539,10 +597,12 @@ export default function PracticeConfigForm({
               label="Services Offered"
               placeholder="Enter service (e.g., Rheumatoid Arthritis Treatment)"
             />
-            
+
             <ConditionsEditor
               conditions={watch('conditions_treated') || []}
-              onChange={(conditions) => setValue('conditions_treated', conditions, { shouldDirty: true })}
+              onChange={(conditions) =>
+                setValue('conditions_treated', conditions, { shouldDirty: true })
+              }
               label="Conditions Treated"
               placeholder="Enter condition (e.g., Lupus)"
             />
@@ -554,17 +614,19 @@ export default function PracticeConfigForm({
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
             Business Hours
           </h2>
-          
+
           <BusinessHoursEditor
-            businessHours={watch('business_hours') || {
-              sunday: { closed: true },
-              monday: { open: '09:00', close: '17:00', closed: false },
-              tuesday: { open: '09:00', close: '17:00', closed: false },
-              wednesday: { open: '09:00', close: '17:00', closed: false },
-              thursday: { open: '09:00', close: '17:00', closed: false },
-              friday: { open: '09:00', close: '17:00', closed: false },
-              saturday: { closed: true }
-            }}
+            businessHours={
+              watch('business_hours') || {
+                sunday: { closed: true },
+                monday: { open: '09:00', close: '17:00', closed: false },
+                tuesday: { open: '09:00', close: '17:00', closed: false },
+                wednesday: { open: '09:00', close: '17:00', closed: false },
+                thursday: { open: '09:00', close: '17:00', closed: false },
+                friday: { open: '09:00', close: '17:00', closed: false },
+                saturday: { closed: true },
+              }
+            }
             onChange={(hours) => setValue('business_hours', hours, { shouldDirty: true })}
             label="Practice Hours"
           />
@@ -575,7 +637,7 @@ export default function PracticeConfigForm({
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
             Images & Branding
           </h2>
-          
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <ImageUpload
               currentImage={logoUrl}
@@ -588,11 +650,11 @@ export default function PracticeConfigForm({
               type="logo"
               label="Practice Logo"
             />
-            
+
             <ImageUpload
               currentImage={heroImageUrl}
               onImageUploaded={(_url) => {
-                // Service layer has already updated the database  
+                // Service layer has already updated the database
                 // Standard pattern: invalidate and let React Query handle the rest
                 queryClient.invalidateQueries({ queryKey: ['practice-attributes', practiceId] });
               }}
@@ -601,7 +663,7 @@ export default function PracticeConfigForm({
               label="Hero/Banner Image"
             />
           </div>
-          
+
           {/* Gallery Images */}
           <div className="mt-8">
             <GalleryManager
@@ -609,7 +671,7 @@ export default function PracticeConfigForm({
               onImagesUpdated={(images) => {
                 // Update form field immediately for responsive UI
                 setValue('gallery_images', images, { shouldDirty: true });
-                
+
                 // Standard pattern: invalidate cache to keep data in sync
                 queryClient.invalidateQueries({ queryKey: ['practice-attributes', practiceId] });
               }}
@@ -629,10 +691,13 @@ export default function PracticeConfigForm({
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
             SEO Settings
           </h2>
-          
+
           <div className="space-y-6">
             <div>
-              <label htmlFor={`${uid}-meta_title`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor={`${uid}-meta_title`}
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 Meta Title
               </label>
               <input
@@ -643,9 +708,12 @@ export default function PracticeConfigForm({
                 placeholder="Practice Name - Expert Rheumatology Care"
               />
             </div>
-            
+
             <div>
-              <label htmlFor={`${uid}-meta_description`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor={`${uid}-meta_description`}
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 Meta Description
               </label>
               <textarea
@@ -668,11 +736,16 @@ export default function PracticeConfigForm({
             className="px-6 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 flex items-center space-x-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+              />
             </svg>
             <span>Preview Website</span>
           </button>
-          
+
           <div className="flex space-x-4">
             <button
               type="button"

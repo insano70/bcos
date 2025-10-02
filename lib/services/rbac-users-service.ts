@@ -1,10 +1,10 @@
-import { BaseRBACService } from '@/lib/rbac/base-service';
-import { db, account_security } from '@/lib/db';
+import { and, count, eq, inArray, isNull, like, or } from 'drizzle-orm';
+import { AccountSecurity, hashPassword } from '@/lib/auth/security';
+import { account_security, db } from '@/lib/db';
+import { roles, user_roles } from '@/lib/db/rbac-schema';
+import { organizations, user_organizations, users } from '@/lib/db/schema';
 import { createAppLogger } from '@/lib/logger/factory';
-import { users, user_organizations, organizations } from '@/lib/db/schema';
-import { user_roles, roles } from '@/lib/db/rbac-schema';
-import { eq, and, inArray, isNull, like, or, count } from 'drizzle-orm';
-import { hashPassword, AccountSecurity } from '@/lib/auth/security';
+import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { PermissionDeniedError } from '@/lib/types/rbac';
 
@@ -17,8 +17,8 @@ import { PermissionDeniedError } from '@/lib/types/rbac';
 const rbacUsersLogger = createAppLogger('rbac-users-service', {
   component: 'business-logic',
   feature: 'user-management',
-  businessIntelligence: true
-})
+  businessIntelligence: true,
+});
 
 export interface CreateUserData {
   email: string;
@@ -76,19 +76,19 @@ export class RBACUsersService extends BaseRBACService {
    */
   async getUsers(options: UserQueryOptions = {}): Promise<UserWithOrganizations[]> {
     const accessScope = this.getAccessScope('users', 'read');
-    
+
     // Build all where conditions upfront
-    const whereConditions = [
-      isNull(users.deleted_at),
-      eq(users.is_active, true)
-    ];
+    const whereConditions = [isNull(users.deleted_at), eq(users.is_active, true)];
 
     // Apply scope-based filtering
     switch (accessScope.scope) {
       case 'own':
-        whereConditions.push(eq(users.user_id, accessScope.userId!));
+        if (!accessScope.userId) {
+          throw new Error('User ID required for own scope');
+        }
+        whereConditions.push(eq(users.user_id, accessScope.userId));
         break;
-      
+
       case 'organization': {
         // Filter by accessible organizations
         const accessibleOrgIds = accessScope.organizationIds || [];
@@ -103,7 +103,7 @@ export class RBACUsersService extends BaseRBACService {
         }
         break;
       }
-      
+
       case 'all':
         // No additional filtering for super admin
         break;
@@ -149,11 +149,14 @@ export class RBACUsersService extends BaseRBACService {
         organization_id: organizations.organization_id,
         org_name: organizations.name,
         org_slug: organizations.slug,
-        org_is_active: organizations.is_active
+        org_is_active: organizations.is_active,
       })
       .from(users)
       .leftJoin(user_organizations, eq(users.user_id, user_organizations.user_id))
-      .leftJoin(organizations, eq(user_organizations.organization_id, organizations.organization_id))
+      .leftJoin(
+        organizations,
+        eq(user_organizations.organization_id, organizations.organization_id)
+      )
       .where(and(...whereConditions));
 
     // Execute base query
@@ -174,7 +177,7 @@ export class RBACUsersService extends BaseRBACService {
     // Group by user and aggregate organizations
     const usersMap = new Map<string, UserWithOrganizations>();
 
-    results.forEach(row => {
+    results.forEach((row) => {
       if (!usersMap.has(row.user_id)) {
         usersMap.set(row.user_id, {
           user_id: row.user_id,
@@ -185,19 +188,27 @@ export class RBACUsersService extends BaseRBACService {
           is_active: row.is_active ?? true,
           created_at: row.created_at ?? new Date(),
           updated_at: row.updated_at ?? new Date(),
-          organizations: []
+          organizations: [],
         });
       }
 
-      const user = usersMap.get(row.user_id)!;
-      
+      const user = usersMap.get(row.user_id);
+      if (!user) {
+        throw new Error(`User unexpectedly not found in map: ${row.user_id}`);
+      }
+
       // Add organization if present and not already added
-      if (row.organization_id && row.org_name && row.org_slug && !user.organizations.some(org => org.organization_id === row.organization_id)) {
+      if (
+        row.organization_id &&
+        row.org_name &&
+        row.org_slug &&
+        !user.organizations.some((org) => org.organization_id === row.organization_id)
+      ) {
         user.organizations.push({
           organization_id: row.organization_id,
           name: row.org_name,
           slug: row.org_slug,
-          is_active: row.org_is_active ?? true
+          is_active: row.org_is_active ?? true,
         });
       }
     });
@@ -209,18 +220,20 @@ export class RBACUsersService extends BaseRBACService {
         .select({
           user_id: user_roles.user_id,
           role_id: roles.role_id,
-          role_name: roles.name
+          role_name: roles.name,
         })
         .from(user_roles)
         .innerJoin(roles, eq(roles.role_id, user_roles.role_id))
-        .where(and(
-          inArray(user_roles.user_id, userIds),
-          eq(user_roles.is_active, true),
-          eq(roles.is_active, true)
-        ));
+        .where(
+          and(
+            inArray(user_roles.user_id, userIds),
+            eq(user_roles.is_active, true),
+            eq(roles.is_active, true)
+          )
+        );
 
       // Add roles to users
-      rolesQuery.forEach(roleRow => {
+      rolesQuery.forEach((roleRow) => {
         const user = usersMap.get(roleRow.user_id);
         if (user) {
           if (!user.roles) {
@@ -228,7 +241,7 @@ export class RBACUsersService extends BaseRBACService {
           }
           user.roles.push({
             id: roleRow.role_id,
-            name: roleRow.role_name
+            name: roleRow.role_name,
           });
         }
       });
@@ -264,24 +277,24 @@ export class RBACUsersService extends BaseRBACService {
         organization_id: user_organizations.organization_id,
         org_name: organizations.name,
         org_slug: organizations.slug,
-        org_is_active: organizations.is_active
+        org_is_active: organizations.is_active,
       })
       .from(users)
-      .leftJoin(user_organizations, and(
-        eq(user_organizations.user_id, users.user_id),
-        eq(user_organizations.is_active, true)
-      ))
-      .leftJoin(organizations, and(
-        eq(organizations.organization_id, user_organizations.organization_id),
-        isNull(organizations.deleted_at)
-      ))
-      .where(and(
-        eq(users.user_id, userId),
-        isNull(users.deleted_at)
-      ));
+      .leftJoin(
+        user_organizations,
+        and(eq(user_organizations.user_id, users.user_id), eq(user_organizations.is_active, true))
+      )
+      .leftJoin(
+        organizations,
+        and(
+          eq(organizations.organization_id, user_organizations.organization_id),
+          isNull(organizations.deleted_at)
+        )
+      )
+      .where(and(eq(users.user_id, userId), isNull(users.deleted_at)));
 
     const results = await query;
-    
+
     if (results.length === 0) {
       return null;
     }
@@ -294,13 +307,18 @@ export class RBACUsersService extends BaseRBACService {
       return null;
     }
 
-    if (!firstResult.user_id || !firstResult.email || !firstResult.first_name || !firstResult.last_name) {
-      rbacUsersLogger.error('User result missing required fields', { 
+    if (
+      !firstResult.user_id ||
+      !firstResult.email ||
+      !firstResult.first_name ||
+      !firstResult.last_name
+    ) {
+      rbacUsersLogger.error('User result missing required fields', {
         userId,
         hasUserId: !!firstResult.user_id,
         hasEmail: !!firstResult.email,
         hasFirstName: !!firstResult.first_name,
-        hasLastName: !!firstResult.last_name
+        hasLastName: !!firstResult.last_name,
       });
       return null;
     }
@@ -314,24 +332,29 @@ export class RBACUsersService extends BaseRBACService {
       is_active: firstResult.is_active ?? true,
       created_at: firstResult.created_at ?? new Date(),
       updated_at: firstResult.updated_at ?? new Date(),
-      organizations: []
+      organizations: [],
     };
 
     // Add organizations
-    results.forEach(row => {
-      if (row.organization_id && row.org_name && row.org_slug && !userObj.organizations.some(org => org.organization_id === row.organization_id)) {
+    results.forEach((row) => {
+      if (
+        row.organization_id &&
+        row.org_name &&
+        row.org_slug &&
+        !userObj.organizations.some((org) => org.organization_id === row.organization_id)
+      ) {
         userObj.organizations.push({
           organization_id: row.organization_id,
           name: row.org_name,
           slug: row.org_slug,
-          is_active: row.org_is_active ?? true
+          is_active: row.org_is_active ?? true,
         });
       }
     });
 
     // For organization scope, verify user is in accessible organization
     if (canReadOrg && !canReadAll && !canReadOwn) {
-      const hasSharedOrg = userObj.organizations.some(org =>
+      const hasSharedOrg = userObj.organizations.some((org) =>
         this.canAccessOrganization(org.organization_id)
       );
 
@@ -344,19 +367,21 @@ export class RBACUsersService extends BaseRBACService {
     const rolesQuery = await db
       .select({
         role_id: roles.role_id,
-        role_name: roles.name
+        role_name: roles.name,
       })
       .from(user_roles)
       .innerJoin(roles, eq(roles.role_id, user_roles.role_id))
-      .where(and(
-        eq(user_roles.user_id, userId),
-        eq(user_roles.is_active, true),
-        eq(roles.is_active, true)
-      ));
+      .where(
+        and(
+          eq(user_roles.user_id, userId),
+          eq(user_roles.is_active, true),
+          eq(roles.is_active, true)
+        )
+      );
 
-    userObj.roles = rolesQuery.map(role => ({
+    userObj.roles = rolesQuery.map((role) => ({
       id: role.role_id,
-      name: role.role_name
+      name: role.role_name,
     }));
 
     return userObj;
@@ -366,28 +391,28 @@ export class RBACUsersService extends BaseRBACService {
    * Create a new user with permission checking
    */
   async createUser(userData: CreateUserData): Promise<UserWithOrganizations> {
-    const startTime = Date.now()
-    
+    const startTime = Date.now();
+
     // Enhanced user creation logging
     rbacUsersLogger.info('User creation initiated', {
       requestingUserId: this.userContext.user_id,
       targetOrganizationId: userData.organization_id,
       operation: 'create_user',
-      securityLevel: 'high'
-    })
-    
+      securityLevel: 'high',
+    });
+
     this.requirePermission('users:create:organization', undefined, userData.organization_id);
-    
+
     // Verify user can create in this organization
     this.requireOrganizationAccess(userData.organization_id);
-    
+
     // Enhanced permission validation success logging
     rbacUsersLogger.security('user_creation_authorized', 'low', {
       action: 'permission_check_passed',
       userId: this.userContext.user_id,
       targetOrganization: userData.organization_id,
-      requiredPermission: 'users:create:organization'
-    })
+      requiredPermission: 'users:create:organization',
+    });
 
     // Hash password
     const hashedPassword = await hashPassword(userData.password);
@@ -401,7 +426,7 @@ export class RBACUsersService extends BaseRBACService {
         first_name: userData.first_name,
         last_name: userData.last_name,
         email_verified: userData.email_verified ?? false,
-        is_active: userData.is_active ?? true
+        is_active: userData.is_active ?? true,
       })
       .returning();
 
@@ -412,24 +437,22 @@ export class RBACUsersService extends BaseRBACService {
     // Proactively create account_security record for defense-in-depth
     // This ensures the record exists even before first login attempt
     await AccountSecurity.ensureSecurityRecord(newUser.user_id);
-    
+
     rbacUsersLogger.info('Account security record initialized for new user', {
       userId: newUser.user_id,
       operation: 'user_creation',
       securityDefaults: {
         max_concurrent_sessions: 3,
-        require_fresh_auth_minutes: 5
-      }
+        require_fresh_auth_minutes: 5,
+      },
     });
 
     // Add user to organization
-    await db
-      .insert(user_organizations)
-      .values({
-        user_id: newUser.user_id,
-        organization_id: userData.organization_id,
-        is_active: true
-      });
+    await db.insert(user_organizations).values({
+      user_id: newUser.user_id,
+      organization_id: userData.organization_id,
+      is_active: true,
+    });
 
     // Return user with organization info
     const userWithOrgs = await this.getUserById(newUser.user_id);
@@ -438,8 +461,8 @@ export class RBACUsersService extends BaseRBACService {
     }
 
     // Enhanced user creation completion logging
-    const duration = Date.now() - startTime
-    
+    const duration = Date.now() - startTime;
+
     // Business intelligence for user creation
     rbacUsersLogger.info('User creation analytics', {
       operation: 'user_created',
@@ -448,27 +471,31 @@ export class RBACUsersService extends BaseRBACService {
       createdByUserId: this.userContext.user_id,
       userSegment: 'new_user',
       emailVerified: userData.email_verified ?? false,
-      duration
-    })
-    
+      duration,
+    });
+
     // Security event for user creation
     rbacUsersLogger.security('user_account_created', 'medium', {
       action: 'account_creation_success',
       userId: this.userContext.user_id,
       newAccountId: newUser.user_id,
       organizationId: userData.organization_id,
-      complianceValidated: true
-    })
-    
+      complianceValidated: true,
+    });
+
     // Performance monitoring
     rbacUsersLogger.timing('User creation completed', startTime, {
       passwordHashingIncluded: true,
       rbacValidationIncluded: true,
-      databaseOperations: 3 // user insert + org assignment + retrieval
-    })
+      databaseOperations: 3, // user insert + org assignment + retrieval
+    });
 
-    await this.logPermissionCheck('users:create:organization', newUser.user_id, userData.organization_id);
-    
+    await this.logPermissionCheck(
+      'users:create:organization',
+      newUser.user_id,
+      userData.organization_id
+    );
+
     return userWithOrgs;
   }
 
@@ -492,7 +519,7 @@ export class RBACUsersService extends BaseRBACService {
         throw new Error('User not found');
       }
 
-      const hasSharedOrg = targetUser.organizations.some(org =>
+      const hasSharedOrg = targetUser.organizations.some((org) =>
         this.canAccessOrganization(org.organization_id)
       );
 
@@ -502,7 +529,7 @@ export class RBACUsersService extends BaseRBACService {
     }
 
     // Execute user update and role assignment as atomic transaction
-    const updatedUser = await db.transaction(async (tx) => {
+    const _updatedUser = await db.transaction(async (tx) => {
       // Prepare update data
       const updateFields: Partial<{
         first_name: string;
@@ -516,7 +543,7 @@ export class RBACUsersService extends BaseRBACService {
         updated_at: Date;
       }> = {
         ...updateData,
-        updated_at: new Date()
+        updated_at: new Date(),
       };
 
       // Hash password if provided and track password change
@@ -542,38 +569,35 @@ export class RBACUsersService extends BaseRBACService {
       if (passwordWasChanged) {
         // Ensure security record exists
         await AccountSecurity.ensureSecurityRecord(userId);
-        
+
         // Update password_changed_at timestamp
         await tx
           .update(account_security)
           .set({
-            password_changed_at: new Date()
+            password_changed_at: new Date(),
           })
           .where(eq(account_security.user_id, userId));
-        
+
         rbacUsersLogger.info('Password changed for user', {
           userId,
           operation: 'password_change',
-          securityTracking: true
+          securityTracking: true,
         });
       }
 
       // Update user roles if provided
       if (updateData.role_ids) {
         // First, deactivate all current roles for this user
-        await tx
-          .update(user_roles)
-          .set({ is_active: false })
-          .where(eq(user_roles.user_id, userId));
+        await tx.update(user_roles).set({ is_active: false }).where(eq(user_roles.user_id, userId));
 
         // Then add the new roles
         if (updateData.role_ids.length > 0) {
-          const roleAssignments = updateData.role_ids.map(roleId => ({
+          const roleAssignments = updateData.role_ids.map((roleId) => ({
             user_id: userId,
             role_id: roleId,
             organization_id: this.userContext.current_organization_id,
             granted_by: this.userContext.user_id,
-            is_active: true
+            is_active: true,
           }));
 
           await tx.insert(user_roles).values(roleAssignments);
@@ -599,7 +623,7 @@ export class RBACUsersService extends BaseRBACService {
    */
   async deleteUser(userId: string): Promise<void> {
     this.requirePermission('users:delete:organization', userId);
-    
+
     // Prevent self-deletion
     if (userId === this.userContext.user_id) {
       throw new Error('Cannot delete your own account');
@@ -616,7 +640,7 @@ export class RBACUsersService extends BaseRBACService {
       .update(users)
       .set({
         deleted_at: new Date(),
-        is_active: false
+        is_active: false,
       })
       .where(eq(users.user_id, userId));
 
@@ -624,7 +648,7 @@ export class RBACUsersService extends BaseRBACService {
     await db
       .update(user_organizations)
       .set({
-        is_active: false
+        is_active: false,
       })
       .where(eq(user_organizations.user_id, userId));
 
@@ -657,7 +681,7 @@ export class RBACUsersService extends BaseRBACService {
           .update(user_organizations)
           .set({
             is_active: true,
-            joined_at: new Date()
+            joined_at: new Date(),
           })
           .where(eq(user_organizations.user_organization_id, existing.user_organization_id));
       }
@@ -665,13 +689,11 @@ export class RBACUsersService extends BaseRBACService {
     }
 
     // Create new organization membership
-    await db
-      .insert(user_organizations)
-      .values({
-        user_id: userId,
-        organization_id: organizationId,
-        is_active: true
-      });
+    await db.insert(user_organizations).values({
+      user_id: userId,
+      organization_id: organizationId,
+      is_active: true,
+    });
 
     await this.logPermissionCheck('users:create:organization', userId, organizationId);
   }
@@ -692,7 +714,7 @@ export class RBACUsersService extends BaseRBACService {
     await db
       .update(user_organizations)
       .set({
-        is_active: false
+        is_active: false,
       })
       .where(
         and(
@@ -709,7 +731,7 @@ export class RBACUsersService extends BaseRBACService {
    */
   async getUsersInOrganization(organizationId: string): Promise<UserWithOrganizations[]> {
     this.requireOrganizationAccess(organizationId);
-    
+
     return await this.getUsers({ organizationId });
   }
 
@@ -717,15 +739,11 @@ export class RBACUsersService extends BaseRBACService {
    * Search users across accessible organizations
    */
   async searchUsers(searchTerm: string, organizationId?: string): Promise<UserWithOrganizations[]> {
-    this.requireAnyPermission([
-      'users:read:own',
-      'users:read:organization', 
-      'users:read:all'
-    ]);
+    this.requireAnyPermission(['users:read:own', 'users:read:organization', 'users:read:all']);
 
-    return await this.getUsers({ 
+    return await this.getUsers({
       search: searchTerm,
-      organizationId 
+      organizationId,
     });
   }
 
@@ -734,19 +752,19 @@ export class RBACUsersService extends BaseRBACService {
    */
   async getUserCount(organizationId?: string): Promise<number> {
     const accessScope = this.getAccessScope('users', 'read');
-    
+
     // Build where conditions
-    const whereConditions = [
-      isNull(users.deleted_at),
-      eq(users.is_active, true)
-    ];
+    const whereConditions = [isNull(users.deleted_at), eq(users.is_active, true)];
 
     // Apply scope-based filtering
     switch (accessScope.scope) {
       case 'own':
-        whereConditions.push(eq(users.user_id, accessScope.userId!));
+        if (!accessScope.userId) {
+          throw new Error('User ID required for own scope');
+        }
+        whereConditions.push(eq(users.user_id, accessScope.userId));
         break;
-      
+
       case 'organization': {
         const accessibleOrgIds = accessScope.organizationIds || [];
         if (accessibleOrgIds.length === 0) {
@@ -758,7 +776,7 @@ export class RBACUsersService extends BaseRBACService {
         );
         break;
       }
-      
+
       case 'all':
         // No additional filtering
         break;
@@ -812,29 +830,24 @@ export class RBACUsersService extends BaseRBACService {
       return false;
     }
 
-    return targetUser.organizations.some(org =>
-      this.canAccessOrganization(org.organization_id)
-    );
+    return targetUser.organizations.some((org) => this.canAccessOrganization(org.organization_id));
   }
 
   /**
    * Get users that current user can manage
    */
   async getManageableUsers(): Promise<UserWithOrganizations[]> {
-    this.requireAnyPermission([
-      'users:update:own',
-      'users:update:organization'
-    ]);
+    this.requireAnyPermission(['users:update:own', 'users:update:organization']);
 
     const allUsers = await this.getUsers();
-    
+
     if (this.isSuperAdmin()) {
       return allUsers;
     }
 
     // Filter to only users that can be managed
     const manageableUsers: UserWithOrganizations[] = [];
-    
+
     for (const user of allUsers) {
       if (await this.canManageUser(user.user_id)) {
         manageableUsers.push(user);

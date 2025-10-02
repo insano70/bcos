@@ -1,4 +1,14 @@
-import { pgTable, uuid, varchar, text, boolean, timestamp, integer, jsonb, index } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  varchar,
+} from 'drizzle-orm/pg-core';
 import { users } from './schema';
 
 /**
@@ -36,8 +46,12 @@ export const chart_definitions = pgTable(
     data_source: jsonb('data_source').notNull(), // DataSourceConfig as JSON
     chart_config: jsonb('chart_config').notNull(), // ChartConfig as JSON
     access_control: jsonb('access_control'), // ChartAccessControl as JSON
-    chart_category_id: integer('chart_category_id').references(() => chart_categories.chart_category_id),
-    created_by: uuid('created_by').references(() => users.user_id).notNull(),
+    chart_category_id: integer('chart_category_id').references(
+      () => chart_categories.chart_category_id
+    ),
+    created_by: uuid('created_by')
+      .references(() => users.user_id)
+      .notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
     is_active: boolean('is_active').default(true),
@@ -56,8 +70,12 @@ export const chart_definitions = pgTable(
 export const user_chart_favorites = pgTable(
   'user_chart_favorites',
   {
-    user_id: uuid('user_id').references(() => users.user_id).notNull(),
-    chart_definition_id: uuid('chart_definition_id').references(() => chart_definitions.chart_definition_id).notNull(),
+    user_id: uuid('user_id')
+      .references(() => users.user_id)
+      .notNull(),
+    chart_definition_id: uuid('chart_definition_id')
+      .references(() => chart_definitions.chart_definition_id)
+      .notNull(),
     favorited_at: timestamp('favorited_at', { withTimezone: true }).defaultNow(),
   },
   (table) => ({
@@ -97,8 +115,12 @@ export const dashboards = pgTable(
     dashboard_name: varchar('dashboard_name', { length: 255 }).notNull(),
     dashboard_description: text('dashboard_description'),
     layout_config: jsonb('layout_config').notNull(), // Dashboard layout as JSON
-    dashboard_category_id: integer('dashboard_category_id').references(() => chart_categories.chart_category_id),
-    created_by: uuid('created_by').references(() => users.user_id).notNull(),
+    dashboard_category_id: integer('dashboard_category_id').references(
+      () => chart_categories.chart_category_id
+    ),
+    created_by: uuid('created_by')
+      .references(() => users.user_id)
+      .notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
     is_active: boolean('is_active').default(true),
@@ -118,8 +140,12 @@ export const dashboard_charts = pgTable(
   'dashboard_charts',
   {
     dashboard_chart_id: uuid('dashboard_chart_id').primaryKey().defaultRandom(),
-    dashboard_id: uuid('dashboard_id').references(() => dashboards.dashboard_id).notNull(),
-    chart_definition_id: uuid('chart_definition_id').references(() => chart_definitions.chart_definition_id).notNull(),
+    dashboard_id: uuid('dashboard_id')
+      .references(() => dashboards.dashboard_id)
+      .notNull(),
+    chart_definition_id: uuid('chart_definition_id')
+      .references(() => chart_definitions.chart_definition_id)
+      .notNull(),
     position_config: jsonb('position_config'), // Chart position and size as JSON
     added_at: timestamp('added_at', { withTimezone: true }).defaultNow(),
   },
@@ -134,10 +160,16 @@ export const chart_permissions = pgTable(
   'chart_permissions',
   {
     chart_permission_id: uuid('chart_permission_id').primaryKey().defaultRandom(),
-    chart_definition_id: uuid('chart_definition_id').references(() => chart_definitions.chart_definition_id).notNull(),
-    user_id: uuid('user_id').references(() => users.user_id).notNull(),
+    chart_definition_id: uuid('chart_definition_id')
+      .references(() => chart_definitions.chart_definition_id)
+      .notNull(),
+    user_id: uuid('user_id')
+      .references(() => users.user_id)
+      .notNull(),
     permission_type: varchar('permission_type', { length: 20 }).notNull(), // 'view', 'edit', 'admin'
-    granted_by_user_id: uuid('granted_by_user_id').references(() => users.user_id).notNull(),
+    granted_by_user_id: uuid('granted_by_user_id')
+      .references(() => users.user_id)
+      .notNull(),
     granted_at: timestamp('granted_at', { withTimezone: true }).defaultNow(),
   },
   (table) => ({

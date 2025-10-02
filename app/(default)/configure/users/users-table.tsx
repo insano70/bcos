@@ -14,7 +14,13 @@ export interface User {
   deleted_at: string | null;
 }
 
-export default function UsersTable({ users, onEdit }: { users: User[]; onEdit?: (user: User) => void }) {
+export default function UsersTable({
+  users,
+  onEdit,
+}: {
+  users: User[];
+  onEdit?: (user: User) => void;
+}) {
   const { selectedItems, isAllSelected, handleCheckboxChange, handleSelectAllChange } =
     useItemSelection(users);
 
@@ -24,7 +30,7 @@ export default function UsersTable({ users, onEdit }: { users: User[]; onEdit?: 
         <h2 className="font-semibold text-gray-800 dark:text-gray-100">
           All Users{' '}
           <span className="text-gray-400 dark:text-gray-500 font-medium">
-            {users.filter(user => user.is_active !== false).length}
+            {users.filter((user) => user.is_active !== false).length}
           </span>
         </h2>
       </header>

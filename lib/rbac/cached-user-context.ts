@@ -10,27 +10,21 @@ import { createAppLogger } from '@/lib/logger/factory';
 const rbacCacheLogger = createAppLogger('rbac-cache', {
   component: 'performance',
   feature: 'rbac-caching',
-  module: 'cached-user-context'
+  module: 'cached-user-context',
 });
-import {
-  users,
-  roles,
-  permissions,
-  user_roles,
-  organizations,
-  role_permissions,
-  user_organizations
-} from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
-import type {
-  UserContext,
-  Role,
-  Organization,
-  UserRole,
-  UserOrganization,
-  Permission
-} from '@/lib/types/rbac';
+
+import { and, eq } from 'drizzle-orm';
 import { rolePermissionCache } from '@/lib/cache/role-permission-cache';
+import {
+  organizations,
+  permissions,
+  role_permissions,
+  roles,
+  user_organizations,
+  user_roles,
+  users,
+} from '@/lib/db/schema';
+import type { Permission, Role, UserContext, UserRole } from '@/lib/types/rbac';
 
 // Request-scoped cache to prevent multiple getUserContext calls per request
 const requestCache = new Map<string, Promise<UserContext | null>>();
@@ -48,7 +42,7 @@ async function getRolePermissions(roleId: string, roleName: string): Promise<Per
   // Cache miss - query database
   rbacCacheLogger.debug('Role permissions cache miss, querying database', {
     roleId,
-    roleName
+    roleName,
   });
 
   const rolePermissions = await db
@@ -61,19 +55,14 @@ async function getRolePermissions(roleId: string, roleName: string): Promise<Per
       scope: permissions.scope,
       is_active: permissions.is_active,
       created_at: permissions.created_at,
-      updated_at: permissions.updated_at
+      updated_at: permissions.updated_at,
     })
     .from(role_permissions)
     .innerJoin(permissions, eq(role_permissions.permission_id, permissions.permission_id))
-    .where(
-      and(
-        eq(role_permissions.role_id, roleId),
-        eq(permissions.is_active, true)
-      )
-    );
+    .where(and(eq(role_permissions.role_id, roleId), eq(permissions.is_active, true)));
 
   // Transform and cache the results for 24 hours
-  const transformedPermissions: Permission[] = rolePermissions.map(p => ({
+  const transformedPermissions: Permission[] = rolePermissions.map((p) => ({
     permission_id: p.permission_id,
     name: p.name,
     description: p.description || undefined,
@@ -82,9 +71,9 @@ async function getRolePermissions(roleId: string, roleName: string): Promise<Per
     scope: p.scope as 'own' | 'organization' | 'all',
     is_active: p.is_active ?? true,
     created_at: p.created_at ?? new Date(),
-    updated_at: p.updated_at ?? new Date()
+    updated_at: p.updated_at ?? new Date(),
   }));
-  
+
   rolePermissionCache.set(
     roleId,
     roleName,
@@ -109,7 +98,7 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
       is_active: users.is_active,
       email_verified: users.email_verified,
       created_at: users.created_at,
-      updated_at: users.updated_at
+      updated_at: users.updated_at,
     })
     .from(users)
     .where(eq(users.user_id, userId))
@@ -139,7 +128,7 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
       org_is_active: organizations.is_active,
       org_created_at: organizations.created_at,
       org_updated_at: organizations.updated_at,
-      org_deleted_at: organizations.deleted_at
+      org_deleted_at: organizations.deleted_at,
     })
     .from(user_organizations)
     .innerJoin(organizations, eq(user_organizations.organization_id, organizations.organization_id))
@@ -164,7 +153,7 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
       expires_at: user_roles.expires_at,
       user_role_is_active: user_roles.is_active,
       user_role_created_at: user_roles.created_at,
-      
+
       // Role info
       role_name: roles.name,
       role_description: roles.description,
@@ -173,16 +162,12 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
       role_is_active: roles.is_active,
       role_created_at: roles.created_at,
       role_updated_at: roles.updated_at,
-      role_deleted_at: roles.deleted_at
+      role_deleted_at: roles.deleted_at,
     })
     .from(user_roles)
     .innerJoin(roles, eq(user_roles.role_id, roles.role_id))
     .where(
-      and(
-        eq(user_roles.user_id, userId),
-        eq(user_roles.is_active, true),
-        eq(roles.is_active, true)
-      )
+      and(eq(user_roles.user_id, userId), eq(user_roles.is_active, true), eq(roles.is_active, true))
     );
 
   // 4. Transform data into structured format
@@ -206,7 +191,7 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
         created_at: row.role_created_at ?? new Date(),
         updated_at: row.role_updated_at ?? new Date(),
         deleted_at: row.role_deleted_at || undefined,
-        permissions
+        permissions,
       });
     }
 
@@ -224,14 +209,14 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
           expires_at: row.expires_at || undefined,
           is_active: row.user_role_is_active ?? true,
           created_at: row.user_role_created_at ?? new Date(),
-          role: role
+          role: role,
         });
       }
     }
   }
 
   // 5. Transform organizations
-  const organizationsArray = userOrgs.map(org => ({
+  const organizationsArray = userOrgs.map((org) => ({
     organization_id: org.organization_id,
     name: org.org_name,
     slug: org.org_slug,
@@ -239,30 +224,33 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
     is_active: org.org_is_active ?? true,
     created_at: org.org_created_at ?? new Date(),
     updated_at: org.org_updated_at ?? new Date(),
-    deleted_at: org.org_deleted_at || undefined
+    deleted_at: org.org_deleted_at || undefined,
   }));
 
   // 6. Get all unique permissions across all roles (O(1) deduplication with Set)
   const uniquePermissionsMap = new Map<string, Permission>();
-  Array.from(rolesMap.values()).forEach(role => {
-    role.permissions.forEach(permission => {
+  Array.from(rolesMap.values()).forEach((role) => {
+    role.permissions.forEach((permission) => {
       uniquePermissionsMap.set(permission.permission_id, permission);
     });
   });
   const allPermissions = Array.from(uniquePermissionsMap.values());
 
   // 7. Determine admin status
-  const isSuperAdmin = Array.from(rolesMap.values()).some(role => 
-    role.is_system_role && role.name === 'super_admin'
+  const isSuperAdmin = Array.from(rolesMap.values()).some(
+    (role) => role.is_system_role && role.name === 'super_admin'
   );
 
   const organizationAdminFor = Array.from(rolesMap.values())
-    .filter(role => 
-      !role.is_system_role && 
-      role.name === 'practice_admin' && 
-      role.organization_id
+    .filter(
+      (role) => !role.is_system_role && role.name === 'practice_admin' && role.organization_id
     )
-    .map(role => role.organization_id!)
+    .map((role) => {
+      if (!role.organization_id) {
+        throw new Error('Organization ID required for practice_admin role');
+      }
+      return role.organization_id;
+    })
     .filter(Boolean);
 
   // 8. Build final user context
@@ -274,28 +262,28 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
     last_name: user.last_name,
     is_active: user.is_active,
     email_verified: user.email_verified ?? false,
-    
+
     // RBAC information
     roles: Array.from(rolesMap.values()),
     organizations: organizationsArray,
     accessible_organizations: organizationsArray, // For now, same as organizations
     user_roles: Array.from(userRolesMap.values()),
-    user_organizations: userOrgs.map(org => ({
+    user_organizations: userOrgs.map((org) => ({
       user_organization_id: org.user_organization_id,
       user_id: org.user_id,
       organization_id: org.organization_id,
       is_active: org.is_active ?? true,
       joined_at: org.joined_at ?? new Date(),
-      created_at: org.created_at ?? new Date()
+      created_at: org.created_at ?? new Date(),
     })),
-    
+
     // Current context
     current_organization_id: userOrgs[0]?.organization_id || undefined,
-    
+
     // Computed properties
     all_permissions: allPermissions,
     is_super_admin: isSuperAdmin,
-    organization_admin_for: organizationAdminFor
+    organization_admin_for: organizationAdminFor,
   };
 
   return userContext;
@@ -306,7 +294,7 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
  */
 export async function getCachedUserContextSafe(userId: string): Promise<UserContext | null> {
   const isDev = process.env.NODE_ENV === 'development';
-  
+
   // Check request-scoped cache first
   const cacheKey = `cached_user_context:${userId}`;
   if (requestCache.has(cacheKey)) {
@@ -315,7 +303,7 @@ export async function getCachedUserContextSafe(userId: string): Promise<UserCont
       if (isDev) {
         rbacCacheLogger.debug('Request-scoped user context cache hit', {
           userId,
-          operation: 'getCachedUserContext'
+          operation: 'getCachedUserContext',
         });
       }
       return cachedContext;
@@ -325,7 +313,7 @@ export async function getCachedUserContextSafe(userId: string): Promise<UserCont
       rbacCacheLogger.warn('Request cache had key but returned null value', { userId, cacheKey });
     }
   }
-  
+
   // Create promise and cache it immediately to prevent race conditions
   const contextPromise = (async (): Promise<UserContext | null> => {
     try {
@@ -337,7 +325,7 @@ export async function getCachedUserContextSafe(userId: string): Promise<UserCont
           rolesCount: context.roles?.length || 0,
           permissionsCount: context.all_permissions?.length || 0,
           organizationsCount: context.organizations?.length || 0,
-          cacheStats: stats
+          cacheStats: stats,
         });
       }
       return context;
@@ -345,7 +333,7 @@ export async function getCachedUserContextSafe(userId: string): Promise<UserCont
       rbacCacheLogger.error('Failed to get cached user context', {
         userId,
         error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
+        stack: error instanceof Error ? error.stack : undefined,
       });
       return null;
     } finally {
@@ -355,7 +343,7 @@ export async function getCachedUserContextSafe(userId: string): Promise<UserCont
       }, 1000); // Clean up after 1 second
     }
   })();
-  
+
   requestCache.set(cacheKey, contextPromise);
   return await contextPromise;
 }

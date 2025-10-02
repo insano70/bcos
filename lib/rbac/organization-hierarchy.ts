@@ -1,6 +1,6 @@
+import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { organizations } from '@/lib/db/schema';
-import { eq, isNull, and } from 'drizzle-orm';
 import type { Organization } from '@/lib/types/rbac';
 
 /**
@@ -44,7 +44,7 @@ async function traverseOrganizationTree(
       is_active: organizations.is_active,
       created_at: organizations.created_at,
       updated_at: organizations.updated_at,
-      deleted_at: organizations.deleted_at
+      deleted_at: organizations.deleted_at,
     })
     .from(organizations)
     .where(
@@ -69,7 +69,7 @@ async function traverseOrganizationTree(
     is_active: org.is_active ?? true,
     created_at: org.created_at ?? new Date(),
     updated_at: org.updated_at ?? new Date(),
-    deleted_at: org.deleted_at || undefined
+    deleted_at: org.deleted_at || undefined,
   });
 
   // Get all child organizations
@@ -82,7 +82,7 @@ async function traverseOrganizationTree(
       is_active: organizations.is_active,
       created_at: organizations.created_at,
       updated_at: organizations.updated_at,
-      deleted_at: organizations.deleted_at
+      deleted_at: organizations.deleted_at,
     })
     .from(organizations)
     .where(
@@ -116,7 +116,7 @@ export async function getOrganizationAncestors(organizationId: string): Promise<
         is_active: organizations.is_active,
         created_at: organizations.created_at,
         updated_at: organizations.updated_at,
-        deleted_at: organizations.deleted_at
+        deleted_at: organizations.deleted_at,
       })
       .from(organizations)
       .where(
@@ -140,7 +140,7 @@ export async function getOrganizationAncestors(organizationId: string): Promise<
       is_active: org.is_active ?? true,
       created_at: org.created_at ?? new Date(),
       updated_at: org.updated_at ?? new Date(),
-      deleted_at: org.deleted_at || undefined
+      deleted_at: org.deleted_at || undefined,
     });
 
     currentId = org.parent_organization_id;
@@ -162,7 +162,7 @@ export async function getOrganizationChildren(organizationId: string): Promise<O
       is_active: organizations.is_active,
       created_at: organizations.created_at,
       updated_at: organizations.updated_at,
-      deleted_at: organizations.deleted_at
+      deleted_at: organizations.deleted_at,
     })
     .from(organizations)
     .where(
@@ -173,7 +173,7 @@ export async function getOrganizationChildren(organizationId: string): Promise<O
       )
     );
 
-  return children.map(org => ({
+  return children.map((org) => ({
     organization_id: org.organization_id,
     name: org.name,
     slug: org.slug,
@@ -181,7 +181,7 @@ export async function getOrganizationChildren(organizationId: string): Promise<O
     is_active: org.is_active ?? true,
     created_at: org.created_at ?? new Date(),
     updated_at: org.updated_at ?? new Date(),
-    deleted_at: org.deleted_at || undefined
+    deleted_at: org.deleted_at || undefined,
   }));
 }
 
@@ -197,7 +197,7 @@ export async function isOrganizationDescendant(
   }
 
   const ancestors = await getOrganizationAncestors(childId);
-  return ancestors.some(ancestor => ancestor.organization_id === ancestorId);
+  return ancestors.some((ancestor) => ancestor.organization_id === ancestorId);
 }
 
 /**
@@ -213,7 +213,7 @@ export async function getRootOrganizations(): Promise<Organization[]> {
       is_active: organizations.is_active,
       created_at: organizations.created_at,
       updated_at: organizations.updated_at,
-      deleted_at: organizations.deleted_at
+      deleted_at: organizations.deleted_at,
     })
     .from(organizations)
     .where(
@@ -224,7 +224,7 @@ export async function getRootOrganizations(): Promise<Organization[]> {
       )
     );
 
-  return rootOrgs.map(org => ({
+  return rootOrgs.map((org) => ({
     organization_id: org.organization_id,
     name: org.name,
     slug: org.slug,
@@ -232,7 +232,7 @@ export async function getRootOrganizations(): Promise<Organization[]> {
     is_active: org.is_active ?? true,
     created_at: org.created_at ?? new Date(),
     updated_at: org.updated_at ?? new Date(),
-    deleted_at: org.deleted_at || undefined
+    deleted_at: org.deleted_at || undefined,
   }));
 }
 
@@ -251,7 +251,7 @@ export async function validateOrganizationHierarchy(
   if (organizationId === newParentId) {
     return {
       valid: false,
-      error: 'Organization cannot be its own parent'
+      error: 'Organization cannot be its own parent',
     };
   }
 
@@ -260,7 +260,7 @@ export async function validateOrganizationHierarchy(
   if (isDescendant) {
     return {
       valid: false,
-      error: 'Cannot set descendant organization as parent (would create cycle)'
+      error: 'Cannot set descendant organization as parent (would create cycle)',
     };
   }
 
@@ -280,7 +280,7 @@ export async function validateOrganizationHierarchy(
   if (!parentOrg) {
     return {
       valid: false,
-      error: 'Parent organization not found or inactive'
+      error: 'Parent organization not found or inactive',
     };
   }
 
@@ -303,9 +303,11 @@ export interface OrganizationTreeNode extends Organization {
   depth: number;
 }
 
-export async function getOrganizationTree(rootOrganizationId?: string): Promise<OrganizationTreeNode[]> {
+export async function getOrganizationTree(
+  rootOrganizationId?: string
+): Promise<OrganizationTreeNode[]> {
   const rootOrgs = rootOrganizationId
-    ? [await getOrganizationById(rootOrganizationId)].filter(Boolean) as Organization[]
+    ? ([await getOrganizationById(rootOrganizationId)].filter(Boolean) as Organization[])
     : await getRootOrganizations();
 
   const tree: OrganizationTreeNode[] = [];
@@ -343,7 +345,7 @@ async function buildOrganizationTreeNode(
   return {
     ...org,
     children: childNodes,
-    depth
+    depth,
   };
 }
 
@@ -360,7 +362,7 @@ async function getOrganizationById(organizationId: string): Promise<Organization
       is_active: organizations.is_active,
       created_at: organizations.created_at,
       updated_at: organizations.updated_at,
-      deleted_at: organizations.deleted_at
+      deleted_at: organizations.deleted_at,
     })
     .from(organizations)
     .where(
@@ -384,6 +386,6 @@ async function getOrganizationById(organizationId: string): Promise<Organization
     is_active: org.is_active ?? true,
     created_at: org.created_at ?? new Date(),
     updated_at: org.updated_at ?? new Date(),
-    deleted_at: org.deleted_at || undefined
+    deleted_at: org.deleted_at || undefined,
   };
 }

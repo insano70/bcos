@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
-import { createRBACMiddleware } from './middleware';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import type { PermissionName, UserContext } from '@/lib/types/rbac';
+import { createRBACMiddleware } from './middleware';
 
 /**
  * Route Protection Decorators and Helpers
@@ -19,9 +19,14 @@ export function withRBAC(permission: PermissionName | PermissionName[]) {
   ) => {
     const middleware = createRBACMiddleware(permission);
 
-    return async function (this: unknown, request: NextRequest, userContext?: UserContext, ...args: unknown[]) {
+    return async function (
+      this: unknown,
+      request: NextRequest,
+      userContext?: UserContext,
+      ...args: unknown[]
+    ) {
       const middlewareResult = await middleware(request, userContext);
-      
+
       if ('success' in middlewareResult && middlewareResult.success) {
         // Permission granted - call original method
         return target.call(this, request, middlewareResult.userContext, ...args);
@@ -41,39 +46,53 @@ export function requirePermissions(
   requireAll = false
 ) {
   return (
-    handler: (request: NextRequest, userContext: UserContext, ...args: unknown[]) => Promise<Response>
+    handler: (
+      request: NextRequest,
+      userContext: UserContext,
+      ...args: unknown[]
+    ) => Promise<Response>
   ) => {
     const middleware = createRBACMiddleware(permissions, { requireAll });
-    
-    return async (request: NextRequest, userContext?: UserContext, ...args: unknown[]): Promise<Response> => {
+
+    return async (
+      request: NextRequest,
+      userContext?: UserContext,
+      ...args: unknown[]
+    ): Promise<Response> => {
       if (!userContext) {
         // If no user context provided, try to get it from session
         const authHeader = request.headers.get('Authorization');
         if (!authHeader?.startsWith('Bearer ')) {
-          return new Response(JSON.stringify({
-            success: false,
-            error: 'Authentication required',
-            code: 'AUTHENTICATION_REQUIRED'
-          }), { 
-            status: 401,
-            headers: { 'Content-Type': 'application/json' }
-          });
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Authentication required',
+              code: 'AUTHENTICATION_REQUIRED',
+            }),
+            {
+              status: 401,
+              headers: { 'Content-Type': 'application/json' },
+            }
+          );
         }
 
         // Extract user from existing auth system
         // This would need to be implemented based on your token validation
-        return new Response(JSON.stringify({
-          success: false,
-          error: 'User context not available',
-          code: 'USER_CONTEXT_MISSING'
-        }), { 
-          status: 500,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'User context not available',
+            code: 'USER_CONTEXT_MISSING',
+          }),
+          {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        );
       }
 
       const middlewareResult = await middleware(request, userContext);
-      
+
       if ('success' in middlewareResult && middlewareResult.success) {
         return await handler(request, middlewareResult.userContext, ...args);
       } else {
@@ -94,7 +113,10 @@ export const PermissionGuards = {
   canCreateUsers: requirePermissions(['users:create:organization']),
   canUpdateUsers: requirePermissions(['users:update:own', 'users:update:organization']),
   canDeleteUsers: requirePermissions(['users:delete:organization']),
-  canManageUsers: requirePermissions(['users:create:organization', 'users:update:organization', 'users:delete:organization'], true),
+  canManageUsers: requirePermissions(
+    ['users:create:organization', 'users:update:organization', 'users:delete:organization'],
+    true
+  ),
 
   /**
    * Check practice management permissions
@@ -115,7 +137,11 @@ export const PermissionGuards = {
    * Check role management permissions
    */
   canReadRoles: requirePermissions(['roles:read:organization']),
-  canManageRoles: requirePermissions(['roles:create:organization', 'roles:update:organization', 'roles:delete:organization']),
+  canManageRoles: requirePermissions([
+    'roles:create:organization',
+    'roles:update:organization',
+    'roles:delete:organization',
+  ]),
 
   /**
    * Check system administration permissions
@@ -139,7 +165,7 @@ export const PermissionGuards = {
    * Check API access permissions
    */
   canReadAPI: requirePermissions(['api:read:organization']),
-  canWriteAPI: requirePermissions(['api:write:organization'])
+  canWriteAPI: requirePermissions(['api:write:organization']),
 };
 
 /**
@@ -149,38 +175,68 @@ export const RouteProtection = {
   /**
    * Protect user profile routes
    */
-  userProfile: (handler: (request: NextRequest, userContext: UserContext, ...args: unknown[]) => Promise<Response>) =>
-    requirePermissions('users:read:own')(handler),
+  userProfile: (
+    handler: (
+      request: NextRequest,
+      userContext: UserContext,
+      ...args: unknown[]
+    ) => Promise<Response>
+  ) => requirePermissions('users:read:own')(handler),
 
   /**
    * Protect user management routes
    */
-  userManagement: (handler: (request: NextRequest, userContext: UserContext, ...args: unknown[]) => Promise<Response>) =>
-    requirePermissions(['users:read:organization', 'users:read:all'])(handler),
+  userManagement: (
+    handler: (
+      request: NextRequest,
+      userContext: UserContext,
+      ...args: unknown[]
+    ) => Promise<Response>
+  ) => requirePermissions(['users:read:organization', 'users:read:all'])(handler),
 
   /**
    * Protect practice management routes
    */
-  practiceManagement: (handler: (request: NextRequest, userContext: UserContext, ...args: unknown[]) => Promise<Response>) =>
-    requirePermissions(['practices:read:own', 'practices:read:all'])(handler),
+  practiceManagement: (
+    handler: (
+      request: NextRequest,
+      userContext: UserContext,
+      ...args: unknown[]
+    ) => Promise<Response>
+  ) => requirePermissions(['practices:read:own', 'practices:read:all'])(handler),
 
   /**
    * Protect analytics routes
    */
-  analytics: (handler: (request: NextRequest, userContext: UserContext, ...args: unknown[]) => Promise<Response>) =>
-    requirePermissions(['analytics:read:organization', 'analytics:read:all'])(handler),
+  analytics: (
+    handler: (
+      request: NextRequest,
+      userContext: UserContext,
+      ...args: unknown[]
+    ) => Promise<Response>
+  ) => requirePermissions(['analytics:read:organization', 'analytics:read:all'])(handler),
 
   /**
    * Protect system administration routes
    */
-  systemAdmin: (handler: (request: NextRequest, userContext: UserContext, ...args: unknown[]) => Promise<Response>) =>
-    requirePermissions(['users:read:all', 'practices:read:all'], true)(handler),
+  systemAdmin: (
+    handler: (
+      request: NextRequest,
+      userContext: UserContext,
+      ...args: unknown[]
+    ) => Promise<Response>
+  ) => requirePermissions(['users:read:all', 'practices:read:all'], true)(handler),
 
   /**
    * Protect organization administration routes
    */
-  orgAdmin: (handler: (request: NextRequest, userContext: UserContext, ...args: unknown[]) => Promise<Response>) =>
-    requirePermissions(['users:create:organization', 'practices:update:own'])(handler)
+  orgAdmin: (
+    handler: (
+      request: NextRequest,
+      userContext: UserContext,
+      ...args: unknown[]
+    ) => Promise<Response>
+  ) => requirePermissions(['users:create:organization', 'practices:update:own'])(handler),
 };
 
 /**
@@ -191,22 +247,30 @@ export function protectOwnResource(
   resourceIdExtractor: (request: NextRequest) => string | undefined
 ) {
   return (
-    handler: (request: NextRequest, userContext: UserContext, ...args: unknown[]) => Promise<Response>
-  ) => requirePermissions([permission])(
+    handler: (
+      request: NextRequest,
+      userContext: UserContext,
+      ...args: unknown[]
+    ) => Promise<Response>
+  ) =>
+    requirePermissions([permission])(
       async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
         const resourceId = resourceIdExtractor(request);
-        
+
         // For 'own' scope permissions, verify the resource belongs to the user
         if (permission.endsWith(':own') && resourceId && resourceId !== userContext.user_id) {
-          return new Response(JSON.stringify({
-            success: false,
-            error: 'Forbidden',
-            message: 'Can only access your own resources',
-            code: 'RESOURCE_ACCESS_DENIED'
-          }), {
-            status: 403,
-            headers: { 'Content-Type': 'application/json' }
-          });
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: 'Forbidden',
+              message: 'Can only access your own resources',
+              code: 'RESOURCE_ACCESS_DENIED',
+            }),
+            {
+              status: 403,
+              headers: { 'Content-Type': 'application/json' },
+            }
+          );
         }
 
         return await handler(request, userContext, ...args);
@@ -221,41 +285,71 @@ export const createProtectedRoute = {
   /**
    * User-specific routes with automatic user ID extraction
    */
-  forUser: (permission: PermissionName | PermissionName[]) => 
-    (handler: (request: NextRequest, userContext: UserContext, ...args: unknown[]) => Promise<Response>) =>
+  forUser:
+    (permission: PermissionName | PermissionName[]) =>
+    (
+      handler: (
+        request: NextRequest,
+        userContext: UserContext,
+        ...args: unknown[]
+      ) => Promise<Response>
+    ) =>
       rbacRoute(handler, {
         permission,
         extractResourceId: (request: NextRequest) => {
           const pathSegments = request.nextUrl.pathname.split('/');
           const userIndex = pathSegments.findIndex((segment: string) => segment === 'users');
-          return userIndex >= 0 && pathSegments[userIndex + 1] ? pathSegments[userIndex + 1] : undefined;
-        }
+          return userIndex >= 0 && pathSegments[userIndex + 1]
+            ? pathSegments[userIndex + 1]
+            : undefined;
+        },
       }),
 
   /**
    * Practice-specific routes with automatic practice ID extraction
    */
-  forPractice: (permission: PermissionName | PermissionName[]) =>
-    (handler: (request: NextRequest, userContext: UserContext, ...args: unknown[]) => Promise<Response>) =>
+  forPractice:
+    (permission: PermissionName | PermissionName[]) =>
+    (
+      handler: (
+        request: NextRequest,
+        userContext: UserContext,
+        ...args: unknown[]
+      ) => Promise<Response>
+    ) =>
       rbacRoute(handler, {
         permission,
         extractResourceId: (request: NextRequest) => {
           const pathSegments = request.nextUrl.pathname.split('/');
-          const practiceIndex = pathSegments.findIndex((segment: string) => segment === 'practices');
-          return practiceIndex >= 0 && pathSegments[practiceIndex + 1] ? pathSegments[practiceIndex + 1] : undefined;
-        }
+          const practiceIndex = pathSegments.findIndex(
+            (segment: string) => segment === 'practices'
+          );
+          return practiceIndex >= 0 && pathSegments[practiceIndex + 1]
+            ? pathSegments[practiceIndex + 1]
+            : undefined;
+        },
       }),
 
   /**
    * Organization-scoped routes
    */
-  forOrganization: (permission: PermissionName | PermissionName[]) =>
-    (handler: (request: NextRequest, userContext: UserContext, ...args: unknown[]) => Promise<Response>) =>
+  forOrganization:
+    (permission: PermissionName | PermissionName[]) =>
+    (
+      handler: (
+        request: NextRequest,
+        userContext: UserContext,
+        ...args: unknown[]
+      ) => Promise<Response>
+    ) =>
       rbacRoute(handler, {
         permission,
         extractOrganizationId: (request: NextRequest) => {
-          return request.nextUrl.searchParams.get('organizationId') || 
-                 request.headers.get('x-organization-id') || undefined;
-        }
-      })
+          return (
+            request.nextUrl.searchParams.get('organizationId') ||
+            request.headers.get('x-organization-id') ||
+            undefined
+          );
+        },
+      }),
 };

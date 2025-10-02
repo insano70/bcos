@@ -26,14 +26,10 @@ interface ChartsTableProps {
 
 export default function ChartsTable({ charts, onEdit, onDelete }: ChartsTableProps) {
   // Map charts to have 'id' property for useItemSelection
-  const chartsWithId = charts.map(chart => ({ ...chart, id: chart.chart_definition_id }));
-  
-  const {
-    selectedItems,
-    isAllSelected,
-    handleCheckboxChange,
-    handleSelectAllChange,
-  } = useItemSelection(chartsWithId);
+  const chartsWithId = charts.map((chart) => ({ ...chart, id: chart.chart_definition_id }));
+
+  const { selectedItems, isAllSelected, handleCheckboxChange, handleSelectAllChange } =
+    useItemSelection(chartsWithId);
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl relative">
@@ -41,7 +37,7 @@ export default function ChartsTable({ charts, onEdit, onDelete }: ChartsTablePro
         <h2 className="font-semibold text-gray-800 dark:text-gray-100">
           All Charts{' '}
           <span className="text-gray-400 dark:text-gray-500 font-medium">
-            {charts.filter(chart => chart.is_active !== false).length}
+            {charts.filter((chart) => chart.is_active !== false).length}
           </span>
         </h2>
       </header>
@@ -96,9 +92,7 @@ export default function ChartsTable({ charts, onEdit, onDelete }: ChartsTablePro
               {charts.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-2 first:pl-5 last:pr-5 py-12 text-center">
-                    <div className="text-gray-500 dark:text-gray-400">
-                      📊 No charts found
-                    </div>
+                    <div className="text-gray-500 dark:text-gray-400">📊 No charts found</div>
                     <p className="text-gray-600 dark:text-gray-400 text-sm mt-2">
                       Create your first chart to get started
                     </p>

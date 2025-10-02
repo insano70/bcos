@@ -1,16 +1,15 @@
-import type { 
-  AggAppMeasure, 
-  AnalyticsQueryParams, 
+import { logger } from '@/lib/logger';
+import type {
+  AggAppMeasure,
+  AnalyticsQueryParams,
   AnalyticsQueryResult,
   ChartFilter,
   ChartFilterValue,
-  ChartOrderBy,
-  ChartRenderContext 
+  ChartRenderContext,
 } from '@/lib/types/analytics';
-import { executeAnalyticsQuery } from './analytics-db';
 import { analyticsCache } from './analytics-cache';
+import { executeAnalyticsQuery } from './analytics-db';
 import { chartConfigService } from './chart-config-service';
-import { logger } from '@/lib/logger';
 
 /**
  * Secure Query Builder for Analytics Database
@@ -35,7 +34,7 @@ const ALLOWED_OPERATORS = {
   in: 'IN',
   not_in: 'NOT IN',
   like: 'ILIKE',
-  between: 'BETWEEN'
+  between: 'BETWEEN',
 } as const;
 
 /**
@@ -57,7 +56,11 @@ export class AnalyticsQueryBuilder {
   /**
    * Validate field name against database configuration
    */
-  private async validateField(fieldName: string, tableName: string, schemaName: string = 'ih'): Promise<void> {
+  private async validateField(
+    fieldName: string,
+    tableName: string,
+    schemaName: string = 'ih'
+  ): Promise<void> {
     const allowedFields = await chartConfigService.getAllowedFields(tableName, schemaName);
     if (!allowedFields.includes(fieldName)) {
       throw new Error(`Unauthorized field access: ${fieldName}`);
@@ -86,7 +89,7 @@ export class AnalyticsQueryBuilder {
       if (!Array.isArray(value)) {
         throw new Error(`${operator} operator requires array value`);
       }
-      return value.map(v => this.sanitizeSingleValue(v));
+      return value.map((v) => this.sanitizeSingleValue(v));
     }
 
     // Handle BETWEEN operator
@@ -94,7 +97,7 @@ export class AnalyticsQueryBuilder {
       if (!Array.isArray(value) || value.length !== 2) {
         throw new Error('BETWEEN operator requires array with exactly 2 values');
       }
-      return value.map(v => this.sanitizeSingleValue(v));
+      return value.map((v) => this.sanitizeSingleValue(v));
     }
 
     return this.sanitizeSingleValue(value);
@@ -109,17 +112,17 @@ export class AnalyticsQueryBuilder {
       if (this.isValidDateString(value)) {
         return value;
       }
-      
+
       // Check if the string contains only safe characters
       if (this.isSafeString(value)) {
         return value; // Return as-is if safe
       }
-      
+
       // For potentially unsafe strings, only remove truly dangerous SQL injection characters
       // Be much more conservative - only remove actual SQL injection threats
       return value.replace(/[';\\x00\\n\\r\\x1a"\\]/g, '');
     }
-    
+
     if (typeof value === 'number') {
       if (!Number.isFinite(value)) {
         throw new Error('Invalid number value');
@@ -150,10 +153,13 @@ export class AnalyticsQueryBuilder {
   private isValidDateString(dateString: string): boolean {
     const regex = /^\d{4}-\d{2}-\d{2}$/;
     if (!regex.test(dateString)) return false;
-    
+
     const date = new Date(dateString);
-    return date instanceof Date && !isNaN(date.getTime()) && 
-           date.toISOString().split('T')[0] === dateString;
+    return (
+      date instanceof Date &&
+      !Number.isNaN(date.getTime()) &&
+      date.toISOString().split('T')[0] === dateString
+    );
   }
 
   /**
@@ -216,36 +222,21 @@ export class AnalyticsQueryBuilder {
   }
 
   /**
-   * Build ORDER BY clause
-   */
-  private async buildOrderByClause(orderBy: ChartOrderBy[], tableName: string = 'agg_app_measures', schemaName: string = 'ih'): Promise<string> {
-    if (orderBy.length === 0) {
-      const defaultDateField = tableName === 'agg_chart_data' ? 'date_value' : 'date_index';
-      return `ORDER BY ${defaultDateField} DESC`; // Default ordering
-    }
-
-    const orderClauses = await Promise.all(orderBy.map(async order => {
-      await this.validateField(order.field, tableName, schemaName);
-      const direction = order.direction === 'ASC' ? 'ASC' : 'DESC';
-      return `${order.field} ${direction}`;
-    }));
-
-    return `ORDER BY ${orderClauses.join(', ')}`;
-  }
-
-  /**
    * Get the measure type column name for a data source
    */
   private async getMeasureTypeColumn(dataSourceId: number): Promise<string | null> {
     try {
       // Query for the column marked as measure type indicator
-      const result = await executeAnalyticsQuery<{ column_name: string }>(`
+      const result = await executeAnalyticsQuery<{ column_name: string }>(
+        `
         SELECT column_name 
         FROM chart_data_source_columns 
         WHERE data_source_id = $1 AND is_measure_type = true AND is_active = true
         LIMIT 1
-      `, [dataSourceId]);
-      
+      `,
+        [dataSourceId]
+      );
+
       return result && result.length > 0 ? result[0]?.column_name || null : null;
     } catch (error) {
       this.logger.warn('Failed to get measure type column', { dataSourceId, error });
@@ -261,7 +252,7 @@ export class AnalyticsQueryBuilder {
     context: ChartRenderContext
   ): Promise<AnalyticsQueryResult> {
     const startTime = Date.now();
-    
+
     try {
       // If multiple series are requested, handle them separately
       if (params.multiple_series && params.multiple_series.length > 0) {
@@ -274,22 +265,26 @@ export class AnalyticsQueryBuilder {
         this.logger.info('Analytics query served from cache', {
           params,
           userId: context.user_id,
-          cacheAge: typeof cachedResult === 'object' && cachedResult !== null && 'timestamp' in cachedResult && typeof cachedResult.timestamp === 'number' 
-            ? Date.now() - cachedResult.timestamp 
-            : 0
+          cacheAge:
+            typeof cachedResult === 'object' &&
+            cachedResult !== null &&
+            'timestamp' in cachedResult &&
+            typeof cachedResult.timestamp === 'number'
+              ? Date.now() - cachedResult.timestamp
+              : 0,
         });
         return cachedResult;
       }
 
-      this.logger.info('Building analytics query', { 
+      this.logger.info('Building analytics query', {
         params: { ...params, limit: params.limit || 1000 },
         userId: context.user_id,
         contextPractices: context.accessible_practices,
-        contextProviders: context.accessible_providers
+        contextProviders: context.accessible_providers,
       });
 
       // Get data source configuration if data_source_id is provided
-      let dataSourceConfig = null;
+      let _dataSourceConfig = null;
       let tableName = 'agg_app_measures'; // Default fallback for backwards compatibility
       let schemaName = 'ih';
 
@@ -297,17 +292,17 @@ export class AnalyticsQueryBuilder {
         // Load data source directly from database using chart config service
         const { db, chart_data_sources } = await import('@/lib/db');
         const { eq } = await import('drizzle-orm');
-        
+
         const [dataSource] = await db
           .select()
           .from(chart_data_sources)
           .where(eq(chart_data_sources.data_source_id, params.data_source_id))
           .limit(1);
-        
+
         if (dataSource) {
           tableName = dataSource.table_name;
           schemaName = dataSource.schema_name;
-          dataSourceConfig = await chartConfigService.getDataSourceConfig(tableName, schemaName);
+          _dataSourceConfig = await chartConfigService.getDataSourceConfig(tableName, schemaName);
         }
       }
 
@@ -316,39 +311,39 @@ export class AnalyticsQueryBuilder {
 
       // Build filters from params - use column mappings if available
       const filters: ChartFilter[] = [];
-      
+
       // Define field mappings based on table type
       const mainDateField = tableName === 'agg_chart_data' ? 'date_value' : 'date_index';
       const mainFrequencyField = tableName === 'agg_chart_data' ? 'time_period' : 'frequency';
-      
+
       if (params.measure) {
         filters.push({ field: 'measure', operator: 'eq', value: params.measure });
       }
-      
+
       if (params.frequency) {
         filters.push({ field: mainFrequencyField, operator: 'eq', value: params.frequency });
       }
-      
+
       if (params.practice) {
         filters.push({ field: 'practice', operator: 'eq', value: params.practice });
       }
-      
+
       if (params.practice_primary) {
         filters.push({ field: 'practice_primary', operator: 'eq', value: params.practice_primary });
       }
-      
+
       if (params.practice_uid) {
         filters.push({ field: 'practice_uid', operator: 'eq', value: params.practice_uid });
       }
-      
+
       if (params.provider_name) {
         filters.push({ field: 'provider_name', operator: 'eq', value: params.provider_name });
       }
-      
+
       if (params.start_date) {
         filters.push({ field: mainDateField, operator: 'gte', value: params.start_date });
       }
-      
+
       if (params.end_date) {
         filters.push({ field: mainDateField, operator: 'lte', value: params.end_date });
       }
@@ -360,14 +355,19 @@ export class AnalyticsQueryBuilder {
       }
 
       // Build WHERE clause with security context
-      const { clause: whereClause, params: queryParams } = await this.buildWhereClause(filters, context, tableName, schemaName);
+      const { clause: whereClause, params: queryParams } = await this.buildWhereClause(
+        filters,
+        context,
+        tableName,
+        schemaName
+      );
 
       // Build complete query for pre-aggregated data
       // Build the query with dynamic table name and column mapping
       const mainQueryDateField = tableName === 'agg_chart_data' ? 'date_value' : 'date_index';
       const valueField = tableName === 'agg_chart_data' ? 'numeric_value' : 'measure_value';
       const mainQueryFrequencyField = tableName === 'agg_chart_data' ? 'time_period' : 'frequency';
-      
+
       // Get the dynamic measure type column name for this data source
       let measureTypeColumn = 'measure_type'; // Default fallback
       if (params.data_source_id) {
@@ -376,7 +376,7 @@ export class AnalyticsQueryBuilder {
           measureTypeColumn = dynamicMeasureTypeColumn;
         }
       }
-      
+
       const query = `
         SELECT 
           practice,
@@ -411,18 +411,18 @@ export class AnalyticsQueryBuilder {
       `;
 
       const totalResult = await executeAnalyticsQuery<{ total: string; measure_type: string }>(
-        totalQuery, 
+        totalQuery,
         queryParams // Use all params since we removed LIMIT/OFFSET
       );
 
       const queryTime = Date.now() - startTime;
-      
+
       // Calculate appropriate total based on measure_type
       let totalCount = 0;
       if (totalResult.length > 0) {
         const firstResult = totalResult[0];
         totalCount = parseInt(firstResult?.total || '0', 10);
-        
+
         // Total calculation completed
       }
 
@@ -430,7 +430,7 @@ export class AnalyticsQueryBuilder {
         data,
         total_count: totalCount,
         query_time_ms: queryTime,
-        cache_hit: false
+        cache_hit: false,
       };
 
       // Cache the result
@@ -441,19 +441,18 @@ export class AnalyticsQueryBuilder {
         resultCount: data.length,
         totalCount,
         userId: context.user_id,
-        cached: true
+        cached: true,
       });
 
       return result;
-
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error('Analytics query failed', { 
+      this.logger.error('Analytics query failed', {
         error: errorMessage,
         params,
-        userId: context.user_id
+        userId: context.user_id,
       });
-      
+
       throw new Error(`Query execution failed: ${errorMessage}`);
     }
   }
@@ -466,15 +465,15 @@ export class AnalyticsQueryBuilder {
     context: ChartRenderContext
   ): Promise<AnalyticsQueryResult> {
     const startTime = Date.now();
-    
+
     if (!params.multiple_series || params.multiple_series.length === 0) {
       throw new Error('Multiple series configuration is required');
     }
 
     this.logger.info('Building efficient multiple series analytics query', {
       seriesCount: params.multiple_series.length,
-      measures: params.multiple_series.map(s => s.measure),
-      userId: context.user_id
+      measures: params.multiple_series.map((s) => s.measure),
+      userId: context.user_id,
     });
 
     // Get data source configuration if data_source_id is provided
@@ -485,13 +484,13 @@ export class AnalyticsQueryBuilder {
       // Load data source directly from database using chart config service
       const { db, chart_data_sources } = await import('@/lib/db');
       const { eq } = await import('drizzle-orm');
-      
+
       const [dataSource] = await db
         .select()
         .from(chart_data_sources)
         .where(eq(chart_data_sources.data_source_id, params.data_source_id))
         .limit(1);
-      
+
       if (dataSource) {
         tableName = dataSource.table_name;
         schemaName = dataSource.schema_name;
@@ -503,42 +502,42 @@ export class AnalyticsQueryBuilder {
 
     // Build filters from params (excluding measure - we'll handle that separately)
     const filters: ChartFilter[] = [];
-    
+
     // Use column mappings based on table type
     const msDateField = tableName === 'agg_chart_data' ? 'date_value' : 'date_index';
     const msFrequencyField = tableName === 'agg_chart_data' ? 'time_period' : 'frequency';
-    
+
     // Add multiple measures using IN operator for efficiency
-    const measures = params.multiple_series.map(s => s.measure);
+    const measures = params.multiple_series.map((s) => s.measure);
     filters.push({ field: 'measure', operator: 'in', value: measures });
-    
+
     if (params.frequency) {
       filters.push({ field: msFrequencyField, operator: 'eq', value: params.frequency });
     }
-    
+
     if (params.practice) {
       filters.push({ field: 'practice', operator: 'eq', value: params.practice });
     }
-    
+
     if (params.practice_primary) {
       filters.push({ field: 'practice_primary', operator: 'eq', value: params.practice_primary });
     }
-    
+
     if (params.practice_uid) {
       filters.push({ field: 'practice_uid', operator: 'eq', value: params.practice_uid });
     }
-    
+
     if (params.provider_name) {
       filters.push({ field: 'provider_name', operator: 'eq', value: params.provider_name });
     }
-    
-      if (params.start_date) {
-        filters.push({ field: 'date_index', operator: 'gte', value: params.start_date });
-      }
-      
-      if (params.end_date) {
-        filters.push({ field: 'date_index', operator: 'lte', value: params.end_date });
-      }
+
+    if (params.start_date) {
+      filters.push({ field: 'date_index', operator: 'gte', value: params.start_date });
+    }
+
+    if (params.end_date) {
+      filters.push({ field: 'date_index', operator: 'lte', value: params.end_date });
+    }
 
     // Process advanced filters if provided
     if (params.advanced_filters) {
@@ -547,11 +546,14 @@ export class AnalyticsQueryBuilder {
     }
 
     // Build WHERE clause with security context
-    const { clause: whereClause, params: queryParams } = await this.buildWhereClause(filters, context);
+    const { clause: whereClause, params: queryParams } = await this.buildWhereClause(
+      filters,
+      context
+    );
 
     // Build complete query for pre-aggregated data with dynamic table and column mapping
     const msValueField = tableName === 'agg_chart_data' ? 'numeric_value' : 'measure_value';
-    
+
     const query = `
       SELECT 
         practice,
@@ -570,10 +572,10 @@ export class AnalyticsQueryBuilder {
 
     // Execute query
     const data = await executeAnalyticsQuery<AggAppMeasure>(query, queryParams);
-    
+
     // Add series metadata to each data point
-    const enhancedData = data.map(item => {
-      const seriesConfig = params.multiple_series!.find(s => s.measure === item.measure);
+    const enhancedData = data.map((item) => {
+      const seriesConfig = params.multiple_series?.find((s) => s.measure === item.measure);
       return {
         ...item,
         series_id: seriesConfig?.id || item.measure,
@@ -605,127 +607,10 @@ export class AnalyticsQueryBuilder {
       totalRecords: enhancedData.length,
       queryTime: result.query_time_ms,
       userId: context.user_id,
-      measuresQueried: measures
+      measuresQueried: measures,
     });
 
     return result;
-  }
-
-  /**
-   * Execute a single series query (used internally by queryMultipleSeries)
-   */
-  private async querySingleSeries(
-    params: AnalyticsQueryParams,
-    context: ChartRenderContext
-  ): Promise<AnalyticsQueryResult> {
-    // Get data source configuration if data_source_id is provided
-    let tableName = 'agg_app_measures'; // Default fallback for backwards compatibility
-    let schemaName = 'ih';
-
-    if (params.data_source_id) {
-      // Load data source directly from database
-      const { db, chart_data_sources } = await import('@/lib/db');
-      const { eq } = await import('drizzle-orm');
-      
-      const [dataSource] = await db
-        .select()
-        .from(chart_data_sources)
-        .where(eq(chart_data_sources.data_source_id, params.data_source_id))
-        .limit(1);
-      
-      if (dataSource) {
-        tableName = dataSource.table_name;
-        schemaName = dataSource.schema_name;
-      }
-    }
-
-    // Validate table access
-    await this.validateTable(tableName, schemaName);
-
-    // Build filters from params
-    const filters: ChartFilter[] = [];
-    
-    // Define field mappings based on table type
-    const dateField = tableName === 'agg_chart_data' ? 'date_value' : 'date_index';
-    const frequencyField = tableName === 'agg_chart_data' ? 'time_period' : 'frequency';
-    
-    if (params.measure) {
-      filters.push({ field: 'measure', operator: 'eq', value: params.measure });
-    }
-    
-    if (params.frequency) {
-      filters.push({ field: frequencyField, operator: 'eq', value: params.frequency });
-    }
-    
-    if (params.practice) {
-      filters.push({ field: 'practice', operator: 'eq', value: params.practice });
-    }
-    
-    if (params.practice_primary) {
-      filters.push({ field: 'practice_primary', operator: 'eq', value: params.practice_primary });
-    }
-    
-    if (params.practice_uid) {
-      filters.push({ field: 'practice_uid', operator: 'eq', value: params.practice_uid });
-    }
-    
-    if (params.provider_name) {
-      filters.push({ field: 'provider_name', operator: 'eq', value: params.provider_name });
-    }
-    
-      if (params.start_date) {
-        filters.push({ field: 'date_index', operator: 'gte', value: params.start_date });
-      }
-      
-      if (params.end_date) {
-        filters.push({ field: 'date_index', operator: 'lte', value: params.end_date });
-      }
-
-    // Process advanced filters if provided
-    if (params.advanced_filters) {
-      const advancedFilters = this.processAdvancedFilters(params.advanced_filters);
-      filters.push(...advancedFilters);
-    }
-
-    // Build WHERE clause with security context
-    const { clause: whereClause, params: queryParams } = await this.buildWhereClause(filters, context);
-
-    // Build complete query for pre-aggregated data
-    const query = `
-      SELECT 
-        practice,
-        practice_primary,
-        practice_uid,
-        provider_name,
-        measure,
-        frequency,
-        date_index,
-        measure_value,
-        measure_type
-      FROM ih.agg_app_measures
-      ${whereClause}
-      ORDER BY date_index ASC
-    `;
-
-    // Execute query
-    const data = await executeAnalyticsQuery<AggAppMeasure>(query, queryParams);
-
-    // Get total count
-    const countQuery = `
-      SELECT COUNT(*) as count
-      FROM ih.agg_app_measures
-      ${whereClause}
-    `;
-
-    const countResult = await executeAnalyticsQuery<{ count: number }>(countQuery, queryParams);
-    const totalCount = countResult[0]?.count || 0;
-
-    return {
-      data,
-      total_count: totalCount,
-      query_time_ms: 0, // Will be calculated by parent method
-      cache_hit: false,
-    };
   }
 
   /**
@@ -742,7 +627,7 @@ export class AnalyticsQueryBuilder {
 
     const startDateStr = startDate.toISOString().split('T')[0];
     const endDateStr = endDate.toISOString().split('T')[0];
-    
+
     const params: AnalyticsQueryParams = {
       measure: 'Charges by Provider',
       frequency: 'Monthly',
@@ -762,7 +647,12 @@ export class AnalyticsQueryBuilder {
   /**
    * Process advanced filters into query filters
    */
-  private processAdvancedFilters(advancedFilters: ChartFilter[] | { conditions?: Array<{ field: string; operator: string; value: unknown }> } | undefined): ChartFilter[] {
+  private processAdvancedFilters(
+    advancedFilters:
+      | ChartFilter[]
+      | { conditions?: Array<{ field: string; operator: string; value: unknown }> }
+      | undefined
+  ): ChartFilter[] {
     const filters: ChartFilter[] = [];
 
     if (!advancedFilters) {
@@ -826,9 +716,9 @@ export class AnalyticsQueryBuilder {
         }
 
         // Ensure value is compatible with ChartFilterValue
-        const chartFilterValue: ChartFilterValue = 
-          typeof value === 'string' || typeof value === 'number' || Array.isArray(value) 
-            ? value as ChartFilterValue
+        const chartFilterValue: ChartFilterValue =
+          typeof value === 'string' || typeof value === 'number' || Array.isArray(value)
+            ? (value as ChartFilterValue)
             : String(value);
 
         filters.push({

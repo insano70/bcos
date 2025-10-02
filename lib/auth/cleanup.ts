@@ -1,6 +1,6 @@
-import { TokenManager } from './token-manager'
-import { logger } from '@/lib/logger'
-import { AuditLogger } from '@/lib/api/services/audit'
+import { AuditLogger } from '@/lib/api/services/audit';
+import { logger } from '@/lib/logger';
+import { TokenManager } from './token-manager';
 
 /**
  * Token Cleanup Service
@@ -10,51 +10,51 @@ export async function runTokenCleanup(): Promise<void> {
   try {
     logger.info('Starting token cleanup process', {
       operation: 'tokenCleanup',
-      scheduled: true
-    })
+      scheduled: true,
+    });
 
-    const cleanupResult = await TokenManager.cleanupExpiredTokens()
+    const cleanupResult = await TokenManager.cleanupExpiredTokens();
 
     await AuditLogger.logSystem({
       action: 'token_cleanup',
       metadata: {
         refreshTokensCleaned: cleanupResult.refreshTokens,
         blacklistEntriesCleaned: cleanupResult.blacklistEntries,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       },
-      severity: 'low'
-    })
+      severity: 'low',
+    });
 
     logger.info('Token cleanup completed', {
       refreshTokensRemoved: cleanupResult.refreshTokens,
       blacklistEntriesRemoved: cleanupResult.blacklistEntries,
-      operation: 'tokenCleanup'
-    })
+      operation: 'tokenCleanup',
+    });
   } catch (error) {
     logger.error('Token cleanup failed', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
-      operation: 'tokenCleanup'
-    })
+      operation: 'tokenCleanup',
+    });
 
     await AuditLogger.logSystem({
       action: 'token_cleanup_failed',
       metadata: {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
       },
-      severity: 'medium'
-    })
+      severity: 'medium',
+    });
   }
 }
 
 export function scheduleTokenCleanup(): void {
-  const cleanupInterval = 6 * 60 * 60 * 1000 // 6 hours
+  const cleanupInterval = 6 * 60 * 60 * 1000; // 6 hours
   setInterval(() => {
-    void runTokenCleanup()
-  }, cleanupInterval)
+    void runTokenCleanup();
+  }, cleanupInterval);
   logger.info('Token cleanup scheduled', {
     interval: '6 hours',
     operation: 'tokenCleanup',
-    scheduled: true
-  })
+    scheduled: true,
+  });
 }

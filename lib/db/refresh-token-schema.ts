@@ -1,4 +1,13 @@
-import { pgTable, varchar, text, timestamp, boolean, integer, index, uuid } from 'drizzle-orm/pg-core'
+import {
+  boolean,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  varchar,
+} from 'drizzle-orm/pg-core';
 
 /**
  * JWT + Refresh Token Database Schema
@@ -32,7 +41,7 @@ export const refresh_tokens = pgTable(
     deviceIdx: index('idx_refresh_tokens_device').on(table.device_fingerprint),
     hashIdx: index('idx_refresh_tokens_hash').on(table.token_hash), // Fast token lookup
   })
-)
+);
 
 // Token blacklist for immediate revocation (access tokens + refresh tokens)
 export const token_blacklist = pgTable(
@@ -54,7 +63,7 @@ export const token_blacklist = pgTable(
     typeIdx: index('idx_token_blacklist_type').on(table.token_type),
     blacklistedAtIdx: index('idx_token_blacklist_blacklisted_at').on(table.blacklisted_at),
   })
-)
+);
 
 // Session tracking for device management and security monitoring
 export const user_sessions = pgTable(
@@ -81,7 +90,7 @@ export const user_sessions = pgTable(
     deviceIdx: index('idx_user_sessions_device').on(table.device_fingerprint),
     lastActivityIdx: index('idx_user_sessions_last_activity').on(table.last_activity),
   })
-)
+);
 
 // Login attempts and security audit trail
 export const login_attempts = pgTable(
@@ -107,7 +116,7 @@ export const login_attempts = pgTable(
     userIdx: index('idx_login_attempts_user_id').on(table.user_id),
     sessionIdx: index('idx_login_attempts_session_id').on(table.session_id),
   })
-)
+);
 
 // Account security state (persistent lockout, concurrent session limits)
 export const account_security = pgTable(
@@ -130,4 +139,4 @@ export const account_security = pgTable(
     lockedUntilIdx: index('idx_account_security_locked_until').on(table.locked_until),
     suspiciousIdx: index('idx_account_security_suspicious').on(table.suspicious_activity_detected),
   })
-)
+);

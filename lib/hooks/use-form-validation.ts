@@ -1,8 +1,7 @@
-import { useForm, type UseFormProps, type FieldValues, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import type { z } from 'zod';
 import { useState } from 'react';
-import type { ZodIssue } from 'zod';
+import { type FieldValues, type UseFormProps, type UseFormReturn, useForm } from 'react-hook-form';
+import type { ZodIssue, z } from 'zod';
 
 /**
  * Enhanced form validation hook with Zod integration
@@ -35,21 +34,21 @@ export function useValidatedForm<T extends FieldValues>({
     resolver: zodResolver(schema as never), // Type assertion for complex generic constraints
     mode: 'onChange', // Real-time validation
     reValidateMode: 'onChange',
-    ...formOptions
+    ...formOptions,
   });
 
   const handleSubmit = form.handleSubmit(async (data: T) => {
     try {
       setIsSubmitting(true);
       setSubmitError(null);
-      
+
       // ✅ BEST PRACTICE: Additional client-side validation with safeParse
       const result = schema.safeParse(data);
       if (!result.success) {
         const firstError = result.error.issues[0];
         throw new Error(firstError?.message || 'Validation failed');
       }
-      
+
       await onSubmit(result.data);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
@@ -67,7 +66,7 @@ export function useValidatedForm<T extends FieldValues>({
     onSubmit: handleSubmit,
     isSubmitting,
     submitError,
-    clearError
+    clearError,
   } as UseValidatedFormReturn<T>;
 }
 
@@ -82,7 +81,7 @@ export function usePasswordConfirmation(
     validate: (confirmPassword: string, formValues: Record<string, unknown>) => {
       const password = formValues[passwordFieldName];
       return password === confirmPassword || "Passwords don't match";
-    }
+    },
   };
 }
 
@@ -94,7 +93,9 @@ export function useFieldValidation<T>(schema: z.ZodSchema<T>) {
     try {
       // Create a partial schema for single field validation
       // Use type assertion with proper Zod types
-      const fieldSchema = (schema as z.ZodObject<Record<string, z.ZodTypeAny>>).pick({ [fieldName]: true } as Record<string, true>);
+      const fieldSchema = (schema as z.ZodObject<Record<string, z.ZodTypeAny>>).pick({
+        [fieldName]: true,
+      } as Record<string, true>);
       const result = fieldSchema.safeParse({ [fieldName]: value });
 
       if (!result.success) {

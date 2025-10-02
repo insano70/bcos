@@ -17,7 +17,7 @@ export const API_PERMISSIONS: Record<string, PermissionName | PermissionName[]> 
   'PUT /api/users/[id]': ['users:update:own', 'users:update:organization'],
   'DELETE /api/users/[id]': 'users:delete:organization',
 
-  // Practice Management API  
+  // Practice Management API
   'GET /api/practices': ['practices:read:own', 'practices:read:all'],
   'POST /api/practices': 'practices:create:all', // Super admin only
   'GET /api/practices/[id]': ['practices:read:own', 'practices:read:all'],
@@ -36,16 +36,25 @@ export const API_PERMISSIONS: Record<string, PermissionName | PermissionName[]> 
 
   // Analytics API
   'GET /api/admin/analytics/users': ['analytics:read:all'],
-  'GET /api/admin/analytics/practices': ['analytics:read:all'], 
+  'GET /api/admin/analytics/practices': ['analytics:read:all'],
   'GET /api/admin/analytics/system': ['analytics:read:all'],
 
   // Data Sources API
   'GET /api/admin/data-sources': ['data-sources:read:organization', 'data-sources:read:all'],
   'POST /api/admin/data-sources': ['data-sources:create:organization', 'data-sources:create:all'],
   'GET /api/admin/data-sources/[id]': ['data-sources:read:organization', 'data-sources:read:all'],
-  'PATCH /api/admin/data-sources/[id]': ['data-sources:update:organization', 'data-sources:update:all'],
-  'DELETE /api/admin/data-sources/[id]': ['data-sources:delete:organization', 'data-sources:delete:all'],
-  'POST /api/admin/data-sources/[id]/test': ['data-sources:read:organization', 'data-sources:read:all'],
+  'PATCH /api/admin/data-sources/[id]': [
+    'data-sources:update:organization',
+    'data-sources:update:all',
+  ],
+  'DELETE /api/admin/data-sources/[id]': [
+    'data-sources:delete:organization',
+    'data-sources:delete:all',
+  ],
+  'POST /api/admin/data-sources/[id]/test': [
+    'data-sources:read:organization',
+    'data-sources:read:all',
+  ],
 
   // Templates API (read-only for most users)
   'GET /api/templates': 'templates:read:organization',
@@ -74,40 +83,40 @@ export const RESOURCE_PERMISSIONS = {
   users: {
     read: ['users:read:own', 'users:read:organization', 'users:read:all'],
     create: ['users:create:organization'],
-    update: ['users:update:own', 'users:update:organization'], 
-    delete: ['users:delete:organization']
+    update: ['users:update:own', 'users:update:organization'],
+    delete: ['users:delete:organization'],
   },
   practices: {
     read: ['practices:read:own', 'practices:read:all'],
     create: ['practices:create:all'], // Super admin only
     update: ['practices:update:own'],
-    delete: ['practices:manage:all'] // Super admin only
+    delete: ['practices:manage:all'], // Super admin only
   },
   analytics: {
     read: ['analytics:read:organization', 'analytics:read:all'],
-    export: ['analytics:export:organization']
+    export: ['analytics:export:organization'],
   },
   roles: {
     read: ['roles:read:organization'],
     create: ['roles:create:organization'],
     update: ['roles:update:organization'],
-    delete: ['roles:delete:organization']
+    delete: ['roles:delete:organization'],
   },
   settings: {
     read: ['settings:read:organization', 'settings:read:all'],
-    update: ['settings:update:organization', 'settings:update:all']
+    update: ['settings:update:organization', 'settings:update:all'],
   },
   templates: {
     read: ['templates:read:organization'],
-    manage: ['templates:manage:all'] // Super admin only
+    manage: ['templates:manage:all'], // Super admin only
   },
   dataSources: {
     read: ['data-sources:read:organization', 'data-sources:read:all'],
     create: ['data-sources:create:organization', 'data-sources:create:all'],
     update: ['data-sources:update:organization', 'data-sources:update:all'],
     delete: ['data-sources:delete:organization', 'data-sources:delete:all'],
-    manage: ['data-sources:manage:all']
-  }
+    manage: ['data-sources:manage:all'],
+  },
 } as const;
 
 /**
@@ -117,7 +126,7 @@ export const ROLE_ACCESS_PATTERNS = {
   // Super Admin - Full system access
   super_admin: [
     'users:read:all',
-    'users:manage:all', 
+    'users:manage:all',
     'practices:create:all',
     'practices:read:all',
     'practices:manage:all',
@@ -130,7 +139,7 @@ export const ROLE_ACCESS_PATTERNS = {
     'roles:manage:all',
     'settings:read:all',
     'settings:update:all',
-    'templates:manage:all'
+    'templates:manage:all',
   ],
 
   // Practice Admin - Full practice management
@@ -158,7 +167,7 @@ export const ROLE_ACCESS_PATTERNS = {
     'settings:update:organization',
     'templates:read:organization',
     'api:read:organization',
-    'api:write:organization'
+    'api:write:organization',
   ],
 
   // Practice Manager - Staff and operations
@@ -177,7 +186,7 @@ export const ROLE_ACCESS_PATTERNS = {
     'roles:read:organization',
     'settings:read:organization',
     'templates:read:organization',
-    'api:read:organization'
+    'api:read:organization',
   ],
 
   // Practice Staff - Basic access
@@ -188,7 +197,7 @@ export const ROLE_ACCESS_PATTERNS = {
     'practices:read:own',
     'analytics:read:organization',
     'data-sources:read:organization',
-    'templates:read:organization'
+    'templates:read:organization',
   ],
 
   // Practice User - Minimal access
@@ -197,8 +206,8 @@ export const ROLE_ACCESS_PATTERNS = {
     'users:update:own',
     'practices:read:own',
     'data-sources:read:organization',
-    'templates:read:organization'
-  ]
+    'templates:read:organization',
+  ],
 } as const;
 
 /**
@@ -215,42 +224,32 @@ export const ENDPOINT_CATEGORIES = {
     '/api/auth/refresh',
     '/api/auth/logout',
     '/api/csrf',
-    '/api/webhooks/*'
+    '/api/webhooks/*',
   ],
 
   // User management endpoints
-  user_management: [
-    '/api/users',
-    '/api/users/[id]',
-    '/api/auth/sessions'
-  ],
+  user_management: ['/api/users', '/api/users/[id]', '/api/auth/sessions'],
 
   // Practice management endpoints
   practice_management: [
     '/api/practices',
     '/api/practices/[id]',
     '/api/practices/[id]/attributes',
-    '/api/practices/[id]/staff'
+    '/api/practices/[id]/staff',
   ],
 
   // Analytics endpoints
   analytics: [
     '/api/admin/analytics/users',
-    '/api/admin/analytics/practices', 
-    '/api/admin/analytics/system'
+    '/api/admin/analytics/practices',
+    '/api/admin/analytics/system',
   ],
 
   // System administration endpoints
-  admin_only: [
-    '/api/admin/*',
-    '/api/templates',
-    '/api/upload'
-  ],
+  admin_only: ['/api/admin/*', '/api/templates', '/api/upload'],
 
   // Utility endpoints
-  utility: [
-    '/api/search'
-  ]
+  utility: ['/api/search'],
 } as const;
 
 /**
@@ -261,40 +260,33 @@ export const SECURITY_LEVELS = {
   public: ENDPOINT_CATEGORIES.public,
 
   // Level 2: Authenticated user access
-  authenticated: [
-    '/api/search',
-    '/api/templates'
-  ],
+  authenticated: ['/api/search', '/api/templates'],
 
   // Level 3: Organization member access
   organization_member: [
     '/api/users',
     '/api/practices',
     '/api/practices/[id]',
-    '/api/practices/[id]/attributes'
+    '/api/practices/[id]/attributes',
   ],
 
   // Level 4: Organization admin access
-  organization_admin: [
-    '/api/users',
-    '/api/practices/[id]/staff',
-    '/api/practices/[id]/attributes'
-  ],
+  organization_admin: ['/api/users', '/api/practices/[id]/staff', '/api/practices/[id]/attributes'],
 
   // Level 5: Super admin access
   super_admin: [
     '/api/admin/*',
     '/api/practices', // Create new practices
     '/api/templates', // Manage templates
-    '/api/upload'
-  ]
+    '/api/upload',
+  ],
 } as const;
 
 /**
  * Helper function to get required permissions for an endpoint
  */
 export function getRequiredPermissions(
-  method: string, 
+  method: string,
   pathname: string
 ): PermissionName | PermissionName[] | null {
   const key = `${method} ${pathname}`;
@@ -305,7 +297,7 @@ export function getRequiredPermissions(
  * Check if endpoint is public (no auth required)
  */
 export function isPublicEndpoint(pathname: string): boolean {
-  return ENDPOINT_CATEGORIES.public.some(publicPath => {
+  return ENDPOINT_CATEGORIES.public.some((publicPath) => {
     if (publicPath.endsWith('/*')) {
       return pathname.startsWith(publicPath.slice(0, -2));
     }
@@ -318,20 +310,22 @@ export function isPublicEndpoint(pathname: string): boolean {
  */
 export function getEndpointSecurityLevel(pathname: string): keyof typeof SECURITY_LEVELS {
   for (const [level, endpoints] of Object.entries(SECURITY_LEVELS)) {
-    if (endpoints.some(endpoint => {
-      if (endpoint.endsWith('/*')) {
-        return pathname.startsWith(endpoint.slice(0, -2));
-      }
-      if (endpoint.includes('[id]')) {
-        const pattern = endpoint.replace(/\[id\]/g, '[^/]+');
-        return new RegExp(`^${pattern}$`).test(pathname);
-      }
-      return pathname === endpoint;
-    })) {
+    if (
+      endpoints.some((endpoint) => {
+        if (endpoint.endsWith('/*')) {
+          return pathname.startsWith(endpoint.slice(0, -2));
+        }
+        if (endpoint.includes('[id]')) {
+          const pattern = endpoint.replace(/\[id\]/g, '[^/]+');
+          return new RegExp(`^${pattern}$`).test(pathname);
+        }
+        return pathname === endpoint;
+      })
+    ) {
       return level as keyof typeof SECURITY_LEVELS;
     }
   }
-  
+
   return 'authenticated'; // Default fallback
 }
 
@@ -340,7 +334,7 @@ export function getEndpointSecurityLevel(pathname: string): keyof typeof SECURIT
  */
 export function validateApiMigration() {
   const issues: string[] = [];
-  
+
   // Check that all defined endpoints have permissions
   Object.entries(API_PERMISSIONS).forEach(([endpoint, permissions]) => {
     if (!permissions || (Array.isArray(permissions) && permissions.length === 0)) {
@@ -351,18 +345,18 @@ export function validateApiMigration() {
   // Check for permission consistency
   const allPermissions = Object.values(API_PERMISSIONS).flat();
   const uniquePermissions = new Set(allPermissions);
-  
+
   console.log(`📊 API Migration Validation:`);
   console.log(`   • ${Object.keys(API_PERMISSIONS).length} endpoints with permissions`);
   console.log(`   • ${uniquePermissions.size} unique permissions used`);
   console.log(`   • ${issues.length} issues found`);
-  
+
   if (issues.length > 0) {
     console.warn('⚠️ Issues found:');
     for (const issue of issues) {
       console.warn(`   - ${issue}`);
     }
   }
-  
+
   return { issues, totalEndpoints: Object.keys(API_PERMISSIONS).length };
 }

@@ -24,7 +24,6 @@ export interface ExportResult {
 }
 
 export class ChartExportService {
-
   /**
    * Export chart as image (PNG/JPEG)
    */
@@ -34,11 +33,11 @@ export class ChartExportService {
   ): Promise<ExportResult> {
     try {
       const { format = 'png', backgroundColor = 'white', filename } = options;
-      
+
       // Create a new canvas with background color
       const exportCanvas = document.createElement('canvas');
       const ctx = exportCanvas.getContext('2d');
-      
+
       if (!ctx) {
         throw new Error('Failed to get canvas context');
       }
@@ -55,32 +54,35 @@ export class ChartExportService {
 
       // Convert to blob
       return new Promise((resolve) => {
-        exportCanvas.toBlob((blob) => {
-          if (!blob) {
+        exportCanvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              resolve({
+                success: false,
+                filename: filename || `chart.${format}`,
+                mimeType: `image/${format}`,
+                error: 'Failed to generate image',
+              });
+              return;
+            }
+
             resolve({
-              success: false,
-              filename: filename || `chart.${format}`,
+              success: true,
+              data: blob,
+              filename: filename || `chart_${Date.now()}.${format}`,
               mimeType: `image/${format}`,
-              error: 'Failed to generate image'
             });
-            return;
-          }
-
-          resolve({
-            success: true,
-            data: blob,
-            filename: filename || `chart_${Date.now()}.${format}`,
-            mimeType: `image/${format}`
-          });
-        }, `image/${format}`, format === 'jpeg' ? 0.9 : undefined);
+          },
+          `image/${format}`,
+          format === 'jpeg' ? 0.9 : undefined
+        );
       });
-
     } catch (error) {
       return {
         success: false,
         filename: options.filename || `chart.${options.format}`,
         mimeType: `image/${options.format}`,
-        error: error instanceof Error ? error.message : 'Export failed'
+        error: error instanceof Error ? error.message : 'Export failed',
       };
     }
   }
@@ -98,13 +100,13 @@ export class ChartExportService {
 
       // Use raw data if available, otherwise use chart data
       const dataToExport = rawData.length > 0 ? rawData : this.convertChartDataToTable(chartData);
-      
+
       if (dataToExport.length === 0) {
         return {
           success: false,
           filename: filename || 'chart_data.csv',
           mimeType: 'text/csv',
-          error: 'No data to export'
+          error: 'No data to export',
         };
       }
 
@@ -114,22 +116,24 @@ export class ChartExportService {
           success: false,
           filename: filename || 'chart_data.csv',
           mimeType: 'text/csv',
-          error: 'No data to export'
+          error: 'No data to export',
         };
       }
       const headers = Object.keys(dataToExport[0] as Record<string, unknown>);
       const csvContent = [
         headers.join(','),
-        ...dataToExport.map(row => 
-          headers.map(header => {
-            const value = row[header];
-            // Escape commas and quotes in CSV
-            if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
-              return `"${value.replace(/"/g, '""')}"`;
-            }
-            return value;
-          }).join(',')
-        )
+        ...dataToExport.map((row) =>
+          headers
+            .map((header) => {
+              const value = row[header];
+              // Escape commas and quotes in CSV
+              if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+                return `"${value.replace(/"/g, '""')}"`;
+              }
+              return value;
+            })
+            .join(',')
+        ),
       ].join('\n');
 
       const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -138,15 +142,14 @@ export class ChartExportService {
         success: true,
         data: blob,
         filename: filename || `chart_data_${Date.now()}.csv`,
-        mimeType: 'text/csv'
+        mimeType: 'text/csv',
       };
-
     } catch (error) {
       return {
         success: false,
         filename: options.filename || 'chart_data.csv',
         mimeType: 'text/csv',
-        error: error instanceof Error ? error.message : 'CSV export failed'
+        error: error instanceof Error ? error.message : 'CSV export failed',
       };
     }
   }
@@ -161,9 +164,9 @@ export class ChartExportService {
     try {
       // For a full PDF implementation, you'd use a library like jsPDF
       // This is a placeholder implementation
-      const imageResult = await this.exportChartAsImage(canvas, { 
-        ...options, 
-        format: 'png' 
+      const imageResult = await this.exportChartAsImage(canvas, {
+        ...options,
+        format: 'png',
       });
 
       if (!imageResult.success || !imageResult.data) {
@@ -171,7 +174,7 @@ export class ChartExportService {
           success: false,
           filename: options.filename || 'chart.pdf',
           mimeType: 'application/pdf',
-          error: 'Failed to generate PDF'
+          error: 'Failed to generate PDF',
         };
       }
 
@@ -181,15 +184,14 @@ export class ChartExportService {
         success: true,
         data: imageResult.data,
         filename: options.filename || `chart_${Date.now()}.pdf`,
-        mimeType: 'application/pdf'
+        mimeType: 'application/pdf',
       };
-
     } catch (error) {
       return {
         success: false,
         filename: options.filename || 'chart.pdf',
         mimeType: 'application/pdf',
-        error: error instanceof Error ? error.message : 'PDF export failed'
+        error: error instanceof Error ? error.message : 'PDF export failed',
       };
     }
   }
@@ -207,12 +209,12 @@ export class ChartExportService {
     const link = document.createElement('a');
     link.href = url;
     link.download = result.filename;
-    
+
     // Trigger download
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     // Clean up
     URL.revokeObjectURL(url);
   }
@@ -220,7 +222,7 @@ export class ChartExportService {
   /**
    * Get export options for different chart types
    */
-  getExportOptionsForChartType(chartType: string): ExportOptions[] {
+  getExportOptionsForChartType(_chartType: string): ExportOptions[] {
     const baseOptions = [
       { format: 'png' as const, width: 1200, height: 800 },
       { format: 'jpeg' as const, width: 1200, height: 800 },
@@ -243,14 +245,14 @@ export class ChartExportService {
 
     chartData.labels.forEach((label, index) => {
       const row: Record<string, unknown> = { label: label };
-      
-      chartData.datasets.forEach(dataset => {
+
+      chartData.datasets.forEach((dataset) => {
         row[dataset.label || 'Value'] = dataset.data[index] || 0;
       });
-      
+
       result.push(row);
     });
-    
+
     return result;
   }
 
@@ -259,22 +261,22 @@ export class ChartExportService {
    */
   validateExportOptions(options: ExportOptions): { isValid: boolean; errors: string[] } {
     const errors: string[] = [];
-    
+
     if (!['png', 'jpeg', 'pdf', 'csv', 'xlsx'].includes(options.format)) {
       errors.push('Invalid export format');
     }
-    
+
     if (options.width && (options.width < 100 || options.width > 4000)) {
       errors.push('Width must be between 100 and 4000 pixels');
     }
-    
+
     if (options.height && (options.height < 100 || options.height > 4000)) {
       errors.push('Height must be between 100 and 4000 pixels');
     }
-    
+
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
     };
   }
 
@@ -295,7 +297,7 @@ export class ChartExportService {
     return {
       totalExports: 0,
       exportsByFormat: {},
-      recentExports: []
+      recentExports: [],
     };
   }
 }

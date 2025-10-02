@@ -45,7 +45,6 @@ export interface SystemPerformanceMetric {
 export class UsageAnalyticsService {
   private chartMetrics = new Map<string, ChartUsageMetric>();
   private userMetrics = new Map<string, UserActivityMetric>();
-  private performanceMetrics: SystemPerformanceMetric[] = [];
   private accessLog: Array<{
     timestamp: Date;
     userId: string;
@@ -75,7 +74,7 @@ export class UsageAnalyticsService {
       chartDefinitionId,
       action: 'view',
       loadTime,
-      ...(userAgent && { userAgent })
+      ...(userAgent && { userAgent }),
     });
 
     // Update chart metrics
@@ -87,29 +86,32 @@ export class UsageAnalyticsService {
       averageLoadTime: 0,
       lastAccessed: timestamp,
       accessFrequency: 'low' as const,
-      popularityScore: 0
+      popularityScore: 0,
     };
 
     chartMetric.totalViews++;
-    chartMetric.averageLoadTime = (chartMetric.averageLoadTime * (chartMetric.totalViews - 1) + loadTime) / chartMetric.totalViews;
+    chartMetric.averageLoadTime =
+      (chartMetric.averageLoadTime * (chartMetric.totalViews - 1) + loadTime) /
+      chartMetric.totalViews;
     chartMetric.lastAccessed = timestamp;
-    
+
     // Calculate unique users
     const uniqueUserIds = new Set(
       this.accessLog
-        .filter(log => log.chartDefinitionId === chartDefinitionId)
-        .map(log => log.userId)
+        .filter((log) => log.chartDefinitionId === chartDefinitionId)
+        .map((log) => log.userId)
     );
     chartMetric.uniqueUsers = uniqueUserIds.size;
 
     // Calculate access frequency and popularity
     const recentAccess = this.accessLog.filter(
-      log => log.chartDefinitionId === chartDefinitionId && 
-             log.timestamp > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
+      (log) =>
+        log.chartDefinitionId === chartDefinitionId &&
+        log.timestamp > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
     ).length;
 
     chartMetric.accessFrequency = recentAccess > 20 ? 'high' : recentAccess > 5 ? 'medium' : 'low';
-    chartMetric.popularityScore = (chartMetric.totalViews * 0.7) + (chartMetric.uniqueUsers * 0.3);
+    chartMetric.popularityScore = chartMetric.totalViews * 0.7 + chartMetric.uniqueUsers * 0.3;
 
     this.chartMetrics.set(chartDefinitionId, chartMetric);
 
@@ -122,37 +124,36 @@ export class UsageAnalyticsService {
       averageSessionDuration: 0,
       favoriteChartTypes: [],
       lastActivity: timestamp,
-      engagementLevel: 'low' as const
+      engagementLevel: 'low' as const,
     };
 
     userMetric.totalChartViews++;
     userMetric.lastActivity = timestamp;
-    
+
     // Calculate unique charts viewed
     const uniqueCharts = new Set(
-      this.accessLog
-        .filter(log => log.userId === userId)
-        .map(log => log.chartDefinitionId)
+      this.accessLog.filter((log) => log.userId === userId).map((log) => log.chartDefinitionId)
     );
     userMetric.uniqueChartsViewed = uniqueCharts.size;
 
     // Calculate engagement level
     const userRecentActivity = this.accessLog.filter(
-      log => log.userId === userId && 
-             log.timestamp > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+      (log) =>
+        log.userId === userId && log.timestamp > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
     ).length;
 
-    userMetric.engagementLevel = userRecentActivity > 15 ? 'high' : userRecentActivity > 5 ? 'medium' : 'low';
+    userMetric.engagementLevel =
+      userRecentActivity > 15 ? 'high' : userRecentActivity > 5 ? 'medium' : 'low';
 
     this.userMetrics.set(userId, userMetric);
 
     // Client-side logging (winston causes fs module issues in browser)
     if (typeof window !== 'undefined') {
-        console.debug('Chart access tracked', {
+      console.debug('Chart access tracked', {
         chartDefinitionId,
         userId,
         loadTime,
-        totalViews: chartMetric.totalViews
+        totalViews: chartMetric.totalViews,
       });
     }
   }
@@ -197,12 +198,13 @@ export class UsageAnalyticsService {
     }>;
   } {
     const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    const recentLogs = this.accessLog.filter(log => log.timestamp > cutoffDate);
+    const recentLogs = this.accessLog.filter((log) => log.timestamp > cutoffDate);
 
     // Calculate overview metrics
     const totalChartViews = recentLogs.length;
-    const uniqueUsers = new Set(recentLogs.map(log => log.userId)).size;
-    const averageLoadTime = recentLogs.reduce((sum, log) => sum + (log.loadTime || 0), 0) / totalChartViews;
+    const uniqueUsers = new Set(recentLogs.map((log) => log.userId)).size;
+    const averageLoadTime =
+      recentLogs.reduce((sum, log) => sum + (log.loadTime || 0), 0) / totalChartViews;
     const totalCharts = this.chartMetrics.size;
 
     // Calculate daily trends
@@ -217,13 +219,16 @@ export class UsageAnalyticsService {
         totalChartViews,
         uniqueUsers,
         averageLoadTime,
-        totalCharts
+        totalCharts,
       },
       trends: {
-        dailyViews: dailyViews.map(d => ({ date: d.date, views: d.views || 0 })),
-        performanceTrend: performanceTrend.map(d => ({ date: d.date, avgLoadTime: d.avgLoadTime || 0 }))
+        dailyViews: dailyViews.map((d) => ({ date: d.date, views: d.views || 0 })),
+        performanceTrend: performanceTrend.map((d) => ({
+          date: d.date,
+          avgLoadTime: d.avgLoadTime || 0,
+        })),
       },
-      alerts
+      alerts,
     };
   }
 
@@ -241,7 +246,7 @@ export class UsageAnalyticsService {
   } {
     // Analyze peak hours
     const hourlyAccess: Record<number, number> = {};
-    this.accessLog.forEach(log => {
+    this.accessLog.forEach((log) => {
       const hour = log.timestamp.getHours();
       hourlyAccess[hour] = (hourlyAccess[hour] || 0) + 1;
     });
@@ -253,7 +258,7 @@ export class UsageAnalyticsService {
 
     // Analyze popular chart types
     const chartTypeAccess: Record<string, number> = {};
-    this.chartMetrics.forEach(metric => {
+    this.chartMetrics.forEach((metric) => {
       // This would typically come from the chart definition
       const chartType = 'bar'; // Placeholder
       chartTypeAccess[chartType] = (chartTypeAccess[chartType] || 0) + metric.totalViews;
@@ -265,15 +270,21 @@ export class UsageAnalyticsService {
 
     // Analyze user engagement
     const userEngagement = {
-      highEngagement: Array.from(this.userMetrics.values()).filter(u => u.engagementLevel === 'high').length,
-      mediumEngagement: Array.from(this.userMetrics.values()).filter(u => u.engagementLevel === 'medium').length,
-      lowEngagement: Array.from(this.userMetrics.values()).filter(u => u.engagementLevel === 'low').length
+      highEngagement: Array.from(this.userMetrics.values()).filter(
+        (u) => u.engagementLevel === 'high'
+      ).length,
+      mediumEngagement: Array.from(this.userMetrics.values()).filter(
+        (u) => u.engagementLevel === 'medium'
+      ).length,
+      lowEngagement: Array.from(this.userMetrics.values()).filter(
+        (u) => u.engagementLevel === 'low'
+      ).length,
     };
 
     return {
       peakHours,
       popularChartTypes,
-      userEngagement
+      userEngagement,
     };
   }
 
@@ -288,17 +299,24 @@ export class UsageAnalyticsService {
     }
 
     // CSV format
-    const headers = ['Chart Name', 'Total Views', 'Unique Users', 'Avg Load Time', 'Last Accessed', 'Popularity Score'];
-    const rows = data.map(metric => [
+    const headers = [
+      'Chart Name',
+      'Total Views',
+      'Unique Users',
+      'Avg Load Time',
+      'Last Accessed',
+      'Popularity Score',
+    ];
+    const rows = data.map((metric) => [
       metric.chartName,
       metric.totalViews,
       metric.uniqueUsers,
       metric.averageLoadTime.toFixed(2),
       metric.lastAccessed.toISOString(),
-      metric.popularityScore.toFixed(2)
+      metric.popularityScore.toFixed(2),
     ]);
 
-    return [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+    return [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
   }
 
   /**
@@ -306,14 +324,14 @@ export class UsageAnalyticsService {
    */
   cleanupOldLogs(retentionDays: number = 90): void {
     const cutoffDate = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
-    
-    this.accessLog = this.accessLog.filter(log => log.timestamp > cutoffDate);
-    
+
+    this.accessLog = this.accessLog.filter((log) => log.timestamp > cutoffDate);
+
     // Server-side only logging
     if (typeof window === 'undefined') {
-        console.info('Usage analytics logs cleaned up', {
+      console.info('Usage analytics logs cleaned up', {
         retentionDays,
-        remainingLogs: this.accessLog.length
+        remainingLogs: this.accessLog.length,
       });
     }
   }
@@ -324,10 +342,10 @@ export class UsageAnalyticsService {
   ): Array<{ date: string; views?: number; avgLoadTime?: number }> {
     const grouped: Record<string, { views: number; totalLoadTime: number; count: number }> = {};
 
-    logs.forEach(log => {
+    logs.forEach((log) => {
       const dateKey = log.timestamp.toISOString().split('T')[0];
       if (!dateKey) return;
-      
+
       if (!grouped[dateKey]) {
         grouped[dateKey] = { views: 0, totalLoadTime: 0, count: 0 };
       }
@@ -342,10 +360,9 @@ export class UsageAnalyticsService {
     return Object.entries(grouped)
       .map(([date, data]) => ({
         date,
-        ...(type === 'views' 
+        ...(type === 'views'
           ? { views: data.views }
-          : { avgLoadTime: data.count > 0 ? data.totalLoadTime / data.count : 0 }
-        )
+          : { avgLoadTime: data.count > 0 ? data.totalLoadTime / data.count : 0 }),
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
   }
@@ -364,25 +381,26 @@ export class UsageAnalyticsService {
     }> = [];
 
     // Check for slow queries
-    const slowQueries = logs.filter(log => (log.loadTime || 0) > 5000); // > 5 seconds
+    const slowQueries = logs.filter((log) => (log.loadTime || 0) > 5000); // > 5 seconds
     if (slowQueries.length > 0) {
       alerts.push({
         type: 'slow_query',
         message: `${slowQueries.length} slow chart queries detected (>5s load time)`,
         severity: slowQueries.length > 10 ? 'high' : 'medium',
-        timestamp: new Date()
+        timestamp: new Date(),
       });
     }
 
     // Check for high error rate (this would typically come from error logs)
     // Placeholder implementation
     const errorRate = 0; // Would be calculated from actual error logs
-    if (errorRate > 0.05) { // > 5% error rate
+    if (errorRate > 0.05) {
+      // > 5% error rate
       alerts.push({
         type: 'high_error_rate',
         message: `High error rate detected: ${(errorRate * 100).toFixed(1)}%`,
         severity: errorRate > 0.1 ? 'high' : 'medium',
-        timestamp: new Date()
+        timestamp: new Date(),
       });
     }
 

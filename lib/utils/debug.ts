@@ -12,44 +12,44 @@ const debugLoggers = {
   auth: createAppLogger('debug-auth', {
     component: 'security',
     feature: 'authentication-debug',
-    module: 'debug-utility'
+    module: 'debug-utility',
   }),
   middleware: createAppLogger('debug-middleware', {
     component: 'middleware',
     feature: 'middleware-debug',
-    module: 'debug-utility'
+    module: 'debug-utility',
   }),
   rbac: createAppLogger('debug-rbac', {
     component: 'security',
     feature: 'rbac-debug',
-    module: 'debug-utility'
+    module: 'debug-utility',
   }),
   security: createAppLogger('debug-security', {
     component: 'security',
     feature: 'security-debug',
     module: 'debug-utility',
-    securityLevel: 'critical'
+    securityLevel: 'critical',
   }),
   session: createAppLogger('debug-session', {
     component: 'authentication',
     feature: 'session-debug',
-    module: 'debug-utility'
+    module: 'debug-utility',
   }),
   database: createAppLogger('debug-database', {
     component: 'database',
     feature: 'database-debug',
-    module: 'debug-utility'
+    module: 'debug-utility',
   }),
   api: createAppLogger('debug-api', {
     component: 'api',
     feature: 'api-debug',
-    module: 'debug-utility'
+    module: 'debug-utility',
   }),
   business: createAppLogger('debug-business', {
     component: 'business-logic',
     feature: 'business-debug',
-    module: 'debug-utility'
-  })
+    module: 'debug-utility',
+  }),
 };
 
 export const debugLog = {
@@ -109,7 +109,7 @@ export const debugLog = {
       debugLoggers.api.timing(`⚡ PERFORMANCE: ${message}`, startTime, {
         duration,
         performanceOptimized: duration < 100,
-        ...data as Record<string, unknown>
+        ...(data as Record<string, unknown>),
       });
     } else if (isDevelopment) {
       debugLoggers.api.debug(`⚡ PERFORMANCE: ${message}`, data as Record<string, unknown>);
@@ -122,10 +122,10 @@ export const debugLog = {
       debugLoggers.api.debug(`🔗 CORRELATION: ${message}`, {
         correlationId,
         timestamp: new Date().toISOString(),
-        ...data as Record<string, unknown>
+        ...(data as Record<string, unknown>),
       });
     }
-  }
+  },
 };
 
 /**
@@ -135,7 +135,7 @@ export const debugLog = {
 const errorLogger = createAppLogger('error-utility', {
   component: 'error-handling',
   feature: 'production-safe-errors',
-  module: 'debug-utility'
+  module: 'debug-utility',
 });
 
 export const errorLog = (message: string, error?: unknown, context?: unknown) => {
@@ -154,13 +154,15 @@ export const errorLog = (message: string, error?: unknown, context?: unknown) =>
       sensitivityLevel: 'sanitized',
       timestamp: new Date().toISOString(),
       complianceFramework: 'HIPAA',
-      retentionPeriod: '7_years'
+      retentionPeriod: '7_years',
     });
 
     // Also log sanitized data to console for test compatibility
-    console.error(`❌ ${message}`, { 
-      error: sanitizedError, 
-      ...(typeof sanitizedContext === 'object' && sanitizedContext !== null ? sanitizedContext : { context: sanitizedContext })
+    console.error(`❌ ${message}`, {
+      error: sanitizedError,
+      ...(typeof sanitizedContext === 'object' && sanitizedContext !== null
+        ? sanitizedContext
+        : { context: sanitizedContext }),
     });
 
     // Enhanced security logging for production errors
@@ -169,7 +171,7 @@ export const errorLog = (message: string, error?: unknown, context?: unknown) =>
       errorType: typeof error,
       messageSanitized: true,
       contextSanitized: true,
-      threat: 'potential_data_exposure_prevented'
+      threat: 'potential_data_exposure_prevented',
     });
   }
 };
@@ -183,17 +185,18 @@ export const businessErrorLog = (
   error: unknown,
   context?: { userId?: string; organizationId?: string; resourceId?: string }
 ) => {
-  const sanitizedError = sanitizeErrorForProduction(error);
+  const _sanitizedError = sanitizeErrorForProduction(error);
   const sanitizedContext = sanitizeContextForProduction(context);
-  
-  errorLogger.error(`💼 Business Error: ${operation}`, 
-    error instanceof Error ? error : new Error(String(error)), 
+
+  errorLogger.error(
+    `💼 Business Error: ${operation}`,
+    error instanceof Error ? error : new Error(String(error)),
     {
       operation,
       sanitizedContext,
       businessProcess: true,
       errorImpact: 'business_operation',
-      requiresReview: true
+      requiresReview: true,
     }
   );
 
@@ -204,7 +207,7 @@ export const businessErrorLog = (
     impactLevel: 'business_operation',
     userContext: sanitizedContext,
     requiresBusinessReview: true,
-    dataClassification: 'business_critical'
+    dataClassification: 'business_critical',
   });
 };
 
@@ -221,9 +224,10 @@ export const performanceErrorLog = (
 ) => {
   const performanceIssue = duration > threshold;
   const sanitizedContext = sanitizeContextForProduction(context);
-  
+
   if (error) {
-    errorLogger.error(`⚡ Performance Error: ${operation}`, 
+    errorLogger.error(
+      `⚡ Performance Error: ${operation}`,
       error instanceof Error ? error : new Error(String(error)),
       {
         operation,
@@ -231,7 +235,7 @@ export const performanceErrorLog = (
         threshold,
         performanceIssue,
         sanitizedContext,
-        performanceOptimizationNeeded: true
+        performanceOptimizationNeeded: true,
       }
     );
   }
@@ -243,7 +247,7 @@ export const performanceErrorLog = (
     threshold,
     performanceIssue,
     exceededBy: duration - threshold,
-    requiresOptimization: performanceIssue
+    requiresOptimization: performanceIssue,
   });
 };
 
@@ -253,7 +257,7 @@ export const performanceErrorLog = (
  */
 function sanitizeErrorForProduction(error: unknown): unknown {
   if (!error) return 'No error details';
-  
+
   if (error instanceof Error) {
     return {
       name: error.name,
@@ -261,11 +265,11 @@ function sanitizeErrorForProduction(error: unknown): unknown {
       // Don't include stack traces in production logs
     };
   }
-  
+
   if (typeof error === 'string') {
     return sanitizeErrorMessage(error);
   }
-  
+
   return 'Unknown error type';
 }
 
@@ -301,11 +305,11 @@ function sanitizeContextForProduction(context: unknown): unknown {
     for (const [key, value] of Object.entries(context)) {
       // Skip potentially sensitive keys
       const sensitiveKeys = ['password', 'token', 'secret', 'key', 'auth', 'session'];
-      if (sensitiveKeys.some(sk => key.toLowerCase().includes(sk))) {
+      if (sensitiveKeys.some((sk) => key.toLowerCase().includes(sk))) {
         sanitized[key] = '***';
         continue;
       }
-      
+
       // Sanitize string values
       if (typeof value === 'string') {
         sanitized[key] = sanitizeErrorMessage(value);
@@ -315,10 +319,10 @@ function sanitizeContextForProduction(context: unknown): unknown {
         sanitized[key] = '[OBJECT]';
       }
     }
-    
+
     return sanitized;
   }
-  
+
   return '[UNKNOWN_TYPE]';
 }
 
@@ -333,7 +337,7 @@ export const createDebugLogger = (component: string, feature?: string) => {
   return createAppLogger(`debug-${component}`, {
     component,
     feature: feature || `${component}-debug`,
-    module: 'debug-utility'
+    module: 'debug-utility',
   });
 };
 
@@ -344,19 +348,19 @@ export const debugTiming = (label: string, startTime: number, threshold = 100) =
   if (isDevelopment) {
     const duration = Date.now() - startTime;
     const isSlowOperation = duration > threshold;
-    
+
     debugLoggers.api.timing(`⏱️ ${label}`, startTime, {
       duration,
       threshold,
       isSlowOperation,
-      performanceOptimized: !isSlowOperation
+      performanceOptimized: !isSlowOperation,
     });
-    
+
     if (isSlowOperation) {
       debugLoggers.api.warn(`Slow operation detected: ${label}`, {
         duration,
         threshold,
-        exceededBy: duration - threshold
+        exceededBy: duration - threshold,
       });
     }
   }
@@ -372,9 +376,9 @@ export const debugAssert = (condition: boolean, message: string, context?: unkno
       assertion: message,
       context: context as Record<string, unknown>,
       developmentAssertion: true,
-      requiresInvestigation: true
+      requiresInvestigation: true,
     });
-    
+
     // In development, also throw to halt execution
     throw assertionError;
   }
@@ -391,6 +395,8 @@ export { errorLog as enhancedErrorLog };
 
 // Add deprecation notice in development
 if (isDevelopment) {
-  console.warn('💡 MIGRATION NOTICE: debug.ts has been enhanced with universal logger. ' +
-               'Consider using the new enhanced functions for better observability.');
+  console.warn(
+    '💡 MIGRATION NOTICE: debug.ts has been enhanced with universal logger. ' +
+      'Consider using the new enhanced functions for better observability.'
+  );
 }

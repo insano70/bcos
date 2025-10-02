@@ -1,20 +1,24 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
-import DeleteButton from '@/components/delete-button';
-import FilterButton from '@/components/dropdown-filter';
-import DataSourceColumnsTable from './data-source-columns-table';
-import PaginationClassic from '@/components/pagination-classic';
+import { useState } from 'react';
 import AddDataSourceColumnModal from '@/components/add-data-source-column-modal';
-import EditDataSourceColumnModal from '@/components/edit-data-source-column-modal';
-import DeleteDataSourceColumnModal from '@/components/delete-data-source-column-modal';
-import IntrospectDataSourceModal from '@/components/introspect-data-source-modal';
-import { useDataSourceColumns, useDataSource, type DataSourceColumn } from '@/lib/hooks/use-data-sources';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
+import DeleteButton from '@/components/delete-button';
+import DeleteDataSourceColumnModal from '@/components/delete-data-source-column-modal';
+import FilterButton from '@/components/dropdown-filter';
+import EditDataSourceColumnModal from '@/components/edit-data-source-column-modal';
+import IntrospectDataSourceModal from '@/components/introspect-data-source-modal';
+import PaginationClassic from '@/components/pagination-classic';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
-import { usePagination } from '@/lib/hooks/use-pagination';
 import Toast from '@/components/toast';
+import {
+  type DataSourceColumn,
+  useDataSource,
+  useDataSourceColumns,
+} from '@/lib/hooks/use-data-sources';
+import { usePagination } from '@/lib/hooks/use-pagination';
+import DataSourceColumnsTable from './data-source-columns-table';
 
 interface DataSourceColumnsContentProps {
   dataSourceId: number;
@@ -23,7 +27,12 @@ interface DataSourceColumnsContentProps {
 export default function DataSourceColumnsContent({ dataSourceId }: DataSourceColumnsContentProps) {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { data: dataSourceResponse } = useDataSource(dataSourceId);
-  const { data: response, isLoading, error, refetch } = useDataSourceColumns(dataSourceId, { limit: 50, offset: 0 });
+  const {
+    data: response,
+    isLoading,
+    error,
+    refetch,
+  } = useDataSourceColumns(dataSourceId, { limit: 50, offset: 0 });
 
   const dataSource = dataSourceResponse?.dataSource;
   const columns = response?.columns || [];
@@ -48,7 +57,7 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
     console.log('👤 DataSourceColumnsContent: Auth state -', {
       isAuthenticated,
       authLoading,
-      dataSourceId
+      dataSourceId,
     });
   }
 
@@ -60,7 +69,7 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
       columnCount: columns.length,
       isLoading,
       hasError: !!error,
-      errorMessage: error?.message
+      errorMessage: error?.message,
     });
   }
 
@@ -108,13 +117,23 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
         <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-8">
           <div className="text-center">
-            <svg className="mx-auto h-12 w-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            <svg
+              className="mx-auto h-12 w-12 text-red-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+              />
             </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">Error Loading Columns</h3>
-            <p className="mt-1 text-sm text-red-500">
-              Failed to load columns: {error.message}
-            </p>
+            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+              Error Loading Columns
+            </h3>
+            <p className="mt-1 text-sm text-red-500">Failed to load columns: {error.message}</p>
             <div className="mt-6">
               <button
                 type="button"
@@ -166,15 +185,25 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
                   className="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600 dark:text-gray-400 dark:hover:text-white"
                 >
                   <svg className="w-3 h-3 mr-2.5" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="m19.707 9.293-2-2-7-7a1 1 0 0 0-1.414 0l-7 7-2 2A1 1 0 0 0 1 10h2v6a3 3 0 0 0 3 3h4v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4h4a3 3 0 0 0 3-3v-6h2a1 1 0 0 0 .707-1.707Z"/>
+                    <path d="m19.707 9.293-2-2-7-7a1 1 0 0 0-1.414 0l-7 7-2 2A1 1 0 0 0 1 10h2v6a3 3 0 0 0 3 3h4v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4h4a3 3 0 0 0 3-3v-6h2a1 1 0 0 0 .707-1.707Z" />
                   </svg>
                   Data Sources
                 </Link>
               </li>
               <li>
                 <div className="flex items-center">
-                  <svg className="w-3 h-3 text-gray-400 mx-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m9 5 7 7-7 7"/>
+                  <svg
+                    className="w-3 h-3 text-gray-400 mx-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="m9 5 7 7-7 7"
+                    />
                   </svg>
                   <span className="ml-1 text-sm font-medium text-gray-500 md:text-gray-700 dark:text-gray-400 dark:md:text-gray-400">
                     {dataSource.data_source_name}
@@ -183,10 +212,22 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
               </li>
               <li aria-current="page">
                 <div className="flex items-center">
-                  <svg className="w-3 h-3 text-gray-400 mx-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m9 5 7 7-7 7"/>
+                  <svg
+                    className="w-3 h-3 text-gray-400 mx-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="m9 5 7 7-7 7"
+                    />
                   </svg>
-                  <span className="ml-1 text-sm font-medium text-gray-500 dark:text-gray-400">Columns</span>
+                  <span className="ml-1 text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Columns
+                  </span>
                 </div>
               </li>
             </ol>
@@ -220,7 +261,8 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
           <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             <span className="font-medium">Data Source:</span> {dataSource.data_source_name}
             <span className="mx-2">•</span>
-            <span className="font-medium">Table:</span> {dataSource.schema_name}.{dataSource.table_name}
+            <span className="font-medium">Table:</span> {dataSource.schema_name}.
+            {dataSource.table_name}
             <span className="mx-2">•</span>
             <span className="font-medium">Type:</span> {dataSource.database_type || 'postgresql'}
           </div>

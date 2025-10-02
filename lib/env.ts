@@ -1,5 +1,5 @@
-import { createEnv } from "@t3-oss/env-nextjs";
-import { z } from "zod";
+import { createEnv } from '@t3-oss/env-nextjs';
+import { z } from 'zod';
 
 export const env = createEnv({
   /**
@@ -8,14 +8,16 @@ export const env = createEnv({
    */
   server: {
     // Database
-    DATABASE_URL: z.string().url("Invalid DATABASE_URL format"),
-    ANALYTICS_DATABASE_URL: z.string().url("Invalid ANALYTICS_DATABASE_URL format").optional(),
-    
+    DATABASE_URL: z.string().url('Invalid DATABASE_URL format'),
+    ANALYTICS_DATABASE_URL: z.string().url('Invalid ANALYTICS_DATABASE_URL format').optional(),
+
     // Authentication & Security
-    JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters for security"),
-    JWT_REFRESH_SECRET: z.string().min(32, "JWT_REFRESH_SECRET must be at least 32 characters for security"),
-    CSRF_SECRET: z.string().min(32, "CSRF_SECRET must be at least 32 characters for security"),
-    
+    JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters for security'),
+    JWT_REFRESH_SECRET: z
+      .string()
+      .min(32, 'JWT_REFRESH_SECRET must be at least 32 characters for security'),
+    CSRF_SECRET: z.string().min(32, 'CSRF_SECRET must be at least 32 characters for security'),
+
     // Email Service - AWS SES Configuration
     SMTP_USERNAME: z.string().optional(),
     SMTP_PASSWORD: z.string().optional(),
@@ -24,31 +26,40 @@ export const env = createEnv({
     SMTP_REPLY_TO: z.string().email().optional(),
     AWS_REGION: z.string().optional(),
     ADMIN_NOTIFICATION_EMAILS: z.string().optional(),
-    
+
     // External Services
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
     RESEND_WEBHOOK_SECRET: z.string().optional(),
-    
+
     // SAML SSO Configuration
-    ENTRA_TENANT_ID: z.string().uuid("ENTRA_TENANT_ID must be a valid UUID").optional(),
-    ENTRA_APP_ID: z.string().uuid("ENTRA_APP_ID must be a valid UUID").optional(), // Application ID for app-specific metadata
-    ENTRA_ENTRY_POINT: z.string().url("ENTRA_ENTRY_POINT must be a valid URL").optional(),
-    ENTRA_ISSUER: z.string().url("ENTRA_ISSUER must be a valid URL").optional(),
+    ENTRA_TENANT_ID: z.string().uuid('ENTRA_TENANT_ID must be a valid UUID').optional(),
+    ENTRA_APP_ID: z.string().uuid('ENTRA_APP_ID must be a valid UUID').optional(), // Application ID for app-specific metadata
+    ENTRA_ENTRY_POINT: z.string().url('ENTRA_ENTRY_POINT must be a valid URL').optional(),
+    ENTRA_ISSUER: z.string().url('ENTRA_ISSUER must be a valid URL').optional(),
     ENTRA_CERT: z.string().optional(), // Certificate content or path
-    
-    SAML_ISSUER: z.string().url("SAML_ISSUER must be a valid URL").optional(),
-    SAML_CALLBACK_URL: z.string().url("SAML_CALLBACK_URL must be a valid URL").optional(),
+
+    SAML_ISSUER: z.string().url('SAML_ISSUER must be a valid URL').optional(),
+    SAML_CALLBACK_URL: z.string().url('SAML_CALLBACK_URL must be a valid URL').optional(),
     SAML_CERT: z.string().optional(), // SP certificate content or path
     SAML_PRIVATE_KEY: z.string().optional(), // SP private key content or path
-    
+
     SAML_ALLOWED_EMAIL_DOMAINS: z.string().optional(), // Comma-separated list
-    SAML_CERT_EXPIRY_WARNING_DAYS: z.string().transform(val => val ? parseInt(val, 10) : 30).optional(),
-    SAML_CALLBACK_RATE_LIMIT: z.string().transform(val => val ? parseInt(val, 10) : 20).optional(),
-    SAML_LOG_RAW_RESPONSES: z.string().transform(val => val === "true").optional(),
+    SAML_CERT_EXPIRY_WARNING_DAYS: z
+      .string()
+      .transform((val) => (val ? parseInt(val, 10) : 30))
+      .optional(),
+    SAML_CALLBACK_RATE_LIMIT: z
+      .string()
+      .transform((val) => (val ? parseInt(val, 10) : 20))
+      .optional(),
+    SAML_LOG_RAW_RESPONSES: z
+      .string()
+      .transform((val) => val === 'true')
+      .optional(),
     SAML_SUCCESS_REDIRECT: z.string().optional(),
-    
+
     // Node Environment
-    NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   },
 
   /**
@@ -57,9 +68,12 @@ export const env = createEnv({
    * `NEXT_PUBLIC_`.
    */
   client: {
-    NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:4001"),
+    NEXT_PUBLIC_APP_URL: z.string().url().default('http://localhost:4001'),
     NEXT_PUBLIC_STORAGE_DOMAIN: z.string().url().optional(),
-    NEXT_PUBLIC_EXPERIMENTAL_MODE: z.string().default("false").transform(val => val === "true"),
+    NEXT_PUBLIC_EXPERIMENTAL_MODE: z
+      .string()
+      .default('false')
+      .transform((val) => val === 'true'),
   },
 
   /**
@@ -82,7 +96,7 @@ export const env = createEnv({
     ADMIN_NOTIFICATION_EMAILS: process.env.ADMIN_NOTIFICATION_EMAILS,
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
     RESEND_WEBHOOK_SECRET: process.env.RESEND_WEBHOOK_SECRET,
-    
+
     // SAML SSO
     ENTRA_TENANT_ID: process.env.ENTRA_TENANT_ID,
     ENTRA_APP_ID: process.env.ENTRA_APP_ID,
@@ -99,19 +113,19 @@ export const env = createEnv({
     SAML_LOG_RAW_RESPONSES: process.env.SAML_LOG_RAW_RESPONSES,
     SAML_SUCCESS_REDIRECT: process.env.SAML_SUCCESS_REDIRECT,
     NODE_ENV: process.env.NODE_ENV,
-    
+
     // Client
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
     NEXT_PUBLIC_STORAGE_DOMAIN: process.env.NEXT_PUBLIC_STORAGE_DOMAIN,
     NEXT_PUBLIC_EXPERIMENTAL_MODE: process.env.NEXT_PUBLIC_EXPERIMENTAL_MODE,
   },
-  
+
   /**
    * Run `build` or `dev` with SKIP_ENV_VALIDATION to skip env validation. This is especially
    * useful for Docker builds.
    */
   skipValidation: !!process.env.SKIP_ENV_VALIDATION,
-  
+
   /**
    * Makes it so that empty strings are treated as undefined. `SOME_VAR: z.string()` and
    * `SOME_VAR=""` will throw an error.
@@ -126,36 +140,39 @@ export const env = createEnv({
  * Only run this validation on the server side
  */
 if (typeof window === 'undefined') {
-  const isActualProduction = env.NODE_ENV === "production" && process.env.VERCEL_ENV === "production";
+  const isActualProduction =
+    env.NODE_ENV === 'production' && process.env.VERCEL_ENV === 'production';
 
   if (isActualProduction) {
     // Ensure JWT secrets are strong enough for production
     if (env.JWT_SECRET.length < 64) {
-      throw new Error("JWT_SECRET must be at least 64 characters in production");
+      throw new Error('JWT_SECRET must be at least 64 characters in production');
     }
-    
+
     if (env.JWT_REFRESH_SECRET.length < 64) {
-      throw new Error("JWT_REFRESH_SECRET must be at least 64 characters in production");
+      throw new Error('JWT_REFRESH_SECRET must be at least 64 characters in production');
     }
-    
+
     if (env.CSRF_SECRET.length < 64) {
-      throw new Error("CSRF_SECRET must be at least 64 characters in production");
+      throw new Error('CSRF_SECRET must be at least 64 characters in production');
     }
-    
+
     // Ensure JWT secrets are different for better security isolation
     if (env.JWT_SECRET === env.JWT_REFRESH_SECRET) {
-      throw new Error("JWT_SECRET and JWT_REFRESH_SECRET must be different values for security isolation");
+      throw new Error(
+        'JWT_SECRET and JWT_REFRESH_SECRET must be different values for security isolation'
+      );
     }
-    
+
     // Ensure HTTPS in production
-    if (!env.NEXT_PUBLIC_APP_URL.startsWith("https://")) {
-      throw new Error("NEXT_PUBLIC_APP_URL must use HTTPS in production");
+    if (!env.NEXT_PUBLIC_APP_URL.startsWith('https://')) {
+      throw new Error('NEXT_PUBLIC_APP_URL must use HTTPS in production');
     }
-    
+
     // Email service configuration - using EMAIL_FROM if available
-    
+
     if (!env.ADMIN_NOTIFICATION_EMAILS) {
-      console.warn("⚠️ ADMIN_NOTIFICATION_EMAILS not configured - security alerts will not be sent");
+      console.warn('⚠️ ADMIN_NOTIFICATION_EMAILS not configured - security alerts will not be sent');
     }
   }
 }
@@ -171,7 +188,7 @@ export const getJWTConfig = () => {
   return {
     accessSecret: env.JWT_SECRET,
     refreshSecret: env.JWT_REFRESH_SECRET,
-    keyId: env.NODE_ENV === 'production' ? 'prod-key-1' : 'dev-key-1'
+    keyId: env.NODE_ENV === 'production' ? 'prod-key-1' : 'dev-key-1',
   };
 };
 
@@ -179,7 +196,7 @@ export const getDatabaseConfig = () => {
   if (typeof window !== 'undefined') {
     throw new Error('getDatabaseConfig can only be used on the server side');
   }
-  
+
   // Environment-specific connection pool settings
   const getPoolSettings = () => {
     switch (env.NODE_ENV) {
@@ -206,7 +223,7 @@ export const getDatabaseConfig = () => {
 
   return {
     url: env.DATABASE_URL,
-    ...getPoolSettings()
+    ...getPoolSettings(),
   };
 };
 
@@ -221,7 +238,7 @@ export const getAnalyticsDatabaseConfig = () => {
       max: 10, // Smaller pool for analytics
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
-    })
+    }),
   };
 };
 
@@ -229,9 +246,9 @@ export const getEmailConfig = () => {
   if (typeof window !== 'undefined') {
     throw new Error('getEmailConfig can only be used on the server side');
   }
-  
+
   const region = env.AWS_REGION || 'us-east-1';
-  
+
   return {
     smtp: {
       username: env.SMTP_USERNAME,
@@ -239,11 +256,11 @@ export const getEmailConfig = () => {
       endpoint: `email-smtp.${region}.amazonaws.com`,
       startTlsPort: 587,
       tlsWrapperPort: 465,
-      region: region
+      region: region,
     },
     from: {
       email: env.SMTP_FROM_EMAIL || 'noreply@yourdomain.com',
-      name: env.SMTP_FROM_NAME || 'Bendcare Thrive'
+      name: env.SMTP_FROM_NAME || 'Bendcare Thrive',
     },
     replyTo: env.SMTP_REPLY_TO || env.SMTP_FROM_EMAIL || 'noreply@yourdomain.com',
     adminEmails: env.ADMIN_NOTIFICATION_EMAILS?.split(',') || [],
@@ -281,32 +298,33 @@ export const getSAMLConfig = () => {
   if (typeof window !== 'undefined') {
     throw new Error('getSAMLConfig can only be used on the server side');
   }
-  
+
   // Return undefined if SAML is not configured (allows graceful degradation)
   if (!env.ENTRA_TENANT_ID || !env.SAML_ISSUER || !env.SAML_CALLBACK_URL) {
     return undefined;
   }
-  
+
   return {
     // Microsoft Entra Configuration
     tenantId: env.ENTRA_TENANT_ID,
     appId: env.ENTRA_APP_ID, // Application ID for app-specific metadata
-    entryPoint: env.ENTRA_ENTRY_POINT || `https://login.microsoftonline.com/${env.ENTRA_TENANT_ID}/saml2`,
+    entryPoint:
+      env.ENTRA_ENTRY_POINT || `https://login.microsoftonline.com/${env.ENTRA_TENANT_ID}/saml2`,
     expectedIssuer: env.ENTRA_ISSUER || `https://sts.windows.net/${env.ENTRA_TENANT_ID}/`,
     entraCert: env.ENTRA_CERT,
-    
+
     // Service Provider Configuration
     issuer: env.SAML_ISSUER,
     callbackUrl: env.SAML_CALLBACK_URL,
     spCert: env.SAML_CERT,
     spPrivateKey: env.SAML_PRIVATE_KEY,
-    
+
     // Security Configuration
-    allowedEmailDomains: env.SAML_ALLOWED_EMAIL_DOMAINS?.split(',').map(d => d.trim()) || [],
+    allowedEmailDomains: env.SAML_ALLOWED_EMAIL_DOMAINS?.split(',').map((d) => d.trim()) || [],
     certExpiryWarningDays: env.SAML_CERT_EXPIRY_WARNING_DAYS || 30,
     callbackRateLimit: env.SAML_CALLBACK_RATE_LIMIT || 20,
     logRawResponses: env.SAML_LOG_RAW_RESPONSES || false,
-    
+
     // Optional
     successRedirect: env.SAML_SUCCESS_REDIRECT || '/dashboard',
   };

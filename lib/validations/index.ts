@@ -3,88 +3,83 @@
  * Single entry point for all validation schemas and utilities
  */
 
-// Authentication schemas
-export { 
-  loginSchema, 
-  registerSchema, 
-  passwordResetSchema, 
-  passwordResetRequestSchema, 
-  passwordChangeSchema 
-} from './auth';
-
-// User management schemas
-export { 
-  userCreateSchema, 
-  userUpdateSchema, 
-  userQuerySchema, 
-  passwordChangeSchema as userPasswordChangeSchema,
-  userParamsSchema 
-} from './user';
-
-// Common validation utilities
-export { 
-  uuidSchema, 
-  paginationSchema, 
-  sortSchema, 
-  searchSchema, 
-  fileUploadSchema, 
-  colorSchema, 
-  domainSchema, 
-  emailSchema, 
-  phoneSchema, 
-  urlSchema 
-} from './common';
-
-// Enhanced sanitization schemas
-export { 
-  safeEmailSchema, 
-  createNameSchema, 
-  createSafeTextSchema, 
-  safeDomainSchema, 
-  safeUrlSchema, 
-  createJsonSchema 
-} from './sanitization';
-
-// Password policy
-export { 
-  passwordSchema, 
-  loginPasswordSchema, 
-  createPasswordSchema, 
-  validatePasswordStrength, 
-  getPasswordPolicyDescription,
-  PASSWORD_POLICY 
-} from '../config/password-policy';
-
-// Role and permission schemas
-export { 
-  roleCreateSchema, 
-  roleUpdateSchema, 
-  roleQuerySchema 
-} from './role';
-
-// Practice schemas
-export { 
-  practiceCreateSchema, 
-  practiceUpdateSchema 
-} from './practice';
-
-// Staff schemas
-export { 
-  staffCreateSchema, 
-  staffUpdateSchema 
-} from './staff';
-
-// Template schemas
-export { 
-  templateCreateSchema, 
-  templateUpdateSchema 
-} from './template';
-
 /**
  * Validation best practices utilities
  */
-export { validateRequest, validateQuery, validateParams } from '../api/middleware/validation';
-export { useValidatedForm, usePasswordConfirmation, useFieldValidation } from '../hooks/use-form-validation';
+export { validateParams, validateQuery, validateRequest } from '../api/middleware/validation';
+// Password policy
+export {
+  createPasswordSchema,
+  getPasswordPolicyDescription,
+  loginPasswordSchema,
+  PASSWORD_POLICY,
+  passwordSchema,
+  validatePasswordStrength,
+} from '../config/password-policy';
+export {
+  useFieldValidation,
+  usePasswordConfirmation,
+  useValidatedForm,
+} from '../hooks/use-form-validation';
+// Authentication schemas
+export {
+  loginSchema,
+  passwordChangeSchema,
+  passwordResetRequestSchema,
+  passwordResetSchema,
+  registerSchema,
+} from './auth';
+// Common validation utilities
+export {
+  colorSchema,
+  domainSchema,
+  emailSchema,
+  fileUploadSchema,
+  paginationSchema,
+  phoneSchema,
+  searchSchema,
+  sortSchema,
+  urlSchema,
+  uuidSchema,
+} from './common';
+// Practice schemas
+export {
+  practiceCreateSchema,
+  practiceUpdateSchema,
+} from './practice';
+// Role and permission schemas
+export {
+  roleCreateSchema,
+  roleQuerySchema,
+  roleUpdateSchema,
+} from './role';
+// Enhanced sanitization schemas
+export {
+  createJsonSchema,
+  createNameSchema,
+  createSafeTextSchema,
+  safeDomainSchema,
+  safeEmailSchema,
+  safeUrlSchema,
+} from './sanitization';
+// Staff schemas
+export {
+  staffCreateSchema,
+  staffUpdateSchema,
+} from './staff';
+// Template schemas
+export {
+  templateCreateSchema,
+  templateUpdateSchema,
+} from './template';
+// User management schemas
+export {
+  passwordChangeSchema as userPasswordChangeSchema,
+  userCreateSchema,
+  userParamsSchema,
+  userQuerySchema,
+  userUpdateSchema,
+} from './user';
 
 /**
  * Type inference helpers for schemas

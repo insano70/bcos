@@ -1,4 +1,13 @@
-import { pgTable, varchar, text, timestamp, boolean, index, uuid, integer } from 'drizzle-orm/pg-core'
+import {
+  boolean,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  varchar,
+} from 'drizzle-orm/pg-core';
 
 /**
  * JWT Token Tracking Tables
@@ -34,7 +43,7 @@ export const jwt_tokens = pgTable(
     deviceIdx: index('idx_jwt_tokens_device').on(table.device_fingerprint),
     lastUsedIdx: index('idx_jwt_tokens_last_used').on(table.last_used),
   })
-)
+);
 
 // Token blacklist for revoked tokens (faster lookup)
 export const token_blacklist = pgTable(
@@ -52,7 +61,7 @@ export const token_blacklist = pgTable(
     expiresIdx: index('idx_token_blacklist_expires_at').on(table.expires_at),
     revokedAtIdx: index('idx_token_blacklist_revoked_at').on(table.revoked_at),
   })
-)
+);
 
 // Refresh token management (if using refresh token pattern)
 export const refresh_tokens = pgTable(
@@ -78,4 +87,4 @@ export const refresh_tokens = pgTable(
     activeIdx: index('idx_refresh_tokens_active').on(table.is_active),
     expiresIdx: index('idx_refresh_tokens_expires_at').on(table.expires_at),
   })
-)
+);

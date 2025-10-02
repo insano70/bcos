@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ChartDefinitionListItem } from './charts-table';
 
 interface ChartsTableItemProps {
@@ -20,7 +20,7 @@ export default function ChartsTableItem({
 }: ChartsTableItemProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  
+
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onCheckboxChange(chart.chart_definition_id, e.target.checked);
   };
@@ -51,23 +51,35 @@ export default function ChartsTableItem({
 
   const _getChartTypeIcon = (type: string) => {
     switch (type) {
-      case 'line': return '📈';
-      case 'bar': return '📊';
-      case 'pie': return '🥧';
-      case 'doughnut': return '🍩';
-      case 'area': return '🏔️';
-      default: return '📊';
+      case 'line':
+        return '📈';
+      case 'bar':
+        return '📊';
+      case 'pie':
+        return '🥧';
+      case 'doughnut':
+        return '🍩';
+      case 'area':
+        return '🏔️';
+      default:
+        return '📊';
     }
   };
 
   const getChartTypeBadgeColor = (type: string) => {
     switch (type) {
-      case 'line': return 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200';
-      case 'bar': return 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200';
-      case 'pie': return 'bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-200';
-      case 'doughnut': return 'bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-200';
-      case 'area': return 'bg-teal-100 dark:bg-teal-900/20 text-teal-800 dark:text-teal-200';
-      default: return 'bg-gray-100 dark:bg-gray-900/20 text-gray-800 dark:text-gray-200';
+      case 'line':
+        return 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200';
+      case 'bar':
+        return 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200';
+      case 'pie':
+        return 'bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-200';
+      case 'doughnut':
+        return 'bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-200';
+      case 'area':
+        return 'bg-teal-100 dark:bg-teal-900/20 text-teal-800 dark:text-teal-200';
+      default:
+        return 'bg-gray-100 dark:bg-gray-900/20 text-gray-800 dark:text-gray-200';
     }
   };
 
@@ -92,9 +104,7 @@ export default function ChartsTableItem({
       <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
         <div className="flex items-center">
           <div>
-            <div className="font-medium text-gray-800 dark:text-gray-100">
-              {chart.chart_name}
-            </div>
+            <div className="font-medium text-gray-800 dark:text-gray-100">{chart.chart_name}</div>
             <div className="text-xs text-gray-500 dark:text-gray-400">
               ID: {chart.chart_definition_id.slice(0, 8)}...
             </div>
@@ -104,7 +114,9 @@ export default function ChartsTableItem({
 
       {/* Chart Type */}
       <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getChartTypeBadgeColor(chart.chart_type)}`}>
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getChartTypeBadgeColor(chart.chart_type)}`}
+        >
           {chart.chart_type}
         </span>
       </td>
@@ -129,11 +141,13 @@ export default function ChartsTableItem({
 
       {/* Status */}
       <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap text-center">
-        <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          chart.is_active
-            ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200'
-            : 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200'
-        }`}>
+        <div
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+            chart.is_active
+              ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200'
+              : 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200'
+          }`}
+        >
           {chart.is_active ? 'Active' : 'Inactive'}
         </div>
       </td>
@@ -141,10 +155,9 @@ export default function ChartsTableItem({
       {/* Created By */}
       <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
         <div className="text-gray-800 dark:text-gray-100">
-          {chart.creator_name && chart.creator_last_name 
+          {chart.creator_name && chart.creator_last_name
             ? `${chart.creator_name} ${chart.creator_last_name}`
-            : chart.created_by || 'Unknown'
-          }
+            : chart.created_by || 'Unknown'}
         </div>
       </td>
 
@@ -169,18 +182,27 @@ export default function ChartsTableItem({
             onClick={() => setDropdownOpen(!dropdownOpen)}
           >
             <span className="sr-only">Menu</span>
-            <svg className="w-8 h-8 fill-current text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400" viewBox="0 0 32 32">
+            <svg
+              className="w-8 h-8 fill-current text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400"
+              viewBox="0 0 32 32"
+            >
               <circle cx="16" cy="16" r="2" />
               <circle cx="10" cy="16" r="2" />
               <circle cx="22" cy="16" r="2" />
             </svg>
           </button>
           {dropdownOpen && (
-            <div className="origin-top-right z-50 fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 py-1.5 rounded-lg shadow-lg overflow-hidden min-w-36"
-                 style={{
-                   top: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().bottom + 4 : 0,
-                   left: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().right - 144 : 0
-                 }}>
+            <div
+              className="origin-top-right z-50 fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 py-1.5 rounded-lg shadow-lg overflow-hidden min-w-36"
+              style={{
+                top: dropdownRef.current
+                  ? dropdownRef.current.getBoundingClientRect().bottom + 4
+                  : 0,
+                left: dropdownRef.current
+                  ? dropdownRef.current.getBoundingClientRect().right - 144
+                  : 0,
+              }}
+            >
               <ul>
                 {onEdit && (
                   <li>

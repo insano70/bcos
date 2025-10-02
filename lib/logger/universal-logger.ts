@@ -5,8 +5,8 @@
 
 // Re-export existing types for compatibility
 // LogContext and LogData types defined locally
-export type LogContext = Record<string, unknown>
-export type LogData = Record<string, unknown>
+export type LogContext = Record<string, unknown>;
+export type LogData = Record<string, unknown>;
 
 /**
  * Universal logger interface that provides all logging functionality
@@ -14,41 +14,52 @@ export type LogData = Record<string, unknown>
  */
 export interface UniversalLogger {
   // Basic logging methods
-  info(message: string, data?: Record<string, unknown>): void
-  warn(message: string, data?: Record<string, unknown>): void
-  error(message: string, error?: Error | unknown, data?: Record<string, unknown>): void
-  debug(message: string, data?: Record<string, unknown>): void
+  info(message: string, data?: Record<string, unknown>): void;
+  warn(message: string, data?: Record<string, unknown>): void;
+  error(message: string, error?: Error | unknown, data?: Record<string, unknown>): void;
+  debug(message: string, data?: Record<string, unknown>): void;
 
   // Context management
-  child(context: Record<string, unknown>, module?: string): UniversalLogger
-  withRequest(request: Request | { headers: Headers; url: string; method: string }): UniversalLogger
-  withUser(userId: string, organizationId?: string): UniversalLogger
+  child(context: Record<string, unknown>, module?: string): UniversalLogger;
+  withRequest(
+    request: Request | { headers: Headers; url: string; method: string }
+  ): UniversalLogger;
+  withUser(userId: string, organizationId?: string): UniversalLogger;
 
   // Specialized logging methods (matching existing API)
-  timing(message: string, startTime: number, data?: Record<string, unknown>): void
-  http(message: string, statusCode: number, duration?: number, data?: Record<string, unknown>): void
-  db(operation: string, table: string, duration?: number, data?: Record<string, unknown>): void
-  auth(action: string, success: boolean, data?: Record<string, unknown>): void
-  security(event: string, severity: 'low' | 'medium' | 'high' | 'critical', data?: Record<string, unknown>): void
+  timing(message: string, startTime: number, data?: Record<string, unknown>): void;
+  http(
+    message: string,
+    statusCode: number,
+    duration?: number,
+    data?: Record<string, unknown>
+  ): void;
+  db(operation: string, table: string, duration?: number, data?: Record<string, unknown>): void;
+  auth(action: string, success: boolean, data?: Record<string, unknown>): void;
+  security(
+    event: string,
+    severity: 'low' | 'medium' | 'high' | 'critical',
+    data?: Record<string, unknown>
+  ): void;
 }
 
 /**
  * Logger adapter interface for different runtime implementations
  */
 export interface LoggerAdapter {
-  createLogger(module: string, context?: Record<string, unknown>): UniversalLogger
-  isAvailable(): boolean
+  createLogger(module: string, context?: Record<string, unknown>): UniversalLogger;
+  isAvailable(): boolean;
 }
 
 /**
  * Runtime-specific logger configuration
  */
 export interface LoggerConfig {
-  level?: 'debug' | 'info' | 'warn' | 'error'
-  format?: 'json' | 'pretty'
-  silent?: boolean
-  sanitizeData?: boolean
-  suppressFields?: string[]
+  level?: 'debug' | 'info' | 'warn' | 'error';
+  format?: 'json' | 'pretty';
+  silent?: boolean;
+  sanitizeData?: boolean;
+  suppressFields?: string[];
 }
 
 /**
@@ -56,47 +67,45 @@ export interface LoggerConfig {
  */
 export interface LogMetadata {
   // Request context
-  requestId?: string
-  correlationId?: string
-  
-  // User context  
-  userId?: string
-  organizationId?: string
-  
+  requestId?: string;
+  correlationId?: string;
+
+  // User context
+  userId?: string;
+  organizationId?: string;
+
   // Request details
-  method?: string
-  path?: string
-  userAgent?: string
-  ipAddress?: string
-  
+  method?: string;
+  path?: string;
+  userAgent?: string;
+  ipAddress?: string;
+
   // Performance data
-  duration?: number
-  statusCode?: number
-  
+  duration?: number;
+  statusCode?: number;
+
   // Database context
-  table?: string
-  operation?: string
-  recordCount?: number
-  
+  table?: string;
+  operation?: string;
+  recordCount?: number;
+
   // Security context
-  severity?: 'low' | 'medium' | 'high' | 'critical'
-  
+  severity?: 'low' | 'medium' | 'high' | 'critical';
+
   // Additional custom metadata
-  [key: string]: unknown
+  [key: string]: unknown;
 }
 
 /**
  * Standard log entry structure used across all adapters
  */
 export interface LogEntry {
-  timestamp: string
-  level: string
-  message: string
-  module?: string
-  service: string
-  environment: string
-  runtime: 'nodejs' | 'edge'
-  metadata?: LogMetadata
+  timestamp: string;
+  level: string;
+  message: string;
+  module?: string;
+  service: string;
+  environment: string;
+  runtime: 'nodejs' | 'edge';
+  metadata?: LogMetadata;
 }
-
-

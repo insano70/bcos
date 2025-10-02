@@ -4,8 +4,8 @@ export const metadata = {
 };
 
 import { SelectedItemsProvider } from '@/app/selected-items-context';
-import DataSourcesContent from './data-sources-content';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
+import DataSourcesContent from './data-sources-content';
 
 export default function DataSources() {
   return (
@@ -16,4 +16,3 @@ export default function DataSources() {
     </ProtectedComponent>
   );
 }
-

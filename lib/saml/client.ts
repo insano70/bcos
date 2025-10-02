@@ -1,18 +1,18 @@
 /**
  * SAML Client Wrapper
  * Factory pattern implementation for SAML authentication
- * 
+ *
  * Features:
  * - Factory pattern (not singleton) for proper lifecycle management
  * - Comprehensive SAML response validation
  * - Issuer validation (tenant isolation)
  * - Signature verification
  * - Replay attack prevention
- * - Timestamp validation  
+ * - Timestamp validation
  * - Audience restriction
  * - Email domain validation
  * - Security logging with correlation
- * 
+ *
  * @module lib/saml/client
  * @security Zero any types - strict TypeScript typing throughout
  */
@@ -20,31 +20,38 @@
 // Type-only import - will not cause runtime error if package not installed yet
 // Actual import happens at runtime with dynamic import()
 type SAML = {
-  getAuthorizeUrlAsync: (relayState: string, host: Record<string, unknown>, options: Record<string, unknown>) => Promise<string>;
-  validatePostResponseAsync: (body: { SAMLResponse: string }) => Promise<{ profile: Record<string, unknown>; loggedOut: boolean }>;
+  getAuthorizeUrlAsync: (
+    relayState: string,
+    host: Record<string, unknown>,
+    options: Record<string, unknown>
+  ) => Promise<string>;
+  validatePostResponseAsync: (body: {
+    SAMLResponse: string;
+  }) => Promise<{ profile: Record<string, unknown>; loggedOut: boolean }>;
   generateServiceProviderMetadata: (decryptionCert?: string, signingCert?: string) => string;
 };
 
 type NodeSAMLProfile = Record<string, unknown>;
-import { buildSAMLConfig } from './config';
+
+import { eq } from 'drizzle-orm';
+import { AuditLogger } from '@/lib/api/services/audit';
+import { account_security, db, users } from '@/lib/db';
 import { createAppLogger } from '@/lib/logger/factory';
 import type {
+  SAMLAuthContext,
   SAMLConfig,
   SAMLProfile,
-  SAMLValidationResult,
   SAMLValidationError,
-  SAMLAuthContext
+  SAMLValidationResult,
 } from '@/lib/types/saml';
+import { buildSAMLConfig } from './config';
 import { checkAndTrackAssertion } from './replay-prevention';
-import { AuditLogger } from '@/lib/api/services/audit';
-import { db, account_security, users } from '@/lib/db';
-import { eq } from 'drizzle-orm';
 
 // Create logger for SAML client operations
 const samlClientLogger = createAppLogger('saml-client', {
   component: 'security',
   feature: 'saml-sso',
-  module: 'client'
+  module: 'client',
 });
 
 /**
@@ -107,8 +114,9 @@ function transformSAMLProfile(nodeSAMLProfile: NodeSAMLProfile): SAMLProfile {
   );
 
   // Extract groups (if configured in Entra)
-  const groupsClaim = nodeSAMLProfile['http://schemas.microsoft.com/ws/2008/06/identity/claims/groups'];
-  const groups = Array.isArray(groupsClaim) 
+  const groupsClaim =
+    nodeSAMLProfile['http://schemas.microsoft.com/ws/2008/06/identity/claims/groups'];
+  const groups = Array.isArray(groupsClaim)
     ? groupsClaim.filter((g): g is string => typeof g === 'string')
     : undefined;
 
@@ -118,9 +126,15 @@ function transformSAMLProfile(nodeSAMLProfile: NodeSAMLProfile): SAMLProfile {
     issuer: String(nodeSAMLProfile.issuer || ''),
     nameID: String(nodeSAMLProfile.nameID || email),
     email,
-    ...(typeof nodeSAMLProfile.sessionIndex === 'string' && { sessionIndex: nodeSAMLProfile.sessionIndex }),
-    ...(typeof nodeSAMLProfile.nameIDFormat === 'string' && { nameIDFormat: nodeSAMLProfile.nameIDFormat }),
-    ...(typeof nodeSAMLProfile.inResponseTo === 'string' && { inResponseTo: nodeSAMLProfile.inResponseTo }),
+    ...(typeof nodeSAMLProfile.sessionIndex === 'string' && {
+      sessionIndex: nodeSAMLProfile.sessionIndex,
+    }),
+    ...(typeof nodeSAMLProfile.nameIDFormat === 'string' && {
+      nameIDFormat: nodeSAMLProfile.nameIDFormat,
+    }),
+    ...(typeof nodeSAMLProfile.inResponseTo === 'string' && {
+      inResponseTo: nodeSAMLProfile.inResponseTo,
+    }),
     ...(displayName && { displayName }),
     ...(givenName && { givenName }),
     ...(surname && { surname }),
@@ -128,11 +142,13 @@ function transformSAMLProfile(nodeSAMLProfile: NodeSAMLProfile): SAMLProfile {
     ...(groups && { groups }),
     ...(typeof nodeSAMLProfile.ID === 'string' && { assertionID: nodeSAMLProfile.ID }),
     ...(typeof nodeSAMLProfile.notBefore === 'string' && { notBefore: nodeSAMLProfile.notBefore }),
-    ...(typeof nodeSAMLProfile.notOnOrAfter === 'string' && { notOnOrAfter: nodeSAMLProfile.notOnOrAfter }),
+    ...(typeof nodeSAMLProfile.notOnOrAfter === 'string' && {
+      notOnOrAfter: nodeSAMLProfile.notOnOrAfter,
+    }),
     ...(typeof nodeSAMLProfile.audience === 'string' && { audience: nodeSAMLProfile.audience }),
-    
+
     // Store all attributes for extensibility
-    attributes: nodeSAMLProfile as Record<string, string | string[]>
+    attributes: nodeSAMLProfile as Record<string, string | string[]>,
   };
 
   return profile;
@@ -183,9 +199,9 @@ export class SAMLClientFactory {
         callbackUrl: this.config.callbackUrl,
         // node-saml requires 'idpCert' - can be string or array
         idpCert: [this.config.cert.trim()], // Array format supports cert rotation
-        ...(this.config.privateKey && { 
+        ...(this.config.privateKey && {
           privateKey: this.config.privateKey,
-          decryptionPvk: this.config.privateKey
+          decryptionPvk: this.config.privateKey,
         }),
         signatureAlgorithm: this.config.security.signatureAlgorithm,
         digestAlgorithm: this.config.security.digestAlgorithm,
@@ -205,7 +221,7 @@ export class SAMLClientFactory {
       samlClientLogger.info('SAML client initialized successfully', {
         clientId: this.clientId,
         duration: Date.now() - startTime,
-        tenantId: this.config.tenantId
+        tenantId: this.config.tenantId,
       });
 
       // Ensure samlInstance is not null before returning
@@ -215,18 +231,19 @@ export class SAMLClientFactory {
 
       return this.samlInstance;
     } catch (error) {
-      samlClientLogger.error('SAML client initialization failed', 
+      samlClientLogger.error(
+        'SAML client initialization failed',
         error instanceof Error ? error : new Error(String(error)),
         {
           clientId: this.clientId,
           error: error instanceof Error ? error.message : String(error),
-          note: 'Ensure @node-saml/node-saml is installed (Phase 6)'
+          note: 'Ensure @node-saml/node-saml is installed (Phase 6)',
         }
       );
 
       throw new Error(
         `SAML client initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}. ` +
-        `Ensure @node-saml/node-saml package is installed.`
+          `Ensure @node-saml/node-saml package is installed.`
       );
     }
   }
@@ -238,7 +255,7 @@ export class SAMLClientFactory {
   async createLoginUrl(context: SAMLAuthContext): Promise<string> {
     samlClientLogger.info('Creating SAML login URL', {
       requestId: context.requestId,
-      ipAddress: context.ipAddress
+      ipAddress: context.ipAddress,
     });
 
     const saml = await this.initialize();
@@ -246,23 +263,24 @@ export class SAMLClientFactory {
     try {
       const loginUrl = await saml.getAuthorizeUrlAsync(
         context.relayState || '',
-        {},  // host (unused with HTTP-Redirect)
-        {}   // additional params
+        {}, // host (unused with HTTP-Redirect)
+        {} // additional params
       );
 
       samlClientLogger.info('SAML login URL created successfully', {
         requestId: context.requestId,
         urlLength: loginUrl.length,
-        containsTenantId: this.config?.tenantId ? loginUrl.includes(this.config.tenantId) : false
+        containsTenantId: this.config?.tenantId ? loginUrl.includes(this.config.tenantId) : false,
       });
 
       return loginUrl;
     } catch (error) {
-      samlClientLogger.error('Failed to create SAML login URL',
+      samlClientLogger.error(
+        'Failed to create SAML login URL',
         error instanceof Error ? error : new Error(String(error)),
         {
           requestId: context.requestId,
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         }
       );
 
@@ -289,7 +307,7 @@ export class SAMLClientFactory {
     samlClientLogger.info('Validating SAML response', {
       requestId: context.requestId,
       ipAddress: context.ipAddress,
-      responseLength: samlResponseBody.SAMLResponse?.length || 0
+      responseLength: samlResponseBody.SAMLResponse?.length || 0,
     });
 
     const validations = {
@@ -298,7 +316,7 @@ export class SAMLClientFactory {
       audienceValid: false,
       timestampValid: false,
       notReplay: false,
-      emailDomainValid: false
+      emailDomainValid: false,
     };
 
     try {
@@ -309,23 +327,23 @@ export class SAMLClientFactory {
         samlClientLogger.debug('Raw SAML response (non-production debug)', {
           requestId: context.requestId,
           responseLength: samlResponseBody.SAMLResponse.length,
-          responsePreview: samlResponseBody.SAMLResponse.substring(0, 100) + '...'
+          responsePreview: `${samlResponseBody.SAMLResponse.substring(0, 100)}...`,
         });
-        
+
         // Decode base64 to see XML structure
         try {
           const decoded = Buffer.from(samlResponseBody.SAMLResponse, 'base64').toString('utf-8');
           samlClientLogger.debug('Decoded SAML XML preview', {
             requestId: context.requestId,
-            xmlPreview: decoded.substring(0, 500) + '...',
+            xmlPreview: `${decoded.substring(0, 500)}...`,
             containsSignature: decoded.includes('<Signature'),
-            containsAssertion: decoded.includes('<Assertion')
+            containsAssertion: decoded.includes('<Assertion'),
           });
-          
+
           console.log('\n🔍 SAML Response Debug:\n', decoded.substring(0, 1000), '\n...\n');
         } catch (e) {
           samlClientLogger.warn('Could not decode SAML response for debugging', {
-            error: e instanceof Error ? e.message : String(e)
+            error: e instanceof Error ? e.message : String(e),
           });
         }
       }
@@ -333,11 +351,11 @@ export class SAMLClientFactory {
       // Validate SAML response (signature, timestamps, etc.)
       const startTime = Date.now();
       const response = await saml.validatePostResponseAsync(samlResponseBody);
-      
+
       samlClientLogger.info('SAML response parsed successfully', {
         requestId: context.requestId,
         duration: Date.now() - startTime,
-        hasProfile: !!response.profile
+        hasProfile: !!response.profile,
       });
 
       // Signature is valid if we got here (node-saml validates signatures)
@@ -358,11 +376,12 @@ export class SAMLClientFactory {
           details: {
             received: profile.issuer,
             expected: this.config.expectedIssuer,
-            requestId: context.requestId
-          }
+            requestId: context.requestId,
+          },
         } as SAMLValidationError;
 
-        samlClientLogger.error('SAML issuer validation failed - possible tenant bypass attempt',
+        samlClientLogger.error(
+          'SAML issuer validation failed - possible tenant bypass attempt',
           new Error(error.message),
           error.details
         );
@@ -382,11 +401,12 @@ export class SAMLClientFactory {
           details: {
             received: profile.audience,
             expected: this.config.issuer,
-            requestId: context.requestId
-          }
+            requestId: context.requestId,
+          },
         } as SAMLValidationError;
 
-        samlClientLogger.error('SAML audience validation failed',
+        samlClientLogger.error(
+          'SAML audience validation failed',
           new Error(error.message),
           error.details
         );
@@ -411,11 +431,12 @@ export class SAMLClientFactory {
             notBefore: profile.notBefore,
             notOnOrAfter: profile.notOnOrAfter,
             currentTime: new Date().toISOString(),
-            requestId: context.requestId
-          }
+            requestId: context.requestId,
+          },
         } as SAMLValidationError;
 
-        samlClientLogger.error('SAML timestamp validation failed',
+        samlClientLogger.error(
+          'SAML timestamp validation failed',
           new Error(error.message),
           error.details
         );
@@ -435,8 +456,8 @@ export class SAMLClientFactory {
             validationType: 'replay',
             details: {
               assertionID: profile.assertionID,
-              requestId: context.requestId
-            }
+              requestId: context.requestId,
+            },
           } as SAMLValidationError;
 
           throw error;
@@ -456,11 +477,12 @@ export class SAMLClientFactory {
             email: profile.email.replace(/(.{2}).*@/, '$1***@'), // PII masking
             domain: profile.email.split('@')[1],
             allowedDomains: this.config.allowedEmailDomains,
-            requestId: context.requestId
-          }
+            requestId: context.requestId,
+          },
         } as SAMLValidationError;
 
-        samlClientLogger.error('SAML email domain validation failed',
+        samlClientLogger.error(
+          'SAML email domain validation failed',
           new Error(error.message),
           error.details
         );
@@ -473,7 +495,7 @@ export class SAMLClientFactory {
         requestId: context.requestId,
         email: profile.email.replace(/(.{2}).*@/, '$1***@'), // PII masking
         issuer: profile.issuer,
-        allValidationsPassed: Object.values(validations).every(v => v === true)
+        allValidationsPassed: Object.values(validations).every((v) => v === true),
       });
 
       // Build metadata with proper optional handling
@@ -481,16 +503,15 @@ export class SAMLClientFactory {
         validatedAt: new Date(),
         issuer: profile.issuer,
         ...(profile.assertionID && { assertionID: profile.assertionID }),
-        ...(profile.sessionIndex && { sessionIndex: profile.sessionIndex })
+        ...(profile.sessionIndex && { sessionIndex: profile.sessionIndex }),
       };
 
       return {
         success: true,
         profile,
         validations,
-        metadata
+        metadata,
       };
-
     } catch (error) {
       // If it's already a SAMLValidationError, rethrow it
       if (error instanceof Error && error.name === 'SAMLValidationError') {
@@ -498,12 +519,13 @@ export class SAMLClientFactory {
       }
 
       // Wrap other errors
-      samlClientLogger.error('SAML response validation failed',
+      samlClientLogger.error(
+        'SAML response validation failed',
         error instanceof Error ? error : new Error(String(error)),
         {
           requestId: context.requestId,
           error: error instanceof Error ? error.message : String(error),
-          validations
+          validations,
         }
       );
 
@@ -513,8 +535,8 @@ export class SAMLClientFactory {
         validations,
         metadata: {
           validatedAt: new Date(),
-          issuer: 'unknown'
-        }
+          issuer: 'unknown',
+        },
       };
     }
   }
@@ -533,12 +555,12 @@ export class SAMLClientFactory {
         requestId,
         received: issuer,
         expected: this.config.expectedIssuer,
-        securityThreat: 'tenant_isolation_bypass'
+        securityThreat: 'tenant_isolation_bypass',
       });
 
       return {
         valid: false,
-        error: `Invalid issuer. Expected ${this.config.expectedIssuer}, received ${issuer}`
+        error: `Invalid issuer. Expected ${this.config.expectedIssuer}, received ${issuer}`,
       };
     }
 
@@ -548,7 +570,10 @@ export class SAMLClientFactory {
   /**
    * Validate audience matches our issuer
    */
-  private validateAudience(audience: string | undefined, requestId: string): { valid: boolean; error?: string } {
+  private validateAudience(
+    audience: string | undefined,
+    requestId: string
+  ): { valid: boolean; error?: string } {
     if (!this.config) {
       return { valid: false, error: 'SAML configuration not initialized' };
     }
@@ -563,12 +588,12 @@ export class SAMLClientFactory {
       samlClientLogger.warn('Audience mismatch', {
         requestId,
         received: audience,
-        expected: this.config.issuer
+        expected: this.config.issuer,
       });
 
       return {
         valid: false,
-        error: `Invalid audience. Expected ${this.config.issuer}, received ${audience}`
+        error: `Invalid audience. Expected ${this.config.issuer}, received ${audience}`,
       };
     }
 
@@ -596,12 +621,12 @@ export class SAMLClientFactory {
           requestId,
           notBefore,
           currentTime: now.toISOString(),
-          clockSkew
+          clockSkew,
         });
 
         return {
           valid: false,
-          error: `Assertion not yet valid. Not before: ${notBefore}, current time: ${now.toISOString()}`
+          error: `Assertion not yet valid. Not before: ${notBefore}, current time: ${now.toISOString()}`,
         };
       }
     }
@@ -616,12 +641,12 @@ export class SAMLClientFactory {
           requestId,
           notOnOrAfter,
           currentTime: now.toISOString(),
-          clockSkew
+          clockSkew,
         });
 
         return {
           valid: false,
-          error: `Assertion expired. Not on or after: ${notOnOrAfter}, current time: ${now.toISOString()}`
+          error: `Assertion expired. Not on or after: ${notOnOrAfter}, current time: ${now.toISOString()}`,
         };
       }
     }
@@ -642,8 +667,11 @@ export class SAMLClientFactory {
       : new Date(Date.now() + 3600000); // 1 hour default
 
     // Check with database (atomic insert prevents race conditions)
+    if (!profile.assertionID) {
+      return { valid: false, error: 'Assertion ID missing from SAML response' };
+    }
     const replayCheck = await checkAndTrackAssertion(
-      profile.assertionID!,
+      profile.assertionID,
       profile.inResponseTo || '',
       profile.email,
       context.ipAddress,
@@ -663,18 +691,14 @@ export class SAMLClientFactory {
           originalUsedAt: replayCheck.details?.existingUsedAt,
           originalIP: replayCheck.details?.existingIpAddress,
           requestId: context.requestId,
-          alert: 'REPLAY_ATTACK_BLOCKED'
+          alert: 'REPLAY_ATTACK_BLOCKED',
         },
-        severity: 'critical'
+        severity: 'critical',
       });
 
       // Try to find user and mark account suspicious
       try {
-        const [user] = await db
-          .select()
-          .from(users)
-          .where(eq(users.email, profile.email))
-          .limit(1);
+        const [user] = await db.select().from(users).where(eq(users.email, profile.email)).limit(1);
 
         if (user) {
           await db
@@ -685,39 +709,44 @@ export class SAMLClientFactory {
           samlClientLogger.warn('Account marked as suspicious due to replay attack', {
             userId: user.user_id,
             email: profile.email.replace(/(.{2}).*@/, '$1***@'),
-            requestId: context.requestId
+            requestId: context.requestId,
           });
         }
       } catch (error) {
         // Don't fail authentication on account_security update error
-        samlClientLogger.error('Failed to update account_security for replay attack',
+        samlClientLogger.error(
+          'Failed to update account_security for replay attack',
           error instanceof Error ? error : new Error(String(error)),
           {
             email: profile.email.replace(/(.{2}).*@/, '$1***@'),
-            requestId: context.requestId
+            requestId: context.requestId,
           }
         );
       }
 
-      samlClientLogger.error('SAML replay attack detected and blocked', new Error(replayCheck.reason || 'Replay attack'), {
-        requestId: context.requestId,
-        assertionID: profile.assertionID?.substring(0, 20) + '...',
-        email: profile.email.replace(/(.{2}).*@/, '$1***@'),
-        originalUsedAt: replayCheck.details?.existingUsedAt,
-        originalIP: replayCheck.details?.existingIpAddress,
-        attemptIP: context.ipAddress,
-        securityThreat: 'replay_attack'
-      });
+      samlClientLogger.error(
+        'SAML replay attack detected and blocked',
+        new Error(replayCheck.reason || 'Replay attack'),
+        {
+          requestId: context.requestId,
+          assertionID: `${profile.assertionID?.substring(0, 20)}...`,
+          email: profile.email.replace(/(.{2}).*@/, '$1***@'),
+          originalUsedAt: replayCheck.details?.existingUsedAt,
+          originalIP: replayCheck.details?.existingIpAddress,
+          attemptIP: context.ipAddress,
+          securityThreat: 'replay_attack',
+        }
+      );
 
       return {
         valid: false,
-        error: replayCheck.reason || 'Assertion ID has already been used - possible replay attack'
+        error: replayCheck.reason || 'Assertion ID has already been used - possible replay attack',
       };
     }
 
     samlClientLogger.debug('Replay check passed - assertion ID tracked in database', {
-      assertionID: profile.assertionID?.substring(0, 20) + '...',
-      requestId: context.requestId
+      assertionID: `${profile.assertionID?.substring(0, 20)}...`,
+      requestId: context.requestId,
     });
 
     return { valid: true };
@@ -726,7 +755,10 @@ export class SAMLClientFactory {
   /**
    * Validate email domain against allowed list
    */
-  private validateEmailDomain(email: string, requestId: string): { valid: boolean; error?: string } {
+  private validateEmailDomain(
+    email: string,
+    requestId: string
+  ): { valid: boolean; error?: string } {
     if (!this.config || this.config.allowedEmailDomains.length === 0) {
       return { valid: true }; // No domain restrictions configured
     }
@@ -735,14 +767,14 @@ export class SAMLClientFactory {
     if (!emailDomain) {
       samlClientLogger.warn('Email has no domain', {
         requestId,
-        email: email.replace(/(.{2}).*@/, '$1***@')
+        email: email.replace(/(.{2}).*@/, '$1***@'),
       });
 
       return { valid: false, error: 'Invalid email format - no domain found' };
     }
 
     const domainAllowed = this.config.allowedEmailDomains.some(
-      allowedDomain => emailDomain.toLowerCase() === allowedDomain.toLowerCase()
+      (allowedDomain) => emailDomain.toLowerCase() === allowedDomain.toLowerCase()
     );
 
     if (!domainAllowed) {
@@ -750,12 +782,12 @@ export class SAMLClientFactory {
         requestId,
         domain: emailDomain,
         allowedDomains: this.config.allowedEmailDomains,
-        email: email.replace(/(.{2}).*@/, '$1***@')
+        email: email.replace(/(.{2}).*@/, '$1***@'),
       });
 
       return {
         valid: false,
-        error: `Email domain '@${emailDomain}' is not allowed. Contact your administrator.`
+        error: `Email domain '@${emailDomain}' is not allowed. Contact your administrator.`,
       };
     }
 
@@ -778,16 +810,17 @@ export class SAMLClientFactory {
 
       samlClientLogger.info('SP metadata generated successfully', {
         clientId: this.clientId,
-        metadataLength: metadata.length
+        metadataLength: metadata.length,
       });
 
       return metadata;
     } catch (error) {
-      samlClientLogger.error('Failed to generate SP metadata',
+      samlClientLogger.error(
+        'Failed to generate SP metadata',
         error instanceof Error ? error : new Error(String(error)),
         {
           clientId: this.clientId,
-          error: error instanceof Error ? error.message : String(error)
+          error: error instanceof Error ? error.message : String(error),
         }
       );
 
@@ -824,4 +857,3 @@ export class SAMLClientFactory {
 export function createSAMLClient(clientId?: string): SAMLClientFactory {
   return new SAMLClientFactory(clientId);
 }
-

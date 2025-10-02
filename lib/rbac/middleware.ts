@@ -1,10 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { getUserContextSafe } from './user-context';
-import { PermissionChecker } from './permission-checker';
-import { type PermissionName, type UserContext, RBACError } from '@/lib/types/rbac';
 import { createErrorResponse } from '@/lib/api/responses/error';
-import { db } from '@/lib/db';
+import { type PermissionName, RBACError, type UserContext } from '@/lib/types/rbac';
 import type { AuthResult } from '../api/middleware/global-auth';
+import { PermissionChecker } from './permission-checker';
+import { getUserContextSafe } from './user-context';
 
 /**
  * RBAC Middleware for Next.js API Routes
@@ -22,10 +21,7 @@ export interface RBACMiddlewareOptions {
   requireAll?: boolean | undefined; // For multiple permissions (AND vs OR logic)
   extractResourceId?: ((request: NextRequest) => string | undefined) | undefined;
   extractOrganizationId?: ((request: NextRequest) => string | undefined) | undefined;
-  onPermissionDenied?: (
-    userContext: UserContext,
-    deniedPermissions: string[]
-  ) => NextResponse;
+  onPermissionDenied?: (userContext: UserContext, deniedPermissions: string[]) => NextResponse;
 }
 
 /**
@@ -43,7 +39,7 @@ export function createRBACMiddleware(
       // If userContext is not provided, we need to get it from the session
       // This assumes the auth middleware has already validated the user
       const resolvedUserContext = userContext;
-      
+
       if (!resolvedUserContext) {
         // Extract user ID from request (assuming it's been set by auth middleware)
         const authHeader = request.headers.get('Authorization');
@@ -57,15 +53,17 @@ export function createRBACMiddleware(
       }
 
       const checker = new PermissionChecker(resolvedUserContext);
-      
+
       // Extract resource and organization IDs from request
       const resourceId = options.extractResourceId?.(request);
-      const organizationId = options.extractOrganizationId?.(request) || 
-                           resolvedUserContext.current_organization_id;
+      const organizationId =
+        options.extractOrganizationId?.(request) || resolvedUserContext.current_organization_id;
 
       // Check permissions (support both single permission and array)
-      const permissions = Array.isArray(requiredPermission) ? requiredPermission : [requiredPermission];
-      
+      const permissions = Array.isArray(requiredPermission)
+        ? requiredPermission
+        : [requiredPermission];
+
       let hasAccess = false;
       const deniedPermissions: string[] = [];
 
@@ -73,7 +71,7 @@ export function createRBACMiddleware(
         // AND logic - user must have ALL permissions
         hasAccess = checker.hasAllPermissions(permissions, resourceId, organizationId);
         if (!hasAccess) {
-          permissions.forEach(permission => {
+          permissions.forEach((permission) => {
             if (!checker.hasPermission(permission, resourceId, organizationId)) {
               deniedPermissions.push(permission);
             }
@@ -94,53 +92,61 @@ export function createRBACMiddleware(
         }
 
         // Default permission denied response
-        return NextResponse.json({
-          success: false,
-          error: 'Forbidden',
-          message: `Missing required permissions: ${deniedPermissions.join(options.requireAll ? ' and ' : ' or ')}`,
-          code: 'INSUFFICIENT_PERMISSIONS',
-          details: {
-            required_permissions: permissions,
-            denied_permissions: deniedPermissions,
-            user_id: resolvedUserContext.user_id,
-            resource_id: resourceId,
-            organization_id: organizationId
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Forbidden',
+            message: `Missing required permissions: ${deniedPermissions.join(options.requireAll ? ' and ' : ' or ')}`,
+            code: 'INSUFFICIENT_PERMISSIONS',
+            details: {
+              required_permissions: permissions,
+              denied_permissions: deniedPermissions,
+              user_id: resolvedUserContext.user_id,
+              resource_id: resourceId,
+              organization_id: organizationId,
+            },
+            meta: {
+              timestamp: new Date().toISOString(),
+              path: request.url,
+            },
           },
-          meta: {
-            timestamp: new Date().toISOString(),
-            path: request.url
-          }
-        }, { status: 403 });
+          { status: 403 }
+        );
       }
 
       // Permission granted - return success with user context
       return { success: true, userContext: resolvedUserContext };
-
     } catch (error) {
       console.error('RBAC Middleware Error:', error);
-      
+
       if (error instanceof RBACError) {
-        return NextResponse.json({
-          success: false,
-          error: error.message,
-          code: error.code,
-          details: error.details,
-          meta: {
-            timestamp: new Date().toISOString(),
-            path: request.url
-          }
-        }, { status: error.statusCode });
+        return NextResponse.json(
+          {
+            success: false,
+            error: error.message,
+            code: error.code,
+            details: error.details,
+            meta: {
+              timestamp: new Date().toISOString(),
+              path: request.url,
+            },
+          },
+          { status: error.statusCode }
+        );
       }
 
-      return NextResponse.json({
-        success: false,
-        error: 'Internal Server Error',
-        code: 'RBAC_ERROR',
-        meta: {
-          timestamp: new Date().toISOString(),
-          path: request.url
-        }
-      }, { status: 500 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Internal Server Error',
+          code: 'RBAC_ERROR',
+          meta: {
+            timestamp: new Date().toISOString(),
+            path: request.url,
+          },
+        },
+        { status: 500 }
+      );
     }
   };
 }
@@ -152,20 +158,26 @@ export function createRBACMiddleware(
 /**
  * Require a single permission
  */
-export const requirePermission = (permission: PermissionName, options?: Omit<RBACMiddlewareOptions, 'permission'>) =>
-  createRBACMiddleware(permission, options);
+export const requirePermission = (
+  permission: PermissionName,
+  options?: Omit<RBACMiddlewareOptions, 'permission'>
+) => createRBACMiddleware(permission, options);
 
 /**
  * Require any of multiple permissions (OR logic)
  */
-export const requireAnyPermission = (permissions: PermissionName[], options?: Omit<RBACMiddlewareOptions, 'permission'>) =>
-  createRBACMiddleware(permissions, { ...options, requireAll: false });
+export const requireAnyPermission = (
+  permissions: PermissionName[],
+  options?: Omit<RBACMiddlewareOptions, 'permission'>
+) => createRBACMiddleware(permissions, { ...options, requireAll: false });
 
 /**
  * Require all of multiple permissions (AND logic)
  */
-export const requireAllPermissions = (permissions: PermissionName[], options?: Omit<RBACMiddlewareOptions, 'permission'>) =>
-  createRBACMiddleware(permissions, { ...options, requireAll: true });
+export const requireAllPermissions = (
+  permissions: PermissionName[],
+  options?: Omit<RBACMiddlewareOptions, 'permission'>
+) => createRBACMiddleware(permissions, { ...options, requireAll: true });
 
 /**
  * Common middleware instances for frequent use cases
@@ -175,50 +187,45 @@ export const requireAllPermissions = (permissions: PermissionName[], options?: O
 export const requireUserRead = createRBACMiddleware([
   'users:read:own',
   'users:read:organization',
-  'users:read:all'
+  'users:read:all',
 ]);
 
 export const requireUserWrite = createRBACMiddleware([
   'users:update:own',
-  'users:update:organization'
+  'users:update:organization',
 ]);
 
 export const requireUserAdmin = createRBACMiddleware([
   'users:create:organization',
-  'users:delete:organization'
+  'users:delete:organization',
 ]);
 
 // Practice/Organization management permissions
 export const requirePracticeRead = createRBACMiddleware([
   'practices:read:own',
-  'practices:read:all'
+  'practices:read:all',
 ]);
 
-export const requirePracticeWrite = createRBACMiddleware([
-  'practices:update:own'
-]);
+export const requirePracticeWrite = createRBACMiddleware(['practices:update:own']);
 
 export const requirePracticeAdmin = createRBACMiddleware([
   'practices:staff:manage:own',
-  'practices:manage:all'
+  'practices:manage:all',
 ]);
 
 // Analytics permissions
 export const requireAnalyticsRead = createRBACMiddleware([
   'analytics:read:organization',
-  'analytics:read:all'
+  'analytics:read:all',
 ]);
 
-export const requireAnalyticsExport = createRBACMiddleware([
-  'analytics:export:organization'
-]);
+export const requireAnalyticsExport = createRBACMiddleware(['analytics:export:organization']);
 
 // System administration
-export const requireSuperAdmin = createRBACMiddleware([
-  'users:read:all',
-  'practices:read:all',
-  'settings:update:all'
-], { requireAll: true });
+export const requireSuperAdmin = createRBACMiddleware(
+  ['users:read:all', 'practices:read:all', 'settings:update:all'],
+  { requireAll: true }
+);
 
 /**
  * Resource ID extractors for common patterns
@@ -239,7 +246,9 @@ export const extractors = {
   practiceIdFromPath: (request: NextRequest): string | undefined => {
     const pathSegments = request.nextUrl.pathname.split('/');
     const practiceIndex = pathSegments.indexOf('practices');
-    return practiceIndex >= 0 && pathSegments[practiceIndex + 1] ? pathSegments[practiceIndex + 1] : undefined;
+    return practiceIndex >= 0 && pathSegments[practiceIndex + 1]
+      ? pathSegments[practiceIndex + 1]
+      : undefined;
   },
 
   /**
@@ -254,7 +263,7 @@ export const extractors = {
    */
   organizationIdFromQuery: (request: NextRequest): string | undefined => {
     return request.nextUrl.searchParams.get('organizationId') || undefined;
-  }
+  },
 };
 
 /**
@@ -267,7 +276,7 @@ export function createResourceMiddleware(
 ) {
   return createRBACMiddleware(permission, {
     extractResourceId: resourceExtractor,
-    extractOrganizationId: organizationExtractor
+    extractOrganizationId: organizationExtractor,
   });
 }
 
@@ -310,7 +319,7 @@ export async function enhanceSessionWithRBAC(
 
     return {
       session: existingSession,
-      userContext
+      userContext,
     };
   } catch (error) {
     console.error('Failed to enhance session with RBAC:', error);
@@ -329,11 +338,16 @@ export function withRBAC<T extends unknown[]>(
 
   return (
     handler: (request: NextRequest, userContext: UserContext, ...args: T) => Promise<Response>
-  ) => async (request: NextRequest, existingSession?: AuthResult | null, ...args: T): Promise<Response> => {
+  ) =>
+    async (
+      request: NextRequest,
+      existingSession?: AuthResult | null,
+      ...args: T
+    ): Promise<Response> => {
       try {
         // If we have an existing session, enhance it with RBAC
         let userContext: UserContext;
-        
+
         if (existingSession?.user?.id) {
           const enhanced = await enhanceSessionWithRBAC(existingSession);
           if (!enhanced) {
@@ -346,7 +360,7 @@ export function withRBAC<T extends unknown[]>(
 
         // Apply RBAC middleware
         const middlewareResult = await middleware(request, userContext);
-        
+
         if ('success' in middlewareResult && middlewareResult.success) {
           // Permission granted - call the handler
           return await handler(request, middlewareResult.userContext, ...args);

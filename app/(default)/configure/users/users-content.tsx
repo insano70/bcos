@@ -1,22 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import DeleteButton from '@/components/delete-button';
-import DateSelect from '@/components/date-select';
-import FilterButton from '@/components/dropdown-filter';
-import UsersTable from './users-table';
-import PaginationClassic from '@/components/pagination-classic';
+import { useEffect, useState } from 'react';
 import AddUserModal from '@/components/add-user-modal';
-import EditUserModal from '@/components/edit-user-modal';
-import { useUsers, type User } from '@/lib/hooks/use-users';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
+import DateSelect from '@/components/date-select';
+import DeleteButton from '@/components/delete-button';
+import FilterButton from '@/components/dropdown-filter';
+import EditUserModal from '@/components/edit-user-modal';
+import PaginationClassic from '@/components/pagination-classic';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { usePagination } from '@/lib/hooks/use-pagination';
+import { type User, useUsers } from '@/lib/hooks/use-users';
+import UsersTable from './users-table';
 
 export default function UsersContent() {
   // Component rendered (client-side debug)
   if (process.env.NODE_ENV === 'development') {
-    console.log('👥 UsersContent: Component rendered')
+    console.log('👥 UsersContent: Component rendered');
   }
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { data: users, isLoading, error, refetch } = useUsers(); // Access token handled by middleware
@@ -31,9 +31,9 @@ export default function UsersContent() {
   if (process.env.NODE_ENV === 'development') {
     console.log('👤 UsersContent: Auth state -', {
       isAuthenticated,
-      authLoading
+      authLoading,
       // Access token now handled securely server-side via httpOnly cookies
-    })
+    });
   }
 
   // API state logging (client-side debug)
@@ -42,20 +42,20 @@ export default function UsersContent() {
       hasUsers: !!users,
       isLoading,
       hasError: !!error,
-      errorMessage: error?.message
-    })
+      errorMessage: error?.message,
+    });
   }
 
   // Redirect to login if not authenticated
   useEffect(() => {
     // useEffect trigger logging (client-side debug)
     if (process.env.NODE_ENV === 'development') {
-      console.log('🔄 UsersContent: useEffect triggered -', { authLoading, isAuthenticated })
+      console.log('🔄 UsersContent: useEffect triggered -', { authLoading, isAuthenticated });
     }
     if (!authLoading && !isAuthenticated) {
       // Redirect logging (client-side debug)
       if (process.env.NODE_ENV === 'development') {
-        console.log('🔄 UsersContent: Redirecting to login - no authentication')
+        console.log('🔄 UsersContent: Redirecting to login - no authentication');
       }
       const currentPath = window.location.pathname + window.location.search;
       const loginUrl = `/signin?callbackUrl=${encodeURIComponent(currentPath)}`;
@@ -63,7 +63,7 @@ export default function UsersContent() {
     } else if (!authLoading && isAuthenticated) {
       // Authentication success logging (client-side debug)
       if (process.env.NODE_ENV === 'development') {
-        console.log('✅ UsersContent: User authenticated, staying on page')
+        console.log('✅ UsersContent: User authenticated, staying on page');
       }
     }
   }, [isAuthenticated, authLoading]);
@@ -94,7 +94,9 @@ export default function UsersContent() {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               />
             </svg>
-            <span className="ml-3 text-gray-600 dark:text-gray-400">Checking authentication...</span>
+            <span className="ml-3 text-gray-600 dark:text-gray-400">
+              Checking authentication...
+            </span>
           </div>
         </div>
       </div>
@@ -187,7 +189,7 @@ export default function UsersContent() {
 
           {/* Add user button - protected by RBAC */}
           <ProtectedComponent
-            permissions={["users:create:organization", "users:manage:all"]}
+            permissions={['users:create:organization', 'users:manage:all']}
             requireAll={false}
           >
             <button
@@ -238,7 +240,7 @@ export default function UsersContent() {
 
       {/* Pagination */}
       <div className="mt-8">
-        <PaginationClassic 
+        <PaginationClassic
           currentPage={pagination.currentPage}
           totalItems={pagination.totalItems}
           itemsPerPage={pagination.itemsPerPage}

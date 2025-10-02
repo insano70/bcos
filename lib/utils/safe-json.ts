@@ -19,12 +19,12 @@ export function safeJsonParse<T>(
 
   try {
     const parsed = JSON.parse(jsonString);
-    
+
     if (schema) {
       const result = schema.safeParse(parsed);
       return result.success ? result.data : null;
     }
-    
+
     return parsed;
   } catch {
     return null;
@@ -52,29 +52,29 @@ export const businessHoursSchema = z.object({
   thursday: z.string().optional(),
   friday: z.string().optional(),
   saturday: z.string().optional(),
-  sunday: z.string().optional()
+  sunday: z.string().optional(),
 });
 
 export const serviceSchema = z.object({
   name: z.string().max(255),
   description: z.string().max(1000).optional(),
-  category: z.string().max(100).optional()
+  category: z.string().max(100).optional(),
 });
 
 export const insuranceSchema = z.object({
   name: z.string().max(255),
-  accepted: z.boolean().default(true)
+  accepted: z.boolean().default(true),
 });
 
 export const conditionSchema = z.object({
   name: z.string().max(255),
-  description: z.string().max(500).optional()
+  description: z.string().max(500).optional(),
 });
 
 export const galleryImageSchema = z.object({
   url: z.string().url().max(500),
   alt: z.string().max(255).optional(),
-  caption: z.string().max(500).optional()
+  caption: z.string().max(500).optional(),
 });
 
 export const specialtySchema = z.string().max(255);
@@ -82,7 +82,10 @@ export const specialtySchema = z.string().max(255);
 export const educationSchema = z.object({
   degree: z.string().max(255),
   school: z.string().max(255),
-  year: z.string().max(4).regex(/^\d{4}$/, 'Must be a valid year')
+  year: z
+    .string()
+    .max(4)
+    .regex(/^\d{4}$/, 'Must be a valid year'),
 });
 
 /**
@@ -93,12 +96,12 @@ export function parseBusinessHours(jsonString: string | null) {
 }
 
 // Define types for the parsed data
-type BusinessHours = z.infer<typeof businessHoursSchema>;
-type Service = z.infer<typeof serviceSchema>;
-type Insurance = z.infer<typeof insuranceSchema>;
-type Condition = z.infer<typeof conditionSchema>;
-type GalleryImage = z.infer<typeof galleryImageSchema>;
-type Education = z.infer<typeof educationSchema>;
+export type BusinessHours = z.infer<typeof businessHoursSchema>;
+export type Service = z.infer<typeof serviceSchema>;
+export type Insurance = z.infer<typeof insuranceSchema>;
+export type Condition = z.infer<typeof conditionSchema>;
+export type GalleryImage = z.infer<typeof galleryImageSchema>;
+export type Education = z.infer<typeof educationSchema>;
 
 export function parseServices(jsonString: string | null): Service[] {
   return safeJsonParseArray(jsonString, serviceSchema);

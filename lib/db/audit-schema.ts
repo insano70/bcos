@@ -1,4 +1,4 @@
-import { pgTable, varchar, text, timestamp, index } from 'drizzle-orm/pg-core'
+import { index, pgTable, text, timestamp, varchar } from 'drizzle-orm/pg-core';
 
 /**
  * Audit logs table for compliance and security tracking
@@ -27,4 +27,4 @@ export const audit_logs = pgTable(
     createdAtIdx: index('idx_audit_logs_created_at').on(table.created_at),
     resourceIdx: index('idx_audit_logs_resource').on(table.resource_type, table.resource_id),
   })
-)
+);

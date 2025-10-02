@@ -1,51 +1,57 @@
-import { pgTable, uuid, varchar, boolean, timestamp, index, text, integer, numeric } from 'drizzle-orm/pg-core';
-
-// Import audit logs table
-export { audit_logs } from './audit-schema';
-
-// Import JWT + Refresh Token tables and Session tables
-export { 
-  refresh_tokens,
-  token_blacklist,
-  user_sessions,
-  login_attempts,
-  account_security
-} from './refresh-token-schema';
-
-// Import RBAC tables
-export {
-  organizations,
-  permissions,
-  roles,
-  role_permissions,
-  user_roles,
-  user_organizations,
-  organizationsRelations,
-  rolesRelations,
-  permissionsRelations,
-  rolePermissionsRelations,
-  userRolesRelations,
-  userOrganizationsRelations
-} from './rbac-schema';
+import {
+  boolean,
+  index,
+  integer,
+  numeric,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  varchar,
+} from 'drizzle-orm/pg-core';
 
 // Import Analytics tables
 export {
   chart_categories,
   chart_definitions,
-  user_chart_favorites,
-  data_sources,
-  dashboards,
+  chart_permissions,
   dashboard_charts,
-  chart_permissions
+  dashboards,
+  data_sources,
+  user_chart_favorites,
 } from './analytics-schema';
-
+// Import audit logs table
+export { audit_logs } from './audit-schema';
 // Import Chart Configuration tables
 export {
-  chart_data_sources,
   chart_data_source_columns,
+  chart_data_sources,
   chart_display_configurations,
-  color_palettes
+  color_palettes,
 } from './chart-config-schema';
+// Import RBAC tables
+export {
+  organizations,
+  organizationsRelations,
+  permissions,
+  permissionsRelations,
+  role_permissions,
+  rolePermissionsRelations,
+  roles,
+  rolesRelations,
+  user_organizations,
+  user_roles,
+  userOrganizationsRelations,
+  userRolesRelations,
+} from './rbac-schema';
+// Import JWT + Refresh Token tables and Session tables
+export {
+  account_security,
+  login_attempts,
+  refresh_tokens,
+  token_blacklist,
+  user_sessions,
+} from './refresh-token-schema';
 
 // System users (admins who manage the platform)
 export const users = pgTable(
@@ -119,8 +125,10 @@ export const practice_attributes = pgTable(
   'practice_attributes',
   {
     practice_attribute_id: uuid('practice_attribute_id').primaryKey().defaultRandom(),
-    practice_id: uuid('practice_id').references(() => practices.practice_id, { onDelete: 'cascade' }),
-    
+    practice_id: uuid('practice_id').references(() => practices.practice_id, {
+      onDelete: 'cascade',
+    }),
+
     // Contact Information
     phone: varchar('phone', { length: 20 }),
     email: varchar('email', { length: 255 }),
@@ -129,32 +137,32 @@ export const practice_attributes = pgTable(
     city: varchar('city', { length: 100 }),
     state: varchar('state', { length: 50 }),
     zip_code: varchar('zip_code', { length: 20 }),
-    
+
     // Business Details (JSON fields for flexibility)
     business_hours: text('business_hours'), // JSON string
     services: text('services'), // JSON array of services
     insurance_accepted: text('insurance_accepted'), // JSON array
     conditions_treated: text('conditions_treated'), // JSON array
-    
+
     // Customizable Content
     about_text: text('about_text'),
     mission_statement: text('mission_statement'),
     welcome_message: text('welcome_message'),
-    
+
     // Media URLs (local for dev, S3 for prod)
     logo_url: varchar('logo_url', { length: 500 }),
     hero_image_url: varchar('hero_image_url', { length: 500 }),
     gallery_images: text('gallery_images'), // JSON array of URLs
-    
+
     // SEO
     meta_title: varchar('meta_title', { length: 255 }),
     meta_description: varchar('meta_description', { length: 500 }),
-    
+
     // Brand Colors
     primary_color: varchar('primary_color', { length: 7 }), // Hex color #RRGGBB
     secondary_color: varchar('secondary_color', { length: 7 }), // Hex color #RRGGBB
     accent_color: varchar('accent_color', { length: 7 }), // Hex color #RRGGBB
-    
+
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },
   (table) => ({
@@ -167,7 +175,9 @@ export const staff_members = pgTable(
   'staff_members',
   {
     staff_id: uuid('staff_id').primaryKey().defaultRandom(),
-    practice_id: uuid('practice_id').references(() => practices.practice_id, { onDelete: 'cascade' }),
+    practice_id: uuid('practice_id').references(() => practices.practice_id, {
+      onDelete: 'cascade',
+    }),
     name: varchar('name', { length: 255 }).notNull(),
     title: varchar('title', { length: 255 }), // "MD", "Rheumatologist", "Nurse Practitioner"
     credentials: varchar('credentials', { length: 255 }), // "MD, FACR", "RN, BSN"
@@ -183,7 +193,10 @@ export const staff_members = pgTable(
   },
   (table) => ({
     practiceIdx: index('idx_staff_members_practice_id').on(table.practice_id),
-    displayOrderIdx: index('idx_staff_members_display_order').on(table.practice_id, table.display_order),
+    displayOrderIdx: index('idx_staff_members_display_order').on(
+      table.practice_id,
+      table.display_order
+    ),
     activeIdx: index('idx_staff_members_active').on(table.is_active),
   })
 );
@@ -193,7 +206,9 @@ export const practice_comments = pgTable(
   'practice_comments',
   {
     comment_id: uuid('comment_id').primaryKey().defaultRandom(),
-    practice_id: uuid('practice_id').references(() => practices.practice_id, { onDelete: 'cascade' }).notNull(),
+    practice_id: uuid('practice_id')
+      .references(() => practices.practice_id, { onDelete: 'cascade' })
+      .notNull(),
     commenter_name: varchar('commenter_name', { length: 255 }),
     commenter_location: varchar('commenter_location', { length: 255 }),
     comment: text('comment').notNull(),
@@ -203,7 +218,10 @@ export const practice_comments = pgTable(
   },
   (table) => ({
     practiceIdx: index('idx_practice_comments_practice_id').on(table.practice_id),
-    displayOrderIdx: index('idx_practice_comments_display_order').on(table.practice_id, table.display_order),
+    displayOrderIdx: index('idx_practice_comments_display_order').on(
+      table.practice_id,
+      table.display_order
+    ),
   })
 );
 
@@ -215,33 +233,33 @@ export const samlReplayPrevention = pgTable(
   {
     // Primary key: SAML Assertion ID (unique identifier from IdP)
     replayId: text('replay_id').primaryKey(),
-    
+
     // InResponseTo: Links SAML response back to original AuthnRequest
     inResponseTo: text('in_response_to').notNull(),
-    
+
     // User context for security monitoring
     userEmail: text('user_email').notNull(),
-    
+
     // Timestamp tracking
     usedAt: timestamp('used_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
-    
+
     // Expiry for automatic cleanup (set to assertion NotOnOrAfter + safety margin)
     expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
-    
+
     // Security context for audit trail
     ipAddress: text('ip_address').notNull(),
     userAgent: text('user_agent'),
-    
+
     // Session ID for correlation (nullable as assertion might fail before session creation)
     sessionId: text('session_id'),
   },
   (table) => ({
     // Index for efficient cleanup of expired entries
     expiresAtIdx: index('idx_saml_replay_expires_at').on(table.expiresAt),
-    
+
     // Index for InResponseTo lookups (request/response correlation)
     inResponseToIdx: index('idx_saml_replay_in_response_to').on(table.inResponseTo),
-    
+
     // Index for user email lookups (security monitoring)
     userEmailIdx: index('idx_saml_replay_user_email').on(table.userEmail),
   })

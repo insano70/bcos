@@ -3,8 +3,6 @@
  * Provides safe rendering of user-generated content
  */
 
-import React from 'react';
-
 /**
  * Sanitize user names for safe display
  * Prevents XSS while allowing international characters
@@ -110,7 +108,7 @@ export function SafeUserName({ firstName, lastName, className }: SafeUserNamePro
   const safeFirstName = sanitizeUserName(firstName);
   const safeLastName = sanitizeUserName(lastName);
   const fullName = `${safeFirstName} ${safeLastName}`.trim();
-  
+
   return <span className={className}>{fullName || 'Unknown User'}</span>;
 }
 
@@ -123,11 +121,14 @@ interface SafePracticeContentProps {
   maxLength?: number;
 }
 
-export function SafePracticeContent({ content, className, maxLength = 1000 }: SafePracticeContentProps) {
+export function SafePracticeContent({
+  content,
+  className,
+  maxLength = 1000,
+}: SafePracticeContentProps) {
   const safeContent = sanitizeBioContent(content);
-  const truncatedContent = safeContent.length > maxLength 
-    ? `${safeContent.slice(0, maxLength)}...` 
-    : safeContent;
-  
+  const truncatedContent =
+    safeContent.length > maxLength ? `${safeContent.slice(0, maxLength)}...` : safeContent;
+
   return <div className={className}>{truncatedContent || 'No content available'}</div>;
 }

@@ -33,12 +33,12 @@ export async function extractRouteParams<T extends z.ZodType>(
     // Check if the object has route params directly (Next.js 15 pattern)
     // The object has both 'params' (Promise) and direct properties like 'id'
     const paramsObj = params as Record<string, unknown>;
-    
+
     // Check if it has direct route param properties (like 'id', 'slug', etc.)
-    const hasDirectParams = Object.keys(paramsObj).some(key => 
-      key !== 'params' && !key.startsWith('Symbol(')
+    const hasDirectParams = Object.keys(paramsObj).some(
+      (key) => key !== 'params' && !key.startsWith('Symbol(')
     );
-    
+
     if (hasDirectParams) {
       // Extract only the non-params, non-Symbol properties
       resolvedParams = {};
@@ -57,10 +57,10 @@ export async function extractRouteParams<T extends z.ZodType>(
     } else {
       resolvedParams = paramsObj;
     }
-    
+
     // Validate with the provided schema
     const result = schema.safeParse(resolvedParams);
-    
+
     if (!result.success) {
       throw ValidationError(result.error, `Invalid route parameters: ${result.error.message}`);
     }
@@ -70,13 +70,13 @@ export async function extractRouteParams<T extends z.ZodType>(
     if (error && typeof error === 'object' && 'name' in error && error.name === 'APIError') {
       throw error;
     }
-    
-    const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
-    
-    throw ValidationError(
-      error,
-      `Failed to extract route parameters: ${errorMessage}`
-    );
+
+    const errorMessage =
+      error && typeof error === 'object' && 'message' in error
+        ? String(error.message)
+        : 'Unknown error';
+
+    throw ValidationError(error, `Failed to extract route parameters: ${errorMessage}`);
   }
 }
 

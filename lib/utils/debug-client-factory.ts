@@ -5,10 +5,10 @@
  */
 
 // Detect if we're in a client-side context at build time
-const isClientContext = typeof window !== 'undefined' || 
-                       typeof document !== 'undefined' ||
-                       (typeof globalThis !== 'undefined' && 
-                        'window' in globalThis && globalThis.window !== undefined);
+const isClientContext =
+  typeof window !== 'undefined' ||
+  typeof document !== 'undefined' ||
+  (typeof globalThis !== 'undefined' && 'window' in globalThis && globalThis.window !== undefined);
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
@@ -49,7 +49,7 @@ class ClientSafeLoggerImpl implements ClientSafeLogger {
       console.error(`❌ ${this.prefix}: ${message}`, {
         error: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date().toISOString(),
-        data: data || {}
+        data: data || {},
       });
     }
   }
@@ -66,9 +66,9 @@ class ClientSafeLoggerImpl implements ClientSafeLogger {
       console.log(`⏱️ ${this.prefix} TIMING: ${message}`, {
         duration,
         performanceOptimized: duration < 100,
-        ...(data && typeof data === 'object' ? data : { data })
+        ...(data && typeof data === 'object' ? data : { data }),
       });
-      
+
       if (duration > 100) {
         console.warn(`Slow operation: ${message} took ${duration}ms`);
       }
@@ -82,16 +82,16 @@ class ClientSafeLoggerImpl implements ClientSafeLogger {
 export function createClientSafeLogger(category: string): ClientSafeLogger {
   const categoryMap: Record<string, string> = {
     auth: '🔐 AUTH',
-    middleware: '🌐 MIDDLEWARE', 
+    middleware: '🌐 MIDDLEWARE',
     rbac: '🎯 RBAC',
     security: '🛡️ SECURITY',
     session: '🔄 SESSION',
     component: '🧩 COMPONENT',
     ui: '🎨 UI',
     api: '🌐 API',
-    performance: '⚡ PERFORMANCE'
+    performance: '⚡ PERFORMANCE',
   };
-  
+
   const prefix = categoryMap[category] || `🔧 ${category.toUpperCase()}`;
   return new ClientSafeLoggerImpl(prefix);
 }
@@ -108,7 +108,7 @@ export const clientSafeDebugLog = {
   component: createClientSafeLogger('component'),
   ui: createClientSafeLogger('ui'),
   api: createClientSafeLogger('api'),
-  
+
   // Performance debugging
   performance: (message: string, startTime?: number, data?: unknown) => {
     const perfLogger = createClientSafeLogger('performance');
@@ -117,7 +117,7 @@ export const clientSafeDebugLog = {
     } else {
       perfLogger.debug(message, data as Record<string, unknown>);
     }
-  }
+  },
 };
 
 /**

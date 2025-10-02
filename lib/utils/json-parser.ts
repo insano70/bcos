@@ -6,17 +6,17 @@ export function safeJsonParse<T>(jsonString: string | null | undefined | unknown
   if (jsonString == null) {
     return fallback;
   }
-  
+
   // If the value is already parsed (not a string), return it
   if (typeof jsonString !== 'string') {
     return jsonString as T;
   }
-  
+
   // If it's an empty string, return fallback
   if (jsonString.trim() === '') {
     return fallback;
   }
-  
+
   try {
     return JSON.parse(jsonString);
   } catch (error) {
@@ -36,7 +36,7 @@ export function parseBusinessHours(jsonString: string | null | undefined | unkno
     wednesday: { open: '09:00', close: '17:00', closed: false },
     thursday: { open: '09:00', close: '17:00', closed: false },
     friday: { open: '09:00', close: '17:00', closed: false },
-    saturday: { closed: true }
+    saturday: { closed: true },
   });
 }
 
@@ -56,7 +56,7 @@ export function parseInsurance(jsonString: string | null | undefined | unknown) 
     'Anthem Blue Cross Blue Shield',
     'Cigna',
     'Medicare',
-    'UnitedHealthcare'
+    'UnitedHealthcare',
   ]);
 }
 

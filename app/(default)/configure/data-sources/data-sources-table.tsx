@@ -1,8 +1,8 @@
 'use client';
 
 import { useItemSelection } from '@/components/utils/use-item-selection';
-import DataSourcesTableItem from './data-sources-table-item';
 import type { DataSource } from '@/lib/hooks/use-data-sources';
+import DataSourcesTableItem from './data-sources-table-item';
 
 interface DataSourcesTableProps {
   dataSources: DataSource[];
@@ -11,25 +11,21 @@ interface DataSourcesTableProps {
   onTest?: ((dataSource: DataSource) => void) | undefined;
 }
 
-export default function DataSourcesTable({ 
-  dataSources, 
-  onEdit, 
-  onDelete, 
-  onTest 
+export default function DataSourcesTable({
+  dataSources,
+  onEdit,
+  onDelete,
+  onTest,
 }: DataSourcesTableProps) {
   // Add id property for useItemSelection compatibility
-  const dataSourcesWithId = dataSources.map((dataSource, index) => ({ 
-    ...dataSource, 
+  const dataSourcesWithId = dataSources.map((dataSource, index) => ({
+    ...dataSource,
     id: dataSource.data_source_id.toString(),
-    _uniqueKey: `${dataSource.data_source_id}-${index}`
+    _uniqueKey: `${dataSource.data_source_id}-${index}`,
   }));
-  
-  const {
-    selectedItems,
-    isAllSelected,
-    handleCheckboxChange,
-    handleSelectAllChange,
-  } = useItemSelection(dataSourcesWithId);
+
+  const { selectedItems, isAllSelected, handleCheckboxChange, handleSelectAllChange } =
+    useItemSelection(dataSourcesWithId);
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl relative">
@@ -37,7 +33,7 @@ export default function DataSourcesTable({
         <h2 className="font-semibold text-gray-800 dark:text-gray-100">
           All Data Sources{' '}
           <span className="text-gray-400 dark:text-gray-500 font-medium">
-            {dataSources.filter(ds => ds.is_active !== false).length}
+            {dataSources.filter((ds) => ds.is_active !== false).length}
           </span>
         </h2>
       </header>
@@ -89,9 +85,7 @@ export default function DataSourcesTable({
               {dataSourcesWithId.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-5 py-8 text-center">
-                    <div className="text-gray-500 dark:text-gray-400">
-                      No data sources found
-                    </div>
+                    <div className="text-gray-500 dark:text-gray-400">No data sources found</div>
                   </td>
                 </tr>
               ) : (

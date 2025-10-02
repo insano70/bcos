@@ -1,4 +1,4 @@
-import { useApiQuery, useApiPost, useApiPut, useApiDelete } from './use-api';
+import { useApiDelete, useApiPost, useApiPut, useApiQuery } from './use-api';
 
 export interface Role {
   id: string; // Maps to role_id in database
@@ -37,28 +37,20 @@ export interface UpdateRoleData {
  * Hook to fetch all roles
  */
 export function useRoles() {
-  return useApiQuery<Role[]>(
-    ['roles'],
-    '/api/roles',
-    {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes
-    }
-  );
+  return useApiQuery<Role[]>(['roles'], '/api/roles', {
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+  });
 }
 
 /**
  * Hook to fetch a single role by ID
  */
 export function useRole(roleId: string) {
-  return useApiQuery<Role>(
-    ['roles', roleId],
-    `/api/roles/${roleId}`,
-    {
-      enabled: !!roleId,
-      staleTime: 5 * 60 * 1000,
-    }
-  );
+  return useApiQuery<Role>(['roles', roleId], `/api/roles/${roleId}`, {
+    enabled: !!roleId,
+    staleTime: 5 * 60 * 1000,
+  });
 }
 
 /**
@@ -72,16 +64,12 @@ export function useCreateRole() {
  * Hook to update a role
  */
 export function useUpdateRole() {
-  return useApiPut<Role, { id: string; data: UpdateRoleData }>(
-    ({ id }) => `/api/roles/${id}`
-  );
+  return useApiPut<Role, { id: string; data: UpdateRoleData }>(({ id }) => `/api/roles/${id}`);
 }
 
 /**
  * Hook to delete a role
  */
 export function useDeleteRole() {
-  return useApiDelete<void, string>(
-    (roleId) => `/api/roles/${roleId}`
-  );
+  return useApiDelete<void, string>((roleId) => `/api/roles/${roleId}`);
 }

@@ -13,7 +13,7 @@ export interface Practice {
 export interface PracticeAttributes {
   practice_attribute_id: string;
   practice_id: string;
-  
+
   // Contact Information
   phone?: string;
   email?: string;
@@ -22,32 +22,32 @@ export interface PracticeAttributes {
   city?: string;
   state?: string;
   zip_code?: string;
-  
+
   // Business Details
   business_hours?: BusinessHours;
   services?: string[];
   insurance_accepted?: string[];
   conditions_treated?: string[];
-  
+
   // Content
   about_text?: string;
   mission_statement?: string;
   welcome_message?: string;
-  
+
   // Media
   logo_url?: string;
   hero_image_url?: string;
   gallery_images?: string[];
-  
+
   // SEO
   meta_title?: string;
   meta_description?: string;
-  
+
   // Brand Colors
   primary_color?: string;
   secondary_color?: string;
   accent_color?: string;
-  
+
   updated_at: string;
 }
 

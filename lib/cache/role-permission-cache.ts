@@ -27,12 +27,12 @@ class RolePermissionCache {
     hits: 0,
     misses: 0,
     size: 0,
-    lastCleared: Date.now()
+    lastCleared: Date.now(),
   };
-  
+
   // Cache TTL: 24 hours (in milliseconds)
   private readonly TTL = 24 * 60 * 60 * 1000;
-  
+
   // Role version tracking for cache invalidation
   private roleVersions = new Map<string, number>();
 
@@ -41,17 +41,17 @@ class RolePermissionCache {
    */
   get(roleId: string): CachedRolePermissions | null {
     const cached = this.cache.get(roleId);
-    
+
     if (!cached) {
       this.stats.misses++;
       logger.debug('Cache MISS: Role not found in cache', {
         roleId,
         cacheSize: this.cache.size,
-        cachedRoleIds: Array.from(this.cache.keys())
+        cachedRoleIds: Array.from(this.cache.keys()),
       });
       return null;
     }
-    
+
     // Check if expired
     const now = Date.now();
     if (now - cached.cached_at > this.TTL) {
@@ -61,16 +61,16 @@ class RolePermissionCache {
       logger.debug('Cache MISS: Role expired', {
         roleId,
         age: now - cached.cached_at,
-        ttl: this.TTL
+        ttl: this.TTL,
       });
       return null;
     }
-    
+
     this.stats.hits++;
     logger.debug('Cache HIT: Role found in cache', {
       roleId,
       roleName: cached.name,
-      permissionCount: cached.permissions.length
+      permissionCount: cached.permissions.length,
     });
     return cached;
   }
@@ -84,19 +84,19 @@ class RolePermissionCache {
       name,
       permissions,
       cached_at: Date.now(),
-      version
+      version,
     };
-    
+
     this.cache.set(roleId, cached);
     this.roleVersions.set(roleId, version);
     this.stats.size = this.cache.size;
-    
+
     logger.debug('Cache SET: Role permissions cached', {
       roleId,
       roleName: name,
       permissionCount: permissions.length,
       cacheSize: this.stats.size,
-      version
+      version,
     });
   }
 
@@ -107,11 +107,11 @@ class RolePermissionCache {
     const deleted = this.cache.delete(roleId);
     this.roleVersions.delete(roleId);
     this.stats.size = this.cache.size;
-    
+
     if (deleted) {
       logger.info('Role permissions invalidated', { roleId });
     }
-    
+
     return deleted;
   }
 
@@ -124,10 +124,10 @@ class RolePermissionCache {
     this.roleVersions.clear();
     this.stats.size = 0;
     this.stats.lastCleared = Date.now();
-    
-    logger.info('All role permissions cache cleared', { 
+
+    logger.info('All role permissions cache cleared', {
       previousSize,
-      operation: 'invalidateAll'
+      operation: 'invalidateAll',
     });
   }
 
@@ -145,16 +145,16 @@ class RolePermissionCache {
     const currentVersion = this.getRoleVersion(roleId);
     const newVersion = currentVersion + 1;
     this.roleVersions.set(roleId, newVersion);
-    
+
     // Invalidate the cached role
     this.invalidate(roleId);
-    
+
     logger.info('Role version incremented', {
       roleId,
       oldVersion: currentVersion,
-      newVersion
+      newVersion,
     });
-    
+
     return newVersion;
   }
 
@@ -164,10 +164,10 @@ class RolePermissionCache {
   getStats(): CacheStats & { hitRate: number } {
     const totalRequests = this.stats.hits + this.stats.misses;
     const hitRate = totalRequests > 0 ? (this.stats.hits / totalRequests) * 100 : 0;
-    
+
     return {
       ...this.stats,
-      hitRate: Math.round(hitRate * 100) / 100
+      hitRate: Math.round(hitRate * 100) / 100,
     };
   }
 
@@ -177,7 +177,7 @@ class RolePermissionCache {
   cleanup(): number {
     const now = Date.now();
     let cleanedCount = 0;
-    
+
     // Convert iterator to array for compatibility
     const entries = Array.from(this.cache.entries());
     for (const [roleId, cached] of entries) {
@@ -187,16 +187,16 @@ class RolePermissionCache {
         cleanedCount++;
       }
     }
-    
+
     this.stats.size = this.cache.size;
-    
+
     if (cleanedCount > 0) {
       logger.debug('Cache cleanup completed', {
         cleanedCount,
-        remainingSize: this.stats.size
+        remainingSize: this.stats.size,
       });
     }
-    
+
     return cleanedCount;
   }
 
@@ -219,22 +219,28 @@ class RolePermissionCache {
 export const rolePermissionCache = new RolePermissionCache();
 
 // Cleanup expired entries every hour
-setInterval(() => {
-  rolePermissionCache.cleanup();
-}, 60 * 60 * 1000);
+setInterval(
+  () => {
+    rolePermissionCache.cleanup();
+  },
+  60 * 60 * 1000
+);
 
 // Log cache stats every 10 minutes in development
 if (process.env.NODE_ENV === 'development') {
-  setInterval(() => {
-    const stats = rolePermissionCache.getStats();
-    if (stats.hits + stats.misses > 0) {
-      logger.debug('Role permission cache stats', {
-        hits: stats.hits,
-        misses: stats.misses,
-        size: stats.size,
-        hitRate: stats.hitRate,
-        lastCleared: stats.lastCleared
-      });
-    }
-  }, 10 * 60 * 1000);
+  setInterval(
+    () => {
+      const stats = rolePermissionCache.getStats();
+      if (stats.hits + stats.misses > 0) {
+        logger.debug('Role permission cache stats', {
+          hits: stats.hits,
+          misses: stats.misses,
+          size: stats.size,
+          hitRate: stats.hitRate,
+          lastCleared: stats.lastCleared,
+        });
+      }
+    },
+    10 * 60 * 1000
+  );
 }
