@@ -464,6 +464,84 @@ aws logs filter-log-events \
 
 ---
 
+## CloudWatch Metrics & Alarms
+
+### Production Metric Filters
+
+The following CloudWatch metric filters are configured in `infrastructure/lib/constructs/monitoring.ts`:
+
+#### 1. Security Events Filter
+- **Metric Name:** `SecurityEvents`
+- **Namespace:** `BCOS/{environment}`
+- **Filter Pattern:** Matches `component="security"`, `security_breach`, `csrf_failed`, `injection_attempt`, `suspicious_activity`
+- **Alarm Threshold:** 1 event (immediate alert on ANY security event)
+- **Evaluation Period:** 1 period (5 minutes)
+- **Action:** SNS critical alerts
+
+#### 2. Authentication Failures Filter
+- **Metric Name:** `AuthenticationFailures`
+- **Namespace:** `BCOS/{environment}`
+- **Filter Pattern:** Matches `component="auth"` AND `success=false`
+- **Alarm Threshold:**
+  - Production: 10 failures in 5 minutes
+  - Staging: 20 failures in 5 minutes
+- **Evaluation Period:** 1 period
+- **Action:** SNS critical alerts
+
+#### 3. Database Errors Filter
+- **Metric Name:** `DatabaseErrors`
+- **Namespace:** `BCOS/{environment}`
+- **Filter Pattern:** Matches `component="database"` AND `level="ERROR"`
+- **Alarm Threshold:**
+  - Production: 5 errors in 5 minutes
+  - Staging: 10 errors in 5 minutes
+- **Evaluation Period:** 1 period
+- **Action:** SNS critical alerts
+
+#### 4. RBAC Permission Denials Filter
+- **Metric Name:** `PermissionDenials`
+- **Namespace:** `BCOS/{environment}`
+- **Filter Pattern:** Matches `permission_denied`, `rbac_denial`, `access_denied`
+- **Alarm Threshold:**
+  - Production: 20 denials in 5 minutes
+  - Staging: 40 denials in 5 minutes
+- **Evaluation Period:** 1 period
+- **Action:** SNS critical alerts
+
+#### 5. Application Errors Filter
+- **Metric Name:** `ErrorCount`
+- **Namespace:** `BCOS/{environment}`
+- **Filter Pattern:** Matches `level="ERROR"`
+- **Alarm Threshold:** Environment-specific
+- **Action:** SNS critical alerts
+
+#### 6. Health Check Failures Filter
+- **Metric Name:** `HealthCheckFailures`
+- **Namespace:** `BCOS/{environment}`
+- **Filter Pattern:** Matches health check failures
+- **Alarm Threshold:** Environment-specific
+- **Action:** SNS critical alerts
+
+### CloudWatch Dashboard Widgets
+
+The monitoring dashboard includes:
+
+1. **Security & Authentication Events Widget**
+   - Left Y-axis: Security Events (red), Authentication Failures (orange)
+   - Right Y-axis: Permission Denials (blue)
+   - Width: 12 units
+
+2. **Database Health Widget**
+   - Tracks: Database Errors over time
+   - Helps identify database connectivity or query issues
+   - Width: 12 units
+
+3. **Error Rate Widget** (existing)
+   - Application-wide error tracking
+
+4. **Slow Requests Widget** (existing)
+   - API performance monitoring
+
 ## CloudWatch Query Library
 
 ### Common Queries
