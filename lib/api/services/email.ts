@@ -1,4 +1,4 @@
-import * as nodemailer from 'nodemailer';
+import type * as nodemailer from 'nodemailer';
 import { getEmailConfig } from '@/lib/env';
 import { log } from '@/lib/logger';
 

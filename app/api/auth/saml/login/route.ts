@@ -173,13 +173,10 @@ const samlLoginHandler = async (request: NextRequest) => {
   }
 };
 
-// Export as public route with correlation wrapper
+// Export handler directly (correlation ID automatically added by middleware)
 // Rate limit: 'api' = 200/min (more lenient than 'auth' since this is just a redirect)
 export const GET = publicRoute(
-  async (request: NextRequest) => {
-    const correlationId = correlation.generate()
-    return correlation.withContext(correlationId, {}, () => samlLoginHandler(request))
-  },
+  samlLoginHandler,
   'SAML SSO login initiation - public endpoint',
   { rateLimit: 'api' }
 );

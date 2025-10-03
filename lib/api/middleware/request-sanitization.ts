@@ -232,7 +232,7 @@ interface SanitizationLogger {
 
 export async function sanitizeRequestBody(
   body: unknown,
-  logger: SanitizationLogger
+  _logger: SanitizationLogger
 ): Promise<SanitizationResult> {
   const startTime = Date.now();
   const errors: string[] = [];
@@ -246,7 +246,7 @@ export async function sanitizeRequestBody(
     // Validate JSON depth
     if (!validateDepth(body)) {
       errors.push('JSON structure too deep (max 10 levels)');
-      logger.warn('JSON depth validation failed', {
+      log.warn('JSON depth validation failed', {
         action: 'request_sanitization',
         threat: 'json_depth_attack',
         maxDepth: 10,
@@ -257,7 +257,7 @@ export async function sanitizeRequestBody(
     // Validate array sizes
     if (!validateArraySizes(body)) {
       errors.push('Array too large (max 1000 items)');
-      logger.warn('Array size validation failed', {
+      log.warn('Array size validation failed', {
         action: 'request_sanitization',
         threat: 'resource_exhaustion_attack',
         maxSize: 1000,
@@ -270,7 +270,7 @@ export async function sanitizeRequestBody(
 
     // Log sanitization performance
     const duration = Date.now() - startTime;
-    logger.debug('Request sanitization completed', {
+    log.debug('Request sanitization completed', {
       duration,
       hasErrors: errors.length > 0,
       errorCount: errors.length,
@@ -282,7 +282,7 @@ export async function sanitizeRequestBody(
       sanitized,
     };
   } catch (error) {
-    logger.error('Request sanitization system error', {
+    log.error('Request sanitization system error', {
       error: error instanceof Error ? error.message : String(error),
       action: 'sanitization_failed',
       threat: 'system_error',

@@ -271,7 +271,26 @@ function buildLogEntry(
   context?: Record<string, unknown>
 ): Record<string, unknown> {
   const ctx = requestContext.getStore();
-  const location = captureLocation();
+
+  // PERFORMANCE: Only capture stack trace location for errors/warnings in production
+  // In development, always capture for better debugging experience
+  const shouldCaptureLocation =
+    process.env.NODE_ENV !== 'production' ||
+    level === 'error' ||
+    level === 'warn' ||
+    context?.captureLocation === true;
+
+  const location = shouldCaptureLocation ? captureLocation() : {};
+
+  // Extract correlation ID from AsyncLocalStorage OR request headers (edge runtime fallback)
+  let correlationId = ctx?.correlationId;
+  if (!correlationId && context && 'request' in context && context.request && typeof context.request === 'object') {
+    // Fallback to header-based correlation (works in Edge Runtime)
+    const req = context.request as { headers?: { get: (key: string) => string | null } };
+    if (req.headers && typeof req.headers.get === 'function') {
+      correlationId = req.headers.get('x-correlation-id') ?? undefined;
+    }
+  }
 
   const entry: Record<string, unknown> = {
     // CloudWatch standard fields (@timestamp for automatic time indexing)
@@ -288,9 +307,11 @@ function buildLogEntry(
     ...(location.line && { line: location.line }),
     ...(location.function && { function: location.function }),
 
+    // Correlation ID (from AsyncLocalStorage or request headers)
+    ...(correlationId && { correlationId }),
+
     // Request context from AsyncLocalStorage
     ...(ctx && {
-      correlationId: ctx.correlationId,
       ...(ctx.userId && { userId: ctx.userId }),
       ...(ctx.organizationId && { organizationId: ctx.organizationId }),
       ...(ctx.method && { method: ctx.method }),
@@ -436,10 +457,11 @@ export const log = {
   /**
    * API request/response logging
    * Specialized method for HTTP-related logs
+   * Automatically extracts correlation ID from request headers
    */
   api(
     message: string,
-    request: { method: string; url: string },
+    request: { method: string; url: string; headers?: { get: (key: string) => string | null } },
     statusCode?: number,
     duration?: number
   ) {
@@ -450,6 +472,7 @@ export const log = {
       component: 'api',
       method: request.method,
       path: url.pathname,
+      request, // Pass request to extract correlation from headers
       ...(statusCode && { statusCode }),
       ...(duration && { duration }),
     });

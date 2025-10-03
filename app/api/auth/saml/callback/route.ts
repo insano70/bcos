@@ -705,14 +705,11 @@ const samlCallbackHandler = async (request: NextRequest) => {
   }
 };
 
-// Export as public route with correlation wrapper
+// Export handler directly (correlation ID automatically added by middleware)
 // NOTE: This route is exempt from CSRF protection (Microsoft sends SAML response without our CSRF token)
 // Security is provided by SAML signature validation instead
 export const POST = publicRoute(
-  async (request: NextRequest) => {
-    const correlationId = correlation.generate()
-    return correlation.withContext(correlationId, {}, () => samlCallbackHandler(request))
-  },
+  samlCallbackHandler,
   'SAML SSO callback - validates via SAML signature instead of CSRF',
   { rateLimit: 'auth' } // Strict rate limiting: 5 requests per 15 minutes
 );

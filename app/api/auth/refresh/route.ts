@@ -366,8 +366,5 @@ const refreshHandler = async (request: NextRequest) => {
   }
 }
 
-// Export with correlation wrapper
-export const POST = async (request: NextRequest) => {
-  const correlationId = correlation.generate()
-  return correlation.withContext(correlationId, {}, () => refreshHandler(request))
-}
+// Export handler directly (correlation ID automatically added by middleware)
+export const POST = refreshHandler

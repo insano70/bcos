@@ -137,11 +137,11 @@ describe('security authentication logic', () => {
         const password = 'TestPassword123!'
         const mockResult = { isValid: true, errors: [] }
 
-        vi.mocked(validatePasswordStrength).mockReturnValue(mockResult)
+        vi.mocked(validatePasswordStrengthPolicy).mockReturnValue(mockResult)
 
         const result = validatePasswordStrength(password)
 
-        expect(validatePasswordStrength).toHaveBeenCalledWith(password)
+        expect(validatePasswordStrengthPolicy).toHaveBeenCalledWith(password)
         expect(result).toEqual(mockResult)
       })
 
@@ -152,7 +152,7 @@ describe('security authentication logic', () => {
           errors: ['Password must be at least 12 characters', 'Password must contain uppercase letter']
         }
 
-        vi.mocked(validatePasswordStrength).mockReturnValue(mockResult)
+        vi.mocked(validatePasswordStrengthPolicy).mockReturnValue(mockResult)
 
         const result = validatePasswordStrength(password)
 

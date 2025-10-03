@@ -421,12 +421,9 @@ const loginHandler = async (request: NextRequest) => {
   }
 }
 
-// Export as public route with correlation wrapper
+// Export as public route (correlation ID automatically added by middleware)
 export const POST = publicRoute(
-  async (request: NextRequest) => {
-    const correlationId = correlation.generate()
-    return correlation.withContext(correlationId, {}, () => loginHandler(request))
-  },
+  loginHandler,
   'Authentication endpoint - must be public',
   { rateLimit: 'auth' }
 )

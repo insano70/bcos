@@ -35,13 +35,17 @@ export async function middleware(request: NextRequest) {
   const hostname = rawHostname.split(':')[0] || 'localhost' // Remove port for comparison
   const pathname = request.nextUrl.pathname
   const search = request.nextUrl.search
-  
+
+  // Generate correlation ID for request tracing (edge runtime compatible)
+  const correlationId = `cor_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 10)}`
+
   // Generate CSP nonces for this request (from develop - better system)
   const { generateCSPNonces } = await import('@/lib/security/headers')
   const cspNonces = generateCSPNonces()
-  
-  // Create new request headers with nonces for SSR components to access
+
+  // Create new request headers with nonces and correlation ID for SSR components to access
   const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-correlation-id', correlationId)
   requestHeaders.set('x-script-nonce', cspNonces.scriptNonce)
   requestHeaders.set('x-style-nonce', cspNonces.styleNonce)
   requestHeaders.set('x-nonce-timestamp', cspNonces.timestamp.toString())
@@ -75,7 +79,10 @@ export async function middleware(request: NextRequest) {
   }
   
   response.headers.set(cspHeader, cspPolicy)
-  
+
+  // Add correlation ID to response for debugging/tracing
+  response.headers.set('X-Correlation-ID', correlationId)
+
   // Also add nonce headers to response for debugging/monitoring
   response.headers.set('X-Script-Nonce', cspNonces.scriptNonce)
   response.headers.set('X-Style-Nonce', cspNonces.styleNonce)

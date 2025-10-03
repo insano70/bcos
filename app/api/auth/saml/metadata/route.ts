@@ -12,7 +12,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { publicRoute } from '@/lib/api/route-handler';
 import { createErrorResponse } from '@/lib/api/responses/error';
-import { log, correlation } from '@/lib/logger';
+import { log } from '@/lib/logger';
 import { createSAMLClient } from '@/lib/saml/client';
 import { isSAMLEnabled } from '@/lib/env';
 
@@ -79,12 +79,9 @@ const samlMetadataHandler = async (request: NextRequest) => {
   }
 };
 
-// Export as public route with correlation wrapper
+// Export handler directly (correlation ID automatically added by middleware)
 export const GET = publicRoute(
-  async (request: NextRequest) => {
-    const correlationId = correlation.generate()
-    return correlation.withContext(correlationId, {}, () => samlMetadataHandler(request))
-  },
+  samlMetadataHandler,
   'SAML SP metadata - public endpoint for Entra configuration',
   { rateLimit: 'api' }
 );
