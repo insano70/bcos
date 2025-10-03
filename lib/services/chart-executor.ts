@@ -11,6 +11,17 @@ import { chartValidator } from './chart-validation';
 /**
  * Chart Executor Service
  * Executes chart definitions stored in the database by converting them to analytics queries
+ *
+ * ⚠️ CURRENTLY UNUSED - Dead Code Candidate
+ *
+ * This service was designed to execute chart definitions by ID, but the application
+ * currently uses a different pattern:
+ * - Chart definitions are fetched via rbac-charts-service.ts
+ * - Analytics queries are executed directly via analyticsQueryBuilder
+ * - No code imports or uses this ChartExecutor service
+ *
+ * Status: Kept for potential future use (scheduled chart refreshes, server-side rendering)
+ * Alternative: Remove if confirmed not needed for future features
  */
 
 export class ChartExecutor {
@@ -113,43 +124,30 @@ export class ChartExecutor {
 
   /**
    * Get chart definition by ID from database
+   *
+   * ⚠️ UNUSED METHOD - Removed to eliminate dead code
+   *
+   * Original TODO: "Implement actual database fetch"
+   * Resolution: Not needed. Chart definitions are fetched via:
+   * - API route: /api/admin/analytics/charts/[chartId]
+   * - Service: rbac-charts-service.ts (getChartById method)
+   *
+   * If this functionality is needed in the future, use the existing
+   * rbac-charts-service.ts pattern which includes proper RBAC checks.
    */
-  async getChartDefinition(chartDefinitionId: string): Promise<ChartDefinition | null> {
-    try {
-      // This would fetch from the database - simplified for now
-      // In a real implementation, this would use the chart definitions CRUD API
-      log.info('Fetching chart definition', { chartDefinitionId });
-
-      // TODO: Implement actual database fetch
-      // const [chart] = await db.select().from(chart_definitions).where(eq(chart_definitions.chart_definition_id, chartDefinitionId));
-
-      return null; // Placeholder
-    } catch (error) {
-      log.error('Failed to fetch chart definition', {
-        chartDefinitionId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-
-      throw error;
-    }
-  }
 
   /**
    * Execute chart by ID (convenience method)
+   *
+   * ⚠️ UNUSED METHOD - Removed to eliminate dead code
+   *
+   * Original purpose: Execute chart definition by ID
+   * Current pattern: Charts are executed via:
+   * 1. Fetch definition via rbac-charts-service
+   * 2. Execute query via analyticsQueryBuilder.queryMeasures()
+   *
+   * If needed in future, implement using existing service patterns.
    */
-  async executeChartById(
-    chartDefinitionId: string,
-    context: ChartRenderContext,
-    additionalFilters: Record<string, unknown> = {}
-  ): Promise<AnalyticsQueryResult> {
-    const chartDefinition = await this.getChartDefinition(chartDefinitionId);
-
-    if (!chartDefinition) {
-      throw new Error(`Chart definition not found: ${chartDefinitionId}`);
-    }
-
-    return this.executeChart(chartDefinition, context, additionalFilters);
-  }
 
   /**
    * Validate and execute chart definition

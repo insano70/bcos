@@ -322,9 +322,11 @@ const samlCallbackHandler = async (request: NextRequest) => {
         }
       });
 
-      // Redirect to login with specific error
-      const errorUrl = new URL('/signin', request.url);
+      // Redirect to SAML-specific error page with masked email for user clarity
+      const errorUrl = new URL('/auth/saml/error', request.url);
       errorUrl.searchParams.set('error', 'user_not_provisioned');
+      // Pass email for display (will be masked on the error page)
+      errorUrl.searchParams.set('email', email);
       return NextResponse.redirect(errorUrl);
     }
 

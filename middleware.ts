@@ -5,7 +5,6 @@ import { getJWTConfig } from '@/lib/env'
 import { isPublicApiRoute } from '@/lib/api/middleware/global-auth'
 import { debugLog } from '@/lib/utils/debug'
 import { sanitizeRequestBody } from '@/lib/api/middleware/request-sanitization'
-import { log } from '@/lib/logger'
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
 
 // CSRF exempt paths - these endpoints handle their own security or don't need CSRF
@@ -70,13 +69,7 @@ export async function middleware(request: NextRequest) {
     ? 'Content-Security-Policy-Report-Only'
     : 'Content-Security-Policy'
   
-  // Debug CSP header setting
-  if (process.env.NODE_ENV === 'development' || process.env.ENVIRONMENT === 'staging') {
-    log.debug('Setting CSP header', {
-      cspHeader,
-      policyLength: cspPolicy.length
-    });
-  }
+  // CSP header set (no logging in Edge Runtime)
   
   response.headers.set(cspHeader, cspPolicy)
 
@@ -154,38 +147,16 @@ export async function middleware(request: NextRequest) {
         const body = await clonedRequest.json().catch(() => null)
         
         if (body) {
-          // Create compatible logger for sanitization function
-          const sanitizationLogger = {
-            info: (message: string, meta?: unknown) => log.info(message, meta as Record<string, unknown>),
-            warn: (message: string, meta?: unknown) => log.warn(message, meta as Record<string, unknown>),
-            error: (message: string, meta?: unknown) => log.error(message, undefined, meta as Record<string, unknown>),
-            debug: (message: string, meta?: unknown) => log.debug(message, meta as Record<string, unknown>)
-          }
-          
-          const sanitizationResult = await sanitizeRequestBody(body, sanitizationLogger)
-          
-          if (!sanitizationResult.isValid) {
-            // Enhanced request sanitization logging
-            log.warn('Request validation failed', {
-              errors: sanitizationResult.errors.map(error => ({
-                field: 'request_body',
-                message: error,
-                code: 'INVALID_REQUEST_DATA'
-              }))
-            })
+          // Pass null for logger since it's not used (_logger parameter)
+          const sanitizationResult = await sanitizeRequestBody(body, null as any)
 
-            log.security('request_sanitization_failed', 'medium', {
-              reason: 'invalid_request_data',
-              action: 'blocked_request',
-              threat: 'data_injection'
-            })
-            
+          if (!sanitizationResult.isValid) {
             debugLog.middleware(`Request sanitization failed for ${pathname}: ${sanitizationResult.errors.join(', ')}`)
             return new NextResponse(
-              JSON.stringify({ 
+              JSON.stringify({
                 error: 'Invalid request data',
                 details: sanitizationResult.errors.slice(0, 3) // Only show first 3 errors
-              }), 
+              }),
               {
                 status: 400,
                 headers: {
