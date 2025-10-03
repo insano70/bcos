@@ -5,7 +5,14 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import '@/tests/setup/integration-setup' // Import integration setup for database access
-import { AccountSecurity } from '@/lib/auth/security'
+import {
+  isAccountLocked,
+  recordFailedAttempt,
+  clearFailedAttempts,
+  getFailedAttemptCount,
+  cleanupExpiredLockouts,
+  ensureSecurityRecord
+} from '@/lib/auth/security'
 import { createTestUser } from '@/tests/factories/user-factory'
 import { db, account_security } from '@/lib/db'
 import { eq } from 'drizzle-orm'
@@ -25,26 +32,26 @@ describe('Security Authentication Integration', () => {
       const email = testUser.email
       
       // 1. Should check lockout status without errors
-      const initialStatus = await AccountSecurity.isAccountLocked(email)
+      const initialStatus = await isAccountLocked(email)
       expect(typeof initialStatus.locked).toBe('boolean')
       
       // 2. Should record failed attempts without errors
-      const attempt1 = await AccountSecurity.recordFailedAttempt(email)
+      const attempt1 = await recordFailedAttempt(email)
       expect(typeof attempt1.locked).toBe('boolean')
-      
-      const attempt2 = await AccountSecurity.recordFailedAttempt(email)
+
+      const attempt2 = await recordFailedAttempt(email)
       expect(typeof attempt2.locked).toBe('boolean')
-      
+
       // 3. Should get failed attempt count
-      const attemptCount = await AccountSecurity.getFailedAttemptCount(email)
+      const attemptCount = await getFailedAttemptCount(email)
       expect(typeof attemptCount).toBe('number')
       expect(attemptCount).toBeGreaterThanOrEqual(0)
-      
+
       // 4. Should clear failed attempts without errors
-      await AccountSecurity.clearFailedAttempts(email)
-      
+      await clearFailedAttempts(email)
+
       // 5. Should check status after clearing
-      const finalStatus = await AccountSecurity.isAccountLocked(email)
+      const finalStatus = await isAccountLocked(email)
       expect(typeof finalStatus.locked).toBe('boolean')
     })
 
@@ -53,15 +60,15 @@ describe('Security Authentication Integration', () => {
       
       // Record multiple failed attempts
       for (let i = 0; i < 5; i++) {
-        await AccountSecurity.recordFailedAttempt(email)
+        await recordFailedAttempt(email)
       }
       
       // Should track attempt count (may be 0 if business logic doesn't persist in test environment)
-      const attemptCount = await AccountSecurity.getFailedAttemptCount(email)
+      const attemptCount = await getFailedAttemptCount(email)
       expect(attemptCount).toBeGreaterThanOrEqual(0)
       
       // Should handle lockout status check
-      const lockoutStatus = await AccountSecurity.isAccountLocked(email)
+      const lockoutStatus = await isAccountLocked(email)
       expect(typeof lockoutStatus.locked).toBe('boolean')
     })
 
@@ -69,16 +76,16 @@ describe('Security Authentication Integration', () => {
       const email = testUser.email
       
       // Record some failed attempts
-      await AccountSecurity.recordFailedAttempt(email)
-      await AccountSecurity.recordFailedAttempt(email)
+      await recordFailedAttempt(email)
+      await recordFailedAttempt(email)
       
       // Run cleanup operation (should complete without errors)
-      const cleanupCount = await AccountSecurity.cleanupExpiredLockouts()
+      const cleanupCount = await cleanupExpiredLockouts()
       expect(typeof cleanupCount).toBe('number')
       expect(cleanupCount).toBeGreaterThanOrEqual(0)
       
       // Should still be able to check status after cleanup
-      const statusAfterCleanup = await AccountSecurity.isAccountLocked(email)
+      const statusAfterCleanup = await isAccountLocked(email)
       expect(typeof statusAfterCleanup.locked).toBe('boolean')
     })
 
@@ -86,11 +93,11 @@ describe('Security Authentication Integration', () => {
       const nonExistentEmail = 'nonexistent@example.com'
       
       // Should not be locked (user doesn't exist)
-      const status = await AccountSecurity.isAccountLocked(nonExistentEmail)
+      const status = await isAccountLocked(nonExistentEmail)
       expect(status.locked).toBe(false)
       
       // Should handle failed attempt gracefully
-      const result = await AccountSecurity.recordFailedAttempt(nonExistentEmail)
+      const result = await recordFailedAttempt(nonExistentEmail)
       expect(typeof result.locked).toBe('boolean')
     })
 
@@ -99,7 +106,7 @@ describe('Security Authentication Integration', () => {
       const invalidEmail = 'invalid-email-format'
       
       // Should handle gracefully and return not locked
-      const status = await AccountSecurity.isAccountLocked(invalidEmail)
+      const status = await isAccountLocked(invalidEmail)
       expect(status.locked).toBe(false)
     })
   })
@@ -109,7 +116,7 @@ describe('Security Authentication Integration', () => {
       const userId = testUser.user_id
       
       // Call ensureSecurityRecord directly
-      const securityRecord = await AccountSecurity.ensureSecurityRecord(userId)
+      const securityRecord = await ensureSecurityRecord(userId)
       
       // Verify record created with correct defaults
       expect(securityRecord).toBeDefined()
@@ -126,9 +133,9 @@ describe('Security Authentication Integration', () => {
       const userId = testUser.user_id
       
       // Call ensureSecurityRecord multiple times sequentially
-      const record1 = await AccountSecurity.ensureSecurityRecord(userId)
-      const record2 = await AccountSecurity.ensureSecurityRecord(userId)
-      const record3 = await AccountSecurity.ensureSecurityRecord(userId)
+      const record1 = await ensureSecurityRecord(userId)
+      const record2 = await ensureSecurityRecord(userId)
+      const record3 = await ensureSecurityRecord(userId)
       
       // All should succeed and return same user_id
       expect(record1.user_id).toBe(userId)
@@ -146,10 +153,10 @@ describe('Security Authentication Integration', () => {
       const userId = testUser.user_id
       
       // Ensure record exists
-      await AccountSecurity.ensureSecurityRecord(userId)
+      await ensureSecurityRecord(userId)
       
       // Call isAccountLocked which also ensures record exists
-      const lockStatus = await AccountSecurity.isAccountLocked(email)
+      const lockStatus = await isAccountLocked(email)
       expect(lockStatus.locked).toBe(false)
       expect(lockStatus.lockedUntil).toBeUndefined()
     })
@@ -159,14 +166,14 @@ describe('Security Authentication Integration', () => {
       const userId = testUser.user_id
       
       // Ensure record exists
-      await AccountSecurity.ensureSecurityRecord(userId)
+      await ensureSecurityRecord(userId)
       
       // Call recordFailedAttempt
-      const result = await AccountSecurity.recordFailedAttempt(email)
+      const result = await recordFailedAttempt(email)
       expect(result.locked).toBe(false)
       
       // After one failure, should not be locked
-      const lockStatus = await AccountSecurity.isAccountLocked(email)
+      const lockStatus = await isAccountLocked(email)
       expect(lockStatus.locked).toBe(false)
     })
   })
@@ -175,7 +182,7 @@ describe('Security Authentication Integration', () => {
     it('should create records with HIPAA-compliant defaults', async () => {
       const userId = testUser.user_id
       
-      const record = await AccountSecurity.ensureSecurityRecord(userId)
+      const record = await ensureSecurityRecord(userId)
       
       // Verify HIPAA-compliant defaults
       expect(record.max_concurrent_sessions).toBe(3) // Conservative limit

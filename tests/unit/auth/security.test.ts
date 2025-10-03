@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import bcrypt from 'bcrypt'
-import { hashPassword, verifyPassword, validatePasswordStrength, AccountSecurity } from '@/lib/auth/security'
+import { hashPassword, verifyPassword, validatePasswordStrength, ensureSecurityRecord } from '@/lib/auth/security'
 import { validatePasswordStrength as validatePasswordStrengthPolicy } from '@/lib/config/password-policy'
 import { db } from '@/lib/db'
 
@@ -162,7 +162,7 @@ describe('security authentication logic', () => {
   })
 
 
-  describe('AccountSecurity.ensureSecurityRecord', () => {
+  describe('ensureSecurityRecord', () => {
     it('should return existing record when one exists', async () => {
       const userId = 'test-user-id-123'
       const existingRecord = {
@@ -179,12 +179,12 @@ describe('security authentication logic', () => {
         created_at: new Date(),
         updated_at: new Date()
       }
-      
+
       // Mock existing record found
       mockSelectResult.mockResolvedValueOnce([existingRecord])
-      
-      const result = await AccountSecurity.ensureSecurityRecord(userId)
-      
+
+      const result = await ensureSecurityRecord(userId)
+
       expect(result).toEqual(existingRecord)
       expect(db.select).toHaveBeenCalled()
     })
@@ -205,19 +205,19 @@ describe('security authentication logic', () => {
         created_at: new Date(),
         updated_at: new Date()
       }
-      
+
       // Mock no existing record, then successful insert
       mockSelectResult.mockResolvedValueOnce([]) // No existing record
-      
+
       const mockInsert = vi.fn().mockReturnValue({
         values: vi.fn().mockReturnValue({
           returning: vi.fn().mockResolvedValue([newRecord])
         })
       })
       ;(db.insert as any).mockReturnValue(mockInsert())
-      
-      const result = await AccountSecurity.ensureSecurityRecord(userId)
-      
+
+      const result = await ensureSecurityRecord(userId)
+
       expect(result).toBeDefined()
       expect(result.user_id).toBe(userId)
       expect(result.max_concurrent_sessions).toBe(3)
@@ -226,6 +226,6 @@ describe('security authentication logic', () => {
     })
   })
 
-  // NOTE: Most AccountSecurity tests are in integration tests (security-authentication.test.ts)
+  // NOTE: Most account security tests are in integration tests (security-authentication.test.ts)
   // Database-heavy account lockout operations are better tested with real database transactions
 })

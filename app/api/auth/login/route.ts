@@ -7,12 +7,16 @@ import { createErrorResponse, AuthenticationError } from '@/lib/api/responses/er
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
 import { validateRequest } from '@/lib/api/middleware/validation'
 import { loginSchema } from '@/lib/validations/auth'
-import { verifyPassword } from '@/lib/auth/security'
+import {
+  verifyPassword,
+  isAccountLocked,
+  recordFailedAttempt,
+  clearFailedAttempts
+} from '@/lib/auth/security'
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
 import { TokenManager } from '@/lib/auth/token-manager'
-import { AccountSecurity } from '@/lib/auth/security'
 import { AuditLogger, log, correlation } from '@/lib/logger'
 import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context'
 import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
@@ -56,7 +60,7 @@ const loginHandler = async (request: NextRequest) => {
 
     // Check account lockout
     const lockoutStartTime = Date.now()
-    const lockoutStatus = await AccountSecurity.isAccountLocked(email)
+    const lockoutStatus = await isAccountLocked(email)
     log.info('Account lockout check completed', { duration: Date.now() - lockoutStartTime })
 
     if (lockoutStatus.locked) {
@@ -109,7 +113,7 @@ const loginHandler = async (request: NextRequest) => {
       })
 
       // Record failed attempt
-      await AccountSecurity.recordFailedAttempt(email)
+      await recordFailedAttempt(email)
 
       await AuditLogger.logAuth({
         action: 'login_failed',
@@ -203,7 +207,7 @@ const loginHandler = async (request: NextRequest) => {
       })
 
       // Record failed attempt
-      const lockoutResult = await AccountSecurity.recordFailedAttempt(email)
+      const lockoutResult = await recordFailedAttempt(email)
 
       await AuditLogger.logAuth({
         action: 'login_failed',
@@ -232,7 +236,7 @@ const loginHandler = async (request: NextRequest) => {
     })
 
     // Clear failed attempts on successful login
-    await AccountSecurity.clearFailedAttempts(email)
+    await clearFailedAttempts(email)
 
     // Generate device info
     const deviceGenStartTime = Date.now()

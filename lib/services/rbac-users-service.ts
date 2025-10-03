@@ -1,5 +1,5 @@
 import { and, count, eq, inArray, isNull, like, or } from 'drizzle-orm';
-import { AccountSecurity, hashPassword } from '@/lib/auth/security';
+import { hashPassword, ensureSecurityRecord } from '@/lib/auth/security';
 import { account_security, db } from '@/lib/db';
 import { roles, user_roles } from '@/lib/db/rbac-schema';
 import { organizations, user_organizations, users } from '@/lib/db/schema';
@@ -430,7 +430,7 @@ export class RBACUsersService extends BaseRBACService {
 
     // Proactively create account_security record for defense-in-depth
     // This ensures the record exists even before first login attempt
-    await AccountSecurity.ensureSecurityRecord(newUser.user_id);
+    await ensureSecurityRecord(newUser.user_id);
 
     log.info('Account security record initialized for new user', {
       userId: newUser.user_id,
@@ -562,7 +562,7 @@ export class RBACUsersService extends BaseRBACService {
       // Track password change in account_security table
       if (passwordWasChanged) {
         // Ensure security record exists
-        await AccountSecurity.ensureSecurityRecord(userId);
+        await ensureSecurityRecord(userId);
 
         // Update password_changed_at timestamp
         await tx

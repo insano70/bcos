@@ -1,6 +1,6 @@
 import { and, count, desc, eq, gte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { AccountSecurity } from '@/lib/auth/security';
+import { ensureSecurityRecord } from '@/lib/auth/security';
 import { db, login_attempts, user_sessions } from '@/lib/db';
 import { log } from '@/lib/logger';
 import { AuditLogger } from './audit';
@@ -326,7 +326,7 @@ export async function getUserSessions(userId: string): Promise<SessionInfo[]> {
  */
 async function enforceConcurrentSessionLimits(userId: string): Promise<void> {
   // Ensure security record exists and get session limit
-  const securitySettings = await AccountSecurity.ensureSecurityRecord(userId);
+  const securitySettings = await ensureSecurityRecord(userId);
   const maxSessions = securitySettings.max_concurrent_sessions;
 
   // Get current active sessions count
