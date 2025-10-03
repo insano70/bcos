@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, notFound } from 'next/navigation';
 import { apiClient } from '@/lib/api/client';
-import { log } from '@/lib/logger';
 import DashboardView from '@/components/charts/dashboard-view';
 import type { Dashboard, DashboardChart } from '@/lib/types/analytics';
 
@@ -30,22 +29,16 @@ export default function DashboardViewPage() {
     try {
       setLoading(true);
       setError(null);
-      
-      log.info('Loading dashboard for viewing', {
-        dashboardId,
-        timestamp: new Date().toISOString(),
-        component: 'pages',
-        feature: 'dashboard-viewing'
-      });
 
+      // API route handles all logging server-side
       const result = await apiClient.get<{
         dashboard: { dashboards?: Dashboard } | Dashboard;
         charts: DashboardChart[];
       }>(`/api/admin/analytics/dashboards/${dashboardId}`);
 
       // Extract dashboard data
-      const dashboard = 'dashboards' in result.dashboard 
-        ? result.dashboard.dashboards 
+      const dashboard = 'dashboards' in result.dashboard
+        ? result.dashboard.dashboards
         : result.dashboard;
 
       if (!dashboard) {
@@ -57,12 +50,7 @@ export default function DashboardViewPage() {
 
       // Check if dashboard is published
       if (!dashboardData.is_published) {
-        log.warn('Attempted to view unpublished dashboard', {
-          dashboardId,
-          isPublished: dashboardData.is_published,
-          component: 'pages',
-          feature: 'dashboard-viewing'
-        });
+        // Server logs the unauthorized access attempt
         notFound();
         return;
       }
@@ -74,24 +62,10 @@ export default function DashboardViewPage() {
         charts
       });
 
-      log.info('Dashboard loaded successfully for viewing', {
-        dashboardId,
-        dashboardName: dashboardData.dashboard_name,
-        chartCount: charts.length,
-        component: 'pages',
-        feature: 'dashboard-viewing'
-      });
-
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load dashboard';
 
-      log.error('Failed to load dashboard for viewing', err instanceof Error ? err : new Error(String(err)), {
-        dashboardId,
-        operation: 'load-dashboard-view',
-        component: 'pages',
-        feature: 'dashboard-viewing'
-      });
-
+      // Use React error state - server already logged the error
       setError(errorMessage);
     } finally {
       setLoading(false);

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
-import { log } from '@/lib/logger';
 
 export interface PublishedDashboard {
   dashboard_id: string;
@@ -12,6 +11,12 @@ export interface PublishedDashboard {
 
 /**
  * Hook to fetch and manage published dashboards for navigation
+ *
+ * Note: Logging is handled server-side in the API route.
+ * Client-side logging removed per best practices:
+ * - Reduces browser bundle size
+ * - Prevents PII exposure in browser console
+ * - Server logs already capture all API calls
  */
 export function usePublishedDashboards() {
   const [dashboards, setDashboards] = useState<PublishedDashboard[]>([]);
@@ -23,37 +28,21 @@ export function usePublishedDashboards() {
       setLoading(true);
       setError(null);
 
-      log.info('Loading published dashboards for navigation', {
-        timestamp: new Date().toISOString(),
-        component: 'hooks',
-        feature: 'dashboard-navigation',
-      });
-
       // Fetch only published and active dashboards
+      // API route handles all logging server-side
       const result = await apiClient.get<{
         dashboards: PublishedDashboard[];
       }>('/api/admin/analytics/dashboards?is_published=true&is_active=true');
 
       const publishedDashboards = result.dashboards || [];
 
-      log.info('Published dashboards loaded successfully', {
-        count: publishedDashboards.length,
-        dashboardIds: publishedDashboards.map((d) => d.dashboard_id),
-        component: 'hooks',
-        feature: 'dashboard-navigation',
-      });
-
       setDashboards(publishedDashboards);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to load published dashboards';
 
-      log.error('Failed to load published dashboards', err instanceof Error ? err : new Error(String(err)), {
-        operation: 'load-published-dashboards',
-        component: 'hooks',
-        feature: 'dashboard-navigation',
-      });
-
+      // Use React error state instead of logging
+      // Server already logs the API error
       setError(errorMessage);
       setDashboards([]); // Ensure we have an empty array on error
     } finally {

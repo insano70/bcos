@@ -4,7 +4,8 @@ import { refreshTokenPair, generateDeviceFingerprint, generateDeviceName } from 
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
-import { AuditLogger, log, correlation } from '@/lib/logger'
+import { log, correlation } from '@/lib/logger'
+import { AuditLogger } from '@/lib/api/services/audit'
 import { requireAuth } from '@/lib/api/middleware/auth'
 import { setCSRFToken } from '@/lib/security/csrf-unified'
 

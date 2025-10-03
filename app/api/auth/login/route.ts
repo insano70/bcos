@@ -17,7 +17,8 @@ import {
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
 import { createTokenPair, generateDeviceFingerprint, generateDeviceName } from '@/lib/auth/token-manager'
-import { AuditLogger, log, correlation } from '@/lib/logger'
+import { log, correlation } from '@/lib/logger'
+import { AuditLogger } from '@/lib/api/services/audit'
 import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context'
 import { setCSRFToken } from '@/lib/security/csrf-unified'
 import { publicRoute } from '@/lib/api/route-handler'
