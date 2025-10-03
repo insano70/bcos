@@ -8,8 +8,6 @@
 import { nanoid } from 'nanoid';
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
-import { log } from '@/lib/logger';
-import { csrfMonitor } from './csrf-monitoring-instance';
 
 /**
  * CSRF Protection Constants
@@ -204,14 +202,6 @@ function normalizeIP(rawIP: string): string {
       const [encodedPayload, signature] = token.split('.');
 
       if (!encodedPayload || !signature) {
-        if (isDevelopment) {
-          log.debug('CSRF token parse failed', {
-            tokenLength: token.length,
-            hasDot: token.includes('.'),
-            parts: token.split('.').length,
-            component: 'token-validation',
-          });
-        }
         return false;
       }
 
@@ -239,9 +229,6 @@ function normalizeIP(rawIP: string): string {
       );
 
       if (!isSignatureValid) {
-        if (isDevelopment) {
-          log.debug('🔍 CSRF Signature Invalid');
-        }
         return false;
       }
 
@@ -249,12 +236,6 @@ function normalizeIP(rawIP: string): string {
       const payload = JSON.parse(atob(encodedPayload));
 
       if (payload.type !== 'anonymous') {
-        if (isDevelopment) {
-          log.debug('🔍 CSRF Token Type Mismatch:', {
-            expected: 'anonymous',
-            actual: payload.type,
-          });
-        }
         return false;
       }
 
@@ -271,33 +252,8 @@ function normalizeIP(rawIP: string): string {
       const isValid =
         payload.ip === currentIp && payload.userAgent === currentUserAgent && timeWindowMatch;
 
-      if (!isValid && isDevelopment) {
-        log.debug('🔍 CSRF Anonymous Validation Failed:', {
-          payload: {
-            ip: payload.ip,
-            userAgent: `${payload.userAgent?.substring(0, 30)}...`,
-            timeWindow: payload.timeWindow,
-          },
-          current: {
-            ip: currentIp,
-            userAgent: `${currentUserAgent?.substring(0, 30)}...`,
-            timeWindow: currentTimeWindow,
-          },
-          matches: {
-            ip: payload.ip === currentIp,
-            userAgent: payload.userAgent === currentUserAgent,
-            timeWindow: timeWindowMatch,
-          },
-        });
-      }
-
       return isValid;
-    } catch (error) {
-      const isDevelopment =
-        (process.env.NODE_ENV || globalThis.process?.env?.NODE_ENV) === 'development';
-      if (isDevelopment) {
-        log.debug('🔍 CSRF Anonymous Validation Error:', { error });
-      }
+    } catch (_error) {
       return false;
     }
   }
@@ -379,11 +335,6 @@ function normalizeIP(rawIP: string): string {
     } catch (error) {
       // In Edge Runtime, cookies() might not be available in all contexts
       // This is handled gracefully - token is still returned for manual setting
-      const isDevelopment =
-        (process.env.NODE_ENV || globalThis.process?.env?.NODE_ENV) === 'development';
-      if (isDevelopment) {
-        log.debug('Cookie setting failed (Edge Runtime context):', { error });
-      }
     }
 
     return token;
@@ -452,46 +403,14 @@ function normalizeIP(rawIP: string): string {
       const isDualPath = isDualTokenEndpoint(pathname);
 
       if (!headerToken) {
-        // Enhanced security logging for missing header tokens
-        log.security('csrf_header_token_missing', 'medium', {
-          action: 'csrf_validation_failed',
-          reason: 'missing_header_token',
-          pathname,
-          ip: getRequestIP(request),
-          userAgent: request.headers.get('user-agent')?.substring(0, 100),
-          timestamp: new Date().toISOString(),
-          threat: 'csrf_attack_attempt',
-          blocked: true,
-        });
-
-        // Record failure for security monitoring
-        await csrfMonitor.recordFailure(request, 'missing_header_token', 'medium');
         return false;
       }
 
       if (isAnonymousPath) {
         // For anonymous-only endpoints (register, forgot-password), validate against request fingerprint
-        const isValid = await validateAnonymousToken(request, headerToken);
-        if (!isValid) {
-          log.security('csrf_anonymous_token_invalid', 'medium', {
-            action: 'anonymous_token_validation_failed',
-            reason: 'invalid_anonymous_token',
-            pathname,
-            ip: getRequestIP(request),
-            userAgent: request.headers.get('user-agent')?.substring(0, 100),
-            timestamp: new Date().toISOString(),
-            threat: 'csrf_token_forgery',
-            blocked: true,
-            endpointType: 'anonymous',
-          });
-
-          // Record failure for security monitoring
-          await csrfMonitor.recordFailure(request, 'anonymous_token_validation_failed', 'medium');
-        }
-        return isValid;
+        return await validateAnonymousToken(request, headerToken);
       } else if (isDualPath) {
         // For dual token endpoints (login), accept both anonymous and authenticated tokens
-        // First, determine token type by parsing the header token
         try {
           const [encodedPayload] = headerToken.split('.');
           if (encodedPayload) {
@@ -499,167 +418,32 @@ function normalizeIP(rawIP: string): string {
 
             if (payload.type === 'anonymous') {
               // Validate as anonymous token (no cookie required)
-              const isValid = await validateAnonymousToken(
-                request,
-                headerToken
-              );
-              if (!isValid) {
-                log.security('csrf_dual_anonymous_token_invalid', 'medium', {
-                  action: 'dual_endpoint_anonymous_validation_failed',
-                  reason: 'invalid_anonymous_token_on_dual_endpoint',
-                  pathname,
-                  ip: getRequestIP(request),
-                  userAgent: request.headers.get('user-agent')?.substring(0, 100),
-                  timestamp: new Date().toISOString(),
-                  threat: 'csrf_token_forgery',
-                  blocked: true,
-                  endpointType: 'dual_anonymous_mode',
-                });
-                await csrfMonitor.recordFailure(
-                  request,
-                  'anonymous_token_validation_failed_dual_endpoint',
-                  'medium'
-                );
-              }
-              return isValid;
+              return await validateAnonymousToken(request, headerToken);
             } else if (payload.type === 'authenticated') {
               // Validate as authenticated token (require cookie and signature validation)
               if (!cookieToken) {
-                log.security('csrf_dual_cookie_token_missing', 'medium', {
-                  action: 'dual_endpoint_cookie_validation_failed',
-                  reason: 'missing_cookie_token_for_authenticated_token',
-                  pathname,
-                  ip: getRequestIP(request),
-                  userAgent: request.headers.get('user-agent')?.substring(0, 100),
-                  timestamp: new Date().toISOString(),
-                  threat: 'csrf_attack_attempt',
-                  blocked: true,
-                  endpointType: 'dual_authenticated_mode',
-                  hasHeader: true,
-                  hasCookie: false,
-                });
-                await csrfMonitor.recordFailure(
-                  request,
-                  'missing_cookie_token_dual_endpoint',
-                  'medium'
-                );
                 return false;
               }
 
               // Validate authenticated token signature
-              const isTokenValid =
-                await validateAuthenticatedToken(headerToken);
+              const isTokenValid = await validateAuthenticatedToken(headerToken);
               if (!isTokenValid) {
-                log.security('csrf_dual_authenticated_token_invalid', 'high', {
-                  action: 'dual_endpoint_signature_validation_failed',
-                  reason: 'invalid_authenticated_token_signature',
-                  pathname,
-                  ip: getRequestIP(request),
-                  userAgent: request.headers.get('user-agent')?.substring(0, 100),
-                  timestamp: new Date().toISOString(),
-                  threat: 'csrf_token_tampering',
-                  blocked: true,
-                  endpointType: 'dual_authenticated_mode',
-                  validationStage: 'signature_verification',
-                });
-                await csrfMonitor.recordFailure(
-                  request,
-                  'authenticated_token_signature_invalid_dual_endpoint',
-                  'medium'
-                );
                 return false;
               }
 
               // Verify double-submit cookie pattern
-              const isDoubleSubmitValid = constantTimeCompare(
-                headerToken,
-                cookieToken
-              );
-              if (!isDoubleSubmitValid) {
-                log.security('csrf_dual_double_submit_failed', 'high', {
-                  action: 'dual_endpoint_double_submit_validation_failed',
-                  reason: 'header_cookie_token_mismatch',
-                  pathname,
-                  ip: getRequestIP(request),
-                  userAgent: request.headers.get('user-agent')?.substring(0, 100),
-                  timestamp: new Date().toISOString(),
-                  threat: 'csrf_token_tampering',
-                  blocked: true,
-                  endpointType: 'dual_authenticated_mode',
-                  validationStage: 'double_submit_cookie_verification',
-                });
-                await csrfMonitor.recordFailure(
-                  request,
-                  'double_submit_validation_failed_dual_endpoint',
-                  'medium'
-                );
-              }
-              return isDoubleSubmitValid;
+              return constantTimeCompare(headerToken, cookieToken);
             }
           }
         } catch (parseError) {
-          // Enhanced token parsing failure logging
-          log.security('csrf_token_parsing_failed', 'medium', {
-            action: 'dual_endpoint_token_parsing_failed',
-            reason: 'malformed_token_structure',
-            pathname,
-            ip: getRequestIP(request),
-            userAgent: request.headers.get('user-agent')?.substring(0, 100),
-            timestamp: new Date().toISOString(),
-            threat: 'csrf_token_tampering',
-            blocked: true,
-            endpointType: 'dual_mode',
-            parseError: parseError instanceof Error ? parseError.message : String(parseError),
-          });
-          await csrfMonitor.recordFailure(
-            request,
-            'token_parsing_failed_dual_endpoint',
-            'medium'
-          );
           return false;
         }
 
         // If we get here, token type wasn't recognized
-        log.security('csrf_unrecognized_token_type', 'medium', {
-          action: 'dual_endpoint_unrecognized_token_type',
-          reason: 'unknown_token_type',
-          pathname,
-          ip: getRequestIP(request),
-          userAgent: request.headers.get('user-agent')?.substring(0, 100),
-          timestamp: new Date().toISOString(),
-          threat: 'csrf_token_forgery',
-          blocked: true,
-          endpointType: 'dual_mode',
-        });
-        await csrfMonitor.recordFailure(
-          request,
-          'unrecognized_token_type_dual_endpoint',
-          'medium'
-        );
         return false;
       } else {
         // For authenticated endpoints, require both header and cookie tokens
         if (!cookieToken) {
-          log.security('csrf_cookie_token_missing', 'medium', {
-            action: 'authenticated_endpoint_cookie_validation_failed',
-            reason: 'missing_cookie_token_for_authenticated_endpoint',
-            pathname,
-            ip: getRequestIP(request),
-            userAgent: request.headers.get('user-agent')?.substring(0, 100),
-            timestamp: new Date().toISOString(),
-            threat: 'csrf_attack_attempt',
-            blocked: true,
-            endpointType: 'authenticated',
-            hasHeader: true,
-            hasCookie: false,
-          });
-
-          // Record failure for security monitoring
-          await csrfMonitor.recordFailure(
-            request,
-            'missing_cookie_token_authenticated_endpoint',
-            'medium'
-          );
           return false;
         }
 
@@ -671,138 +455,29 @@ function normalizeIP(rawIP: string): string {
 
             // Security check: prevent anonymous tokens on protected endpoints
             if (payload.type === 'anonymous') {
-              log.security(
-                'csrf_security_violation_anonymous_on_protected',
-                'high',
-                {
-                  action: 'security_violation_detected',
-                  reason: 'anonymous_token_used_on_protected_endpoint',
-                  pathname,
-                  ip: getRequestIP(request),
-                  userAgent: request.headers.get('user-agent')?.substring(0, 100),
-                  timestamp: new Date().toISOString(),
-                  threat: 'privilege_escalation_attempt',
-                  blocked: true,
-                  endpointType: 'protected',
-                  violationType: 'anonymous_token_on_authenticated_endpoint',
-                  securityImpact: 'high',
-                }
-              );
-
-              // Record high-severity failure for security monitoring
-              await csrfMonitor.recordFailure(
-                request,
-                'anonymous_token_on_protected_endpoint',
-                'high'
-              );
               return false;
             }
 
             // For authenticated tokens, validate signature and double-submit pattern
             if (payload.type === 'authenticated') {
-              const isTokenValid =
-                await validateAuthenticatedToken(headerToken);
+              const isTokenValid = await validateAuthenticatedToken(headerToken);
               if (!isTokenValid) {
-                log.security('csrf_authenticated_token_invalid', 'high', {
-                  action: 'authenticated_endpoint_signature_validation_failed',
-                  reason: 'invalid_authenticated_token_signature',
-                  pathname,
-                  ip: getRequestIP(request),
-                  userAgent: request.headers.get('user-agent')?.substring(0, 100),
-                  timestamp: new Date().toISOString(),
-                  threat: 'csrf_token_tampering',
-                  blocked: true,
-                  endpointType: 'authenticated',
-                  validationStage: 'signature_verification',
-                });
-
-                // Record failure for security monitoring
-                await csrfMonitor.recordFailure(
-                  request,
-                  'authenticated_token_signature_invalid',
-                  'medium'
-                );
                 return false;
               }
 
               // Verify double-submit cookie pattern (constant-time comparison)
-              const isDoubleSubmitValid = constantTimeCompare(
-                headerToken,
-                cookieToken
-              );
-              if (!isDoubleSubmitValid) {
-                log.security('csrf_double_submit_failed', 'high', {
-                  action: 'authenticated_endpoint_double_submit_validation_failed',
-                  reason: 'header_cookie_token_mismatch',
-                  pathname,
-                  ip: getRequestIP(request),
-                  userAgent: request.headers.get('user-agent')?.substring(0, 100),
-                  timestamp: new Date().toISOString(),
-                  threat: 'csrf_token_tampering',
-                  blocked: true,
-                  endpointType: 'authenticated',
-                  validationStage: 'double_submit_cookie_verification',
-                });
-
-                // Record failure for security monitoring
-                await csrfMonitor.recordFailure(
-                  request,
-                  'double_submit_validation_failed',
-                  'medium'
-                );
-              }
-              return isDoubleSubmitValid;
+              return constantTimeCompare(headerToken, cookieToken);
             }
           }
         } catch (_parseError) {
           // If token parsing fails, fall back to simple double-submit check
           // This handles legacy tokens during migration
-          const isDevelopment =
-            (process.env.NODE_ENV || globalThis.process?.env?.NODE_ENV) === 'development';
-          if (isDevelopment) {
-            log.debug('CSRF token parsing failed, using legacy validation');
-          }
         }
 
         // Fallback: simple double-submit pattern for legacy tokens
-        const isValid = constantTimeCompare(headerToken, cookieToken);
-        if (!isValid) {
-          log.security('csrf_legacy_token_validation_failed', 'low', {
-            action: 'legacy_token_validation_failed',
-            reason: 'legacy_double_submit_pattern_failed',
-            pathname,
-            ip: getRequestIP(request),
-            userAgent: request.headers.get('user-agent')?.substring(0, 100),
-            timestamp: new Date().toISOString(),
-            threat: 'csrf_attack_attempt',
-            blocked: true,
-            endpointType: 'authenticated_legacy',
-            validationMethod: 'simple_double_submit',
-          });
-
-          // Record failure for security monitoring
-          await csrfMonitor.recordFailure(request, 'legacy_token_validation_failed', 'low');
-        }
-        return isValid;
+        return constantTimeCompare(headerToken, cookieToken);
       }
-    } catch (error) {
-      log.security('csrf_verification_system_error', 'high', {
-        action: 'csrf_verification_system_failure',
-        reason: 'unexpected_error_during_verification',
-        pathname: request.nextUrl.pathname,
-        ip: getRequestIP(request),
-        userAgent: request.headers.get('user-agent')?.substring(0, 100),
-        timestamp: new Date().toISOString(),
-        threat: 'system_instability',
-        blocked: true,
-        errorType: error instanceof Error ? error.name : 'unknown',
-        errorMessage: error instanceof Error ? error.message : String(error),
-        systemError: true,
-      });
-
-      // Record failure for security monitoring
-      const errorMessage = error instanceof Error ? error.message : 'unknown_error';
-      await csrfMonitor.recordFailure(request, `verification_error_${errorMessage}`, 'medium');
+    } catch (_error) {
       return false;
     }
   }

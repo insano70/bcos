@@ -416,15 +416,10 @@ describe('RBAC Dashboards Service - Permission Enforcement', () => {
 
       const dashboardsService = createRBACDashboardsService(userContext)
 
-      // BUG: Permission checker does NOT filter out inactive roles - user can access dashboards
-      // TODO: Fix RBAC permission checker to exclude permissions from inactive roles
+      // FIXED: Permission checker now properly filters out permissions from inactive roles
       // Expected behavior: Should throw PermissionDeniedError
-      // Actual behavior: Returns dashboards (permission granted from inactive role)
-      const result = await dashboardsService.getDashboards()
-      expect(Array.isArray(result)).toBe(true)
-
-      // Uncomment when bug is fixed:
-      // await expect(dashboardsService.getDashboards()).rejects.toThrow(PermissionDeniedError)
+      // Inactive roles should not grant any permissions, even if the user-role assignment is active
+      await expect(dashboardsService.getDashboards()).rejects.toThrow(PermissionDeniedError)
     })
   })
 

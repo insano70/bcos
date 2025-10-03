@@ -1,9 +1,7 @@
 import { getCssVariable } from '@/components/utils/utils';
-import { log } from '@/lib/logger';
 import { getPaletteColors } from '@/lib/services/color-palettes';
 import type { AggAppMeasure, ChartData, ChartDataset } from '@/lib/types/analytics';
 
-// Use Universal Logging System - dynamic imports prevent Winston bundling in client contexts
 /**
  * Simplified Chart Data Transformer
  * Works with pre-aggregated data from ih.agg_app_measures
@@ -37,14 +35,6 @@ export class SimplifiedChartTransformer {
 
     // Extract measure type from data
     const measureType = this.extractMeasureType(measures);
-
-    log.debug('🔍 SIMPLIFIED TRANSFORMATION:', {
-      recordCount: measures.length,
-      chartType,
-      groupBy,
-      measureType,
-      sampleRecord: measures[0],
-    });
 
     let chartData: ChartData;
     switch (chartType) {
@@ -109,14 +99,6 @@ export class SimplifiedChartTransformer {
         }
       });
 
-      log.debug('🔍 SINGLE SERIES TIME LABELS:', {
-        originalDates: sortedMeasures.map((m) => m.date_index),
-        dateObjects: dateObjects,
-        sampleConversion: {
-          original: sortedMeasures[0]?.date_index,
-          dateObject: dateObjects[0],
-        },
-      });
 
       return {
         labels: dateObjects, // Use Date objects for proper time axis
@@ -233,25 +215,8 @@ export class SimplifiedChartTransformer {
       });
     });
 
-    log.debug('🔍 DATE FILTERING:', {
-      allDates: sortedDates,
-      datesWithData: datesWithData,
-      filteredOut: sortedDates.filter((d) => !datesWithData.includes(d)),
-    });
 
-    log.debug('🔍 DATE PROCESSING:', {
-      sortedDateIndexes: sortedDates,
-      sampleDate: sortedDates[0],
-      parsedSampleDate: new Date(`${sortedDates[0]}T00:00:00`),
-    });
 
-    log.debug('🔍 MULTI-SERIES DATA:', {
-      groupBy,
-      sortedDates,
-      groupCount: groupedData.size,
-      groups: Array.from(groupedData.keys()),
-      sampleGroupData: Array.from(groupedData.entries())[0],
-    });
 
     // Create datasets for each group
     const datasets: ChartDataset[] = [];
@@ -262,13 +227,6 @@ export class SimplifiedChartTransformer {
       const data = datesWithData.map((dateIndex) => dateMap.get(dateIndex) || 0);
       const color = colors[colorIndex % colors.length];
 
-      log.debug('🔍 CREATING DATASET:', {
-        groupKey,
-        color,
-        dataPoints: data,
-        dateMapSize: dateMap.size,
-        dateMapEntries: Array.from(dateMap.entries()),
-      });
 
       // Build dataset with conditional properties based on chart type
       const dataset: ChartDataset = {
@@ -297,14 +255,6 @@ export class SimplifiedChartTransformer {
       colorIndex++;
     });
 
-    log.debug('🔍 FINAL CHART DATA:', {
-      labels: sortedDates,
-      labelCount: sortedDates.length,
-      datasetCount: datasets.length,
-      sampleLabels: sortedDates.slice(0, 3),
-      lastLabels: sortedDates.slice(-3),
-      allLabels: sortedDates,
-    });
 
     // For bar charts, create readable category labels based on frequency
     const categoryLabels = datesWithData.map((dateStr) => {
@@ -330,15 +280,6 @@ export class SimplifiedChartTransformer {
       return dateStr;
     });
 
-    log.debug('🔍 CATEGORY LABELS:', {
-      originalDates: datesWithData,
-      categoryLabels: categoryLabels,
-      frequency: measures[0]?.frequency,
-      sampleConversion: {
-        original: datesWithData[0],
-        category: categoryLabels[0],
-      },
-    });
 
     // Choose label format based on chart type
     let finalLabels: (string | Date)[];
@@ -357,15 +298,6 @@ export class SimplifiedChartTransformer {
         }
       });
 
-      log.debug('🔍 LINE CHART DATE OBJECTS:', {
-        originalDates: datesWithData,
-        dateObjects: finalLabels,
-        sampleConversion: {
-          original: datesWithData[0],
-          dateObject: finalLabels[0],
-          isoString: finalLabels[0] instanceof Date ? finalLabels[0].toISOString() : finalLabels[0],
-        },
-      });
     } else {
       // For bar charts, use category labels
       finalLabels = categoryLabels;
@@ -403,13 +335,6 @@ export class SimplifiedChartTransformer {
     const data = labels.map((label) => groupedData.get(label) || 0);
     const colors = this.getColorPalette(paletteId);
 
-    log.debug('🔍 PIE CHART DATA:', {
-      groupField,
-      labels,
-      data,
-      groupedDataEntries: Array.from(groupedData.entries()),
-      sampleMeasure: measures[0],
-    });
 
     return {
       labels,
@@ -595,13 +520,6 @@ export class SimplifiedChartTransformer {
   ): ChartData {
     // Extract measure type from data
     const measureType = this.extractMeasureType(measures);
-    log.debug('🔍 ENHANCED MULTI-SERIES INPUT:', {
-      measureCount: measures.length,
-      groupBy,
-      aggregations,
-      sampleMeasure: measures[0],
-      hasSeriesLabels: measures.some((m) => m.series_label),
-    });
 
     // Check if we have series-tagged data (from multiple series query)
     const hasSeriesLabels = measures.some((m) => m.series_label);
@@ -712,11 +630,6 @@ export class SimplifiedChartTransformer {
     aggregations: Record<string, 'sum' | 'avg' | 'count' | 'min' | 'max'> = {},
     paletteId: string = 'default'
   ): ChartData {
-    log.debug('🔍 CREATING MULTI-SERIES FROM TAGGED DATA:', {
-      measureCount: measures.length,
-      seriesLabels: Array.from(new Set(measures.map((m) => m.series_label))),
-      sampleMeasure: measures[0],
-    });
 
     // Group by series label and date
     const groupedBySeries = new Map<string, Map<string, number[]>>();
@@ -801,12 +714,6 @@ export class SimplifiedChartTransformer {
       colorIndex++;
     });
 
-    log.debug('🔍 TAGGED DATA TRANSFORMATION RESULT:', {
-      seriesCount: datasets.length,
-      dateCount: sortedDates.length,
-      seriesLabels: datasets.map((d) => d.label),
-      sampleData: datasets[0]?.data?.slice(0, 3),
-    });
 
     return {
       labels: sortedDates.map((dateStr) => {

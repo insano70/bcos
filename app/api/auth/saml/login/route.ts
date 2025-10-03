@@ -62,18 +62,22 @@ const samlLoginHandler = async (request: NextRequest) => {
 
     // Build SAML auth context
     const relayStateParam = request.nextUrl.searchParams.get('relay_state');
+    const forceAccountSelection = request.nextUrl.searchParams.get('force_account_selection') === 'true';
+
     const authContext: SAMLAuthContext = {
       requestId: correlation.current() || 'unknown',
       ipAddress,
       userAgent,
       timestamp: new Date(),
-      ...(relayStateParam && { relayState: relayStateParam })
+      ...(relayStateParam && { relayState: relayStateParam }),
+      ...(forceAccountSelection && { forceAccountSelection })
     };
 
     log.info('SAML login initiation started', {
       requestId: authContext.requestId,
       ipAddress,
-      hasRelayState: !!authContext.relayState
+      hasRelayState: !!authContext.relayState,
+      forceAccountSelection
     });
 
     // Create SAML client and generate login URL
@@ -85,8 +89,24 @@ const samlLoginHandler = async (request: NextRequest) => {
     log.info('SAML login URL created', {
       requestId: authContext.requestId,
       duration: Date.now() - loginUrlStartTime,
-      urlLength: loginUrl.length
+      urlLength: loginUrl.length,
+      forceAccountSelection
     });
+
+    // If force account selection is requested, append Microsoft's prompt parameter
+    // This triggers the Microsoft account picker even if user has an active session
+    let finalLoginUrl = loginUrl;
+    if (forceAccountSelection) {
+      const url = new URL(loginUrl);
+      url.searchParams.append('prompt', 'select_account');
+      finalLoginUrl = url.toString();
+
+      log.info('Account selection prompt added to SAML URL', {
+        requestId: authContext.requestId,
+        originalLength: loginUrl.length,
+        finalLength: finalLoginUrl.length
+      });
+    }
 
     // Enhanced SAML login attempt logging
     log.auth('saml_login_initiated', true, {
@@ -103,6 +123,7 @@ const samlLoginHandler = async (request: NextRequest) => {
         stage: 'initiation',
         requestId: authContext.requestId,
         relayState: authContext.relayState,
+        forceAccountSelection,
         correlationId: correlation.current()
       }
     });
@@ -122,7 +143,7 @@ const samlLoginHandler = async (request: NextRequest) => {
 
     // Redirect directly to Microsoft Entra
     // Note: Cannot use intermediate branded page as it would exceed Microsoft's query string limit
-    return NextResponse.redirect(loginUrl);
+    return NextResponse.redirect(finalLoginUrl);
 
   } catch (error) {
     const totalDuration = Date.now() - startTime;

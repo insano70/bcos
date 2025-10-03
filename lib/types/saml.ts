@@ -289,6 +289,9 @@ export interface SAMLAuthContext {
 
   /** Relay state (optional) */
   relayState?: string;
+
+  /** Force account selection (triggers Microsoft account picker) */
+  forceAccountSelection?: boolean;
 }
 
 /**
