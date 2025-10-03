@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { TokenManager } from '@/lib/auth/token-manager'
+import { revokeRefreshToken, revokeAllUserTokens } from '@/lib/auth/token-manager'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { AuditLogger, log } from '@/lib/logger'
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     const userAgent = request.headers.get('user-agent') || 'unknown'
 
     // Revoke the refresh token
-    const revoked = await TokenManager.revokeRefreshToken(refreshToken, 'logout')
+    const revoked = await revokeRefreshToken(refreshToken, 'logout')
 
     if (!revoked) {
       return createErrorResponse('Failed to logout', 500, request)
@@ -222,7 +222,7 @@ export async function DELETE(request: NextRequest) {
       const userId = tokenUserId
 
       // Revoke all user tokens
-      const revokedCount = await TokenManager.revokeAllUserTokens(userId, 'security')
+      const revokedCount = await revokeAllUserTokens(userId, 'security')
 
       // AUDIT LOGGING: Log the revoke all sessions action
       const ipAddress = request.headers.get('x-forwarded-for') ||

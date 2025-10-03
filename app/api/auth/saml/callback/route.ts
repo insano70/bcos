@@ -26,7 +26,7 @@ import { eq } from 'drizzle-orm';
 import { publicRoute } from '@/lib/api/route-handler';
 import { createErrorResponse, AuthenticationError } from '@/lib/api/responses/error';
 import { AuditLogger, log, correlation } from '@/lib/logger';
-import { TokenManager } from '@/lib/auth/token-manager';
+import { createTokenPair, generateDeviceFingerprint, generateDeviceName } from '@/lib/auth/token-manager';
 import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context';
 import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified';
 import { createSAMLClient } from '@/lib/saml/client';
@@ -367,8 +367,8 @@ const samlCallbackHandler = async (request: NextRequest) => {
 
     // Generate device info (same as password login)
     const deviceGenStartTime = Date.now();
-    const deviceFingerprint = TokenManager.generateDeviceFingerprint(ipAddress, userAgent);
-    const deviceName = TokenManager.generateDeviceName(userAgent);
+    const deviceFingerprint = generateDeviceFingerprint(ipAddress, userAgent);
+    const deviceName = generateDeviceName(userAgent);
 
     const deviceInfo = {
       ipAddress,
@@ -398,7 +398,7 @@ const samlCallbackHandler = async (request: NextRequest) => {
 
     // Create token pair (SAML logins get standard session, not remember-me)
     const tokenStartTime = Date.now();
-    const tokenPair = await TokenManager.createTokenPair(
+    const tokenPair = await createTokenPair(
       user.user_id,
       deviceInfo,
       false, // rememberMe = false for SSO (standard 7-day session)

@@ -3,7 +3,7 @@
  * Uses JWT user data and cached role permissions to eliminate database queries
  */
 
-import { TokenManager } from '@/lib/auth/token-manager';
+import { validateAccessToken } from '@/lib/auth/token-manager';
 import { rolePermissionCache } from '@/lib/cache/role-permission-cache';
 import { log } from '@/lib/logger';
 import type { Permission, Role, UserContext } from '@/lib/types/rbac';
@@ -178,7 +178,7 @@ export async function requireJWTAuth(request: Request): Promise<JWTAuthSession> 
 
   // Validate access token
   const tokenValidationStart = Date.now();
-  const payload = await TokenManager.validateAccessToken(accessToken);
+  const payload = await validateAccessToken(accessToken);
   const tokenValidationDuration = Date.now() - tokenValidationStart;
 
   if (!payload) {

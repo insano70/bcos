@@ -4,7 +4,7 @@ import { db, user_sessions, refresh_tokens } from '@/lib/db'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse, ValidationError } from '@/lib/api/responses/error'
-import { TokenManager } from '@/lib/auth/token-manager'
+import { revokeRefreshToken } from '@/lib/auth/token-manager'
 import { rbacRoute } from '@/lib/api/rbac-route-handler'
 import { validateRequest } from '@/lib/api/middleware/validation'
 import type { UserContext } from '@/lib/types/rbac'
@@ -178,7 +178,7 @@ const revokeSessionHandler = async (request: NextRequest, userContext: UserConte
     if (refreshToken && sessionToRevoke.refreshTokenId) {
       const revokeStartTime = Date.now()
       // Revoke the refresh token (this will also end the session)
-      await TokenManager.revokeRefreshToken(refreshToken, 'security')
+      await revokeRefreshToken(refreshToken, 'security')
       log.info('Token revocation completed', { duration: Date.now() - revokeStartTime })
     }
 

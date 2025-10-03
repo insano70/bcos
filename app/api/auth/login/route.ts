@@ -16,7 +16,7 @@ import {
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
-import { TokenManager } from '@/lib/auth/token-manager'
+import { createTokenPair, generateDeviceFingerprint, generateDeviceName } from '@/lib/auth/token-manager'
 import { AuditLogger, log, correlation } from '@/lib/logger'
 import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context'
 import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
@@ -240,8 +240,8 @@ const loginHandler = async (request: NextRequest) => {
 
     // Generate device info
     const deviceGenStartTime = Date.now()
-    const deviceFingerprint = TokenManager.generateDeviceFingerprint(ipAddress, userAgent)
-    const deviceName = TokenManager.generateDeviceName(userAgent)
+    const deviceFingerprint = generateDeviceFingerprint(ipAddress, userAgent)
+    const deviceName = generateDeviceName(userAgent)
 
     const deviceInfo = {
       ipAddress,
@@ -269,7 +269,7 @@ const loginHandler = async (request: NextRequest) => {
 
     // Create token pair with email parameter for audit logging
     const tokenStartTime = Date.now()
-    const tokenPair = await TokenManager.createTokenPair(
+    const tokenPair = await createTokenPair(
       user.user_id,
       deviceInfo,
       remember || false,

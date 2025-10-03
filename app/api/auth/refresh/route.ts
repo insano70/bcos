@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { TokenManager } from '@/lib/auth/token-manager'
+import { refreshTokenPair, generateDeviceFingerprint, generateDeviceName } from '@/lib/auth/token-manager'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
@@ -123,8 +123,8 @@ const refreshHandler = async (request: NextRequest) => {
                      request.headers.get('x-real-ip') || 
                      'unknown'
     const userAgent = request.headers.get('user-agent') || 'unknown'
-    const deviceFingerprint = TokenManager.generateDeviceFingerprint(ipAddress, userAgent)
-    const deviceName = TokenManager.generateDeviceName(userAgent)
+    const deviceFingerprint = generateDeviceFingerprint(ipAddress, userAgent)
+    const deviceName = generateDeviceName(userAgent)
 
     const deviceInfo = {
       ipAddress,
@@ -142,7 +142,7 @@ const refreshHandler = async (request: NextRequest) => {
 
     // Rotate tokens
     const tokenRotationStart = Date.now()
-    const tokenPair = await TokenManager.refreshTokenPair(refreshToken, deviceInfo)
+    const tokenPair = await refreshTokenPair(refreshToken, deviceInfo)
     log.info('Token rotation completed', { duration: Date.now() - tokenRotationStart, userId })
 
     if (!tokenPair) {

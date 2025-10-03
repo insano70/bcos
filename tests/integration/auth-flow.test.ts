@@ -5,7 +5,12 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import '@/tests/setup/integration-setup' // Import integration setup for database access
-import { TokenManager } from '@/lib/auth/token-manager'
+import {
+  createTokenPair,
+  validateAccessToken,
+  revokeRefreshToken,
+  refreshTokenPair
+} from '@/lib/auth/token-manager'
 import { createTestUser } from '@/tests/factories/user-factory'
 import { createTestOrganization } from '@/tests/factories/organization-factory'
 import { createTestRole } from '@/tests/factories/role-factory'
@@ -41,7 +46,7 @@ describe('Authentication Flow Integration', () => {
       }
       
       // 1. Create token pair (simulates login)
-      const tokenPair = await TokenManager.createTokenPair(
+      const tokenPair = await createTokenPair(
         testUser.user_id,
         deviceInfo,
         false,
@@ -53,13 +58,13 @@ describe('Authentication Flow Integration', () => {
       expect(tokenPair.sessionId).toBeDefined()
       
       // 2. Validate access token (simulates authorization)
-      const validatedPayload = await TokenManager.validateAccessToken(tokenPair.accessToken)
+      const validatedPayload = await validateAccessToken(tokenPair.accessToken)
       expect(validatedPayload).toBeDefined()
       expect(validatedPayload?.sub).toBe(testUser.user_id)
       expect(validatedPayload?.session_id).toBe(tokenPair.sessionId)
       
       // 3. Refresh tokens (simulates token refresh)
-      const newTokenPair = await TokenManager.refreshTokenPair(
+      const newTokenPair = await refreshTokenPair(
         tokenPair.refreshToken,
         deviceInfo
       )
@@ -69,7 +74,7 @@ describe('Authentication Flow Integration', () => {
       expect(newTokenPair?.accessToken).not.toBe(tokenPair.accessToken)
       
       // 4. Revoke tokens (simulates logout)
-      const revokeResult = await TokenManager.revokeRefreshToken(
+      const revokeResult = await revokeRefreshToken(
         newTokenPair!.refreshToken,
         'logout'
       )
@@ -78,11 +83,11 @@ describe('Authentication Flow Integration', () => {
       
       // 5. Access token should still be valid (short-lived, expires naturally)
       // NOTE: Business logic keeps access tokens valid until expiration for performance
-      const accessTokenPayload = await TokenManager.validateAccessToken(tokenPair.accessToken)
+      const accessTokenPayload = await validateAccessToken(tokenPair.accessToken)
       expect(accessTokenPayload).toBeDefined() // Access token remains valid until expiration
       
       // 6. But refresh token should be revoked (cannot get new access tokens)
-      const refreshResult = await TokenManager.refreshTokenPair(
+      const refreshResult = await refreshTokenPair(
         tokenPair.refreshToken,
         deviceInfo
       )
@@ -101,7 +106,7 @@ describe('Authentication Flow Integration', () => {
       }
       
       // Valid user should be able to create tokens
-      const validTokenPair = await TokenManager.createTokenPair(
+      const validTokenPair = await createTokenPair(
         testUser.user_id,
         deviceInfo,
         false,
@@ -112,7 +117,7 @@ describe('Authentication Flow Integration', () => {
       expect(validTokenPair.refreshToken).toBeDefined()
       
       // Token should validate correctly
-      const payload = await TokenManager.validateAccessToken(validTokenPair.accessToken)
+      const payload = await validateAccessToken(validTokenPair.accessToken)
       expect(payload).toBeDefined()
       expect(payload?.sub).toBe(testUser.user_id)
     })
@@ -129,7 +134,7 @@ describe('Authentication Flow Integration', () => {
       }
       
       // 1. Create initial token pair
-      const initialTokenPair = await TokenManager.createTokenPair(
+      const initialTokenPair = await createTokenPair(
         testUser.user_id,
         deviceInfo,
         false,
@@ -140,7 +145,7 @@ describe('Authentication Flow Integration', () => {
       expect(initialTokenPair.refreshToken).toBeDefined()
       
       // 2. Refresh the token pair
-      const refreshedTokenPair = await TokenManager.refreshTokenPair(
+      const refreshedTokenPair = await refreshTokenPair(
         initialTokenPair.refreshToken,
         deviceInfo
       )
@@ -154,7 +159,7 @@ describe('Authentication Flow Integration', () => {
       expect(refreshedTokenPair?.refreshToken).not.toBe(initialTokenPair.refreshToken)
       
       // 4. New access token should validate correctly
-      const newPayload = await TokenManager.validateAccessToken(refreshedTokenPair!.accessToken)
+      const newPayload = await validateAccessToken(refreshedTokenPair!.accessToken)
       expect(newPayload).toBeDefined()
       expect(newPayload?.sub).toBe(testUser.user_id)
     })

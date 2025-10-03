@@ -5,7 +5,14 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import '@/tests/setup/integration-setup' // Import integration setup for database access
-import { TokenManager } from '@/lib/auth/token-manager'
+import {
+  createTokenPair,
+  validateAccessToken,
+  refreshTokenPair,
+  revokeRefreshToken,
+  revokeAllUserTokens,
+  cleanupExpiredTokens
+} from '@/lib/auth/token-manager'
 import { createTestUser } from '@/tests/factories/user-factory'
 
 describe('Token Lifecycle Integration', () => {
@@ -28,7 +35,7 @@ describe('Token Lifecycle Integration', () => {
         deviceName: 'Test Device 1'
       }
       
-      const tokenPair = await TokenManager.createTokenPair(
+      const tokenPair = await createTokenPair(
         testUser.user_id,
         deviceInfo,
         false,
@@ -40,12 +47,12 @@ describe('Token Lifecycle Integration', () => {
       expect(tokenPair.sessionId).toBeDefined()
       
       // 2. Validate access token
-      const validatedPayload = await TokenManager.validateAccessToken(tokenPair.accessToken)
+      const validatedPayload = await validateAccessToken(tokenPair.accessToken)
       expect(validatedPayload).toBeDefined()
       expect(validatedPayload?.sub).toBe(testUser.user_id)
       
       // 3. Refresh tokens
-      const newTokenPair = await TokenManager.refreshTokenPair(
+      const newTokenPair = await refreshTokenPair(
         tokenPair.refreshToken,
         deviceInfo
       )
@@ -55,7 +62,7 @@ describe('Token Lifecycle Integration', () => {
       expect(newTokenPair?.accessToken).not.toBe(tokenPair.accessToken)
       
       // 4. Revoke refresh token
-      const revokeResult = await TokenManager.revokeRefreshToken(
+      const revokeResult = await revokeRefreshToken(
         newTokenPair!.refreshToken,
         'logout'
       )
@@ -63,7 +70,7 @@ describe('Token Lifecycle Integration', () => {
       expect(revokeResult).toBe(true)
       
       // 5. Verify revoked token cannot be used
-      const failedRefresh = await TokenManager.refreshTokenPair(
+      const failedRefresh = await refreshTokenPair(
         newTokenPair!.refreshToken,
         deviceInfo
       )
@@ -71,7 +78,7 @@ describe('Token Lifecycle Integration', () => {
       expect(failedRefresh).toBeNull()
       
       // 6. Cleanup expired tokens
-      const cleanupCounts = await TokenManager.cleanupExpiredTokens()
+      const cleanupCounts = await cleanupExpiredTokens()
       expect(cleanupCounts.refreshTokens).toBeGreaterThanOrEqual(0)
       expect(cleanupCounts.blacklistEntries).toBeGreaterThanOrEqual(0)
     })
@@ -85,7 +92,7 @@ describe('Token Lifecycle Integration', () => {
       }
       
       // Create token
-      const tokenPair = await TokenManager.createTokenPair(
+      const tokenPair = await createTokenPair(
         testUser.user_id,
         deviceInfo,
         false,
@@ -93,19 +100,19 @@ describe('Token Lifecycle Integration', () => {
       )
       
       // Validate it works
-      const payload1 = await TokenManager.validateAccessToken(tokenPair.accessToken)
+      const payload1 = await validateAccessToken(tokenPair.accessToken)
       expect(payload1).toBeDefined()
       
       // Revoke all user tokens (should blacklist)
-      const revokeAllResult = await TokenManager.revokeAllUserTokens(testUser.user_id)
+      const revokeAllResult = await revokeAllUserTokens(testUser.user_id)
       expect(revokeAllResult).toBeGreaterThanOrEqual(1)
       
       // Access token should still be valid (expires naturally for performance)
-      const payload2 = await TokenManager.validateAccessToken(tokenPair.accessToken)
+      const payload2 = await validateAccessToken(tokenPair.accessToken)
       expect(payload2).toBeDefined() // Access token remains valid until expiration
       
       // But refresh should fail (cannot get new access tokens)
-      const refreshAfterRevoke = await TokenManager.refreshTokenPair(
+      const refreshAfterRevoke = await refreshTokenPair(
         tokenPair.refreshToken,
         deviceInfo
       )
@@ -128,23 +135,23 @@ describe('Token Lifecycle Integration', () => {
       }
       
       // Create tokens for different devices
-      const tokens1 = await TokenManager.createTokenPair(testUser.user_id, device1, false, testUser.email)
-      const tokens2 = await TokenManager.createTokenPair(testUser.user_id, device2, false, testUser.email)
+      const tokens1 = await createTokenPair(testUser.user_id, device1, false, testUser.email)
+      const tokens2 = await createTokenPair(testUser.user_id, device2, false, testUser.email)
       
       // Both should be valid
-      expect(await TokenManager.validateAccessToken(tokens1.accessToken)).toBeDefined()
-      expect(await TokenManager.validateAccessToken(tokens2.accessToken)).toBeDefined()
+      expect(await validateAccessToken(tokens1.accessToken)).toBeDefined()
+      expect(await validateAccessToken(tokens2.accessToken)).toBeDefined()
       
       // Revoke device 1 only
-      await TokenManager.revokeRefreshToken(tokens1.refreshToken, 'logout')
+      await revokeRefreshToken(tokens1.refreshToken, 'logout')
       
       // Both access tokens should still be valid (expire naturally)
-      expect(await TokenManager.validateAccessToken(tokens1.accessToken)).toBeDefined()
-      expect(await TokenManager.validateAccessToken(tokens2.accessToken)).toBeDefined()
+      expect(await validateAccessToken(tokens1.accessToken)).toBeDefined()
+      expect(await validateAccessToken(tokens2.accessToken)).toBeDefined()
       
       // But only device 2 should be able to refresh (device 1 refresh token revoked)
-      const refresh1 = await TokenManager.refreshTokenPair(tokens1.refreshToken, device1)
-      const refresh2 = await TokenManager.refreshTokenPair(tokens2.refreshToken, device2)
+      const refresh1 = await refreshTokenPair(tokens1.refreshToken, device1)
+      const refresh2 = await refreshTokenPair(tokens2.refreshToken, device2)
       
       expect(refresh1).toBeNull() // Device 1 refresh should fail
       expect(refresh2).toBeDefined() // Device 2 refresh should work
@@ -162,7 +169,7 @@ describe('Token Lifecycle Integration', () => {
       }
       
       // Create some tokens (these will be active)
-      const tokenPair1 = await TokenManager.createTokenPair(
+      const tokenPair1 = await createTokenPair(
         testUser.user_id,
         deviceInfo,
         false,
@@ -172,7 +179,7 @@ describe('Token Lifecycle Integration', () => {
       expect(tokenPair1).toBeDefined()
       
       // Test cleanup operation
-      const cleanupResult = await TokenManager.cleanupExpiredTokens()
+      const cleanupResult = await cleanupExpiredTokens()
       
       // Should return valid counts
       expect(cleanupResult).toBeDefined()
@@ -193,7 +200,7 @@ describe('Token Lifecycle Integration', () => {
         deviceName: 'Integration Test Device'
       }
       
-      const tokenPair = await TokenManager.createTokenPair(
+      const tokenPair = await createTokenPair(
         testUser.user_id,
         deviceInfo,
         true, // Test remember me functionality
@@ -206,7 +213,7 @@ describe('Token Lifecycle Integration', () => {
       expect(tokenPair.expiresAt).toBeInstanceOf(Date)
       
       // Validate the created token
-      const payload = await TokenManager.validateAccessToken(tokenPair.accessToken)
+      const payload = await validateAccessToken(tokenPair.accessToken)
       expect(payload).toBeDefined()
       expect(payload?.sub).toBe(testUser.user_id)
     })

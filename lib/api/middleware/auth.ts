@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { TokenManager } from '@/lib/auth/token-manager';
+import { validateAccessToken } from '@/lib/auth/token-manager';
 import { db, users } from '@/lib/db';
 import { getUserContextSafe } from '@/lib/rbac/user-context';
 import { debugLog } from '@/lib/utils/debug';
@@ -34,7 +34,7 @@ export async function requireAuth(request: Request) {
   }
 
   // Validate access token
-  const payload = await TokenManager.validateAccessToken(accessToken);
+  const payload = await validateAccessToken(accessToken);
   if (!payload) {
     throw AuthenticationError('Invalid or expired access token');
   }
@@ -156,7 +156,7 @@ export async function requireFreshAuth(request: Request, maxAgeMinutes: number =
     throw AuthenticationError('Fresh authentication required');
   }
 
-  const payload = await TokenManager.validateAccessToken(accessToken);
+  const payload = await validateAccessToken(accessToken);
   if (!payload) {
     throw AuthenticationError('Invalid access token');
   }

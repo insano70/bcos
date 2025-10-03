@@ -1,6 +1,6 @@
 import { AuditLogger } from '@/lib/api/services/audit';
 import { log } from '@/lib/logger';
-import { TokenManager } from './token-manager';
+import { cleanupExpiredTokens } from './token-manager';
 
 /**
  * Token Cleanup Service
@@ -13,7 +13,7 @@ export async function runTokenCleanup(): Promise<void> {
       scheduled: true,
     });
 
-    const cleanupResult = await TokenManager.cleanupExpiredTokens();
+    const cleanupResult = await cleanupExpiredTokens();
 
     await AuditLogger.logSystem({
       action: 'token_cleanup',
