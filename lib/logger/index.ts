@@ -28,6 +28,9 @@
 // Simplified logger - automatic stack traces, file:line:function capture, correlation tracking
 export { log, correlation } from './logger';
 
+// Backward compatibility alias
+export { log as logger } from './logger';
+
 // Audit logging service
 export { AuditLogger } from '../api/services/audit';
 
