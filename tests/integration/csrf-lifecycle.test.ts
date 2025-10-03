@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
-import { CSRFClientHelper } from '@/lib/security/csrf-client'
+import { validateTokenStructure } from '@/lib/security/csrf-client'
 import type { NextRequest } from 'next/server'
 
 // Mock the CSRF monitoring instance to use our test mock
@@ -295,7 +295,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
       const signature = 'abcd1234' // Mock signature
       const token = `${encodedPayload}.${signature}`
 
-      const validation = CSRFClientHelper.validateTokenStructure(token)
+      const validation = validateTokenStructure(token)
       expect(validation.isValid).toBe(true)
       expect(validation.shouldRefresh).toBe(false)
     })
@@ -310,7 +310,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
       ]
 
       invalidTokens.forEach(token => {
-        const validation = CSRFClientHelper.validateTokenStructure(token)
+        const validation = validateTokenStructure(token)
         expect(validation.isValid).toBe(false)
         expect(validation.shouldRefresh).toBe(true)
       })
@@ -327,7 +327,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
       const encodedPayload = btoa(JSON.stringify(expiredTokenData))
       const token = `${encodedPayload}.signature`
 
-      const validation = CSRFClientHelper.validateTokenStructure(token)
+      const validation = validateTokenStructure(token)
       expect(validation.isValid).toBe(false)
       expect(validation.reason).toBe('token_expired')
       expect(validation.shouldRefresh).toBe(true)
@@ -346,7 +346,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
       const encodedPayload = btoa(JSON.stringify(expiredTokenData))
       const token = `${encodedPayload}.signature`
 
-      const validation = CSRFClientHelper.validateTokenStructure(token)
+      const validation = validateTokenStructure(token)
       expect(validation.isValid).toBe(false)
       expect(validation.reason).toBe('time_window_expired')
       expect(validation.shouldRefresh).toBe(true)
