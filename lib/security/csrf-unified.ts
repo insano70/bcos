@@ -1,7 +1,8 @@
 /**
- * Unified CSRF Protection
+ * Unified CSRF Protection - Pure Functions Module
  * Edge Runtime compatible with full feature parity
  * Combines EdgeCSRFProtection and CSRFProtection functionality
+ * SECURITY: CSRF_SECRET remains module-scoped (not exported)
  */
 
 import { nanoid } from 'nanoid';
@@ -11,19 +12,18 @@ import { log } from '@/lib/logger';
 import { csrfMonitor } from './csrf-monitoring-instance';
 
 /**
- * Unified CSRF Protection class that works in both Edge Runtime and Node.js
- * Implements secure token generation, validation, and management
+ * CSRF Protection Constants
  */
-export class UnifiedCSRFProtection {
-  private static readonly cookieName = 'csrf-token';
-  private static readonly headerName = 'x-csrf-token';
-  private static readonly tokenLength = 32;
+export const CSRF_COOKIE_NAME = 'csrf-token';
+export const CSRF_HEADER_NAME = 'x-csrf-token';
+export const CSRF_TOKEN_LENGTH = 32;
 
-  /**
-   * Get CSRF secret from environment with proper fallback
-   * Works in both Edge Runtime and Node.js environments
-   */
-  private static getCSRFSecret(): string {
+/**
+ * Get CSRF secret from environment with proper fallback
+ * Works in both Edge Runtime and Node.js environments
+ * Non-exported helper - keeps secret access internal
+ */
+function getCSRFSecret(): string {
     const secret = process.env.CSRF_SECRET || globalThis.process?.env?.CSRF_SECRET;
     if (!secret) {
       throw new Error('CSRF_SECRET environment variable is required');
@@ -34,11 +34,12 @@ export class UnifiedCSRFProtection {
     return secret;
   }
 
-  /**
-   * Normalize IP address for consistent token validation
-   * Handles localhost variations and proxy forwarding
-   */
-  private static normalizeIP(rawIP: string): string {
+/**
+ * Normalize IP address for consistent token validation
+ * Handles localhost variations and proxy forwarding
+ * Non-exported helper function
+ */
+function normalizeIP(rawIP: string): string {
     // Handle localhost variations
     if (rawIP === '::1' || rawIP === '127.0.0.1' || rawIP === 'localhost') {
       return 'localhost';
@@ -60,47 +61,47 @@ export class UnifiedCSRFProtection {
    * Extract and normalize IP from request with comprehensive proxy support
    * Prioritizes most reliable headers first
    */
-  private static getRequestIP(request: NextRequest): string {
+  function getRequestIP(request: NextRequest): string {
     // Priority order for IP extraction
     const forwardedFor = request.headers.get('x-forwarded-for');
     if (forwardedFor) {
       // Take first IP from comma-separated list (original client)
       const firstIP = forwardedFor.split(',')[0];
-      return UnifiedCSRFProtection.normalizeIP(firstIP?.trim() || 'unknown');
+      return normalizeIP(firstIP?.trim() || 'unknown');
     }
 
     const realIP = request.headers.get('x-real-ip');
     if (realIP) {
-      return UnifiedCSRFProtection.normalizeIP(realIP);
+      return normalizeIP(realIP);
     }
 
     // Cloudflare connecting IP
     const cfConnectingIP = request.headers.get('cf-connecting-ip');
     if (cfConnectingIP) {
-      return UnifiedCSRFProtection.normalizeIP(cfConnectingIP);
+      return normalizeIP(cfConnectingIP);
     }
 
     // Other common proxy headers
     const trueClientIP = request.headers.get('true-client-ip');
     if (trueClientIP) {
-      return UnifiedCSRFProtection.normalizeIP(trueClientIP);
+      return normalizeIP(trueClientIP);
     }
 
     const clientIP = request.headers.get('x-client-ip');
     if (clientIP) {
-      return UnifiedCSRFProtection.normalizeIP(clientIP);
+      return normalizeIP(clientIP);
     }
 
     // Fallback to request.ip or unknown
     const requestIP = (request as { ip?: string }).ip;
-    return UnifiedCSRFProtection.normalizeIP(requestIP || 'unknown');
+    return normalizeIP(requestIP || 'unknown');
   }
 
   /**
    * Get time window with development flexibility
    * Development: 15-minute windows, Production: 5-minute windows
    */
-  private static getTimeWindow(): number {
+  function getTimeWindow(): number {
     const isDevelopment =
       (process.env.NODE_ENV || globalThis.process?.env?.NODE_ENV) === 'development';
     const windowSize = isDevelopment ? 900000 : 300000; // 15min dev, 5min prod
@@ -111,14 +112,14 @@ export class UnifiedCSRFProtection {
    * Generate anonymous CSRF token using Web Crypto API (Edge compatible)
    * Used for protecting public endpoints like login/register
    */
-  static async generateAnonymousToken(request: NextRequest): Promise<string> {
-    const secret = UnifiedCSRFProtection.getCSRFSecret();
+  export async function generateAnonymousToken(request: NextRequest): Promise<string> {
+    const secret = getCSRFSecret();
 
     const payload = {
       type: 'anonymous',
-      ip: UnifiedCSRFProtection.getRequestIP(request),
+      ip: getRequestIP(request),
       userAgent: request.headers.get('user-agent') || 'unknown',
-      timeWindow: UnifiedCSRFProtection.getTimeWindow(),
+      timeWindow: getTimeWindow(),
       nonce: nanoid(8), // Prevent replay attacks
       timestamp: Date.now(), // Additional entropy
     };
@@ -153,15 +154,15 @@ export class UnifiedCSRFProtection {
    * Generate authenticated CSRF token for logged-in users
    * More secure with user-specific binding
    */
-  static async generateAuthenticatedToken(userId?: string): Promise<string> {
-    const secret = UnifiedCSRFProtection.getCSRFSecret();
+  export async function generateAuthenticatedToken(userId?: string): Promise<string> {
+    const secret = getCSRFSecret();
 
     const payload = {
       type: 'authenticated',
       timestamp: Date.now(),
       nonce: nanoid(16), // Longer nonce for authenticated tokens
       userId: userId || 'session',
-      timeWindow: UnifiedCSRFProtection.getTimeWindow(),
+      timeWindow: getTimeWindow(),
     };
 
     const tokenData = JSON.stringify(payload);
@@ -194,11 +195,11 @@ export class UnifiedCSRFProtection {
    * Validate anonymous CSRF token using Web Crypto API
    * Verifies request fingerprint and time window
    */
-  static async validateAnonymousToken(request: NextRequest, token: string): Promise<boolean> {
+  export async function validateAnonymousToken(request: NextRequest, token: string): Promise<boolean> {
     try {
       const isDevelopment =
         (process.env.NODE_ENV || globalThis.process?.env?.NODE_ENV) === 'development';
-      const secret = UnifiedCSRFProtection.getCSRFSecret();
+      const secret = getCSRFSecret();
 
       const [encodedPayload, signature] = token.split('.');
 
@@ -258,9 +259,9 @@ export class UnifiedCSRFProtection {
       }
 
       // Validate request fingerprint
-      const currentIp = UnifiedCSRFProtection.getRequestIP(request);
+      const currentIp = getRequestIP(request);
       const currentUserAgent = request.headers.get('user-agent') || 'unknown';
-      const currentTimeWindow = UnifiedCSRFProtection.getTimeWindow();
+      const currentTimeWindow = getTimeWindow();
 
       // Allow time window flexibility in development
       const timeWindowMatch = isDevelopment
@@ -305,9 +306,9 @@ export class UnifiedCSRFProtection {
    * Validate authenticated CSRF token
    * Verifies signature and token structure
    */
-  static async validateAuthenticatedToken(token: string): Promise<boolean> {
+  export async function validateAuthenticatedToken(token: string): Promise<boolean> {
     try {
-      const secret = UnifiedCSRFProtection.getCSRFSecret();
+      const secret = getCSRFSecret();
       const [encodedPayload, signature] = token.split('.');
 
       if (!encodedPayload || !signature) {
@@ -362,13 +363,13 @@ export class UnifiedCSRFProtection {
    * Set CSRF token in cookie (server-side only)
    * Works in both Edge Runtime and Node.js environments
    */
-  static async setCSRFToken(userId?: string): Promise<string> {
-    const token = await UnifiedCSRFProtection.generateAuthenticatedToken(userId);
+  export async function setCSRFToken(userId?: string): Promise<string> {
+    const token = await generateAuthenticatedToken(userId);
 
     try {
       const cookieStore = await cookies();
 
-      cookieStore.set(UnifiedCSRFProtection.cookieName, token, {
+      cookieStore.set(CSRF_COOKIE_NAME, token, {
         httpOnly: false, // Must be readable by JavaScript for header inclusion
         secure: (process.env.NODE_ENV || globalThis.process?.env?.NODE_ENV) === 'production',
         sameSite: 'strict',
@@ -391,10 +392,10 @@ export class UnifiedCSRFProtection {
   /**
    * Get CSRF token from cookies (server-side only)
    */
-  static async getCSRFToken(): Promise<string | null> {
+  export async function getCSRFToken(): Promise<string | null> {
     try {
       const cookieStore = await cookies();
-      return cookieStore.get(UnifiedCSRFProtection.cookieName)?.value || null;
+      return cookieStore.get(CSRF_COOKIE_NAME)?.value || null;
     } catch (_error) {
       // Edge Runtime context might not have cookies() available
       return null;
@@ -405,7 +406,7 @@ export class UnifiedCSRFProtection {
    * Endpoints that allow anonymous CSRF tokens
    * All other endpoints require authenticated tokens
    */
-  private static readonly ANONYMOUS_TOKEN_ALLOWED_ENDPOINTS = [
+  const ANONYMOUS_TOKEN_ALLOWED_ENDPOINTS = [
     '/api/auth/register',
     '/api/auth/forgot-password',
     '/api/auth/reset-password',
@@ -416,15 +417,15 @@ export class UnifiedCSRFProtection {
    * Endpoints that allow both anonymous AND authenticated CSRF tokens
    * These endpoints need to handle both logged-in and non-logged-in users
    */
-  private static readonly DUAL_TOKEN_ALLOWED_ENDPOINTS = [
+  const DUAL_TOKEN_ALLOWED_ENDPOINTS = [
     '/api/auth/login', // Users might login while already authenticated (re-auth, account switching)
   ];
 
   /**
    * Check if an endpoint allows anonymous CSRF tokens
    */
-  static isAnonymousEndpoint(pathname: string): boolean {
-    return UnifiedCSRFProtection.ANONYMOUS_TOKEN_ALLOWED_ENDPOINTS.some(
+  export function isAnonymousEndpoint(pathname: string): boolean {
+    return ANONYMOUS_TOKEN_ALLOWED_ENDPOINTS.some(
       (endpoint) => pathname === endpoint || pathname.startsWith(`${endpoint}/`)
     );
   }
@@ -432,8 +433,8 @@ export class UnifiedCSRFProtection {
   /**
    * Check if an endpoint allows both anonymous and authenticated CSRF tokens
    */
-  static isDualTokenEndpoint(pathname: string): boolean {
-    return UnifiedCSRFProtection.DUAL_TOKEN_ALLOWED_ENDPOINTS.some(
+  export function isDualTokenEndpoint(pathname: string): boolean {
+    return DUAL_TOKEN_ALLOWED_ENDPOINTS.some(
       (endpoint) => pathname === endpoint || pathname.startsWith(`${endpoint}/`)
     );
   }
@@ -442,13 +443,13 @@ export class UnifiedCSRFProtection {
    * Verify CSRF token from request (unified validation logic)
    * Handles both anonymous and authenticated tokens appropriately
    */
-  static async verifyCSRFToken(request: NextRequest): Promise<boolean> {
+  export async function verifyCSRFToken(request: NextRequest): Promise<boolean> {
     try {
-      const headerToken = request.headers.get(UnifiedCSRFProtection.headerName);
-      const cookieToken = request.cookies.get(UnifiedCSRFProtection.cookieName)?.value;
+      const headerToken = request.headers.get(CSRF_HEADER_NAME);
+      const cookieToken = request.cookies.get(CSRF_COOKIE_NAME)?.value;
       const pathname = request.nextUrl.pathname;
-      const isAnonymousEndpoint = UnifiedCSRFProtection.isAnonymousEndpoint(pathname);
-      const isDualTokenEndpoint = UnifiedCSRFProtection.isDualTokenEndpoint(pathname);
+      const isAnonymousPath = isAnonymousEndpoint(pathname);
+      const isDualPath = isDualTokenEndpoint(pathname);
 
       if (!headerToken) {
         // Enhanced security logging for missing header tokens
@@ -456,7 +457,7 @@ export class UnifiedCSRFProtection {
           action: 'csrf_validation_failed',
           reason: 'missing_header_token',
           pathname,
-          ip: UnifiedCSRFProtection.getRequestIP(request),
+          ip: getRequestIP(request),
           userAgent: request.headers.get('user-agent')?.substring(0, 100),
           timestamp: new Date().toISOString(),
           threat: 'csrf_attack_attempt',
@@ -468,15 +469,15 @@ export class UnifiedCSRFProtection {
         return false;
       }
 
-      if (isAnonymousEndpoint) {
+      if (isAnonymousPath) {
         // For anonymous-only endpoints (register, forgot-password), validate against request fingerprint
-        const isValid = await UnifiedCSRFProtection.validateAnonymousToken(request, headerToken);
+        const isValid = await validateAnonymousToken(request, headerToken);
         if (!isValid) {
           log.security('csrf_anonymous_token_invalid', 'medium', {
             action: 'anonymous_token_validation_failed',
             reason: 'invalid_anonymous_token',
             pathname,
-            ip: UnifiedCSRFProtection.getRequestIP(request),
+            ip: getRequestIP(request),
             userAgent: request.headers.get('user-agent')?.substring(0, 100),
             timestamp: new Date().toISOString(),
             threat: 'csrf_token_forgery',
@@ -488,7 +489,7 @@ export class UnifiedCSRFProtection {
           await csrfMonitor.recordFailure(request, 'anonymous_token_validation_failed', 'medium');
         }
         return isValid;
-      } else if (isDualTokenEndpoint) {
+      } else if (isDualPath) {
         // For dual token endpoints (login), accept both anonymous and authenticated tokens
         // First, determine token type by parsing the header token
         try {
@@ -498,7 +499,7 @@ export class UnifiedCSRFProtection {
 
             if (payload.type === 'anonymous') {
               // Validate as anonymous token (no cookie required)
-              const isValid = await UnifiedCSRFProtection.validateAnonymousToken(
+              const isValid = await validateAnonymousToken(
                 request,
                 headerToken
               );
@@ -507,7 +508,7 @@ export class UnifiedCSRFProtection {
                   action: 'dual_endpoint_anonymous_validation_failed',
                   reason: 'invalid_anonymous_token_on_dual_endpoint',
                   pathname,
-                  ip: UnifiedCSRFProtection.getRequestIP(request),
+                  ip: getRequestIP(request),
                   userAgent: request.headers.get('user-agent')?.substring(0, 100),
                   timestamp: new Date().toISOString(),
                   threat: 'csrf_token_forgery',
@@ -528,7 +529,7 @@ export class UnifiedCSRFProtection {
                   action: 'dual_endpoint_cookie_validation_failed',
                   reason: 'missing_cookie_token_for_authenticated_token',
                   pathname,
-                  ip: UnifiedCSRFProtection.getRequestIP(request),
+                  ip: getRequestIP(request),
                   userAgent: request.headers.get('user-agent')?.substring(0, 100),
                   timestamp: new Date().toISOString(),
                   threat: 'csrf_attack_attempt',
@@ -547,13 +548,13 @@ export class UnifiedCSRFProtection {
 
               // Validate authenticated token signature
               const isTokenValid =
-                await UnifiedCSRFProtection.validateAuthenticatedToken(headerToken);
+                await validateAuthenticatedToken(headerToken);
               if (!isTokenValid) {
                 log.security('csrf_dual_authenticated_token_invalid', 'high', {
                   action: 'dual_endpoint_signature_validation_failed',
                   reason: 'invalid_authenticated_token_signature',
                   pathname,
-                  ip: UnifiedCSRFProtection.getRequestIP(request),
+                  ip: getRequestIP(request),
                   userAgent: request.headers.get('user-agent')?.substring(0, 100),
                   timestamp: new Date().toISOString(),
                   threat: 'csrf_token_tampering',
@@ -570,7 +571,7 @@ export class UnifiedCSRFProtection {
               }
 
               // Verify double-submit cookie pattern
-              const isDoubleSubmitValid = UnifiedCSRFProtection.constantTimeCompare(
+              const isDoubleSubmitValid = constantTimeCompare(
                 headerToken,
                 cookieToken
               );
@@ -579,7 +580,7 @@ export class UnifiedCSRFProtection {
                   action: 'dual_endpoint_double_submit_validation_failed',
                   reason: 'header_cookie_token_mismatch',
                   pathname,
-                  ip: UnifiedCSRFProtection.getRequestIP(request),
+                  ip: getRequestIP(request),
                   userAgent: request.headers.get('user-agent')?.substring(0, 100),
                   timestamp: new Date().toISOString(),
                   threat: 'csrf_token_tampering',
@@ -602,7 +603,7 @@ export class UnifiedCSRFProtection {
             action: 'dual_endpoint_token_parsing_failed',
             reason: 'malformed_token_structure',
             pathname,
-            ip: UnifiedCSRFProtection.getRequestIP(request),
+            ip: getRequestIP(request),
             userAgent: request.headers.get('user-agent')?.substring(0, 100),
             timestamp: new Date().toISOString(),
             threat: 'csrf_token_tampering',
@@ -623,7 +624,7 @@ export class UnifiedCSRFProtection {
           action: 'dual_endpoint_unrecognized_token_type',
           reason: 'unknown_token_type',
           pathname,
-          ip: UnifiedCSRFProtection.getRequestIP(request),
+          ip: getRequestIP(request),
           userAgent: request.headers.get('user-agent')?.substring(0, 100),
           timestamp: new Date().toISOString(),
           threat: 'csrf_token_forgery',
@@ -643,7 +644,7 @@ export class UnifiedCSRFProtection {
             action: 'authenticated_endpoint_cookie_validation_failed',
             reason: 'missing_cookie_token_for_authenticated_endpoint',
             pathname,
-            ip: UnifiedCSRFProtection.getRequestIP(request),
+            ip: getRequestIP(request),
             userAgent: request.headers.get('user-agent')?.substring(0, 100),
             timestamp: new Date().toISOString(),
             threat: 'csrf_attack_attempt',
@@ -677,7 +678,7 @@ export class UnifiedCSRFProtection {
                   action: 'security_violation_detected',
                   reason: 'anonymous_token_used_on_protected_endpoint',
                   pathname,
-                  ip: UnifiedCSRFProtection.getRequestIP(request),
+                  ip: getRequestIP(request),
                   userAgent: request.headers.get('user-agent')?.substring(0, 100),
                   timestamp: new Date().toISOString(),
                   threat: 'privilege_escalation_attempt',
@@ -700,13 +701,13 @@ export class UnifiedCSRFProtection {
             // For authenticated tokens, validate signature and double-submit pattern
             if (payload.type === 'authenticated') {
               const isTokenValid =
-                await UnifiedCSRFProtection.validateAuthenticatedToken(headerToken);
+                await validateAuthenticatedToken(headerToken);
               if (!isTokenValid) {
                 log.security('csrf_authenticated_token_invalid', 'high', {
                   action: 'authenticated_endpoint_signature_validation_failed',
                   reason: 'invalid_authenticated_token_signature',
                   pathname,
-                  ip: UnifiedCSRFProtection.getRequestIP(request),
+                  ip: getRequestIP(request),
                   userAgent: request.headers.get('user-agent')?.substring(0, 100),
                   timestamp: new Date().toISOString(),
                   threat: 'csrf_token_tampering',
@@ -725,7 +726,7 @@ export class UnifiedCSRFProtection {
               }
 
               // Verify double-submit cookie pattern (constant-time comparison)
-              const isDoubleSubmitValid = UnifiedCSRFProtection.constantTimeCompare(
+              const isDoubleSubmitValid = constantTimeCompare(
                 headerToken,
                 cookieToken
               );
@@ -734,7 +735,7 @@ export class UnifiedCSRFProtection {
                   action: 'authenticated_endpoint_double_submit_validation_failed',
                   reason: 'header_cookie_token_mismatch',
                   pathname,
-                  ip: UnifiedCSRFProtection.getRequestIP(request),
+                  ip: getRequestIP(request),
                   userAgent: request.headers.get('user-agent')?.substring(0, 100),
                   timestamp: new Date().toISOString(),
                   threat: 'csrf_token_tampering',
@@ -764,13 +765,13 @@ export class UnifiedCSRFProtection {
         }
 
         // Fallback: simple double-submit pattern for legacy tokens
-        const isValid = UnifiedCSRFProtection.constantTimeCompare(headerToken, cookieToken);
+        const isValid = constantTimeCompare(headerToken, cookieToken);
         if (!isValid) {
           log.security('csrf_legacy_token_validation_failed', 'low', {
             action: 'legacy_token_validation_failed',
             reason: 'legacy_double_submit_pattern_failed',
             pathname,
-            ip: UnifiedCSRFProtection.getRequestIP(request),
+            ip: getRequestIP(request),
             userAgent: request.headers.get('user-agent')?.substring(0, 100),
             timestamp: new Date().toISOString(),
             threat: 'csrf_attack_attempt',
@@ -789,7 +790,7 @@ export class UnifiedCSRFProtection {
         action: 'csrf_verification_system_failure',
         reason: 'unexpected_error_during_verification',
         pathname: request.nextUrl.pathname,
-        ip: UnifiedCSRFProtection.getRequestIP(request),
+        ip: getRequestIP(request),
         userAgent: request.headers.get('user-agent')?.substring(0, 100),
         timestamp: new Date().toISOString(),
         threat: 'system_instability',
@@ -809,14 +810,14 @@ export class UnifiedCSRFProtection {
   /**
    * Check if request method requires CSRF protection
    */
-  static requiresCSRFProtection(method: string): boolean {
+  export function requiresCSRFProtection(method: string): boolean {
     return ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method.toUpperCase());
   }
 
   /**
    * Constant-time string comparison to prevent timing attacks
    */
-  private static constantTimeCompare(a: string, b: string): boolean {
+  function constantTimeCompare(a: string, b: string): boolean {
     if (a.length !== b.length) {
       return false;
     }
@@ -832,7 +833,6 @@ export class UnifiedCSRFProtection {
   /**
    * Generate simple CSRF token for backward compatibility
    */
-  static generateToken(): string {
-    return nanoid(UnifiedCSRFProtection.tokenLength);
+  export function generateToken(): string {
+    return nanoid(CSRF_TOKEN_LENGTH);
   }
-}

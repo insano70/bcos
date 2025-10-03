@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic';
 import { createTokenPair, generateDeviceFingerprint, generateDeviceName } from '@/lib/auth/token-manager'
 import { AuditLogger, log, correlation } from '@/lib/logger'
 import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context'
-import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
+import { setCSRFToken } from '@/lib/security/csrf-unified'
 import { publicRoute } from '@/lib/api/route-handler'
 
 /**
@@ -378,7 +378,7 @@ const loginHandler = async (request: NextRequest) => {
     const totalDuration = Date.now() - startTime
 
     // Generate new authenticated CSRF token tied to the user
-    const csrfToken = await UnifiedCSRFProtection.setCSRFToken(user.user_id)
+    const csrfToken = await setCSRFToken(user.user_id)
 
     const response = createSuccessResponse({
       user: {

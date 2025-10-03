@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { log } from '@/lib/logger';
-import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified';
+import { verifyCSRFToken } from '@/lib/security/csrf-unified';
 import type { UserContext } from '@/lib/types/rbac';
 import { createErrorResponse } from '../responses/error';
 
@@ -15,7 +15,7 @@ export async function validateCSRFToken(
   action: string
 ): Promise<{ valid: boolean; response?: Response }> {
   const csrfStartTime = Date.now();
-  const isValidCSRF = await UnifiedCSRFProtection.verifyCSRFToken(request);
+  const isValidCSRF = await verifyCSRFToken(request);
   log.info('CSRF validation completed', { duration: Date.now() - csrfStartTime });
 
   if (!isValidCSRF) {

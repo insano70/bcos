@@ -6,7 +6,7 @@ import { createErrorResponse } from '@/lib/api/responses/error'
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
 import { AuditLogger, log, correlation } from '@/lib/logger'
 import { requireAuth } from '@/lib/api/middleware/auth'
-import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
+import { setCSRFToken } from '@/lib/security/csrf-unified'
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
@@ -206,7 +206,7 @@ const refreshHandler = async (request: NextRequest) => {
     })
 
     // Generate new authenticated CSRF token as part of token rotation
-    const csrfToken = await UnifiedCSRFProtection.setCSRFToken(user.user_id)
+    const csrfToken = await setCSRFToken(user.user_id)
     
     // Set new refresh token in httpOnly cookie and return user data
     const responseStart = Date.now()

@@ -5,7 +5,7 @@ import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { AuditLogger, log } from '@/lib/logger'
 import { requireAuth } from '@/lib/api/middleware/auth'
-import { CSRFProtection } from '@/lib/security/csrf'
+import { verifyCSRFToken } from '@/lib/security/csrf'
 import { db, token_blacklist } from '@/lib/db'
 
 // Force dynamic rendering for this API route
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     log.info('Rate limit check completed', { duration: Date.now() - rateLimitStart })
 
     // CSRF PROTECTION: Verify CSRF token before authentication check
-    const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
+    const isValidCSRF = await verifyCSRFToken(request)
     if (!isValidCSRF) {
       return createErrorResponse('CSRF token validation failed', 403, request)
     }
@@ -191,7 +191,7 @@ export async function DELETE(request: NextRequest) {
     await applyRateLimit(request, 'auth')
 
     // CSRF PROTECTION: Verify CSRF token before authentication check
-    const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
+    const isValidCSRF = await verifyCSRFToken(request)
     if (!isValidCSRF) {
       return createErrorResponse('CSRF token validation failed', 403, request)
     }

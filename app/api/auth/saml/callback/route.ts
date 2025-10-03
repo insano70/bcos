@@ -28,7 +28,7 @@ import { createErrorResponse, AuthenticationError } from '@/lib/api/responses/er
 import { AuditLogger, log, correlation } from '@/lib/logger';
 import { createTokenPair, generateDeviceFingerprint, generateDeviceName } from '@/lib/auth/token-manager';
 import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context';
-import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified';
+import { setCSRFToken } from '@/lib/security/csrf-unified';
 import { createSAMLClient } from '@/lib/saml/client';
 import { isSAMLEnabled, getSAMLConfig } from '@/lib/env';
 import type { SAMLAuthContext } from '@/lib/types/saml';

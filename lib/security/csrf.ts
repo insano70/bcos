@@ -15,4 +15,21 @@ export {
 } from './csrf-client';
 export { CSRFSecurityMonitor } from './csrf-monitoring';
 export { csrfMonitor, getCSRFMonitor } from './csrf-monitoring-instance';
-export { UnifiedCSRFProtection as CSRFProtection } from './csrf-unified';
+
+// Re-export unified CSRF functions and constants
+export {
+  CSRF_COOKIE_NAME,
+  CSRF_HEADER_NAME,
+  CSRF_TOKEN_LENGTH,
+  generateAnonymousToken,
+  generateAuthenticatedToken,
+  validateAnonymousToken,
+  validateAuthenticatedToken,
+  setCSRFToken,
+  getCSRFToken,
+  isAnonymousEndpoint,
+  isDualTokenEndpoint,
+  verifyCSRFToken,
+  requiresCSRFProtection,
+  generateToken
+} from './csrf-unified';

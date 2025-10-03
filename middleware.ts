@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { addSecurityHeaders, getEnhancedContentSecurityPolicy, addRateLimitHeaders, generateCSPNonces, type CSPNonces } from '@/lib/security/headers'
-import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
+import { requiresCSRFProtection, verifyCSRFToken } from '@/lib/security/csrf-unified'
 import { getJWTConfig } from '@/lib/env'
 import { isPublicApiRoute } from '@/lib/api/middleware/global-auth'
 import { debugLog } from '@/lib/utils/debug'
@@ -68,7 +68,10 @@ export async function middleware(request: NextRequest) {
   
   // Debug CSP header setting
   if (process.env.NODE_ENV === 'development' || process.env.ENVIRONMENT === 'staging') {
-    console.log('🔒 Setting CSP header:', cspHeader, 'Policy length:', cspPolicy.length);
+    log.debug('Setting CSP header', {
+      cspHeader,
+      policyLength: cspPolicy.length
+    });
   }
   
   response.headers.set(cspHeader, cspPolicy)
@@ -117,8 +120,8 @@ export async function middleware(request: NextRequest) {
 
   // CSRF Protection for state-changing operations
   // Applied before any other processing to fail fast
-  if (UnifiedCSRFProtection.requiresCSRFProtection(request.method) && !isCSRFExempt(pathname)) {
-    const isValidCSRF = await UnifiedCSRFProtection.verifyCSRFToken(request)
+  if (requiresCSRFProtection(request.method) && !isCSRFExempt(pathname)) {
+    const isValidCSRF = await verifyCSRFToken(request)
     if (!isValidCSRF) {
       debugLog.middleware(`CSRF validation failed for ${pathname}`)
       return new NextResponse(

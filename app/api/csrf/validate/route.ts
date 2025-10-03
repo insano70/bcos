@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
+import { validateAnonymousToken, validateAuthenticatedToken } from '@/lib/security/csrf-unified'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { publicRoute } from '@/lib/api/rbac-route-handler'
@@ -79,11 +79,11 @@ const validateTokenHandler = async (request: NextRequest) => {
 
       if (tokenType === 'anonymous') {
         // Validate as anonymous token
-        isValidToken = await UnifiedCSRFProtection.validateAnonymousToken(request, tokenToValidate)
+        isValidToken = await validateAnonymousToken(request, tokenToValidate)
         validationReason = isValidToken ? 'anonymous_token_valid' : 'anonymous_token_invalid'
       } else if (tokenType === 'authenticated') {
         // Validate as authenticated token
-        isValidToken = await UnifiedCSRFProtection.validateAuthenticatedToken(tokenToValidate)
+        isValidToken = await validateAuthenticatedToken(tokenToValidate)
         validationReason = isValidToken ? 'authenticated_token_valid' : 'authenticated_token_invalid'
       } else {
         validationReason = 'unknown_token_type'

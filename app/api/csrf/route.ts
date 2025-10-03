@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
+import { setCSRFToken, generateAnonymousToken } from '@/lib/security/csrf-unified'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { publicRoute } from '@/lib/api/rbac-route-handler'
@@ -55,7 +55,7 @@ const getCSRFTokenHandler = async (request: NextRequest) => {
     
     if (isAuthenticated && userId) {
       // Authenticated user gets authenticated token
-      token = await UnifiedCSRFProtection.setCSRFToken(userId)
+      token = await setCSRFToken(userId)
       tokenType = 'authenticated'
 
       log.info('Authenticated CSRF token generated', {
@@ -63,7 +63,7 @@ const getCSRFTokenHandler = async (request: NextRequest) => {
       })
     } else {
       // Unauthenticated user gets anonymous token (edge-compatible)
-      token = await UnifiedCSRFProtection.generateAnonymousToken(request)
+      token = await generateAnonymousToken(request)
       tokenType = 'anonymous'
 
       log.info('Anonymous CSRF token generated')

@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
+import { generateAnonymousToken, verifyCSRFToken, validateAnonymousToken, generateAuthenticatedToken, validateAuthenticatedToken } from '@/lib/security/csrf-unified'
 import { validateTokenStructure } from '@/lib/security/csrf-client'
 import type { NextRequest } from 'next/server'
 
@@ -117,7 +117,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         userAgent: 'Mozilla/5.0 Test Browser'
       })
 
-      const token = await UnifiedCSRFProtection.generateAnonymousToken(request)
+      const token = await generateAnonymousToken(request)
       
       expect(token).toBeDefined()
       expect(typeof token).toBe('string')
@@ -136,8 +136,8 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         userAgent: 'Mozilla/5.0 Test Browser'
       })
 
-      const token = await UnifiedCSRFProtection.generateAnonymousToken(request)
-      const isValid = await UnifiedCSRFProtection.validateAnonymousToken(request, token)
+      const token = await generateAnonymousToken(request)
+      const isValid = await validateAnonymousToken(request, token)
       
       expect(isValid).toBe(true)
     })
@@ -149,7 +149,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         userAgent: 'Mozilla/5.0 Test Browser'
       })
 
-      const token = await UnifiedCSRFProtection.generateAnonymousToken(originalRequest)
+      const token = await generateAnonymousToken(originalRequest)
 
       const differentRequest = createMockRequest({
         pathname: '/api/auth/login',
@@ -157,7 +157,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         userAgent: 'Mozilla/5.0 Test Browser'
       })
 
-      const isValid = await UnifiedCSRFProtection.validateAnonymousToken(differentRequest, token)
+      const isValid = await validateAnonymousToken(differentRequest, token)
       expect(isValid).toBe(false)
     })
 
@@ -168,7 +168,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         userAgent: 'Mozilla/5.0 Test Browser'
       })
 
-      const token = await UnifiedCSRFProtection.generateAnonymousToken(originalRequest)
+      const token = await generateAnonymousToken(originalRequest)
 
       const differentRequest = createMockRequest({
         pathname: '/api/auth/login',
@@ -176,7 +176,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         userAgent: 'Chrome/91.0 Different Browser' // Different UA
       })
 
-      const isValid = await UnifiedCSRFProtection.validateAnonymousToken(differentRequest, token)
+      const isValid = await validateAnonymousToken(differentRequest, token)
       expect(isValid).toBe(false)
     })
   })
@@ -192,7 +192,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         userAgent: 'Mozilla/5.0 Test Browser'
       })
 
-      const token = await UnifiedCSRFProtection.generateAnonymousToken(request)
+      const token = await generateAnonymousToken(request)
       
       // Mock time passage to next window (15 minutes in dev = 900000ms)
       const originalNow = Date.now
@@ -201,7 +201,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
 
       try {
         // In development, should allow 1 window drift
-        const isValid = await UnifiedCSRFProtection.validateAnonymousToken(request, token)
+        const isValid = await validateAnonymousToken(request, token)
         expect(isValid).toBe(true)
       } finally {
         Date.now = originalNow
@@ -218,7 +218,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         userAgent: 'Mozilla/5.0 Test Browser'
       })
 
-      const token = await UnifiedCSRFProtection.generateAnonymousToken(request)
+      const token = await generateAnonymousToken(request)
       
       // Mock time passage to next window (5 minutes in prod = 300000ms)
       const originalNow = Date.now
@@ -227,7 +227,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
 
       try {
         // In production, should reject tokens from different time windows
-        const isValid = await UnifiedCSRFProtection.validateAnonymousToken(request, token)
+        const isValid = await validateAnonymousToken(request, token)
         expect(isValid).toBe(false)
       } finally {
         Date.now = originalNow
@@ -238,7 +238,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
   describe('Authenticated Token Lifecycle', () => {
     it('should generate valid authenticated tokens', async () => {
       const userId = 'test-user-123'
-      const token = await UnifiedCSRFProtection.generateAuthenticatedToken(userId)
+      const token = await generateAuthenticatedToken(userId)
       
       expect(token).toBeDefined()
       expect(typeof token).toBe('string')
@@ -257,8 +257,8 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
 
     it('should validate fresh authenticated tokens', async () => {
       const userId = 'test-user-123'
-      const token = await UnifiedCSRFProtection.generateAuthenticatedToken(userId)
-      const isValid = await UnifiedCSRFProtection.validateAuthenticatedToken(token)
+      const token = await generateAuthenticatedToken(userId)
+      const isValid = await validateAuthenticatedToken(token)
       
       expect(isValid).toBe(true)
     })
@@ -271,12 +271,12 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
       const pastTime = originalNow() - (25 * 60 * 60 * 1000)
       Date.now = vi.fn().mockReturnValue(pastTime)
 
-      const token = await UnifiedCSRFProtection.generateAuthenticatedToken(userId)
+      const token = await generateAuthenticatedToken(userId)
       
       // Restore current time for validation
       Date.now = originalNow
 
-      const isValid = await UnifiedCSRFProtection.validateAuthenticatedToken(token)
+      const isValid = await validateAuthenticatedToken(token)
       expect(isValid).toBe(false)
     })
   })
@@ -362,7 +362,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
       })
 
       // Generate token with one request, validate with different IP
-      const token = await UnifiedCSRFProtection.generateAnonymousToken(request)
+      const token = await generateAnonymousToken(request)
       
       const differentRequest = createMockRequest({
         pathname: '/api/auth/login',
@@ -371,7 +371,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
       })
 
       // This should fail validation and record the failure
-      const isValid = await UnifiedCSRFProtection.verifyCSRFToken(differentRequest)
+      const isValid = await verifyCSRFToken(differentRequest)
       expect(isValid).toBe(false)
 
       // Check that failure was recorded
@@ -401,7 +401,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         })
 
         // This should fail and record the failure
-        await UnifiedCSRFProtection.verifyCSRFToken(request)
+        await verifyCSRFToken(request)
       }
 
       const monitor = getMockCSRFMonitor()
@@ -423,7 +423,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         userAgent: 'Mozilla/5.0 Test Browser'
       })
 
-      const anonymousToken = await UnifiedCSRFProtection.generateAnonymousToken(loginRequest)
+      const anonymousToken = await generateAnonymousToken(loginRequest)
       
       // 2. Validate token on login request
       const loginRequestWithToken = createMockRequest({
@@ -435,12 +435,12 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         }
       })
 
-      const isLoginValid = await UnifiedCSRFProtection.verifyCSRFToken(loginRequestWithToken)
+      const isLoginValid = await verifyCSRFToken(loginRequestWithToken)
       expect(isLoginValid).toBe(true)
 
       // 3. After login, generate authenticated token
       const userId = 'test-user-123'
-      const authenticatedToken = await UnifiedCSRFProtection.generateAuthenticatedToken(userId)
+      const authenticatedToken = await generateAuthenticatedToken(userId)
 
       // 4. Use authenticated token for protected endpoint
       const protectedRequest = createMockRequest({
@@ -455,7 +455,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         }
       })
 
-      const isProtectedValid = await UnifiedCSRFProtection.verifyCSRFToken(protectedRequest)
+      const isProtectedValid = await verifyCSRFToken(protectedRequest)
       expect(isProtectedValid).toBe(true)
     })
 
@@ -467,7 +467,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         userAgent: 'Mozilla/5.0 Test Browser'
       })
 
-      const anonymousToken = await UnifiedCSRFProtection.generateAnonymousToken(request)
+      const anonymousToken = await generateAnonymousToken(request)
       
       // 2. Try to use anonymous token on protected endpoint (should fail)
       const protectedRequest = createMockRequest({
@@ -482,7 +482,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         }
       })
 
-      const isValid = await UnifiedCSRFProtection.verifyCSRFToken(protectedRequest)
+      const isValid = await verifyCSRFToken(protectedRequest)
       expect(isValid).toBe(false) // Should reject anonymous token on protected endpoint
 
       // Should also record high-severity security event
