@@ -6,7 +6,7 @@ import { extractRouteParams } from '@/lib/api/utils/params';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { dataSourceParamsSchema, dataSourceUpdateRefinedSchema, dataSourceColumnCreateRefinedSchema, dataSourceColumnUpdateRefinedSchema, dataSourceColumnQuerySchema, dataSourceColumnParamsSchema } from '@/lib/validations/data-sources';
 import type { UserContext } from '@/lib/types/rbac';
-import { createAppLogger, logPerformanceMetric } from '@/lib/logger';
+import { log } from '@/lib/logger';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 
 /**
@@ -17,14 +17,13 @@ import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-s
 // GET - Get single data source by ID
 const getDataSourceHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const startTime = Date.now();
-  const logger = createAppLogger('admin-data-sources').withUser(userContext.user_id, userContext.current_organization_id);
   let dataSourceId: number | undefined;
 
   try {
     const { id } = await extractRouteParams(args[0], dataSourceParamsSchema);
     dataSourceId = parseInt(id, 10);
 
-    logger.info('Data source get request initiated', {
+    log.info('Data source get request initiated', {
       requestingUserId: userContext.user_id,
       dataSourceId
     });
@@ -37,17 +36,16 @@ const getDataSourceHandler = async (request: NextRequest, userContext: UserConte
       return createErrorResponse('Data source not found', 404);
     }
 
-    logPerformanceMetric(logger, 'data_source_get', Date.now() - startTime);
+    log.info('Data source retrieved', { duration: Date.now() - startTime });
 
     return createSuccessResponse({ dataSource }, 'Data source retrieved successfully');
-    
+
   } catch (error) {
-    logger.error('Data source get error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+    log.error('Data source get error', error, {
       requestingUserId: userContext.user_id,
       dataSourceId
     });
-    
+
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   }
 };
@@ -55,14 +53,13 @@ const getDataSourceHandler = async (request: NextRequest, userContext: UserConte
 // PATCH - Update data source by ID
 const updateDataSourceHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const startTime = Date.now();
-  const logger = createAppLogger('admin-data-sources').withUser(userContext.user_id, userContext.current_organization_id);
   let dataSourceId: number | undefined;
 
   try {
     const { id } = await extractRouteParams(args[0], dataSourceParamsSchema);
     dataSourceId = parseInt(id, 10);
 
-    logger.info('Data source update request initiated', {
+    log.info('Data source update request initiated', {
       requestingUserId: userContext.user_id,
       dataSourceId
     });
@@ -78,17 +75,16 @@ const updateDataSourceHandler = async (request: NextRequest, userContext: UserCo
       return createErrorResponse('Data source not found or update failed', 404);
     }
 
-    logPerformanceMetric(logger, 'data_source_update', Date.now() - startTime);
+    log.info('Data source updated', { duration: Date.now() - startTime });
 
     return createSuccessResponse({ dataSource: updatedDataSource }, 'Data source updated successfully');
-    
+
   } catch (error) {
-    logger.error('Data source update error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+    log.error('Data source update error', error, {
       requestingUserId: userContext.user_id,
       dataSourceId
     });
-    
+
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   }
 };
@@ -96,14 +92,13 @@ const updateDataSourceHandler = async (request: NextRequest, userContext: UserCo
 // DELETE - Delete data source by ID
 const deleteDataSourceHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const startTime = Date.now();
-  const logger = createAppLogger('admin-data-sources').withUser(userContext.user_id, userContext.current_organization_id);
   let dataSourceId: number | undefined;
 
   try {
     const { id } = await extractRouteParams(args[0], dataSourceParamsSchema);
     dataSourceId = parseInt(id, 10);
 
-    logger.info('Data source delete request initiated', {
+    log.info('Data source delete request initiated', {
       requestingUserId: userContext.user_id,
       dataSourceId
     });
@@ -116,17 +111,16 @@ const deleteDataSourceHandler = async (request: NextRequest, userContext: UserCo
       return createErrorResponse('Data source not found or delete failed', 404);
     }
 
-    logPerformanceMetric(logger, 'data_source_delete', Date.now() - startTime);
+    log.info('Data source deleted', { duration: Date.now() - startTime });
 
     return createSuccessResponse({ deleted: true }, 'Data source deleted successfully');
-    
+
   } catch (error) {
-    logger.error('Data source delete error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+    log.error('Data source delete error', error, {
       requestingUserId: userContext.user_id,
       dataSourceId
     });
-    
+
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   }
 };

@@ -3,7 +3,7 @@
  * Caches role-permission mappings to eliminate database queries
  */
 
-import { logger } from '@/lib/logger';
+import { log } from '@/lib/logger';
 import type { Permission } from '@/lib/types/rbac';
 
 interface CachedRolePermissions {
@@ -44,7 +44,7 @@ class RolePermissionCache {
 
     if (!cached) {
       this.stats.misses++;
-      logger.debug('Cache MISS: Role not found in cache', {
+      log.debug('Cache MISS: Role not found in cache', {
         roleId,
         cacheSize: this.cache.size,
         cachedRoleIds: Array.from(this.cache.keys()),
@@ -58,7 +58,7 @@ class RolePermissionCache {
       this.cache.delete(roleId);
       this.stats.misses++;
       this.stats.size = this.cache.size;
-      logger.debug('Cache MISS: Role expired', {
+      log.debug('Cache MISS: Role expired', {
         roleId,
         age: now - cached.cached_at,
         ttl: this.TTL,
@@ -67,7 +67,7 @@ class RolePermissionCache {
     }
 
     this.stats.hits++;
-    logger.debug('Cache HIT: Role found in cache', {
+    log.debug('Cache HIT: Role found in cache', {
       roleId,
       roleName: cached.name,
       permissionCount: cached.permissions.length,
@@ -91,7 +91,7 @@ class RolePermissionCache {
     this.roleVersions.set(roleId, version);
     this.stats.size = this.cache.size;
 
-    logger.debug('Cache SET: Role permissions cached', {
+    log.debug('Cache SET: Role permissions cached', {
       roleId,
       roleName: name,
       permissionCount: permissions.length,
@@ -109,7 +109,7 @@ class RolePermissionCache {
     this.stats.size = this.cache.size;
 
     if (deleted) {
-      logger.info('Role permissions invalidated', { roleId });
+      log.info('Role permissions invalidated', { roleId });
     }
 
     return deleted;
@@ -125,7 +125,7 @@ class RolePermissionCache {
     this.stats.size = 0;
     this.stats.lastCleared = Date.now();
 
-    logger.info('All role permissions cache cleared', {
+    log.info('All role permissions cache cleared', {
       previousSize,
       operation: 'invalidateAll',
     });
@@ -149,7 +149,7 @@ class RolePermissionCache {
     // Invalidate the cached role
     this.invalidate(roleId);
 
-    logger.info('Role version incremented', {
+    log.info('Role version incremented', {
       roleId,
       oldVersion: currentVersion,
       newVersion,
@@ -191,7 +191,7 @@ class RolePermissionCache {
     this.stats.size = this.cache.size;
 
     if (cleanedCount > 0) {
-      logger.debug('Cache cleanup completed', {
+      log.debug('Cache cleanup completed', {
         cleanedCount,
         remainingSize: this.stats.size,
       });
@@ -232,7 +232,7 @@ if (process.env.NODE_ENV === 'development') {
     () => {
       const stats = rolePermissionCache.getStats();
       if (stats.hits + stats.misses > 0) {
-        logger.debug('Role permission cache stats', {
+        log.debug('Role permission cache stats', {
           hits: stats.hits,
           misses: stats.misses,
           size: stats.size,

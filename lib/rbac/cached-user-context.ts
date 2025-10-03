@@ -4,15 +4,7 @@
  */
 
 import { db } from '@/lib/db';
-import { createAppLogger } from '@/lib/logger/factory';
-
-// Create Universal Logger for RBAC cache operations
-const rbacCacheLogger = createAppLogger('rbac-cache', {
-  component: 'performance',
-  feature: 'rbac-caching',
-  module: 'cached-user-context',
-});
-
+import { log } from '@/lib/logger';
 import { and, eq } from 'drizzle-orm';
 import { rolePermissionCache } from '@/lib/cache/role-permission-cache';
 import {
@@ -40,9 +32,10 @@ async function getRolePermissions(roleId: string, roleName: string): Promise<Per
   }
 
   // Cache miss - query database
-  rbacCacheLogger.debug('Role permissions cache miss, querying database', {
+  log.debug('Role permissions cache miss, querying database', {
     roleId,
     roleName,
+    component: 'rbac-cache'
   });
 
   const rolePermissions = await db
@@ -301,7 +294,7 @@ export async function getCachedUserContextSafe(userId: string): Promise<UserCont
     const cachedContext = await requestCache.get(cacheKey);
     if (cachedContext) {
       if (isDev) {
-        rbacCacheLogger.debug('Request-scoped user context cache hit', {
+        log.debug('Request-scoped user context cache hit', {
           userId,
           operation: 'getCachedUserContext',
         });
@@ -310,7 +303,7 @@ export async function getCachedUserContextSafe(userId: string): Promise<UserCont
     }
     // Cache had key but returned null/undefined - continue with fresh load
     if (isDev) {
-      rbacCacheLogger.warn('Request cache had key but returned null value', { userId, cacheKey });
+      log.warn('Request cache had key but returned null value', { userId, cacheKey });
     }
   }
 
@@ -320,7 +313,7 @@ export async function getCachedUserContextSafe(userId: string): Promise<UserCont
       const context = await getCachedUserContext(userId);
       if (isDev) {
         const stats = rolePermissionCache.getStats();
-        rbacCacheLogger.debug('Cached user context loaded successfully', {
+        log.debug('Cached user context loaded successfully', {
           userId,
           rolesCount: context.roles?.length || 0,
           permissionsCount: context.all_permissions?.length || 0,
@@ -330,7 +323,7 @@ export async function getCachedUserContextSafe(userId: string): Promise<UserCont
       }
       return context;
     } catch (error) {
-      rbacCacheLogger.error('Failed to get cached user context', {
+      log.error('Failed to get cached user context', {
         userId,
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,

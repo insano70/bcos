@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { SignJWT, jwtVerify } from 'jose'
 import { nanoid } from 'nanoid'
 import { signJWT, verifyJWT, refreshJWT, extractTokenFromRequest } from '@/lib/auth/jwt'
-import { logger } from '@/lib/logger'
+import { log } from '@/lib/logger'
 
 // Mock dependencies
 vi.mock('jose', () => ({
@@ -21,7 +21,7 @@ vi.mock('@/lib/env', () => ({
 }))
 
 vi.mock('@/lib/logger', () => ({
-  logger: {
+  log: {
     error: vi.fn()
   }
 }))
@@ -132,9 +132,7 @@ describe('JWT authentication logic', () => {
 
       const result = await verifyJWT(token)
 
-      expect(logger.error).toHaveBeenCalledWith('JWT verification failed', {
-        error: 'Invalid signature',
-        stack: error.stack,
+      expect(log.error).toHaveBeenCalledWith('JWT verification failed', error, {
         operation: 'verifyJWT'
       })
       expect(result).toBeNull()

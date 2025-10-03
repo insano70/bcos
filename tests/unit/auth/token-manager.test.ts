@@ -1,7 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { SignJWT, jwtVerify } from 'jose'
 import { nanoid } from 'nanoid'
-import { TokenManager } from '@/lib/auth/token-manager'
+import {
+  createTokenPair,
+  refreshTokenPair,
+  validateAccessToken,
+  revokeRefreshToken,
+  revokeAllUserTokens,
+  generateDeviceFingerprint,
+  generateDeviceName,
+  cleanupExpiredTokens
+} from '@/lib/auth/token-manager'
 
 // Mock dependencies - standardized pattern
 vi.mock('jose', () => ({
@@ -30,9 +39,17 @@ vi.mock('@/lib/env', () => ({
 }))
 
 vi.mock('@/lib/logger', () => ({
+  log: {
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn()
+  },
   logger: {
     error: vi.fn(),
-    info: vi.fn()
+    info: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn()
   }
 }))
 
@@ -132,7 +149,7 @@ describe('TokenManager', () => {
         }))
       } as any)
 
-      const result = await TokenManager.validateAccessToken(mockToken)
+      const result = await validateAccessToken(mockToken)
 
       expect(jwtVerify).toHaveBeenCalledWith(mockToken, expect.any(Uint8Array))
       expect(result).toEqual(mockPayload)
@@ -156,7 +173,7 @@ describe('TokenManager', () => {
         }))
       })
 
-      const result = await TokenManager.validateAccessToken(mockToken)
+      const result = await validateAccessToken(mockToken)
 
       expect(result).toBeNull()
     })
@@ -166,7 +183,7 @@ describe('TokenManager', () => {
 
       vi.mocked(jwtVerify).mockRejectedValue(new Error('Invalid token'))
 
-      const result = await TokenManager.validateAccessToken(mockToken)
+      const result = await validateAccessToken(mockToken)
 
       expect(result).toBeNull()
     })
@@ -179,7 +196,7 @@ describe('TokenManager', () => {
 
       vi.mocked(jwtVerify).mockRejectedValue(new Error('Invalid token'))
 
-      const result = await TokenManager.revokeRefreshToken(mockToken, 'logout')
+      const result = await revokeRefreshToken(mockToken, 'logout')
 
       expect(result).toBe(false)
     })
@@ -201,7 +218,7 @@ describe('TokenManager', () => {
         }))
       })
 
-      const result = await TokenManager.revokeAllUserTokens(userId, 'security')
+      const result = await revokeAllUserTokens(userId, 'security')
 
       expect(mockDb.update).toHaveBeenCalledTimes(2) // refresh_tokens and user_sessions
       expect(mockDb.insert).toHaveBeenCalledTimes(2) // Two blacklist entries
@@ -220,7 +237,7 @@ describe('TokenManager', () => {
         }))
       })
 
-      const result = await TokenManager.revokeAllUserTokens(userId, 'security')
+      const result = await revokeAllUserTokens(userId, 'security')
 
       expect(mockDb.update).toHaveBeenCalledTimes(2) // Still updates tables
       expect(mockDb.insert).toHaveBeenCalledTimes(0) // No blacklist entries
@@ -233,8 +250,8 @@ describe('TokenManager', () => {
       const ipAddress = '192.168.1.100'
       const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
 
-      const result1 = TokenManager.generateDeviceFingerprint(ipAddress, userAgent)
-      const result2 = TokenManager.generateDeviceFingerprint(ipAddress, userAgent)
+      const result1 = generateDeviceFingerprint(ipAddress, userAgent)
+      const result2 = generateDeviceFingerprint(ipAddress, userAgent)
 
       expect(result1).toBe(result2)
       expect(result1).toMatch(/^[a-f0-9]{32}$/)
@@ -242,9 +259,9 @@ describe('TokenManager', () => {
     })
 
     it('should generate different fingerprints for different inputs', () => {
-      const result1 = TokenManager.generateDeviceFingerprint('192.168.1.100', 'UA1')
-      const result2 = TokenManager.generateDeviceFingerprint('192.168.1.101', 'UA1')
-      const result3 = TokenManager.generateDeviceFingerprint('192.168.1.100', 'UA2')
+      const result1 = generateDeviceFingerprint('192.168.1.100', 'UA1')
+      const result2 = generateDeviceFingerprint('192.168.1.101', 'UA1')
+      const result3 = generateDeviceFingerprint('192.168.1.100', 'UA2')
 
       expect(result1).not.toBe(result2)
       expect(result1).not.toBe(result3)
@@ -255,48 +272,48 @@ describe('TokenManager', () => {
   describe('generateDeviceName', () => {
     it('should identify Chrome browser', () => {
       const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      const result = TokenManager.generateDeviceName(userAgent)
+      const result = generateDeviceName(userAgent)
       expect(result).toBe('Chrome Browser')
     })
 
     it('should identify Firefox browser', () => {
       const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0'
-      const result = TokenManager.generateDeviceName(userAgent)
+      const result = generateDeviceName(userAgent)
       expect(result).toBe('Firefox Browser')
     })
 
     it('should identify Safari browser', () => {
       const userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15'
-      const result = TokenManager.generateDeviceName(userAgent)
+      const result = generateDeviceName(userAgent)
       expect(result).toBe('Safari Browser')
     })
 
     it('should identify Edge browser', () => {
       const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36 Edg/91.0.864.59'
-      const result = TokenManager.generateDeviceName(userAgent)
+      const result = generateDeviceName(userAgent)
       expect(result).toBe('Edge Browser')
     })
 
     it('should identify iPhone Safari', () => {
       const userAgent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Mobile/15E148 Safari/604.1'
-      const result = TokenManager.generateDeviceName(userAgent)
+      const result = generateDeviceName(userAgent)
       expect(result).toBe('iPhone Safari')
     })
 
     it('should identify Android browser', () => {
       const userAgent = 'Mozilla/5.0 (Linux; Android 10; SM-G975F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.120 Mobile Safari/537.36'
-      const result = TokenManager.generateDeviceName(userAgent)
+      const result = generateDeviceName(userAgent)
       expect(result).toBe('Android Browser')
     })
 
     it('should return Unknown Browser for unrecognized user agent', () => {
       const userAgent = 'Custom Browser/1.0'
-      const result = TokenManager.generateDeviceName(userAgent)
+      const result = generateDeviceName(userAgent)
       expect(result).toBe('Unknown Browser')
     })
 
     it('should handle empty user agent', () => {
-      const result = TokenManager.generateDeviceName('')
+      const result = generateDeviceName('')
       expect(result).toBe('Unknown Browser')
     })
   })

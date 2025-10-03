@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
-import { loggers } from '@/lib/logger';
+import { log } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
 import { requireAuth } from './auth';
 
@@ -85,13 +85,13 @@ export interface AuthResult {
 
 export async function applyGlobalAuth(request: NextRequest): Promise<AuthResult | null> {
   const pathname = new URL(request.url).pathname;
-  const logger = loggers.auth.child({ path: pathname, method: request.method });
+  const method = request.method;
 
-  logger.debug('API auth check initiated', { pathname });
+  log.debug('API auth check initiated', { pathname, path: pathname, method });
 
   // Skip auth for public routes
   if (isPublicApiRoute(pathname)) {
-    logger.debug('Public API route detected, no auth required', { pathname });
+    log.debug('Public API route detected, no auth required', { pathname, path: pathname, method });
     return null; // No auth required
   }
 
@@ -105,16 +105,18 @@ export async function applyGlobalAuth(request: NextRequest): Promise<AuthResult 
   if (authHeader) {
     hasAuth = true;
     authMethod = 'authorization_header';
-    logger.debug('Using Authorization header for authentication', { pathname });
+    log.debug('Using Authorization header for authentication', { pathname, path: pathname, method });
   } else if (cookieHeader?.includes('access-token=')) {
     hasAuth = true;
     authMethod = 'httponly_cookie';
-    logger.debug('Using httpOnly cookie for authentication', { pathname });
+    log.debug('Using httpOnly cookie for authentication', { pathname, path: pathname, method });
   }
 
   if (!hasAuth) {
-    logger.warn('API authentication failed - no valid auth method', {
+    log.warn('API authentication failed - no valid auth method', {
       pathname,
+      path: pathname,
+      method,
       hasAuthHeader: !!authHeader,
       hasCookieHeader: !!cookieHeader,
       cookieContainsToken: cookieHeader?.includes('access-token=') || false,
@@ -128,8 +130,10 @@ export async function applyGlobalAuth(request: NextRequest): Promise<AuthResult 
     const authResult = await requireAuth(request);
     const duration = Date.now() - startTime;
 
-    logger.info('API authentication successful', {
+    log.info('API authentication successful', {
       pathname,
+      path: pathname,
+      method,
       userId: authResult.user.id,
       userEmail: authResult.user.email?.replace(/(.{2}).*@/, '$1***@'), // Mask email
       authMethod,
@@ -138,8 +142,10 @@ export async function applyGlobalAuth(request: NextRequest): Promise<AuthResult 
 
     return authResult;
   } catch (error) {
-    logger.error('API authentication failed', error, {
+    log.error('API authentication failed', error instanceof Error ? error : new Error(String(error)), {
       pathname,
+      path: pathname,
+      method,
       authMethod,
       errorType: error instanceof Error ? error.constructor.name : typeof error,
     });

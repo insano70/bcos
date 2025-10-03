@@ -1,4 +1,4 @@
-import { logger } from '@/lib/logger';
+import { log } from '@/lib/logger';
 import type {
   ChartConfig,
   ChartDataSourceConfig,
@@ -76,7 +76,7 @@ export class ChartValidator {
 
       return columnConfigs.map((col) => col.column_name);
     } catch (error) {
-      logger.warn('Failed to load dynamic field validation, falling back to legacy fields', {
+      log.warn('Failed to load dynamic field validation, falling back to legacy fields', {
         error,
       });
       return [...LEGACY_ALLOWED_FIELDS];
@@ -91,7 +91,7 @@ export class ChartValidator {
       const dataSourceConfig = await chartConfigService.getDataSourceConfig('ih.agg_app_measures');
       return [dataSourceConfig?.tableName || 'ih.agg_app_measures'];
     } catch (error) {
-      logger.warn('Failed to load dynamic table validation, falling back to legacy tables', {
+      log.warn('Failed to load dynamic table validation, falling back to legacy tables', {
         error,
       });
       return [...LEGACY_ALLOWED_TABLES];

@@ -5,7 +5,7 @@
  * Usage: tsx scripts/test-email.ts
  */
 
-import { EmailService } from '../lib/api/services/email'
+import { emailService } from '../lib/api/services/email-service-instance'
 
 async function testEmailService() {
   console.log('🧪 Testing AWS SES Email Service...\n')
@@ -13,7 +13,7 @@ async function testEmailService() {
   try {
     // Test 1: Send a welcome email
     console.log('📧 Test 1: Sending welcome email...')
-    await EmailService.sendWelcomeEmail(
+    await emailService.sendWelcomeEmail(
       'test@example.com',
       'Test',
       'User'
@@ -22,7 +22,7 @@ async function testEmailService() {
 
     // Test 2: Send system notification
     console.log('🔔 Test 2: Sending system notification...')
-    await EmailService.sendSystemNotification(
+    await emailService.sendSystemNotification(
       'Test System Notification',
       'This is a test notification to verify the email system is working.',
       { environment: 'test', timestamp: new Date().toISOString() }
@@ -31,7 +31,7 @@ async function testEmailService() {
 
     // Test 3: Send appointment request notification
     console.log('📅 Test 3: Sending appointment request notification...')
-    await EmailService.sendAppointmentRequest('practice@example.com', {
+    await emailService.sendAppointmentRequest('practice@example.com', {
       firstName: 'John',
       lastName: 'Doe',
       email: 'john.doe@example.com',
@@ -45,7 +45,7 @@ async function testEmailService() {
 
     // Test 4: Send contact form notification
     console.log('📬 Test 4: Sending contact form notification...')
-    await EmailService.sendContactForm('practice@example.com', {
+    await emailService.sendContactForm('practice@example.com', {
       name: 'Jane Smith',
       email: 'jane.smith@example.com',
       phone: '555-0456',

@@ -1,15 +1,9 @@
 import { getCssVariable } from '@/components/utils/utils';
-import { createAppLogger } from '@/lib/logger/factory';
+import { log } from '@/lib/logger';
 import { getPaletteColors } from '@/lib/services/color-palettes';
 import type { AggAppMeasure, ChartData, ChartDataset } from '@/lib/types/analytics';
 
 // Use Universal Logging System - dynamic imports prevent Winston bundling in client contexts
-const chartLogger = createAppLogger('chart-transformer', {
-  component: 'analytics',
-  feature: 'data-transformation',
-  module: 'chart-transformer',
-});
-
 /**
  * Simplified Chart Data Transformer
  * Works with pre-aggregated data from ih.agg_app_measures
@@ -44,7 +38,7 @@ export class SimplifiedChartTransformer {
     // Extract measure type from data
     const measureType = this.extractMeasureType(measures);
 
-    chartLogger.debug('🔍 SIMPLIFIED TRANSFORMATION:', {
+    log.debug('🔍 SIMPLIFIED TRANSFORMATION:', {
       recordCount: measures.length,
       chartType,
       groupBy,
@@ -115,7 +109,7 @@ export class SimplifiedChartTransformer {
         }
       });
 
-      chartLogger.debug('🔍 SINGLE SERIES TIME LABELS:', {
+      log.debug('🔍 SINGLE SERIES TIME LABELS:', {
         originalDates: sortedMeasures.map((m) => m.date_index),
         dateObjects: dateObjects,
         sampleConversion: {
@@ -239,19 +233,19 @@ export class SimplifiedChartTransformer {
       });
     });
 
-    chartLogger.debug('🔍 DATE FILTERING:', {
+    log.debug('🔍 DATE FILTERING:', {
       allDates: sortedDates,
       datesWithData: datesWithData,
       filteredOut: sortedDates.filter((d) => !datesWithData.includes(d)),
     });
 
-    chartLogger.debug('🔍 DATE PROCESSING:', {
+    log.debug('🔍 DATE PROCESSING:', {
       sortedDateIndexes: sortedDates,
       sampleDate: sortedDates[0],
       parsedSampleDate: new Date(`${sortedDates[0]}T00:00:00`),
     });
 
-    chartLogger.debug('🔍 MULTI-SERIES DATA:', {
+    log.debug('🔍 MULTI-SERIES DATA:', {
       groupBy,
       sortedDates,
       groupCount: groupedData.size,
@@ -268,7 +262,7 @@ export class SimplifiedChartTransformer {
       const data = datesWithData.map((dateIndex) => dateMap.get(dateIndex) || 0);
       const color = colors[colorIndex % colors.length];
 
-      chartLogger.debug('🔍 CREATING DATASET:', {
+      log.debug('🔍 CREATING DATASET:', {
         groupKey,
         color,
         dataPoints: data,
@@ -303,7 +297,7 @@ export class SimplifiedChartTransformer {
       colorIndex++;
     });
 
-    chartLogger.debug('🔍 FINAL CHART DATA:', {
+    log.debug('🔍 FINAL CHART DATA:', {
       labels: sortedDates,
       labelCount: sortedDates.length,
       datasetCount: datasets.length,
@@ -336,7 +330,7 @@ export class SimplifiedChartTransformer {
       return dateStr;
     });
 
-    chartLogger.debug('🔍 CATEGORY LABELS:', {
+    log.debug('🔍 CATEGORY LABELS:', {
       originalDates: datesWithData,
       categoryLabels: categoryLabels,
       frequency: measures[0]?.frequency,
@@ -363,7 +357,7 @@ export class SimplifiedChartTransformer {
         }
       });
 
-      chartLogger.debug('🔍 LINE CHART DATE OBJECTS:', {
+      log.debug('🔍 LINE CHART DATE OBJECTS:', {
         originalDates: datesWithData,
         dateObjects: finalLabels,
         sampleConversion: {
@@ -409,7 +403,7 @@ export class SimplifiedChartTransformer {
     const data = labels.map((label) => groupedData.get(label) || 0);
     const colors = this.getColorPalette(paletteId);
 
-    chartLogger.debug('🔍 PIE CHART DATA:', {
+    log.debug('🔍 PIE CHART DATA:', {
       groupField,
       labels,
       data,
@@ -601,7 +595,7 @@ export class SimplifiedChartTransformer {
   ): ChartData {
     // Extract measure type from data
     const measureType = this.extractMeasureType(measures);
-    chartLogger.debug('🔍 ENHANCED MULTI-SERIES INPUT:', {
+    log.debug('🔍 ENHANCED MULTI-SERIES INPUT:', {
       measureCount: measures.length,
       groupBy,
       aggregations,
@@ -718,7 +712,7 @@ export class SimplifiedChartTransformer {
     aggregations: Record<string, 'sum' | 'avg' | 'count' | 'min' | 'max'> = {},
     paletteId: string = 'default'
   ): ChartData {
-    chartLogger.debug('🔍 CREATING MULTI-SERIES FROM TAGGED DATA:', {
+    log.debug('🔍 CREATING MULTI-SERIES FROM TAGGED DATA:', {
       measureCount: measures.length,
       seriesLabels: Array.from(new Set(measures.map((m) => m.series_label))),
       sampleMeasure: measures[0],
@@ -807,7 +801,7 @@ export class SimplifiedChartTransformer {
       colorIndex++;
     });
 
-    chartLogger.debug('🔍 TAGGED DATA TRANSFORMATION RESULT:', {
+    log.debug('🔍 TAGGED DATA TRANSFORMATION RESULT:', {
       seriesCount: datasets.length,
       dateCount: sortedDates.length,
       seriesLabels: datasets.map((d) => d.label),

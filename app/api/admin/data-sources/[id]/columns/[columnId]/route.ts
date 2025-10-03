@@ -10,7 +10,7 @@ const combinedParamsSchema = dataSourceParamsSchema.extend({
   columnId: dataSourceColumnParamsSchema.shape.id
 });
 import type { UserContext } from '@/lib/types/rbac';
-import { createAppLogger, logPerformanceMetric } from '@/lib/logger';
+import { log } from '@/lib/logger';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 
 /**
@@ -21,7 +21,6 @@ import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-s
 // GET - Get single column by ID
 const getDataSourceColumnHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const startTime = Date.now();
-  const logger = createAppLogger('admin-data-sources').withUser(userContext.user_id, userContext.current_organization_id);
   let columnId: number | undefined;
 
   try {
@@ -29,7 +28,7 @@ const getDataSourceColumnHandler = async (request: NextRequest, userContext: Use
     const dataSourceId = parseInt(id, 10);
     columnId = parseInt(columnIdParam, 10);
 
-    logger.info('Data source column get request initiated', {
+    log.info('Data source column get request initiated', {
       requestingUserId: userContext.user_id,
       columnId
     });
@@ -42,13 +41,12 @@ const getDataSourceColumnHandler = async (request: NextRequest, userContext: Use
       return createErrorResponse('Data source column not found', 404);
     }
 
-    logPerformanceMetric(logger, 'data_source_column_get', Date.now() - startTime);
+    log.info('Data source column retrieved', { duration: Date.now() - startTime });
 
     return createSuccessResponse({ column }, 'Data source column retrieved successfully');
 
   } catch (error) {
-    logger.error('Data source column get error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+    log.error('Data source column get error', error, {
       requestingUserId: userContext.user_id,
       columnId
     });
@@ -60,7 +58,6 @@ const getDataSourceColumnHandler = async (request: NextRequest, userContext: Use
 // PATCH - Update column by ID
 const updateDataSourceColumnHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const startTime = Date.now();
-  const logger = createAppLogger('admin-data-sources').withUser(userContext.user_id, userContext.current_organization_id);
   let columnId: number | undefined;
 
   try {
@@ -68,7 +65,7 @@ const updateDataSourceColumnHandler = async (request: NextRequest, userContext: 
     const dataSourceId = parseInt(id, 10);
     columnId = parseInt(columnIdParam, 10);
 
-    logger.info('Data source column update request initiated', {
+    log.info('Data source column update request initiated', {
       requestingUserId: userContext.user_id,
       columnId
     });
@@ -84,13 +81,12 @@ const updateDataSourceColumnHandler = async (request: NextRequest, userContext: 
       return createErrorResponse('Data source column not found or update failed', 404);
     }
 
-    logPerformanceMetric(logger, 'data_source_column_update', Date.now() - startTime);
+    log.info('Data source column updated', { duration: Date.now() - startTime });
 
     return createSuccessResponse({ column: updatedColumn }, 'Data source column updated successfully');
 
   } catch (error) {
-    logger.error('Data source column update error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+    log.error('Data source column update error', error, {
       requestingUserId: userContext.user_id,
       columnId
     });
@@ -102,7 +98,6 @@ const updateDataSourceColumnHandler = async (request: NextRequest, userContext: 
 // DELETE - Delete column by ID
 const deleteDataSourceColumnHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const startTime = Date.now();
-  const logger = createAppLogger('admin-data-sources').withUser(userContext.user_id, userContext.current_organization_id);
   let columnId: number | undefined;
 
   try {
@@ -110,7 +105,7 @@ const deleteDataSourceColumnHandler = async (request: NextRequest, userContext: 
     const dataSourceId = parseInt(id, 10);
     columnId = parseInt(columnIdParam, 10);
 
-    logger.info('Data source column delete request initiated', {
+    log.info('Data source column delete request initiated', {
       requestingUserId: userContext.user_id,
       columnId
     });
@@ -123,13 +118,12 @@ const deleteDataSourceColumnHandler = async (request: NextRequest, userContext: 
       return createErrorResponse('Data source column not found or delete failed', 404);
     }
 
-    logPerformanceMetric(logger, 'data_source_column_delete', Date.now() - startTime);
+    log.info('Data source column deleted', { duration: Date.now() - startTime });
 
     return createSuccessResponse({ deleted: true }, 'Data source column deleted successfully');
 
   } catch (error) {
-    logger.error('Data source column delete error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+    log.error('Data source column delete error', error, {
       requestingUserId: userContext.user_id,
       columnId
     });

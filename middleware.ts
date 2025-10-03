@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { addSecurityHeaders, getEnhancedContentSecurityPolicy, addRateLimitHeaders, generateCSPNonces, type CSPNonces } from '@/lib/security/headers'
-import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
+import { requiresCSRFProtection, verifyCSRFToken } from '@/lib/security/csrf-unified'
 import { getJWTConfig } from '@/lib/env'
 import { isPublicApiRoute } from '@/lib/api/middleware/global-auth'
 import { debugLog } from '@/lib/utils/debug'
 import { sanitizeRequestBody } from '@/lib/api/middleware/request-sanitization'
-import { createAPILogger } from '@/lib/logger/api-features'
+import { log } from '@/lib/logger'
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
 
 // CSRF exempt paths - these endpoints handle their own security or don't need CSRF
@@ -35,13 +35,17 @@ export async function middleware(request: NextRequest) {
   const hostname = rawHostname.split(':')[0] || 'localhost' // Remove port for comparison
   const pathname = request.nextUrl.pathname
   const search = request.nextUrl.search
-  
+
+  // Generate correlation ID for request tracing (edge runtime compatible)
+  const correlationId = `cor_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 10)}`
+
   // Generate CSP nonces for this request (from develop - better system)
   const { generateCSPNonces } = await import('@/lib/security/headers')
   const cspNonces = generateCSPNonces()
-  
-  // Create new request headers with nonces for SSR components to access
+
+  // Create new request headers with nonces and correlation ID for SSR components to access
   const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-correlation-id', correlationId)
   requestHeaders.set('x-script-nonce', cspNonces.scriptNonce)
   requestHeaders.set('x-style-nonce', cspNonces.styleNonce)
   requestHeaders.set('x-nonce-timestamp', cspNonces.timestamp.toString())
@@ -68,11 +72,17 @@ export async function middleware(request: NextRequest) {
   
   // Debug CSP header setting
   if (process.env.NODE_ENV === 'development' || process.env.ENVIRONMENT === 'staging') {
-    console.log('🔒 Setting CSP header:', cspHeader, 'Policy length:', cspPolicy.length);
+    log.debug('Setting CSP header', {
+      cspHeader,
+      policyLength: cspPolicy.length
+    });
   }
   
   response.headers.set(cspHeader, cspPolicy)
-  
+
+  // Add correlation ID to response for debugging/tracing
+  response.headers.set('X-Correlation-ID', correlationId)
+
   // Also add nonce headers to response for debugging/monitoring
   response.headers.set('X-Script-Nonce', cspNonces.scriptNonce)
   response.headers.set('X-Style-Nonce', cspNonces.styleNonce)
@@ -117,8 +127,8 @@ export async function middleware(request: NextRequest) {
 
   // CSRF Protection for state-changing operations
   // Applied before any other processing to fail fast
-  if (UnifiedCSRFProtection.requiresCSRFProtection(request.method) && !isCSRFExempt(pathname)) {
-    const isValidCSRF = await UnifiedCSRFProtection.verifyCSRFToken(request)
+  if (requiresCSRFProtection(request.method) && !isCSRFExempt(pathname)) {
+    const isValidCSRF = await verifyCSRFToken(request)
     if (!isValidCSRF) {
       debugLog.middleware(`CSRF validation failed for ${pathname}`)
       return new NextResponse(
@@ -144,28 +154,27 @@ export async function middleware(request: NextRequest) {
         const body = await clonedRequest.json().catch(() => null)
         
         if (body) {
-          const apiLogger = createAPILogger(request, 'middleware')
-          const universalLogger = apiLogger.getLogger()
-          
           // Create compatible logger for sanitization function
           const sanitizationLogger = {
-            info: (message: string, meta?: unknown) => universalLogger.info(message, meta as Record<string, unknown>),
-            warn: (message: string, meta?: unknown) => universalLogger.warn(message, meta as Record<string, unknown>),
-            error: (message: string, meta?: unknown) => universalLogger.error(message, undefined, meta as Record<string, unknown>),
-            debug: (message: string, meta?: unknown) => universalLogger.debug(message, meta as Record<string, unknown>)
+            info: (message: string, meta?: unknown) => log.info(message, meta as Record<string, unknown>),
+            warn: (message: string, meta?: unknown) => log.warn(message, meta as Record<string, unknown>),
+            error: (message: string, meta?: unknown) => log.error(message, undefined, meta as Record<string, unknown>),
+            debug: (message: string, meta?: unknown) => log.debug(message, meta as Record<string, unknown>)
           }
           
           const sanitizationResult = await sanitizeRequestBody(body, sanitizationLogger)
           
           if (!sanitizationResult.isValid) {
             // Enhanced request sanitization logging
-            apiLogger.logValidation(sanitizationResult.errors.map(error => ({
-              field: 'request_body',
-              message: error,
-              code: 'INVALID_REQUEST_DATA'
-            })))
-            
-            apiLogger.logSecurity('request_sanitization_failed', 'medium', {
+            log.warn('Request validation failed', {
+              errors: sanitizationResult.errors.map(error => ({
+                field: 'request_body',
+                message: error,
+                code: 'INVALID_REQUEST_DATA'
+              }))
+            })
+
+            log.security('request_sanitization_failed', 'medium', {
               reason: 'invalid_request_data',
               action: 'blocked_request',
               threat: 'data_injection'

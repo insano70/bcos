@@ -19,13 +19,7 @@
 import { eq, lt } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { samlReplayPrevention } from '@/lib/db/schema';
-import { createAppLogger } from '@/lib/logger/factory';
-
-const replayLogger = createAppLogger('saml-replay-prevention', {
-  component: 'security',
-  feature: 'saml-sso',
-  module: 'replay-prevention',
-});
+import { log } from '@/lib/logger';
 
 /**
  * Result of replay attack check
@@ -86,7 +80,7 @@ export async function checkAndTrackAssertion(
       sessionId: sessionId || null,
     });
 
-    replayLogger.info('SAML assertion tracked successfully', {
+    log.info('SAML assertion tracked successfully', {
       assertionId: `${assertionId.substring(0, 20)}...`,
       userEmail,
       ipAddress,
@@ -119,7 +113,7 @@ export async function checkAndTrackAssertion(
         .where(eq(samlReplayPrevention.replayId, assertionId))
         .limit(1);
 
-      replayLogger.warn('SAML replay attack detected', {
+      log.warn('SAML replay attack detected', {
         assertionId: `${assertionId.substring(0, 20)}...`,
         attemptedByEmail: userEmail,
         attemptedFromIp: ipAddress,
@@ -142,7 +136,7 @@ export async function checkAndTrackAssertion(
     }
 
     // Other database errors
-    replayLogger.error('Error checking SAML assertion', {
+    log.error('Error checking SAML assertion', {
       error: error instanceof Error ? error.message : String(error),
       errorCode: error && typeof error === 'object' && 'code' in error ? error.code : 'unknown',
       errorName: error instanceof Error ? error.constructor.name : typeof error,
@@ -170,7 +164,7 @@ export async function cleanupExpiredEntries(): Promise<number> {
   try {
     const now = new Date();
 
-    replayLogger.info('Starting cleanup of expired SAML replay prevention entries', {
+    log.info('Starting cleanup of expired SAML replay prevention entries', {
       cutoffTime: now.toISOString(),
     });
 
@@ -182,14 +176,14 @@ export async function cleanupExpiredEntries(): Promise<number> {
     // For now, just return 0 - cleanup is fire-and-forget
     const deletedCount = 0;
 
-    replayLogger.info('Cleanup completed', {
+    log.info('Cleanup completed', {
       deletedCount,
       cutoffTime: now.toISOString(),
     });
 
     return deletedCount;
   } catch (error) {
-    replayLogger.error('Error during cleanup', {
+    log.error('Error during cleanup', {
       error: error instanceof Error ? error.message : String(error),
     });
     throw error;
@@ -230,7 +224,7 @@ export async function getReplayPreventionStats(): Promise<{
       newestEntry,
     };
   } catch (error) {
-    replayLogger.error('Error getting stats', {
+    log.error('Error getting stats', {
       error: error instanceof Error ? error.message : String(error),
     });
     throw error;

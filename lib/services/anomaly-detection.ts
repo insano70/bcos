@@ -238,9 +238,9 @@ export class AnomalyDetectionService {
         // Only send emails on server-side
         if (typeof window === 'undefined') {
           // Dynamic import to avoid circular dependencies
-          const { EmailService } = await import('../api/services/email');
+          const { emailService } = await import('../api/services/email-service-instance');
 
-          await EmailService.sendSystemNotification(
+          await emailService.sendSystemNotification(
             `Anomaly Detected: ${alert.measure}`,
             alert.description,
             {

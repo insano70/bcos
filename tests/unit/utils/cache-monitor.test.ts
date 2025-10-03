@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { logCacheStats, monitorCacheHealth, cacheAdmin } from '@/lib/utils/cache-monitor'
-import { logger } from '@/lib/logger'
+import { log } from '@/lib/logger'
 
 // Mock the cache
 vi.mock('@/lib/cache/role-permission-cache', () => ({
@@ -13,7 +13,7 @@ vi.mock('@/lib/cache/role-permission-cache', () => ({
 }))
 
 vi.mock('@/lib/logger', () => ({
-  logger: {
+  log: {
     info: vi.fn(),
     warn: vi.fn()
   }
@@ -44,7 +44,7 @@ describe('cache-monitor utilities', () => {
       logCacheStats()
 
       // Verify the business logic outcome: stats are logged when there are requests
-      expect(logger.info).toHaveBeenCalledWith('Cache Performance Stats', {
+      expect(log.info).toHaveBeenCalledWith('Cache Performance Stats', {
         hits: 150,
         misses: 50,
         hitRate: '75%',
@@ -66,7 +66,7 @@ describe('cache-monitor utilities', () => {
       logCacheStats()
 
       // Verify the business logic outcome: no logging when no requests
-      expect(logger.info).not.toHaveBeenCalled()
+      expect(log.info).not.toHaveBeenCalled()
     })
 
     it('should calculate hit rate correctly', () => {
@@ -81,7 +81,7 @@ describe('cache-monitor utilities', () => {
 
       logCacheStats()
 
-      expect(logger.info).toHaveBeenCalledWith('Cache Performance Stats', {
+      expect(log.info).toHaveBeenCalledWith('Cache Performance Stats', {
         hits: 3,
         misses: 2,
         hitRate: '60%',
@@ -102,7 +102,7 @@ describe('cache-monitor utilities', () => {
 
       logCacheStats()
 
-      expect(logger.info).toHaveBeenCalledWith('Cache Performance Stats', {
+      expect(log.info).toHaveBeenCalledWith('Cache Performance Stats', {
         hits: 0,
         misses: 10,
         hitRate: '0%',
@@ -126,7 +126,7 @@ describe('cache-monitor utilities', () => {
       monitorCacheHealth()
 
       expect(mockRolePermissionCache.getStats).toHaveBeenCalled()
-      expect(logger.warn).not.toHaveBeenCalled()
+      expect(log.warn).not.toHaveBeenCalled()
     })
 
     it('should warn about low cache hit rate', () => {
@@ -142,7 +142,7 @@ describe('cache-monitor utilities', () => {
       monitorCacheHealth()
 
       expect(mockRolePermissionCache.getStats).toHaveBeenCalled()
-      expect(logger.warn).toHaveBeenCalledWith('Low cache hit rate detected', {
+      expect(log.warn).toHaveBeenCalledWith('Low cache hit rate detected', {
         hitRate: 25,
         recommendations: [
           'Check if roles are being modified frequently',
@@ -164,7 +164,7 @@ describe('cache-monitor utilities', () => {
 
       monitorCacheHealth()
 
-      expect(logger.warn).toHaveBeenCalledWith('Large cache size detected', {
+      expect(log.warn).toHaveBeenCalledWith('Large cache size detected', {
         cacheSize: 150,
         recommendation: 'Consider implementing cache size limits'
       })
@@ -182,9 +182,9 @@ describe('cache-monitor utilities', () => {
 
       monitorCacheHealth()
 
-      expect(logger.warn).toHaveBeenCalledTimes(2)
-      expect(logger.warn).toHaveBeenCalledWith('Low cache hit rate detected', expect.any(Object))
-      expect(logger.warn).toHaveBeenCalledWith('Large cache size detected', expect.any(Object))
+      expect(log.warn).toHaveBeenCalledTimes(2)
+      expect(log.warn).toHaveBeenCalledWith('Low cache hit rate detected', expect.any(Object))
+      expect(log.warn).toHaveBeenCalledWith('Large cache size detected', expect.any(Object))
     })
 
     it('should not warn when cache performance is good', () => {
@@ -200,7 +200,7 @@ describe('cache-monitor utilities', () => {
       monitorCacheHealth()
 
       expect(mockRolePermissionCache.getStats).toHaveBeenCalled()
-      expect(logger.warn).not.toHaveBeenCalled()
+      expect(log.warn).not.toHaveBeenCalled()
     })
 
     it('should handle edge case of exactly 10 requests', () => {
@@ -216,7 +216,7 @@ describe('cache-monitor utilities', () => {
       monitorCacheHealth()
 
       expect(mockRolePermissionCache.getStats).toHaveBeenCalled()
-      expect(logger.warn).not.toHaveBeenCalled()
+      expect(log.warn).not.toHaveBeenCalled()
     })
 
     it('should handle 50% hit rate without warning', () => {
@@ -231,7 +231,7 @@ describe('cache-monitor utilities', () => {
 
       monitorCacheHealth()
 
-      expect(logger.warn).not.toHaveBeenCalled()
+      expect(log.warn).not.toHaveBeenCalled()
     })
 
     it('should handle exactly 100 cache size without warning', () => {
@@ -246,7 +246,7 @@ describe('cache-monitor utilities', () => {
 
       monitorCacheHealth()
 
-      expect(logger.warn).not.toHaveBeenCalled()
+      expect(log.warn).not.toHaveBeenCalled()
     })
   })
 

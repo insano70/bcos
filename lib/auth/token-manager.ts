@@ -5,20 +5,15 @@ import { nanoid } from 'nanoid';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { db, login_attempts, refresh_tokens, token_blacklist, user_sessions } from '@/lib/db';
 import { getJWTConfig } from '@/lib/env';
-import { createAppLogger } from '@/lib/logger/factory';
-
-// Create Universal Logger for token management operations
-const tokenLogger = createAppLogger('token-manager', {
-  component: 'security',
-  feature: 'jwt-management',
-  module: 'token-manager',
-});
+import { log } from '@/lib/logger';
 
 /**
- * Enterprise JWT + Refresh Token Manager
+ * Enterprise JWT + Refresh Token Manager - Pure Functions Module
  * Handles 15-minute access tokens with sliding window refresh tokens
+ * SECURITY: JWT secrets remain module-scoped and are NOT exported
  */
 
+// SECURITY: Module-scoped secrets - NOT exported
 const jwtConfig = getJWTConfig();
 const ACCESS_TOKEN_SECRET = new TextEncoder().encode(jwtConfig.accessSecret);
 const REFRESH_TOKEN_SECRET = new TextEncoder().encode(jwtConfig.refreshSecret);
@@ -45,123 +40,124 @@ export interface RefreshTokenData {
   expiresAt: Date;
 }
 
-export class TokenManager {
-  // Access token duration: 15 minutes
-  private static readonly ACCESS_TOKEN_DURATION = 15 * 60 * 1000; // 15 minutes
+/**
+ * Token duration constants
+ */
+export const ACCESS_TOKEN_DURATION = 15 * 60 * 1000; // 15 minutes
+export const REFRESH_TOKEN_STANDARD = 7 * 24 * 60 * 60 * 1000; // 7 days
+export const REFRESH_TOKEN_REMEMBER_ME = 30 * 24 * 60 * 60 * 1000; // 30 days
 
-  // Refresh token durations
-  private static readonly REFRESH_TOKEN_STANDARD = 7 * 24 * 60 * 60 * 1000; // 7 days
-  private static readonly REFRESH_TOKEN_REMEMBER_ME = 30 * 24 * 60 * 60 * 1000; // 30 days
+/**
+ * Create initial token pair on login
+ * Generates JWT access token and refresh token with database persistence
+ */
+export async function createTokenPair(
+  userId: string,
+  deviceInfo: DeviceInfo,
+  rememberMe: boolean = false,
+  email?: string
+): Promise<TokenPair> {
+  const now = new Date();
+  const sessionId = nanoid(32);
+  const refreshTokenId = nanoid(32);
 
-  /**
-   * Create initial token pair on login
-   */
-  static async createTokenPair(
-    userId: string,
-    deviceInfo: DeviceInfo,
-    rememberMe: boolean = false,
-    email?: string
-  ): Promise<TokenPair> {
-    const now = new Date();
-    const sessionId = nanoid(32);
-    const refreshTokenId = nanoid(32);
+  // Create access token (15 minutes)
+  const accessTokenPayload = {
+    sub: userId,
+    jti: nanoid(), // Unique JWT ID for blacklist capability
+    session_id: sessionId,
+    iat: Math.floor(now.getTime() / 1000),
+    exp: Math.floor((now.getTime() + ACCESS_TOKEN_DURATION) / 1000),
+  };
 
-    // Create access token (15 minutes)
-    const accessTokenPayload = {
-      sub: userId,
-      jti: nanoid(), // Unique JWT ID for blacklist capability
-      session_id: sessionId,
-      iat: Math.floor(now.getTime() / 1000),
-      exp: Math.floor((now.getTime() + TokenManager.ACCESS_TOKEN_DURATION) / 1000),
-    };
+  const accessToken = await new SignJWT(accessTokenPayload)
+    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
+    .sign(ACCESS_TOKEN_SECRET);
 
-    const accessToken = await new SignJWT(accessTokenPayload)
-      .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
-      .sign(ACCESS_TOKEN_SECRET);
+  // Create refresh token
+  const refreshTokenDuration = rememberMe
+    ? REFRESH_TOKEN_REMEMBER_ME
+    : REFRESH_TOKEN_STANDARD;
+  const refreshExpiresAt = new Date(now.getTime() + refreshTokenDuration);
 
-    // Create refresh token
-    const refreshTokenDuration = rememberMe
-      ? TokenManager.REFRESH_TOKEN_REMEMBER_ME
-      : TokenManager.REFRESH_TOKEN_STANDARD;
-    const refreshExpiresAt = new Date(now.getTime() + refreshTokenDuration);
+  const refreshTokenPayload = {
+    sub: userId,
+    jti: refreshTokenId,
+    session_id: sessionId,
+    remember_me: rememberMe,
+    iat: Math.floor(now.getTime() / 1000),
+    exp: Math.floor(refreshExpiresAt.getTime() / 1000),
+  };
 
-    const refreshTokenPayload = {
-      sub: userId,
-      jti: refreshTokenId,
-      session_id: sessionId,
-      remember_me: rememberMe,
-      iat: Math.floor(now.getTime() / 1000),
-      exp: Math.floor(refreshExpiresAt.getTime() / 1000),
-    };
+  const refreshToken = await new SignJWT(refreshTokenPayload)
+    .setProtectedHeader({ alg: 'HS256', typ: 'REFRESH' })
+    .sign(REFRESH_TOKEN_SECRET);
 
-    const refreshToken = await new SignJWT(refreshTokenPayload)
-      .setProtectedHeader({ alg: 'HS256', typ: 'REFRESH' })
-      .sign(REFRESH_TOKEN_SECRET);
+  // Store refresh token in database
+  await db.insert(refresh_tokens).values({
+    token_id: refreshTokenId,
+    user_id: userId,
+    token_hash: hashToken(refreshToken),
+    device_fingerprint: deviceInfo.fingerprint,
+    ip_address: deviceInfo.ipAddress,
+    user_agent: deviceInfo.userAgent,
+    remember_me: rememberMe,
+    expires_at: refreshExpiresAt,
+    rotation_count: 0,
+  });
 
-    // Store refresh token in database
-    await db.insert(refresh_tokens).values({
-      token_id: refreshTokenId,
-      user_id: userId,
-      token_hash: TokenManager.hashToken(refreshToken),
-      device_fingerprint: deviceInfo.fingerprint,
-      ip_address: deviceInfo.ipAddress,
-      user_agent: deviceInfo.userAgent,
-      remember_me: rememberMe,
-      expires_at: refreshExpiresAt,
-      rotation_count: 0,
-    });
+  // Create session record
+  await db.insert(user_sessions).values({
+    session_id: sessionId,
+    user_id: userId,
+    refresh_token_id: refreshTokenId,
+    device_fingerprint: deviceInfo.fingerprint,
+    device_name: deviceInfo.deviceName,
+    ip_address: deviceInfo.ipAddress,
+    user_agent: deviceInfo.userAgent,
+    remember_me: rememberMe,
+  });
 
-    // Create session record
-    await db.insert(user_sessions).values({
-      session_id: sessionId,
-      user_id: userId,
-      refresh_token_id: refreshTokenId,
-      device_fingerprint: deviceInfo.fingerprint,
-      device_name: deviceInfo.deviceName,
-      ip_address: deviceInfo.ipAddress,
-      user_agent: deviceInfo.userAgent,
-      remember_me: rememberMe,
-    });
+  // Log successful login
+  await logLoginAttempt({
+    email: email || '', // Use provided email or empty string
+    userId,
+    deviceInfo,
+    success: true,
+    rememberMe,
+    sessionId,
+  });
 
-    // Log successful login
-    await TokenManager.logLoginAttempt({
-      email: email || '', // Use provided email or empty string
-      userId,
-      deviceInfo,
-      success: true,
+  // Audit log
+  await AuditLogger.logAuth({
+    action: 'login',
+    userId,
+    ipAddress: deviceInfo.ipAddress,
+    userAgent: deviceInfo.userAgent,
+    metadata: {
+      sessionId,
+      refreshTokenId,
       rememberMe,
-      sessionId,
-    });
+      deviceFingerprint: deviceInfo.fingerprint,
+    },
+  });
 
-    // Audit log
-    await AuditLogger.logAuth({
-      action: 'login',
-      userId,
-      ipAddress: deviceInfo.ipAddress,
-      userAgent: deviceInfo.userAgent,
-      metadata: {
-        sessionId,
-        refreshTokenId,
-        rememberMe,
-        deviceFingerprint: deviceInfo.fingerprint,
-      },
-    });
+  return {
+    accessToken,
+    refreshToken,
+    expiresAt: new Date(now.getTime() + ACCESS_TOKEN_DURATION),
+    sessionId,
+  };
+}
 
-    return {
-      accessToken,
-      refreshToken,
-      expiresAt: new Date(now.getTime() + TokenManager.ACCESS_TOKEN_DURATION),
-      sessionId,
-    };
-  }
-
-  /**
-   * Refresh access token using refresh token (with rotation)
-   */
-  static async refreshTokenPair(
-    refreshToken: string,
-    deviceInfo: DeviceInfo
-  ): Promise<TokenPair | null> {
+/**
+ * Refresh access token using refresh token (with rotation)
+ * Implements token rotation for enhanced security
+ */
+export async function refreshTokenPair(
+  refreshToken: string,
+  deviceInfo: DeviceInfo
+): Promise<TokenPair | null> {
     try {
       // Verify refresh token
       const payload = await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET);
@@ -188,7 +184,7 @@ export class TokenManager {
       }
 
       // Verify token hash matches
-      if (tokenRecord.token_hash !== TokenManager.hashToken(refreshToken)) {
+      if (tokenRecord.token_hash !== hashToken(refreshToken)) {
         throw new Error('Invalid refresh token');
       }
 
@@ -211,7 +207,7 @@ export class TokenManager {
         jti: nanoid(),
         session_id: sessionId,
         iat: Math.floor(now.getTime() / 1000),
-        exp: Math.floor((now.getTime() + TokenManager.ACCESS_TOKEN_DURATION) / 1000),
+        exp: Math.floor((now.getTime() + ACCESS_TOKEN_DURATION) / 1000),
       };
 
       const newAccessToken = await new SignJWT(accessTokenPayload)
@@ -221,8 +217,8 @@ export class TokenManager {
       // Create new refresh token (rotation)
       const newRefreshTokenId = nanoid(32);
       const refreshTokenDuration = rememberMe
-        ? TokenManager.REFRESH_TOKEN_REMEMBER_ME
-        : TokenManager.REFRESH_TOKEN_STANDARD;
+        ? REFRESH_TOKEN_REMEMBER_ME
+        : REFRESH_TOKEN_STANDARD;
       const newRefreshExpiresAt = new Date(now.getTime() + refreshTokenDuration); // Sliding window
 
       const newRefreshTokenPayload = {
@@ -252,7 +248,7 @@ export class TokenManager {
       await db.insert(refresh_tokens).values({
         token_id: newRefreshTokenId,
         user_id: userId,
-        token_hash: TokenManager.hashToken(newRefreshToken),
+        token_hash: hashToken(newRefreshToken),
         device_fingerprint: deviceInfo.fingerprint,
         ip_address: deviceInfo.ipAddress,
         user_agent: deviceInfo.userAgent,
@@ -287,23 +283,24 @@ export class TokenManager {
       return {
         accessToken: newAccessToken,
         refreshToken: newRefreshToken,
-        expiresAt: new Date(now.getTime() + TokenManager.ACCESS_TOKEN_DURATION),
+        expiresAt: new Date(now.getTime() + ACCESS_TOKEN_DURATION),
         sessionId,
       };
     } catch (error) {
-      tokenLogger.error('Token refresh error', {
+      log.error('Token refresh error', {
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
         refreshToken: refreshToken ? 'present' : 'missing',
       });
       return null;
     }
-  }
+}
 
-  /**
-   * Validate access token
-   */
-  static async validateAccessToken(accessToken: string): Promise<JWTPayload | null> {
+/**
+ * Validate access token
+ * Verifies JWT signature and checks blacklist
+ */
+export async function validateAccessToken(accessToken: string): Promise<JWTPayload | null> {
     try {
       const { payload } = await jwtVerify(accessToken, ACCESS_TOKEN_SECRET);
 
@@ -323,15 +320,16 @@ export class TokenManager {
     } catch (_error) {
       return null;
     }
-  }
+}
 
-  /**
-   * Revoke refresh token (logout)
-   */
-  static async revokeRefreshToken(
-    refreshToken: string,
-    reason: 'logout' | 'security' | 'admin_action' = 'logout'
-  ): Promise<boolean> {
+/**
+ * Revoke refresh token (logout)
+ * Blacklists token and ends associated session
+ */
+export async function revokeRefreshToken(
+  refreshToken: string,
+  reason: 'logout' | 'security' | 'admin_action' = 'logout'
+): Promise<boolean> {
     try {
       const payload = await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET);
       const refreshTokenId = payload.payload.jti as string;
@@ -382,22 +380,23 @@ export class TokenManager {
 
       return true;
     } catch (error) {
-      tokenLogger.error('Token revocation error', {
+      log.error('Token revocation error', {
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
         userId: 'unknown', // userId may not be available if JWT verification fails
       });
       return false;
     }
-  }
+}
 
-  /**
-   * Revoke all refresh tokens for a user
-   */
-  static async revokeAllUserTokens(
-    userId: string,
-    reason: 'security' | 'admin_action' | 'user_disabled' = 'security'
-  ): Promise<number> {
+/**
+ * Revoke all refresh tokens for a user
+ * Used for security events or account deactivation
+ */
+export async function revokeAllUserTokens(
+  userId: string,
+  reason: 'security' | 'admin_action' | 'user_disabled' = 'security'
+): Promise<number> {
     const now = new Date();
 
     // Get all active refresh tokens for user
@@ -449,20 +448,21 @@ export class TokenManager {
     });
 
     return activeTokens.length;
-  }
+}
 
-  /**
-   * Generate device fingerprint from IP + User-Agent
-   */
-  static generateDeviceFingerprint(ipAddress: string, userAgent: string): string {
-    return createHash('sha256').update(`${ipAddress}:${userAgent}`).digest('hex').substring(0, 32);
-  }
+/**
+ * Generate device fingerprint from IP + User-Agent
+ * Creates consistent hash for device identification
+ */
+export function generateDeviceFingerprint(ipAddress: string, userAgent: string): string {
+  return createHash('sha256').update(`${ipAddress}:${userAgent}`).digest('hex').substring(0, 32);
+}
 
-  /**
-   * Generate device name from User-Agent
-   * SECURITY: Accurate device detection for audit trails and security monitoring
-   */
-  static generateDeviceName(userAgent: string): string {
+/**
+ * Generate device name from User-Agent
+ * SECURITY: Accurate device detection for audit trails and security monitoring
+ */
+export function generateDeviceName(userAgent: string): string {
     // Check most specific patterns first to avoid false positives
     // Note: Edge contains "Chrome", iPhone contains "Safari", Android contains "Chrome"
 
@@ -474,27 +474,29 @@ export class TokenManager {
     if (userAgent.includes('Safari')) return 'Safari Browser'; // Check Safari after iPhone
 
     return 'Unknown Browser';
-  }
+}
 
-  /**
-   * Hash token for secure storage
-   */
-  private static hashToken(token: string): string {
-    return createHash('sha256').update(token).digest('hex');
-  }
+/**
+ * Hash token for secure storage
+ * Non-exported helper function
+ */
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
 
-  /**
-   * Log login attempt for audit trail
-   */
-  private static async logLoginAttempt(data: {
-    email: string;
-    userId: string;
-    deviceInfo: DeviceInfo;
-    success: boolean;
-    failureReason?: string;
-    rememberMe: boolean;
-    sessionId?: string;
-  }): Promise<void> {
+/**
+ * Log login attempt for audit trail
+ * Non-exported helper function
+ */
+async function logLoginAttempt(data: {
+  email: string;
+  userId: string;
+  deviceInfo: DeviceInfo;
+  success: boolean;
+  failureReason?: string;
+  rememberMe: boolean;
+  sessionId?: string;
+}): Promise<void> {
     await db.insert(login_attempts).values({
       attempt_id: nanoid(),
       email: data.email,
@@ -507,15 +509,16 @@ export class TokenManager {
       remember_me_requested: data.rememberMe,
       session_id: data.sessionId,
     });
-  }
+}
 
-  /**
-   * Clean up expired tokens and blacklist entries
-   */
-  static async cleanupExpiredTokens(): Promise<{
-    refreshTokens: number;
-    blacklistEntries: number;
-  }> {
+/**
+ * Clean up expired tokens and blacklist entries
+ * Maintenance function for token lifecycle management
+ */
+export async function cleanupExpiredTokens(): Promise<{
+  refreshTokens: number;
+  blacklistEntries: number;
+}> {
     const now = new Date();
 
     // Clean up expired refresh tokens
@@ -533,7 +536,7 @@ export class TokenManager {
       .delete(token_blacklist)
       .where(lte(token_blacklist.expires_at, now));
 
-    tokenLogger.info('Token cleanup completed', {
+    log.info('Token cleanup completed', {
       expiredRefreshTokens: expiredRefreshTokens.length || 0,
       expiredBlacklistEntries: expiredBlacklistEntries.length || 0,
       operation: 'cleanupExpiredTokens',
@@ -543,5 +546,4 @@ export class TokenManager {
       refreshTokens: expiredRefreshTokens.length || 0,
       blacklistEntries: expiredBlacklistEntries.length || 0,
     };
-  }
 }

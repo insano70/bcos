@@ -4,10 +4,22 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified'
-import { CSRFClientHelper } from '@/lib/security/csrf-client'
-import { CSRFSecurityMonitor } from '@/lib/security/csrf-monitoring'
+import { generateAnonymousToken, verifyCSRFToken, validateAnonymousToken, generateAuthenticatedToken, validateAuthenticatedToken } from '@/lib/security/csrf-unified'
+import { validateTokenStructure } from '@/lib/security/csrf-client'
 import type { NextRequest } from 'next/server'
+
+// Mock the CSRF monitoring instance to use our test mock
+vi.mock('@/lib/security/csrf-monitoring-instance', async () => {
+  const mock = await import('../helpers/csrf-monitor-mock')
+  return {
+    csrfMonitor: mock.getMockCSRFMonitor(),
+    getCSRFMonitor: () => mock.getMockCSRFMonitor(),
+    resetCSRFMonitor: () => mock.resetMockCSRFMonitor(),
+  }
+})
+
+// Import test helpers
+import { getMockCSRFMonitor } from '../helpers/csrf-monitor-mock'
 
 // Mock environment variables
 const mockEnv = {
@@ -76,7 +88,7 @@ function createMockRequest(options: {
 }
 
 describe('CSRF Token Lifecycle Integration Tests', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     // Set up environment variables
     Object.entries(mockEnv).forEach(([key, value]) => {
       process.env[key] = value
@@ -86,8 +98,9 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
     })
 
     // Clear security monitor state
-    CSRFSecurityMonitor.clearFailureData()
-    
+    const monitor = getMockCSRFMonitor()
+    await monitor.clearAllEvents()
+
     // Clear fetch mock
     mockFetch.mockClear()
   })
@@ -104,7 +117,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         userAgent: 'Mozilla/5.0 Test Browser'
       })
 
-      const token = await UnifiedCSRFProtection.generateAnonymousToken(request)
+      const token = await generateAnonymousToken(request)
       
       expect(token).toBeDefined()
       expect(typeof token).toBe('string')
@@ -123,8 +136,8 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         userAgent: 'Mozilla/5.0 Test Browser'
       })
 
-      const token = await UnifiedCSRFProtection.generateAnonymousToken(request)
-      const isValid = await UnifiedCSRFProtection.validateAnonymousToken(request, token)
+      const token = await generateAnonymousToken(request)
+      const isValid = await validateAnonymousToken(request, token)
       
       expect(isValid).toBe(true)
     })
@@ -136,7 +149,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         userAgent: 'Mozilla/5.0 Test Browser'
       })
 
-      const token = await UnifiedCSRFProtection.generateAnonymousToken(originalRequest)
+      const token = await generateAnonymousToken(originalRequest)
 
       const differentRequest = createMockRequest({
         pathname: '/api/auth/login',
@@ -144,7 +157,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         userAgent: 'Mozilla/5.0 Test Browser'
       })
 
-      const isValid = await UnifiedCSRFProtection.validateAnonymousToken(differentRequest, token)
+      const isValid = await validateAnonymousToken(differentRequest, token)
       expect(isValid).toBe(false)
     })
 
@@ -155,7 +168,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         userAgent: 'Mozilla/5.0 Test Browser'
       })
 
-      const token = await UnifiedCSRFProtection.generateAnonymousToken(originalRequest)
+      const token = await generateAnonymousToken(originalRequest)
 
       const differentRequest = createMockRequest({
         pathname: '/api/auth/login',
@@ -163,7 +176,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         userAgent: 'Chrome/91.0 Different Browser' // Different UA
       })
 
-      const isValid = await UnifiedCSRFProtection.validateAnonymousToken(differentRequest, token)
+      const isValid = await validateAnonymousToken(differentRequest, token)
       expect(isValid).toBe(false)
     })
   })
@@ -179,7 +192,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         userAgent: 'Mozilla/5.0 Test Browser'
       })
 
-      const token = await UnifiedCSRFProtection.generateAnonymousToken(request)
+      const token = await generateAnonymousToken(request)
       
       // Mock time passage to next window (15 minutes in dev = 900000ms)
       const originalNow = Date.now
@@ -188,7 +201,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
 
       try {
         // In development, should allow 1 window drift
-        const isValid = await UnifiedCSRFProtection.validateAnonymousToken(request, token)
+        const isValid = await validateAnonymousToken(request, token)
         expect(isValid).toBe(true)
       } finally {
         Date.now = originalNow
@@ -205,7 +218,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         userAgent: 'Mozilla/5.0 Test Browser'
       })
 
-      const token = await UnifiedCSRFProtection.generateAnonymousToken(request)
+      const token = await generateAnonymousToken(request)
       
       // Mock time passage to next window (5 minutes in prod = 300000ms)
       const originalNow = Date.now
@@ -214,7 +227,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
 
       try {
         // In production, should reject tokens from different time windows
-        const isValid = await UnifiedCSRFProtection.validateAnonymousToken(request, token)
+        const isValid = await validateAnonymousToken(request, token)
         expect(isValid).toBe(false)
       } finally {
         Date.now = originalNow
@@ -225,7 +238,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
   describe('Authenticated Token Lifecycle', () => {
     it('should generate valid authenticated tokens', async () => {
       const userId = 'test-user-123'
-      const token = await UnifiedCSRFProtection.generateAuthenticatedToken(userId)
+      const token = await generateAuthenticatedToken(userId)
       
       expect(token).toBeDefined()
       expect(typeof token).toBe('string')
@@ -244,8 +257,8 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
 
     it('should validate fresh authenticated tokens', async () => {
       const userId = 'test-user-123'
-      const token = await UnifiedCSRFProtection.generateAuthenticatedToken(userId)
-      const isValid = await UnifiedCSRFProtection.validateAuthenticatedToken(token)
+      const token = await generateAuthenticatedToken(userId)
+      const isValid = await validateAuthenticatedToken(token)
       
       expect(isValid).toBe(true)
     })
@@ -258,12 +271,12 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
       const pastTime = originalNow() - (25 * 60 * 60 * 1000)
       Date.now = vi.fn().mockReturnValue(pastTime)
 
-      const token = await UnifiedCSRFProtection.generateAuthenticatedToken(userId)
+      const token = await generateAuthenticatedToken(userId)
       
       // Restore current time for validation
       Date.now = originalNow
 
-      const isValid = await UnifiedCSRFProtection.validateAuthenticatedToken(token)
+      const isValid = await validateAuthenticatedToken(token)
       expect(isValid).toBe(false)
     })
   })
@@ -282,7 +295,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
       const signature = 'abcd1234' // Mock signature
       const token = `${encodedPayload}.${signature}`
 
-      const validation = CSRFClientHelper.validateTokenStructure(token)
+      const validation = validateTokenStructure(token)
       expect(validation.isValid).toBe(true)
       expect(validation.shouldRefresh).toBe(false)
     })
@@ -297,7 +310,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
       ]
 
       invalidTokens.forEach(token => {
-        const validation = CSRFClientHelper.validateTokenStructure(token)
+        const validation = validateTokenStructure(token)
         expect(validation.isValid).toBe(false)
         expect(validation.shouldRefresh).toBe(true)
       })
@@ -314,7 +327,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
       const encodedPayload = btoa(JSON.stringify(expiredTokenData))
       const token = `${encodedPayload}.signature`
 
-      const validation = CSRFClientHelper.validateTokenStructure(token)
+      const validation = validateTokenStructure(token)
       expect(validation.isValid).toBe(false)
       expect(validation.reason).toBe('token_expired')
       expect(validation.shouldRefresh).toBe(true)
@@ -333,7 +346,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
       const encodedPayload = btoa(JSON.stringify(expiredTokenData))
       const token = `${encodedPayload}.signature`
 
-      const validation = CSRFClientHelper.validateTokenStructure(token)
+      const validation = validateTokenStructure(token)
       expect(validation.isValid).toBe(false)
       expect(validation.reason).toBe('time_window_expired')
       expect(validation.shouldRefresh).toBe(true)
@@ -349,7 +362,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
       })
 
       // Generate token with one request, validate with different IP
-      const token = await UnifiedCSRFProtection.generateAnonymousToken(request)
+      const token = await generateAnonymousToken(request)
       
       const differentRequest = createMockRequest({
         pathname: '/api/auth/login',
@@ -358,11 +371,12 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
       })
 
       // This should fail validation and record the failure
-      const isValid = await UnifiedCSRFProtection.verifyCSRFToken(differentRequest)
+      const isValid = await verifyCSRFToken(differentRequest)
       expect(isValid).toBe(false)
 
       // Check that failure was recorded
-      const stats = CSRFSecurityMonitor.getFailureStats()
+      const monitor = getMockCSRFMonitor()
+      const stats = await monitor.getFailureStats()
       expect(stats.totalEvents).toBeGreaterThan(0)
       expect(stats.topIPs).toContainEqual(
         expect.objectContaining({
@@ -387,13 +401,14 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         })
 
         // This should fail and record the failure
-        await UnifiedCSRFProtection.verifyCSRFToken(request)
+        await verifyCSRFToken(request)
       }
 
-      const stats = CSRFSecurityMonitor.getFailureStats()
+      const monitor = getMockCSRFMonitor()
+      const stats = await monitor.getFailureStats()
       expect(stats.totalEvents).toBeGreaterThanOrEqual(15)
       
-      const attackerStats = stats.topIPs.find(ip => ip.ip === attackIP)
+      const attackerStats = stats.topIPs.find((ipStats) => ipStats.ip === attackIP)
       expect(attackerStats).toBeDefined()
       expect(attackerStats?.count).toBeGreaterThanOrEqual(15)
     })
@@ -408,7 +423,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         userAgent: 'Mozilla/5.0 Test Browser'
       })
 
-      const anonymousToken = await UnifiedCSRFProtection.generateAnonymousToken(loginRequest)
+      const anonymousToken = await generateAnonymousToken(loginRequest)
       
       // 2. Validate token on login request
       const loginRequestWithToken = createMockRequest({
@@ -420,12 +435,12 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         }
       })
 
-      const isLoginValid = await UnifiedCSRFProtection.verifyCSRFToken(loginRequestWithToken)
+      const isLoginValid = await verifyCSRFToken(loginRequestWithToken)
       expect(isLoginValid).toBe(true)
 
       // 3. After login, generate authenticated token
       const userId = 'test-user-123'
-      const authenticatedToken = await UnifiedCSRFProtection.generateAuthenticatedToken(userId)
+      const authenticatedToken = await generateAuthenticatedToken(userId)
 
       // 4. Use authenticated token for protected endpoint
       const protectedRequest = createMockRequest({
@@ -440,7 +455,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         }
       })
 
-      const isProtectedValid = await UnifiedCSRFProtection.verifyCSRFToken(protectedRequest)
+      const isProtectedValid = await verifyCSRFToken(protectedRequest)
       expect(isProtectedValid).toBe(true)
     })
 
@@ -452,7 +467,7 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         userAgent: 'Mozilla/5.0 Test Browser'
       })
 
-      const anonymousToken = await UnifiedCSRFProtection.generateAnonymousToken(request)
+      const anonymousToken = await generateAnonymousToken(request)
       
       // 2. Try to use anonymous token on protected endpoint (should fail)
       const protectedRequest = createMockRequest({
@@ -467,11 +482,12 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
         }
       })
 
-      const isValid = await UnifiedCSRFProtection.verifyCSRFToken(protectedRequest)
+      const isValid = await verifyCSRFToken(protectedRequest)
       expect(isValid).toBe(false) // Should reject anonymous token on protected endpoint
 
       // Should also record high-severity security event
-      const stats = CSRFSecurityMonitor.getFailureStats()
+      const monitor = getMockCSRFMonitor()
+      const stats = await monitor.getFailureStats()
       expect(stats.totalEvents).toBeGreaterThan(0)
     })
   })

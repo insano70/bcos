@@ -4,7 +4,7 @@
  */
 
 import { rolePermissionCache } from '@/lib/cache/role-permission-cache';
-import { logger } from '@/lib/logger';
+import { log } from '@/lib/logger';
 
 /**
  * Invalidate role permissions cache when role is modified
@@ -16,7 +16,7 @@ export async function invalidateRolePermissions(roleId: string, roleName?: strin
   // Increment role version to invalidate JWTs
   const newVersion = rolePermissionCache.incrementRoleVersion(roleId);
 
-  logger.info('Role permissions invalidated', {
+  log.info('Role permissions invalidated', {
     roleId,
     roleName,
     wasInvalidated,
@@ -31,7 +31,7 @@ export async function invalidateRolePermissions(roleId: string, roleName?: strin
 export async function invalidateAllRolePermissions(): Promise<void> {
   rolePermissionCache.invalidateAll();
 
-  logger.warn('All role permissions cache invalidated', {
+  log.warn('All role permissions cache invalidated', {
     operation: 'invalidateAllRolePermissions',
   });
 }
@@ -47,7 +47,7 @@ export async function invalidateUserTokensWithRole(
   // In a production system, you'd query for users with this role
   // and revoke their tokens. For now, we'll log the intent.
 
-  logger.info('User tokens should be invalidated for role change', {
+  log.info('User tokens should be invalidated for role change', {
     roleId,
     reason,
     note: 'Implementation needed: query users with role and revoke their tokens',
@@ -84,17 +84,15 @@ export async function updateRolePermissionsWithInvalidation(
     // 3. Optional: Invalidate user tokens (forces fresh JWTs)
     await invalidateUserTokensWithRole(roleId, 'permissions_updated');
 
-    logger.info('Role permissions updated with cache invalidation', {
+    log.info('Role permissions updated with cache invalidation', {
       roleId,
       roleName,
       permissionCount: newPermissions.length,
     });
   } catch (error) {
-    logger.error('Failed to update role permissions', {
+    log.error('Failed to update role permissions', error instanceof Error ? error : new Error(String(error)), {
       roleId,
       roleName,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
     });
     throw error;
   }
@@ -115,7 +113,7 @@ export async function warmUpCache(commonRoleIds: string[]): Promise<void> {
     './cached-user-context'
   );
 
-  logger.info('Warming up role permission cache', {
+  log.info('Warming up role permission cache', {
     roleCount: commonRoleIds.length,
   });
 
@@ -123,7 +121,7 @@ export async function warmUpCache(commonRoleIds: string[]): Promise<void> {
   // In a real implementation, you'd load these roles directly
   // For now, we'll just log the intent
 
-  logger.debug('Cache warm-up completed', {
+  log.debug('Cache warm-up completed', {
     roleCount: commonRoleIds.length,
     note: 'Implementation can be enhanced to pre-load specific roles',
   });

@@ -1,7 +1,7 @@
 import { and, count, desc, eq, like } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { chart_categories, chart_definitions, dashboard_charts, users } from '@/lib/db/schema';
-import { createAppLogger } from '@/lib/logger/factory';
+import { log } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
 
@@ -11,12 +11,6 @@ import type { UserContext } from '@/lib/types/rbac';
  */
 
 // Universal logger for RBAC charts service operations
-const rbacChartsLogger = createAppLogger('rbac-charts-service', {
-  component: 'business-logic',
-  feature: 'chart-management',
-  businessIntelligence: true,
-});
-
 export interface CreateChartData {
   chart_name: string;
   chart_description?: string | undefined;
@@ -213,7 +207,7 @@ export class RBACChartsService extends BaseRBACService {
     const chart = charts[0];
     if (!chart || !chart.chart_definitions) {
       // Extra safety: should not happen after length check and join
-      rbacChartsLogger.warn(
+      log.warn(
         'Chart result had length > 0 but first item or chart_definitions was null',
         { chartId }
       );
@@ -258,7 +252,7 @@ export class RBACChartsService extends BaseRBACService {
     const startTime = Date.now();
 
     // Enhanced chart creation logging
-    rbacChartsLogger.info('Chart creation initiated', {
+    log.info('Chart creation initiated', {
       requestingUserId: this.userContext.user_id,
       chartName: chartData.chart_name,
       chartType: chartData.chart_type,
@@ -287,7 +281,7 @@ export class RBACChartsService extends BaseRBACService {
       throw new Error('Failed to create chart');
     }
 
-    rbacChartsLogger.info('Chart created successfully', {
+    log.info('Chart created successfully', {
       chartId: newChart.chart_definition_id,
       chartName: newChart.chart_name,
       chartType: newChart.chart_type,
@@ -314,7 +308,7 @@ export class RBACChartsService extends BaseRBACService {
     const createdChart = createdCharts[0];
     if (!createdChart || !createdChart.chart_definitions) {
       // Extra safety: should not happen after length check
-      rbacChartsLogger.error(
+      log.error(
         'Created chart result had length > 0 but first item or chart_definitions was null'
       );
       throw new Error('Failed to retrieve created chart data');
@@ -393,7 +387,7 @@ export class RBACChartsService extends BaseRBACService {
       throw new Error('Failed to update chart');
     }
 
-    rbacChartsLogger.info('Chart updated successfully', {
+    log.info('Chart updated successfully', {
       chartId: updatedChart.chart_definition_id,
       chartName: updatedChart.chart_name,
       updatedBy: this.userContext.user_id,
@@ -418,7 +412,7 @@ export class RBACChartsService extends BaseRBACService {
     const updatedChartData = updatedCharts[0];
     if (!updatedChartData || !updatedChartData.chart_definitions) {
       // Extra safety: should not happen after length check
-      rbacChartsLogger.error(
+      log.error(
         'Updated chart result had length > 0 but first item or chart_definitions was null'
       );
       throw new Error('Failed to retrieve updated chart data');
@@ -484,7 +478,7 @@ export class RBACChartsService extends BaseRBACService {
       }
     });
 
-    rbacChartsLogger.info('Chart deleted successfully', {
+    log.info('Chart deleted successfully', {
       chartId,
       chartName: existingChart.chart_name,
       deletedBy: this.userContext.user_id,

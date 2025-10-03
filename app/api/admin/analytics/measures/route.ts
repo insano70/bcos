@@ -11,11 +11,7 @@ import {
   ChartRenderContext 
 } from '@/lib/types/analytics';
 import type { UserContext } from '@/lib/types/rbac';
-import { 
-  createAPILogger, 
-  logDBOperation, 
-  logPerformanceMetric 
-} from '@/lib/logger';
+import { log } from '@/lib/logger';
 
 /**
  * Admin Analytics - Measures Data
@@ -23,10 +19,9 @@ import {
  */
 const analyticsHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
   let queryParams: AnalyticsQueryParams | undefined;
-  
-  logger.info('Measures analytics request initiated', {
+
+  log.info('Measures analytics request initiated', {
     requestingUserId: userContext.user_id,
     isSuperAdmin: userContext.is_super_admin
   });
@@ -36,10 +31,10 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     // Health check for analytics database
     const healthStart = Date.now();
     const healthCheck = await checkAnalyticsDbHealth();
-    logPerformanceMetric(logger, 'analytics_db_health_check', Date.now() - healthStart);
-    
+    log.info('Analytics DB health check completed', { duration: Date.now() - healthStart });
+
     if (!healthCheck.isHealthy) {
-      logger.error('Analytics database health check failed', { error: healthCheck.error });
+      log.error('Analytics database health check failed', new Error(healthCheck.error || 'Unknown error'));
       
       // Provide helpful error message for configuration issues
       if (healthCheck.error?.includes('not configured')) {
@@ -120,7 +115,7 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
       return createErrorResponse('Invalid end_date format', 400);
     }
 
-    logger.debug('Analytics query parameters parsed', queryParams as Record<string, unknown>);
+    log.info('Analytics query parameters parsed', queryParams as Record<string, unknown>);
 
     // Build chart render context from user context
     // TODO: This should be enhanced with actual user permissions
@@ -135,12 +130,12 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     // Execute analytics query
     const queryStart = Date.now();
     const result = await analyticsQueryBuilder.queryMeasures(queryParams, chartContext);
-    logPerformanceMetric(logger, 'analytics_query_execution', Date.now() - queryStart);
+    log.info('Analytics query execution completed', { duration: Date.now() - queryStart });
 
     // Log successful operation
-    logDBOperation(logger, 'analytics_measures_query', 'ih.gr_app_measures', startTime, result.data.length);
+    log.db('SELECT', 'ih.gr_app_measures', Date.now() - startTime, { rowCount: result.data.length });
 
-    logger.info('Analytics measures request completed successfully', {
+    log.info('Analytics measures request completed successfully', {
       resultCount: result.data.length,
       totalCount: result.total_count,
       queryTimeMs: result.query_time_ms,
@@ -164,19 +159,17 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     };
 
     return createSuccessResponse(analytics, 'Measures analytics retrieved successfully');
-    
+
   } catch (error) {
-    logger.error('Measures analytics error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+    log.error('Measures analytics error', error, {
       queryParams,
       requestingUserId: userContext.user_id
     });
-    
-    logPerformanceMetric(logger, 'analytics_request_failed', Date.now() - startTime);
+
+    log.info('Analytics request failed', { duration: Date.now() - startTime });
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   } finally {
-    logPerformanceMetric(logger, 'measures_analytics_total', Date.now() - startTime);
+    log.info('Measures analytics total', { duration: Date.now() - startTime });
   }
 };
 

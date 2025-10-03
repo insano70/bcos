@@ -1,4 +1,4 @@
-import { TokenManager } from '@/lib/auth/token-manager';
+import { validateAccessToken } from '@/lib/auth/token-manager';
 import { AuthenticationError } from '../responses/error';
 
 /**
@@ -19,7 +19,7 @@ export async function requireFreshAuth(
   const accessToken = authHeader.slice(7);
 
   // Validate access token
-  const payload = await TokenManager.validateAccessToken(accessToken);
+  const payload = await validateAccessToken(accessToken);
   if (!payload) {
     throw AuthenticationError('Invalid access token');
   }

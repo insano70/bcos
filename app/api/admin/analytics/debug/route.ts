@@ -5,7 +5,7 @@ import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { checkAnalyticsDbHealth } from '@/lib/services/analytics-db';
 import { getAnalyticsDatabaseConfig } from '@/lib/env';
 import type { UserContext } from '@/lib/types/rbac';
-import { createAPILogger, logPerformanceMetric } from '@/lib/logger';
+import { log } from '@/lib/logger';
 
 /**
  * Admin Analytics Debug Endpoint
@@ -13,9 +13,8 @@ import { createAPILogger, logPerformanceMetric } from '@/lib/logger';
  */
 const debugHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
-  logger.info('Analytics debug request initiated', {
+
+  log.info('Analytics debug request initiated', {
     requestingUserId: userContext.user_id,
     isSuperAdmin: userContext.is_super_admin
   });
@@ -24,10 +23,10 @@ const debugHandler = async (request: NextRequest, userContext: UserContext) => {
     // Check environment configuration
     const config = getAnalyticsDatabaseConfig();
     const hasAnalyticsUrl = !!config.url;
-    
+
     // Perform health check
     const healthCheck = await checkAnalyticsDbHealth();
-    
+
     const diagnostics = {
       environment: {
         hasAnalyticsUrl,
@@ -47,21 +46,19 @@ const debugHandler = async (request: NextRequest, userContext: UserContext) => {
       timestamp: new Date().toISOString(),
     };
 
-    logger.info('Analytics debug completed', diagnostics);
+    log.info('Analytics debug completed', diagnostics);
 
     return createSuccessResponse(diagnostics, 'Analytics diagnostics retrieved successfully');
-    
+
   } catch (error) {
-    logger.error('Analytics debug error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+    log.error('Analytics debug error', error, {
       requestingUserId: userContext.user_id
     });
-    
-    logPerformanceMetric(logger, 'analytics_debug_failed', Date.now() - startTime);
+
+    log.info('Analytics debug failed', { duration: Date.now() - startTime });
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   } finally {
-    logPerformanceMetric(logger, 'analytics_debug_total', Date.now() - startTime);
+    log.info('Analytics debug total', { duration: Date.now() - startTime });
   }
 };
 

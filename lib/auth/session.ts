@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { db, users } from '@/lib/db';
-import { TokenManager } from './token-manager';
+import { validateAccessToken } from './token-manager';
 
 /**
  * Updated session utilities for JWT + Refresh Token strategy
@@ -9,7 +9,7 @@ import { TokenManager } from './token-manager';
 
 export async function getCurrentUserFromToken(accessToken: string) {
   try {
-    const payload = await TokenManager.validateAccessToken(accessToken);
+    const payload = await validateAccessToken(accessToken);
     if (!payload) return null;
 
     const userId = payload.sub as string;

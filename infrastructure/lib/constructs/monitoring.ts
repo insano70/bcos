@@ -311,6 +311,114 @@ export class Monitoring extends Construct {
       comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
       evaluationPeriods: 2,
     });
+
+    // Security events metric filter
+    const securityEventsFilter = new logs.MetricFilter(this, 'SecurityEventsFilter', {
+      logGroup: logGroup,
+      metricNamespace: `BCOS/${environment}`,
+      metricName: 'SecurityEvents',
+      metricValue: '1',
+      filterPattern: logs.FilterPattern.anyTerm(
+        'component="security"',
+        'security_breach',
+        'csrf_failed',
+        'injection_attempt',
+        'suspicious_activity'
+      ),
+      defaultValue: 0,
+    });
+
+    // Security events alarm - Alert on ANY security event
+    createLogAlarmWithAction('App-SecurityEvents', {
+      alarmName: `BCOS-${environment}-App-SecurityEvents`,
+      alarmDescription: `Security events detected for ${environment}`,
+      metric: securityEventsFilter.metric({
+        statistic: 'Sum',
+        period: cdk.Duration.minutes(5),
+      }),
+      threshold: 1, // Alert on ANY security event
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      evaluationPeriods: 1, // Immediate alert
+    });
+
+    // Authentication failures metric filter
+    const authFailuresFilter = new logs.MetricFilter(this, 'AuthFailuresFilter', {
+      logGroup: logGroup,
+      metricNamespace: `BCOS/${environment}`,
+      metricName: 'AuthenticationFailures',
+      metricValue: '1',
+      filterPattern: logs.FilterPattern.literal('[..., component="auth", success=false, ...]'),
+      defaultValue: 0,
+    });
+
+    // Authentication failures alarm
+    createLogAlarmWithAction('App-AuthFailures', {
+      alarmName: `BCOS-${environment}-App-AuthFailures`,
+      alarmDescription: `High authentication failure rate for ${environment}`,
+      metric: authFailuresFilter.metric({
+        statistic: 'Sum',
+        period: cdk.Duration.minutes(5),
+      }),
+      threshold: environment === 'production' ? 10 : 20,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      evaluationPeriods: 2,
+    });
+
+    // Database errors metric filter
+    const databaseErrorsFilter = new logs.MetricFilter(this, 'DatabaseErrorsFilter', {
+      logGroup: logGroup,
+      metricNamespace: `BCOS/${environment}`,
+      metricName: 'DatabaseErrors',
+      metricValue: '1',
+      filterPattern: logs.FilterPattern.anyTerm(
+        'component="db"',
+        'database error',
+        'connection failed',
+        'query timeout',
+        'deadlock'
+      ),
+      defaultValue: 0,
+    });
+
+    // Database errors alarm
+    createLogAlarmWithAction('App-DatabaseErrors', {
+      alarmName: `BCOS-${environment}-App-DatabaseErrors`,
+      alarmDescription: `High database error rate for ${environment}`,
+      metric: databaseErrorsFilter.metric({
+        statistic: 'Sum',
+        period: cdk.Duration.minutes(5),
+      }),
+      threshold: environment === 'production' ? 5 : 10,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      evaluationPeriods: 2,
+    });
+
+    // RBAC permission denials metric filter
+    const rbacDenialsFilter = new logs.MetricFilter(this, 'RBACDenialsFilter', {
+      logGroup: logGroup,
+      metricNamespace: `BCOS/${environment}`,
+      metricName: 'PermissionDenials',
+      metricValue: '1',
+      filterPattern: logs.FilterPattern.anyTerm(
+        'event="rbac_permission_denied"',
+        'permission_denied',
+        'insufficient_permissions'
+      ),
+      defaultValue: 0,
+    });
+
+    // RBAC permission denials alarm
+    createLogAlarmWithAction('App-PermissionDenials', {
+      alarmName: `BCOS-${environment}-App-PermissionDenials`,
+      alarmDescription: `High RBAC permission denial rate for ${environment}`,
+      metric: rbacDenialsFilter.metric({
+        statistic: 'Sum',
+        period: cdk.Duration.minutes(5),
+      }),
+      threshold: environment === 'production' ? 20 : 40,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      evaluationPeriods: 2,
+    });
   }
 
   private addDashboardWidgets(
@@ -390,6 +498,56 @@ export class Monitoring extends Construct {
             namespace: `BCOS/${environment}`,
             metricName: 'ErrorCount',
             statistic: 'Sum',
+          }),
+        ],
+        width: 12,
+      })
+    );
+
+    // Security & Auth Events Widget
+    this.dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: `Security & Authentication Events - ${environment}`,
+        left: [
+          new cloudwatch.Metric({
+            namespace: `BCOS/${environment}`,
+            metricName: 'SecurityEvents',
+            statistic: 'Sum',
+            label: 'Security Events',
+            color: '#d13212', // Red for security
+          }),
+          new cloudwatch.Metric({
+            namespace: `BCOS/${environment}`,
+            metricName: 'AuthenticationFailures',
+            statistic: 'Sum',
+            label: 'Auth Failures',
+            color: '#ff9900', // Orange for auth
+          }),
+        ],
+        right: [
+          new cloudwatch.Metric({
+            namespace: `BCOS/${environment}`,
+            metricName: 'PermissionDenials',
+            statistic: 'Sum',
+            label: 'Permission Denials',
+            color: '#1f77b4', // Blue for RBAC
+          }),
+        ],
+        width: 12,
+      })
+    );
+
+    // Database Health Widget
+    this.dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: `Database Health - ${environment}`,
+        left: [
+          new cloudwatch.Metric({
+            namespace: `BCOS/${environment}`,
+            metricName: 'DatabaseErrors',
+            statistic: 'Sum',
+            label: 'Database Errors',
+            color: '#d62728', // Red for errors
           }),
         ],
         width: 12,

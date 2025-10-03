@@ -1,4 +1,4 @@
-import { logger } from '@/lib/logger';
+import { log } from '@/lib/logger';
 import type {
   AggAppMeasure,
   AnalyticsQueryParams,
@@ -41,7 +41,7 @@ const ALLOWED_OPERATORS = {
  * Secure Query Builder Class
  */
 export class AnalyticsQueryBuilder {
-  private logger = logger;
+  private log = log;
 
   /**
    * Validate table name against database configuration
@@ -239,7 +239,7 @@ export class AnalyticsQueryBuilder {
 
       return result && result.length > 0 ? result[0]?.column_name || null : null;
     } catch (error) {
-      this.logger.warn('Failed to get measure type column', { dataSourceId, error });
+      this.log.warn('Failed to get measure type column', { dataSourceId, error });
       return null;
     }
   }
@@ -262,7 +262,7 @@ export class AnalyticsQueryBuilder {
       // Check cache first
       const cachedResult = analyticsCache.get(params, context.user_id);
       if (cachedResult) {
-        this.logger.info('Analytics query served from cache', {
+        this.log.info('Analytics query served from cache', {
           params,
           userId: context.user_id,
           cacheAge:
@@ -276,7 +276,7 @@ export class AnalyticsQueryBuilder {
         return cachedResult;
       }
 
-      this.logger.info('Building analytics query', {
+      this.log.info('Building analytics query', {
         params: { ...params, limit: params.limit || 1000 },
         userId: context.user_id,
         contextPractices: context.accessible_practices,
@@ -436,7 +436,7 @@ export class AnalyticsQueryBuilder {
       // Cache the result
       analyticsCache.set(params, context.user_id, result);
 
-      this.logger.info('Analytics query completed', {
+      this.log.info('Analytics query completed', {
         queryTime,
         resultCount: data.length,
         totalCount,
@@ -447,7 +447,7 @@ export class AnalyticsQueryBuilder {
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error('Analytics query failed', {
+      this.log.error('Analytics query failed', {
         error: errorMessage,
         params,
         userId: context.user_id,
@@ -470,7 +470,7 @@ export class AnalyticsQueryBuilder {
       throw new Error('Multiple series configuration is required');
     }
 
-    this.logger.info('Building efficient multiple series analytics query', {
+    this.log.info('Building efficient multiple series analytics query', {
       seriesCount: params.multiple_series.length,
       measures: params.multiple_series.map((s) => s.measure),
       userId: context.user_id,
@@ -602,7 +602,7 @@ export class AnalyticsQueryBuilder {
       cache_hit: false, // Multiple series queries are not cached yet
     };
 
-    this.logger.info('Efficient multiple series query completed', {
+    this.log.info('Efficient multiple series query completed', {
       seriesCount: params.multiple_series.length,
       totalRecords: enhancedData.length,
       queryTime: result.query_time_ms,

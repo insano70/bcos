@@ -1,93 +1,38 @@
 /**
- * Centralized Logging System
- * Export all logging functionality from a single entry point
+ * BendCare OS Logging System
+ *
+ * Simplified, production-ready logging with automatic context capture.
+ *
+ * USAGE:
+ * import { log } from '@/lib/logger';
+ *
+ * Available methods:
+ * - log.info(message, context?)
+ * - log.warn(message, context?)
+ * - log.error(message, error?, context?)
+ * - log.debug(message, context?)
+ * - log.auth(action, success, context?)
+ * - log.security(event, severity, context?)
+ * - log.api(message, request, statusCode?, duration?)
+ * - log.db(operation, table, duration?, context?)
+ * - log.timing(message, startTime, context?)
+ *
+ * Correlation utilities:
+ * - correlation.generate() - Generate new correlation ID
+ * - correlation.current() - Get current correlation ID
+ * - correlation.withContext(id, metadata, fn) - Run function with correlation context
+ * - correlation.addMetadata(metadata) - Add metadata to current context
+ * - correlation.setUser(userId, orgId?) - Set user in current context
  */
 
-// Core structured logger (simplified)
-export {
-  createAppLogger,
-  logger,
-  loggers,
-} from './factory';
+// Simplified logger - automatic stack traces, file:line:function capture, correlation tracking
+export { log, correlation } from './logger';
 
-export type { LogContext } from './universal-logger';
+// Backward compatibility alias
+export { log as logger } from './logger';
 
-// Simplified log levels
-export const LOG_LEVELS = {
-  debug: 3,
-  info: 2,
-  warn: 1,
-  error: 0,
-};
-
-// Audit logging services
+// Audit logging service
 export { AuditLogger } from '../api/services/audit';
-// API-specific logging
-export {
-  createAPILogger,
-  logAPIAuth,
-  logAPIRequest,
-  logAPIResponse,
-  logDBOperation,
-  logPerformanceMetric,
-  logRateLimit,
-  logSecurityEvent,
-  logValidationError,
-} from './api-logger';
-export { BufferedAuditLogger } from './audit-optimizer';
-// Correlation and tracing
-export {
-  type CorrelationContext,
-  CorrelationContextManager,
-  CorrelationHeaders,
-  CorrelationHelpers,
-  CorrelationIdGenerator,
-  withBackgroundJobCorrelation,
-  withCorrelation,
-  withDBCorrelation,
-  withExternalAPICorrelation,
-  withScheduledTaskCorrelation,
-} from './correlation';
-// Database monitoring
-export {
-  logDBConnection,
-  logDBHealth,
-  logDBTransaction,
-  logSlowQuery,
-  withDBLogging,
-} from './db-wrapper';
-// Error handling
-export {
-  AuthenticationError,
-  AuthorizationError,
-  ConflictError,
-  ContextualError,
-  createErrorHandler,
-  createRateLimitError,
-  createValidationError,
-  DatabaseError,
-  handleError,
-  NotFoundError,
-  RateLimitError,
-  ValidationError,
-  withDBErrorHandling,
-  withErrorHandling,
-} from './error-handler';
-// Metrics and monitoring
-export {
-  PerformanceAggregator,
-  performanceAggregator,
-  RequestMetricsCollector,
-  requestMetrics,
-  withRequestMetrics,
-} from './metrics';
-// Middleware functions
-export {
-  withLogging,
-  withPerformanceLogging,
-  withRBACLogging,
-} from './middleware';
 
-// Default exports for common use cases (simplified)
-import { logger as defaultLogger } from './factory';
-export default defaultLogger;
+// Default export
+export { log as default } from './logger';

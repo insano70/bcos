@@ -11,45 +11,27 @@ import type { UserContext } from '@/lib/types/rbac';
 import { db } from '@/lib/db';
 import { user_roles } from '@/lib/db/rbac-schema';
 import { eq } from 'drizzle-orm';
-import { 
-  logDBOperation, 
-  logPerformanceMetric,
-  logValidationError 
-} from '@/lib/logger';
-import { createAPILogger } from '@/lib/logger/api-features';
+import { log } from '@/lib/logger';
 
 const getUsersHandler = async (request: NextRequest, userContext: UserContext) => {
     const startTime = Date.now()
-    
-    // Create enhanced API logger for user management
-    const apiLogger = createAPILogger(request, 'user-management')
-    const logger = apiLogger.getLogger()
-    
-    // Enhanced user list request logging - permanently enabled
-    apiLogger.logRequest({
-      authType: 'session',
-      userId: userContext.user_id,
-      ...(userContext.current_organization_id && { organizationId: userContext.current_organization_id })
-    })
-    
-    // Business intelligence for user management
-    apiLogger.getLogger().debug('User management analytics', {
+
+    log.info('List users request initiated', {
       operation: 'list_users',
-      requestingUserRole: userContext.roles?.[0]?.name || 'unknown',
-      isSuperAdmin: userContext.is_super_admin,
-      organizationScope: userContext.current_organization_id
+      requestingUserId: userContext.user_id,
+      isSuperAdmin: userContext.is_super_admin
     })
 
     try {
       const { searchParams } = new URL(request.url)
-      
+
       const validationStart = Date.now()
       const pagination = getPagination(searchParams)
       const sort = getSortParams(searchParams, ['first_name', 'last_name', 'email', 'created_at'])
       const query = validateQuery(searchParams, userQuerySchema)
-      logPerformanceMetric(logger, 'request_validation', Date.now() - validationStart)
-      
-      logger.debug('Request parameters parsed', {
+      log.info('Request validation completed', { duration: Date.now() - validationStart })
+
+      log.info('Request parameters parsed', {
         pagination,
         sort,
         search: query.search ? '[FILTERED]' : undefined,
@@ -62,8 +44,8 @@ const getUsersHandler = async (request: NextRequest, userContext: UserContext) =
       // Create RBAC users service
       const serviceStart = Date.now()
       const usersService = createRBACUsersService(userContext)
-      logPerformanceMetric(logger, 'rbac_service_creation', Date.now() - serviceStart)
-      
+      log.info('RBAC service created', { duration: Date.now() - serviceStart })
+
       // Get users with automatic permission-based filtering
       const usersStart = Date.now()
       const users = await usersService.getUsers({
@@ -73,12 +55,12 @@ const getUsersHandler = async (request: NextRequest, userContext: UserContext) =
         limit: pagination.limit,
         offset: pagination.offset
       })
-      logDBOperation(logger, 'SELECT', 'users', usersStart, users.length)
+      log.db('SELECT', 'users', Date.now() - usersStart, { rowCount: users.length })
 
       // Get total count
       const countStart = Date.now()
       const totalCount = await usersService.getUserCount()
-      logDBOperation(logger, 'COUNT', 'users', countStart, 1)
+      log.db('SELECT', 'users_count', Date.now() - countStart, { rowCount: 1 })
 
       const responseData = users.map(user => ({
         id: user.user_id,
@@ -93,16 +75,11 @@ const getUsersHandler = async (request: NextRequest, userContext: UserContext) =
       }))
 
       const totalDuration = Date.now() - startTime
-      logger.info('Users list retrieved successfully', {
+      log.info('Users list retrieved successfully', {
         usersReturned: users.length,
         totalCount,
         page: pagination.page,
         totalDuration
-      })
-
-      logPerformanceMetric(logger, 'users_list_total', totalDuration, {
-        usersReturned: users.length,
-        success: true
       })
 
       return createPaginatedResponse(
@@ -116,17 +93,11 @@ const getUsersHandler = async (request: NextRequest, userContext: UserContext) =
       
     } catch (error) {
       const totalDuration = Date.now() - startTime
-      
-      logger.error('Users list request failed', error, {
+
+      log.error('Users list request failed', error, {
         requestingUserId: userContext.user_id,
         organizationId: userContext.current_organization_id,
-        totalDuration,
-        errorType: error instanceof Error ? error.constructor.name : typeof error
-      })
-
-      logPerformanceMetric(logger, 'users_list_total', totalDuration, {
-        success: false,
-        errorType: error instanceof Error ? error.name : 'unknown'
+        totalDuration
       })
 
       return createErrorResponse(
@@ -150,10 +121,8 @@ export const GET = rbacRoute(
 
 const createUserHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now()
-  const apiLogger = createAPILogger(request, 'user-management')
-  const logger = apiLogger.getLogger()
-  
-  logger.info('User creation request initiated', {
+
+  log.info('User creation request initiated', {
     createdByUserId: userContext.user_id,
     organizationId: userContext.current_organization_id
   })
@@ -162,9 +131,9 @@ const createUserHandler = async (request: NextRequest, userContext: UserContext)
     const validationStart = Date.now()
     const validatedData = await validateRequest(request, userCreateSchema)
     const { email, password, first_name, last_name, email_verified, is_active, role_ids } = validatedData
-    logPerformanceMetric(logger, 'request_validation', Date.now() - validationStart)
+    log.info('Request validation completed', { duration: Date.now() - validationStart })
 
-    logger.debug('User creation data validated', {
+    log.info('User creation data validated', {
       email: email.replace(/(.{2}).*@/, '$1***@'), // Mask email
       first_name,
       last_name,
@@ -176,7 +145,7 @@ const createUserHandler = async (request: NextRequest, userContext: UserContext)
     // Create RBAC users service
     const serviceStart = Date.now()
     const usersService = createRBACUsersService(userContext)
-    logPerformanceMetric(logger, 'rbac_service_creation', Date.now() - serviceStart)
+    log.info('RBAC service created', { duration: Date.now() - serviceStart })
 
     // Create user with automatic permission checking
     const userCreationStart = Date.now()
@@ -189,9 +158,9 @@ const createUserHandler = async (request: NextRequest, userContext: UserContext)
       email_verified: email_verified || false,
       is_active: is_active || true
     })
-    logDBOperation(logger, 'INSERT', 'users', userCreationStart, 1)
+    log.db('INSERT', 'users', Date.now() - userCreationStart, { rowCount: 1 })
 
-    logger.info('User created successfully', {
+    log.info('User created successfully', {
       newUserId: newUser.user_id,
       userEmail: email.replace(/(.{2}).*@/, '$1***@'),
       createdByUserId: userContext.user_id
@@ -200,8 +169,8 @@ const createUserHandler = async (request: NextRequest, userContext: UserContext)
     // Assign roles to the user if provided
     if (role_ids && role_ids.length > 0) {
       const roleAssignmentStart = Date.now()
-      
-      logger.debug('Assigning roles to new user', {
+
+      log.info('Assigning roles to new user', {
         newUserId: newUser.user_id,
         roleIds: role_ids,
         roleCount: role_ids.length
@@ -217,24 +186,19 @@ const createUserHandler = async (request: NextRequest, userContext: UserContext)
       }))
 
       await db.insert(user_roles).values(roleAssignments)
-      logDBOperation(logger, 'INSERT', 'user_roles', roleAssignmentStart, role_ids.length)
+      log.db('INSERT', 'user_roles', Date.now() - roleAssignmentStart, { rowCount: role_ids.length })
 
-      logger.info('Roles assigned to new user', {
+      log.info('Roles assigned to new user', {
         newUserId: newUser.user_id,
         rolesAssigned: role_ids.length
       })
     }
 
     const totalDuration = Date.now() - startTime
-    logger.info('User creation completed successfully', {
+    log.info('User creation completed successfully', {
       newUserId: newUser.user_id,
       rolesAssigned: role_ids?.length || 0,
       totalDuration
-    })
-
-    logPerformanceMetric(logger, 'user_creation_total', totalDuration, {
-      success: true,
-      rolesAssigned: role_ids?.length || 0
     })
 
     return createSuccessResponse({
@@ -251,22 +215,11 @@ const createUserHandler = async (request: NextRequest, userContext: UserContext)
 
   } catch (error) {
     const totalDuration = Date.now() - startTime
-    
-    logger.error('User creation failed', error, {
+
+    log.error('User creation failed', error, {
       createdByUserId: userContext.user_id,
       organizationId: userContext.current_organization_id,
-      totalDuration,
-      errorType: error instanceof Error ? error.constructor.name : typeof error
-    })
-
-    // Log validation errors specifically
-    if (error instanceof Error && error.name === 'ValidationError') {
-      logValidationError(logger, 'user_creation', error.message, error.message)
-    }
-
-    logPerformanceMetric(logger, 'user_creation_total', totalDuration, {
-      success: false,
-      errorType: error instanceof Error ? error.name : 'unknown'
+      totalDuration
     })
 
     return createErrorResponse(

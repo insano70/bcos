@@ -4,7 +4,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { chartConfigService } from '@/lib/services/chart-config-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { createAPILogger, logPerformanceMetric } from '@/lib/logger';
+import { log } from '@/lib/logger';
 
 /**
  * Admin Analytics - Data Source Configuration API
@@ -12,9 +12,8 @@ import { createAPILogger, logPerformanceMetric } from '@/lib/logger';
  */
 const dataSourceConfigHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
-  logger.info('Data source configuration request initiated', {
+
+  log.info('Data source configuration request initiated', {
     requestingUserId: userContext.user_id
   });
 
@@ -60,16 +59,15 @@ const dataSourceConfigHandler = async (request: NextRequest, userContext: UserCo
       }
     };
 
-    logPerformanceMetric(logger, 'data_source_config_load', Date.now() - startTime);
+    log.info('Data source config loaded', { duration: Date.now() - startTime });
 
     return createSuccessResponse(configData, 'Data source configuration retrieved successfully');
-    
+
   } catch (error) {
-    logger.error('Data source configuration error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+    log.error('Data source configuration error', error, {
       requestingUserId: userContext.user_id
     });
-    
+
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   }
 };

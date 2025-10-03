@@ -1,4 +1,4 @@
-import { logger } from '@/lib/logger';
+import { log } from '@/lib/logger';
 import type {
   AnalyticsQueryResult,
   ChartDefinition,
@@ -28,7 +28,7 @@ export class ChartExecutor {
       throw new Error(`Invalid chart definition: ${validation.errors.join(', ')}`);
     }
 
-    logger.info('Executing chart definition', {
+    log.info('Executing chart definition', {
       chartId: chartDefinition.chart_definition_id,
       chartName: chartDefinition.chart_name,
       chartType: chartDefinition.chart_type,
@@ -42,7 +42,7 @@ export class ChartExecutor {
       // Execute the query using the analytics query builder
       const result = await analyticsQueryBuilder.queryMeasures(queryParams, context);
 
-      logger.info('Chart definition executed successfully', {
+      log.info('Chart definition executed successfully', {
         chartId: chartDefinition.chart_definition_id,
         resultCount: result.data.length,
         queryTime: result.query_time_ms,
@@ -50,7 +50,7 @@ export class ChartExecutor {
 
       return result;
     } catch (error) {
-      logger.error('Chart definition execution failed', {
+      log.error('Chart definition execution failed', {
         chartId: chartDefinition.chart_definition_id,
         error: error instanceof Error ? error.message : 'Unknown error',
         userId: context.user_id,
@@ -118,14 +118,14 @@ export class ChartExecutor {
     try {
       // This would fetch from the database - simplified for now
       // In a real implementation, this would use the chart definitions CRUD API
-      logger.info('Fetching chart definition', { chartDefinitionId });
+      log.info('Fetching chart definition', { chartDefinitionId });
 
       // TODO: Implement actual database fetch
       // const [chart] = await db.select().from(chart_definitions).where(eq(chart_definitions.chart_definition_id, chartDefinitionId));
 
       return null; // Placeholder
     } catch (error) {
-      logger.error('Failed to fetch chart definition', {
+      log.error('Failed to fetch chart definition', {
         chartDefinitionId,
         error: error instanceof Error ? error.message : 'Unknown error',
       });

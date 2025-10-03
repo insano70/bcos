@@ -7,7 +7,7 @@ import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { chartDefinitionUpdateSchema, chartDefinitionParamsSchema } from '@/lib/validations/analytics';
 import type { UserContext } from '@/lib/types/rbac';
-import { createAPILogger, logDBOperation, logPerformanceMetric } from '@/lib/logger';
+import { log } from '@/lib/logger';
 
 /**
  * Admin Analytics - Individual Chart Definition CRUD
@@ -18,9 +18,8 @@ import { createAPILogger, logDBOperation, logPerformanceMetric } from '@/lib/log
 const getChartHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const { params } = args[0] as { params: { chartId: string } };
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
-  logger.info('Chart definition get request initiated', {
+
+  log.info('Chart definition get request initiated', {
     chartId: params.chartId,
     requestingUserId: userContext.user_id
   });
@@ -38,22 +37,20 @@ const getChartHandler = async (request: NextRequest, userContext: UserContext, .
       return createErrorResponse('Chart definition not found', 404);
     }
 
-    logDBOperation(logger, 'chart_definition_get', 'chart_definitions', startTime, 1);
+    log.db('SELECT', 'chart_definitions', Date.now() - startTime, { rowCount: 1 });
 
     return createSuccessResponse({ chart }, 'Chart definition retrieved successfully');
-    
+
   } catch (error) {
-    logger.error('Chart definition get error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
+    log.error('Chart definition get error', error, {
       chartId: params.chartId,
       requestingUserId: userContext.user_id
     });
-    
-    const errorMessage = process.env.NODE_ENV === 'development' 
+
+    const errorMessage = process.env.NODE_ENV === 'development'
       ? (error instanceof Error ? error.message : 'Unknown error')
       : 'Internal server error';
-    
+
     return createErrorResponse(errorMessage, 500, request);
   }
 };
@@ -62,9 +59,8 @@ const getChartHandler = async (request: NextRequest, userContext: UserContext, .
 const updateChartHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const { params } = args[0] as { params: { chartId: string } };
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
-  logger.info('Chart definition update request initiated', {
+
+  log.info('Chart definition update request initiated', {
     chartId: params.chartId,
     requestingUserId: userContext.user_id
   });
@@ -93,28 +89,26 @@ const updateChartHandler = async (request: NextRequest, userContext: UserContext
       return createErrorResponse('Chart definition not found', 404);
     }
 
-    logDBOperation(logger, 'chart_definition_update', 'chart_definitions', startTime, 1);
+    log.db('UPDATE', 'chart_definitions', Date.now() - startTime, { rowCount: 1 });
 
-    logger.info('Chart definition updated successfully', {
+    log.info('Chart definition updated successfully', {
       chartId: params.chartId,
       chartName: updatedChart.chart_name,
       updatedBy: userContext.user_id
     });
 
     return createSuccessResponse({ chart: updatedChart }, 'Chart definition updated successfully');
-    
+
   } catch (error) {
-    logger.error('Chart definition update error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
+    log.error('Chart definition update error', error, {
       chartId: params.chartId,
       requestingUserId: userContext.user_id
     });
-    
-    const errorMessage = process.env.NODE_ENV === 'development' 
+
+    const errorMessage = process.env.NODE_ENV === 'development'
       ? (error instanceof Error ? error.message : 'Unknown error')
       : 'Internal server error';
-    
+
     return createErrorResponse(errorMessage, 500, request);
   }
 };
@@ -123,9 +117,8 @@ const updateChartHandler = async (request: NextRequest, userContext: UserContext
 const deleteChartHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const { params } = args[0] as { params: { chartId: string } };
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
-  logger.info('Chart definition delete request initiated', {
+
+  log.info('Chart definition delete request initiated', {
     chartId: params.chartId,
     requestingUserId: userContext.user_id
   });
@@ -145,30 +138,28 @@ const deleteChartHandler = async (request: NextRequest, userContext: UserContext
       return createErrorResponse('Chart definition not found', 404);
     }
 
-    logDBOperation(logger, 'chart_definition_delete', 'chart_definitions', startTime, 1);
+    log.db('UPDATE', 'chart_definitions', Date.now() - startTime, { rowCount: 1 });
 
-    logger.info('Chart definition deleted successfully', {
+    log.info('Chart definition deleted successfully', {
       chartId: params.chartId,
       chartName: deletedChart.chart_name,
       deletedBy: userContext.user_id
     });
 
-    return createSuccessResponse({ 
-      message: `Chart "${deletedChart.chart_name}" deleted successfully` 
+    return createSuccessResponse({
+      message: `Chart "${deletedChart.chart_name}" deleted successfully`
     }, 'Chart definition deleted successfully');
-    
+
   } catch (error) {
-    logger.error('Chart definition delete error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
+    log.error('Chart definition delete error', error, {
       chartId: params.chartId,
       requestingUserId: userContext.user_id
     });
-    
-    const errorMessage = process.env.NODE_ENV === 'development' 
+
+    const errorMessage = process.env.NODE_ENV === 'development'
       ? (error instanceof Error ? error.message : 'Unknown error')
       : 'Internal server error';
-    
+
     return createErrorResponse(errorMessage, 500, request);
   }
 };

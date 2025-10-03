@@ -1,21 +1,13 @@
 import { and, count, desc, eq, gte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { AccountSecurity } from '@/lib/auth/security';
-import { db, login_attempts, user_sessions } from '@/lib/db';
-import { logger } from '@/lib/logger';
-import { createAppLogger } from '@/lib/logger/factory';
+import { account_security, db, login_attempts, user_sessions } from '@/lib/db';
+import { log } from '@/lib/logger';
 import { AuditLogger } from './audit';
 
 /**
  * Enterprise Session Management Service
  * Handles advanced session tracking, device management, and security
  */
-
-// Universal logger for session management
-const sessionLogger = createAppLogger('session-service', {
-  component: 'authentication',
-  feature: 'session-management',
-});
 
 // Helper function for device type detection
 function getDeviceType(userAgent?: string): string {
@@ -65,7 +57,7 @@ export async function createSession(
   const now = new Date();
 
   // Enhanced session creation logging - permanently enabled
-  sessionLogger.info('Session creation initiated', {
+  log.info('Session creation initiated', {
     userId,
     deviceFingerprint: deviceInfo.fingerprint,
     deviceName: deviceInfo.deviceName,
@@ -82,7 +74,7 @@ export async function createSession(
   await enforceConcurrentSessionLimits(userId);
 
   // Enhanced logging permanently enabled
-  sessionLogger.timing('Session limit enforcement completed', sessionLimitStart, {
+  log.timing('Session limit enforcement completed', sessionLimitStart, {
     userId,
     operation: 'concurrent_session_check',
   });
@@ -144,7 +136,7 @@ export async function createSession(
 
   // Enhanced session creation success logging - permanently enabled
   // Session lifecycle logging
-  sessionLogger.info('Session created successfully', {
+  log.info('Session created successfully', {
     sessionId,
     userId,
     sessionType: rememberMe ? 'persistent' : 'temporary',
@@ -154,7 +146,7 @@ export async function createSession(
   });
 
   // Business intelligence for session analytics
-  sessionLogger.debug('Session analytics', {
+  log.debug('Session analytics', {
     sessionCreationType: 'authentication_success',
     deviceType: getDeviceType(deviceInfo.userAgent),
     sessionDuration: rememberMe ? '30_days' : '24_hours',
@@ -163,7 +155,7 @@ export async function createSession(
   });
 
   // Security monitoring for session creation
-  sessionLogger.security('session_created', 'low', {
+  log.security('session_created', 'low', {
     action: 'session_establishment',
     userId,
     threat: 'none',
@@ -330,33 +322,77 @@ export async function getUserSessions(userId: string): Promise<SessionInfo[]> {
 
 /**
  * Enforce concurrent session limits
+ * Uses SELECT FOR UPDATE on account_security to serialize session creation per user
  */
 async function enforceConcurrentSessionLimits(userId: string): Promise<void> {
-  // Ensure security record exists and get session limit
-  const securitySettings = await AccountSecurity.ensureSecurityRecord(userId);
-  const maxSessions = securitySettings.max_concurrent_sessions;
+  // Use a transaction with FOR UPDATE on account_security to serialize concurrent session creation
+  await db.transaction(async (tx) => {
+    // Lock the security record for this user to prevent race conditions
+    // This ensures only one session can be created at a time per user
+    const [securityRecord] = await tx
+      .select()
+      .from(account_security)
+      .where(eq(account_security.user_id, userId))
+      .for('update');
 
-  // Get current active sessions count
-  const activeCountResult = await db
-    .select({ count: count() })
-    .from(user_sessions)
-    .where(and(eq(user_sessions.user_id, userId), eq(user_sessions.is_active, true)));
-
-  const activeCount = activeCountResult[0]?.count || 0;
-
-  // If at limit, revoke oldest session
-  if (activeCount >= maxSessions) {
-    const oldestSession = await db
-      .select({ sessionId: user_sessions.session_id })
-      .from(user_sessions)
-      .where(and(eq(user_sessions.user_id, userId), eq(user_sessions.is_active, true)))
-      .orderBy(user_sessions.last_activity)
-      .limit(1);
-
-    if (oldestSession.length > 0 && oldestSession[0]) {
-      await revokeSession(oldestSession[0].sessionId, 'concurrent_limit');
+    // If no record exists, create it first (this shouldn't happen often due to ensureSecurityRecord)
+    let maxSessions = 3; // HIPAA-compliant default
+    if (!securityRecord) {
+      const defaults = {
+        user_id: userId,
+        failed_login_attempts: 0,
+        last_failed_attempt: null,
+        locked_until: null,
+        lockout_reason: null,
+        max_concurrent_sessions: 3,
+        require_fresh_auth_minutes: 5,
+        password_changed_at: null,
+        last_password_reset: null,
+        suspicious_activity_detected: false,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+      await tx.insert(account_security).values(defaults);
+    } else {
+      maxSessions = securityRecord.max_concurrent_sessions;
     }
-  }
+
+    // Get current active sessions count (no need for FOR UPDATE here since we locked account_security)
+    const activeSessions = await tx
+      .select({ sessionId: user_sessions.session_id, lastActivity: user_sessions.last_activity })
+      .from(user_sessions)
+      .where(and(eq(user_sessions.user_id, userId), eq(user_sessions.is_active, true)));
+
+    const activeCount = activeSessions.length;
+
+    // If at limit, revoke oldest session(s) to make room
+    if (activeCount >= maxSessions) {
+      // Sort by last_activity to find oldest session
+      const sortedSessions = [...activeSessions].sort((a, b) =>
+        a.lastActivity.getTime() - b.lastActivity.getTime()
+      );
+
+      // Revoke the oldest session
+      const oldestSession = sortedSessions[0];
+      if (oldestSession) {
+        await tx
+          .update(user_sessions)
+          .set({
+            is_active: false,
+            ended_at: new Date(),
+          })
+          .where(eq(user_sessions.session_id, oldestSession.sessionId));
+
+        log.info('Session revoked due to concurrent limit', {
+          userId,
+          revokedSessionId: oldestSession.sessionId,
+          reason: 'concurrent_limit',
+          maxSessions,
+          activeCount,
+        });
+      }
+    }
+  });
 }
 
 /**
@@ -365,9 +401,11 @@ async function enforceConcurrentSessionLimits(userId: string): Promise<void> {
 async function updateDeviceTracking(userId: string, deviceInfo: DeviceInfo): Promise<void> {
   // Device tracking functionality removed - trusted_devices table not implemented
   // This is a placeholder for future device tracking implementation
-  logger.debug('Device tracking initiated', {
+  log.debug('Device tracking initiated', {
     userId,
     fingerprint: deviceInfo.fingerprint,
+    component: 'authentication',
+    feature: 'session-management',
     ipAddress: deviceInfo.ipAddress,
   });
 }
@@ -400,8 +438,10 @@ async function logLoginAttempt(
  */
 export async function cleanupExpiredSessions(): Promise<number> {
   // Sessions don't expire in this schema, so no cleanup needed
-  logger.debug("cleanupExpiredSessions called but sessions don't expire in this schema", {
+  log.debug("cleanupExpiredSessions called but sessions don't expire in this schema", {
     operation: 'cleanupExpiredSessions',
+    component: 'authentication',
+    feature: 'session-management',
   });
   return 0;
 }

@@ -5,7 +5,7 @@ import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { dashboardCreateSchema, dashboardUpdateSchema } from '@/lib/validations/analytics';
 import type { UserContext } from '@/lib/types/rbac';
-import { createAppLogger } from '@/lib/logger/factory';
+import { log } from '@/lib/logger';
 import { createRBACDashboardsService } from '@/lib/services/rbac-dashboards-service';
 
 /**
@@ -15,9 +15,7 @@ import { createRBACDashboardsService } from '@/lib/services/rbac-dashboards-serv
 
 // GET - List all dashboards
 const getDashboardsHandler = async (request: NextRequest, userContext: UserContext) => {
-  const logger = createAppLogger('admin-analytics').withUser(userContext.user_id, userContext.current_organization_id);
-
-  logger.info('Dashboards list request initiated', {
+  log.info('Dashboards list request initiated', {
     requestingUserId: userContext.user_id,
     isSuperAdmin: userContext.is_super_admin
   });
@@ -61,7 +59,7 @@ const getDashboardsHandler = async (request: NextRequest, userContext: UserConte
     }, 'Dashboards retrieved successfully');
 
   } catch (error) {
-    logger.error('Dashboards list error', error, {
+    log.error('Dashboards list error', error, {
       requestingUserId: userContext.user_id
     });
 
@@ -75,9 +73,7 @@ const getDashboardsHandler = async (request: NextRequest, userContext: UserConte
 
 // POST - Create new dashboard
 const createDashboardHandler = async (request: NextRequest, userContext: UserContext) => {
-  const logger = createAppLogger('admin-analytics').withUser(userContext.user_id, userContext.current_organization_id);
-
-  logger.info('Dashboard creation request initiated', {
+  log.info('Dashboard creation request initiated', {
     requestingUserId: userContext.user_id
   });
 
@@ -100,7 +96,7 @@ const createDashboardHandler = async (request: NextRequest, userContext: UserCon
       is_published: validatedData.is_published
     });
 
-    logger.info('Dashboard created successfully', {
+    log.info('Dashboard created successfully', {
       dashboardId: createdDashboard.dashboard_id,
       dashboardName: createdDashboard.dashboard_name,
       chartCount: createdDashboard.chart_count,
@@ -112,7 +108,7 @@ const createDashboardHandler = async (request: NextRequest, userContext: UserCon
     }, 'Dashboard created successfully');
 
   } catch (error) {
-    logger.error('Dashboard creation error', error, {
+    log.error('Dashboard creation error', error, {
       requestingUserId: userContext.user_id
     });
 

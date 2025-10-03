@@ -3,14 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, notFound } from 'next/navigation';
 import { apiClient } from '@/lib/api/client';
-import { createAppLogger } from '@/lib/logger/factory';
+import { log } from '@/lib/logger';
 import DashboardView from '@/components/charts/dashboard-view';
 import type { Dashboard, DashboardChart } from '@/lib/types/analytics';
-
-const logger = createAppLogger('dashboard-view', {
-  component: 'pages',
-  feature: 'dashboard-viewing'
-});
 
 interface DashboardViewData {
   dashboard: Dashboard;
@@ -36,9 +31,11 @@ export default function DashboardViewPage() {
       setLoading(true);
       setError(null);
       
-      logger.info('Loading dashboard for viewing', {
+      log.info('Loading dashboard for viewing', {
         dashboardId,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        component: 'pages',
+        feature: 'dashboard-viewing'
       });
 
       const result = await apiClient.get<{
@@ -60,9 +57,11 @@ export default function DashboardViewPage() {
 
       // Check if dashboard is published
       if (!dashboardData.is_published) {
-        logger.warn('Attempted to view unpublished dashboard', {
+        log.warn('Attempted to view unpublished dashboard', {
           dashboardId,
-          isPublished: dashboardData.is_published
+          isPublished: dashboardData.is_published,
+          component: 'pages',
+          feature: 'dashboard-viewing'
         });
         notFound();
         return;
@@ -75,18 +74,22 @@ export default function DashboardViewPage() {
         charts
       });
 
-      logger.info('Dashboard loaded successfully for viewing', {
+      log.info('Dashboard loaded successfully for viewing', {
         dashboardId,
         dashboardName: dashboardData.dashboard_name,
-        chartCount: charts.length
+        chartCount: charts.length,
+        component: 'pages',
+        feature: 'dashboard-viewing'
       });
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load dashboard';
-      
-      logger.error('Failed to load dashboard for viewing', err, {
+
+      log.error('Failed to load dashboard for viewing', err instanceof Error ? err : new Error(String(err)), {
         dashboardId,
-        operation: 'load-dashboard-view'
+        operation: 'load-dashboard-view',
+        component: 'pages',
+        feature: 'dashboard-viewing'
       });
 
       setError(errorMessage);

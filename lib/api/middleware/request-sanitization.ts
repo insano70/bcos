@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { createAPILogger } from '@/lib/logger/api-features';
+import { log } from '@/lib/logger';
 
 /**
  * Request Sanitization Middleware
@@ -232,7 +232,7 @@ interface SanitizationLogger {
 
 export async function sanitizeRequestBody(
   body: unknown,
-  logger: SanitizationLogger
+  _logger: SanitizationLogger
 ): Promise<SanitizationResult> {
   const startTime = Date.now();
   const errors: string[] = [];
@@ -246,7 +246,7 @@ export async function sanitizeRequestBody(
     // Validate JSON depth
     if (!validateDepth(body)) {
       errors.push('JSON structure too deep (max 10 levels)');
-      logger.warn('JSON depth validation failed', {
+      log.warn('JSON depth validation failed', {
         action: 'request_sanitization',
         threat: 'json_depth_attack',
         maxDepth: 10,
@@ -257,7 +257,7 @@ export async function sanitizeRequestBody(
     // Validate array sizes
     if (!validateArraySizes(body)) {
       errors.push('Array too large (max 1000 items)');
-      logger.warn('Array size validation failed', {
+      log.warn('Array size validation failed', {
         action: 'request_sanitization',
         threat: 'resource_exhaustion_attack',
         maxSize: 1000,
@@ -270,7 +270,7 @@ export async function sanitizeRequestBody(
 
     // Log sanitization performance
     const duration = Date.now() - startTime;
-    logger.debug('Request sanitization completed', {
+    log.debug('Request sanitization completed', {
       duration,
       hasErrors: errors.length > 0,
       errorCount: errors.length,
@@ -282,7 +282,7 @@ export async function sanitizeRequestBody(
       sanitized,
     };
   } catch (error) {
-    logger.error('Request sanitization system error', {
+    log.error('Request sanitization system error', {
       error: error instanceof Error ? error.message : String(error),
       action: 'sanitization_failed',
       threat: 'system_error',
@@ -308,9 +308,6 @@ export function withRequestSanitization<
   } = {}
 ): T {
   return (async (request: NextRequest, ...args: unknown[]) => {
-    const apiLogger = createAPILogger(request, 'request-sanitization');
-    const logger = apiLogger.getLogger();
-
     // Only sanitize for methods that typically have bodies
     if (!['POST', 'PUT', 'PATCH'].includes(request.method)) {
       return handler(request, ...args);
@@ -322,7 +319,7 @@ export function withRequestSanitization<
 
       // Check empty body
       if (!body && !options.allowEmptyBody) {
-        logger.warn('Empty request body received');
+        log.warn('Empty request body received');
         return new Response(JSON.stringify({ error: 'Request body is required' }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' },
@@ -332,20 +329,20 @@ export function withRequestSanitization<
       // Create compatible logger for sanitization function
       const sanitizationLogger = {
         info: (message: string, meta?: unknown) =>
-          logger.info(message, meta as Record<string, unknown>),
+          log.info(message, meta as Record<string, unknown>),
         warn: (message: string, meta?: unknown) =>
-          logger.warn(message, meta as Record<string, unknown>),
+          log.warn(message, meta as Record<string, unknown>),
         error: (message: string, meta?: unknown) =>
-          logger.error(message, undefined, meta as Record<string, unknown>),
+          log.error(message, undefined, meta as Record<string, unknown>),
         debug: (message: string, meta?: unknown) =>
-          logger.debug(message, meta as Record<string, unknown>),
+          log.debug(message, meta as Record<string, unknown>),
       };
 
       // Sanitize the body
       const result = await sanitizeRequestBody(body, sanitizationLogger);
 
       if (!result.isValid) {
-        logger.warn('Request sanitization failed', {
+        log.warn('Request sanitization failed', {
           errors: result.errors,
         });
         return new Response(
@@ -362,7 +359,7 @@ export function withRequestSanitization<
         for (const validator of options.customValidators) {
           const error = validator(result.sanitized);
           if (error) {
-            logger.warn('Custom validation failed', { error });
+            log.warn('Custom validation failed', { error });
             return new Response(JSON.stringify({ error }), {
               status: 400,
               headers: { 'Content-Type': 'application/json' },
@@ -379,7 +376,7 @@ export function withRequestSanitization<
       // Call the original handler with sanitized request
       return handler(sanitizedRequest as NextRequest, ...args);
     } catch (error) {
-      logger.error('Request sanitization middleware error', error);
+      log.error('Request sanitization middleware error', error);
       return new Response(JSON.stringify({ error: 'Internal server error' }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },

@@ -1,14 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { publicRoute } from '@/lib/api/rbac-route-handler'
-import { EmailService } from '@/lib/api/services/email'
+import { emailService } from '@/lib/api/services/email-service-instance'
 import { z } from 'zod'
-import { createAppLogger } from '@/lib/logger/factory'
-
-const contactLogger = createAppLogger('contact-api', {
-  component: 'api',
-  feature: 'contact-form',
-  module: 'contact-endpoint'
-})
+import { log } from '@/lib/logger'
 
 const ContactFormSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
@@ -42,7 +36,7 @@ const handler = async (request: NextRequest) => {
     // Validate request data
     const validatedData = ContactFormSchema.parse(body)
 
-    contactLogger.info('Contact form submission received', {
+    log.info('Contact form submission received', {
       name: validatedData.name,
       email: validatedData.email,
       subject: validatedData.subject,
@@ -51,7 +45,7 @@ const handler = async (request: NextRequest) => {
     })
 
     // Send email notification to practice
-    await EmailService.sendContactForm(validatedData.practiceEmail, {
+    await emailService.sendContactForm(validatedData.practiceEmail, {
       name: validatedData.name,
       email: validatedData.email,
       ...(validatedData.phone && { phone: validatedData.phone }),
@@ -59,7 +53,7 @@ const handler = async (request: NextRequest) => {
       message: validatedData.message
     })
 
-    contactLogger.info('Contact form processed successfully', {
+    log.info('Contact form processed successfully', {
       name: validatedData.name,
       email: validatedData.email,
       practiceEmail: validatedData.practiceEmail,
@@ -72,9 +66,7 @@ const handler = async (request: NextRequest) => {
     })
 
   } catch (error) {
-    contactLogger.error('Contact form submission failed', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+    log.error('Contact form submission failed', error, {
       operation: 'contact-form-error'
     })
 

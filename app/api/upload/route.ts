@@ -1,21 +1,16 @@
 import { NextRequest } from 'next/server'
-import { FileUploadService } from '@/lib/api/services/upload'
+import { uploadFiles } from '@/lib/api/services/upload'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { rbacRoute } from '@/lib/api/rbac-route-handler'
 import { AuditLogger } from '@/lib/api/services/audit'
 import type { UserContext } from '@/lib/types/rbac'
-import { 
-  createAPILogger, 
-  logSecurityEvent,
-  logPerformanceMetric 
-} from '@/lib/logger'
+import { log } from '@/lib/logger'
 
 const uploadFilesHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now()
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id)
-  
-  logger.info('File upload request initiated', {
+
+  log.info('File upload request initiated', {
     userId: userContext.user_id,
     endpoint: '/api/upload',
     method: 'POST'
@@ -25,9 +20,9 @@ const uploadFilesHandler = async (request: NextRequest, userContext: UserContext
     // Parse form data
     const formDataStartTime = Date.now()
     const data = await request.formData()
-    logPerformanceMetric(logger, 'form_data_parsing', Date.now() - formDataStartTime)
+    log.info('Form data parsed', { duration: Date.now() - formDataStartTime })
     const files: File[] = []
-    
+
     // Handle multiple files
     const entries = Array.from(data.entries())
     for (const [key, value] of entries) {
@@ -35,15 +30,15 @@ const uploadFilesHandler = async (request: NextRequest, userContext: UserContext
         files.push(value)
       }
     }
-    
+
     if (files.length === 0) {
-      logger.warn('No files provided in upload request', {
+      log.warn('No files provided in upload request', {
         userId: userContext.user_id
       })
       return createErrorResponse('No files uploaded', 400, request)
     }
-    
-    logger.debug('Files parsed from form data', {
+
+    log.debug('Files parsed from form data', {
       fileCount: files.length,
       totalSize: files.reduce((sum, f) => sum + f.size, 0)
     })
@@ -59,7 +54,7 @@ const uploadFilesHandler = async (request: NextRequest, userContext: UserContext
 
     // Upload files
     const uploadStartTime = Date.now()
-    const result = await FileUploadService.uploadFiles(files, {
+    const result = await uploadFiles(files, {
       folder,
       optimizeImages,
       generateThumbnails,
@@ -70,7 +65,8 @@ const uploadFilesHandler = async (request: NextRequest, userContext: UserContext
       maxFileSize: 10 * 1024 * 1024, // 10MB
       maxFiles: 5
     })
-    logPerformanceMetric(logger, 'file_upload_service', Date.now() - uploadStartTime, {
+    log.info('File upload service completed', {
+      duration: Date.now() - uploadStartTime,
       fileCount: files.length,
       success: result.success
     })
@@ -173,19 +169,13 @@ const uploadFilesHandler = async (request: NextRequest, userContext: UserContext
             .where(eq(practice_attributes.practice_id, practiceId))
             
           const totalDuration = Date.now() - startTime
-          logger.info('Gallery image uploaded successfully', {
+          log.info('Gallery image uploaded successfully', {
             userId: userContext.user_id,
             practiceId,
             totalImages: updatedImages.length,
             duration: totalDuration
           })
-          
-          logPerformanceMetric(logger, 'upload_request_total', totalDuration, {
-            success: true,
-            fileCount: 1,
-            updateType: 'gallery'
-          })
-          
+
           return createSuccessResponse({
             url: fileUrl,
             fileName: result.files[0]?.fileName,
@@ -243,19 +233,13 @@ const uploadFilesHandler = async (request: NextRequest, userContext: UserContext
             .where(eq(practice_attributes.practice_id, practiceId))
             
           const totalDuration = Date.now() - startTime
-          logger.info('Practice image uploaded successfully', {
+          log.info('Practice image uploaded successfully', {
             userId: userContext.user_id,
             practiceId,
             fieldUpdated: practiceFieldName,
             duration: totalDuration
           })
-          
-          logPerformanceMetric(logger, 'upload_request_total', totalDuration, {
-            success: true,
-            fileCount: 1,
-            updateType: 'practice_field'
-          })
-          
+
           return createSuccessResponse({
             url: fileUrl,
             fileName: result.files[0]?.fileName,
@@ -337,20 +321,14 @@ const uploadFilesHandler = async (request: NextRequest, userContext: UserContext
             ))
             
           const totalDuration = Date.now() - startTime
-          logger.info('Staff photo uploaded successfully', {
+          log.info('Staff photo uploaded successfully', {
             userId: userContext.user_id,
             practiceId,
             staffId,
             fieldUpdated: staffFieldName,
             duration: totalDuration
           })
-          
-          logPerformanceMetric(logger, 'upload_request_total', totalDuration, {
-            success: true,
-            fileCount: 1,
-            updateType: 'staff_photo'
-          })
-          
+
           return createSuccessResponse({
             url: fileUrl,
             fileName: result.files[0]?.fileName,
@@ -370,18 +348,13 @@ const uploadFilesHandler = async (request: NextRequest, userContext: UserContext
     // For single file uploads (non-practice or unsupported types), return the URL directly
     if (result.files.length === 1) {
       const totalDuration = Date.now() - startTime
-      logger.info('Single file upload completed successfully', {
+      log.info('Single file upload completed successfully', {
         userId: userContext.user_id,
         fileName: result.files[0]?.fileName,
         fileSize: result.files[0]?.size,
         duration: totalDuration
       })
-      
-      logPerformanceMetric(logger, 'upload_request_total', totalDuration, {
-        success: true,
-        fileCount: 1
-      })
-      
+
       return createSuccessResponse({
         url: result.files[0]?.fileUrl,
         fileName: result.files[0]?.fileName,
@@ -394,34 +367,23 @@ const uploadFilesHandler = async (request: NextRequest, userContext: UserContext
 
     // For multiple files, return the array
     const totalDuration = Date.now() - startTime
-    logger.info('Multiple files upload completed successfully', {
+    log.info('Multiple files upload completed successfully', {
       userId: userContext.user_id,
       fileCount: result.files.length,
       totalSize: result.files.reduce((sum, f) => sum + (f.size || 0), 0),
       duration: totalDuration
     })
-    
-    logPerformanceMetric(logger, 'upload_request_total', totalDuration, {
-      success: true,
-      fileCount: result.files.length
-    })
-    
+
     return createSuccessResponse(result.files, 'Files uploaded successfully')
     
   } catch (error) {
     const totalDuration = Date.now() - startTime
-    
-    logger.error('Upload error', error, {
+
+    log.error('Upload error', error, {
       userId: userContext.user_id,
-      duration: totalDuration,
-      errorType: error instanceof Error ? error.constructor.name : typeof error
+      duration: totalDuration
     })
-    
-    logPerformanceMetric(logger, 'upload_request_total', totalDuration, {
-      success: false,
-      errorType: error instanceof Error ? error.name : 'unknown'
-    })
-    
+
     const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
     return createErrorResponse(errorMessage, 500, request)
   }

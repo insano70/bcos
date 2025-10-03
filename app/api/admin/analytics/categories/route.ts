@@ -7,7 +7,7 @@ import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { chartCategoryCreateSchema } from '@/lib/validations/analytics';
 import type { UserContext } from '@/lib/types/rbac';
-import { createAPILogger, logDBOperation, logPerformanceMetric } from '@/lib/logger';
+import { log } from '@/lib/logger';
 
 /**
  * Admin Analytics - Chart Categories API
@@ -17,9 +17,8 @@ import { createAPILogger, logDBOperation, logPerformanceMetric } from '@/lib/log
 // GET - List all chart categories
 const getCategoriesHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
-  logger.info('Chart categories list request initiated', {
+
+  log.info('Chart categories list request initiated', {
     requestingUserId: userContext.user_id
   });
 
@@ -30,7 +29,7 @@ const getCategoriesHandler = async (request: NextRequest, userContext: UserConte
       .from(chart_categories)
       .orderBy(chart_categories.category_name);
 
-    logDBOperation(logger, 'chart_categories_list', 'chart_categories', startTime, categories.length);
+    log.db('SELECT', 'chart_categories', Date.now() - startTime, { rowCount: categories.length });
 
     return createSuccessResponse({
       categories: categories,
@@ -39,11 +38,9 @@ const getCategoriesHandler = async (request: NextRequest, userContext: UserConte
         generatedAt: new Date().toISOString()
       }
     }, 'Chart categories retrieved successfully');
-    
+
   } catch (error) {
-    logger.error('Chart categories list error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
+    log.error('Chart categories list error', error, {
       requestingUserId: userContext.user_id
     });
     
@@ -58,16 +55,15 @@ const getCategoriesHandler = async (request: NextRequest, userContext: UserConte
 // POST - Create new chart category
 const createCategoryHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
-  logger.info('Chart category creation request initiated', {
+
+  log.info('Chart category creation request initiated', {
     requestingUserId: userContext.user_id
   });
 
   try {
     // Validate request body with Zod
     const validatedData = await validateRequest(request, chartCategoryCreateSchema);
-    
+
     // Create new category
     const [newCategory] = await db
       .insert(chart_categories)
@@ -82,9 +78,9 @@ const createCategoryHandler = async (request: NextRequest, userContext: UserCont
       return createErrorResponse('Failed to create category', 500, request);
     }
 
-    logDBOperation(logger, 'chart_category_create', 'chart_categories', startTime, 1);
+    log.db('INSERT', 'chart_categories', Date.now() - startTime, { rowCount: 1 });
 
-    logger.info('Chart category created successfully', {
+    log.info('Chart category created successfully', {
       categoryId: newCategory.chart_category_id,
       categoryName: newCategory.category_name,
       createdBy: userContext.user_id
@@ -93,11 +89,9 @@ const createCategoryHandler = async (request: NextRequest, userContext: UserCont
     return createSuccessResponse({
       category: newCategory
     }, 'Chart category created successfully');
-    
+
   } catch (error) {
-    logger.error('Chart category creation error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
+    log.error('Chart category creation error', error, {
       requestingUserId: userContext.user_id
     });
     

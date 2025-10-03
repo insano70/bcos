@@ -1,7 +1,7 @@
 import { beforeEach, afterEach, afterAll, beforeAll } from 'vitest'
 import { initializeMainTransaction, getTestTransaction, rollbackTransaction, cleanupTestDb } from '@/tests/helpers/db-helper'
 import { emergencyCleanup } from './cleanup'
-import { logger } from '@/lib/logger'
+import { log } from '@/lib/logger'
 import '@testing-library/jest-dom'
 
 // Ensure environment variables are set for tests
@@ -18,15 +18,13 @@ process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'test-refresh
  */
 beforeAll(async () => {
   try {
-    logger.info('Initializing main test transaction', {
+    log.info('Initializing main test transaction', {
       operation: 'testSetup',
       phase: 'transaction'
     })
     await initializeMainTransaction()
   } catch (error) {
-    logger.error('Failed to initialize main transaction', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+    log.error('Failed to initialize main transaction', error instanceof Error ? error : new Error(String(error)), {
       operation: 'testSetup'
     })
     throw error
@@ -42,9 +40,7 @@ beforeEach(async () => {
     // Create a savepoint for this test
     await getTestTransaction()
   } catch (error) {
-    logger.error('Test setup failed', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+    log.error('Test setup failed', error instanceof Error ? error : new Error(String(error)), {
       operation: 'testSetup'
     })
     throw error
@@ -60,7 +56,7 @@ afterEach(async () => {
     // Rollback to the savepoint (undoes all test changes)
     await rollbackTransaction()
   } catch (error) {
-    logger.warn('Test cleanup failed', {
+    log.warn('Test cleanup failed', {
       error: error instanceof Error ? error.message : 'Unknown error',
       operation: 'testCleanup'
     })
@@ -69,8 +65,7 @@ afterEach(async () => {
     try {
       await emergencyCleanup()
     } catch (emergencyError) {
-      logger.error('Emergency cleanup failed', {
-        error: emergencyError instanceof Error ? emergencyError.message : 'Unknown error',
+      log.error('Emergency cleanup failed', emergencyError instanceof Error ? emergencyError : new Error(String(emergencyError)), {
         operation: 'emergencyCleanup'
       })
     }
@@ -83,22 +78,21 @@ afterEach(async () => {
  */
 afterAll(async () => {
   try {
-    // TEST: logger.info('🧹 Starting process cleanup...')
-    logger.info('Starting process cleanup', {
+    // TEST: log.info('🧹 Starting process cleanup...')
+    log.info('Starting process cleanup', {
       operation: 'processCleanup'
     })
     
     // This will rollback the main transaction and clean up connections
     await cleanupTestDb()
     
-    // TEST: logger.info('✅ Process cleanup completed')
-    logger.info('Process cleanup completed', {
+    // TEST: log.info('✅ Process cleanup completed')
+    log.info('Process cleanup completed', {
       operation: 'processCleanup'
     })
     
   } catch (error) {
-    logger.error('Process cleanup failed', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+    log.error('Process cleanup failed', error instanceof Error ? error : new Error(String(error)), {
       operation: 'processCleanup'
     })
     // Don't throw - we want tests to complete even if cleanup fails

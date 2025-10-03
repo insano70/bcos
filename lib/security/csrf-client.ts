@@ -1,5 +1,5 @@
 /**
- * Client-side CSRF Token Helper
+ * Client-side CSRF Token Helper - Pure Functions Module
  * Provides utilities for validating and managing CSRF tokens on the client
  */
 
@@ -13,15 +13,10 @@ export interface CSRFTokenValidation {
 }
 
 /**
- * Client-side CSRF Token Helper
- * Provides validation and management utilities for CSRF tokens in the browser
+ * Validate a CSRF token structure without server round-trip
+ * Performs basic format and expiration checks
  */
-export class CSRFClientHelper {
-  /**
-   * Validate a CSRF token structure without server round-trip
-   * Performs basic format and expiration checks
-   */
-  static validateTokenStructure(token: string): CSRFTokenValidation {
+export function validateTokenStructure(token: string): CSRFTokenValidation {
     if (!token || typeof token !== 'string') {
       return {
         isValid: false,
@@ -108,13 +103,13 @@ export class CSRFClientHelper {
         shouldRefresh: true,
       };
     }
-  }
+}
 
-  /**
-   * Validate CSRF token against server
-   * Makes a lightweight validation request to check token validity
-   */
-  static async validateTokenWithServer(token: string): Promise<CSRFTokenValidation> {
+/**
+ * Validate CSRF token against server
+ * Makes a lightweight validation request to check token validity
+ */
+export async function validateTokenWithServer(token: string): Promise<CSRFTokenValidation> {
     if (!token) {
       return {
         isValid: false,
@@ -150,7 +145,7 @@ export class CSRFClientHelper {
 
       // If validation endpoint doesn't exist yet, fall back to structure validation
       if (response.status === 404) {
-        return CSRFClientHelper.validateTokenStructure(token);
+        return validateTokenStructure(token);
       }
 
       // Server error or validation failed
@@ -164,15 +159,15 @@ export class CSRFClientHelper {
       if (process.env.NODE_ENV === 'development') {
         console.log('CSRF server validation failed, using structure validation:', error);
       }
-      return CSRFClientHelper.validateTokenStructure(token);
+      return validateTokenStructure(token);
     }
-  }
+}
 
-  /**
-   * Get CSRF token from cookie
-   * Safely extracts CSRF token from document cookies
-   */
-  static getCSRFTokenFromCookie(): string | null {
+/**
+ * Get CSRF token from cookie
+ * Safely extracts CSRF token from document cookies
+ */
+export function getCSRFTokenFromCookie(): string | null {
     if (typeof document === 'undefined') {
       return null; // Server-side
     }
@@ -185,38 +180,38 @@ export class CSRFClientHelper {
       }
     }
     return null;
-  }
+}
 
-  /**
-   * Comprehensive token validation with fallbacks
-   * Uses both client-side and server-side validation appropriately
-   */
-  static async validateToken(token: string): Promise<CSRFTokenValidation> {
-    // First, check basic structure
-    const structureValidation = CSRFClientHelper.validateTokenStructure(token);
+/**
+ * Comprehensive token validation with fallbacks
+ * Uses both client-side and server-side validation appropriately
+ */
+export async function validateToken(token: string): Promise<CSRFTokenValidation> {
+  // First, check basic structure
+  const structureValidation = validateTokenStructure(token);
 
-    if (!structureValidation.isValid) {
-      return structureValidation;
-    }
-
-    // If structure is valid, optionally validate with server for critical operations
-    // For now, we'll rely on structure validation to avoid unnecessary server requests
-    // Server validation can be enabled when the validation endpoint is available
-
+  if (!structureValidation.isValid) {
     return structureValidation;
   }
 
-  /**
-   * Smart token refresh logic
-   * Determines if a token should be refreshed based on various factors
-   */
-  static shouldRefreshToken(token: string | null, lastFetchTime: number | null): boolean {
+  // If structure is valid, optionally validate with server for critical operations
+  // For now, we'll rely on structure validation to avoid unnecessary server requests
+  // Server validation can be enabled when the validation endpoint is available
+
+  return structureValidation;
+}
+
+/**
+ * Smart token refresh logic
+ * Determines if a token should be refreshed based on various factors
+ */
+export function shouldRefreshToken(token: string | null, lastFetchTime: number | null): boolean {
     if (!token) {
       return true; // No token, definitely need to refresh
     }
 
     // Check if token structure is invalid
-    const validation = CSRFClientHelper.validateTokenStructure(token);
+    const validation = validateTokenStructure(token);
     if (!validation.isValid) {
       return true;
     }
@@ -260,13 +255,13 @@ export class CSRFClientHelper {
     }
 
     return false; // Token seems fine
-  }
+}
 
-  /**
-   * Extract token metadata for debugging
-   * Safely extracts information from token payload
-   */
-  static getTokenMetadata(token: string): Record<string, unknown> | null {
+/**
+ * Extract token metadata for debugging
+ * Safely extracts information from token payload
+ */
+export function getTokenMetadata(token: string): Record<string, unknown> | null {
     if (!token) return null;
 
     try {
@@ -287,5 +282,4 @@ export class CSRFClientHelper {
     } catch (_error) {
       return null;
     }
-  }
 }

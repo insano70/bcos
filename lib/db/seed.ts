@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { createAppLogger } from '@/lib/logger/factory';
+import { log } from '@/lib/logger';
 import { hashPassword } from '../auth/password';
 import { db, practice_attributes, practices, staff_members, templates, users } from './index';
 import {
@@ -12,14 +12,8 @@ import {
 } from './rbac-schema';
 
 // Create Universal Logger for database seeding operations
-const dbSeedLogger = createAppLogger('database-seed', {
-  component: 'database',
-  feature: 'data-seeding',
-  module: 'seed',
-});
-
 async function seedUsers() {
-  dbSeedLogger.info('Seeding users', {
+  log.info('Seeding users', {
     operation: 'seedUsers',
     phase: 'start',
   });
@@ -48,13 +42,13 @@ async function seedUsers() {
         })
         .returning();
 
-      dbSeedLogger.info('Admin user created', {
+      log.info('Admin user created', {
         email: adminUser?.email || 'Unknown',
         userId: adminUser?.user_id,
         operation: 'seedUsers',
       });
     } else {
-      dbSeedLogger.info('Admin user already exists, skipping', {
+      log.info('Admin user already exists, skipping', {
         email: existingAdmin[0]?.email,
         operation: 'seedUsers',
       });
@@ -101,25 +95,25 @@ async function seedUsers() {
       if (existingUser.length === 0) {
         const [newUser] = await db.insert(users).values(userData).returning();
 
-        dbSeedLogger.info('Sample user created', {
+        log.info('Sample user created', {
           email: newUser?.email || 'Unknown',
           userId: newUser?.user_id,
           operation: 'seedUsers',
         });
       } else {
-        dbSeedLogger.info('User already exists, skipping', {
+        log.info('User already exists, skipping', {
           email: userData.email,
           operation: 'seedUsers',
         });
       }
     }
 
-    dbSeedLogger.info('User seeding completed', {
+    log.info('User seeding completed', {
       operation: 'seedUsers',
       phase: 'completed',
     });
   } catch (error) {
-    dbSeedLogger.error('Error seeding users', {
+    log.error('Error seeding users', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
       operation: 'seedUsers',
@@ -129,7 +123,7 @@ async function seedUsers() {
 }
 
 async function seedTemplates() {
-  dbSeedLogger.info('Seeding templates', {
+  log.info('Seeding templates', {
     operation: 'seedTemplates',
     phase: 'start',
   });
@@ -178,14 +172,14 @@ async function seedTemplates() {
     if (existing.length === 0) {
       const [newTemplate] = await db.insert(templates).values(template).returning();
 
-      dbSeedLogger.info('Template created', {
+      log.info('Template created', {
         name: newTemplate?.name || 'Unknown',
         slug: newTemplate?.slug,
         templateId: newTemplate?.template_id,
         operation: 'seedTemplates',
       });
     } else {
-      dbSeedLogger.info('Template already exists, skipping', {
+      log.info('Template already exists, skipping', {
         name: template.name,
         slug: template.slug,
         operation: 'seedTemplates',
@@ -195,14 +189,14 @@ async function seedTemplates() {
 }
 
 async function seedRBAC() {
-  dbSeedLogger.info('Seeding RBAC data', {
+  log.info('Seeding RBAC data', {
     operation: 'seedRBAC',
     phase: 'start',
   });
 
   try {
     // 1. Seed permissions
-    dbSeedLogger.info('Seeding permissions', {
+    log.info('Seeding permissions', {
       operation: 'seedRBAC',
       phase: 'permissions',
     });
@@ -440,14 +434,14 @@ async function seedRBAC() {
         .limit(1);
       if (existing.length === 0) {
         await db.insert(permissions).values(permission);
-        dbSeedLogger.info('Permission created', {
+        log.info('Permission created', {
           name: permission.name,
           resource: permission.resource,
           action: permission.action,
           operation: 'seedRBAC',
         });
       } else {
-        dbSeedLogger.info('Permission already exists, skipping', {
+        log.info('Permission already exists, skipping', {
           name: permission.name,
           operation: 'seedRBAC',
         });
@@ -455,7 +449,7 @@ async function seedRBAC() {
     }
 
     // 2. Seed roles
-    dbSeedLogger.info('Seeding roles', {
+    log.info('Seeding roles', {
       operation: 'seedRBAC',
       phase: 'roles',
     });
@@ -478,14 +472,14 @@ async function seedRBAC() {
       const existing = await db.select().from(roles).where(eq(roles.name, role.name)).limit(1);
       if (existing.length === 0) {
         const [newRole] = await db.insert(roles).values(role).returning();
-        dbSeedLogger.info('Role created', {
+        log.info('Role created', {
           name: role.name,
           systemRole: role.is_system_role,
           roleId: newRole?.role_id,
           operation: 'seedRBAC',
         });
       } else {
-        dbSeedLogger.info('Role already exists, skipping', {
+        log.info('Role already exists, skipping', {
           name: role.name,
           operation: 'seedRBAC',
         });
@@ -493,7 +487,7 @@ async function seedRBAC() {
     }
 
     // 3. Seed organizations
-    dbSeedLogger.info('Seeding organizations', {
+    log.info('Seeding organizations', {
       operation: 'seedRBAC',
       phase: 'organizations',
     });
@@ -511,14 +505,14 @@ async function seedRBAC() {
         .limit(1);
       if (existing.length === 0) {
         const [newOrg] = await db.insert(organizations).values(org).returning();
-        dbSeedLogger.info('Organization created', {
+        log.info('Organization created', {
           name: org.name,
           slug: org.slug,
           organizationId: newOrg?.organization_id,
           operation: 'seedRBAC',
         });
       } else {
-        dbSeedLogger.info('Organization already exists, skipping', {
+        log.info('Organization already exists, skipping', {
           name: org.name,
           operation: 'seedRBAC',
         });
@@ -526,7 +520,7 @@ async function seedRBAC() {
     }
 
     // 4. Assign permissions to roles
-    dbSeedLogger.info('Assigning permissions to roles', {
+    log.info('Assigning permissions to roles', {
       operation: 'seedRBAC',
       phase: 'rolePermissions',
     });
@@ -561,7 +555,7 @@ async function seedRBAC() {
           });
         }
       }
-      dbSeedLogger.info('Assigned all permissions to super_admin', {
+      log.info('Assigned all permissions to super_admin', {
         permissionsCount: allPermissions.length,
         operation: 'seedRBAC',
       });
@@ -592,18 +586,18 @@ async function seedRBAC() {
           });
         }
       }
-      dbSeedLogger.info('Assigned own scope permissions to user role', {
+      log.info('Assigned own scope permissions to user role', {
         permissionsCount: ownPermissions.length,
         operation: 'seedRBAC',
       });
     }
 
-    dbSeedLogger.info('RBAC seeding completed', {
+    log.info('RBAC seeding completed', {
       operation: 'seedRBAC',
       phase: 'completed',
     });
   } catch (error) {
-    dbSeedLogger.error('Error seeding RBAC', {
+    log.error('Error seeding RBAC', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
       operation: 'seedRBAC',
@@ -613,7 +607,7 @@ async function seedRBAC() {
 }
 
 async function seedPractices() {
-  dbSeedLogger.info('Seeding sample practice', {
+  log.info('Seeding sample practice', {
     operation: 'seedPractices',
     phase: 'start',
   });
@@ -624,13 +618,13 @@ async function seedPractices() {
     const randomTemplate = allTemplates[Math.floor(Math.random() * allTemplates.length)];
 
     if (!randomTemplate) {
-      dbSeedLogger.warn('No templates found, skipping practice seeding', {
+      log.warn('No templates found, skipping practice seeding', {
         operation: 'seedPractices',
       });
       return;
     }
 
-    dbSeedLogger.info('Using template for practice', {
+    log.info('Using template for practice', {
       templateName: randomTemplate.name,
       templateSlug: randomTemplate.slug,
       templateId: randomTemplate.template_id,
@@ -645,7 +639,7 @@ async function seedPractices() {
       .limit(1);
 
     if (!adminUser) {
-      dbSeedLogger.warn('Admin user not found, skipping practice seeding', {
+      log.warn('Admin user not found, skipping practice seeding', {
         operation: 'seedPractices',
       });
       return;
@@ -670,7 +664,7 @@ async function seedPractices() {
         })
         .returning();
 
-      dbSeedLogger.info('Denver Rheumatology practice created', {
+      log.info('Denver Rheumatology practice created', {
         name: newDenverPractice?.name || 'Unknown',
         practiceId: newDenverPractice?.practice_id,
         domain: newDenverPractice?.domain,
@@ -783,12 +777,12 @@ async function seedPractices() {
         },
       ]);
 
-      dbSeedLogger.info('Denver Rheumatology configuration and staff created', {
+      log.info('Denver Rheumatology configuration and staff created', {
         operation: 'seedPractices',
         practice: 'Denver Rheumatology',
       });
     } else {
-      dbSeedLogger.info('Denver Rheumatology practice already exists, skipping', {
+      log.info('Denver Rheumatology practice already exists, skipping', {
         operation: 'seedPractices',
       });
     }
@@ -812,7 +806,7 @@ async function seedPractices() {
         })
         .returning();
 
-      dbSeedLogger.info('Demo practice created', {
+      log.info('Demo practice created', {
         name: newPractice?.name || 'Unknown',
         practiceId: newPractice?.practice_id,
         domain: newPractice?.domain,
@@ -903,17 +897,17 @@ async function seedPractices() {
         display_order: 1,
       });
 
-      dbSeedLogger.info('Demo practice configuration and staff created', {
+      log.info('Demo practice configuration and staff created', {
         operation: 'seedPractices',
         practice: 'Demo Practice',
       });
     } else {
-      dbSeedLogger.info('Demo practice already exists, skipping', {
+      log.info('Demo practice already exists, skipping', {
         operation: 'seedPractices',
       });
     }
   } catch (error) {
-    dbSeedLogger.error('Error seeding practices', {
+    log.error('Error seeding practices', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
       operation: 'seedPractices',
@@ -923,7 +917,7 @@ async function seedPractices() {
 }
 
 async function assignUserRoles() {
-  dbSeedLogger.info('Assigning roles to users', {
+  log.info('Assigning roles to users', {
     operation: 'assignUserRoles',
     phase: 'start',
   });
@@ -937,7 +931,7 @@ async function assignUserRoles() {
       .limit(1);
 
     if (!adminUser) {
-      dbSeedLogger.warn('Admin user not found, skipping role assignment', {
+      log.warn('Admin user not found, skipping role assignment', {
         operation: 'assignUserRoles',
       });
       return;
@@ -951,7 +945,7 @@ async function assignUserRoles() {
       .limit(1);
 
     if (!superAdminRole) {
-      dbSeedLogger.warn('Super admin role not found, skipping role assignment', {
+      log.warn('Super admin role not found, skipping role assignment', {
         operation: 'assignUserRoles',
       });
       return;
@@ -965,7 +959,7 @@ async function assignUserRoles() {
       .limit(1);
 
     if (!platformOrg) {
-      dbSeedLogger.warn('Platform admin organization not found, skipping role assignment', {
+      log.warn('Platform admin organization not found, skipping role assignment', {
         operation: 'assignUserRoles',
       });
       return;
@@ -994,14 +988,14 @@ async function assignUserRoles() {
         is_active: true,
       });
 
-      dbSeedLogger.info('Super admin role assigned to admin user', {
+      log.info('Super admin role assigned to admin user', {
         userId: adminUser.user_id,
         email: adminUser.email,
         roleId: superAdminRole.role_id,
         operation: 'assignUserRoles',
       });
     } else {
-      dbSeedLogger.info('Admin user already has super admin role, skipping', {
+      log.info('Admin user already has super admin role, skipping', {
         userId: adminUser.user_id,
         operation: 'assignUserRoles',
       });
@@ -1026,13 +1020,13 @@ async function assignUserRoles() {
         joined_at: new Date(),
       });
 
-      dbSeedLogger.info('Admin user assigned to platform organization', {
+      log.info('Admin user assigned to platform organization', {
         userId: adminUser.user_id,
         organizationId: platformOrg.organization_id,
         operation: 'assignUserRoles',
       });
     } else {
-      dbSeedLogger.info('Admin user already in platform organization, skipping', {
+      log.info('Admin user already in platform organization, skipping', {
         userId: adminUser.user_id,
         operation: 'assignUserRoles',
       });
@@ -1099,14 +1093,14 @@ async function assignUserRoles() {
               });
             }
 
-            dbSeedLogger.info('User role assigned', {
+            log.info('User role assigned', {
               email,
               userId: sampleUser.user_id,
               roleId: userRole.role_id,
               operation: 'assignUserRoles',
             });
           } else {
-            dbSeedLogger.info('User already has user role, skipping', {
+            log.info('User already has user role, skipping', {
               email,
               operation: 'assignUserRoles',
             });
@@ -1115,12 +1109,12 @@ async function assignUserRoles() {
       }
     }
 
-    dbSeedLogger.info('User role assignments completed', {
+    log.info('User role assignments completed', {
       operation: 'assignUserRoles',
       phase: 'completed',
     });
   } catch (error) {
-    dbSeedLogger.error('Error assigning user roles', {
+    log.error('Error assigning user roles', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
       operation: 'assignUserRoles',
@@ -1130,7 +1124,7 @@ async function assignUserRoles() {
 }
 
 async function seed() {
-  dbSeedLogger.info('Starting database seeding', {
+  log.info('Starting database seeding', {
     operation: 'seedDatabase',
     phase: 'start',
   });
@@ -1147,13 +1141,13 @@ async function seed() {
     // Finally assign roles to users
     await assignUserRoles();
 
-    dbSeedLogger.info('Database seeding completed successfully', {
+    log.info('Database seeding completed successfully', {
       operation: 'seedDatabase',
       phase: 'completed',
     });
     process.exit(0);
   } catch (error) {
-    dbSeedLogger.error('Database seeding failed', {
+    log.error('Database seeding failed', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
       operation: 'seedDatabase',

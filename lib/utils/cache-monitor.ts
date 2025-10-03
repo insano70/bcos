@@ -4,7 +4,7 @@
  */
 
 import { rolePermissionCache } from '@/lib/cache/role-permission-cache';
-import { logger } from '@/lib/logger';
+import { log } from '@/lib/logger';
 
 /**
  * Log cache performance statistics
@@ -13,7 +13,7 @@ export function logCacheStats(): void {
   const stats = rolePermissionCache.getStats();
 
   if (stats.hits + stats.misses > 0) {
-    logger.info('Cache Performance Stats', {
+    log.info('Cache Performance Stats', {
       hits: stats.hits,
       misses: stats.misses,
       hitRate: `${stats.hitRate}%`,
@@ -33,7 +33,7 @@ export function monitorCacheHealth(): void {
   if (totalRequests > 10) {
     // Only monitor after some requests
     if (stats.hitRate < 50) {
-      logger.warn('Low cache hit rate detected', {
+      log.warn('Low cache hit rate detected', {
         hitRate: stats.hitRate,
         recommendations: [
           'Check if roles are being modified frequently',
@@ -44,7 +44,7 @@ export function monitorCacheHealth(): void {
     }
 
     if (stats.size > 100) {
-      logger.warn('Large cache size detected', {
+      log.warn('Large cache size detected', {
         cacheSize: stats.size,
         recommendation: 'Consider implementing cache size limits',
       });

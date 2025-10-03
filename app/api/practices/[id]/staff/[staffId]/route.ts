@@ -10,17 +10,12 @@ import { z } from 'zod';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import type { UserContext } from '@/lib/types/rbac';
-import { 
-  createAPILogger, 
-  logDBOperation, 
-  logPerformanceMetric 
-} from '@/lib/logger';
+import { log } from '@/lib/logger';
 import { parseSpecialties, parseEducation } from '@/lib/utils/safe-json';
 
 const getStaffMemberHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
+
   try {
     // Extract route params - they come as a single object with both id and staffId
     const params = await extractRouteParams(args[0], z.object({
@@ -29,8 +24,8 @@ const getStaffMemberHandler = async (request: NextRequest, userContext: UserCont
     }));
     const practiceId = params.id;
     const staffId = params.staffId;
-    
-    logger.info('Get staff member request initiated', {
+
+    log.info('Get staff member request initiated', {
       practiceId,
       staffId,
       requestingUserId: userContext.user_id
@@ -46,7 +41,7 @@ const getStaffMemberHandler = async (request: NextRequest, userContext: UserCont
         isNull(practices.deleted_at)
       ))
       .limit(1);
-    logDBOperation(logger, 'SELECT', 'practices', practiceStart, 1);
+    log.db('SELECT', 'practices', Date.now() - practiceStart, { rowCount: 1 });
 
     if (!practice) {
       throw NotFoundError('Practice');
@@ -68,7 +63,7 @@ const getStaffMemberHandler = async (request: NextRequest, userContext: UserCont
         isNull(staff_members.deleted_at)
       ))
       .limit(1);
-    logDBOperation(logger, 'SELECT', 'staff_members', staffStart, 1);
+    log.db('SELECT', 'staff_members', Date.now() - staffStart, { rowCount: 1 });
 
     if (!staffMember) {
       throw NotFoundError('Staff member');
@@ -82,34 +77,22 @@ const getStaffMemberHandler = async (request: NextRequest, userContext: UserCont
     };
 
     const totalDuration = Date.now() - startTime;
-    logger.info('Staff member retrieved successfully', {
+    log.info('Staff member retrieved successfully', {
       staffId,
       practiceId,
       totalDuration
-    });
-
-    logPerformanceMetric(logger, 'staff_get_total', totalDuration, {
-      success: true
     });
 
     return createSuccessResponse(parsedStaffMember);
     
   } catch (error) {
     const totalDuration = Date.now() - startTime;
-    
-    const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
-    const errorName = error && typeof error === 'object' && 'name' in error ? String(error.name) : 'unknown';
-    const constructorName = error && typeof error === 'object' && 'constructor' in error && error.constructor && 'name' in error.constructor ? String(error.constructor.name) : typeof error;
-    
-    logger.error('Staff member get request failed', error, {
-      requestingUserId: userContext.user_id,
-      totalDuration,
-      errorType: constructorName
-    });
 
-    logPerformanceMetric(logger, 'staff_get_total', totalDuration, {
-      success: false,
-      errorType: errorName
+    const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
+
+    log.error('Staff member get request failed', error, {
+      requestingUserId: userContext.user_id,
+      totalDuration
     });
 
     return createErrorResponse(errorMessage, 500, request);
@@ -118,8 +101,7 @@ const getStaffMemberHandler = async (request: NextRequest, userContext: UserCont
 
 const updateStaffMemberHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
+
   try {
     // Extract route params and validate request body
     const params = await extractRouteParams(args[0], z.object({
@@ -129,8 +111,8 @@ const updateStaffMemberHandler = async (request: NextRequest, userContext: UserC
     const practiceId = params.id;
     const staffId = params.staffId;
     const validatedData = await validateRequest(request, staffUpdateSchema);
-    
-    logger.info('Update staff member request initiated', {
+
+    log.info('Update staff member request initiated', {
       practiceId,
       staffId,
       requestingUserId: userContext.user_id
@@ -146,7 +128,7 @@ const updateStaffMemberHandler = async (request: NextRequest, userContext: UserC
         isNull(practices.deleted_at)
       ))
       .limit(1);
-    logDBOperation(logger, 'SELECT', 'practices', practiceStart, 1);
+    log.db('SELECT', 'practices', Date.now() - practiceStart, { rowCount: 1 });
 
     if (!practice) {
       throw NotFoundError('Practice');
@@ -168,7 +150,7 @@ const updateStaffMemberHandler = async (request: NextRequest, userContext: UserC
         isNull(staff_members.deleted_at)
       ))
       .limit(1);
-    logDBOperation(logger, 'SELECT', 'staff_members', staffStart, 1);
+    log.db('SELECT', 'staff_members', Date.now() - staffStart, { rowCount: 1 });
 
     if (!existingStaff) {
       throw NotFoundError('Staff member');
@@ -196,7 +178,7 @@ const updateStaffMemberHandler = async (request: NextRequest, userContext: UserC
       .set(updateData)
       .where(eq(staff_members.staff_id, staffId))
       .returning();
-    logDBOperation(logger, 'UPDATE', 'staff_members', updateStart, 1);
+    log.db('UPDATE', 'staff_members', Date.now() - updateStart, { rowCount: 1 });
 
     if (!updatedStaff) {
       throw new Error('Failed to update staff member');
@@ -210,34 +192,22 @@ const updateStaffMemberHandler = async (request: NextRequest, userContext: UserC
     };
 
     const totalDuration = Date.now() - startTime;
-    logger.info('Staff member updated successfully', {
+    log.info('Staff member updated successfully', {
       staffId,
       practiceId,
       totalDuration
-    });
-
-    logPerformanceMetric(logger, 'staff_update_total', totalDuration, {
-      success: true
     });
 
     return createSuccessResponse(parsedStaffMember, 'Staff member updated successfully');
     
   } catch (error) {
     const totalDuration = Date.now() - startTime;
-    
-    const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
-    const errorName = error && typeof error === 'object' && 'name' in error ? String(error.name) : 'unknown';
-    const constructorName = error && typeof error === 'object' && 'constructor' in error && error.constructor && 'name' in error.constructor ? String(error.constructor.name) : typeof error;
-    
-    logger.error('Staff member update request failed', error, {
-      requestingUserId: userContext.user_id,
-      totalDuration,
-      errorType: constructorName
-    });
 
-    logPerformanceMetric(logger, 'staff_update_total', totalDuration, {
-      success: false,
-      errorType: errorName
+    const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
+
+    log.error('Staff member update request failed', error, {
+      requestingUserId: userContext.user_id,
+      totalDuration
     });
 
     return createErrorResponse(errorMessage, 500, request);
@@ -246,8 +216,7 @@ const updateStaffMemberHandler = async (request: NextRequest, userContext: UserC
 
 const deleteStaffMemberHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
+
   try {
     // Extract route params
     const params = await extractRouteParams(args[0], z.object({
@@ -256,8 +225,8 @@ const deleteStaffMemberHandler = async (request: NextRequest, userContext: UserC
     }));
     const practiceId = params.id;
     const staffId = params.staffId;
-    
-    logger.info('Delete staff member request initiated', {
+
+    log.info('Delete staff member request initiated', {
       practiceId,
       staffId,
       requestingUserId: userContext.user_id
@@ -273,7 +242,7 @@ const deleteStaffMemberHandler = async (request: NextRequest, userContext: UserC
         isNull(practices.deleted_at)
       ))
       .limit(1);
-    logDBOperation(logger, 'SELECT', 'practices', practiceStart, 1);
+    log.db('SELECT', 'practices', Date.now() - practiceStart, { rowCount: 1 });
 
     if (!practice) {
       throw NotFoundError('Practice');
@@ -295,7 +264,7 @@ const deleteStaffMemberHandler = async (request: NextRequest, userContext: UserC
         isNull(staff_members.deleted_at)
       ))
       .limit(1);
-    logDBOperation(logger, 'SELECT', 'staff_members', staffStart, 1);
+    log.db('SELECT', 'staff_members', Date.now() - staffStart, { rowCount: 1 });
 
     if (!existingStaff) {
       throw NotFoundError('Staff member');
@@ -311,41 +280,29 @@ const deleteStaffMemberHandler = async (request: NextRequest, userContext: UserC
       })
       .where(eq(staff_members.staff_id, staffId))
       .returning();
-    logDBOperation(logger, 'UPDATE', 'staff_members', deleteStart, 1);
+    log.db('UPDATE', 'staff_members', Date.now() - deleteStart, { rowCount: 1 });
 
     if (!deletedStaff) {
       throw new Error('Failed to delete staff member');
     }
 
     const totalDuration = Date.now() - startTime;
-    logger.info('Staff member deleted successfully', {
+    log.info('Staff member deleted successfully', {
       staffId,
       practiceId,
       totalDuration
-    });
-
-    logPerformanceMetric(logger, 'staff_delete_total', totalDuration, {
-      success: true
     });
 
     return createSuccessResponse(null, 'Staff member deleted successfully');
     
   } catch (error) {
     const totalDuration = Date.now() - startTime;
-    
-    const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
-    const errorName = error && typeof error === 'object' && 'name' in error ? String(error.name) : 'unknown';
-    const constructorName = error && typeof error === 'object' && 'constructor' in error && error.constructor && 'name' in error.constructor ? String(error.constructor.name) : typeof error;
-    
-    logger.error('Staff member delete request failed', error, {
-      requestingUserId: userContext.user_id,
-      totalDuration,
-      errorType: constructorName
-    });
 
-    logPerformanceMetric(logger, 'staff_delete_total', totalDuration, {
-      success: false,
-      errorType: errorName
+    const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
+
+    log.error('Staff member delete request failed', error, {
+      requestingUserId: userContext.user_id,
+      totalDuration
     });
 
     return createErrorResponse(errorMessage, 500, request);

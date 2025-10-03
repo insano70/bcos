@@ -6,7 +6,7 @@ import {
   color_palettes,
   db,
 } from '@/lib/db';
-import { logger } from '@/lib/logger';
+import { log } from '@/lib/logger';
 
 /**
  * Chart Configuration Service
@@ -103,7 +103,7 @@ export class ChartConfigService {
 
       return dataSources;
     } catch (error) {
-      logger.error('Failed to load data sources', { error });
+      log.error('Failed to load data sources', { error });
       return [];
     }
   }
@@ -138,7 +138,7 @@ export class ChartConfigService {
         );
 
       if (!dataSource) {
-        logger.warn('Data source not found', { tableName, schemaName });
+        log.warn('Data source not found', { tableName, schemaName });
         return null;
       }
 
@@ -193,7 +193,7 @@ export class ChartConfigService {
       this.dataSourceCache.set(cacheKey, config);
       return config;
     } catch (error) {
-      logger.error('Failed to load data source config', { tableName, schemaName, error });
+      log.error('Failed to load data source config', { tableName, schemaName, error });
       return null;
     }
   }
@@ -282,7 +282,7 @@ export class ChartConfigService {
           );
 
         if (!defaultConfig) {
-          logger.warn('No display config found', { chartType, frequency });
+          log.warn('No display config found', { chartType, frequency });
           return null;
         }
 
@@ -331,7 +331,7 @@ export class ChartConfigService {
       this.displayConfigCache.set(cacheKey, displayConfig);
       return displayConfig;
     } catch (error) {
-      logger.error('Failed to load chart display config', { chartType, frequency, error });
+      log.error('Failed to load chart display config', { chartType, frequency, error });
       return null;
     }
   }
@@ -364,7 +364,7 @@ export class ChartConfigService {
       }
 
       if (!palette) {
-        logger.warn('Color palette not found', { paletteId });
+        log.warn('Color palette not found', { paletteId });
         return null;
       }
 
@@ -383,7 +383,7 @@ export class ChartConfigService {
       this.colorPaletteCache.set(palette.palette_id, colorPalette);
       return colorPalette;
     } catch (error) {
-      logger.error('Failed to load color palette', { paletteId, error });
+      log.error('Failed to load color palette', { paletteId, error });
       return null;
     }
   }
@@ -395,7 +395,7 @@ export class ChartConfigService {
     this.dataSourceCache.clear();
     this.displayConfigCache.clear();
     this.colorPaletteCache.clear();
-    logger.info('Chart configuration caches cleared');
+    log.info('Chart configuration caches cleared');
   }
 
   /**

@@ -4,19 +4,14 @@ import { db, user_sessions, refresh_tokens } from '@/lib/db'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse, ValidationError } from '@/lib/api/responses/error'
-import { TokenManager } from '@/lib/auth/token-manager'
+import { revokeRefreshToken } from '@/lib/auth/token-manager'
 import { rbacRoute } from '@/lib/api/rbac-route-handler'
 import { validateRequest } from '@/lib/api/middleware/validation'
 import type { UserContext } from '@/lib/types/rbac'
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
-import { 
-  createAPILogger, 
-  logDBOperation,
-  logPerformanceMetric,
-  logSecurityEvent 
-} from '@/lib/logger'
+import { log } from '@/lib/logger'
 import { z } from 'zod'
 
 /**
@@ -34,9 +29,10 @@ const revokeSessionSchema = z.object({
  */
 const getSessionsHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now()
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id)
-  
-  logger.info('Sessions list request initiated', {
+
+  log.api('GET /api/auth/sessions - List sessions request', request, 0, 0)
+
+  log.info('Sessions list request initiated', {
     userId: userContext.user_id,
     endpoint: '/api/auth/sessions',
     method: 'GET'
@@ -56,7 +52,7 @@ const getSessionsHandler = async (request: NextRequest, userContext: UserContext
         currentSessionId = payload.session_id as string
       } catch {
         // If we can't parse the token, continue without marking current session
-        logger.debug('Could not extract session ID from refresh token')
+        log.debug('Could not extract session ID from refresh token')
       }
     }
 
@@ -83,20 +79,15 @@ const getSessionsHandler = async (request: NextRequest, userContext: UserContext
         )
       )
       .orderBy(desc(user_sessions.last_activity))
-    
-    logDBOperation(logger, 'SELECT', 'user_sessions', dbStartTime, sessions.length)
+
+    log.db('SELECT', 'user_sessions', Date.now() - dbStartTime, { rowCount: sessions.length })
 
     const totalDuration = Date.now() - startTime
-    logger.info('Sessions list retrieved successfully', {
+    log.info('Sessions list retrieved successfully', {
       userId: userContext.user_id,
       sessionCount: sessions.length,
       currentSessionId,
       duration: totalDuration
-    })
-
-    logPerformanceMetric(logger, 'sessions_list_duration', totalDuration, {
-      success: true,
-      sessionCount: sessions.length
     })
 
     return createSuccessResponse({
@@ -116,18 +107,13 @@ const getSessionsHandler = async (request: NextRequest, userContext: UserContext
     
   } catch (error) {
     const totalDuration = Date.now() - startTime
-    
-    logger.error('Get sessions error', error, {
+
+    log.error('Get sessions error', error, {
       userId: userContext.user_id,
       duration: totalDuration,
       errorType: error instanceof Error ? error.constructor.name : typeof error
     })
-    
-    logPerformanceMetric(logger, 'sessions_list_duration', totalDuration, {
-      success: false,
-      errorType: error instanceof Error ? error.name : 'unknown'
-    })
-    
+
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
@@ -137,9 +123,10 @@ const getSessionsHandler = async (request: NextRequest, userContext: UserContext
  */
 const revokeSessionHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now()
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id)
-  
-  logger.info('Session revocation request initiated', {
+
+  log.api('DELETE /api/auth/sessions - Revoke session request', request, 0, 0)
+
+  log.info('Session revocation request initiated', {
     userId: userContext.user_id,
     endpoint: '/api/auth/sessions',
     method: 'DELETE'
@@ -150,9 +137,9 @@ const revokeSessionHandler = async (request: NextRequest, userContext: UserConte
     const validationStartTime = Date.now()
     const validatedData = await validateRequest(request, revokeSessionSchema)
     const { sessionId } = validatedData
-    logPerformanceMetric(logger, 'request_validation', Date.now() - validationStartTime)
+    log.info('Request validation completed', { duration: Date.now() - validationStartTime })
 
-    logger.debug('Session revocation request validated', {
+    log.debug('Session revocation request validated', {
       userId: userContext.user_id,
       targetSessionId: sessionId
     })
@@ -173,11 +160,11 @@ const revokeSessionHandler = async (request: NextRequest, userContext: UserConte
         )
       )
       .limit(1)
-    
-    logDBOperation(logger, 'SELECT', 'user_sessions', dbStartTime, sessionToRevoke ? 1 : 0)
+
+    log.db('SELECT', 'user_sessions', Date.now() - dbStartTime, { rowCount: sessionToRevoke ? 1 : 0 })
 
     if (!sessionToRevoke) {
-      logger.warn('Session not found or already revoked', {
+      log.warn('Session not found or already revoked', {
         userId: userContext.user_id,
         targetSessionId: sessionId
       })
@@ -191,26 +178,22 @@ const revokeSessionHandler = async (request: NextRequest, userContext: UserConte
     if (refreshToken && sessionToRevoke.refreshTokenId) {
       const revokeStartTime = Date.now()
       // Revoke the refresh token (this will also end the session)
-      await TokenManager.revokeRefreshToken(refreshToken, 'security')
-      logPerformanceMetric(logger, 'token_revocation', Date.now() - revokeStartTime)
+      await revokeRefreshToken(refreshToken, 'security')
+      log.info('Token revocation completed', { duration: Date.now() - revokeStartTime })
     }
 
     // Log the security action
-    logSecurityEvent(logger, 'session_revoked', 'medium', {
+    log.security('session_revoked', 'medium', {
       userId: userContext.user_id,
       revokedSessionId: sessionId,
       reason: 'user_requested'
     })
 
     const totalDuration = Date.now() - startTime
-    logger.info('Session revoked successfully', {
+    log.info('Session revoked successfully', {
       userId: userContext.user_id,
       revokedSessionId: sessionId,
       duration: totalDuration
-    })
-
-    logPerformanceMetric(logger, 'session_revocation_duration', totalDuration, {
-      success: true
     })
 
     return createSuccessResponse(
@@ -220,18 +203,13 @@ const revokeSessionHandler = async (request: NextRequest, userContext: UserConte
     
   } catch (error) {
     const totalDuration = Date.now() - startTime
-    
-    logger.error('Revoke session error', error, {
+
+    log.error('Revoke session error', error, {
       userId: userContext.user_id,
       duration: totalDuration,
       errorType: error instanceof Error ? error.constructor.name : typeof error
     })
-    
-    logPerformanceMetric(logger, 'session_revocation_duration', totalDuration, {
-      success: false,
-      errorType: error instanceof Error ? error.name : 'unknown'
-    })
-    
+
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }

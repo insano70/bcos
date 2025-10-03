@@ -7,7 +7,7 @@ import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { dashboardUpdateSchema, dashboardParamsSchema } from '@/lib/validations/analytics';
 import type { UserContext } from '@/lib/types/rbac';
-import { createAPILogger, logDBOperation, logPerformanceMetric } from '@/lib/logger';
+import { log } from '@/lib/logger';
 
 /**
  * Admin Analytics - Individual Dashboard CRUD
@@ -18,9 +18,8 @@ import { createAPILogger, logDBOperation, logPerformanceMetric } from '@/lib/log
 const getDashboardHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const { params } = args[0] as { params: { dashboardId: string } };
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
-  logger.info('Dashboard get request initiated', {
+
+  log.info('Dashboard get request initiated', {
     dashboardId: params.dashboardId,
     requestingUserId: userContext.user_id
   });
@@ -44,17 +43,15 @@ const getDashboardHandler = async (request: NextRequest, userContext: UserContex
       .from(dashboard_charts)
       .where(eq(dashboard_charts.dashboard_id, params.dashboardId));
 
-    logDBOperation(logger, 'dashboard_get', 'dashboards', startTime, 1);
+    log.db('SELECT', 'dashboards', Date.now() - startTime, { rowCount: 1 });
 
-    return createSuccessResponse({ 
+    return createSuccessResponse({
       dashboard,
       charts: dashboardCharts
     }, 'Dashboard retrieved successfully');
-    
+
   } catch (error) {
-    logger.error('Dashboard get error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
+    log.error('Dashboard get error', error, {
       dashboardId: params.dashboardId,
       requestingUserId: userContext.user_id
     });
@@ -71,9 +68,8 @@ const getDashboardHandler = async (request: NextRequest, userContext: UserContex
 const updateDashboardHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const { params } = args[0] as { params: { dashboardId: string } };
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
-  logger.info('Dashboard update request initiated', {
+
+  log.info('Dashboard update request initiated', {
     dashboardId: params.dashboardId,
     requestingUserId: userContext.user_id
   });
@@ -126,26 +122,24 @@ const updateDashboardHandler = async (request: NextRequest, userContext: UserCon
           .values(chartAssociations);
       }
 
-      logger.info('Dashboard chart associations updated', {
+      log.info('Dashboard chart associations updated', {
         dashboardId: params.dashboardId,
         chartCount: validatedData.chart_ids.length
       });
     }
 
-    logDBOperation(logger, 'dashboard_update', 'dashboards', startTime, 1);
+    log.db('UPDATE', 'dashboards', Date.now() - startTime, { rowCount: 1 });
 
-    logger.info('Dashboard updated successfully', {
+    log.info('Dashboard updated successfully', {
       dashboardId: params.dashboardId,
       dashboardName: updatedDashboard.dashboard_name,
       updatedBy: userContext.user_id
     });
 
     return createSuccessResponse({ dashboard: updatedDashboard }, 'Dashboard updated successfully');
-    
+
   } catch (error) {
-    logger.error('Dashboard update error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
+    log.error('Dashboard update error', error, {
       dashboardId: params.dashboardId,
       requestingUserId: userContext.user_id
     });
@@ -162,9 +156,8 @@ const updateDashboardHandler = async (request: NextRequest, userContext: UserCon
 const deleteDashboardHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const { params } = args[0] as { params: { dashboardId: string } };
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
-  logger.info('Dashboard delete request initiated', {
+
+  log.info('Dashboard delete request initiated', {
     dashboardId: params.dashboardId,
     requestingUserId: userContext.user_id
   });
@@ -184,22 +177,20 @@ const deleteDashboardHandler = async (request: NextRequest, userContext: UserCon
       return createErrorResponse('Dashboard not found', 404);
     }
 
-    logDBOperation(logger, 'dashboard_delete', 'dashboards', startTime, 1);
+    log.db('UPDATE', 'dashboards', Date.now() - startTime, { rowCount: 1 });
 
-    logger.info('Dashboard deleted successfully', {
+    log.info('Dashboard deleted successfully', {
       dashboardId: params.dashboardId,
       dashboardName: deletedDashboard.dashboard_name,
       deletedBy: userContext.user_id
     });
 
-    return createSuccessResponse({ 
-      message: `Dashboard "${deletedDashboard.dashboard_name}" deleted successfully` 
+    return createSuccessResponse({
+      message: `Dashboard "${deletedDashboard.dashboard_name}" deleted successfully`
     }, 'Dashboard deleted successfully');
-    
+
   } catch (error) {
-    logger.error('Dashboard delete error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined,
+    log.error('Dashboard delete error', error, {
       dashboardId: params.dashboardId,
       requestingUserId: userContext.user_id
     });

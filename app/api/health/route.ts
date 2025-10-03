@@ -2,10 +2,7 @@ import { NextRequest } from 'next/server'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { publicRoute } from '@/lib/api/rbac-route-handler'
-import { 
-  createAPILogger, 
-  logPerformanceMetric 
-} from '@/lib/logger'
+import { log } from '@/lib/logger'
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
@@ -18,9 +15,8 @@ export const dynamic = 'force-dynamic';
  */
 const healthHandler = async (request: NextRequest) => {
   const startTime = Date.now()
-  const logger = createAPILogger(request)
-  
-  logger.info('Health check request initiated', {
+
+  log.info('Health check request initiated', {
     endpoint: '/api/health',
     method: 'GET'
   })
@@ -49,31 +45,23 @@ const healthHandler = async (request: NextRequest) => {
 
     // Log performance metric
     const totalDuration = Date.now() - startTime
-    logPerformanceMetric(logger, 'health_check_duration', totalDuration, {
-      status: 'healthy'
-    })
-
-    logger.info('Health check completed successfully', {
+    log.info('Health check completed', {
       duration: totalDuration,
+      status: 'healthy',
       memoryUsed: systemHealth.memory.used,
       uptime: systemHealth.uptime
     })
 
     return createSuccessResponse(systemHealth, 'System is healthy')
-    
+
   } catch (error) {
     const totalDuration = Date.now() - startTime
-    
-    logger.error('Health check error', error, {
+
+    log.error('Health check error', error, {
       duration: totalDuration,
       errorType: error instanceof Error ? error.constructor.name : typeof error
     })
-    
-    logPerformanceMetric(logger, 'health_check_duration', totalDuration, {
-      status: 'error',
-      errorType: error instanceof Error ? error.name : 'unknown'
-    })
-    
+
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 503, request)
   }
 }

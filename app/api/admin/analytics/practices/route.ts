@@ -6,11 +6,7 @@ import { createErrorResponse } from '@/lib/api/responses/error'
 import { rbacRoute } from '@/lib/api/rbac-route-handler'
 import { AuditLogger } from '@/lib/api/services/audit'
 import type { UserContext } from '@/lib/types/rbac'
-import { 
-  createAPILogger, 
-  logDBOperation, 
-  logPerformanceMetric 
-} from '@/lib/logger'
+import { log } from '@/lib/logger'
 
 /**
  * Admin Analytics - Practice Metrics
@@ -18,10 +14,9 @@ import {
  */
 const analyticsHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now()
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id)
   let timeframe: string | undefined;
-  
-  logger.info('Practice analytics request initiated', {
+
+  log.info('Practice analytics request initiated', {
     requestingUserId: userContext.user_id,
     isSuperAdmin: userContext.is_super_admin
   })
@@ -30,8 +25,8 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     const { searchParams } = new URL(request.url)
     timeframe = searchParams.get('timeframe') || '30d'
     const startDate = getStartDate(timeframe)
-    
-    logger.debug('Practice analytics parameters parsed', {
+
+    log.info('Practice analytics parameters parsed', {
       timeframe,
       startDate: startDate.toISOString()
     })
@@ -193,19 +188,17 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     }
 
     return createSuccessResponse(analytics, 'Practice analytics retrieved successfully')
-    
+
   } catch (error) {
-    logger.error('Practice analytics error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+    log.error('Practice analytics error', error, {
       timeframe,
       requestingUserId: userContext.user_id
     })
-    
-    logPerformanceMetric(logger, 'analytics_request_failed', Date.now() - startTime)
+
+    log.info('Analytics request failed', { duration: Date.now() - startTime })
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   } finally {
-    logPerformanceMetric(logger, 'practice_analytics_total', Date.now() - startTime)
+    log.info('Practice analytics total', { duration: Date.now() - startTime })
   }
 }
 

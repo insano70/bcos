@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import '@/tests/setup/integration-setup'
 import { createTestUser } from '@/tests/factories/user-factory'
 import { SessionManager } from '@/lib/api/services/session'
-import { AccountSecurity } from '@/lib/auth/security'
+import { ensureSecurityRecord } from '@/lib/auth/security'
 import { db, user_sessions } from '@/lib/db'
 import { eq, and } from 'drizzle-orm'
 
@@ -26,7 +26,7 @@ describe('Session Limits Integration', () => {
       const userId = testUser.user_id
       
       // Ensure security record exists with default limit of 3
-      const securityRecord = await AccountSecurity.ensureSecurityRecord(userId)
+      const securityRecord = await ensureSecurityRecord(userId)
       expect(securityRecord.max_concurrent_sessions).toBe(3)
       
       // Create 3 sessions (at the limit)
@@ -128,7 +128,7 @@ describe('Session Limits Integration', () => {
       const userId = testUser.user_id
       
       // Ensure record exists
-      await AccountSecurity.ensureSecurityRecord(userId)
+      await ensureSecurityRecord(userId)
       
       // Create 4 sessions rapidly
       const sessions = await Promise.all([

@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { TokenManager } from '@/lib/auth/token-manager'
+import { revokeRefreshToken, revokeAllUserTokens } from '@/lib/auth/token-manager'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
-import { AuditLogger, BufferedAuditLogger } from '@/lib/logger'
-import { logger } from '@/lib/logger'
-import { createAPILogger } from '@/lib/logger/api-features'
+import { AuditLogger, log } from '@/lib/logger'
 import { requireAuth } from '@/lib/api/middleware/auth'
-import { CSRFProtection } from '@/lib/security/csrf'
+import { verifyCSRFToken } from '@/lib/security/csrf'
 import { db, token_blacklist } from '@/lib/db'
 
 // Force dynamic rendering for this API route
@@ -22,25 +20,18 @@ import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
-  
-  // Create enhanced API logger for logout operations
-  const apiLogger = createAPILogger(request, 'authentication')
-  const fallbackLogger = logger.child({ path: '/api/auth/logout' })
-  
+
   try {
-    // Enhanced logout request logging - permanently enabled
-    apiLogger.logRequest({
-      authType: 'session'
-    })
-    
+    log.api('POST /api/auth/logout - Request received', request, 0, 0)
+
     // RATE LIMITING: Apply auth-level rate limiting to prevent logout abuse
     const rateLimitStart = Date.now()
     await applyRateLimit(request, 'auth')
-    
-    apiLogger.getLogger().timing('Rate limit check completed', rateLimitStart)
+
+    log.info('Rate limit check completed', { duration: Date.now() - rateLimitStart })
 
     // CSRF PROTECTION: Verify CSRF token before authentication check
-    const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
+    const isValidCSRF = await verifyCSRFToken(request)
     if (!isValidCSRF) {
       return createErrorResponse('CSRF token validation failed', 403, request)
     }
@@ -78,7 +69,7 @@ export async function POST(request: NextRequest) {
     const userAgent = request.headers.get('user-agent') || 'unknown'
 
     // Revoke the refresh token
-    const revoked = await TokenManager.revokeRefreshToken(refreshToken, 'logout')
+    const revoked = await revokeRefreshToken(refreshToken, 'logout')
 
     if (!revoked) {
       return createErrorResponse('Failed to logout', 500, request)
@@ -107,14 +98,14 @@ export async function POST(request: NextRequest) {
           })
         }
       } catch (e) {
-        // Enhanced security logging for token blacklisting failure
-        apiLogger.logSecurity('token_blacklist_failure', 'medium', {
+        // Security logging for token blacklisting failure
+        log.security('token_blacklist_failure', 'medium', {
           action: 'logout_token_cleanup_failed',
           reason: 'blacklist_error',
           threat: 'token_persistence'
         })
-        
-        logger.warn('Failed to blacklist access token on logout', {
+
+        log.warn('Failed to blacklist access token on logout', {
           error: e instanceof Error ? e.message : 'Unknown error',
           operation: 'logout'
         })
@@ -163,27 +154,19 @@ export async function POST(request: NextRequest) {
       maxAge: 0, // Expire immediately
     })
 
-    // Enhanced logout completion logging
-    apiLogger.logAuth('logout_success', true, {
+    // Logout completion logging
+    log.auth('logout_success', true, {
       userId: session.user.id
     })
-    
-    apiLogger.logBusiness('session_termination', 'sessions', 'success', {
-      recordsProcessed: 1,
-      businessRules: ['token_cleanup', 'cookie_clearing', 'session_invalidation'],
-      notifications: 0
-    })
-    
-    apiLogger.logResponse(200, {
-      recordCount: 1
-    })
+
+    log.api('POST /api/auth/logout - Success', request, 200, Date.now() - startTime)
 
     return response
-    
+
   } catch (error) {
-    // Enhanced error logging
-    apiLogger.logResponse(500, {}, error instanceof Error ? error : new Error(String(error)))
-    
+    log.error('Logout failed', error)
+    log.api('POST /api/auth/logout - Error', request, 500, Date.now() - startTime)
+
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }
@@ -195,18 +178,11 @@ export async function POST(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   const startTime = Date.now()
-  
-  // Create enhanced API logger for revoke all sessions
-  const apiLogger = createAPILogger(request, 'authentication')
-  const fallbackLogger = logger.child({ path: '/api/auth/logout/revoke-all' })
-  
+
   try {
-    // Enhanced revoke all sessions request logging - permanently enabled
-    apiLogger.logRequest({
-      authType: 'session'
-    })
-    
-    apiLogger.logSecurity('revoke_all_sessions_requested', 'medium', {
+    log.api('DELETE /api/auth/logout - Revoke all sessions', request, 0, 0)
+
+    log.security('revoke_all_sessions_requested', 'medium', {
       action: 'emergency_logout',
       threat: 'potential_compromise'
     })
@@ -215,7 +191,7 @@ export async function DELETE(request: NextRequest) {
     await applyRateLimit(request, 'auth')
 
     // CSRF PROTECTION: Verify CSRF token before authentication check
-    const isValidCSRF = await CSRFProtection.verifyCSRFToken(request)
+    const isValidCSRF = await verifyCSRFToken(request)
     if (!isValidCSRF) {
       return createErrorResponse('CSRF token validation failed', 403, request)
     }
@@ -246,7 +222,7 @@ export async function DELETE(request: NextRequest) {
       const userId = tokenUserId
 
       // Revoke all user tokens
-      const revokedCount = await TokenManager.revokeAllUserTokens(userId, 'security')
+      const revokedCount = await revokeAllUserTokens(userId, 'security')
 
       // AUDIT LOGGING: Log the revoke all sessions action
       const ipAddress = request.headers.get('x-forwarded-for') ||
@@ -300,9 +276,9 @@ export async function DELETE(request: NextRequest) {
     } catch (tokenError) {
       return createErrorResponse('Invalid session', 401, request)
     }
-    
+
   } catch (error) {
-    errorLog('Revoke all sessions error:', error)
+    log.error('Revoke all sessions error', error)
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request)
   }
 }

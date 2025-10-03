@@ -1,7 +1,6 @@
 import { nanoid } from 'nanoid';
 import { audit_logs, db } from '@/lib/db';
-import { logger } from '@/lib/logger';
-import { createAppLogger } from '@/lib/logger/factory';
+import { log } from '@/lib/logger';
 
 /**
  * Audit Logging Service
@@ -25,10 +24,6 @@ export interface AuditLogEntry {
 }
 
 class AuditLoggerService {
-  private universalLogger = createAppLogger('audit-service', {
-    component: 'audit-system',
-    feature: 'compliance-logging',
-  });
   /**
    * Log authentication events
    */
@@ -44,7 +39,7 @@ class AuditLoggerService {
       data.action === 'login_failed' || data.action === 'account_locked' ? 'high' : 'medium';
 
     // Enhanced audit logging with universal logger - permanently enabled
-    this.universalLogger.auth(
+    log.auth(
       data.action,
       data.action !== 'login_failed' && data.action !== 'account_locked',
       {
@@ -57,7 +52,7 @@ class AuditLoggerService {
     );
 
     // Business intelligence for audit operations
-    this.universalLogger.info('Audit event processed', {
+    log.info('Audit event processed', {
       eventType: 'auth',
       action: data.action,
       severity,
@@ -93,7 +88,7 @@ class AuditLoggerService {
     metadata?: Record<string, unknown>;
   }): Promise<void> {
     // Enhanced user action logging - permanently enabled
-    this.universalLogger.info('User action audit', {
+    log.info('User action audit', {
       action: data.action,
       userId: data.userId,
       resourceType: data.resourceType,
@@ -107,7 +102,7 @@ class AuditLoggerService {
     });
 
     // Business intelligence for user behavior
-    this.universalLogger.debug('User behavior analytics', {
+    log.debug('User behavior analytics', {
       userActionType: data.action,
       resourceAccessed: data.resourceType,
       sessionMetadata: data.metadata,
@@ -222,21 +217,23 @@ class AuditLoggerService {
         await this.sendCriticalAlert(entry);
       }
 
-      logger.debug('Audit log created', {
+      log.debug('Audit log created', {
         eventType: entry.event_type,
         action: entry.action,
         userId: entry.user_id,
         severity: entry.severity,
         operation: 'createAuditLog',
+        component: 'audit-system',
+        feature: 'compliance-logging',
       });
     } catch (error) {
       // Never let audit logging failures break the main application
-      logger.error('Audit logging failed', {
+      log.error('Audit logging failed', error instanceof Error ? error : new Error(String(error)), {
         eventType: entry.event_type,
         action: entry.action,
         userId: entry.user_id,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
+        component: 'audit-system',
+        feature: 'compliance-logging',
         operation: 'createAuditLog',
       });
     }
@@ -248,9 +245,9 @@ class AuditLoggerService {
   private async sendCriticalAlert(entry: AuditLogEntry): Promise<void> {
     try {
       // Dynamic import to avoid circular dependencies
-      const { EmailService } = await import('./email');
+      const { emailService } = await import('./email-service-instance');
 
-      await EmailService.sendSystemNotification(
+      await emailService.sendSystemNotification(
         `Critical Security Event: ${entry.action}`,
         `A critical security event has been detected in the system.`,
         {
@@ -263,10 +260,12 @@ class AuditLoggerService {
         }
       );
     } catch (error) {
-      logger.error('Failed to send critical alert', {
+      log.error('Failed to send critical alert', error instanceof Error ? error : new Error(String(error)), {
         eventType: entry.event_type,
         action: entry.action,
         severity: entry.severity,
+        component: 'audit-system',
+        feature: 'compliance-logging',
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined,
         operation: 'sendCriticalAlert',
@@ -296,10 +295,10 @@ class AuditLoggerService {
         hasMore: false,
       };
     } catch (error) {
-      logger.error('Failed to retrieve audit logs', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
+      log.error('Failed to retrieve audit logs', error instanceof Error ? error : new Error(String(error)), {
         operation: 'getAuditLogs',
+        component: 'audit-system',
+        feature: 'compliance-logging',
       });
       throw error;
     }

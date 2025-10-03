@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { apiClient } from '@/lib/api/client';
 import { type UserContext } from '@/lib/types/rbac';
 import { clientDebugLog as debugLog, clientErrorLog as errorLog } from '@/lib/utils/debug-client';
-import { CSRFClientHelper } from '@/lib/security/csrf-client';
+import { shouldRefreshToken, validateTokenStructure } from '@/lib/security/csrf-client';
 
 /**
  * Enhanced Authentication Provider with RBAC Integration
@@ -237,7 +237,7 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     try {
       // Check if we have a cached token and validate it
       if (state.csrfToken) {
-        const shouldRefresh = CSRFClientHelper.shouldRefreshToken(state.csrfToken, lastTokenFetchTime);
+        const shouldRefresh = shouldRefreshToken(state.csrfToken, lastTokenFetchTime);
         
         if (!shouldRefresh) {
           // Token is still valid, return it
@@ -273,7 +273,7 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
       }
 
       // Validate the new token structure
-      const validation = CSRFClientHelper.validateTokenStructure(token);
+      const validation = validateTokenStructure(token);
       if (!validation.isValid) {
         errorLog(`New CSRF token validation failed: ${validation.reason}`);
         return null;

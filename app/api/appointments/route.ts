@@ -1,14 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { publicRoute } from '@/lib/api/rbac-route-handler'
-import { EmailService } from '@/lib/api/services/email'
+import { emailService } from '@/lib/api/services/email-service-instance'
 import { z } from 'zod'
-import { createAppLogger } from '@/lib/logger/factory'
-
-const appointmentLogger = createAppLogger('appointment-api', {
-  component: 'api',
-  feature: 'appointment-requests',
-  module: 'appointment-endpoint'
-})
+import { log } from '@/lib/logger'
 
 const AppointmentRequestSchema = z.object({
   firstName: z.string().min(1, 'First name is required').max(50, 'First name too long'),
@@ -48,7 +42,7 @@ const handler = async (request: NextRequest) => {
     // Validate request data
     const validatedData = AppointmentRequestSchema.parse(body)
 
-    appointmentLogger.info('Appointment request received', {
+    log.info('Appointment request received', {
       patientName: `${validatedData.firstName} ${validatedData.lastName}`,
       email: validatedData.email,
       preferredDate: validatedData.preferredDate,
@@ -59,7 +53,7 @@ const handler = async (request: NextRequest) => {
     })
 
     // Send email notification to practice
-    await EmailService.sendAppointmentRequest(validatedData.practiceEmail, {
+    await emailService.sendAppointmentRequest(validatedData.practiceEmail, {
       firstName: validatedData.firstName,
       lastName: validatedData.lastName,
       email: validatedData.email,
@@ -70,7 +64,7 @@ const handler = async (request: NextRequest) => {
       ...(validatedData.message && { message: validatedData.message })
     })
 
-    appointmentLogger.info('Appointment request processed successfully', {
+    log.info('Appointment request processed successfully', {
       patientName: `${validatedData.firstName} ${validatedData.lastName}`,
       email: validatedData.email,
       practiceEmail: validatedData.practiceEmail,
@@ -83,9 +77,7 @@ const handler = async (request: NextRequest) => {
     })
 
   } catch (error) {
-    appointmentLogger.error('Appointment request failed', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+    log.error('Appointment request failed', error, {
       operation: 'appointment-request-error'
     })
 

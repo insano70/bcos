@@ -8,28 +8,15 @@ import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { createRBACUsersService } from '@/lib/services/rbac-users-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { 
-  logDBOperation, 
-  logPerformanceMetric 
-} from '@/lib/logger';
-import { createAPILogger } from '@/lib/logger/api-features';
+import { log } from '@/lib/logger';
 
 const getUserHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const startTime = Date.now();
-  const apiLogger = createAPILogger(request, 'user-management')
-  const logger = apiLogger.getLogger().withUser(userContext.user_id, userContext.current_organization_id);
-  
+
   try {
     const { id: userId } = await extractRouteParams(args[0], userParamsSchema);
-    
-    // Enhanced user retrieval request logging
-    apiLogger.logRequest({
-      authType: 'session',
-      userId: userContext.user_id,
-      ...(userContext.current_organization_id && { organizationId: userContext.current_organization_id })
-    })
-    
-    logger.info('Get user request initiated', {
+
+    log.info('Get user request initiated', {
       targetUserId: userId,
       requestingUserId: userContext.user_id
     });
@@ -44,11 +31,10 @@ const getUserHandler = async (request: NextRequest, userContext: UserContext, ..
       throw NotFoundError('User');
     }
 
-    logPerformanceMetric(logger, 'get_user_total', Date.now() - startTime);
-    
-    logger.info('User retrieved successfully', {
+    log.info('User retrieved successfully', {
       targetUserId: userId,
-      hasOrganizations: user.organizations.length > 0
+      hasOrganizations: user.organizations.length > 0,
+      duration: Date.now() - startTime
     });
 
     return createSuccessResponse({
@@ -66,11 +52,10 @@ const getUserHandler = async (request: NextRequest, userContext: UserContext, ..
 
   } catch (error) {
     const duration = Date.now() - startTime;
-    logger.error('Get user failed', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+    log.error('Get user failed', error, {
       duration
     });
-    
+
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
       error instanceof NotFoundError ? 404 : 500,
@@ -81,12 +66,11 @@ const getUserHandler = async (request: NextRequest, userContext: UserContext, ..
 
 const updateUserHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
+
   try {
     const { id: userId } = await extractRouteParams(args[0], userParamsSchema);
-    
-    logger.info('Update user request initiated', {
+
+    log.info('Update user request initiated', {
       targetUserId: userId,
       requestingUserId: userContext.user_id
     });
@@ -107,15 +91,13 @@ const updateUserHandler = async (request: NextRequest, userContext: UserContext,
     try {
       updateData = await validateRequest(requestForValidation, userUpdateSchema);
     } catch (validationError) {
-      logger.error('Validation failed', {
-        targetUserId: userId,
-        validationError: validationError instanceof Error ? validationError.message : String(validationError),
-        validationStack: validationError instanceof Error ? validationError.stack : undefined
+      log.error('Validation failed', validationError, {
+        targetUserId: userId
       });
       throw validationError;
     }
-    
-    logger.info('Validation successful', {
+
+    log.info('Validation successful', {
       targetUserId: userId,
       requestingUserId: userContext.user_id,
       updateFields: Object.keys(updateData),
@@ -134,13 +116,12 @@ const updateUserHandler = async (request: NextRequest, userContext: UserContext,
     // Update user with automatic permission checking
     const dbStart = Date.now();
     const updatedUser = await usersService.updateUser(userId, cleanUpdateData);
-    logDBOperation(logger, 'update_user', 'users', dbStart);
-    
-    logPerformanceMetric(logger, 'update_user_total', Date.now() - startTime);
-    
-    logger.info('User updated successfully', {
+    log.db('UPDATE', 'users', Date.now() - dbStart, { rowCount: 1 });
+
+    log.info('User updated successfully', {
       targetUserId: userId,
-      updatedFields: Object.keys(updateData)
+      updatedFields: Object.keys(updateData),
+      duration: Date.now() - startTime
     });
 
     return createSuccessResponse({
@@ -157,22 +138,10 @@ const updateUserHandler = async (request: NextRequest, userContext: UserContext,
 
   } catch (error) {
     const duration = Date.now() - startTime;
-    
-    // Enhanced error logging
-    if (error instanceof Error) {
-      logger.error('Update user failed', {
-        errorName: error.name,
-        errorMessage: error.message,
-        errorStack: error.stack,
-        duration,
-        targetUserId: 'unknown'
-      });
-    } else {
-      logger.error('Update user failed with unknown error', {
-        error: String(error),
-        duration
-      });
-    }
+
+    log.error('Update user failed', error, {
+      duration
+    });
     
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
@@ -184,39 +153,36 @@ const updateUserHandler = async (request: NextRequest, userContext: UserContext,
 
 const deleteUserHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const startTime = Date.now();
-  const logger = createAPILogger(request).withUser(userContext.user_id, userContext.current_organization_id);
-  
+
   try {
     const { id: userId } = await extractRouteParams(args[0], userParamsSchema);
-    
-    logger.info('Delete user request initiated', {
+
+    log.info('Delete user request initiated', {
       targetUserId: userId,
       requestingUserId: userContext.user_id
     });
 
     // Create RBAC users service
     const usersService = createRBACUsersService(userContext);
-    
+
     // Delete user with automatic permission checking
     const dbStart = Date.now();
     await usersService.deleteUser(userId);
-    logDBOperation(logger, 'delete_user', 'users', dbStart);
-    
-    logPerformanceMetric(logger, 'delete_user_total', Date.now() - startTime);
-    
-    logger.info('User deleted successfully', {
-      targetUserId: userId
+    log.db('DELETE', 'users', Date.now() - dbStart, { rowCount: 1 });
+
+    log.info('User deleted successfully', {
+      targetUserId: userId,
+      duration: Date.now() - startTime
     });
 
     return createSuccessResponse(null, 'User deleted successfully');
 
   } catch (error) {
     const duration = Date.now() - startTime;
-    logger.error('Delete user failed', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+    log.error('Delete user failed', error, {
       duration
     });
-    
+
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
       500,

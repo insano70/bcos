@@ -6,7 +6,7 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { permissions, role_permissions, roles } from '@/lib/db/schema';
-import { logger } from '@/lib/logger';
+import { log } from '@/lib/logger';
 import type { Permission } from '@/lib/types/rbac';
 import { rolePermissionCache } from './role-permission-cache';
 
@@ -15,7 +15,7 @@ import { rolePermissionCache } from './role-permission-cache';
  */
 export async function warmUpRolePermissionCache(): Promise<void> {
   try {
-    logger.info('Starting role permission cache warm-up...');
+    log.info('Starting role permission cache warm-up...');
 
     // Get all active roles with their permissions
     const rolePermissionsData = await db
@@ -72,15 +72,13 @@ export async function warmUpRolePermissionCache(): Promise<void> {
       cachedRoles++;
     }
 
-    logger.info('Role permission cache warm-up completed', {
+    log.info('Role permission cache warm-up completed', {
       cachedRoles,
       totalPermissions: rolePermissionsData.length,
       cacheSize: rolePermissionCache.getStats().size,
     });
   } catch (error) {
-    logger.error('Failed to warm up role permission cache', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+    log.error('Failed to warm up role permission cache', error instanceof Error ? error : new Error(String(error)), {
     });
   }
 }

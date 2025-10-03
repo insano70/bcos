@@ -25,12 +25,10 @@ import { db, users } from '@/lib/db';
 import { eq } from 'drizzle-orm';
 import { publicRoute } from '@/lib/api/route-handler';
 import { createErrorResponse, AuthenticationError } from '@/lib/api/responses/error';
-import { withCorrelation, CorrelationContextManager, logPerformanceMetric } from '@/lib/logger';
-import { createAPILogger } from '@/lib/logger/api-features';
-import { AuditLogger } from '@/lib/logger';
-import { TokenManager } from '@/lib/auth/token-manager';
+import { AuditLogger, log, correlation } from '@/lib/logger';
+import { createTokenPair, generateDeviceFingerprint, generateDeviceName } from '@/lib/auth/token-manager';
 import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context';
-import { UnifiedCSRFProtection } from '@/lib/security/csrf-unified';
+import { setCSRFToken } from '@/lib/security/csrf-unified';
 import { createSAMLClient } from '@/lib/saml/client';
 import { isSAMLEnabled, getSAMLConfig } from '@/lib/env';
 import type { SAMLAuthContext } from '@/lib/types/saml';
@@ -49,26 +47,18 @@ export const dynamic = 'force-dynamic';
 const samlCallbackHandler = async (request: NextRequest) => {
   const startTime = Date.now();
 
-  // Create enhanced API logger for SAML callback
-  const apiLogger = createAPILogger(request, 'saml-callback');
-  const logger = apiLogger.getLogger();
-
-  // Log SAML callback initiation
-  apiLogger.logRequest({
-    authType: 'none', // User authenticates via SAML
-    suspicious: false
-  });
+  log.api('POST /api/auth/saml/callback - SAML callback initiated', request, 0, 0);
 
   try {
     // Check if SAML is enabled
     if (!isSAMLEnabled()) {
-      apiLogger.logSecurity('saml_callback_rejected', 'medium', {
+      log.security('saml_callback_rejected', 'medium', {
         action: 'saml_callback_attempted',
         blocked: true,
         reason: 'saml_not_configured'
       });
 
-      logger.warn('SAML callback received but SAML is not configured');
+      log.warn('SAML callback received but SAML is not configured');
 
       return createErrorResponse(
         'SAML SSO is not available',
@@ -78,20 +68,20 @@ const samlCallbackHandler = async (request: NextRequest) => {
     }
 
     // Extract device info
-    const ipAddress = request.headers.get('x-forwarded-for') || 
-                     request.headers.get('x-real-ip') || 
+    const ipAddress = request.headers.get('x-forwarded-for') ||
+                     request.headers.get('x-real-ip') ||
                      'unknown';
     const userAgent = request.headers.get('user-agent') || 'unknown';
 
     // Build SAML auth context
     const authContext: SAMLAuthContext = {
-      requestId: CorrelationContextManager.getCurrentId() || 'unknown',
+      requestId: correlation.current() || 'unknown',
       ipAddress,
       userAgent,
       timestamp: new Date()
     };
 
-    logger.info('SAML callback processing started', {
+    log.info('SAML callback processing started', {
       requestId: authContext.requestId,
       ipAddress
     });
@@ -100,22 +90,22 @@ const samlCallbackHandler = async (request: NextRequest) => {
     const formDataStartTime = Date.now();
     const formData = await request.formData();
     const samlResponse = formData.get('SAMLResponse');
-    logPerformanceMetric(logger, 'form_data_parsing', Date.now() - formDataStartTime);
+    log.info('Form data parsing completed', { duration: Date.now() - formDataStartTime });
 
     if (!samlResponse || typeof samlResponse !== 'string') {
-      apiLogger.logSecurity('saml_response_missing', 'high', {
+      log.security('saml_response_missing', 'high', {
         action: 'invalid_saml_callback',
         blocked: true,
         threat: 'malformed_request',
         reason: 'no_saml_response'
       });
 
-      logger.error('No SAML response in callback request');
+      log.error('No SAML response in callback request');
 
       throw AuthenticationError('Invalid SAML callback - no SAML response');
     }
 
-    logger.debug('SAML response received', {
+    log.debug('SAML response received', {
       requestId: authContext.requestId,
       responseLength: samlResponse.length
     });
@@ -129,7 +119,8 @@ const samlCallbackHandler = async (request: NextRequest) => {
       authContext
     );
     
-    logPerformanceMetric(logger, 'saml_validation', Date.now() - samlValidationStartTime, {
+    log.info('SAML validation completed', {
+      duration: Date.now() - samlValidationStartTime,
       signatureValid: validationResult.validations.signatureValid,
       issuerValid: validationResult.validations.issuerValid,
       allChecks: Object.keys(validationResult.validations).length
@@ -137,14 +128,14 @@ const samlCallbackHandler = async (request: NextRequest) => {
 
     if (!validationResult.success || !validationResult.profile) {
       // SAML validation failed - security event
-      apiLogger.logSecurity('saml_validation_failed', 'high', {
+      log.security('saml_validation_failed', 'high', {
         action: 'authentication_rejected',
         blocked: true,
         threat: 'invalid_saml_response',
         reason: validationResult.error || 'validation_failed'
       });
 
-      logger.error('SAML validation failed', new Error(validationResult.error || 'Unknown error'), {
+      log.error('SAML validation failed', new Error(validationResult.error || 'Unknown error'), {
         requestId: authContext.requestId,
         validations: validationResult.validations
       });
@@ -158,7 +149,7 @@ const samlCallbackHandler = async (request: NextRequest) => {
           stage: 'callback_validation',
           reason: validationResult.error,
           validations: validationResult.validations,
-          correlationId: CorrelationContextManager.getCurrentId()
+          correlationId: correlation.current()
         }
       });
 
@@ -178,14 +169,14 @@ const samlCallbackHandler = async (request: NextRequest) => {
     });
 
     if (!profileValidation.valid) {
-      apiLogger.logSecurity('saml_profile_validation_failed', 'high', {
+      log.security('saml_profile_validation_failed', 'high', {
         action: 'authentication_rejected',
         blocked: true,
         threat: 'invalid_profile_data',
         reason: `profile_validation_failed: ${profileValidation.errors.join(', ')}`
       });
 
-      logger.error('SAML profile validation failed', new Error('Invalid profile data'), {
+      log.error('SAML profile validation failed', new Error('Invalid profile data'), {
         requestId: authContext.requestId,
         errors: profileValidation.errors,
         alert: 'POSSIBLE_INJECTION_ATTEMPT'
@@ -200,7 +191,7 @@ const samlCallbackHandler = async (request: NextRequest) => {
           stage: 'profile_validation',
           reason: 'invalid_profile_data',
           errors: profileValidation.errors,
-          correlationId: CorrelationContextManager.getCurrentId()
+          correlationId: correlation.current()
         }
       });
 
@@ -210,7 +201,7 @@ const samlCallbackHandler = async (request: NextRequest) => {
     // Use sanitized email from validation
     const email = profileValidation.sanitized!.email;
 
-    logger.info('SAML validation successful', {
+    log.info('SAML validation successful', {
       requestId: authContext.requestId,
       email: email.replace(/(.{2}).*@/, '$1***@'), // PII masking
       issuer: profile.issuer,
@@ -218,7 +209,7 @@ const samlCallbackHandler = async (request: NextRequest) => {
     });
 
     // Enhanced SAML validation success logging
-    apiLogger.logAuth('saml_validation_success', true, {
+    log.auth('saml_validation_success', true, {
       method: 'session'
     });
 
@@ -243,20 +234,21 @@ const samlCallbackHandler = async (request: NextRequest) => {
       assertionExpiry
     );
 
-    logPerformanceMetric(logger, 'replay_attack_check', Date.now() - replayCheckStartTime, {
+    log.info('Replay attack check completed', {
+      duration: Date.now() - replayCheckStartTime,
       safe: replayCheck.safe
     });
 
     if (!replayCheck.safe) {
       // REPLAY ATTACK DETECTED - This is a critical security event
-      apiLogger.logSecurity('saml_replay_attack_detected', 'critical', {
+      log.security('saml_replay_attack_detected', 'critical', {
         action: 'authentication_rejected',
         blocked: true,
         threat: 'replay_attack',
         reason: replayCheck.reason || 'replay_detected'
       });
 
-      logger.error('SAML replay attack detected', new Error('Replay attack'), {
+      log.error('SAML replay attack detected', new Error('Replay attack'), {
         requestId: authContext.requestId,
         email: email.replace(/(.{2}).*@/, '$1***@'),
         assertionId: assertionId.substring(0, 20) + '...',
@@ -277,7 +269,7 @@ const samlCallbackHandler = async (request: NextRequest) => {
           reason: 'replay_attack_detected',
           assertionId: assertionId.substring(0, 20) + '...',
           details: replayCheck.details,
-          correlationId: CorrelationContextManager.getCurrentId(),
+          correlationId: correlation.current(),
           severity: 'critical'
         }
       });
@@ -285,7 +277,7 @@ const samlCallbackHandler = async (request: NextRequest) => {
       throw AuthenticationError('Authentication failed - security violation detected');
     }
 
-    logger.info('SAML replay check passed', {
+    log.info('SAML replay check passed', {
       requestId: authContext.requestId,
       assertionId: assertionId.substring(0, 20) + '...'
     });
@@ -298,20 +290,20 @@ const samlCallbackHandler = async (request: NextRequest) => {
       .where(eq(users.email, email))
       .limit(1);
     
-    logPerformanceMetric(logger, 'database_user_lookup', Date.now() - dbStartTime, {
+    log.db('SELECT', 'users', Date.now() - dbStartTime, {
       userFound: !!user
     });
 
     if (!user) {
       // User not pre-provisioned - security event
-      apiLogger.logSecurity('saml_user_not_provisioned', 'medium', {
+      log.security('saml_user_not_provisioned', 'medium', {
         action: 'authentication_rejected',
         blocked: true,
         threat: 'unauthorized_access',
         reason: 'user_not_found'
       });
 
-      logger.warn('SAML SSO attempt by non-provisioned user', {
+      log.warn('SAML SSO attempt by non-provisioned user', {
         requestId: authContext.requestId,
         email: email.replace(/(.{2}).*@/, '$1***@')
       });
@@ -325,7 +317,7 @@ const samlCallbackHandler = async (request: NextRequest) => {
           authMethod: 'saml',
           stage: 'user_lookup',
           reason: 'user_not_provisioned',
-          correlationId: CorrelationContextManager.getCurrentId()
+          correlationId: correlation.current()
         }
       });
 
@@ -337,14 +329,14 @@ const samlCallbackHandler = async (request: NextRequest) => {
 
     // Check if user account is active
     if (!user.is_active) {
-      apiLogger.logSecurity('saml_inactive_user', 'medium', {
+      log.security('saml_inactive_user', 'medium', {
         action: 'authentication_rejected',
         blocked: true,
         userId: user.user_id,
         reason: 'user_inactive'
       });
 
-      logger.warn('SAML SSO attempt by inactive user', {
+      log.warn('SAML SSO attempt by inactive user', {
         requestId: authContext.requestId,
         userId: user.user_id,
         email: email.replace(/(.{2}).*@/, '$1***@')
@@ -360,14 +352,14 @@ const samlCallbackHandler = async (request: NextRequest) => {
           authMethod: 'saml',
           stage: 'user_validation',
           reason: 'user_inactive',
-          correlationId: CorrelationContextManager.getCurrentId()
+          correlationId: correlation.current()
         }
       });
 
       throw AuthenticationError('Account is inactive');
     }
 
-    logger.debug('User found and active', {
+    log.debug('User found and active', {
       requestId: authContext.requestId,
       userId: user.user_id,
       emailVerified: user.email_verified
@@ -375,8 +367,8 @@ const samlCallbackHandler = async (request: NextRequest) => {
 
     // Generate device info (same as password login)
     const deviceGenStartTime = Date.now();
-    const deviceFingerprint = TokenManager.generateDeviceFingerprint(ipAddress, userAgent);
-    const deviceName = TokenManager.generateDeviceName(userAgent);
+    const deviceFingerprint = generateDeviceFingerprint(ipAddress, userAgent);
+    const deviceName = generateDeviceName(userAgent);
 
     const deviceInfo = {
       ipAddress,
@@ -384,9 +376,9 @@ const samlCallbackHandler = async (request: NextRequest) => {
       fingerprint: deviceFingerprint,
       deviceName
     };
-    logPerformanceMetric(logger, 'device_info_generation', Date.now() - deviceGenStartTime);
+    log.info('Device info generated', { duration: Date.now() - deviceGenStartTime });
 
-    logger.debug('Device information generated', {
+    log.debug('Device information generated', {
       requestId: authContext.requestId,
       deviceName,
       fingerprintHash: deviceFingerprint.substring(0, 8) + '...'
@@ -395,9 +387,9 @@ const samlCallbackHandler = async (request: NextRequest) => {
     // Get user's RBAC context to determine roles
     const rbacStartTime = Date.now();
     const userContext = await getCachedUserContextSafe(user.user_id);
-    logPerformanceMetric(logger, 'rbac_context_fetch', Date.now() - rbacStartTime);
+    log.info('RBAC context fetched', { duration: Date.now() - rbacStartTime });
 
-    logger.debug('User RBAC context loaded', {
+    log.debug('User RBAC context loaded', {
       requestId: authContext.requestId,
       userId: user.user_id,
       roleCount: userContext?.roles?.length || 0,
@@ -406,13 +398,13 @@ const samlCallbackHandler = async (request: NextRequest) => {
 
     // Create token pair (SAML logins get standard session, not remember-me)
     const tokenStartTime = Date.now();
-    const tokenPair = await TokenManager.createTokenPair(
+    const tokenPair = await createTokenPair(
       user.user_id,
       deviceInfo,
       false, // rememberMe = false for SSO (standard 7-day session)
       email // Pass email for audit logging
     );
-    logPerformanceMetric(logger, 'token_generation', Date.now() - tokenStartTime);
+    log.info('Token generation completed', { duration: Date.now() - tokenStartTime });
 
     // Set secure httpOnly cookies for both tokens (same as password login)
     const cookieStartTime = Date.now();
@@ -420,7 +412,7 @@ const samlCallbackHandler = async (request: NextRequest) => {
     const isSecureEnvironment = process.env.NODE_ENV === 'production';
     const maxAge = 7 * 24 * 60 * 60; // 7 days for SAML sessions
 
-    logger.debug('Preparing authentication cookies', {
+    log.debug('Preparing authentication cookies', {
       requestId: authContext.requestId,
       nodeEnv: process.env.NODE_ENV,
       isSecureEnvironment,
@@ -452,14 +444,15 @@ const samlCallbackHandler = async (request: NextRequest) => {
     const accessCookie = cookieStore.get('access-token');
 
     const cookiesValid = !!refreshCookie?.value && !!accessCookie?.value;
-    logPerformanceMetric(logger, 'cookie_setup', Date.now() - cookieStartTime, {
+    log.info('Cookie setup completed', {
+      duration: Date.now() - cookieStartTime,
       cookiesSet: cookiesValid,
       refreshCookieLength: refreshCookie?.value?.length || 0,
       accessCookieLength: accessCookie?.value?.length || 0
     });
 
     if (!cookiesValid) {
-      logger.error('Authentication cookies failed to set', {
+      log.error('Authentication cookies failed to set', undefined, {
         requestId: authContext.requestId,
         refreshCookieExists: !!refreshCookie,
         accessCookieExists: !!accessCookie
@@ -467,37 +460,25 @@ const samlCallbackHandler = async (request: NextRequest) => {
       throw new Error('Failed to set authentication cookies');
     }
 
-    logger.info('Authentication cookies set successfully', {
+    log.info('Authentication cookies set successfully', {
       requestId: authContext.requestId,
       userId: user.user_id,
       sessionId: tokenPair.sessionId
     });
 
     // Enhanced successful authentication logging
-    apiLogger.logAuth('saml_authentication_success', true, {
+    log.auth('saml_authentication_success', true, {
       userId: user.user_id,
       method: 'session',
-      ...(userContext?.current_organization_id && { 
-        organizationId: userContext.current_organization_id 
+      ...(userContext?.current_organization_id && {
+        organizationId: userContext.current_organization_id
       }),
       sessionDuration: maxAge, // 7 days in seconds
       permissions: userContext?.all_permissions?.map(p => p.name) || []
     });
 
-    // Business intelligence logging
-    apiLogger.logBusiness('saml_authentication', 'sessions', 'success', {
-      recordsProcessed: 1,
-      businessRules: [
-        'saml_signature_verification',
-        'tenant_isolation_check',
-        'user_provisioning_check',
-        'rbac_context_load'
-      ],
-      notifications: 0
-    });
-
     // Security success event
-    apiLogger.logSecurity('saml_authentication_successful', 'low', {
+    log.security('saml_authentication_successful', 'low', {
       action: 'authentication_granted',
       userId: user.user_id,
       reason: 'valid_saml_response'
@@ -517,28 +498,13 @@ const samlCallbackHandler = async (request: NextRequest) => {
         deviceFingerprint,
         samlIssuer: validationResult.metadata.issuer,
         assertionID: validationResult.metadata.assertionID,
-        correlationId: CorrelationContextManager.getCurrentId()
+        correlationId: correlation.current()
       }
     });
 
     const totalDuration = Date.now() - startTime;
 
-    // Enhanced completion logging
-    apiLogger.logResponse(302, {
-      recordCount: 1,
-      processingTimeBreakdown: {
-        formDataParsing: formDataStartTime ? Date.now() - formDataStartTime : 0,
-        samlValidation: samlValidationStartTime ? Date.now() - samlValidationStartTime : 0,
-        databaseLookup: dbStartTime ? Date.now() - dbStartTime : 0,
-        deviceInfoGeneration: deviceGenStartTime ? Date.now() - deviceGenStartTime : 0,
-        rbacContextFetch: rbacStartTime ? Date.now() - rbacStartTime : 0,
-        tokenGeneration: tokenStartTime ? Date.now() - tokenStartTime : 0,
-        cookieSetup: cookieStartTime ? Date.now() - cookieStartTime : 0,
-        total: totalDuration
-      }
-    });
-
-    logger.info('SAML authentication completed successfully', {
+    log.info('SAML authentication completed successfully', {
       requestId: authContext.requestId,
       userId: user.user_id,
       totalDuration
@@ -673,7 +639,7 @@ const samlCallbackHandler = async (request: NextRequest) => {
       maxAge: 15 * 60 // 15 minutes
     });
 
-    logger.info('SAML success response with cookies and inline HTML', {
+    log.info('SAML success response with cookies and inline HTML', {
       requestId: authContext.requestId,
       redirectTo: successUrl,
       cookiesAttached: 2,
@@ -686,22 +652,17 @@ const samlCallbackHandler = async (request: NextRequest) => {
   } catch (error) {
     const totalDuration = Date.now() - startTime;
 
-    logger.error('SAML callback failed', error, {
+    log.error('SAML callback failed', error, {
       totalDuration,
       errorType: error instanceof Error ? error.constructor.name : typeof error
     });
 
-    logPerformanceMetric(logger, 'total_saml_callback_duration', totalDuration, {
-      success: false,
-      errorType: error instanceof Error ? error.name : 'unknown'
-    });
-
     // Enhanced error logging
-    apiLogger.logAuth('saml_callback_failed', false, {
+    log.auth('saml_callback_failed', false, {
       reason: error instanceof Error ? error.message : 'unknown_error'
     });
 
-    apiLogger.logSecurity('saml_callback_failure', 'high', {
+    log.security('saml_callback_failure', 'high', {
       action: 'saml_authentication_failed',
       blocked: true,
       threat: 'authentication_bypass_attempt',
@@ -717,7 +678,7 @@ const samlCallbackHandler = async (request: NextRequest) => {
         authMethod: 'saml',
         stage: 'callback_processing',
         error: error instanceof Error ? error.message : 'Unknown error',
-        correlationId: CorrelationContextManager.getCurrentId()
+        correlationId: correlation.current()
       }
     });
 
@@ -744,11 +705,11 @@ const samlCallbackHandler = async (request: NextRequest) => {
   }
 };
 
-// Export as public route with correlation wrapper
+// Export handler directly (correlation ID automatically added by middleware)
 // NOTE: This route is exempt from CSRF protection (Microsoft sends SAML response without our CSRF token)
 // Security is provided by SAML signature validation instead
 export const POST = publicRoute(
-  withCorrelation(samlCallbackHandler),
+  samlCallbackHandler,
   'SAML SSO callback - validates via SAML signature instead of CSRF',
   { rateLimit: 'auth' } // Strict rate limiting: 5 requests per 15 minutes
 );

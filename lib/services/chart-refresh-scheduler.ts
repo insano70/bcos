@@ -1,4 +1,4 @@
-import { logger } from '@/lib/logger';
+import { log } from '@/lib/logger';
 
 /**
  * Chart Data Refresh Scheduler
@@ -55,7 +55,7 @@ export class ChartRefreshScheduler {
 
     this.intervals.set(chartDefinitionId, intervalId);
 
-    logger.info('Chart refresh scheduled', {
+    log.info('Chart refresh scheduled', {
       chartDefinitionId,
       intervalMinutes,
       nextRefresh: schedule.nextRefresh,
@@ -78,7 +78,7 @@ export class ChartRefreshScheduler {
       this.schedules.set(chartDefinitionId, schedule);
     }
 
-    logger.info('Chart refresh unscheduled', { chartDefinitionId });
+    log.info('Chart refresh unscheduled', { chartDefinitionId });
   }
 
   /**
@@ -98,7 +98,7 @@ export class ChartRefreshScheduler {
     this.jobs.set(jobId, job);
 
     try {
-      logger.info('Starting chart refresh', { chartDefinitionId, jobId });
+      log.info('Starting chart refresh', { chartDefinitionId, jobId });
 
       // TODO: Implement proper cache invalidation based on chart parameters
       // analyticsCache.invalidatePattern({ /* proper params */ });
@@ -118,7 +118,7 @@ export class ChartRefreshScheduler {
       job.duration = Date.now() - startTime;
       this.jobs.set(jobId, job);
 
-      logger.info('Chart refresh completed', {
+      log.info('Chart refresh completed', {
         chartDefinitionId,
         jobId,
         duration: job.duration,
@@ -146,14 +146,14 @@ export class ChartRefreshScheduler {
           5 * 60 * 1000
         );
 
-        logger.warn('Chart refresh failed, retrying', {
+        log.warn('Chart refresh failed, retrying', {
           chartDefinitionId,
           retryCount: schedule.retryCount,
           maxRetries: schedule.maxRetries,
           error: errorMessage,
         });
       } else {
-        logger.error('Chart refresh failed permanently', {
+        log.error('Chart refresh failed permanently', {
           chartDefinitionId,
           error: errorMessage,
           retryCount: schedule?.retryCount || 0,
@@ -197,7 +197,7 @@ export class ChartRefreshScheduler {
       }
     }
 
-    logger.debug('Old refresh jobs cleaned up', {
+    log.debug('Old refresh jobs cleaned up', {
       remainingJobs: this.jobs.size,
     });
   }
@@ -214,7 +214,7 @@ export class ChartRefreshScheduler {
       60 * 60 * 1000
     );
 
-    logger.info('Chart refresh scheduler initialized');
+    log.info('Chart refresh scheduler initialized');
   }
 
   /**
@@ -234,7 +234,7 @@ export class ChartRefreshScheduler {
       this.schedules.set(chartId, schedule);
     }
 
-    logger.info('Chart refresh scheduler shutdown');
+    log.info('Chart refresh scheduler shutdown');
   }
 }
 

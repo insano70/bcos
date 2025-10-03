@@ -1,29 +1,29 @@
 /**
- * CSRF Security Monitoring and Alerting
+ * CSRF Security Monitoring and Alerting (Database-Backed)
  * Tracks CSRF validation failures and triggers alerts for suspicious activity
+ * Refactored from static class to instance-based with database persistence
  */
 
 import type { NextRequest } from 'next/server';
-import { createAppLogger } from '@/lib/logger/factory';
+import { and, count, desc, eq, gt, sql } from 'drizzle-orm';
+import { csrf_failure_events, type NewCSRFFailureEvent } from '@/lib/db/csrf-schema';
 
-// Create CSRF security logger with enhanced features
-const csrfLogger = createAppLogger('csrf-monitoring', {
-  component: 'security',
-  feature: 'csrf-protection',
-  module: 'csrf-monitor',
-});
+/**
+ * CSRF failure event severity levels
+ */
+export type CSRFSeverity = 'low' | 'medium' | 'high' | 'critical';
 
 /**
  * CSRF failure event data
  */
-interface CSRFFailureEvent {
-  timestamp: number;
+export interface CSRFFailureEvent {
+  timestamp: Date;
   ip: string;
   userAgent: string;
   pathname: string;
   reason: string;
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  userId: string | undefined;
+  severity: CSRFSeverity;
+  userId?: string | undefined;
 }
 
 /**
@@ -31,78 +31,90 @@ interface CSRFFailureEvent {
  */
 interface SecurityAlert {
   type: 'csrf_failure_threshold' | 'csrf_attack_pattern' | 'csrf_anomaly';
-  severity: 'low' | 'medium' | 'high' | 'critical';
+  severity: CSRFSeverity;
   message: string;
-  events: CSRFFailureEvent[];
+  eventCount: number;
   metadata: Record<string, unknown>;
   timestamp: number;
 }
 
 /**
- * CSRF Security Monitor
- * Tracks patterns and anomalies in CSRF validation failures
+ * Failure statistics
+ */
+export interface FailureStats {
+  totalIPs: number;
+  totalEvents: number;
+  recentEvents: number;
+  topIPs: Array<{ ip: string; count: number; latestFailure: Date }>;
+}
+
+/**
+ * CSRF Security Monitor (Database-Backed)
+ * Instance-based class that persists events to PostgreSQL
  */
 export class CSRFSecurityMonitor {
-  private static failures = new Map<string, CSRFFailureEvent[]>();
-  private static readonly MAX_EVENTS_PER_IP = 100;
-  private static readonly CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour
-  private static lastCleanup = 0;
+  constructor(private db: typeof import('@/lib/db').db) {}
 
   /**
    * Record a CSRF validation failure
    */
-  static recordFailure(
+  async recordFailure(
     request: NextRequest,
     reason: string,
-    severity: CSRFFailureEvent['severity'] = 'medium',
+    severity: CSRFSeverity = 'medium',
     userId?: string
-  ): void {
-    const ip = CSRFSecurityMonitor.extractIP(request);
-    const userAgent = request.headers.get('user-agent') || 'unknown';
-    const pathname = request.nextUrl.pathname;
+  ): Promise<void> {
+    try {
+      const ip = this.extractIP(request);
+      const userAgent = request.headers.get('user-agent') || 'unknown';
+      const pathname = request.nextUrl.pathname;
 
-    const event: CSRFFailureEvent = {
-      timestamp: Date.now(),
-      ip,
-      userAgent: userAgent.substring(0, 200), // Limit length
-      pathname,
-      reason,
-      severity,
-      userId,
-    };
+      const timestamp = new Date();
+      const event: NewCSRFFailureEvent = {
+        timestamp,
+        ip_address: ip,
+        user_agent: userAgent.substring(0, 500), // Reasonable limit for TEXT field
+        pathname,
+        reason,
+        severity,
+        user_id: userId,
+      };
 
-    // Store event by IP
-    if (!CSRFSecurityMonitor.failures.has(ip)) {
-      CSRFSecurityMonitor.failures.set(ip, []);
+      // Insert event into database
+      await this.db.insert(csrf_failure_events).values(event);
+
+      // Log the failure
+      this.logFailure({
+        timestamp,
+        ip,
+        userAgent,
+        pathname,
+        reason,
+        severity,
+        userId,
+      });
+
+      // Check for alert conditions (async - don't block)
+      this.checkAlertConditions(ip).catch((error) => {
+        console.error('[CSRF Monitor] Alert condition check failed:', {
+          error: error instanceof Error ? error.message : String(error),
+          ip,
+        });
+      });
+    } catch (error) {
+      // Don't throw - monitoring failures shouldn't break the app
+      console.error('[CSRF Monitor] Failed to record CSRF failure:', {
+        error: error instanceof Error ? error.message : String(error),
+        pathname: request.nextUrl.pathname,
+        reason,
+      });
     }
-
-    const ipEvents = CSRFSecurityMonitor.failures.get(ip);
-    if (!ipEvents) {
-      // This should never happen since we just set it above, but TypeScript safety
-      return;
-    }
-
-    ipEvents.push(event);
-
-    // Limit events per IP to prevent memory exhaustion
-    if (ipEvents.length > CSRFSecurityMonitor.MAX_EVENTS_PER_IP) {
-      ipEvents.shift(); // Remove oldest event
-    }
-
-    // Log the failure
-    CSRFSecurityMonitor.logFailure(event);
-
-    // Check for alert conditions
-    CSRFSecurityMonitor.checkAlertConditions(ip, ipEvents);
-
-    // Periodic cleanup
-    CSRFSecurityMonitor.cleanupOldEvents();
   }
 
   /**
    * Extract IP address from request
    */
-  private static extractIP(request: NextRequest): string {
+  private extractIP(request: NextRequest): string {
     const forwardedFor = request.headers.get('x-forwarded-for');
     if (forwardedFor) {
       const firstIP = forwardedFor.split(',')[0];
@@ -115,109 +127,130 @@ export class CSRFSecurityMonitor {
   /**
    * Log CSRF failure with appropriate severity
    */
-  private static logFailure(event: CSRFFailureEvent): void {
-    const _logData = {
-      event_type: 'csrf_validation_failure',
-      ip: event.ip,
-      pathname: event.pathname,
-      reason: event.reason,
+  private logFailure(event: CSRFFailureEvent): void {
+    // Console logging for CSRF validation failures
+    console.warn('[CSRF Monitor] Validation failure:', {
       severity: event.severity,
-      user_agent: event.userAgent.substring(0, 100),
-      user_id: event.userId,
-      timestamp: new Date(event.timestamp).toISOString(),
-    };
-
-    // Use enhanced security logging method
-    csrfLogger.security('csrf_validation_failure', event.severity, {
       ip: event.ip,
       pathname: event.pathname,
       reason: event.reason,
       userAgent: event.userAgent.substring(0, 100),
       userId: event.userId,
-      timestamp: new Date(event.timestamp).toISOString(),
+      timestamp: event.timestamp.toISOString(),
     });
   }
 
   /**
    * Check for alert conditions and trigger alerts if necessary
    */
-  private static checkAlertConditions(ip: string, events: CSRFFailureEvent[]): void {
-    const now = Date.now();
-    const oneHour = 60 * 60 * 1000;
-    const fiveMinutes = 5 * 60 * 1000;
-    const oneMinute = 60 * 1000;
+  private async checkAlertConditions(ip: string): Promise<void> {
+    const now = new Date();
+    const oneHour = new Date(now.getTime() - 60 * 60 * 1000);
+    const fiveMinutes = new Date(now.getTime() - 5 * 60 * 1000);
+    const oneMinute = new Date(now.getTime() - 60 * 1000);
 
-    // Recent events within time windows
-    const eventsLastHour = events.filter((e) => now - e.timestamp <= oneHour);
-    const eventsLast5Minutes = events.filter((e) => now - e.timestamp <= fiveMinutes);
-    const eventsLastMinute = events.filter((e) => now - e.timestamp <= oneMinute);
+    try {
+      // Get recent event counts for this IP
+      const [lastMinute, lastFiveMinutes, lastHour] = await Promise.all([
+        this.db
+          .select({ count: count() })
+          .from(csrf_failure_events)
+          .where(and(eq(csrf_failure_events.ip_address, ip), gt(csrf_failure_events.timestamp, oneMinute)))
+          .then((r) => r[0]?.count || 0),
 
-    // Alert Condition 1: High frequency of failures from single IP
-    if (eventsLastMinute.length >= 10) {
-      CSRFSecurityMonitor.sendAlert({
-        type: 'csrf_attack_pattern',
-        severity: 'critical',
-        message: `${eventsLastMinute.length} CSRF failures from IP ${ip} in the last minute - possible attack`,
-        events: eventsLastMinute,
-        metadata: { ip, window: '1minute', count: eventsLastMinute.length },
-        timestamp: now,
-      });
-    } else if (eventsLast5Minutes.length >= 20) {
-      CSRFSecurityMonitor.sendAlert({
-        type: 'csrf_failure_threshold',
-        severity: 'high',
-        message: `${eventsLast5Minutes.length} CSRF failures from IP ${ip} in 5 minutes - investigate`,
-        events: eventsLast5Minutes,
-        metadata: { ip, window: '5minutes', count: eventsLast5Minutes.length },
-        timestamp: now,
-      });
-    } else if (eventsLastHour.length >= 50) {
-      CSRFSecurityMonitor.sendAlert({
-        type: 'csrf_failure_threshold',
-        severity: 'medium',
-        message: `${eventsLastHour.length} CSRF failures from IP ${ip} in the last hour`,
-        events: eventsLastHour,
-        metadata: { ip, window: '1hour', count: eventsLastHour.length },
-        timestamp: now,
-      });
-    }
+        this.db
+          .select({ count: count() })
+          .from(csrf_failure_events)
+          .where(and(eq(csrf_failure_events.ip_address, ip), gt(csrf_failure_events.timestamp, fiveMinutes)))
+          .then((r) => r[0]?.count || 0),
 
-    // Alert Condition 2: Multiple endpoints from same IP
-    const uniqueEndpoints = new Set(eventsLast5Minutes.map((e) => e.pathname));
-    if (uniqueEndpoints.size >= 5 && eventsLast5Minutes.length >= 10) {
-      CSRFSecurityMonitor.sendAlert({
-        type: 'csrf_attack_pattern',
-        severity: 'high',
-        message: `CSRF failures across ${uniqueEndpoints.size} endpoints from IP ${ip} - possible scanning`,
-        events: eventsLast5Minutes,
-        metadata: {
-          ip,
-          endpoints: Array.from(uniqueEndpoints),
-          endpointCount: uniqueEndpoints.size,
-          totalFailures: eventsLast5Minutes.length,
-        },
-        timestamp: now,
-      });
-    }
+        this.db
+          .select({ count: count() })
+          .from(csrf_failure_events)
+          .where(and(eq(csrf_failure_events.ip_address, ip), gt(csrf_failure_events.timestamp, oneHour)))
+          .then((r) => r[0]?.count || 0),
+      ]);
 
-    // Alert Condition 3: Anomalous patterns
-    const anonymousFailures = eventsLast5Minutes.filter((e) => e.reason.includes('anonymous'));
-    const authenticatedFailures = eventsLast5Minutes.filter((e) =>
-      e.reason.includes('authenticated')
-    );
+      // Alert Condition 1: High frequency of failures from single IP
+      if (lastMinute >= 10) {
+        await this.sendAlert({
+          type: 'csrf_attack_pattern',
+          severity: 'critical',
+          message: `${lastMinute} CSRF failures from IP ${ip} in the last minute - possible attack`,
+          eventCount: lastMinute,
+          metadata: { ip, window: '1minute', count: lastMinute },
+          timestamp: now.getTime(),
+        });
+      } else if (lastFiveMinutes >= 20) {
+        await this.sendAlert({
+          type: 'csrf_failure_threshold',
+          severity: 'high',
+          message: `${lastFiveMinutes} CSRF failures from IP ${ip} in 5 minutes - investigate`,
+          eventCount: lastFiveMinutes,
+          metadata: { ip, window: '5minutes', count: lastFiveMinutes },
+          timestamp: now.getTime(),
+        });
+      } else if (lastHour >= 50) {
+        await this.sendAlert({
+          type: 'csrf_failure_threshold',
+          severity: 'medium',
+          message: `${lastHour} CSRF failures from IP ${ip} in the last hour`,
+          eventCount: lastHour,
+          metadata: { ip, window: '1hour', count: lastHour },
+          timestamp: now.getTime(),
+        });
+      }
 
-    if (anonymousFailures.length >= 5 && authenticatedFailures.length >= 5) {
-      CSRFSecurityMonitor.sendAlert({
-        type: 'csrf_anomaly',
-        severity: 'medium',
-        message: `Mixed anonymous and authenticated CSRF failures from IP ${ip} - unusual pattern`,
-        events: eventsLast5Minutes,
-        metadata: {
-          ip,
-          anonymousCount: anonymousFailures.length,
-          authenticatedCount: authenticatedFailures.length,
-        },
-        timestamp: now,
+      // Alert Condition 2: Multiple endpoints from same IP
+      const uniqueEndpoints = await this.db
+        .selectDistinct({ pathname: csrf_failure_events.pathname })
+        .from(csrf_failure_events)
+        .where(and(eq(csrf_failure_events.ip_address, ip), gt(csrf_failure_events.timestamp, fiveMinutes)));
+
+      if (uniqueEndpoints.length >= 5 && lastFiveMinutes >= 10) {
+        await this.sendAlert({
+          type: 'csrf_attack_pattern',
+          severity: 'high',
+          message: `CSRF failures across ${uniqueEndpoints.length} endpoints from IP ${ip} - possible scanning`,
+          eventCount: lastFiveMinutes,
+          metadata: {
+            ip,
+            endpoints: uniqueEndpoints.map((e) => e.pathname),
+            endpointCount: uniqueEndpoints.length,
+            totalFailures: lastFiveMinutes,
+          },
+          timestamp: now.getTime(),
+        });
+      }
+
+      // Alert Condition 3: Anomalous patterns (mixed token types)
+      const recentEvents = await this.db
+        .select({ reason: csrf_failure_events.reason })
+        .from(csrf_failure_events)
+        .where(and(eq(csrf_failure_events.ip_address, ip), gt(csrf_failure_events.timestamp, fiveMinutes)))
+        .limit(100);
+
+      const anonymousFailures = recentEvents.filter((e) => e.reason.includes('anonymous')).length;
+      const authenticatedFailures = recentEvents.filter((e) => e.reason.includes('authenticated')).length;
+
+      if (anonymousFailures >= 5 && authenticatedFailures >= 5) {
+        await this.sendAlert({
+          type: 'csrf_anomaly',
+          severity: 'medium',
+          message: `Mixed anonymous and authenticated CSRF failures from IP ${ip} - unusual pattern`,
+          eventCount: recentEvents.length,
+          metadata: {
+            ip,
+            anonymousCount: anonymousFailures,
+            authenticatedCount: authenticatedFailures,
+          },
+          timestamp: now.getTime(),
+        });
+      }
+    } catch (error) {
+      console.error('[CSRF Monitor] Failed to check alert conditions:', {
+        error: error instanceof Error ? error.message : String(error),
+        ip,
       });
     }
   }
@@ -225,42 +258,29 @@ export class CSRFSecurityMonitor {
   /**
    * Send security alert
    */
-  private static async sendAlert(alert: SecurityAlert): Promise<void> {
+  private async sendAlert(alert: SecurityAlert): Promise<void> {
     const isDevelopment = process.env.NODE_ENV === 'development';
 
-    // Use enhanced security logging
-    csrfLogger.security('csrf_security_alert', alert.severity, {
-      alertType: alert.type,
+    // Console logging for security alerts
+    console.error('🚨 [CSRF Monitor] Security Alert:', {
+      type: alert.type,
+      severity: alert.severity,
       message: alert.message,
-      eventCount: alert.events.length,
+      eventCount: alert.eventCount,
       metadata: alert.metadata,
       timestamp: new Date(alert.timestamp).toISOString(),
     });
 
-    // In development, also log to console for immediate visibility
-    if (isDevelopment) {
-      console.error('🚨 CSRF Security Alert:', {
-        type: alert.type,
-        severity: alert.severity,
-        message: alert.message,
-        eventCount: alert.events.length,
-        metadata: alert.metadata,
-      });
-    }
-
     // In production, send to monitoring service
     if (!isDevelopment) {
       try {
-        await CSRFSecurityMonitor.sendToMonitoringService(alert);
+        await this.sendToMonitoringService(alert);
       } catch (error) {
-        csrfLogger.error(
-          'Failed to send CSRF alert to monitoring service',
-          error instanceof Error ? error : new Error(String(error)),
-          {
-            alertType: alert.type,
-            severity: alert.severity,
-          }
-        );
+        console.error('[CSRF Monitor] Failed to send alert to monitoring service:', {
+          error: error instanceof Error ? error.message : String(error),
+          alertType: alert.type,
+          severity: alert.severity,
+        });
       }
     }
   }
@@ -268,10 +288,7 @@ export class CSRFSecurityMonitor {
   /**
    * Send alert to external monitoring service
    */
-  private static async sendToMonitoringService(alert: SecurityAlert): Promise<void> {
-    // This would integrate with your monitoring service (DataDog, New Relic, etc.)
-    // For now, we'll create a webhook-style alert that can be configured
-
+  private async sendToMonitoringService(alert: SecurityAlert): Promise<void> {
     const webhookUrl = process.env.SECURITY_ALERT_WEBHOOK_URL;
     if (!webhookUrl) {
       return; // No monitoring webhook configured
@@ -282,7 +299,7 @@ export class CSRFSecurityMonitor {
       alert_type: alert.type,
       severity: alert.severity,
       message: alert.message,
-      event_count: alert.events.length,
+      event_count: alert.eventCount,
       metadata: alert.metadata,
       timestamp: alert.timestamp,
       environment: process.env.NODE_ENV || 'unknown',
@@ -305,77 +322,115 @@ export class CSRFSecurityMonitor {
   }
 
   /**
-   * Clean up old events to prevent memory leaks
+   * Get current failure statistics
    */
-  private static cleanupOldEvents(): void {
-    const now = Date.now();
+  async getFailureStats(): Promise<FailureStats> {
+    try {
+      const now = new Date();
+      const oneHour = new Date(now.getTime() - 60 * 60 * 1000);
 
-    // Only cleanup every hour
-    if (now - CSRFSecurityMonitor.lastCleanup < CSRFSecurityMonitor.CLEANUP_INTERVAL) {
-      return;
+      // Get total unique IPs
+      const uniqueIPs = await this.db
+        .selectDistinct({ ip: csrf_failure_events.ip_address })
+        .from(csrf_failure_events);
+
+      // Get total event count
+      const totalEventsResult = await this.db
+        .select({ count: count() })
+        .from(csrf_failure_events);
+
+      // Get recent event count (last hour)
+      const recentEventsResult = await this.db
+        .select({ count: count() })
+        .from(csrf_failure_events)
+        .where(gt(csrf_failure_events.timestamp, oneHour));
+
+      // Get top IPs by failure count
+      const topIPs = await this.db
+        .select({
+          ip: csrf_failure_events.ip_address,
+          count: sql<number>`count(*)`,
+          latestFailure: sql<Date>`max(${csrf_failure_events.timestamp})`,
+        })
+        .from(csrf_failure_events)
+        .groupBy(csrf_failure_events.ip_address)
+        .orderBy(desc(sql`count(*)`))
+        .limit(10);
+
+      return {
+        totalIPs: uniqueIPs.length,
+        totalEvents: totalEventsResult[0]?.count || 0,
+        recentEvents: recentEventsResult[0]?.count || 0,
+        topIPs: topIPs.map((row) => ({
+          ip: row.ip,
+          count: Number(row.count),
+          latestFailure: row.latestFailure,
+        })),
+      };
+    } catch (error) {
+      console.error('[CSRF Monitor] Failed to get failure stats:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // Return empty stats on error
+      return {
+        totalIPs: 0,
+        totalEvents: 0,
+        recentEvents: 0,
+        topIPs: [],
+      };
     }
-
-    const maxAge = 24 * 60 * 60 * 1000; // 24 hours
-    const cutoff = now - maxAge;
-
-    for (const [ip, events] of Array.from(CSRFSecurityMonitor.failures)) {
-      // Remove events older than 24 hours
-      const recentEvents = events.filter((e: CSRFFailureEvent) => e.timestamp > cutoff);
-
-      if (recentEvents.length === 0) {
-        CSRFSecurityMonitor.failures.delete(ip);
-      } else {
-        CSRFSecurityMonitor.failures.set(ip, recentEvents);
-      }
-    }
-
-    CSRFSecurityMonitor.lastCleanup = now;
   }
 
   /**
-   * Get current failure statistics
+   * Clean up old events (older than specified retention period)
    */
-  static getFailureStats(): {
-    totalIPs: number;
-    totalEvents: number;
-    recentEvents: number;
-    topIPs: Array<{ ip: string; count: number; latestFailure: number }>;
-  } {
-    const now = Date.now();
-    const oneHour = 60 * 60 * 1000;
-    let totalEvents = 0;
-    let recentEvents = 0;
+  async cleanupOldEvents(retentionHours: number = 24): Promise<number> {
+    try {
+      const cutoff = new Date(Date.now() - retentionHours * 60 * 60 * 1000);
 
-    const ipStats: Array<{ ip: string; count: number; latestFailure: number }> = [];
+      const result = await this.db
+        .delete(csrf_failure_events)
+        .where(sql`${csrf_failure_events.timestamp} < ${cutoff}`)
+        .returning({ id: csrf_failure_events.event_id });
 
-    for (const [ip, events] of Array.from(CSRFSecurityMonitor.failures)) {
-      totalEvents += events.length;
+      const deletedCount = result.length;
 
-      const recentEventCount = events.filter(
-        (e: CSRFFailureEvent) => now - e.timestamp <= oneHour
-      ).length;
-      recentEvents += recentEventCount;
+      console.log('[CSRF Monitor] Cleanup completed:', {
+        deletedCount,
+        retentionHours,
+        cutoffDate: cutoff.toISOString(),
+      });
 
-      const latestEvent = Math.max(...events.map((e: CSRFFailureEvent) => e.timestamp));
-      ipStats.push({ ip, count: events.length, latestFailure: latestEvent });
+      return deletedCount;
+    } catch (error) {
+      console.error('[CSRF Monitor] Failed to cleanup old events:', {
+        error: error instanceof Error ? error.message : String(error),
+        retentionHours,
+      });
+      return 0;
     }
-
-    // Sort by event count descending
-    ipStats.sort((a, b) => b.count - a.count);
-
-    return {
-      totalIPs: CSRFSecurityMonitor.failures.size,
-      totalEvents,
-      recentEvents,
-      topIPs: ipStats.slice(0, 10), // Top 10 IPs by failure count
-    };
   }
 
   /**
    * Clear all failure data (for testing or reset)
    */
-  static clearFailureData(): void {
-    CSRFSecurityMonitor.failures.clear();
-    CSRFSecurityMonitor.lastCleanup = 0;
+  async clearAllEvents(): Promise<number> {
+    try {
+      const result = await this.db
+        .delete(csrf_failure_events)
+        .returning({ id: csrf_failure_events.event_id });
+
+      console.warn('[CSRF Monitor] All CSRF events cleared:', {
+        deletedCount: result.length,
+      });
+
+      return result.length;
+    } catch (error) {
+      console.error('[CSRF Monitor] Failed to clear CSRF events:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return 0;
+    }
   }
 }
