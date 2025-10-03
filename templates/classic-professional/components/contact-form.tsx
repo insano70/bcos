@@ -19,6 +19,7 @@ interface ContactFormProps {
 export default function ContactForm({ colorStyles, practiceEmail = 'contact@practice.com' }: ContactFormProps) {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const {
     register,
@@ -29,7 +30,8 @@ export default function ContactForm({ colorStyles, practiceEmail = 'contact@prac
 
   const onSubmit = async (data: ContactFormData) => {
     setIsSubmitting(true);
-    
+    setErrorMessage('');
+
     try {
       const response = await fetch('/api/contact', {
         method: 'POST',
@@ -54,7 +56,9 @@ export default function ContactForm({ colorStyles, practiceEmail = 'contact@prac
       reset();
     } catch (error) {
       console.error('Error submitting contact form:', error);
-      // TODO: Show error message to user
+      setErrorMessage(
+        'Unable to send your message. Please try again or contact us directly by phone.'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -86,7 +90,42 @@ export default function ContactForm({ colorStyles, practiceEmail = 'contact@prac
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
       <h3 className="text-xl font-bold text-gray-900 mb-6">Send us a Message</h3>
-      
+
+      {errorMessage && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-start">
+            <svg
+              className="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <div>
+              <p className="text-sm text-red-800">{errorMessage}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setErrorMessage('')}
+              className="ml-auto text-red-600 hover:text-red-800"
+            >
+              <span className="sr-only">Dismiss</span>
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">

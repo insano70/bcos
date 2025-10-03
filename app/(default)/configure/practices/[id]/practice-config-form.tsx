@@ -117,6 +117,8 @@ export default function PracticeConfigForm({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [showErrorToast, setShowErrorToast] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [currentPractice, setCurrentPractice] = useState(practice);
 
   const { data: attributes, isLoading } = useQuery({
@@ -237,7 +239,9 @@ export default function PracticeConfigForm({
       // Revert optimistic update on failure
       queryClient.invalidateQueries({ queryKey: ['practice-attributes', practiceId] });
       // Show error to user
-      // TODO: Show toast notification for practice update error
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to update practice settings');
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
     } finally {
       setIsSubmitting(false);
     }
@@ -773,6 +777,16 @@ export default function PracticeConfigForm({
         className="fixed bottom-4 right-4 z-50"
       >
         Practice configuration saved successfully!
+      </Toast>
+
+      {/* Error Toast */}
+      <Toast
+        type="error"
+        open={showErrorToast}
+        setOpen={setShowErrorToast}
+        className="fixed bottom-4 right-4 z-50"
+      >
+        {errorMessage}
       </Toast>
     </div>
   );

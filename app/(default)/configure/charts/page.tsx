@@ -36,11 +36,20 @@ export default function ChartBuilderPage() {
       const result = await apiClient.post('/api/admin/analytics/charts', chartDefinition);
       console.log('✅ Chart saved successfully:', result);
 
+      // Show success toast
+      setToastMessage('Chart saved successfully');
+      setToastType('success');
+      setToastOpen(true);
+
       // Refresh the charts list
       await loadCharts();
     } catch (error) {
       console.error('❌ Failed to save chart:', error);
-      // TODO: Show toast notification for save error
+      setToastMessage(
+        `Failed to save chart: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      setToastType('error');
+      setToastOpen(true);
     }
   };
 

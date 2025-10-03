@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { apiClient } from '@/lib/api/client';
 import type { User } from './users-table';
 
 interface UsersTableItemProps {
@@ -6,6 +7,7 @@ interface UsersTableItemProps {
   onCheckboxChange: (id: string, checked: boolean) => void;
   isSelected: boolean;
   onEdit?: (user: User) => void;
+  onUserUpdated?: () => void;
 }
 
 export default function UsersTableItem({
@@ -13,8 +15,10 @@ export default function UsersTableItem({
   onCheckboxChange,
   isSelected,
   onEdit,
+  onUserUpdated,
 }: UsersTableItemProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -40,22 +44,57 @@ export default function UsersTableItem({
     setDropdownOpen(false);
   };
 
-  const handleInactivate = () => {
-    // TODO: Implement inactivate functionality
-    // User inactivation (client-side debug)
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Inactivate user:', user.id);
-    }
+  const handleInactivate = async () => {
     setDropdownOpen(false);
+
+    const action = user.is_active ? 'inactivate' : 'activate';
+    const confirmMessage = user.is_active
+      ? `Are you sure you want to inactivate ${user.first_name} ${user.last_name}? They will no longer be able to access the system.`
+      : `Are you sure you want to activate ${user.first_name} ${user.last_name}?`;
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      await apiClient.put(`/api/users/${user.id}`, {
+        data: {
+          is_active: !user.is_active,
+        },
+      });
+
+      onUserUpdated?.();
+    } catch (error) {
+      console.error(`Failed to ${action} user:`, error);
+      alert(
+        `Failed to ${action} user: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleDelete = () => {
-    // TODO: Implement delete functionality
-    // User deletion (client-side debug)
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Delete user:', user.id);
-    }
+  const handleDelete = async () => {
     setDropdownOpen(false);
+
+    const confirmMessage = `Are you sure you want to delete ${user.first_name} ${user.last_name}? This action cannot be undone.`;
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      await apiClient.delete(`/api/users/${user.id}`);
+
+      onUserUpdated?.();
+    } catch (error) {
+      console.error('Failed to delete user:', error);
+      alert(`Failed to delete user: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const formatDate = (date: string | Date | null) => {
@@ -180,8 +219,9 @@ export default function UsersTableItem({
                 <li>
                   <button
                     type="button"
-                    className="font-medium text-sm text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-200 flex items-center py-1 px-3 w-full text-left"
+                    className="font-medium text-sm text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-200 flex items-center py-1 px-3 w-full text-left disabled:opacity-50"
                     onClick={handleInactivate}
+                    disabled={isProcessing}
                   >
                     <svg
                       className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0 mr-2"
@@ -195,8 +235,9 @@ export default function UsersTableItem({
                 <li>
                   <button
                     type="button"
-                    className="font-medium text-sm text-red-500 hover:text-red-600 flex items-center py-1 px-3 w-full text-left"
+                    className="font-medium text-sm text-red-500 hover:text-red-600 flex items-center py-1 px-3 w-full text-left disabled:opacity-50"
                     onClick={handleDelete}
+                    disabled={isProcessing}
                   >
                     <svg
                       className="w-4 h-4 fill-current text-red-400 shrink-0 mr-2"
