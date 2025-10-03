@@ -34,9 +34,9 @@ type SAML = {
 type NodeSAMLProfile = Record<string, unknown>;
 
 import { eq } from 'drizzle-orm';
-import { AuditLogger } from '@/lib/api/services/audit';
 import { account_security, db, users } from '@/lib/db';
 import { log } from '@/lib/logger';
+import { AuditLogger } from '@/lib/api/services/audit';
 import type {
   SAMLAuthContext,
   SAMLConfig,

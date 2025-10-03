@@ -2,10 +2,10 @@ import { createHash } from 'node:crypto';
 import { and, eq, gte, lte } from 'drizzle-orm';
 import { type JWTPayload, jwtVerify, SignJWT } from 'jose';
 import { nanoid } from 'nanoid';
-import { AuditLogger } from '@/lib/api/services/audit';
 import { db, login_attempts, refresh_tokens, token_blacklist, user_sessions } from '@/lib/db';
 import { getJWTConfig } from '@/lib/env';
 import { log } from '@/lib/logger';
+import { AuditLogger } from '@/lib/api/services/audit';
 
 /**
  * Enterprise JWT + Refresh Token Manager - Pure Functions Module

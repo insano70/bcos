@@ -2,7 +2,7 @@ import { and, count, desc, eq, gte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { account_security, db, login_attempts, user_sessions } from '@/lib/db';
 import { log } from '@/lib/logger';
-import { AuditLogger } from './audit';
+import { AuditLogger } from '@/lib/api/services/audit';
 
 /**
  * Enterprise Session Management Service

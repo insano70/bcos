@@ -23,6 +23,9 @@
  * - correlation.withContext(id, metadata, fn) - Run function with correlation context
  * - correlation.addMetadata(metadata) - Add metadata to current context
  * - correlation.setUser(userId, orgId?) - Set user in current context
+ *
+ * IMPORTANT: Server-side only (uses Node.js AsyncLocalStorage)
+ * Do not import from client components - use React error boundaries instead
  */
 
 // Simplified logger - automatic stack traces, file:line:function capture, correlation tracking
@@ -30,9 +33,6 @@ export { log, correlation } from './logger';
 
 // Backward compatibility alias
 export { log as logger } from './logger';
-
-// Audit logging service
-export { AuditLogger } from '../api/services/audit';
 
 // Default export
 export { log as default } from './logger';

@@ -3,9 +3,9 @@ import { uploadFiles } from '@/lib/api/services/upload'
 import { createSuccessResponse } from '@/lib/api/responses/success'
 import { createErrorResponse } from '@/lib/api/responses/error'
 import { rbacRoute } from '@/lib/api/rbac-route-handler'
-import { AuditLogger } from '@/lib/api/services/audit'
 import type { UserContext } from '@/lib/types/rbac'
 import { log } from '@/lib/logger'
+import { AuditLogger } from '@/lib/api/services/audit'
 
 const uploadFilesHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now()
