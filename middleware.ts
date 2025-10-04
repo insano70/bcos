@@ -13,11 +13,11 @@ const CSRF_EXEMPT_PATHS = [
   '/api/csrf',            // CSRF token generation endpoint (can't require CSRF to get CSRF)
   '/api/webhooks/',       // All webhook endpoints (external services)
   '/api/security/csp-report', // CSP violation reporting (automated browser requests)
-  '/api/auth/saml/callback', // SAML callback (Microsoft Entra POST - security via SAML signature validation)
+  '/api/auth/oidc/callback', // OIDC callback (Microsoft Entra redirect - security via state token + PKCE)
   // Note: login, register, and refresh are NOT exempt - they all require CSRF protection
   // - login/register use anonymous CSRF tokens
   // - refresh uses authenticated CSRF tokens
-  // - saml/callback uses SAML signature validation instead of CSRF
+  // - oidc/callback uses state token + PKCE validation instead of CSRF
 ]
 
 function isCSRFExempt(pathname: string): boolean {

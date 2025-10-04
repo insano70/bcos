@@ -29,11 +29,11 @@ class AuditLoggerService {
    */
   async logAuth(data: {
     action: 'login' | 'logout' | 'login_failed' | 'password_reset' | 'account_locked';
-    userId?: string;
-    email?: string;
-    ipAddress?: string;
-    userAgent?: string;
-    metadata?: Record<string, unknown>;
+    userId?: string | undefined;
+    email?: string | undefined;
+    ipAddress?: string | undefined;
+    userAgent?: string | undefined;
+    metadata?: Record<string, unknown> | undefined;
   }): Promise<void> {
     const severity =
       data.action === 'login_failed' || data.action === 'account_locked' ? 'high' : 'medium';

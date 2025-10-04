@@ -104,6 +104,9 @@ importers:
       nodemailer:
         specifier: ^6.10.1
         version: 6.10.1
+      openid-client:
+        specifier: ^6.8.1
+        version: 6.8.1
       postgres:
         specifier: ^3.4.7
         version: 3.4.7
@@ -2506,8 +2509,14 @@ packages:
     resolution: {integrity: sha512-Z+iLaBGVaSjbIzQ4pX6XV41HrooLsQ10ZWPUehGmuantvzWoDVBnmsdUcOIDM1t+yPor5pDhVlDESgOMEGxhHA==}
     engines: {node: '>=6.0.0'}
 
+  oauth4webapi@3.8.2:
+    resolution: {integrity: sha512-FzZZ+bht5X0FKe7Mwz3DAVAmlH1BV5blSak/lHMBKz0/EBMhX6B10GlQYI51+oRp8ObJaX0g6pXrAxZh5s8rjw==}
+
   one-time@1.0.0:
     resolution: {integrity: sha512-5DXOiRKwuSEcQ/l0kGCF6Q3jcADFv5tSmRaJck/OqkVFcOzutB134KRSfF0xDrL39MNnqxbHBbUUcjZIhTgb2g==}
+
+  openid-client@6.8.1:
+    resolution: {integrity: sha512-VoYT6enBo6Vj2j3Q5Ec0AezS+9YGzQo1f5Xc42lreMGlfP4ljiXPKVDvCADh+XHCV/bqPu/wWSiCVXbJKvrODw==}
 
   package-json-from-dist@1.0.1:
     resolution: {integrity: sha512-UEZIS3/by4OC8vL3P2dTXRETpebLI2NiI5vIrjaD/5UtrkFX/tNbwjTSRAGC/+7CAo2pIcBaRgWmcBBHcsaCIw==}
@@ -5469,9 +5478,16 @@ snapshots:
 
   nodemailer@6.10.1: {}
 
+  oauth4webapi@3.8.2: {}
+
   one-time@1.0.0:
     dependencies:
       fn.name: 1.1.0
+
+  openid-client@6.8.1:
+    dependencies:
+      jose: 6.1.0
+      oauth4webapi: 3.8.2
 
   package-json-from-dist@1.0.1: {}
 

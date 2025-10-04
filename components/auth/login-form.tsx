@@ -26,15 +26,23 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
-  const samlError = searchParams.get('error') // SAML error from callback
+  const oidcError = searchParams.get('error') // OIDC error from callback
   const { login } = useAuth()
 
-  // Map SAML error codes to user-friendly messages
-  const samlErrorMessages: Record<string, string> = {
-    saml_init_failed: 'Unable to start Microsoft sign-in. Please try again or use email and password.',
-    saml_validation_failed: 'Microsoft authentication failed. Please try again or use email and password.',
+  // Map OIDC error codes to user-friendly messages
+  const oidcErrorMessages: Record<string, string> = {
+    oidc_provider_error: 'Unable to start Microsoft sign-in. Please try again or use email and password.',
+    oidc_state_mismatch: 'Microsoft authentication failed due to security check. Please try again.',
+    oidc_state_replay: 'Session expired or already used. Please try again.',
+    oidc_session_hijack: 'Security validation failed. Please try again from your original device.',
+    oidc_token_exchange_failed: 'Authentication with Microsoft failed. Please try again.',
+    oidc_token_validation_failed: 'Microsoft token validation failed. Please try again.',
+    oidc_email_not_verified: 'Your email must be verified in Microsoft. Contact your administrator.',
+    oidc_domain_not_allowed: 'Your email domain is not authorized. Contact your administrator.',
+    oidc_invalid_profile: 'Invalid profile data received from Microsoft. Please try again.',
     user_not_provisioned: 'Your account is not authorized for this application. Contact your administrator.',
-    user_inactive: 'Your account has been deactivated. Contact your administrator.'
+    user_inactive: 'Your account has been deactivated. Contact your administrator.',
+    oidc_callback_failed: 'Microsoft sign-in failed. Please try again or use email and password.'
   }
 
   const form = useForm({
@@ -87,21 +95,21 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
 
   return (
     <div className="space-y-4">
-      {/* SAML Error message (from callback) */}
-      {samlError && samlErrorMessages[samlError] && (
+      {/* OIDC Error message (from callback) */}
+      {oidcError && oidcErrorMessages[oidcError] && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
           <div className="flex items-center">
             <svg className="w-4 h-4 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
             </svg>
-            <span className="text-sm">{samlErrorMessages[samlError]}</span>
+            <span className="text-sm">{oidcErrorMessages[oidcError]}</span>
           </div>
         </div>
       )}
 
       {/* Microsoft SSO Button */}
       <a
-        href={`/api/auth/saml/login?relay_state=${encodeURIComponent(callbackUrl)}`}
+        href={`/api/auth/oidc/login?returnUrl=${encodeURIComponent(callbackUrl)}`}
         className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-3 text-gray-700 dark:text-gray-200 shadow-sm transition hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
       >
         <svg className="h-5 w-5" viewBox="0 0 21 21" fill="none">

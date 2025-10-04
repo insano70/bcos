@@ -1,20 +1,27 @@
 # OIDC Conversion Design Document
 
-**Version**: 1.0
-**Date**: 2025-01-10
-**Status**: Design Review
+**Version**: 1.1 (Security Review Integrated)
+**Date**: 2025-10-03
+**Status**: Ready for Implementation
 **Author**: System Architecture Team
 
 ## Executive Summary
 
-This document outlines the design for converting from SAML-based Single Sign-On (SSO) to OpenID Connect (OIDC) with Microsoft Entra ID. The goal is to simplify authentication infrastructure while maintaining security and supporting multiple domain organizations with minimal configuration.
+This document outlines the design for converting from SAML-based Single Sign-On (SSO) to OpenID Connect (OIDC) with Microsoft Entra ID. The goal is to simplify authentication infrastructure while **enhancing security** and supporting multiple domain organizations with minimal configuration.
+
+**Version 1.1 Update**: Integrated security review findings with 4 critical security enhancements and 4 important architecture improvements. These additions increase implementation effort by +24 hours but are **mandatory** for production deployment.
 
 **Key Benefits of OIDC Conversion**:
-- **60-70% reduction in custom code** (from ~2,500 lines to ~800-1,200 lines)
+- **50-60% reduction in custom code** (from ~2,840 lines to ~1,400 lines including security enhancements)
 - **Elimination of database infrastructure** for replay prevention
 - **Automatic certificate/key management** via JWKs (no manual cert lifecycle)
-- **Built-in security features** (nonce, state, token validation)
-- **Simpler configuration** (minimal environment variables)
+- **Enhanced security features**:
+  - Encrypted session cookies (PKCE protection)
+  - One-time state tokens (OIDC spec compliance)
+  - Device fingerprint binding (hijacking prevention)
+  - Explicit ID token validation (defense-in-depth)
+- **Performance improvements** via discovery caching (~200ms faster logins)
+- **Simpler configuration** (only 2 additional environment variables)
 - **Industry standard** with better library support and OAuth 2.0 compatibility
 
 ---
@@ -154,7 +161,8 @@ Entra → POST /api/auth/saml/callback (SAMLResponse)
 
 #### **New Dependencies**
 ```json
-"openid-client": "^5.8.0",         // OIDC protocol library (official certified)
+"openid-client": "^6.8.1",         // OIDC protocol library (official certified, latest stable)
+"iron-session": "^8.0.4",          // Session data encryption (PKCE security)
 // "jose" stays for our internal JWT operations
 // "bcrypt" stays for password authentication
 ```
@@ -319,10 +327,18 @@ ENTRA_CLIENT_SECRET=your_client_secret_here
 NEXT_PUBLIC_APP_URL=https://app.bendcare.com
 OIDC_REDIRECT_URI=https://app.bendcare.com/api/auth/oidc/callback
 
+# OIDC Security Configuration (CRITICAL)
+# Session encryption secret (32+ characters) - Generate with: openssl rand -base64 32
+OIDC_SESSION_SECRET=<your-session-secret-here>
+
 # Optional: Custom configurations
 OIDC_SUCCESS_REDIRECT=/dashboard           # Default: /dashboard
 OIDC_SCOPES=openid profile email          # Default: openid profile email
 OIDC_ALLOWED_DOMAINS=aara.care,sparc.care,illumination.health,bendcare.com,oasis.care
+
+# Optional: Strict fingerprint validation (default: false)
+# Set to 'true' for high-security environments (may cause issues with mobile networks/VPNs)
+OIDC_STRICT_FINGERPRINT=false
 ```
 
 ### 3.3 Configuration Module
@@ -404,28 +420,52 @@ async function getOrganizationByEmail(email: string): Promise<Organization | nul
 
 ## 4. Migration Plan
 
-### 4.1 Phase 1: Parallel Development (Week 1-2)
+### 4.1 Phase 1: Parallel Development with Security Enhancements (Week 1-2.5)
 
-**Goal**: Build OIDC alongside SAML without disruption
+**Goal**: Build secure OIDC alongside SAML without disruption
 
-#### **Tasks**
-1. Add `openid-client` dependency
-2. Create OIDC modules (in parallel with SAML):
-   - `lib/oidc/config.ts` - Configuration management
-   - `lib/oidc/client.ts` - OIDC client wrapper
-   - `lib/oidc/validator.ts` - Token validation
-   - `lib/types/oidc.ts` - Type definitions
-3. Create new API routes:
-   - `app/api/auth/oidc/login/route.ts` - Initiate OIDC flow
-   - `app/api/auth/oidc/callback/route.ts` - Handle callback
-4. Reuse existing modules:
-   - `lib/saml/input-validator.ts` → Rename to `lib/auth/input-validator.ts`
-   - `lib/auth/token-manager.ts` - No changes needed
-   - `lib/rbac/*` - No changes needed
-5. Update login page to show OIDC option
+#### **Dependencies**
+1. Add `openid-client` v6.8.1 (OIDC protocol library - latest stable)
+2. Add `iron-session` v8.0.4 (session encryption)
 
-#### **Testing**
-- Unit tests for OIDC client
+#### **Core OIDC Modules**
+1. Create `lib/oidc/config.ts` - Configuration management with discovery caching
+2. Create `lib/oidc/client.ts` - OIDC client wrapper with:
+   - Singleton pattern for client instance
+   - 24-hour issuer cache (reduces latency by ~200ms)
+   - Explicit ID token validation (defense-in-depth)
+3. Create `lib/oidc/state-manager.ts` - **CRITICAL** One-time state token tracking
+4. Create `lib/oidc/errors.ts` - Custom error types for specific handling
+5. Create `lib/oidc/validator.ts` - Token validation helpers
+6. Create `lib/types/oidc.ts` - Type definitions
+
+#### **API Routes with Security**
+1. Create `app/api/auth/oidc/login/route.ts` - Initiate OIDC flow with:
+   - Encrypted session cookies (iron-session)
+   - Device fingerprint binding
+   - State registration for one-time use
+2. Create `app/api/auth/oidc/callback/route.ts` - Handle callback with:
+   - Session decryption
+   - One-time state validation
+   - Fingerprint verification (with strict mode option)
+   - Explicit ID token validation
+3. Create `app/api/auth/oidc/logout/route.ts` - RP-initiated logout
+
+#### **Reuse Existing Modules**
+1. Move `lib/saml/input-validator.ts` → `lib/auth/input-validator.ts` (no changes)
+2. `lib/auth/token-manager.ts` - No changes needed
+3. `lib/rbac/*` - No changes needed
+
+#### **Environment Variables**
+1. Add `OIDC_SESSION_SECRET` - Session encryption (32+ characters, REQUIRED)
+2. Add `OIDC_STRICT_FINGERPRINT` - Strict fingerprint validation (optional, default: false)
+
+#### **Testing (Enhanced)**
+- Unit tests for OIDC client (with singleton/caching)
+- Unit tests for state manager (one-time use validation)
+- Security tests for session encryption
+- Security tests for state replay prevention
+- Security tests for fingerprint validation
 - Integration tests for OIDC flow
 - Test with development Entra tenant
 
@@ -444,9 +484,16 @@ async function getOrganizationByEmail(email: string): Promise<Organization | nul
 - [x] Session management
 - [x] Audit logging
 - [x] Device fingerprinting
-- [x] CSRF protection for callback
-- [x] Error handling
+- [x] CSRF protection for callback (via state + PKCE)
+- [x] Error handling (specific error types)
 - [x] Security logging
+- [x] **Encrypted session cookies** (PKCE protection)
+- [x] **One-time state tokens** (replay prevention)
+- [x] **Session fingerprint binding** (hijacking prevention)
+- [x] **Explicit ID token validation** (defense-in-depth)
+- [x] **Discovery document caching** (performance)
+- [x] **Client singleton pattern** (resource efficiency)
+- [x] **RP-initiated logout** (complete session termination)
 
 ### 4.3 Phase 3: Staged Rollout (Week 3-4)
 
@@ -618,6 +665,213 @@ if (!idToken.email_verified) {
 }
 ```
 
+### 5.6 Critical Security Enhancements
+
+Based on security review, the following enhancements are **MANDATORY** for production deployment:
+
+#### **1. OIDC Session Cookie Encryption**
+**Severity**: HIGH - PKCE Security
+
+**Problem**: Storing PKCE `codeVerifier` in plaintext cookie exposes it to potential theft, defeating PKCE protection.
+
+**Solution**: Encrypt session data using `iron-session`:
+
+```typescript
+import { sealData, unsealData } from 'iron-session';
+
+// In login route - encrypt before storing
+const sealed = await sealData(
+  { state, codeVerifier, nonce, returnUrl, fingerprint },
+  {
+    password: process.env.OIDC_SESSION_SECRET!, // 32+ character secret
+    ttl: 60 * 10, // 10 minutes
+  }
+);
+
+cookieStore.set('oidc-session', sealed, {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax',
+  maxAge: 60 * 10,
+  path: '/',
+});
+
+// In callback route - decrypt
+const sessionData = await unsealData<{
+  state: string;
+  codeVerifier: string;
+  nonce: string;
+  returnUrl: string;
+  fingerprint: string;
+}>(sessionCookie.value, {
+  password: process.env.OIDC_SESSION_SECRET!,
+});
+```
+
+**Required**: `OIDC_SESSION_SECRET` environment variable (32+ characters)
+
+#### **2. One-Time State Token Usage**
+**Severity**: HIGH - OIDC Spec Compliance
+
+**Problem**: Current design allows state token reuse within 5-minute window, violating OIDC specification.
+
+**Solution**: Implement state manager with one-time use enforcement:
+
+```typescript
+// lib/oidc/state-manager.ts
+interface StateData {
+  timestamp: number;
+  used: boolean;
+}
+
+class StateManager {
+  private states = new Map<string, StateData>();
+
+  registerState(state: string): void {
+    this.states.set(state, {
+      timestamp: Date.now(),
+      used: false,
+    });
+  }
+
+  validateAndMarkUsed(state: string): boolean {
+    const data = this.states.get(state);
+
+    if (!data) return false;
+    if (data.used) {
+      log.error('State token replay attempt detected');
+      return false;
+    }
+
+    // Check age (5 minutes + 30s clock skew)
+    const age = Date.now() - data.timestamp;
+    if (age > 5 * 60 * 1000 + 30 * 1000) {
+      this.states.delete(state);
+      return false;
+    }
+
+    // Mark as used (single-use enforcement)
+    data.used = true;
+
+    // Schedule cleanup after 10 minutes
+    setTimeout(() => this.states.delete(state), 10 * 60 * 1000);
+
+    return true;
+  }
+}
+
+export const stateManager = new StateManager();
+```
+
+**Alternative for distributed systems**: Use Redis with atomic operations.
+
+#### **3. Session Fingerprint Binding**
+**Severity**: MEDIUM-HIGH - Session Hijacking Prevention
+
+**Problem**: Stolen OIDC session cookie can be used from any device.
+
+**Solution**: Bind session to device fingerprint:
+
+```typescript
+// In login route - include fingerprint
+const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+const userAgent = request.headers.get('user-agent') || 'unknown';
+const fingerprint = generateDeviceFingerprint(ipAddress, userAgent);
+
+const sealed = await sealData(
+  { state, codeVerifier, nonce, returnUrl, fingerprint }, // Add fingerprint
+  { password: process.env.OIDC_SESSION_SECRET!, ttl: 60 * 10 }
+);
+
+// In callback route - validate fingerprint
+const currentIp = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+const currentUserAgent = request.headers.get('user-agent') || 'unknown';
+const currentFingerprint = generateDeviceFingerprint(currentIp, currentUserAgent);
+
+const STRICT_MODE = process.env.OIDC_STRICT_FINGERPRINT === 'true';
+
+if (sessionData.fingerprint !== currentFingerprint) {
+  if (STRICT_MODE) {
+    // Reject in strict mode
+    log.error('OIDC session hijack attempt', { fingerprint: sessionData.fingerprint.substring(0, 16) });
+    return NextResponse.redirect(new URL('/signin?error=session_hijack', request.url));
+  } else {
+    // Log warning in normal mode (mobile networks can change IPs)
+    log.warn('OIDC session fingerprint changed', { fingerprint: sessionData.fingerprint.substring(0, 16) });
+  }
+}
+```
+
+**Configuration**: `OIDC_STRICT_FINGERPRINT` (default: false)
+
+#### **4. Explicit ID Token Validation**
+**Severity**: MEDIUM - Defense in Depth
+
+**Problem**: Complete reliance on library validation without explicit verification.
+
+**Solution**: Add defense-in-depth validation layer:
+
+```typescript
+// In OIDCClient.handleCallback() - after library validation
+const claims = tokenSet.claims();
+
+// 1. Email claim required
+if (!claims.email || typeof claims.email !== 'string') {
+  throw new Error('ID token missing required email claim');
+}
+
+// 2. Email verification required
+if (!claims.email_verified) {
+  throw new Error('Email not verified by identity provider');
+}
+
+// 3. Nonce validation (verify library check)
+if (claims.nonce !== expectedNonce) {
+  log.error('Nonce mismatch in ID token');
+  throw new Error('ID token nonce validation failed');
+}
+
+// 4. Issuer validation (verify library check)
+const expectedIssuer = `https://login.microsoftonline.com/${this.config!.tenantId}/v2.0`;
+if (claims.iss !== expectedIssuer) {
+  log.error('Issuer mismatch', { expected: expectedIssuer, received: claims.iss });
+  throw new Error('ID token issuer validation failed');
+}
+
+// 5. Audience validation (verify library check)
+const aud = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
+if (!aud.includes(this.config!.clientId)) {
+  log.error('Audience mismatch', { expected: this.config!.clientId, received: aud });
+  throw new Error('ID token audience validation failed');
+}
+
+// 6. Token age check
+const now = Math.floor(Date.now() / 1000);
+const iat = claims.iat || 0;
+const tokenAge = now - iat;
+
+if (tokenAge < 0) {
+  log.error('ID token issued in the future', { iat, now });
+  throw new Error('ID token timestamp invalid');
+}
+
+if (tokenAge > 300) { // 5 minutes
+  log.warn('ID token is stale', { tokenAge, iat: new Date(iat * 1000).toISOString() });
+}
+
+// 7. Expiration check (verify library check)
+const exp = claims.exp || 0;
+if (now >= exp) {
+  log.error('ID token expired', { exp: new Date(exp * 1000).toISOString() });
+  throw new Error('ID token has expired');
+}
+
+log.info('ID token validation successful', {
+  email: claims.email.replace(/(.{2}).*@/, '$1***@'),
+  tokenAge,
+});
+```
+
 ---
 
 ## 6. Implementation Details
@@ -627,8 +881,10 @@ if (!idToken.email_verified) {
 ```
 lib/oidc/
 ├── config.ts           # Configuration management (discovery, env vars)
-├── client.ts           # OIDC client wrapper (openid-client)
+├── client.ts           # OIDC client wrapper (openid-client) with singleton
+├── state-manager.ts    # One-time state token tracking (CRITICAL)
 ├── validator.ts        # Token validation helpers
+├── errors.ts           # Custom error types for specific handling
 └── types.ts            # TypeScript type definitions
 
 lib/auth/
@@ -638,7 +894,8 @@ lib/auth/
 
 app/api/auth/oidc/
 ├── login/route.ts      # Initiate OIDC flow
-└── callback/route.ts   # Handle OIDC callback
+├── callback/route.ts   # Handle OIDC callback
+└── logout/route.ts     # RP-initiated logout
 
 lib/types/
 └── oidc.ts            # OIDC type definitions
@@ -648,29 +905,69 @@ lib/types/
 
 ```typescript
 // lib/oidc/client.ts
-import { Issuer, Client, generators } from 'openid-client';
-import { buildOIDCConfig } from './config';
+import * as oauth from 'openid-client';
+import { buildOIDCConfig, type OIDCConfig } from './config';
+import { log } from '@/lib/logger';
+
+// Module-level configuration cache (performance optimization)
+let cachedConfig: oauth.Configuration | null = null;
+let configCachedAt = 0;
+const CONFIG_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 export class OIDCClient {
-  private client: Client | null = null;
   private config: OIDCConfig | null = null;
+  private oauthConfig: oauth.Configuration | null = null;
 
   async initialize(): Promise<void> {
     this.config = await buildOIDCConfig();
 
-    // Discover OIDC provider (Microsoft Entra)
-    const issuer = await Issuer.discover(
-      `https://login.microsoftonline.com/${this.config.tenantId}/v2.0`
-    );
+    const now = Date.now();
+    const cacheAge = now - configCachedAt;
 
-    // Create client
-    this.client = new issuer.Client({
-      client_id: this.config.clientId,
-      client_secret: this.config.clientSecret,
-      redirect_uris: [this.config.redirectUri],
-      response_types: ['code'],
-      token_endpoint_auth_method: 'client_secret_post',
-    });
+    // Use cached configuration if valid (reduces login latency by ~200ms)
+    if (cachedConfig && cacheAge < CONFIG_CACHE_TTL) {
+      log.debug('Using cached OIDC configuration', { cacheAge: Math.floor(cacheAge / 1000) });
+      this.oauthConfig = cachedConfig;
+      return;
+    }
+
+    // Fetch and cache new configuration
+    log.info('Fetching OIDC discovery document', { tenantId: this.config.tenantId });
+
+    try {
+      const issuerUrl = new URL(`https://login.microsoftonline.com/${this.config.tenantId}/v2.0`);
+
+      // Discover OIDC configuration from well-known endpoint
+      const discoveredConfig = await oauth.discovery(
+        issuerUrl,
+        this.config.clientId,
+        this.config.clientSecret
+      );
+
+      cachedConfig = discoveredConfig;
+      configCachedAt = now;
+      this.oauthConfig = discoveredConfig;
+
+      log.info('OIDC configuration cached successfully', {
+        issuer: issuerUrl.href,
+        cacheAge: 0,
+      });
+    } catch (error) {
+      log.error('Failed to discover OIDC configuration', {
+        error: error instanceof Error ? error.message : 'Unknown',
+        tenantId: this.config.tenantId,
+      });
+      throw new Error('OIDC discovery failed');
+    }
+  }
+
+  /**
+   * Force refresh of cached configuration (for maintenance)
+   */
+  static clearCache(): void {
+    cachedConfig = null;
+    configCachedAt = 0;
+    log.info('OIDC configuration cache cleared');
   }
 
   /**
@@ -682,28 +979,32 @@ export class OIDCClient {
     codeVerifier: string;
     nonce: string;
   }> {
-    if (!this.client) await this.initialize();
+    if (!this.oauthConfig) await this.initialize();
 
-    const codeVerifier = generators.codeVerifier();
-    const codeChallenge = generators.codeChallenge(codeVerifier);
-    const state = generators.state();
-    const nonce = generators.nonce();
+    // Generate PKCE parameters
+    const codeVerifier = oauth.randomPKCECodeVerifier();
+    const codeChallenge = await oauth.calculatePKCECodeChallenge(codeVerifier);
+    const state = oauth.randomState();
+    const nonce = oauth.randomNonce();
 
-    const url = this.client!.authorizationUrl({
-      scope: this.config!.scopes.join(' '),
-      code_challenge: codeChallenge,
-      code_challenge_method: 'S256',
-      state,
-      nonce,
-      // Optional: Add domain_hint to pre-select organization
-      // domain_hint: 'aara.care'
-    });
+    // Build authorization URL
+    const authUrl = new URL(this.oauthConfig!.serverMetadata().authorizationEndpoint!);
+    authUrl.searchParams.set('client_id', this.config!.clientId);
+    authUrl.searchParams.set('redirect_uri', this.config!.redirectUri);
+    authUrl.searchParams.set('response_type', 'code');
+    authUrl.searchParams.set('scope', this.config!.scopes.join(' '));
+    authUrl.searchParams.set('state', state);
+    authUrl.searchParams.set('nonce', nonce);
+    authUrl.searchParams.set('code_challenge', codeChallenge);
+    authUrl.searchParams.set('code_challenge_method', 'S256');
+    // Optional: Add domain_hint to pre-select organization
+    // authUrl.searchParams.set('domain_hint', 'aara.care');
 
-    return { url, state, codeVerifier, nonce };
+    return { url: authUrl.href, state, codeVerifier, nonce };
   }
 
   /**
-   * Handle callback and validate tokens
+   * Handle callback and validate tokens with explicit defense-in-depth validation
    */
   async handleCallback(
     params: { code: string; state: string },
@@ -716,23 +1017,115 @@ export class OIDCClient {
     name?: string;
     givenName?: string;
     familyName?: string;
-    claims: Record<string, unknown>;
+    claims: oauth.IDToken;
   }> {
-    if (!this.client) await this.initialize();
+    if (!this.oauthConfig) await this.initialize();
 
-    // Exchange code for tokens
-    const tokenSet = await this.client!.callback(
-      this.config!.redirectUri,
-      params,
-      {
-        code_verifier: codeVerifier,
-        state: expectedState,
-        nonce: expectedNonce,
-      }
-    );
+    // Exchange code for tokens (library validates JWT signature, exp, etc.)
+    let tokenSet: oauth.TokenEndpointResponse & oauth.TokenEndpointResponseHelpers;
+    try {
+      // Perform authorization code grant with PKCE
+      tokenSet = await oauth.authorizationCodeGrant(
+        this.oauthConfig!,
+        new URLSearchParams({
+          code: params.code,
+          state: params.state,
+        }),
+        {
+          pkceCodeVerifier: codeVerifier,
+          expectedState,
+          expectedNonce,
+        }
+      );
+    } catch (error) {
+      log.error('Token exchange failed', {
+        error: error instanceof Error ? error.message : 'Unknown',
+      });
+      throw new Error('OIDC token exchange failed');
+    }
 
-    // Validate ID token (library does this automatically)
-    const claims = tokenSet.claims();
+    // Get ID token claims
+    const claims = oauth.getValidatedIdTokenClaims(tokenSet)!;
+
+    // ===== Explicit Validation (Defense in Depth) =====
+
+    // 1. Email claim required
+    if (!claims.email || typeof claims.email !== 'string') {
+      log.error('ID token missing email claim', { claims: Object.keys(claims) });
+      throw new Error('ID token missing required email claim');
+    }
+
+    // 2. Email verification required
+    if (!claims.email_verified) {
+      log.warn('Email not verified by IDP', {
+        email: claims.email.replace(/(.{2}).*@/, '$1***@')
+      });
+      throw new Error('Email not verified by identity provider');
+    }
+
+    // 3. Nonce validation (should be done by library, but verify)
+    if (claims.nonce !== expectedNonce) {
+      log.error('Nonce mismatch in ID token', {
+        expected: expectedNonce.substring(0, 8),
+        received: claims.nonce ? String(claims.nonce).substring(0, 8) : 'none',
+      });
+      throw new Error('ID token nonce validation failed');
+    }
+
+    // 4. Issuer validation (should be done by library, but verify)
+    const expectedIssuer = `https://login.microsoftonline.com/${this.config!.tenantId}/v2.0`;
+    if (claims.iss !== expectedIssuer) {
+      log.error('Issuer mismatch in ID token', {
+        expected: expectedIssuer,
+        received: claims.iss,
+      });
+      throw new Error('ID token issuer validation failed');
+    }
+
+    // 5. Audience validation (should be done by library, but verify)
+    const aud = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
+    if (!aud.includes(this.config!.clientId)) {
+      log.error('Audience mismatch in ID token', {
+        expected: this.config!.clientId,
+        received: aud,
+      });
+      throw new Error('ID token audience validation failed');
+    }
+
+    // 6. Check token age (issued_at time)
+    const now = Math.floor(Date.now() / 1000);
+    const iat = claims.iat || 0;
+    const tokenAge = now - iat;
+
+    if (tokenAge < 0) {
+      log.error('ID token issued in the future', { iat, now });
+      throw new Error('ID token timestamp invalid');
+    }
+
+    if (tokenAge > 300) { // 5 minutes
+      log.warn('ID token is stale', {
+        tokenAge,
+        iat: new Date(iat * 1000).toISOString(),
+      });
+      // Warning only - might be legitimate if clock skew or slow network
+    }
+
+    // 7. Check expiration (should be done by library, but verify)
+    const exp = claims.exp || 0;
+    if (now >= exp) {
+      log.error('ID token expired', {
+        exp: new Date(exp * 1000).toISOString(),
+        now: new Date(now * 1000).toISOString(),
+      });
+      throw new Error('ID token has expired');
+    }
+
+    log.info('ID token validation successful', {
+      email: claims.email.replace(/(.{2}).*@/, '$1***@'),
+      iat: new Date(iat * 1000).toISOString(),
+      exp: new Date(exp * 1000).toISOString(),
+      tokenAge,
+    });
 
     // Extract user info
     return {
@@ -741,38 +1134,108 @@ export class OIDCClient {
       name: claims.name as string | undefined,
       givenName: claims.given_name as string | undefined,
       familyName: claims.family_name as string | undefined,
-      claims: claims as Record<string, unknown>,
+      claims,
     };
   }
 }
+
+// ===== Singleton Pattern for Client Instance =====
+
+let clientInstance: OIDCClient | null = null;
+let clientInitializing: Promise<OIDCClient> | null = null;
+
+/**
+ * Get singleton OIDC client instance
+ * Thread-safe initialization with promise caching
+ */
+export async function getOIDCClient(): Promise<OIDCClient> {
+  // Return existing instance
+  if (clientInstance) {
+    return clientInstance;
+  }
+
+  // Wait for ongoing initialization
+  if (clientInitializing) {
+    return clientInitializing;
+  }
+
+  // Initialize new instance
+  clientInitializing = (async () => {
+    const client = new OIDCClient();
+    await client.initialize();
+    clientInstance = client;
+    clientInitializing = null;
+    return client;
+  })();
+
+  return clientInitializing;
+}
+
+/**
+ * Reset client instance (for testing or configuration changes)
+ */
+export function resetOIDCClient(): void {
+  clientInstance = null;
+  clientInitializing = null;
+  OIDCClient.clearCache();
+}
 ```
 
-### 6.3 Login Route
+### 6.3 Login Route (with Security Enhancements)
 
 ```typescript
 // app/api/auth/oidc/login/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { publicRoute } from '@/lib/api/route-handler';
-import { OIDCClient } from '@/lib/oidc/client';
 import { cookies } from 'next/headers';
+import { sealData } from 'iron-session';
+import { publicRoute } from '@/lib/api/route-handler';
+import { getOIDCClient } from '@/lib/oidc/client';
+import { stateManager } from '@/lib/oidc/state-manager';
+import { generateDeviceFingerprint } from '@/lib/auth/token-manager';
+import { log } from '@/lib/logger';
 
 const oidcLoginHandler = async (request: NextRequest) => {
   const returnUrl = request.nextUrl.searchParams.get('returnUrl') || '/dashboard';
 
-  // Create OIDC client
-  const oidcClient = new OIDCClient();
+  // Get singleton OIDC client
+  const oidcClient = await getOIDCClient();
   const { url, state, codeVerifier, nonce } = await oidcClient.createAuthUrl(returnUrl);
 
-  // Store PKCE and state in httpOnly cookie (encrypted)
-  const cookieStore = await cookies();
-  const sessionData = JSON.stringify({ state, codeVerifier, nonce, returnUrl });
+  // Register state for one-time use validation
+  stateManager.registerState(state);
 
-  cookieStore.set('oidc-session', sessionData, {
+  // Generate device fingerprint for session binding
+  const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+  const userAgent = request.headers.get('user-agent') || 'unknown';
+  const fingerprint = generateDeviceFingerprint(ipAddress, userAgent);
+
+  // Encrypt session data before storing (CRITICAL SECURITY)
+  const sealed = await sealData(
+    {
+      state,
+      codeVerifier,
+      nonce,
+      returnUrl,
+      fingerprint,
+    },
+    {
+      password: process.env.OIDC_SESSION_SECRET!,
+      ttl: 60 * 10, // 10 minutes
+    }
+  );
+
+  const cookieStore = await cookies();
+  cookieStore.set('oidc-session', sealed, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax', // Must be 'lax' for OAuth redirects
     maxAge: 60 * 10, // 10 minutes
     path: '/',
+  });
+
+  log.info('OIDC login initiated', {
+    returnUrl,
+    fingerprint: fingerprint.substring(0, 16),
   });
 
   // Redirect to Entra authorization endpoint
@@ -786,20 +1249,23 @@ export const GET = publicRoute(
 );
 ```
 
-### 6.4 Callback Route
+### 6.4 Callback Route (with Security Enhancements)
 
 ```typescript
 // app/api/auth/oidc/callback/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { unsealData } from 'iron-session';
 import { publicRoute } from '@/lib/api/route-handler';
-import { OIDCClient } from '@/lib/oidc/client';
+import { getOIDCClient } from '@/lib/oidc/client';
+import { stateManager } from '@/lib/oidc/state-manager';
 import { validateEmailDomain } from '@/lib/auth/input-validator';
 import { createTokenPair, generateDeviceFingerprint, generateDeviceName } from '@/lib/auth/token-manager';
 import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context';
 import { db, users } from '@/lib/db';
 import { eq } from 'drizzle-orm';
 import { AuditLogger } from '@/lib/api/services/audit';
+import { buildOIDCConfig } from '@/lib/oidc/config';
 import { log } from '@/lib/logger';
 
 const oidcCallbackHandler = async (request: NextRequest) => {
@@ -831,7 +1297,7 @@ const oidcCallbackHandler = async (request: NextRequest) => {
       );
     }
 
-    // Retrieve session data from cookie
+    // Retrieve and decrypt session data from cookie (CRITICAL SECURITY)
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get('oidc-session');
     if (!sessionCookie) {
@@ -841,19 +1307,79 @@ const oidcCallbackHandler = async (request: NextRequest) => {
       );
     }
 
-    const sessionData = JSON.parse(sessionCookie.value);
-    const { state: expectedState, codeVerifier, nonce, returnUrl } = sessionData;
+    const sessionData = await unsealData<{
+      state: string;
+      codeVerifier: string;
+      nonce: string;
+      returnUrl: string;
+      fingerprint: string;
+    }>(sessionCookie.value, {
+      password: process.env.OIDC_SESSION_SECRET!,
+    });
 
-    // Validate state (CSRF protection)
+    const { state: expectedState, codeVerifier, nonce, returnUrl, fingerprint } = sessionData;
+
+    // Validate state matches (basic CSRF check)
     if (state !== expectedState) {
-      log.error('OIDC state mismatch', { received: state, expected: expectedState });
+      log.error('OIDC state mismatch', { received: state.substring(0, 8), expected: expectedState.substring(0, 8) });
       return NextResponse.redirect(
         new URL('/signin?error=invalid_state', request.url)
       );
     }
 
-    // Exchange code for tokens and validate
-    const oidcClient = new OIDCClient();
+    // Validate state is one-time use (CRITICAL - prevents replay attacks)
+    if (!stateManager.validateAndMarkUsed(state)) {
+      log.error('State token replay or expiration', { state: state.substring(0, 8) });
+      await AuditLogger.logAuth({
+        action: 'oidc_state_replay_attempt',
+        metadata: {
+          state: state.substring(0, 8),
+        },
+      });
+      return NextResponse.redirect(
+        new URL('/signin?error=invalid_state', request.url)
+      );
+    }
+
+    // Validate session fingerprint (CRITICAL - prevents session hijacking)
+    const currentIp = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+    const currentUserAgent = request.headers.get('user-agent') || 'unknown';
+    const currentFingerprint = generateDeviceFingerprint(currentIp, currentUserAgent);
+
+    const STRICT_MODE = process.env.OIDC_STRICT_FINGERPRINT === 'true';
+
+    if (fingerprint !== currentFingerprint) {
+      if (STRICT_MODE) {
+        // Reject in strict mode
+        log.error('OIDC session hijack attempt', {
+          expected: fingerprint.substring(0, 16),
+          received: currentFingerprint.substring(0, 16),
+          ipAddress: currentIp,
+        });
+
+        await AuditLogger.logAuth({
+          action: 'oidc_session_hijack_attempt',
+          ipAddress: currentIp,
+          userAgent: currentUserAgent,
+          metadata: {
+            reason: 'fingerprint_mismatch',
+          },
+        });
+
+        return NextResponse.redirect(
+          new URL('/signin?error=session_hijack', request.url)
+        );
+      } else {
+        // Log warning in normal mode (mobile networks can change IPs)
+        log.warn('OIDC session fingerprint changed', {
+          expected: fingerprint.substring(0, 16),
+          received: currentFingerprint.substring(0, 16),
+        });
+      }
+    }
+
+    // Get singleton OIDC client and validate tokens
+    const oidcClient = await getOIDCClient();
     const userInfo = await oidcClient.handleCallback(
       { code, state },
       expectedState,
@@ -861,16 +1387,10 @@ const oidcCallbackHandler = async (request: NextRequest) => {
       codeVerifier
     );
 
-    // Validate email verified
-    if (!userInfo.emailVerified) {
-      log.warn('OIDC email not verified', { email: userInfo.email });
-      return NextResponse.redirect(
-        new URL('/signin?error=email_not_verified', request.url)
-      );
-    }
+    // Note: Email verification already checked in handleCallback() with explicit validation
 
     // Validate email domain (if configured)
-    const config = await getOIDCConfig();
+    const config = await buildOIDCConfig();
     if (config.allowedEmailDomains.length > 0) {
       const isAllowed = validateEmailDomain(userInfo.email, config.allowedEmailDomains);
       if (!isAllowed) {
@@ -1550,11 +2070,17 @@ DATABASE_URL=<your-database-url>
 ### 11.1 Summary
 
 Converting from SAML to OIDC will:
-- **Reduce complexity** by 60-70% (from ~2,840 to ~1,200 lines)
+- **Reduce complexity** by 60-70% (from ~2,840 to ~1,400 lines including security enhancements)
 - **Eliminate custom security infrastructure** (replay prevention database)
 - **Simplify certificate management** (auto-fetched JWKs)
 - **Improve maintainability** (standard protocol, better libraries)
-- **Maintain security posture** (equivalent or better than SAML)
+- **Enhance security posture** with:
+  - Encrypted session cookies (PKCE protection)
+  - One-time state tokens (replay prevention)
+  - Device fingerprint binding (hijacking prevention)
+  - Explicit ID token validation (defense-in-depth)
+  - RP-initiated logout (complete session termination)
+- **Improve performance** via discovery caching (~200ms faster logins)
 - **Support all 5 domains** with minimal configuration
 
 ### 11.2 Risks & Mitigations
@@ -1570,16 +2096,40 @@ Converting from SAML to OIDC will:
 ### 11.3 Recommendation
 
 **Proceed with OIDC conversion** based on:
-1. Significant code reduction and simplification
-2. Elimination of custom security infrastructure
+1. Significant code reduction and simplification (still 50% less code than SAML)
+2. Elimination of custom security infrastructure (no replay database)
 3. Industry standard protocol with excellent library support
-4. Equivalent security with built-in protections (PKCE, nonce, state)
+4. **Enhanced security** with production-grade defenses:
+   - Encrypted session cookies
+   - One-time state tokens
+   - Device fingerprint binding
+   - Explicit validation
 5. Better long-term maintainability
-6. Minimal configuration required
+6. Minimal configuration required (only 2 new env vars)
+7. Performance improvements via caching
 
-**Timeline**: 4-5 weeks from start to full SAML deprecation
+**Timeline**: 5-6 weeks from start to full SAML deprecation
 
-**Effort**: ~80 hours (2 developers, 2 weeks at 50% allocation)
+**Effort Estimate**: ~104 hours
+- **Phase 1 (Development)**: 52 hours
+  - Base OIDC implementation: 40 hours
+  - Critical security enhancements: 12 hours
+    - Session encryption: 3 hours
+    - State replay prevention: 4 hours
+    - Fingerprint binding: 2 hours
+    - Explicit validation: 3 hours
+- **Phase 2 (Feature Parity)**: 24 hours
+  - Architecture improvements: 8 hours (caching, singleton, logout, errors)
+  - Code quality enhancements: 8 hours (types, error handling)
+  - UX enhancements: 8 hours
+- **Phase 3 (Testing)**: 28 hours
+  - Security testing: 12 hours
+  - Integration testing: 8 hours
+  - E2E testing: 8 hours
+
+**Team**: 2 developers, 2.5 weeks at 50% allocation
+
+**Note**: The +24 hours for security enhancements is **non-negotiable** for production deployment but represents a sound investment in security posture.
 
 ---
 
@@ -1588,6 +2138,7 @@ Converting from SAML to OIDC will:
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2025-01-10 | System Architecture | Initial design document |
+| 1.1 | 2025-10-03 | System Architecture | **Integrated security review recommendations**: Added critical security enhancements (encrypted sessions, one-time state tokens, fingerprint binding, explicit validation), architecture improvements (caching, singleton, logout), updated effort estimates to 104 hours (5-6 weeks) |
 
 **Approvals Required**:
 - [ ] CTO/Technical Lead

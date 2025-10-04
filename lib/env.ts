@@ -31,32 +31,24 @@ export const env = createEnv({
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
     RESEND_WEBHOOK_SECRET: z.string().optional(),
 
-    // SAML SSO Configuration
+    // Microsoft Entra ID Configuration (shared by OIDC)
     ENTRA_TENANT_ID: z.string().uuid('ENTRA_TENANT_ID must be a valid UUID').optional(),
-    ENTRA_APP_ID: z.string().uuid('ENTRA_APP_ID must be a valid UUID').optional(), // Application ID for app-specific metadata
-    ENTRA_ENTRY_POINT: z.string().url('ENTRA_ENTRY_POINT must be a valid URL').optional(),
-    ENTRA_ISSUER: z.string().url('ENTRA_ISSUER must be a valid URL').optional(),
-    ENTRA_CERT: z.string().optional(), // Certificate content or path
+    ENTRA_APP_ID: z.string().uuid('ENTRA_APP_ID must be a valid UUID').optional(), // Application ID (client_id)
+    ENTRA_CLIENT_SECRET: z.string().optional(), // Client secret for OIDC
 
-    SAML_ISSUER: z.string().url('SAML_ISSUER must be a valid URL').optional(),
-    SAML_CALLBACK_URL: z.string().url('SAML_CALLBACK_URL must be a valid URL').optional(),
-    SAML_CERT: z.string().optional(), // SP certificate content or path
-    SAML_PRIVATE_KEY: z.string().optional(), // SP private key content or path
-
-    SAML_ALLOWED_EMAIL_DOMAINS: z.string().optional(), // Comma-separated list
-    SAML_CERT_EXPIRY_WARNING_DAYS: z
+    // OIDC Configuration (OpenID Connect)
+    OIDC_REDIRECT_URI: z.string().url('OIDC_REDIRECT_URI must be a valid URL').optional(),
+    OIDC_SESSION_SECRET: z
       .string()
-      .transform((val) => (val ? parseInt(val, 10) : 30))
+      .min(32, 'OIDC_SESSION_SECRET must be at least 32 characters for security')
       .optional(),
-    SAML_CALLBACK_RATE_LIMIT: z
-      .string()
-      .transform((val) => (val ? parseInt(val, 10) : 20))
-      .optional(),
-    SAML_LOG_RAW_RESPONSES: z
+    OIDC_SCOPES: z.string().optional(), // Space or comma-separated list
+    OIDC_ALLOWED_DOMAINS: z.string().optional(), // Comma-separated list
+    OIDC_SUCCESS_REDIRECT: z.string().optional(),
+    OIDC_STRICT_FINGERPRINT: z
       .string()
       .transform((val) => val === 'true')
       .optional(),
-    SAML_SUCCESS_REDIRECT: z.string().optional(),
 
     // Node Environment
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -97,21 +89,17 @@ export const env = createEnv({
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
     RESEND_WEBHOOK_SECRET: process.env.RESEND_WEBHOOK_SECRET,
 
-    // SAML SSO
+    // Microsoft Entra ID & OIDC
     ENTRA_TENANT_ID: process.env.ENTRA_TENANT_ID,
     ENTRA_APP_ID: process.env.ENTRA_APP_ID,
-    ENTRA_ENTRY_POINT: process.env.ENTRA_ENTRY_POINT,
-    ENTRA_ISSUER: process.env.ENTRA_ISSUER,
-    ENTRA_CERT: process.env.ENTRA_CERT,
-    SAML_ISSUER: process.env.SAML_ISSUER,
-    SAML_CALLBACK_URL: process.env.SAML_CALLBACK_URL,
-    SAML_CERT: process.env.SAML_CERT,
-    SAML_PRIVATE_KEY: process.env.SAML_PRIVATE_KEY,
-    SAML_ALLOWED_EMAIL_DOMAINS: process.env.SAML_ALLOWED_EMAIL_DOMAINS,
-    SAML_CERT_EXPIRY_WARNING_DAYS: process.env.SAML_CERT_EXPIRY_WARNING_DAYS,
-    SAML_CALLBACK_RATE_LIMIT: process.env.SAML_CALLBACK_RATE_LIMIT,
-    SAML_LOG_RAW_RESPONSES: process.env.SAML_LOG_RAW_RESPONSES,
-    SAML_SUCCESS_REDIRECT: process.env.SAML_SUCCESS_REDIRECT,
+    ENTRA_CLIENT_SECRET: process.env.ENTRA_CLIENT_SECRET,
+    OIDC_REDIRECT_URI: process.env.OIDC_REDIRECT_URI,
+    OIDC_SESSION_SECRET: process.env.OIDC_SESSION_SECRET,
+    OIDC_SCOPES: process.env.OIDC_SCOPES,
+    OIDC_ALLOWED_DOMAINS: process.env.OIDC_ALLOWED_DOMAINS,
+    OIDC_SUCCESS_REDIRECT: process.env.OIDC_SUCCESS_REDIRECT,
+    OIDC_STRICT_FINGERPRINT: process.env.OIDC_STRICT_FINGERPRINT,
+
     NODE_ENV: process.env.NODE_ENV,
 
     // Client
@@ -291,52 +279,51 @@ export const getCSRFConfig = () => {
 };
 
 /**
- * Get SAML SSO configuration
- * Server-side only - contains sensitive SAML settings
+ * Get OIDC Configuration
+ * Server-side only
+ *
+ * Returns OIDC configuration if all required environment variables are set.
+ * Returns undefined otherwise (allows graceful degradation).
  */
-export const getSAMLConfig = () => {
+export const getOIDCConfig = () => {
   if (typeof window !== 'undefined') {
-    throw new Error('getSAMLConfig can only be used on the server side');
+    throw new Error('getOIDCConfig can only be used on the server side');
   }
 
-  // Return undefined if SAML is not configured (allows graceful degradation)
-  if (!env.ENTRA_TENANT_ID || !env.SAML_ISSUER || !env.SAML_CALLBACK_URL) {
+  // Return undefined if OIDC is not configured (allows graceful degradation)
+  if (
+    !env.ENTRA_TENANT_ID ||
+    !env.ENTRA_APP_ID ||
+    !env.ENTRA_CLIENT_SECRET ||
+    !env.OIDC_REDIRECT_URI ||
+    !env.OIDC_SESSION_SECRET
+  ) {
     return undefined;
   }
 
   return {
     // Microsoft Entra Configuration
     tenantId: env.ENTRA_TENANT_ID,
-    appId: env.ENTRA_APP_ID, // Application ID for app-specific metadata
-    entryPoint:
-      env.ENTRA_ENTRY_POINT || `https://login.microsoftonline.com/${env.ENTRA_TENANT_ID}/saml2`,
-    expectedIssuer: env.ENTRA_ISSUER || `https://sts.windows.net/${env.ENTRA_TENANT_ID}/`,
-    entraCert: env.ENTRA_CERT,
+    clientId: env.ENTRA_APP_ID,
+    clientSecret: env.ENTRA_CLIENT_SECRET,
 
-    // Service Provider Configuration
-    issuer: env.SAML_ISSUER,
-    callbackUrl: env.SAML_CALLBACK_URL,
-    spCert: env.SAML_CERT,
-    spPrivateKey: env.SAML_PRIVATE_KEY,
-
-    // Security Configuration
-    allowedEmailDomains: env.SAML_ALLOWED_EMAIL_DOMAINS?.split(',').map((d) => d.trim()) || [],
-    certExpiryWarningDays: env.SAML_CERT_EXPIRY_WARNING_DAYS || 30,
-    callbackRateLimit: env.SAML_CALLBACK_RATE_LIMIT || 20,
-    logRawResponses: env.SAML_LOG_RAW_RESPONSES || false,
-
-    // Optional
-    successRedirect: env.SAML_SUCCESS_REDIRECT || '/dashboard',
+    // OIDC Configuration
+    redirectUri: env.OIDC_REDIRECT_URI,
+    sessionSecret: env.OIDC_SESSION_SECRET,
+    scopes: env.OIDC_SCOPES?.split(/[\s,]+/).filter(Boolean) || ['openid', 'profile', 'email'],
+    allowedEmailDomains: env.OIDC_ALLOWED_DOMAINS?.split(',').map((d) => d.trim()) || [],
+    successRedirect: env.OIDC_SUCCESS_REDIRECT || '/dashboard',
+    strictFingerprint: env.OIDC_STRICT_FINGERPRINT || false,
   };
 };
 
 /**
- * Check if SAML SSO is enabled
+ * Check if OIDC is enabled
  * Server-side only
  */
-export const isSAMLEnabled = () => {
+export const isOIDCEnabled = () => {
   if (typeof window !== 'undefined') {
-    throw new Error('isSAMLEnabled can only be used on the server side');
+    throw new Error('isOIDCEnabled can only be used on the server side');
   }
-  return getSAMLConfig() !== undefined;
+  return getOIDCConfig() !== undefined;
 };
