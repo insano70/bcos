@@ -19,10 +19,15 @@ export function ProtectedPage({
   children,
   loadingComponent
 }: ProtectedPageProps) {
-  const { hasPermission, hasAnyPermission, hasAllPermissions, isAuthenticated } = usePermissions();
+  const { hasPermission, hasAnyPermission, hasAllPermissions, isAuthenticated, isLoading } = usePermissions();
   const router = useRouter();
 
   useEffect(() => {
+    // Wait for auth state to load before making redirect decisions
+    if (isLoading) {
+      return;
+    }
+
     // Redirect to login if not authenticated
     if (!isAuthenticated) {
       const currentPath = window.location.pathname + window.location.search;
@@ -49,19 +54,20 @@ export function ProtectedPage({
       router.push(redirectTo);
     }
   }, [
-    isAuthenticated, 
-    permission, 
-    permissions, 
-    requireAll, 
-    redirectTo, 
-    router, 
-    hasPermission, 
-    hasAnyPermission, 
+    isLoading,
+    isAuthenticated,
+    permission,
+    permissions,
+    requireAll,
+    redirectTo,
+    router,
+    hasPermission,
+    hasAnyPermission,
     hasAllPermissions
   ]);
 
-  // Show loading while checking authentication
-  if (!isAuthenticated) {
+  // Show loading while auth state is being determined
+  if (isLoading) {
     return loadingComponent || (
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex items-center space-x-3">
@@ -73,6 +79,11 @@ export function ProtectedPage({
         </div>
       </div>
     );
+  }
+
+  // Redirect handled by useEffect - show nothing during redirect
+  if (!isAuthenticated) {
+    return null;
   }
 
   // Check permissions once authenticated

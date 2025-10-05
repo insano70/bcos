@@ -5,6 +5,7 @@ import { useTableSort } from '@/lib/hooks/use-table-sort';
 import ChartsTableItem from './charts-table-item';
 
 export interface ChartDefinitionListItem {
+  id: string;
   chart_definition_id: string;
   chart_name: string;
   chart_description?: string | undefined;

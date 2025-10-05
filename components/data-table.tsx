@@ -51,7 +51,7 @@ export default function DataTable<T extends { id: string | number }>({
 }: DataTableProps<T>) {
   // Hooks
   const { selectedItems, isAllSelected, handleCheckboxChange, handleSelectAllChange } =
-    useItemSelection(data, getRowId);
+    useItemSelection(data);
   const { sortedData, handleSort, getSortIcon } = useTableSort(data);
   const pagination = usePagination(sortedData, {
     itemsPerPage: paginationConfig?.itemsPerPage || 10,

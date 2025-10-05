@@ -8,17 +8,19 @@ import DateSelect from '@/components/date-select';
 import DeleteButton from '@/components/delete-button';
 import DeleteDashboardModal from '@/components/delete-dashboard-modal';
 import FilterButton from '@/components/dropdown-filter';
-import PaginationClassic from '@/components/pagination-classic';
 import Toast from '@/components/toast';
+import DataTableEnhanced, {
+  type DataTableColumn,
+  type DataTableDropdownAction,
+} from '@/components/data-table-enhanced';
 import { apiClient } from '@/lib/api/client';
-import { usePagination } from '@/lib/hooks/use-pagination';
 import type { DashboardWithCharts } from '@/lib/services/rbac-dashboards-service';
 import type { Dashboard, DashboardChart, DashboardListItem } from '@/lib/types/analytics';
-import DashboardsTable from './dashboards-table';
 
 export default function DashboardsPage() {
   const router = useRouter();
   const [savedDashboards, setSavedDashboards] = useState<DashboardListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [dashboardToDelete, setDashboardToDelete] = useState<DashboardListItem | null>(null);
@@ -31,11 +33,16 @@ export default function DashboardsPage() {
     charts: DashboardChart[];
   } | null>(null);
 
-  // Pagination
-  const pagination = usePagination(savedDashboards, { itemsPerPage: 10 });
+  const getChartCountBadgeColor = (count: number) => {
+    if (count === 0) return 'bg-gray-100 dark:bg-gray-900/20 text-gray-800 dark:text-gray-200';
+    if (count <= 3) return 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200';
+    if (count <= 6) return 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200';
+    return 'bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-200';
+  };
 
   const loadDashboards = useCallback(async () => {
     setError(null);
+    setIsLoading(true);
 
     try {
       console.log('🔍 Loading dashboard definitions from API...');
@@ -59,31 +66,33 @@ export default function DashboardsPage() {
       });
 
       // Transform flattened API data to DashboardListItem structure
-      const transformedDashboards: DashboardListItem[] = (dashboards as DashboardWithCharts[])
-        .map((item: DashboardWithCharts, index: number): DashboardListItem | null => {
+      const transformedDashboards: DashboardListItem[] = dashboards
+        .map((item, index: number): DashboardListItem | null => {
+          const dashboard = item as unknown as DashboardWithCharts;
           // Handle flattened data structure from new API service
           console.log(`🔄 Transforming dashboard ${index}:`, item);
 
           // Validate required fields
-          if (!item.dashboard_id || !item.dashboard_name) {
+          if (!dashboard.dashboard_id || !dashboard.dashboard_name) {
             console.warn(`⚠️ Skipping dashboard ${index}: missing required fields`);
             return null;
           }
 
           return {
-            dashboard_id: item.dashboard_id,
-            dashboard_name: item.dashboard_name,
-            dashboard_description: item.dashboard_description,
-            dashboard_category_id: item.dashboard_category_id,
-            category_name: item.category?.category_name,
-            chart_count: item.chart_count || 0,
-            created_by: item.created_by,
-            creator_name: item.creator?.first_name,
-            creator_last_name: item.creator?.last_name,
-            created_at: item.created_at,
-            updated_at: item.updated_at,
-            is_active: item.is_active,
-            is_published: item.is_published,
+            id: dashboard.dashboard_id,
+            dashboard_id: dashboard.dashboard_id,
+            dashboard_name: dashboard.dashboard_name,
+            dashboard_description: dashboard.dashboard_description,
+            dashboard_category_id: dashboard.dashboard_category_id,
+            category_name: dashboard.category?.category_name,
+            chart_count: dashboard.chart_count || 0,
+            created_by: dashboard.created_by,
+            creator_name: dashboard.creator?.first_name,
+            creator_last_name: dashboard.creator?.last_name,
+            created_at: dashboard.created_at,
+            updated_at: dashboard.updated_at,
+            is_active: dashboard.is_active,
+            is_published: dashboard.is_published,
           };
         })
         .filter((item): item is DashboardListItem => item !== null);
@@ -99,6 +108,8 @@ export default function DashboardsPage() {
       console.error('❌ Failed to load dashboards:', error);
       setError(errorMessage);
       setSavedDashboards([]); // Ensure we always have an array
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
@@ -226,6 +237,154 @@ export default function DashboardsPage() {
     router.push('/configure/dashboard-builder');
   };
 
+  // Define table columns
+  const columns: DataTableColumn<DashboardListItem>[] = [
+    { key: 'checkbox' },
+    {
+      key: 'dashboard_name',
+      header: 'Dashboard Name',
+      sortable: true,
+      render: (dashboard) => (
+        <div className="flex items-center">
+          <div>
+            <div className="font-medium text-gray-800 dark:text-gray-100">
+              {dashboard.dashboard_name || 'Unnamed Dashboard'}
+            </div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              ID: {dashboard.dashboard_id?.slice(0, 8) || 'unknown'}...
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'dashboard_description',
+      header: 'Description',
+      sortable: true,
+      render: (dashboard) => (
+        <div className="text-gray-800 dark:text-gray-100 max-w-xs truncate">
+          {dashboard.dashboard_description || (
+            <span className="text-gray-400 dark:text-gray-500 italic">No description</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'chart_count',
+      header: 'Charts',
+      sortable: true,
+      align: 'center',
+      render: (dashboard) => (
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getChartCountBadgeColor(dashboard.chart_count)}`}
+        >
+          {dashboard.chart_count} {dashboard.chart_count === 1 ? 'chart' : 'charts'}
+        </span>
+      ),
+    },
+    {
+      key: 'category_name',
+      header: 'Category',
+      sortable: true,
+      render: (dashboard) => (
+        <div className="text-gray-800 dark:text-gray-100">
+          {dashboard.category_name || (
+            <span className="text-gray-400 dark:text-gray-500 italic">Uncategorized</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'is_published',
+      header: 'Status',
+      sortable: true,
+      align: 'center',
+      render: (dashboard) =>
+        dashboard.is_published ? (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200">
+            <svg className="w-1.5 h-1.5 mr-1.5" fill="currentColor" viewBox="0 0 8 8">
+              <circle cx={4} cy={4} r={3} />
+            </svg>
+            Published
+          </span>
+        ) : (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200">
+            <svg className="w-1.5 h-1.5 mr-1.5" fill="currentColor" viewBox="0 0 8 8">
+              <circle cx={4} cy={4} r={3} />
+            </svg>
+            Under Development
+          </span>
+        ),
+    },
+    {
+      key: 'created_by',
+      header: 'Created By',
+      sortable: true,
+      render: (dashboard) => (
+        <div className="text-gray-800 dark:text-gray-100">
+          {dashboard.creator_name && dashboard.creator_last_name
+            ? `${dashboard.creator_name} ${dashboard.creator_last_name}`
+            : dashboard.created_by || 'Unknown'}
+        </div>
+      ),
+    },
+    {
+      key: 'created_at',
+      header: 'Created',
+      sortable: true,
+      render: (dashboard) => (
+        <div>
+          <div className="text-gray-800 dark:text-gray-100">
+            {dashboard.created_at ? new Date(dashboard.created_at).toLocaleDateString() : 'Unknown'}
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            {dashboard.created_at ? new Date(dashboard.created_at).toLocaleTimeString() : ''}
+          </div>
+        </div>
+      ),
+    },
+    { key: 'actions' },
+  ];
+
+  // Define dropdown actions
+  const getDropdownActions = (
+    dashboard: DashboardListItem
+  ): DataTableDropdownAction<DashboardListItem>[] => [
+    {
+      label: 'Edit Dashboard',
+      onClick: handleEditDashboard,
+    },
+    {
+      label: 'Copy ID',
+      onClick: (d) => {
+        navigator.clipboard.writeText(d.dashboard_id);
+      },
+    },
+    {
+      label: 'Preview Dashboard',
+      onClick: handlePreviewDashboard,
+    },
+    // Conditionally include publish/unpublish actions
+    ...(dashboard.is_published
+      ? [
+          {
+            label: 'Unpublish Dashboard',
+            onClick: handleUnpublishDashboard,
+          } as DataTableDropdownAction<DashboardListItem>,
+        ]
+      : [
+          {
+            label: 'Publish Dashboard',
+            onClick: handlePublishDashboard,
+          } as DataTableDropdownAction<DashboardListItem>,
+        ]),
+    {
+      label: 'Delete Dashboard',
+      onClick: handleDeleteClick,
+      variant: 'danger' as const,
+    },
+  ];
+
   // Load dashboards on component mount
   React.useEffect(() => {
     loadDashboards();
@@ -311,31 +470,15 @@ export default function DashboardsPage() {
         </div>
 
         {/* Dashboards Table */}
-        <DashboardsTable
-          dashboards={pagination.currentItems}
-          onEdit={handleEditDashboard}
-          onDelete={handleDeleteClick}
-          onPreview={handlePreviewDashboard}
-          onPublish={handlePublishDashboard}
-          onUnpublish={handleUnpublishDashboard}
+        <DataTableEnhanced
+          title="All Dashboards"
+          data={savedDashboards}
+          columns={columns}
+          dropdownActions={getDropdownActions}
+          pagination={{ itemsPerPage: 10 }}
+          selectionMode="multi"
+          isLoading={isLoading}
         />
-
-        {/* Pagination */}
-        {savedDashboards.length > 0 && (
-          <div className="mt-8">
-            <PaginationClassic
-              currentPage={pagination.currentPage}
-              totalItems={pagination.totalItems}
-              itemsPerPage={pagination.itemsPerPage}
-              startItem={pagination.startItem}
-              endItem={pagination.endItem}
-              hasPrevious={pagination.hasPrevious}
-              hasNext={pagination.hasNext}
-              onPrevious={pagination.goToPrevious}
-              onNext={pagination.goToNext}
-            />
-          </div>
-        )}
 
         {/* Delete Confirmation Modal */}
         {dashboardToDelete && (

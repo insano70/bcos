@@ -249,12 +249,18 @@ export class WafProtection extends Construct {
       ],
     });
 
-    // WAF logging disabled temporarily due to API format issues
-    // TODO: Re-enable after fixing redactedFields format
-    // new wafv2.CfnLoggingConfiguration(this, 'WAFLoggingConfiguration', {
-    //   resourceArn: this.webAcl.attrArn,
-    //   logDestinationConfigs: [this.logGroup.logGroupArn],
-    // });
+    // WAF logging configuration
+    // Logs all WAF events to CloudWatch for security monitoring and compliance
+    new wafv2.CfnLoggingConfiguration(this, 'WAFLoggingConfiguration', {
+      resourceArn: this.webAcl.attrArn,
+      logDestinationConfigs: [this.logGroup.logGroupArn],
+      // Redact sensitive fields from logs to comply with data privacy requirements
+      redactedFields: [
+        { queryString: {} }, // Redact query parameters (may contain sensitive data)
+        { singleHeader: { name: 'authorization' } }, // Redact auth headers
+        { singleHeader: { name: 'cookie' } }, // Redact cookies
+      ],
+    });
 
     // Output the Web ACL ARN
     new cdk.CfnOutput(this, 'WebACLArn', {

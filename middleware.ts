@@ -6,6 +6,8 @@ import { isPublicApiRoute } from '@/lib/api/middleware/global-auth'
 import { debugLog } from '@/lib/utils/debug'
 import { sanitizeRequestBody } from '@/lib/api/middleware/request-sanitization'
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
+import { eq } from 'drizzle-orm'
+import type { JWTPayload } from 'jose'
 
 // CSRF exempt paths - these endpoints handle their own security or don't need CSRF
 const CSRF_EXEMPT_PATHS = [
@@ -14,16 +16,66 @@ const CSRF_EXEMPT_PATHS = [
   '/api/webhooks/',       // All webhook endpoints (external services)
   '/api/security/csp-report', // CSP violation reporting (automated browser requests)
   '/api/auth/oidc/callback', // OIDC callback (Microsoft Entra redirect - security via state token + PKCE)
-  // Note: login, register, and refresh are NOT exempt - they all require CSRF protection
+  '/api/auth/refresh',    // Token refresh (secured by httpOnly cookie + JWT validation, CSRF prevents refresh after server restart)
+  // Note: login and register are NOT exempt - they require CSRF protection
   // - login/register use anonymous CSRF tokens
-  // - refresh uses authenticated CSRF tokens
   // - oidc/callback uses state token + PKCE validation instead of CSRF
+  // - refresh uses httpOnly refresh token cookie (immune to CSRF, already validated server-side)
 ]
 
 function isCSRFExempt(pathname: string): boolean {
-  return CSRF_EXEMPT_PATHS.some(path => 
+  return CSRF_EXEMPT_PATHS.some(path =>
     pathname === path || pathname.startsWith(path)
   )
+}
+
+/**
+ * Validate refresh token with database checks
+ * CRITICAL: Checks is_active and blacklist to prevent revoked token bypass
+ */
+async function validateRefreshTokenWithDB(refreshToken: string): Promise<boolean> {
+  try {
+    const jwtConfig = getJWTConfig()
+    const { jwtVerify } = await import('jose')
+    const REFRESH_TOKEN_SECRET = new TextEncoder().encode(jwtConfig.refreshSecret)
+
+    // 1. Validate JWT signature and expiration
+    const { payload } = await jwtVerify(refreshToken, REFRESH_TOKEN_SECRET)
+    const tokenId = payload.jti as string
+
+    // 2. Check database for revocation (CRITICAL SECURITY CHECK)
+    const { db, refresh_tokens, token_blacklist } = await import('@/lib/db')
+
+    const [tokenRecord] = await db
+      .select({ is_active: refresh_tokens.is_active })
+      .from(refresh_tokens)
+      .where(eq(refresh_tokens.token_id, tokenId))
+      .limit(1)
+
+    // Token not found or revoked in database
+    if (!tokenRecord || !tokenRecord.is_active) {
+      debugLog.middleware('Refresh token revoked in database:', tokenId.substring(0, 8))
+      return false
+    }
+
+    // 3. Check blacklist (CRITICAL SECURITY CHECK)
+    const [blacklisted] = await db
+      .select()
+      .from(token_blacklist)
+      .where(eq(token_blacklist.jti, tokenId))
+      .limit(1)
+
+    if (blacklisted) {
+      debugLog.middleware('Refresh token blacklisted:', tokenId.substring(0, 8))
+      return false
+    }
+
+    // Token is valid and active
+    return true
+  } catch (error) {
+    debugLog.middleware('Refresh token validation error:', error instanceof Error ? error.message : String(error))
+    return false
+  }
 }
 
 export async function middleware(request: NextRequest) {
@@ -220,11 +272,14 @@ export async function middleware(request: NextRequest) {
     debugLog.middleware('Protected route detected')
 
     // ✅ STANDARDIZED: Use access token for page authentication (consistent with API routes)
+    // ✅ RESILIENT: Check for refresh token to allow automatic token refresh on page load
     const accessToken = request.cookies.get('access-token')?.value
+    const refreshToken = request.cookies.get('refresh-token')?.value
     let isAuthenticated = false
 
     debugLog.middleware('Checking auth for path:', pathname)
     debugLog.middleware('Access token cookie exists:', !!accessToken)
+    debugLog.middleware('Refresh token cookie exists:', !!refreshToken)
 
     if (accessToken) {
       debugLog.middleware('Validating access token...')
@@ -238,9 +293,24 @@ export async function middleware(request: NextRequest) {
         debugLog.middleware('Access token validation successful - allowing access')
       } catch (error) {
         debugLog.middleware('Access token validation failed:', error instanceof Error ? error.message : String(error))
+        // Access token invalid, try refresh token with database validation
+        if (refreshToken) {
+          debugLog.middleware('Access token invalid, validating refresh token with DB...')
+          isAuthenticated = await validateRefreshTokenWithDB(refreshToken)
+          if (isAuthenticated) {
+            debugLog.middleware('Refresh token valid - allowing page to load for auto-refresh')
+          }
+        }
+      }
+    } else if (refreshToken) {
+      // No access token, validate refresh token with database before allowing through
+      debugLog.middleware('No access token, validating refresh token with DB...')
+      isAuthenticated = await validateRefreshTokenWithDB(refreshToken)
+      if (isAuthenticated) {
+        debugLog.middleware('Refresh token valid - allowing page to load for auto-refresh')
       }
     } else {
-      debugLog.middleware('No access token found in cookies')
+      debugLog.middleware('No access token or refresh token found in cookies')
     }
 
     if (!isAuthenticated) {
@@ -251,7 +321,7 @@ export async function middleware(request: NextRequest) {
       response = NextResponse.redirect(signInUrl)
       return addSecurityHeaders(response)
     } else {
-      debugLog.middleware('User authenticated - allowing request to proceed')
+      debugLog.middleware('User authenticated (or has refresh token) - allowing request to proceed')
     }
 
     response = addNoStoreHeaders(response)
@@ -278,8 +348,9 @@ export async function middleware(request: NextRequest) {
   if (isAdminSubdomain(hostname)) {
     if (!isPublicPath(pathname)) {
       const accessToken = request.cookies.get('access-token')?.value
+      const refreshToken = request.cookies.get('refresh-token')?.value
       let isAuthenticated = false
-      
+
       if (accessToken) {
         // ✅ STANDARDIZED: Use access token validation (consistent with dev environment)
         try {
@@ -289,6 +360,19 @@ export async function middleware(request: NextRequest) {
           isAuthenticated = true
         } catch (error) {
           debugLog.middleware('Access token validation failed:', error)
+          // Access token invalid, try refresh token with database validation
+          if (refreshToken) {
+            isAuthenticated = await validateRefreshTokenWithDB(refreshToken)
+            if (isAuthenticated) {
+              debugLog.middleware('Refresh token valid - allowing page to load for auto-refresh')
+            }
+          }
+        }
+      } else if (refreshToken) {
+        // No access token, validate refresh token with database
+        isAuthenticated = await validateRefreshTokenWithDB(refreshToken)
+        if (isAuthenticated) {
+          debugLog.middleware('Refresh token valid - allowing page to load for auto-refresh')
         }
       }
 
@@ -306,16 +390,17 @@ export async function middleware(request: NextRequest) {
   }
 
   // Handle bendcare.com admin domains (app, staging, dev, development, test)
-  if (hostname === 'app.bendcare.com' || 
-      hostname === 'staging.bendcare.com' || 
-      hostname === 'dev.bendcare.com' || 
-      hostname === 'development.bendcare.com' || 
+  if (hostname === 'app.bendcare.com' ||
+      hostname === 'staging.bendcare.com' ||
+      hostname === 'dev.bendcare.com' ||
+      hostname === 'development.bendcare.com' ||
       hostname === 'test.bendcare.com') {
-    
+
     if (!isPublicPath(pathname)) {
       const accessToken = request.cookies.get('access-token')?.value
+      const refreshToken = request.cookies.get('refresh-token')?.value
       let isAuthenticated = false
-      
+
       if (accessToken) {
         // Use access token validation (consistent with admin subdomain)
         try {
@@ -325,6 +410,19 @@ export async function middleware(request: NextRequest) {
           isAuthenticated = true
         } catch (error) {
           debugLog.middleware('Access token validation failed:', error)
+          // Access token invalid, try refresh token with database validation
+          if (refreshToken) {
+            isAuthenticated = await validateRefreshTokenWithDB(refreshToken)
+            if (isAuthenticated) {
+              debugLog.middleware('Refresh token valid - allowing page to load for auto-refresh')
+            }
+          }
+        }
+      } else if (refreshToken) {
+        // No access token, validate refresh token with database
+        isAuthenticated = await validateRefreshTokenWithDB(refreshToken)
+        if (isAuthenticated) {
+          debugLog.middleware('Refresh token valid - allowing page to load for auto-refresh')
         }
       }
 

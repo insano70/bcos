@@ -201,6 +201,7 @@ export abstract class BaseRBACService {
 
   /**
    * Log permission check for audit trail
+   * SECURITY: Tracks all permission checks for compliance and security monitoring
    */
   protected async logPermissionCheck(
     permission: string,
@@ -208,15 +209,36 @@ export abstract class BaseRBACService {
     organizationId?: string,
     granted = true
   ): Promise<void> {
-    // TODO: Implement audit logging in Phase 7
-    console.log(
-      `Permission check: ${this.userContext.user_id} -> ${permission} = ${granted ? 'GRANTED' : 'DENIED'}`,
-      {
-        resourceId,
-        organizationId,
-        timestamp: new Date().toISOString(),
-      }
-    );
+    try {
+      const { AuditLogger } = await import('@/lib/api/services/audit');
+
+      await AuditLogger.logSecurity({
+        action: granted ? 'permission_granted' : 'permission_denied',
+        userId: this.userContext.user_id,
+        metadata: {
+          permission,
+          resourceId,
+          organizationId,
+          granted,
+          userEmail: this.userContext.email,
+          userRoles: this.userContext.roles?.map((r) => r.name),
+          timestamp: new Date().toISOString(),
+        },
+        severity: granted ? 'low' : 'medium', // Denied permissions are more critical
+      });
+    } catch (error) {
+      // Never let audit logging failures break the main application
+      // Fallback to console.log for critical debugging
+      console.error('Audit logging failed for permission check:', error);
+      console.log(
+        `Permission check: ${this.userContext.user_id} -> ${permission} = ${granted ? 'GRANTED' : 'DENIED'}`,
+        {
+          resourceId,
+          organizationId,
+          timestamp: new Date().toISOString(),
+        }
+      );
+    }
   }
 
   /**

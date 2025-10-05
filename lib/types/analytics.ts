@@ -257,6 +257,7 @@ export interface DashboardChartPosition {
  * Dashboard list item for table display
  */
 export interface DashboardListItem {
+  id: string; // Added for DataTableEnhanced compatibility
   dashboard_id: string;
   dashboard_name: string;
   dashboard_description?: string | undefined;

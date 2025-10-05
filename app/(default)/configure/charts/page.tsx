@@ -7,13 +7,15 @@ import DateSelect from '@/components/date-select';
 import DeleteButton from '@/components/delete-button';
 import DeleteChartModal from '@/components/delete-chart-modal';
 import FilterButton from '@/components/dropdown-filter';
-import PaginationClassic from '@/components/pagination-classic';
 import Toast from '@/components/toast';
 import { apiClient } from '@/lib/api/client';
-import { usePagination } from '@/lib/hooks/use-pagination';
 import type { ChartWithMetadata } from '@/lib/services/rbac-charts-service';
 import type { ChartDefinition } from '@/lib/types/analytics';
-import ChartsTable, { type ChartDefinitionListItem } from './charts-table';
+import type { ChartDefinitionListItem } from './charts-table';
+import DataTableEnhanced, {
+  type DataTableColumn,
+  type DataTableDropdownAction,
+} from '@/components/data-table-enhanced';
 
 export default function ChartBuilderPage() {
   const router = useRouter();
@@ -26,8 +28,23 @@ export default function ChartBuilderPage() {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
 
-  // Pagination
-  const pagination = usePagination(savedCharts, { itemsPerPage: 10 });
+  // Helper function for chart type badge colors
+  const getChartTypeBadgeColor = (type: string) => {
+    switch (type) {
+      case 'line':
+        return 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200';
+      case 'bar':
+        return 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200';
+      case 'pie':
+        return 'bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-200';
+      case 'doughnut':
+        return 'bg-orange-100 dark:bg-orange-900/20 text-orange-800 dark:text-orange-200';
+      case 'area':
+        return 'bg-teal-100 dark:bg-teal-900/20 text-teal-800 dark:text-teal-200';
+      default:
+        return 'bg-gray-100 dark:bg-gray-900/20 text-gray-800 dark:text-gray-200';
+    }
+  };
 
   const _handleSaveChart = async (chartDefinition: Partial<ChartDefinition>) => {
     try {
@@ -76,6 +93,7 @@ export default function ChartBuilderPage() {
           console.log(`🔄 Transforming chart ${index}:`, item);
 
           return {
+            id: item.chart_definition_id,
             chart_definition_id: item.chart_definition_id,
             chart_name: item.chart_name,
             chart_description: item.chart_description,
@@ -139,6 +157,134 @@ export default function ChartBuilderPage() {
   const handleCreateChart = () => {
     router.push('/configure/charts/new');
   };
+
+  // Define table columns
+  const columns: DataTableColumn<ChartDefinitionListItem>[] = [
+    { key: 'checkbox' },
+    {
+      key: 'chart_name',
+      header: 'Chart Name',
+      sortable: true,
+      render: (chart) => (
+        <div className="flex items-center">
+          <div>
+            <div className="font-medium text-gray-800 dark:text-gray-100">{chart.chart_name}</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              ID: {chart.chart_definition_id.slice(0, 8)}...
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'chart_type',
+      header: 'Chart Type',
+      sortable: true,
+      render: (chart) => (
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getChartTypeBadgeColor(chart.chart_type)}`}
+        >
+          {chart.chart_type}
+        </span>
+      ),
+    },
+    {
+      key: 'chart_description',
+      header: 'Description',
+      sortable: true,
+      render: (chart) => (
+        <div className="text-gray-800 dark:text-gray-100 max-w-xs truncate">
+          {chart.chart_description || (
+            <span className="text-gray-400 dark:text-gray-500 italic">No description</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'category_name',
+      header: 'Category',
+      sortable: true,
+      render: (chart) => (
+        <div className="text-gray-800 dark:text-gray-100">
+          {chart.category_name || (
+            <span className="text-gray-400 dark:text-gray-500 italic">Uncategorized</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'is_active',
+      header: 'Status',
+      sortable: true,
+      align: 'center',
+      render: (chart) => (
+        <div
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+            chart.is_active
+              ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200'
+              : 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200'
+          }`}
+        >
+          {chart.is_active ? 'Active' : 'Inactive'}
+        </div>
+      ),
+    },
+    {
+      key: 'created_by',
+      header: 'Created By',
+      sortable: true,
+      render: (chart) => (
+        <div className="text-gray-800 dark:text-gray-100">
+          {chart.creator_name && chart.creator_last_name
+            ? `${chart.creator_name} ${chart.creator_last_name}`
+            : chart.created_by || 'Unknown'}
+        </div>
+      ),
+    },
+    {
+      key: 'created_at',
+      header: 'Created Date',
+      sortable: true,
+      render: (chart) => (
+        <div>
+          <div className="text-gray-800 dark:text-gray-100">
+            {new Date(chart.created_at).toLocaleDateString()}
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">
+            {new Date(chart.created_at).toLocaleTimeString()}
+          </div>
+        </div>
+      ),
+    },
+    { key: 'actions' },
+  ];
+
+  // Define dropdown actions
+  const getDropdownActions = (
+    chart: ChartDefinitionListItem
+  ): DataTableDropdownAction<ChartDefinitionListItem>[] => [
+    {
+      label: 'Edit Chart',
+      onClick: handleEditChart,
+    },
+    {
+      label: 'Copy ID',
+      onClick: (c) => {
+        navigator.clipboard.writeText(c.chart_definition_id);
+      },
+    },
+    {
+      label: 'Preview Chart',
+      onClick: () => {
+        // TODO: Implement chart preview
+      },
+    },
+    {
+      label: 'Delete Chart',
+      onClick: handleDeleteClick,
+      variant: 'danger',
+    },
+  ];
 
   // Load charts on component mount
   React.useEffect(() => {
@@ -225,28 +371,15 @@ export default function ChartBuilderPage() {
         </div>
 
         {/* Charts Table */}
-        <ChartsTable
-          charts={pagination.currentItems}
-          onEdit={handleEditChart}
-          onDelete={handleDeleteClick}
+        <DataTableEnhanced
+          title="All Charts"
+          data={savedCharts}
+          columns={columns}
+          dropdownActions={getDropdownActions}
+          pagination={{ itemsPerPage: 10 }}
+          selectionMode="multi"
+          isLoading={false}
         />
-
-        {/* Pagination */}
-        {savedCharts.length > 0 && (
-          <div className="mt-8">
-            <PaginationClassic
-              currentPage={pagination.currentPage}
-              totalItems={pagination.totalItems}
-              itemsPerPage={pagination.itemsPerPage}
-              startItem={pagination.startItem}
-              endItem={pagination.endItem}
-              hasPrevious={pagination.hasPrevious}
-              hasNext={pagination.hasNext}
-              onPrevious={pagination.goToPrevious}
-              onNext={pagination.goToNext}
-            />
-          </div>
-        )}
 
         {/* Delete Confirmation Modal */}
         {chartToDelete && (

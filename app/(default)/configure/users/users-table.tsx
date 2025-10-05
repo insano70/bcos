@@ -18,9 +18,11 @@ export interface User {
 export default function UsersTable({
   users,
   onEdit,
+  onUserUpdated,
 }: {
   users: User[];
   onEdit?: (user: User) => void;
+  onUserUpdated?: () => void;
 }) {
   const { selectedItems, isAllSelected, handleCheckboxChange, handleSelectAllChange } =
     useItemSelection(users);
@@ -120,6 +122,7 @@ export default function UsersTable({
                   onCheckboxChange={handleCheckboxChange}
                   isSelected={selectedItems.includes(user.id)}
                   {...(onEdit && { onEdit })}
+                  {...(onUserUpdated && { onUserUpdated })}
                 />
               ))}
             </tbody>

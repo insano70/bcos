@@ -9,7 +9,11 @@ import FilterButton from '@/components/dropdown-filter';
 import EditUserModal from '@/components/edit-user-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { type User, useUsers } from '@/lib/hooks/use-users';
-import DataTable from '@/components/data-table';
+import DataTableEnhanced, {
+  type DataTableColumn,
+  type DataTableDropdownAction,
+} from '@/components/data-table-enhanced';
+import { apiClient } from '@/lib/api/client';
 
 export default function UsersContent() {
   // Component rendered (client-side debug)
@@ -21,6 +25,17 @@ export default function UsersContent() {
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
+  // Helper functions
+  const formatDate = (date: string | Date | null) => {
+    if (!date) return '-';
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    return dateObj.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
 
   // Auth state logging (client-side debug)
   if (process.env.NODE_ENV === 'development') {
@@ -67,6 +82,145 @@ export default function UsersContent() {
     setSelectedUser(user);
     setIsEditUserModalOpen(true);
   };
+
+  const handleToggleActive = async (user: User) => {
+    await apiClient.put(`/api/users/${user.id}`, {
+      data: {
+        is_active: !user.is_active,
+      },
+    });
+    refetch();
+  };
+
+  const handleDeleteUser = async (user: User) => {
+    await apiClient.delete(`/api/users/${user.id}`);
+    refetch();
+  };
+
+  // Define table columns
+  const columns: DataTableColumn<User>[] = [
+    { key: 'checkbox' },
+    {
+      key: 'first_name',
+      header: 'Name',
+      sortable: true,
+      render: (user) => (
+        <div className="flex items-center">
+          <div className="w-10 h-10 shrink-0 mr-2 sm:mr-3">
+            <div className="w-10 h-10 rounded-full bg-violet-500 flex items-center justify-center text-white font-medium">
+              {user.first_name.charAt(0)}
+              {user.last_name.charAt(0)}
+            </div>
+          </div>
+          <div className="font-medium text-gray-800 dark:text-gray-100">
+            {user.first_name} {user.last_name}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'email',
+      header: 'Email',
+      sortable: true,
+      render: (user) => <div className="text-left">{user.email}</div>,
+    },
+    {
+      key: 'email_verified',
+      header: 'Email Status',
+      sortable: true,
+      align: 'center',
+      render: (user) => (
+        <div className="text-center">
+          {user.email_verified === true ? (
+            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400 rounded-full">
+              Verified
+            </span>
+          ) : (
+            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-yellow-700 bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400 rounded-full">
+              Pending
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'is_active',
+      header: 'Status',
+      sortable: true,
+      align: 'center',
+      render: (user) => (
+        <div className="text-center">
+          {user.is_active === true ? (
+            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400 rounded-full">
+              Active
+            </span>
+          ) : (
+            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400 rounded-full">
+              Inactive
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'created_at',
+      header: 'Created',
+      sortable: true,
+      render: (user) => (
+        <div className="text-left text-gray-500 dark:text-gray-400">
+          {formatDate(user.created_at)}
+        </div>
+      ),
+    },
+    { key: 'actions' },
+  ];
+
+  // Define dropdown actions
+  const getDropdownActions = (user: User): DataTableDropdownAction<User>[] => [
+    {
+      label: 'Edit',
+      icon: (
+        <svg
+          className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0"
+          viewBox="0 0 16 16"
+        >
+          <path d="m13.7 2.3-1-1c-.4-.4-1-.4-1.4 0l-10 10c-.2.2-.3.4-.3.7v4c0 .6.4 1 1 1h4c.3 0 .5-.1.7-.3l10-10c.4-.4.4-1 0-1.4zM10.5 6.5L9 5l.5-.5L11 6l-.5.5zM2 14v-3l6-6 3 3-6 6H2z" />
+        </svg>
+      ),
+      onClick: handleEditUser,
+    },
+    {
+      label: (u) => (u.is_active ? 'Inactivate' : 'Activate'),
+      icon: (
+        <svg
+          className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0"
+          viewBox="0 0 16 16"
+        >
+          <path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm0 12c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm1-3H7V4h2v5z" />
+        </svg>
+      ),
+      onClick: handleToggleActive,
+      confirm: (u) =>
+        u.is_active
+          ? `Are you sure you want to inactivate ${u.first_name} ${u.last_name}? They will no longer be able to access the system.`
+          : `Are you sure you want to activate ${u.first_name} ${u.last_name}?`,
+    },
+    {
+      label: 'Delete',
+      icon: (
+        <svg
+          className="w-4 h-4 fill-current text-red-400 shrink-0"
+          viewBox="0 0 16 16"
+        >
+          <path d="M5 7h6v6H5V7zm6-3.5V2h-1V.5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5V2H5v1.5H4V4h8v-.5H11zM7 2V1h2v1H7zM6 5v6h1V5H6zm3 0v6h1V5H9z" />
+        </svg>
+      ),
+      onClick: handleDeleteUser,
+      variant: 'danger',
+      confirm: (u) =>
+        `Are you sure you want to delete ${u.first_name} ${u.last_name}? This action cannot be undone.`,
+    },
+  ];
 
   // Show loading while checking authentication
   if (authLoading) {
@@ -208,45 +362,15 @@ export default function UsersContent() {
       </div>
 
       {/* Table */}
-      {isLoading ? (
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-8">
-          <div className="flex items-center justify-center">
-            <svg className="animate-spin h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24">
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              />
-            </svg>
-            <span className="ml-3 text-gray-600 dark:text-gray-400">Loading users...</span>
-          </div>
-        </div>
-      ) : (
-        <UsersTable users={pagination.currentItems} onEdit={handleEditUser} />
-      )}
-
-      {/* Pagination */}
-      <div className="mt-8">
-        <PaginationClassic
-          currentPage={pagination.currentPage}
-          totalItems={pagination.totalItems}
-          itemsPerPage={pagination.itemsPerPage}
-          startItem={pagination.startItem}
-          endItem={pagination.endItem}
-          hasPrevious={pagination.hasPrevious}
-          hasNext={pagination.hasNext}
-          onPrevious={pagination.goToPrevious}
-          onNext={pagination.goToNext}
-        />
-      </div>
+      <DataTableEnhanced
+        title="All Users"
+        data={users || []}
+        columns={columns}
+        dropdownActions={getDropdownActions}
+        pagination={{ itemsPerPage: 10 }}
+        selectionMode="multi"
+        isLoading={isLoading}
+      />
 
       {/* Add User Modal */}
       <AddUserModal

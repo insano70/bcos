@@ -9,16 +9,17 @@ import DeleteDataSourceColumnModal from '@/components/delete-data-source-column-
 import FilterButton from '@/components/dropdown-filter';
 import EditDataSourceColumnModal from '@/components/edit-data-source-column-modal';
 import IntrospectDataSourceModal from '@/components/introspect-data-source-modal';
-import PaginationClassic from '@/components/pagination-classic';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import Toast from '@/components/toast';
+import DataTableEnhanced, {
+  type DataTableColumn,
+  type DataTableDropdownAction,
+} from '@/components/data-table-enhanced';
 import {
   type DataSourceColumn,
   useDataSource,
   useDataSourceColumns,
 } from '@/lib/hooks/use-data-sources';
-import { usePagination } from '@/lib/hooks/use-pagination';
-import DataSourceColumnsTable from './data-source-columns-table';
 
 interface DataSourceColumnsContentProps {
   dataSourceId: number;
@@ -35,7 +36,13 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
   } = useDataSourceColumns(dataSourceId, { limit: 50, offset: 0 });
 
   const dataSource = dataSourceResponse?.dataSource;
-  const columns = response?.columns || [];
+  const rawColumns = response?.columns || [];
+
+  // Transform columns to add id field for DataTableEnhanced compatibility
+  const columns: DataSourceColumn[] = rawColumns.map((col) => ({
+    ...col,
+    id: String(col.column_id),
+  }));
 
   // State for modals and selected items
   const [isAddColumnModalOpen, setIsAddColumnModalOpen] = useState(false);
@@ -48,9 +55,6 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
-
-  // Pagination
-  const pagination = usePagination(columns, { itemsPerPage: 10 });
 
   // Auth state logging
   if (process.env.NODE_ENV === 'development') {
@@ -165,11 +169,159 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
     setShowToast(true);
   };
 
-  const _showErrorToast = (message: string) => {
-    setToastMessage(message);
-    setToastType('error');
-    setShowToast(true);
+  const getColumnTypeBadge = (column: DataSourceColumn) => {
+    const types = [];
+    if (column.is_measure) types.push('Measure');
+    if (column.is_dimension) types.push('Dimension');
+    if (column.is_date_field) types.push('Date');
+
+    if (types.length === 0) return null;
+
+    return (
+      <div className="flex flex-wrap gap-1">
+        {types.map((type) => (
+          <span
+            key={type}
+            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+              type === 'Measure'
+                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                : type === 'Dimension'
+                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                  : 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+            }`}
+          >
+            {type}
+          </span>
+        ))}
+      </div>
+    );
   };
+
+  // Define table columns
+  const tableColumns: DataTableColumn<DataSourceColumn>[] = [
+    {
+      key: 'column_name',
+      header: 'Column Name',
+      sortable: true,
+      render: (column) => (
+        <div>
+          <div className="font-mono text-gray-900 dark:text-gray-100">{column.column_name}</div>
+          {column.column_description && (
+            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-xs truncate">
+              {column.column_description}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'display_name',
+      header: 'Display Name',
+      sortable: true,
+      render: (column) => (
+        <div className="text-gray-900 dark:text-gray-100">{column.display_name}</div>
+      ),
+    },
+    {
+      key: 'data_type',
+      header: 'Data Type',
+      sortable: true,
+      render: (column) => (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+          {column.data_type}
+        </span>
+      ),
+    },
+    {
+      key: 'is_measure',
+      header: 'Column Type',
+      sortable: false,
+      render: (column) => getColumnTypeBadge(column),
+    },
+    {
+      key: 'is_filterable',
+      header: 'Flags',
+      sortable: false,
+      render: (column) => (
+        <div className="flex flex-wrap gap-1">
+          {column.is_filterable && (
+            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
+              Filterable
+            </span>
+          )}
+          {column.is_groupable && (
+            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200">
+              Groupable
+            </span>
+          )}
+          {column.is_measure_type && (
+            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+              Measure Type
+            </span>
+          )}
+          {column.is_time_period && (
+            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
+              Time Period
+            </span>
+          )}
+          {column.is_sensitive && (
+            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+              Sensitive
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'is_active',
+      header: 'Status',
+      sortable: true,
+      align: 'center',
+      render: (column) => (
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+            column.is_active
+              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+              : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+          }`}
+        >
+          {column.is_active ? 'Active' : 'Inactive'}
+        </span>
+      ),
+    },
+    { key: 'actions' },
+  ];
+
+  // Define dropdown actions
+  const getDropdownActions = (
+    column: DataSourceColumn
+  ): DataTableDropdownAction<DataSourceColumn>[] => [
+    {
+      label: 'Edit Column',
+      icon: (
+        <svg
+          className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0"
+          viewBox="0 0 16 16"
+        >
+          <path d="m13.7 2.3-1-1c-.4-.4-1-.4-1.4 0l-10 10c-.2.2-.3.4-.3.7v4c0 .6.4 1 1 1h4c.3 0 .5-.1.7-.3l10-10c.4-.4.4-1 0-1.4zM10.5 6.5L9 5l.5-.5L11 6l-.5.5zM2 14v-3l6-6 3 3-6 6H2z" />
+        </svg>
+      ),
+      onClick: handleEditColumn,
+    },
+    {
+      label: 'Delete Column',
+      icon: (
+        <svg
+          className="w-4 h-4 fill-current text-red-400 shrink-0"
+          viewBox="0 0 16 16"
+        >
+          <path d="M5 7h6v6H5V7zm6-3.5V2h-1V.5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5V2H5v1.5H4V4h8v-.5H11zM7 2V1h2v1H7zM6 5v6h1V5H6zm3 0v6h1V5H9z" />
+        </svg>
+      ),
+      onClick: handleDeleteColumn,
+      variant: 'danger',
+    },
+  ];
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
@@ -321,49 +473,15 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
       </div>
 
       {/* Table */}
-      {isLoading ? (
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-8">
-          <div className="flex items-center justify-center">
-            <svg className="animate-spin h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24">
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              />
-            </svg>
-            <span className="ml-3 text-gray-600 dark:text-gray-400">Loading columns...</span>
-          </div>
-        </div>
-      ) : (
-        <DataSourceColumnsTable
-          columns={pagination.currentItems}
-          onEdit={handleEditColumn}
-          onDelete={handleDeleteColumn}
-        />
-      )}
-
-      {/* Pagination */}
-      <div className="mt-8">
-        <PaginationClassic
-          currentPage={pagination.currentPage}
-          totalItems={pagination.totalItems}
-          itemsPerPage={pagination.itemsPerPage}
-          startItem={pagination.startItem}
-          endItem={pagination.endItem}
-          hasPrevious={pagination.hasPrevious}
-          hasNext={pagination.hasNext}
-          onPrevious={pagination.goToPrevious}
-          onNext={pagination.goToNext}
-        />
-      </div>
+      <DataTableEnhanced
+        title="Data Source Columns"
+        data={columns}
+        columns={tableColumns}
+        dropdownActions={getDropdownActions}
+        pagination={{ itemsPerPage: 10 }}
+        selectionMode="none"
+        isLoading={isLoading}
+      />
 
       {/* Add Column Modal */}
       <AddDataSourceColumnModal

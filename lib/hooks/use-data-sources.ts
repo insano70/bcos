@@ -51,6 +51,7 @@ export interface ConnectionTestResult {
 }
 
 export interface DataSourceColumn {
+  id: string; // Added for DataTableEnhanced compatibility
   column_id: number;
   data_source_id: number;
   column_name: string;

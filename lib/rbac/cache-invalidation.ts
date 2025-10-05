@@ -3,6 +3,9 @@
  * Handles cache invalidation when roles/permissions are modified
  */
 
+import { eq } from 'drizzle-orm';
+import { db, user_roles } from '@/lib/db';
+import { revokeAllUserTokens } from '@/lib/auth/token-manager';
 import { rolePermissionCache } from '@/lib/cache/role-permission-cache';
 import { log } from '@/lib/logger';
 
@@ -37,32 +40,92 @@ export async function invalidateAllRolePermissions(): Promise<void> {
 }
 
 /**
+ * Get all users who have a specific role assigned
+ * Used for bulk token revocation when role permissions change
+ */
+async function getUsersWithRole(roleId: string): Promise<Array<{ user_id: string }>> {
+  const usersWithRole = await db
+    .select({ user_id: user_roles.user_id })
+    .from(user_roles)
+    .where(eq(user_roles.role_id, roleId))
+    .groupBy(user_roles.user_id); // Deduplicate if user has role in multiple orgs
+
+  log.debug('Retrieved users with role', {
+    roleId,
+    userCount: usersWithRole.length,
+  });
+
+  return usersWithRole;
+}
+
+/**
  * Invalidate user tokens when their roles are modified
  * This forces users to get new JWTs with updated role information
+ *
+ * SECURITY: When role permissions change, all users with that role must
+ * get fresh tokens reflecting the new permissions. This prevents privilege
+ * escalation or unauthorized access with stale tokens.
  */
 export async function invalidateUserTokensWithRole(
   roleId: string,
   reason: string = 'role_modified'
 ): Promise<number> {
-  // In a production system, you'd query for users with this role
-  // and revoke their tokens. For now, we'll log the intent.
+  const startTime = Date.now();
 
-  log.info('User tokens should be invalidated for role change', {
-    roleId,
-    reason,
-    note: 'Implementation needed: query users with role and revoke their tokens',
-  });
+  try {
+    // Query all users who have this role
+    const usersWithRole = await getUsersWithRole(roleId);
 
-  // TODO: Implement actual token revocation
-  // const usersWithRole = await getUsersWithRole(roleId);
-  // let revokedCount = 0;
-  // for (const user of usersWithRole) {
-  //   const revoked = await TokenManager.revokeAllUserTokens(user.user_id, 'role_modified');
-  //   revokedCount += revoked;
-  // }
-  // return revokedCount;
+    if (usersWithRole.length === 0) {
+      log.info('No users found with role - no tokens to revoke', {
+        roleId,
+        reason,
+      });
+      return 0;
+    }
 
-  return 0; // Placeholder
+    // Revoke all tokens for each user
+    let totalRevokedCount = 0;
+    for (const user of usersWithRole) {
+      try {
+        const revokedCount = await revokeAllUserTokens(
+          user.user_id,
+          reason === 'role_modified' ? 'security' : 'admin_action'
+        );
+        totalRevokedCount += revokedCount;
+
+        log.debug('Revoked tokens for user due to role change', {
+          userId: user.user_id,
+          roleId,
+          revokedCount,
+        });
+      } catch (error) {
+        log.error('Failed to revoke tokens for user', error instanceof Error ? error : new Error(String(error)), {
+          userId: user.user_id,
+          roleId,
+          reason,
+        });
+        // Continue with other users even if one fails
+      }
+    }
+
+    log.info('User tokens invalidated for role change', {
+      roleId,
+      reason,
+      affectedUsers: usersWithRole.length,
+      totalTokensRevoked: totalRevokedCount,
+      duration: Date.now() - startTime,
+    });
+
+    return totalRevokedCount;
+  } catch (error) {
+    log.error('Failed to invalidate user tokens for role', error instanceof Error ? error : new Error(String(error)), {
+      roleId,
+      reason,
+      duration: Date.now() - startTime,
+    });
+    throw error;
+  }
 }
 
 /**
