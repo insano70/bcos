@@ -7,11 +7,9 @@ import DateSelect from '@/components/date-select';
 import DeleteButton from '@/components/delete-button';
 import FilterButton from '@/components/dropdown-filter';
 import EditUserModal from '@/components/edit-user-modal';
-import PaginationClassic from '@/components/pagination-classic';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
-import { usePagination } from '@/lib/hooks/use-pagination';
 import { type User, useUsers } from '@/lib/hooks/use-users';
-import UsersTable from './users-table';
+import DataTable from '@/components/data-table';
 
 export default function UsersContent() {
   // Component rendered (client-side debug)
@@ -23,9 +21,6 @@ export default function UsersContent() {
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-
-  // Pagination
-  const pagination = usePagination(users, { itemsPerPage: 10 });
 
   // Auth state logging (client-side debug)
   if (process.env.NODE_ENV === 'development') {

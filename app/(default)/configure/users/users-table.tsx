@@ -1,6 +1,7 @@
 'use client';
 
 import { useItemSelection } from '@/components/utils/use-item-selection';
+import { useTableSort } from '@/lib/hooks/use-table-sort';
 import UsersTableItem from './users-table-item';
 
 export interface User {
@@ -23,6 +24,7 @@ export default function UsersTable({
 }) {
   const { selectedItems, isAllSelected, handleCheckboxChange, handleSelectAllChange } =
     useItemSelection(users);
+  const { sortedData, handleSort, getSortIcon } = useTableSort(users);
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl relative">
@@ -55,19 +57,54 @@ export default function UsersTable({
                   </div>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Name</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('first_name')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Name</span>
+                    {getSortIcon('first_name')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Email</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('email')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Email</span>
+                    {getSortIcon('email')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-center">Verified</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('email_verified')}
+                    className="flex items-center justify-center gap-1 font-semibold hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer w-full"
+                  >
+                    <span>Verified</span>
+                    {getSortIcon('email_verified')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-center">Status</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('is_active')}
+                    className="flex items-center justify-center gap-1 font-semibold hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer w-full"
+                  >
+                    <span>Status</span>
+                    {getSortIcon('is_active')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Created</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('created_at')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Created</span>
+                    {getSortIcon('created_at')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
                   <span className="sr-only">Menu</span>
@@ -76,7 +113,7 @@ export default function UsersTable({
             </thead>
             {/* Table body */}
             <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
-              {users.map((user) => (
+              {sortedData.map((user) => (
                 <UsersTableItem
                   key={user.id}
                   user={user}

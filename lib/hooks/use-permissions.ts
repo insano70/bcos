@@ -26,8 +26,9 @@ export function usePermissions(): UsePermissionsReturn {
     user: _authUser,
     isAuthenticated,
     userContext,
-    rbacLoading: _rbacLoading,
+    rbacLoading,
     rbacError: _rbacError,
+    isLoading: authIsLoading,
   } = useAuth();
 
   const checker = useMemo(() => {
@@ -147,6 +148,7 @@ export function usePermissions(): UsePermissionsReturn {
     isOrganizationAdmin,
     currentOrganization: getCurrentOrganization(),
     accessibleOrganizations,
+    isLoading: authIsLoading || rbacLoading || (isAuthenticated && !userContext),
   };
 }
 

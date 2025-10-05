@@ -179,7 +179,44 @@ export async function refreshTokenPair(
         )
         .limit(1);
 
+      // TOKEN REUSE DETECTION: If token not found but exists as revoked, this is a security incident
       if (!tokenRecord) {
+        // Check if this token was previously revoked
+        const [revokedToken] = await db
+          .select()
+          .from(refresh_tokens)
+          .where(eq(refresh_tokens.token_id, refreshTokenId))
+          .limit(1);
+
+        if (revokedToken && !revokedToken.is_active) {
+          // SECURITY ALERT: Revoked token reuse detected (possible token theft)
+          log.error('Token reuse detected - revoking all user tokens', {
+            userId,
+            revokedTokenId: refreshTokenId,
+            revokedReason: revokedToken.revoked_reason,
+            revokedAt: revokedToken.revoked_at?.toISOString(),
+            alert: 'POSSIBLE_TOKEN_THEFT',
+          });
+
+          // Revoke ALL tokens for this user as a security measure
+          await revokeAllUserTokens(userId, 'security');
+
+          // Audit log the security incident
+          await AuditLogger.logSecurity({
+            action: 'token_reuse_detected',
+            userId,
+            metadata: {
+              revokedTokenId: refreshTokenId,
+              revokedReason: revokedToken.revoked_reason,
+              revokedAt: revokedToken.revoked_at?.toISOString(),
+              action_taken: 'revoked_all_user_tokens',
+            },
+            severity: 'high',
+          });
+
+          throw new Error('Token reuse detected - all tokens revoked for security');
+        }
+
         throw new Error('Refresh token not found or expired');
       }
 

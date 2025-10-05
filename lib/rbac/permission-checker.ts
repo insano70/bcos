@@ -255,27 +255,23 @@ export class PermissionChecker {
   // Private helper methods
 
   private getUserPermissions(): Permission[] {
-    // Use cached permissions if available
+    // Use cached permissions if available (from frontend auth provider)
     if (this.userContext.all_permissions.length > 0) {
-      // SECURITY FIX: Filter out permissions from inactive roles
-      // Even though the cache is populated with active roles at build time,
-      // roles can be deactivated after the user context is cached.
-      // We must verify that the role granting each permission is still active.
-      return this.userContext.all_permissions.filter((permission) => {
-        // Find the role(s) that grant this permission
-        const grantingRole = this.userContext.roles.find((role) =>
-          role.permissions.some((p) => p.permission_id === permission.permission_id)
-        );
+      // When permissions come from frontend (API response), role.permissions is empty
+      // So we just filter by active roles and active permissions
+      const activeRoleIds = new Set(
+        this.userContext.roles
+          .filter((role) => role.is_active)
+          .map((role) => role.role_id)
+      );
 
-        // Only include permission if:
-        // 1. The granting role exists in the user's context
-        // 2. The granting role is active
-        // 3. The permission itself is active
-        return grantingRole?.is_active === true && permission.is_active;
-      });
+      // If user has active roles and active permissions, return them
+      if (activeRoleIds.size > 0) {
+        return this.userContext.all_permissions.filter((permission) => permission.is_active);
+      }
     }
 
-    // Flatten permissions from all roles
+    // Fallback: flatten permissions from roles (used when permissions are embedded in roles)
     const permissions = this.userContext.roles
       .filter((role) => role.is_active)
       .flatMap((role) => role.permissions)

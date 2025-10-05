@@ -1,6 +1,7 @@
 'use client';
 
 import { useItemSelection } from '@/components/utils/use-item-selection';
+import { useTableSort } from '@/lib/hooks/use-table-sort';
 import ChartsTableItem from './charts-table-item';
 
 export interface ChartDefinitionListItem {
@@ -30,6 +31,7 @@ export default function ChartsTable({ charts, onEdit, onDelete }: ChartsTablePro
 
   const { selectedItems, isAllSelected, handleCheckboxChange, handleSelectAllChange } =
     useItemSelection(chartsWithId);
+  const { sortedData, handleSort, getSortIcon } = useTableSort(chartsWithId);
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl relative">
@@ -62,25 +64,74 @@ export default function ChartsTable({ charts, onEdit, onDelete }: ChartsTablePro
                   </div>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Chart Name</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('chart_name')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Chart Name</span>
+                    {getSortIcon('chart_name')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Type</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('chart_type')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Type</span>
+                    {getSortIcon('chart_type')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Description</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('chart_description')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Description</span>
+                    {getSortIcon('chart_description')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Category</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('category_name')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Category</span>
+                    {getSortIcon('category_name')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-center">Status</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('is_active')}
+                    className="flex items-center justify-center gap-1 font-semibold hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer w-full"
+                  >
+                    <span>Status</span>
+                    {getSortIcon('is_active')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Created By</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('creator_name')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Created By</span>
+                    {getSortIcon('creator_name')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Created</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('created_at')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Created</span>
+                    {getSortIcon('created_at')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
                   <span className="sr-only">Menu</span>
@@ -89,7 +140,7 @@ export default function ChartsTable({ charts, onEdit, onDelete }: ChartsTablePro
             </thead>
             {/* Table body */}
             <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
-              {charts.length === 0 ? (
+              {sortedData.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-2 first:pl-5 last:pr-5 py-12 text-center">
                     <div className="text-gray-500 dark:text-gray-400">📊 No charts found</div>
@@ -99,7 +150,7 @@ export default function ChartsTable({ charts, onEdit, onDelete }: ChartsTablePro
                   </td>
                 </tr>
               ) : (
-                charts.map((chart) => (
+                sortedData.map((chart) => (
                   <ChartsTableItem
                     key={chart.chart_definition_id}
                     chart={chart}

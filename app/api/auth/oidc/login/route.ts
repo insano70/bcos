@@ -30,7 +30,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { log, correlation } from '@/lib/logger';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { getOIDCClient } from '@/lib/oidc/client';
-import { stateManager } from '@/lib/oidc/state-manager';
+import { databaseStateManager } from '@/lib/oidc/database-state-manager';
 import { isOIDCEnabled } from '@/lib/env';
 import { generateDeviceFingerprint } from '@/lib/auth/token-manager';
 import type { OIDCSessionData } from '@/lib/oidc/types';
@@ -94,11 +94,13 @@ const oidcLoginHandler = async (request: NextRequest) => {
 		const { url, state, codeVerifier, nonce } = await oidcClient.createAuthUrl();
 
 		// Register state for one-time use validation (CRITICAL for CSRF prevention)
-		stateManager.registerState(state);
+		// Database-backed for horizontal scaling
+		await databaseStateManager.registerState(state, nonce, fingerprint);
 
-		log.info('OIDC state token registered', {
+		const stateCount = await databaseStateManager.getStateCount();
+		log.info('OIDC state token registered in database', {
 			state: state.substring(0, 8) + '...',
-			totalStates: stateManager.getStateCount(),
+			totalStates: stateCount,
 		});
 
 		// Encrypt session data before storing (CRITICAL SECURITY)
@@ -126,7 +128,7 @@ const oidcLoginHandler = async (request: NextRequest) => {
 		cookieStore.set('oidc-session', sealed, {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === 'production',
-			sameSite: 'lax', // Must be 'lax' for OAuth redirects
+			sameSite: 'strict', // CRITICAL: Prevents CSRF on OIDC flow
 			maxAge: 60 * 10, // 10 minutes
 			path: '/',
 		});

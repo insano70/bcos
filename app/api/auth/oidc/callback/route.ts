@@ -38,7 +38,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { log, correlation } from '@/lib/logger';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { getOIDCClient } from '@/lib/oidc/client';
-import { stateManager } from '@/lib/oidc/state-manager';
+import { databaseStateManager } from '@/lib/oidc/database-state-manager';
 import { SessionError, StateValidationError } from '@/lib/oidc/errors';
 import type { OIDCSessionData, OIDCCallbackParams } from '@/lib/oidc/types';
 import { validateAuthProfile, validateEmailDomain } from '@/lib/auth/input-validator';
@@ -150,7 +150,9 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 		}
 
 		// ===== 4. Validate State One-Time Use (CRITICAL - OIDC Spec Compliance) =====
-		if (!stateManager.validateAndMarkUsed(state)) {
+		// Database-backed validation for horizontal scaling
+		const isValid = await databaseStateManager.validateAndMarkUsed(state);
+		if (!isValid) {
 			log.error('State token replay or expiration', {
 				state: state.substring(0, 8),
 			});

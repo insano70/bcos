@@ -31,6 +31,8 @@ export {
 } from './chart-config-schema';
 // Import CSRF monitoring tables
 export { csrf_failure_events } from './csrf-schema';
+// Import OIDC tables
+export { oidc_nonces, oidc_states } from './oidc-schema';
 // Import RBAC tables
 export {
   organizations,

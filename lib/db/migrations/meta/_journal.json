@@ -85,6 +85,20 @@
       "when": 1759238868898,
       "tag": "0014_add_chart_columns_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1759654933426,
+      "tag": "0012_oidc_state_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1759654946823,
+      "tag": "0013_oidc_state_management",
+      "breakpoints": true
     }
   ]
 }

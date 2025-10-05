@@ -1,6 +1,7 @@
 'use client';
 
 import { useItemSelection } from '@/components/utils/use-item-selection';
+import { useTableSort } from '@/lib/hooks/use-table-sort';
 import PracticesTableItem from './practices-table-item';
 
 export interface Practice {
@@ -17,6 +18,7 @@ export interface Practice {
 export default function PracticesTable({ practices }: { practices: Practice[] }) {
   const { selectedItems, isAllSelected, handleCheckboxChange, handleSelectAllChange } =
     useItemSelection(practices);
+  const { sortedData, handleSort, getSortIcon } = useTableSort(practices);
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl relative">
@@ -47,22 +49,64 @@ export default function PracticesTable({ practices }: { practices: Practice[] })
                   </div>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Practice Name</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('name')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Practice Name</span>
+                    {getSortIcon('name')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Domain</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('domain')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Domain</span>
+                    {getSortIcon('domain')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Template</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('template_name')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Template</span>
+                    {getSortIcon('template_name')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-center">Status</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('status')}
+                    className="flex items-center justify-center gap-1 font-semibold hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer w-full"
+                  >
+                    <span>Status</span>
+                    {getSortIcon('status')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Owner</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('owner_email')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Owner</span>
+                    {getSortIcon('owner_email')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Created</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('created_at')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Created</span>
+                    {getSortIcon('created_at')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
                   <span className="sr-only">Menu</span>
@@ -71,7 +115,7 @@ export default function PracticesTable({ practices }: { practices: Practice[] })
             </thead>
             {/* Table body */}
             <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
-              {practices.map((practice) => (
+              {sortedData.map((practice) => (
                 <PracticesTableItem
                   key={practice.id}
                   practice={practice}

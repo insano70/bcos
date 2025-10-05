@@ -295,6 +295,7 @@ export interface UsePermissionsReturn {
   isOrganizationAdmin: (organizationId?: string) => boolean;
   currentOrganization?: Organization | null;
   accessibleOrganizations: Organization[];
+  isLoading: boolean;
 }
 
 // Component Props Types

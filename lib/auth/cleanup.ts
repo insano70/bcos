@@ -1,42 +1,49 @@
 import { log } from '@/lib/logger';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { cleanupExpiredTokens } from './token-manager';
+import { databaseStateManager } from '@/lib/oidc/database-state-manager';
 
 /**
- * Token Cleanup Service
- * Automated cleanup of expired tokens and blacklist entries
+ * Token and OIDC State Cleanup Service
+ * Automated cleanup of expired tokens, blacklist entries, and OIDC states
  */
 export async function runTokenCleanup(): Promise<void> {
   try {
-    log.info('Starting token cleanup process', {
-      operation: 'tokenCleanup',
+    log.info('Starting token and OIDC state cleanup process', {
+      operation: 'securityCleanup',
       scheduled: true,
     });
 
-    const cleanupResult = await cleanupExpiredTokens();
+    // Clean up expired refresh tokens and blacklist entries
+    const tokenCleanupResult = await cleanupExpiredTokens();
+
+    // Clean up expired OIDC states
+    const oidcStatesCleaned = await databaseStateManager.cleanupExpired();
 
     await AuditLogger.logSystem({
-      action: 'token_cleanup',
+      action: 'security_cleanup',
       metadata: {
-        refreshTokensCleaned: cleanupResult.refreshTokens,
-        blacklistEntriesCleaned: cleanupResult.blacklistEntries,
+        refreshTokensCleaned: tokenCleanupResult.refreshTokens,
+        blacklistEntriesCleaned: tokenCleanupResult.blacklistEntries,
+        oidcStatesCleaned,
         timestamp: new Date().toISOString(),
       },
       severity: 'low',
     });
 
-    log.info('Token cleanup completed', {
-      refreshTokensRemoved: cleanupResult.refreshTokens,
-      blacklistEntriesRemoved: cleanupResult.blacklistEntries,
-      operation: 'tokenCleanup',
+    log.info('Token and OIDC state cleanup completed', {
+      refreshTokensRemoved: tokenCleanupResult.refreshTokens,
+      blacklistEntriesRemoved: tokenCleanupResult.blacklistEntries,
+      oidcStatesRemoved: oidcStatesCleaned,
+      operation: 'securityCleanup',
     });
   } catch (error) {
-    log.error('Token cleanup failed', error instanceof Error ? error : new Error(String(error)), {
-      operation: 'tokenCleanup',
+    log.error('Security cleanup failed', error instanceof Error ? error : new Error(String(error)), {
+      operation: 'securityCleanup',
     });
 
     await AuditLogger.logSystem({
-      action: 'token_cleanup_failed',
+      action: 'security_cleanup_failed',
       metadata: {
         error: error instanceof Error ? error.message : 'Unknown error',
       },

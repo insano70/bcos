@@ -19,22 +19,28 @@ export function ProtectedComponent({
   fallback = null,
   showFallback = true
 }: ProtectedComponentProps) {
-  const { hasPermission, hasAnyPermission, hasAllPermissions, isAuthenticated, isSuperAdmin } = usePermissions();
-  
+  const { hasPermission, hasAnyPermission, hasAllPermissions, isLoading } = usePermissions();
+
+  // Wait for user context to load before making permission decisions
+  // This prevents hiding content during the initial auth/RBAC loading phase
+  if (isLoading) {
+    return null;
+  }
+
   let hasAccess = false;
 
   if (permission) {
     hasAccess = hasPermission(permission, resourceId, organizationId);
   } else if (permissions) {
-    hasAccess = requireAll 
+    hasAccess = requireAll
       ? hasAllPermissions(permissions, resourceId, organizationId)
       : hasAnyPermission(permissions, resourceId, organizationId);
   }
-  
+
   if (!hasAccess) {
     return showFallback ? <>{fallback}</> : null;
   }
-  
+
   return <>{children}</>;
 }
 
@@ -45,46 +51,54 @@ export function ProtectedComponent({
 /**
  * Super Admin Only Component
  */
-export function SuperAdminOnly({ 
-  children, 
-  fallback 
-}: { 
-  children: React.ReactNode; 
-  fallback?: React.ReactNode; 
+export function SuperAdminOnly({
+  children,
+  fallback
+}: {
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
 }) {
-  const { isSuperAdmin } = usePermissions();
-  
+  const { isSuperAdmin, isLoading } = usePermissions();
+
+  if (isLoading) {
+    return null;
+  }
+
   if (!isSuperAdmin) {
     return fallback ? <>{fallback}</> : null;
   }
-  
+
   return <>{children}</>;
 }
 
 /**
  * Organization Admin Only Component
  */
-export function OrgAdminOnly({ 
-  children, 
+export function OrgAdminOnly({
+  children,
   fallback,
-  organizationId 
-}: { 
-  children: React.ReactNode; 
+  organizationId
+}: {
+  children: React.ReactNode;
   fallback?: React.ReactNode;
   organizationId?: string;
 }) {
   const permissions = usePermissions();
-  
-  const isAdmin = organizationId 
+
+  if (permissions.isLoading) {
+    return null;
+  }
+
+  const isAdmin = organizationId
     ? permissions.isOrganizationAdmin(organizationId)
-    : permissions.accessibleOrganizations.some(org => 
+    : permissions.accessibleOrganizations.some(org =>
         permissions.isOrganizationAdmin(org.organization_id)
       );
-  
+
   if (!isAdmin) {
     return fallback ? <>{fallback}</> : null;
   }
-  
+
   return <>{children}</>;
 }
 
@@ -228,21 +242,25 @@ export function PermissionLevelComponent({
   resourceId?: string;
   organizationId?: string;
 }) {
-  const { hasPermission } = usePermissions();
-  
+  const { hasPermission, isLoading } = usePermissions();
+
+  if (isLoading) {
+    return null;
+  }
+
   // Check permissions in order of increasing scope
   if (allContent && hasPermission(`${resourceType}:read:all` as any, resourceId, organizationId)) {
     return <>{allContent}</>;
   }
-  
+
   if (orgContent && hasPermission(`${resourceType}:read:organization` as any, resourceId, organizationId)) {
     return <>{orgContent}</>;
   }
-  
+
   if (ownContent && hasPermission(`${resourceType}:read:own` as any, resourceId, organizationId)) {
     return <>{ownContent}</>;
   }
-  
+
   return null;
 }
 

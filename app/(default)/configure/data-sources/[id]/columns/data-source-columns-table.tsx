@@ -1,5 +1,5 @@
-import { useState } from 'react';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
+import { useTableSort } from '@/lib/hooks/use-table-sort';
 import type { DataSourceColumn } from '@/lib/hooks/use-data-sources';
 
 interface DataSourceColumnsTableProps {
@@ -13,66 +13,7 @@ export default function DataSourceColumnsTable({
   onEdit,
   onDelete,
 }: DataSourceColumnsTableProps) {
-  const [sortConfig, setSortConfig] = useState<{
-    key: keyof DataSourceColumn;
-    direction: 'asc' | 'desc';
-  } | null>(null);
-
-  const handleSort = (key: keyof DataSourceColumn) => {
-    setSortConfig((current) => ({
-      key,
-      direction: current?.key === key && current.direction === 'asc' ? 'desc' : 'asc',
-    }));
-  };
-
-  const sortedColumns = [...columns].sort((a, b) => {
-    if (!sortConfig) return 0;
-
-    const aValue = a[sortConfig.key];
-    const bValue = b[sortConfig.key];
-
-    // Handle null/undefined values
-    if (aValue == null && bValue == null) return 0;
-    if (aValue == null) return sortConfig.direction === 'asc' ? -1 : 1;
-    if (bValue == null) return sortConfig.direction === 'asc' ? 1 : -1;
-
-    // Convert to strings for comparison if needed
-    const aStr = String(aValue);
-    const bStr = String(bValue);
-
-    const comparison = aStr < bStr ? -1 : aStr > bStr ? 1 : 0;
-    return sortConfig.direction === 'asc' ? comparison : -comparison;
-  });
-
-  const getSortIcon = (key: keyof DataSourceColumn) => {
-    if (sortConfig?.key !== key) {
-      return (
-        <svg
-          className="w-4 h-4 text-gray-400"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"
-          />
-        </svg>
-      );
-    }
-
-    return sortConfig.direction === 'asc' ? (
-      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-      </svg>
-    ) : (
-      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-      </svg>
-    );
-  };
+  const { sortedData: sortedColumns, handleSort, getSortIcon } = useTableSort(columns);
 
   const getColumnTypeBadge = (column: DataSourceColumn) => {
     const types = [];
@@ -112,7 +53,7 @@ export default function DataSourceColumnsTable({
                 <button
                   type="button"
                   onClick={() => handleSort('column_name')}
-                  className="flex items-center space-x-1 hover:text-gray-700 dark:hover:text-gray-300"
+                  className="flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
                 >
                   <span>Column Name</span>
                   {getSortIcon('column_name')}
@@ -122,7 +63,7 @@ export default function DataSourceColumnsTable({
                 <button
                   type="button"
                   onClick={() => handleSort('display_name')}
-                  className="flex items-center space-x-1 hover:text-gray-700 dark:hover:text-gray-300"
+                  className="flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
                 >
                   <span>Display Name</span>
                   {getSortIcon('display_name')}

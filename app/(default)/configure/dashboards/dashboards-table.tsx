@@ -1,6 +1,7 @@
 'use client';
 
 import { useItemSelection } from '@/components/utils/use-item-selection';
+import { useTableSort } from '@/lib/hooks/use-table-sort';
 import type { DashboardListItem } from '@/lib/types/analytics';
 import DashboardsTableItem from './dashboards-table-item';
 
@@ -38,6 +39,7 @@ export default function DashboardsTable({
 
   const { selectedItems, isAllSelected, handleCheckboxChange, handleSelectAllChange } =
     useItemSelection(dashboardsWithId);
+  const { sortedData, handleSort, getSortIcon } = useTableSort(dashboardsWithId);
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl relative">
@@ -70,25 +72,74 @@ export default function DashboardsTable({
                   </div>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Dashboard Name</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('dashboard_name')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Dashboard Name</span>
+                    {getSortIcon('dashboard_name')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Description</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('dashboard_description')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Description</span>
+                    {getSortIcon('dashboard_description')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-center">Charts</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('chart_count')}
+                    className="flex items-center justify-center gap-1 font-semibold hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer w-full"
+                  >
+                    <span>Charts</span>
+                    {getSortIcon('chart_count')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Category</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('category_name')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Category</span>
+                    {getSortIcon('category_name')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-center">Status</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('is_active')}
+                    className="flex items-center justify-center gap-1 font-semibold hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer w-full"
+                  >
+                    <span>Status</span>
+                    {getSortIcon('is_active')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Created By</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('creator_name')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Created By</span>
+                    {getSortIcon('creator_name')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Created</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('created_at')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Created</span>
+                    {getSortIcon('created_at')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
                   <span className="sr-only">Menu</span>
@@ -97,7 +148,7 @@ export default function DashboardsTable({
             </thead>
             {/* Table body */}
             <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
-              {validDashboards.length === 0 ? (
+              {sortedData.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-2 first:pl-5 last:pr-5 py-12 text-center">
                     <div className="text-gray-500 dark:text-gray-400">
@@ -112,7 +163,7 @@ export default function DashboardsTable({
                   </td>
                 </tr>
               ) : (
-                dashboardsWithId.map((dashboard) => (
+                sortedData.map((dashboard) => (
                   <DashboardsTableItem
                     key={dashboard._uniqueKey}
                     dashboard={dashboard}

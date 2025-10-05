@@ -1,6 +1,7 @@
 'use client';
 
 import { useItemSelection } from '@/components/utils/use-item-selection';
+import { useTableSort } from '@/lib/hooks/use-table-sort';
 import type { DataSource } from '@/lib/hooks/use-data-sources';
 import DataSourcesTableItem from './data-sources-table-item';
 
@@ -26,6 +27,7 @@ export default function DataSourcesTable({
 
   const { selectedItems, isAllSelected, handleCheckboxChange, handleSelectAllChange } =
     useItemSelection(dataSourcesWithId);
+  const { sortedData, handleSort, getSortIcon } = useTableSort(dataSourcesWithId);
 
   return (
     <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl relative">
@@ -58,22 +60,64 @@ export default function DataSourcesTable({
                   </div>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Name</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('data_source_name')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Name</span>
+                    {getSortIcon('data_source_name')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Table</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('table_name')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Table</span>
+                    {getSortIcon('table_name')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Database</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('database_type')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Database</span>
+                    {getSortIcon('database_type')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Status</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('is_active')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Status</span>
+                    {getSortIcon('is_active')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Columns</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('column_count')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Columns</span>
+                    {getSortIcon('column_count')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
-                  <div className="font-semibold text-left">Updated</div>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('updated_at')}
+                    className="flex items-center gap-1 font-semibold text-left hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer"
+                  >
+                    <span>Updated</span>
+                    {getSortIcon('updated_at')}
+                  </button>
                 </th>
                 <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap">
                   <div className="sr-only">Menu</div>
@@ -82,14 +126,14 @@ export default function DataSourcesTable({
             </thead>
             {/* Table body */}
             <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
-              {dataSourcesWithId.length === 0 ? (
+              {sortedData.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-5 py-8 text-center">
                     <div className="text-gray-500 dark:text-gray-400">No data sources found</div>
                   </td>
                 </tr>
               ) : (
-                dataSourcesWithId.map((dataSource) => (
+                sortedData.map((dataSource) => (
                   <DataSourcesTableItem
                     key={dataSource._uniqueKey}
                     dataSource={dataSource}
