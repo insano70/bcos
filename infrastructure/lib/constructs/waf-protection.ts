@@ -249,12 +249,14 @@ export class WafProtection extends Construct {
       ],
     });
 
-    // WAF logging configuration
-    // Logs all WAF events to CloudWatch for security monitoring and compliance
-    new wafv2.CfnLoggingConfiguration(this, 'WAFLoggingConfiguration', {
-      resourceArn: this.webAcl.attrArn,
-      logDestinationConfigs: [this.logGroup.logGroupArn],
-      // Redact sensitive fields from logs to comply with data privacy requirements
+    // WAF logging configuration using custom resource
+    // This handles the AWS limitation where only one logging config per WebACL is allowed
+    // by using PutLoggingConfiguration which creates OR updates the config
+    const { WafLoggingConfig } = require('./waf-logging-config');
+
+    new WafLoggingConfig(this, 'WAFLoggingConfiguration', {
+      webAclArn: this.webAcl.attrArn,
+      logGroupArn: this.logGroup.logGroupArn,
       redactedFields: [
         { queryString: {} }, // Redact query parameters (may contain sensitive data)
         { singleHeader: { Name: 'authorization' } }, // Redact auth headers

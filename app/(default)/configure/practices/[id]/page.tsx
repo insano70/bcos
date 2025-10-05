@@ -14,8 +14,17 @@ import {
   transformTemplate,
 } from '@/lib/types/transformers';
 import PracticeConfigForm from './practice-config-form';
+import { requireServerAnyPermission } from '@/lib/auth/server-rbac';
 
 async function getPracticeData(practiceId: string) {
+  // SECURITY: Validate permissions BEFORE fetching sensitive data
+  // User must have either 'practices:read:own' for this specific practice
+  // OR 'practices:manage:all' for super admin access
+  await requireServerAnyPermission(
+    ['practices:read:own', 'practices:manage:all'],
+    practiceId
+  );
+
   const [practice] = await db
     .select()
     .from(practices)

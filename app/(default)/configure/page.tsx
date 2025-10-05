@@ -6,8 +6,17 @@ export const metadata = {
 import { and, count, eq, isNull } from 'drizzle-orm';
 import Link from 'next/link';
 import { db, practices, staff_members, users } from '@/lib/db';
+import { requireServerAnyPermission } from '@/lib/auth/server-rbac';
 
 async function getDashboardStats() {
+  // SECURITY: Validate permissions BEFORE fetching aggregate statistics
+  // User must have either 'analytics:read:organization' OR 'analytics:read:all'
+  // to view dashboard statistics
+  await requireServerAnyPermission([
+    'analytics:read:organization',
+    'analytics:read:all'
+  ]);
+
   try {
     const [practiceCount] = await db
       .select({ count: count() })

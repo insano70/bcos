@@ -8,8 +8,17 @@ import { notFound } from 'next/navigation';
 import StaffMemberForm from '@/components/staff-member-form';
 import { db, practices, staff_members } from '@/lib/db';
 import { transformStaffMember } from '@/lib/types/transformers';
+import { requireServerAnyPermission } from '@/lib/auth/server-rbac';
 
 async function getStaffMemberData(practiceId: string, staffId: string) {
+  // SECURITY: Validate permissions BEFORE fetching sensitive staff data
+  // User must have either 'practices:staff:manage:own' for this specific practice
+  // OR 'practices:manage:all' for super admin access
+  await requireServerAnyPermission(
+    ['practices:staff:manage:own', 'practices:manage:all'],
+    practiceId
+  );
+
   // Verify practice exists
   const [practice] = await db
     .select()
