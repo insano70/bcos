@@ -8,11 +8,11 @@ import FilterButton from '@/components/dropdown-filter';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { usePracticePermissions } from '@/lib/hooks/use-permissions';
 import { usePractices } from '@/lib/hooks/use-practices';
-import DataTableEnhanced, {
+import type { Practice } from '@/lib/types/practice';
+import DataTable, {
   type DataTableColumn,
   type DataTableDropdownAction,
-} from '@/components/data-table-enhanced';
-import type { Practice } from './practices-table';
+} from '@/components/data-table-standard';
 
 export default function PracticesContent() {
   const { data: practices, isLoading, error, refetch } = usePractices();
@@ -320,7 +320,7 @@ export default function PracticesContent() {
       </div>
 
       {/* Table */}
-      <DataTableEnhanced
+      <DataTable
         title="All Practices"
         data={practices || []}
         columns={columns}
@@ -328,6 +328,10 @@ export default function PracticesContent() {
         pagination={{ itemsPerPage: 10 }}
         selectionMode="multi"
         isLoading={isLoading}
+        searchable={true}
+        searchPlaceholder="Search practices..."
+        exportable={true}
+        exportFileName="practices"
       />
 
       {/* Add Practice Modal */}

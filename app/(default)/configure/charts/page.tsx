@@ -10,12 +10,11 @@ import FilterButton from '@/components/dropdown-filter';
 import Toast from '@/components/toast';
 import { apiClient } from '@/lib/api/client';
 import type { ChartWithMetadata } from '@/lib/services/rbac-charts-service';
-import type { ChartDefinition } from '@/lib/types/analytics';
-import type { ChartDefinitionListItem } from './charts-table';
-import DataTableEnhanced, {
+import type { ChartDefinition, ChartDefinitionListItem } from '@/lib/types/analytics';
+import DataTable, {
   type DataTableColumn,
   type DataTableDropdownAction,
-} from '@/components/data-table-enhanced';
+} from '@/components/data-table-standard';
 
 export default function ChartBuilderPage() {
   const router = useRouter();
@@ -78,7 +77,7 @@ export default function ChartBuilderPage() {
 
       const result = await apiClient.get<{
         charts: ChartWithMetadata[];
-      }>('/api/admin/analytics/charts');
+      }>('/api/admin/analytics/charts?limit=1000');
       console.log('📊 Raw API Response:', result);
 
       const charts = result.charts || [];
@@ -371,7 +370,7 @@ export default function ChartBuilderPage() {
         </div>
 
         {/* Charts Table */}
-        <DataTableEnhanced
+        <DataTable
           title="All Charts"
           data={savedCharts}
           columns={columns}
@@ -379,6 +378,10 @@ export default function ChartBuilderPage() {
           pagination={{ itemsPerPage: 10 }}
           selectionMode="multi"
           isLoading={false}
+          searchable={true}
+          searchPlaceholder="Search charts..."
+          exportable={true}
+          exportFileName="charts"
         />
 
         {/* Delete Confirmation Modal */}

@@ -15,7 +15,7 @@ export const paginationSchema = z.object({
   limit: z
     .string()
     .optional()
-    .transform((val) => Math.min(100, Math.max(1, parseInt(val || '10', 10) || 10))),
+    .transform((val) => Math.min(1000, Math.max(1, parseInt(val || '10', 10) || 10))),
 });
 
 export function getPagination(searchParams: URLSearchParams): PaginationParams {

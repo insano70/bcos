@@ -87,7 +87,7 @@ export interface DataSourceColumn {
 }
 
 // Hook for fetching data sources list
-export function useDataSources(options: DataSourceQueryOptions = { limit: 50, offset: 0 }) {
+export function useDataSources(options: DataSourceQueryOptions = { limit: 1000, offset: 0 }) {
   const queryParams = new URLSearchParams();
 
   if (options.search) queryParams.append('search', options.search);
@@ -110,7 +110,7 @@ export function useDataSources(options: DataSourceQueryOptions = { limit: 50, of
       String(options.is_active ?? ''),
       options.database_type || '',
       options.schema_name || '',
-      options.limit || 50,
+      options.limit || 1000,
       options.offset || 0,
     ],
     url,
@@ -207,7 +207,7 @@ export function useDataSourceColumns(
           'data-source-columns',
           dataSourceId,
           String(options.is_active ?? 'all'),
-          options.limit || 100,
+          options.limit || 1000,
           options.offset || 0,
         ]
       : ['data-source-columns', 'none'],

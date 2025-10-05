@@ -1,15 +1,8 @@
 import { useApiDelete, useApiPost, useApiPut, useApiQuery } from './use-api';
+import type { Practice } from '@/lib/types/practice';
 
-export interface Practice {
-  id: string; // Maps to practice_id in database
-  name: string;
-  domain: string;
-  status: string;
-  template_id: string;
-  template_name: string;
-  owner_email: string;
-  created_at: string;
-}
+// Re-export Practice type for convenience
+export type { Practice };
 
 export interface CreatePracticeData {
   name: string;
@@ -29,7 +22,7 @@ export interface UpdatePracticeData {
  * Hook to fetch all practices
  */
 export function usePractices() {
-  return useApiQuery<Practice[]>(['practices'], '/api/practices', {
+  return useApiQuery<Practice[]>(['practices'], '/api/practices?limit=1000', {
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
   });

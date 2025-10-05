@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useState, useMemo } from 'react';
+import { ReactNode, useState, useMemo, Fragment } from 'react';
 import { useItemSelection } from '@/components/utils/use-item-selection';
 import { useTableSort } from '@/lib/hooks/use-table-sort';
 import { usePagination } from '@/lib/hooks/use-pagination';
@@ -16,6 +16,8 @@ export interface DataTableColumn<T> {
   className?: string;
   visible?: boolean;
   render?: (item: T) => ReactNode;
+  width?: number; // Initial width in pixels for resizable columns
+  minWidth?: number; // Minimum width in pixels
 }
 
 // Dropdown action definition
@@ -40,8 +42,11 @@ export interface DataTableBulkAction<T> {
 // Selection mode
 export type SelectionMode = 'none' | 'single' | 'multi';
 
+// Density mode
+export type DensityMode = 'normal' | 'compact';
+
 // Main props
-export interface DataTableEnhancedProps<T extends { id: string | number }> {
+export interface DataTableProps<T extends { id: string | number }> {
   title: string;
   data: T[];
   columns: DataTableColumn<T>[];
@@ -62,9 +67,15 @@ export interface DataTableEnhancedProps<T extends { id: string | number }> {
   exportable?: boolean;
   exportFileName?: string;
   isLoading?: boolean;
+  resizable?: boolean; // Enable column resizing
+  densityToggle?: boolean; // Enable density toggle
+  stickyHeader?: boolean; // Enable sticky headers
+  expandable?: {
+    render: (item: T) => ReactNode; // Custom render for expanded content
+  };
 }
 
-export default function DataTableEnhanced<T extends { id: string | number }>({
+export default function DataTable<T extends { id: string | number }>({
   title,
   data,
   columns: initialColumns,
@@ -79,10 +90,23 @@ export default function DataTableEnhanced<T extends { id: string | number }>({
   exportable = false,
   exportFileName = 'export',
   isLoading = false,
-}: DataTableEnhancedProps<T>) {
+  resizable = true, // Default to enabled
+  densityToggle = true, // Default to enabled
+  stickyHeader = true, // Default to enabled
+  expandable,
+}: DataTableProps<T>) {
   // Column visibility state
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Density state
+  const [density, setDensity] = useState<DensityMode>('normal');
+
+  // Column widths state for resizing
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+
+  // Expanded rows state
+  const [expandedRows, setExpandedRows] = useState<Set<string | number>>(new Set());
 
   // Filter visible columns
   const visibleColumns = initialColumns.filter(
@@ -196,10 +220,28 @@ export default function DataTableEnhanced<T extends { id: string | number }>({
     selectedItems.includes(item.id)
   );
 
+  // Helper function to toggle row expansion
+  const toggleRowExpansion = (id: string | number) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // Get density-based padding classes
+  const getDensityClasses = () => {
+    return density === 'compact' ? 'py-2' : 'py-3';
+  };
+
   return (
     <>
       {/* Toolbar */}
-      {(searchable || columnVisibility || exportable || (bulkActions && selectedItems.length > 0)) && (
+      {(searchable || columnVisibility || exportable || densityToggle || (bulkActions && selectedItems.length > 0)) && (
         <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl px-5 py-4 mb-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             {/* Left side - Search */}
@@ -244,6 +286,36 @@ export default function DataTableEnhanced<T extends { id: string | number }>({
                 </div>
               )}
 
+              {/* Density Toggle */}
+              {densityToggle && (
+                <button
+                  type="button"
+                  onClick={() => setDensity((prev) => (prev === 'normal' ? 'compact' : 'normal'))}
+                  className="btn-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-600 dark:text-gray-300"
+                  title={density === 'normal' ? 'Switch to compact view' : 'Switch to normal view'}
+                >
+                  <svg className="w-4 h-4 fill-current" viewBox="0 0 16 16">
+                    {density === 'normal' ? (
+                      // Icon for normal density (3 lines with spacing)
+                      <>
+                        <rect x="2" y="3" width="12" height="1" />
+                        <rect x="2" y="7" width="12" height="1" />
+                        <rect x="2" y="11" width="12" height="1" />
+                      </>
+                    ) : (
+                      // Icon for compact density (4 lines closer together)
+                      <>
+                        <rect x="2" y="2" width="12" height="1" />
+                        <rect x="2" y="5" width="12" height="1" />
+                        <rect x="2" y="8" width="12" height="1" />
+                        <rect x="2" y="11" width="12" height="1" />
+                      </>
+                    )}
+                  </svg>
+                  <span className="ml-2">{density === 'normal' ? 'Normal' : 'Compact'}</span>
+                </button>
+              )}
+
               {/* Export */}
               {exportable && (
                 <button
@@ -283,10 +355,15 @@ export default function DataTableEnhanced<T extends { id: string | number }>({
           </h2>
         </header>
         <div>
-          <div className="overflow-x-auto">
+          <div className={`overflow-x-auto ${stickyHeader ? 'max-h-[600px] overflow-y-auto' : ''}`}>
             <table className="table-auto w-full dark:text-gray-300">
-              <thead className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20 border-t border-b border-gray-100 dark:border-gray-700/60">
+              <thead className={`text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20 border-t border-b border-gray-100 dark:border-gray-700/60 ${stickyHeader ? 'sticky top-0 z-10' : ''}`}>
                 <tr>
+                  {expandable && (
+                    <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap w-px">
+                      <span className="sr-only">Expand</span>
+                    </th>
+                  )}
                   {visibleColumns.map((column, idx) => {
                     if (column.key === 'checkbox') {
                       return (
@@ -351,6 +428,11 @@ export default function DataTableEnhanced<T extends { id: string | number }>({
                   // Loading skeleton
                   Array.from({ length: 5 }).map((_, idx) => (
                     <tr key={idx}>
+                      {expandable && (
+                        <td className="px-2 first:pl-5 last:pr-5 py-3">
+                          <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                        </td>
+                      )}
                       {visibleColumns.map((col, colIdx) => (
                         <td key={colIdx} className="px-2 first:pl-5 last:pr-5 py-3">
                           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
@@ -361,7 +443,7 @@ export default function DataTableEnhanced<T extends { id: string | number }>({
                 ) : displayData.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={visibleColumns.length}
+                      colSpan={visibleColumns.length + (expandable ? 1 : 0)}
                       className="px-2 first:pl-5 last:pr-5 py-12 text-center"
                     >
                       {emptyState ? (
@@ -383,26 +465,57 @@ export default function DataTableEnhanced<T extends { id: string | number }>({
                   </tr>
                 ) : (
                   displayData.map((item) => {
+                    const isExpanded = expandedRows.has(item.id);
                     return (
-                      <tr key={item.id}>
-                        {visibleColumns.map((column, idx) => {
-                          const alignClass = getAlignmentClass(column.align);
-                          const isCheckboxCol = column.key === 'checkbox';
-                          const isActionsCol = column.key === 'actions';
-                          const widthClass = isCheckboxCol || isActionsCol ? 'w-px' : '';
-
-                          return (
-                            <td
-                              key={idx}
-                              className={`px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap ${widthClass} ${column.className || ''}`}
-                            >
-                              {column.render
-                                ? column.render(item)
-                                : defaultRender(column.key, item)}
+                      <Fragment key={item.id}>
+                        <tr>
+                          {expandable && (
+                            <td className={`px-2 first:pl-5 last:pr-5 ${getDensityClasses()} whitespace-nowrap w-px`}>
+                              <button
+                                type="button"
+                                onClick={() => toggleRowExpansion(item.id)}
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                              >
+                                <svg
+                                  className={`w-4 h-4 transform transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                                  fill="currentColor"
+                                  viewBox="0 0 20 20"
+                                >
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                                    clipRule="evenodd"
+                                  />
+                                </svg>
+                              </button>
                             </td>
-                          );
-                        })}
-                      </tr>
+                          )}
+                          {visibleColumns.map((column, idx) => {
+                            const alignClass = getAlignmentClass(column.align);
+                            const isCheckboxCol = column.key === 'checkbox';
+                            const isActionsCol = column.key === 'actions';
+                            const widthClass = isCheckboxCol || isActionsCol ? 'w-px' : '';
+
+                            return (
+                              <td
+                                key={idx}
+                                className={`px-2 first:pl-5 last:pr-5 ${getDensityClasses()} whitespace-nowrap ${widthClass} ${column.className || ''}`}
+                              >
+                                {column.render
+                                  ? column.render(item)
+                                  : defaultRender(column.key, item)}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                        {expandable && isExpanded && (
+                          <tr>
+                            <td colSpan={visibleColumns.length + 1} className="px-2 first:pl-5 last:pr-5 py-4 bg-gray-50 dark:bg-gray-900/10">
+                              {expandable.render(item)}
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     );
                   })
                 )}

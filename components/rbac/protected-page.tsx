@@ -2,12 +2,12 @@
 
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { type ProtectedPageProps } from '@/lib/types/rbac';
 
 /**
  * ProtectedPage - Page-level permission protection
- * 
+ *
  * Redirects users who don't have required permissions
  * Provides loading states during permission checking
  */
@@ -22,6 +22,34 @@ export function ProtectedPage({
   const { hasPermission, hasAnyPermission, hasAllPermissions, isAuthenticated, isLoading } = usePermissions();
   const router = useRouter();
 
+  // PERFORMANCE: Memoize permission check to prevent duplicate calculations
+  const hasAccess = useMemo(() => {
+    // Don't check permissions while loading or not authenticated
+    if (isLoading || !isAuthenticated) {
+      return false;
+    }
+
+    if (permission) {
+      return hasPermission(permission);
+    } else if (permissions) {
+      return requireAll
+        ? hasAllPermissions(permissions)
+        : hasAnyPermission(permissions);
+    } else {
+      // No specific permissions required - just need to be authenticated
+      return true;
+    }
+  }, [
+    isLoading,
+    isAuthenticated,
+    permission,
+    permissions,
+    requireAll,
+    hasPermission,
+    hasAnyPermission,
+    hasAllPermissions
+  ]);
+
   useEffect(() => {
     // Wait for auth state to load before making redirect decisions
     if (isLoading) {
@@ -35,20 +63,6 @@ export function ProtectedPage({
       return;
     }
 
-    // Check permissions
-    let hasAccess = false;
-
-    if (permission) {
-      hasAccess = hasPermission(permission);
-    } else if (permissions) {
-      hasAccess = requireAll 
-        ? hasAllPermissions(permissions)
-        : hasAnyPermission(permissions);
-    } else {
-      // No specific permissions required - just need to be authenticated
-      hasAccess = true;
-    }
-
     // Redirect if no access
     if (!hasAccess) {
       router.push(redirectTo);
@@ -56,14 +70,9 @@ export function ProtectedPage({
   }, [
     isLoading,
     isAuthenticated,
-    permission,
-    permissions,
-    requireAll,
+    hasAccess,
     redirectTo,
-    router,
-    hasPermission,
-    hasAnyPermission,
-    hasAllPermissions
+    router
   ]);
 
   // Show loading while auth state is being determined
@@ -84,18 +93,6 @@ export function ProtectedPage({
   // Redirect handled by useEffect - show nothing during redirect
   if (!isAuthenticated) {
     return null;
-  }
-
-  // Check permissions once authenticated
-  let hasAccess = false;
-  if (permission) {
-    hasAccess = hasPermission(permission);
-  } else if (permissions) {
-    hasAccess = requireAll 
-      ? hasAllPermissions(permissions)
-      : hasAnyPermission(permissions);
-  } else {
-    hasAccess = true; // No specific permissions required
   }
 
   // Show loading while redirecting for insufficient permissions

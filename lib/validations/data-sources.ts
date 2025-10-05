@@ -100,7 +100,7 @@ export const dataSourceQuerySchema = z.object({
     .number()
     .int()
     .min(1, 'Limit must be at least 1')
-    .max(100, 'Limit cannot exceed 100')
+    .max(1000, 'Limit cannot exceed 1000')
     .optional(),
   offset: z.coerce.number().int().min(0, 'Offset must be non-negative').optional(),
 });
@@ -259,7 +259,7 @@ export const dataSourceColumnParamsSchema = z.object({
 export const dataSourceColumnQuerySchema = z.object({
   data_source_id: z.coerce.number().int().positive('Data source ID is required'),
   is_active: z.coerce.boolean().optional(),
-  limit: z.coerce.number().int().min(1).max(100).optional(),
+  limit: z.coerce.number().int().min(1).max(1000).optional(),
   offset: z.coerce.number().int().min(0).optional(),
 });
 

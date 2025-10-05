@@ -11,10 +11,10 @@ import EditDataSourceColumnModal from '@/components/edit-data-source-column-moda
 import IntrospectDataSourceModal from '@/components/introspect-data-source-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import Toast from '@/components/toast';
-import DataTableEnhanced, {
+import DataTable, {
   type DataTableColumn,
   type DataTableDropdownAction,
-} from '@/components/data-table-enhanced';
+} from '@/components/data-table-standard';
 import {
   type DataSourceColumn,
   useDataSource,
@@ -33,12 +33,12 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
     isLoading,
     error,
     refetch,
-  } = useDataSourceColumns(dataSourceId, { limit: 50, offset: 0 });
+  } = useDataSourceColumns(dataSourceId, { limit: 1000, offset: 0 });
 
   const dataSource = dataSourceResponse?.dataSource;
   const rawColumns = response?.columns || [];
 
-  // Transform columns to add id field for DataTableEnhanced compatibility
+  // Transform columns to add id field for DataTable compatibility
   const columns: DataSourceColumn[] = rawColumns.map((col) => ({
     ...col,
     id: String(col.column_id),
@@ -473,7 +473,7 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
       </div>
 
       {/* Table */}
-      <DataTableEnhanced
+      <DataTable
         title="Data Source Columns"
         data={columns}
         columns={tableColumns}
@@ -481,6 +481,10 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
         pagination={{ itemsPerPage: 10 }}
         selectionMode="none"
         isLoading={isLoading}
+        searchable={true}
+        searchPlaceholder="Search columns..."
+        exportable={true}
+        exportFileName="data-source-columns"
       />
 
       {/* Add Column Modal */}

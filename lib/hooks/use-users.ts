@@ -45,7 +45,7 @@ export function useUsers() {
     console.log('👥 useUsers: Hook called (auth handled by middleware)');
   }
 
-  const query = useApiQuery<User[]>(['users'], '/api/users', {
+  const query = useApiQuery<User[]>(['users'], '/api/users?limit=1000', {
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
   });

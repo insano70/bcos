@@ -9,10 +9,10 @@ import DeleteButton from '@/components/delete-button';
 import DeleteDashboardModal from '@/components/delete-dashboard-modal';
 import FilterButton from '@/components/dropdown-filter';
 import Toast from '@/components/toast';
-import DataTableEnhanced, {
+import DataTable, {
   type DataTableColumn,
   type DataTableDropdownAction,
-} from '@/components/data-table-enhanced';
+} from '@/components/data-table-standard';
 import { apiClient } from '@/lib/api/client';
 import type { DashboardWithCharts } from '@/lib/services/rbac-dashboards-service';
 import type { Dashboard, DashboardChart, DashboardListItem } from '@/lib/types/analytics';
@@ -55,7 +55,7 @@ export default function DashboardsPage() {
           active_filter: boolean;
           generatedAt: string;
         };
-      }>('/api/admin/analytics/dashboards');
+      }>('/api/admin/analytics/dashboards?limit=1000');
       console.log('📊 Raw Dashboard API Response:', result);
 
       // apiClient automatically unwraps the data, so result is already the data portion
@@ -470,7 +470,7 @@ export default function DashboardsPage() {
         </div>
 
         {/* Dashboards Table */}
-        <DataTableEnhanced
+        <DataTable
           title="All Dashboards"
           data={savedDashboards}
           columns={columns}
@@ -478,6 +478,10 @@ export default function DashboardsPage() {
           pagination={{ itemsPerPage: 10 }}
           selectionMode="multi"
           isLoading={isLoading}
+          searchable={true}
+          searchPlaceholder="Search dashboards..."
+          exportable={true}
+          exportFileName="dashboards"
         />
 
         {/* Delete Confirmation Modal */}

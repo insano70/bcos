@@ -7,6 +7,8 @@ export interface Practice {
   domain: string;
   status: 'active' | 'inactive' | 'pending';
   template_id: string;
+  template_name?: string;
+  owner_email?: string;
   created_at: string;
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { apiClient } from '@/lib/api/client';
 import { type UserContext } from '@/lib/types/rbac';
 import { clientDebugLog as debugLog, clientErrorLog as errorLog } from '@/lib/utils/debug-client';
@@ -28,7 +28,7 @@ export interface RBACAuthState {
   isLoading: boolean;
   isAuthenticated: boolean;
   csrfToken?: string | null | undefined;
-  
+
   // RBAC state
   userContext: UserContext | null;
   rbacLoading: boolean;
@@ -72,6 +72,9 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
   // Track if we've already initialized to prevent redundant calls
   const [hasInitialized, setHasInitialized] = useState(false);
 
+  // RACE CONDITION PROTECTION: Mutex to prevent concurrent auth operations
+  const authOperationInProgress = useRef(false);
+
   // Set up API client with auth context (accessToken removed - handled by middleware)
   useEffect(() => {
     apiClient.setAuthContext({
@@ -84,15 +87,15 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
   // Set up token refresh interval (based on authentication state, not client-side token)
   useEffect(() => {
     if (state.isAuthenticated) {
-      // Refresh token every 12 minutes (access tokens last 15 minutes)
-      // Longer interval to reduce rate limiting pressure
+      // Refresh token every 10 minutes (access tokens last 15 minutes)
+      // 5-minute safety margin (33%) prevents expiration during network delays or clock skew
       const refreshInterval = setInterval(() => {
         // Only refresh if we're still authenticated and not already refreshing
         if (state.isAuthenticated && !state.isLoading) {
           debugLog.auth('Periodic token refresh triggered');
           refreshToken();
         }
-      }, 12 * 60 * 1000); // 12 minutes instead of 10
+      }, 10 * 60 * 1000); // 10 minutes (33% safety margin)
 
       return () => clearInterval(refreshInterval);
     }
@@ -101,10 +104,10 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
   // Load RBAC user context when user changes (with debouncing to prevent race conditions)
   useEffect(() => {
     if (state.user && state.isAuthenticated && !state.userContext && !state.rbacLoading) {
-      // Debounce user context loading to prevent rapid consecutive calls
+      // Minimal debounce to batch React updates while loading context quickly
       const timeoutId = setTimeout(() => {
         loadUserContext();
-      }, 100); // 100ms debounce
+      }, 10); // 10ms debounce - just enough to batch updates, fast UX
 
       return () => clearTimeout(timeoutId);
     }
@@ -583,12 +586,20 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
   };
 
   const refreshToken = async () => {
+    // RACE CONDITION PROTECTION: Prevent concurrent refresh operations
+    if (authOperationInProgress.current) {
+      debugLog.auth('Auth operation already in progress, skipping refresh');
+      return;
+    }
+
+    authOperationInProgress.current = true;
+
     try {
       const csrfToken = state.csrfToken || (await ensureCsrfToken()) || '';
-      
+
       // Use current domain instead of hardcoded NEXT_PUBLIC_APP_URL to avoid CORS issues
-      const baseUrl = typeof window !== 'undefined' 
-        ? window.location.origin 
+      const baseUrl = typeof window !== 'undefined'
+        ? window.location.origin
         : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001');
       const response = await fetch(`${baseUrl}/api/auth/refresh`, {
         method: 'POST',
@@ -649,6 +660,9 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
         rbacLoading: false,
         rbacError: null
       });
+    } finally {
+      // Always release mutex
+      authOperationInProgress.current = false;
     }
   };
 

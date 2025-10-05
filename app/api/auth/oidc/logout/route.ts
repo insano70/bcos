@@ -5,7 +5,7 @@
  * This ensures the session is terminated at both the application and identity provider levels.
  *
  * Flow:
- * 1. Clear local auth cookies (access_token, refresh_token)
+ * 1. Clear local auth cookies (access-token, refresh-token)
  * 2. Redirect to Microsoft Entra logout endpoint
  * 3. Entra clears its session
  * 4. Entra redirects back to post_logout_redirect_uri (typically /signin)
@@ -79,19 +79,19 @@ const oidcLogoutHandler = async (request: NextRequest) => {
 
 		const response = NextResponse.redirect(redirectUrl);
 
-		// Clear auth cookies
-		response.cookies.set('access_token', '', {
+		// Clear auth cookies (SECURITY FIX: Use correct cookie names and strict sameSite)
+		response.cookies.set('access-token', '', {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === 'production',
-			sameSite: 'lax',
+			sameSite: 'strict',
 			maxAge: 0,
 			path: '/',
 		});
 
-		response.cookies.set('refresh_token', '', {
+		response.cookies.set('refresh-token', '', {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === 'production',
-			sameSite: 'lax',
+			sameSite: 'strict',
 			maxAge: 0,
 			path: '/',
 		});
@@ -111,18 +111,18 @@ const oidcLogoutHandler = async (request: NextRequest) => {
 			new URL('/signin?error=logout_failed', request.url),
 		);
 
-		response.cookies.set('access_token', '', {
+		response.cookies.set('access-token', '', {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === 'production',
-			sameSite: 'lax',
+			sameSite: 'strict',
 			maxAge: 0,
 			path: '/',
 		});
 
-		response.cookies.set('refresh_token', '', {
+		response.cookies.set('refresh-token', '', {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === 'production',
-			sameSite: 'lax',
+			sameSite: 'strict',
 			maxAge: 0,
 			path: '/',
 		});

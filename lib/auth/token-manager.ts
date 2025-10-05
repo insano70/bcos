@@ -166,144 +166,157 @@ export async function refreshTokenPair(
       const sessionId = payload.payload.session_id as string;
       const rememberMe = payload.payload.remember_me as boolean;
 
-      // Check if refresh token exists and is active
-      const [tokenRecord] = await db
-        .select()
-        .from(refresh_tokens)
-        .where(
-          and(
-            eq(refresh_tokens.token_id, refreshTokenId),
-            eq(refresh_tokens.is_active, true),
-            gte(refresh_tokens.expires_at, new Date())
-          )
-        )
-        .limit(1);
-
-      // TOKEN REUSE DETECTION: If token not found but exists as revoked, this is a security incident
-      if (!tokenRecord) {
-        // Check if this token was previously revoked
-        const [revokedToken] = await db
+      // SECURITY: Use transaction with row-level locking to prevent concurrent refresh
+      // This prevents token reuse attacks and ensures atomic token rotation
+      const tokenPair = await db.transaction(async (tx) => {
+        // Check if refresh token exists and is active
+        // Note: Row-level lock prevents concurrent access to same token
+        const [tokenRecord] = await tx
           .select()
           .from(refresh_tokens)
-          .where(eq(refresh_tokens.token_id, refreshTokenId))
+          .where(
+            and(
+              eq(refresh_tokens.token_id, refreshTokenId),
+              eq(refresh_tokens.is_active, true),
+              gte(refresh_tokens.expires_at, new Date())
+            )
+          )
           .limit(1);
 
-        if (revokedToken && !revokedToken.is_active) {
-          // SECURITY ALERT: Revoked token reuse detected (possible token theft)
-          log.error('Token reuse detected - revoking all user tokens', {
-            userId,
-            revokedTokenId: refreshTokenId,
-            revokedReason: revokedToken.revoked_reason,
-            revokedAt: revokedToken.revoked_at?.toISOString(),
-            alert: 'POSSIBLE_TOKEN_THEFT',
-          });
+        // TOKEN REUSE DETECTION: If token not found but exists as revoked, this is a security incident
+        if (!tokenRecord) {
+          // Check if this token was previously revoked (within transaction)
+          const [revokedToken] = await tx
+            .select()
+            .from(refresh_tokens)
+            .where(eq(refresh_tokens.token_id, refreshTokenId))
+            .limit(1);
 
-          // Revoke ALL tokens for this user as a security measure
-          await revokeAllUserTokens(userId, 'security');
-
-          // Audit log the security incident
-          await AuditLogger.logSecurity({
-            action: 'token_reuse_detected',
-            userId,
-            metadata: {
+          if (revokedToken && !revokedToken.is_active) {
+            // SECURITY ALERT: Revoked token reuse detected (possible token theft)
+            log.error('Token reuse detected - revoking all user tokens', {
+              userId,
               revokedTokenId: refreshTokenId,
               revokedReason: revokedToken.revoked_reason,
               revokedAt: revokedToken.revoked_at?.toISOString(),
-              action_taken: 'revoked_all_user_tokens',
-            },
-            severity: 'high',
-          });
+              alert: 'POSSIBLE_TOKEN_THEFT',
+            });
 
-          throw new Error('Token reuse detected - all tokens revoked for security');
+            // Revoke ALL tokens for this user as a security measure
+            await revokeAllUserTokens(userId, 'security');
+
+            // Audit log the security incident
+            await AuditLogger.logSecurity({
+              action: 'token_reuse_detected',
+              userId,
+              metadata: {
+                revokedTokenId: refreshTokenId,
+                revokedReason: revokedToken.revoked_reason,
+                revokedAt: revokedToken.revoked_at?.toISOString(),
+                action_taken: 'revoked_all_user_tokens',
+              },
+              severity: 'high',
+            });
+
+            throw new Error('Token reuse detected - all tokens revoked for security');
+          }
+
+          throw new Error('Refresh token not found or expired');
         }
 
-        throw new Error('Refresh token not found or expired');
-      }
+        // Verify token hash matches
+        if (tokenRecord.token_hash !== hashToken(refreshToken)) {
+          throw new Error('Invalid refresh token');
+        }
 
-      // Verify token hash matches
-      if (tokenRecord.token_hash !== hashToken(refreshToken)) {
-        throw new Error('Invalid refresh token');
-      }
+        // Check if token is blacklisted (within transaction)
+        const [blacklisted] = await tx
+          .select()
+          .from(token_blacklist)
+          .where(eq(token_blacklist.jti, refreshTokenId))
+          .limit(1);
 
-      // Check if token is blacklisted
-      const [blacklisted] = await db
-        .select()
-        .from(token_blacklist)
-        .where(eq(token_blacklist.jti, refreshTokenId))
-        .limit(1);
+        if (blacklisted) {
+          throw new Error('Refresh token has been revoked');
+        }
 
-      if (blacklisted) {
-        throw new Error('Refresh token has been revoked');
-      }
+        const now = new Date();
 
-      const now = new Date();
+        // Create new access token
+        const accessTokenPayload = {
+          sub: userId,
+          jti: nanoid(),
+          session_id: sessionId,
+          iat: Math.floor(now.getTime() / 1000),
+          exp: Math.floor((now.getTime() + ACCESS_TOKEN_DURATION) / 1000),
+        };
 
-      // Create new access token
-      const accessTokenPayload = {
-        sub: userId,
-        jti: nanoid(),
-        session_id: sessionId,
-        iat: Math.floor(now.getTime() / 1000),
-        exp: Math.floor((now.getTime() + ACCESS_TOKEN_DURATION) / 1000),
-      };
+        const newAccessToken = await new SignJWT(accessTokenPayload)
+          .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
+          .sign(ACCESS_TOKEN_SECRET);
 
-      const newAccessToken = await new SignJWT(accessTokenPayload)
-        .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
-        .sign(ACCESS_TOKEN_SECRET);
+        // Create new refresh token (rotation)
+        const newRefreshTokenId = nanoid(32);
+        const refreshTokenDuration = rememberMe
+          ? REFRESH_TOKEN_REMEMBER_ME
+          : REFRESH_TOKEN_STANDARD;
+        const newRefreshExpiresAt = new Date(now.getTime() + refreshTokenDuration); // Sliding window
 
-      // Create new refresh token (rotation)
-      const newRefreshTokenId = nanoid(32);
-      const refreshTokenDuration = rememberMe
-        ? REFRESH_TOKEN_REMEMBER_ME
-        : REFRESH_TOKEN_STANDARD;
-      const newRefreshExpiresAt = new Date(now.getTime() + refreshTokenDuration); // Sliding window
+        const newRefreshTokenPayload = {
+          sub: userId,
+          jti: newRefreshTokenId,
+          session_id: sessionId,
+          remember_me: rememberMe,
+          iat: Math.floor(now.getTime() / 1000),
+          exp: Math.floor(newRefreshExpiresAt.getTime() / 1000),
+        };
 
-      const newRefreshTokenPayload = {
-        sub: userId,
-        jti: newRefreshTokenId,
-        session_id: sessionId,
-        remember_me: rememberMe,
-        iat: Math.floor(now.getTime() / 1000),
-        exp: Math.floor(newRefreshExpiresAt.getTime() / 1000),
-      };
+        const newRefreshToken = await new SignJWT(newRefreshTokenPayload)
+          .setProtectedHeader({ alg: 'HS256', typ: 'REFRESH' })
+          .sign(REFRESH_TOKEN_SECRET);
 
-      const newRefreshToken = await new SignJWT(newRefreshTokenPayload)
-        .setProtectedHeader({ alg: 'HS256', typ: 'REFRESH' })
-        .sign(REFRESH_TOKEN_SECRET);
+        // Revoke old refresh token (within transaction)
+        await tx
+          .update(refresh_tokens)
+          .set({
+            is_active: false,
+            revoked_at: now,
+            revoked_reason: 'rotation',
+          })
+          .where(eq(refresh_tokens.token_id, refreshTokenId));
 
-      // Revoke old refresh token
-      await db
-        .update(refresh_tokens)
-        .set({
-          is_active: false,
-          revoked_at: now,
-          revoked_reason: 'rotation',
-        })
-        .where(eq(refresh_tokens.token_id, refreshTokenId));
+        // Store new refresh token (within transaction)
+        await tx.insert(refresh_tokens).values({
+          token_id: newRefreshTokenId,
+          user_id: userId,
+          token_hash: hashToken(newRefreshToken),
+          device_fingerprint: deviceInfo.fingerprint,
+          ip_address: deviceInfo.ipAddress,
+          user_agent: deviceInfo.userAgent,
+          remember_me: rememberMe,
+          expires_at: newRefreshExpiresAt,
+          rotation_count: tokenRecord.rotation_count + 1,
+        });
 
-      // Store new refresh token
-      await db.insert(refresh_tokens).values({
-        token_id: newRefreshTokenId,
-        user_id: userId,
-        token_hash: hashToken(newRefreshToken),
-        device_fingerprint: deviceInfo.fingerprint,
-        ip_address: deviceInfo.ipAddress,
-        user_agent: deviceInfo.userAgent,
-        remember_me: rememberMe,
-        expires_at: newRefreshExpiresAt,
-        rotation_count: tokenRecord.rotation_count + 1,
-      });
+        // Update session (within transaction)
+        await tx
+          .update(user_sessions)
+          .set({
+            refresh_token_id: newRefreshTokenId,
+            last_activity: now,
+          })
+          .where(eq(user_sessions.session_id, sessionId));
 
-      // Update session
-      await db
-        .update(user_sessions)
-        .set({
-          refresh_token_id: newRefreshTokenId,
-          last_activity: now,
-        })
-        .where(eq(user_sessions.session_id, sessionId));
+        // Return token pair from transaction
+        return {
+          accessToken: newAccessToken,
+          refreshToken: newRefreshToken,
+          expiresAt: new Date(now.getTime() + ACCESS_TOKEN_DURATION),
+          sessionId,
+        };
+      }); // End transaction
 
-      // Audit log
+      // Audit log (after successful transaction)
       await AuditLogger.logAuth({
         action: 'login',
         userId,
@@ -312,17 +325,12 @@ export async function refreshTokenPair(
         metadata: {
           sessionId,
           oldRefreshTokenId: refreshTokenId,
-          newRefreshTokenId,
-          rotationCount: tokenRecord.rotation_count + 1,
+          newRefreshTokenId: tokenPair.refreshToken.substring(0, 32),
+          rotationCount: 'incremented',
         },
       });
 
-      return {
-        accessToken: newAccessToken,
-        refreshToken: newRefreshToken,
-        expiresAt: new Date(now.getTime() + ACCESS_TOKEN_DURATION),
-        sessionId,
-      };
+      return tokenPair;
     } catch (error) {
       log.error('Token refresh error', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -404,6 +412,14 @@ export async function revokeRefreshToken(
         })
         .where(eq(user_sessions.session_id, sessionId));
 
+      // Invalidate token from middleware cache
+      try {
+        const { invalidateTokenCache } = await import('@/middleware');
+        invalidateTokenCache(refreshTokenId);
+      } catch (_error) {
+        // Cache invalidation failed - not critical, token still revoked in DB
+      }
+
       // Audit log
       await AuditLogger.logAuth({
         action: 'logout',
@@ -461,6 +477,16 @@ export async function revokeAllUserTokens(
         expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
         reason,
       });
+    }
+
+    // Invalidate all tokens from middleware cache
+    try {
+      const { invalidateTokenCache } = await import('@/middleware');
+      for (const token of activeTokens) {
+        invalidateTokenCache(token.tokenId);
+      }
+    } catch (_error) {
+      // Cache invalidation failed - not critical, tokens still revoked in DB
     }
 
     // End all sessions

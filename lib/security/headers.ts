@@ -201,7 +201,7 @@ export function addRateLimitHeaders(
 export function addCORSHeaders(response: NextResponse, origin?: string): NextResponse {
   const allowedOrigins = [
     process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001',
-    'https://admin.yourdomain.com', // Admin subdomain
+    'https://thrive.bendcare.com', // Admin subdomain
     // Add other allowed origins
   ];
 

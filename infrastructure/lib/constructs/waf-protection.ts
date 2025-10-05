@@ -257,8 +257,8 @@ export class WafProtection extends Construct {
       // Redact sensitive fields from logs to comply with data privacy requirements
       redactedFields: [
         { queryString: {} }, // Redact query parameters (may contain sensitive data)
-        { singleHeader: { name: 'authorization' } }, // Redact auth headers
-        { singleHeader: { name: 'cookie' } }, // Redact cookies
+        { singleHeader: { Name: 'authorization' } }, // Redact auth headers
+        { singleHeader: { Name: 'cookie' } }, // Redact cookies
       ],
     });
 

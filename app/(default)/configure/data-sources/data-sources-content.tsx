@@ -9,12 +9,16 @@ import DeleteButton from '@/components/delete-button';
 import DeleteDataSourceModal from '@/components/delete-data-source-modal';
 import FilterButton from '@/components/dropdown-filter';
 import EditDataSourceModal from '@/components/edit-data-source-modal';
-import PaginationClassic from '@/components/pagination-classic';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import Toast from '@/components/toast';
 import { type DataSource, useDataSources } from '@/lib/hooks/use-data-sources';
-import { usePagination } from '@/lib/hooks/use-pagination';
-import DataSourcesTable from './data-sources-table';
+import DataTable, {
+  type DataTableColumn,
+  type DataTableDropdownAction,
+} from '@/components/data-table-standard';
+
+// Extend DataSource type to include id field for DataTable
+type DataSourceWithId = DataSource & { id: string };
 
 export default function DataSourcesContent() {
   // Component rendered (client-side debug)
@@ -25,7 +29,13 @@ export default function DataSourcesContent() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { data: response, isLoading, error, refetch } = useDataSources({ limit: 50, offset: 0 });
 
-  const dataSources = response?.dataSources || [];
+  const rawDataSources = response?.dataSources || [];
+
+  // Add id field for DataTable compatibility
+  const dataSources: DataSourceWithId[] = rawDataSources.map((ds) => ({
+    ...ds,
+    id: ds.data_source_id.toString(),
+  }));
 
   // State for modals and selected items
   const [isAddDataSourceModalOpen, setIsAddDataSourceModalOpen] = useState(false);
@@ -38,9 +48,6 @@ export default function DataSourcesContent() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
-
-  // Pagination
-  const pagination = usePagination(dataSources, { itemsPerPage: 10 });
 
   // Auth state logging (client-side debug)
   if (process.env.NODE_ENV === 'development') {
@@ -104,17 +111,17 @@ export default function DataSourcesContent() {
     );
   }
 
-  const handleEditDataSource = (dataSource: DataSource) => {
+  const handleEditDataSource = (dataSource: DataSourceWithId) => {
     setSelectedDataSource(dataSource);
     setIsEditDataSourceModalOpen(true);
   };
 
-  const handleDeleteDataSource = (dataSource: DataSource) => {
+  const handleDeleteDataSource = (dataSource: DataSourceWithId) => {
     setSelectedDataSource(dataSource);
     setIsDeleteModalOpen(true);
   };
 
-  const handleTestDataSource = (dataSource: DataSource) => {
+  const handleTestDataSource = (dataSource: DataSourceWithId) => {
     setSelectedDataSource(dataSource);
     setIsTestModalOpen(true);
   };
@@ -130,6 +137,149 @@ export default function DataSourcesContent() {
     setToastType('error');
     setShowToast(true);
   };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'Never';
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const getStatusBadge = (dataSource: DataSourceWithId) => {
+    if (dataSource.is_active) {
+      return (
+        <div className="inline-flex font-medium bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-400 rounded-full text-center px-2.5 py-0.5">
+          Active
+        </div>
+      );
+    } else {
+      return (
+        <div className="inline-flex font-medium bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 rounded-full text-center px-2.5 py-0.5">
+          Inactive
+        </div>
+      );
+    }
+  };
+
+  // Define table columns
+  const columns: DataTableColumn<DataSourceWithId>[] = [
+    { key: 'checkbox' },
+    {
+      key: 'data_source_name',
+      header: 'Name',
+      sortable: true,
+      render: (dataSource) => (
+        <div className="flex items-center">
+          <div>
+            <div className="font-medium text-gray-800 dark:text-gray-100">
+              {dataSource.data_source_name}
+            </div>
+            {dataSource.data_source_description && (
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                {dataSource.data_source_description}
+              </div>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'table_name',
+      header: 'Table',
+      sortable: true,
+      render: (dataSource) => (
+        <div>
+          <div className="font-medium text-gray-800 dark:text-gray-100">{dataSource.table_name}</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">{dataSource.schema_name}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'database_type',
+      header: 'Database Type',
+      sortable: true,
+      render: (dataSource) => (
+        <div className="text-gray-800 dark:text-gray-100">
+          {dataSource.database_type || 'postgresql'}
+        </div>
+      ),
+    },
+    {
+      key: 'is_active',
+      header: 'Status',
+      sortable: true,
+      render: (dataSource) => getStatusBadge(dataSource),
+    },
+    {
+      key: 'column_count',
+      header: 'Columns',
+      sortable: true,
+      render: (dataSource) => (
+        <div className="text-gray-800 dark:text-gray-100">{dataSource.column_count || 0}</div>
+      ),
+    },
+    {
+      key: 'updated_at',
+      header: 'Updated',
+      sortable: true,
+      render: (dataSource) => (
+        <div className="text-gray-800 dark:text-gray-100">{formatDate(dataSource.updated_at)}</div>
+      ),
+    },
+    { key: 'actions' },
+  ];
+
+  // Define dropdown actions
+  const getDropdownActions = (
+    _dataSource: DataSourceWithId
+  ): DataTableDropdownAction<DataSourceWithId>[] => [
+    {
+      label: 'Configure Columns',
+      icon: (
+        <svg
+          className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0"
+          viewBox="0 0 16 16"
+        >
+          <path d="M14 2H2c-.6 0-1 .4-1 1v10c0 .6.4 1 1 1h12c.6 0 1-.4 1-1V3c0-.6-.4-1-1-1zM5 4h2v8H5V4zm4 0h2v8H9V4z" />
+        </svg>
+      ),
+      onClick: (ds) => {
+        window.location.href = `/configure/data-sources/${ds.data_source_id}/columns`;
+      },
+    },
+    {
+      label: 'Test Connection',
+      icon: (
+        <svg
+          className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0"
+          viewBox="0 0 16 16"
+        >
+          <path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm0 12c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm1-3H7V4h2v5z" />
+        </svg>
+      ),
+      onClick: handleTestDataSource,
+    },
+    {
+      label: 'Edit',
+      icon: (
+        <svg
+          className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0"
+          viewBox="0 0 16 16"
+        >
+          <path d="m13.7 2.3-1-1c-.4-.4-1-.4-1.4 0l-10 10c-.2.2-.3.4-.3.7v4c0 .6.4 1 1 1h4c.3 0 .5-.1.7-.3l10-10c.4-.4.4-1 0-1.4zM10.5 6.5L9 5l.5-.5L11 6l-.5.5zM2 14v-3l6-6 3 3-6 6H2z" />
+        </svg>
+      ),
+      onClick: handleEditDataSource,
+    },
+    {
+      label: 'Delete',
+      icon: (
+        <svg className="w-4 h-4 fill-current text-red-400 shrink-0" viewBox="0 0 16 16">
+          <path d="M5 7h6a1 1 0 0 1 0 2H5a1 1 0 0 1 0-2zM4 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" />
+        </svg>
+      ),
+      onClick: handleDeleteDataSource,
+      variant: 'danger',
+    },
+  ];
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
@@ -196,50 +346,19 @@ export default function DataSourcesContent() {
       </div>
 
       {/* Table */}
-      {isLoading ? (
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-8">
-          <div className="flex items-center justify-center">
-            <svg className="animate-spin h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24">
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              />
-            </svg>
-            <span className="ml-3 text-gray-600 dark:text-gray-400">Loading data sources...</span>
-          </div>
-        </div>
-      ) : (
-        <DataSourcesTable
-          dataSources={pagination.currentItems}
-          onEdit={handleEditDataSource}
-          onDelete={handleDeleteDataSource}
-          onTest={handleTestDataSource}
-        />
-      )}
-
-      {/* Pagination */}
-      <div className="mt-8">
-        <PaginationClassic
-          currentPage={pagination.currentPage}
-          totalItems={pagination.totalItems}
-          itemsPerPage={pagination.itemsPerPage}
-          startItem={pagination.startItem}
-          endItem={pagination.endItem}
-          hasPrevious={pagination.hasPrevious}
-          hasNext={pagination.hasNext}
-          onPrevious={pagination.goToPrevious}
-          onNext={pagination.goToNext}
-        />
-      </div>
+      <DataTable
+        title="All Data Sources"
+        data={dataSources}
+        columns={columns}
+        dropdownActions={getDropdownActions}
+        pagination={{ itemsPerPage: 10 }}
+        selectionMode="multi"
+        isLoading={isLoading}
+        searchable={true}
+        searchPlaceholder="Search data sources..."
+        exportable={true}
+        exportFileName="data-sources"
+      />
 
       {/* Add Data Source Modal */}
       <AddDataSourceModal

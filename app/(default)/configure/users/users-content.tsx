@@ -9,10 +9,10 @@ import FilterButton from '@/components/dropdown-filter';
 import EditUserModal from '@/components/edit-user-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { type User, useUsers } from '@/lib/hooks/use-users';
-import DataTableEnhanced, {
+import DataTable, {
   type DataTableColumn,
   type DataTableDropdownAction,
-} from '@/components/data-table-enhanced';
+} from '@/components/data-table-standard';
 import { apiClient } from '@/lib/api/client';
 
 export default function UsersContent() {
@@ -362,7 +362,7 @@ export default function UsersContent() {
       </div>
 
       {/* Table */}
-      <DataTableEnhanced
+      <DataTable
         title="All Users"
         data={users || []}
         columns={columns}
@@ -370,6 +370,10 @@ export default function UsersContent() {
         pagination={{ itemsPerPage: 10 }}
         selectionMode="multi"
         isLoading={isLoading}
+        searchable={true}
+        searchPlaceholder="Search users..."
+        exportable={true}
+        exportFileName="users"
       />
 
       {/* Add User Modal */}

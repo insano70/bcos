@@ -217,6 +217,25 @@ export interface ChartTemplate {
 }
 
 /**
+ * Chart list item for table display
+ */
+export interface ChartDefinitionListItem {
+  id: string;
+  chart_definition_id: string;
+  chart_name: string;
+  chart_description?: string | undefined;
+  chart_type: 'line' | 'bar' | 'pie' | 'doughnut' | 'area';
+  chart_category_id?: number | undefined;
+  category_name?: string | undefined;
+  created_by: string;
+  creator_name?: string | undefined;
+  creator_last_name?: string | undefined;
+  created_at: string;
+  updated_at: string;
+  is_active: boolean;
+}
+
+/**
  * Dashboard definition types
  */
 export interface Dashboard {
