@@ -53,7 +53,7 @@ export class EmailService {
     resetToken: string,
     firstName: string
   ): Promise<void> {
-    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`;
+    const resetUrl = `${process.env.APP_URL}/reset-password?token=${resetToken}`;
     const template = this.getPasswordResetTemplate({ firstName, resetUrl });
 
     await this.send({
@@ -72,7 +72,7 @@ export class EmailService {
     verificationToken: string,
     firstName: string
   ): Promise<void> {
-    const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${verificationToken}`;
+    const verificationUrl = `${process.env.APP_URL}/verify-email?token=${verificationToken}`;
     const template = this.getEmailVerificationTemplate({ firstName, verificationUrl });
 
     await this.send({
@@ -91,7 +91,7 @@ export class EmailService {
     practiceName: string,
     ownerName: string
   ): Promise<void> {
-    const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`;
+    const dashboardUrl = `${process.env.APP_URL}/dashboard`;
     const template = this.getPracticeSetupTemplate({
       ownerName,
       practiceName,
@@ -277,7 +277,7 @@ export class EmailService {
             </ul>
 
             <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard"
+              <a href="${process.env.APP_URL}/dashboard"
                  style="background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">
                 Access Dashboard
               </a>
@@ -299,7 +299,7 @@ export class EmailService {
       Welcome to ${process.env.NEXT_PUBLIC_APP_NAME || 'Our Platform'}, ${vars.firstName}!
 
       Your account has been successfully created. You can now access your admin dashboard at:
-      ${process.env.NEXT_PUBLIC_APP_URL}/dashboard
+      ${process.env.APP_URL}/dashboard
 
       If you have any questions, please contact our support team.
 

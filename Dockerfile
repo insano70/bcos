@@ -25,6 +25,7 @@ ENV ANALYTICS_DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
 ENV JWT_SECRET="dummy-jwt-secret-for-build-validation-only-not-used-in-production"
 ENV JWT_REFRESH_SECRET="dummy-refresh-secret-for-build-validation-only-not-used"
 ENV CSRF_SECRET="dummy-csrf-secret-for-build-validation"
+ENV APP_URL="http://localhost:4001"
 ENV NEXT_PUBLIC_APP_URL="https://app.bendcare.com"
 
 RUN pnpm build

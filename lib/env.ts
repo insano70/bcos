@@ -50,6 +50,9 @@ export const env = createEnv({
       .transform((val) => val === 'true')
       .optional(),
 
+    // Application URL (server-side runtime configuration)
+    APP_URL: z.string().url('APP_URL must be a valid URL').default('http://localhost:4001'),
+
     // Node Environment
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   },
@@ -100,6 +103,7 @@ export const env = createEnv({
     OIDC_SUCCESS_REDIRECT: process.env.OIDC_SUCCESS_REDIRECT,
     OIDC_STRICT_FINGERPRINT: process.env.OIDC_STRICT_FINGERPRINT,
 
+    APP_URL: process.env.APP_URL,
     NODE_ENV: process.env.NODE_ENV,
 
     // Client
