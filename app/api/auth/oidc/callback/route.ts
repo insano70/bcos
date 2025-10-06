@@ -63,6 +63,13 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 	// Use NEXT_PUBLIC_APP_URL for all redirects to avoid internal hostname issues behind load balancer
 	const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.url;
 
+	log.info('OIDC callback environment check', {
+		NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+		NODE_ENV: process.env.NODE_ENV,
+		requestUrl: request.url,
+		baseUrl,
+	});
+
 	try {
 		// ===== 1. Extract Callback Parameters =====
 		const code = request.nextUrl.searchParams.get('code');
