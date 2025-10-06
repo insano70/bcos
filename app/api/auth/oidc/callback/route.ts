@@ -318,8 +318,9 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 				},
 			});
 
+			const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.url;
 			return NextResponse.redirect(
-				new URL('/signin?error=user_not_provisioned', request.url),
+				new URL('/signin?error=user_not_provisioned', baseUrl),
 			);
 		}
 
@@ -342,8 +343,9 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 				},
 			});
 
+			const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.url;
 			return NextResponse.redirect(
-				new URL('/signin?error=user_inactive', request.url),
+				new URL('/signin?error=user_inactive', baseUrl),
 			);
 		}
 
@@ -412,7 +414,9 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 		});
 
 		// Redirect to destination
-		const redirectUrl = new URL(sessionData.returnUrl, request.url);
+		// Use NEXT_PUBLIC_APP_URL as base to avoid internal hostname issues behind load balancer
+		const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.url;
+		const redirectUrl = new URL(sessionData.returnUrl, baseUrl);
 		return NextResponse.redirect(redirectUrl);
 	} catch (error) {
 		const duration = Date.now() - startTime;
