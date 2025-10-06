@@ -179,9 +179,17 @@ export class OIDCClient {
     // Exchange code for tokens (library validates JWT signature, exp, etc.)
     let tokenSet: oauth.TokenEndpointResponse & oauth.TokenEndpointResponseHelpers;
     try {
+      // Construct corrected callback URL using configured redirect_uri
+      // This is needed because Next.js behind a load balancer sees internal hostnames
+      // but Microsoft validates against the public redirect_uri we registered
+      const correctedCallbackUrl = new URL(this.config.redirectUri);
+      // Preserve query parameters (code, state, session_state) from actual callback
+      callbackUrl.searchParams.forEach((value, key) => {
+        correctedCallbackUrl.searchParams.set(key, value);
+      });
+
       // Perform authorization code grant with PKCE
-      // The openid-client library expects the actual callback URL from the request
-      tokenSet = await oauth.authorizationCodeGrant(this.oauthConfig, callbackUrl, {
+      tokenSet = await oauth.authorizationCodeGrant(this.oauthConfig, correctedCallbackUrl, {
         pkceCodeVerifier: codeVerifier,
         expectedState,
         expectedNonce,
