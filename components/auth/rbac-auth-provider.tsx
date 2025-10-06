@@ -33,6 +33,14 @@ export interface RBACAuthState {
   userContext: UserContext | null;
   rbacLoading: boolean;
   rbacError: string | null;
+
+  // MFA state
+  mfaRequired: boolean;
+  mfaSetupRequired: boolean;
+  mfaTempToken: string | null;
+  mfaChallenge: unknown | null;
+  mfaChallengeId: string | null;
+  mfaUser: { id: string; email: string; name: string } | null;
 }
 
 export interface RBACAuthContextType extends RBACAuthState {
@@ -41,6 +49,39 @@ export interface RBACAuthContextType extends RBACAuthState {
   refreshToken: () => Promise<void>;
   refreshUserContext: () => Promise<void>;
   ensureCsrfToken: () => Promise<string | null>;
+  completeMFASetup: (sessionData: {
+    user: {
+      id: string;
+      email: string;
+      name: string;
+      firstName: string;
+      lastName: string;
+      role: string;
+      emailVerified: boolean;
+      roles?: string[];
+      permissions?: string[];
+    };
+    sessionId: string;
+    csrfToken?: string;
+    accessToken?: string;
+  }) => void;
+  completeMFAVerification: (sessionData: {
+    user: {
+      id: string;
+      email: string;
+      name: string;
+      firstName: string;
+      lastName: string;
+      role: string;
+      emailVerified: boolean;
+      roles?: string[];
+      permissions?: string[];
+    };
+    sessionId: string;
+    csrfToken?: string;
+    accessToken?: string;
+  }) => void;
+  clearMFAState: () => void;
 }
 
 const RBACAuthContext = createContext<RBACAuthContextType | undefined>(undefined);
@@ -58,7 +99,13 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     csrfToken: null,
     userContext: null,
     rbacLoading: false,
-    rbacError: null
+    rbacError: null,
+    mfaRequired: false,
+    mfaSetupRequired: false,
+    mfaTempToken: null,
+    mfaChallenge: null,
+    mfaChallengeId: null,
+    mfaUser: null,
   });
 
   // Track token fetch time to prevent unnecessary refreshes
@@ -334,7 +381,13 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
             csrfToken: state.csrfToken,
             userContext: null,
             rbacLoading: false,
-            rbacError: null
+            rbacError: null,
+            mfaRequired: false,
+            mfaSetupRequired: false,
+            mfaTempToken: null,
+            mfaChallenge: null,
+            mfaChallengeId: null,
+            mfaUser: null,
           });
           return;
         }
@@ -486,7 +539,48 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
           throw new Error(result.error || 'Login failed');
         }
 
-        // Login successful - update state
+        // Check response status for MFA flows
+        const status = result.data?.status;
+
+        if (status === 'mfa_setup_required') {
+          // MFA setup required - show setup dialog
+          debugLog.auth('MFA setup required for:', result.data.user.email);
+          debugLog.auth(`CSRF token received: ${!!result.data.csrfToken}, length: ${result.data.csrfToken?.length || 0}`);
+          setState(prev => ({
+            ...prev,
+            isLoading: false,
+            mfaSetupRequired: true,
+            mfaTempToken: result.data.tempToken,
+            csrfToken: result.data.csrfToken || prev.csrfToken, // Use new authenticated CSRF token
+            mfaUser: result.data.user,
+            // Clear MFA verification state
+            mfaRequired: false,
+            mfaChallenge: null,
+            mfaChallengeId: null,
+          }));
+          return; // Exit - MFA setup dialog will be shown
+        }
+
+        if (status === 'mfa_required') {
+          // MFA verification required - show verification dialog
+          debugLog.auth('MFA verification required');
+          debugLog.auth(`CSRF token received: ${!!result.data.csrfToken}, length: ${result.data.csrfToken?.length || 0}`);
+          setState(prev => ({
+            ...prev,
+            isLoading: false,
+            mfaRequired: true,
+            mfaTempToken: result.data.tempToken,
+            csrfToken: result.data.csrfToken || prev.csrfToken, // Use new authenticated CSRF token
+            mfaChallenge: result.data.challenge,
+            mfaChallengeId: result.data.challengeId,
+            // Clear MFA setup state
+            mfaSetupRequired: false,
+            mfaUser: null,
+          }));
+          return; // Exit - MFA verification dialog will be shown
+        }
+
+        // Standard login successful - update state
         setState(prev => ({
           ...prev,
           user: result.data.user,
@@ -496,7 +590,14 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
           csrfToken: result.data.csrfToken || prev.csrfToken, // Use new authenticated token from login
           userContext: null, // Will be loaded by useEffect
           rbacLoading: false,
-          rbacError: null
+          rbacError: null,
+          // Clear MFA state
+          mfaRequired: false,
+          mfaSetupRequired: false,
+          mfaTempToken: null,
+          mfaChallenge: null,
+          mfaChallengeId: null,
+          mfaUser: null,
         }));
 
         debugLog.auth('Login successful for:', result.data.user.email);
@@ -565,7 +666,13 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
         csrfToken: null, // Clear CSRF token so next login gets fresh anonymous token
         userContext: null,
         rbacLoading: false,
-        rbacError: null
+        rbacError: null,
+        mfaRequired: false,
+        mfaSetupRequired: false,
+        mfaTempToken: null,
+        mfaChallenge: null,
+        mfaChallengeId: null,
+        mfaUser: null,
       });
 
       debugLog.auth('Logout successful');
@@ -580,7 +687,13 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
         csrfToken: null, // Clear CSRF token even on logout failure
         userContext: null,
         rbacLoading: false,
-        rbacError: null
+        rbacError: null,
+        mfaRequired: false,
+        mfaSetupRequired: false,
+        mfaTempToken: null,
+        mfaChallenge: null,
+        mfaChallengeId: null,
+        mfaUser: null,
       });
     }
   };
@@ -626,7 +739,13 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
           csrfToken: state.csrfToken,
           userContext: null,
           rbacLoading: false,
-          rbacError: null
+          rbacError: null,
+          mfaRequired: false,
+          mfaSetupRequired: false,
+          mfaTempToken: null,
+          mfaChallenge: null,
+          mfaChallengeId: null,
+          mfaUser: null,
         });
         return;
       }
@@ -658,7 +777,13 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
         csrfToken: state.csrfToken,
         userContext: null,
         rbacLoading: false,
-        rbacError: null
+        rbacError: null,
+        mfaRequired: false,
+        mfaSetupRequired: false,
+        mfaTempToken: null,
+        mfaChallenge: null,
+        mfaChallengeId: null,
+        mfaUser: null,
       });
     } finally {
       // Always release mutex
@@ -672,13 +797,103 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     }
   };
 
+  const completeMFASetup = (sessionData: {
+    user: {
+      id: string;
+      email: string;
+      name: string;
+      firstName: string;
+      lastName: string;
+      role: string;
+      emailVerified: boolean;
+      roles?: string[];
+      permissions?: string[];
+    };
+    sessionId: string;
+    csrfToken?: string;
+    accessToken?: string;
+  }) => {
+    debugLog.auth('MFA setup completed for:', sessionData.user.email);
+    setState(prev => ({
+      ...prev,
+      user: sessionData.user,
+      sessionId: sessionData.sessionId,
+      csrfToken: sessionData.csrfToken || prev.csrfToken,
+      isLoading: false,
+      isAuthenticated: true,
+      userContext: null, // Will be loaded by useEffect
+      rbacLoading: false,
+      rbacError: null,
+      // Clear MFA state
+      mfaRequired: false,
+      mfaSetupRequired: false,
+      mfaTempToken: null,
+      mfaChallenge: null,
+      mfaChallengeId: null,
+      mfaUser: null,
+    }));
+  };
+
+  const completeMFAVerification = (sessionData: {
+    user: {
+      id: string;
+      email: string;
+      name: string;
+      firstName: string;
+      lastName: string;
+      role: string;
+      emailVerified: boolean;
+      roles?: string[];
+      permissions?: string[];
+    };
+    sessionId: string;
+    csrfToken?: string;
+    accessToken?: string;
+  }) => {
+    debugLog.auth('MFA verification completed for:', sessionData.user.email);
+    setState(prev => ({
+      ...prev,
+      user: sessionData.user,
+      sessionId: sessionData.sessionId,
+      csrfToken: sessionData.csrfToken || prev.csrfToken,
+      isLoading: false,
+      isAuthenticated: true,
+      userContext: null, // Will be loaded by useEffect
+      rbacLoading: false,
+      rbacError: null,
+      // Clear MFA state
+      mfaRequired: false,
+      mfaSetupRequired: false,
+      mfaTempToken: null,
+      mfaChallenge: null,
+      mfaChallengeId: null,
+      mfaUser: null,
+    }));
+  };
+
+  const clearMFAState = () => {
+    setState(prev => ({
+      ...prev,
+      mfaRequired: false,
+      mfaSetupRequired: false,
+      mfaTempToken: null,
+      mfaChallenge: null,
+      mfaChallengeId: null,
+      mfaUser: null,
+      isLoading: false,
+    }));
+  };
+
   const contextValue: RBACAuthContextType = {
     ...state,
     login,
     logout,
     refreshToken,
     refreshUserContext,
-    ensureCsrfToken
+    ensureCsrfToken,
+    completeMFASetup,
+    completeMFAVerification,
+    clearMFAState,
   };
 
   return (

@@ -52,6 +52,13 @@ export interface DataSourceColumnWithMetadata {
   sort_order: number | null;
   default_aggregation: string | null;
 
+  // Icon display options
+  display_icon: boolean | null;
+  icon_type: string | null;
+  icon_color_mode: string | null;
+  icon_color: string | null;
+  icon_mapping: unknown;
+
   // Security and validation
   is_sensitive: boolean | null;
   access_level: string | null;

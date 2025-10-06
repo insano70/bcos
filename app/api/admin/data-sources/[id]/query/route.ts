@@ -241,7 +241,12 @@ const queryDataSourceHandler = async (request: NextRequest, userContext: UserCon
         name: col.column_name,
         display_name: col.display_name,
         data_type: col.data_type,
-        format_type: col.format_type
+        format_type: col.format_type,
+        display_icon: col.display_icon,
+        icon_type: col.icon_type,
+        icon_color_mode: col.icon_color_mode,
+        icon_color: col.icon_color,
+        icon_mapping: col.icon_mapping
       }))
     }, `Retrieved ${rows.length} rows`);
 

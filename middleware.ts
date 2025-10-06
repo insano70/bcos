@@ -21,6 +21,7 @@ const CSRF_EXEMPT_PATHS = [
   // - login/register use anonymous CSRF tokens
   // - oidc/callback uses state token + PKCE validation instead of CSRF
   // - refresh uses httpOnly refresh token cookie (immune to CSRF, already validated server-side)
+  // - MFA endpoints are NOT exempt - they require CSRF protection even with temp token
 ]
 
 function isCSRFExempt(pathname: string): boolean {

@@ -10,7 +10,7 @@
  */
 
 import { nanoid } from 'nanoid';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, lt } from 'drizzle-orm';
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -146,6 +146,13 @@ export async function completeRegistration(
   // Retrieve and validate challenge
   const challenge = await retrieveAndValidateChallenge(challengeId, userId, 'registration');
 
+  // Mark challenge as used immediately after validation to prevent reuse
+  // This must happen BEFORE any verification attempts to prevent retry attacks
+  await db
+    .update(webauthn_challenges)
+    .set({ used_at: new Date() })
+    .where(eq(webauthn_challenges.challenge_id, challengeId));
+
   // Verify registration response
   let verification: VerifiedRegistrationResponse;
   try {
@@ -198,55 +205,76 @@ export async function completeRegistration(
     throw new Error('This passkey is already registered');
   }
 
-  // Store credential in database
+  // Store credential in database with transaction boundary
+  // CRITICAL: All DB operations must succeed or all must fail
   const publicKeyStr = Buffer.from(publicKey).toString('base64url');
   const transportsJson = credential.transports ? JSON.stringify(credential.transports) : null;
 
-  await db.insert(webauthn_credentials).values({
-    credential_id: credentialIdStr,
-    user_id: userId,
-    public_key: publicKeyStr,
-    counter,
-    credential_device_type: credentialDeviceType,
-    transports: transportsJson,
-    aaguid: null, // Can extract from authenticatorData if needed
-    credential_name: credentialName,
-    backed_up: credentialBackedUp,
-    registration_ip: ipAddress,
-    registration_user_agent: userAgent,
-  });
+  try {
+    // Execute all database operations in a transaction
+    await db.transaction(async (tx) => {
+      // Insert credential
+      await tx.insert(webauthn_credentials).values({
+        credential_id: credentialIdStr,
+        user_id: userId,
+        public_key: publicKeyStr,
+        counter,
+        credential_device_type: credentialDeviceType,
+        transports: transportsJson,
+        aaguid: null,
+        credential_name: credentialName,
+        backed_up: credentialBackedUp,
+        registration_ip: ipAddress,
+        registration_user_agent: userAgent,
+      });
 
-  // Mark challenge as used
-  await markChallengeUsed(challengeId);
+      // Enable MFA in account_security (challenge already marked as used above)
+      const { ensureSecurityRecord } = await import('./security');
+      await ensureSecurityRecord(userId);
 
-  // Update account_security to enable MFA
-  await enableMFA(userId);
+      await tx
+        .update(account_security)
+        .set({
+          mfa_enabled: true,
+          mfa_method: 'webauthn',
+          mfa_enforced_at: new Date(),
+        })
+        .where(eq(account_security.user_id, userId));
+    });
 
-  // Audit log
-  await AuditLogger.logAuth({
-    action: 'mfa_registration_completed',
-    userId,
-    ipAddress,
-    userAgent: userAgent || undefined,
-    metadata: {
+    // Audit log (outside transaction - non-critical operation)
+    await AuditLogger.logAuth({
+      action: 'mfa_registration_completed',
+      userId,
+      ipAddress,
+      userAgent: userAgent || undefined,
+      metadata: {
+        credentialId: credentialIdStr.substring(0, 16),
+        credentialName,
+        deviceType: credentialDeviceType,
+        backedUp: credentialBackedUp,
+      },
+    });
+
+    log.info('WebAuthn credential registered successfully', {
+      userId,
       credentialId: credentialIdStr.substring(0, 16),
       credentialName,
       deviceType: credentialDeviceType,
-      backedUp: credentialBackedUp,
-    },
-  });
+    });
 
-  log.info('WebAuthn credential registered successfully', {
-    userId,
-    credentialId: credentialIdStr.substring(0, 16),
-    credentialName,
-    deviceType: credentialDeviceType,
-  });
-
-  return {
-    credential_id: credentialIdStr,
-    credential_name: credentialName,
-  };
+    return {
+      credential_id: credentialIdStr,
+      credential_name: credentialName,
+    };
+  } catch (error) {
+    log.error('WebAuthn registration transaction failed', {
+      error: error instanceof Error ? error.message : String(error),
+      userId,
+      credentialName,
+    });
+    throw new Error('Failed to complete passkey registration. Please try again.');
+  }
 }
 
 /**
@@ -324,6 +352,13 @@ export async function completeAuthentication(
 
   // Retrieve and validate challenge
   const challenge = await retrieveAndValidateChallenge(challengeId, userId, 'authentication');
+
+  // Mark challenge as used immediately after validation to prevent reuse
+  // This must happen BEFORE any verification attempts to prevent retry attacks
+  await db
+    .update(webauthn_challenges)
+    .set({ used_at: new Date() })
+    .where(eq(webauthn_challenges.challenge_id, challengeId));
 
   // Get credential from database
   const credentialIdStr = assertion.id;
@@ -416,7 +451,8 @@ export async function completeAuthentication(
   const { newCounter } = verification.authenticationInfo;
 
   // SECURITY: Counter regression detection (cloned authenticator)
-  if (newCounter <= credential.counter) {
+  // Counter must DECREASE to indicate cloning (not just stay same)
+  if (newCounter < credential.counter) {
     log.error('WebAuthn counter regression detected - possible cloned authenticator', {
       userId,
       credentialId: credentialIdStr.substring(0, 16),
@@ -450,42 +486,51 @@ export async function completeAuthentication(
     };
   }
 
-  // Update counter and last_used
-  await db
-    .update(webauthn_credentials)
-    .set({
-      counter: newCounter,
-      last_used: new Date(),
-    })
-    .where(eq(webauthn_credentials.credential_id, credentialIdStr));
+  // Update counter (challenge already marked as used above)
+  try {
+    await db
+      .update(webauthn_credentials)
+      .set({
+        counter: newCounter,
+        last_used: new Date(),
+      })
+      .where(eq(webauthn_credentials.credential_id, credentialIdStr));
 
-  // Mark challenge as used
-  await markChallengeUsed(challengeId);
+    // Audit log (outside transaction - non-critical)
+    await AuditLogger.logAuth({
+      action: 'mfa_verification_success',
+      userId,
+      ipAddress,
+      userAgent: userAgent || undefined,
+      metadata: {
+        credentialId: credentialIdStr.substring(0, 16),
+        credentialName: credential.credential_name,
+        newCounter,
+      },
+    });
 
-  // Audit log
-  await AuditLogger.logAuth({
-    action: 'mfa_verification_success',
-    userId,
-    ipAddress,
-    userAgent: userAgent || undefined,
-    metadata: {
+    log.info('WebAuthn authentication successful', {
+      userId,
       credentialId: credentialIdStr.substring(0, 16),
       credentialName: credential.credential_name,
-      newCounter,
-    },
-  });
+    });
 
-  log.info('WebAuthn authentication successful', {
-    userId,
-    credentialId: credentialIdStr.substring(0, 16),
-    credentialName: credential.credential_name,
-  });
-
-  return {
-    success: true,
-    credentialId: credentialIdStr,
-    counter: newCounter,
-  };
+    return {
+      success: true,
+      credentialId: credentialIdStr,
+      counter: newCounter,
+    };
+  } catch (error) {
+    log.error('WebAuthn verification transaction failed', {
+      error: error instanceof Error ? error.message : String(error),
+      userId,
+      credentialId: credentialIdStr.substring(0, 16),
+    });
+    return {
+      success: false,
+      error: 'Failed to complete passkey verification. Please try again.',
+    };
+  }
 }
 
 /**
@@ -675,40 +720,13 @@ async function retrieveAndValidateChallenge(
 }
 
 /**
- * Helper: Mark challenge as used
- */
-async function markChallengeUsed(challengeId: string): Promise<void> {
-  await db
-    .update(webauthn_challenges)
-    .set({ used_at: new Date() })
-    .where(eq(webauthn_challenges.challenge_id, challengeId));
-}
-
-/**
- * Helper: Enable MFA for user
- */
-async function enableMFA(userId: string): Promise<void> {
-  const { ensureSecurityRecord } = await import('./security');
-  await ensureSecurityRecord(userId);
-
-  await db
-    .update(account_security)
-    .set({
-      mfa_enabled: true,
-      mfa_method: 'webauthn',
-      mfa_enforced_at: new Date(),
-    })
-    .where(eq(account_security.user_id, userId));
-}
-
-/**
  * Cleanup expired challenges (maintenance function)
  */
 export async function cleanupExpiredChallenges(): Promise<number> {
   const now = new Date();
   const result = await db
     .delete(webauthn_challenges)
-    .where(eq(webauthn_challenges.expires_at, now));
+    .where(lt(webauthn_challenges.expires_at, now));
 
   const count = Array.isArray(result) ? result.length : 0;
 

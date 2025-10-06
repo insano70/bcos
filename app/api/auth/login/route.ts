@@ -239,15 +239,43 @@ const loginHandler = async (request: NextRequest) => {
     // Clear failed attempts on successful login
     await clearFailedAttempts(email)
 
-    // CHECK MFA STATUS - If MFA is enabled, require passkey verification
+    // CHECK MFA STATUS - Before creating full session
     const { getMFAStatus, beginAuthentication } = await import('@/lib/auth/webauthn')
     const { createMFATempToken } = await import('@/lib/auth/webauthn-temp-token')
 
     const mfaStatus = await getMFAStatus(user.user_id)
 
+    // EDGE CASE: MFA enabled but all credentials disabled
+    // This can happen if passkeys were disabled due to security issues
+    if (mfaStatus.enabled && mfaStatus.credential_count === 0) {
+      log.error('MFA enabled but no active credentials', {
+        userId: user.user_id,
+        mfaEnabled: mfaStatus.enabled,
+        credentialCount: mfaStatus.credential_count,
+      })
+
+      await AuditLogger.logAuth({
+        action: 'login_failed',
+        userId: user.user_id,
+        ipAddress,
+        userAgent,
+        metadata: {
+          reason: 'mfa_enabled_no_active_credentials',
+          correlationId: correlation.current(),
+        },
+      })
+
+      const totalDuration = Date.now() - startTime
+      log.api('POST /api/auth/login - MFA Locked', request, 403, totalDuration)
+
+      throw AuthenticationError(
+        'Your passkey authentication is unavailable. Please contact support to reset your account security.'
+      )
+    }
+
+    // If MFA is enabled with active credentials, require passkey verification
     if (mfaStatus.enabled && mfaStatus.credential_count > 0) {
-      // MFA is enabled - require passkey verification
-      log.info('MFA required for user', {
+      log.info('MFA verification required for user', {
         userId: user.user_id,
         credentialCount: mfaStatus.credential_count,
       })
@@ -259,8 +287,12 @@ const loginHandler = async (request: NextRequest) => {
         userAgent
       )
 
-      // Create temporary token for MFA flow
+      // Create temporary MFA token (NOT a full session)
       const tempToken = await createMFATempToken(user.user_id, challenge_id)
+
+      // Generate anonymous CSRF token for MFA requests
+      const { generateAnonymousToken } = await import('@/lib/security/csrf-unified')
+      const csrfToken = await generateAnonymousToken(request)
 
       await AuditLogger.logAuth({
         action: 'mfa_challenge_issued',
@@ -276,224 +308,62 @@ const loginHandler = async (request: NextRequest) => {
       const totalDuration = Date.now() - startTime
       log.api('POST /api/auth/login - MFA Required', request, 200, totalDuration)
 
-      // Return MFA challenge response
+      // Return MFA challenge response with temp token and CSRF (NOT a session)
       return createSuccessResponse(
         {
           status: 'mfa_required',
           tempToken,
           challenge: options,
           challengeId: challenge_id,
+          csrfToken,
         },
         'MFA verification required'
       )
     }
 
-    if (!mfaStatus.enabled) {
-      // MFA not yet configured - require setup on first login
-      log.info('MFA setup required for user', {
-        userId: user.user_id,
-      })
-
-      // Create temporary token for MFA setup
-      const tempToken = await createMFATempToken(user.user_id)
-
-      await AuditLogger.logAuth({
-        action: 'mfa_setup_required',
-        userId: user.user_id,
-        ipAddress,
-        userAgent,
-        metadata: {
-          reason: 'first_login',
-          correlationId: correlation.current(),
-        },
-      })
-
-      const totalDuration = Date.now() - startTime
-      log.api('POST /api/auth/login - MFA Setup Required', request, 200, totalDuration)
-
-      // Return MFA setup required response
-      return createSuccessResponse(
-        {
-          status: 'mfa_setup_required',
-          tempToken,
-          user: {
-            id: user.user_id,
-            email: user.email,
-            name: `${user.first_name} ${user.last_name}`,
-          },
-        },
-        'Passkey setup required'
-      )
-    }
-
-    // Generate device info
-    const deviceGenStartTime = Date.now()
-    const deviceFingerprint = generateDeviceFingerprint(ipAddress, userAgent)
-    const deviceName = generateDeviceName(userAgent)
-
-    const deviceInfo = {
-      ipAddress,
-      userAgent,
-      fingerprint: deviceFingerprint,
-      deviceName
-    }
-    log.info('Device info generated', { duration: Date.now() - deviceGenStartTime })
-
-    log.debug('Device information generated', {
-      deviceName,
-      fingerprintHash: deviceFingerprint.substring(0, 8) + '...'
-    })
-
-    // Get user's RBAC context to determine roles
-    const rbacStartTime = Date.now()
-    const userContext = await getCachedUserContextSafe(user.user_id)
-    log.info('RBAC context fetched', { duration: Date.now() - rbacStartTime })
-
-    log.debug('User RBAC context loaded', {
+    // Password users require MFA setup if not yet configured
+    log.info('MFA setup required for password user', {
       userId: user.user_id,
-      roleCount: userContext?.roles?.length || 0,
-      permissionCount: userContext?.all_permissions?.length || 0
+      mfaEnabled: mfaStatus.enabled,
+      credentialCount: mfaStatus.credential_count,
     })
 
-    // Create token pair with email parameter for audit logging
-    const tokenStartTime = Date.now()
-    const tokenPair = await createTokenPair(
-      user.user_id,
-      deviceInfo,
-      remember || false,
-      email // Pass email for audit logging
-    )
-    log.info('Tokens generated', { duration: Date.now() - tokenStartTime })
+    // Create temporary MFA token for setup (NOT a full session)
+    const tempToken = await createMFATempToken(user.user_id)
 
-    // Set secure httpOnly cookies for both tokens
-    const cookieStartTime = Date.now()
-    const cookieStore = await cookies()
-    // Use NODE_ENV to determine cookie security (staging should use NODE_ENV=production)
-    const isSecureEnvironment = process.env.NODE_ENV === 'production'
-    const maxAge = remember ? 30 * 24 * 60 * 60 : 7 * 24 * 60 * 60 // 30 days or 7 days
+    // Generate anonymous CSRF token for MFA requests
+    const { generateAnonymousToken } = await import('@/lib/security/csrf-unified')
+    const csrfToken = await generateAnonymousToken(request)
 
-    log.debug('Preparing authentication cookies', {
-      nodeEnv: process.env.NODE_ENV,
-      environment: process.env.ENVIRONMENT,
-      isSecureEnvironment,
-      maxAge,
-      rememberMe: remember,
-      refreshTokenLength: tokenPair.refreshToken.length,
-      accessTokenLength: tokenPair.accessToken.length
-    })
-
-    // Set HTTP-only refresh token cookie (server-only)
-    const refreshResult = cookieStore.set('refresh-token', tokenPair.refreshToken, {
-      httpOnly: true,
-      secure: isSecureEnvironment,
-      sameSite: 'strict',
-      path: '/',
-      maxAge
-    })
-
-    // Set secure access token cookie (server-only, much more secure)
-    const accessResult = cookieStore.set('access-token', tokenPair.accessToken, {
-      httpOnly: true, // ✅ SECURE: JavaScript cannot access this token
-      secure: isSecureEnvironment,
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 15 * 60 // 15 minutes
-    })
-
-    // Verify cookies were set
-    const refreshCookie = cookieStore.get('refresh-token')
-    const accessCookie = cookieStore.get('access-token')
-
-    const cookiesValid = !!refreshCookie?.value && !!accessCookie?.value
-    log.info('Cookie setup completed', {
-      duration: Date.now() - cookieStartTime,
-      cookiesSet: cookiesValid,
-      refreshCookieLength: refreshCookie?.value?.length || 0,
-      accessCookieLength: accessCookie?.value?.length || 0
-    })
-
-    if (!cookiesValid) {
-      log.error('Authentication cookies failed to set', undefined, {
-        refreshCookieExists: !!refreshCookie,
-        accessCookieExists: !!accessCookie,
-        refreshHasValue: !!refreshCookie?.value,
-        accessHasValue: !!accessCookie?.value
-      })
-      throw new Error('Failed to set authentication cookies')
-    }
-
-    log.info('Authentication cookies set successfully', {
-      userId: user.user_id,
-      sessionId: tokenPair.sessionId
-    })
-
-    // Successful authentication logging
-    log.auth('login_success', true, {
-      userId: user.user_id,
-      ...(userContext?.current_organization_id && {
-        organizationId: userContext.current_organization_id
-      }),
-      sessionDuration: remember ? 2592000 : 86400,
-      permissions: userContext?.all_permissions?.map(p => p.name) || []
-    })
-
-    // Security success event
-    log.security('successful_authentication', 'low', {
-      action: 'authentication_granted',
-      userId: user.user_id,
-      reason: 'valid_credentials'
-    })
-
-    // Log successful login to audit system
     await AuditLogger.logAuth({
-      action: 'login',
+      action: 'mfa_setup_required',
       userId: user.user_id,
       ipAddress,
       userAgent,
       metadata: {
-        email,
-        sessionId: tokenPair.sessionId,
-        rememberMe: remember,
-        deviceFingerprint,
-        correlationId: correlation.current()
-      }
+        reason: 'password_login_requires_mfa',
+        correlationId: correlation.current(),
+      },
     })
-
-    // Get the user's actual assigned roles
-    const userRoles = userContext?.roles?.map(r => r.name) || [];
-    const primaryRole = userRoles.length > 0 ? userRoles[0] : 'user';
 
     const totalDuration = Date.now() - startTime
+    log.api('POST /api/auth/login - MFA Setup Required', request, 200, totalDuration)
 
-    // Generate new authenticated CSRF token tied to the user
-    const csrfToken = await setCSRFToken(user.user_id)
-
-    const response = createSuccessResponse({
-      user: {
-        id: user.user_id,
-        email: user.email,
-        name: `${user.first_name} ${user.last_name}`,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        role: primaryRole, // First role as primary, or 'user' if none
-        emailVerified: user.email_verified,
-        roles: userRoles, // All explicitly assigned roles
-        permissions: userContext?.all_permissions?.map(p => p.name) || []
+    // Return MFA setup required response with temp token and CSRF (NOT a session)
+    return createSuccessResponse(
+      {
+        status: 'mfa_setup_required',
+        tempToken,
+        user: {
+          id: user.user_id,
+          email: user.email,
+          name: `${user.first_name} ${user.last_name}`,
+        },
+        csrfToken,
       },
-      accessToken: tokenPair.accessToken,
-      sessionId: tokenPair.sessionId,
-      expiresAt: tokenPair.expiresAt.toISOString(),
-      csrfToken // Include new CSRF token in response
-    }, 'Login successful')
+      'Passkey setup required for password login'
+    )
 
-    log.info('Authenticated CSRF token generated for user', {
-      userId: user.user_id,
-      tokenLength: csrfToken.length
-    })
-
-    log.api('POST /api/auth/login - Success', request, 200, totalDuration)
-    
-    return response
     
   } catch (error) {
     const totalDuration = Date.now() - startTime

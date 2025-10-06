@@ -3,15 +3,17 @@
  * Enhanced tooltip callbacks for charts with period comparison data
  */
 
+import type { TooltipItem, TooltipModel } from 'chart.js';
 import { simplifiedChartTransformer } from './simplified-chart-transformer';
 
-export interface PeriodComparisonTooltipContext {
-  chart: any;
-  dataIndex: number;
-  dataset: any;
-  parsed: { x: number; y: number };
-  label: string;
+// Extended dataset type with custom properties
+interface ExtendedDataset {
+  label?: string;
+  data?: unknown[];
+  measureType?: string;
+  [key: string]: unknown;
 }
+
 
 /**
  * Enhanced tooltip callback for period comparison charts
@@ -21,50 +23,56 @@ export function createPeriodComparisonTooltipCallbacks(
   _darkMode: boolean = false
 ) {
   return {
-    title: (context: PeriodComparisonTooltipContext[]) => {
+    title: function(this: TooltipModel<'bar'>, tooltipItems: TooltipItem<'bar'>[]) {
       // Format tooltip title based on frequency
-      const date = new Date(context[0]?.label || '');
+      const date = new Date(tooltipItems[0]?.label || '');
       return date.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
         day: frequency === 'Weekly' ? 'numeric' : undefined
       });
     },
-    label: (context: PeriodComparisonTooltipContext) => {
+    label: function(this: TooltipModel<'bar'>, tooltipItem: TooltipItem<'bar'>) {
       // Get measure type from dataset metadata
-      const measureType = context.dataset?.measureType || 
-                         context.chart.data?.measureType || 
-                         'number';
-      const formattedValue = simplifiedChartTransformer.formatValue(context.parsed.y, measureType);
+      const dataset = tooltipItem.dataset as ExtendedDataset;
+      const chartData = this.chart.data as { measureType?: string };
+      const measureType = dataset?.measureType || chartData?.measureType || 'number';
+      const parsed = tooltipItem.parsed as { x: number; y: number };
+      const formattedValue = simplifiedChartTransformer.formatValue(parsed.y, measureType);
       
       // Check if this is a comparison dataset
-      const isComparison = context.dataset.label?.includes('Previous') || 
-                          context.dataset.label?.includes('Last Year') ||
-                          context.dataset.label?.includes('Ago');
+      const isComparison = dataset.label?.includes('Previous') || 
+                          dataset.label?.includes('Last Year') ||
+                          dataset.label?.includes('Ago');
       
       // Add visual indicator for comparison data
       const prefix = isComparison ? '📊 ' : '📈 ';
-      return `${prefix}${context.dataset.label}: ${formattedValue}`;
+      return `${prefix}${dataset.label}: ${formattedValue}`;
     },
-    footer: (context: PeriodComparisonTooltipContext[]) => {
+    footer: function(this: TooltipModel<'bar'>, tooltipItems: TooltipItem<'bar'>[]) {
       // Calculate difference between current and comparison periods
-      const currentData = context.find(c => 
-        c.dataset.label?.includes('Current') || 
-        (!c.dataset.label?.includes('Previous') && !c.dataset.label?.includes('Last Year') && !c.dataset.label?.includes('Ago'))
-      );
-      const comparisonData = context.find(c => 
-        c.dataset.label?.includes('Previous') || 
-        c.dataset.label?.includes('Last Year') ||
-        c.dataset.label?.includes('Ago')
-      );
+      const currentData = tooltipItems.find(c => {
+        const dataset = c.dataset as ExtendedDataset;
+        return dataset.label?.includes('Current') || 
+               (!dataset.label?.includes('Previous') && !dataset.label?.includes('Last Year') && !dataset.label?.includes('Ago'));
+      });
+      const comparisonData = tooltipItems.find(c => {
+        const dataset = c.dataset as ExtendedDataset;
+        return dataset.label?.includes('Previous') || 
+               dataset.label?.includes('Last Year') ||
+               dataset.label?.includes('Ago');
+      });
 
       if (currentData && comparisonData) {
-        const currentValue = currentData.parsed.y;
-        const comparisonValue = comparisonData.parsed.y;
+        const currentParsed = currentData.parsed as { x: number; y: number };
+        const comparisonParsed = comparisonData.parsed as { x: number; y: number };
+        const currentValue = currentParsed.y;
+        const comparisonValue = comparisonParsed.y;
         const difference = currentValue - comparisonValue;
         const percentageChange = comparisonValue !== 0 ? (difference / comparisonValue) * 100 : 0;
 
-        const measureType = currentData.dataset?.measureType || 'number';
+        const currentDataset = currentData.dataset as ExtendedDataset;
+        const measureType = currentDataset?.measureType || 'number';
         const formattedDifference = simplifiedChartTransformer.formatValue(Math.abs(difference), measureType);
         
         const changeIcon = difference >= 0 ? '📈' : '📉';
@@ -89,45 +97,51 @@ export function createPeriodComparisonHorizontalTooltipCallbacks(
   _darkMode: boolean = false
 ) {
   return {
-    title: (context: PeriodComparisonTooltipContext[]) => {
+    title: function(this: TooltipModel<'bar'>, tooltipItems: TooltipItem<'bar'>[]) {
       // Show the category label as title
-      return context[0]?.label || '';
+      return tooltipItems[0]?.label || '';
     },
-    label: (context: PeriodComparisonTooltipContext) => {
+    label: function(this: TooltipModel<'bar'>, tooltipItem: TooltipItem<'bar'>) {
       // Get measure type from dataset metadata
-      const measureType = context.dataset?.measureType || 
-                         context.chart.data?.measureType || 
-                         'number';
-      const formattedValue = simplifiedChartTransformer.formatValue(context.parsed.x, measureType);
+      const dataset = tooltipItem.dataset as ExtendedDataset;
+      const chartData = this.chart.data as { measureType?: string };
+      const measureType = dataset?.measureType || chartData?.measureType || 'number';
+      const parsed = tooltipItem.parsed as { x: number; y: number };
+      const formattedValue = simplifiedChartTransformer.formatValue(parsed.x, measureType);
       
       // Check if this is a comparison dataset
-      const isComparison = context.dataset.label?.includes('Previous') || 
-                          context.dataset.label?.includes('Last Year') ||
-                          context.dataset.label?.includes('Ago');
+      const isComparison = dataset.label?.includes('Previous') || 
+                          dataset.label?.includes('Last Year') ||
+                          dataset.label?.includes('Ago');
       
       // Add visual indicator for comparison data
       const prefix = isComparison ? '📊 ' : '📈 ';
-      return `${prefix}${context.dataset.label}: ${formattedValue}`;
+      return `${prefix}${dataset.label}: ${formattedValue}`;
     },
-    footer: (context: PeriodComparisonTooltipContext[]) => {
+    footer: function(this: TooltipModel<'bar'>, tooltipItems: TooltipItem<'bar'>[]) {
       // Calculate difference between current and comparison periods
-      const currentData = context.find(c => 
-        c.dataset.label?.includes('Current') || 
-        (!c.dataset.label?.includes('Previous') && !c.dataset.label?.includes('Last Year') && !c.dataset.label?.includes('Ago'))
-      );
-      const comparisonData = context.find(c => 
-        c.dataset.label?.includes('Previous') || 
-        c.dataset.label?.includes('Last Year') ||
-        c.dataset.label?.includes('Ago')
-      );
+      const currentData = tooltipItems.find(c => {
+        const dataset = c.dataset as ExtendedDataset;
+        return dataset.label?.includes('Current') || 
+               (!dataset.label?.includes('Previous') && !dataset.label?.includes('Last Year') && !dataset.label?.includes('Ago'));
+      });
+      const comparisonData = tooltipItems.find(c => {
+        const dataset = c.dataset as ExtendedDataset;
+        return dataset.label?.includes('Previous') || 
+               dataset.label?.includes('Last Year') ||
+               dataset.label?.includes('Ago');
+      });
 
       if (currentData && comparisonData) {
-        const currentValue = currentData.parsed.x;
-        const comparisonValue = comparisonData.parsed.x;
+        const currentParsed = currentData.parsed as { x: number; y: number };
+        const comparisonParsed = comparisonData.parsed as { x: number; y: number };
+        const currentValue = currentParsed.x;
+        const comparisonValue = comparisonParsed.x;
         const difference = currentValue - comparisonValue;
         const percentageChange = comparisonValue !== 0 ? (difference / comparisonValue) * 100 : 0;
 
-        const measureType = currentData.dataset?.measureType || 'number';
+        const currentDataset = currentData.dataset as ExtendedDataset;
+        const measureType = currentDataset?.measureType || 'number';
         const formattedDifference = simplifiedChartTransformer.formatValue(Math.abs(difference), measureType);
         
         const changeIcon = difference >= 0 ? '📈' : '📉';
@@ -153,41 +167,51 @@ export function createPeriodComparisonStackedTooltipCallbacks(
 ) {
   return {
     title: () => '',
-    label: (context: PeriodComparisonTooltipContext) => {
+    label: function(this: TooltipModel<'bar'>, tooltipItem: TooltipItem<'bar'>) {
       // Get measure type from dataset metadata
-      const measureType = context.dataset?.measureType || 
-                         context.chart.data?.measureType || 
-                         'number';
-      const formattedValue = simplifiedChartTransformer.formatValue(context.parsed.y, measureType);
+      const dataset = tooltipItem.dataset as ExtendedDataset;
+      const chartData = this.chart.data as { measureType?: string };
+      const measureType = dataset?.measureType || chartData?.measureType || 'number';
+      const parsed = tooltipItem.parsed as { x: number; y: number };
+      const formattedValue = simplifiedChartTransformer.formatValue(parsed.y, measureType);
       
       // Check if this is a comparison dataset
-      const isComparison = context.dataset.label?.includes('Previous') || 
-                          context.dataset.label?.includes('Last Year') ||
-                          context.dataset.label?.includes('Ago');
+      const isComparison = dataset.label?.includes('Previous') || 
+                          dataset.label?.includes('Last Year') ||
+                          dataset.label?.includes('Ago');
       
       // Add visual indicator for comparison data
       const prefix = isComparison ? '📊 ' : '📈 ';
-      return `${prefix}${context.dataset.label}: ${formattedValue}`;
+      return `${prefix}${dataset.label}: ${formattedValue}`;
     },
-    footer: (tooltipItems: PeriodComparisonTooltipContext[]) => {
+    footer: function(this: TooltipModel<'bar'>, tooltipItems: TooltipItem<'bar'>[]) {
       // Calculate total for current period
       const currentTotal = tooltipItems
-        .filter(item => 
-          item.dataset.label?.includes('Current') || 
-          (!item.dataset.label?.includes('Previous') && !item.dataset.label?.includes('Last Year') && !item.dataset.label?.includes('Ago'))
-        )
-        .reduce((sum, item) => sum + item.parsed.y, 0);
+        .filter(item => {
+          const dataset = item.dataset as ExtendedDataset;
+          return dataset.label?.includes('Current') || 
+                 (!dataset.label?.includes('Previous') && !dataset.label?.includes('Last Year') && !dataset.label?.includes('Ago'));
+        })
+        .reduce((sum, item) => {
+          const parsed = item.parsed as { x: number; y: number };
+          return sum + parsed.y;
+        }, 0);
 
       // Calculate total for comparison period
       const comparisonTotal = tooltipItems
-        .filter(item => 
-          item.dataset.label?.includes('Previous') || 
-          item.dataset.label?.includes('Last Year') ||
-          item.dataset.label?.includes('Ago')
-        )
-        .reduce((sum, item) => sum + item.parsed.y, 0);
+        .filter(item => {
+          const dataset = item.dataset as ExtendedDataset;
+          return dataset.label?.includes('Previous') || 
+                 dataset.label?.includes('Last Year') ||
+                 dataset.label?.includes('Ago');
+        })
+        .reduce((sum, item) => {
+          const parsed = item.parsed as { x: number; y: number };
+          return sum + parsed.y;
+        }, 0);
 
-      const measureType = tooltipItems[0]?.dataset?.measureType || 'number';
+      const firstDataset = tooltipItems[0]?.dataset as ExtendedDataset;
+      const measureType = firstDataset?.measureType || 'number';
       const formattedCurrentTotal = simplifiedChartTransformer.formatValue(currentTotal, measureType);
       
       const results = [`Current Total: ${formattedCurrentTotal}`];

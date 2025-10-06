@@ -3,6 +3,13 @@
  * Color palettes and utilities for period comparison visualization
  */
 
+// Extended dataset type with custom properties
+interface ExtendedDataset {
+  label?: string;
+  data?: unknown[];
+  [key: string]: unknown;
+}
+
 export interface ColorScheme {
   name: string;
   description: string;
@@ -139,10 +146,10 @@ export function getAllColorSchemes(): ColorScheme[] {
  * Apply period comparison colors to chart datasets
  */
 export function applyPeriodComparisonColors(
-  datasets: any[],
+  datasets: ExtendedDataset[],
   colorScheme: ColorScheme,
   chartType: 'line' | 'bar' | 'area' | 'pie' | 'doughnut' | 'horizontal-bar' | 'progress-bar' | 'table' = 'bar'
-): any[] {
+): ExtendedDataset[] {
   return datasets.map((dataset, _index) => {
     const isComparison = dataset.label?.includes('Previous') || 
                         dataset.label?.includes('Last Year') ||

@@ -6,7 +6,12 @@ interface TableColumn {
   columnName: string;
   displayName: string;
   dataType: string;
-  formatType?: string | null;
+  formatType?: string | null | undefined;
+  displayIcon?: boolean | null | undefined;
+  iconType?: string | null | undefined;
+  iconColorMode?: string | null | undefined;
+  iconColor?: string | null | undefined;
+  iconMapping?: unknown;
 }
 
 interface AnalyticsTableChartProps {
@@ -123,6 +128,110 @@ export default function AnalyticsTableChart({
     return 'text-left';
   };
 
+  // Extract initials from text
+  const getInitials = (text: string, type: 'initials' | 'first_letter' = 'initials'): string => {
+    if (!text) return '?';
+
+    const cleaned = String(text).trim();
+    if (!cleaned) return '?';
+
+    if (type === 'first_letter') {
+      return cleaned.charAt(0).toUpperCase();
+    }
+
+    // Extract initials from words
+    const words = cleaned.split(/\s+/).filter(word => word.length > 0);
+    if (words.length === 0) return '?';
+
+    if (words.length === 1) {
+      // Single word: take first letter only
+      return cleaned.charAt(0).toUpperCase();
+    }
+
+    // Multiple words: take first letter of first 3 words
+    return words
+      .slice(0, 3)
+      .map(word => word.charAt(0).toUpperCase())
+      .join('');
+  };
+
+  // Generate color from text hash
+  const getColorFromText = (text: string): string => {
+    if (!text) return 'gray-500';
+
+    // Color palette matching fintech examples
+    const colors = [
+      'violet-500',
+      'sky-500',
+      'green-500',
+      'red-500',
+      'amber-500',
+      'indigo-500',
+      'pink-500',
+      'cyan-500',
+      'emerald-500',
+      'orange-500',
+    ];
+
+    // Simple hash function
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+      hash = text.charCodeAt(i) + ((hash << 5) - hash);
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+
+    const index = Math.abs(hash) % colors.length;
+    return colors[index] ?? 'gray-500';
+  };
+
+  // Get icon color for a value
+  const getIconColor = (value: unknown, column: TableColumn): string => {
+    const stringValue = String(value || '');
+
+    if (column.iconColorMode === 'fixed' && column.iconColor) {
+      return column.iconColor || 'gray-500';
+    }
+
+    if (column.iconColorMode === 'mapped' && column.iconMapping && typeof column.iconMapping === 'object' && column.iconMapping !== null) {
+      const mappingObj = column.iconMapping as Record<string, unknown>;
+      const mapping = mappingObj[stringValue];
+      if (mapping && typeof mapping === 'object' && 'color' in mapping) {
+        return String((mapping as { color: string }).color);
+      }
+      if (typeof mapping === 'string') {
+        return mapping;
+      }
+    }
+
+    // Default: auto-generate from text
+    return getColorFromText(stringValue);
+  };
+
+  // Get icon content (initials or emoji)
+  const getIconContent = (value: unknown, column: TableColumn): string => {
+    const stringValue = String(value || '');
+
+    // Check for emoji mapping first
+    if (column.iconMapping && typeof column.iconMapping === 'object' && column.iconMapping !== null) {
+      const mappingObj = column.iconMapping as Record<string, unknown>;
+      const mapping = mappingObj[stringValue];
+      if (mapping && typeof mapping === 'object' && 'icon' in mapping) {
+        return String((mapping as { icon: string }).icon);
+      }
+      if (mapping && typeof mapping === 'object' && 'emoji' in mapping) {
+        return String((mapping as { emoji: string }).emoji);
+      }
+    }
+
+    // Fall back to initials
+    const iconType: string = column.iconType || 'initials';
+    if (iconType === 'emoji') {
+      return '📋'; // Default emoji fallback
+    }
+
+    return getInitials(stringValue, iconType === 'first_letter' ? 'first_letter' : 'initials');
+  };
+
   return (
     <div style={{ height: `${height}px` }} className="w-full">
       {title && (
@@ -151,13 +260,31 @@ export default function AnalyticsTableChart({
             <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
               {data.map((row, rowIndex) => (
                 <tr key={rowIndex}>
-                  {columns.map((column, colIndex) => (
-                    <td key={`${rowIndex}-${column.columnName}`} className="p-2 whitespace-nowrap">
-                      <div className={`${colIndex === 0 ? 'font-medium text-gray-800 dark:text-gray-100' : ''} ${getAlignment(column)}`}>
-                        {formatValue(row[column.columnName], column)}
-                      </div>
-                    </td>
-                  ))}
+                  {columns.map((column, colIndex) => {
+                    const cellValue = row[column.columnName];
+                    const showIcon = column.displayIcon && colIndex === 0;
+
+                    return (
+                      <td key={`${rowIndex}-${column.columnName}`} className="p-2 whitespace-nowrap">
+                        {showIcon ? (
+                          <div className="flex items-center">
+                            <div className={`shrink-0 rounded-full mr-2 sm:mr-3 bg-${getIconColor(cellValue, column)} flex items-center justify-center w-9 h-9`}>
+                              <span className="text-white font-semibold text-sm">
+                                {getIconContent(cellValue, column)}
+                              </span>
+                            </div>
+                            <div className="font-medium text-gray-800 dark:text-gray-100">
+                              {formatValue(cellValue, column)}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className={`${colIndex === 0 ? 'font-medium text-gray-800 dark:text-gray-100' : ''} ${getAlignment(column)}`}>
+                            {formatValue(cellValue, column)}
+                          </div>
+                        )}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>

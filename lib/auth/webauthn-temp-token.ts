@@ -10,7 +10,6 @@
  */
 
 import { SignJWT, jwtVerify } from 'jose';
-import { getJWTConfig } from '@/lib/env';
 import { log } from '@/lib/logger';
 import type { MFATempTokenPayload } from '@/lib/types/webauthn';
 
@@ -21,11 +20,20 @@ const TEMP_TOKEN_DURATION_MS = 5 * 60 * 1000;
 
 /**
  * Get JWT secret for temp tokens
- * Uses same secret as access tokens for simplicity
+ * Uses dedicated MFA_TEMP_TOKEN_SECRET for security isolation
  */
 function getTempTokenSecret(): Uint8Array {
-  const jwtConfig = getJWTConfig();
-  return new TextEncoder().encode(jwtConfig.accessSecret);
+  const secret = process.env.MFA_TEMP_TOKEN_SECRET;
+
+  if (!secret) {
+    throw new Error('MFA_TEMP_TOKEN_SECRET environment variable is required');
+  }
+
+  if (secret.length < 32) {
+    throw new Error('MFA_TEMP_TOKEN_SECRET must be at least 32 characters');
+  }
+
+  return new TextEncoder().encode(secret);
 }
 
 /**
@@ -39,20 +47,15 @@ export async function createMFATempToken(userId: string, challengeId?: string): 
   const exp = Math.floor((now + TEMP_TOKEN_DURATION_MS) / 1000);
   const iat = Math.floor(now / 1000);
 
-  const payload: Omit<MFATempTokenPayload, 'sub' | 'type' | 'exp' | 'iat'> & {
-    sub: string;
-    type: 'mfa_pending';
-    exp: number;
-    iat: number;
-  } = {
+  const payload = {
     sub: userId,
-    type: 'mfa_pending',
+    type: 'mfa_pending' as const,
     exp,
     iat,
     ...(challengeId && { challenge_id: challengeId }),
   };
 
-  const token = await new SignJWT(payload)
+  const token = await new SignJWT(payload as Record<string, unknown>)
     .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
     .sign(getTempTokenSecret());
 

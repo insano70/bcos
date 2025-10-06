@@ -95,7 +95,17 @@ export default function AnalyticsChart({
   const [error, setError] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<ApiResponse['metadata'] | null>(null);
   const [rawData, setRawData] = useState<Record<string, unknown>[]>([]);
-  const [dataSourceColumns, setDataSourceColumns] = useState<Array<{ column_name: string; display_name: string; data_type: string; format_type: string | null }>>([]);
+  const [dataSourceColumns, setDataSourceColumns] = useState<Array<{
+    column_name: string;
+    display_name: string;
+    data_type: string;
+    format_type: string | null;
+    display_icon?: boolean | null | undefined;
+    icon_type?: string | null | undefined;
+    icon_color_mode?: string | null | undefined;
+    icon_color?: string | null | undefined;
+    icon_mapping?: unknown;
+  }>>([]);
   const chartRef = useRef<HTMLCanvasElement | null>(null);
 
   // Memoize complex dependencies to prevent infinite loops
@@ -224,7 +234,12 @@ export default function AnalyticsChart({
           column_name: col.name,
           display_name: col.display_name,
           data_type: col.data_type,
-          format_type: col.format_type
+          format_type: col.format_type,
+          display_icon: (col as { display_icon?: boolean | null }).display_icon ?? undefined,
+          icon_type: (col as { icon_type?: string | null }).icon_type ?? undefined,
+          icon_color_mode: (col as { icon_color_mode?: string | null }).icon_color_mode ?? undefined,
+          icon_color: (col as { icon_color?: string | null }).icon_color ?? undefined,
+          icon_mapping: (col as { icon_mapping?: unknown }).icon_mapping ?? undefined
         }));
 
         // For tables, store raw data directly - no transformation needed
@@ -502,7 +517,12 @@ export default function AnalyticsChart({
                 columnName: col.column_name,
                 displayName: col.display_name,
                 dataType: col.data_type,
-                formatType: col.format_type
+                formatType: col.format_type,
+                displayIcon: col.display_icon,
+                iconType: col.icon_type,
+                iconColorMode: col.icon_color_mode,
+                iconColor: col.icon_color,
+                iconMapping: col.icon_mapping
               }))}
               colorPalette={colorPalette}
               height={height}

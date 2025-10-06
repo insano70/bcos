@@ -8,6 +8,13 @@ import { simplifiedChartTransformer } from './simplified-chart-transformer';
 import { calculateComparisonDateRange } from './period-comparison';
 import { getColorScheme, applyPeriodComparisonColors } from './period-comparison-colors';
 
+// Extended dataset type with custom properties
+interface ExtendedDataset {
+  label?: string;
+  data?: unknown[];
+  [key: string]: unknown;
+}
+
 export interface TestResult {
   chartType: string;
   success: boolean;
@@ -185,12 +192,15 @@ export function testColorSchemeApplication(
     );
     
     const colorScheme = getColorScheme('default');
-    const coloredDatasets = applyPeriodComparisonColors(chartData.datasets, colorScheme, chartType);
+    const coloredDatasets = applyPeriodComparisonColors(chartData.datasets as ExtendedDataset[], colorScheme, chartType);
     
     return {
       chartType: `${chartType}-colors`,
       success: true,
-      dataPoints: (coloredDatasets as any[]).reduce((sum: number, dataset: any) => sum + dataset.data.length, 0),
+      dataPoints: coloredDatasets.reduce((sum: number, dataset: ExtendedDataset) => {
+        const data = dataset.data as unknown[] | undefined;
+        return sum + (data?.length || 0);
+      }, 0),
       datasets: coloredDatasets.length,
       labels: chartData.labels.length,
     };

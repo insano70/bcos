@@ -3,15 +3,15 @@
  * Enhanced legend generation for charts with period comparison data
  */
 
-export interface LegendItem {
-  text: string;
-  fillStyle: string;
-  strokeStyle: string;
-  lineWidth: number;
-  pointStyle: string;
-  hidden: boolean;
-  datasetIndex: number;
+import type { Chart, LegendItem } from 'chart.js';
+
+// Extended dataset type with custom properties
+interface ExtendedDataset {
+  label?: string;
+  data?: unknown[];
+  [key: string]: unknown;
 }
+
 
 export interface PeriodComparisonLegendOptions {
   showComparisonIndicators?: boolean;
@@ -33,22 +33,23 @@ export function createPeriodComparisonLegendLabels(
     
   } = options;
 
-  return function generateLabels(chart: any): LegendItem[] {
+  return function generateLabels(chart: Chart): LegendItem[] {
     const originalLabels = chart.options?.plugins?.legend?.labels?.generateLabels?.(chart) || [];
     
     return originalLabels.map((item: LegendItem) => {
-      const dataset = chart.data.datasets[item.datasetIndex];
-      const isComparison = dataset.label?.includes('Previous') || 
-                          dataset.label?.includes('Last Year') ||
-                          dataset.label?.includes('Ago');
+      if (item.datasetIndex === undefined) return item;
+      const dataset = chart.data.datasets[item.datasetIndex] as ExtendedDataset;
+      const isComparison = dataset?.label?.includes('Previous') || 
+                          dataset?.label?.includes('Last Year') ||
+                          dataset?.label?.includes('Ago');
 
       if (isComparison) {
         return {
           ...item,
           text: `${comparisonIcon} ${item.text}`,
           // Add visual styling for comparison items
-          fillStyle: adjustColorOpacity(item.fillStyle, 0.7),
-          strokeStyle: adjustColorOpacity(item.strokeStyle, 0.7),
+          fillStyle: adjustColorOpacity(item.fillStyle as string, 0.7),
+          strokeStyle: adjustColorOpacity(item.strokeStyle as string, 0.7),
         };
       } else if (!isComparison) {
         return {
@@ -66,24 +67,27 @@ export function createPeriodComparisonLegendLabels(
  * Enhanced legend onClick handler for period comparison charts
  */
 export function createPeriodComparisonLegendOnClick(
-  chart: any,
-  options: PeriodComparisonLegendOptions = {}
+  chart: Chart,
+  _options: PeriodComparisonLegendOptions = {}
 ) {
-  return function onClick(_event: MouseEvent, legendItem: LegendItem, _legend: any) {
-    const dataset = chart.data.datasets[legendItem.datasetIndex];
-    const isComparison = dataset.label?.includes('Previous') || 
-                        dataset.label?.includes('Last Year') ||
-                        dataset.label?.includes('Ago');
+  return function onClick(_event: MouseEvent, legendItem: LegendItem, _legend: unknown) {
+    if (legendItem.datasetIndex === undefined) return;
+    const dataset = chart.data.datasets[legendItem.datasetIndex] as ExtendedDataset;
+    const isComparison = dataset?.label?.includes('Previous') || 
+                        dataset?.label?.includes('Last Year') ||
+                        dataset?.label?.includes('Ago');
 
     if (isComparison) {
       // For comparison datasets, show a tooltip explaining the comparison
-      console.log(`Comparison period: ${dataset.label}`);
+      console.log(`Comparison period: ${dataset?.label}`);
       // You could show a modal or tooltip here explaining the comparison
     }
 
     // Default legend toggle behavior
-    chart.toggleDataVisibility(legendItem.datasetIndex);
-    chart.update();
+    if (legendItem.datasetIndex !== undefined) {
+      chart.toggleDataVisibility(legendItem.datasetIndex);
+      chart.update();
+    }
   };
 }
 
@@ -91,7 +95,7 @@ export function createPeriodComparisonLegendOnClick(
  * Create a custom HTML legend for period comparison charts
  */
 export function createPeriodComparisonHtmlLegend(
-  chart: any,
+  chart: Chart,
   container: HTMLElement,
   options: PeriodComparisonLegendOptions = {}
 ) {
@@ -106,19 +110,20 @@ export function createPeriodComparisonHtmlLegend(
   }
 
   const datasets = chart.data.datasets;
-  const currentDatasets: any[] = [];
-  const comparisonDatasets: any[] = [];
+  const currentDatasets: ExtendedDataset[] = [];
+  const comparisonDatasets: ExtendedDataset[] = [];
 
   // Separate current and comparison datasets
-  datasets.forEach((dataset: any, index: number) => {
-    const isComparison = dataset.label?.includes('Previous') || 
-                        dataset.label?.includes('Last Year') ||
-                        dataset.label?.includes('Ago');
+  datasets.forEach((dataset: unknown, index: number) => {
+    const extendedDataset = dataset as ExtendedDataset;
+    const isComparison = extendedDataset?.label?.includes('Previous') || 
+                        extendedDataset?.label?.includes('Last Year') ||
+                        extendedDataset?.label?.includes('Ago');
     
     if (isComparison) {
-      comparisonDatasets.push({ ...dataset, index });
+      comparisonDatasets.push({ ...extendedDataset, index });
     } else {
-      currentDatasets.push({ ...dataset, index });
+      currentDatasets.push({ ...extendedDataset, index });
     }
   });
 
@@ -161,35 +166,42 @@ export function createPeriodComparisonHtmlLegend(
 /**
  * Create a single legend item
  */
-function createLegendItem(dataset: any, chart: any, _false: boolean, isComparison: boolean = false) {
+function createLegendItem(dataset: ExtendedDataset, chart: Chart, _false: boolean, isComparison: boolean = false) {
   const li = document.createElement('li');
   li.className = 'legend-item flex items-center space-x-2 mb-1 cursor-pointer';
   
   // Color indicator
   const colorIndicator = document.createElement('div');
   colorIndicator.className = 'w-3 h-3 rounded-sm';
+  const backgroundColor = dataset.backgroundColor as string;
+  const borderColor = dataset.borderColor as string;
   colorIndicator.style.backgroundColor = isComparison 
-    ? adjustColorOpacity(dataset.backgroundColor, 0.7)
-    : dataset.backgroundColor;
+    ? adjustColorOpacity(backgroundColor, 0.7)
+    : backgroundColor;
   colorIndicator.style.border = `1px solid ${isComparison 
-    ? adjustColorOpacity(dataset.borderColor, 0.7)
-    : dataset.borderColor}`;
+    ? adjustColorOpacity(borderColor, 0.7)
+    : borderColor}`;
   
   // Label
   const label = document.createElement('span');
   label.className = 'text-sm text-gray-600 dark:text-gray-400';
-  label.textContent = dataset.label;
+  label.textContent = dataset.label || '';
   
   // Value (if available)
   const value = document.createElement('span');
   value.className = 'text-sm font-medium text-gray-900 dark:text-gray-100 ml-auto';
   
   // Calculate total value for this dataset
-  const total = dataset.data.reduce((sum: number, val: number) => sum + (val || 0), 0);
-  if (total > 0) {
-    // Format value based on measure type
-    const measureType = dataset.measureType || 'number';
-    value.textContent = formatValue(total, measureType);
+  if (dataset.data && Array.isArray(dataset.data)) {
+    const total = dataset.data.reduce((sum: number, val: unknown) => {
+      const numVal = typeof val === 'number' ? val : 0;
+      return sum + numVal;
+    }, 0);
+    if (total > 0) {
+      // Format value based on measure type
+      const measureType = (dataset.measureType as string) || 'number';
+      value.textContent = formatValue(total, measureType);
+    }
   }
   
   li.appendChild(colorIndicator);
@@ -198,8 +210,11 @@ function createLegendItem(dataset: any, chart: any, _false: boolean, isCompariso
   
   // Click handler
   li.addEventListener('click', () => {
-    chart.toggleDataVisibility(dataset.index);
-    chart.update();
+    const index = dataset.index as number | undefined;
+    if (index !== undefined) {
+      chart.toggleDataVisibility(index);
+      chart.update();
+    }
   });
   
   return li;

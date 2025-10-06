@@ -51,6 +51,7 @@ class InMemoryRateLimiter {
 // Rate limiter instances
 export const globalRateLimiter = new InMemoryRateLimiter(15 * 60 * 1000, 100); // 100 req/15min
 export const authRateLimiter = new InMemoryRateLimiter(15 * 60 * 1000, 20); // 20 req/15min (increased for refresh tokens)
+export const mfaRateLimiter = new InMemoryRateLimiter(15 * 60 * 1000, 5); // 5 MFA attempts/15min per user
 export const apiRateLimiter = new InMemoryRateLimiter(60 * 1000, 200); // 200 req/min
 
 export function getRateLimitKey(request: Request, prefix = ''): string {
@@ -61,7 +62,7 @@ export function getRateLimitKey(request: Request, prefix = ''): string {
 
 export async function applyRateLimit(
   request: Request,
-  type: 'auth' | 'api' | 'upload' = 'api'
+  type: 'auth' | 'api' | 'upload' | 'mfa' = 'api'
 ): Promise<{
   success: boolean;
   remaining: number;
@@ -77,6 +78,11 @@ export async function applyRateLimit(
   switch (type) {
     case 'auth':
       limiter = authRateLimiter;
+      limit = 5;
+      windowMs = 15 * 60 * 1000;
+      break;
+    case 'mfa':
+      limiter = mfaRateLimiter;
       limit = 5;
       windowMs = 15 * 60 * 1000;
       break;

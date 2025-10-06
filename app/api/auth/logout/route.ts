@@ -155,6 +155,15 @@ export async function POST(request: NextRequest) {
       maxAge: 0, // Expire immediately
     })
 
+    // Clear CSRF token cookie
+    response.cookies.set('csrf-token', '', {
+      httpOnly: false, // CSRF tokens need to be readable by JavaScript
+      secure: isProduction,
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 0, // Expire immediately
+    })
+
     // Logout completion logging
     log.auth('logout_success', true, {
       userId: session.user.id
@@ -266,6 +275,15 @@ export async function DELETE(request: NextRequest) {
       // Clear access token cookie
       response.cookies.set('access-token', '', {
         httpOnly: true, // ✅ SECURITY FIX: Consistent with secure token model
+        secure: isProduction,
+        sameSite: 'strict',
+        path: '/',
+        maxAge: 0,
+      })
+
+      // Clear CSRF token cookie
+      response.cookies.set('csrf-token', '', {
+        httpOnly: false, // CSRF tokens need to be readable by JavaScript
         secure: isProduction,
         sameSite: 'strict',
         path: '/',

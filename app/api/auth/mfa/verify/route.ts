@@ -11,6 +11,7 @@ import { cookies } from 'next/headers';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse, AuthenticationError } from '@/lib/api/responses/error';
 import { publicRoute } from '@/lib/api/route-handler';
+import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { requireMFATempToken } from '@/lib/auth/webauthn-temp-token';
 import { completeAuthentication } from '@/lib/auth/webauthn';
 import { createTokenPair, generateDeviceFingerprint, generateDeviceName } from '@/lib/auth/token-manager';
@@ -27,6 +28,9 @@ const handler = async (request: NextRequest) => {
   const startTime = Date.now();
 
   try {
+    // MFA-specific rate limiting (5 attempts per 15 minutes)
+    await applyRateLimit(request, 'mfa');
+
     // Extract IP and user agent
     const ipAddress =
       request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||

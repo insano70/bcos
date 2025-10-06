@@ -2,23 +2,55 @@
  * POST /api/auth/mfa/register/complete
  * Complete passkey registration flow
  *
- * Authentication: Requires temp token OR full access token
+ * Authentication: Supports both temp token (first-time setup) and full session (adding passkeys)
+ * Security: User must have validated credentials (temp token or session)
+ * Side Effects: Creates full session if using temp token (first-time setup)
  */
 
 import type { NextRequest } from 'next/server';
+import { cookies } from 'next/headers';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse, AuthenticationError } from '@/lib/api/responses/error';
 import { publicRoute } from '@/lib/api/route-handler';
+import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { requireAuth } from '@/lib/api/middleware/auth';
 import { requireMFATempToken } from '@/lib/auth/webauthn-temp-token';
 import { completeRegistration } from '@/lib/auth/webauthn';
+import { createTokenPair, generateDeviceFingerprint, generateDeviceName } from '@/lib/auth/token-manager';
+import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context';
+import { setCSRFToken } from '@/lib/security/csrf-unified';
+import { db, users } from '@/lib/db';
+import { eq } from 'drizzle-orm';
 import { log } from '@/lib/logger';
 import type { RegistrationCompleteRequest, RegistrationCompleteResponse } from '@/lib/types/webauthn';
 
 export const dynamic = 'force-dynamic';
 
 const handler = async (request: NextRequest) => {
+  const startTime = Date.now();
+
   try {
+    // MFA-specific rate limiting (5 attempts per 15 minutes)
+    await applyRateLimit(request, 'mfa');
+
+    let userId: string;
+    let isFirstTimeSetup = false;
+
+    // Try full authentication first (for users adding additional passkeys)
+    try {
+      const session = await requireAuth(request);
+      userId = session.user.id;
+
+      log.debug('MFA registration complete - using full session', { userId });
+    } catch {
+      // Fall back to temp token (for first-time MFA setup during login)
+      const tempPayload = await requireMFATempToken(request);
+      userId = tempPayload.sub;
+      isFirstTimeSetup = true;
+
+      log.debug('MFA registration complete - using temp token (first-time setup)', { userId });
+    }
+
     // Extract IP and user agent
     const ipAddress =
       request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
@@ -30,28 +62,36 @@ const handler = async (request: NextRequest) => {
     const body = (await request.json()) as RegistrationCompleteRequest;
     const { credential, credential_name, challenge_id } = body;
 
+    // Validate required fields
     if (!credential || !credential_name || !challenge_id) {
       throw new Error('Missing required fields: credential, credential_name, challenge_id');
     }
 
-    // Try full auth first, fall back to temp token
-    let userId: string;
-
-    try {
-      const session = await requireAuth(request);
-      userId = session.user.id;
-    } catch {
-      // Fall back to temp token
-      const tempPayload = await requireMFATempToken(request);
-      userId = tempPayload.sub;
+    // Validate credential_name
+    if (typeof credential_name !== 'string') {
+      throw new Error('Invalid credential_name: must be a string');
     }
 
-    // Complete registration
+    const trimmedName = credential_name.trim();
+    if (trimmedName.length === 0) {
+      throw new Error('Invalid credential_name: cannot be empty');
+    }
+
+    if (trimmedName.length > 100) {
+      throw new Error('Invalid credential_name: maximum length is 100 characters');
+    }
+
+    // Validate challenge_id format (nanoid: alphanumeric with - and _)
+    if (typeof challenge_id !== 'string' || challenge_id.length !== 32) {
+      throw new Error('Invalid challenge_id format');
+    }
+
+    // Complete registration with validated name
     const result = await completeRegistration(
       userId,
       challenge_id,
       credential,
-      credential_name,
+      trimmedName,
       ipAddress,
       userAgent
     );
@@ -60,19 +100,110 @@ const handler = async (request: NextRequest) => {
       userId,
       credentialId: result.credential_id.substring(0, 16),
       credentialName: result.credential_name,
+      isFirstTimeSetup,
     });
 
+    // If this is first-time setup (using temp token), create full session
+    if (isFirstTimeSetup) {
+      // Fetch user details
+      const [user] = await db.select().from(users).where(eq(users.user_id, userId)).limit(1);
+
+      if (!user || !user.is_active) {
+        throw AuthenticationError('User account is inactive');
+      }
+
+      // Generate device info
+      const deviceFingerprint = generateDeviceFingerprint(ipAddress, userAgent || 'unknown');
+      const deviceName = generateDeviceName(userAgent || 'unknown');
+
+      const deviceInfo = {
+        ipAddress,
+        userAgent: userAgent || 'unknown',
+        fingerprint: deviceFingerprint,
+        deviceName,
+      };
+
+      // Create full token pair
+      const tokenPair = await createTokenPair(user.user_id, deviceInfo, false, user.email);
+
+      // Set secure httpOnly cookies
+      const cookieStore = await cookies();
+      const isSecureEnvironment = process.env.NODE_ENV === 'production';
+      const maxAge = 7 * 24 * 60 * 60; // 7 days
+
+      cookieStore.set('refresh-token', tokenPair.refreshToken, {
+        httpOnly: true,
+        secure: isSecureEnvironment,
+        sameSite: 'strict',
+        path: '/',
+        maxAge,
+      });
+
+      cookieStore.set('access-token', tokenPair.accessToken, {
+        httpOnly: true,
+        secure: isSecureEnvironment,
+        sameSite: 'strict',
+        path: '/',
+        maxAge: 15 * 60, // 15 minutes
+      });
+
+      // Get user context
+      const userContext = await getCachedUserContextSafe(user.user_id);
+      const userRoles = userContext?.roles?.map((r) => r.name) || [];
+      const primaryRole = userRoles.length > 0 ? userRoles[0] : 'user';
+
+      // Generate CSRF token
+      const csrfToken = await setCSRFToken(user.user_id);
+
+      const totalDuration = Date.now() - startTime;
+      log.api('POST /api/auth/mfa/register/complete - First-time setup success', request, 200, totalDuration);
+
+      // Return full session data for first-time setup
+      return createSuccessResponse(
+        {
+          success: true,
+          credential_id: result.credential_id,
+          credential_name: result.credential_name,
+          // Include session data for first-time setup
+          accessToken: tokenPair.accessToken,
+          sessionId: tokenPair.sessionId,
+          expiresAt: tokenPair.expiresAt.toISOString(),
+          user: {
+            id: user.user_id,
+            email: user.email,
+            name: `${user.first_name} ${user.last_name}`,
+            firstName: user.first_name,
+            lastName: user.last_name,
+            role: primaryRole,
+            emailVerified: user.email_verified,
+            roles: userRoles,
+            permissions: userContext?.all_permissions?.map((p) => p.name) || [],
+          },
+          csrfToken,
+        },
+        'Passkey registered successfully. You are now logged in.'
+      );
+    }
+
+    // For adding additional passkeys (already has session), just return success
     const response: RegistrationCompleteResponse = {
       success: true,
       credential_id: result.credential_id,
       credential_name: result.credential_name,
     };
 
+    const totalDuration = Date.now() - startTime;
+    log.api('POST /api/auth/mfa/register/complete - Additional passkey added', request, 200, totalDuration);
+
     return createSuccessResponse(response, 'Passkey registered successfully');
   } catch (error) {
+    const totalDuration = Date.now() - startTime;
     log.error('Passkey registration complete failed', {
       error: error instanceof Error ? error.message : String(error),
+      duration: totalDuration,
     });
+
+    log.api('POST /api/auth/mfa/register/complete - Error', request, 500, totalDuration);
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   }

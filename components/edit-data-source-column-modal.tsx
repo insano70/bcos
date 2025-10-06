@@ -60,6 +60,10 @@ export default function EditDataSourceColumnModal({
       setValue('access_level', column.access_level || 'all');
       setValue('example_value', column.example_value || undefined);
       setValue('is_active', column.is_active ?? true);
+      setValue('display_icon', column.display_icon || false);
+      setValue('icon_type', (column.icon_type as 'initials' | 'first_letter' | 'emoji' | undefined) || undefined);
+      setValue('icon_color_mode', (column.icon_color_mode as 'auto' | 'fixed' | 'mapped' | undefined) || 'auto');
+      setValue('icon_color', column.icon_color || undefined);
     }
   }, [column, isOpen, setValue]);
 
@@ -287,6 +291,70 @@ export default function EditDataSourceColumnModal({
                             <label htmlFor="edit_is_time_period" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                               Time Period - Contains frequency/period values (Monthly, Weekly, etc.)
                             </label>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Icon Display Options */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                          Table Icon Display (for Table charts)
+                        </label>
+                        <div className="space-y-3">
+                          <div className="flex items-center">
+                            <input
+                              id="edit_display_icon"
+                              type="checkbox"
+                              {...register('display_icon')}
+                              className="form-checkbox"
+                            />
+                            <label htmlFor="edit_display_icon" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                              Display Icon - Show colored icon in first column of table charts
+                            </label>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                              Icon Type
+                            </label>
+                            <select
+                              {...register('icon_type')}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-500"
+                            >
+                              <option value="">None</option>
+                              <option value="initials">Initials (e.g., "MCF" for "Missing Consent Forms")</option>
+                              <option value="first_letter">First Letter (e.g., "M" for "Missing Consent Forms")</option>
+                              <option value="emoji">Emoji (requires icon mapping configuration)</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                              Icon Color Mode
+                            </label>
+                            <select
+                              {...register('icon_color_mode')}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-500"
+                            >
+                              <option value="auto">Auto - Generate color from text</option>
+                              <option value="fixed">Fixed - Use same color for all values</option>
+                              <option value="mapped">Mapped - Per-value color mapping (requires icon mapping)</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                              Fixed Icon Color (if using Fixed mode)
+                            </label>
+                            <input
+                              type="text"
+                              {...register('icon_color')}
+                              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-500"
+                              placeholder="e.g., violet-500, red-500, green-500"
+                            />
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                              Tailwind color classes: violet-500, sky-500, green-500, red-500, amber-500, indigo-500, etc.
+                            </p>
                           </div>
                         </div>
                       </div>

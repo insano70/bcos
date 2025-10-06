@@ -116,7 +116,23 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
       
       // Otherwise, try to match by table reference
       if (tableReference) {
-        const [schemaName, tableName] = tableReference.split('.');
+        // Handle both "schema.table" and "table" formats
+        const parts = tableReference.split('.');
+        let schemaName: string;
+        let tableName: string;
+        
+        if (parts.length === 2) {
+          schemaName = parts[0]!;
+          tableName = parts[1]!;
+        } else if (parts.length === 1) {
+          // Default schema to 'ih' if not specified
+          schemaName = 'ih';
+          tableName = parts[0]!;
+        } else {
+          console.warn('Invalid table reference format:', tableReference);
+          return null;
+        }
+        
         const found = dataSources.find(ds => ds.schemaName === schemaName && ds.tableName === tableName);
         if (found) return found;
       }

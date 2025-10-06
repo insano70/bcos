@@ -66,6 +66,13 @@ export const chart_data_source_columns = pgTable(
     sort_order: integer('sort_order').default(0),
     default_aggregation: varchar('default_aggregation', { length: 20 }),
 
+    // Icon display options
+    display_icon: boolean('display_icon').default(false),
+    icon_type: varchar('icon_type', { length: 20 }),
+    icon_color_mode: varchar('icon_color_mode', { length: 20 }).default('auto'),
+    icon_color: varchar('icon_color', { length: 50 }),
+    icon_mapping: jsonb('icon_mapping'),
+
     // Security and validation
     is_sensitive: boolean('is_sensitive').default(false),
     access_level: varchar('access_level', { length: 20 }).default('all'),

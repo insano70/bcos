@@ -195,6 +195,13 @@ export const dataSourceColumnCreateSchema = z.object({
   sort_order: z.number().int().default(0),
   default_aggregation: createSafeTextSchema(0, 20, 'Default aggregation').optional(),
 
+  // Icon display options
+  display_icon: z.boolean().optional().default(false),
+  icon_type: z.enum(['initials', 'first_letter', 'emoji']).optional(),
+  icon_color_mode: z.enum(['auto', 'fixed', 'mapped']).optional().default('auto'),
+  icon_color: createSafeTextSchema(0, 50, 'Icon color').optional(),
+  icon_mapping: z.record(z.string(), z.unknown()).optional(),
+
   // Security and validation
   is_sensitive: z.boolean().optional().default(false),
   access_level: z
@@ -232,6 +239,13 @@ export const dataSourceColumnUpdateSchema = z.object({
   format_type: createSafeTextSchema(0, 50, 'Format type').optional(),
   sort_order: z.number().int().optional(),
   default_aggregation: createSafeTextSchema(0, 20, 'Default aggregation').optional(),
+
+  // Icon display options
+  display_icon: z.boolean().optional(),
+  icon_type: z.enum(['initials', 'first_letter', 'emoji']).optional(),
+  icon_color_mode: z.enum(['auto', 'fixed', 'mapped']).optional(),
+  icon_color: createSafeTextSchema(0, 50, 'Icon color').optional(),
+  icon_mapping: z.record(z.string(), z.unknown()).optional(),
 
   // Security and validation
   is_sensitive: z.boolean().optional(),

@@ -373,6 +373,8 @@ const ANONYMOUS_TOKEN_ALLOWED_ENDPOINTS = [
  */
 const DUAL_TOKEN_ALLOWED_ENDPOINTS = [
   '/api/auth/login', // Users might login while already authenticated (re-auth, account switching)
+  '/api/auth/mfa/register', // MFA setup during login (pre-auth state with temp token)
+  '/api/auth/mfa/verify', // MFA verification during login (pre-auth state with temp token)
 ];
 
 /**
@@ -494,6 +496,7 @@ export function requiresCSRFProtection(method: string): boolean {
 
 /**
  * Constant-time string comparison to prevent timing attacks
+ * Edge Runtime compatible - uses bitwise operations instead of crypto.timingSafeEqual
  */
 function constantTimeCompare(a: string, b: string): boolean {
   if (a.length !== b.length) {

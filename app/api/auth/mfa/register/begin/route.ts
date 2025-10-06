@@ -2,7 +2,8 @@
  * POST /api/auth/mfa/register/begin
  * Begin passkey registration flow
  *
- * Authentication: Requires temp token OR full access token
+ * Authentication: Supports both temp token (first-time setup) and full session (adding passkeys)
+ * Security: User must have validated credentials (temp token or session)
  */
 
 import type { NextRequest } from 'next/server';
@@ -21,29 +22,24 @@ export const dynamic = 'force-dynamic';
 
 const handler = async (request: NextRequest) => {
   try {
-    // Extract IP and user agent
-    const ipAddress =
-      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      request.headers.get('x-real-ip') ||
-      'unknown';
-    const userAgent = request.headers.get('user-agent') || null;
-
-    // Try full auth first, fall back to temp token
     let userId: string;
     let userEmail: string;
     let userName: string;
 
+    // Try full authentication first (for users adding additional passkeys)
     try {
       const session = await requireAuth(request);
       userId = session.user.id;
       userEmail = session.user.email || '';
       userName = session.user.name;
+
+      log.debug('MFA registration begin - using full session', { userId });
     } catch {
-      // Fall back to temp token
+      // Fall back to temp token (for first-time MFA setup during login)
       const tempPayload = await requireMFATempToken(request);
       userId = tempPayload.sub;
 
-      // Fetch user details
+      // Fetch user details from database
       const [user] = await db.select().from(users).where(eq(users.user_id, userId)).limit(1);
 
       if (!user) {
@@ -52,7 +48,16 @@ const handler = async (request: NextRequest) => {
 
       userEmail = user.email;
       userName = `${user.first_name} ${user.last_name}`;
+
+      log.debug('MFA registration begin - using temp token', { userId });
     }
+
+    // Extract IP and user agent
+    const ipAddress =
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      request.headers.get('x-real-ip') ||
+      'unknown';
+    const userAgent = request.headers.get('user-agent') || null;
 
     // Generate registration options
     const { options, challenge_id } = await beginRegistration(
