@@ -416,21 +416,7 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 		// Redirect to destination
 		// Use NEXT_PUBLIC_APP_URL as base to avoid internal hostname issues behind load balancer
 		const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.url;
-
-		// Extract pathname from returnUrl if it's an absolute URL to prevent cross-environment redirects
-		// (e.g., staging should not redirect to app.bendcare.com)
-		let redirectPath = sessionData.returnUrl;
-		try {
-			const returnUrlObj = new URL(sessionData.returnUrl, baseUrl);
-			// If it's an absolute URL with a different origin, use only the pathname
-			if (returnUrlObj.origin !== new URL(baseUrl).origin) {
-				redirectPath = returnUrlObj.pathname + returnUrlObj.search + returnUrlObj.hash;
-			}
-		} catch {
-			// If parsing fails, assume it's a relative path
-		}
-
-		const redirectUrl = new URL(redirectPath, baseUrl);
+		const redirectUrl = new URL(sessionData.returnUrl, baseUrl);
 		return NextResponse.redirect(redirectUrl);
 	} catch (error) {
 		const duration = Date.now() - startTime;
