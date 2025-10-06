@@ -415,19 +415,18 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 			path: '/',
 		});
 
-		// Redirect to signin with success flag to avoid cookie race condition
-		// The signin page will immediately redirect the authenticated user to their destination
-		const signinUrl = new URL('/signin', baseUrl);
-		signinUrl.searchParams.set('oidc_success', 'true');
-		signinUrl.searchParams.set('returnUrl', sessionData.returnUrl);
+		// Redirect to authenticating page which waits for auth state before final redirect
+		// This eliminates white page flashes and cookie race conditions
+		const authenticatingUrl = new URL('/authenticating', baseUrl);
+		authenticatingUrl.searchParams.set('returnUrl', sessionData.returnUrl);
 
 		log.info('OIDC callback redirect', {
 			returnUrl: sessionData.returnUrl,
 			baseUrl,
-			finalRedirect: signinUrl.toString(),
+			finalRedirect: authenticatingUrl.toString(),
 		});
 
-		return NextResponse.redirect(signinUrl);
+		return NextResponse.redirect(authenticatingUrl);
 	} catch (error) {
 		const duration = Date.now() - startTime;
 

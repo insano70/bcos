@@ -32,7 +32,6 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const searchParams = useSearchParams()
   const paramCallbackUrl = searchParams.get('callbackUrl') || searchParams.get('returnUrl')
   const oidcError = searchParams.get('error') // OIDC error from callback
-  const oidcSuccess = searchParams.get('oidc_success') === 'true' // OIDC success flag
 
   // Determine callback URL: use param if provided, otherwise use default dashboard if set, else /dashboard
   const callbackUrl = paramCallbackUrl || (defaultDashboardId ? `/dashboard/view/${defaultDashboardId}` : '/dashboard')
@@ -119,25 +118,15 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
 
   const { register, handleSubmit, formState: { errors, isValid } } = form
 
-  // Immediate redirect after successful OIDC login (avoids white page flash)
-  useEffect(() => {
-    if (oidcSuccess && isAuthenticated) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('OIDC success detected, immediately redirecting to:', callbackUrl)
-      }
-      window.location.href = callbackUrl
-    }
-  }, [oidcSuccess, isAuthenticated, callbackUrl])
-
   // Redirect authenticated users away from login page
   useEffect(() => {
-    if (isAuthenticated && !isSubmitting && !oidcSuccess) {
+    if (isAuthenticated && !isSubmitting) {
       if (process.env.NODE_ENV === 'development') {
         console.log('User already authenticated, redirecting to:', callbackUrl)
       }
       router.push(callbackUrl)
     }
-  }, [isAuthenticated, isSubmitting, callbackUrl, router, oidcSuccess])
+  }, [isAuthenticated, isSubmitting, callbackUrl, router])
 
   // Handle successful login without MFA (e.g., OIDC users or when MFA gets disabled)
   useEffect(() => {
