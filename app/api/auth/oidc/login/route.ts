@@ -77,8 +77,10 @@ const oidcLoginHandler = async (request: NextRequest) => {
 		// Generate device fingerprint (binds session to device)
 		const fingerprint = generateDeviceFingerprint(ipAddress, userAgent);
 
-		// Get return URL from query params (default: /dashboard)
-		const returnUrl = request.nextUrl.searchParams.get('returnUrl') || '/dashboard';
+		// Get return URL from query params, or use default dashboard if configured
+		const paramReturnUrl = request.nextUrl.searchParams.get('returnUrl');
+		const { getDefaultReturnUrl } = await import('@/lib/services/default-dashboard-service');
+		const returnUrl = await getDefaultReturnUrl(paramReturnUrl);
 
 		log.info('OIDC login initiation started', {
 			requestId: correlation.current() || 'unknown',
