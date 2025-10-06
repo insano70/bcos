@@ -74,10 +74,5 @@ export class WafLoggingConfig extends Construct {
       ]),
       logRetention: logs.RetentionDays.ONE_WEEK,
     });
-
-    // Ensure the custom resource has proper dependencies
-    if (props.logGroupArn) {
-      customResource.node.addDependency(this);
-    }
   }
 }
