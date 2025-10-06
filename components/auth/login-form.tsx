@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -9,6 +9,9 @@ import Link from 'next/link'
 import { loginSchema } from '@/lib/validations/auth'
 import SplitText from '@/components/SplitText'
 import type { z } from 'zod'
+import MFASetupDialog from './mfa-setup-dialog'
+import MFAVerifyDialog from './mfa-verify-dialog'
+import type { PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/browser'
 
 type LoginFormData = {
   email: string;
@@ -26,9 +29,38 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const [isMicrosoftLoading, setIsMicrosoftLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
+  const callbackUrl = searchParams.get('callbackUrl') || searchParams.get('returnUrl') || '/dashboard'
   const oidcError = searchParams.get('error') // OIDC error from callback
-  const { login } = useAuth()
+  const oidcSuccess = searchParams.get('oidc_success') === 'true' // OIDC success flag
+  const {
+    login,
+    isAuthenticated,
+    csrfToken,
+    mfaRequired,
+    mfaSetupRequired,
+    mfaTempToken,
+    mfaChallenge,
+    mfaChallengeId,
+    mfaUser,
+    completeMFASetup,
+    completeMFAVerification,
+    clearMFAState,
+  } = useAuth()
+
+  // Debug MFA state changes
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('MFA State:', {
+        mfaRequired,
+        mfaSetupRequired,
+        hasTempToken: !!mfaTempToken,
+        hasUser: !!mfaUser,
+        hasChallenge: !!mfaChallenge,
+        isAuthenticated,
+        isSubmitting
+      })
+    }
+  }, [mfaRequired, mfaSetupRequired, mfaTempToken, mfaUser, mfaChallenge, isAuthenticated, isSubmitting])
 
   // Map OIDC error codes to user-friendly messages
   const oidcErrorMessages: Record<string, string> = {
@@ -59,6 +91,88 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
 
   const { register, handleSubmit, formState: { errors, isValid } } = form
 
+  // Immediate redirect after successful OIDC login (avoids white page flash)
+  useEffect(() => {
+    if (oidcSuccess && isAuthenticated) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('OIDC success detected, immediately redirecting to:', callbackUrl)
+      }
+      window.location.href = callbackUrl
+    }
+  }, [oidcSuccess, isAuthenticated, callbackUrl])
+
+  // Redirect authenticated users away from login page
+  useEffect(() => {
+    if (isAuthenticated && !isSubmitting && !oidcSuccess) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('User already authenticated, redirecting to:', callbackUrl)
+      }
+      router.push(callbackUrl)
+    }
+  }, [isAuthenticated, isSubmitting, callbackUrl, router, oidcSuccess])
+
+  // Handle successful login without MFA (e.g., OIDC users or when MFA gets disabled)
+  useEffect(() => {
+    // Only redirect if:
+    // 1. User is authenticated
+    // 2. Not showing MFA dialogs
+    // 3. Form was submitting (prevents redirect on page load)
+    // 4. Not currently in the middle of MFA flow (check if we ever were in MFA state)
+    if (isAuthenticated && !mfaRequired && !mfaSetupRequired && isSubmitting) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Login completed without MFA, redirecting to:', callbackUrl)
+      }
+
+      onSuccess?.()
+
+      setTimeout(() => {
+        window.location.href = callbackUrl
+      }, 200)
+    }
+  }, [isAuthenticated, mfaRequired, mfaSetupRequired, isSubmitting])
+
+  const handleMFASetupSuccess = (sessionData: {
+    user: {
+      id: string;
+      email: string;
+      name: string;
+      firstName: string;
+      lastName: string;
+      role: string;
+      emailVerified: boolean;
+    };
+    sessionId: string;
+  }) => {
+    completeMFASetup(sessionData);
+    onSuccess?.();
+
+    // Small delay to ensure auth state is synchronized before redirect
+    setTimeout(() => {
+      window.location.href = callbackUrl;
+    }, 200);
+  };
+
+  const handleMFAVerificationSuccess = (sessionData: {
+    user: {
+      id: string;
+      email: string;
+      name: string;
+      firstName: string;
+      lastName: string;
+      role: string;
+      emailVerified: boolean;
+    };
+    sessionId: string;
+  }) => {
+    completeMFAVerification(sessionData);
+    onSuccess?.();
+
+    // Small delay to ensure auth state is synchronized before redirect
+    setTimeout(() => {
+      window.location.href = callbackUrl;
+    }, 200);
+  };
+
   const onSubmit = async (data: LoginFormData) => {
     try {
       setError(null)
@@ -69,20 +183,16 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
       }
 
       await login(data.email, data.password, data.remember)
-      
-      // Login successful, redirecting (client-side debug)
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Login completed, redirecting to:', callbackUrl)
-      }
-      
-      onSuccess?.()
-      
-      // Small delay to ensure auth state is synchronized before redirect
-      setTimeout(() => {
-        // Use window.location for hard redirect to ensure middleware sees the cookie
-        window.location.href = callbackUrl
-      }, 200) // 200ms delay for state synchronization
-      
+
+      // Note: If MFA is required, the auth provider will update state and the
+      // dialogs will show automatically via the conditional rendering below.
+      // We do NOT redirect here - the redirect happens in the MFA success handlers.
+      // If login completes without MFA (OIDC users), the auth provider handles it
+      // and we still need to wait for the state update.
+
+      // Keep isSubmitting true - either MFA dialog will take over, or the
+      // useEffect below will detect successful login and redirect
+
     } catch (error) {
       // Log client-side login errors for debugging
       if (process.env.NODE_ENV === 'development') {
@@ -95,8 +205,34 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   }
 
   return (
-    <div className="space-y-4">
-      {/* OIDC Error message (from callback) */}
+    <>
+      {/* MFA Setup Dialog */}
+      {mfaSetupRequired && mfaTempToken && mfaUser && csrfToken && (
+        <MFASetupDialog
+          isOpen={mfaSetupRequired}
+          onClose={clearMFAState}
+          onSuccess={handleMFASetupSuccess}
+          tempToken={mfaTempToken}
+          csrfToken={csrfToken}
+          user={mfaUser}
+        />
+      )}
+
+      {/* MFA Verification Dialog */}
+      {mfaRequired && mfaTempToken && mfaChallenge && mfaChallengeId && csrfToken && (
+        <MFAVerifyDialog
+          isOpen={mfaRequired}
+          onClose={clearMFAState}
+          onSuccess={handleMFAVerificationSuccess}
+          tempToken={mfaTempToken}
+          csrfToken={csrfToken}
+          challenge={mfaChallenge as PublicKeyCredentialRequestOptionsJSON}
+          challengeId={mfaChallengeId}
+        />
+      )}
+
+      <div className="space-y-4">
+        {/* OIDC Error message (from callback) */}
       {oidcError && oidcErrorMessages[oidcError] && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
           <div className="flex items-center">
@@ -255,6 +391,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
         </button>
       </div>
       </form>
-    </div>
+      </div>
+    </>
   )
 }

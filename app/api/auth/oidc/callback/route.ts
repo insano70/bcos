@@ -415,16 +415,19 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 			path: '/',
 		});
 
-		// Redirect to destination
-		const redirectUrl = new URL(sessionData.returnUrl, baseUrl);
+		// Redirect to signin with success flag to avoid cookie race condition
+		// The signin page will immediately redirect the authenticated user to their destination
+		const signinUrl = new URL('/signin', baseUrl);
+		signinUrl.searchParams.set('oidc_success', 'true');
+		signinUrl.searchParams.set('returnUrl', sessionData.returnUrl);
 
 		log.info('OIDC callback redirect', {
 			returnUrl: sessionData.returnUrl,
 			baseUrl,
-			finalRedirect: redirectUrl.toString(),
+			finalRedirect: signinUrl.toString(),
 		});
 
-		return NextResponse.redirect(redirectUrl);
+		return NextResponse.redirect(signinUrl);
 	} catch (error) {
 		const duration = Date.now() - startTime;
 
