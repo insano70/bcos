@@ -19,10 +19,11 @@ import AnalyticsBarChart from './analytics-bar-chart';
 import AnalyticsStackedBarChart from './analytics-stacked-bar-chart';
 import AnalyticsHorizontalBarChart from './analytics-horizontal-bar-chart';
 import AnalyticsProgressBarChart from './analytics-progress-bar-chart';
+import AnalyticsTableChart from './analytics-table-chart';
 import DoughnutChart from './doughnut-chart';
 
 interface AnalyticsChartProps extends ResponsiveChartProps {
-  chartType: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'progress-bar' | 'doughnut';
+  chartType: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'progress-bar' | 'doughnut' | 'table';
   measure?: MeasureType;
   frequency?: FrequencyType;
   practice?: string | undefined;
@@ -91,7 +92,8 @@ export default function AnalyticsChart({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<ApiResponse['metadata'] | null>(null);
-  const [rawData, setRawData] = useState<any[]>([]);
+  const [rawData, setRawData] = useState<Record<string, unknown>[]>([]);
+  const [dataSourceColumns, setDataSourceColumns] = useState<Array<{ column_name: string; display_name: string; data_type: string; format_type: string | null }>>([]);
   const chartRef = useRef<HTMLCanvasElement | null>(null);
 
   // Memoize complex dependencies to prevent infinite loops
@@ -111,7 +113,7 @@ export default function AnalyticsChart({
         'Anonymous User', // userName - would come from auth context
         0 // loadTime - would be calculated
       );
-      
+
       // Handle multiple series by passing the configuration to the API
       if (multipleSeries && multipleSeries.length > 0) {
         console.log('🚀 FETCHING MULTIPLE SERIES DATA:', multipleSeries);
@@ -120,10 +122,10 @@ export default function AnalyticsChart({
 
       // Build query parameters
       const params = new URLSearchParams();
-      
-      // Note: measure param is added conditionally based on multiple series mode
-      if (frequency) params.append('frequency', frequency);
-      
+
+      // Note: measure and frequency params are not needed for table charts
+      if (chartType !== 'table' && frequency) params.append('frequency', frequency);
+
       // Support both new and legacy field names
       if (practice && practice.trim()) {
         const practiceUidInt = parseInt(practice, 10);
@@ -161,13 +163,13 @@ export default function AnalyticsChart({
         params.append('data_source_id', dataSourceId.toString());
       }
 
-      // Add groupBy parameter if provided
-      if (groupBy && groupBy !== 'none') {
+      // Add groupBy parameter if provided (not for table charts)
+      if (chartType !== 'table' && groupBy && groupBy !== 'none') {
         params.append('group_by', groupBy);
       }
 
-      // Add multiple series configuration if provided
-      if (multipleSeries && multipleSeries.length > 0) {
+      // Add multiple series configuration if provided (not for table charts)
+      if (chartType !== 'table' && multipleSeries && multipleSeries.length > 0) {
         console.log('🔍 MULTIPLE SERIES CONFIG:', {
           multipleSeries,
           seriesCount: multipleSeries.length,
@@ -176,7 +178,7 @@ export default function AnalyticsChart({
         });
         params.append('multiple_series', encodeURIComponent(JSON.stringify(multipleSeries)));
         // Don't add individual measure param when using multiple series
-      } else {
+      } else if (chartType !== 'table') {
         console.log('🔍 SINGLE SERIES MODE:', { measure, frequency });
         if (measure) params.append('measure', measure);
       }
@@ -186,13 +188,51 @@ export default function AnalyticsChart({
       // Set reasonable defaults for chart display
       params.append('limit', '1000');
 
-      // Fetch data from admin analytics API (single series mode)
-      console.log('🚀 FETCHING SINGLE SERIES DATA:', { measure, frequency });
-      const data: ApiResponse = await apiClient.get(`/api/admin/analytics/measures?${params.toString()}`);
+      // For table charts, use the data source query endpoint
+      if (chartType === 'table') {
+        if (!dataSourceId) {
+          throw new Error('Data source ID is required for table charts');
+        }
 
-      if (!data.measures) {
-        throw new Error('Invalid response format from analytics API');
-      }
+        console.log('🚀 FETCHING TABLE DATA from data source:', dataSourceId);
+        const tableData: { data: Record<string, unknown>[]; total_count: number; columns: Array<{ name: string; display_name: string; data_type: string; format_type: string | null }> } = await apiClient.get(`/api/admin/data-sources/${dataSourceId}/query?${params.toString()}`);
+
+        console.log('📊 TABLE DATA RECEIVED:', {
+          rowCount: tableData.data?.length,
+          columnCount: tableData.columns?.length,
+          sampleRow: tableData.data?.[0]
+        });
+
+        if (!tableData.data) {
+          throw new Error('Invalid response format from data source query API');
+        }
+
+        // Map API column names to match our interface
+        const mappedColumns = (tableData.columns || []).map(col => ({
+          column_name: col.name,
+          display_name: col.display_name,
+          data_type: col.data_type,
+          format_type: col.format_type
+        }));
+
+        // For tables, store raw data directly - no transformation needed
+        setChartData({ labels: [], datasets: [] }); // Not used for tables
+        setRawData(tableData.data);
+        setDataSourceColumns(mappedColumns); // Use columns from API response
+        setMetadata(null);
+
+        console.log('✅ TABLE DATA STORED:', {
+          rawDataLength: tableData.data.length,
+          columnsLength: mappedColumns.length
+        });
+      } else {
+        // Fetch data from admin analytics API (for chart visualizations)
+        console.log('🚀 FETCHING SINGLE SERIES DATA:', { measure, frequency });
+        const data: ApiResponse = await apiClient.get(`/api/admin/analytics/measures?${params.toString()}`);
+
+        if (!data.measures) {
+          throw new Error('Invalid response format from analytics API');
+        }
 
       // Use groupBy directly - no hard-coded mapping needed
       const mappedGroupBy = groupBy || 'none';
@@ -277,14 +317,15 @@ export default function AnalyticsChart({
         });
       }
 
-      // Transformation completed
+        // Transformation completed
 
-      // Show EXACT data structure being passed to Chart.js
-      // Chart data structure prepared
+        // Show EXACT data structure being passed to Chart.js
+        // Chart data structure prepared
 
-      setChartData(transformedData);
-      setMetadata(data.metadata);
-      setRawData(data.measures); // Store raw data for export
+        setChartData(transformedData);
+        setMetadata(data.metadata);
+        setRawData(data.measures); // Store raw data for export
+      } // End of else block for non-table charts
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch chart data';
@@ -294,7 +335,7 @@ export default function AnalyticsChart({
     } finally {
       setIsLoading(false);
     }
-  }, [chartType, measure, frequency, practice, practiceUid, providerName, providerUid, startDate, endDate, groupBy, calculatedField, stableAdvancedFilters, stableMultipleSeries]);
+  }, [chartType, measure, frequency, practice, practiceUid, providerName, providerUid, startDate, endDate, groupBy, calculatedField, stableAdvancedFilters, stableMultipleSeries, dataSourceId]);
 
   useEffect(() => {
     fetchChartData();
@@ -366,7 +407,8 @@ export default function AnalyticsChart({
       );
     }
 
-    if (chartData.datasets.length === 0) {
+    // Skip empty data check for table charts (they use rawData instead of chartData.datasets)
+    if (chartType !== 'table' && chartData.datasets.length === 0) {
       const noDataContainer = (
         <div className="flex flex-col items-center justify-center">
           <div className="text-gray-500 mb-2">📊 No Data</div>
@@ -418,6 +460,20 @@ export default function AnalyticsChart({
           );
         case 'doughnut':
           return <DoughnutChart ref={chartRef} data={chartData} width={width} height={height} />;
+        case 'table':
+          return (
+            <AnalyticsTableChart
+              data={rawData}
+              columns={dataSourceColumns.map(col => ({
+                columnName: col.column_name,
+                displayName: col.display_name,
+                dataType: col.data_type,
+                formatType: col.format_type
+              }))}
+              colorPalette={colorPalette}
+              height={height}
+            />
+          );
         default:
           return <div>Unsupported chart type: {chartType}</div>;
       }

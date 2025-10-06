@@ -42,6 +42,7 @@ const ALLOWED_CHART_TYPES = [
   'pie',
   'doughnut',
   'area',
+  'table',
 ] as const;
 
 // Allowed operators for filters

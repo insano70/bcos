@@ -49,6 +49,53 @@ export default function ChartBuilderAdvanced({
 }: ChartBuilderAdvancedProps) {
   const availableCalculatedFields = calculatedFieldsService.getAvailableCalculatedFields();
 
+  // For table charts, only show advanced filtering
+  if (chartConfig.chartType === 'table') {
+    return (
+      <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+          Advanced Options
+        </h3>
+
+        {/* Advanced Filtering Toggle - Only option for tables */}
+        <div className="mb-6">
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={chartConfig.useAdvancedFiltering}
+              onChange={(e) => updateConfig('useAdvancedFiltering', e.target.checked)}
+              className="mr-2 text-violet-500"
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              Enable Advanced Filtering
+            </span>
+          </label>
+
+          {chartConfig.useAdvancedFiltering && (
+            <div className="mt-4">
+              <AdvancedFilterBuilder
+                availableFields={Object.entries(schemaInfo.fields).map(([key, field]) => {
+                  const fieldDef = {
+                    name: key,
+                    displayName: field.name,
+                    type: field.type
+                  };
+                  if (field.allowedValues) {
+                    (fieldDef as Record<string, unknown>).allowedValues = field.allowedValues;
+                  }
+                  return fieldDef;
+                })}
+                onFiltersChange={handleAdvancedFiltersChange}
+                initialFilters={chartConfig.advancedFilters}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // For all other chart types, show full advanced options
   return (
     <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
       <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
@@ -98,7 +145,7 @@ export default function ChartBuilderAdvanced({
                   type: field.type
                 };
                 if (field.allowedValues) {
-                  (fieldDef as any).allowedValues = field.allowedValues;
+                  (fieldDef as Record<string, unknown>).allowedValues = field.allowedValues;
                 }
                 return fieldDef;
               })}

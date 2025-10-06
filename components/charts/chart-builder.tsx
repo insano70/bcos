@@ -334,13 +334,15 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
       setShowToast(true);
       return;
     }
-    if (!chartConfig.measure) {
+
+    // Measure is not required for table charts
+    if (chartConfig.chartType !== 'table' && !chartConfig.measure) {
       setToastMessage('Measure selection is required');
       setToastType('error');
       setShowToast(true);
       return;
     }
-    
+
     setPreviewKey(prev => prev + 1); // Force re-render of preview chart
     setCurrentStep('preview');
   };
@@ -360,17 +362,43 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
 
       // Build table reference from selected data source
       const tableReference = `${chartConfig.selectedDataSource.schemaName}.${chartConfig.selectedDataSource.tableName}`;
-      
+
+      // Build filters based on chart type
+      const filters = [];
+
+      // Table charts don't need measure/frequency filters
+      if (chartConfig.chartType !== 'table') {
+        filters.push(
+          { field: 'measure', operator: 'eq', value: chartConfig.measure },
+          { field: 'frequency', operator: 'eq', value: chartConfig.frequency }
+        );
+      }
+
+      // Add other filters
+      if (chartConfig.practiceUid) {
+        filters.push({ field: 'practice_uid', operator: 'eq', value: parseInt(chartConfig.practiceUid) });
+      }
+      if (chartConfig.startDate) {
+        filters.push({ field: 'date_index', operator: 'gte', value: chartConfig.startDate });
+      }
+      if (chartConfig.endDate) {
+        filters.push({ field: 'date_index', operator: 'lte', value: chartConfig.endDate });
+      }
+
       // Create chart definition matching the expected schema
       const chartDefinition = {
         chart_name: chartConfig.chartName,
-        chart_description: `${chartConfig.chartType} chart showing ${chartConfig.measure} by ${chartConfig.groupBy}`,
+        chart_description: chartConfig.chartType === 'table'
+          ? `Table view of ${chartConfig.selectedDataSource?.name || 'data'}`
+          : `${chartConfig.chartType} chart showing ${chartConfig.measure} by ${chartConfig.groupBy}`,
         chart_type: chartConfig.chartType,
         chart_category_id: null, // No category by default
         chart_config: {
           x_axis: { field: 'period_end', label: 'Date', format: 'date' },
           y_axis: { field: 'measure_value', label: 'Amount', format: 'currency' },
-          series: { groupBy: chartConfig.groupBy, colorPalette: chartConfig.colorPalette || 'default' },
+          series: chartConfig.chartType !== 'table'
+            ? { groupBy: chartConfig.groupBy, colorPalette: chartConfig.colorPalette || 'default' }
+            : undefined,
           options: { responsive: true, showLegend: true, showTooltips: true, animation: true },
           // Save additional configuration
           calculatedField: chartConfig.calculatedField,
@@ -383,15 +411,9 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
         // Save advanced filters in data_source
         data_source: {
           table: tableReference,
-          filters: [
-            { field: 'measure', operator: 'eq', value: chartConfig.measure },
-            { field: 'frequency', operator: 'eq', value: chartConfig.frequency },
-            ...(chartConfig.practiceUid ? [{ field: 'practice_uid', operator: 'eq', value: parseInt(chartConfig.practiceUid) }] : []),
-            ...(chartConfig.startDate ? [{ field: 'date_index', operator: 'gte', value: chartConfig.startDate }] : []),
-            ...(chartConfig.endDate ? [{ field: 'date_index', operator: 'lte', value: chartConfig.endDate }] : [])
-          ],
+          filters,
           advancedFilters: chartConfig.advancedFilters,
-          groupBy: [chartConfig.groupBy, 'period_end'],
+          groupBy: chartConfig.chartType !== 'table' ? [chartConfig.groupBy, 'period_end'] : [],
           orderBy: [{ field: 'period_end', direction: 'ASC' }]
         }
       };

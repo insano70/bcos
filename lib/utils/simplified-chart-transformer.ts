@@ -25,7 +25,7 @@ export class SimplifiedChartTransformer {
    */
   transformData(
     measures: AggAppMeasure[],
-    chartType: 'line' | 'bar' | 'horizontal-bar' | 'progress-bar' | 'pie' | 'doughnut' | 'area',
+    chartType: 'line' | 'bar' | 'horizontal-bar' | 'progress-bar' | 'pie' | 'doughnut' | 'area' | 'table',
     groupBy: string = 'none',
     paletteId: string = 'default'
   ): ChartData {
@@ -54,6 +54,10 @@ export class SimplifiedChartTransformer {
       case 'pie':
       case 'doughnut':
         chartData = this.createPieChart(measures, groupBy, paletteId);
+        break;
+      case 'table':
+        // Tables don't use Chart.js transformation, return empty data
+        chartData = { labels: [], datasets: [] };
         break;
       default:
         throw new Error(`Unsupported chart type: ${chartType}`);

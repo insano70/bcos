@@ -109,7 +109,8 @@ export interface ChartDefinition {
     | 'progress-bar'
     | 'pie'
     | 'doughnut'
-    | 'area';
+    | 'area'
+    | 'table';
   chart_category_id?: number;
   created_by: string;
   created_at: Date;

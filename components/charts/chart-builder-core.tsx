@@ -33,7 +33,7 @@ export interface DataSource {
 
 export interface ChartConfig {
   chartName: string;
-  chartType: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'progress-bar' | 'doughnut';
+  chartType: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'progress-bar' | 'doughnut' | 'table';
   measure: string;
   frequency: string;
   practiceUid: string;
@@ -128,13 +128,14 @@ export default function ChartBuilderCore({
             <option value="progress-bar">Progress Bar</option>
             <option value="line">Line Chart</option>
             <option value="doughnut">Doughnut Chart</option>
+            <option value="table">Table</option>
           </select>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-        {/* Measure - Hidden when multiple series is enabled */}
-        {!chartConfig.useMultipleSeries ? (
+        {/* Measure - Hidden when multiple series is enabled OR table chart type */}
+        {!chartConfig.useMultipleSeries && chartConfig.chartType !== 'table' ? (
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Measure *
@@ -151,6 +152,22 @@ export default function ChartBuilderCore({
                 </option>
               ))}
             </select>
+          </div>
+        ) : chartConfig.chartType === 'table' ? (
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md border border-blue-200 dark:border-blue-800">
+            <div className="flex items-start">
+              <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              <div>
+                <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                  Table Mode
+                </p>
+                <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                  Table displays all active columns from the data source. No measure selection required.
+                </p>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md border border-blue-200 dark:border-blue-800">
@@ -170,24 +187,26 @@ export default function ChartBuilderCore({
           </div>
         )}
 
-        {/* Frequency */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Frequency
-          </label>
-          <select
-            value={chartConfig.frequency}
-            onChange={(e) => updateConfig('frequency', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-          >
-            <option value="">All frequencies...</option>
-            {schemaInfo.availableFrequencies.map((freq) => (
-              <option key={freq.frequency} value={freq.frequency}>
-                {freq.frequency}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* Frequency - Hidden for table charts */}
+        {chartConfig.chartType !== 'table' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Frequency
+            </label>
+            <select
+              value={chartConfig.frequency}
+              onChange={(e) => updateConfig('frequency', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            >
+              <option value="">All frequencies...</option>
+              {schemaInfo.availableFrequencies.map((freq) => (
+                <option key={freq.frequency} value={freq.frequency}>
+                  {freq.frequency}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Practice Filter */}
         <div>
@@ -203,41 +222,43 @@ export default function ChartBuilderCore({
           />
         </div>
 
-        {/* Group By */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Group By
-          </label>
-          <select
-            value={chartConfig.groupBy}
-            onChange={(e) => updateConfig('groupBy', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-          >
-            <option value="none">No Grouping</option>
-            {schemaInfo.availableGroupByFields.map((field) => (
-              <option key={field.columnName} value={field.columnName}>
-                {field.displayName}
-              </option>
-            ))}
-          </select>
-          {chartConfig.chartType === 'stacked-bar' && (
-            <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
-              <div className="flex items-start">
-                <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-                <div>
-                  <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                    Stacked Bar Charts
-                  </p>
-                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                    Stacked bars show each group (Provider, Practice, etc.) as a colored segment in a single bar per time period. Select a Group By option to create multiple stack segments.
-                  </p>
+        {/* Group By - Hidden for table charts */}
+        {chartConfig.chartType !== 'table' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Group By
+            </label>
+            <select
+              value={chartConfig.groupBy}
+              onChange={(e) => updateConfig('groupBy', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            >
+              <option value="none">No Grouping</option>
+              {schemaInfo.availableGroupByFields.map((field) => (
+                <option key={field.columnName} value={field.columnName}>
+                  {field.displayName}
+                </option>
+              ))}
+            </select>
+            {chartConfig.chartType === 'stacked-bar' && (
+              <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+                <div className="flex items-start">
+                  <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                      Stacked Bar Charts
+                    </p>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                      Stacked bars show each group (Provider, Practice, etc.) as a colored segment in a single bar per time period. Select a Group By option to create multiple stack segments.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* Date Range Selection */}
         <div className="md:col-span-2">

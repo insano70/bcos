@@ -135,6 +135,7 @@ export const chartDefinitionCreateSchema = z.object({
     'scatter',
     'histogram',
     'heatmap',
+    'table',
   ]),
   chart_category_id: z.union([integerIdSchema, z.null()]).optional(),
   chart_config: chartConfigSchema.optional(), // Properly typed chart configuration
