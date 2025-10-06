@@ -153,6 +153,7 @@ pnpm start
 - `pnpm db:seed` - Seed database
 - `pnpm db:push` - Push schema changes
 - `pnpm db:generate` - Generate migrations
+- `pnpm db:validate` - Validate migration files match journal
 - `pnpm db:psql` - Open PostgreSQL shell
 
 ## Environment Variables

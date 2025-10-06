@@ -128,7 +128,7 @@ const oidcLoginHandler = async (request: NextRequest) => {
 		cookieStore.set('oidc-session', sealed, {
 			httpOnly: true,
 			secure: process.env.NODE_ENV === 'production',
-			sameSite: 'strict', // CRITICAL: Prevents CSRF on OIDC flow
+			sameSite: 'lax', // REQUIRED: Allows cookie to be sent on top-level OAuth redirect from Microsoft Entra (strict blocks cross-site navigations)
 			maxAge: 60 * 10, // 10 minutes
 			path: '/',
 		});
