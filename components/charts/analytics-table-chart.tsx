@@ -48,7 +48,7 @@ export default function AnalyticsTableChart({
     const checkScrollable = () => {
       if (scrollContainerRef.current) {
         // Check if we're inside a ResponsiveChartContainer that handles scrolling
-        let scrollElement = scrollContainerRef.current;
+        let scrollElement: HTMLElement = scrollContainerRef.current;
         const parent = scrollContainerRef.current.parentElement;
 
         // If parent has overflow, it's the scroll container
@@ -93,7 +93,7 @@ export default function AnalyticsTableChart({
   const handleScroll = () => {
     if (scrollContainerRef.current) {
       // Use the same scroll element detection as in useEffect
-      let scrollElement = scrollContainerRef.current;
+      let scrollElement: HTMLElement = scrollContainerRef.current;
       const parent = scrollContainerRef.current.parentElement;
 
       if (parent) {
