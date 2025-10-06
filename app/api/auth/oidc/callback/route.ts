@@ -60,6 +60,9 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 
 	log.api('GET /api/auth/oidc/callback - OIDC callback received', request, 0, 0);
 
+	// Use NEXT_PUBLIC_APP_URL for all redirects to avoid internal hostname issues behind load balancer
+	const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.url;
+
 	try {
 		// ===== 1. Extract Callback Parameters =====
 		const code = request.nextUrl.searchParams.get('code');
@@ -85,7 +88,7 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 			});
 
 			return NextResponse.redirect(
-				new URL(`/signin?error=oidc_provider_error&message=${encodeURIComponent(error)}`, request.url),
+				new URL(`/signin?error=oidc_provider_error&message=${encodeURIComponent(error)}`, baseUrl),
 			);
 		}
 
@@ -97,7 +100,7 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 			});
 
 			return NextResponse.redirect(
-				new URL('/signin?error=oidc_callback_failed', request.url),
+				new URL('/signin?error=oidc_callback_failed', baseUrl),
 			);
 		}
 
@@ -199,7 +202,7 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 				});
 
 				return NextResponse.redirect(
-					new URL('/signin?error=oidc_session_hijack', request.url),
+					new URL('/signin?error=oidc_session_hijack', baseUrl),
 				);
 			}
 
@@ -256,7 +259,7 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 				});
 
 				return NextResponse.redirect(
-					new URL('/signin?error=oidc_domain_not_allowed', request.url),
+					new URL('/signin?error=oidc_domain_not_allowed', baseUrl),
 				);
 			}
 		}
@@ -289,7 +292,7 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 			});
 
 			return NextResponse.redirect(
-				new URL('/signin?error=oidc_invalid_profile', request.url),
+				new URL('/signin?error=oidc_invalid_profile', baseUrl),
 			);
 		}
 
@@ -414,8 +417,6 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 		});
 
 		// Redirect to destination
-		// Use NEXT_PUBLIC_APP_URL as base to avoid internal hostname issues behind load balancer
-		const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.url;
 		const redirectUrl = new URL(sessionData.returnUrl, baseUrl);
 		return NextResponse.redirect(redirectUrl);
 	} catch (error) {
@@ -453,7 +454,7 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 					: 'oidc_callback_failed';
 
 		return NextResponse.redirect(
-			new URL(`/signin?error=${errorMessage}`, request.url),
+			new URL(`/signin?error=${errorMessage}`, baseUrl),
 		);
 	}
 };
