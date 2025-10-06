@@ -418,6 +418,13 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 
 		// Redirect to destination
 		const redirectUrl = new URL(sessionData.returnUrl, baseUrl);
+
+		log.info('OIDC callback redirect', {
+			returnUrl: sessionData.returnUrl,
+			baseUrl,
+			finalRedirect: redirectUrl.toString(),
+		});
+
 		return NextResponse.redirect(redirectUrl);
 	} catch (error) {
 		const duration = Date.now() - startTime;
