@@ -42,16 +42,16 @@ export default function PracticesContent() {
     }
   };
 
-  const handleEdit = (practice: Practice) => {
-    window.location.href = `/configure/practices/${practice.id}`;
+  const handleEdit = (_practice: Practice) => {
+    window.location.href = `/configure/practices/${_practice.id}`;
   };
 
-  const handlePreview = (practice: Practice) => {
-    window.open(`/template-preview/${practice.id}`, '_blank', 'noopener,noreferrer');
+  const handlePreview = (_practice: Practice) => {
+    window.open(`/template-preview/${_practice.id}`, '_blank', 'noopener,noreferrer');
   };
 
-  const handleCopyDomain = (practice: Practice) => {
-    navigator.clipboard.writeText(practice.domain);
+  const handleCopyDomain = (_practice: Practice) => {
+    navigator.clipboard.writeText(_practice.domain);
   };
 
   // Define table columns
@@ -136,7 +136,7 @@ export default function PracticesContent() {
   ];
 
   // Define dropdown actions
-  const getDropdownActions = (practice: Practice): DataTableDropdownAction<Practice>[] => [
+  const getDropdownActions = (_practice: Practice): DataTableDropdownAction<Practice>[] => [
     {
       label: 'Edit Practice',
       icon: (

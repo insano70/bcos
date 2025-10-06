@@ -14,6 +14,7 @@ import {
 } from 'chart.js';
 import type { ChartData } from 'chart.js';
 import { simplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
+import { createPeriodComparisonHorizontalTooltipCallbacks } from '@/lib/utils/period-comparison-tooltips';
 
 Chart.register(BarController, BarElement, LinearScale, CategoryScale, Tooltip, Legend);
 
@@ -90,20 +91,34 @@ const AnalyticsHorizontalBarChart = forwardRef<HTMLCanvasElement, AnalyticsHoriz
             display: false, // We'll use custom legend with totals
           },
           tooltip: {
-            callbacks: {
-              title: (context) => {
-                // Show the category label as title
-                return context[0]?.label || '';
-              },
-              label: (context) => {
-                // Get measure type from dataset metadata, fallback to chart data, then to 'number'
-                const measureType = (context.dataset as any)?.measureType || 
-                                  (context.chart.data as any)?.measureType || 
-                                  'number';
-                const formattedValue = simplifiedChartTransformer.formatValue(context.parsed.x, measureType);
-                return `${context.dataset.label}: ${formattedValue}`;
-              },
-            },
+            callbacks: (() => {
+              // Check if this is a period comparison chart
+              const hasPeriodComparison = data.datasets.some(dataset => 
+                dataset.label?.includes('Previous') || 
+                dataset.label?.includes('Last Year') ||
+                dataset.label?.includes('Ago')
+              );
+
+              if (hasPeriodComparison) {
+                return createPeriodComparisonHorizontalTooltipCallbacks(darkMode);
+              }
+
+              // Default tooltip callbacks
+              return {
+                title: (context: any) => {
+                  // Show the category label as title
+                  return context[0]?.label || '';
+                },
+                label: (context: any) => {
+                  // Get measure type from dataset metadata, fallback to chart data, then to 'number'
+                  const measureType = (context.dataset as any)?.measureType || 
+                                    (context.chart.data as any)?.measureType || 
+                                    'number';
+                  const formattedValue = simplifiedChartTransformer.formatValue(context.parsed.x, measureType);
+                  return `${context.dataset.label}: ${formattedValue}`;
+                },
+              };
+            })(),
             bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
             backgroundColor: darkMode ? tooltipBgColor.dark : tooltipBgColor.light,
             borderColor: darkMode ? tooltipBorderColor.dark : tooltipBorderColor.light,

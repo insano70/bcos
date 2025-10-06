@@ -86,6 +86,7 @@ export interface ChartConfig {
   series?: ChartSeriesConfig;
   options: ChartDisplayOptions;
   colorPalette?: string;
+  periodComparison?: PeriodComparisonConfig;
 }
 
 export interface ChartAccessControl {
@@ -164,6 +165,16 @@ export interface MultipleSeriesConfig {
 }
 
 /**
+ * Period comparison configuration for charts
+ */
+export interface PeriodComparisonConfig {
+  enabled: boolean;
+  comparisonType: 'previous_period' | 'same_period_last_year' | 'custom_period';
+  customPeriodOffset?: number; // For custom period comparisons (number of periods to go back)
+  labelFormat: string; // Display label for comparison period (e.g., "Previous Month", "Last Quarter")
+}
+
+/**
  * Simplified analytics query parameters for pre-aggregated data
  */
 export interface AnalyticsQueryParams {
@@ -181,6 +192,7 @@ export interface AnalyticsQueryParams {
   calculated_field?: string | undefined;
   multiple_series?: MultipleSeriesConfig[];
   data_source_id?: number | undefined;
+  period_comparison?: PeriodComparisonConfig;
 }
 
 /**

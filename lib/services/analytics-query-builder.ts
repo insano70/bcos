@@ -259,6 +259,11 @@ export class AnalyticsQueryBuilder {
         return await this.queryMultipleSeries(params, context);
       }
 
+      // If period comparison is requested, handle it separately
+      if (params.period_comparison?.enabled) {
+        return await this.queryWithPeriodComparison(params, context);
+      }
+
       // Check cache first
       const cachedResult = analyticsCache.get(params, context.user_id);
       if (cachedResult) {
@@ -608,6 +613,157 @@ export class AnalyticsQueryBuilder {
       queryTime: result.query_time_ms,
       userId: context.user_id,
       measuresQueried: measures,
+    });
+
+    return result;
+  }
+
+  /**
+   * Query data with period comparison support
+   */
+  private async queryWithPeriodComparison(
+    params: AnalyticsQueryParams,
+    context: ChartRenderContext
+  ): Promise<AnalyticsQueryResult> {
+    const startTime = Date.now();
+
+    if (!params.period_comparison?.enabled) {
+      throw new Error('Period comparison configuration is required');
+    }
+
+    if (!params.frequency || !params.start_date || !params.end_date) {
+      throw new Error('Frequency, start_date, and end_date are required for period comparison');
+    }
+
+    // Validate period comparison configuration
+    if (!params.period_comparison.comparisonType) {
+      throw new Error('Comparison type is required for period comparison');
+    }
+
+    if (params.period_comparison.comparisonType === 'custom_period' && 
+        (!params.period_comparison.customPeriodOffset || params.period_comparison.customPeriodOffset < 1)) {
+      throw new Error('Custom period offset must be at least 1');
+    }
+
+    this.log.info('Building period comparison analytics query', {
+      comparisonType: params.period_comparison.comparisonType,
+      frequency: params.frequency,
+      currentRange: { start: params.start_date, end: params.end_date },
+      userId: context.user_id,
+    });
+
+    // Import period comparison utilities
+    const { calculateComparisonDateRange, generateComparisonLabel } = await import('@/lib/utils/period-comparison');
+
+    // Calculate comparison date range
+    let comparisonRange: { start: string; end: string };
+    try {
+      comparisonRange = calculateComparisonDateRange(
+        params.start_date,
+        params.end_date,
+        params.frequency,
+        params.period_comparison
+      );
+    } catch (error) {
+      this.log.error('Failed to calculate comparison date range', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        comparisonType: params.period_comparison.comparisonType,
+        frequency: params.frequency,
+        startDate: params.start_date,
+        endDate: params.end_date,
+      });
+      throw new Error(`Failed to calculate comparison date range: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+
+    // Create comparison query parameters
+    const { period_comparison: _period_comparison, ...baseParams } = params;
+    const comparisonParams: AnalyticsQueryParams = {
+      ...baseParams,
+      start_date: comparisonRange.start,
+      end_date: comparisonRange.end,
+    };
+
+    // Check cache first for period comparison query
+    const cachedResult = analyticsCache.get(params, context.user_id);
+    if (cachedResult) {
+      this.log.info('Period comparison query served from cache', {
+        comparisonType: params.period_comparison.comparisonType,
+        userId: context.user_id,
+        cacheAge: Date.now() - ((cachedResult as unknown) as { timestamp: number }).timestamp || 0,
+      });
+      return cachedResult;
+    }
+
+    // Execute both queries in parallel
+    let currentResult: AnalyticsQueryResult, comparisonResult: AnalyticsQueryResult;
+    try {
+      [currentResult, comparisonResult] = await Promise.all([
+        this.queryMeasures(params, context),
+        this.queryMeasures(comparisonParams, context)
+      ]);
+    } catch (error) {
+      this.log.error('Failed to execute period comparison queries', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        comparisonType: params.period_comparison.comparisonType,
+        currentRange: { start: params.start_date, end: params.end_date },
+        comparisonRange,
+      });
+      throw new Error(`Failed to execute period comparison queries: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+
+    // Validate that we have data for both periods
+    if (!currentResult.data || currentResult.data.length === 0) {
+      this.log.warn('No data found for current period', {
+        comparisonType: params.period_comparison.comparisonType,
+        currentRange: { start: params.start_date, end: params.end_date },
+      });
+    }
+
+    if (!comparisonResult.data || comparisonResult.data.length === 0) {
+      this.log.warn('No data found for comparison period', {
+        comparisonType: params.period_comparison.comparisonType,
+        comparisonRange,
+      });
+    }
+
+    // Add comparison metadata to comparison data
+    const comparisonLabel = generateComparisonLabel(params.frequency, params.period_comparison);
+    const enhancedComparisonData = (comparisonResult.data || []).map(item => ({
+      ...item,
+      series_id: 'comparison',
+      series_label: comparisonLabel,
+      series_aggregation: 'sum' as const,
+    }));
+
+    // Add current period metadata to current data
+    const enhancedCurrentData = (currentResult.data || []).map(item => ({
+      ...item,
+      series_id: 'current',
+      series_label: 'Current Period',
+      series_aggregation: 'sum' as const,
+    }));
+
+    // Combine results
+    const combinedData = [...enhancedCurrentData, ...enhancedComparisonData];
+
+    const result: AnalyticsQueryResult = {
+      data: combinedData,
+      total_count: currentResult.total_count + comparisonResult.total_count,
+      query_time_ms: Date.now() - startTime,
+      cache_hit: false,
+    };
+
+    // Cache the result
+    analyticsCache.set(params, context.user_id, result);
+
+    this.log.info('Period comparison query completed', {
+      comparisonType: params.period_comparison.comparisonType,
+      currentRecords: enhancedCurrentData.length,
+      comparisonRecords: enhancedComparisonData.length,
+      totalRecords: combinedData.length,
+      queryTime: result.query_time_ms,
+      userId: context.user_id,
+      comparisonRange,
     });
 
     return result;

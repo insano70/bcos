@@ -132,11 +132,16 @@ export const account_security = pgTable(
     password_changed_at: timestamp('password_changed_at', { withTimezone: true }),
     last_password_reset: timestamp('last_password_reset', { withTimezone: true }),
     suspicious_activity_detected: boolean('suspicious_activity_detected').notNull().default(false),
+    // MFA fields
+    mfa_enabled: boolean('mfa_enabled').notNull().default(false),
+    mfa_method: varchar('mfa_method', { length: 20 }), // 'webauthn' (future: 'totp')
+    mfa_enforced_at: timestamp('mfa_enforced_at', { withTimezone: true }),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     lockedUntilIdx: index('idx_account_security_locked_until').on(table.locked_until),
     suspiciousIdx: index('idx_account_security_suspicious').on(table.suspicious_activity_detected),
+    mfaEnabledIdx: index('idx_account_security_mfa_enabled').on(table.mfa_enabled),
   })
 );

@@ -1,5 +1,6 @@
 import { getCssVariable } from '@/components/utils/utils';
 import { getPaletteColors } from '@/lib/services/color-palettes';
+import { applyPeriodComparisonColors, getColorScheme } from './period-comparison-colors';
 import type { AggAppMeasure, ChartData, ChartDataset } from '@/lib/types/analytics';
 
 /**
@@ -764,6 +765,136 @@ export class SimplifiedChartTransformer {
       default:
         return value.toString();
     }
+  }
+
+  /**
+   * Transform data with period comparison support
+   */
+  transformDataWithPeriodComparison(
+    measures: AggAppMeasure[],
+    chartType: 'line' | 'bar' | 'horizontal-bar' | 'progress-bar' | 'pie' | 'doughnut' | 'area' | 'table',
+    groupBy: string = 'none',
+    paletteId: string = 'default'
+  ): ChartData {
+    if (measures.length === 0) {
+      return { labels: [], datasets: [] };
+    }
+
+    // Extract measure type from data
+    const measureType = this.extractMeasureType(measures);
+
+    // Check if we have period comparison data (series-tagged data)
+    const hasPeriodComparison = measures.some((m) => m.series_label && (m.series_id === 'current' || m.series_id === 'comparison'));
+
+    if (hasPeriodComparison) {
+      const chartData = this.createPeriodComparisonChart(measures, chartType, groupBy, paletteId);
+      // Attach measure type to chart data and all datasets
+      chartData.measureType = measureType;
+      chartData.datasets.forEach((dataset) => {
+        dataset.measureType = measureType;
+      });
+      return chartData;
+    }
+
+    // Fallback to regular transformation
+    return this.transformData(measures, chartType, groupBy, paletteId);
+  }
+
+  /**
+   * Create period comparison chart with distinct styling for current vs comparison periods
+   */
+  private createPeriodComparisonChart(
+    measures: AggAppMeasure[],
+    chartType: 'line' | 'bar' | 'horizontal-bar' | 'progress-bar' | 'pie' | 'doughnut' | 'area' | 'table',
+    groupBy: string = 'none',
+    paletteId: string = 'default'
+  ): ChartData {
+    // Separate current and comparison data
+    const currentMeasures = measures.filter(m => m.series_id === 'current');
+    const comparisonMeasures = measures.filter(m => m.series_id === 'comparison');
+
+    // Get comparison label from the data
+    const comparisonLabel = comparisonMeasures[0]?.series_label || 'Previous Period';
+
+    // Transform current period data
+    const currentData = this.transformData(currentMeasures, chartType, groupBy, paletteId);
+    
+    // Transform comparison period data
+    const comparisonData = this.transformData(comparisonMeasures, chartType, groupBy, paletteId);
+
+    // Apply period comparison styling
+    const styledComparisonData = this.applyPeriodComparisonStyling(comparisonData, chartType);
+
+    // Merge datasets with appropriate labeling
+    const mergedDatasets = [
+      ...currentData.datasets.map(dataset => ({
+        ...dataset,
+        label: dataset.label === 'Value' ? 'Current Period' : dataset.label
+      })),
+      ...styledComparisonData.datasets.map(dataset => ({
+        ...dataset,
+        label: dataset.label === 'Value' ? comparisonLabel : `${dataset.label} (${comparisonLabel})`
+      }))
+    ];
+
+          // Apply period comparison color scheme
+          const colorScheme = getColorScheme('default');
+          const coloredDatasets = applyPeriodComparisonColors(mergedDatasets, colorScheme, chartType) as ChartDataset[];
+
+    return {
+      labels: currentData.labels, // Use current period labels as primary
+      datasets: coloredDatasets,
+    };
+  }
+
+  /**
+   * Apply period comparison styling to comparison datasets
+   */
+  private applyPeriodComparisonStyling(
+    chartData: ChartData,
+    chartType: 'line' | 'bar' | 'horizontal-bar' | 'progress-bar' | 'pie' | 'doughnut' | 'area' | 'table'
+  ): ChartData {
+    const styledDatasets = chartData.datasets.map(dataset => {
+      const styledDataset = { ...dataset };
+
+      switch (chartType) {
+        case 'line':
+        case 'area':
+          // Use dashed lines and lighter colors for comparison
+          (styledDataset as ChartDataset & { borderDash?: number[] }).borderDash = [5, 5];
+          styledDataset.borderColor = this.adjustColorOpacity(dataset.borderColor as string, 0.6);
+          styledDataset.backgroundColor = this.adjustColorOpacity(dataset.backgroundColor as string, 0.3);
+          break;
+
+        case 'bar':
+        case 'horizontal-bar':
+          // Use lighter colors and reduced opacity for comparison bars
+          styledDataset.backgroundColor = this.adjustColorOpacity(dataset.backgroundColor as string, 0.6);
+          styledDataset.hoverBackgroundColor = this.adjustColorOpacity(dataset.hoverBackgroundColor as string, 0.8);
+          break;
+
+        case 'pie':
+        case 'doughnut':
+          // Use lighter colors for comparison slices
+          if (Array.isArray(styledDataset.backgroundColor)) {
+            styledDataset.backgroundColor = styledDataset.backgroundColor.map(color => 
+              this.adjustColorOpacity(color, 0.6)
+            );
+          }
+          break;
+
+        default:
+          // Default styling - just reduce opacity
+          styledDataset.backgroundColor = this.adjustColorOpacity(dataset.backgroundColor as string, 0.6);
+      }
+
+      return styledDataset;
+    });
+
+    return {
+      ...chartData,
+      datasets: styledDatasets,
+    };
   }
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { ChartFilter, MeasureType, MultipleSeriesConfig } from '@/lib/types/analytics';
+import { ChartFilter, MeasureType, MultipleSeriesConfig, PeriodComparisonConfig } from '@/lib/types/analytics';
 import DateRangePresets from './date-range-presets';
 import DataSourceSelector from './data-source-selector';
 import ColorPaletteSelector from './color-palette-selector';
@@ -48,12 +48,13 @@ export interface ChartConfig {
   selectedDataSource: DataSource | null;
   stackingMode?: 'normal' | 'percentage';
   colorPalette?: string;
+  periodComparison?: PeriodComparisonConfig;
 }
 
 interface ChartBuilderCoreProps {
   schemaInfo: SchemaInfo | null;
   chartConfig: ChartConfig;
-  updateConfig: (key: keyof ChartConfig, value: string | boolean | ChartFilter[] | DataSource | null | undefined) => void;
+  updateConfig: (key: keyof ChartConfig, value: string | boolean | ChartFilter[] | DataSource | PeriodComparisonConfig | null | undefined) => void;
   handleDateRangeChange: (presetId: string, startDate: string, endDate: string) => void;
   selectedDatePreset?: string;
   isLoadingSchema: boolean;
@@ -277,6 +278,116 @@ export default function ChartBuilderCore({
           value={chartConfig.colorPalette || 'default'}
           onChange={(paletteId) => updateConfig('colorPalette', paletteId)}
         />
+      </div>
+
+      {/* Period Comparison Toggle */}
+      <div className="mt-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Period Over Period Comparison
+            </label>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Compare current period with previous period
+            </p>
+          </div>
+          <input
+            type="checkbox"
+            checked={chartConfig.periodComparison?.enabled || false}
+            onChange={(e) => {
+              const currentConfig = chartConfig.periodComparison || {
+                enabled: false,
+                comparisonType: 'previous_period' as const,
+                labelFormat: 'Previous Period'
+              };
+              updateConfig('periodComparison', {
+                ...currentConfig,
+                enabled: e.target.checked
+              });
+            }}
+            className="h-4 w-4 text-violet-600 focus:ring-violet-500 border-gray-300 rounded"
+          />
+        </div>
+        
+        {chartConfig.periodComparison?.enabled && (
+          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                  Comparison Type
+                </label>
+                <select
+                  value={chartConfig.periodComparison?.comparisonType || 'previous_period'}
+                  onChange={(e) => {
+                    const currentConfig = chartConfig.periodComparison || {
+                      enabled: true,
+                      comparisonType: 'previous_period' as const,
+                      labelFormat: 'Previous Period'
+                    };
+                    updateConfig('periodComparison', {
+                      ...currentConfig,
+                      comparisonType: e.target.value as 'previous_period' | 'same_period_last_year' | 'custom_period'
+                    });
+                  }}
+                  className="w-full px-3 py-2 border border-blue-300 dark:border-blue-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  <option value="previous_period">Previous Period</option>
+                  <option value="same_period_last_year">Same Period Last Year</option>
+                  <option value="custom_period">Custom Period Offset</option>
+                </select>
+              </div>
+              
+              {chartConfig.periodComparison?.comparisonType === 'custom_period' && (
+                <div>
+                  <label className="block text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                    Periods to Go Back
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="12"
+                    value={chartConfig.periodComparison?.customPeriodOffset || 1}
+                    onChange={(e) => {
+                      const currentConfig = chartConfig.periodComparison || {
+                        enabled: true,
+                        comparisonType: 'custom_period' as const,
+                        labelFormat: 'Previous Period'
+                      };
+                      updateConfig('periodComparison', {
+                        ...currentConfig,
+                        customPeriodOffset: parseInt(e.target.value) || 1
+                      });
+                    }}
+                    className="w-full px-3 py-2 border border-blue-300 dark:border-blue-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  />
+                </div>
+              )}
+              
+              <div>
+                <label className="block text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                  Comparison Label
+                </label>
+                <input
+                  type="text"
+                  value={chartConfig.periodComparison?.labelFormat || 'Previous Period'}
+                  onChange={(e) => {
+                    const currentConfig = chartConfig.periodComparison || {
+                      enabled: true,
+                      comparisonType: 'previous_period' as const,
+                      labelFormat: 'Previous Period'
+                    };
+                    updateConfig('periodComparison', {
+                      ...currentConfig,
+                      labelFormat: e.target.value
+                    });
+                  }}
+                  placeholder="e.g., Previous Month, Last Quarter"
+                  className="w-full px-3 py-2 border border-blue-300 dark:border-blue-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
         </>
       )}

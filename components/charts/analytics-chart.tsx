@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ChartData, AnalyticsQueryParams, MeasureType, FrequencyType, ChartFilter, MultipleSeriesConfig } from '@/lib/types/analytics';
+import { ChartData, AnalyticsQueryParams, MeasureType, FrequencyType, ChartFilter, MultipleSeriesConfig, PeriodComparisonConfig } from '@/lib/types/analytics';
 import type { ResponsiveChartProps } from '@/lib/types/responsive-charts';
 import { simplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
 import { calculatedFieldsService } from '@/lib/services/calculated-fields';
@@ -43,6 +43,7 @@ interface AnalyticsChartProps extends ResponsiveChartProps {
   dataSourceId?: number | undefined; // Data source ID for configurable data sources
   stackingMode?: 'normal' | 'percentage'; // Stacking mode for stacked-bar charts
   colorPalette?: string; // Color palette ID for chart colors
+  periodComparison?: PeriodComparisonConfig; // Period comparison support
 }
 
 interface ApiResponse {
@@ -82,6 +83,7 @@ export default function AnalyticsChart({
   dataSourceId, // Data source ID for configurable data sources
   stackingMode = 'normal', // Stacking mode for stacked-bar charts
   colorPalette = 'default', // Color palette for chart colors
+  periodComparison, // Period comparison support
   // Responsive sizing options
   responsive = false,
   minHeight = 200,
@@ -181,6 +183,16 @@ export default function AnalyticsChart({
       } else if (chartType !== 'table') {
         console.log('🔍 SINGLE SERIES MODE:', { measure, frequency });
         if (measure) params.append('measure', measure);
+      }
+
+      // Add period comparison configuration if provided (not for table charts)
+      if (chartType !== 'table' && periodComparison?.enabled) {
+        console.log('🔍 PERIOD COMPARISON CONFIG:', {
+          periodComparison,
+          comparisonType: periodComparison.comparisonType,
+          labelFormat: periodComparison.labelFormat
+        });
+        params.append('period_comparison', encodeURIComponent(JSON.stringify(periodComparison)));
       }
 
       // Chart parameters configured
@@ -288,6 +300,28 @@ export default function AnalyticsChart({
         );
         
         console.log('🔍 MULTI-SERIES RESULT:', {
+          labelCount: transformedData.labels.length,
+          datasetCount: transformedData.datasets.length,
+          datasetLabels: transformedData.datasets.map(d => d.label)
+        });
+      } else if (processedMeasures.some(m => m.series_id === 'current' || m.series_id === 'comparison')) {
+        console.log('🔍 USING PERIOD COMPARISON TRANSFORMER:', {
+          chartType,
+          mappedGroupBy,
+          dataCount: processedMeasures.length,
+          currentRecords: processedMeasures.filter(m => m.series_id === 'current').length,
+          comparisonRecords: processedMeasures.filter(m => m.series_id === 'comparison').length
+        });
+        
+        // Use the period comparison transformer
+        transformedData = simplifiedChartTransformer.transformDataWithPeriodComparison(
+          processedMeasures,
+          chartType === 'stacked-bar' ? 'bar' : chartType, // Map stacked-bar to bar for transformation
+          mappedGroupBy,
+          colorPalette
+        );
+        
+        console.log('🔍 PERIOD COMPARISON RESULT:', {
           labelCount: transformedData.labels.length,
           datasetCount: transformedData.datasets.length,
           datasetLabels: transformedData.datasets.map(d => d.label)

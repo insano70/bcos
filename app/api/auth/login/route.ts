@@ -239,6 +239,93 @@ const loginHandler = async (request: NextRequest) => {
     // Clear failed attempts on successful login
     await clearFailedAttempts(email)
 
+    // CHECK MFA STATUS - If MFA is enabled, require passkey verification
+    const { getMFAStatus, beginAuthentication } = await import('@/lib/auth/webauthn')
+    const { createMFATempToken } = await import('@/lib/auth/webauthn-temp-token')
+
+    const mfaStatus = await getMFAStatus(user.user_id)
+
+    if (mfaStatus.enabled && mfaStatus.credential_count > 0) {
+      // MFA is enabled - require passkey verification
+      log.info('MFA required for user', {
+        userId: user.user_id,
+        credentialCount: mfaStatus.credential_count,
+      })
+
+      // Generate authentication challenge
+      const { options, challenge_id } = await beginAuthentication(
+        user.user_id,
+        ipAddress,
+        userAgent
+      )
+
+      // Create temporary token for MFA flow
+      const tempToken = await createMFATempToken(user.user_id, challenge_id)
+
+      await AuditLogger.logAuth({
+        action: 'mfa_challenge_issued',
+        userId: user.user_id,
+        ipAddress,
+        userAgent,
+        metadata: {
+          challengeId: challenge_id.substring(0, 8),
+          correlationId: correlation.current(),
+        },
+      })
+
+      const totalDuration = Date.now() - startTime
+      log.api('POST /api/auth/login - MFA Required', request, 200, totalDuration)
+
+      // Return MFA challenge response
+      return createSuccessResponse(
+        {
+          status: 'mfa_required',
+          tempToken,
+          challenge: options,
+          challengeId: challenge_id,
+        },
+        'MFA verification required'
+      )
+    }
+
+    if (!mfaStatus.enabled) {
+      // MFA not yet configured - require setup on first login
+      log.info('MFA setup required for user', {
+        userId: user.user_id,
+      })
+
+      // Create temporary token for MFA setup
+      const tempToken = await createMFATempToken(user.user_id)
+
+      await AuditLogger.logAuth({
+        action: 'mfa_setup_required',
+        userId: user.user_id,
+        ipAddress,
+        userAgent,
+        metadata: {
+          reason: 'first_login',
+          correlationId: correlation.current(),
+        },
+      })
+
+      const totalDuration = Date.now() - startTime
+      log.api('POST /api/auth/login - MFA Setup Required', request, 200, totalDuration)
+
+      // Return MFA setup required response
+      return createSuccessResponse(
+        {
+          status: 'mfa_setup_required',
+          tempToken,
+          user: {
+            id: user.user_id,
+            email: user.email,
+            name: `${user.first_name} ${user.last_name}`,
+          },
+        },
+        'Passkey setup required'
+      )
+    }
+
     // Generate device info
     const deviceGenStartTime = Date.now()
     const deviceFingerprint = generateDeviceFingerprint(ipAddress, userAgent)

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Toast from '@/components/toast';
-import { ChartDefinition, ChartFilter, MeasureType, MultipleSeriesConfig } from '@/lib/types/analytics';
+import { ChartDefinition, ChartFilter, MeasureType, MultipleSeriesConfig, PeriodComparisonConfig } from '@/lib/types/analytics';
 import { calculatedFieldsService } from '@/lib/services/calculated-fields';
 import { FormSkeleton, Skeleton } from '@/components/ui/loading-skeleton';
 import { apiClient } from '@/lib/api/client';
@@ -240,7 +240,7 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
     }
   };
 
-  const updateConfig = (key: keyof ChartConfig, value: string | boolean | ChartFilter[] | DataSource | null | undefined) => {
+  const updateConfig = (key: keyof ChartConfig, value: string | boolean | ChartFilter[] | DataSource | PeriodComparisonConfig | null | undefined) => {
     // If data source is changing, reset related fields
     if (key === 'selectedDataSource' && value !== chartConfig.selectedDataSource) {
       console.log('🔄 Data source changed...');

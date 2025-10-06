@@ -56,6 +56,11 @@ export {
   token_blacklist,
   user_sessions,
 } from './refresh-token-schema';
+// Import WebAuthn tables
+export {
+  webauthn_challenges,
+  webauthn_credentials,
+} from './webauthn-schema';
 
 // System users (admins who manage the platform)
 export const users = pgTable(

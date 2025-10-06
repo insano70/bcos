@@ -123,8 +123,8 @@ export default function ChartBuilderPage() {
     }
   }, []);
 
-  const handleDeleteClick = (chart: ChartDefinitionListItem) => {
-    setChartToDelete(chart);
+  const handleDeleteClick = (_chart: ChartDefinitionListItem) => {
+    setChartToDelete(_chart);
     setDeleteModalOpen(true);
   };
 
@@ -149,8 +149,8 @@ export default function ChartBuilderPage() {
     }
   };
 
-  const handleEditChart = (chart: ChartDefinitionListItem) => {
-    router.push(`/configure/charts/${chart.chart_definition_id}/edit`);
+  const handleEditChart = (_chart: ChartDefinitionListItem) => {
+    router.push(`/configure/charts/${_chart.chart_definition_id}/edit`);
   };
 
   const handleCreateChart = () => {
@@ -260,7 +260,7 @@ export default function ChartBuilderPage() {
 
   // Define dropdown actions
   const getDropdownActions = (
-    chart: ChartDefinitionListItem
+    _chart: ChartDefinitionListItem
   ): DataTableDropdownAction<ChartDefinitionListItem>[] => [
     {
       label: 'Edit Chart',

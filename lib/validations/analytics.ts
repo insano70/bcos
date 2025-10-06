@@ -24,6 +24,13 @@ const multipleSeriesConfigSchema = z.object({
   color: z.string().optional(),
 });
 
+const periodComparisonConfigSchema = z.object({
+  enabled: z.boolean(),
+  comparisonType: z.enum(['previous_period', 'same_period_last_year', 'custom_period']),
+  customPeriodOffset: z.number().int().min(1).max(12).optional(),
+  labelFormat: z.string().min(1).max(100).optional(),
+});
+
 const chartConfigSchema = z
   .object({
     // Database structure fields
@@ -63,6 +70,7 @@ const chartConfigSchema = z
     dataSourceId: z.number().optional(),
     stackingMode: z.enum(['normal', 'percentage']).optional(),
     colorPalette: z.string().optional(),
+    periodComparison: periodComparisonConfigSchema.optional(),
 
     // Legacy/internal state fields (for backwards compatibility)
     chartName: z.string().optional(),

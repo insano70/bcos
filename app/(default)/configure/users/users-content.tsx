@@ -78,22 +78,22 @@ export default function UsersContent() {
     }
   }, [isAuthenticated, authLoading]);
 
-  const handleEditUser = (user: User) => {
-    setSelectedUser(user);
+  const handleEditUser = (_user: User) => {
+    setSelectedUser(_user);
     setIsEditUserModalOpen(true);
   };
 
-  const handleToggleActive = async (user: User) => {
-    await apiClient.put(`/api/users/${user.id}`, {
+  const handleToggleActive = async (_user: User) => {
+    await apiClient.put(`/api/users/${_user.id}`, {
       data: {
-        is_active: !user.is_active,
+        is_active: !_user.is_active,
       },
     });
     refetch();
   };
 
-  const handleDeleteUser = async (user: User) => {
-    await apiClient.delete(`/api/users/${user.id}`);
+  const handleDeleteUser = async (_user: User) => {
+    await apiClient.delete(`/api/users/${_user.id}`);
     refetch();
   };
 
@@ -176,7 +176,7 @@ export default function UsersContent() {
   ];
 
   // Define dropdown actions
-  const getDropdownActions = (user: User): DataTableDropdownAction<User>[] => [
+  const getDropdownActions = (_user: User): DataTableDropdownAction<User>[] => [
     {
       label: 'Edit',
       icon: (

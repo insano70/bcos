@@ -322,7 +322,6 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 				},
 			});
 
-			const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.url;
 			return NextResponse.redirect(
 				new URL('/signin?error=user_not_provisioned', baseUrl),
 			);
@@ -347,7 +346,6 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 				},
 			});
 
-			const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.url;
 			return NextResponse.redirect(
 				new URL('/signin?error=user_inactive', baseUrl),
 			);

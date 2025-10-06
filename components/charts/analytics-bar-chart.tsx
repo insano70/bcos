@@ -17,6 +17,8 @@ import type { ChartData } from 'chart.js';
 import 'chartjs-adapter-moment';
 import { formatValue } from '@/components/utils/utils';
 import { simplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
+import { createPeriodComparisonTooltipCallbacks } from '@/lib/utils/period-comparison-tooltips';
+import { createPeriodComparisonLegendLabels, createPeriodComparisonHtmlLegend } from '@/lib/utils/period-comparison-legend';
 
 Chart.register(BarController, BarElement, LinearScale, CategoryScale, TimeScale, Tooltip, Legend);
 
@@ -130,25 +132,39 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
             display: false, // We'll use custom legend with totals
           },
           tooltip: {
-            callbacks: {
-              title: (context) => {
-                // Format tooltip title based on frequency
-                const date = new Date(context[0]?.label || '');
-                return date.toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'short',
-                  day: frequency === 'Weekly' ? 'numeric' : undefined
-                });
-              },
-              label: (context) => {
-                // Get measure type from dataset metadata, fallback to chart data, then to 'number'
-                const measureType = (context.dataset as any)?.measureType || 
-                                  (context.chart.data as any)?.measureType || 
-                                  'number';
-                const formattedValue = simplifiedChartTransformer.formatValue(context.parsed.y, measureType);
-                return `${context.dataset.label}: ${formattedValue}`;
-              },
-            },
+            callbacks: (() => {
+              // Check if this is a period comparison chart
+              const hasPeriodComparison = data.datasets.some(dataset => 
+                dataset.label?.includes('Previous') || 
+                dataset.label?.includes('Last Year') ||
+                dataset.label?.includes('Ago')
+              );
+
+              if (hasPeriodComparison) {
+                return createPeriodComparisonTooltipCallbacks(frequency, darkMode);
+              }
+
+              // Default tooltip callbacks
+              return {
+                title: (context: any) => {
+                  // Format tooltip title based on frequency
+                  const date = new Date(context[0]?.label || '');
+                  return date.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: frequency === 'Weekly' ? 'numeric' : undefined
+                  });
+                },
+                label: (context: any) => {
+                  // Get measure type from dataset metadata, fallback to chart data, then to 'number'
+                  const measureType = (context.dataset as any)?.measureType || 
+                                    (context.chart.data as any)?.measureType || 
+                                    'number';
+                  const formattedValue = simplifiedChartTransformer.formatValue(context.parsed.y, measureType);
+                  return `${context.dataset.label}: ${formattedValue}`;
+                },
+              };
+            })(),
             bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
             backgroundColor: darkMode ? tooltipBgColor.dark : tooltipBgColor.light,
             borderColor: darkMode ? tooltipBorderColor.dark : tooltipBorderColor.light,

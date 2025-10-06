@@ -153,13 +153,13 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
     );
   }
 
-  const handleEditColumn = (column: DataSourceColumn) => {
-    setSelectedColumn(column);
+  const handleEditColumn = (_column: DataSourceColumn) => {
+    setSelectedColumn(_column);
     setIsEditColumnModalOpen(true);
   };
 
-  const handleDeleteColumn = (column: DataSourceColumn) => {
-    setSelectedColumn(column);
+  const handleDeleteColumn = (_column: DataSourceColumn) => {
+    setSelectedColumn(_column);
     setIsDeleteModalOpen(true);
   };
 
@@ -169,11 +169,11 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
     setShowToast(true);
   };
 
-  const getColumnTypeBadge = (column: DataSourceColumn) => {
+  const getColumnTypeBadge = (_column: DataSourceColumn) => {
     const types = [];
-    if (column.is_measure) types.push('Measure');
-    if (column.is_dimension) types.push('Dimension');
-    if (column.is_date_field) types.push('Date');
+    if (_column.is_measure) types.push('Measure');
+    if (_column.is_dimension) types.push('Dimension');
+    if (_column.is_date_field) types.push('Date');
 
     if (types.length === 0) return null;
 
@@ -294,7 +294,7 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
 
   // Define dropdown actions
   const getDropdownActions = (
-    column: DataSourceColumn
+    _column: DataSourceColumn
   ): DataTableDropdownAction<DataSourceColumn>[] => [
     {
       label: 'Edit Column',

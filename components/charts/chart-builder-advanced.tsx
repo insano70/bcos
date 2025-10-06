@@ -1,6 +1,6 @@
 'use client';
 
-import { ChartFilter, MeasureType, MultipleSeriesConfig } from '@/lib/types/analytics';
+import { ChartFilter, MeasureType, MultipleSeriesConfig, PeriodComparisonConfig } from '@/lib/types/analytics';
 import AdvancedFilterBuilder from './advanced-filter-builder';
 import { calculatedFieldsService } from '@/lib/services/calculated-fields';
 import { ChartConfig } from './chart-builder-core';
@@ -31,7 +31,7 @@ interface SchemaInfo {
 interface ChartBuilderAdvancedProps {
   schemaInfo: SchemaInfo;
   chartConfig: ChartConfig;
-  updateConfig: (key: keyof ChartConfig, value: string | boolean | ChartFilter[] | undefined) => void;
+  updateConfig: (key: keyof ChartConfig, value: string | boolean | ChartFilter[] | PeriodComparisonConfig | undefined) => void;
   handleAdvancedFiltersChange: (filters: ChartFilter[]) => void;
   addSeries: () => void;
   updateSeries: (seriesId: string, updates: Partial<MultipleSeriesConfig>) => void;

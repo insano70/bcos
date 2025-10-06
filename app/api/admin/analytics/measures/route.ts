@@ -73,6 +73,17 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
       }
     }
 
+    // Parse period comparison configuration
+    let periodComparison;
+    const periodComparisonParam = searchParams.get('period_comparison');
+    if (periodComparisonParam) {
+      try {
+        periodComparison = JSON.parse(decodeURIComponent(periodComparisonParam));
+      } catch (error) {
+        return createErrorResponse('Invalid period_comparison parameter format', 400);
+      }
+    }
+
     const dataSourceIdParam = searchParams.get('data_source_id');
     const queryParams: AnalyticsQueryParams = {
       measure: searchParams.get('measure') as MeasureType || undefined,
@@ -89,6 +100,7 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
       calculated_field: calculatedField,
       multiple_series: multipleSeries,
       data_source_id: dataSourceIdParam ? parseInt(dataSourceIdParam, 10) : undefined,
+      period_comparison: periodComparison,
     };
 
     console.log('🔍 PARSED QUERY PARAMS:', {

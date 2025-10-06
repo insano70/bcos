@@ -21,9 +21,19 @@ export default function ChartBuilderPreview({
   return (
     <div className="space-y-6">
       <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-6">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
-          Chart Preview: {chartConfig.chartName}
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+            Chart Preview: {chartConfig.chartName}
+          </h3>
+          {chartConfig.periodComparison?.enabled && (
+            <div className="flex items-center space-x-2 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-md">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                Period Comparison Enabled
+              </span>
+            </div>
+          )}
+        </div>
         
         {/* Live Chart Preview */}
         <div className="bg-white dark:bg-gray-700 rounded-lg p-4">
@@ -45,6 +55,7 @@ export default function ChartBuilderPreview({
             stackingMode={chartConfig.stackingMode || 'normal'}
             colorPalette={chartConfig.colorPalette || 'default'}
             {...(chartConfig.useMultipleSeries && chartConfig.seriesConfigs.length > 0 ? { multipleSeries: chartConfig.seriesConfigs } : {})}
+            {...(chartConfig.periodComparison?.enabled ? { periodComparison: chartConfig.periodComparison } : {})}
           />
         </div>
       </div>

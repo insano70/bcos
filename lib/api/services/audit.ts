@@ -28,7 +28,19 @@ class AuditLoggerService {
    * Log authentication events
    */
   async logAuth(data: {
-    action: 'login' | 'logout' | 'login_failed' | 'password_reset' | 'account_locked';
+    action:
+      | 'login'
+      | 'logout'
+      | 'login_failed'
+      | 'password_reset'
+      | 'account_locked'
+      | 'mfa_challenge_issued'
+      | 'mfa_setup_required'
+      | 'mfa_registration_failed'
+      | 'mfa_registration_completed'
+      | 'mfa_verification_failed'
+      | 'mfa_verification_success'
+      | 'mfa_credential_deleted';
     userId?: string | undefined;
     email?: string | undefined;
     ipAddress?: string | undefined;
