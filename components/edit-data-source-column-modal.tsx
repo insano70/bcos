@@ -60,10 +60,10 @@ export default function EditDataSourceColumnModal({
       setValue('access_level', column.access_level || 'all');
       setValue('example_value', column.example_value || undefined);
       setValue('is_active', column.is_active ?? true);
-      setValue('display_icon', column.display_icon || false);
-      setValue('icon_type', (column.icon_type as 'initials' | 'first_letter' | 'emoji' | undefined) || undefined);
-      setValue('icon_color_mode', (column.icon_color_mode as 'auto' | 'fixed' | 'mapped' | undefined) || 'auto');
-      setValue('icon_color', column.icon_color || undefined);
+      setValue('display_icon', column.display_icon ?? false);
+      setValue('icon_type', (column.icon_type as 'initials' | 'first_letter' | 'emoji' | undefined) ?? undefined);
+      setValue('icon_color_mode', (column.icon_color_mode as 'auto' | 'fixed' | 'mapped' | undefined) ?? 'auto');
+      setValue('icon_color', column.icon_color ?? undefined);
     }
   }, [column, isOpen, setValue]);
 
@@ -350,10 +350,10 @@ export default function EditDataSourceColumnModal({
                               type="text"
                               {...register('icon_color')}
                               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-500"
-                              placeholder="e.g., violet-500, red-500, green-500"
+                              placeholder="e.g., #8b5cf6, #ef4444, #22c55e"
                             />
                             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                              Tailwind color classes: violet-500, sky-500, green-500, red-500, amber-500, indigo-500, etc.
+                              HTML hex color codes: #8b5cf6 (violet), #0ea5e9 (sky), #22c55e (green), #ef4444 (red), etc.
                             </p>
                           </div>
                         </div>

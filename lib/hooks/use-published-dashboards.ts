@@ -7,6 +7,7 @@ export interface PublishedDashboard {
   dashboard_description?: string;
   created_at: string;
   updated_at: string;
+  is_default?: boolean;
 }
 
 /**
@@ -20,6 +21,7 @@ export interface PublishedDashboard {
  */
 export function usePublishedDashboards() {
   const [dashboards, setDashboards] = useState<PublishedDashboard[]>([]);
+  const [defaultDashboard, setDefaultDashboard] = useState<PublishedDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,7 +38,11 @@ export function usePublishedDashboards() {
 
       const publishedDashboards = result.dashboards || [];
 
+      // Find the default dashboard
+      const defaultDash = publishedDashboards.find((d) => d.is_default === true);
+
       setDashboards(publishedDashboards);
+      setDefaultDashboard(defaultDash || null);
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to load published dashboards';
@@ -45,6 +51,7 @@ export function usePublishedDashboards() {
       // Server already logs the API error
       setError(errorMessage);
       setDashboards([]); // Ensure we have an empty array on error
+      setDefaultDashboard(null);
     } finally {
       setLoading(false);
     }
@@ -60,6 +67,7 @@ export function usePublishedDashboards() {
 
   return {
     dashboards,
+    defaultDashboard,
     loading,
     error,
     refreshDashboards,

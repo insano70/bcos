@@ -42,7 +42,7 @@ import type {
  * WebAuthn Configuration
  */
 const RP_NAME = 'BendCare';
-const RP_ID = process.env.WEBAUTHN_RP_ID || 'localhost'; // e.g., 'bendcare.com'
+const RP_ID = process.env.WEBAUTHN_RP_ID || 'bendcare.com';
 const ORIGIN = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001';
 const CHALLENGE_EXPIRATION_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_CREDENTIALS_PER_USER = 5;

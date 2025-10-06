@@ -262,6 +262,7 @@ export interface Dashboard {
   updated_at: string;
   is_active: boolean;
   is_published?: boolean;
+  is_default?: boolean;
 }
 
 export interface DashboardLayoutConfig {
@@ -303,4 +304,5 @@ export interface DashboardListItem {
   updated_at: string;
   is_active: boolean;
   is_published?: boolean;
+  is_default?: boolean;
 }

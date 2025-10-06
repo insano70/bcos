@@ -180,6 +180,7 @@ export const dashboardCreateSchema = z
     layout_config: z.record(z.string(), z.any()).optional(), // JSON layout configuration
     is_active: z.boolean().default(true),
     is_published: z.boolean().default(false),
+    is_default: z.boolean().default(false),
   })
   .refine(
     (data) => {
@@ -199,10 +200,11 @@ export const dashboardCreateSchema = z
 // This ensures that only fields explicitly provided are updated
 export const dashboardUpdateSchema = dashboardCreateSchema
   .partial()
-  .omit({ is_published: true, is_active: true })
+  .omit({ is_published: true, is_active: true, is_default: true })
   .extend({
     is_published: z.boolean().optional(),
     is_active: z.boolean().optional(),
+    is_default: z.boolean().optional(),
   });
 
 export const dashboardParamsSchema = z.object({

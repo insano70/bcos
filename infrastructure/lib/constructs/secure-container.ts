@@ -164,6 +164,8 @@ export class SecureContainer extends Construct {
         JWT_SECRET: ecs.Secret.fromSecretsManager(secret, 'JWT_SECRET'),
         JWT_REFRESH_SECRET: ecs.Secret.fromSecretsManager(secret, 'JWT_REFRESH_SECRET'),
         CSRF_SECRET: ecs.Secret.fromSecretsManager(secret, 'CSRF_SECRET'),
+        WEBAUTHN_RP_ID: ecs.Secret.fromSecretsManager(secret, 'WEBAUTHN_RP_ID'),
+        MFA_TEMP_TOKEN_SECRET: ecs.Secret.fromSecretsManager(secret, 'MFA_TEMP_TOKEN_SECRET'),
         EMAIL_FROM: ecs.Secret.fromSecretsManager(secret, 'EMAIL_FROM'),
         ADMIN_NOTIFICATION_EMAILS: ecs.Secret.fromSecretsManager(secret, 'ADMIN_NOTIFICATION_EMAILS'),
       },

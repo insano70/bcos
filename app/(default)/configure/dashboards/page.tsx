@@ -93,6 +93,7 @@ export default function DashboardsPage() {
             updated_at: dashboard.updated_at,
             is_active: dashboard.is_active,
             is_published: dashboard.is_published,
+            is_default: dashboard.is_default,
           };
         })
         .filter((item): item is DashboardListItem => item !== null);
@@ -191,6 +192,33 @@ export default function DashboardsPage() {
       console.error('Failed to unpublish dashboard:', error);
       setToastMessage(
         `Failed to unpublish dashboard: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+      setToastType('error');
+      setToastOpen(true);
+    }
+  };
+
+  const handleSetAsDefault = async (dashboard: DashboardListItem) => {
+    try {
+      // Use apiClient which automatically handles CSRF tokens and auth
+      await apiClient.request(`/api/admin/analytics/dashboards/${dashboard.dashboard_id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          is_default: true,
+        }),
+      });
+
+      // Show success toast
+      setToastMessage(`Dashboard "${dashboard.dashboard_name}" set as default home screen`);
+      setToastType('success');
+      setToastOpen(true);
+
+      // Refresh the dashboards list
+      await loadDashboards();
+    } catch (error) {
+      console.error('Failed to set dashboard as default:', error);
+      setToastMessage(
+        `Failed to set dashboard as default: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
       setToastType('error');
       setToastOpen(true);
@@ -299,22 +327,33 @@ export default function DashboardsPage() {
       header: 'Status',
       sortable: true,
       align: 'center',
-      render: (dashboard) =>
-        dashboard.is_published ? (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200">
-            <svg className="w-1.5 h-1.5 mr-1.5" fill="currentColor" viewBox="0 0 8 8">
-              <circle cx={4} cy={4} r={3} />
-            </svg>
-            Published
-          </span>
-        ) : (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200">
-            <svg className="w-1.5 h-1.5 mr-1.5" fill="currentColor" viewBox="0 0 8 8">
-              <circle cx={4} cy={4} r={3} />
-            </svg>
-            Under Development
-          </span>
-        ),
+      render: (dashboard) => (
+        <div className="flex flex-col gap-1">
+          {dashboard.is_published ? (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200">
+              <svg className="w-1.5 h-1.5 mr-1.5" fill="currentColor" viewBox="0 0 8 8">
+                <circle cx={4} cy={4} r={3} />
+              </svg>
+              Published
+            </span>
+          ) : (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200">
+              <svg className="w-1.5 h-1.5 mr-1.5" fill="currentColor" viewBox="0 0 8 8">
+                <circle cx={4} cy={4} r={3} />
+              </svg>
+              Under Development
+            </span>
+          )}
+          {dashboard.is_default && (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-violet-100 dark:bg-violet-900/20 text-violet-800 dark:text-violet-200">
+              <svg className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              Default Home
+            </span>
+          )}
+        </div>
+      ),
     },
     {
       key: 'created_by',
@@ -378,6 +417,15 @@ export default function DashboardsPage() {
             onClick: handlePublishDashboard,
           } as DataTableDropdownAction<DashboardListItem>,
         ]),
+    // Only show "Set as Default" option for published dashboards
+    ...(dashboard.is_published && !dashboard.is_default
+      ? [
+          {
+            label: 'Set as Default Home Screen',
+            onClick: handleSetAsDefault,
+          } as DataTableDropdownAction<DashboardListItem>,
+        ]
+      : []),
     {
       label: 'Delete Dashboard',
       onClick: handleDeleteClick,

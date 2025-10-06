@@ -27,11 +27,15 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isMicrosoftLoading, setIsMicrosoftLoading] = useState(false)
+  const [defaultDashboardId, setDefaultDashboardId] = useState<string | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get('callbackUrl') || searchParams.get('returnUrl') || '/dashboard'
+  const paramCallbackUrl = searchParams.get('callbackUrl') || searchParams.get('returnUrl')
   const oidcError = searchParams.get('error') // OIDC error from callback
   const oidcSuccess = searchParams.get('oidc_success') === 'true' // OIDC success flag
+
+  // Determine callback URL: use param if provided, otherwise use default dashboard if set, else /dashboard
+  const callbackUrl = paramCallbackUrl || (defaultDashboardId ? `/dashboard/view/${defaultDashboardId}` : '/dashboard')
   const {
     login,
     isAuthenticated,
@@ -46,6 +50,30 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     completeMFAVerification,
     clearMFAState,
   } = useAuth()
+
+  // Fetch default dashboard on mount
+  useEffect(() => {
+    const fetchDefaultDashboard = async () => {
+      try {
+        const response = await fetch('/api/admin/analytics/dashboards/default')
+        const data = await response.json()
+
+        if (data.data?.defaultDashboard?.dashboard_id) {
+          setDefaultDashboardId(data.data.defaultDashboard.dashboard_id)
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Default dashboard found:', data.data.defaultDashboard.dashboard_name)
+          }
+        }
+      } catch (error) {
+        // Silently fail - just use /dashboard as fallback
+        if (process.env.NODE_ENV === 'development') {
+          console.log('No default dashboard configured or error fetching:', error)
+        }
+      }
+    }
+
+    fetchDefaultDashboard()
+  }, [])
 
   // Debug MFA state changes
   useEffect(() => {

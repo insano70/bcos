@@ -206,9 +206,12 @@ export default function AnalyticsChart({
       }
 
       // Chart parameters configured
-      
+
       // Set reasonable defaults for chart display
       params.append('limit', '1000');
+
+      // Add timestamp for cache busting - ensures fresh data on every request
+      params.append('_t', Date.now().toString());
 
       // For table charts, use the data source query endpoint
       if (chartType === 'table') {

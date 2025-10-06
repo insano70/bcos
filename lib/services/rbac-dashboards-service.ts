@@ -26,6 +26,7 @@ export interface CreateDashboardData {
   layout_config?: Record<string, unknown> | undefined;
   is_active?: boolean | undefined;
   is_published?: boolean | undefined;
+  is_default?: boolean | undefined;
 }
 
 export interface UpdateDashboardData {
@@ -37,6 +38,7 @@ export interface UpdateDashboardData {
   layout_config?: Record<string, unknown>;
   is_active?: boolean;
   is_published?: boolean;
+  is_default?: boolean;
 }
 
 export interface DashboardQueryOptions {
@@ -60,6 +62,7 @@ export interface DashboardWithCharts {
   updated_at: string;
   is_active: boolean;
   is_published: boolean;
+  is_default: boolean;
   chart_count: number;
   category:
     | {
@@ -133,6 +136,7 @@ export class RBACDashboardsService extends BaseRBACService {
         updated_at: dashboards.updated_at,
         is_active: dashboards.is_active,
         is_published: dashboards.is_published,
+        is_default: dashboards.is_default,
         // Category fields
         chart_category_id: chart_categories.chart_category_id,
         category_name: chart_categories.category_name,
@@ -164,6 +168,7 @@ export class RBACDashboardsService extends BaseRBACService {
         dashboards.updated_at,
         dashboards.is_active,
         dashboards.is_published,
+        dashboards.is_default,
         chart_categories.chart_category_id,
         chart_categories.category_name,
         chart_categories.category_description,
@@ -188,6 +193,7 @@ export class RBACDashboardsService extends BaseRBACService {
       updated_at: (dashboard.updated_at || new Date()).toISOString(),
       is_active: dashboard.is_active ?? true,
       is_published: dashboard.is_published ?? false,
+      is_default: dashboard.is_default ?? false,
       chart_count: Number(dashboard.chart_count) || 0,
       category: dashboard.chart_category_id
         ? {
@@ -275,6 +281,7 @@ export class RBACDashboardsService extends BaseRBACService {
       updated_at: (dashboard.dashboards.updated_at || new Date()).toISOString(),
       is_active: dashboard.dashboards.is_active ?? true,
       is_published: dashboard.dashboards.is_published ?? false,
+      is_default: dashboard.dashboards.is_default ?? false,
       chart_count: chartCount?.count || 0,
       category: dashboard.chart_categories
         ? {
@@ -360,6 +367,14 @@ export class RBACDashboardsService extends BaseRBACService {
 
     this.requirePermission('analytics:read:all', undefined);
 
+    // If setting this as default, clear any existing default dashboard
+    if (dashboardData.is_default === true) {
+      await db
+        .update(dashboards)
+        .set({ is_default: false })
+        .where(eq(dashboards.is_default, true));
+    }
+
     // Create new dashboard
     const [newDashboard] = await db
       .insert(dashboards)
@@ -371,6 +386,7 @@ export class RBACDashboardsService extends BaseRBACService {
         created_by: this.userContext.user_id,
         is_active: dashboardData.is_active ?? true,
         is_published: dashboardData.is_published ?? false,
+        is_default: dashboardData.is_default ?? false,
       })
       .returning();
 
@@ -454,6 +470,7 @@ export class RBACDashboardsService extends BaseRBACService {
         createdDashboardData.dashboards.updated_at?.toISOString() || new Date().toISOString(),
       is_active: createdDashboardData.dashboards.is_active ?? true,
       is_published: createdDashboardData.dashboards.is_published ?? false,
+      is_default: createdDashboardData.dashboards.is_default ?? false,
       chart_count: chartCount?.count || 0,
       category: createdDashboardData.chart_categories
         ? {
@@ -531,6 +548,14 @@ export class RBACDashboardsService extends BaseRBACService {
 
     // Execute dashboard update and chart management as atomic transaction
     const _updatedDashboard = await db.transaction(async (tx) => {
+      // If setting this as default, clear any existing default dashboard
+      if (updateData.is_default === true) {
+        await tx
+          .update(dashboards)
+          .set({ is_default: false })
+          .where(eq(dashboards.is_default, true));
+      }
+
       // Prepare update data
       const updateFields: Partial<{
         dashboard_name: string;
@@ -539,6 +564,7 @@ export class RBACDashboardsService extends BaseRBACService {
         dashboard_category_id: number;
         is_active: boolean;
         is_published: boolean;
+        is_default: boolean;
         updated_at: Date;
       }> = {
         ...updateData,
@@ -641,6 +667,7 @@ export class RBACDashboardsService extends BaseRBACService {
         updatedDashboardData.dashboards.updated_at?.toISOString() || new Date().toISOString(),
       is_active: updatedDashboardData.dashboards.is_active ?? true,
       is_published: updatedDashboardData.dashboards.is_published ?? false,
+      is_default: updatedDashboardData.dashboards.is_default ?? false,
       chart_count: chartCount?.count || 0,
       category: updatedDashboardData.chart_categories
         ? {

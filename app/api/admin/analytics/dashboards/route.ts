@@ -93,7 +93,8 @@ const createDashboardHandler = async (request: NextRequest, userContext: UserCon
       chart_positions: validatedData.chart_positions,
       layout_config: validatedData.layout_config,
       is_active: validatedData.is_active,
-      is_published: validatedData.is_published
+      is_published: validatedData.is_published,
+      is_default: validatedData.is_default
     });
 
     log.info('Dashboard created successfully', {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 interface TableColumn {
   columnName: string;
@@ -30,6 +30,9 @@ export default function AnalyticsTableChart({
   height = 400
 }: AnalyticsTableChartProps) {
   const [mounted, setMounted] = useState(false);
+  const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
+  const [showScrollIndicator, setShowScrollIndicator] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -39,6 +42,75 @@ export default function AnalyticsTableChart({
       columnsData: columns
     });
   }, [data, columns]);
+
+  // Check if content is scrollable and update indicator
+  useEffect(() => {
+    const checkScrollable = () => {
+      if (scrollContainerRef.current) {
+        // Check if we're inside a ResponsiveChartContainer that handles scrolling
+        let scrollElement = scrollContainerRef.current;
+        const parent = scrollContainerRef.current.parentElement;
+
+        // If parent has overflow, it's the scroll container
+        if (parent) {
+          const parentStyles = window.getComputedStyle(parent);
+          if (parentStyles.overflowY === 'auto' || parentStyles.overflowY === 'scroll') {
+            scrollElement = parent;
+          }
+        }
+
+        const { scrollHeight, clientHeight, scrollTop } = scrollElement;
+        const isScrollable = scrollHeight > clientHeight;
+        const isAtBottom = scrollHeight - scrollTop - clientHeight < 5; // 5px threshold
+
+        console.log('📏 Scroll check:', {
+          element: scrollElement === parent ? 'parent' : 'self',
+          scrollHeight,
+          clientHeight,
+          scrollTop,
+          isScrollable,
+          isAtBottom,
+          willShowIndicator: isScrollable && !isAtBottom
+        });
+
+        setShowScrollIndicator(isScrollable && !isAtBottom);
+        setHasScrolledToBottom(isAtBottom);
+      }
+    };
+
+    checkScrollable();
+
+    // Re-check when data changes and after a delay for rendering
+    const timer = setTimeout(checkScrollable, 100);
+    const timer2 = setTimeout(checkScrollable, 500);
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(timer2);
+    };
+  }, [data, columns]);
+
+  // Handle scroll events
+  const handleScroll = () => {
+    if (scrollContainerRef.current) {
+      // Use the same scroll element detection as in useEffect
+      let scrollElement = scrollContainerRef.current;
+      const parent = scrollContainerRef.current.parentElement;
+
+      if (parent) {
+        const parentStyles = window.getComputedStyle(parent);
+        if (parentStyles.overflowY === 'auto' || parentStyles.overflowY === 'scroll') {
+          scrollElement = parent;
+        }
+      }
+
+      const { scrollHeight, clientHeight, scrollTop } = scrollElement;
+      const isScrollable = scrollHeight > clientHeight;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 5;
+
+      setShowScrollIndicator(isScrollable && !isAtBottom);
+      setHasScrolledToBottom(isAtBottom);
+    }
+  };
 
   if (!mounted) {
     return (
@@ -155,22 +227,22 @@ export default function AnalyticsTableChart({
       .join('');
   };
 
-  // Generate color from text hash
+  // Generate color from text hash - returns hex color
   const getColorFromText = (text: string): string => {
-    if (!text) return 'gray-500';
+    if (!text) return '#6b7280'; // gray
 
-    // Color palette matching fintech examples
+    // Color palette matching fintech examples (hex colors)
     const colors = [
-      'violet-500',
-      'sky-500',
-      'green-500',
-      'red-500',
-      'amber-500',
-      'indigo-500',
-      'pink-500',
-      'cyan-500',
-      'emerald-500',
-      'orange-500',
+      '#8b5cf6', // violet
+      '#0ea5e9', // sky
+      '#22c55e', // green
+      '#ef4444', // red
+      '#f59e0b', // amber
+      '#6366f1', // indigo
+      '#ec4899', // pink
+      '#06b6d4', // cyan
+      '#10b981', // emerald
+      '#f97316', // orange
     ];
 
     // Simple hash function
@@ -181,15 +253,16 @@ export default function AnalyticsTableChart({
     }
 
     const index = Math.abs(hash) % colors.length;
-    return colors[index] ?? 'gray-500';
+    return colors[index] ?? '#6b7280';
   };
 
-  // Get icon color for a value
+  // Get icon color for a value - returns hex color
   const getIconColor = (value: unknown, column: TableColumn): string => {
     const stringValue = String(value || '');
 
     if (column.iconColorMode === 'fixed' && column.iconColor) {
-      return column.iconColor || 'gray-500';
+      // Return the hex color directly (user should enter hex codes like #8b5cf6)
+      return column.iconColor || '#6b7280';
     }
 
     if (column.iconColorMode === 'mapped' && column.iconMapping && typeof column.iconMapping === 'object' && column.iconMapping !== null) {
@@ -232,17 +305,27 @@ export default function AnalyticsTableChart({
     return getInitials(stringValue, iconType === 'first_letter' ? 'first_letter' : 'initials');
   };
 
-  return (
-    <div style={{ height: `${height}px` }} className="w-full">
-      {title && (
-        <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
-        </div>
-      )}
+  // Calculate the available height for the scrollable content
+  const titleHeight = title ? 50 : 0; // Title + border height
+  const padding = 24; // 12px top + 12px bottom
+  const availableHeight = height - titleHeight - padding;
 
-      <div className="p-3">
-        {/* Table - matches fintech card styling */}
-        <div className="overflow-x-auto">
+  return (
+    <div className="w-full relative" style={{ height: `${height}px` }}>
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="w-full"
+        style={{ height: `${height}px`, overflowY: 'auto', overflowX: 'auto' }}
+      >
+        {title && (
+          <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
+          </div>
+        )}
+
+        <div style={{ padding: '12px' }}>
+          {/* Table - matches fintech card styling */}
           <table className="table-auto w-full dark:text-gray-300">
             {/* Table header - matches fintech card styling exactly */}
             <thead className="text-xs uppercase text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700/50 rounded-xs">
@@ -258,7 +341,9 @@ export default function AnalyticsTableChart({
             </thead>
             {/* Table body - matches fintech card styling exactly */}
             <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
-              {data.map((row, rowIndex) => (
+              {data.map((row, rowIndex) => {
+                console.log(`🔍 Rendering row ${rowIndex}:`, row);
+                return (
                 <tr key={rowIndex}>
                   {columns.map((column, colIndex) => {
                     const cellValue = row[column.columnName];
@@ -268,7 +353,10 @@ export default function AnalyticsTableChart({
                       <td key={`${rowIndex}-${column.columnName}`} className="p-2 whitespace-nowrap">
                         {showIcon ? (
                           <div className="flex items-center">
-                            <div className={`shrink-0 rounded-full mr-2 sm:mr-3 bg-${getIconColor(cellValue, column)} flex items-center justify-center w-9 h-9`}>
+                            <div
+                              className="shrink-0 rounded-full mr-2 sm:mr-3 flex items-center justify-center w-9 h-9"
+                              style={{ backgroundColor: getIconColor(cellValue, column) }}
+                            >
                               <span className="text-white font-semibold text-sm">
                                 {getIconContent(cellValue, column)}
                               </span>
@@ -286,11 +374,49 @@ export default function AnalyticsTableChart({
                     );
                   })}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Scroll indicator - shows in the bottom buffer area when there's more content below */}
+      {showScrollIndicator && (
+        <div
+          className="absolute left-0 right-0 flex justify-center pointer-events-none"
+          style={{
+            bottom: '20px',
+            zIndex: 10
+          }}
+        >
+          <div
+            className="bg-white dark:bg-gray-700 shadow-lg border border-gray-200 dark:border-gray-600"
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-gray-600 dark:text-gray-300"
+            >
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -23,7 +23,7 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
   const expandOnly = !sidebarExpanded && breakpoint && breakpoint >= 1024 && breakpoint < 1536;
   const isExperimentalMode = env.NEXT_PUBLIC_EXPERIMENTAL_MODE;
   const { rbacLoading } = useAuth();
-  const { dashboards: publishedDashboards, loading: dashboardsLoading } = usePublishedDashboards();
+  const { dashboards: publishedDashboards, defaultDashboard, loading: dashboardsLoading } = usePublishedDashboards();
 
   // close on click outside
   useEffect(() => {
@@ -158,6 +158,19 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
                       </a>
                       <div className="lg:hidden lg:sidebar-expanded:block 2xl:block">
                         <ul className={`pl-8 mt-1 ${!open && 'hidden'}`}>
+                          {/* Default Dashboard Home - Show if default dashboard is set */}
+                          {defaultDashboard && (
+                            <li className="mb-1 last:mb-0">
+                              <SidebarLink href={`/dashboard/view/${defaultDashboard.dashboard_id}`}>
+                                <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200 flex items-center">
+                                  <svg className="w-3 h-3 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                                  </svg>
+                                  Home
+                                </span>
+                              </SidebarLink>
+                            </li>
+                          )}
                           <li className="mb-1 last:mb-0">
                             <SidebarLink href="/dashboard">
                               <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">

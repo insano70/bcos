@@ -264,3 +264,7 @@ export const GET = rbacRoute(queryDataSourceHandler, {
   permission: ['data-sources:read:organization', 'data-sources:read:all'],
   rateLimit: 'api'
 });
+
+// Disable caching for this route - always fetch fresh data from analytics database
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;

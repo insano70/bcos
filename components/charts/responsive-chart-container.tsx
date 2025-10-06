@@ -125,7 +125,9 @@ export default function ResponsiveChartContainer({
       className={`chart-container-responsive ${className}`}
       style={{
         minHeight: `${minHeight}px`,
-        maxHeight: `${maxHeight}px`
+        maxHeight: `${maxHeight}px`,
+        overflowY: 'auto',
+        overflowX: 'auto'
       }}
     >
       {chartElement}

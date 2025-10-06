@@ -78,6 +78,14 @@ const updateDashboardHandler = async (request: NextRequest, userContext: UserCon
     // Validate request body with Zod
     const validatedData = await validateRequest(request, dashboardUpdateSchema);
 
+    // If setting this as default, clear any existing default dashboard
+    if (validatedData.is_default === true) {
+      await db
+        .update(dashboards)
+        .set({ is_default: false })
+        .where(eq(dashboards.is_default, true));
+    }
+
     // Update dashboard with only provided fields
     const updateData: any = { updated_at: new Date() };
     if (validatedData.dashboard_name !== undefined) updateData.dashboard_name = validatedData.dashboard_name;
@@ -86,6 +94,7 @@ const updateDashboardHandler = async (request: NextRequest, userContext: UserCon
     if (validatedData.dashboard_category_id !== undefined) updateData.dashboard_category_id = validatedData.dashboard_category_id;
     if (validatedData.is_active !== undefined) updateData.is_active = validatedData.is_active;
     if (validatedData.is_published !== undefined) updateData.is_published = validatedData.is_published;
+    if (validatedData.is_default !== undefined) updateData.is_default = validatedData.is_default;
 
     const [updatedDashboard] = await db
       .update(dashboards)
