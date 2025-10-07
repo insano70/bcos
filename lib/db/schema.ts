@@ -61,6 +61,15 @@ export {
   webauthn_challenges,
   webauthn_credentials,
 } from './webauthn-schema';
+// Import Work Items tables
+export {
+  work_item_statuses,
+  work_item_types,
+  work_items,
+  workItemsRelations,
+  workItemStatusesRelations,
+  workItemTypesRelations,
+} from './work-items-schema';
 
 // System users (admins who manage the platform)
 export const users = pgTable(

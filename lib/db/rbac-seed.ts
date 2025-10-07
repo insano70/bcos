@@ -141,6 +141,78 @@ const BASE_PERMISSIONS = [
     scope: 'all',
   },
 
+  // Work Items Management Permissions
+  {
+    name: 'work_items:read:own',
+    description: 'Read own work items',
+    resource: 'work_items',
+    action: 'read',
+    scope: 'own',
+  },
+  {
+    name: 'work_items:create:own',
+    description: 'Create own work items',
+    resource: 'work_items',
+    action: 'create',
+    scope: 'own',
+  },
+  {
+    name: 'work_items:update:own',
+    description: 'Update own work items',
+    resource: 'work_items',
+    action: 'update',
+    scope: 'own',
+  },
+  {
+    name: 'work_items:delete:own',
+    description: 'Delete own work items',
+    resource: 'work_items',
+    action: 'delete',
+    scope: 'own',
+  },
+  {
+    name: 'work_items:read:organization',
+    description: 'Read work items in organization',
+    resource: 'work_items',
+    action: 'read',
+    scope: 'organization',
+  },
+  {
+    name: 'work_items:create:organization',
+    description: 'Create work items in organization',
+    resource: 'work_items',
+    action: 'create',
+    scope: 'organization',
+  },
+  {
+    name: 'work_items:update:organization',
+    description: 'Update work items in organization',
+    resource: 'work_items',
+    action: 'update',
+    scope: 'organization',
+  },
+  {
+    name: 'work_items:delete:organization',
+    description: 'Delete work items in organization',
+    resource: 'work_items',
+    action: 'delete',
+    scope: 'organization',
+  },
+  {
+    name: 'work_items:read:all',
+    description: 'Read all work items (super admin)',
+    resource: 'work_items',
+    action: 'read',
+    scope: 'all',
+  },
+  {
+    name: 'work_items:manage:all',
+    description: 'Full work item management (super admin)',
+    resource: 'work_items',
+    action: 'manage',
+    scope: 'all',
+  },
+
   // Organization Management Permissions
   {
     name: 'organizations:read:own',

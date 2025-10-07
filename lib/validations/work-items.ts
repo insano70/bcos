@@ -1,0 +1,184 @@
+import { z } from 'zod';
+import { createSafeTextSchema } from './sanitization';
+
+/**
+ * Work Items Validation Schemas
+ * Provides comprehensive validation with XSS protection for work item operations
+ */
+
+// Priority enum
+const prioritySchema = z.enum(['critical', 'high', 'medium', 'low'], {
+  errorMap: () => ({ message: 'Priority must be one of: critical, high, medium, low' }),
+});
+
+// Status category enum (for filtering)
+const statusCategorySchema = z.enum(['todo', 'in_progress', 'completed'], {
+  errorMap: () => ({ message: 'Status category must be one of: todo, in_progress, completed' }),
+});
+
+/**
+ * Work Item Type Schemas
+ */
+export const workItemTypeCreateSchema = z.object({
+  organization_id: z.string().uuid('Invalid organization ID'),
+  name: createSafeTextSchema(1, 100, 'Name'),
+  description: createSafeTextSchema(0, 1000, 'Description').optional(),
+  icon: z.string().max(100, 'Icon must not exceed 100 characters').optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/, 'Color must be a valid hex code (e.g., #FF5733)')
+    .optional(),
+  is_active: z.boolean().default(true),
+});
+
+export const workItemTypeUpdateSchema = z.object({
+  name: createSafeTextSchema(1, 100, 'Name').optional(),
+  description: createSafeTextSchema(0, 1000, 'Description').optional().nullable(),
+  icon: z.string().max(100, 'Icon must not exceed 100 characters').optional().nullable(),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/, 'Color must be a valid hex code (e.g., #FF5733)')
+    .optional()
+    .nullable(),
+  is_active: z.boolean().optional(),
+});
+
+export const workItemTypeQuerySchema = z.object({
+  organization_id: z.string().uuid('Invalid organization ID').optional(),
+  is_active: z
+    .enum(['true', 'false'])
+    .transform((val) => val === 'true')
+    .optional(),
+  limit: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .pipe(z.number().int().min(1).max(100))
+    .default('50'),
+  offset: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .pipe(z.number().int().min(0))
+    .default('0'),
+});
+
+export const workItemTypeParamsSchema = z.object({
+  id: z.string().uuid('Invalid work item type ID'),
+});
+
+/**
+ * Work Item Status Schemas
+ */
+export const workItemStatusCreateSchema = z.object({
+  work_item_type_id: z.string().uuid('Invalid work item type ID'),
+  status_name: createSafeTextSchema(1, 100, 'Status name'),
+  status_category: statusCategorySchema,
+  is_initial: z.boolean().default(false),
+  is_final: z.boolean().default(false),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/, 'Color must be a valid hex code (e.g., #FF5733)')
+    .optional(),
+  display_order: z.number().int().min(0).default(0),
+});
+
+export const workItemStatusUpdateSchema = z.object({
+  status_name: createSafeTextSchema(1, 100, 'Status name').optional(),
+  status_category: statusCategorySchema.optional(),
+  is_initial: z.boolean().optional(),
+  is_final: z.boolean().optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/, 'Color must be a valid hex code (e.g., #FF5733)')
+    .optional()
+    .nullable(),
+  display_order: z.number().int().min(0).optional(),
+});
+
+/**
+ * Work Item Schemas
+ */
+export const workItemCreateSchema = z.object({
+  work_item_type_id: z.string().uuid('Invalid work item type ID'),
+  organization_id: z.string().uuid('Invalid organization ID').optional(),
+  subject: createSafeTextSchema(1, 500, 'Subject'),
+  description: createSafeTextSchema(0, 10000, 'Description').optional().nullable(),
+  priority: prioritySchema.default('medium'),
+  assigned_to: z.string().uuid('Invalid user ID').optional().nullable(),
+  due_date: z
+    .string()
+    .datetime('Invalid date format')
+    .transform((val) => new Date(val))
+    .optional()
+    .nullable(),
+});
+
+export const workItemUpdateSchema = z.object({
+  subject: createSafeTextSchema(1, 500, 'Subject').optional(),
+  description: createSafeTextSchema(0, 10000, 'Description').optional().nullable(),
+  status_id: z.string().uuid('Invalid status ID').optional(),
+  priority: prioritySchema.optional(),
+  assigned_to: z.string().uuid('Invalid user ID').optional().nullable(),
+  due_date: z
+    .string()
+    .datetime('Invalid date format')
+    .transform((val) => new Date(val))
+    .optional()
+    .nullable(),
+  started_at: z
+    .string()
+    .datetime('Invalid date format')
+    .transform((val) => new Date(val))
+    .optional()
+    .nullable(),
+  completed_at: z
+    .string()
+    .datetime('Invalid date format')
+    .transform((val) => new Date(val))
+    .optional()
+    .nullable(),
+});
+
+export const workItemQuerySchema = z.object({
+  work_item_type_id: z.string().uuid('Invalid work item type ID').optional(),
+  organization_id: z.string().uuid('Invalid organization ID').optional(),
+  status_id: z.string().uuid('Invalid status ID').optional(),
+  status_category: statusCategorySchema.optional(),
+  priority: prioritySchema.optional(),
+  assigned_to: z.string().uuid('Invalid user ID').optional(),
+  created_by: z.string().uuid('Invalid user ID').optional(),
+  search: createSafeTextSchema(0, 500, 'Search').optional(),
+  limit: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .pipe(z.number().int().min(1).max(100))
+    .default('50'),
+  offset: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .pipe(z.number().int().min(0))
+    .default('0'),
+  sortBy: z
+    .enum(['subject', 'priority', 'due_date', 'created_at', 'updated_at'])
+    .default('created_at'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
+});
+
+export const workItemParamsSchema = z.object({
+  id: z.string().uuid('Invalid work item ID'),
+});
+
+/**
+ * Type exports for use in handlers and services
+ */
+export type WorkItemTypeCreate = z.infer<typeof workItemTypeCreateSchema>;
+export type WorkItemTypeUpdate = z.infer<typeof workItemTypeUpdateSchema>;
+export type WorkItemTypeQuery = z.infer<typeof workItemTypeQuerySchema>;
+export type WorkItemTypeParams = z.infer<typeof workItemTypeParamsSchema>;
+
+export type WorkItemStatusCreate = z.infer<typeof workItemStatusCreateSchema>;
+export type WorkItemStatusUpdate = z.infer<typeof workItemStatusUpdateSchema>;
+
+export type WorkItemCreate = z.infer<typeof workItemCreateSchema>;
+export type WorkItemUpdate = z.infer<typeof workItemUpdateSchema>;
+export type WorkItemQuery = z.infer<typeof workItemQuerySchema>;
+export type WorkItemParams = z.infer<typeof workItemParamsSchema>;
