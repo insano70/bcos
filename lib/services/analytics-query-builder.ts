@@ -463,6 +463,202 @@ export class AnalyticsQueryBuilder {
   }
 
   /**
+   * Execute base query without period comparison or multiple series logic
+   * Used internally by period comparison to avoid infinite recursion
+   */
+  private async executeBaseQuery(
+    params: AnalyticsQueryParams,
+    context: ChartRenderContext
+  ): Promise<AnalyticsQueryResult> {
+    const startTime = Date.now();
+
+    // Check cache first
+    const cachedResult = analyticsCache.get(params, context.user_id);
+    if (cachedResult) {
+      this.log.info('Analytics query served from cache', {
+        params,
+        userId: context.user_id,
+        cacheAge:
+          typeof cachedResult === 'object' &&
+          cachedResult !== null &&
+          'timestamp' in cachedResult &&
+          typeof cachedResult.timestamp === 'number'
+            ? Date.now() - cachedResult.timestamp
+            : 0,
+      });
+      return cachedResult;
+    }
+
+    this.log.info('Building analytics query', {
+      params: { ...params, limit: params.limit || 1000 },
+      userId: context.user_id,
+      contextPractices: context.accessible_practices,
+      contextProviders: context.accessible_providers,
+    });
+
+    // Get data source configuration if data_source_id is provided
+    let _dataSourceConfig = null;
+    let tableName = 'agg_app_measures'; // Default fallback for backwards compatibility
+    let schemaName = 'ih';
+
+    if (params.data_source_id) {
+      // Load data source directly from database using chart config service
+      const { db, chart_data_sources } = await import('@/lib/db');
+      const { eq } = await import('drizzle-orm');
+
+      const [dataSource] = await db
+        .select()
+        .from(chart_data_sources)
+        .where(eq(chart_data_sources.data_source_id, params.data_source_id))
+        .limit(1);
+
+      if (dataSource) {
+        tableName = dataSource.table_name;
+        schemaName = dataSource.schema_name;
+        _dataSourceConfig = await chartConfigService.getDataSourceConfig(tableName, schemaName);
+      }
+    }
+
+    // Validate table access
+    await this.validateTable(tableName, schemaName);
+
+    // Build filters from params - use column mappings if available
+    const filters: ChartFilter[] = [];
+
+    // Define field mappings based on table type
+    const mainDateField = tableName === 'agg_chart_data' ? 'date_value' : 'date_index';
+    const mainFrequencyField = tableName === 'agg_chart_data' ? 'time_period' : 'frequency';
+
+    if (params.measure) {
+      filters.push({ field: 'measure', operator: 'eq', value: params.measure });
+    }
+
+    if (params.frequency) {
+      filters.push({ field: mainFrequencyField, operator: 'eq', value: params.frequency });
+    }
+
+    if (params.practice) {
+      filters.push({ field: 'practice', operator: 'eq', value: params.practice });
+    }
+
+    if (params.practice_primary) {
+      filters.push({ field: 'practice_primary', operator: 'eq', value: params.practice_primary });
+    }
+
+    if (params.practice_uid) {
+      filters.push({ field: 'practice_uid', operator: 'eq', value: params.practice_uid });
+    }
+
+    if (params.provider_name) {
+      filters.push({ field: 'provider_name', operator: 'eq', value: params.provider_name });
+    }
+
+    if (params.start_date) {
+      filters.push({ field: mainDateField, operator: 'gte', value: params.start_date });
+    }
+
+    if (params.end_date) {
+      filters.push({ field: mainDateField, operator: 'lte', value: params.end_date });
+    }
+
+    // Process advanced filters if provided
+    if (params.advanced_filters) {
+      const advancedFilters = this.processAdvancedFilters(params.advanced_filters);
+      filters.push(...advancedFilters);
+    }
+
+    // Build WHERE clause with security context
+    const { clause: whereClause, params: queryParams } = await this.buildWhereClause(
+      filters,
+      context,
+      tableName,
+      schemaName
+    );
+
+    // Build complete query for pre-aggregated data
+    // Build the query with dynamic table name and column mapping
+    const mainQueryDateField = tableName === 'agg_chart_data' ? 'date_value' : 'date_index';
+    const valueField = tableName === 'agg_chart_data' ? 'numeric_value' : 'measure_value';
+    const mainQueryFrequencyField = tableName === 'agg_chart_data' ? 'time_period' : 'frequency';
+
+    // Get the dynamic measure type column name for this data source
+    let measureTypeColumn = 'measure_type'; // Default fallback
+    if (params.data_source_id) {
+      const dynamicMeasureTypeColumn = await this.getMeasureTypeColumn(params.data_source_id);
+      if (dynamicMeasureTypeColumn) {
+        measureTypeColumn = dynamicMeasureTypeColumn;
+      }
+    }
+
+    const query = `
+      SELECT 
+        practice,
+        practice_primary,
+        practice_uid,
+        provider_name,
+        measure,
+        ${mainQueryFrequencyField} as frequency,
+        ${mainQueryDateField} as date_index,
+        ${valueField} as measure_value,
+        ${measureTypeColumn} as measure_type
+      FROM ${schemaName}.${tableName}
+      ${whereClause}
+      ORDER BY ${mainQueryDateField} ASC
+    `;
+
+    // Execute query
+    const data = await executeAnalyticsQuery<AggAppMeasure>(query, queryParams);
+
+    // Get appropriate total based on measure_type
+    // For currency: sum the values, for count: count the rows
+    const totalQuery = `
+      SELECT 
+        CASE 
+          WHEN ${measureTypeColumn} = 'currency' THEN SUM(${valueField})::text
+          ELSE COUNT(*)::text
+        END as total,
+        ${measureTypeColumn} as measure_type
+      FROM ${schemaName}.${tableName}
+      ${whereClause}
+      GROUP BY ${measureTypeColumn}
+    `;
+
+    const totalResult = await executeAnalyticsQuery<{ total: string; measure_type: string }>(
+      totalQuery,
+      queryParams // Use all params since we removed LIMIT/OFFSET
+    );
+
+    const queryTime = Date.now() - startTime;
+
+    // Calculate appropriate total based on measure_type
+    let totalCount = 0;
+    if (totalResult.length > 0) {
+      const firstResult = totalResult[0];
+      totalCount = parseInt(firstResult?.total || '0', 10);
+    }
+
+    const result: AnalyticsQueryResult = {
+      data,
+      total_count: totalCount,
+      query_time_ms: queryTime,
+      cache_hit: false,
+    };
+
+    // Cache the result
+    analyticsCache.set(params, context.user_id, result);
+
+    this.log.info('Analytics query completed', {
+      queryTime,
+      resultCount: data.length,
+      totalCount,
+      userId: context.user_id,
+      cached: true,
+    });
+
+    return result;
+  }
+
+  /**
    * Query multiple series data efficiently using WHERE measure IN (...)
    */
   private async queryMultipleSeries(
@@ -698,8 +894,8 @@ export class AnalyticsQueryBuilder {
     let currentResult: AnalyticsQueryResult, comparisonResult: AnalyticsQueryResult;
     try {
       [currentResult, comparisonResult] = await Promise.all([
-        this.queryMeasures(params, context),
-        this.queryMeasures(comparisonParams, context)
+        this.executeBaseQuery(params, context),
+        this.executeBaseQuery(comparisonParams, context)
       ]);
     } catch (error) {
       this.log.error('Failed to execute period comparison queries', {
