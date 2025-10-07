@@ -1,10 +1,11 @@
 import type { NextRequest } from 'next/server';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
-import { validateRequest, validateParams } from '@/lib/api/middleware/validation';
+import { validateRequest } from '@/lib/api/middleware/validation';
 import { workItemUpdateSchema, workItemParamsSchema } from '@/lib/validations/work-items';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
+import { extractRouteParams } from '@/lib/api/utils/params';
 import { createRBACWorkItemsService } from '@/lib/services/rbac-work-items-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
@@ -16,19 +17,19 @@ import { log } from '@/lib/logger';
 const getWorkItemHandler = async (
   request: NextRequest,
   userContext: UserContext,
-  _options: unknown,
-  params: Record<string, string>
+  ...args: unknown[]
 ) => {
   const startTime = Date.now();
 
-  log.info('Get work item request initiated', {
-    requestingUserId: userContext.user_id,
-  });
-
   try {
     const validationStart = Date.now();
-    const validatedParams = validateParams(params, workItemParamsSchema);
+    const validatedParams = await extractRouteParams(args[0], workItemParamsSchema);
     log.info('Request validation completed', { duration: Date.now() - validationStart });
+
+    log.info('Get work item request initiated', {
+      requestingUserId: userContext.user_id,
+      workItemId: validatedParams.id,
+    });
 
     // Create RBAC service
     const serviceStart = Date.now();
@@ -102,20 +103,20 @@ export const GET = rbacRoute(getWorkItemHandler, {
 const updateWorkItemHandler = async (
   request: NextRequest,
   userContext: UserContext,
-  _options: unknown,
-  params: Record<string, string>
+  ...args: unknown[]
 ) => {
   const startTime = Date.now();
 
-  log.info('Update work item request initiated', {
-    requestingUserId: userContext.user_id,
-  });
-
   try {
     const validationStart = Date.now();
-    const validatedParams = validateParams(params, workItemParamsSchema);
+    const validatedParams = await extractRouteParams(args[0], workItemParamsSchema);
     const validatedData = await validateRequest(request, workItemUpdateSchema);
     log.info('Request validation completed', { duration: Date.now() - validationStart });
+
+    log.info('Update work item request initiated', {
+      requestingUserId: userContext.user_id,
+      workItemId: validatedParams.id,
+    });
 
     // Create RBAC service
     const serviceStart = Date.now();
@@ -188,19 +189,19 @@ export const PUT = rbacRoute(updateWorkItemHandler, {
 const deleteWorkItemHandler = async (
   request: NextRequest,
   userContext: UserContext,
-  _options: unknown,
-  params: Record<string, string>
+  ...args: unknown[]
 ) => {
   const startTime = Date.now();
 
-  log.info('Delete work item request initiated', {
-    requestingUserId: userContext.user_id,
-  });
-
   try {
     const validationStart = Date.now();
-    const validatedParams = validateParams(params, workItemParamsSchema);
+    const validatedParams = await extractRouteParams(args[0], workItemParamsSchema);
     log.info('Request validation completed', { duration: Date.now() - validationStart });
+
+    log.info('Delete work item request initiated', {
+      requestingUserId: userContext.user_id,
+      workItemId: validatedParams.id,
+    });
 
     // Create RBAC service
     const serviceStart = Date.now();

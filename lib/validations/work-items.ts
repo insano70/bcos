@@ -8,12 +8,12 @@ import { createSafeTextSchema } from './sanitization';
 
 // Priority enum
 const prioritySchema = z.enum(['critical', 'high', 'medium', 'low'], {
-  errorMap: () => ({ message: 'Priority must be one of: critical, high, medium, low' }),
+  message: 'Priority must be one of: critical, high, medium, low',
 });
 
 // Status category enum (for filtering)
 const statusCategorySchema = z.enum(['todo', 'in_progress', 'completed'], {
-  errorMap: () => ({ message: 'Status category must be one of: todo, in_progress, completed' }),
+  message: 'Status category must be one of: todo, in_progress, completed',
 });
 
 /**
@@ -51,14 +51,14 @@ export const workItemTypeQuerySchema = z.object({
     .optional(),
   limit: z
     .string()
+    .default('50')
     .transform((val) => parseInt(val, 10))
-    .pipe(z.number().int().min(1).max(100))
-    .default('50'),
+    .pipe(z.number().int().min(1).max(100)),
   offset: z
     .string()
+    .default('0')
     .transform((val) => parseInt(val, 10))
-    .pipe(z.number().int().min(0))
-    .default('0'),
+    .pipe(z.number().int().min(0)),
 });
 
 export const workItemTypeParamsSchema = z.object({
@@ -96,6 +96,7 @@ export const workItemStatusUpdateSchema = z.object({
 
 /**
  * Work Item Schemas
+ * Phase 2: Added parent_work_item_id for hierarchy support
  */
 export const workItemCreateSchema = z.object({
   work_item_type_id: z.string().uuid('Invalid work item type ID'),
@@ -110,6 +111,8 @@ export const workItemCreateSchema = z.object({
     .transform((val) => new Date(val))
     .optional()
     .nullable(),
+  // Phase 2: Hierarchy support
+  parent_work_item_id: z.string().uuid('Invalid parent work item ID').optional().nullable(),
 });
 
 export const workItemUpdateSchema = z.object({
@@ -149,14 +152,14 @@ export const workItemQuerySchema = z.object({
   search: createSafeTextSchema(0, 500, 'Search').optional(),
   limit: z
     .string()
+    .default('50')
     .transform((val) => parseInt(val, 10))
-    .pipe(z.number().int().min(1).max(100))
-    .default('50'),
+    .pipe(z.number().int().min(1).max(100)),
   offset: z
     .string()
+    .default('0')
     .transform((val) => parseInt(val, 10))
-    .pipe(z.number().int().min(0))
-    .default('0'),
+    .pipe(z.number().int().min(0)),
   sortBy: z
     .enum(['subject', 'priority', 'due_date', 'created_at', 'updated_at'])
     .default('created_at'),
@@ -182,3 +185,114 @@ export type WorkItemCreate = z.infer<typeof workItemCreateSchema>;
 export type WorkItemUpdate = z.infer<typeof workItemUpdateSchema>;
 export type WorkItemQuery = z.infer<typeof workItemQuerySchema>;
 export type WorkItemParams = z.infer<typeof workItemParamsSchema>;
+
+/**
+ * Phase 2: Hierarchy Operation Schemas
+ */
+export const workItemMoveSchema = z.object({
+  parent_work_item_id: z.string().uuid('Invalid parent work item ID').nullable(),
+});
+
+export type WorkItemMove = z.infer<typeof workItemMoveSchema>;
+
+/**
+ * Phase 2: Work Item Comments Schemas
+ */
+export const workItemCommentCreateSchema = z.object({
+  work_item_id: z.string().uuid('Invalid work item ID'),
+  parent_comment_id: z.string().uuid('Invalid parent comment ID').optional().nullable(),
+  comment_text: createSafeTextSchema(1, 5000, 'Comment text'),
+});
+
+export const workItemCommentUpdateSchema = z.object({
+  comment_text: createSafeTextSchema(1, 5000, 'Comment text'),
+});
+
+export const workItemCommentQuerySchema = z.object({
+  work_item_id: z.string().uuid('Invalid work item ID'),
+  limit: z
+    .string()
+    .default('50')
+    .transform((val) => parseInt(val, 10))
+    .pipe(z.number().int().min(1).max(100)),
+  offset: z
+    .string()
+    .default('0')
+    .transform((val) => parseInt(val, 10))
+    .pipe(z.number().int().min(0)),
+});
+
+export const workItemCommentParamsSchema = z.object({
+  id: z.string().uuid('Invalid work item ID'),
+  commentId: z.string().uuid('Invalid comment ID'),
+});
+
+export type WorkItemCommentCreate = z.infer<typeof workItemCommentCreateSchema>;
+export type WorkItemCommentUpdate = z.infer<typeof workItemCommentUpdateSchema>;
+export type WorkItemCommentQuery = z.infer<typeof workItemCommentQuerySchema>;
+export type WorkItemCommentParams = z.infer<typeof workItemCommentParamsSchema>;
+
+/**
+ * Phase 2: Work Item Attachments Schemas
+ */
+export const workItemAttachmentCreateSchema = z.object({
+  work_item_id: z.string().uuid('Invalid work item ID'),
+  file_name: createSafeTextSchema(1, 255, 'File name'),
+  file_size: z.number().int().min(1).max(104857600), // Max 100MB
+  file_type: z.string().min(1).max(100),
+  s3_key: z.string().min(1),
+  s3_bucket: z.string().min(1),
+});
+
+export const workItemAttachmentQuerySchema = z.object({
+  work_item_id: z.string().uuid('Invalid work item ID'),
+  limit: z
+    .string()
+    .default('50')
+    .transform((val) => parseInt(val, 10))
+    .pipe(z.number().int().min(1).max(100)),
+  offset: z
+    .string()
+    .default('0')
+    .transform((val) => parseInt(val, 10))
+    .pipe(z.number().int().min(0)),
+});
+
+export const workItemAttachmentParamsSchema = z.object({
+  id: z.string().uuid('Invalid work item ID'),
+  attachmentId: z.string().uuid('Invalid attachment ID'),
+});
+
+export type WorkItemAttachmentCreate = z.infer<typeof workItemAttachmentCreateSchema>;
+export type WorkItemAttachmentQuery = z.infer<typeof workItemAttachmentQuerySchema>;
+export type WorkItemAttachmentParams = z.infer<typeof workItemAttachmentParamsSchema>;
+
+/**
+ * Phase 2: Work Item Activity Schemas (for internal use)
+ */
+export const workItemActivityCreateSchema = z.object({
+  work_item_id: z.string().uuid('Invalid work item ID'),
+  activity_type: z.string().min(1).max(100),
+  field_name: z.string().max(100).optional().nullable(),
+  old_value: z.string().optional().nullable(),
+  new_value: z.string().optional().nullable(),
+  description: createSafeTextSchema(0, 1000, 'Description').optional().nullable(),
+});
+
+export const workItemActivityQuerySchema = z.object({
+  work_item_id: z.string().uuid('Invalid work item ID'),
+  activity_type: z.string().optional(),
+  limit: z
+    .string()
+    .default('50')
+    .transform((val) => parseInt(val, 10))
+    .pipe(z.number().int().min(1).max(100)),
+  offset: z
+    .string()
+    .default('0')
+    .transform((val) => parseInt(val, 10))
+    .pipe(z.number().int().min(0)),
+});
+
+export type WorkItemActivityCreate = z.infer<typeof workItemActivityCreateSchema>;
+export type WorkItemActivityQuery = z.infer<typeof workItemActivityQuerySchema>;

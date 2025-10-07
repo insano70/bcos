@@ -21,36 +21,37 @@ export interface CreateWorkItemData {
   work_item_type_id: string;
   organization_id: string;
   subject: string;
-  description?: string | null;
-  priority?: string;
-  assigned_to?: string | null;
-  due_date?: Date | null;
+  description?: string | null | undefined;
+  priority?: string | undefined;
+  assigned_to?: string | null | undefined;
+  due_date?: Date | null | undefined;
+  parent_work_item_id?: string | null | undefined; // Phase 2: Hierarchy support
 }
 
 export interface UpdateWorkItemData {
-  subject?: string;
-  description?: string | null;
-  status_id?: string;
-  priority?: string;
-  assigned_to?: string | null;
-  due_date?: Date | null;
-  started_at?: Date | null;
-  completed_at?: Date | null;
+  subject?: string | undefined;
+  description?: string | null | undefined;
+  status_id?: string | undefined;
+  priority?: string | undefined;
+  assigned_to?: string | null | undefined;
+  due_date?: Date | null | undefined;
+  started_at?: Date | null | undefined;
+  completed_at?: Date | null | undefined;
 }
 
 export interface WorkItemQueryOptions {
-  work_item_type_id?: string;
-  organization_id?: string;
-  status_id?: string;
-  status_category?: string;
-  priority?: string;
-  assigned_to?: string;
-  created_by?: string;
-  search?: string;
-  limit?: number;
-  offset?: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
+  work_item_type_id?: string | undefined;
+  organization_id?: string | undefined;
+  status_id?: string | undefined;
+  status_category?: string | undefined;
+  priority?: string | undefined;
+  assigned_to?: string | undefined;
+  created_by?: string | undefined;
+  search?: string | undefined;
+  limit?: number | undefined;
+  offset?: number | undefined;
+  sortBy?: string | undefined;
+  sortOrder?: 'asc' | 'desc' | undefined;
 }
 
 export interface WorkItemWithDetails {
@@ -162,8 +163,22 @@ export class RBACWorkItemsService extends BaseRBACService {
     // Build sorting
     const sortBy = options.sortBy || 'created_at';
     const sortOrder = options.sortOrder || 'desc';
-    const orderByClause =
-      sortOrder === 'asc' ? asc(work_items[sortBy as keyof typeof work_items]) : desc(work_items[sortBy as keyof typeof work_items]);
+
+    // Map sortBy to actual column - TypeScript-safe approach
+    const sortColumn = (() => {
+      switch (sortBy) {
+        case 'subject': return work_items.subject;
+        case 'priority': return work_items.priority;
+        case 'due_date': return work_items.due_date;
+        case 'status_id': return work_items.status_id;
+        case 'assigned_to': return work_items.assigned_to;
+        case 'updated_at': return work_items.updated_at;
+        case 'created_at':
+        default: return work_items.created_at;
+      }
+    })();
+
+    const orderByClause = sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn);
 
     // Execute query with joins
     const results = await db
@@ -294,6 +309,9 @@ export class RBACWorkItemsService extends BaseRBACService {
     }
 
     const workItem = result[0];
+    if (!workItem) {
+      return null;
+    }
 
     // Additional permission check for organization scope
     if (canReadOrg && !canReadAll) {
@@ -367,6 +385,36 @@ export class RBACWorkItemsService extends BaseRBACService {
       throw new Error('No initial status found for this work item type');
     }
 
+    // Phase 2: Calculate hierarchy fields
+    let depth = 0;
+    let rootId: string | null = null;
+    let path: string | null = null;
+
+    if (workItemData.parent_work_item_id) {
+      // Validate parent exists and depth is not exceeded
+      const parentInfo = await db
+        .select({
+          depth: work_items.depth,
+          root_work_item_id: work_items.root_work_item_id,
+          path: work_items.path,
+        })
+        .from(work_items)
+        .where(eq(work_items.work_item_id, workItemData.parent_work_item_id))
+        .limit(1);
+
+      if (!parentInfo[0]) {
+        throw new Error('Parent work item not found');
+      }
+
+      depth = (parentInfo[0].depth || 0) + 1;
+      if (depth > 10) {
+        throw new Error('Maximum nesting depth of 10 levels exceeded');
+      }
+
+      rootId = parentInfo[0].root_work_item_id || workItemData.parent_work_item_id;
+      // Path will be updated after insert with actual work item ID
+    }
+
     // Create work item
     const [newWorkItem] = await db
       .insert(work_items)
@@ -379,6 +427,9 @@ export class RBACWorkItemsService extends BaseRBACService {
         priority: workItemData.priority || 'medium',
         assigned_to: workItemData.assigned_to || null,
         due_date: workItemData.due_date || null,
+        parent_work_item_id: workItemData.parent_work_item_id || null,
+        root_work_item_id: rootId,
+        depth,
         created_by: this.userContext.user_id,
       })
       .returning();
@@ -386,6 +437,26 @@ export class RBACWorkItemsService extends BaseRBACService {
     if (!newWorkItem) {
       throw new Error('Failed to create work item');
     }
+
+    // Update path now that we have the work item ID
+    if (workItemData.parent_work_item_id) {
+      const parentInfo = await db
+        .select({ path: work_items.path })
+        .from(work_items)
+        .where(eq(work_items.work_item_id, workItemData.parent_work_item_id))
+        .limit(1);
+
+      path = `${parentInfo[0]?.path || ''}/${newWorkItem.work_item_id}`;
+    } else {
+      // Root level work item
+      path = `/${newWorkItem.work_item_id}`;
+      rootId = newWorkItem.work_item_id;
+    }
+
+    await db
+      .update(work_items)
+      .set({ path, root_work_item_id: rootId })
+      .where(eq(work_items.work_item_id, newWorkItem.work_item_id));
 
     log.info('Work item created successfully', {
       workItemId: newWorkItem.work_item_id,
@@ -557,6 +628,401 @@ export class RBACWorkItemsService extends BaseRBACService {
       .where(and(...whereConditions));
 
     return result[0]?.count || 0;
+  }
+
+  /**
+   * Phase 2: Get children of a work item
+   */
+  async getWorkItemChildren(workItemId: string): Promise<WorkItemWithDetails[]> {
+    const startTime = Date.now();
+
+    log.info('Work item children fetch initiated', {
+      workItemId,
+      requestingUserId: this.userContext.user_id,
+    });
+
+    // Verify permission to read the work item
+    await this.getWorkItemById(workItemId);
+
+    const accessScope = this.getAccessScope('work_items', 'read');
+    const whereConditions = [
+      isNull(work_items.deleted_at),
+      eq(work_items.parent_work_item_id, workItemId),
+    ];
+
+    // Apply scope-based filtering
+    switch (accessScope.scope) {
+      case 'own':
+        whereConditions.push(eq(work_items.created_by, this.userContext.user_id));
+        break;
+      case 'organization': {
+        const accessibleOrgIds = accessScope.organizationIds || [];
+        if (accessibleOrgIds.length > 0) {
+          whereConditions.push(inArray(work_items.organization_id, accessibleOrgIds));
+        } else {
+          return [];
+        }
+        break;
+      }
+      case 'all':
+        break;
+    }
+
+    const results = await db
+      .select({
+        work_item_id: work_items.work_item_id,
+        work_item_type_id: work_items.work_item_type_id,
+        work_item_type_name: work_item_types.name,
+        organization_id: work_items.organization_id,
+        organization_name: organizations.name,
+        subject: work_items.subject,
+        description: work_items.description,
+        status_id: work_items.status_id,
+        status_name: work_item_statuses.status_name,
+        status_category: work_item_statuses.status_category,
+        priority: work_items.priority,
+        assigned_to: work_items.assigned_to,
+        assigned_to_first_name: users.first_name,
+        assigned_to_last_name: users.last_name,
+        due_date: work_items.due_date,
+        started_at: work_items.started_at,
+        completed_at: work_items.completed_at,
+        created_by: work_items.created_by,
+        created_by_first_name: users.first_name,
+        created_by_last_name: users.last_name,
+        created_at: work_items.created_at,
+        updated_at: work_items.updated_at,
+      })
+      .from(work_items)
+      .leftJoin(work_item_types, eq(work_items.work_item_type_id, work_item_types.work_item_type_id))
+      .leftJoin(organizations, eq(work_items.organization_id, organizations.organization_id))
+      .leftJoin(work_item_statuses, eq(work_items.status_id, work_item_statuses.work_item_status_id))
+      .leftJoin(users, eq(work_items.assigned_to, users.user_id))
+      .where(and(...whereConditions))
+      .orderBy(asc(work_items.created_at));
+
+    const duration = Date.now() - startTime;
+    log.info('Work item children fetch completed', {
+      workItemId,
+      childCount: results.length,
+      duration,
+    });
+
+    return results.map((result) => ({
+      work_item_id: result.work_item_id,
+      work_item_type_id: result.work_item_type_id,
+      work_item_type_name: result.work_item_type_name || '',
+      organization_id: result.organization_id,
+      organization_name: result.organization_name || '',
+      subject: result.subject,
+      description: result.description,
+      status_id: result.status_id,
+      status_name: result.status_name || '',
+      status_category: result.status_category || '',
+      priority: result.priority || 'medium',
+      assigned_to: result.assigned_to,
+      assigned_to_name: result.assigned_to_first_name && result.assigned_to_last_name
+        ? `${result.assigned_to_first_name} ${result.assigned_to_last_name}`
+        : null,
+      due_date: result.due_date,
+      started_at: result.started_at,
+      completed_at: result.completed_at,
+      created_by: result.created_by,
+      created_by_name: result.created_by_first_name && result.created_by_last_name
+        ? `${result.created_by_first_name} ${result.created_by_last_name}`
+        : '',
+      created_at: result.created_at || new Date(),
+      updated_at: result.updated_at || new Date(),
+    }));
+  }
+
+  /**
+   * Phase 2: Get ancestors of a work item (breadcrumb trail)
+   */
+  async getWorkItemAncestors(workItemId: string): Promise<WorkItemWithDetails[]> {
+    const startTime = Date.now();
+
+    log.info('Work item ancestors fetch initiated', {
+      workItemId,
+      requestingUserId: this.userContext.user_id,
+    });
+
+    // Verify permission to read the work item
+    const workItem = await this.getWorkItemById(workItemId);
+    if (!workItem) {
+      return [];
+    }
+
+    // Parse path to get ancestor IDs
+    const [rawWorkItem] = await db
+      .select({ path: work_items.path })
+      .from(work_items)
+      .where(eq(work_items.work_item_id, workItemId))
+      .limit(1);
+
+    if (!rawWorkItem?.path) {
+      return [];
+    }
+
+    // Path format: '/root_id/parent_id/this_id' - extract ancestor IDs
+    const ancestorIds = rawWorkItem.path
+      .split('/')
+      .filter((id) => id && id !== workItemId);
+
+    if (ancestorIds.length === 0) {
+      return [];
+    }
+
+    const accessScope = this.getAccessScope('work_items', 'read');
+    const whereConditions = [
+      isNull(work_items.deleted_at),
+      inArray(work_items.work_item_id, ancestorIds),
+    ];
+
+    // Apply scope-based filtering
+    switch (accessScope.scope) {
+      case 'own':
+        whereConditions.push(eq(work_items.created_by, this.userContext.user_id));
+        break;
+      case 'organization': {
+        const accessibleOrgIds = accessScope.organizationIds || [];
+        if (accessibleOrgIds.length > 0) {
+          whereConditions.push(inArray(work_items.organization_id, accessibleOrgIds));
+        } else {
+          return [];
+        }
+        break;
+      }
+      case 'all':
+        break;
+    }
+
+    const results = await db
+      .select({
+        work_item_id: work_items.work_item_id,
+        work_item_type_id: work_items.work_item_type_id,
+        work_item_type_name: work_item_types.name,
+        organization_id: work_items.organization_id,
+        organization_name: organizations.name,
+        subject: work_items.subject,
+        description: work_items.description,
+        status_id: work_items.status_id,
+        status_name: work_item_statuses.status_name,
+        status_category: work_item_statuses.status_category,
+        priority: work_items.priority,
+        assigned_to: work_items.assigned_to,
+        assigned_to_first_name: users.first_name,
+        assigned_to_last_name: users.last_name,
+        due_date: work_items.due_date,
+        started_at: work_items.started_at,
+        completed_at: work_items.completed_at,
+        created_by: work_items.created_by,
+        created_by_first_name: users.first_name,
+        created_by_last_name: users.last_name,
+        created_at: work_items.created_at,
+        updated_at: work_items.updated_at,
+        depth: work_items.depth,
+      })
+      .from(work_items)
+      .leftJoin(work_item_types, eq(work_items.work_item_type_id, work_item_types.work_item_type_id))
+      .leftJoin(organizations, eq(work_items.organization_id, organizations.organization_id))
+      .leftJoin(work_item_statuses, eq(work_items.status_id, work_item_statuses.work_item_status_id))
+      .leftJoin(users, eq(work_items.assigned_to, users.user_id))
+      .where(and(...whereConditions))
+      .orderBy(asc(work_items.depth));
+
+    const duration = Date.now() - startTime;
+    log.info('Work item ancestors fetch completed', {
+      workItemId,
+      ancestorCount: results.length,
+      duration,
+    });
+
+    return results.map((result) => ({
+      work_item_id: result.work_item_id,
+      work_item_type_id: result.work_item_type_id,
+      work_item_type_name: result.work_item_type_name || '',
+      organization_id: result.organization_id,
+      organization_name: result.organization_name || '',
+      subject: result.subject,
+      description: result.description,
+      status_id: result.status_id,
+      status_name: result.status_name || '',
+      status_category: result.status_category || '',
+      priority: result.priority || 'medium',
+      assigned_to: result.assigned_to,
+      assigned_to_name: result.assigned_to_first_name && result.assigned_to_last_name
+        ? `${result.assigned_to_first_name} ${result.assigned_to_last_name}`
+        : null,
+      due_date: result.due_date,
+      started_at: result.started_at,
+      completed_at: result.completed_at,
+      created_by: result.created_by,
+      created_by_name: result.created_by_first_name && result.created_by_last_name
+        ? `${result.created_by_first_name} ${result.created_by_last_name}`
+        : '',
+      created_at: result.created_at || new Date(),
+      updated_at: result.updated_at || new Date(),
+    }));
+  }
+
+  /**
+   * Phase 2: Move work item to a new parent (reparent)
+   */
+  async moveWorkItem(
+    workItemId: string,
+    newParentId: string | null
+  ): Promise<WorkItemWithDetails> {
+    const startTime = Date.now();
+
+    log.info('Work item move initiated', {
+      workItemId,
+      newParentId,
+      requestingUserId: this.userContext.user_id,
+    });
+
+    // Check permission
+    const canUpdateOwn = this.checker.hasPermission('work_items:update:own', workItemId);
+    const canUpdateOrg = this.checker.hasPermission('work_items:update:organization');
+    const canUpdateAll = this.checker.hasPermission('work_items:update:all');
+
+    if (!canUpdateOwn && !canUpdateOrg && !canUpdateAll) {
+      throw new PermissionDeniedError('work_items:update:*', workItemId);
+    }
+
+    // Get the work item being moved
+    const workItem = await this.getWorkItemById(workItemId);
+    if (!workItem) {
+      throw new Error('Work item not found');
+    }
+
+    // Validate new parent if provided
+    let newParent: WorkItemWithDetails | null = null;
+    let newDepth = 0;
+    let newRootId = workItemId;
+    let newPath = `/${workItemId}`;
+
+    if (newParentId) {
+      newParent = await this.getWorkItemById(newParentId);
+      if (!newParent) {
+        throw new Error('Parent work item not found');
+      }
+
+      // Prevent circular references
+      const parentPath = await db
+        .select({ path: work_items.path })
+        .from(work_items)
+        .where(eq(work_items.work_item_id, newParentId))
+        .limit(1);
+
+      if (parentPath[0]?.path?.includes(`/${workItemId}/`)) {
+        throw new Error('Cannot move work item to its own descendant');
+      }
+
+      // Get parent depth to calculate new depth
+      const parentDepth = await db
+        .select({ depth: work_items.depth, root_work_item_id: work_items.root_work_item_id, path: work_items.path })
+        .from(work_items)
+        .where(eq(work_items.work_item_id, newParentId))
+        .limit(1);
+
+      newDepth = (parentDepth[0]?.depth || 0) + 1;
+      newRootId = parentDepth[0]?.root_work_item_id || newParentId;
+      newPath = `${parentDepth[0]?.path || ''}/${workItemId}`;
+
+      // Validate max depth (10 levels)
+      if (newDepth > 10) {
+        throw new Error('Maximum nesting depth of 10 levels exceeded');
+      }
+    }
+
+    // Update the work item
+    await db
+      .update(work_items)
+      .set({
+        parent_work_item_id: newParentId,
+        root_work_item_id: newRootId,
+        depth: newDepth,
+        path: newPath,
+        updated_at: new Date(),
+      })
+      .where(eq(work_items.work_item_id, workItemId));
+
+    // Update all descendants recursively
+    await this.updateDescendantPaths(workItemId, newPath, newRootId);
+
+    const duration = Date.now() - startTime;
+    log.info('Work item moved successfully', {
+      workItemId,
+      newParentId,
+      newDepth,
+      duration,
+    });
+
+    await this.logPermissionCheck('work_items:update:move', workItemId);
+
+    const updatedWorkItem = await this.getWorkItemById(workItemId);
+    if (!updatedWorkItem) {
+      throw new Error('Failed to retrieve moved work item');
+    }
+
+    return updatedWorkItem;
+  }
+
+  /**
+   * Phase 2: Helper to update descendant paths when a work item is moved
+   */
+  private async updateDescendantPaths(
+    workItemId: string,
+    newParentPath: string,
+    newRootId: string
+  ): Promise<void> {
+    // Get all descendants
+    const descendants = await db
+      .select({
+        work_item_id: work_items.work_item_id,
+        path: work_items.path,
+        depth: work_items.depth,
+      })
+      .from(work_items)
+      .where(like(work_items.path, `${newParentPath}/${workItemId}/%`));
+
+    // Update each descendant
+    for (const descendant of descendants) {
+      const oldPath = descendant.path || '';
+      const relativePath = oldPath.replace(new RegExp(`^.*/${workItemId}/`), '');
+      const updatedPath = `${newParentPath}/${workItemId}/${relativePath}`;
+      const updatedDepth = updatedPath.split('/').filter((id) => id).length - 1;
+
+      await db
+        .update(work_items)
+        .set({
+          path: updatedPath,
+          depth: updatedDepth,
+          root_work_item_id: newRootId,
+          updated_at: new Date(),
+        })
+        .where(eq(work_items.work_item_id, descendant.work_item_id));
+    }
+  }
+
+  /**
+   * Phase 2: Validate depth when creating child work items
+   */
+  private async validateDepth(parentWorkItemId: string): Promise<number> {
+    const parentDepth = await db
+      .select({ depth: work_items.depth })
+      .from(work_items)
+      .where(eq(work_items.work_item_id, parentWorkItemId))
+      .limit(1);
+
+    const newDepth = (parentDepth[0]?.depth || 0) + 1;
+
+    if (newDepth > 10) {
+      throw new Error('Maximum nesting depth of 10 levels exceeded');
+    }
+
+    return newDepth;
   }
 }
 

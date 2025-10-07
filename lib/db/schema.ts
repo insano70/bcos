@@ -63,9 +63,15 @@ export {
 } from './webauthn-schema';
 // Import Work Items tables
 export {
+  work_item_activity,
+  work_item_attachments,
+  work_item_comments,
   work_item_statuses,
   work_item_types,
   work_items,
+  workItemActivityRelations,
+  workItemAttachmentsRelations,
+  workItemCommentsRelations,
   workItemsRelations,
   workItemStatusesRelations,
   workItemTypesRelations,

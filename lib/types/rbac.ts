@@ -85,7 +85,8 @@ export type ResourceType =
   | 'roles'
   | 'settings'
   | 'templates'
-  | 'api';
+  | 'api'
+  | 'work_items';
 
 export type ActionType =
   | 'read'
@@ -166,6 +167,21 @@ export type DataSourcePermission =
   | 'data-sources:delete:all'
   | 'data-sources:manage:all';
 
+export type WorkItemPermission =
+  | 'work_items:read:own'
+  | 'work_items:create:own'
+  | 'work_items:update:own'
+  | 'work_items:delete:own'
+  | 'work_items:read:organization'
+  | 'work_items:create:organization'
+  | 'work_items:update:organization'
+  | 'work_items:delete:organization'
+  | 'work_items:read:all'
+  | 'work_items:create:all'
+  | 'work_items:update:all'
+  | 'work_items:delete:all'
+  | 'work_items:manage:all';
+
 export type PermissionName =
   | UserPermission
   | PracticePermission
@@ -175,7 +191,8 @@ export type PermissionName =
   | SettingsPermission
   | TemplatePermission
   | ApiPermission
-  | DataSourcePermission;
+  | DataSourcePermission
+  | WorkItemPermission;
 
 // Role Types for Healthcare Practices
 export type SystemRoleName = 'super_admin';
