@@ -51,17 +51,13 @@ class AuditLoggerService {
       data.action === 'login_failed' || data.action === 'account_locked' ? 'high' : 'medium';
 
     // Enhanced audit logging with universal logger - permanently enabled
-    log.auth(
-      data.action,
-      data.action !== 'login_failed' && data.action !== 'account_locked',
-      {
-        userId: data.userId,
-        ipAddress: data.ipAddress,
-        userAgent: data.userAgent,
-        email: data.email,
-        ...data.metadata,
-      }
-    );
+    log.auth(data.action, data.action !== 'login_failed' && data.action !== 'account_locked', {
+      userId: data.userId,
+      ipAddress: data.ipAddress,
+      userAgent: data.userAgent,
+      email: data.email,
+      ...data.metadata,
+    });
 
     // Business intelligence for audit operations
     log.info('Audit event processed', {
@@ -272,16 +268,20 @@ class AuditLoggerService {
         }
       );
     } catch (error) {
-      log.error('Failed to send critical alert', error instanceof Error ? error : new Error(String(error)), {
-        eventType: entry.event_type,
-        action: entry.action,
-        severity: entry.severity,
-        component: 'audit-system',
-        feature: 'compliance-logging',
-        error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        operation: 'sendCriticalAlert',
-      });
+      log.error(
+        'Failed to send critical alert',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          eventType: entry.event_type,
+          action: entry.action,
+          severity: entry.severity,
+          component: 'audit-system',
+          feature: 'compliance-logging',
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+          operation: 'sendCriticalAlert',
+        }
+      );
     }
   }
 
@@ -307,11 +307,15 @@ class AuditLoggerService {
         hasMore: false,
       };
     } catch (error) {
-      log.error('Failed to retrieve audit logs', error instanceof Error ? error : new Error(String(error)), {
-        operation: 'getAuditLogs',
-        component: 'audit-system',
-        feature: 'compliance-logging',
-      });
+      log.error(
+        'Failed to retrieve audit logs',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          operation: 'getAuditLogs',
+          component: 'audit-system',
+          feature: 'compliance-logging',
+        }
+      );
       throw error;
     }
   }

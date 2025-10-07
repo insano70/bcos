@@ -6,9 +6,9 @@ export const metadata = {
 import { and, eq, isNull } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
 import StaffMemberForm from '@/components/staff-member-form';
+import { requireServerAnyPermission } from '@/lib/auth/server-rbac';
 import { db, practices, staff_members } from '@/lib/db';
 import { transformStaffMember } from '@/lib/types/transformers';
-import { requireServerAnyPermission } from '@/lib/auth/server-rbac';
 
 async function getStaffMemberData(practiceId: string, staffId: string) {
   // SECURITY: Validate permissions BEFORE fetching sensitive staff data

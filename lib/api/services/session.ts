@@ -1,8 +1,8 @@
 import { and, count, desc, eq, gte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { AuditLogger } from '@/lib/api/services/audit';
 import { account_security, db, login_attempts, user_sessions } from '@/lib/db';
 import { log } from '@/lib/logger';
-import { AuditLogger } from '@/lib/api/services/audit';
 
 /**
  * Enterprise Session Management Service
@@ -368,8 +368,8 @@ async function enforceConcurrentSessionLimits(userId: string): Promise<void> {
     // If at limit, revoke oldest session(s) to make room
     if (activeCount >= maxSessions) {
       // Sort by last_activity to find oldest session
-      const sortedSessions = [...activeSessions].sort((a, b) =>
-        a.lastActivity.getTime() - b.lastActivity.getTime()
+      const sortedSessions = [...activeSessions].sort(
+        (a, b) => a.lastActivity.getTime() - b.lastActivity.getTime()
       );
 
       // Revoke the oldest session

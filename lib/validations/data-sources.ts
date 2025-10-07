@@ -198,7 +198,12 @@ export const dataSourceColumnCreateSchema = z.object({
   // Icon display options
   display_icon: z.boolean().optional().default(false),
   icon_type: z.enum(['initials', 'first_letter', 'emoji']).nullable().optional().or(z.literal('')),
-  icon_color_mode: z.enum(['auto', 'fixed', 'mapped']).nullable().optional().or(z.literal('')).default('auto'),
+  icon_color_mode: z
+    .enum(['auto', 'fixed', 'mapped'])
+    .nullable()
+    .optional()
+    .or(z.literal(''))
+    .default('auto'),
   icon_color: createSafeTextSchema(0, 50, 'Icon color').nullable().optional(),
   icon_mapping: z.record(z.string(), z.unknown()).nullable().optional(),
 

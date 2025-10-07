@@ -105,7 +105,11 @@ export async function applyGlobalAuth(request: NextRequest): Promise<AuthResult 
   if (authHeader) {
     hasAuth = true;
     authMethod = 'authorization_header';
-    log.debug('Using Authorization header for authentication', { pathname, path: pathname, method });
+    log.debug('Using Authorization header for authentication', {
+      pathname,
+      path: pathname,
+      method,
+    });
   } else if (cookieHeader?.includes('access-token=')) {
     hasAuth = true;
     authMethod = 'httponly_cookie';
@@ -142,13 +146,17 @@ export async function applyGlobalAuth(request: NextRequest): Promise<AuthResult 
 
     return authResult;
   } catch (error) {
-    log.error('API authentication failed', error instanceof Error ? error : new Error(String(error)), {
-      pathname,
-      path: pathname,
-      method,
-      authMethod,
-      errorType: error instanceof Error ? error.constructor.name : typeof error,
-    });
+    log.error(
+      'API authentication failed',
+      error instanceof Error ? error : new Error(String(error)),
+      {
+        pathname,
+        path: pathname,
+        method,
+        authMethod,
+        errorType: error instanceof Error ? error.constructor.name : typeof error,
+      }
+    );
     throw new Error(
       `Authentication required for ${pathname}: ${error instanceof Error ? error.message : 'Unknown error'}`
     );

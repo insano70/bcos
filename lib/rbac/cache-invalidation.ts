@@ -4,9 +4,9 @@
  */
 
 import { eq } from 'drizzle-orm';
-import { db, user_roles } from '@/lib/db';
 import { revokeAllUserTokens } from '@/lib/auth/token-manager';
 import { rolePermissionCache } from '@/lib/cache/role-permission-cache';
+import { db, user_roles } from '@/lib/db';
 import { log } from '@/lib/logger';
 
 /**
@@ -100,11 +100,15 @@ export async function invalidateUserTokensWithRole(
           revokedCount,
         });
       } catch (error) {
-        log.error('Failed to revoke tokens for user', error instanceof Error ? error : new Error(String(error)), {
-          userId: user.user_id,
-          roleId,
-          reason,
-        });
+        log.error(
+          'Failed to revoke tokens for user',
+          error instanceof Error ? error : new Error(String(error)),
+          {
+            userId: user.user_id,
+            roleId,
+            reason,
+          }
+        );
         // Continue with other users even if one fails
       }
     }
@@ -119,11 +123,15 @@ export async function invalidateUserTokensWithRole(
 
     return totalRevokedCount;
   } catch (error) {
-    log.error('Failed to invalidate user tokens for role', error instanceof Error ? error : new Error(String(error)), {
-      roleId,
-      reason,
-      duration: Date.now() - startTime,
-    });
+    log.error(
+      'Failed to invalidate user tokens for role',
+      error instanceof Error ? error : new Error(String(error)),
+      {
+        roleId,
+        reason,
+        duration: Date.now() - startTime,
+      }
+    );
     throw error;
   }
 }
@@ -153,10 +161,14 @@ export async function updateRolePermissionsWithInvalidation(
       permissionCount: newPermissions.length,
     });
   } catch (error) {
-    log.error('Failed to update role permissions', error instanceof Error ? error : new Error(String(error)), {
-      roleId,
-      roleName,
-    });
+    log.error(
+      'Failed to update role permissions',
+      error instanceof Error ? error : new Error(String(error)),
+      {
+        roleId,
+        roleName,
+      }
+    );
     throw error;
   }
 }

@@ -369,10 +369,7 @@ export class RBACDashboardsService extends BaseRBACService {
 
     // If setting this as default, clear any existing default dashboard
     if (dashboardData.is_default === true) {
-      await db
-        .update(dashboards)
-        .set({ is_default: false })
-        .where(eq(dashboards.is_default, true));
+      await db.update(dashboards).set({ is_default: false }).where(eq(dashboards.is_default, true));
     }
 
     // Create new dashboard

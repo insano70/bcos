@@ -1,14 +1,14 @@
 import type { NextRequest } from 'next/server';
-import { createSuccessResponse, createPaginatedResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
-import { validateRequest, validateQuery } from '@/lib/api/middleware/validation';
-import { getPagination, getSortParams } from '@/lib/api/utils/request';
-import { organizationCreateSchema, organizationQuerySchema } from '@/lib/validations/organization';
+import { validateQuery, validateRequest } from '@/lib/api/middleware/validation';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createPaginatedResponse, createSuccessResponse } from '@/lib/api/responses/success';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
+import { getPagination, getSortParams } from '@/lib/api/utils/request';
+import { log } from '@/lib/logger';
 import { createRBACOrganizationsService } from '@/lib/services/rbac-organizations-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
+import { organizationCreateSchema, organizationQuerySchema } from '@/lib/validations/organization';
 
 const getOrganizationsHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
@@ -49,7 +49,9 @@ const getOrganizationsHandler = async (request: NextRequest, userContext: UserCo
       is_active: query.is_active,
       parent_organization_id: query.parent_organization_id,
     });
-    log.db('SELECT', 'organizations', Date.now() - organizationsStart, { rowCount: organizations.length });
+    log.db('SELECT', 'organizations', Date.now() - organizationsStart, {
+      rowCount: organizations.length,
+    });
 
     // Get total count
     const countStart = Date.now();
@@ -99,7 +101,11 @@ const getOrganizationsHandler = async (request: NextRequest, userContext: UserCo
 };
 
 export const GET = rbacRoute(getOrganizationsHandler, {
-  permission: ['organizations:read:own', 'organizations:read:organization', 'organizations:read:all'],
+  permission: [
+    'organizations:read:own',
+    'organizations:read:organization',
+    'organizations:read:all',
+  ],
   extractResourceId: extractors.organizationResourceId,
   extractOrganizationId: extractors.organizationId,
   rateLimit: 'api',

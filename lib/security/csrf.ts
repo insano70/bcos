@@ -6,12 +6,12 @@
 // Re-export types and client functions
 export type { CSRFTokenValidation } from './csrf-client';
 export {
+  getCSRFTokenFromCookie,
+  getTokenMetadata,
+  shouldRefreshToken,
+  validateToken,
   validateTokenStructure,
   validateTokenWithServer,
-  getCSRFTokenFromCookie,
-  validateToken,
-  shouldRefreshToken,
-  getTokenMetadata
 } from './csrf-client';
 export { CSRFSecurityMonitor } from './csrf-monitoring';
 export { csrfMonitor, getCSRFMonitor } from './csrf-monitoring-instance';
@@ -23,13 +23,13 @@ export {
   CSRF_TOKEN_LENGTH,
   generateAnonymousToken,
   generateAuthenticatedToken,
-  validateAnonymousToken,
-  validateAuthenticatedToken,
-  setCSRFToken,
+  generateToken,
   getCSRFToken,
   isAnonymousEndpoint,
   isDualTokenEndpoint,
-  verifyCSRFToken,
   requiresCSRFProtection,
-  generateToken
+  setCSRFToken,
+  validateAnonymousToken,
+  validateAuthenticatedToken,
+  verifyCSRFToken,
 } from './csrf-unified';

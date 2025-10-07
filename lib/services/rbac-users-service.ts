@@ -1,5 +1,5 @@
 import { and, count, eq, inArray, isNull, like, or } from 'drizzle-orm';
-import { hashPassword, ensureSecurityRecord } from '@/lib/auth/security';
+import { ensureSecurityRecord, hashPassword } from '@/lib/auth/security';
 import { account_security, db } from '@/lib/db';
 import { roles, user_roles } from '@/lib/db/rbac-schema';
 import { organizations, user_organizations, users } from '@/lib/db/schema';

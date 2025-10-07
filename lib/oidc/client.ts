@@ -370,7 +370,6 @@ export class OIDCClient {
       claims,
     };
   }
-
 }
 
 // ===== Singleton Pattern for Client Instance =====

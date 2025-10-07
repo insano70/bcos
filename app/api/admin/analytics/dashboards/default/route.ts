@@ -1,9 +1,9 @@
-import { NextRequest } from 'next/server';
-import { db, dashboards } from '@/lib/db';
 import { and, eq } from 'drizzle-orm';
-import { createSuccessResponse } from '@/lib/api/responses/success';
+import type { NextRequest } from 'next/server';
 import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { publicRoute } from '@/lib/api/route-handler';
+import { dashboards, db } from '@/lib/db';
 import { log } from '@/lib/logger';
 
 /**
@@ -39,10 +39,7 @@ const getDefaultDashboardHandler = async (request: NextRequest) => {
 
     if (!defaultDashboard) {
       log.info('No default dashboard configured');
-      return createSuccessResponse(
-        { defaultDashboard: null },
-        'No default dashboard configured'
-      );
+      return createSuccessResponse({ defaultDashboard: null }, 'No default dashboard configured');
     }
 
     log.info('Default dashboard found', {

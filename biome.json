@@ -16,6 +16,14 @@
       "lib/**/*.tsx"
     ]
   },
+  "overrides": [
+    {
+      "includes": ["lib/api/templates/**", "lib/api/testing/**"],
+      "linter": {
+        "enabled": false
+      }
+    }
+  ],
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
@@ -35,6 +43,9 @@
       "a11y": {
         "noSvgWithoutTitle": "off",
         "useButtonType": "warn"
+      },
+      "security": {
+        "noDangerouslySetInnerHtml": "warn"
       }
     }
   },

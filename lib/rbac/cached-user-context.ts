@@ -3,10 +3,9 @@
  * Provides user context with role-permission caching for performance
  */
 
-import { db } from '@/lib/db';
-import { log } from '@/lib/logger';
 import { and, eq } from 'drizzle-orm';
 import { rolePermissionCache } from '@/lib/cache/role-permission-cache';
+import { db } from '@/lib/db';
 import {
   organizations,
   permissions,
@@ -16,6 +15,7 @@ import {
   user_roles,
   users,
 } from '@/lib/db/schema';
+import { log } from '@/lib/logger';
 import type { Permission, Role, UserContext, UserRole } from '@/lib/types/rbac';
 
 // Request-scoped cache to prevent multiple getUserContext calls per request
@@ -35,7 +35,7 @@ async function getRolePermissions(roleId: string, roleName: string): Promise<Per
   log.debug('Role permissions cache miss, querying database', {
     roleId,
     roleName,
-    component: 'rbac-cache'
+    component: 'rbac-cache',
   });
 
   const rolePermissions = await db

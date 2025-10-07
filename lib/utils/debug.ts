@@ -62,7 +62,7 @@ export const debugLog = {
   database: (message: string, data?: unknown) => {
     if (isDevelopment) {
       log.debug(`🗄️ DATABASE: ${message}`, {
-        ...data as Record<string, unknown>,
+        ...(data as Record<string, unknown>),
         component: 'database',
         feature: 'database-debug',
         module: 'debug-utility',
@@ -73,7 +73,7 @@ export const debugLog = {
   api: (message: string, data?: unknown) => {
     if (isDevelopment) {
       log.debug(`🌐 API: ${message}`, {
-        ...data as Record<string, unknown>,
+        ...(data as Record<string, unknown>),
         component: 'api',
         feature: 'api-debug',
         module: 'debug-utility',
@@ -84,7 +84,7 @@ export const debugLog = {
   business: (message: string, data?: unknown) => {
     if (isDevelopment) {
       log.debug(`💼 BUSINESS: ${message}`, {
-        ...data as Record<string, unknown>,
+        ...(data as Record<string, unknown>),
         component: 'business-logic',
         feature: 'business-debug',
         module: 'debug-utility',
@@ -106,7 +106,7 @@ export const debugLog = {
       });
     } else if (isDevelopment) {
       log.debug(`⚡ PERFORMANCE: ${message}`, {
-        ...data as Record<string, unknown>,
+        ...(data as Record<string, unknown>),
         component: 'api',
         feature: 'api-debug',
         module: 'debug-utility',
@@ -337,10 +337,14 @@ export const createDebugLogger = (component: string, feature?: string) => {
   };
 
   return {
-    debug: (message: string, data?: Record<string, unknown>) => log.debug(message, { ...data, ...context }),
-    info: (message: string, data?: Record<string, unknown>) => log.info(message, { ...data, ...context }),
-    warn: (message: string, data?: Record<string, unknown>) => log.warn(message, { ...data, ...context }),
-    error: (message: string, error?: Error, data?: Record<string, unknown>) => log.error(message, error, { ...data, ...context }),
+    debug: (message: string, data?: Record<string, unknown>) =>
+      log.debug(message, { ...data, ...context }),
+    info: (message: string, data?: Record<string, unknown>) =>
+      log.info(message, { ...data, ...context }),
+    warn: (message: string, data?: Record<string, unknown>) =>
+      log.warn(message, { ...data, ...context }),
+    error: (message: string, error?: Error, data?: Record<string, unknown>) =>
+      log.error(message, error, { ...data, ...context }),
   };
 };
 

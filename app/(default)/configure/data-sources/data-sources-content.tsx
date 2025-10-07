@@ -4,21 +4,18 @@ import { useMemo, useState } from 'react';
 import AddDataSourceModal from '@/components/add-data-source-modal';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import DataSourceConnectionTestModal from '@/components/data-source-connection-test-modal';
-import DateSelect, { type DateRange } from '@/components/date-select';
-import DeleteButton from '@/components/delete-button';
-import DeleteDataSourceModal from '@/components/delete-data-source-modal';
-import FilterButton, {
-  type ActiveFilter,
-  type FilterGroup,
-} from '@/components/dropdown-filter';
-import EditDataSourceModal from '@/components/edit-data-source-modal';
-import { ProtectedComponent } from '@/components/rbac/protected-component';
-import Toast from '@/components/toast';
-import { type DataSource, useDataSources } from '@/lib/hooks/use-data-sources';
 import DataTable, {
   type DataTableColumn,
   type DataTableDropdownAction,
 } from '@/components/data-table-standard';
+import DateSelect, { type DateRange } from '@/components/date-select';
+import DeleteButton from '@/components/delete-button';
+import DeleteDataSourceModal from '@/components/delete-data-source-modal';
+import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
+import EditDataSourceModal from '@/components/edit-data-source-modal';
+import { ProtectedComponent } from '@/components/rbac/protected-component';
+import Toast from '@/components/toast';
+import { type DataSource, useDataSources } from '@/lib/hooks/use-data-sources';
 
 // Extend DataSource type to include id field for DataTable
 type DataSourceWithId = DataSource & { id: string };
@@ -79,9 +76,7 @@ export default function DataSourcesContent() {
 
       // Apply date range filter on created_at
       if (dateRange.startDate || dateRange.endDate) {
-        const dataSourceCreatedAt = dataSource.created_at
-          ? new Date(dataSource.created_at)
-          : null;
+        const dataSourceCreatedAt = dataSource.created_at ? new Date(dataSource.created_at) : null;
         if (!dataSourceCreatedAt) {
           return false;
         }
@@ -257,7 +252,9 @@ export default function DataSourcesContent() {
       sortable: true,
       render: (dataSource) => (
         <div>
-          <div className="font-medium text-gray-800 dark:text-gray-100">{dataSource.table_name}</div>
+          <div className="font-medium text-gray-800 dark:text-gray-100">
+            {dataSource.table_name}
+          </div>
           <div className="text-sm text-gray-500 dark:text-gray-400">{dataSource.schema_name}</div>
         </div>
       ),

@@ -1,7 +1,7 @@
 import { getCssVariable } from '@/components/utils/utils';
 import { getPaletteColors } from '@/lib/services/color-palettes';
-import { applyPeriodComparisonColors, getColorScheme } from './period-comparison-colors';
 import type { AggAppMeasure, ChartData, ChartDataset } from '@/lib/types/analytics';
+import { applyPeriodComparisonColors, getColorScheme } from './period-comparison-colors';
 
 /**
  * Simplified Chart Data Transformer
@@ -26,7 +26,15 @@ export class SimplifiedChartTransformer {
    */
   transformData(
     measures: AggAppMeasure[],
-    chartType: 'line' | 'bar' | 'horizontal-bar' | 'progress-bar' | 'pie' | 'doughnut' | 'area' | 'table',
+    chartType:
+      | 'line'
+      | 'bar'
+      | 'horizontal-bar'
+      | 'progress-bar'
+      | 'pie'
+      | 'doughnut'
+      | 'area'
+      | 'table',
     groupBy: string = 'none',
     paletteId: string = 'default'
   ): ChartData {
@@ -103,7 +111,6 @@ export class SimplifiedChartTransformer {
           return new Date(date.getUTCFullYear(), date.getUTCMonth(), 1, 12, 0, 0);
         }
       });
-
 
       return {
         labels: dateObjects, // Use Date objects for proper time axis
@@ -220,9 +227,6 @@ export class SimplifiedChartTransformer {
       });
     });
 
-
-
-
     // Create datasets for each group
     const datasets: ChartDataset[] = [];
     const colors = this.getColorPalette(paletteId);
@@ -231,7 +235,6 @@ export class SimplifiedChartTransformer {
     groupedData.forEach((dateMap, groupKey) => {
       const data = datesWithData.map((dateIndex) => dateMap.get(dateIndex) || 0);
       const color = colors[colorIndex % colors.length];
-
 
       // Build dataset with conditional properties based on chart type
       const dataset: ChartDataset = {
@@ -260,7 +263,6 @@ export class SimplifiedChartTransformer {
       colorIndex++;
     });
 
-
     // For bar charts, create readable category labels based on frequency
     const categoryLabels = datesWithData.map((dateStr) => {
       const date = new Date(`${dateStr}T12:00:00Z`);
@@ -285,7 +287,6 @@ export class SimplifiedChartTransformer {
       return dateStr;
     });
 
-
     // Choose label format based on chart type
     let finalLabels: (string | Date)[];
     if (isTimeSeries) {
@@ -302,7 +303,6 @@ export class SimplifiedChartTransformer {
           return new Date(date.getUTCFullYear(), date.getUTCMonth(), 1, 12, 0, 0);
         }
       });
-
     } else {
       // For bar charts, use category labels
       finalLabels = categoryLabels;
@@ -339,7 +339,6 @@ export class SimplifiedChartTransformer {
     const labels = Array.from(groupedData.keys());
     const data = labels.map((label) => groupedData.get(label) || 0);
     const colors = this.getColorPalette(paletteId);
-
 
     return {
       labels,
@@ -638,7 +637,6 @@ export class SimplifiedChartTransformer {
     aggregations: Record<string, 'sum' | 'avg' | 'count' | 'min' | 'max'> = {},
     paletteId: string = 'default'
   ): ChartData {
-
     // Group by series label and date
     const groupedBySeries = new Map<string, Map<string, number[]>>();
     const allDates = new Set<string>();
@@ -725,7 +723,6 @@ export class SimplifiedChartTransformer {
       colorIndex++;
     });
 
-
     return {
       labels: sortedDates.map((dateStr) => {
         const _date = new Date(`${dateStr}T12:00:00Z`);
@@ -778,7 +775,15 @@ export class SimplifiedChartTransformer {
    */
   transformDataWithPeriodComparison(
     measures: AggAppMeasure[],
-    chartType: 'line' | 'bar' | 'horizontal-bar' | 'progress-bar' | 'pie' | 'doughnut' | 'area' | 'table',
+    chartType:
+      | 'line'
+      | 'bar'
+      | 'horizontal-bar'
+      | 'progress-bar'
+      | 'pie'
+      | 'doughnut'
+      | 'area'
+      | 'table',
     groupBy: string = 'none',
     paletteId: string = 'default'
   ): ChartData {
@@ -790,7 +795,9 @@ export class SimplifiedChartTransformer {
     const measureType = this.extractMeasureType(measures);
 
     // Check if we have period comparison data (series-tagged data)
-    const hasPeriodComparison = measures.some((m) => m.series_label && (m.series_id === 'current' || m.series_id === 'comparison'));
+    const hasPeriodComparison = measures.some(
+      (m) => m.series_label && (m.series_id === 'current' || m.series_id === 'comparison')
+    );
 
     if (hasPeriodComparison) {
       const chartData = this.createPeriodComparisonChart(measures, chartType, groupBy, paletteId);
@@ -811,20 +818,28 @@ export class SimplifiedChartTransformer {
    */
   private createPeriodComparisonChart(
     measures: AggAppMeasure[],
-    chartType: 'line' | 'bar' | 'horizontal-bar' | 'progress-bar' | 'pie' | 'doughnut' | 'area' | 'table',
+    chartType:
+      | 'line'
+      | 'bar'
+      | 'horizontal-bar'
+      | 'progress-bar'
+      | 'pie'
+      | 'doughnut'
+      | 'area'
+      | 'table',
     groupBy: string = 'none',
     paletteId: string = 'default'
   ): ChartData {
     // Separate current and comparison data
-    const currentMeasures = measures.filter(m => m.series_id === 'current');
-    const comparisonMeasures = measures.filter(m => m.series_id === 'comparison');
+    const currentMeasures = measures.filter((m) => m.series_id === 'current');
+    const comparisonMeasures = measures.filter((m) => m.series_id === 'comparison');
 
     // Get comparison label from the data
     const comparisonLabel = comparisonMeasures[0]?.series_label || 'Previous Period';
 
     // Transform current period data
     const currentData = this.transformData(currentMeasures, chartType, groupBy, paletteId);
-    
+
     // Transform comparison period data
     const comparisonData = this.transformData(comparisonMeasures, chartType, groupBy, paletteId);
 
@@ -833,19 +848,24 @@ export class SimplifiedChartTransformer {
 
     // Merge datasets with appropriate labeling
     const mergedDatasets = [
-      ...currentData.datasets.map(dataset => ({
+      ...currentData.datasets.map((dataset) => ({
         ...dataset,
-        label: dataset.label === 'Value' ? 'Current Period' : dataset.label
+        label: dataset.label === 'Value' ? 'Current Period' : dataset.label,
       })),
-      ...styledComparisonData.datasets.map(dataset => ({
+      ...styledComparisonData.datasets.map((dataset) => ({
         ...dataset,
-        label: dataset.label === 'Value' ? comparisonLabel : `${dataset.label} (${comparisonLabel})`
-      }))
+        label:
+          dataset.label === 'Value' ? comparisonLabel : `${dataset.label} (${comparisonLabel})`,
+      })),
     ];
 
-          // Apply period comparison color scheme
-          const colorScheme = getColorScheme('default');
-          const coloredDatasets = applyPeriodComparisonColors(mergedDatasets, colorScheme, chartType) as ChartDataset[];
+    // Apply period comparison color scheme
+    const colorScheme = getColorScheme('default');
+    const coloredDatasets = applyPeriodComparisonColors(
+      mergedDatasets,
+      colorScheme,
+      chartType
+    ) as ChartDataset[];
 
     return {
       labels: currentData.labels, // Use current period labels as primary
@@ -858,9 +878,17 @@ export class SimplifiedChartTransformer {
    */
   private applyPeriodComparisonStyling(
     chartData: ChartData,
-    chartType: 'line' | 'bar' | 'horizontal-bar' | 'progress-bar' | 'pie' | 'doughnut' | 'area' | 'table'
+    chartType:
+      | 'line'
+      | 'bar'
+      | 'horizontal-bar'
+      | 'progress-bar'
+      | 'pie'
+      | 'doughnut'
+      | 'area'
+      | 'table'
   ): ChartData {
-    const styledDatasets = chartData.datasets.map(dataset => {
+    const styledDatasets = chartData.datasets.map((dataset) => {
       const styledDataset = { ...dataset };
 
       switch (chartType) {
@@ -869,21 +897,30 @@ export class SimplifiedChartTransformer {
           // Use dashed lines and lighter colors for comparison
           (styledDataset as ChartDataset & { borderDash?: number[] }).borderDash = [5, 5];
           styledDataset.borderColor = this.adjustColorOpacity(dataset.borderColor as string, 0.6);
-          styledDataset.backgroundColor = this.adjustColorOpacity(dataset.backgroundColor as string, 0.3);
+          styledDataset.backgroundColor = this.adjustColorOpacity(
+            dataset.backgroundColor as string,
+            0.3
+          );
           break;
 
         case 'bar':
         case 'horizontal-bar':
           // Use lighter colors and reduced opacity for comparison bars
-          styledDataset.backgroundColor = this.adjustColorOpacity(dataset.backgroundColor as string, 0.6);
-          styledDataset.hoverBackgroundColor = this.adjustColorOpacity(dataset.hoverBackgroundColor as string, 0.8);
+          styledDataset.backgroundColor = this.adjustColorOpacity(
+            dataset.backgroundColor as string,
+            0.6
+          );
+          styledDataset.hoverBackgroundColor = this.adjustColorOpacity(
+            dataset.hoverBackgroundColor as string,
+            0.8
+          );
           break;
 
         case 'pie':
         case 'doughnut':
           // Use lighter colors for comparison slices
           if (Array.isArray(styledDataset.backgroundColor)) {
-            styledDataset.backgroundColor = styledDataset.backgroundColor.map(color => 
+            styledDataset.backgroundColor = styledDataset.backgroundColor.map((color) =>
               this.adjustColorOpacity(color, 0.6)
             );
           }
@@ -891,7 +928,10 @@ export class SimplifiedChartTransformer {
 
         default:
           // Default styling - just reduce opacity
-          styledDataset.backgroundColor = this.adjustColorOpacity(dataset.backgroundColor as string, 0.6);
+          styledDataset.backgroundColor = this.adjustColorOpacity(
+            dataset.backgroundColor as string,
+            0.6
+          );
       }
 
       return styledDataset;

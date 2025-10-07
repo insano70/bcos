@@ -9,7 +9,7 @@
  * - One-time use via challenge_id binding
  */
 
-import { SignJWT, jwtVerify } from 'jose';
+import { jwtVerify, SignJWT } from 'jose';
 import { log } from '@/lib/logger';
 import type { MFATempTokenPayload } from '@/lib/types/webauthn';
 

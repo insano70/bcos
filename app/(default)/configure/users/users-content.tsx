@@ -3,20 +3,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import AddUserModal from '@/components/add-user-modal';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
-import DateSelect, { type DateRange } from '@/components/date-select';
-import DeleteButton from '@/components/delete-button';
-import FilterButton, {
-  type ActiveFilter,
-  type FilterGroup,
-} from '@/components/dropdown-filter';
-import EditUserModal from '@/components/edit-user-modal';
-import { ProtectedComponent } from '@/components/rbac/protected-component';
-import { type User, useUsers } from '@/lib/hooks/use-users';
 import DataTable, {
   type DataTableColumn,
   type DataTableDropdownAction,
 } from '@/components/data-table-standard';
+import DateSelect, { type DateRange } from '@/components/date-select';
+import DeleteButton from '@/components/delete-button';
+import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
+import EditUserModal from '@/components/edit-user-modal';
+import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { apiClient } from '@/lib/api/client';
+import { type User, useUsers } from '@/lib/hooks/use-users';
 
 export default function UsersContent() {
   // Component rendered (client-side debug)
@@ -300,10 +297,7 @@ export default function UsersContent() {
     {
       label: 'Delete',
       icon: (
-        <svg
-          className="w-4 h-4 fill-current text-red-400 shrink-0"
-          viewBox="0 0 16 16"
-        >
+        <svg className="w-4 h-4 fill-current text-red-400 shrink-0" viewBox="0 0 16 16">
           <path d="M5 7h6v6H5V7zm6-3.5V2h-1V.5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5V2H5v1.5H4V4h8v-.5H11zM7 2V1h2v1H7zM6 5v6h1V5H6zm3 0v6h1V5H9z" />
         </svg>
       ),

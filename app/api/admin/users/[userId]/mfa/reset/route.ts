@@ -7,15 +7,15 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse, AuthorizationError } from '@/lib/api/responses/error';
-import { secureRoute, type AuthSession } from '@/lib/api/route-handler';
-import { requireAdmin } from '@/lib/api/middleware/auth';
-import { extractRouteParams } from '@/lib/api/utils/params';
-import { adminResetMFA } from '@/lib/auth/webauthn';
-import { revokeAllUserTokens } from '@/lib/auth/token-manager';
-import { log } from '@/lib/logger';
 import { z } from 'zod';
+import { requireAdmin } from '@/lib/api/middleware/auth';
+import { AuthorizationError, createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { type AuthSession, secureRoute } from '@/lib/api/route-handler';
+import { extractRouteParams } from '@/lib/api/utils/params';
+import { revokeAllUserTokens } from '@/lib/auth/token-manager';
+import { adminResetMFA } from '@/lib/auth/webauthn';
+import { log } from '@/lib/logger';
 
 export const dynamic = 'force-dynamic';
 

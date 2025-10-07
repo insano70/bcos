@@ -1,12 +1,16 @@
-import { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
-import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { dataSourceCreateRefinedSchema, dataSourceQuerySchema, tableColumnsQuerySchema } from '@/lib/validations/data-sources';
-import type { UserContext } from '@/lib/types/rbac';
+import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { log } from '@/lib/logger';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
+import type { UserContext } from '@/lib/types/rbac';
+import {
+  dataSourceCreateRefinedSchema,
+  dataSourceQuerySchema,
+  tableColumnsQuerySchema,
+} from '@/lib/validations/data-sources';
 
 /**
  * Admin Data Sources CRUD API
@@ -19,7 +23,7 @@ const getDataSourcesHandler = async (request: NextRequest, userContext: UserCont
 
   log.info('Data sources list request initiated', {
     requestingUserId: userContext.user_id,
-    isSuperAdmin: userContext.is_super_admin
+    isSuperAdmin: userContext.is_super_admin,
   });
 
   try {
@@ -33,7 +37,7 @@ const getDataSourcesHandler = async (request: NextRequest, userContext: UserCont
       limit: searchParams.get('limit') || undefined,
       offset: searchParams.get('offset') || undefined,
     };
-    
+
     const validatedQuery = dataSourceQuerySchema.parse(queryParams);
 
     // Create service instance and get data sources
@@ -49,16 +53,15 @@ const getDataSourcesHandler = async (request: NextRequest, userContext: UserCont
       },
       metadata: {
         generatedAt: new Date().toISOString(),
-      }
+      },
     };
 
     log.info('Data sources list completed', { duration: Date.now() - startTime });
 
     return createSuccessResponse(responseData, 'Data sources retrieved successfully');
-
   } catch (error) {
     log.error('Data sources list error', error, {
-      requestingUserId: userContext.user_id
+      requestingUserId: userContext.user_id,
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
@@ -70,7 +73,7 @@ const createDataSourceHandler = async (request: NextRequest, userContext: UserCo
   const startTime = Date.now();
 
   log.info('Data source creation request initiated', {
-    requestingUserId: userContext.user_id
+    requestingUserId: userContext.user_id,
   });
 
   try {
@@ -84,10 +87,9 @@ const createDataSourceHandler = async (request: NextRequest, userContext: UserCo
     log.info('Data source created', { duration: Date.now() - startTime });
 
     return createSuccessResponse(newDataSource, 'Data source created successfully');
-
   } catch (error) {
     log.error('Data source creation error', error, {
-      requestingUserId: userContext.user_id
+      requestingUserId: userContext.user_id,
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
@@ -99,7 +101,7 @@ const getTableColumnsHandler = async (request: NextRequest, userContext: UserCon
   const startTime = Date.now();
 
   log.info('Table columns request initiated', {
-    requestingUserId: userContext.user_id
+    requestingUserId: userContext.user_id,
   });
 
   try {
@@ -124,16 +126,15 @@ const getTableColumnsHandler = async (request: NextRequest, userContext: UserCon
         table: validatedQuery.table_name,
         databaseType: validatedQuery.database_type,
         generatedAt: new Date().toISOString(),
-      }
+      },
     };
 
     log.info('Table columns retrieved', { duration: Date.now() - startTime });
 
     return createSuccessResponse(responseData, 'Table columns retrieved successfully');
-
   } catch (error) {
     log.error('Table columns error', error, {
-      requestingUserId: userContext.user_id
+      requestingUserId: userContext.user_id,
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
@@ -143,7 +144,8 @@ const getTableColumnsHandler = async (request: NextRequest, userContext: UserCon
 // Combined GET handler for both data sources list and table columns
 const combinedGetHandler = async (request: NextRequest, userContext: UserContext) => {
   const url = new URL(request.url);
-  const hasColumnsParams = url.searchParams.has('schema_name') && url.searchParams.has('table_name');
+  const hasColumnsParams =
+    url.searchParams.has('schema_name') && url.searchParams.has('table_name');
 
   if (hasColumnsParams) {
     return getTableColumnsHandler(request, userContext);
@@ -154,10 +156,10 @@ const combinedGetHandler = async (request: NextRequest, userContext: UserContext
 
 export const GET = rbacRoute(combinedGetHandler, {
   permission: ['data-sources:read:organization', 'data-sources:read:all'],
-  rateLimit: 'api'
+  rateLimit: 'api',
 });
 
 export const POST = rbacRoute(createDataSourceHandler, {
   permission: ['data-sources:create:organization', 'data-sources:create:all'],
-  rateLimit: 'api'
+  rateLimit: 'api',
 });

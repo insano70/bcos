@@ -4,9 +4,9 @@
  */
 
 import type { AggAppMeasure } from '@/lib/types/analytics';
-import { simplifiedChartTransformer } from './simplified-chart-transformer';
 import { calculateComparisonDateRange } from './period-comparison';
-import { getColorScheme, applyPeriodComparisonColors } from './period-comparison-colors';
+import { applyPeriodComparisonColors, getColorScheme } from './period-comparison-colors';
+import { simplifiedChartTransformer } from './simplified-chart-transformer';
 
 // Extended dataset type with custom properties
 interface ExtendedDataset {
@@ -39,13 +39,13 @@ export function generateMockPeriodComparisonData(
 ): AggAppMeasure[] {
   const currentData: AggAppMeasure[] = [];
   const comparisonData: AggAppMeasure[] = [];
-  
+
   const baseDate = new Date('2024-01-01');
-  
+
   for (let i = 0; i < dataPoints; i++) {
     const currentDate = new Date(baseDate);
     const comparisonDate = new Date(baseDate);
-    
+
     // Adjust dates based on frequency
     switch (frequency) {
       case 'Monthly':
@@ -53,15 +53,15 @@ export function generateMockPeriodComparisonData(
         comparisonDate.setMonth(comparisonDate.getMonth() + i - 1);
         break;
       case 'Weekly':
-        currentDate.setDate(currentDate.getDate() + (i * 7));
-        comparisonDate.setDate(comparisonDate.getDate() + ((i - 1) * 7));
+        currentDate.setDate(currentDate.getDate() + i * 7);
+        comparisonDate.setDate(comparisonDate.getDate() + (i - 1) * 7);
         break;
       case 'Quarterly':
-        currentDate.setMonth(currentDate.getMonth() + (i * 3));
-        comparisonDate.setMonth(comparisonDate.getMonth() + ((i - 1) * 3));
+        currentDate.setMonth(currentDate.getMonth() + i * 3);
+        comparisonDate.setMonth(comparisonDate.getMonth() + (i - 1) * 3);
         break;
     }
-    
+
     // Current period data
     currentData.push({
       practice: 'Test Practice',
@@ -77,7 +77,7 @@ export function generateMockPeriodComparisonData(
       series_label: 'Current Period',
       series_aggregation: 'sum',
     });
-    
+
     // Comparison period data
     comparisonData.push({
       practice: 'Test Practice',
@@ -94,7 +94,7 @@ export function generateMockPeriodComparisonData(
       series_aggregation: 'sum',
     });
   }
-  
+
   return [...currentData, ...comparisonData];
 }
 
@@ -112,7 +112,7 @@ export function testPeriodComparisonTransformation(
       'provider_name',
       'default'
     );
-    
+
     return {
       chartType,
       success: true,
@@ -142,21 +142,21 @@ export function testPeriodComparisonDateRanges(
   try {
     const startDate = '2024-06-01';
     const endDate = '2024-06-30';
-    
+
     const comparisonConfig = {
       enabled: true,
       comparisonType,
       ...(comparisonType === 'custom_period' ? { customPeriodOffset: 2 } : {}),
-      labelFormat: 'Test Label'
+      labelFormat: 'Test Label',
     };
-    
+
     const _comparisonRange = calculateComparisonDateRange(
       startDate,
       endDate,
       frequency,
       comparisonConfig
     );
-    
+
     return {
       chartType: `${comparisonType}-${frequency}`,
       success: true,
@@ -190,10 +190,14 @@ export function testColorSchemeApplication(
       'provider_name',
       'default'
     );
-    
+
     const colorScheme = getColorScheme('default');
-    const coloredDatasets = applyPeriodComparisonColors(chartData.datasets as ExtendedDataset[], colorScheme, chartType);
-    
+    const coloredDatasets = applyPeriodComparisonColors(
+      chartData.datasets as ExtendedDataset[],
+      colorScheme,
+      chartType
+    );
+
     return {
       chartType: `${chartType}-colors`,
       success: true,
@@ -223,25 +227,25 @@ export function runPeriodComparisonTests(
   config: PeriodComparisonTestConfig = {
     chartTypes: ['line', 'bar', 'horizontal-bar', 'progress-bar', 'doughnut'],
     comparisonTypes: ['previous_period', 'same_period_last_year', 'custom_period'],
-    frequencies: ['Monthly', 'Weekly', 'Quarterly']
+    frequencies: ['Monthly', 'Weekly', 'Quarterly'],
   }
 ): TestResult[] {
   const results: TestResult[] = [];
-  
+
   // Test chart type transformations
   for (const chartType of config.chartTypes) {
     const mockData = generateMockPeriodComparisonData('Monthly', 6);
     results.push(testPeriodComparisonTransformation(chartType, mockData));
     results.push(testColorSchemeApplication(chartType, mockData));
   }
-  
+
   // Test date range calculations
   for (const comparisonType of config.comparisonTypes) {
     for (const frequency of config.frequencies) {
       results.push(testPeriodComparisonDateRanges(comparisonType, frequency));
     }
   }
-  
+
   return results;
 }
 
@@ -250,29 +254,31 @@ export function runPeriodComparisonTests(
  */
 export function generateTestReport(results: TestResult[]): string {
   const totalTests = results.length;
-  const successfulTests = results.filter(r => r.success).length;
-  const failedTests = results.filter(r => !r.success);
-  
+  const successfulTests = results.filter((r) => r.success).length;
+  const failedTests = results.filter((r) => !r.success);
+
   let report = `Period Comparison Test Report\n`;
   report += `================================\n\n`;
   report += `Total Tests: ${totalTests}\n`;
   report += `Successful: ${successfulTests}\n`;
   report += `Failed: ${failedTests.length}\n`;
   report += `Success Rate: ${((successfulTests / totalTests) * 100).toFixed(1)}%\n\n`;
-  
+
   if (failedTests.length > 0) {
     report += `Failed Tests:\n`;
     report += `-------------\n`;
-    failedTests.forEach(test => {
+    failedTests.forEach((test) => {
       report += `- ${test.chartType}: ${test.error}\n`;
     });
   }
-  
+
   report += `\nSuccessful Tests:\n`;
   report += `----------------\n`;
-  results.filter(r => r.success).forEach(test => {
-    report += `- ${test.chartType}: ${test.datasets} datasets, ${test.dataPoints} data points\n`;
-  });
-  
+  results
+    .filter((r) => r.success)
+    .forEach((test) => {
+      report += `- ${test.chartType}: ${test.datasets} datasets, ${test.dataPoints} data points\n`;
+    });
+
   return report;
 }

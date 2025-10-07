@@ -1,12 +1,12 @@
-import { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { extractRouteParams } from '@/lib/api/utils/params';
-import { dataSourceParamsSchema } from '@/lib/validations/data-sources';
-import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
+import type { UserContext } from '@/lib/types/rbac';
+import { dataSourceParamsSchema } from '@/lib/validations/data-sources';
 
 /**
  * Admin Data Sources Connection Test API
@@ -14,7 +14,11 @@ import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-s
  */
 
 // POST - Test connection to data source
-const testConnectionHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+const testConnectionHandler = async (
+  request: NextRequest,
+  userContext: UserContext,
+  ...args: unknown[]
+) => {
   const startTime = Date.now();
   let dataSourceId: number | undefined;
 
@@ -24,7 +28,7 @@ const testConnectionHandler = async (request: NextRequest, userContext: UserCont
 
     log.info('Data source connection test request initiated', {
       requestingUserId: userContext.user_id,
-      dataSourceId
+      dataSourceId,
     });
 
     // Create service instance and test connection
@@ -38,11 +42,10 @@ const testConnectionHandler = async (request: NextRequest, userContext: UserCont
       : `Connection test failed: ${testResult.error}`;
 
     return createSuccessResponse(testResult, message);
-
   } catch (error) {
     log.error('Data source connection test error', error, {
       requestingUserId: userContext.user_id,
-      dataSourceId
+      dataSourceId,
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
@@ -51,5 +54,5 @@ const testConnectionHandler = async (request: NextRequest, userContext: UserCont
 
 export const POST = rbacRoute(testConnectionHandler, {
   permission: ['data-sources:read:organization', 'data-sources:read:all'],
-  rateLimit: 'api'
+  rateLimit: 'api',
 });

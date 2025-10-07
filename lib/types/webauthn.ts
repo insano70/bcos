@@ -5,9 +5,9 @@
 
 import type {
   AuthenticationResponseJSON,
-  RegistrationResponseJSON,
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
+  RegistrationResponseJSON,
 } from '@simplewebauthn/server';
 
 /**

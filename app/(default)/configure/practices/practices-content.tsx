@@ -2,20 +2,17 @@
 
 import { useMemo, useState } from 'react';
 import AddPracticeModal from '@/components/add-practice-modal';
-import DateSelect, { type DateRange } from '@/components/date-select';
-import DeleteButton from '@/components/delete-button';
-import FilterButton, {
-  type ActiveFilter,
-  type FilterGroup,
-} from '@/components/dropdown-filter';
-import { ProtectedComponent } from '@/components/rbac/protected-component';
-import { usePracticePermissions } from '@/lib/hooks/use-permissions';
-import { usePractices } from '@/lib/hooks/use-practices';
-import type { Practice } from '@/lib/types/practice';
 import DataTable, {
   type DataTableColumn,
   type DataTableDropdownAction,
 } from '@/components/data-table-standard';
+import DateSelect, { type DateRange } from '@/components/date-select';
+import DeleteButton from '@/components/delete-button';
+import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
+import { ProtectedComponent } from '@/components/rbac/protected-component';
+import { usePracticePermissions } from '@/lib/hooks/use-permissions';
+import { usePractices } from '@/lib/hooks/use-practices';
+import type { Practice } from '@/lib/types/practice';
 
 export default function PracticesContent() {
   const { data: practices, isLoading, error, refetch } = usePractices();
@@ -362,7 +359,11 @@ export default function PracticesContent() {
           {/* Filter and date controls - available to all who can read practices */}
           <ProtectedComponent permissions={['practices:read:own', 'practices:read:all']}>
             <DateSelect onDateChange={handleDateChange} />
-            <FilterButton align="right" filters={filterGroups} onFilterChange={handleFilterChange} />
+            <FilterButton
+              align="right"
+              filters={filterGroups}
+              onFilterChange={handleFilterChange}
+            />
           </ProtectedComponent>
 
           {/* Add practice button - only for super admins */}

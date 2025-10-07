@@ -3,21 +3,18 @@
 import { useRouter } from 'next/navigation';
 import React, { useCallback, useMemo, useState } from 'react';
 import { SelectedItemsProvider } from '@/app/selected-items-context';
-import DateSelect, { type DateRange } from '@/components/date-select';
-import DeleteButton from '@/components/delete-button';
-import DeleteChartModal from '@/components/delete-chart-modal';
-import FilterButton, {
-  type ActiveFilter,
-  type FilterGroup,
-} from '@/components/dropdown-filter';
-import Toast from '@/components/toast';
-import { apiClient } from '@/lib/api/client';
-import type { ChartWithMetadata } from '@/lib/services/rbac-charts-service';
-import type { ChartDefinition, ChartDefinitionListItem } from '@/lib/types/analytics';
 import DataTable, {
   type DataTableColumn,
   type DataTableDropdownAction,
 } from '@/components/data-table-standard';
+import DateSelect, { type DateRange } from '@/components/date-select';
+import DeleteButton from '@/components/delete-button';
+import DeleteChartModal from '@/components/delete-chart-modal';
+import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
+import Toast from '@/components/toast';
+import { apiClient } from '@/lib/api/client';
+import type { ChartWithMetadata } from '@/lib/services/rbac-charts-service';
+import type { ChartDefinition, ChartDefinitionListItem } from '@/lib/types/analytics';
 
 export default function ChartBuilderPage() {
   const router = useRouter();
@@ -443,7 +440,11 @@ export default function ChartBuilderPage() {
             <DateSelect onDateChange={handleDateChange} />
 
             {/* Filter button */}
-            <FilterButton align="right" filters={filterGroups} onFilterChange={handleFilterChange} />
+            <FilterButton
+              align="right"
+              filters={filterGroups}
+              onFilterChange={handleFilterChange}
+            />
 
             {/* Create chart button */}
             <button

@@ -457,13 +457,11 @@ export async function seedRBACData() {
         .from(roles)
         .where(
           // System roles have organization_id = NULL
-          roleInfo.is_system_role
-            ? eq(roles.name, roleInfo.name)
-            : eq(roles.name, roleInfo.name)
+          roleInfo.is_system_role ? eq(roles.name, roleInfo.name) : eq(roles.name, roleInfo.name)
         )
         .limit(1);
 
-      let role;
+      let role: typeof existingRole[0] | undefined;
       if (existingRole.length > 0) {
         // Update existing role
         [role] = await db
@@ -474,14 +472,11 @@ export async function seedRBACData() {
             is_active: true,
             updated_at: new Date(),
           })
-          .where(eq(roles.role_id, existingRole[0].role_id))
+          .where(eq(roles.role_id, existingRole[0]!.role_id))
           .returning();
       } else {
         // Insert new role
-        [role] = await db
-          .insert(roles)
-          .values(roleInfo)
-          .returning();
+        [role] = await db.insert(roles).values(roleInfo).returning();
       }
 
       if (!role) continue;
@@ -489,7 +484,7 @@ export async function seedRBACData() {
       processedRoles.push(role);
 
       // Get ALL permission IDs if role is super_admin
-      let permissionIds;
+      let permissionIds: Array<{ permission_id: string }>;
       if (rolePermissions === 'ALL') {
         log.info('Granting ALL permissions to super_admin', {
           role: role.name,

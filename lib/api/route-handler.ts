@@ -66,7 +66,11 @@ export function secureRoute(
       return await handler(request, session, ...args);
     } catch (error) {
       const { log } = await import('@/lib/logger');
-      log.error(`API route error [${request.method} ${new URL(request.url).pathname}]`, error instanceof Error ? error : new Error(String(error)), { request });
+      log.error(
+        `API route error [${request.method} ${new URL(request.url).pathname}]`,
+        error instanceof Error ? error : new Error(String(error)),
+        { request }
+      );
       return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
     }
   };

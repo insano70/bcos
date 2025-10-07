@@ -1,10 +1,10 @@
-import { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { log } from '@/lib/logger';
 import { executeAnalyticsQuery } from '@/lib/services/analytics-db';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
 
 /**
  * Admin Analytics - Data Explorer
@@ -15,7 +15,7 @@ const exploreHandler = async (request: NextRequest, userContext: UserContext) =>
 
   log.info('Analytics data exploration request initiated', {
     requestingUserId: userContext.user_id,
-    isSuperAdmin: userContext.is_super_admin
+    isSuperAdmin: userContext.is_super_admin,
   });
 
   try {
@@ -61,17 +61,16 @@ const exploreHandler = async (request: NextRequest, userContext: UserContext) =>
       summary: {
         totalPractices: practices.length,
         totalMeasureTypes: measures.length,
-        totalRecords: dateRange[0]?.total_records || 0
-      }
+        totalRecords: dateRange[0]?.total_records || 0,
+      },
     };
 
     console.log('✅ DATA EXPLORATION RESULTS:', explorationData);
 
     return createSuccessResponse(explorationData, 'Data exploration completed successfully');
-
   } catch (error) {
     log.error('Analytics data exploration error', error, {
-      requestingUserId: userContext.user_id
+      requestingUserId: userContext.user_id,
     });
 
     log.info('Analytics explore failed', { duration: Date.now() - startTime });
@@ -83,10 +82,7 @@ const exploreHandler = async (request: NextRequest, userContext: UserContext) =>
 
 // Uses analytics:read:all permission (granted via roles)
 // Super admins bypass permission checks automatically
-export const GET = rbacRoute(
-  exploreHandler,
-  {
-    permission: 'analytics:read:all',
-    rateLimit: 'api'
-  }
-);
+export const GET = rbacRoute(exploreHandler, {
+  permission: 'analytics:read:all',
+  rateLimit: 'api',
+});

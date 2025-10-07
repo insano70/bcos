@@ -6,21 +6,28 @@
  * Returns: Full access + refresh tokens
  */
 
-import type { NextRequest } from 'next/server';
+import { eq } from 'drizzle-orm';
 import { cookies } from 'next/headers';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse, AuthenticationError } from '@/lib/api/responses/error';
-import { publicRoute } from '@/lib/api/route-handler';
+import type { NextRequest } from 'next/server';
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
-import { requireMFATempToken } from '@/lib/auth/webauthn-temp-token';
+import { AuthenticationError, createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { publicRoute } from '@/lib/api/route-handler';
+import {
+  createTokenPair,
+  generateDeviceFingerprint,
+  generateDeviceName,
+} from '@/lib/auth/token-manager';
 import { completeAuthentication } from '@/lib/auth/webauthn';
-import { createTokenPair, generateDeviceFingerprint, generateDeviceName } from '@/lib/auth/token-manager';
+import { requireMFATempToken } from '@/lib/auth/webauthn-temp-token';
+import { db, users } from '@/lib/db';
+import { log } from '@/lib/logger';
 import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context';
 import { setCSRFToken } from '@/lib/security/csrf-unified';
-import { db, users } from '@/lib/db';
-import { eq } from 'drizzle-orm';
-import { log } from '@/lib/logger';
-import type { AuthenticationCompleteRequest, AuthenticationCompleteResponse } from '@/lib/types/webauthn';
+import type {
+  AuthenticationCompleteRequest,
+  AuthenticationCompleteResponse,
+} from '@/lib/types/webauthn';
 
 export const dynamic = 'force-dynamic';
 

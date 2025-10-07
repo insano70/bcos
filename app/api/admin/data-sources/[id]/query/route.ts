@@ -1,14 +1,14 @@
-import { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { type SQL, sql } from 'drizzle-orm';
+import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { extractRouteParams } from '@/lib/api/utils/params';
-import { dataSourceParamsSchema } from '@/lib/validations/data-sources';
-import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
-import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 import { getAnalyticsDb } from '@/lib/services/analytics-db';
-import { sql, SQL } from 'drizzle-orm';
+import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
+import type { UserContext } from '@/lib/types/rbac';
+import { dataSourceParamsSchema } from '@/lib/validations/data-sources';
 
 /**
  * Admin Data Sources Query API
@@ -16,7 +16,11 @@ import { sql, SQL } from 'drizzle-orm';
  */
 
 // GET - Query data from data source
-const queryDataSourceHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+const queryDataSourceHandler = async (
+  request: NextRequest,
+  userContext: UserContext,
+  ...args: unknown[]
+) => {
   const startTime = Date.now();
   let dataSourceId: number | undefined;
 
@@ -48,7 +52,7 @@ const queryDataSourceHandler = async (request: NextRequest, userContext: UserCon
       startDate,
       endDate,
       practiceUid,
-      advancedFiltersCount: advancedFilters.length
+      advancedFiltersCount: advancedFilters.length,
     });
 
     // Get data source metadata
@@ -62,7 +66,7 @@ const queryDataSourceHandler = async (request: NextRequest, userContext: UserCon
     // Get active columns for this data source
     const columns = await dataSourcesService.getDataSourceColumns({
       data_source_id: dataSourceId,
-      is_active: true
+      is_active: true,
     });
 
     if (columns.length === 0) {
@@ -74,7 +78,7 @@ const queryDataSourceHandler = async (request: NextRequest, userContext: UserCon
     const tableName = `${dataSource.schema_name}.${dataSource.table_name}`;
 
     // Build SELECT clause with all active columns
-    const selectColumns = columns.map(col => col.column_name).join(', ');
+    const selectColumns = columns.map((col) => col.column_name).join(', ');
 
     // Build WHERE clause with proper SQL parameter binding
     const whereClauses: SQL[] = [];
@@ -85,14 +89,14 @@ const queryDataSourceHandler = async (request: NextRequest, userContext: UserCon
 
     if (startDate) {
       // Find the date column - look for columns that are date fields
-      const dateColumn = columns.find(col => col.is_date_field);
+      const dateColumn = columns.find((col) => col.is_date_field);
       if (dateColumn) {
         whereClauses.push(sql.raw(`${dateColumn.column_name} >= '${startDate}'`));
       }
     }
 
     if (endDate) {
-      const dateColumn = columns.find(col => col.is_date_field);
+      const dateColumn = columns.find((col) => col.is_date_field);
       if (dateColumn) {
         whereClauses.push(sql.raw(`${dateColumn.column_name} <= '${endDate}'`));
       }
@@ -178,7 +182,7 @@ const queryDataSourceHandler = async (request: NextRequest, userContext: UserCon
           case 'in':
             if (Array.isArray(value) && value.length > 0) {
               const valuesList = value
-                .map(v => typeof v === 'string' ? `'${v.replace(/'/g, "''")}'` : v)
+                .map((v) => (typeof v === 'string' ? `'${v.replace(/'/g, "''")}'` : v))
                 .join(', ');
               whereClauses.push(sql.raw(`${field} IN (${valuesList})`));
             }
@@ -187,7 +191,7 @@ const queryDataSourceHandler = async (request: NextRequest, userContext: UserCon
           case 'not_in':
             if (Array.isArray(value) && value.length > 0) {
               const valuesList = value
-                .map(v => typeof v === 'string' ? `'${v.replace(/'/g, "''")}'` : v)
+                .map((v) => (typeof v === 'string' ? `'${v.replace(/'/g, "''")}'` : v))
                 .join(', ');
               whereClauses.push(sql.raw(`${field} NOT IN (${valuesList})`));
             }
@@ -221,7 +225,7 @@ const queryDataSourceHandler = async (request: NextRequest, userContext: UserCon
       dataSourceId,
       tableName,
       columnsCount: columns.length,
-      hasFilters: whereClauses.length > 0
+      hasFilters: whereClauses.length > 0,
     });
 
     // Execute query
@@ -231,29 +235,31 @@ const queryDataSourceHandler = async (request: NextRequest, userContext: UserCon
     log.info('Data source query completed', {
       dataSourceId,
       rowCount: rows.length,
-      duration: Date.now() - startTime
+      duration: Date.now() - startTime,
     });
 
-    return createSuccessResponse({
-      data: rows,
-      total_count: rows.length,
-      columns: columns.map(col => ({
-        name: col.column_name,
-        display_name: col.display_name,
-        data_type: col.data_type,
-        format_type: col.format_type,
-        display_icon: col.display_icon,
-        icon_type: col.icon_type,
-        icon_color_mode: col.icon_color_mode,
-        icon_color: col.icon_color,
-        icon_mapping: col.icon_mapping
-      }))
-    }, `Retrieved ${rows.length} rows`);
-
+    return createSuccessResponse(
+      {
+        data: rows,
+        total_count: rows.length,
+        columns: columns.map((col) => ({
+          name: col.column_name,
+          display_name: col.display_name,
+          data_type: col.data_type,
+          format_type: col.format_type,
+          display_icon: col.display_icon,
+          icon_type: col.icon_type,
+          icon_color_mode: col.icon_color_mode,
+          icon_color: col.icon_color,
+          icon_mapping: col.icon_mapping,
+        })),
+      },
+      `Retrieved ${rows.length} rows`
+    );
   } catch (error) {
     log.error('Data source query error', error, {
       requestingUserId: userContext.user_id,
-      dataSourceId
+      dataSourceId,
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
@@ -262,7 +268,7 @@ const queryDataSourceHandler = async (request: NextRequest, userContext: UserCon
 
 export const GET = rbacRoute(queryDataSourceHandler, {
   permission: ['data-sources:read:organization', 'data-sources:read:all'],
-  rateLimit: 'api'
+  rateLimit: 'api',
 });
 
 // Disable caching for this route - always fetch fresh data from analytics database

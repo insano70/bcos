@@ -313,10 +313,7 @@ export class EmailService {
   /**
    * Password reset email template
    */
-  private getPasswordResetTemplate(vars: {
-    firstName: string;
-    resetUrl: string;
-  }): EmailTemplate {
+  private getPasswordResetTemplate(vars: { firstName: string; resetUrl: string }): EmailTemplate {
     const subject = 'Reset Your Password';
 
     const html = `

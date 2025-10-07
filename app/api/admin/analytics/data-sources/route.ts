@@ -1,10 +1,10 @@
-import { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { log } from '@/lib/logger';
 import { chartConfigService } from '@/lib/services/chart-config-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
 
 /**
  * Admin Analytics - Data Sources List API
@@ -14,7 +14,7 @@ const dataSourcesHandler = async (request: NextRequest, userContext: UserContext
   const startTime = Date.now();
 
   log.info('Data sources list request initiated', {
-    requestingUserId: userContext.user_id
+    requestingUserId: userContext.user_id,
   });
 
   try {
@@ -26,16 +26,15 @@ const dataSourcesHandler = async (request: NextRequest, userContext: UserContext
       metadata: {
         totalSources: dataSources.length,
         generatedAt: new Date().toISOString(),
-      }
+      },
     };
 
     log.info('Data sources loaded', { duration: Date.now() - startTime });
 
     return createSuccessResponse(responseData, 'Data sources retrieved successfully');
-
   } catch (error) {
     log.error('Data sources list error', error, {
-      requestingUserId: userContext.user_id
+      requestingUserId: userContext.user_id,
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
@@ -44,5 +43,5 @@ const dataSourcesHandler = async (request: NextRequest, userContext: UserContext
 
 export const GET = rbacRoute(dataSourcesHandler, {
   permission: 'analytics:read:all',
-  rateLimit: 'api'
+  rateLimit: 'api',
 });

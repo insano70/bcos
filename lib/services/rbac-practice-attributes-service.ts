@@ -18,7 +18,7 @@ import { verifyPracticeAccess } from './rbac-practice-utils';
  */
 
 export interface PracticeAttributesData {
-  practice_id: string;
+  practice_id: string | null;
   business_hours?: unknown;
   services?: unknown;
   insurance_accepted?: unknown;
@@ -29,8 +29,7 @@ export interface PracticeAttributesData {
   primary_color?: string | null;
   secondary_color?: string | null;
   accent_color?: string | null;
-  created_at: Date;
-  updated_at: Date;
+  updated_at: Date | null;
 }
 
 export interface UpdatePracticeAttributesData {
@@ -39,11 +38,11 @@ export interface UpdatePracticeAttributesData {
   insurance_accepted?: unknown;
   conditions_treated?: unknown;
   gallery_images?: unknown;
-  logo_url?: string | null;
-  hero_image_url?: string | null;
-  primary_color?: string | null;
-  secondary_color?: string | null;
-  accent_color?: string | null;
+  logo_url?: string | null | undefined;
+  hero_image_url?: string | null | undefined;
+  primary_color?: string | null | undefined;
+  secondary_color?: string | null | undefined;
+  accent_color?: string | null | undefined;
 }
 
 export interface PracticeAttributesServiceInterface {
@@ -109,12 +108,18 @@ export function createRBACPracticeAttributesService(
 
         // Parse JSON fields safely
         const parsedAttributes: PracticeAttributesData = {
-          ...attributes,
+          practice_id: attributes.practice_id,
           business_hours: parseBusinessHours(attributes.business_hours),
           services: parseServices(attributes.services),
           insurance_accepted: parseInsuranceAccepted(attributes.insurance_accepted),
           conditions_treated: parseConditionsTreated(attributes.conditions_treated),
           gallery_images: parseGalleryImages(attributes.gallery_images),
+          logo_url: attributes.logo_url,
+          hero_image_url: attributes.hero_image_url,
+          primary_color: attributes.primary_color,
+          secondary_color: attributes.secondary_color,
+          accent_color: attributes.accent_color,
+          updated_at: attributes.updated_at,
         };
 
         log.info('Get practice attributes completed', {
@@ -181,12 +186,18 @@ export function createRBACPracticeAttributesService(
 
         // Parse JSON fields for response
         const parsedAttributes: PracticeAttributesData = {
-          ...updatedAttributes,
+          practice_id: updatedAttributes.practice_id,
           business_hours: parseBusinessHours(updatedAttributes.business_hours),
           services: parseServices(updatedAttributes.services),
           insurance_accepted: parseInsuranceAccepted(updatedAttributes.insurance_accepted),
           conditions_treated: parseConditionsTreated(updatedAttributes.conditions_treated),
           gallery_images: parseGalleryImages(updatedAttributes.gallery_images),
+          logo_url: updatedAttributes.logo_url,
+          hero_image_url: updatedAttributes.hero_image_url,
+          primary_color: updatedAttributes.primary_color,
+          secondary_color: updatedAttributes.secondary_color,
+          accent_color: updatedAttributes.accent_color,
+          updated_at: updatedAttributes.updated_at,
         };
 
         log.info('Update practice attributes completed', {

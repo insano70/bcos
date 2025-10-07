@@ -4,18 +4,15 @@ import { useRouter } from 'next/navigation';
 import React, { useCallback, useMemo, useState } from 'react';
 import { SelectedItemsProvider } from '@/app/selected-items-context';
 import DashboardPreviewModal from '@/components/dashboard-preview-modal';
-import DateSelect, { type DateRange } from '@/components/date-select';
-import DeleteButton from '@/components/delete-button';
-import DeleteDashboardModal from '@/components/delete-dashboard-modal';
-import FilterButton, {
-  type ActiveFilter,
-  type FilterGroup,
-} from '@/components/dropdown-filter';
-import Toast from '@/components/toast';
 import DataTable, {
   type DataTableColumn,
   type DataTableDropdownAction,
 } from '@/components/data-table-standard';
+import DateSelect, { type DateRange } from '@/components/date-select';
+import DeleteButton from '@/components/delete-button';
+import DeleteDashboardModal from '@/components/delete-dashboard-modal';
+import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
+import Toast from '@/components/toast';
 import { apiClient } from '@/lib/api/client';
 import type { DashboardWithCharts } from '@/lib/services/rbac-dashboards-service';
 import type { Dashboard, DashboardChart, DashboardListItem } from '@/lib/types/analytics';
@@ -445,7 +442,12 @@ export default function DashboardsPage() {
           {dashboard.is_default && (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-violet-100 dark:bg-violet-900/20 text-violet-800 dark:text-violet-200">
               <svg className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                />
               </svg>
               Default Home
             </span>
@@ -594,7 +596,11 @@ export default function DashboardsPage() {
             <DateSelect onDateChange={handleDateChange} />
 
             {/* Filter button */}
-            <FilterButton align="right" filters={filterGroups} onFilterChange={handleFilterChange} />
+            <FilterButton
+              align="right"
+              filters={filterGroups}
+              onFilterChange={handleFilterChange}
+            />
 
             {/* Create dashboard button */}
             <button

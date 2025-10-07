@@ -1,5 +1,5 @@
-import { db, dashboards } from '@/lib/db';
 import { and, eq } from 'drizzle-orm';
+import { dashboards, db } from '@/lib/db';
 import { log } from '@/lib/logger';
 
 /**

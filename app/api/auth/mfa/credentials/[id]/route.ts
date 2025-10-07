@@ -9,14 +9,14 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
-import { secureRoute, type AuthSession } from '@/lib/api/route-handler';
+import { z } from 'zod';
 import { requireFreshAuth } from '@/lib/api/middleware/auth';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { type AuthSession, secureRoute } from '@/lib/api/route-handler';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { deleteCredential, renameCredential } from '@/lib/auth/webauthn';
 import { log } from '@/lib/logger';
-import { z } from 'zod';
 import type { CredentialUpdateRequest } from '@/lib/types/webauthn';
 
 export const dynamic = 'force-dynamic';
@@ -29,7 +29,11 @@ const credentialParamsSchema = z.object({
  * DELETE - Remove a passkey credential
  * Requires fresh authentication (max 5 minutes)
  */
-const deleteHandler = async (request: NextRequest, session: AuthSession | null, ...args: unknown[]) => {
+const deleteHandler = async (
+  request: NextRequest,
+  session: AuthSession | null,
+  ...args: unknown[]
+) => {
   try {
     // Require fresh authentication for security
     await requireFreshAuth(request, 5);
@@ -63,7 +67,11 @@ const deleteHandler = async (request: NextRequest, session: AuthSession | null, 
 /**
  * PATCH - Rename a passkey credential
  */
-const renameHandler = async (request: NextRequest, session: AuthSession | null, ...args: unknown[]) => {
+const renameHandler = async (
+  request: NextRequest,
+  session: AuthSession | null,
+  ...args: unknown[]
+) => {
   try {
     const userId = session?.user.id;
 

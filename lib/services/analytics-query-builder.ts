@@ -836,8 +836,11 @@ export class AnalyticsQueryBuilder {
       throw new Error('Comparison type is required for period comparison');
     }
 
-    if (params.period_comparison.comparisonType === 'custom_period' && 
-        (!params.period_comparison.customPeriodOffset || params.period_comparison.customPeriodOffset < 1)) {
+    if (
+      params.period_comparison.comparisonType === 'custom_period' &&
+      (!params.period_comparison.customPeriodOffset ||
+        params.period_comparison.customPeriodOffset < 1)
+    ) {
       throw new Error('Custom period offset must be at least 1');
     }
 
@@ -849,7 +852,9 @@ export class AnalyticsQueryBuilder {
     });
 
     // Import period comparison utilities
-    const { calculateComparisonDateRange, generateComparisonLabel } = await import('@/lib/utils/period-comparison');
+    const { calculateComparisonDateRange, generateComparisonLabel } = await import(
+      '@/lib/utils/period-comparison'
+    );
 
     // Calculate comparison date range
     let comparisonRange: { start: string; end: string };
@@ -868,7 +873,9 @@ export class AnalyticsQueryBuilder {
         startDate: params.start_date,
         endDate: params.end_date,
       });
-      throw new Error(`Failed to calculate comparison date range: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to calculate comparison date range: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
 
     // Create comparison query parameters
@@ -885,7 +892,7 @@ export class AnalyticsQueryBuilder {
       this.log.info('Period comparison query served from cache', {
         comparisonType: params.period_comparison.comparisonType,
         userId: context.user_id,
-        cacheAge: Date.now() - ((cachedResult as unknown) as { timestamp: number }).timestamp || 0,
+        cacheAge: Date.now() - (cachedResult as unknown as { timestamp: number }).timestamp || 0,
       });
       return cachedResult;
     }
@@ -895,7 +902,7 @@ export class AnalyticsQueryBuilder {
     try {
       [currentResult, comparisonResult] = await Promise.all([
         this.executeBaseQuery(params, context),
-        this.executeBaseQuery(comparisonParams, context)
+        this.executeBaseQuery(comparisonParams, context),
       ]);
     } catch (error) {
       this.log.error('Failed to execute period comparison queries', {
@@ -904,7 +911,9 @@ export class AnalyticsQueryBuilder {
         currentRange: { start: params.start_date, end: params.end_date },
         comparisonRange,
       });
-      throw new Error(`Failed to execute period comparison queries: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to execute period comparison queries: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
 
     // Validate that we have data for both periods
@@ -924,7 +933,7 @@ export class AnalyticsQueryBuilder {
 
     // Add comparison metadata to comparison data
     const comparisonLabel = generateComparisonLabel(params.frequency, params.period_comparison);
-    const enhancedComparisonData = (comparisonResult.data || []).map(item => ({
+    const enhancedComparisonData = (comparisonResult.data || []).map((item) => ({
       ...item,
       series_id: 'comparison',
       series_label: comparisonLabel,
@@ -932,7 +941,7 @@ export class AnalyticsQueryBuilder {
     }));
 
     // Add current period metadata to current data
-    const enhancedCurrentData = (currentResult.data || []).map(item => ({
+    const enhancedCurrentData = (currentResult.data || []).map((item) => ({
       ...item,
       series_id: 'current',
       series_label: 'Current Period',

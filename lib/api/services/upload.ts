@@ -61,18 +61,15 @@ export const DEFAULT_UPLOAD_OPTIONS: Required<UploadOptions> = {
 /**
  * Supported image MIME types
  */
-export const IMAGE_TYPES = [
-  'image/jpeg',
-  'image/jpg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-];
+export const IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
 
 /**
  * Upload multiple files with validation and processing
  */
-export async function uploadFiles(files: File[], options: UploadOptions = {}): Promise<UploadResult> {
+export async function uploadFiles(
+  files: File[],
+  options: UploadOptions = {}
+): Promise<UploadResult> {
   const startTime = Date.now();
   const opts = { ...DEFAULT_UPLOAD_OPTIONS, ...options };
   const result: UploadResult = {

@@ -4,8 +4,8 @@
  * Refactored from static class to instance-based with database persistence
  */
 
-import type { NextRequest } from 'next/server';
 import { and, count, desc, eq, gt, sql } from 'drizzle-orm';
+import type { NextRequest } from 'next/server';
 import { csrf_failure_events, type NewCSRFFailureEvent } from '@/lib/db/csrf-schema';
 
 /**
@@ -155,19 +155,31 @@ export class CSRFSecurityMonitor {
         this.db
           .select({ count: count() })
           .from(csrf_failure_events)
-          .where(and(eq(csrf_failure_events.ip_address, ip), gt(csrf_failure_events.timestamp, oneMinute)))
+          .where(
+            and(
+              eq(csrf_failure_events.ip_address, ip),
+              gt(csrf_failure_events.timestamp, oneMinute)
+            )
+          )
           .then((r) => r[0]?.count || 0),
 
         this.db
           .select({ count: count() })
           .from(csrf_failure_events)
-          .where(and(eq(csrf_failure_events.ip_address, ip), gt(csrf_failure_events.timestamp, fiveMinutes)))
+          .where(
+            and(
+              eq(csrf_failure_events.ip_address, ip),
+              gt(csrf_failure_events.timestamp, fiveMinutes)
+            )
+          )
           .then((r) => r[0]?.count || 0),
 
         this.db
           .select({ count: count() })
           .from(csrf_failure_events)
-          .where(and(eq(csrf_failure_events.ip_address, ip), gt(csrf_failure_events.timestamp, oneHour)))
+          .where(
+            and(eq(csrf_failure_events.ip_address, ip), gt(csrf_failure_events.timestamp, oneHour))
+          )
           .then((r) => r[0]?.count || 0),
       ]);
 
@@ -205,7 +217,12 @@ export class CSRFSecurityMonitor {
       const uniqueEndpoints = await this.db
         .selectDistinct({ pathname: csrf_failure_events.pathname })
         .from(csrf_failure_events)
-        .where(and(eq(csrf_failure_events.ip_address, ip), gt(csrf_failure_events.timestamp, fiveMinutes)));
+        .where(
+          and(
+            eq(csrf_failure_events.ip_address, ip),
+            gt(csrf_failure_events.timestamp, fiveMinutes)
+          )
+        );
 
       if (uniqueEndpoints.length >= 5 && lastFiveMinutes >= 10) {
         await this.sendAlert({
@@ -227,11 +244,18 @@ export class CSRFSecurityMonitor {
       const recentEvents = await this.db
         .select({ reason: csrf_failure_events.reason })
         .from(csrf_failure_events)
-        .where(and(eq(csrf_failure_events.ip_address, ip), gt(csrf_failure_events.timestamp, fiveMinutes)))
+        .where(
+          and(
+            eq(csrf_failure_events.ip_address, ip),
+            gt(csrf_failure_events.timestamp, fiveMinutes)
+          )
+        )
         .limit(100);
 
       const anonymousFailures = recentEvents.filter((e) => e.reason.includes('anonymous')).length;
-      const authenticatedFailures = recentEvents.filter((e) => e.reason.includes('authenticated')).length;
+      const authenticatedFailures = recentEvents.filter((e) =>
+        e.reason.includes('authenticated')
+      ).length;
 
       if (anonymousFailures >= 5 && authenticatedFailures >= 5) {
         await this.sendAlert({
@@ -335,9 +359,7 @@ export class CSRFSecurityMonitor {
         .from(csrf_failure_events);
 
       // Get total event count
-      const totalEventsResult = await this.db
-        .select({ count: count() })
-        .from(csrf_failure_events);
+      const totalEventsResult = await this.db.select({ count: count() }).from(csrf_failure_events);
 
       // Get recent event count (last hour)
       const recentEventsResult = await this.db

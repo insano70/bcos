@@ -97,7 +97,12 @@ export const correlation = {
   /**
    * Set request details in context
    */
-  setRequest(request: { method: string; path: string; ipAddress?: string; userAgent?: string }): void {
+  setRequest(request: {
+    method: string;
+    path: string;
+    ipAddress?: string;
+    userAgent?: string;
+  }): void {
     const ctx = requestContext.getStore();
     if (ctx) {
       ctx.method = request.method;
@@ -284,7 +289,13 @@ function buildLogEntry(
 
   // Extract correlation ID from AsyncLocalStorage OR request headers (edge runtime fallback)
   let correlationId = ctx?.correlationId;
-  if (!correlationId && context && 'request' in context && context.request && typeof context.request === 'object') {
+  if (
+    !correlationId &&
+    context &&
+    'request' in context &&
+    context.request &&
+    typeof context.request === 'object'
+  ) {
     // Fallback to header-based correlation (works in Edge Runtime)
     const req = context.request as { headers?: { get: (key: string) => string | null } };
     if (req.headers && typeof req.headers.get === 'function') {
