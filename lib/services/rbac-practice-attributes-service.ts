@@ -1,6 +1,6 @@
-import { and, eq, isNull } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { AuthorizationError, NotFoundError } from '@/lib/api/responses/error';
-import { db, practice_attributes, practices } from '@/lib/db';
+import { db, practice_attributes } from '@/lib/db';
 import { log } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
 import {
@@ -10,6 +10,7 @@ import {
   parseInsuranceAccepted,
   parseServices,
 } from '@/lib/utils/json-parser';
+import { verifyPracticeAccess } from './rbac-practice-utils';
 
 /**
  * RBAC Practice Attributes Service
@@ -82,45 +83,6 @@ export function createRBACPracticeAttributesService(
       (p) => p.name === 'practices:update:own' || p.name === 'practices:manage:all'
     );
 
-  /**
-   * Verify practice exists and user has access
-   */
-  async function verifyPracticeAccess(practiceId: string): Promise<void> {
-    const startTime = Date.now();
-
-    try {
-      const [practice] = await db
-        .select()
-        .from(practices)
-        .where(and(eq(practices.practice_id, practiceId), isNull(practices.deleted_at)))
-        .limit(1);
-
-      if (!practice) {
-        throw NotFoundError('Practice');
-      }
-
-      // Check ownership for non-super-admins
-      const isOwner = practice.owner_user_id === userContext.user_id;
-      if (!userContext.is_super_admin && !isOwner) {
-        throw AuthorizationError('You do not have permission to access this practice');
-      }
-
-      log.debug('Practice access verified for attributes', {
-        practiceId,
-        userId: userContext.user_id,
-        isOwner,
-        duration: Date.now() - startTime,
-      });
-    } catch (error) {
-      log.error('Practice access verification failed', error, {
-        practiceId,
-        userId: userContext.user_id,
-        duration: Date.now() - startTime,
-      });
-      throw error;
-    }
-  }
-
   return {
     async getPracticeAttributes(practiceId: string): Promise<PracticeAttributesData> {
       const startTime = Date.now();
@@ -132,7 +94,7 @@ export function createRBACPracticeAttributesService(
 
       try {
         // Verify access
-        await verifyPracticeAccess(practiceId);
+        await verifyPracticeAccess(practiceId, userContext);
 
         // Get practice attributes
         const [attributes] = await db
@@ -189,7 +151,7 @@ export function createRBACPracticeAttributesService(
         }
 
         // Verify access
-        await verifyPracticeAccess(practiceId);
+        await verifyPracticeAccess(practiceId, userContext);
 
         // Prepare data for update, stringify JSON fields
         const updateData = {

@@ -1,17 +1,31 @@
-import { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
+import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { extractRouteParams } from '@/lib/api/utils/params';
-import { practiceUpdateSchema, practiceParamsSchema } from '@/lib/validations/practice';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors, rbacConfigs } from '@/lib/api/utils/rbac-extractors';
-import type { UserContext } from '@/lib/types/rbac';
+import { log } from '@/lib/logger';
 import { createRBACPracticesService } from '@/lib/services/rbac-practices-service';
+import type { UserContext } from '@/lib/types/rbac';
+import { practiceParamsSchema, practiceUpdateSchema } from '@/lib/validations/practice';
 
-const getPracticeHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+const getPracticeHandler = async (
+  request: NextRequest,
+  userContext: UserContext,
+  ...args: unknown[]
+) => {
+  const startTime = Date.now();
+  let practiceId: string | undefined;
+
   try {
-    const { id: practiceId } = await extractRouteParams(args[0], practiceParamsSchema);
+    const params = await extractRouteParams(args[0], practiceParamsSchema);
+    practiceId = params.id;
+
+    log.info('Get practice by ID request initiated', {
+      requestingUserId: userContext.user_id,
+      practiceId,
+    });
 
     // Use the RBAC practices service
     const practicesService = createRBACPracticesService(userContext);
@@ -23,6 +37,11 @@ const getPracticeHandler = async (request: NextRequest, userContext: UserContext
       throw NotFoundError('Practice');
     }
 
+    log.info('Get practice by ID completed successfully', {
+      practiceId,
+      duration: Date.now() - startTime,
+    });
+
     return createSuccessResponse({
       id: practice.id,
       name: practice.name,
@@ -33,17 +52,42 @@ const getPracticeHandler = async (request: NextRequest, userContext: UserContext
       created_at: practice.created_at,
       updated_at: practice.updated_at,
     });
-
   } catch (error) {
-    console.error('Error fetching practice:', error);
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
-  }
-}
+    const errorMessage =
+      error && typeof error === 'object' && 'message' in error
+        ? String(error.message)
+        : 'Unknown error';
 
-const updatePracticeHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+    log.error('Get practice by ID failed', error, {
+      practiceId,
+      requestingUserId: userContext.user_id,
+      duration: Date.now() - startTime,
+    });
+
+    const clientErrorMessage =
+      process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
+    return createErrorResponse(clientErrorMessage, 500, request);
+  }
+};
+
+const updatePracticeHandler = async (
+  request: NextRequest,
+  userContext: UserContext,
+  ...args: unknown[]
+) => {
+  const startTime = Date.now();
+  let practiceId: string | undefined;
+
   try {
-    const { id: practiceId } = await extractRouteParams(args[0], practiceParamsSchema);
+    const params = await extractRouteParams(args[0], practiceParamsSchema);
+    practiceId = params.id;
     const validatedData = await validateRequest(request, practiceUpdateSchema);
+
+    log.info('Update practice request initiated', {
+      requestingUserId: userContext.user_id,
+      practiceId,
+      updateFields: Object.keys(validatedData),
+    });
 
     // Use the RBAC practices service
     const practicesService = createRBACPracticesService(userContext);
@@ -56,26 +100,58 @@ const updatePracticeHandler = async (request: NextRequest, userContext: UserCont
       status: validatedData.status,
     });
 
-    return createSuccessResponse({
-      id: updatedPractice.id,
-      name: updatedPractice.name,
-      domain: updatedPractice.domain,
-      template_id: updatedPractice.template_id,
-      status: updatedPractice.status,
-      owner_user_id: updatedPractice.owner_user_id,
-      created_at: updatedPractice.created_at,
-      updated_at: updatedPractice.updated_at,
-    }, 'Practice updated successfully');
+    log.info('Practice updated successfully', {
+      practiceId,
+      duration: Date.now() - startTime,
+    });
 
+    return createSuccessResponse(
+      {
+        id: updatedPractice.id,
+        name: updatedPractice.name,
+        domain: updatedPractice.domain,
+        template_id: updatedPractice.template_id,
+        status: updatedPractice.status,
+        owner_user_id: updatedPractice.owner_user_id,
+        created_at: updatedPractice.created_at,
+        updated_at: updatedPractice.updated_at,
+      },
+      'Practice updated successfully'
+    );
   } catch (error) {
-    console.error('Error updating practice:', error);
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
-  }
-}
+    const errorMessage =
+      error && typeof error === 'object' && 'message' in error
+        ? String(error.message)
+        : 'Unknown error';
 
-const deletePracticeHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+    log.error('Update practice failed', error, {
+      practiceId,
+      requestingUserId: userContext.user_id,
+      duration: Date.now() - startTime,
+    });
+
+    const clientErrorMessage =
+      process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
+    return createErrorResponse(clientErrorMessage, 500, request);
+  }
+};
+
+const deletePracticeHandler = async (
+  request: NextRequest,
+  userContext: UserContext,
+  ...args: unknown[]
+) => {
+  const startTime = Date.now();
+  let practiceId: string | undefined;
+
   try {
-    const { id: practiceId } = await extractRouteParams(args[0], practiceParamsSchema);
+    const params = await extractRouteParams(args[0], practiceParamsSchema);
+    practiceId = params.id;
+
+    log.info('Delete practice request initiated', {
+      requestingUserId: userContext.user_id,
+      practiceId,
+    });
 
     // Use the RBAC practices service
     const practicesService = createRBACPracticesService(userContext);
@@ -83,43 +159,47 @@ const deletePracticeHandler = async (request: NextRequest, userContext: UserCont
     // Delete practice with automatic RBAC checking
     await practicesService.deletePractice(practiceId);
 
-    return createSuccessResponse(
-      { id: practiceId },
-      'Practice deleted successfully'
-    );
+    log.info('Practice deleted successfully', {
+      practiceId,
+      duration: Date.now() - startTime,
+    });
 
+    return createSuccessResponse({ id: practiceId }, 'Practice deleted successfully');
   } catch (error) {
-    console.error('Error deleting practice:', error);
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
+    const errorMessage =
+      error && typeof error === 'object' && 'message' in error
+        ? String(error.message)
+        : 'Unknown error';
+
+    log.error('Delete practice failed', error, {
+      practiceId,
+      requestingUserId: userContext.user_id,
+      duration: Date.now() - startTime,
+    });
+
+    const clientErrorMessage =
+      process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
+    return createErrorResponse(clientErrorMessage, 500, request);
   }
-}
+};
 
 // Export with RBAC protection
-export const GET = rbacRoute(
-  getPracticeHandler,
-  {
-    permission: ['practices:read:own', 'practices:read:all', 'practices:create:all'],
-    extractResourceId: extractors.practiceId,
-    extractOrganizationId: extractors.organizationId,
-    rateLimit: 'api'
-  }
-);
+export const GET = rbacRoute(getPracticeHandler, {
+  permission: ['practices:read:own', 'practices:read:all', 'practices:create:all'],
+  extractResourceId: extractors.practiceId,
+  extractOrganizationId: extractors.organizationId,
+  rateLimit: 'api',
+});
 
-export const PUT = rbacRoute(
-  updatePracticeHandler,
-  {
-    permission: ['practices:update:own', 'practices:manage:all', 'practices:create:all'],
-    extractResourceId: extractors.practiceId,
-    extractOrganizationId: extractors.organizationId,
-    rateLimit: 'api'
-  }
-);
+export const PUT = rbacRoute(updatePracticeHandler, {
+  permission: ['practices:update:own', 'practices:manage:all', 'practices:create:all'],
+  extractResourceId: extractors.practiceId,
+  extractOrganizationId: extractors.organizationId,
+  rateLimit: 'api',
+});
 
 // Only super admins can delete practices
-export const DELETE = rbacRoute(
-  deletePracticeHandler,
-  {
-    ...rbacConfigs.superAdmin,
-    rateLimit: 'api'
-  }
-);
+export const DELETE = rbacRoute(deletePracticeHandler, {
+  ...rbacConfigs.superAdmin,
+  rateLimit: 'api',
+});

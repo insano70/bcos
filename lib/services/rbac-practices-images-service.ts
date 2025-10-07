@@ -1,8 +1,9 @@
-import { db, practice_attributes, practices, staff_members } from '@/lib/db';
-import { eq, and, isNull } from 'drizzle-orm';
-import type { UserContext } from '@/lib/types/rbac';
-import { NotFoundError, AuthorizationError } from '@/lib/api/responses/error';
+import { and, eq, isNull } from 'drizzle-orm';
+import { AuthorizationError, NotFoundError } from '@/lib/api/responses/error';
+import { db, practice_attributes, staff_members } from '@/lib/db';
 import { log } from '@/lib/logger';
+import type { UserContext } from '@/lib/types/rbac';
+import { verifyPracticeAccess } from './rbac-practice-utils';
 
 /**
  * RBAC Practice Images Service
@@ -25,7 +26,11 @@ export interface PracticeImagesServiceInterface {
   updatePracticeLogo(practiceId: string, imageUrl: string): Promise<UpdateImageResult>;
   updatePracticeHero(practiceId: string, imageUrl: string): Promise<UpdateImageResult>;
   addGalleryImage(practiceId: string, imageUrl: string): Promise<UpdateImageResult>;
-  updateStaffPhoto(practiceId: string, staffId: string, imageUrl: string): Promise<UpdateImageResult>;
+  updateStaffPhoto(
+    practiceId: string,
+    staffId: string,
+    imageUrl: string
+  ): Promise<UpdateImageResult>;
 }
 
 /**
@@ -35,55 +40,17 @@ export function createRBACPracticeImagesService(
   userContext: UserContext
 ): PracticeImagesServiceInterface {
   // Check permissions once at service creation
-  const canUpdatePractices = userContext.is_super_admin || userContext.all_permissions?.some(p =>
-    p.name === 'practices:update:own' || p.name === 'practices:manage:all'
-  );
+  const canUpdatePractices =
+    userContext.is_super_admin ||
+    userContext.all_permissions?.some(
+      (p) => p.name === 'practices:update:own' || p.name === 'practices:manage:all'
+    );
 
-  const canManageStaff = userContext.is_super_admin || userContext.all_permissions?.some(p =>
-    p.name === 'practices:staff:manage:own' || p.name === 'practices:manage:all'
-  );
-
-  /**
-   * Verify practice exists and user has permission to update it
-   */
-  async function verifyPracticeAccess(practiceId: string): Promise<void> {
-    const startTime = Date.now();
-
-    try {
-      const [practice] = await db
-        .select()
-        .from(practices)
-        .where(and(
-          eq(practices.practice_id, practiceId),
-          isNull(practices.deleted_at)
-        ))
-        .limit(1);
-
-      if (!practice) {
-        throw NotFoundError('Practice');
-      }
-
-      // Check ownership for non-super-admins
-      const isOwner = practice.owner_user_id === userContext.user_id;
-      if (!userContext.is_super_admin && !isOwner) {
-        throw AuthorizationError('You do not have permission to update this practice');
-      }
-
-      log.debug('Practice access verified', {
-        practiceId,
-        userId: userContext.user_id,
-        isOwner,
-        duration: Date.now() - startTime
-      });
-    } catch (error) {
-      log.error('Practice access verification failed', error, {
-        practiceId,
-        userId: userContext.user_id,
-        duration: Date.now() - startTime
-      });
-      throw error;
-    }
-  }
+  const canManageStaff =
+    userContext.is_super_admin ||
+    userContext.all_permissions?.some(
+      (p) => p.name === 'practices:staff:manage:own' || p.name === 'practices:manage:all'
+    );
 
   /**
    * Update a practice attribute field with an image URL
@@ -97,7 +64,7 @@ export function createRBACPracticeImagesService(
       .update(practice_attributes)
       .set({
         [fieldName]: imageUrl,
-        updated_at: new Date()
+        updated_at: new Date(),
       })
       .where(eq(practice_attributes.practice_id, practiceId));
   }
@@ -108,7 +75,7 @@ export function createRBACPracticeImagesService(
 
       log.info('Update practice logo request initiated', {
         requestingUserId: userContext.user_id,
-        practiceId
+        practiceId,
       });
 
       try {
@@ -116,24 +83,24 @@ export function createRBACPracticeImagesService(
           throw AuthorizationError('You do not have permission to update practices');
         }
 
-        await verifyPracticeAccess(practiceId);
+        await verifyPracticeAccess(practiceId, userContext);
         await updatePracticeAttributeField(practiceId, 'logo_url', imageUrl);
 
         log.info('Practice logo updated successfully', {
           practiceId,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         });
 
         return {
           practiceId,
           fieldUpdated: 'logo_url',
-          url: imageUrl
+          url: imageUrl,
         };
       } catch (error) {
         log.error('Update practice logo failed', error, {
           practiceId,
           userId: userContext.user_id,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         });
         throw error;
       }
@@ -144,7 +111,7 @@ export function createRBACPracticeImagesService(
 
       log.info('Update practice hero image request initiated', {
         requestingUserId: userContext.user_id,
-        practiceId
+        practiceId,
       });
 
       try {
@@ -152,24 +119,24 @@ export function createRBACPracticeImagesService(
           throw AuthorizationError('You do not have permission to update practices');
         }
 
-        await verifyPracticeAccess(practiceId);
+        await verifyPracticeAccess(practiceId, userContext);
         await updatePracticeAttributeField(practiceId, 'hero_image_url', imageUrl);
 
         log.info('Practice hero image updated successfully', {
           practiceId,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         });
 
         return {
           practiceId,
           fieldUpdated: 'hero_image_url',
-          url: imageUrl
+          url: imageUrl,
         };
       } catch (error) {
         log.error('Update practice hero image failed', error, {
           practiceId,
           userId: userContext.user_id,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         });
         throw error;
       }
@@ -180,7 +147,7 @@ export function createRBACPracticeImagesService(
 
       log.info('Add gallery image request initiated', {
         requestingUserId: userContext.user_id,
-        practiceId
+        practiceId,
       });
 
       try {
@@ -188,7 +155,7 @@ export function createRBACPracticeImagesService(
           throw AuthorizationError('You do not have permission to update practices');
         }
 
-        await verifyPracticeAccess(practiceId);
+        await verifyPracticeAccess(practiceId, userContext);
 
         // Get current gallery images
         const [currentAttributes] = await db
@@ -206,7 +173,7 @@ export function createRBACPracticeImagesService(
           } catch (parseError) {
             log.warn('Failed to parse existing gallery images, starting fresh', {
               practiceId,
-              error: parseError
+              error: parseError,
             });
             existingImages = [];
           }
@@ -220,39 +187,43 @@ export function createRBACPracticeImagesService(
           .update(practice_attributes)
           .set({
             gallery_images: JSON.stringify(updatedImages),
-            updated_at: new Date()
+            updated_at: new Date(),
           })
           .where(eq(practice_attributes.practice_id, practiceId));
 
         log.info('Gallery image added successfully', {
           practiceId,
           totalImages: updatedImages.length,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         });
 
         return {
           practiceId,
           fieldUpdated: 'gallery_images',
           url: imageUrl,
-          totalImages: updatedImages.length
+          totalImages: updatedImages.length,
         };
       } catch (error) {
         log.error('Add gallery image failed', error, {
           practiceId,
           userId: userContext.user_id,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         });
         throw error;
       }
     },
 
-    async updateStaffPhoto(practiceId: string, staffId: string, imageUrl: string): Promise<UpdateImageResult> {
+    async updateStaffPhoto(
+      practiceId: string,
+      staffId: string,
+      imageUrl: string
+    ): Promise<UpdateImageResult> {
       const startTime = Date.now();
 
       log.info('Update staff photo request initiated', {
         requestingUserId: userContext.user_id,
         practiceId,
-        staffId
+        staffId,
       });
 
       try {
@@ -261,17 +232,19 @@ export function createRBACPracticeImagesService(
         }
 
         // Verify practice access first
-        await verifyPracticeAccess(practiceId);
+        await verifyPracticeAccess(practiceId, userContext);
 
         // Verify staff member exists and belongs to this practice
         const [existingStaff] = await db
           .select()
           .from(staff_members)
-          .where(and(
-            eq(staff_members.staff_id, staffId),
-            eq(staff_members.practice_id, practiceId),
-            isNull(staff_members.deleted_at)
-          ))
+          .where(
+            and(
+              eq(staff_members.staff_id, staffId),
+              eq(staff_members.practice_id, practiceId),
+              isNull(staff_members.deleted_at)
+            )
+          )
           .limit(1);
 
         if (!existingStaff) {
@@ -283,34 +256,33 @@ export function createRBACPracticeImagesService(
           .update(staff_members)
           .set({
             photo_url: imageUrl,
-            updated_at: new Date()
+            updated_at: new Date(),
           })
-          .where(and(
-            eq(staff_members.staff_id, staffId),
-            eq(staff_members.practice_id, practiceId)
-          ));
+          .where(
+            and(eq(staff_members.staff_id, staffId), eq(staff_members.practice_id, practiceId))
+          );
 
         log.info('Staff photo updated successfully', {
           practiceId,
           staffId,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         });
 
         return {
           practiceId,
           fieldUpdated: 'photo_url',
           url: imageUrl,
-          staffId
+          staffId,
         };
       } catch (error) {
         log.error('Update staff photo failed', error, {
           practiceId,
           staffId,
           userId: userContext.user_id,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         });
         throw error;
       }
-    }
+    },
   };
 }

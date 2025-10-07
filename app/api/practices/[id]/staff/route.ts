@@ -1,18 +1,22 @@
 import type { NextRequest } from 'next/server';
-import { createSuccessResponse, createPaginatedResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
-import { validateRequest, validateQuery } from '@/lib/api/middleware/validation';
-import { extractRouteParams } from '@/lib/api/utils/params';
-import { getPagination } from '@/lib/api/utils/request';
-import { staffCreateSchema, staffQuerySchema } from '@/lib/validations/staff';
-import { practiceParamsSchema } from '@/lib/validations/practice';
+import { validateQuery, validateRequest } from '@/lib/api/middleware/validation';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createPaginatedResponse, createSuccessResponse } from '@/lib/api/responses/success';
+import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
-import type { UserContext } from '@/lib/types/rbac';
+import { getPagination } from '@/lib/api/utils/request';
 import { log } from '@/lib/logger';
 import { createRBACStaffMembersService } from '@/lib/services/rbac-staff-members-service';
+import type { UserContext } from '@/lib/types/rbac';
+import { practiceParamsSchema } from '@/lib/validations/practice';
+import { staffCreateSchema, staffQuerySchema } from '@/lib/validations/staff';
 
-const getPracticeStaffHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+const getPracticeStaffHandler = async (
+  request: NextRequest,
+  userContext: UserContext,
+  ...args: unknown[]
+) => {
   let practiceId: string | undefined;
   try {
     ({ id: practiceId } = await extractRouteParams(args[0], practiceParamsSchema));
@@ -30,33 +34,40 @@ const getPracticeStaffHandler = async (request: NextRequest, userContext: UserCo
       limit: pagination.limit,
       offset: pagination.offset,
       sortBy,
-      sortOrder
+      sortOrder,
     });
 
     return createPaginatedResponse(staff, {
       page: pagination.page,
       limit: pagination.limit,
-      total
+      total,
     });
-
   } catch (error) {
-    const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
+    const errorMessage =
+      error && typeof error === 'object' && 'message' in error
+        ? String(error.message)
+        : 'Unknown error';
 
     log.error('Error fetching staff members', error, {
       practiceId,
-      operation: 'fetchStaffMembers'
+      operation: 'fetchStaffMembers',
     });
 
-    const clientErrorMessage = process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
+    const clientErrorMessage =
+      process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
     return createErrorResponse(clientErrorMessage, 500, request);
   }
-}
+};
 
-const createPracticeStaffHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+const createPracticeStaffHandler = async (
+  request: NextRequest,
+  userContext: UserContext,
+  ...args: unknown[]
+) => {
   let practiceId: string | undefined;
   try {
-    ({ id: practiceId } = await extractRouteParams(args[0], practiceParamsSchema))
-    const validatedData = await validateRequest(request, staffCreateSchema)
+    ({ id: practiceId } = await extractRouteParams(args[0], practiceParamsSchema));
+    const validatedData = await validateRequest(request, staffCreateSchema);
 
     // Use the RBAC staff members service
     const staffService = createRBACStaffMembersService(userContext);
@@ -64,35 +75,33 @@ const createPracticeStaffHandler = async (request: NextRequest, userContext: Use
 
     return createSuccessResponse(newStaff, 'Staff member created successfully');
   } catch (error) {
-    const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
+    const errorMessage =
+      error && typeof error === 'object' && 'message' in error
+        ? String(error.message)
+        : 'Unknown error';
 
     log.error('Error creating staff member', error, {
       practiceId,
-      operation: 'createStaffMember'
+      operation: 'createStaffMember',
     });
 
-    const clientErrorMessage = process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
+    const clientErrorMessage =
+      process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
     return createErrorResponse(clientErrorMessage, 500, request);
   }
-}
+};
 
 // Export with RBAC protection
-export const GET = rbacRoute(
-  getPracticeStaffHandler,
-  {
-    permission: ['practices:staff:manage:own', 'practices:manage:all'],
-    extractResourceId: extractors.practiceId,
-    extractOrganizationId: extractors.organizationId,
-    rateLimit: 'api'
-  }
-);
+export const GET = rbacRoute(getPracticeStaffHandler, {
+  permission: ['practices:staff:manage:own', 'practices:manage:all'],
+  extractResourceId: extractors.practiceId,
+  extractOrganizationId: extractors.organizationId,
+  rateLimit: 'api',
+});
 
-export const POST = rbacRoute(
-  createPracticeStaffHandler,
-  {
-    permission: ['practices:staff:manage:own', 'practices:manage:all'],
-    extractResourceId: extractors.practiceId,
-    extractOrganizationId: extractors.organizationId,
-    rateLimit: 'api'
-  }
-);
+export const POST = rbacRoute(createPracticeStaffHandler, {
+  permission: ['practices:staff:manage:own', 'practices:manage:all'],
+  extractResourceId: extractors.practiceId,
+  extractOrganizationId: extractors.organizationId,
+  rateLimit: 'api',
+});
