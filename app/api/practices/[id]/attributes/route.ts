@@ -1,22 +1,14 @@
-import { NextRequest } from 'next/server';
-import { db, practices, practice_attributes } from '@/lib/db';
-import { eq, isNull, and } from 'drizzle-orm';
+import type { NextRequest } from 'next/server';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
+import { createErrorResponse } from '@/lib/api/responses/error';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { practiceAttributesUpdateSchema, practiceParamsSchema } from '@/lib/validations/practice';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
-import type { UserContext } from '@/lib/types/rbac'
+import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
-import {
-  parseBusinessHours,
-  parseServices,
-  parseInsuranceAccepted,
-  parseConditionsTreated,
-  parseGalleryImages
-} from '@/lib/utils/json-parser';
+import { createRBACPracticeAttributesService } from '@/lib/services/rbac-practice-attributes-service';
 
 const getPracticeAttributesHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   let practiceId: string | undefined;
@@ -24,59 +16,22 @@ const getPracticeAttributesHandler = async (request: NextRequest, userContext: U
     const params = await extractRouteParams(args[0], practiceParamsSchema);
     practiceId = params.id;
 
-    // Verify practice exists
-    const [practice] = await db
-      .select()
-      .from(practices)
-      .where(and(
-        eq(practices.practice_id, practiceId),
-        isNull(practices.deleted_at)
-      ))
-      .limit(1)
+    // Use the RBAC practice attributes service
+    const attributesService = createRBACPracticeAttributesService(userContext);
+    const attributes = await attributesService.getPracticeAttributes(practiceId);
 
-    if (!practice) {
-      throw NotFoundError('Practice')
-    }
+    return createSuccessResponse(attributes);
 
-    // RBAC: Check if user can access this practice's attributes
-    // Super admins can access all, practice owners can access their own practice attributes
-    if (!userContext.is_super_admin && practice.owner_user_id !== userContext.user_id) {
-      throw new Error('Access denied: You do not have permission to view attributes for this practice')
-    }
-
-    // Get practice attributes (should exist from practice creation)
-    const [attributes] = await db
-      .select()
-      .from(practice_attributes)
-      .where(eq(practice_attributes.practice_id, practiceId))
-      .limit(1)
-
-    if (!attributes) {
-      throw NotFoundError('Practice attributes')
-    }
-
-    // Parse JSON fields safely
-    const parsedAttributes = {
-      ...attributes,
-      business_hours: parseBusinessHours(attributes.business_hours),
-      services: parseServices(attributes.services),
-      insurance_accepted: parseInsuranceAccepted(attributes.insurance_accepted),
-      conditions_treated: parseConditionsTreated(attributes.conditions_treated),
-      gallery_images: parseGalleryImages(attributes.gallery_images),
-    }
-
-    return createSuccessResponse(parsedAttributes)
-    
   } catch (error) {
     const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
 
     log.error('Error fetching practice attributes', error, {
       practiceId,
       operation: 'fetchPracticeAttributes'
-    })
+    });
 
     const clientErrorMessage = process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
-    return createErrorResponse(clientErrorMessage, 500, request)
+    return createErrorResponse(clientErrorMessage, 500, request);
   }
 }
 
@@ -85,72 +40,24 @@ const updatePracticeAttributesHandler = async (request: NextRequest, userContext
   try {
     const params = await extractRouteParams(args[0], practiceParamsSchema);
     practiceId = params.id;
-    const validatedData = await validateRequest(request, practiceAttributesUpdateSchema)
+    const validatedData = await validateRequest(request, practiceAttributesUpdateSchema);
 
-    // Verify practice exists
-    const [practice] = await db
-      .select()
-      .from(practices)
-      .where(and(
-        eq(practices.practice_id, practiceId),
-        isNull(practices.deleted_at)
-      ))
-      .limit(1)
+    // Use the RBAC practice attributes service
+    const attributesService = createRBACPracticeAttributesService(userContext);
+    const updatedAttributes = await attributesService.updatePracticeAttributes(practiceId, validatedData);
 
-    if (!practice) {
-      throw NotFoundError('Practice')
-    }
+    return createSuccessResponse(updatedAttributes, 'Practice attributes updated successfully');
 
-    // RBAC: Check if user can update this practice's attributes
-    // Super admins can update all, practice owners can update their own practice attributes
-    if (!userContext.is_super_admin && practice.owner_user_id !== userContext.user_id) {
-      throw new Error('Access denied: You do not have permission to update attributes for this practice')
-    }
-
-    // Prepare data for update, stringify JSON fields
-    const updateData = {
-      ...validatedData,
-      business_hours: validatedData.business_hours ? JSON.stringify(validatedData.business_hours) : null,
-      services: validatedData.services ? JSON.stringify(validatedData.services) : null,
-      insurance_accepted: validatedData.insurance_accepted ? JSON.stringify(validatedData.insurance_accepted) : null,
-      conditions_treated: validatedData.conditions_treated ? JSON.stringify(validatedData.conditions_treated) : null,
-      gallery_images: validatedData.gallery_images ? JSON.stringify(validatedData.gallery_images) : null,
-      updated_at: new Date(),
-    }
-
-    // Update practice attributes (record should exist from practice creation)
-    const [updatedAttributes] = await db
-      .update(practice_attributes)
-      .set(updateData)
-      .where(eq(practice_attributes.practice_id, practiceId))
-      .returning()
-
-    if (!updatedAttributes) {
-      throw NotFoundError('Practice attributes')
-    }
-
-    // Parse JSON fields for response
-    const parsedAttributes = {
-      ...updatedAttributes,
-      business_hours: parseBusinessHours(updatedAttributes.business_hours),
-      services: parseServices(updatedAttributes.services),
-      insurance_accepted: parseInsuranceAccepted(updatedAttributes.insurance_accepted),
-      conditions_treated: parseConditionsTreated(updatedAttributes.conditions_treated),
-      gallery_images: parseGalleryImages(updatedAttributes.gallery_images),
-    }
-
-    return createSuccessResponse(parsedAttributes, 'Practice attributes updated successfully')
-    
   } catch (error) {
     const errorMessage = error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Unknown error';
 
     log.error('Error updating practice attributes', error, {
       practiceId,
       operation: 'updatePracticeAttributes'
-    })
+    });
 
     const clientErrorMessage = process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
-    return createErrorResponse(clientErrorMessage, 500, request)
+    return createErrorResponse(clientErrorMessage, 500, request);
   }
 }
 
