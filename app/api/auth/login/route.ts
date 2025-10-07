@@ -51,9 +51,8 @@ const loginHandler = async (request: NextRequest) => {
     });
 
     // Extract device info
-    const ipAddress =
-      request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
-    const userAgent = request.headers.get('user-agent') || 'unknown';
+    const { extractRequestMetadata } = await import('@/lib/api/utils/request');
+    const metadata = extractRequestMetadata(request);
 
     // Check account lockout
     const lockoutStartTime = Date.now();
@@ -75,8 +74,8 @@ const loginHandler = async (request: NextRequest) => {
 
       await AuditLogger.logAuth({
         action: 'account_locked',
-        ipAddress,
-        userAgent,
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
         metadata: {
           email,
           lockedUntil: lockoutStatus.lockedUntil,
@@ -112,8 +111,8 @@ const loginHandler = async (request: NextRequest) => {
 
       await AuditLogger.logAuth({
         action: 'login_failed',
-        ipAddress,
-        userAgent,
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
         metadata: {
           email,
           reason: 'user_not_found',
@@ -134,8 +133,8 @@ const loginHandler = async (request: NextRequest) => {
       await AuditLogger.logAuth({
         action: 'login_failed',
         userId: user.user_id,
-        ipAddress,
-        userAgent,
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
         metadata: {
           email,
           reason: 'user_inactive',
@@ -170,8 +169,8 @@ const loginHandler = async (request: NextRequest) => {
       await AuditLogger.logAuth({
         action: 'login_failed',
         userId: user.user_id,
-        ipAddress,
-        userAgent,
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
         metadata: {
           email,
           reason: 'sso_only_user_password_attempt',
@@ -207,8 +206,8 @@ const loginHandler = async (request: NextRequest) => {
       await AuditLogger.logAuth({
         action: 'login_failed',
         userId: user.user_id,
-        ipAddress,
-        userAgent,
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
         metadata: {
           email,
           reason: 'invalid_password',
@@ -251,8 +250,8 @@ const loginHandler = async (request: NextRequest) => {
       await AuditLogger.logAuth({
         action: 'login_failed',
         userId: user.user_id,
-        ipAddress,
-        userAgent,
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
         metadata: {
           reason: 'mfa_enabled_no_active_credentials',
           correlationId: correlation.current(),
@@ -277,8 +276,8 @@ const loginHandler = async (request: NextRequest) => {
       // Generate authentication challenge
       const { options, challenge_id } = await beginAuthentication(
         user.user_id,
-        ipAddress,
-        userAgent
+        metadata.ipAddress,
+        metadata.userAgent
       );
 
       // Create temporary MFA token (NOT a full session)
@@ -291,8 +290,8 @@ const loginHandler = async (request: NextRequest) => {
       await AuditLogger.logAuth({
         action: 'mfa_challenge_issued',
         userId: user.user_id,
-        ipAddress,
-        userAgent,
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
         metadata: {
           challengeId: challenge_id.substring(0, 8),
           correlationId: correlation.current(),
@@ -332,8 +331,8 @@ const loginHandler = async (request: NextRequest) => {
     await AuditLogger.logAuth({
       action: 'mfa_setup_required',
       userId: user.user_id,
-      ipAddress,
-      userAgent,
+      ipAddress: metadata.ipAddress,
+      userAgent: metadata.userAgent,
       metadata: {
         reason: 'password_login_requires_mfa',
         correlationId: correlation.current(),

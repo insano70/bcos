@@ -53,11 +53,10 @@ const handler = async (request: NextRequest) => {
     }
 
     // Extract IP and user agent
-    const ipAddress =
-      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      request.headers.get('x-real-ip') ||
-      'unknown';
-    const userAgent = request.headers.get('user-agent') || null;
+    const { extractRequestMetadata } = await import('@/lib/api/utils/request');
+    const metadata = extractRequestMetadata(request);
+    const ipAddress = metadata.ipAddress;
+    const userAgent = metadata.userAgent;
 
     // Generate registration options
     const { options, challenge_id } = await beginRegistration(

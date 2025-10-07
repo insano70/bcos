@@ -1,10 +1,42 @@
 import { z } from 'zod';
+import { generateDeviceFingerprint, generateDeviceName } from '@/lib/auth/token-manager';
 import { ValidationError } from '../responses/error';
 
 export interface PaginationParams {
   page: number;
   limit: number;
   offset: number;
+}
+
+/**
+ * Request metadata extracted from HTTP headers
+ * Used for device fingerprinting and audit logging
+ */
+export interface RequestMetadata {
+  ipAddress: string;
+  userAgent: string;
+  fingerprint: string;
+  deviceName: string;
+}
+
+/**
+ * Extract device and network metadata from HTTP request
+ * Centralizes IP extraction and device fingerprinting for consistency
+ *
+ * @param request - Next.js request object
+ * @returns RequestMetadata with IP, user agent, fingerprint, and device name
+ */
+export function extractRequestMetadata(request: Request): RequestMetadata {
+  const ipAddress =
+    request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+  const userAgent = request.headers.get('user-agent') || 'unknown';
+
+  return {
+    ipAddress,
+    userAgent,
+    fingerprint: generateDeviceFingerprint(ipAddress, userAgent),
+    deviceName: generateDeviceName(userAgent),
+  };
 }
 
 export const paginationSchema = z.object({

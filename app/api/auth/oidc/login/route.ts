@@ -28,7 +28,6 @@ import { NextResponse } from 'next/server';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { publicRoute } from '@/lib/api/route-handler';
 import { AuditLogger } from '@/lib/api/services/audit';
-import { generateDeviceFingerprint } from '@/lib/auth/token-manager';
 import { isOIDCEnabled } from '@/lib/env';
 import { correlation, log } from '@/lib/logger';
 import { getOIDCClient } from '@/lib/oidc/client';
@@ -67,15 +66,9 @@ const oidcLoginHandler = async (request: NextRequest) => {
     }
 
     // Extract device info for fingerprinting
-    const forwardedFor = request.headers.get('x-forwarded-for');
-    const realIp = request.headers.get('x-real-ip');
-    const ipAddress = forwardedFor
-      ? forwardedFor.split(',')[0]?.trim() || 'unknown'
-      : realIp || 'unknown';
-    const userAgent = request.headers.get('user-agent') || 'unknown';
-
-    // Generate device fingerprint (binds session to device)
-    const fingerprint = generateDeviceFingerprint(ipAddress, userAgent);
+    const { extractRequestMetadata } = await import('@/lib/api/utils/request');
+    const metadata = extractRequestMetadata(request);
+    const fingerprint = metadata.fingerprint;
 
     // Get return URL from query params, or use default dashboard if configured
     const paramReturnUrl = request.nextUrl.searchParams.get('returnUrl');
@@ -84,7 +77,7 @@ const oidcLoginHandler = async (request: NextRequest) => {
 
     log.info('OIDC login initiation started', {
       requestId: correlation.current() || 'unknown',
-      ipAddress,
+      ipAddress: metadata.ipAddress,
       returnUrl,
       fingerprint: `${fingerprint.substring(0, 16)}...`,
     });
@@ -137,8 +130,8 @@ const oidcLoginHandler = async (request: NextRequest) => {
 
     // Audit log - log as login attempt for tracking
     log.info('OIDC login audit', {
-      ipAddress,
-      userAgent,
+      ipAddress: metadata.ipAddress,
+      userAgent: metadata.userAgent,
       requestId: correlation.current(),
       returnUrl,
     });
@@ -159,13 +152,13 @@ const oidcLoginHandler = async (request: NextRequest) => {
       duration,
     });
 
-    const errorIp = request.headers.get('x-forwarded-for');
-    const errorUserAgent = request.headers.get('user-agent');
+    const { extractRequestMetadata } = await import('@/lib/api/utils/request');
+    const errorMetadata = extractRequestMetadata(request);
 
     await AuditLogger.logAuth({
       action: 'login_failed',
-      ipAddress: errorIp ? errorIp.split(',')[0]?.trim() : undefined,
-      userAgent: errorUserAgent || undefined,
+      ipAddress: errorMetadata.ipAddress,
+      userAgent: errorMetadata.userAgent,
       metadata: {
         authMethod: 'oidc',
         reason: 'login_initiation_failed',

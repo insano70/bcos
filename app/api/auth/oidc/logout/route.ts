@@ -38,15 +38,11 @@ const oidcLogoutHandler = async (request: NextRequest) => {
     const config = getOIDCConfig();
 
     // Extract device info
-    const forwardedFor = request.headers.get('x-forwarded-for');
-    const realIp = request.headers.get('x-real-ip');
-    const ipAddress = forwardedFor
-      ? forwardedFor.split(',')[0]?.trim() || 'unknown'
-      : realIp || 'unknown';
-    const _userAgent = request.headers.get('user-agent') || 'unknown';
+    const { extractRequestMetadata } = await import('@/lib/api/utils/request');
+    const metadata = extractRequestMetadata(request);
 
     log.info('OIDC logout initiated', {
-      ipAddress,
+      ipAddress: metadata.ipAddress,
       duration: Date.now() - startTime,
     });
 

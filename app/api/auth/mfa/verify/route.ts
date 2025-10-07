@@ -39,11 +39,10 @@ const handler = async (request: NextRequest) => {
     await applyRateLimit(request, 'mfa');
 
     // Extract IP and user agent
-    const ipAddress =
-      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      request.headers.get('x-real-ip') ||
-      'unknown';
-    const userAgent = request.headers.get('user-agent') || null;
+    const { extractRequestMetadata } = await import('@/lib/api/utils/request');
+    const metadata = extractRequestMetadata(request);
+    const ipAddress = metadata.ipAddress;
+    const userAgent = metadata.userAgent;
 
     // Parse request body
     const body = (await request.json()) as AuthenticationCompleteRequest;

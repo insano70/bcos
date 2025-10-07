@@ -66,9 +66,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract device info for audit logging
-    const ipAddress =
-      request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
-    const userAgent = request.headers.get('user-agent') || 'unknown';
+    const { extractRequestMetadata } = await import('@/lib/api/utils/request');
+    const metadata = extractRequestMetadata(request);
 
     // Revoke the refresh token
     const revoked = await revokeRefreshToken(refreshToken, 'logout');
@@ -124,8 +123,8 @@ export async function POST(request: NextRequest) {
       userId: session.user.id,
       resourceType: 'session',
       resourceId: 'current',
-      ipAddress,
-      userAgent,
+      ipAddress: metadata.ipAddress,
+      userAgent: metadata.userAgent,
       metadata: {
         reason: 'user_initiated',
       },
@@ -244,15 +243,14 @@ export async function DELETE(request: NextRequest) {
     const revokedCount = await revokeAllUserTokens(userId, 'security');
 
     // AUDIT LOGGING: Log the revoke all sessions action
-    const ipAddress =
-      request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
-    const userAgent = request.headers.get('user-agent') || 'unknown';
+    const { extractRequestMetadata } = await import('@/lib/api/utils/request');
+    const metadata = extractRequestMetadata(request);
 
     await AuditLogger.logSecurity({
       action: 'revoke_all_sessions',
       userId: session.user.id, // Use authenticated user's ID
-      ipAddress,
-      userAgent,
+      ipAddress: metadata.ipAddress,
+      userAgent: metadata.userAgent,
       metadata: {
         revokedCount,
         reason: 'user_requested',

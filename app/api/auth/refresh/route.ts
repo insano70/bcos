@@ -4,11 +4,7 @@ import { requireAuth } from '@/lib/api/middleware/auth';
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { AuditLogger } from '@/lib/api/services/audit';
-import {
-  generateDeviceFingerprint,
-  generateDeviceName,
-  refreshTokenPair,
-} from '@/lib/auth/token-manager';
+import { refreshTokenPair } from '@/lib/auth/token-manager';
 import { correlation, log } from '@/lib/logger';
 import { setCSRFToken } from '@/lib/security/csrf-unified';
 
@@ -132,24 +128,14 @@ const refreshHandler = async (request: NextRequest) => {
 
     // Extract device info
     const deviceStart = Date.now();
-    const ipAddress =
-      request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
-    const userAgent = request.headers.get('user-agent') || 'unknown';
-    const deviceFingerprint = generateDeviceFingerprint(ipAddress, userAgent);
-    const deviceName = generateDeviceName(userAgent);
-
-    const deviceInfo = {
-      ipAddress,
-      userAgent,
-      fingerprint: deviceFingerprint,
-      deviceName,
-    };
+    const { extractRequestMetadata } = await import('@/lib/api/utils/request');
+    const deviceInfo = extractRequestMetadata(request);
     log.info('Device info generated', { duration: Date.now() - deviceStart });
 
     log.debug('Device information generated for token refresh', {
       userId,
-      deviceName,
-      fingerprintHash: `${deviceFingerprint.substring(0, 8)}...`,
+      deviceName: deviceInfo.deviceName,
+      fingerprintHash: `${deviceInfo.fingerprint.substring(0, 8)}...`,
     });
 
     // Rotate tokens
@@ -160,8 +146,8 @@ const refreshHandler = async (request: NextRequest) => {
     if (!tokenPair) {
       log.warn('Token rotation failed', {
         userId,
-        deviceFingerprint: `${deviceFingerprint.substring(0, 8)}...`,
-        deviceName,
+        deviceFingerprint: `${deviceInfo.fingerprint.substring(0, 8)}...`,
+        deviceName: deviceInfo.deviceName,
       });
 
       // AUDIT LOGGING: Log failed refresh attempt with authenticated user info
@@ -170,12 +156,12 @@ const refreshHandler = async (request: NextRequest) => {
         userId: userId,
         resourceType: 'session',
         resourceId: 'current',
-        ipAddress,
-        userAgent,
+        ipAddress: deviceInfo.ipAddress,
+        userAgent: deviceInfo.userAgent,
         metadata: {
           reason: 'invalid_refresh_token',
-          deviceFingerprint,
-          deviceName,
+          deviceFingerprint: deviceInfo.fingerprint,
+          deviceName: deviceInfo.deviceName,
           correlationId: correlation.current(),
         },
       });
@@ -196,11 +182,11 @@ const refreshHandler = async (request: NextRequest) => {
       userId: userId,
       resourceType: 'session',
       resourceId: tokenPair.sessionId,
-      ipAddress,
-      userAgent,
+      ipAddress: deviceInfo.ipAddress,
+      userAgent: deviceInfo.userAgent,
       metadata: {
-        deviceFingerprint,
-        deviceName,
+        deviceFingerprint: deviceInfo.fingerprint,
+        deviceName: deviceInfo.deviceName,
         expiresAt: tokenPair.expiresAt.toISOString(),
         correlationId: correlation.current(),
       },
@@ -310,9 +296,8 @@ const refreshHandler = async (request: NextRequest) => {
     });
 
     // Extract device info for logging
-    const ipAddress =
-      request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
-    const userAgent = request.headers.get('user-agent') || 'unknown';
+    const { extractRequestMetadata } = await import('@/lib/api/utils/request');
+    const metadata = extractRequestMetadata(request);
 
     // Try to extract userId from the failed refresh token if possible
     let failedUserId = 'unknown';
@@ -341,8 +326,8 @@ const refreshHandler = async (request: NextRequest) => {
         userId: failedUserId,
         resourceType: 'session',
         resourceId: 'unknown',
-        ipAddress,
-        userAgent,
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
         metadata: {
           error: error instanceof Error ? error.message : 'Unknown error',
           correlationId: correlation.current(),
@@ -356,7 +341,7 @@ const refreshHandler = async (request: NextRequest) => {
 
       await AuditLogger.logSecurity({
         action: 'token_refresh_error',
-        ipAddress,
+        ipAddress: metadata.ipAddress,
         metadata: {
           error: error instanceof Error ? error.message : 'Unknown error',
           authFailed: true,

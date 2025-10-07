@@ -36,11 +36,7 @@ import { NextResponse } from 'next/server';
 import { publicRoute } from '@/lib/api/route-handler';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { validateAuthProfile, validateEmailDomain } from '@/lib/auth/input-validator';
-import {
-  createTokenPair,
-  generateDeviceFingerprint,
-  generateDeviceName,
-} from '@/lib/auth/token-manager';
+import { createTokenPair } from '@/lib/auth/token-manager';
 import { db, users } from '@/lib/db';
 import { getOIDCConfig } from '@/lib/env';
 import { correlation, log } from '@/lib/logger';
@@ -176,10 +172,9 @@ const oidcCallbackHandler = async (request: NextRequest) => {
     }
 
     // ===== 5. Validate Device Fingerprint (Session Hijacking Prevention) =====
-    const forwardedFor = request.headers.get('x-forwarded-for');
-    const currentIp = forwardedFor ? forwardedFor.split(',')[0]?.trim() || 'unknown' : 'unknown';
-    const currentUserAgent = request.headers.get('user-agent') || 'unknown';
-    const currentFingerprint = generateDeviceFingerprint(currentIp, currentUserAgent);
+    const { extractRequestMetadata } = await import('@/lib/api/utils/request');
+    const currentMetadata = extractRequestMetadata(request);
+    const currentFingerprint = currentMetadata.fingerprint;
 
     const strictMode = process.env.OIDC_STRICT_FINGERPRINT === 'true';
 
@@ -189,13 +184,13 @@ const oidcCallbackHandler = async (request: NextRequest) => {
         log.error('OIDC session hijack attempt detected', {
           expected: sessionData.fingerprint.substring(0, 16),
           received: currentFingerprint.substring(0, 16),
-          ipAddress: currentIp,
+          ipAddress: currentMetadata.ipAddress,
         });
 
         await AuditLogger.logAuth({
           action: 'login_failed',
-          ipAddress: currentIp,
-          userAgent: currentUserAgent,
+          ipAddress: currentMetadata.ipAddress,
+          userAgent: currentMetadata.userAgent,
           metadata: {
             authMethod: 'oidc',
             reason: 'session_hijack',
@@ -250,8 +245,8 @@ const oidcCallbackHandler = async (request: NextRequest) => {
         await AuditLogger.logAuth({
           action: 'login_failed',
           email: userInfo.email,
-          ipAddress: currentIp,
-          userAgent: currentUserAgent,
+          ipAddress: currentMetadata.ipAddress,
+          userAgent: currentMetadata.userAgent,
           metadata: {
             authMethod: 'oidc',
             reason: 'email_domain_not_allowed',
@@ -314,8 +309,8 @@ const oidcCallbackHandler = async (request: NextRequest) => {
       await AuditLogger.logAuth({
         action: 'login_failed',
         email: sanitizedProfile.email,
-        ipAddress: currentIp,
-        userAgent: currentUserAgent,
+        ipAddress: currentMetadata.ipAddress,
+        userAgent: currentMetadata.userAgent,
         metadata: {
           authMethod: 'oidc',
           reason: 'user_not_provisioned',
@@ -336,8 +331,8 @@ const oidcCallbackHandler = async (request: NextRequest) => {
         action: 'login_failed',
         userId: existingUser.user_id,
         email: sanitizedProfile.email,
-        ipAddress: currentIp,
-        userAgent: currentUserAgent,
+        ipAddress: currentMetadata.ipAddress,
+        userAgent: currentMetadata.userAgent,
         metadata: {
           authMethod: 'oidc',
           reason: 'user_not_active',
@@ -348,14 +343,11 @@ const oidcCallbackHandler = async (request: NextRequest) => {
     }
 
     // ===== 10. Create Internal JWT Tokens =====
-    const deviceName = generateDeviceName(currentUserAgent);
-    const deviceFingerprint = generateDeviceFingerprint(currentIp, currentUserAgent);
-
     const deviceInfo = {
-      ipAddress: currentIp,
-      userAgent: currentUserAgent,
-      fingerprint: deviceFingerprint,
-      deviceName,
+      ipAddress: currentMetadata.ipAddress,
+      userAgent: currentMetadata.userAgent,
+      fingerprint: currentMetadata.fingerprint,
+      deviceName: currentMetadata.deviceName,
     };
 
     const tokens = await createTokenPair(
@@ -373,11 +365,11 @@ const oidcCallbackHandler = async (request: NextRequest) => {
       action: 'login',
       userId: existingUser.user_id,
       email: sanitizedProfile.email,
-      ipAddress: currentIp,
-      userAgent: currentUserAgent,
+      ipAddress: currentMetadata.ipAddress,
+      userAgent: currentMetadata.userAgent,
       metadata: {
         authMethod: 'oidc',
-        deviceName,
+        deviceName: currentMetadata.deviceName,
         sessionId: tokens.sessionId,
         duration: Date.now() - startTime,
       },
@@ -433,13 +425,13 @@ const oidcCallbackHandler = async (request: NextRequest) => {
       duration,
     });
 
-    const errorIp = request.headers.get('x-forwarded-for');
-    const errorUserAgent = request.headers.get('user-agent');
+    const { extractRequestMetadata } = await import('@/lib/api/utils/request');
+    const errorMetadata = extractRequestMetadata(request);
 
     await AuditLogger.logAuth({
       action: 'login_failed',
-      ipAddress: errorIp ? errorIp.split(',')[0]?.trim() : undefined,
-      userAgent: errorUserAgent || undefined,
+      ipAddress: errorMetadata.ipAddress,
+      userAgent: errorMetadata.userAgent,
       metadata: {
         authMethod: 'oidc',
         reason: 'callback_failed',
