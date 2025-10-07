@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { createSuccessResponse, createPaginatedResponse } from '@/lib/api/responses/success';
+import { createPaginatedResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { validateQuery } from '@/lib/api/middleware/validation';
 import { workItemTypeQuerySchema } from '@/lib/validations/work-items';
@@ -99,7 +99,7 @@ const getWorkItemTypesHandler = async (request: NextRequest, userContext: UserCo
 };
 
 export const GET = rbacRoute(getWorkItemTypesHandler, {
-  permission: 'work_items:read:organization',
+  permission: 'work-items:read:organization',
   extractOrganizationId: extractors.organizationId,
   rateLimit: 'api',
 });

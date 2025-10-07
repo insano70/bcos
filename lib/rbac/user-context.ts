@@ -82,9 +82,18 @@ export async function getUserContext(userId: string): Promise<UserContext> {
     );
 
   // 3. Get accessible organizations (includes children via hierarchy)
-  const accessibleOrganizations = await getAccessibleOrganizations(
-    userOrgs.map((org) => org.organization_id)
-  );
+  // TEMPORARILY DISABLED: Hierarchy expansion is too expensive with 777 orgs
+  // TODO: Re-enable with proper caching or pagination
+  const accessibleOrganizations = userOrgs.map((org) => ({
+    organization_id: org.organization_id,
+    name: org.org_name,
+    slug: org.org_slug,
+    parent_organization_id: org.org_parent_id || undefined,
+    is_active: org.org_is_active ?? true,
+    created_at: org.org_created_at ?? new Date(),
+    updated_at: org.org_updated_at ?? new Date(),
+    deleted_at: org.org_deleted_at || undefined,
+  }));
 
   // 4. Get user's roles with permissions (optimized with database-level deduplication)
   const userRolesData = await db

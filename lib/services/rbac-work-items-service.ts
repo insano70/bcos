@@ -78,16 +78,12 @@ export interface WorkItemWithDetails {
 }
 
 export class RBACWorkItemsService extends BaseRBACService {
-  constructor(userContext: UserContext) {
-    super(userContext);
-  }
-
   /**
    * Get work items with automatic permission-based filtering
    */
   async getWorkItems(options: WorkItemQueryOptions = {}): Promise<WorkItemWithDetails[]> {
     const startTime = Date.now();
-    const accessScope = this.getAccessScope('work_items', 'read');
+    const accessScope = this.getAccessScope('work-items', 'read');
 
     log.info('Work items query initiated', {
       requestingUserId: this.userContext.user_id,
@@ -152,12 +148,13 @@ export class RBACWorkItemsService extends BaseRBACService {
     }
 
     if (options.search) {
-      whereConditions.push(
-        or(
-          like(work_items.subject, `%${options.search}%`),
-          like(work_items.description, `%${options.search}%`)
-        )!
+      const searchCondition = or(
+        like(work_items.subject, `%${options.search}%`),
+        like(work_items.description, `%${options.search}%`)
       );
+      if (searchCondition) {
+        whereConditions.push(searchCondition);
+      }
     }
 
     // Build sorting
@@ -173,7 +170,6 @@ export class RBACWorkItemsService extends BaseRBACService {
         case 'status_id': return work_items.status_id;
         case 'assigned_to': return work_items.assigned_to;
         case 'updated_at': return work_items.updated_at;
-        case 'created_at':
         default: return work_items.created_at;
       }
     })();
@@ -264,12 +260,12 @@ export class RBACWorkItemsService extends BaseRBACService {
     });
 
     // Check read permission
-    const canReadOwn = this.checker.hasPermission('work_items:read:own', workItemId);
-    const canReadOrg = this.checker.hasPermission('work_items:read:organization');
-    const canReadAll = this.checker.hasPermission('work_items:read:all');
+    const canReadOwn = this.checker.hasPermission('work-items:read:own', workItemId);
+    const canReadOrg = this.checker.hasPermission('work-items:read:organization');
+    const canReadAll = this.checker.hasPermission('work-items:read:all');
 
     if (!canReadOwn && !canReadOrg && !canReadAll) {
-      throw new PermissionDeniedError('work_items:read:*', workItemId);
+      throw new PermissionDeniedError('work-items:read:*', workItemId);
     }
 
     // Fetch the work item with joins
@@ -316,7 +312,7 @@ export class RBACWorkItemsService extends BaseRBACService {
     // Additional permission check for organization scope
     if (canReadOrg && !canReadAll) {
       if (!this.canAccessOrganization(workItem.organization_id)) {
-        throw new PermissionDeniedError('work_items:read:organization', workItemId);
+        throw new PermissionDeniedError('work-items:read:organization', workItemId);
       }
     }
 
@@ -365,8 +361,7 @@ export class RBACWorkItemsService extends BaseRBACService {
       operation: 'create_work_item',
     });
 
-    // Check permission
-    this.requirePermission('work_items:create:organization', undefined, workItemData.organization_id);
+    // Permission already checked by rbacRoute - just verify organization access
     this.requireOrganizationAccess(workItemData.organization_id);
 
     // Get initial status for this work item type
@@ -464,7 +459,7 @@ export class RBACWorkItemsService extends BaseRBACService {
       duration: Date.now() - startTime,
     });
 
-    await this.logPermissionCheck('work_items:create:organization', newWorkItem.work_item_id, workItemData.organization_id);
+    await this.logPermissionCheck('work-items:create:organization', newWorkItem.work_item_id, workItemData.organization_id);
 
     // Fetch and return the created work item with full details
     const workItemWithDetails = await this.getWorkItemById(newWorkItem.work_item_id);
@@ -487,12 +482,12 @@ export class RBACWorkItemsService extends BaseRBACService {
     });
 
     // Check permission
-    const canUpdateOwn = this.checker.hasPermission('work_items:update:own', workItemId);
-    const canUpdateOrg = this.checker.hasPermission('work_items:update:organization');
-    const canUpdateAll = this.checker.hasPermission('work_items:update:all');
+    const canUpdateOwn = this.checker.hasPermission('work-items:update:own', workItemId);
+    const canUpdateOrg = this.checker.hasPermission('work-items:update:organization');
+    const canUpdateAll = this.checker.hasPermission('work-items:update:all');
 
     if (!canUpdateOwn && !canUpdateOrg && !canUpdateAll) {
-      throw new PermissionDeniedError('work_items:update:*', workItemId);
+      throw new PermissionDeniedError('work-items:update:*', workItemId);
     }
 
     // Verify organization access for org scope
@@ -502,7 +497,7 @@ export class RBACWorkItemsService extends BaseRBACService {
         throw new Error('Work item not found');
       }
       if (!this.canAccessOrganization(targetWorkItem.organization_id)) {
-        throw new PermissionDeniedError('work_items:update:organization', workItemId);
+        throw new PermissionDeniedError('work-items:update:organization', workItemId);
       }
     }
 
@@ -526,7 +521,7 @@ export class RBACWorkItemsService extends BaseRBACService {
       duration: Date.now() - startTime,
     });
 
-    await this.logPermissionCheck('work_items:update', workItemId);
+    await this.logPermissionCheck('work-items:update', workItemId);
 
     // Fetch and return updated work item with full details
     const workItemWithDetails = await this.getWorkItemById(workItemId);
@@ -549,12 +544,12 @@ export class RBACWorkItemsService extends BaseRBACService {
     });
 
     // Check permission
-    const canDeleteOwn = this.checker.hasPermission('work_items:delete:own', workItemId);
-    const canDeleteOrg = this.checker.hasPermission('work_items:delete:organization');
-    const canDeleteAll = this.checker.hasPermission('work_items:delete:all');
+    const canDeleteOwn = this.checker.hasPermission('work-items:delete:own', workItemId);
+    const canDeleteOrg = this.checker.hasPermission('work-items:delete:organization');
+    const canDeleteAll = this.checker.hasPermission('work-items:delete:all');
 
     if (!canDeleteOwn && !canDeleteOrg && !canDeleteAll) {
-      throw new PermissionDeniedError('work_items:delete:*', workItemId);
+      throw new PermissionDeniedError('work-items:delete:*', workItemId);
     }
 
     // Verify organization access for org scope
@@ -564,7 +559,7 @@ export class RBACWorkItemsService extends BaseRBACService {
         throw new Error('Work item not found');
       }
       if (!this.canAccessOrganization(targetWorkItem.organization_id)) {
-        throw new PermissionDeniedError('work_items:delete:organization', workItemId);
+        throw new PermissionDeniedError('work-items:delete:organization', workItemId);
       }
     }
 
@@ -583,14 +578,14 @@ export class RBACWorkItemsService extends BaseRBACService {
       duration: Date.now() - startTime,
     });
 
-    await this.logPermissionCheck('work_items:delete', workItemId);
+    await this.logPermissionCheck('work-items:delete', workItemId);
   }
 
   /**
    * Get work item count
    */
   async getWorkItemCount(options: WorkItemQueryOptions = {}): Promise<number> {
-    const accessScope = this.getAccessScope('work_items', 'read');
+    const accessScope = this.getAccessScope('work-items', 'read');
     const whereConditions = [isNull(work_items.deleted_at)];
 
     // Apply scope-based filtering
@@ -644,7 +639,7 @@ export class RBACWorkItemsService extends BaseRBACService {
     // Verify permission to read the work item
     await this.getWorkItemById(workItemId);
 
-    const accessScope = this.getAccessScope('work_items', 'read');
+    const accessScope = this.getAccessScope('work-items', 'read');
     const whereConditions = [
       isNull(work_items.deleted_at),
       eq(work_items.parent_work_item_id, workItemId),
@@ -773,7 +768,7 @@ export class RBACWorkItemsService extends BaseRBACService {
       return [];
     }
 
-    const accessScope = this.getAccessScope('work_items', 'read');
+    const accessScope = this.getAccessScope('work-items', 'read');
     const whereConditions = [
       isNull(work_items.deleted_at),
       inArray(work_items.work_item_id, ancestorIds),
@@ -882,12 +877,12 @@ export class RBACWorkItemsService extends BaseRBACService {
     });
 
     // Check permission
-    const canUpdateOwn = this.checker.hasPermission('work_items:update:own', workItemId);
-    const canUpdateOrg = this.checker.hasPermission('work_items:update:organization');
-    const canUpdateAll = this.checker.hasPermission('work_items:update:all');
+    const canUpdateOwn = this.checker.hasPermission('work-items:update:own', workItemId);
+    const canUpdateOrg = this.checker.hasPermission('work-items:update:organization');
+    const canUpdateAll = this.checker.hasPermission('work-items:update:all');
 
     if (!canUpdateOwn && !canUpdateOrg && !canUpdateAll) {
-      throw new PermissionDeniedError('work_items:update:*', workItemId);
+      throw new PermissionDeniedError('work-items:update:*', workItemId);
     }
 
     // Get the work item being moved
@@ -959,7 +954,7 @@ export class RBACWorkItemsService extends BaseRBACService {
       duration,
     });
 
-    await this.logPermissionCheck('work_items:update:move', workItemId);
+    await this.logPermissionCheck('work-items:update:move', workItemId);
 
     const updatedWorkItem = await this.getWorkItemById(workItemId);
     if (!updatedWorkItem) {
@@ -1004,25 +999,6 @@ export class RBACWorkItemsService extends BaseRBACService {
         })
         .where(eq(work_items.work_item_id, descendant.work_item_id));
     }
-  }
-
-  /**
-   * Phase 2: Validate depth when creating child work items
-   */
-  private async validateDepth(parentWorkItemId: string): Promise<number> {
-    const parentDepth = await db
-      .select({ depth: work_items.depth })
-      .from(work_items)
-      .where(eq(work_items.work_item_id, parentWorkItemId))
-      .limit(1);
-
-    const newDepth = (parentDepth[0]?.depth || 0) + 1;
-
-    if (newDepth > 10) {
-      throw new Error('Maximum nesting depth of 10 levels exceeded');
-    }
-
-    return newDepth;
   }
 }
 

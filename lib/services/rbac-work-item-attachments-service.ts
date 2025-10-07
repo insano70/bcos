@@ -40,10 +40,6 @@ export interface WorkItemAttachmentWithDetails {
 }
 
 export class RBACWorkItemAttachmentsService extends BaseRBACService {
-  constructor(userContext: UserContext) {
-    super(userContext);
-  }
-
   /**
    * Get attachments for a work item with permission checking
    */
@@ -58,7 +54,7 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
     // First verify user has permission to read the work item
     const canReadWorkItem = await this.canReadWorkItem(options.work_item_id);
     if (!canReadWorkItem) {
-      throw new PermissionDeniedError('work_items:read:*', options.work_item_id);
+      throw new PermissionDeniedError('work-items:read:*', options.work_item_id);
     }
 
     // Fetch attachments
@@ -160,7 +156,7 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
     // Verify user has permission to read the work item
     const canReadWorkItem = await this.canReadWorkItem(attachment.work_item_id);
     if (!canReadWorkItem) {
-      throw new PermissionDeniedError('work_items:read:*', attachment.work_item_id);
+      throw new PermissionDeniedError('work-items:read:*', attachment.work_item_id);
     }
 
     const duration = Date.now() - startTime;
@@ -201,7 +197,7 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
     // Verify user has permission to update the work item (uploading is an update operation)
     const canUpdateWorkItem = await this.canUpdateWorkItem(attachmentData.work_item_id);
     if (!canUpdateWorkItem) {
-      throw new PermissionDeniedError('work_items:update:*', attachmentData.work_item_id);
+      throw new PermissionDeniedError('work-items:update:*', attachmentData.work_item_id);
     }
 
     // Create attachment
@@ -228,7 +224,7 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
       duration: Date.now() - startTime,
     });
 
-    await this.logPermissionCheck('work_items:update:attachment', newAttachment.work_item_id);
+    await this.logPermissionCheck('work-items:update:attachment', newAttachment.work_item_id);
 
     // Fetch and return the created attachment with full details
     const attachmentWithDetails = await this.getAttachmentById(newAttachment.work_item_attachment_id);
@@ -259,7 +255,7 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
     // Verify user has permission to update the work item (deleting attachment is an update operation)
     const canUpdateWorkItem = await this.canUpdateWorkItem(attachment.work_item_id);
     if (!canUpdateWorkItem) {
-      throw new PermissionDeniedError('work_items:update:*', attachment.work_item_id);
+      throw new PermissionDeniedError('work-items:update:*', attachment.work_item_id);
     }
 
     // Soft delete
@@ -275,16 +271,16 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
       duration: Date.now() - startTime,
     });
 
-    await this.logPermissionCheck('work_items:update:attachment_delete', attachment.work_item_id);
+    await this.logPermissionCheck('work-items:update:attachment_delete', attachment.work_item_id);
   }
 
   /**
    * Helper method to check if user can read a work item
    */
   private async canReadWorkItem(workItemId: string): Promise<boolean> {
-    const canReadOwn = this.checker.hasPermission('work_items:read:own', workItemId);
-    const canReadOrg = this.checker.hasPermission('work_items:read:organization');
-    const canReadAll = this.checker.hasPermission('work_items:read:all');
+    const canReadOwn = this.checker.hasPermission('work-items:read:own', workItemId);
+    const canReadOrg = this.checker.hasPermission('work-items:read:organization');
+    const canReadAll = this.checker.hasPermission('work-items:read:all');
 
     if (!canReadOwn && !canReadOrg && !canReadAll) {
       return false;
@@ -312,9 +308,9 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
    * Helper method to check if user can update a work item
    */
   private async canUpdateWorkItem(workItemId: string): Promise<boolean> {
-    const canUpdateOwn = this.checker.hasPermission('work_items:update:own', workItemId);
-    const canUpdateOrg = this.checker.hasPermission('work_items:update:organization');
-    const canUpdateAll = this.checker.hasPermission('work_items:update:all');
+    const canUpdateOwn = this.checker.hasPermission('work-items:update:own', workItemId);
+    const canUpdateOrg = this.checker.hasPermission('work-items:update:organization');
+    const canUpdateAll = this.checker.hasPermission('work-items:update:all');
 
     if (!canUpdateOwn && !canUpdateOrg && !canUpdateAll) {
       return false;

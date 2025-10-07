@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { users, work_item_comments, work_items } from '@/lib/db/schema';
 import { BaseRBACService } from '@/lib/rbac/base-service';
@@ -39,10 +39,6 @@ export interface WorkItemCommentWithDetails {
 }
 
 export class RBACWorkItemCommentsService extends BaseRBACService {
-  constructor(userContext: UserContext) {
-    super(userContext);
-  }
-
   /**
    * Get comments for a work item with permission checking
    */
@@ -57,7 +53,7 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
     // First verify user has permission to read the work item
     const canReadWorkItem = await this.canReadWorkItem(options.work_item_id);
     if (!canReadWorkItem) {
-      throw new PermissionDeniedError('work_items:read:*', options.work_item_id);
+      throw new PermissionDeniedError('work-items:read:*', options.work_item_id);
     }
 
     // Fetch comments
@@ -164,7 +160,7 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
     // Verify user has permission to read/comment on the work item
     const canReadWorkItem = await this.canReadWorkItem(commentData.work_item_id);
     if (!canReadWorkItem) {
-      throw new PermissionDeniedError('work_items:read:*', commentData.work_item_id);
+      throw new PermissionDeniedError('work-items:read:*', commentData.work_item_id);
     }
 
     // Create comment
@@ -219,7 +215,7 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
 
     // Check permission: user must be the creator or have admin permissions
     const isCreator = comment.created_by === this.userContext.user_id;
-    const isAdmin = this.checker.hasPermission('work_items:manage:all');
+    const isAdmin = this.checker.hasPermission('work-items:manage:all');
 
     if (!isCreator && !isAdmin) {
       throw new PermissionDeniedError('work_item_comments:update', commentId);
@@ -272,7 +268,7 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
 
     // Check permission: user must be the creator or have admin permissions
     const isCreator = comment.created_by === this.userContext.user_id;
-    const isAdmin = this.checker.hasPermission('work_items:manage:all');
+    const isAdmin = this.checker.hasPermission('work-items:manage:all');
 
     if (!isCreator && !isAdmin) {
       throw new PermissionDeniedError('work_item_comments:delete', commentId);
@@ -298,7 +294,7 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
    * Helper: Check if user can read a work item
    */
   private async canReadWorkItem(workItemId: string): Promise<boolean> {
-    const accessScope = this.getAccessScope('work_items', 'read');
+    const accessScope = this.getAccessScope('work-items', 'read');
 
     // Get the work item to check organization
     const [workItem] = await db

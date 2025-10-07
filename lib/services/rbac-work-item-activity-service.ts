@@ -41,10 +41,6 @@ export interface WorkItemActivityWithDetails {
 }
 
 export class RBACWorkItemActivityService extends BaseRBACService {
-  constructor(userContext: UserContext) {
-    super(userContext);
-  }
-
   /**
    * Get activity log for a work item with permission checking
    */
@@ -59,7 +55,7 @@ export class RBACWorkItemActivityService extends BaseRBACService {
     // First verify user has permission to read the work item
     const canReadWorkItem = await this.canReadWorkItem(options.work_item_id);
     if (!canReadWorkItem) {
-      throw new PermissionDeniedError('work_items:read:*', options.work_item_id);
+      throw new PermissionDeniedError('work-items:read:*', options.work_item_id);
     }
 
     // Build where conditions
@@ -253,7 +249,7 @@ export class RBACWorkItemActivityService extends BaseRBACService {
    * Helper: Check if user can read a work item
    */
   private async canReadWorkItem(workItemId: string): Promise<boolean> {
-    const accessScope = this.getAccessScope('work_items', 'read');
+    const accessScope = this.getAccessScope('work-items', 'read');
 
     // Get the work item to check organization
     const [workItem] = await db

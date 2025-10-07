@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, isNull, or } from 'drizzle-orm';
+import { and, asc, count, eq, isNull, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { organizations, users, work_item_types } from '@/lib/db/schema';
 import { BaseRBACService } from '@/lib/rbac/base-service';
@@ -51,20 +51,22 @@ export class RBACWorkItemTypesService extends BaseRBACService {
       // Filter by organization_id or include global types
       if (organization_id) {
         // Include both global types (null) and organization-specific types
-        conditions.push(
-          or(
-            isNull(work_item_types.organization_id),
-            eq(work_item_types.organization_id, organization_id)
-          )!
+        const orgCondition = or(
+          isNull(work_item_types.organization_id),
+          eq(work_item_types.organization_id, organization_id)
         );
+        if (orgCondition) {
+          conditions.push(orgCondition);
+        }
       } else if (this.userContext.current_organization_id) {
         // If no org filter but user has current org, show global + current org types
-        conditions.push(
-          or(
-            isNull(work_item_types.organization_id),
-            eq(work_item_types.organization_id, this.userContext.current_organization_id)
-          )!
+        const orgCondition = or(
+          isNull(work_item_types.organization_id),
+          eq(work_item_types.organization_id, this.userContext.current_organization_id)
         );
+        if (orgCondition) {
+          conditions.push(orgCondition);
+        }
       } else {
         // Otherwise, only show global types
         conditions.push(isNull(work_item_types.organization_id));
@@ -137,19 +139,21 @@ export class RBACWorkItemTypesService extends BaseRBACService {
       const conditions = [eq(work_item_types.deleted_at, null as unknown as Date)];
 
       if (organization_id) {
-        conditions.push(
-          or(
-            isNull(work_item_types.organization_id),
-            eq(work_item_types.organization_id, organization_id)
-          )!
+        const orgCondition = or(
+          isNull(work_item_types.organization_id),
+          eq(work_item_types.organization_id, organization_id)
         );
+        if (orgCondition) {
+          conditions.push(orgCondition);
+        }
       } else if (this.userContext.current_organization_id) {
-        conditions.push(
-          or(
-            isNull(work_item_types.organization_id),
-            eq(work_item_types.organization_id, this.userContext.current_organization_id)
-          )!
+        const orgCondition = or(
+          isNull(work_item_types.organization_id),
+          eq(work_item_types.organization_id, this.userContext.current_organization_id)
         );
+        if (orgCondition) {
+          conditions.push(orgCondition);
+        }
       } else {
         conditions.push(isNull(work_item_types.organization_id));
       }

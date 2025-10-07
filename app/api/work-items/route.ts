@@ -140,7 +140,7 @@ const getWorkItemsHandler = async (request: NextRequest, userContext: UserContex
 };
 
 export const GET = rbacRoute(getWorkItemsHandler, {
-  permission: ['work_items:read:own', 'work_items:read:organization', 'work_items:read:all'],
+  permission: ['work-items:read:own', 'work-items:read:organization', 'work-items:read:all'],
   extractResourceId: extractors.workItemId,
   extractOrganizationId: extractors.organizationId,
   rateLimit: 'api',
@@ -226,7 +226,7 @@ const createWorkItemHandler = async (request: NextRequest, userContext: UserCont
 };
 
 export const POST = rbacRoute(createWorkItemHandler, {
-  permission: 'work_items:create:organization',
+  permission: ['work-items:create:own', 'work-items:create:organization'],
   extractOrganizationId: extractors.organizationId,
   rateLimit: 'api',
 });

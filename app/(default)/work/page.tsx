@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import { SelectedItemsProvider } from '@/app/selected-items-context';
 import WorkItemsContent from './work-items-content';
 
 export const metadata: Metadata = {
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function WorkItemsPage() {
-  return <WorkItemsContent />;
+  return (
+    <SelectedItemsProvider>
+      <WorkItemsContent />
+    </SelectedItemsProvider>
+  );
 }

@@ -312,7 +312,7 @@ export default function WorkItemsContent() {
 
           {/* Add Button */}
           <ProtectedComponent
-            permissions={['work_items:create:organization', 'work_items:manage:all']}
+            permissions={['work-items:create:own', 'work-items:create:organization', 'work-items:manage:all']}
             requireAll={false}
           >
             <button

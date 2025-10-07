@@ -86,7 +86,10 @@ export type ResourceType =
   | 'settings'
   | 'templates'
   | 'api'
-  | 'work_items';
+  | 'work-items'
+  | 'dashboards'
+  | 'charts'
+  | 'data-sources';
 
 export type ActionType =
   | 'read'
@@ -168,19 +171,42 @@ export type DataSourcePermission =
   | 'data-sources:manage:all';
 
 export type WorkItemPermission =
-  | 'work_items:read:own'
-  | 'work_items:create:own'
-  | 'work_items:update:own'
-  | 'work_items:delete:own'
-  | 'work_items:read:organization'
-  | 'work_items:create:organization'
-  | 'work_items:update:organization'
-  | 'work_items:delete:organization'
-  | 'work_items:read:all'
-  | 'work_items:create:all'
-  | 'work_items:update:all'
-  | 'work_items:delete:all'
-  | 'work_items:manage:all';
+  | 'work-items:read:own'
+  | 'work-items:create:own'
+  | 'work-items:update:own'
+  | 'work-items:delete:own'
+  | 'work-items:read:organization'
+  | 'work-items:create:organization'
+  | 'work-items:update:organization'
+  | 'work-items:delete:organization'
+  | 'work-items:read:all'
+  | 'work-items:update:all'
+  | 'work-items:delete:all'
+  | 'work-items:manage:all';
+
+export type DashboardPermission =
+  | 'dashboards:read:own'
+  | 'dashboards:create:own'
+  | 'dashboards:update:own'
+  | 'dashboards:delete:own'
+  | 'dashboards:read:organization'
+  | 'dashboards:create:organization'
+  | 'dashboards:update:organization'
+  | 'dashboards:delete:organization'
+  | 'dashboards:read:all'
+  | 'dashboards:manage:all';
+
+export type ChartPermission =
+  | 'charts:read:own'
+  | 'charts:create:own'
+  | 'charts:update:own'
+  | 'charts:delete:own'
+  | 'charts:read:organization'
+  | 'charts:create:organization'
+  | 'charts:update:organization'
+  | 'charts:delete:organization'
+  | 'charts:read:all'
+  | 'charts:manage:all';
 
 export type PermissionName =
   | UserPermission
@@ -192,7 +218,9 @@ export type PermissionName =
   | TemplatePermission
   | ApiPermission
   | DataSourcePermission
-  | WorkItemPermission;
+  | WorkItemPermission
+  | DashboardPermission
+  | ChartPermission;
 
 // Role Types for Healthcare Practices
 export type SystemRoleName = 'super_admin';

@@ -90,7 +90,7 @@ const getWorkItemHandler = async (
 };
 
 export const GET = rbacRoute(getWorkItemHandler, {
-  permission: ['work_items:read:own', 'work_items:read:organization', 'work_items:read:all'],
+  permission: ['work-items:read:own', 'work-items:read:organization', 'work-items:read:all'],
   extractResourceId: extractors.workItemId,
   extractOrganizationId: extractors.organizationId,
   rateLimit: 'api',
@@ -176,7 +176,7 @@ const updateWorkItemHandler = async (
 };
 
 export const PUT = rbacRoute(updateWorkItemHandler, {
-  permission: ['work_items:update:own', 'work_items:update:organization', 'work_items:update:all'],
+  permission: ['work-items:update:own', 'work-items:update:organization', 'work-items:update:all'],
   extractResourceId: extractors.workItemId,
   extractOrganizationId: extractors.organizationId,
   rateLimit: 'api',
@@ -237,7 +237,7 @@ const deleteWorkItemHandler = async (
 };
 
 export const DELETE = rbacRoute(deleteWorkItemHandler, {
-  permission: ['work_items:delete:own', 'work_items:delete:organization', 'work_items:delete:all'],
+  permission: ['work-items:delete:own', 'work-items:delete:organization', 'work-items:delete:all'],
   extractResourceId: extractors.workItemId,
   extractOrganizationId: extractors.organizationId,
   rateLimit: 'api',

@@ -134,14 +134,14 @@ const deleteWorkItemCommentHandler = async (
 };
 
 export const PUT = rbacRoute(updateWorkItemCommentHandler, {
-  permission: ['work_items:update:own', 'work_items:update:organization', 'work_items:update:all'],
+  permission: ['work-items:update:own', 'work-items:update:organization', 'work-items:update:all'],
   extractResourceId: extractors.workItemId,
   extractOrganizationId: extractors.organizationId,
   rateLimit: 'api',
 });
 
 export const DELETE = rbacRoute(deleteWorkItemCommentHandler, {
-  permission: ['work_items:update:own', 'work_items:update:organization', 'work_items:update:all'],
+  permission: ['work-items:update:own', 'work-items:update:organization', 'work-items:update:all'],
   extractResourceId: extractors.workItemId,
   extractOrganizationId: extractors.organizationId,
   rateLimit: 'api',

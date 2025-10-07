@@ -88,7 +88,7 @@ const getWorkItemAncestorsHandler = async (
 };
 
 export const GET = rbacRoute(getWorkItemAncestorsHandler, {
-  permission: ['work_items:read:own', 'work_items:read:organization', 'work_items:read:all'],
+  permission: ['work-items:read:own', 'work-items:read:organization', 'work-items:read:all'],
   extractResourceId: extractors.workItemId,
   extractOrganizationId: extractors.organizationId,
   rateLimit: 'api',

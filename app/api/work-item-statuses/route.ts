@@ -7,7 +7,7 @@ import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { work_item_statuses } from '@/lib/db/schema';
-import { and, asc, eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 
 /**
  * GET /api/work-item-statuses?work_item_type_id=<uuid>
@@ -76,7 +76,7 @@ const getWorkItemStatusesHandler = async (request: NextRequest, userContext: Use
 };
 
 export const GET = rbacRoute(getWorkItemStatusesHandler, {
-  permission: 'work_items:read:organization',
+  permission: 'work-items:read:organization',
   extractOrganizationId: extractors.organizationId,
   rateLimit: 'api',
 });
