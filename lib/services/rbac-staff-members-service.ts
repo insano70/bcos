@@ -1,9 +1,10 @@
 import { and, asc, desc, eq, isNull, like, sql } from 'drizzle-orm';
 import { AuthorizationError, NotFoundError } from '@/lib/api/responses/error';
-import { db, practices, staff_members } from '@/lib/db';
+import { db, staff_members } from '@/lib/db';
 import { log } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
 import { parseEducation, parseSpecialties } from '@/lib/utils/safe-json';
+import { verifyPracticeAccess } from './rbac-practice-utils';
 
 /**
  * RBAC Staff Members Service
@@ -117,45 +118,6 @@ export function createRBACStaffMembersService(
       (p) => p.name === 'practices:staff:manage:own' || p.name === 'practices:manage:all'
     );
 
-  /**
-   * Verify practice exists and user has access
-   */
-  async function verifyPracticeAccess(practiceId: string): Promise<void> {
-    const startTime = Date.now();
-
-    try {
-      const [practice] = await db
-        .select()
-        .from(practices)
-        .where(and(eq(practices.practice_id, practiceId), isNull(practices.deleted_at)))
-        .limit(1);
-
-      if (!practice) {
-        throw NotFoundError('Practice');
-      }
-
-      // Check ownership for non-super-admins
-      const isOwner = practice.owner_user_id === userContext.user_id;
-      if (!userContext.is_super_admin && !isOwner) {
-        throw AuthorizationError('You do not have permission to access this practice');
-      }
-
-      log.debug('Practice access verified for staff', {
-        practiceId,
-        userId: userContext.user_id,
-        isOwner,
-        duration: Date.now() - startTime,
-      });
-    } catch (error) {
-      log.error('Practice access verification failed', error, {
-        practiceId,
-        userId: userContext.user_id,
-        duration: Date.now() - startTime,
-      });
-      throw error;
-    }
-  }
-
   return {
     async getStaffMembers(
       practiceId: string,
@@ -170,7 +132,7 @@ export function createRBACStaffMembersService(
 
       try {
         // Verify access
-        await verifyPracticeAccess(practiceId);
+        await verifyPracticeAccess(practiceId, userContext);
 
         // Build where conditions
         const whereConditions = [
@@ -248,7 +210,7 @@ export function createRBACStaffMembersService(
 
       try {
         // Verify access
-        await verifyPracticeAccess(practiceId);
+        await verifyPracticeAccess(practiceId, userContext);
 
         // Get staff member
         const [member] = await db
@@ -307,7 +269,7 @@ export function createRBACStaffMembersService(
         }
 
         // Verify access
-        await verifyPracticeAccess(practiceId);
+        await verifyPracticeAccess(practiceId, userContext);
 
         // Get max display_order for this practice
         const [maxOrder] = await db
@@ -381,7 +343,7 @@ export function createRBACStaffMembersService(
         }
 
         // Verify access
-        await verifyPracticeAccess(practiceId);
+        await verifyPracticeAccess(practiceId, userContext);
 
         // Verify staff member exists and belongs to practice
         const [existing] = await db
@@ -462,7 +424,7 @@ export function createRBACStaffMembersService(
         }
 
         // Verify access
-        await verifyPracticeAccess(practiceId);
+        await verifyPracticeAccess(practiceId, userContext);
 
         // Verify staff member exists
         const [existing] = await db
@@ -529,7 +491,7 @@ export function createRBACStaffMembersService(
         }
 
         // Verify access
-        await verifyPracticeAccess(practiceId);
+        await verifyPracticeAccess(practiceId, userContext);
 
         // Update each staff member's display_order in a transaction
         await db.transaction(async (tx) => {

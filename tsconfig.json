@@ -34,6 +34,8 @@
     "docs/**/*",
     "infrastructure",
     "infrastructure/**/*",
+    "lib/api/templates",
+    "lib/api/templates/**/*",
     "**/*.md"
   ]
 }

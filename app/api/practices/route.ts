@@ -1,13 +1,14 @@
 import type { NextRequest } from 'next/server';
-import { createSuccessResponse, createPaginatedResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
-import { validateRequest, validateQuery } from '@/lib/api/middleware/validation';
-import { getPagination, getSortParams } from '@/lib/api/utils/request';
-import { practiceCreateSchema, practiceQuerySchema } from '@/lib/validations/practice';
+import { validateQuery, validateRequest } from '@/lib/api/middleware/validation';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createPaginatedResponse, createSuccessResponse } from '@/lib/api/responses/success';
 import { extractors, rbacConfigs } from '@/lib/api/utils/rbac-extractors';
-import type { UserContext } from '@/lib/types/rbac';
+import { getPagination, getSortParams } from '@/lib/api/utils/request';
+import { log } from '@/lib/logger';
 import { createRBACPracticesService } from '@/lib/services/rbac-practices-service';
+import type { UserContext } from '@/lib/types/rbac';
+import { practiceCreateSchema, practiceQuerySchema } from '@/lib/validations/practice';
 
 /**
  * RBAC-Enhanced Practices API
@@ -15,11 +16,20 @@ import { createRBACPracticesService } from '@/lib/services/rbac-practices-servic
  */
 
 const getPracticesHandler = async (request: NextRequest, userContext: UserContext) => {
+  const startTime = Date.now();
+
   try {
     const { searchParams } = new URL(request.url);
     const pagination = getPagination(searchParams);
     const sort = getSortParams(searchParams, ['name', 'domain', 'status', 'created_at']);
     const query = validateQuery(searchParams, practiceQuerySchema);
+
+    log.info('List practices request initiated', {
+      requestingUserId: userContext.user_id,
+      filters: { status: query.status, template_id: query.template_id },
+      pagination,
+      sort,
+    });
 
     // Use the RBAC practices service
     const practicesService = createRBACPracticesService(userContext);
@@ -37,28 +47,47 @@ const getPracticesHandler = async (request: NextRequest, userContext: UserContex
       practicesService.getPracticeCount({
         status: query.status,
         template_id: query.template_id,
-      })
+      }),
     ]);
+
+    log.info('List practices completed successfully', {
+      count: practicesData.length,
+      total: totalCount,
+      duration: Date.now() - startTime,
+    });
 
     return createPaginatedResponse(practicesData, {
       page: pagination.page,
       limit: pagination.limit,
-      total: totalCount
+      total: totalCount,
+    });
+  } catch (error) {
+    const errorMessage =
+      error && typeof error === 'object' && 'message' in error
+        ? String(error.message)
+        : 'Unknown error';
+
+    log.error('List practices failed', error, {
+      requestingUserId: userContext.user_id,
+      duration: Date.now() - startTime,
     });
 
-  } catch (error) {
-    console.error('Error fetching practices:', error);
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
-    );
+    const clientErrorMessage =
+      process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
+    return createErrorResponse(clientErrorMessage, 500, request);
   }
 };
 
 const createPracticeHandler = async (request: NextRequest, userContext: UserContext) => {
+  const startTime = Date.now();
+
   try {
     const validatedData = await validateRequest(request, practiceCreateSchema);
+
+    log.info('Create practice request initiated', {
+      requestingUserId: userContext.user_id,
+      domain: validatedData.domain,
+    });
 
     // Use the RBAC practices service
     const practicesService = createRBACPracticesService(userContext);
@@ -71,43 +100,52 @@ const createPracticeHandler = async (request: NextRequest, userContext: UserCont
       owner_user_id: validatedData.owner_user_id,
     });
 
-    return createSuccessResponse({
-      id: newPractice.id,
-      name: newPractice.name,
+    log.info('Practice created successfully', {
+      practiceId: newPractice.id,
       domain: newPractice.domain,
-      template_id: newPractice.template_id,
-      status: newPractice.status,
-      owner_user_id: newPractice.owner_user_id,
-      created_at: newPractice.created_at,
-      updated_at: newPractice.updated_at,
-    }, 'Practice created successfully');
+      duration: Date.now() - startTime,
+    });
 
-  } catch (error) {
-    console.error('Error creating practice:', error);
-    return createErrorResponse(
-      error instanceof Error ? error.message : 'Unknown error',
-      500,
-      request
+    return createSuccessResponse(
+      {
+        id: newPractice.id,
+        name: newPractice.name,
+        domain: newPractice.domain,
+        template_id: newPractice.template_id,
+        status: newPractice.status,
+        owner_user_id: newPractice.owner_user_id,
+        created_at: newPractice.created_at,
+        updated_at: newPractice.updated_at,
+      },
+      'Practice created successfully'
     );
+  } catch (error) {
+    const errorMessage =
+      error && typeof error === 'object' && 'message' in error
+        ? String(error.message)
+        : 'Unknown error';
+
+    log.error('Create practice failed', error, {
+      requestingUserId: userContext.user_id,
+      duration: Date.now() - startTime,
+    });
+
+    const clientErrorMessage =
+      process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
+    return createErrorResponse(clientErrorMessage, 500, request);
   }
 };
 
 // Export with RBAC protection
-export const GET = rbacRoute(
-  getPracticesHandler,
-  {
-    permission: ['practices:read:own', 'practices:read:all'],
-    extractResourceId: extractors.practiceId,
-    extractOrganizationId: extractors.organizationId,
-    rateLimit: 'api'
-  }
-);
+export const GET = rbacRoute(getPracticesHandler, {
+  permission: ['practices:read:own', 'practices:read:all'],
+  extractResourceId: extractors.practiceId,
+  extractOrganizationId: extractors.organizationId,
+  rateLimit: 'api',
+});
 
 // Only super admins can create new practices
-export const POST = rbacRoute(
-  createPracticeHandler,
-  {
-    ...rbacConfigs.superAdmin,
-    rateLimit: 'api'
-  }
-);
+export const POST = rbacRoute(createPracticeHandler, {
+  ...rbacConfigs.superAdmin,
+  rateLimit: 'api',
+});

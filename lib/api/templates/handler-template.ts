@@ -1,7 +1,13 @@
+// @ts-nocheck
 /**
  * ============================================================================
  * API HANDLER TEMPLATE
  * ============================================================================
+ *
+ * This is a TEMPLATE file with placeholder syntax (e.g., [Resource], [resource])
+ * that must be replaced when copying to create actual API endpoints.
+ *
+ * TypeScript checking is disabled for this file via @ts-nocheck directive.
  *
  * Use this template when creating new API endpoints.
  * Follow the gold standard pattern from app/api/users/route.ts
@@ -18,7 +24,7 @@
  * 4. Replace [operation] with the operation (e.g., get, create, update, delete)
  * 5. Update permission names to match your resource
  * 6. Remove sections you don't need (e.g., if no pagination needed)
- * 7. Delete this header comment block
+ * 7. Delete the @ts-nocheck directive and this header comment block
  *
  * ============================================================================
  */
