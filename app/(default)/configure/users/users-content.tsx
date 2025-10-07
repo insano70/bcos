@@ -1,11 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import AddUserModal from '@/components/add-user-modal';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import DateSelect from '@/components/date-select';
 import DeleteButton from '@/components/delete-button';
-import FilterButton from '@/components/dropdown-filter';
+import FilterButton, {
+  type ActiveFilter,
+  type FilterGroup,
+} from '@/components/dropdown-filter';
 import EditUserModal from '@/components/edit-user-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { type User, useUsers } from '@/lib/hooks/use-users';
@@ -25,6 +28,64 @@ export default function UsersContent() {
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
+
+  // Define filter configuration
+  const filterGroups: FilterGroup[] = [
+    {
+      group: 'Status',
+      options: [
+        { label: 'All', value: 'all', field: 'is_active' },
+        { label: 'Active', value: 'active', field: 'is_active', comparator: true },
+        { label: 'Inactive', value: 'inactive', field: 'is_active', comparator: false },
+      ],
+    },
+    {
+      group: 'Email Verification',
+      options: [
+        { label: 'All', value: 'all', field: 'email_verified' },
+        { label: 'Verified', value: 'verified', field: 'email_verified', comparator: true },
+        { label: 'Pending', value: 'pending', field: 'email_verified', comparator: false },
+      ],
+    },
+  ];
+
+  // Apply filters to users data
+  const filteredUsers = useMemo(() => {
+    if (!users || activeFilters.length === 0) {
+      return users || [];
+    }
+
+    return users.filter((user) => {
+      // Group filters by field to handle multiple filters on same field
+      const filtersByField = activeFilters.reduce(
+        (acc, filter) => {
+          if (!acc[filter.field]) {
+            acc[filter.field] = [];
+          }
+          const fieldFilters = acc[filter.field];
+          if (fieldFilters) {
+            fieldFilters.push(filter);
+          }
+          return acc;
+        },
+        {} as Record<string, ActiveFilter[]>
+      );
+
+      // Check each field - user must match at least one filter per field (OR within field)
+      // But must match all fields that have filters (AND between fields)
+      return Object.entries(filtersByField).every(([field, filters]) => {
+        return filters.some((filter) => {
+          const userValue = user[field as keyof User];
+          return userValue === filter.comparator;
+        });
+      });
+    });
+  }, [users, activeFilters]);
+
+  const handleFilterChange = (filters: ActiveFilter[]) => {
+    setActiveFilters(filters);
+  };
 
   // Helper functions
   const formatDate = (date: string | Date | null) => {
@@ -334,7 +395,7 @@ export default function UsersContent() {
           <DateSelect />
 
           {/* Filter button */}
-          <FilterButton align="right" />
+          <FilterButton align="right" filters={filterGroups} onFilterChange={handleFilterChange} />
 
           {/* Add user button - protected by RBAC */}
           <ProtectedComponent
@@ -364,7 +425,7 @@ export default function UsersContent() {
       {/* Table */}
       <DataTable
         title="All Users"
-        data={users || []}
+        data={filteredUsers}
         columns={columns}
         dropdownActions={getDropdownActions}
         pagination={{ itemsPerPage: 10 }}

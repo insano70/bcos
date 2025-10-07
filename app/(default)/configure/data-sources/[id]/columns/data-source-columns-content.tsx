@@ -1,12 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import AddDataSourceColumnModal from '@/components/add-data-source-column-modal';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import DeleteButton from '@/components/delete-button';
 import DeleteDataSourceColumnModal from '@/components/delete-data-source-column-modal';
-import FilterButton from '@/components/dropdown-filter';
+import FilterButton, {
+  type ActiveFilter,
+  type FilterGroup,
+} from '@/components/dropdown-filter';
 import EditDataSourceColumnModal from '@/components/edit-data-source-column-modal';
 import IntrospectDataSourceModal from '@/components/introspect-data-source-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
@@ -43,6 +46,74 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
     ...col,
     id: String(col.column_id),
   }));
+
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
+
+  // Define filter configuration
+  const filterGroups: FilterGroup[] = [
+    {
+      group: 'Status',
+      options: [
+        { label: 'All', value: 'all', field: 'is_active' },
+        { label: 'Active', value: 'active', field: 'is_active', comparator: true },
+        { label: 'Inactive', value: 'inactive', field: 'is_active', comparator: false },
+      ],
+    },
+    {
+      group: 'Column Type',
+      options: [
+        { label: 'All', value: 'all', field: 'column_type' },
+        { label: 'Measures', value: 'measures', field: 'is_measure', comparator: true },
+        { label: 'Dimensions', value: 'dimensions', field: 'is_dimension', comparator: true },
+        { label: 'Date Fields', value: 'dates', field: 'is_date_field', comparator: true },
+      ],
+    },
+    {
+      group: 'Flags',
+      options: [
+        { label: 'All', value: 'all', field: 'flags' },
+        { label: 'Filterable', value: 'filterable', field: 'is_filterable', comparator: true },
+        { label: 'Groupable', value: 'groupable', field: 'is_groupable', comparator: true },
+        { label: 'Sensitive', value: 'sensitive', field: 'is_sensitive', comparator: true },
+      ],
+    },
+  ];
+
+  // Apply filters to columns
+  const filteredColumns = useMemo(() => {
+    if (!columns || activeFilters.length === 0) {
+      return columns || [];
+    }
+
+    return columns.filter((column) => {
+      // Group filters by field
+      const filtersByField = activeFilters.reduce(
+        (acc, filter) => {
+          if (!acc[filter.field]) {
+            acc[filter.field] = [];
+          }
+          const fieldFilters = acc[filter.field];
+          if (fieldFilters) {
+            fieldFilters.push(filter);
+          }
+          return acc;
+        },
+        {} as Record<string, ActiveFilter[]>
+      );
+
+      // Check each field - OR within field, AND between fields
+      return Object.entries(filtersByField).every(([_field, filters]) => {
+        return filters.some((filter) => {
+          const columnValue = column[filter.field as keyof DataSourceColumn];
+          return columnValue === filter.comparator;
+        });
+      });
+    });
+  }, [columns, activeFilters]);
+
+  const handleFilterChange = (filters: ActiveFilter[]) => {
+    setActiveFilters(filters);
+  };
 
   // State for modals and selected items
   const [isAddColumnModalOpen, setIsAddColumnModalOpen] = useState(false);
@@ -426,7 +497,7 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
           <DeleteButton />
 
           {/* Filter button */}
-          <FilterButton align="right" />
+          <FilterButton align="right" filters={filterGroups} onFilterChange={handleFilterChange} />
 
           {/* Introspect button - only show when no columns exist */}
           {columns.length === 0 && (
@@ -475,7 +546,7 @@ export default function DataSourceColumnsContent({ dataSourceId }: DataSourceCol
       {/* Table */}
       <DataTable
         title="Data Source Columns"
-        data={columns}
+        data={filteredColumns}
         columns={tableColumns}
         dropdownActions={getDropdownActions}
         pagination={{ itemsPerPage: 10 }}

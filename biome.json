@@ -10,6 +10,8 @@
     "includes": [
       "app/(default)/configure/**/*.ts",
       "app/(default)/configure/**/*.tsx",
+      "app/api/**/*.ts",
+      "app/api/**/*.tsx",
       "lib/**/*.ts",
       "lib/**/*.tsx"
     ]

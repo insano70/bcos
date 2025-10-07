@@ -1,13 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import AddDataSourceModal from '@/components/add-data-source-modal';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import DataSourceConnectionTestModal from '@/components/data-source-connection-test-modal';
 import DateSelect from '@/components/date-select';
 import DeleteButton from '@/components/delete-button';
 import DeleteDataSourceModal from '@/components/delete-data-source-modal';
-import FilterButton from '@/components/dropdown-filter';
+import FilterButton, {
+  type ActiveFilter,
+  type FilterGroup,
+} from '@/components/dropdown-filter';
 import EditDataSourceModal from '@/components/edit-data-source-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import Toast from '@/components/toast';
@@ -36,6 +39,38 @@ export default function DataSourcesContent() {
     ...ds,
     id: ds.data_source_id.toString(),
   }));
+
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
+
+  // Define filter configuration
+  const filterGroups: FilterGroup[] = [
+    {
+      group: 'Status',
+      options: [
+        { label: 'All', value: 'all', field: 'is_active' },
+        { label: 'Active', value: 'active', field: 'is_active', comparator: true },
+        { label: 'Inactive', value: 'inactive', field: 'is_active', comparator: false },
+      ],
+    },
+  ];
+
+  // Apply filters to data sources
+  const filteredDataSources = useMemo(() => {
+    if (!dataSources || activeFilters.length === 0) {
+      return dataSources || [];
+    }
+
+    return dataSources.filter((dataSource) => {
+      return activeFilters.every((filter) => {
+        const dataSourceValue = dataSource[filter.field as keyof DataSourceWithId];
+        return dataSourceValue === filter.comparator;
+      });
+    });
+  }, [dataSources, activeFilters]);
+
+  const handleFilterChange = (filters: ActiveFilter[]) => {
+    setActiveFilters(filters);
+  };
 
   // State for modals and selected items
   const [isAddDataSourceModalOpen, setIsAddDataSourceModalOpen] = useState(false);
@@ -321,7 +356,7 @@ export default function DataSourcesContent() {
           <DateSelect />
 
           {/* Filter button */}
-          <FilterButton align="right" />
+          <FilterButton align="right" filters={filterGroups} onFilterChange={handleFilterChange} />
 
           {/* Add data source button - protected by RBAC */}
           <ProtectedComponent permission="data-sources:create:organization">
@@ -348,7 +383,7 @@ export default function DataSourcesContent() {
       {/* Table */}
       <DataTable
         title="All Data Sources"
-        data={dataSources}
+        data={filteredDataSources}
         columns={columns}
         dropdownActions={getDropdownActions}
         pagination={{ itemsPerPage: 10 }}

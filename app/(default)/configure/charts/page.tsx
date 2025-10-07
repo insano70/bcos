@@ -1,12 +1,15 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { SelectedItemsProvider } from '@/app/selected-items-context';
 import DateSelect from '@/components/date-select';
 import DeleteButton from '@/components/delete-button';
 import DeleteChartModal from '@/components/delete-chart-modal';
-import FilterButton from '@/components/dropdown-filter';
+import FilterButton, {
+  type ActiveFilter,
+  type FilterGroup,
+} from '@/components/dropdown-filter';
 import Toast from '@/components/toast';
 import { apiClient } from '@/lib/api/client';
 import type { ChartWithMetadata } from '@/lib/services/rbac-charts-service';
@@ -26,6 +29,66 @@ export default function ChartBuilderPage() {
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
+
+  // Define filter configuration
+  const filterGroups: FilterGroup[] = [
+    {
+      group: 'Status',
+      options: [
+        { label: 'All', value: 'all', field: 'is_active' },
+        { label: 'Active', value: 'active', field: 'is_active', comparator: true },
+        { label: 'Inactive', value: 'inactive', field: 'is_active', comparator: false },
+      ],
+    },
+    {
+      group: 'Chart Type',
+      options: [
+        { label: 'All', value: 'all', field: 'chart_type' },
+        { label: 'Line', value: 'line', field: 'chart_type', comparator: 'line' },
+        { label: 'Bar', value: 'bar', field: 'chart_type', comparator: 'bar' },
+        { label: 'Pie', value: 'pie', field: 'chart_type', comparator: 'pie' },
+        { label: 'Doughnut', value: 'doughnut', field: 'chart_type', comparator: 'doughnut' },
+        { label: 'Area', value: 'area', field: 'chart_type', comparator: 'area' },
+      ],
+    },
+  ];
+
+  // Apply filters to charts
+  const filteredCharts = useMemo(() => {
+    if (!savedCharts || activeFilters.length === 0) {
+      return savedCharts || [];
+    }
+
+    return savedCharts.filter((chart) => {
+      // Group filters by field
+      const filtersByField = activeFilters.reduce(
+        (acc, filter) => {
+          if (!acc[filter.field]) {
+            acc[filter.field] = [];
+          }
+          const fieldFilters = acc[filter.field];
+          if (fieldFilters) {
+            fieldFilters.push(filter);
+          }
+          return acc;
+        },
+        {} as Record<string, ActiveFilter[]>
+      );
+
+      // Check each field - OR within field, AND between fields
+      return Object.entries(filtersByField).every(([field, filters]) => {
+        return filters.some((filter) => {
+          const chartValue = chart[field as keyof ChartDefinitionListItem];
+          return chartValue === filter.comparator;
+        });
+      });
+    });
+  }, [savedCharts, activeFilters]);
+
+  const handleFilterChange = (filters: ActiveFilter[]) => {
+    setActiveFilters(filters);
+  };
 
   // Helper function for chart type badge colors
   const getChartTypeBadgeColor = (type: string) => {
@@ -348,7 +411,7 @@ export default function ChartBuilderPage() {
             <DateSelect />
 
             {/* Filter button */}
-            <FilterButton align="right" />
+            <FilterButton align="right" filters={filterGroups} onFilterChange={handleFilterChange} />
 
             {/* Create chart button */}
             <button
@@ -372,7 +435,7 @@ export default function ChartBuilderPage() {
         {/* Charts Table */}
         <DataTable
           title="All Charts"
-          data={savedCharts}
+          data={filteredCharts}
           columns={columns}
           dropdownActions={getDropdownActions}
           pagination={{ itemsPerPage: 10 }}

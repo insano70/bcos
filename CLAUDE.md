@@ -63,8 +63,9 @@ This document contains the rules, guidelines, and context for AI assistants work
 1. Make code changes
 2. Run `pnpm tsc` to check TypeScript compilation
 3. Run `pnpm lint` to check linting rules
-4. Fix any errors that appear. ERRORS.
+4. Fix any errors that you created
 5. Only proceed when all checks pass
+6. Do not create documents unless asked. Display your findings to the user.
 
 ## Project Context
 

@@ -1,10 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import AddPracticeModal from '@/components/add-practice-modal';
 import DateSelect from '@/components/date-select';
 import DeleteButton from '@/components/delete-button';
-import FilterButton from '@/components/dropdown-filter';
+import FilterButton, {
+  type ActiveFilter,
+  type FilterGroup,
+} from '@/components/dropdown-filter';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { usePracticePermissions } from '@/lib/hooks/use-permissions';
 import { usePractices } from '@/lib/hooks/use-practices';
@@ -18,6 +21,38 @@ export default function PracticesContent() {
   const { data: practices, isLoading, error, refetch } = usePractices();
   const _practicePermissions = usePracticePermissions();
   const [isAddPracticeModalOpen, setIsAddPracticeModalOpen] = useState(false);
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
+
+  // Define filter configuration
+  const filterGroups: FilterGroup[] = [
+    {
+      group: 'Status',
+      options: [
+        { label: 'All', value: 'all', field: 'status' },
+        { label: 'Active', value: 'active', field: 'status', comparator: 'active' },
+        { label: 'Inactive', value: 'inactive', field: 'status', comparator: 'inactive' },
+        { label: 'Pending', value: 'pending', field: 'status', comparator: 'pending' },
+      ],
+    },
+  ];
+
+  // Apply filters to practices data
+  const filteredPractices = useMemo(() => {
+    if (!practices || activeFilters.length === 0) {
+      return practices || [];
+    }
+
+    return practices.filter((practice) => {
+      return activeFilters.every((filter) => {
+        const practiceValue = practice[filter.field as keyof Practice];
+        return practiceValue === filter.comparator;
+      });
+    });
+  }, [practices, activeFilters]);
+
+  const handleFilterChange = (filters: ActiveFilter[]) => {
+    setActiveFilters(filters);
+  };
 
   const formatDate = (date: string | Date | null) => {
     if (!date) return '-';
@@ -294,7 +329,7 @@ export default function PracticesContent() {
           {/* Filter and date controls - available to all who can read practices */}
           <ProtectedComponent permissions={['practices:read:own', 'practices:read:all']}>
             <DateSelect />
-            <FilterButton align="right" />
+            <FilterButton align="right" filters={filterGroups} onFilterChange={handleFilterChange} />
           </ProtectedComponent>
 
           {/* Add practice button - only for super admins */}
@@ -322,7 +357,7 @@ export default function PracticesContent() {
       {/* Table */}
       <DataTable
         title="All Practices"
-        data={practices || []}
+        data={filteredPractices}
         columns={columns}
         dropdownActions={getDropdownActions}
         pagination={{ itemsPerPage: 10 }}

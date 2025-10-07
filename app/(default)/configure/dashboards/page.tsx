@@ -1,13 +1,16 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { SelectedItemsProvider } from '@/app/selected-items-context';
 import DashboardPreviewModal from '@/components/dashboard-preview-modal';
 import DateSelect from '@/components/date-select';
 import DeleteButton from '@/components/delete-button';
 import DeleteDashboardModal from '@/components/delete-dashboard-modal';
-import FilterButton from '@/components/dropdown-filter';
+import FilterButton, {
+  type ActiveFilter,
+  type FilterGroup,
+} from '@/components/dropdown-filter';
 import Toast from '@/components/toast';
 import DataTable, {
   type DataTableColumn,
@@ -32,6 +35,69 @@ export default function DashboardsPage() {
     dashboard: Dashboard;
     charts: DashboardChart[];
   } | null>(null);
+  const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
+
+  // Define filter configuration
+  const filterGroups: FilterGroup[] = [
+    {
+      group: 'Publication Status',
+      options: [
+        { label: 'All', value: 'all', field: 'is_published' },
+        { label: 'Published', value: 'published', field: 'is_published', comparator: true },
+        {
+          label: 'Under Development',
+          value: 'development',
+          field: 'is_published',
+          comparator: false,
+        },
+      ],
+    },
+    {
+      group: 'Special Status',
+      options: [
+        { label: 'All', value: 'all', field: 'special' },
+        { label: 'Default Home', value: 'default', field: 'is_default', comparator: true },
+        { label: 'Active', value: 'active', field: 'is_active', comparator: true },
+        { label: 'Inactive', value: 'inactive', field: 'is_active', comparator: false },
+      ],
+    },
+  ];
+
+  // Apply filters to dashboards
+  const filteredDashboards = useMemo(() => {
+    if (!savedDashboards || activeFilters.length === 0) {
+      return savedDashboards || [];
+    }
+
+    return savedDashboards.filter((dashboard) => {
+      // Group filters by field
+      const filtersByField = activeFilters.reduce(
+        (acc, filter) => {
+          if (!acc[filter.field]) {
+            acc[filter.field] = [];
+          }
+          const fieldFilters = acc[filter.field];
+          if (fieldFilters) {
+            fieldFilters.push(filter);
+          }
+          return acc;
+        },
+        {} as Record<string, ActiveFilter[]>
+      );
+
+      // Check each field - OR within field, AND between fields
+      return Object.entries(filtersByField).every(([field, filters]) => {
+        return filters.some((filter) => {
+          const dashboardValue = dashboard[field as keyof DashboardListItem];
+          return dashboardValue === filter.comparator;
+        });
+      });
+    });
+  }, [savedDashboards, activeFilters]);
+
+  const handleFilterChange = (filters: ActiveFilter[]) => {
+    setActiveFilters(filters);
+  };
 
   const getChartCountBadgeColor = (count: number) => {
     if (count === 0) return 'bg-gray-100 dark:bg-gray-900/20 text-gray-800 dark:text-gray-200';
@@ -496,7 +562,7 @@ export default function DashboardsPage() {
             <DateSelect />
 
             {/* Filter button */}
-            <FilterButton align="right" />
+            <FilterButton align="right" filters={filterGroups} onFilterChange={handleFilterChange} />
 
             {/* Create dashboard button */}
             <button
@@ -520,7 +586,7 @@ export default function DashboardsPage() {
         {/* Dashboards Table */}
         <DataTable
           title="All Dashboards"
-          data={savedDashboards}
+          data={filteredDashboards}
           columns={columns}
           dropdownActions={getDropdownActions}
           pagination={{ itemsPerPage: 10 }}

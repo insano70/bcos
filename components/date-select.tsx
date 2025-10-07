@@ -3,7 +3,17 @@
 import { useState } from 'react';
 import { Menu, MenuButton, MenuItems, MenuItem, Transition } from '@headlessui/react';
 
-export default function DateSelect() {
+export interface DateRange {
+  startDate: Date | null;
+  endDate: Date | null;
+  period: string;
+}
+
+interface DateSelectProps {
+  onDateChange?: (dateRange: DateRange) => void;
+}
+
+export default function DateSelect({ onDateChange }: DateSelectProps) {
   const options = [
     {
       id: 0,
@@ -27,7 +37,55 @@ export default function DateSelect() {
     },
   ];
 
-  const [selected, setSelected] = useState<number>(2);
+  const [selected, setSelected] = useState<number>(4); // Default to "All Time"
+
+  // Calculate date range based on selected option
+  const getDateRange = (optionId: number): DateRange => {
+    const now = new Date();
+    const endDate = new Date(now);
+    endDate.setHours(23, 59, 59, 999); // End of today
+
+    let startDate: Date | null = null;
+
+    switch (optionId) {
+      case 0: // Today
+        startDate = new Date(now);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 1: // Last 7 Days
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 7);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 2: // Last Month
+        startDate = new Date(now);
+        startDate.setMonth(now.getMonth() - 1);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 3: // Last 12 Months
+        startDate = new Date(now);
+        startDate.setFullYear(now.getFullYear() - 1);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 4: // All Time
+        startDate = null;
+        break;
+    }
+
+    return {
+      startDate,
+      endDate: optionId === 4 ? null : endDate,
+      period: options.find((opt) => opt.id === optionId)?.period || 'All Time',
+    };
+  };
+
+  const handleSelection = (optionId: number) => {
+    setSelected(optionId);
+    if (onDateChange) {
+      const dateRange = getDateRange(optionId);
+      onDateChange(dateRange);
+    }
+  };
 
   return (
     <Menu as="div" className="relative inline-flex">
@@ -59,8 +117,6 @@ export default function DateSelect() {
             </svg>
           </MenuButton>
           <Transition
-            as="div"
-            className="z-10 absolute top-full right-0 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 py-1.5 rounded-lg shadow-lg overflow-hidden mt-1"
             enter="transition ease-out duration-100 transform"
             enterFrom="opacity-0 -translate-y-2"
             enterTo="opacity-100 translate-y-0"
@@ -68,15 +124,14 @@ export default function DateSelect() {
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <MenuItems className="font-medium text-sm text-gray-600 dark:text-gray-300 focus:outline-hidden">
+            <MenuItems className="z-10 absolute top-full right-0 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 py-1.5 rounded-lg shadow-lg overflow-hidden mt-1 font-medium text-sm text-gray-600 dark:text-gray-300 focus:outline-hidden">
               {options.map((option, optionIndex) => (
                 <MenuItem key={optionIndex}>
-                  {({ active }) => (
+                  {({ focus }) => (
                     <button
-                      className={`flex items-center w-full py-1 px-3 cursor-pointer ${active ? 'bg-gray-50 dark:bg-gray-700/20' : ''} ${option.id === selected && 'text-violet-500'}`}
-                      onClick={() => {
-                        setSelected(option.id);
-                      }}
+                      type="button"
+                      className={`flex items-center w-full py-1 px-3 cursor-pointer ${focus ? 'bg-gray-50 dark:bg-gray-700/20' : ''} ${option.id === selected && 'text-violet-500'}`}
+                      onClick={() => handleSelection(option.id)}
                     >
                       <svg
                         className={`shrink-0 mr-2 fill-current text-violet-500 ${option.id !== selected && 'invisible'}`}
