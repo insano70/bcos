@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import React, { useCallback, useMemo, useState } from 'react';
 import { SelectedItemsProvider } from '@/app/selected-items-context';
-import DateSelect from '@/components/date-select';
+import DateSelect, { type DateRange } from '@/components/date-select';
 import DeleteButton from '@/components/delete-button';
 import DeleteChartModal from '@/components/delete-chart-modal';
 import FilterButton, {
@@ -30,6 +30,11 @@ export default function ChartBuilderPage() {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
+  const [dateRange, setDateRange] = useState<DateRange>({
+    startDate: null,
+    endDate: null,
+    period: 'All Time',
+  });
 
   // Define filter configuration
   const filterGroups: FilterGroup[] = [
@@ -56,38 +61,65 @@ export default function ChartBuilderPage() {
 
   // Apply filters to charts
   const filteredCharts = useMemo(() => {
-    if (!savedCharts || activeFilters.length === 0) {
-      return savedCharts || [];
+    if (!savedCharts) {
+      return [];
     }
 
     return savedCharts.filter((chart) => {
-      // Group filters by field
-      const filtersByField = activeFilters.reduce(
-        (acc, filter) => {
-          if (!acc[filter.field]) {
-            acc[filter.field] = [];
-          }
-          const fieldFilters = acc[filter.field];
-          if (fieldFilters) {
-            fieldFilters.push(filter);
-          }
-          return acc;
-        },
-        {} as Record<string, ActiveFilter[]>
-      );
+      // Apply status/type filters
+      if (activeFilters.length > 0) {
+        const filtersByField = activeFilters.reduce(
+          (acc, filter) => {
+            if (!acc[filter.field]) {
+              acc[filter.field] = [];
+            }
+            const fieldFilters = acc[filter.field];
+            if (fieldFilters) {
+              fieldFilters.push(filter);
+            }
+            return acc;
+          },
+          {} as Record<string, ActiveFilter[]>
+        );
 
-      // Check each field - OR within field, AND between fields
-      return Object.entries(filtersByField).every(([field, filters]) => {
-        return filters.some((filter) => {
-          const chartValue = chart[field as keyof ChartDefinitionListItem];
-          return chartValue === filter.comparator;
+        const matchesFilters = Object.entries(filtersByField).every(([_field, filters]) => {
+          return filters.some((filter) => {
+            const chartValue = chart[filter.field as keyof ChartDefinitionListItem];
+            return chartValue === filter.comparator;
+          });
         });
-      });
+
+        if (!matchesFilters) {
+          return false;
+        }
+      }
+
+      // Apply date range filter on created_at
+      if (dateRange.startDate || dateRange.endDate) {
+        const chartCreatedAt = chart.created_at ? new Date(chart.created_at) : null;
+        if (!chartCreatedAt) {
+          return false;
+        }
+
+        if (dateRange.startDate && chartCreatedAt < dateRange.startDate) {
+          return false;
+        }
+
+        if (dateRange.endDate && chartCreatedAt > dateRange.endDate) {
+          return false;
+        }
+      }
+
+      return true;
     });
-  }, [savedCharts, activeFilters]);
+  }, [savedCharts, activeFilters, dateRange]);
 
   const handleFilterChange = (filters: ActiveFilter[]) => {
     setActiveFilters(filters);
+  };
+
+  const handleDateChange = (newDateRange: DateRange) => {
+    setDateRange(newDateRange);
   };
 
   // Helper function for chart type badge colors
@@ -408,7 +440,7 @@ export default function ChartBuilderPage() {
             <DeleteButton />
 
             {/* Date filter */}
-            <DateSelect />
+            <DateSelect onDateChange={handleDateChange} />
 
             {/* Filter button */}
             <FilterButton align="right" filters={filterGroups} onFilterChange={handleFilterChange} />

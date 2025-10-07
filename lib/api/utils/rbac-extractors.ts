@@ -109,6 +109,18 @@ export const extractTemplateId = (request: NextRequest): string | undefined => {
 };
 
 /**
+ * Extract organization resource ID from URL path
+ * Matches patterns like: /api/organizations/123
+ */
+export const extractOrganizationResourceId = (request: NextRequest): string | undefined => {
+  const pathSegments = request.nextUrl.pathname.split('/');
+  const organizationIndex = pathSegments.indexOf('organizations');
+  return organizationIndex >= 0 && pathSegments[organizationIndex + 1]
+    ? pathSegments[organizationIndex + 1]
+    : undefined;
+};
+
+/**
  * Common extraction patterns grouped by use case
  */
 export const extractors = {
@@ -120,6 +132,7 @@ export const extractors = {
   dashboardId: extractDashboardId,
   roleId: extractRoleId,
   templateId: extractTemplateId,
+  organizationResourceId: extractOrganizationResourceId,
 
   // Organization ID extractors
   organizationId: extractOrganizationId,

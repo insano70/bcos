@@ -58,7 +58,7 @@ export class RBACOrganizationsService extends BaseRBACService {
   async getOrganizations(
     options: OrganizationQueryOptions = {}
   ): Promise<OrganizationWithDetails[]> {
-    const accessScope = this.getAccessScope('practices', 'read');
+    const accessScope = this.getAccessScope('organizations', 'read');
 
     // Build all where conditions upfront
     const whereConditions = [eq(organizations.is_active, true), isNull(organizations.deleted_at)];
@@ -197,7 +197,7 @@ export class RBACOrganizationsService extends BaseRBACService {
    * Get a specific organization by ID
    */
   async getOrganizationById(organizationId: string): Promise<OrganizationWithDetails | null> {
-    this.requireAnyPermission(['practices:read:own', 'practices:read:all'], organizationId);
+    this.requireAnyPermission(['organizations:read:own', 'organizations:read:organization', 'organizations:read:all'], organizationId);
 
     this.requireOrganizationAccess(organizationId);
 
@@ -209,7 +209,7 @@ export class RBACOrganizationsService extends BaseRBACService {
    * Create a new organization (super admin only)
    */
   async createOrganization(orgData: CreateOrganizationData): Promise<OrganizationWithDetails> {
-    this.requirePermission('practices:create:all');
+    this.requirePermission('organizations:create:all');
 
     // Validate parent organization if specified
     if (orgData.parent_organization_id) {
@@ -239,7 +239,7 @@ export class RBACOrganizationsService extends BaseRBACService {
       throw new Error('Failed to create organization');
     }
 
-    await this.logPermissionCheck('practices:create:all', newOrg.organization_id);
+    await this.logPermissionCheck('organizations:create:all', newOrg.organization_id);
 
     // Return enhanced organization
     const enhanced = await this.getOrganizationById(newOrg.organization_id);
@@ -257,7 +257,7 @@ export class RBACOrganizationsService extends BaseRBACService {
     organizationId: string,
     updateData: UpdateOrganizationData
   ): Promise<OrganizationWithDetails> {
-    this.requirePermission('practices:update:own', organizationId);
+    this.requireAnyPermission(['organizations:update:own', 'organizations:update:organization', 'organizations:manage:all'], organizationId);
     this.requireOrganizationAccess(organizationId);
 
     // Validate parent organization if being changed
@@ -294,7 +294,7 @@ export class RBACOrganizationsService extends BaseRBACService {
       throw new Error('Failed to update organization');
     }
 
-    await this.logPermissionCheck('practices:update:own', organizationId);
+    await this.logPermissionCheck('organizations:update:organization', organizationId);
 
     // Return enhanced organization
     const enhanced = await this.getOrganizationById(organizationId);
@@ -309,7 +309,7 @@ export class RBACOrganizationsService extends BaseRBACService {
    * Delete an organization (soft delete)
    */
   async deleteOrganization(organizationId: string): Promise<void> {
-    this.requirePermission('practices:manage:all', organizationId);
+    this.requireAnyPermission(['organizations:delete:organization', 'organizations:manage:all'], organizationId);
 
     // Check for child organizations
     const children = await getOrganizationChildren(organizationId);
@@ -341,14 +341,14 @@ export class RBACOrganizationsService extends BaseRBACService {
       })
       .where(eq(organizations.organization_id, organizationId));
 
-    await this.logPermissionCheck('practices:delete:all', organizationId);
+    await this.logPermissionCheck('organizations:delete:organization', organizationId);
   }
 
   /**
    * Get organization hierarchy for current user
    */
   async getAccessibleHierarchy(rootOrganizationId?: string): Promise<Organization[]> {
-    this.requireAnyPermission(['practices:read:own', 'practices:read:all']);
+    this.requireAnyPermission(['organizations:read:own', 'organizations:read:organization', 'organizations:read:all']);
 
     if (rootOrganizationId) {
       this.requireOrganizationAccess(rootOrganizationId);
@@ -413,8 +413,9 @@ export class RBACOrganizationsService extends BaseRBACService {
     }
 
     return (
-      this.checker.hasPermission('practices:update:own', organizationId) ||
-      this.checker.hasPermission('practices:manage:all')
+      this.checker.hasPermission('organizations:update:own', organizationId) ||
+      this.checker.hasPermission('organizations:update:organization', organizationId) ||
+      this.checker.hasPermission('organizations:manage:all')
     );
   }
 }

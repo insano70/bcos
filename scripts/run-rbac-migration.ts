@@ -1,7 +1,7 @@
 // Create a standalone database connection for seeding
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { sql } from 'drizzle-orm';
+import { sql, eq, inArray } from 'drizzle-orm';
 import {
   permissions,
   roles,
@@ -311,104 +311,23 @@ const BASE_PERMISSIONS = [
   }
 ];
 
-// Base roles with their permissions
+// Base roles - Only 2 roles: super_admin (all permissions) and user (basic permissions)
 const BASE_ROLES = [
   {
     name: 'super_admin',
-    description: 'Super administrator with full system access',
+    description: 'Super administrator with full system access to all features',
     is_system_role: true,
-    permissions: [
-      'users:read:all',
-      'users:manage:all',
-      'practices:create:all',
-      'practices:read:all',
-      'practices:manage:all',
-      'analytics:read:all',
-      'data-sources:read:all',
-      'data-sources:create:all',
-      'data-sources:update:all',
-      'data-sources:delete:all',
-      'data-sources:manage:all',
-      'roles:manage:all',
-      'settings:read:all',
-      'settings:update:all',
-      'templates:manage:all'
-    ]
+    permissions: 'ALL' // Special marker - will get all permissions dynamically
   },
   {
-    name: 'practice_admin',
-    description: 'Practice administrator with full practice management',
-    is_system_role: false,
-    permissions: [
-      'users:read:own',
-      'users:update:own',
-      'users:read:organization',
-      'users:create:organization',
-      'users:update:organization',
-      'users:delete:organization',
-      'practices:read:own',
-      'practices:update:own',
-      'practices:staff:manage:own',
-      'analytics:read:organization',
-      'analytics:export:organization',
-      'data-sources:read:organization',
-      'data-sources:create:organization',
-      'data-sources:update:organization',
-      'data-sources:delete:organization',
-      'roles:read:organization',
-      'roles:create:organization',
-      'roles:update:organization',
-      'roles:delete:organization',
-      'settings:read:organization',
-      'settings:update:organization',
-      'templates:read:organization',
-      'api:read:organization',
-      'api:write:organization'
-    ]
-  },
-  {
-    name: 'practice_manager',
-    description: 'Practice manager with staff and operational management',
-    is_system_role: false,
-    permissions: [
-      'users:read:own',
-      'users:update:own',
-      'users:read:organization',
-      'users:create:organization',
-      'users:update:organization',
-      'practices:read:own',
-      'practices:update:own',
-      'practices:staff:manage:own',
-      'analytics:read:organization',
-      'analytics:export:organization',
-      'data-sources:read:organization',
-      'roles:read:organization',
-      'settings:read:organization',
-      'templates:read:organization',
-      'api:read:organization'
-    ]
-  },
-  {
-    name: 'practice_staff',
-    description: 'Practice staff with basic operational access',
-    is_system_role: false,
-    permissions: [
-      'users:read:own',
-      'users:update:own',
-      'users:read:organization',
-      'practices:read:own',
-      'analytics:read:organization',
-      'templates:read:organization'
-    ]
-  },
-  {
-    name: 'practice_user',
-    description: 'Basic practice user with minimal access',
+    name: 'user',
+    description: 'Standard user with basic read/write permissions',
     is_system_role: false,
     permissions: [
       'users:read:own',
       'users:update:own',
       'practices:read:own',
+      'organizations:read:own',
       'templates:read:organization'
     ]
   }
@@ -437,87 +356,132 @@ const SAMPLE_ORGANIZATIONS = [
 ];
 
 async function runRBACMigration() {
-  console.log('🚀 Starting RBAC Migration...\n');
+  console.log('🚀 Starting RBAC Migration (supports midstream updates)...\n');
 
   try {
-    console.log('🔍 Checking if RBAC data already exists...');
-
-    // Check if permissions exist
-    const existingPermissions = await db.select().from(permissions).limit(1);
-    const existingOrganizations = await db.select().from(organizations).limit(1);
-    const existingRoles = await db.select().from(roles).limit(1);
-
-    if (existingPermissions.length > 0 || existingOrganizations.length > 0 || existingRoles.length > 0) {
-      console.log('✅ RBAC data already exists in the database');
-      console.log('ℹ️  If you need to reset RBAC data, delete and recreate the database tables\n');
-      await client.end();
-      return;
+    // 1. Upsert base permissions
+    console.log('📝 Upserting base permissions...');
+    let permissionCount = 0;
+    for (const permission of BASE_PERMISSIONS) {
+      await db
+        .insert(permissions)
+        .values(permission)
+        .onConflictDoUpdate({
+          target: permissions.name,
+          set: {
+            description: permission.description,
+            resource: permission.resource,
+            action: permission.action,
+            scope: permission.scope,
+            updated_at: new Date()
+          }
+        });
+      permissionCount++;
     }
 
-    console.log('📝 RBAC data not found. Proceeding with seeding...\n');
+    console.log(`✅ Upserted ${permissionCount} permissions`);
 
-    // 1. Insert base permissions
-    console.log('📝 Inserting base permissions...');
-    const insertedPermissions = await db
-      .insert(permissions)
-      .values(BASE_PERMISSIONS)
-      .returning();
+    // 2. Upsert sample organizations
+    console.log('🏢 Upserting sample organizations...');
+    let orgCount = 0;
+    for (const org of SAMPLE_ORGANIZATIONS) {
+      await db
+        .insert(organizations)
+        .values(org)
+        .onConflictDoUpdate({
+          target: organizations.slug,
+          set: {
+            name: org.name,
+            is_active: org.is_active,
+            updated_at: new Date()
+          }
+        });
+      orgCount++;
+    }
 
-    console.log(`✅ Created ${insertedPermissions.length} permissions`);
+    console.log(`✅ Upserted ${orgCount} organizations`);
 
-    // 2. Insert sample organizations
-    console.log('🏢 Inserting sample organizations...');
-    const insertedOrganizations = await db
-      .insert(organizations)
-      .values(SAMPLE_ORGANIZATIONS)
-      .returning();
-
-    console.log(`✅ Created ${insertedOrganizations.length} organizations`);
-
-    // 3. Insert base roles and their permissions
-    console.log('👥 Inserting base roles with permissions...');
-    const insertedRoles = [];
+    // 3. Upsert base roles and sync their permissions
+    console.log('👥 Upserting base roles and syncing permissions...');
+    const processedRoles = [];
 
     for (const roleData of BASE_ROLES) {
       const { permissions: rolePermissions, ...roleInfo } = roleData;
 
-      // Insert role
-      const [role] = await db
-        .insert(roles)
-        .values(roleInfo)
-        .returning();
+      // Upsert role - check if exists first
+      const existingRole = await db
+        .select()
+        .from(roles)
+        .where(
+          sql`${roles.name} = ${roleInfo.name} AND ${roles.organization_id} IS NULL`
+        )
+        .limit(1);
 
-      insertedRoles.push(role);
+      let role;
+      if (existingRole.length > 0) {
+        // Update existing role
+        [role] = await db
+          .update(roles)
+          .set({
+            description: roleInfo.description,
+            is_system_role: roleInfo.is_system_role,
+            is_active: true,
+            updated_at: new Date()
+          })
+          .where(eq(roles.role_id, existingRole[0].role_id))
+          .returning();
+      } else {
+        // Insert new role
+        [role] = await db
+          .insert(roles)
+          .values(roleInfo)
+          .returning();
+      }
 
-      // Get permission IDs for this role
-      if (role && rolePermissions.length > 0) {
-        const permissionRecords = await db
+      if (!role) continue;
+
+      processedRoles.push(role);
+
+      // Get ALL permission IDs if role is super_admin
+      let permissionIds;
+      if (rolePermissions === 'ALL') {
+        console.log('   • Granting ALL permissions to super_admin');
+        permissionIds = await db
           .select({ permission_id: permissions.permission_id })
           .from(permissions)
-          .where(require('drizzle-orm').inArray(permissions.name, rolePermissions));
+          .where(eq(permissions.is_active, true));
+      } else {
+        // Get specific permission IDs for regular roles
+        permissionIds = await db
+          .select({ permission_id: permissions.permission_id })
+          .from(permissions)
+          .where(inArray(permissions.name, rolePermissions as string[]));
+      }
 
-        // Insert role-permission associations
-        if (permissionRecords.length > 0) {
-          await db
-            .insert(role_permissions)
-            .values(
-              permissionRecords.map(p => ({
-                role_id: role.role_id,
-                permission_id: p.permission_id
-              }))
-            );
-        }
+      // Delete existing role-permission associations for this role
+      await db.delete(role_permissions).where(eq(role_permissions.role_id, role.role_id));
+
+      // Insert fresh role-permission associations
+      if (permissionIds.length > 0) {
+        await db.insert(role_permissions).values(
+          permissionIds.map(p => ({
+            role_id: role.role_id,
+            permission_id: p.permission_id
+          }))
+        );
+
+        console.log(`   • ${role.name}: synced ${permissionIds.length} permissions`);
       }
     }
 
-    console.log(`✅ Created ${insertedRoles.length} roles with permissions`);
+    console.log(`✅ Upserted ${processedRoles.length} roles with permissions`);
 
     // 4. Summary
     console.log('\n🎉 RBAC seeding completed successfully!');
     console.log('📊 Summary:');
-    console.log(`   • ${insertedPermissions.length} permissions created`);
-    console.log(`   • ${insertedRoles.length} roles created`);
-    console.log(`   • ${insertedOrganizations.length} organizations created`);
+    console.log(`   • ${permissionCount} permissions upserted`);
+    console.log(`   • ${processedRoles.length} roles upserted`);
+    console.log(`   • ${orgCount} organizations upserted`);
 
     console.log('\n🔐 Available roles:');
     BASE_ROLES.forEach(role => {

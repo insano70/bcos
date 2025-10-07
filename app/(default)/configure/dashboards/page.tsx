@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import React, { useCallback, useMemo, useState } from 'react';
 import { SelectedItemsProvider } from '@/app/selected-items-context';
 import DashboardPreviewModal from '@/components/dashboard-preview-modal';
-import DateSelect from '@/components/date-select';
+import DateSelect, { type DateRange } from '@/components/date-select';
 import DeleteButton from '@/components/delete-button';
 import DeleteDashboardModal from '@/components/delete-dashboard-modal';
 import FilterButton, {
@@ -36,6 +36,11 @@ export default function DashboardsPage() {
     charts: DashboardChart[];
   } | null>(null);
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
+  const [dateRange, setDateRange] = useState<DateRange>({
+    startDate: null,
+    endDate: null,
+    period: 'All Time',
+  });
 
   // Define filter configuration
   const filterGroups: FilterGroup[] = [
@@ -65,38 +70,65 @@ export default function DashboardsPage() {
 
   // Apply filters to dashboards
   const filteredDashboards = useMemo(() => {
-    if (!savedDashboards || activeFilters.length === 0) {
-      return savedDashboards || [];
+    if (!savedDashboards) {
+      return [];
     }
 
     return savedDashboards.filter((dashboard) => {
-      // Group filters by field
-      const filtersByField = activeFilters.reduce(
-        (acc, filter) => {
-          if (!acc[filter.field]) {
-            acc[filter.field] = [];
-          }
-          const fieldFilters = acc[filter.field];
-          if (fieldFilters) {
-            fieldFilters.push(filter);
-          }
-          return acc;
-        },
-        {} as Record<string, ActiveFilter[]>
-      );
+      // Apply status filters
+      if (activeFilters.length > 0) {
+        const filtersByField = activeFilters.reduce(
+          (acc, filter) => {
+            if (!acc[filter.field]) {
+              acc[filter.field] = [];
+            }
+            const fieldFilters = acc[filter.field];
+            if (fieldFilters) {
+              fieldFilters.push(filter);
+            }
+            return acc;
+          },
+          {} as Record<string, ActiveFilter[]>
+        );
 
-      // Check each field - OR within field, AND between fields
-      return Object.entries(filtersByField).every(([field, filters]) => {
-        return filters.some((filter) => {
-          const dashboardValue = dashboard[field as keyof DashboardListItem];
-          return dashboardValue === filter.comparator;
+        const matchesFilters = Object.entries(filtersByField).every(([_field, filters]) => {
+          return filters.some((filter) => {
+            const dashboardValue = dashboard[filter.field as keyof DashboardListItem];
+            return dashboardValue === filter.comparator;
+          });
         });
-      });
+
+        if (!matchesFilters) {
+          return false;
+        }
+      }
+
+      // Apply date range filter on created_at
+      if (dateRange.startDate || dateRange.endDate) {
+        const dashboardCreatedAt = dashboard.created_at ? new Date(dashboard.created_at) : null;
+        if (!dashboardCreatedAt) {
+          return false;
+        }
+
+        if (dateRange.startDate && dashboardCreatedAt < dateRange.startDate) {
+          return false;
+        }
+
+        if (dateRange.endDate && dashboardCreatedAt > dateRange.endDate) {
+          return false;
+        }
+      }
+
+      return true;
     });
-  }, [savedDashboards, activeFilters]);
+  }, [savedDashboards, activeFilters, dateRange]);
 
   const handleFilterChange = (filters: ActiveFilter[]) => {
     setActiveFilters(filters);
+  };
+
+  const handleDateChange = (newDateRange: DateRange) => {
+    setDateRange(newDateRange);
   };
 
   const getChartCountBadgeColor = (count: number) => {
@@ -559,7 +591,7 @@ export default function DashboardsPage() {
             <DeleteButton />
 
             {/* Date filter */}
-            <DateSelect />
+            <DateSelect onDateChange={handleDateChange} />
 
             {/* Filter button */}
             <FilterButton align="right" filters={filterGroups} onFilterChange={handleFilterChange} />

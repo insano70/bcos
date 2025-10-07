@@ -6,7 +6,6 @@ import type { ResponsiveChartProps } from '@/lib/types/responsive-charts';
 import { simplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
 import { calculatedFieldsService } from '@/lib/services/calculated-fields';
 import { chartExportService } from '@/lib/services/chart-export';
-import { usageAnalyticsService } from '@/lib/services/usage-analytics';
 import ChartErrorBoundary from './chart-error-boundary';
 import { apiClient } from '@/lib/api/client';
 import { ChartSkeleton } from '@/components/ui/loading-skeleton';
@@ -117,15 +116,6 @@ export default function AnalyticsChart({
     setError(null);
 
     try {
-      // Track chart access for usage analytics
-      usageAnalyticsService.trackChartAccess(
-        'chart-' + Date.now(), // chartDefinitionId - would come from actual chart ID
-        `${measure} - ${frequency}`, // chartName
-        'anonymous', // userId - would come from auth context
-        'Anonymous User', // userName - would come from auth context
-        0 // loadTime - would be calculated
-      );
-
       // Handle multiple series by passing the configuration to the API
       if (multipleSeries && multipleSeries.length > 0) {
         console.log('🚀 FETCHING MULTIPLE SERIES DATA:', multipleSeries);

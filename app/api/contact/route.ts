@@ -1,8 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { publicRoute } from '@/lib/api/rbac-route-handler'
 import { emailService } from '@/lib/api/services/email-service-instance'
 import { z } from 'zod'
 import { log } from '@/lib/logger'
+import { createSuccessResponse } from '@/lib/api/responses/success'
+import { createErrorResponse, ValidationError } from '@/lib/api/responses/error'
+import { validateRequest } from '@/lib/api/middleware/validation'
 
 const ContactFormSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name too long'),
@@ -24,17 +27,8 @@ interface ContactFormData {
 
 const handler = async (request: NextRequest) => {
   try {
-    if (request.method !== 'POST') {
-      return NextResponse.json(
-        { error: 'Method not allowed' },
-        { status: 405 }
-      )
-    }
-
-    const body = await request.json() as ContactFormData
-    
-    // Validate request data
-    const validatedData = ContactFormSchema.parse(body)
+    // Use standard validation helper
+    const validatedData = await validateRequest(request, ContactFormSchema)
 
     log.info('Contact form submission received', {
       name: validatedData.name,
@@ -60,29 +54,20 @@ const handler = async (request: NextRequest) => {
       operation: 'contact-form-success'
     })
 
-    return NextResponse.json({
-      success: true,
-      message: 'Contact form submitted successfully'
-    })
+    return createSuccessResponse(
+      { submitted: true },
+      'Contact form submitted successfully'
+    )
 
   } catch (error) {
     log.error('Contact form submission failed', error, {
       operation: 'contact-form-error'
     })
 
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { 
-          error: 'Invalid form data', 
-          details: error.issues.map((issue) => ({ field: issue.path.join('.'), message: issue.message }))
-        },
-        { status: 400 }
-      )
-    }
-
-    return NextResponse.json(
-      { error: 'Failed to submit contact form' },
-      { status: 500 }
+    return createErrorResponse(
+      error instanceof Error ? error.message : 'Failed to submit contact form',
+      500,
+      request
     )
   }
 }

@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { log } from '@/lib/logger'
+import { createSuccessResponse } from '@/lib/api/responses/success'
+import { createErrorResponse } from '@/lib/api/responses/error'
 
 /**
  * CSP Violation Report Endpoint
@@ -35,7 +37,7 @@ export async function POST(request: NextRequest) {
         hasStandardFormat: !!report['csp-report'],
         violationKeys: Object.keys(violation || {})
       })
-      return NextResponse.json({ received: true }, { status: 200 }) // Accept anyway for monitoring
+      return createSuccessResponse({ received: true }, 'CSP report received (invalid format)')
     }
 
     // Log the violation with appropriate severity
@@ -98,15 +100,15 @@ export async function POST(request: NextRequest) {
       })
     }
     
-    return NextResponse.json({ received: true }, { status: 204 })
+    return createSuccessResponse({ received: true }, 'CSP report received')
 
   } catch (error) {
     log.error('Failed to process CSP violation report', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return createErrorResponse('Internal server error', 500, request)
   }
 }
 
 // CSP reports are always POST requests
-export async function GET() {
-  return NextResponse.json({ error: 'Method not allowed' }, { status: 405 })
+export async function GET(request: NextRequest) {
+  return createErrorResponse('Method not allowed', 405, request)
 }

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import AddUserModal from '@/components/add-user-modal';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
-import DateSelect from '@/components/date-select';
+import DateSelect, { type DateRange } from '@/components/date-select';
 import DeleteButton from '@/components/delete-button';
 import FilterButton, {
   type ActiveFilter,
@@ -29,6 +29,11 @@ export default function UsersContent() {
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
+  const [dateRange, setDateRange] = useState<DateRange>({
+    startDate: null,
+    endDate: null,
+    period: 'All Time',
+  });
 
   // Define filter configuration
   const filterGroups: FilterGroup[] = [
@@ -52,39 +57,65 @@ export default function UsersContent() {
 
   // Apply filters to users data
   const filteredUsers = useMemo(() => {
-    if (!users || activeFilters.length === 0) {
-      return users || [];
+    if (!users) {
+      return [];
     }
 
     return users.filter((user) => {
-      // Group filters by field to handle multiple filters on same field
-      const filtersByField = activeFilters.reduce(
-        (acc, filter) => {
-          if (!acc[filter.field]) {
-            acc[filter.field] = [];
-          }
-          const fieldFilters = acc[filter.field];
-          if (fieldFilters) {
-            fieldFilters.push(filter);
-          }
-          return acc;
-        },
-        {} as Record<string, ActiveFilter[]>
-      );
+      // Apply status/email filters
+      if (activeFilters.length > 0) {
+        const filtersByField = activeFilters.reduce(
+          (acc, filter) => {
+            if (!acc[filter.field]) {
+              acc[filter.field] = [];
+            }
+            const fieldFilters = acc[filter.field];
+            if (fieldFilters) {
+              fieldFilters.push(filter);
+            }
+            return acc;
+          },
+          {} as Record<string, ActiveFilter[]>
+        );
 
-      // Check each field - user must match at least one filter per field (OR within field)
-      // But must match all fields that have filters (AND between fields)
-      return Object.entries(filtersByField).every(([field, filters]) => {
-        return filters.some((filter) => {
-          const userValue = user[field as keyof User];
-          return userValue === filter.comparator;
+        const matchesFilters = Object.entries(filtersByField).every(([field, filters]) => {
+          return filters.some((filter) => {
+            const userValue = user[field as keyof User];
+            return userValue === filter.comparator;
+          });
         });
-      });
+
+        if (!matchesFilters) {
+          return false;
+        }
+      }
+
+      // Apply date range filter on created_at
+      if (dateRange.startDate || dateRange.endDate) {
+        const userCreatedAt = user.created_at ? new Date(user.created_at) : null;
+        if (!userCreatedAt) {
+          return false;
+        }
+
+        if (dateRange.startDate && userCreatedAt < dateRange.startDate) {
+          return false;
+        }
+
+        if (dateRange.endDate && userCreatedAt > dateRange.endDate) {
+          return false;
+        }
+      }
+
+      return true;
     });
-  }, [users, activeFilters]);
+  }, [users, activeFilters, dateRange]);
 
   const handleFilterChange = (filters: ActiveFilter[]) => {
     setActiveFilters(filters);
+  };
+
+  const handleDateChange = (newDateRange: DateRange) => {
+    setDateRange(newDateRange);
   };
 
   // Helper functions
@@ -391,8 +422,8 @@ export default function UsersContent() {
           {/* Delete button */}
           <DeleteButton />
 
-          {/* Dropdown */}
-          <DateSelect />
+          {/* Date filter */}
+          <DateSelect onDateChange={handleDateChange} />
 
           {/* Filter button */}
           <FilterButton align="right" filters={filterGroups} onFilterChange={handleFilterChange} />

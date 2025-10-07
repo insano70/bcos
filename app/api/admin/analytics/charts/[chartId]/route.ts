@@ -1,6 +1,4 @@
 import { NextRequest } from 'next/server';
-import { db, chart_definitions, chart_categories, users } from '@/lib/db';
-import { eq, and } from 'drizzle-orm';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
@@ -8,6 +6,7 @@ import { validateRequest } from '@/lib/api/middleware/validation';
 import { chartDefinitionUpdateSchema, chartDefinitionParamsSchema } from '@/lib/validations/analytics';
 import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
+import { createRBACChartsService } from '@/lib/services/rbac-charts-service';
 
 /**
  * Admin Analytics - Individual Chart Definition CRUD
@@ -17,7 +16,6 @@ import { log } from '@/lib/logger';
 // GET - Get specific chart definition
 const getChartHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const { params } = args[0] as { params: { chartId: string } };
-  const startTime = Date.now();
 
   log.info('Chart definition get request initiated', {
     chartId: params.chartId,
@@ -25,19 +23,14 @@ const getChartHandler = async (request: NextRequest, userContext: UserContext, .
   });
 
   try {
-    // Fetch specific chart definition
-    const [chart] = await db
-      .select()
-      .from(chart_definitions)
-      .leftJoin(chart_categories, eq(chart_definitions.chart_category_id, chart_categories.chart_category_id))
-      .leftJoin(users, eq(chart_definitions.created_by, users.user_id))
-      .where(eq(chart_definitions.chart_definition_id, params.chartId));
+    // Use the RBAC charts service
+    const chartsService = createRBACChartsService(userContext);
+
+    const chart = await chartsService.getChartById(params.chartId);
 
     if (!chart) {
       return createErrorResponse('Chart definition not found', 404);
     }
-
-    log.db('SELECT', 'chart_definitions', Date.now() - startTime, { rowCount: 1 });
 
     return createSuccessResponse({ chart }, 'Chart definition retrieved successfully');
 
@@ -58,7 +51,6 @@ const getChartHandler = async (request: NextRequest, userContext: UserContext, .
 // PUT - Update chart definition
 const updateChartHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const { params } = args[0] as { params: { chartId: string } };
-  const startTime = Date.now();
 
   log.info('Chart definition update request initiated', {
     chartId: params.chartId,
@@ -69,27 +61,18 @@ const updateChartHandler = async (request: NextRequest, userContext: UserContext
     // Validate request body with Zod
     const validatedData = await validateRequest(request, chartDefinitionUpdateSchema);
 
-    // Update chart definition with only provided fields
-    const updateData: any = { updated_at: new Date() };
-    if (validatedData.chart_name !== undefined) updateData.chart_name = validatedData.chart_name;
-    if (validatedData.chart_description !== undefined) updateData.chart_description = validatedData.chart_description;
-    if (validatedData.chart_type !== undefined) updateData.chart_type = validatedData.chart_type;
-    if (validatedData.data_source !== undefined) updateData.data_source = validatedData.data_source;
-    if (validatedData.chart_config !== undefined) updateData.chart_config = validatedData.chart_config;
-    if (validatedData.chart_category_id !== undefined) updateData.chart_category_id = validatedData.chart_category_id;
-    if (validatedData.is_active !== undefined) updateData.is_active = validatedData.is_active;
+    // Use the RBAC charts service
+    const chartsService = createRBACChartsService(userContext);
 
-    const [updatedChart] = await db
-      .update(chart_definitions)
-      .set(updateData)
-      .where(eq(chart_definitions.chart_definition_id, params.chartId))
-      .returning();
-
-    if (!updatedChart) {
-      return createErrorResponse('Chart definition not found', 404);
-    }
-
-    log.db('UPDATE', 'chart_definitions', Date.now() - startTime, { rowCount: 1 });
+    const updatedChart = await chartsService.updateChart(params.chartId, {
+      chart_name: validatedData.chart_name,
+      chart_description: validatedData.chart_description,
+      chart_type: validatedData.chart_type,
+      data_source: validatedData.data_source,
+      chart_config: validatedData.chart_config,
+      chart_category_id: validatedData.chart_category_id,
+      is_active: validatedData.is_active
+    });
 
     log.info('Chart definition updated successfully', {
       chartId: params.chartId,
@@ -116,7 +99,6 @@ const updateChartHandler = async (request: NextRequest, userContext: UserContext
 // DELETE - Delete chart definition (soft delete)
 const deleteChartHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
   const { params } = args[0] as { params: { chartId: string } };
-  const startTime = Date.now();
 
   log.info('Chart definition delete request initiated', {
     chartId: params.chartId,
@@ -124,30 +106,22 @@ const deleteChartHandler = async (request: NextRequest, userContext: UserContext
   });
 
   try {
-    // Soft delete by setting is_active to false
-    const [deletedChart] = await db
-      .update(chart_definitions)
-      .set({
-        is_active: false,
-        updated_at: new Date(),
-      })
-      .where(eq(chart_definitions.chart_definition_id, params.chartId))
-      .returning();
+    // Use the RBAC charts service
+    const chartsService = createRBACChartsService(userContext);
 
-    if (!deletedChart) {
+    const success = await chartsService.deleteChart(params.chartId);
+
+    if (!success) {
       return createErrorResponse('Chart definition not found', 404);
     }
 
-    log.db('UPDATE', 'chart_definitions', Date.now() - startTime, { rowCount: 1 });
-
     log.info('Chart definition deleted successfully', {
       chartId: params.chartId,
-      chartName: deletedChart.chart_name,
       deletedBy: userContext.user_id
     });
 
     return createSuccessResponse({
-      message: `Chart "${deletedChart.chart_name}" deleted successfully`
+      message: 'Chart deleted successfully'
     }, 'Chart definition deleted successfully');
 
   } catch (error) {

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { db, practices, staff_members } from '@/lib/db';
 import { eq, isNull, and, asc, desc, sql, like } from 'drizzle-orm';
 import { createSuccessResponse, createPaginatedResponse } from '@/lib/api/responses/success';
@@ -127,10 +127,7 @@ const createPracticeStaffHandler = async (request: NextRequest, userContext: Use
       .limit(1);
 
     if (!practice) {
-      return NextResponse.json(
-        { error: 'Practice not found' },
-        { status: 404 }
-      );
+      throw NotFoundError('Practice');
     }
 
     // RBAC: Check if user can manage staff for this practice

@@ -1,4 +1,4 @@
-import { count, inArray } from 'drizzle-orm';
+import { count, eq, inArray } from 'drizzle-orm';
 import { log } from '@/lib/logger';
 import { db } from './index';
 import { organizations, permissions, role_permissions, roles } from './schema';
@@ -92,6 +92,34 @@ const BASE_PERMISSIONS = [
     scope: 'own',
   },
   {
+    name: 'practices:read:organization',
+    description: 'Read organization practices',
+    resource: 'practices',
+    action: 'read',
+    scope: 'organization',
+  },
+  {
+    name: 'practices:create:organization',
+    description: 'Create practices in organization',
+    resource: 'practices',
+    action: 'create',
+    scope: 'organization',
+  },
+  {
+    name: 'practices:update:organization',
+    description: 'Update organization practices',
+    resource: 'practices',
+    action: 'update',
+    scope: 'organization',
+  },
+  {
+    name: 'practices:delete:organization',
+    description: 'Delete organization practices',
+    resource: 'practices',
+    action: 'delete',
+    scope: 'organization',
+  },
+  {
     name: 'practices:create:all',
     description: 'Create new practices (super admin)',
     resource: 'practices',
@@ -109,6 +137,71 @@ const BASE_PERMISSIONS = [
     name: 'practices:manage:all',
     description: 'Full practice management (super admin)',
     resource: 'practices',
+    action: 'manage',
+    scope: 'all',
+  },
+
+  // Organization Management Permissions
+  {
+    name: 'organizations:read:own',
+    description: 'Read own organization information',
+    resource: 'organizations',
+    action: 'read',
+    scope: 'own',
+  },
+  {
+    name: 'organizations:update:own',
+    description: 'Update own organization information',
+    resource: 'organizations',
+    action: 'update',
+    scope: 'own',
+  },
+  {
+    name: 'organizations:read:organization',
+    description: 'Read organization entities',
+    resource: 'organizations',
+    action: 'read',
+    scope: 'organization',
+  },
+  {
+    name: 'organizations:create:organization',
+    description: 'Create organizations in organization',
+    resource: 'organizations',
+    action: 'create',
+    scope: 'organization',
+  },
+  {
+    name: 'organizations:update:organization',
+    description: 'Update organization entities',
+    resource: 'organizations',
+    action: 'update',
+    scope: 'organization',
+  },
+  {
+    name: 'organizations:delete:organization',
+    description: 'Delete organization entities',
+    resource: 'organizations',
+    action: 'delete',
+    scope: 'organization',
+  },
+  {
+    name: 'organizations:create:all',
+    description: 'Create new organizations (super admin)',
+    resource: 'organizations',
+    action: 'create',
+    scope: 'all',
+  },
+  {
+    name: 'organizations:read:all',
+    description: 'Read all organizations (super admin)',
+    resource: 'organizations',
+    action: 'read',
+    scope: 'all',
+  },
+  {
+    name: 'organizations:manage:all',
+    description: 'Full organization management (super admin)',
+    resource: 'organizations',
     action: 'manage',
     scope: 'all',
   },
@@ -236,94 +329,23 @@ const BASE_PERMISSIONS = [
   },
 ];
 
-// Base roles for healthcare practice management
+// Base roles - Only 2 roles: super_admin (all permissions) and user (basic permissions)
 const BASE_ROLES = [
   {
     name: 'super_admin',
-    description: 'Super administrator with full system access',
+    description: 'Super administrator with full system access to all features',
     is_system_role: true,
-    permissions: [
-      'users:read:all',
-      'users:manage:all',
-      'practices:create:all',
-      'practices:read:all',
-      'practices:manage:all',
-      'analytics:read:all',
-      'roles:manage:all',
-      'settings:read:all',
-      'settings:update:all',
-      'templates:manage:all',
-    ],
+    permissions: 'ALL', // Special marker - will get all permissions dynamically
   },
   {
-    name: 'practice_admin',
-    description: 'Practice administrator with full practice management',
-    is_system_role: false,
-    permissions: [
-      'users:read:own',
-      'users:update:own',
-      'users:read:organization',
-      'users:create:organization',
-      'users:update:organization',
-      'users:delete:organization',
-      'practices:read:own',
-      'practices:update:own',
-      'practices:staff:manage:own',
-      'analytics:read:organization',
-      'analytics:export:organization',
-      'roles:read:organization',
-      'roles:create:organization',
-      'roles:update:organization',
-      'roles:delete:organization',
-      'settings:read:organization',
-      'settings:update:organization',
-      'templates:read:organization',
-      'api:read:organization',
-      'api:write:organization',
-    ],
-  },
-  {
-    name: 'practice_manager',
-    description: 'Practice manager with staff and operational management',
-    is_system_role: false,
-    permissions: [
-      'users:read:own',
-      'users:update:own',
-      'users:read:organization',
-      'users:create:organization',
-      'users:update:organization',
-      'practices:read:own',
-      'practices:update:own',
-      'practices:staff:manage:own',
-      'analytics:read:organization',
-      'analytics:export:organization',
-      'roles:read:organization',
-      'settings:read:organization',
-      'templates:read:organization',
-      'api:read:organization',
-    ],
-  },
-  {
-    name: 'practice_staff',
-    description: 'Practice staff member with basic access',
-    is_system_role: false,
-    permissions: [
-      'users:read:own',
-      'users:update:own',
-      'users:read:organization',
-      'practices:read:own',
-      'analytics:read:organization',
-      'templates:read:organization',
-    ],
-  },
-  {
-    name: 'practice_user',
-    description: 'Basic practice user with minimal access',
+    name: 'user',
+    description: 'Standard user with basic read/write permissions',
     is_system_role: false,
     permissions: [
       'users:read:own',
       'users:update:own',
       'practices:read:own',
+      'organizations:read:own',
       'templates:read:organization',
     ],
   },
@@ -353,75 +375,160 @@ const SAMPLE_ORGANIZATIONS = [
 
 /**
  * Seed the RBAC system with base permissions, roles, and sample data
+ * Supports midstream updates - can be run multiple times safely
  */
 export async function seedRBACData() {
-  log.info('Starting RBAC seed process', {
+  log.info('Starting RBAC seed process (supports updates)', {
     operation: 'seedRBAC',
     phase: 'start',
   });
 
   try {
-    // 1. Insert base permissions
-    log.info('Inserting base permissions', {
+    // 1. Upsert base permissions (insert or update)
+    log.info('Upserting base permissions', {
       operation: 'seedRBAC',
       phase: 'permissions',
     });
-    const insertedPermissions = await db.insert(permissions).values(BASE_PERMISSIONS).returning();
 
-    log.info('Created permissions', {
-      count: insertedPermissions.length,
+    let permissionCount = 0;
+    for (const permission of BASE_PERMISSIONS) {
+      await db
+        .insert(permissions)
+        .values(permission)
+        .onConflictDoUpdate({
+          target: permissions.name,
+          set: {
+            description: permission.description,
+            resource: permission.resource,
+            action: permission.action,
+            scope: permission.scope,
+            updated_at: new Date(),
+          },
+        });
+      permissionCount++;
+    }
+
+    log.info('Permissions upserted', {
+      count: permissionCount,
       operation: 'seedRBAC',
     });
 
-    // 2. Insert sample organizations
-    log.info('Inserting sample organizations', {
+    // 2. Upsert sample organizations (if they don't exist)
+    log.info('Upserting sample organizations', {
       operation: 'seedRBAC',
       phase: 'organizations',
     });
-    const insertedOrganizations = await db
-      .insert(organizations)
-      .values(SAMPLE_ORGANIZATIONS)
-      .returning();
 
-    log.info('Created organizations', {
-      count: insertedOrganizations.length,
+    let orgCount = 0;
+    for (const org of SAMPLE_ORGANIZATIONS) {
+      await db
+        .insert(organizations)
+        .values(org)
+        .onConflictDoUpdate({
+          target: organizations.slug,
+          set: {
+            name: org.name,
+            is_active: org.is_active,
+            updated_at: new Date(),
+          },
+        });
+      orgCount++;
+    }
+
+    log.info('Organizations upserted', {
+      count: orgCount,
       operation: 'seedRBAC',
     });
 
-    // 3. Insert base roles
-    log.info('Inserting base roles', {
+    // 3. Upsert base roles and sync their permissions
+    log.info('Upserting base roles and syncing permissions', {
       operation: 'seedRBAC',
       phase: 'roles',
     });
-    const insertedRoles = [];
+
+    const processedRoles = [];
 
     for (const roleData of BASE_ROLES) {
       const { permissions: rolePermissions, ...roleInfo } = roleData;
 
-      // Insert role
-      const [role] = await db.insert(roles).values(roleInfo).returning();
+      // Upsert role - check if exists first (system roles have NULL organization_id)
+      const existingRole = await db
+        .select()
+        .from(roles)
+        .where(
+          // System roles have organization_id = NULL
+          roleInfo.is_system_role
+            ? eq(roles.name, roleInfo.name)
+            : eq(roles.name, roleInfo.name)
+        )
+        .limit(1);
 
-      insertedRoles.push(role);
+      let role;
+      if (existingRole.length > 0) {
+        // Update existing role
+        [role] = await db
+          .update(roles)
+          .set({
+            description: roleInfo.description,
+            is_system_role: roleInfo.is_system_role,
+            is_active: true,
+            updated_at: new Date(),
+          })
+          .where(eq(roles.role_id, existingRole[0].role_id))
+          .returning();
+      } else {
+        // Insert new role
+        [role] = await db
+          .insert(roles)
+          .values(roleInfo)
+          .returning();
+      }
 
-      // Get permission IDs for this role
-      const permissionIds = await db
-        .select({ permission_id: permissions.permission_id })
-        .from(permissions)
-        .where(inArray(permissions.name, rolePermissions));
+      if (!role) continue;
 
-      // Insert role-permission associations
-      if (permissionIds.length > 0 && role) {
+      processedRoles.push(role);
+
+      // Get ALL permission IDs if role is super_admin
+      let permissionIds;
+      if (rolePermissions === 'ALL') {
+        log.info('Granting ALL permissions to super_admin', {
+          role: role.name,
+          operation: 'seedRBAC',
+        });
+        permissionIds = await db
+          .select({ permission_id: permissions.permission_id })
+          .from(permissions)
+          .where(eq(permissions.is_active, true));
+      } else {
+        // Get specific permission IDs for regular roles
+        permissionIds = await db
+          .select({ permission_id: permissions.permission_id })
+          .from(permissions)
+          .where(inArray(permissions.name, rolePermissions as string[]));
+      }
+
+      // Delete existing role-permission associations for this role
+      await db.delete(role_permissions).where(eq(role_permissions.role_id, role.role_id));
+
+      // Insert fresh role-permission associations
+      if (permissionIds.length > 0) {
         await db.insert(role_permissions).values(
           permissionIds.map((p) => ({
             role_id: role.role_id,
             permission_id: p.permission_id,
           }))
         );
+
+        log.info('Role permissions synced', {
+          role: role.name,
+          permissionCount: permissionIds.length,
+          operation: 'seedRBAC',
+        });
       }
     }
 
-    log.info('Created roles with permissions', {
-      count: insertedRoles.length,
+    log.info('Roles upserted with permissions', {
+      count: processedRoles.length,
       operation: 'seedRBAC',
     });
 
@@ -433,24 +540,15 @@ export async function seedRBACData() {
     log.info('RBAC seed summary', {
       operation: 'seedRBAC',
       phase: 'summary',
-    });
-    log.info('Permissions created', {
-      count: insertedPermissions.length,
-      operation: 'seedRBAC',
-    });
-    log.info('Roles created', {
-      count: insertedRoles.length,
-      operation: 'seedRBAC',
-    });
-    log.info('Organizations created', {
-      count: insertedOrganizations.length,
-      operation: 'seedRBAC',
+      permissions: permissionCount,
+      roles: processedRoles.length,
+      organizations: orgCount,
     });
     log.info('Available roles', {
       operation: 'seedRBAC',
       phase: 'roleList',
     });
-    insertedRoles.forEach((role) => {
+    processedRoles.forEach((role) => {
       if (role) {
         log.info('Role available', {
           name: role.name,
@@ -461,9 +559,9 @@ export async function seedRBACData() {
     });
 
     return {
-      permissions: insertedPermissions,
-      roles: insertedRoles,
-      organizations: insertedOrganizations,
+      permissions: permissionCount,
+      roles: processedRoles.length,
+      organizations: orgCount,
     };
   } catch (error) {
     log.error('RBAC seed failed', {

@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import AddDataSourceModal from '@/components/add-data-source-modal';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import DataSourceConnectionTestModal from '@/components/data-source-connection-test-modal';
-import DateSelect from '@/components/date-select';
+import DateSelect, { type DateRange } from '@/components/date-select';
 import DeleteButton from '@/components/delete-button';
 import DeleteDataSourceModal from '@/components/delete-data-source-modal';
 import FilterButton, {
@@ -41,6 +41,11 @@ export default function DataSourcesContent() {
   }));
 
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
+  const [dateRange, setDateRange] = useState<DateRange>({
+    startDate: null,
+    endDate: null,
+    period: 'All Time',
+  });
 
   // Define filter configuration
   const filterGroups: FilterGroup[] = [
@@ -56,20 +61,50 @@ export default function DataSourcesContent() {
 
   // Apply filters to data sources
   const filteredDataSources = useMemo(() => {
-    if (!dataSources || activeFilters.length === 0) {
-      return dataSources || [];
+    if (!dataSources) {
+      return [];
     }
 
     return dataSources.filter((dataSource) => {
-      return activeFilters.every((filter) => {
-        const dataSourceValue = dataSource[filter.field as keyof DataSourceWithId];
-        return dataSourceValue === filter.comparator;
-      });
+      // Apply status filters
+      if (activeFilters.length > 0) {
+        const matchesFilters = activeFilters.every((filter) => {
+          const dataSourceValue = dataSource[filter.field as keyof DataSourceWithId];
+          return dataSourceValue === filter.comparator;
+        });
+        if (!matchesFilters) {
+          return false;
+        }
+      }
+
+      // Apply date range filter on created_at
+      if (dateRange.startDate || dateRange.endDate) {
+        const dataSourceCreatedAt = dataSource.created_at
+          ? new Date(dataSource.created_at)
+          : null;
+        if (!dataSourceCreatedAt) {
+          return false;
+        }
+
+        if (dateRange.startDate && dataSourceCreatedAt < dateRange.startDate) {
+          return false;
+        }
+
+        if (dateRange.endDate && dataSourceCreatedAt > dateRange.endDate) {
+          return false;
+        }
+      }
+
+      return true;
     });
-  }, [dataSources, activeFilters]);
+  }, [dataSources, activeFilters, dateRange]);
 
   const handleFilterChange = (filters: ActiveFilter[]) => {
     setActiveFilters(filters);
+  };
+
+  const handleDateChange = (newDateRange: DateRange) => {
+    setDateRange(newDateRange);
   };
 
   // State for modals and selected items
@@ -352,8 +387,8 @@ export default function DataSourcesContent() {
           {/* Delete button */}
           <DeleteButton />
 
-          {/* Dropdown */}
-          <DateSelect />
+          {/* Date filter */}
+          <DateSelect onDateChange={handleDateChange} />
 
           {/* Filter button */}
           <FilterButton align="right" filters={filterGroups} onFilterChange={handleFilterChange} />

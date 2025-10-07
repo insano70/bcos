@@ -1,8 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { publicRoute } from '@/lib/api/rbac-route-handler'
 import { emailService } from '@/lib/api/services/email-service-instance'
 import { z } from 'zod'
 import { log } from '@/lib/logger'
+import { createSuccessResponse } from '@/lib/api/responses/success'
+import { createErrorResponse } from '@/lib/api/responses/error'
+import { validateRequest } from '@/lib/api/middleware/validation'
 
 const AppointmentRequestSchema = z.object({
   firstName: z.string().min(1, 'First name is required').max(50, 'First name too long'),
@@ -30,17 +33,8 @@ interface AppointmentRequestData {
 
 const handler = async (request: NextRequest) => {
   try {
-    if (request.method !== 'POST') {
-      return NextResponse.json(
-        { error: 'Method not allowed' },
-        { status: 405 }
-      )
-    }
-
-    const body = await request.json() as AppointmentRequestData
-    
-    // Validate request data
-    const validatedData = AppointmentRequestSchema.parse(body)
+    // Use standard validation helper
+    const validatedData = await validateRequest(request, AppointmentRequestSchema)
 
     log.info('Appointment request received', {
       patientName: `${validatedData.firstName} ${validatedData.lastName}`,
@@ -71,29 +65,20 @@ const handler = async (request: NextRequest) => {
       operation: 'appointment-request-success'
     })
 
-    return NextResponse.json({
-      success: true,
-      message: 'Appointment request submitted successfully'
-    })
+    return createSuccessResponse(
+      { submitted: true },
+      'Appointment request submitted successfully'
+    )
 
   } catch (error) {
     log.error('Appointment request failed', error, {
       operation: 'appointment-request-error'
     })
 
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { 
-          error: 'Invalid form data', 
-          details: error.issues.map((e: any) => ({ field: e.path.join('.'), message: e.message }))
-        },
-        { status: 400 }
-      )
-    }
-
-    return NextResponse.json(
-      { error: 'Failed to submit appointment request' },
-      { status: 500 }
+    return createErrorResponse(
+      error instanceof Error ? error.message : 'Failed to submit appointment request',
+      500,
+      request
     )
   }
 }

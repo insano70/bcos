@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import AddPracticeModal from '@/components/add-practice-modal';
-import DateSelect from '@/components/date-select';
+import DateSelect, { type DateRange } from '@/components/date-select';
 import DeleteButton from '@/components/delete-button';
 import FilterButton, {
   type ActiveFilter,
@@ -22,6 +22,11 @@ export default function PracticesContent() {
   const _practicePermissions = usePracticePermissions();
   const [isAddPracticeModalOpen, setIsAddPracticeModalOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
+  const [dateRange, setDateRange] = useState<DateRange>({
+    startDate: null,
+    endDate: null,
+    period: 'All Time',
+  });
 
   // Define filter configuration
   const filterGroups: FilterGroup[] = [
@@ -38,20 +43,48 @@ export default function PracticesContent() {
 
   // Apply filters to practices data
   const filteredPractices = useMemo(() => {
-    if (!practices || activeFilters.length === 0) {
-      return practices || [];
+    if (!practices) {
+      return [];
     }
 
     return practices.filter((practice) => {
-      return activeFilters.every((filter) => {
-        const practiceValue = practice[filter.field as keyof Practice];
-        return practiceValue === filter.comparator;
-      });
+      // Apply status filters
+      if (activeFilters.length > 0) {
+        const matchesFilters = activeFilters.every((filter) => {
+          const practiceValue = practice[filter.field as keyof Practice];
+          return practiceValue === filter.comparator;
+        });
+        if (!matchesFilters) {
+          return false;
+        }
+      }
+
+      // Apply date range filter on created_at
+      if (dateRange.startDate || dateRange.endDate) {
+        const practiceCreatedAt = practice.created_at ? new Date(practice.created_at) : null;
+        if (!practiceCreatedAt) {
+          return false;
+        }
+
+        if (dateRange.startDate && practiceCreatedAt < dateRange.startDate) {
+          return false;
+        }
+
+        if (dateRange.endDate && practiceCreatedAt > dateRange.endDate) {
+          return false;
+        }
+      }
+
+      return true;
     });
-  }, [practices, activeFilters]);
+  }, [practices, activeFilters, dateRange]);
 
   const handleFilterChange = (filters: ActiveFilter[]) => {
     setActiveFilters(filters);
+  };
+
+  const handleDateChange = (newDateRange: DateRange) => {
+    setDateRange(newDateRange);
   };
 
   const formatDate = (date: string | Date | null) => {
@@ -328,7 +361,7 @@ export default function PracticesContent() {
 
           {/* Filter and date controls - available to all who can read practices */}
           <ProtectedComponent permissions={['practices:read:own', 'practices:read:all']}>
-            <DateSelect />
+            <DateSelect onDateChange={handleDateChange} />
             <FilterButton align="right" filters={filterGroups} onFilterChange={handleFilterChange} />
           </ProtectedComponent>
 

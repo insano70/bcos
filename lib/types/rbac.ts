@@ -113,9 +113,24 @@ export type PracticePermission =
   | 'practices:update:own'
   | 'practices:staff:manage:own'
   | 'practices:staff:read:own'
+  | 'practices:read:organization'
+  | 'practices:create:organization'
+  | 'practices:update:organization'
+  | 'practices:delete:organization'
   | 'practices:create:all'
   | 'practices:read:all'
   | 'practices:manage:all';
+
+export type OrganizationPermission =
+  | 'organizations:read:own'
+  | 'organizations:update:own'
+  | 'organizations:read:organization'
+  | 'organizations:create:organization'
+  | 'organizations:update:organization'
+  | 'organizations:delete:organization'
+  | 'organizations:create:all'
+  | 'organizations:read:all'
+  | 'organizations:manage:all';
 
 export type AnalyticsPermission =
   | 'analytics:read:organization'
@@ -154,6 +169,7 @@ export type DataSourcePermission =
 export type PermissionName =
   | UserPermission
   | PracticePermission
+  | OrganizationPermission
   | AnalyticsPermission
   | RolePermission
   | SettingsPermission
