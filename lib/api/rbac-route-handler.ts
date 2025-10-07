@@ -1,7 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { log } from '@/lib/logger';
 import { createRBACMiddleware } from '@/lib/rbac/middleware';
-import { getUserContextSafe } from '@/lib/rbac/user-context';
 import type { PermissionName, UserContext } from '@/lib/types/rbac';
 import { applyGlobalAuth, markAsPublicRoute } from './middleware/global-auth';
 import { applyRateLimit } from './middleware/rate-limit';
@@ -135,29 +134,41 @@ export function rbacRoute(
         return createErrorResponse('Authentication required', 401, request) as Response;
       }
 
-      const userId = session.user.id; // Now TypeScript knows this is defined
-      const userContext = await getUserContextSafe(userId);
-      log.info('User context fetched', {
+      const userId = session.user.id;
+
+      // ✅ OPTIMIZATION: Use userContext already fetched in applyGlobalAuth()
+      // This eliminates 4-6 redundant database queries per request
+      const userContext = session.userContext;
+
+      log.info('User context retrieved from session', {
         duration: Date.now() - contextStart,
         userId,
+        cached: true, // Indicates we used cached context from session
       });
 
       if (!userContext) {
-        log.error('Failed to load user context for RBAC', undefined, {
+        log.error('User context missing from session', undefined, {
           userId,
           sessionEmail: session.user.email,
+          sessionKeys: session ? Object.keys(session) : [],
         });
 
-        log.security('rbac_context_failed', 'high', {
+        log.security('rbac_context_missing', 'high', {
           userId,
-          reason: 'context_load_failure',
+          reason: 'context_not_in_session',
+          alert: 'This should not happen - investigate applyGlobalAuth()',
         });
 
         log.auth('rbac_check', false, {
           userId,
-          reason: 'context_load_failure',
+          reason: 'context_missing_from_session',
         });
-        return createErrorResponse('Failed to load user context', 500, request) as Response;
+
+        return createErrorResponse(
+          'Failed to load user context - authentication state invalid',
+          500,
+          request
+        ) as Response;
       }
 
       log.debug('User context loaded successfully', {

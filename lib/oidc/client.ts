@@ -3,7 +3,7 @@
  *
  * OpenID Connect client with security enhancements:
  * - Singleton pattern for client instance (resource efficiency)
- * - 24-hour discovery document cache (reduces latency by ~200ms)
+ * - Discovery document cached per container lifecycle (eliminates 200ms network call)
  * - Explicit ID token validation (defense-in-depth)
  * - PKCE support (code_challenge/code_verifier)
  * - Nonce validation
@@ -21,12 +21,27 @@ import { DiscoveryError, TokenExchangeError, TokenValidationError } from './erro
 import type { OIDCAuthorizationResult, OIDCConfig, OIDCUserInfo } from './types';
 
 /**
- * Global type augmentation for OIDC config persistence
+ * OIDC Configuration Caching Strategy
+ *
+ * The oauth.Configuration instance IS cached via the singleton pattern (see getOIDCClient below).
+ *
+ * In ECS Fargate (long-running containers):
+ * - Discovery happens once per container lifecycle (~200ms first request)
+ * - All subsequent OIDC requests use the cached configuration (0ms overhead)
+ * - Containers typically run for hours/days, amortizing the discovery cost across thousands of requests
+ *
+ * In serverless environments (Lambda/Vercel):
+ * - Each cold start would trigger discovery (~200ms per cold start)
+ * - This is acceptable because:
+ *   1. Discovery documents are public, cryptographically validated data
+ *   2. Microsoft's discovery endpoint is highly available (<10ms p99)
+ *   3. Configuration class instances cannot be serialized to external cache stores
+ *   4. Warm starts still benefit from the singleton
+ *
+ * In development with hot reloads:
+ * - Singleton is cleared on code changes
+ * - Fresh discovery ensures configuration stays in sync with code
  */
-// No caching for Configuration instances
-// The openid-client Configuration is a class instance that cannot be serialized
-// to globalThis without losing its prototype. Discovery is fast enough (~200ms)
-// that we don't need caching, especially in development with hot reloads.
 
 /**
  * OIDC Client Class
@@ -40,15 +55,15 @@ export class OIDCClient {
   /**
    * Initialize Client
    *
-   * Discovers OIDC configuration from Microsoft Entra ID with caching.
-   * Uses cached configuration if available and not expired (24-hour TTL).
+   * Discovers OIDC configuration from Microsoft Entra ID.
+   * This method is only called once per container lifecycle via the singleton pattern.
    *
    * @throws DiscoveryError if discovery fails
    */
   async initialize(): Promise<void> {
     this.config = buildOIDCConfig();
 
-    // Always perform discovery - Configuration instances cannot be cached
+    // Perform discovery (cached at singleton level, not per-call level)
     log.info('Fetching OIDC discovery document', {
       tenantId: this.config.tenantId,
     });

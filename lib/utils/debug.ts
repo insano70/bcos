@@ -10,31 +10,51 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 export const debugLog = {
   auth: (message: string, data?: unknown) => {
     if (isDevelopment) {
-      console.log(`🔐 AUTH: ${message}`, data);
+      if (data !== undefined) {
+        console.log(`🔐 AUTH: ${message}`, data);
+      } else {
+        console.log(`🔐 AUTH: ${message}`);
+      }
     }
   },
 
   middleware: (message: string, data?: unknown) => {
     if (isDevelopment) {
-      console.log(`🌐 MIDDLEWARE: ${message}`, data);
+      if (data !== undefined) {
+        console.log(`🌐 MIDDLEWARE: ${message}`, data);
+      } else {
+        console.log(`🌐 MIDDLEWARE: ${message}`);
+      }
     }
   },
 
   rbac: (message: string, data?: unknown) => {
     if (isDevelopment) {
-      console.log(`🎯 RBAC: ${message}`, data);
+      if (data !== undefined) {
+        console.log(`🎯 RBAC: ${message}`, data);
+      } else {
+        console.log(`🎯 RBAC: ${message}`);
+      }
     }
   },
 
   security: (message: string, data?: unknown) => {
     if (isDevelopment) {
-      console.log(`🛡️ SECURITY: ${message}`, data);
+      if (data !== undefined) {
+        console.log(`🛡️ SECURITY: ${message}`, data);
+      } else {
+        console.log(`🛡️ SECURITY: ${message}`);
+      }
     }
   },
 
   session: (message: string, data?: unknown) => {
     if (isDevelopment) {
-      console.log(`🔄 SESSION: ${message}`, data);
+      if (data !== undefined) {
+        console.log(`🔄 SESSION: ${message}`, data);
+      } else {
+        console.log(`🔄 SESSION: ${message}`);
+      }
     }
   },
 
@@ -381,11 +401,3 @@ export const debugAssert = (condition: boolean, message: string, context?: unkno
 // Re-export enhanced functions with original names
 export { debugLog as enhancedDebugLog };
 export { errorLog as enhancedErrorLog };
-
-// Add deprecation notice in development
-if (isDevelopment) {
-  console.warn(
-    '💡 MIGRATION NOTICE: debug.ts has been enhanced with universal logger. ' +
-      'Consider using the new enhanced functions for better observability.'
-  );
-}
