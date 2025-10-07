@@ -1,11 +1,11 @@
-import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, isNull, sql } from 'drizzle-orm';
 import {
   AuthorizationError,
   ConflictError,
   NotFoundError,
   ValidationError,
 } from '@/lib/api/responses/error';
-import { db, practice_attributes, practices, templates, users } from '@/lib/db';
+import { db, practice_attributes, practices, staff_members, templates, users } from '@/lib/db';
 import { log } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
 
@@ -58,6 +58,14 @@ export interface PracticesServiceInterface {
   createPractice(data: CreatePracticeData): Promise<Practice>;
   updatePractice(id: string, data: UpdatePracticeData): Promise<Practice>;
   deletePractice(id: string): Promise<boolean>;
+  getPracticeAnalytics(timeframe?: string): Promise<unknown>;
+  getCreationTrends(timeframe?: string): Promise<unknown>;
+  getTemplateUsage(): Promise<unknown>;
+  getStatusDistribution(): Promise<unknown>;
+  getStaffStatistics(): Promise<unknown>;
+  getPracticesWithMostStaff(limit?: number): Promise<unknown>;
+  getRecentPractices(limit?: number): Promise<unknown>;
+  getAttributesCompletion(): Promise<unknown>;
 }
 
 /**
@@ -585,5 +593,320 @@ export function createRBACPracticesService(userContext: UserContext): PracticesS
         throw error;
       }
     },
+
+    /**
+     * Get practice analytics for admin dashboard
+     */
+    getPracticeAnalytics: async (timeframe: string = '30d') => {
+      const startTime = Date.now();
+
+      try {
+        const startDate = getStartDateFromTimeframe(timeframe);
+
+        // Get practice statistics
+        const [practiceStats] = await db
+          .select({
+            totalPractices: sql<number>`count(*)`,
+            activePractices: sql<number>`count(case when status = 'active' then 1 end)`,
+            newPracticesThisPeriod: sql<number>`count(case when created_at >= ${startDate} then 1 end)`,
+            practicesWithDomains: sql<number>`count(case when domain is not null and domain != '' then 1 end)`,
+          })
+          .from(practices)
+          .where(isNull(practices.deleted_at));
+
+        log.info('Get practice analytics completed', {
+          duration: Date.now() - startTime,
+        });
+
+        return {
+          overview: {
+            totalPractices: practiceStats?.totalPractices || 0,
+            activePractices: practiceStats?.activePractices || 0,
+            newPracticesThisPeriod: practiceStats?.newPracticesThisPeriod || 0,
+            practicesWithDomains: practiceStats?.practicesWithDomains || 0,
+            activationRate:
+              (practiceStats?.totalPractices || 0) > 0
+                ? Math.round(
+                    ((practiceStats?.activePractices || 0) / (practiceStats?.totalPractices || 1)) *
+                      100
+                  )
+                : 0,
+            domainCompletionRate:
+              (practiceStats?.totalPractices || 0) > 0
+                ? Math.round(
+                    ((practiceStats?.practicesWithDomains || 0) /
+                      (practiceStats?.totalPractices || 1)) *
+                      100
+                  )
+                : 0,
+          },
+        };
+      } catch (error) {
+        log.error('Get practice analytics failed', error, {
+          userId: userContext.user_id,
+          duration: Date.now() - startTime,
+        });
+        throw error;
+      }
+    },
+
+    /**
+     * Get practice creation trends
+     */
+    getCreationTrends: async (timeframe: string = '30d') => {
+      const startTime = Date.now();
+
+      try {
+        const startDate = getStartDateFromTimeframe(timeframe);
+
+        const creationTrend = await db
+          .select({
+            date: sql<string>`date(created_at)`,
+            count: sql<number>`count(*)`,
+          })
+          .from(practices)
+          .where(and(isNull(practices.deleted_at), gte(practices.created_at, startDate)))
+          .groupBy(sql`date(created_at)`)
+          .orderBy(sql`date(created_at)`);
+
+        log.info('Get practice creation trends completed', {
+          duration: Date.now() - startTime,
+        });
+
+        return creationTrend;
+      } catch (error) {
+        log.error('Get practice creation trends failed', error, {
+          userId: userContext.user_id,
+          duration: Date.now() - startTime,
+        });
+        throw error;
+      }
+    },
+
+    /**
+     * Get template usage statistics
+     */
+    getTemplateUsage: async () => {
+      const startTime = Date.now();
+
+      try {
+        const templateUsage = await db
+          .select({
+            templateId: practices.template_id,
+            templateName: templates.name,
+            templateSlug: templates.slug,
+            count: sql<number>`count(*)`,
+          })
+          .from(practices)
+          .leftJoin(templates, eq(practices.template_id, templates.template_id))
+          .where(isNull(practices.deleted_at))
+          .groupBy(practices.template_id, templates.name, templates.slug)
+          .orderBy(desc(sql`count(*)`));
+
+        log.info('Get template usage completed', {
+          duration: Date.now() - startTime,
+        });
+
+        return templateUsage;
+      } catch (error) {
+        log.error('Get template usage failed', error, {
+          userId: userContext.user_id,
+          duration: Date.now() - startTime,
+        });
+        throw error;
+      }
+    },
+
+    /**
+     * Get practice status distribution
+     */
+    getStatusDistribution: async () => {
+      const startTime = Date.now();
+
+      try {
+        const statusDistribution = await db
+          .select({
+            status: practices.status,
+            count: sql<number>`count(*)`,
+          })
+          .from(practices)
+          .where(isNull(practices.deleted_at))
+          .groupBy(practices.status)
+          .orderBy(desc(sql`count(*)`));
+
+        log.info('Get status distribution completed', {
+          duration: Date.now() - startTime,
+        });
+
+        return statusDistribution;
+      } catch (error) {
+        log.error('Get status distribution failed', error, {
+          userId: userContext.user_id,
+          duration: Date.now() - startTime,
+        });
+        throw error;
+      }
+    },
+
+    /**
+     * Get staff statistics
+     */
+    getStaffStatistics: async () => {
+      const startTime = Date.now();
+
+      try {
+        const [staffStats] = await db
+          .select({
+            totalStaff: sql<number>`count(*)`,
+            averageStaffPerPractice: sql<number>`round(count(*)::decimal / nullif(count(distinct practice_id), 0), 2)`,
+          })
+          .from(staff_members)
+          .where(isNull(staff_members.deleted_at));
+
+        log.info('Get staff statistics completed', {
+          duration: Date.now() - startTime,
+        });
+
+        return staffStats || {
+          totalStaff: 0,
+          averageStaffPerPractice: 0,
+        };
+      } catch (error) {
+        log.error('Get staff statistics failed', error, {
+          userId: userContext.user_id,
+          duration: Date.now() - startTime,
+        });
+        throw error;
+      }
+    },
+
+    /**
+     * Get practices with most staff
+     */
+    getPracticesWithMostStaff: async (limit: number = 10) => {
+      const startTime = Date.now();
+
+      try {
+        const practicesWithMostStaff = await db
+          .select({
+            practiceId: practices.practice_id,
+            practiceName: practices.name,
+            domain: practices.domain,
+            staffCount: sql<number>`count(${staff_members.staff_id})`,
+          })
+          .from(practices)
+          .leftJoin(staff_members, eq(practices.practice_id, staff_members.practice_id))
+          .where(and(isNull(practices.deleted_at), isNull(staff_members.deleted_at)))
+          .groupBy(practices.practice_id, practices.name, practices.domain)
+          .orderBy(desc(sql`count(${staff_members.staff_id})`))
+          .limit(limit);
+
+        log.info('Get practices with most staff completed', {
+          duration: Date.now() - startTime,
+        });
+
+        return practicesWithMostStaff;
+      } catch (error) {
+        log.error('Get practices with most staff failed', error, {
+          userId: userContext.user_id,
+          duration: Date.now() - startTime,
+        });
+        throw error;
+      }
+    },
+
+    /**
+     * Get recent practices
+     */
+    getRecentPractices: async (limit: number = 10) => {
+      const startTime = Date.now();
+
+      try {
+        const recentPractices = await db
+          .select({
+            practiceId: practices.practice_id,
+            name: practices.name,
+            domain: practices.domain,
+            status: practices.status,
+            templateId: practices.template_id,
+            createdAt: practices.created_at,
+          })
+          .from(practices)
+          .where(isNull(practices.deleted_at))
+          .orderBy(desc(practices.created_at))
+          .limit(limit);
+
+        log.info('Get recent practices completed', {
+          duration: Date.now() - startTime,
+        });
+
+        return recentPractices;
+      } catch (error) {
+        log.error('Get recent practices failed', error, {
+          userId: userContext.user_id,
+          duration: Date.now() - startTime,
+        });
+        throw error;
+      }
+    },
+
+    /**
+     * Get practice attributes completion stats
+     */
+    getAttributesCompletion: async () => {
+      const startTime = Date.now();
+
+      try {
+        const [attributesCompletion] = await db
+          .select({
+            totalWithAttributes: sql<number>`count(*)`,
+            withBusinessHours: sql<number>`count(case when business_hours is not null then 1 end)`,
+            withServices: sql<number>`count(case when services is not null then 1 end)`,
+            withInsurance: sql<number>`count(case when insurance_accepted is not null then 1 end)`,
+            withConditions: sql<number>`count(case when conditions_treated is not null then 1 end)`,
+            withColors: sql<number>`count(case when primary_color is not null then 1 end)`,
+          })
+          .from(practice_attributes);
+
+        log.info('Get attributes completion completed', {
+          duration: Date.now() - startTime,
+        });
+
+        return attributesCompletion || {
+          totalWithAttributes: 0,
+          withBusinessHours: 0,
+          withServices: 0,
+          withInsurance: 0,
+          withConditions: 0,
+          withColors: 0,
+        };
+      } catch (error) {
+        log.error('Get attributes completion failed', error, {
+          userId: userContext.user_id,
+          duration: Date.now() - startTime,
+        });
+        throw error;
+      }
+    },
   };
+}
+
+/**
+ * Helper to get start date from timeframe string
+ */
+function getStartDateFromTimeframe(timeframe: string): Date {
+  const now = new Date();
+
+  switch (timeframe) {
+    case '7d':
+      return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    case '30d':
+      return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    case '90d':
+      return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    case '1y':
+      return new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+    default:
+      return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  }
 }
