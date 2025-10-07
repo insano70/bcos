@@ -272,3 +272,4 @@ For technical implementation details, refer to the source code in:
 - `lib/services/analytics-query-builder.ts`
 - `lib/utils/simplified-chart-transformer.ts`
 - `components/charts/chart-builder-core.tsx`
+

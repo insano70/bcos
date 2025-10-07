@@ -613,6 +613,9 @@ export class SimplifiedChartTransformer {
         tension: 0.4,
         pointRadius: 3,
         pointHoverRadius: 5,
+        borderRadius: 4,
+        barPercentage: 0.7,
+        categoryPercentage: 0.7,
       });
 
       colorIndex++;
@@ -714,6 +717,9 @@ export class SimplifiedChartTransformer {
         tension: 0.4,
         pointRadius: 3,
         pointHoverRadius: 5,
+        borderRadius: 4,
+        barPercentage: 0.7,
+        categoryPercentage: 0.7,
       });
 
       colorIndex++;
