@@ -1,6 +1,6 @@
-import { and, count, eq, inArray, isNull, like, or } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, isNull, like, or, sql } from 'drizzle-orm';
 import { ensureSecurityRecord, hashPassword } from '@/lib/auth/security';
-import { account_security, db } from '@/lib/db';
+import { account_security, audit_logs, db, practices } from '@/lib/db';
 import { roles, user_roles } from '@/lib/db/rbac-schema';
 import { organizations, user_organizations, users } from '@/lib/db/schema';
 import { log } from '@/lib/logger';
@@ -840,7 +840,7 @@ export class RBACUsersService extends BaseRBACService {
     }
 
     // Filter to only users that can be managed
-    const manageableUsers: UserWithOrganizations[] = [];
+    const manageableUsers: UserWithOrganizations[]= [];
 
     for (const user of allUsers) {
       if (await this.canManageUser(user.user_id)) {
@@ -849,6 +849,168 @@ export class RBACUsersService extends BaseRBACService {
     }
 
     return manageableUsers;
+  }
+
+  /**
+   * Get user analytics for admin dashboard
+   */
+  async getUserAnalytics(timeframe: string = '30d') {
+    this.requirePermission('analytics:read:all', undefined);
+
+    const startDate = this.getStartDateFromTimeframe(timeframe);
+
+    // Get user statistics
+    const [userStats] = await db
+      .select({
+        totalUsers: sql<number>`count(*)`,
+        activeUsers: sql<number>`count(case when is_active = true then 1 end)`,
+        verifiedUsers: sql<number>`count(case when email_verified = true then 1 end)`,
+        newUsersThisPeriod: sql<number>`count(case when created_at >= ${startDate} then 1 end)`,
+      })
+      .from(users)
+      .where(isNull(users.deleted_at));
+
+    // Get user-practice relationship stats
+    const userPracticesStats = await db
+      .select({
+        totalPractices: sql<number>`count(distinct ${practices.practice_id})`,
+        practicesWithOwners: sql<number>`count(distinct case when ${practices.owner_user_id} is not null then ${practices.practice_id} end)`,
+        averagePracticesPerUser: sql<number>`round(count(distinct ${practices.practice_id})::decimal / nullif(count(distinct ${users.user_id}), 0), 2)`,
+      })
+      .from(practices)
+      .leftJoin(users, eq(practices.owner_user_id, users.user_id))
+      .where(and(isNull(practices.deleted_at), isNull(users.deleted_at)));
+
+    return {
+      overview: {
+        totalUsers: userStats?.totalUsers || 0,
+        activeUsers: userStats?.activeUsers || 0,
+        verifiedUsers: userStats?.verifiedUsers || 0,
+        newUsersThisPeriod: userStats?.newUsersThisPeriod || 0,
+        verificationRate:
+          (userStats?.totalUsers || 0) > 0
+            ? Math.round(((userStats?.verifiedUsers || 0) / (userStats?.totalUsers || 1)) * 100)
+            : 0,
+        activationRate:
+          (userStats?.totalUsers || 0) > 0
+            ? Math.round(((userStats?.activeUsers || 0) / (userStats?.totalUsers || 1)) * 100)
+            : 0,
+      },
+      practices: userPracticesStats[0] || {
+        totalPractices: 0,
+        practicesWithOwners: 0,
+        averagePracticesPerUser: 0,
+      },
+    };
+  }
+
+  /**
+   * Get user registration trends
+   */
+  async getRegistrationTrends(timeframe: string = '30d') {
+    this.requirePermission('analytics:read:all', undefined);
+
+    const startDate = this.getStartDateFromTimeframe(timeframe);
+
+    const registrationTrend = await db
+      .select({
+        date: sql<string>`date(created_at)`,
+        count: sql<number>`count(*)`,
+      })
+      .from(users)
+      .where(and(isNull(users.deleted_at), gte(users.created_at, startDate)))
+      .groupBy(sql`date(created_at)`)
+      .orderBy(sql`date(created_at)`);
+
+    return registrationTrend;
+  }
+
+  /**
+   * Get user activity from audit logs
+   */
+  async getUserActivity(timeframe: string = '30d') {
+    this.requirePermission('analytics:read:all', undefined);
+
+    const startDate = this.getStartDateFromTimeframe(timeframe);
+
+    const userActivity = await db
+      .select({
+        date: sql<string>`date(created_at)`,
+        uniqueUsers: sql<number>`count(distinct user_id)`,
+        totalActions: sql<number>`count(*)`,
+      })
+      .from(audit_logs)
+      .where(and(gte(audit_logs.created_at, startDate), sql`user_id is not null`))
+      .groupBy(sql`date(created_at)`)
+      .orderBy(sql`date(created_at)`);
+
+    return userActivity;
+  }
+
+  /**
+   * Get top user actions from audit logs
+   */
+  async getTopUserActions(timeframe: string = '30d', limit: number = 10) {
+    this.requirePermission('analytics:read:all', undefined);
+
+    const startDate = this.getStartDateFromTimeframe(timeframe);
+
+    const topActions = await db
+      .select({
+        action: audit_logs.action,
+        count: sql<number>`count(*)`,
+      })
+      .from(audit_logs)
+      .where(and(gte(audit_logs.created_at, startDate), sql`user_id is not null`))
+      .groupBy(audit_logs.action)
+      .orderBy(desc(sql`count(*)`))
+      .limit(limit);
+
+    return topActions;
+  }
+
+  /**
+   * Get recent user registrations
+   */
+  async getRecentRegistrations(limit: number = 10) {
+    this.requirePermission('analytics:read:all', undefined);
+
+    const recentRegistrations = await db
+      .select({
+        userId: users.user_id,
+        email: users.email,
+        firstName: users.first_name,
+        lastName: users.last_name,
+        createdAt: users.created_at,
+        isActive: users.is_active,
+        emailVerified: users.email_verified,
+      })
+      .from(users)
+      .where(isNull(users.deleted_at))
+      .orderBy(desc(users.created_at))
+      .limit(limit);
+
+    return recentRegistrations;
+  }
+
+  /**
+   * Helper to get start date from timeframe string
+   */
+  private getStartDateFromTimeframe(timeframe: string): Date {
+    const now = new Date();
+
+    switch (timeframe) {
+      case '7d':
+        return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      case '30d':
+        return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      case '90d':
+        return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      case '1y':
+        return new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+      default:
+        return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    }
   }
 }
 

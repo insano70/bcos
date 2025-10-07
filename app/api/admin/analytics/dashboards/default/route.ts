@@ -1,10 +1,9 @@
-import { and, eq } from 'drizzle-orm';
 import type { NextRequest } from 'next/server';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { publicRoute } from '@/lib/api/route-handler';
-import { dashboards, db } from '@/lib/db';
 import { log } from '@/lib/logger';
+import { getDefaultDashboardId } from '@/lib/services/default-dashboard-service';
 
 /**
  * Get Default Dashboard
@@ -17,41 +16,26 @@ const getDefaultDashboardHandler = async (request: NextRequest) => {
   log.info('Default dashboard query initiated');
 
   try {
-    // Query for the default dashboard (must be published, active, and marked as default)
-    const [defaultDashboard] = await db
-      .select({
-        dashboard_id: dashboards.dashboard_id,
-        dashboard_name: dashboards.dashboard_name,
-      })
-      .from(dashboards)
-      .where(
-        and(
-          eq(dashboards.is_default, true),
-          eq(dashboards.is_published, true),
-          eq(dashboards.is_active, true)
-        )
-      )
-      .limit(1);
+    // Use centralized service to get default dashboard ID
+    const defaultDashboardId = await getDefaultDashboardId();
 
     log.db('SELECT', 'dashboards', Date.now() - startTime, {
-      rowCount: defaultDashboard ? 1 : 0,
+      rowCount: defaultDashboardId ? 1 : 0,
     });
 
-    if (!defaultDashboard) {
+    if (!defaultDashboardId) {
       log.info('No default dashboard configured');
       return createSuccessResponse({ defaultDashboard: null }, 'No default dashboard configured');
     }
 
     log.info('Default dashboard found', {
-      dashboardId: defaultDashboard.dashboard_id,
-      dashboardName: defaultDashboard.dashboard_name,
+      dashboardId: defaultDashboardId,
     });
 
     return createSuccessResponse(
       {
         defaultDashboard: {
-          dashboard_id: defaultDashboard.dashboard_id,
-          dashboard_name: defaultDashboard.dashboard_name,
+          dashboard_id: defaultDashboardId,
         },
       },
       'Default dashboard retrieved successfully'
