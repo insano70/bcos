@@ -6,9 +6,9 @@
  * Can be called manually or via external cron service (e.g., Vercel Cron, AWS EventBridge)
  */
 
-import { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
+import type { NextRequest } from 'next/server';
 import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { adminRoute } from '@/lib/api/route-handler';
 import { cleanupExpiredChallenges } from '@/lib/auth/webauthn';
 import { log } from '@/lib/logger';
@@ -42,9 +42,13 @@ const handler = async (request: NextRequest) => {
     );
   } catch (error) {
     const duration = Date.now() - startTime;
-    log.error('Security maintenance failed', error instanceof Error ? error : new Error(String(error)), {
-      duration,
-    });
+    log.error(
+      'Security maintenance failed',
+      error instanceof Error ? error : new Error(String(error)),
+      {
+        duration,
+      }
+    );
 
     return createErrorResponse(
       error instanceof Error ? error.message : 'Security maintenance failed',

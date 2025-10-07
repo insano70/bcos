@@ -217,9 +217,7 @@ class DatabaseStateManager {
    */
   async cleanupExpired(): Promise<number> {
     try {
-      const result = await db
-        .delete(oidc_states)
-        .where(lt(oidc_states.expires_at, new Date()));
+      const result = await db.delete(oidc_states).where(lt(oidc_states.expires_at, new Date()));
 
       const deleted = result.length || 0;
 
@@ -246,9 +244,7 @@ class DatabaseStateManager {
    */
   async getStateCount(): Promise<number> {
     try {
-      const result = await db
-        .select({ count: oidc_states.state })
-        .from(oidc_states);
+      const result = await db.select({ count: oidc_states.state }).from(oidc_states);
 
       return result.length;
     } catch (error) {

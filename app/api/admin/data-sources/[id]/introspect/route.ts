@@ -1,12 +1,12 @@
-import { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { extractRouteParams } from '@/lib/api/utils/params';
-import { dataSourceParamsSchema } from '@/lib/validations/data-sources';
-import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
+import type { UserContext } from '@/lib/types/rbac';
+import { dataSourceParamsSchema } from '@/lib/validations/data-sources';
 
 /**
  * Admin Data Source Introspection API
@@ -14,7 +14,11 @@ import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-s
  */
 
 // POST - Introspect data source columns
-const introspectDataSourceHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+const introspectDataSourceHandler = async (
+  request: NextRequest,
+  userContext: UserContext,
+  ...args: unknown[]
+) => {
   const startTime = Date.now();
   let dataSourceId: number | undefined;
 
@@ -24,7 +28,7 @@ const introspectDataSourceHandler = async (request: NextRequest, userContext: Us
 
     log.info('Data source introspection request initiated', {
       requestingUserId: userContext.user_id,
-      dataSourceId
+      dataSourceId,
     });
 
     // Create service instance and introspect columns
@@ -34,11 +38,10 @@ const introspectDataSourceHandler = async (request: NextRequest, userContext: Us
     log.info('Data source introspection completed', { duration: Date.now() - startTime });
 
     return createSuccessResponse(result, `Successfully introspected ${result.created} columns`);
-
   } catch (error) {
     log.error('Data source introspection error', error, {
       requestingUserId: userContext.user_id,
-      dataSourceId
+      dataSourceId,
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
@@ -47,5 +50,5 @@ const introspectDataSourceHandler = async (request: NextRequest, userContext: Us
 
 export const POST = rbacRoute(introspectDataSourceHandler, {
   permission: ['data-sources:create:organization', 'data-sources:create:all'],
-  rateLimit: 'api'
+  rateLimit: 'api',
 });

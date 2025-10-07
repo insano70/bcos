@@ -1,16 +1,20 @@
 import type { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { extractRouteParams } from '@/lib/api/utils/params';
-import { organizationUpdateSchema, organizationParamsSchema } from '@/lib/validations/organization';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
+import { log } from '@/lib/logger';
 import { createRBACOrganizationsService } from '@/lib/services/rbac-organizations-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
+import { organizationParamsSchema, organizationUpdateSchema } from '@/lib/validations/organization';
 
-const getOrganizationHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+const getOrganizationHandler = async (
+  request: NextRequest,
+  userContext: UserContext,
+  ...args: unknown[]
+) => {
   const startTime = Date.now();
 
   try {
@@ -56,7 +60,11 @@ const getOrganizationHandler = async (request: NextRequest, userContext: UserCon
   }
 };
 
-const updateOrganizationHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+const updateOrganizationHandler = async (
+  request: NextRequest,
+  userContext: UserContext,
+  ...args: unknown[]
+) => {
   const startTime = Date.now();
 
   try {
@@ -70,7 +78,10 @@ const updateOrganizationHandler = async (request: NextRequest, userContext: User
     const updateData = await validateRequest(request, organizationUpdateSchema);
 
     const organizationService = createRBACOrganizationsService(userContext);
-    const updatedOrganization = await organizationService.updateOrganization(organizationId, updateData);
+    const updatedOrganization = await organizationService.updateOrganization(
+      organizationId,
+      updateData
+    );
 
     log.info('Organization updated successfully', {
       targetOrganizationId: organizationId,
@@ -103,7 +114,11 @@ const updateOrganizationHandler = async (request: NextRequest, userContext: User
   }
 };
 
-const deleteOrganizationHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+const deleteOrganizationHandler = async (
+  request: NextRequest,
+  userContext: UserContext,
+  ...args: unknown[]
+) => {
   const startTime = Date.now();
 
   try {
@@ -136,14 +151,22 @@ const deleteOrganizationHandler = async (request: NextRequest, userContext: User
 };
 
 export const GET = rbacRoute(getOrganizationHandler, {
-  permission: ['organizations:read:own', 'organizations:read:organization', 'organizations:read:all'],
+  permission: [
+    'organizations:read:own',
+    'organizations:read:organization',
+    'organizations:read:all',
+  ],
   extractResourceId: extractors.organizationResourceId,
   extractOrganizationId: extractors.organizationId,
   rateLimit: 'api',
 });
 
 export const PUT = rbacRoute(updateOrganizationHandler, {
-  permission: ['organizations:update:own', 'organizations:update:organization', 'organizations:manage:all'],
+  permission: [
+    'organizations:update:own',
+    'organizations:update:organization',
+    'organizations:manage:all',
+  ],
   extractResourceId: extractors.organizationResourceId,
   extractOrganizationId: extractors.organizationId,
   rateLimit: 'api',

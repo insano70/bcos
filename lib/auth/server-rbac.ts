@@ -7,10 +7,10 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { getJWTConfig } from '@/lib/env';
 import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context';
 import { PermissionChecker } from '@/lib/rbac/permission-checker';
 import type { PermissionName } from '@/lib/types/rbac';
-import { getJWTConfig } from '@/lib/env';
 
 /**
  * Get authenticated user ID from server-side cookies

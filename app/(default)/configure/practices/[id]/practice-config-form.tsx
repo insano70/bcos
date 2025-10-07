@@ -239,7 +239,9 @@ export default function PracticeConfigForm({
       // Revert optimistic update on failure
       queryClient.invalidateQueries({ queryKey: ['practice-attributes', practiceId] });
       // Show error to user
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to update practice settings');
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Failed to update practice settings'
+      );
       setShowErrorToast(true);
       setTimeout(() => setShowErrorToast(false), 5000);
     } finally {

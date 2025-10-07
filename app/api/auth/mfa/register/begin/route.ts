@@ -6,15 +6,15 @@
  * Security: User must have validated credentials (temp token or session)
  */
 
-import type { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse, AuthenticationError } from '@/lib/api/responses/error';
-import { publicRoute } from '@/lib/api/route-handler';
-import { requireAuth } from '@/lib/api/middleware/auth';
-import { requireMFATempToken } from '@/lib/auth/webauthn-temp-token';
-import { beginRegistration } from '@/lib/auth/webauthn';
-import { db, users } from '@/lib/db';
 import { eq } from 'drizzle-orm';
+import type { NextRequest } from 'next/server';
+import { requireAuth } from '@/lib/api/middleware/auth';
+import { AuthenticationError, createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { publicRoute } from '@/lib/api/route-handler';
+import { beginRegistration } from '@/lib/auth/webauthn';
+import { requireMFATempToken } from '@/lib/auth/webauthn-temp-token';
+import { db, users } from '@/lib/db';
 import { log } from '@/lib/logger';
 import type { RegistrationBeginResponse } from '@/lib/types/webauthn';
 
@@ -53,11 +53,10 @@ const handler = async (request: NextRequest) => {
     }
 
     // Extract IP and user agent
-    const ipAddress =
-      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      request.headers.get('x-real-ip') ||
-      'unknown';
-    const userAgent = request.headers.get('user-agent') || null;
+    const { extractRequestMetadata } = await import('@/lib/api/utils/request');
+    const metadata = extractRequestMetadata(request);
+    const ipAddress = metadata.ipAddress;
+    const userAgent = metadata.userAgent;
 
     // Generate registration options
     const { options, challenge_id } = await beginRegistration(

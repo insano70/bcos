@@ -20,9 +20,13 @@ export async function verifyJWT(token: string): Promise<JWTPayload | null> {
     const { payload } = await jwtVerify(token, secret);
     return payload;
   } catch (error) {
-    log.error('JWT verification failed', error instanceof Error ? error : new Error(String(error)), {
-      operation: 'verifyJWT',
-    });
+    log.error(
+      'JWT verification failed',
+      error instanceof Error ? error : new Error(String(error)),
+      {
+        operation: 'verifyJWT',
+      }
+    );
     return null;
   }
 }
@@ -40,9 +44,13 @@ export async function refreshJWT(token: string): Promise<string | null> {
       lastName: payload.lastName,
     });
   } catch (error) {
-    log.error('JWT refresh signing failed', error instanceof Error ? error : new Error(String(error)), {
-      operation: 'refreshJWT',
-    });
+    log.error(
+      'JWT refresh signing failed',
+      error instanceof Error ? error : new Error(String(error)),
+      {
+        operation: 'refreshJWT',
+      }
+    );
     return null;
   }
 }

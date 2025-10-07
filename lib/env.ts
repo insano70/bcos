@@ -273,6 +273,15 @@ export const isDevelopment = () => {
   return env.NODE_ENV === 'development';
 };
 
+/**
+ * Check if running in production environment
+ * Safe to use in API routes and middleware (does not throw on client side)
+ *
+ * WARNING: This should only be used in server-side code (API routes, middleware)
+ * For build-time checks, use isProduction() instead
+ */
+export const isProductionEnvironment = () => process.env.NODE_ENV === 'production';
+
 export const getCSRFConfig = () => {
   if (typeof window !== 'undefined') {
     throw new Error('getCSRFConfig can only be used on the server side');

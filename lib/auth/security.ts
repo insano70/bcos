@@ -67,19 +67,19 @@ export const PROGRESSIVE_LOCKOUT_TIMEOUTS = [
  * @returns The security record (existing or newly created)
  */
 export async function ensureSecurityRecord(userId: string): Promise<{
-    user_id: string;
-    failed_login_attempts: number;
-    last_failed_attempt: Date | null;
-    locked_until: Date | null;
-    lockout_reason: string | null;
-    max_concurrent_sessions: number;
-    require_fresh_auth_minutes: number;
-    password_changed_at: Date | null;
-    last_password_reset: Date | null;
-    suspicious_activity_detected: boolean;
-    created_at: Date;
-    updated_at: Date;
-  }> {
+  user_id: string;
+  failed_login_attempts: number;
+  last_failed_attempt: Date | null;
+  locked_until: Date | null;
+  lockout_reason: string | null;
+  max_concurrent_sessions: number;
+  require_fresh_auth_minutes: number;
+  password_changed_at: Date | null;
+  last_password_reset: Date | null;
+  suspicious_activity_detected: boolean;
+  created_at: Date;
+  updated_at: Date;
+}> {
   try {
     // Check if record exists
     const [existing] = await db
@@ -157,58 +157,58 @@ export async function ensureSecurityRecord(userId: string): Promise<{
  * @returns Locked status and expiration time
  */
 export async function isAccountLocked(
-    identifier: string
-  ): Promise<{ locked: boolean; lockedUntil?: number }> {
-    try {
-      // For login attempts, the identifier is the email, but we need to find the user_id first
-      // Get user by email to find user_id
-      const [user] = await db
-        .select({ user_id: users.user_id })
-        .from(users)
-        .where(eq(users.email, identifier))
-        .limit(1);
+  identifier: string
+): Promise<{ locked: boolean; lockedUntil?: number }> {
+  try {
+    // For login attempts, the identifier is the email, but we need to find the user_id first
+    // Get user by email to find user_id
+    const [user] = await db
+      .select({ user_id: users.user_id })
+      .from(users)
+      .where(eq(users.email, identifier))
+      .limit(1);
 
-      if (!user) {
-        return { locked: false };
-      }
-
-      // Ensure security record exists for this user
-      const securityRecord = await ensureSecurityRecord(user.user_id);
-
-      const now = new Date();
-
-      // Check if lockout has expired
-      if (securityRecord.locked_until && now > securityRecord.locked_until) {
-        // Clear expired lockout
-        await db
-          .update(account_security)
-          .set({
-            locked_until: null,
-            suspicious_activity_detected: false,
-          })
-          .where(eq(account_security.user_id, user.user_id));
-        return { locked: false };
-      }
-
-      // Check if account is currently locked
-      if (
-        securityRecord.failed_login_attempts >= 3 &&
-        securityRecord.locked_until &&
-        now <= securityRecord.locked_until
-      ) {
-        return { locked: true, lockedUntil: securityRecord.locked_until.getTime() };
-      }
-
+    if (!user) {
       return { locked: false };
-    } catch (error) {
-      log.error('Error checking account lockout status', {
-        error: error instanceof Error ? error.message : String(error),
-        identifier,
-        operation: 'isAccountLocked',
-      });
-      return { locked: false }; // Fail open on database errors
     }
+
+    // Ensure security record exists for this user
+    const securityRecord = await ensureSecurityRecord(user.user_id);
+
+    const now = new Date();
+
+    // Check if lockout has expired
+    if (securityRecord.locked_until && now > securityRecord.locked_until) {
+      // Clear expired lockout
+      await db
+        .update(account_security)
+        .set({
+          locked_until: null,
+          suspicious_activity_detected: false,
+        })
+        .where(eq(account_security.user_id, user.user_id));
+      return { locked: false };
+    }
+
+    // Check if account is currently locked
+    if (
+      securityRecord.failed_login_attempts >= 3 &&
+      securityRecord.locked_until &&
+      now <= securityRecord.locked_until
+    ) {
+      return { locked: true, lockedUntil: securityRecord.locked_until.getTime() };
+    }
+
+    return { locked: false };
+  } catch (error) {
+    log.error('Error checking account lockout status', {
+      error: error instanceof Error ? error.message : String(error),
+      identifier,
+      operation: 'isAccountLocked',
+    });
+    return { locked: false }; // Fail open on database errors
   }
+}
 
 /**
  * Record a failed login attempt and apply progressive lockout
@@ -242,10 +242,7 @@ export async function recordFailedAttempt(
     // Apply progressive lockout
     let lockedUntil: Date | null = null;
     if (failedAttempts >= 3) {
-      const lockoutIndex = Math.min(
-        failedAttempts - 3,
-        PROGRESSIVE_LOCKOUT_TIMEOUTS.length - 1
-      );
+      const lockoutIndex = Math.min(failedAttempts - 3, PROGRESSIVE_LOCKOUT_TIMEOUTS.length - 1);
       const lockoutDuration = PROGRESSIVE_LOCKOUT_TIMEOUTS[lockoutIndex] || 0;
       lockedUntil = new Date(now.getTime() + lockoutDuration);
     }

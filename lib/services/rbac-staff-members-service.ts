@@ -13,53 +13,59 @@ import { verifyPracticeAccess } from './rbac-practice-utils';
 
 export interface StaffMember {
   staff_id: string;
-  practice_id: string;
+  practice_id: string | null;
   name: string;
-  title: string;
+  title: string | null;
+  credentials?: string | null;
   bio?: string | null;
   photo_url?: string | null;
   email?: string | null;
   phone?: string | null;
   specialties?: unknown;
   education?: unknown;
-  is_active: boolean;
-  display_order: number;
-  created_at: Date;
-  updated_at: Date;
+  is_active: boolean | null;
+  display_order: number | null;
+  created_at: Date | null;
+  updated_at: Date | null;
+  deleted_at?: Date | null;
 }
 
 export interface StaffFilters {
-  is_active?: boolean;
-  search?: string;
-  limit?: number;
-  offset?: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
+  is_active?: boolean | undefined;
+  search?: string | undefined;
+  limit?: number | undefined;
+  offset?: number | undefined;
+  sortBy?: string | undefined;
+  sortOrder?: 'asc' | 'desc' | undefined;
 }
 
 export interface CreateStaffData {
   name: string;
-  title: string;
-  bio?: string;
-  photo_url?: string;
-  email?: string;
-  phone?: string;
+  title?: string | undefined;
+  credentials?: string | undefined;
+  bio?: string | undefined;
+  photo_url?: string | undefined;
+  email?: string | undefined;
+  phone?: string | undefined;
   specialties?: unknown;
   education?: unknown;
-  is_active?: boolean;
+  is_active?: boolean | undefined;
+  practice_id?: string | undefined;
+  display_order?: number | undefined;
 }
 
 export interface UpdateStaffData {
-  name?: string;
-  title?: string;
-  bio?: string;
-  photo_url?: string;
-  email?: string;
-  phone?: string;
+  name?: string | undefined;
+  title?: string | undefined;
+  credentials?: string | undefined;
+  bio?: string | undefined;
+  photo_url?: string | undefined;
+  email?: string | undefined;
+  phone?: string | undefined;
   specialties?: unknown;
   education?: unknown;
-  is_active?: boolean;
-  display_order?: number;
+  is_active?: boolean | undefined;
+  display_order?: number | undefined;
 }
 
 export interface StaffMembersServiceInterface {

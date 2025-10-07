@@ -78,8 +78,11 @@ export async function warmUpRolePermissionCache(): Promise<void> {
       cacheSize: rolePermissionCache.getStats().size,
     });
   } catch (error) {
-    log.error('Failed to warm up role permission cache', error instanceof Error ? error : new Error(String(error)), {
-    });
+    log.error(
+      'Failed to warm up role permission cache',
+      error instanceof Error ? error : new Error(String(error)),
+      {}
+    );
   }
 }
 

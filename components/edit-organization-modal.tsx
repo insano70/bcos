@@ -34,7 +34,7 @@ interface HierarchicalOrg {
   id: string;
   name: string;
   level: number;
-  parent_organization_id?: string | null;
+  parent_organization_id?: string | null | undefined;
 }
 
 export default function EditOrganizationModal({
@@ -119,7 +119,7 @@ export default function EditOrganizationModal({
     if (organization && isOpen) {
       setValue('name', organization.name);
       setValue('slug', organization.slug);
-      setValue('parent_organization_id', organization.parent_organization_id || null);
+      setValue('parent_organization_id', organization.parent_organization_id ?? null);
       setValue('is_active', organization.is_active !== false);
     }
   }, [organization, isOpen, setValue]);
@@ -135,7 +135,7 @@ export default function EditOrganizationModal({
         data: {
           name: data.name,
           slug: data.slug,
-          parent_organization_id: data.parent_organization_id || null,
+          parent_organization_id: data.parent_organization_id ?? null,
           is_active: data.is_active ?? true,
         },
       });

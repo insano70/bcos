@@ -1,10 +1,10 @@
-import { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { log } from '@/lib/logger';
 import { executeAnalyticsQuery } from '@/lib/services/analytics-db';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
 
 /**
  * Admin Analytics - Charges and Payments Chart
@@ -15,7 +15,7 @@ const chargesPaymentsHandler = async (request: NextRequest, userContext: UserCon
 
   log.info('Charges and Payments analytics request initiated', {
     requestingUserId: userContext.user_id,
-    isSuperAdmin: userContext.is_super_admin
+    isSuperAdmin: userContext.is_super_admin,
   });
 
   try {
@@ -60,7 +60,7 @@ const chargesPaymentsHandler = async (request: NextRequest, userContext: UserCon
     console.log('🔍 CHARGES & PAYMENTS SQL:', {
       sql: query,
       practiceUid: practiceUid,
-      practiceUidType: typeof practiceUid
+      practiceUidType: typeof practiceUid,
     });
 
     // Execute the query
@@ -70,7 +70,7 @@ const chargesPaymentsHandler = async (request: NextRequest, userContext: UserCon
 
     console.log('✅ CHARGES & PAYMENTS RESULT:', {
       rowCount: data.length,
-      sampleRows: data.slice(0, 3)
+      sampleRows: data.slice(0, 3),
     });
 
     // Log successful operation
@@ -79,22 +79,24 @@ const chargesPaymentsHandler = async (request: NextRequest, userContext: UserCon
     log.info('Charges and Payments analytics completed successfully', {
       resultCount: data.length,
       practiceUid: practiceUid,
-      totalRequestTime: Date.now() - startTime
+      totalRequestTime: Date.now() - startTime,
     });
 
-    return createSuccessResponse({
-      data: data,
-      metadata: {
-        practiceUid: practiceUid,
-        rowCount: data.length,
-        queryTimeMs: Date.now() - queryStart,
-        generatedAt: new Date().toISOString()
-      }
-    }, 'Charges and Payments data retrieved successfully');
-    
+    return createSuccessResponse(
+      {
+        data: data,
+        metadata: {
+          practiceUid: practiceUid,
+          rowCount: data.length,
+          queryTimeMs: Date.now() - queryStart,
+          generatedAt: new Date().toISOString(),
+        },
+      },
+      'Charges and Payments data retrieved successfully'
+    );
   } catch (error) {
     log.error('Charges and Payments analytics error', error, {
-      requestingUserId: userContext.user_id
+      requestingUserId: userContext.user_id,
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
@@ -103,10 +105,7 @@ const chargesPaymentsHandler = async (request: NextRequest, userContext: UserCon
 
 // Uses analytics:read:all permission (granted via roles)
 // Super admins bypass permission checks automatically
-export const GET = rbacRoute(
-  chargesPaymentsHandler,
-  {
-    permission: 'analytics:read:all',
-    rateLimit: 'api'
-  }
-);
+export const GET = rbacRoute(chargesPaymentsHandler, {
+  permission: 'analytics:read:all',
+  rateLimit: 'api',
+});

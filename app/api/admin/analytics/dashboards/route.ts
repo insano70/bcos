@@ -1,12 +1,12 @@
-import { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
-import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { dashboardCreateSchema, dashboardUpdateSchema } from '@/lib/validations/analytics';
-import type { UserContext } from '@/lib/types/rbac';
+import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { log } from '@/lib/logger';
 import { createRBACDashboardsService } from '@/lib/services/rbac-dashboards-service';
+import type { UserContext } from '@/lib/types/rbac';
+import { dashboardCreateSchema } from '@/lib/validations/analytics';
 
 /**
  * Admin Analytics - Dashboards CRUD API
@@ -17,17 +17,23 @@ import { createRBACDashboardsService } from '@/lib/services/rbac-dashboards-serv
 const getDashboardsHandler = async (request: NextRequest, userContext: UserContext) => {
   log.info('Dashboards list request initiated', {
     requestingUserId: userContext.user_id,
-    isSuperAdmin: userContext.is_super_admin
+    isSuperAdmin: userContext.is_super_admin,
   });
 
   try {
     const { searchParams } = new URL(request.url);
     const categoryId = searchParams.get('category_id');
     const isActive = searchParams.get('is_active') !== 'false';
-    const isPublished = searchParams.get('is_published') === 'true' ? true : 
-                       searchParams.get('is_published') === 'false' ? false : undefined;
-    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined;
-    const offset = searchParams.get('offset') ? parseInt(searchParams.get('offset')!) : undefined;
+    const isPublished =
+      searchParams.get('is_published') === 'true'
+        ? true
+        : searchParams.get('is_published') === 'false'
+          ? false
+          : undefined;
+    const limitParam = searchParams.get('limit');
+    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+    const offsetParam = searchParams.get('offset');
+    const offset = offsetParam ? parseInt(offsetParam, 10) : undefined;
 
     // Create service instance
     const dashboardsService = createRBACDashboardsService(userContext);
@@ -38,29 +44,31 @@ const getDashboardsHandler = async (request: NextRequest, userContext: UserConte
       is_active: isActive,
       is_published: isPublished,
       limit,
-      offset
+      offset,
     });
 
     // Get total count for pagination
     const totalCount = await dashboardsService.getDashboardCount({
       category_id: categoryId || undefined,
       is_active: isActive,
-      is_published: isPublished
+      is_published: isPublished,
     });
 
-    return createSuccessResponse({
-      dashboards,
-      metadata: {
-        total_count: totalCount,
-        category_filter: categoryId,
-        active_filter: isActive,
-        generatedAt: new Date().toISOString()
-      }
-    }, 'Dashboards retrieved successfully');
-
+    return createSuccessResponse(
+      {
+        dashboards,
+        metadata: {
+          total_count: totalCount,
+          category_filter: categoryId,
+          active_filter: isActive,
+          generatedAt: new Date().toISOString(),
+        },
+      },
+      'Dashboards retrieved successfully'
+    );
   } catch (error) {
     log.error('Dashboards list error', error, {
-      requestingUserId: userContext.user_id
+      requestingUserId: userContext.user_id,
     });
 
     return createErrorResponse(
@@ -74,7 +82,7 @@ const getDashboardsHandler = async (request: NextRequest, userContext: UserConte
 // POST - Create new dashboard
 const createDashboardHandler = async (request: NextRequest, userContext: UserContext) => {
   log.info('Dashboard creation request initiated', {
-    requestingUserId: userContext.user_id
+    requestingUserId: userContext.user_id,
   });
 
   try {
@@ -94,23 +102,25 @@ const createDashboardHandler = async (request: NextRequest, userContext: UserCon
       layout_config: validatedData.layout_config,
       is_active: validatedData.is_active,
       is_published: validatedData.is_published,
-      is_default: validatedData.is_default
+      is_default: validatedData.is_default,
     });
 
     log.info('Dashboard created successfully', {
       dashboardId: createdDashboard.dashboard_id,
       dashboardName: createdDashboard.dashboard_name,
       chartCount: createdDashboard.chart_count,
-      createdBy: userContext.user_id
+      createdBy: userContext.user_id,
     });
 
-    return createSuccessResponse({
-      dashboard: createdDashboard
-    }, 'Dashboard created successfully');
-
+    return createSuccessResponse(
+      {
+        dashboard: createdDashboard,
+      },
+      'Dashboard created successfully'
+    );
   } catch (error) {
     log.error('Dashboard creation error', error, {
-      requestingUserId: userContext.user_id
+      requestingUserId: userContext.user_id,
     });
 
     return createErrorResponse(
@@ -124,10 +134,10 @@ const createDashboardHandler = async (request: NextRequest, userContext: UserCon
 // Route handlers
 export const GET = rbacRoute(getDashboardsHandler, {
   permission: 'analytics:read:all',
-  rateLimit: 'api'
+  rateLimit: 'api',
 });
 
 export const POST = rbacRoute(createDashboardHandler, {
   permission: 'analytics:read:all',
-  rateLimit: 'api'
+  rateLimit: 'api',
 });

@@ -1,10 +1,10 @@
-import { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { log } from '@/lib/logger';
 import { chartConfigService } from '@/lib/services/chart-config-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
 
 /**
  * Admin Analytics - Schema Information
@@ -14,7 +14,7 @@ const schemaHandler = async (request: NextRequest, userContext: UserContext) => 
   const startTime = Date.now();
 
   log.info('Analytics schema request initiated', {
-    requestingUserId: userContext.user_id
+    requestingUserId: userContext.user_id,
   });
 
   try {
@@ -24,40 +24,58 @@ const schemaHandler = async (request: NextRequest, userContext: UserContext) => 
     let schemaName = searchParams.get('schema') || 'ih';
 
     console.log('🔍 Loading schema from database configuration...');
-    
+
     // If data_source_id is provided, load the data source configuration
     if (dataSourceIdParam) {
       const dataSourceId = parseInt(dataSourceIdParam, 10);
       const { db, chart_data_sources } = await import('@/lib/db');
       const { eq } = await import('drizzle-orm');
-      
+
       const [dataSource] = await db
         .select()
         .from(chart_data_sources)
         .where(eq(chart_data_sources.data_source_id, dataSourceId))
         .limit(1);
-      
+
       if (dataSource) {
         tableName = dataSource.table_name;
         schemaName = dataSource.schema_name;
       }
     }
-    
+
     // Load data source configuration from database
     const dataSourceConfig = await chartConfigService.getDataSourceConfig(tableName, schemaName);
-    
+
     if (!dataSourceConfig) {
-      return createErrorResponse(`Data source configuration not found: ${schemaName}.${tableName}`, 404);
+      return createErrorResponse(
+        `Data source configuration not found: ${schemaName}.${tableName}`,
+        404
+      );
     }
 
     // Get available measures, frequencies, and groupable fields from database config
     const availableMeasures = await chartConfigService.getAvailableMeasures(tableName, schemaName);
-    const availableFrequencies = await chartConfigService.getAvailableFrequencies(tableName, schemaName);
+    const availableFrequencies = await chartConfigService.getAvailableFrequencies(
+      tableName,
+      schemaName
+    );
     const groupableFields = await chartConfigService.getGroupableFields(tableName, schemaName);
 
     // Convert database column configurations to API format
-    const fieldDefinitions: Record<string, any> = {};
-    
+    const fieldDefinitions: Record<
+      string,
+      {
+        name: string;
+        type: string;
+        description: string;
+        example?: string | null | undefined;
+        groupable: boolean;
+        filterable: boolean;
+        aggregatable: boolean;
+        allowedValues?: unknown | null;
+      }
+    > = {};
+
     for (const column of dataSourceConfig.columns) {
       fieldDefinitions[column.columnName] = {
         name: column.displayName,
@@ -76,11 +94,11 @@ const schemaHandler = async (request: NextRequest, userContext: UserContext) => 
       description: dataSourceConfig.description || 'Analytics data source',
       totalColumns: dataSourceConfig.columns.length,
       fields: fieldDefinitions,
-      availableMeasures: availableMeasures.map(measure => ({ measure })),
-      availableFrequencies: availableFrequencies.map(frequency => ({ frequency })),
-      availableGroupByFields: groupableFields.map(field => ({
+      availableMeasures: availableMeasures.map((measure) => ({ measure })),
+      availableFrequencies: availableFrequencies.map((frequency) => ({ frequency })),
+      availableGroupByFields: groupableFields.map((field) => ({
         columnName: field.columnName,
-        displayName: field.displayName
+        displayName: field.displayName,
       })),
       dataSource: dataSourceConfig,
     };
@@ -89,16 +107,15 @@ const schemaHandler = async (request: NextRequest, userContext: UserContext) => 
       fieldCount: Object.keys(fieldDefinitions).length,
       measureCount: availableMeasures.length,
       frequencyCount: availableFrequencies.length,
-      groupByFieldCount: groupableFields.length
+      groupByFieldCount: groupableFields.length,
     });
 
     log.info('Analytics schema query completed', { duration: Date.now() - startTime });
 
     return createSuccessResponse(schemaInfo, 'Analytics schema information retrieved successfully');
-
   } catch (error) {
     log.error('Analytics schema error', error, {
-      requestingUserId: userContext.user_id
+      requestingUserId: userContext.user_id,
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
@@ -107,5 +124,5 @@ const schemaHandler = async (request: NextRequest, userContext: UserContext) => 
 
 export const GET = rbacRoute(schemaHandler, {
   permission: 'analytics:read:all',
-  rateLimit: 'api'
+  rateLimit: 'api',
 });

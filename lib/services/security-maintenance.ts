@@ -61,7 +61,10 @@ export class SecurityMaintenanceService {
         challengesDeleted,
       });
     } catch (error) {
-      log.error('Security maintenance cleanup failed', error instanceof Error ? error : new Error(String(error)));
+      log.error(
+        'Security maintenance cleanup failed',
+        error instanceof Error ? error : new Error(String(error))
+      );
     }
   }
 

@@ -15,7 +15,7 @@
  * - Quick mock UserContext creation for unit tests
  */
 
-import type { UserContext, Permission, Role, Organization } from '@/lib/types/rbac';
+import type { Organization, Permission, Role, UserContext } from '@/lib/types/rbac';
 
 /**
  * ============================================================================
@@ -127,9 +127,7 @@ export function createMockUserContext(overrides?: Partial<UserContext>): UserCon
  * const adminContext = createMockSuperAdminContext();
  * const response = await handler(request, adminContext);
  */
-export function createMockSuperAdminContext(
-  overrides?: Partial<UserContext>
-): UserContext {
+export function createMockSuperAdminContext(overrides?: Partial<UserContext>): UserContext {
   return createMockUserContext({
     user_id: 'super-admin-id',
     email: 'admin@example.com',
@@ -404,7 +402,9 @@ export async function assertValidationError(response: Response): Promise<void> {
  * const params = createMockRouteParams({ id: 'user-123' });
  * const response = await GET(request, userContext, params);
  */
-export function createMockRouteParams(params: Record<string, string>): { params: Record<string, string> } {
+export function createMockRouteParams(params: Record<string, string>): {
+  params: Record<string, string>;
+} {
   return { params };
 }
 

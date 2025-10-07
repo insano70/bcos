@@ -260,9 +260,7 @@ export class PermissionChecker {
       // When permissions come from frontend (API response), role.permissions is empty
       // So we just filter by active roles and active permissions
       const activeRoleIds = new Set(
-        this.userContext.roles
-          .filter((role) => role.is_active)
-          .map((role) => role.role_id)
+        this.userContext.roles.filter((role) => role.is_active).map((role) => role.role_id)
       );
 
       // If user has active roles and active permissions, return them

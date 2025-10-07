@@ -1,13 +1,13 @@
-import { NextRequest } from 'next/server';
-import { db, dashboards, dashboard_charts, chart_categories, users } from '@/lib/db';
-import { eq, and } from 'drizzle-orm';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
-import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { eq } from 'drizzle-orm';
+import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { dashboardUpdateSchema, dashboardParamsSchema } from '@/lib/validations/analytics';
-import type { UserContext } from '@/lib/types/rbac';
+import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { chart_categories, dashboard_charts, dashboards, db, users } from '@/lib/db';
 import { log } from '@/lib/logger';
+import type { UserContext } from '@/lib/types/rbac';
+import { dashboardUpdateSchema } from '@/lib/validations/analytics';
 
 /**
  * Admin Analytics - Individual Dashboard CRUD
@@ -15,13 +15,17 @@ import { log } from '@/lib/logger';
  */
 
 // GET - Get specific dashboard
-const getDashboardHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+const getDashboardHandler = async (
+  request: NextRequest,
+  userContext: UserContext,
+  ...args: unknown[]
+) => {
   const { params } = args[0] as { params: { dashboardId: string } };
   const startTime = Date.now();
 
   log.info('Dashboard get request initiated', {
     dashboardId: params.dashboardId,
-    requestingUserId: userContext.user_id
+    requestingUserId: userContext.user_id,
   });
 
   try {
@@ -29,7 +33,10 @@ const getDashboardHandler = async (request: NextRequest, userContext: UserContex
     const [dashboard] = await db
       .select()
       .from(dashboards)
-      .leftJoin(chart_categories, eq(dashboards.dashboard_category_id, chart_categories.chart_category_id))
+      .leftJoin(
+        chart_categories,
+        eq(dashboards.dashboard_category_id, chart_categories.chart_category_id)
+      )
       .leftJoin(users, eq(dashboards.created_by, users.user_id))
       .where(eq(dashboards.dashboard_id, params.dashboardId));
 
@@ -45,33 +52,42 @@ const getDashboardHandler = async (request: NextRequest, userContext: UserContex
 
     log.db('SELECT', 'dashboards', Date.now() - startTime, { rowCount: 1 });
 
-    return createSuccessResponse({
-      dashboard,
-      charts: dashboardCharts
-    }, 'Dashboard retrieved successfully');
-
+    return createSuccessResponse(
+      {
+        dashboard,
+        charts: dashboardCharts,
+      },
+      'Dashboard retrieved successfully'
+    );
   } catch (error) {
     log.error('Dashboard get error', error, {
       dashboardId: params.dashboardId,
-      requestingUserId: userContext.user_id
+      requestingUserId: userContext.user_id,
     });
-    
-    const errorMessage = process.env.NODE_ENV === 'development' 
-      ? (error instanceof Error ? error.message : 'Unknown error')
-      : 'Internal server error';
-    
+
+    const errorMessage =
+      process.env.NODE_ENV === 'development'
+        ? error instanceof Error
+          ? error.message
+          : 'Unknown error'
+        : 'Internal server error';
+
     return createErrorResponse(errorMessage, 500, request);
   }
 };
 
 // PUT - Update dashboard
-const updateDashboardHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+const updateDashboardHandler = async (
+  request: NextRequest,
+  userContext: UserContext,
+  ...args: unknown[]
+) => {
   const { params } = args[0] as { params: { dashboardId: string } };
   const startTime = Date.now();
 
   log.info('Dashboard update request initiated', {
     dashboardId: params.dashboardId,
-    requestingUserId: userContext.user_id
+    requestingUserId: userContext.user_id,
   });
 
   try {
@@ -80,20 +96,24 @@ const updateDashboardHandler = async (request: NextRequest, userContext: UserCon
 
     // If setting this as default, clear any existing default dashboard
     if (validatedData.is_default === true) {
-      await db
-        .update(dashboards)
-        .set({ is_default: false })
-        .where(eq(dashboards.is_default, true));
+      await db.update(dashboards).set({ is_default: false }).where(eq(dashboards.is_default, true));
     }
 
     // Update dashboard with only provided fields
-    const updateData: any = { updated_at: new Date() };
-    if (validatedData.dashboard_name !== undefined) updateData.dashboard_name = validatedData.dashboard_name;
-    if (validatedData.dashboard_description !== undefined) updateData.dashboard_description = validatedData.dashboard_description;
-    if (validatedData.layout_config !== undefined) updateData.layout_config = validatedData.layout_config;
-    if (validatedData.dashboard_category_id !== undefined) updateData.dashboard_category_id = validatedData.dashboard_category_id;
+    const updateData: Partial<typeof dashboards.$inferInsert> & { updated_at: Date } = {
+      updated_at: new Date(),
+    };
+    if (validatedData.dashboard_name !== undefined)
+      updateData.dashboard_name = validatedData.dashboard_name;
+    if (validatedData.dashboard_description !== undefined)
+      updateData.dashboard_description = validatedData.dashboard_description;
+    if (validatedData.layout_config !== undefined)
+      updateData.layout_config = validatedData.layout_config;
+    if (validatedData.dashboard_category_id !== undefined)
+      updateData.dashboard_category_id = validatedData.dashboard_category_id;
     if (validatedData.is_active !== undefined) updateData.is_active = validatedData.is_active;
-    if (validatedData.is_published !== undefined) updateData.is_published = validatedData.is_published;
+    if (validatedData.is_published !== undefined)
+      updateData.is_published = validatedData.is_published;
     if (validatedData.is_default !== undefined) updateData.is_default = validatedData.is_default;
 
     const [updatedDashboard] = await db
@@ -118,22 +138,20 @@ const updateDashboardHandler = async (request: NextRequest, userContext: UserCon
         const chartAssociations = validatedData.chart_ids.map((chartId: string, index: number) => {
           // Use provided positions or fall back to defaults
           const position = validatedData.chart_positions?.[index] || { x: 0, y: index, w: 6, h: 4 };
-          
+
           return {
             dashboard_id: params.dashboardId,
             chart_definition_id: chartId,
-            position_config: position
+            position_config: position,
           };
         });
 
-        await db
-          .insert(dashboard_charts)
-          .values(chartAssociations);
+        await db.insert(dashboard_charts).values(chartAssociations);
       }
 
       log.info('Dashboard chart associations updated', {
         dashboardId: params.dashboardId,
-        chartCount: validatedData.chart_ids.length
+        chartCount: validatedData.chart_ids.length,
       });
     }
 
@@ -142,33 +160,39 @@ const updateDashboardHandler = async (request: NextRequest, userContext: UserCon
     log.info('Dashboard updated successfully', {
       dashboardId: params.dashboardId,
       dashboardName: updatedDashboard.dashboard_name,
-      updatedBy: userContext.user_id
+      updatedBy: userContext.user_id,
     });
 
     return createSuccessResponse({ dashboard: updatedDashboard }, 'Dashboard updated successfully');
-
   } catch (error) {
     log.error('Dashboard update error', error, {
       dashboardId: params.dashboardId,
-      requestingUserId: userContext.user_id
+      requestingUserId: userContext.user_id,
     });
-    
-    const errorMessage = process.env.NODE_ENV === 'development' 
-      ? (error instanceof Error ? error.message : 'Unknown error')
-      : 'Internal server error';
-    
+
+    const errorMessage =
+      process.env.NODE_ENV === 'development'
+        ? error instanceof Error
+          ? error.message
+          : 'Unknown error'
+        : 'Internal server error';
+
     return createErrorResponse(errorMessage, 500, request);
   }
 };
 
 // DELETE - Delete dashboard (soft delete)
-const deleteDashboardHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+const deleteDashboardHandler = async (
+  request: NextRequest,
+  userContext: UserContext,
+  ...args: unknown[]
+) => {
   const { params } = args[0] as { params: { dashboardId: string } };
   const startTime = Date.now();
 
   log.info('Dashboard delete request initiated', {
     dashboardId: params.dashboardId,
-    requestingUserId: userContext.user_id
+    requestingUserId: userContext.user_id,
   });
 
   try {
@@ -191,23 +215,28 @@ const deleteDashboardHandler = async (request: NextRequest, userContext: UserCon
     log.info('Dashboard deleted successfully', {
       dashboardId: params.dashboardId,
       dashboardName: deletedDashboard.dashboard_name,
-      deletedBy: userContext.user_id
+      deletedBy: userContext.user_id,
     });
 
-    return createSuccessResponse({
-      message: `Dashboard "${deletedDashboard.dashboard_name}" deleted successfully`
-    }, 'Dashboard deleted successfully');
-
+    return createSuccessResponse(
+      {
+        message: `Dashboard "${deletedDashboard.dashboard_name}" deleted successfully`,
+      },
+      'Dashboard deleted successfully'
+    );
   } catch (error) {
     log.error('Dashboard delete error', error, {
       dashboardId: params.dashboardId,
-      requestingUserId: userContext.user_id
+      requestingUserId: userContext.user_id,
     });
-    
-    const errorMessage = process.env.NODE_ENV === 'development' 
-      ? (error instanceof Error ? error.message : 'Unknown error')
-      : 'Internal server error';
-    
+
+    const errorMessage =
+      process.env.NODE_ENV === 'development'
+        ? error instanceof Error
+          ? error.message
+          : 'Unknown error'
+        : 'Internal server error';
+
     return createErrorResponse(errorMessage, 500, request);
   }
 };
@@ -215,20 +244,20 @@ const deleteDashboardHandler = async (request: NextRequest, userContext: UserCon
 // Route exports
 export const GET = rbacRoute(getDashboardHandler, {
   permission: 'analytics:read:all',
-  rateLimit: 'api'
+  rateLimit: 'api',
 });
 
 export const PUT = rbacRoute(updateDashboardHandler, {
   permission: 'analytics:read:all',
-  rateLimit: 'api'
+  rateLimit: 'api',
 });
 
 export const PATCH = rbacRoute(updateDashboardHandler, {
   permission: 'analytics:read:all',
-  rateLimit: 'api'
+  rateLimit: 'api',
 });
 
 export const DELETE = rbacRoute(deleteDashboardHandler, {
   permission: 'analytics:read:all',
-  rateLimit: 'api'
+  rateLimit: 'api',
 });

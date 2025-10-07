@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 
 export interface Organization {
@@ -11,19 +11,6 @@ export interface Organization {
   updated_at: Date;
   member_count?: number;
   children_count?: number;
-}
-
-interface OrganizationsResponse {
-  success: boolean;
-  data: Organization[];
-  meta?: {
-    pagination?: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-    };
-  };
 }
 
 export function useOrganizations() {
@@ -51,11 +38,25 @@ export function useOrganization(id: string) {
   });
 }
 
+export interface CreateOrganizationInput {
+  name: string;
+  slug: string;
+  parent_organization_id?: string | undefined;
+  is_active?: boolean | undefined;
+}
+
+export interface UpdateOrganizationInput {
+  name?: string | undefined;
+  slug?: string | undefined;
+  parent_organization_id?: string | null | undefined;
+  is_active?: boolean | undefined;
+}
+
 export function useCreateOrganization() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: Partial<Organization>) => {
+    mutationFn: async (data: CreateOrganizationInput) => {
       const result = await apiClient.post<Organization>('/api/organizations', data);
       return result;
     },
@@ -69,7 +70,7 @@ export function useUpdateOrganization() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<Organization> }) => {
+    mutationFn: async ({ id, data }: { id: string; data: UpdateOrganizationInput }) => {
       const result = await apiClient.put<Organization>(`/api/organizations/${id}`, { data });
       return result;
     },

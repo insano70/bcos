@@ -1,7 +1,7 @@
-import { log } from '@/lib/logger';
 import { AuditLogger } from '@/lib/api/services/audit';
-import { cleanupExpiredTokens } from './token-manager';
+import { log } from '@/lib/logger';
 import { databaseStateManager } from '@/lib/oidc/database-state-manager';
+import { cleanupExpiredTokens } from './token-manager';
 
 /**
  * Token and OIDC State Cleanup Service
@@ -38,9 +38,13 @@ export async function runTokenCleanup(): Promise<void> {
       operation: 'securityCleanup',
     });
   } catch (error) {
-    log.error('Security cleanup failed', error instanceof Error ? error : new Error(String(error)), {
-      operation: 'securityCleanup',
-    });
+    log.error(
+      'Security cleanup failed',
+      error instanceof Error ? error : new Error(String(error)),
+      {
+        operation: 'securityCleanup',
+      }
+    );
 
     await AuditLogger.logSystem({
       action: 'security_cleanup_failed',

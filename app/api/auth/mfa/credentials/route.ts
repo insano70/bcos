@@ -6,10 +6,10 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
-import { secureRoute } from '@/lib/api/route-handler';
 import { requireAuth } from '@/lib/api/middleware/auth';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { secureRoute } from '@/lib/api/route-handler';
 import { getUserCredentials } from '@/lib/auth/webauthn';
 import { log } from '@/lib/logger';
 import type { CredentialListItem } from '@/lib/types/webauthn';

@@ -41,7 +41,7 @@ const getPracticesHandler = async (request: NextRequest, userContext: UserContex
         template_id: query.template_id,
         limit: pagination.limit,
         offset: pagination.offset,
-        sortBy: sort.sortBy,
+        sortBy: sort.sortBy as 'name' | 'domain' | 'status' | 'created_at',
         sortOrder: sort.sortOrder,
       }),
       practicesService.getPracticeCount({

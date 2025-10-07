@@ -1,11 +1,11 @@
-import { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
-import { checkAnalyticsDbHealth } from '@/lib/services/analytics-db';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { getAnalyticsDatabaseConfig } from '@/lib/env';
-import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
+import { checkAnalyticsDbHealth } from '@/lib/services/analytics-db';
+import type { UserContext } from '@/lib/types/rbac';
 
 /**
  * Admin Analytics Debug Endpoint
@@ -16,7 +16,7 @@ const debugHandler = async (request: NextRequest, userContext: UserContext) => {
 
   log.info('Analytics debug request initiated', {
     requestingUserId: userContext.user_id,
-    isSuperAdmin: userContext.is_super_admin
+    isSuperAdmin: userContext.is_super_admin,
   });
 
   try {
@@ -41,7 +41,7 @@ const debugHandler = async (request: NextRequest, userContext: UserContext) => {
       authentication: {
         userId: userContext.user_id,
         isSuperAdmin: userContext.is_super_admin,
-        roles: userContext.roles?.map(role => role.name) || [],
+        roles: userContext.roles?.map((role) => role.name) || [],
       },
       timestamp: new Date().toISOString(),
     };
@@ -49,10 +49,9 @@ const debugHandler = async (request: NextRequest, userContext: UserContext) => {
     log.info('Analytics debug completed', diagnostics);
 
     return createSuccessResponse(diagnostics, 'Analytics diagnostics retrieved successfully');
-
   } catch (error) {
     log.error('Analytics debug error', error, {
-      requestingUserId: userContext.user_id
+      requestingUserId: userContext.user_id,
     });
 
     log.info('Analytics debug failed', { duration: Date.now() - startTime });
@@ -64,10 +63,7 @@ const debugHandler = async (request: NextRequest, userContext: UserContext) => {
 
 // Uses analytics:read:all permission (granted via roles)
 // Super admins bypass permission checks automatically
-export const GET = rbacRoute(
-  debugHandler,
-  {
-    permission: 'analytics:read:all',
-    rateLimit: 'api'
-  }
-);
+export const GET = rbacRoute(debugHandler, {
+  permission: 'analytics:read:all',
+  rateLimit: 'api',
+});

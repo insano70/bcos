@@ -1,5 +1,5 @@
-import { useApiDelete, useApiPost, useApiPut, useApiQuery } from './use-api';
 import type { Practice } from '@/lib/types/practice';
+import { useApiDelete, useApiPost, useApiPut, useApiQuery } from './use-api';
 
 // Re-export Practice type for convenience
 export type { Practice };

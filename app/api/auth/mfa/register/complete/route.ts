@@ -7,22 +7,29 @@
  * Side Effects: Creates full session if using temp token (first-time setup)
  */
 
-import type { NextRequest } from 'next/server';
+import { eq } from 'drizzle-orm';
 import { cookies } from 'next/headers';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse, AuthenticationError } from '@/lib/api/responses/error';
-import { publicRoute } from '@/lib/api/route-handler';
-import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
+import type { NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/api/middleware/auth';
-import { requireMFATempToken } from '@/lib/auth/webauthn-temp-token';
+import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
+import { AuthenticationError, createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { publicRoute } from '@/lib/api/route-handler';
+import {
+  createTokenPair,
+  generateDeviceFingerprint,
+  generateDeviceName,
+} from '@/lib/auth/token-manager';
 import { completeRegistration } from '@/lib/auth/webauthn';
-import { createTokenPair, generateDeviceFingerprint, generateDeviceName } from '@/lib/auth/token-manager';
+import { requireMFATempToken } from '@/lib/auth/webauthn-temp-token';
+import { db, users } from '@/lib/db';
+import { log } from '@/lib/logger';
 import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context';
 import { setCSRFToken } from '@/lib/security/csrf-unified';
-import { db, users } from '@/lib/db';
-import { eq } from 'drizzle-orm';
-import { log } from '@/lib/logger';
-import type { RegistrationCompleteRequest, RegistrationCompleteResponse } from '@/lib/types/webauthn';
+import type {
+  RegistrationCompleteRequest,
+  RegistrationCompleteResponse,
+} from '@/lib/types/webauthn';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,11 +59,10 @@ const handler = async (request: NextRequest) => {
     }
 
     // Extract IP and user agent
-    const ipAddress =
-      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      request.headers.get('x-real-ip') ||
-      'unknown';
-    const userAgent = request.headers.get('user-agent') || null;
+    const { extractRequestMetadata } = await import('@/lib/api/utils/request');
+    const metadata = extractRequestMetadata(request);
+    const ipAddress = metadata.ipAddress;
+    const userAgent = metadata.userAgent;
 
     // Parse request body
     const body = (await request.json()) as RegistrationCompleteRequest;
@@ -156,7 +162,12 @@ const handler = async (request: NextRequest) => {
       const csrfToken = await setCSRFToken(user.user_id);
 
       const totalDuration = Date.now() - startTime;
-      log.api('POST /api/auth/mfa/register/complete - First-time setup success', request, 200, totalDuration);
+      log.api(
+        'POST /api/auth/mfa/register/complete - First-time setup success',
+        request,
+        200,
+        totalDuration
+      );
 
       // Return full session data for first-time setup
       return createSuccessResponse(
@@ -193,7 +204,12 @@ const handler = async (request: NextRequest) => {
     };
 
     const totalDuration = Date.now() - startTime;
-    log.api('POST /api/auth/mfa/register/complete - Additional passkey added', request, 200, totalDuration);
+    log.api(
+      'POST /api/auth/mfa/register/complete - Additional passkey added',
+      request,
+      200,
+      totalDuration
+    );
 
     return createSuccessResponse(response, 'Passkey registered successfully');
   } catch (error) {

@@ -188,11 +188,11 @@ export interface AnalyticsQueryParams {
   end_date?: string | undefined;
   limit?: number | undefined;
   offset?: number | undefined;
-  advanced_filters?: ChartFilter[];
+  advanced_filters?: ChartFilter[] | undefined;
   calculated_field?: string | undefined;
-  multiple_series?: MultipleSeriesConfig[];
+  multiple_series?: MultipleSeriesConfig[] | undefined;
   data_source_id?: number | undefined;
-  period_comparison?: PeriodComparisonConfig;
+  period_comparison?: PeriodComparisonConfig | undefined;
 }
 
 /**

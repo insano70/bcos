@@ -428,7 +428,7 @@ async function runRBACMigration() {
             is_active: true,
             updated_at: new Date()
           })
-          .where(eq(roles.role_id, existingRole[0].role_id))
+          .where(eq(roles.role_id, existingRole[0]!.role_id))
           .returning();
       } else {
         // Insert new role

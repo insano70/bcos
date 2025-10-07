@@ -1,13 +1,12 @@
-import { NextRequest } from 'next/server';
-import { db, chart_categories } from '@/lib/db';
-import { eq, desc, isNull } from 'drizzle-orm';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
-import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { chartCategoryCreateSchema } from '@/lib/validations/analytics';
-import type { UserContext } from '@/lib/types/rbac';
+import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { chart_categories, db } from '@/lib/db';
 import { log } from '@/lib/logger';
+import type { UserContext } from '@/lib/types/rbac';
+import { chartCategoryCreateSchema } from '@/lib/validations/analytics';
 
 /**
  * Admin Analytics - Chart Categories API
@@ -19,7 +18,7 @@ const getCategoriesHandler = async (request: NextRequest, userContext: UserConte
   const startTime = Date.now();
 
   log.info('Chart categories list request initiated', {
-    requestingUserId: userContext.user_id
+    requestingUserId: userContext.user_id,
   });
 
   try {
@@ -31,23 +30,28 @@ const getCategoriesHandler = async (request: NextRequest, userContext: UserConte
 
     log.db('SELECT', 'chart_categories', Date.now() - startTime, { rowCount: categories.length });
 
-    return createSuccessResponse({
-      categories: categories,
-      metadata: {
-        total_count: categories.length,
-        generatedAt: new Date().toISOString()
-      }
-    }, 'Chart categories retrieved successfully');
-
+    return createSuccessResponse(
+      {
+        categories: categories,
+        metadata: {
+          total_count: categories.length,
+          generatedAt: new Date().toISOString(),
+        },
+      },
+      'Chart categories retrieved successfully'
+    );
   } catch (error) {
     log.error('Chart categories list error', error, {
-      requestingUserId: userContext.user_id
+      requestingUserId: userContext.user_id,
     });
-    
-    const errorMessage = process.env.NODE_ENV === 'development' 
-      ? (error instanceof Error ? error.message : 'Unknown error')
-      : 'Internal server error';
-    
+
+    const errorMessage =
+      process.env.NODE_ENV === 'development'
+        ? error instanceof Error
+          ? error.message
+          : 'Unknown error'
+        : 'Internal server error';
+
     return createErrorResponse(errorMessage, 500, request);
   }
 };
@@ -57,7 +61,7 @@ const createCategoryHandler = async (request: NextRequest, userContext: UserCont
   const startTime = Date.now();
 
   log.info('Chart category creation request initiated', {
-    requestingUserId: userContext.user_id
+    requestingUserId: userContext.user_id,
   });
 
   try {
@@ -83,22 +87,27 @@ const createCategoryHandler = async (request: NextRequest, userContext: UserCont
     log.info('Chart category created successfully', {
       categoryId: newCategory.chart_category_id,
       categoryName: newCategory.category_name,
-      createdBy: userContext.user_id
+      createdBy: userContext.user_id,
     });
 
-    return createSuccessResponse({
-      category: newCategory
-    }, 'Chart category created successfully');
-
+    return createSuccessResponse(
+      {
+        category: newCategory,
+      },
+      'Chart category created successfully'
+    );
   } catch (error) {
     log.error('Chart category creation error', error, {
-      requestingUserId: userContext.user_id
+      requestingUserId: userContext.user_id,
     });
-    
-    const errorMessage = process.env.NODE_ENV === 'development' 
-      ? (error instanceof Error ? error.message : 'Unknown error')
-      : 'Internal server error';
-    
+
+    const errorMessage =
+      process.env.NODE_ENV === 'development'
+        ? error instanceof Error
+          ? error.message
+          : 'Unknown error'
+        : 'Internal server error';
+
     return createErrorResponse(errorMessage, 500, request);
   }
 };
@@ -106,10 +115,10 @@ const createCategoryHandler = async (request: NextRequest, userContext: UserCont
 // Route handlers
 export const GET = rbacRoute(getCategoriesHandler, {
   permission: 'analytics:read:all',
-  rateLimit: 'api'
+  rateLimit: 'api',
 });
 
 export const POST = rbacRoute(createCategoryHandler, {
   permission: 'analytics:read:all',
-  rateLimit: 'api'
+  rateLimit: 'api',
 });

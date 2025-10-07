@@ -207,10 +207,9 @@ export class RBACChartsService extends BaseRBACService {
     const chart = charts[0];
     if (!chart || !chart.chart_definitions) {
       // Extra safety: should not happen after length check and join
-      log.warn(
-        'Chart result had length > 0 but first item or chart_definitions was null',
-        { chartId }
-      );
+      log.warn('Chart result had length > 0 but first item or chart_definitions was null', {
+        chartId,
+      });
       return null;
     }
 
@@ -308,9 +307,7 @@ export class RBACChartsService extends BaseRBACService {
     const createdChart = createdCharts[0];
     if (!createdChart || !createdChart.chart_definitions) {
       // Extra safety: should not happen after length check
-      log.error(
-        'Created chart result had length > 0 but first item or chart_definitions was null'
-      );
+      log.error('Created chart result had length > 0 but first item or chart_definitions was null');
       throw new Error('Failed to retrieve created chart data');
     }
 
@@ -412,9 +409,7 @@ export class RBACChartsService extends BaseRBACService {
     const updatedChartData = updatedCharts[0];
     if (!updatedChartData || !updatedChartData.chart_definitions) {
       // Extra safety: should not happen after length check
-      log.error(
-        'Updated chart result had length > 0 but first item or chart_definitions was null'
-      );
+      log.error('Updated chart result had length > 0 but first item or chart_definitions was null');
       throw new Error('Failed to retrieve updated chart data');
     }
 

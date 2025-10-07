@@ -9,33 +9,31 @@
  * - Replay attack prevention
  */
 
-import { nanoid } from 'nanoid';
-import { and, eq, lt } from 'drizzle-orm';
-import {
-  generateRegistrationOptions,
-  verifyRegistrationResponse,
-  generateAuthenticationOptions,
-  verifyAuthenticationResponse,
-  type VerifiedRegistrationResponse,
-  type VerifiedAuthenticationResponse,
-} from '@simplewebauthn/server';
 import type {
   AuthenticatorTransportFuture,
-  RegistrationResponseJSON,
-  
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
+  RegistrationResponseJSON,
 } from '@simplewebauthn/server';
-import { db, webauthn_challenges, webauthn_credentials, account_security } from '@/lib/db';
-import { log } from '@/lib/logger';
+import {
+  generateAuthenticationOptions,
+  generateRegistrationOptions,
+  type VerifiedAuthenticationResponse,
+  type VerifiedRegistrationResponse,
+  verifyAuthenticationResponse,
+  verifyRegistrationResponse,
+} from '@simplewebauthn/server';
+import { and, eq, lt } from 'drizzle-orm';
+import { nanoid } from 'nanoid';
 import { AuditLogger } from '@/lib/api/services/audit';
+import { account_security, db, webauthn_challenges, webauthn_credentials } from '@/lib/db';
+import { log } from '@/lib/logger';
 import type {
-  WebAuthnCredential,
-  WebAuthnChallenge,
-  
+  MFAStatus,
   VerifyAssertionParams,
   VerifyAssertionResult,
-  MFAStatus,
+  WebAuthnChallenge,
+  WebAuthnCredential,
 } from '@/lib/types/webauthn';
 
 /**
@@ -79,7 +77,9 @@ export async function beginRegistration(
   const excludeCredentials = existingCredentials.map((cred) => ({
     id: cred.credential_id,
     type: 'public-key' as const,
-    transports: cred.transports ? (JSON.parse(cred.transports) as AuthenticatorTransportFuture[]) : [],
+    transports: cred.transports
+      ? (JSON.parse(cred.transports) as AuthenticatorTransportFuture[])
+      : [],
   }));
 
   // Generate registration options
@@ -303,7 +303,9 @@ export async function beginAuthentication(
   const allowCredentials = credentials.map((cred) => ({
     id: cred.credential_id,
     type: 'public-key' as const,
-    transports: cred.transports ? (JSON.parse(cred.transports) as AuthenticatorTransportFuture[]) : [],
+    transports: cred.transports
+      ? (JSON.parse(cred.transports) as AuthenticatorTransportFuture[])
+      : [],
   }));
 
   // Generate authentication options
@@ -582,14 +584,21 @@ export async function deleteCredential(
     .where(and(eq(webauthn_credentials.user_id, userId), eq(webauthn_credentials.is_active, true)));
 
   if (activeCredentials.length === 1) {
-    throw new Error('Cannot delete your last passkey. You must have at least one passkey configured.');
+    throw new Error(
+      'Cannot delete your last passkey. You must have at least one passkey configured.'
+    );
   }
 
   // Soft delete
   await db
     .update(webauthn_credentials)
     .set({ is_active: false })
-    .where(and(eq(webauthn_credentials.credential_id, credentialId), eq(webauthn_credentials.user_id, userId)));
+    .where(
+      and(
+        eq(webauthn_credentials.credential_id, credentialId),
+        eq(webauthn_credentials.user_id, userId)
+      )
+    );
 
   await AuditLogger.logAuth({
     action: 'mfa_credential_deleted',
@@ -618,7 +627,12 @@ export async function renameCredential(
   await db
     .update(webauthn_credentials)
     .set({ credential_name: newName })
-    .where(and(eq(webauthn_credentials.credential_id, credentialId), eq(webauthn_credentials.user_id, userId)));
+    .where(
+      and(
+        eq(webauthn_credentials.credential_id, credentialId),
+        eq(webauthn_credentials.user_id, userId)
+      )
+    );
 
   log.info('WebAuthn credential renamed', {
     userId,
@@ -640,7 +654,9 @@ export async function adminResetMFA(
   const credentials = await db
     .select()
     .from(webauthn_credentials)
-    .where(and(eq(webauthn_credentials.user_id, targetUserId), eq(webauthn_credentials.is_active, true)));
+    .where(
+      and(eq(webauthn_credentials.user_id, targetUserId), eq(webauthn_credentials.is_active, true))
+    );
 
   // Deactivate all credentials
   await db
@@ -704,7 +720,9 @@ async function retrieveAndValidateChallenge(
   }
 
   if (challenge.challenge_type !== expectedType) {
-    throw new Error(`Invalid challenge type. Expected ${expectedType}, got ${challenge.challenge_type}`);
+    throw new Error(
+      `Invalid challenge type. Expected ${expectedType}, got ${challenge.challenge_type}`
+    );
   }
 
   if (challenge.used_at) {

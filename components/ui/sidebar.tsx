@@ -1102,19 +1102,19 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
             </ul>
           </div>
           {/* More group */}
-          <div>
-            <h3 className="text-xs uppercase text-gray-400 dark:text-gray-500 font-semibold pl-3">
-              <span
-                className="hidden lg:block lg:sidebar-expanded:hidden 2xl:hidden text-center w-6"
-                aria-hidden="true"
-              >
-                •••
-              </span>
-              <span className="lg:hidden lg:sidebar-expanded:block 2xl:block">More</span>
-            </h3>
-            <ul className="mt-3">
-              {/* Experimental mode conditional sections for "More" group */}
-              {isExperimentalMode && (
+          {isExperimentalMode && (
+            <div>
+              <h3 className="text-xs uppercase text-gray-400 dark:text-gray-500 font-semibold pl-3">
+                <span
+                  className="hidden lg:block lg:sidebar-expanded:hidden 2xl:hidden text-center w-6"
+                  aria-hidden="true"
+                >
+                  •••
+                </span>
+                <span className="lg:hidden lg:sidebar-expanded:block 2xl:block">More</span>
+              </h3>
+              <ul className="mt-3">
+                {/* Experimental mode conditional sections for "More" group */}
                 <>
                   {/* Authentication */}
                   <SidebarLinkGroup>
@@ -1259,10 +1259,8 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
                       );
                     }}
                   </SidebarLinkGroup>
-                </>
-              )}
-              {/* Components */}
-              <SidebarLinkGroup open={segments.includes('components-library')}>
+                  {/* Components */}
+                  <SidebarLinkGroup open={segments.includes('components-library')}>
                 {(handleClick, open) => {
                   return (
                     <>
@@ -1402,9 +1400,11 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
                     </>
                   );
                 }}
-              </SidebarLinkGroup>
-            </ul>
-          </div>
+                  </SidebarLinkGroup>
+                </>
+              </ul>
+            </div>
+          )}
         </div>
 
         {/* Expand / collapse button */}

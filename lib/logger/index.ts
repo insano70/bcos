@@ -29,10 +29,6 @@
  */
 
 // Simplified logger - automatic stack traces, file:line:function capture, correlation tracking
-export { log, correlation } from './logger';
-
 // Backward compatibility alias
-export { log as logger } from './logger';
-
 // Default export
-export { log as default } from './logger';
+export { correlation, log, log as logger, log as default } from './logger';

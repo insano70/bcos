@@ -1,6 +1,5 @@
-import { db } from '@/lib/db';
-import { log } from '@/lib/logger';
 import { and, eq } from 'drizzle-orm';
+import { db } from '@/lib/db';
 import {
   organizations,
   permissions,
@@ -10,6 +9,7 @@ import {
   user_roles,
   users,
 } from '@/lib/db/schema';
+import { log } from '@/lib/logger';
 import type {
   Organization,
   Permission,

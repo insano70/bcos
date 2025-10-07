@@ -14,7 +14,6 @@ interface ExtendedDataset {
   [key: string]: unknown;
 }
 
-
 /**
  * Enhanced tooltip callback for period comparison charts
  */
@@ -23,44 +22,51 @@ export function createPeriodComparisonTooltipCallbacks(
   _darkMode: boolean = false
 ) {
   return {
-    title: function(this: TooltipModel<'bar'>, tooltipItems: TooltipItem<'bar'>[]) {
+    title: function (this: TooltipModel<'bar'>, tooltipItems: TooltipItem<'bar'>[]) {
       // Format tooltip title based on frequency
       const date = new Date(tooltipItems[0]?.label || '');
       return date.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
-        day: frequency === 'Weekly' ? 'numeric' : undefined
+        day: frequency === 'Weekly' ? 'numeric' : undefined,
       });
     },
-    label: function(this: TooltipModel<'bar'>, tooltipItem: TooltipItem<'bar'>) {
+    label: function (this: TooltipModel<'bar'>, tooltipItem: TooltipItem<'bar'>) {
       // Get measure type from dataset metadata
       const dataset = tooltipItem.dataset as ExtendedDataset;
       const chartData = this.chart.data as { measureType?: string };
       const measureType = dataset?.measureType || chartData?.measureType || 'number';
       const parsed = tooltipItem.parsed as { x: number; y: number };
       const formattedValue = simplifiedChartTransformer.formatValue(parsed.y, measureType);
-      
+
       // Check if this is a comparison dataset
-      const isComparison = dataset.label?.includes('Previous') || 
-                          dataset.label?.includes('Last Year') ||
-                          dataset.label?.includes('Ago');
-      
+      const isComparison =
+        dataset.label?.includes('Previous') ||
+        dataset.label?.includes('Last Year') ||
+        dataset.label?.includes('Ago');
+
       // Add visual indicator for comparison data
       const prefix = isComparison ? '📊 ' : '📈 ';
       return `${prefix}${dataset.label}: ${formattedValue}`;
     },
-    footer: function(this: TooltipModel<'bar'>, tooltipItems: TooltipItem<'bar'>[]) {
+    footer: function (this: TooltipModel<'bar'>, tooltipItems: TooltipItem<'bar'>[]) {
       // Calculate difference between current and comparison periods
-      const currentData = tooltipItems.find(c => {
+      const currentData = tooltipItems.find((c) => {
         const dataset = c.dataset as ExtendedDataset;
-        return dataset.label?.includes('Current') || 
-               (!dataset.label?.includes('Previous') && !dataset.label?.includes('Last Year') && !dataset.label?.includes('Ago'));
+        return (
+          dataset.label?.includes('Current') ||
+          (!dataset.label?.includes('Previous') &&
+            !dataset.label?.includes('Last Year') &&
+            !dataset.label?.includes('Ago'))
+        );
       });
-      const comparisonData = tooltipItems.find(c => {
+      const comparisonData = tooltipItems.find((c) => {
         const dataset = c.dataset as ExtendedDataset;
-        return dataset.label?.includes('Previous') || 
-               dataset.label?.includes('Last Year') ||
-               dataset.label?.includes('Ago');
+        return (
+          dataset.label?.includes('Previous') ||
+          dataset.label?.includes('Last Year') ||
+          dataset.label?.includes('Ago')
+        );
       });
 
       if (currentData && comparisonData) {
@@ -73,63 +79,71 @@ export function createPeriodComparisonTooltipCallbacks(
 
         const currentDataset = currentData.dataset as ExtendedDataset;
         const measureType = currentDataset?.measureType || 'number';
-        const formattedDifference = simplifiedChartTransformer.formatValue(Math.abs(difference), measureType);
-        
+        const formattedDifference = simplifiedChartTransformer.formatValue(
+          Math.abs(difference),
+          measureType
+        );
+
         const changeIcon = difference >= 0 ? '📈' : '📉';
         const changeText = difference >= 0 ? 'increase' : 'decrease';
-        
+
         return [
           '',
           `${changeIcon} ${changeText}: ${formattedDifference}`,
-          `(${percentageChange >= 0 ? '+' : ''}${percentageChange.toFixed(1)}%)`
+          `(${percentageChange >= 0 ? '+' : ''}${percentageChange.toFixed(1)}%)`,
         ];
       }
 
       return [];
-    }
+    },
   };
 }
 
 /**
  * Enhanced tooltip callback for horizontal bar charts with period comparison
  */
-export function createPeriodComparisonHorizontalTooltipCallbacks(
-  _darkMode: boolean = false
-) {
+export function createPeriodComparisonHorizontalTooltipCallbacks(_darkMode: boolean = false) {
   return {
-    title: function(this: TooltipModel<'bar'>, tooltipItems: TooltipItem<'bar'>[]) {
+    title: function (this: TooltipModel<'bar'>, tooltipItems: TooltipItem<'bar'>[]) {
       // Show the category label as title
       return tooltipItems[0]?.label || '';
     },
-    label: function(this: TooltipModel<'bar'>, tooltipItem: TooltipItem<'bar'>) {
+    label: function (this: TooltipModel<'bar'>, tooltipItem: TooltipItem<'bar'>) {
       // Get measure type from dataset metadata
       const dataset = tooltipItem.dataset as ExtendedDataset;
       const chartData = this.chart.data as { measureType?: string };
       const measureType = dataset?.measureType || chartData?.measureType || 'number';
       const parsed = tooltipItem.parsed as { x: number; y: number };
       const formattedValue = simplifiedChartTransformer.formatValue(parsed.x, measureType);
-      
+
       // Check if this is a comparison dataset
-      const isComparison = dataset.label?.includes('Previous') || 
-                          dataset.label?.includes('Last Year') ||
-                          dataset.label?.includes('Ago');
-      
+      const isComparison =
+        dataset.label?.includes('Previous') ||
+        dataset.label?.includes('Last Year') ||
+        dataset.label?.includes('Ago');
+
       // Add visual indicator for comparison data
       const prefix = isComparison ? '📊 ' : '📈 ';
       return `${prefix}${dataset.label}: ${formattedValue}`;
     },
-    footer: function(this: TooltipModel<'bar'>, tooltipItems: TooltipItem<'bar'>[]) {
+    footer: function (this: TooltipModel<'bar'>, tooltipItems: TooltipItem<'bar'>[]) {
       // Calculate difference between current and comparison periods
-      const currentData = tooltipItems.find(c => {
+      const currentData = tooltipItems.find((c) => {
         const dataset = c.dataset as ExtendedDataset;
-        return dataset.label?.includes('Current') || 
-               (!dataset.label?.includes('Previous') && !dataset.label?.includes('Last Year') && !dataset.label?.includes('Ago'));
+        return (
+          dataset.label?.includes('Current') ||
+          (!dataset.label?.includes('Previous') &&
+            !dataset.label?.includes('Last Year') &&
+            !dataset.label?.includes('Ago'))
+        );
       });
-      const comparisonData = tooltipItems.find(c => {
+      const comparisonData = tooltipItems.find((c) => {
         const dataset = c.dataset as ExtendedDataset;
-        return dataset.label?.includes('Previous') || 
-               dataset.label?.includes('Last Year') ||
-               dataset.label?.includes('Ago');
+        return (
+          dataset.label?.includes('Previous') ||
+          dataset.label?.includes('Last Year') ||
+          dataset.label?.includes('Ago')
+        );
       });
 
       if (currentData && comparisonData) {
@@ -142,55 +156,61 @@ export function createPeriodComparisonHorizontalTooltipCallbacks(
 
         const currentDataset = currentData.dataset as ExtendedDataset;
         const measureType = currentDataset?.measureType || 'number';
-        const formattedDifference = simplifiedChartTransformer.formatValue(Math.abs(difference), measureType);
-        
+        const formattedDifference = simplifiedChartTransformer.formatValue(
+          Math.abs(difference),
+          measureType
+        );
+
         const changeIcon = difference >= 0 ? '📈' : '📉';
         const changeText = difference >= 0 ? 'increase' : 'decrease';
-        
+
         return [
           '',
           `${changeIcon} ${changeText}: ${formattedDifference}`,
-          `(${percentageChange >= 0 ? '+' : ''}${percentageChange.toFixed(1)}%)`
+          `(${percentageChange >= 0 ? '+' : ''}${percentageChange.toFixed(1)}%)`,
         ];
       }
 
       return [];
-    }
+    },
   };
 }
 
 /**
  * Enhanced tooltip callback for stacked bar charts with period comparison
  */
-export function createPeriodComparisonStackedTooltipCallbacks(
-  _darkMode: boolean = false
-) {
+export function createPeriodComparisonStackedTooltipCallbacks(_darkMode: boolean = false) {
   return {
     title: () => '',
-    label: function(this: TooltipModel<'bar'>, tooltipItem: TooltipItem<'bar'>) {
+    label: function (this: TooltipModel<'bar'>, tooltipItem: TooltipItem<'bar'>) {
       // Get measure type from dataset metadata
       const dataset = tooltipItem.dataset as ExtendedDataset;
       const chartData = this.chart.data as { measureType?: string };
       const measureType = dataset?.measureType || chartData?.measureType || 'number';
       const parsed = tooltipItem.parsed as { x: number; y: number };
       const formattedValue = simplifiedChartTransformer.formatValue(parsed.y, measureType);
-      
+
       // Check if this is a comparison dataset
-      const isComparison = dataset.label?.includes('Previous') || 
-                          dataset.label?.includes('Last Year') ||
-                          dataset.label?.includes('Ago');
-      
+      const isComparison =
+        dataset.label?.includes('Previous') ||
+        dataset.label?.includes('Last Year') ||
+        dataset.label?.includes('Ago');
+
       // Add visual indicator for comparison data
       const prefix = isComparison ? '📊 ' : '📈 ';
       return `${prefix}${dataset.label}: ${formattedValue}`;
     },
-    footer: function(this: TooltipModel<'bar'>, tooltipItems: TooltipItem<'bar'>[]) {
+    footer: function (this: TooltipModel<'bar'>, tooltipItems: TooltipItem<'bar'>[]) {
       // Calculate total for current period
       const currentTotal = tooltipItems
-        .filter(item => {
+        .filter((item) => {
           const dataset = item.dataset as ExtendedDataset;
-          return dataset.label?.includes('Current') || 
-                 (!dataset.label?.includes('Previous') && !dataset.label?.includes('Last Year') && !dataset.label?.includes('Ago'));
+          return (
+            dataset.label?.includes('Current') ||
+            (!dataset.label?.includes('Previous') &&
+              !dataset.label?.includes('Last Year') &&
+              !dataset.label?.includes('Ago'))
+          );
         })
         .reduce((sum, item) => {
           const parsed = item.parsed as { x: number; y: number };
@@ -199,11 +219,13 @@ export function createPeriodComparisonStackedTooltipCallbacks(
 
       // Calculate total for comparison period
       const comparisonTotal = tooltipItems
-        .filter(item => {
+        .filter((item) => {
           const dataset = item.dataset as ExtendedDataset;
-          return dataset.label?.includes('Previous') || 
-                 dataset.label?.includes('Last Year') ||
-                 dataset.label?.includes('Ago');
+          return (
+            dataset.label?.includes('Previous') ||
+            dataset.label?.includes('Last Year') ||
+            dataset.label?.includes('Ago')
+          );
         })
         .reduce((sum, item) => {
           const parsed = item.parsed as { x: number; y: number };
@@ -212,19 +234,28 @@ export function createPeriodComparisonStackedTooltipCallbacks(
 
       const firstDataset = tooltipItems[0]?.dataset as ExtendedDataset;
       const measureType = firstDataset?.measureType || 'number';
-      const formattedCurrentTotal = simplifiedChartTransformer.formatValue(currentTotal, measureType);
-      
+      const formattedCurrentTotal = simplifiedChartTransformer.formatValue(
+        currentTotal,
+        measureType
+      );
+
       const results = [`Current Total: ${formattedCurrentTotal}`];
 
       if (comparisonTotal > 0) {
         const difference = currentTotal - comparisonTotal;
         const percentageChange = (difference / comparisonTotal) * 100;
-        const formattedComparisonTotal = simplifiedChartTransformer.formatValue(comparisonTotal, measureType);
-        const formattedDifference = simplifiedChartTransformer.formatValue(Math.abs(difference), measureType);
-        
+        const formattedComparisonTotal = simplifiedChartTransformer.formatValue(
+          comparisonTotal,
+          measureType
+        );
+        const formattedDifference = simplifiedChartTransformer.formatValue(
+          Math.abs(difference),
+          measureType
+        );
+
         const changeIcon = difference >= 0 ? '📈' : '📉';
         const changeText = difference >= 0 ? 'increase' : 'decrease';
-        
+
         results.push(
           `Previous Total: ${formattedComparisonTotal}`,
           '',
@@ -234,6 +265,6 @@ export function createPeriodComparisonStackedTooltipCallbacks(
       }
 
       return results;
-    }
+    },
   };
 }

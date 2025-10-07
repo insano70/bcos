@@ -1,8 +1,8 @@
-import { NextRequest } from 'next/server'
-import { createSuccessResponse } from '@/lib/api/responses/success'
-import { createErrorResponse } from '@/lib/api/responses/error'
-import { publicRoute } from '@/lib/api/rbac-route-handler'
-import { log } from '@/lib/logger'
+import type { NextRequest } from 'next/server';
+import { publicRoute } from '@/lib/api/rbac-route-handler';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { log } from '@/lib/logger';
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
@@ -14,12 +14,12 @@ export const dynamic = 'force-dynamic';
  * For detailed health info, use /api/health/db or /api/health/services
  */
 const healthHandler = async (request: NextRequest) => {
-  const startTime = Date.now()
+  const startTime = Date.now();
 
   log.info('Health check request initiated', {
     endpoint: '/api/health',
-    method: 'GET'
-  })
+    method: 'GET',
+  });
 
   try {
     // Fast, lightweight system health data (no database or expensive operations)
@@ -40,31 +40,30 @@ const healthHandler = async (request: NextRequest) => {
         platform: process.platform,
         arch: process.arch,
       },
-      pid: process.pid
-    }
+      pid: process.pid,
+    };
 
     // Log performance metric
-    const totalDuration = Date.now() - startTime
+    const totalDuration = Date.now() - startTime;
     log.info('Health check completed', {
       duration: totalDuration,
       status: 'healthy',
       memoryUsed: systemHealth.memory.used,
-      uptime: systemHealth.uptime
-    })
+      uptime: systemHealth.uptime,
+    });
 
-    return createSuccessResponse(systemHealth, 'System is healthy')
-
+    return createSuccessResponse(systemHealth, 'System is healthy');
   } catch (error) {
-    const totalDuration = Date.now() - startTime
+    const totalDuration = Date.now() - startTime;
 
     log.error('Health check error', error, {
       duration: totalDuration,
-      errorType: error instanceof Error ? error.constructor.name : typeof error
-    })
+      errorType: error instanceof Error ? error.constructor.name : typeof error,
+    });
 
-    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 503, request)
+    return createErrorResponse(error instanceof Error ? error : 'Unknown error', 503, request);
   }
-}
+};
 
 // Export as public route with rate limiting
 // Health checks need to be public for monitoring tools and load balancers
@@ -72,4 +71,4 @@ export const GET = publicRoute(
   healthHandler,
   'Health check endpoint for monitoring tools and load balancers',
   { rateLimit: 'api' }
-)
+);

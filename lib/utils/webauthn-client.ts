@@ -3,13 +3,13 @@
  * Browser-side helpers for WebAuthn operations
  */
 
-import { startRegistration, startAuthentication } from '@simplewebauthn/browser';
 import type {
+  AuthenticationResponseJSON,
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
   RegistrationResponseJSON,
-  AuthenticationResponseJSON,
 } from '@simplewebauthn/browser';
+import { startAuthentication, startRegistration } from '@simplewebauthn/browser';
 
 /**
  * Register a new passkey with the browser
@@ -31,7 +31,9 @@ export async function registerPasskey(
       } else if (error.name === 'NotSupportedError') {
         throw new Error('Your browser does not support passkeys. Please use a modern browser.');
       } else if (error.name === 'SecurityError') {
-        throw new Error('Security error during passkey registration. Please check your connection.');
+        throw new Error(
+          'Security error during passkey registration. Please check your connection.'
+        );
       }
     }
     throw new Error('Failed to register passkey. Please try again.');
@@ -56,7 +58,9 @@ export async function authenticatePasskey(
       } else if (error.name === 'NotSupportedError') {
         throw new Error('Your browser does not support passkeys. Please use a modern browser.');
       } else if (error.name === 'SecurityError') {
-        throw new Error('Security error during passkey authentication. Please check your connection.');
+        throw new Error(
+          'Security error during passkey authentication. Please check your connection.'
+        );
       }
     }
     throw new Error('Failed to authenticate with passkey. Please try again.');

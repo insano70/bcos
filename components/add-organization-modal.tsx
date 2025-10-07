@@ -109,7 +109,7 @@ export default function AddOrganizationModal({ isOpen, onClose, onSuccess }: Add
       await createOrganization.mutateAsync({
         name: data.name,
         slug: data.slug,
-        parent_organization_id: data.parent_organization_id || undefined,
+        parent_organization_id: data.parent_organization_id ?? undefined,
         is_active: data.is_active ?? true,
       });
 

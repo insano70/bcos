@@ -36,7 +36,7 @@ export interface Organization {
   organization_id: string;
   name: string;
   slug: string;
-  parent_organization_id?: string | undefined;
+  parent_organization_id?: string | null | undefined;
   is_active: boolean;
   created_at: Date;
   updated_at: Date;

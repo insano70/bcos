@@ -17,24 +17,24 @@ import type { Organization, UserContext } from '@/lib/types/rbac';
 export interface CreateOrganizationData {
   name: string;
   slug: string;
-  parent_organization_id?: string;
-  is_active?: boolean;
+  parent_organization_id?: string | undefined;
+  is_active?: boolean | undefined;
 }
 
 export interface UpdateOrganizationData {
-  name?: string;
-  slug?: string;
-  parent_organization_id?: string;
-  is_active?: boolean;
+  name?: string | undefined;
+  slug?: string | undefined;
+  parent_organization_id?: string | null | undefined;
+  is_active?: boolean | undefined;
 }
 
 export interface OrganizationQueryOptions {
-  search?: string;
-  parent_organization_id?: string;
-  is_active?: boolean;
-  include_children?: boolean;
-  limit?: number;
-  offset?: number;
+  search?: string | undefined;
+  parent_organization_id?: string | undefined;
+  is_active?: boolean | undefined;
+  include_children?: boolean | undefined;
+  limit?: number | undefined;
+  offset?: number | undefined;
 }
 
 export interface OrganizationWithDetails extends Organization {
@@ -197,7 +197,10 @@ export class RBACOrganizationsService extends BaseRBACService {
    * Get a specific organization by ID
    */
   async getOrganizationById(organizationId: string): Promise<OrganizationWithDetails | null> {
-    this.requireAnyPermission(['organizations:read:own', 'organizations:read:organization', 'organizations:read:all'], organizationId);
+    this.requireAnyPermission(
+      ['organizations:read:own', 'organizations:read:organization', 'organizations:read:all'],
+      organizationId
+    );
 
     this.requireOrganizationAccess(organizationId);
 
@@ -257,7 +260,10 @@ export class RBACOrganizationsService extends BaseRBACService {
     organizationId: string,
     updateData: UpdateOrganizationData
   ): Promise<OrganizationWithDetails> {
-    this.requireAnyPermission(['organizations:update:own', 'organizations:update:organization', 'organizations:manage:all'], organizationId);
+    this.requireAnyPermission(
+      ['organizations:update:own', 'organizations:update:organization', 'organizations:manage:all'],
+      organizationId
+    );
     this.requireOrganizationAccess(organizationId);
 
     // Validate parent organization if being changed
@@ -309,7 +315,10 @@ export class RBACOrganizationsService extends BaseRBACService {
    * Delete an organization (soft delete)
    */
   async deleteOrganization(organizationId: string): Promise<void> {
-    this.requireAnyPermission(['organizations:delete:organization', 'organizations:manage:all'], organizationId);
+    this.requireAnyPermission(
+      ['organizations:delete:organization', 'organizations:manage:all'],
+      organizationId
+    );
 
     // Check for child organizations
     const children = await getOrganizationChildren(organizationId);
@@ -348,7 +357,11 @@ export class RBACOrganizationsService extends BaseRBACService {
    * Get organization hierarchy for current user
    */
   async getAccessibleHierarchy(rootOrganizationId?: string): Promise<Organization[]> {
-    this.requireAnyPermission(['organizations:read:own', 'organizations:read:organization', 'organizations:read:all']);
+    this.requireAnyPermission([
+      'organizations:read:own',
+      'organizations:read:organization',
+      'organizations:read:all',
+    ]);
 
     if (rootOrganizationId) {
       this.requireOrganizationAccess(rootOrganizationId);

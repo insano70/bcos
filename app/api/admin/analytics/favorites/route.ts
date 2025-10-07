@@ -1,13 +1,13 @@
-import { NextRequest } from 'next/server';
-import { db, user_chart_favorites, chart_definitions } from '@/lib/db';
-import { eq, and, desc } from 'drizzle-orm';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
-import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { and, desc, eq } from 'drizzle-orm';
+import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { favoriteCreateSchema, favoriteDeleteSchema } from '@/lib/validations/analytics';
-import type { UserContext } from '@/lib/types/rbac';
+import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { chart_definitions, db, user_chart_favorites } from '@/lib/db';
 import { log } from '@/lib/logger';
+import type { UserContext } from '@/lib/types/rbac';
+import { favoriteCreateSchema, favoriteDeleteSchema } from '@/lib/validations/analytics';
 
 /**
  * Admin Analytics - Chart Favorites API
@@ -19,7 +19,7 @@ const getFavoritesHandler = async (request: NextRequest, userContext: UserContex
   const startTime = Date.now();
 
   log.info('User favorites list request initiated', {
-    requestingUserId: userContext.user_id
+    requestingUserId: userContext.user_id,
   });
 
   try {
@@ -34,7 +34,10 @@ const getFavoritesHandler = async (request: NextRequest, userContext: UserContex
         is_active: chart_definitions.is_active,
       })
       .from(user_chart_favorites)
-      .innerJoin(chart_definitions, eq(user_chart_favorites.chart_definition_id, chart_definitions.chart_definition_id))
+      .innerJoin(
+        chart_definitions,
+        eq(user_chart_favorites.chart_definition_id, chart_definitions.chart_definition_id)
+      )
       .where(
         and(
           eq(user_chart_favorites.user_id, userContext.user_id),
@@ -43,20 +46,24 @@ const getFavoritesHandler = async (request: NextRequest, userContext: UserContex
       )
       .orderBy(desc(user_chart_favorites.favorited_at));
 
-    log.db('SELECT', 'user_chart_favorites', Date.now() - startTime, { rowCount: favorites.length });
+    log.db('SELECT', 'user_chart_favorites', Date.now() - startTime, {
+      rowCount: favorites.length,
+    });
 
-    return createSuccessResponse({
-      favorites: favorites,
-      metadata: {
-        total_count: favorites.length,
-        user_id: userContext.user_id,
-        generatedAt: new Date().toISOString()
-      }
-    }, 'User favorites retrieved successfully');
-
+    return createSuccessResponse(
+      {
+        favorites: favorites,
+        metadata: {
+          total_count: favorites.length,
+          user_id: userContext.user_id,
+          generatedAt: new Date().toISOString(),
+        },
+      },
+      'User favorites retrieved successfully'
+    );
   } catch (error) {
     log.error('User favorites list error', error, {
-      requestingUserId: userContext.user_id
+      requestingUserId: userContext.user_id,
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
@@ -68,7 +75,7 @@ const addFavoriteHandler = async (request: NextRequest, userContext: UserContext
   const startTime = Date.now();
 
   log.info('Add chart to favorites request initiated', {
-    requestingUserId: userContext.user_id
+    requestingUserId: userContext.user_id,
   });
 
   try {
@@ -106,33 +113,36 @@ const addFavoriteHandler = async (request: NextRequest, userContext: UserContext
     }
 
     // Add to favorites
-    await db
-      .insert(user_chart_favorites)
-      .values({
-        user_id: userContext.user_id,
-        chart_definition_id: validatedData.chart_definition_id,
-      });
+    await db.insert(user_chart_favorites).values({
+      user_id: userContext.user_id,
+      chart_definition_id: validatedData.chart_definition_id,
+    });
 
     log.db('INSERT', 'user_chart_favorites', Date.now() - startTime, { rowCount: 1 });
 
     log.info('Chart added to favorites successfully', {
       chartId: validatedData.chart_definition_id,
-      userId: userContext.user_id
+      userId: userContext.user_id,
     });
 
-    return createSuccessResponse({
-      message: 'Chart added to favorites successfully'
-    }, 'Chart favorited successfully');
-
+    return createSuccessResponse(
+      {
+        message: 'Chart added to favorites successfully',
+      },
+      'Chart favorited successfully'
+    );
   } catch (error) {
     log.error('Add chart to favorites error', error, {
-      requestingUserId: userContext.user_id
+      requestingUserId: userContext.user_id,
     });
-    
-    const errorMessage = process.env.NODE_ENV === 'development' 
-      ? (error instanceof Error ? error.message : 'Unknown error')
-      : 'Internal server error';
-    
+
+    const errorMessage =
+      process.env.NODE_ENV === 'development'
+        ? error instanceof Error
+          ? error.message
+          : 'Unknown error'
+        : 'Internal server error';
+
     return createErrorResponse(errorMessage, 500, request);
   }
 };
@@ -146,7 +156,7 @@ const removeFavoriteHandler = async (request: NextRequest, userContext: UserCont
     const validatedData = await validateRequest(request, favoriteDeleteSchema);
 
     // Remove from favorites
-    const result = await db
+    const _result = await db
       .delete(user_chart_favorites)
       .where(
         and(
@@ -157,19 +167,24 @@ const removeFavoriteHandler = async (request: NextRequest, userContext: UserCont
 
     log.db('DELETE', 'user_chart_favorites', Date.now() - startTime, { rowCount: 1 });
 
-    return createSuccessResponse({
-      message: 'Chart removed from favorites successfully'
-    }, 'Chart unfavorited successfully');
-
+    return createSuccessResponse(
+      {
+        message: 'Chart removed from favorites successfully',
+      },
+      'Chart unfavorited successfully'
+    );
   } catch (error) {
     log.error('Remove chart from favorites error', error, {
-      requestingUserId: userContext.user_id
+      requestingUserId: userContext.user_id,
     });
-    
-    const errorMessage = process.env.NODE_ENV === 'development' 
-      ? (error instanceof Error ? error.message : 'Unknown error')
-      : 'Internal server error';
-    
+
+    const errorMessage =
+      process.env.NODE_ENV === 'development'
+        ? error instanceof Error
+          ? error.message
+          : 'Unknown error'
+        : 'Internal server error';
+
     return createErrorResponse(errorMessage, 500, request);
   }
 };
@@ -177,21 +192,15 @@ const removeFavoriteHandler = async (request: NextRequest, userContext: UserCont
 // Route handlers
 export const GET = rbacRoute(getFavoritesHandler, {
   permission: 'analytics:read:all',
-  rateLimit: 'api'
+  rateLimit: 'api',
 });
 
-export const POST = rbacRoute(
-  addFavoriteHandler,
-  {
-    permission: 'analytics:read:all',
-    rateLimit: 'api'
-  }
-);
+export const POST = rbacRoute(addFavoriteHandler, {
+  permission: 'analytics:read:all',
+  rateLimit: 'api',
+});
 
-export const DELETE = rbacRoute(
-  removeFavoriteHandler,
-  {
-    permission: 'analytics:read:all',
-    rateLimit: 'api'
-  }
-);
+export const DELETE = rbacRoute(removeFavoriteHandler, {
+  permission: 'analytics:read:all',
+  rateLimit: 'api',
+});

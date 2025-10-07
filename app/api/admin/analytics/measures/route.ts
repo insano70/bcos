@@ -1,17 +1,20 @@
-import { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
-import { analyticsQueryBuilder } from '@/lib/services/analytics-query-builder';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { log } from '@/lib/logger';
 import { checkAnalyticsDbHealth } from '@/lib/services/analytics-db';
-import { 
-  AnalyticsQueryParams, 
-  MeasureType, 
+import { analyticsQueryBuilder } from '@/lib/services/analytics-query-builder';
+import type {
+  AnalyticsQueryParams,
+  ChartFilter,
+  ChartRenderContext,
   FrequencyType,
-  ChartRenderContext 
+  MeasureType,
+  MultipleSeriesConfig,
+  PeriodComparisonConfig,
 } from '@/lib/types/analytics';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
 
 /**
  * Admin Analytics - Measures Data
@@ -23,38 +26,43 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
 
   log.info('Measures analytics request initiated', {
     requestingUserId: userContext.user_id,
-    isSuperAdmin: userContext.is_super_admin
+    isSuperAdmin: userContext.is_super_admin,
   });
 
   try {
-
     // Health check for analytics database
     const healthStart = Date.now();
     const healthCheck = await checkAnalyticsDbHealth();
     log.info('Analytics DB health check completed', { duration: Date.now() - healthStart });
 
     if (!healthCheck.isHealthy) {
-      log.error('Analytics database health check failed', new Error(healthCheck.error || 'Unknown error'));
-      
+      log.error(
+        'Analytics database health check failed',
+        new Error(healthCheck.error || 'Unknown error')
+      );
+
       // Provide helpful error message for configuration issues
       if (healthCheck.error?.includes('not configured')) {
-        return createErrorResponse('Analytics database not configured. Please set ANALYTICS_DATABASE_URL in your environment.', 503);
+        return createErrorResponse(
+          'Analytics database not configured. Please set ANALYTICS_DATABASE_URL in your environment.',
+          503
+        );
       }
-      
+
       return createErrorResponse('Analytics database unavailable', 503);
     }
 
     // Parse query parameters
     const { searchParams } = new URL(request.url);
-    
+
     const practiceUidParam = searchParams.get('practice_uid');
     // Parse advanced filters from query parameters
     const advancedFiltersParam = searchParams.get('advanced_filters');
-    let advancedFilters;
+    let advancedFilters: ChartFilter[] | undefined;
     if (advancedFiltersParam) {
       try {
-        advancedFilters = JSON.parse(decodeURIComponent(advancedFiltersParam));
-      } catch (error) {
+        advancedFilters = JSON.parse(decodeURIComponent(advancedFiltersParam)) as ChartFilter[];
+      } catch (_error) {
         return createErrorResponse('Invalid advanced_filters parameter format', 400);
       }
     }
@@ -64,38 +72,40 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
 
     // Parse multiple series configuration
     const multipleSeriesParam = searchParams.get('multiple_series');
-    let multipleSeries;
+    let multipleSeries: MultipleSeriesConfig[] | undefined;
     if (multipleSeriesParam) {
       try {
-        multipleSeries = JSON.parse(decodeURIComponent(multipleSeriesParam));
-      } catch (error) {
+        multipleSeries = JSON.parse(decodeURIComponent(multipleSeriesParam)) as MultipleSeriesConfig[];
+      } catch (_error) {
         return createErrorResponse('Invalid multiple_series parameter format', 400);
       }
     }
 
     // Parse period comparison configuration
-    let periodComparison;
+    let periodComparison: PeriodComparisonConfig | undefined;
     const periodComparisonParam = searchParams.get('period_comparison');
     if (periodComparisonParam) {
       try {
-        periodComparison = JSON.parse(decodeURIComponent(periodComparisonParam));
-      } catch (error) {
+        periodComparison = JSON.parse(decodeURIComponent(periodComparisonParam)) as PeriodComparisonConfig;
+      } catch (_error) {
         return createErrorResponse('Invalid period_comparison parameter format', 400);
       }
     }
 
     const dataSourceIdParam = searchParams.get('data_source_id');
     const queryParams: AnalyticsQueryParams = {
-      measure: searchParams.get('measure') as MeasureType || undefined,
-      frequency: searchParams.get('frequency') as FrequencyType || undefined,
+      measure: (searchParams.get('measure') as MeasureType) || undefined,
+      frequency: (searchParams.get('frequency') as FrequencyType) || undefined,
       practice: searchParams.get('practice') || undefined,
       practice_primary: searchParams.get('practice_primary') || undefined,
       practice_uid: practiceUidParam ? parseInt(practiceUidParam, 10) : undefined,
       provider_name: searchParams.get('provider_name') || undefined,
       start_date: searchParams.get('start_date') || undefined,
       end_date: searchParams.get('end_date') || undefined,
-      limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : undefined,
-      offset: searchParams.get('offset') ? parseInt(searchParams.get('offset')!, 10) : undefined,
+      limit: searchParams.get('limit') ? parseInt(searchParams.get('limit') || '', 10) : undefined,
+      offset: searchParams.get('offset')
+        ? parseInt(searchParams.get('offset') || '', 10)
+        : undefined,
       advanced_filters: advancedFilters,
       calculated_field: calculatedField,
       multiple_series: multipleSeries,
@@ -106,7 +116,7 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     console.log('🔍 PARSED QUERY PARAMS:', {
       queryParams,
       rawPracticeUid: practiceUidParam,
-      parsedPracticeUid: queryParams.practice_uid
+      parsedPracticeUid: queryParams.practice_uid,
     });
 
     // Validate query parameters
@@ -136,7 +146,7 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
       user_id: userContext.user_id,
       accessible_practices: [], // Empty means all practices accessible (for now)
       accessible_providers: [], // Empty means all providers accessible (for now)
-      roles: userContext.roles?.map(role => role.name) || []
+      roles: userContext.roles?.map((role) => role.name) || [],
     };
 
     // Execute analytics query
@@ -145,13 +155,15 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     log.info('Analytics query execution completed', { duration: Date.now() - queryStart });
 
     // Log successful operation
-    log.db('SELECT', 'ih.gr_app_measures', Date.now() - startTime, { rowCount: result.data.length });
+    log.db('SELECT', 'ih.gr_app_measures', Date.now() - startTime, {
+      rowCount: result.data.length,
+    });
 
     log.info('Analytics measures request completed successfully', {
       resultCount: result.data.length,
       totalCount: result.total_count,
       queryTimeMs: result.query_time_ms,
-      totalRequestTime: Date.now() - startTime
+      totalRequestTime: Date.now() - startTime,
     });
 
     const analytics = {
@@ -160,22 +172,21 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
         total_count: result.total_count,
         limit: queryParams.limit || 1000,
         offset: queryParams.offset || 0,
-        has_more: (queryParams.offset || 0) + result.data.length < result.total_count
+        has_more: (queryParams.offset || 0) + result.data.length < result.total_count,
       },
       metadata: {
         query_time_ms: result.query_time_ms,
         cache_hit: result.cache_hit || false,
         analytics_db_latency_ms: healthCheck.latency,
-        generatedAt: new Date().toISOString()
-      }
+        generatedAt: new Date().toISOString(),
+      },
     };
 
     return createSuccessResponse(analytics, 'Measures analytics retrieved successfully');
-
   } catch (error) {
     log.error('Measures analytics error', error, {
       queryParams,
-      requestingUserId: userContext.user_id
+      requestingUserId: userContext.user_id,
     });
 
     log.info('Analytics request failed', { duration: Date.now() - startTime });
@@ -191,15 +202,15 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
 function isValidDate(dateString: string): boolean {
   const regex = /^\d{4}-\d{2}-\d{2}$/;
   if (!regex.test(dateString)) return false;
-  
+
   const date = new Date(dateString);
-  return date instanceof Date && !isNaN(date.getTime());
+  return date instanceof Date && !Number.isNaN(date.getTime());
 }
 
 /**
  * GET /api/analytics/measures
  * Fetch measures data with filtering and pagination
- * 
+ *
  * Query Parameters:
  * - measure: Filter by measure type (e.g., "Charges by Practice")
  * - frequency: Filter by frequency (Monthly, Weekly, Quarterly)
@@ -212,32 +223,29 @@ function isValidDate(dateString: string): boolean {
  */
 // Uses analytics:read:all permission (granted via roles)
 // Super admins bypass permission checks automatically
-export const GET = rbacRoute(
-  analyticsHandler,
-  {
-    permission: 'analytics:read:all',
-    rateLimit: 'api'
-  }
-);
+export const GET = rbacRoute(analyticsHandler, {
+  permission: 'analytics:read:all',
+  rateLimit: 'api',
+});
 
 /**
  * Health check endpoint for analytics measures
  */
-export async function HEAD(request: NextRequest) {
+export async function HEAD(_request: NextRequest) {
   try {
     const health = await checkAnalyticsDbHealth();
-    
+
     if (health.isHealthy) {
-      return new Response(null, { 
+      return new Response(null, {
         status: 200,
         headers: {
-          'X-Analytics-DB-Latency': health.latency?.toString() || '0'
-        }
+          'X-Analytics-DB-Latency': health.latency?.toString() || '0',
+        },
       });
     } else {
       return new Response(null, { status: 503 });
     }
-  } catch (error) {
+  } catch (_error) {
     return new Response(null, { status: 503 });
   }
 }

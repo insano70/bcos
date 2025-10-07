@@ -1,8 +1,13 @@
-import { db, practices, practice_attributes, templates, users } from '@/lib/db';
-import { eq, and, isNull, sql, asc, desc } from 'drizzle-orm';
-import type { UserContext } from '@/lib/types/rbac';
-import { NotFoundError, AuthorizationError, ConflictError, ValidationError } from '@/lib/api/responses/error';
+import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
+import {
+  AuthorizationError,
+  ConflictError,
+  NotFoundError,
+  ValidationError,
+} from '@/lib/api/responses/error';
+import { db, practice_attributes, practices, templates, users } from '@/lib/db';
 import { log } from '@/lib/logger';
+import type { UserContext } from '@/lib/types/rbac';
 
 /**
  * RBAC Practices Service
@@ -11,39 +16,39 @@ import { log } from '@/lib/logger';
 
 // Types
 export interface PracticeFilters {
-  status?: 'active' | 'inactive' | 'pending';
-  template_id?: string;
-  limit?: number;
-  offset?: number;
-  sortBy?: 'name' | 'domain' | 'status' | 'created_at';
-  sortOrder?: 'asc' | 'desc';
+  status?: 'active' | 'inactive' | 'pending' | undefined;
+  template_id?: string | undefined;
+  limit?: number | undefined;
+  offset?: number | undefined;
+  sortBy?: 'name' | 'domain' | 'status' | 'created_at' | undefined;
+  sortOrder?: 'asc' | 'desc' | undefined;
 }
 
 export interface CreatePracticeData {
   name: string;
   domain: string;
   template_id: string;
-  owner_user_id?: string;
+  owner_user_id?: string | undefined;
 }
 
 export interface UpdatePracticeData {
-  name?: string;
-  domain?: string;
-  template_id?: string;
-  status?: 'active' | 'inactive' | 'pending';
+  name?: string | undefined;
+  domain?: string | undefined;
+  template_id?: string | undefined;
+  status?: 'active' | 'inactive' | 'pending' | undefined;
 }
 
 export interface Practice {
   id: string;
   name: string;
   domain: string;
-  status: string;
-  template_id: string;
+  status: string | null;
+  template_id: string | null;
   template_name: string | null;
   owner_email: string | null;
-  owner_user_id: string;
-  created_at: Date;
-  updated_at: Date;
+  owner_user_id: string | null;
+  created_at: Date | null;
+  updated_at: Date | null;
 }
 
 export interface PracticesServiceInterface {
@@ -58,25 +63,26 @@ export interface PracticesServiceInterface {
 /**
  * Create an RBAC-enabled practices service instance
  */
-export function createRBACPracticesService(
-  userContext: UserContext
-): PracticesServiceInterface {
+export function createRBACPracticesService(userContext: UserContext): PracticesServiceInterface {
   // Check permissions once at service creation
-  const canReadAll = userContext.is_super_admin || userContext.all_permissions?.some(p =>
-    p.name === 'practices:read:all'
-  );
+  const canReadAll =
+    userContext.is_super_admin ||
+    userContext.all_permissions?.some((p) => p.name === 'practices:read:all');
 
-  const canReadOwn = userContext.all_permissions?.some(p =>
-    p.name === 'practices:read:own'
-  );
+  const canReadOwn = userContext.all_permissions?.some((p) => p.name === 'practices:read:own');
 
-  const canCreate = userContext.is_super_admin || userContext.all_permissions?.some(p =>
-    p.name === 'practices:create:all'
-  );
+  const canCreate =
+    userContext.is_super_admin ||
+    userContext.all_permissions?.some((p) => p.name === 'practices:create:all');
 
-  const canUpdate = userContext.is_super_admin || userContext.all_permissions?.some(p =>
-    p.name === 'practices:update:own' || p.name === 'practices:manage:all' || p.name === 'practices:create:all'
-  );
+  const canUpdate =
+    userContext.is_super_admin ||
+    userContext.all_permissions?.some(
+      (p) =>
+        p.name === 'practices:update:own' ||
+        p.name === 'practices:manage:all' ||
+        p.name === 'practices:create:all'
+    );
 
   const canDelete = userContext.is_super_admin;
 
@@ -86,7 +92,7 @@ export function createRBACPracticesService(
 
       log.info('Get practices request initiated', {
         requestingUserId: userContext.user_id,
-        filters
+        filters,
       });
 
       try {
@@ -102,7 +108,7 @@ export function createRBACPracticesService(
             // User has no practice read permissions - return empty result
             log.info('User has no practice read permissions', {
               userId: userContext.user_id,
-              duration: Date.now() - startTime
+              duration: Date.now() - startTime,
             });
             return [];
           }
@@ -120,10 +126,14 @@ export function createRBACPracticesService(
         // Determine sort column and order
         const sortBy = filters.sortBy || 'name';
         const sortOrder = filters.sortOrder || 'asc';
-        const sortColumn = sortBy === 'domain' ? practices.domain :
-                          sortBy === 'status' ? practices.status :
-                          sortBy === 'created_at' ? practices.created_at :
-                          practices.name;
+        const sortColumn =
+          sortBy === 'domain'
+            ? practices.domain
+            : sortBy === 'status'
+              ? practices.status
+              : sortBy === 'created_at'
+                ? practices.created_at
+                : practices.name;
 
         // Get paginated data with joins
         const practicesData = await db
@@ -149,15 +159,14 @@ export function createRBACPracticesService(
 
         log.info('Get practices completed', {
           count: practicesData.length,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         });
 
         return practicesData;
-
       } catch (error) {
         log.error('Get practices failed', error, {
           userId: userContext.user_id,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         });
         throw error;
       }
@@ -168,7 +177,7 @@ export function createRBACPracticesService(
 
       log.info('Get practice by ID request initiated', {
         requestingUserId: userContext.user_id,
-        practiceId: id
+        practiceId: id,
       });
 
       try {
@@ -189,16 +198,13 @@ export function createRBACPracticesService(
           .from(practices)
           .leftJoin(templates, eq(practices.template_id, templates.template_id))
           .leftJoin(users, eq(practices.owner_user_id, users.user_id))
-          .where(and(
-            eq(practices.practice_id, id),
-            isNull(practices.deleted_at)
-          ))
+          .where(and(eq(practices.practice_id, id), isNull(practices.deleted_at)))
           .limit(1);
 
         if (!practice) {
           log.info('Practice not found', {
             practiceId: id,
-            duration: Date.now() - startTime
+            duration: Date.now() - startTime,
           });
           return null;
         }
@@ -209,23 +215,24 @@ export function createRBACPracticesService(
             practiceId: id,
             userId: userContext.user_id,
             ownerId: practice.owner_user_id,
-            duration: Date.now() - startTime
+            duration: Date.now() - startTime,
           });
-          throw AuthorizationError('Access denied: You do not have permission to view this practice');
+          throw AuthorizationError(
+            'Access denied: You do not have permission to view this practice'
+          );
         }
 
         log.info('Get practice by ID completed', {
           practiceId: id,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         });
 
         return practice;
-
       } catch (error) {
         log.error('Get practice by ID failed', error, {
           practiceId: id,
           userId: userContext.user_id,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         });
         throw error;
       }
@@ -236,7 +243,7 @@ export function createRBACPracticesService(
 
       log.info('Get practice count request initiated', {
         requestingUserId: userContext.user_id,
-        filters
+        filters,
       });
 
       try {
@@ -250,7 +257,7 @@ export function createRBACPracticesService(
           } else {
             log.info('User has no practice read permissions for count', {
               userId: userContext.user_id,
-              duration: Date.now() - startTime
+              duration: Date.now() - startTime,
             });
             return 0;
           }
@@ -276,15 +283,14 @@ export function createRBACPracticesService(
 
         log.info('Get practice count completed', {
           count: totalCount,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         });
 
         return totalCount;
-
       } catch (error) {
         log.error('Get practice count failed', error, {
           userId: userContext.user_id,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         });
         throw error;
       }
@@ -295,7 +301,7 @@ export function createRBACPracticesService(
 
       log.info('Create practice request initiated', {
         requestingUserId: userContext.user_id,
-        domain: data.domain
+        domain: data.domain,
       });
 
       try {
@@ -308,10 +314,7 @@ export function createRBACPracticesService(
         const existingPractice = await db
           .select()
           .from(practices)
-          .where(and(
-            eq(practices.domain, data.domain),
-            isNull(practices.deleted_at)
-          ))
+          .where(and(eq(practices.domain, data.domain), isNull(practices.deleted_at)))
           .limit(1);
 
         if (existingPractice.length > 0) {
@@ -322,10 +325,7 @@ export function createRBACPracticesService(
         const [template] = await db
           .select()
           .from(templates)
-          .where(and(
-            eq(templates.template_id, data.template_id),
-            eq(templates.is_active, true)
-          ))
+          .where(and(eq(templates.template_id, data.template_id), eq(templates.is_active, true)))
           .limit(1);
 
         if (!template) {
@@ -351,30 +351,28 @@ export function createRBACPracticesService(
           }
 
           // Create default practice attributes
-          await tx
-            .insert(practice_attributes)
-            .values({
-              practice_id: newPractice.practice_id,
-              // Default business hours
-              business_hours: JSON.stringify({
-                sunday: { closed: true },
-                monday: { open: '09:00', close: '17:00', closed: false },
-                tuesday: { open: '09:00', close: '17:00', closed: false },
-                wednesday: { open: '09:00', close: '17:00', closed: false },
-                thursday: { open: '09:00', close: '17:00', closed: false },
-                friday: { open: '09:00', close: '17:00', closed: false },
-                saturday: { closed: true }
-              }),
-              // Default empty arrays for JSON fields
-              services: JSON.stringify([]),
-              insurance_accepted: JSON.stringify([]),
-              conditions_treated: JSON.stringify([]),
-              gallery_images: JSON.stringify([]),
-              // Default brand colors
-              primary_color: '#00AEEF',
-              secondary_color: '#FFFFFF',
-              accent_color: '#44C0AE',
-            });
+          await tx.insert(practice_attributes).values({
+            practice_id: newPractice.practice_id,
+            // Default business hours
+            business_hours: JSON.stringify({
+              sunday: { closed: true },
+              monday: { open: '09:00', close: '17:00', closed: false },
+              tuesday: { open: '09:00', close: '17:00', closed: false },
+              wednesday: { open: '09:00', close: '17:00', closed: false },
+              thursday: { open: '09:00', close: '17:00', closed: false },
+              friday: { open: '09:00', close: '17:00', closed: false },
+              saturday: { closed: true },
+            }),
+            // Default empty arrays for JSON fields
+            services: JSON.stringify([]),
+            insurance_accepted: JSON.stringify([]),
+            conditions_treated: JSON.stringify([]),
+            gallery_images: JSON.stringify([]),
+            // Default brand colors
+            primary_color: '#00AEEF',
+            secondary_color: '#FFFFFF',
+            accent_color: '#44C0AE',
+          });
 
           return newPractice;
         });
@@ -406,16 +404,15 @@ export function createRBACPracticesService(
         log.info('Create practice completed', {
           practiceId: createdPractice.id,
           domain: createdPractice.domain,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         });
 
         return createdPractice;
-
       } catch (error) {
         log.error('Create practice failed', error, {
           userId: userContext.user_id,
           domain: data.domain,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         });
         throw error;
       }
@@ -426,7 +423,7 @@ export function createRBACPracticesService(
 
       log.info('Update practice request initiated', {
         requestingUserId: userContext.user_id,
-        practiceId: id
+        practiceId: id,
       });
 
       try {
@@ -446,10 +443,7 @@ export function createRBACPracticesService(
             owner_user_id: practices.owner_user_id,
           })
           .from(practices)
-          .where(and(
-            eq(practices.practice_id, id),
-            isNull(practices.deleted_at)
-          ))
+          .where(and(eq(practices.practice_id, id), isNull(practices.deleted_at)))
           .limit(1);
 
         if (!existing) {
@@ -458,12 +452,16 @@ export function createRBACPracticesService(
 
         // Check RBAC access - only super admin or owner can update
         if (!canReadAll && existing.owner_user_id !== userContext.user_id) {
-          throw AuthorizationError('Access denied: You do not have permission to view this practice');
+          throw AuthorizationError(
+            'Access denied: You do not have permission to view this practice'
+          );
         }
 
         // Check ownership for non-super-admins
         if (!userContext.is_super_admin && existing.owner_user_id !== userContext.user_id) {
-          throw AuthorizationError('Access denied: You do not have permission to update this practice');
+          throw AuthorizationError(
+            'Access denied: You do not have permission to update this practice'
+          );
         }
 
         // Check domain uniqueness if domain is being updated
@@ -471,10 +469,7 @@ export function createRBACPracticesService(
           const [domainExists] = await db
             .select()
             .from(practices)
-            .where(and(
-              eq(practices.domain, data.domain),
-              isNull(practices.deleted_at)
-            ))
+            .where(and(eq(practices.domain, data.domain), isNull(practices.deleted_at)))
             .limit(1);
 
           if (domainExists) {
@@ -522,16 +517,15 @@ export function createRBACPracticesService(
 
         log.info('Update practice completed', {
           practiceId: id,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         });
 
         return practice;
-
       } catch (error) {
         log.error('Update practice failed', error, {
           practiceId: id,
           userId: userContext.user_id,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         });
         throw error;
       }
@@ -542,7 +536,7 @@ export function createRBACPracticesService(
 
       log.info('Delete practice request initiated', {
         requestingUserId: userContext.user_id,
-        practiceId: id
+        practiceId: id,
       });
 
       try {
@@ -555,10 +549,7 @@ export function createRBACPracticesService(
         const [existing] = await db
           .select()
           .from(practices)
-          .where(and(
-            eq(practices.practice_id, id),
-            isNull(practices.deleted_at)
-          ))
+          .where(and(eq(practices.practice_id, id), isNull(practices.deleted_at)))
           .limit(1);
 
         if (!existing) {
@@ -581,16 +572,15 @@ export function createRBACPracticesService(
 
         log.info('Delete practice completed', {
           practiceId: id,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         });
 
         return true;
-
       } catch (error) {
         log.error('Delete practice failed', error, {
           practiceId: id,
           userId: userContext.user_id,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         });
         throw error;
       }

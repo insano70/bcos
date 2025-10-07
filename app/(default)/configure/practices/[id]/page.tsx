@@ -5,6 +5,7 @@ export const metadata = {
 
 import { eq } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
+import { requireServerAnyPermission } from '@/lib/auth/server-rbac';
 import { db, practice_attributes, practices, staff_members, templates } from '@/lib/db';
 import type { PracticeAttributes } from '@/lib/types/practice';
 import {
@@ -14,16 +15,12 @@ import {
   transformTemplate,
 } from '@/lib/types/transformers';
 import PracticeConfigForm from './practice-config-form';
-import { requireServerAnyPermission } from '@/lib/auth/server-rbac';
 
 async function getPracticeData(practiceId: string) {
   // SECURITY: Validate permissions BEFORE fetching sensitive data
   // User must have either 'practices:read:own' for this specific practice
   // OR 'practices:manage:all' for super admin access
-  await requireServerAnyPermission(
-    ['practices:read:own', 'practices:manage:all'],
-    practiceId
-  );
+  await requireServerAnyPermission(['practices:read:own', 'practices:manage:all'], practiceId);
 
   const [practice] = await db
     .select()

@@ -41,16 +41,16 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { createPaginatedResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
 import { validateQuery } from '@/lib/api/middleware/validation';
-import { getPagination, getSortParams } from '@/lib/api/utils/request';
-import { [resource]QuerySchema } from '@/lib/validations/[resource]';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createPaginatedResponse } from '@/lib/api/responses/success';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
+import { getPagination, getSortParams } from '@/lib/api/utils/request';
+import { log } from '@/lib/logger';
 import { createRBAC[Resource]Service } from '@/lib/services/rbac-[resource]-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
+import { [resource]QuerySchema } from '@/lib/validations/[resource]';
 
 /**
  * List [Resources] with pagination
@@ -241,8 +241,8 @@ export const GET = rbacRoute(
  * - Validates input with Zod schema
  */
 
-import { createSuccessResponse } from '@/lib/api/responses/success';
 import { validateRequest } from '@/lib/api/middleware/validation';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { [resource]CreateSchema } from '@/lib/validations/[resource]';
 
 /**

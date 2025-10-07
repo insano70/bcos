@@ -6,8 +6,8 @@
 
 import * as nodemailer from 'nodemailer';
 import { getEmailConfig } from '@/lib/env';
-import { EmailService } from './email';
 import { log } from '@/lib/logger';
+import { EmailService } from './email';
 
 /**
  * Singleton instance of EmailService
