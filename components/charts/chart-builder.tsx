@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Toast from '@/components/toast';
-import { ChartDefinition, ChartFilter, MeasureType, MultipleSeriesConfig, PeriodComparisonConfig } from '@/lib/types/analytics';
+import { ChartDefinition, ChartFilter, MeasureType, MultipleSeriesConfig, PeriodComparisonConfig, DualAxisConfig } from '@/lib/types/analytics';
 import { calculatedFieldsService } from '@/lib/services/calculated-fields';
 import { FormSkeleton, Skeleton } from '@/components/ui/loading-skeleton';
 import { apiClient } from '@/lib/api/client';
@@ -166,6 +166,7 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
           colorPalette?: string;
           stackingMode?: 'normal' | 'percentage';
           periodComparison?: PeriodComparisonConfig;
+          dualAxisConfig?: DualAxisConfig;
         } || {};
 
         // Try to find the selected data source by matching table reference or dataSourceId
@@ -201,7 +202,8 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
           selectedDataSource: savedDataSource,
           ...(chartConfigData.colorPalette && { colorPalette: chartConfigData.colorPalette }),
           ...(chartConfigData.stackingMode && { stackingMode: chartConfigData.stackingMode }),
-          ...(chartConfigData.periodComparison && { periodComparison: chartConfigData.periodComparison })
+          ...(chartConfigData.periodComparison && { periodComparison: chartConfigData.periodComparison }),
+          ...(chartConfigData.dualAxisConfig && { dualAxisConfig: chartConfigData.dualAxisConfig })
         };
         
         setSelectedDatePreset(selectedPreset);
@@ -259,7 +261,7 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
     }
   };
 
-  const updateConfig = (key: keyof ChartConfig, value: string | boolean | ChartFilter[] | DataSource | PeriodComparisonConfig | null | undefined) => {
+  const updateConfig = (key: keyof ChartConfig, value: string | boolean | ChartFilter[] | DataSource | PeriodComparisonConfig | DualAxisConfig | null | undefined) => {
     // If data source is changing, reset related fields
     if (key === 'selectedDataSource' && value !== chartConfig.selectedDataSource) {
       console.log('🔄 Data source changed...');
@@ -422,7 +424,9 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
           seriesConfigs: chartConfig.seriesConfigs,
           dataSourceId: chartConfig.selectedDataSource.id, // Store data source reference
           stackingMode: chartConfig.stackingMode, // Save stacking mode for stacked-bar charts
-          colorPalette: chartConfig.colorPalette // Save color palette at root level too for easier access
+          colorPalette: chartConfig.colorPalette, // Save color palette at root level too for easier access
+          periodComparison: chartConfig.periodComparison, // Save period comparison config
+          dualAxisConfig: chartConfig.dualAxisConfig // Save dual-axis configuration
         },
         // Save advanced filters in data_source
         data_source: {

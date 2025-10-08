@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ChartData, AnalyticsQueryParams, MeasureType, FrequencyType, ChartFilter, MultipleSeriesConfig, PeriodComparisonConfig } from '@/lib/types/analytics';
+import { ChartData, AnalyticsQueryParams, MeasureType, FrequencyType, ChartFilter, MultipleSeriesConfig, PeriodComparisonConfig, DualAxisConfig } from '@/lib/types/analytics';
 import type { ResponsiveChartProps } from '@/lib/types/responsive-charts';
 import { calculatedFieldsService } from '@/lib/services/calculated-fields';
 import { chartExportService } from '@/lib/services/chart-export';
@@ -25,9 +25,10 @@ import AnalyticsHorizontalBarChart from './analytics-horizontal-bar-chart';
 import AnalyticsProgressBarChart from './analytics-progress-bar-chart';
 import AnalyticsTableChart from './analytics-table-chart';
 import DoughnutChart from './doughnut-chart';
+import AnalyticsDualAxisChart from './analytics-dual-axis-chart';
 
 interface AnalyticsChartProps extends ResponsiveChartProps {
-  chartType: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'progress-bar' | 'doughnut' | 'table';
+  chartType: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'progress-bar' | 'doughnut' | 'table' | 'dual-axis';
   measure?: MeasureType;
   frequency?: FrequencyType;
   practice?: string | undefined;
@@ -48,6 +49,7 @@ interface AnalyticsChartProps extends ResponsiveChartProps {
   stackingMode?: 'normal' | 'percentage'; // Stacking mode for stacked-bar charts
   colorPalette?: string; // Color palette ID for chart colors
   periodComparison?: PeriodComparisonConfig; // Period comparison support
+  dualAxisConfig?: DualAxisConfig; // Dual-axis configuration for combo charts
 }
 
 interface ApiResponse {
@@ -88,6 +90,7 @@ export default function AnalyticsChart({
   stackingMode = 'normal', // Stacking mode for stacked-bar charts
   colorPalette = 'default', // Color palette for chart colors
   periodComparison, // Period comparison support
+  dualAxisConfig, // Dual-axis configuration
   // Responsive sizing options
   responsive = false,
   minHeight = 200,
@@ -484,6 +487,26 @@ export default function AnalyticsChart({
               }))}
               colorPalette={colorPalette}
               height={height}
+            />
+          );
+        case 'dual-axis':
+          if (!dualAxisConfig) {
+            return <div>Dual-axis configuration is required</div>;
+          }
+          return (
+            <AnalyticsDualAxisChart
+              dualAxisConfig={dualAxisConfig}
+              frequency={frequency}
+              startDate={startDate}
+              endDate={endDate}
+              groupBy={groupBy}
+              width={width}
+              height={height}
+              title={title}
+              calculatedField={calculatedField}
+              advancedFilters={advancedFilters}
+              dataSourceId={dataSourceId}
+              colorPalette={colorPalette}
             />
           );
         default:

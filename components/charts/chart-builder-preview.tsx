@@ -55,6 +55,7 @@ export default function ChartBuilderPreview({
             colorPalette={chartConfig.colorPalette || 'default'}
             {...(chartConfig.useMultipleSeries && chartConfig.seriesConfigs.length > 0 ? { multipleSeries: chartConfig.seriesConfigs } : {})}
             {...(chartConfig.periodComparison?.enabled ? { periodComparison: chartConfig.periodComparison } : {})}
+            {...(chartConfig.dualAxisConfig ? { dualAxisConfig: chartConfig.dualAxisConfig } : {})}
           />
         </div>
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { ChartFilter, MeasureType, MultipleSeriesConfig, PeriodComparisonConfig } from '@/lib/types/analytics';
+import { ChartFilter, MeasureType, MultipleSeriesConfig, PeriodComparisonConfig, DualAxisConfig } from '@/lib/types/analytics';
 import DateRangePresets from './date-range-presets';
 import DataSourceSelector from './data-source-selector';
 import ColorPaletteSelector from './color-palette-selector';
@@ -33,7 +33,7 @@ export interface DataSource {
 
 export interface ChartConfig {
   chartName: string;
-  chartType: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'progress-bar' | 'doughnut' | 'table';
+  chartType: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'progress-bar' | 'doughnut' | 'table' | 'dual-axis';
   measure: string;
   frequency: string;
   startDate: string;
@@ -48,12 +48,13 @@ export interface ChartConfig {
   stackingMode?: 'normal' | 'percentage';
   colorPalette?: string;
   periodComparison?: PeriodComparisonConfig;
+  dualAxisConfig?: DualAxisConfig;
 }
 
 interface ChartBuilderCoreProps {
   schemaInfo: SchemaInfo | null;
   chartConfig: ChartConfig;
-  updateConfig: (key: keyof ChartConfig, value: string | boolean | ChartFilter[] | DataSource | PeriodComparisonConfig | null | undefined) => void;
+  updateConfig: (key: keyof ChartConfig, value: string | boolean | ChartFilter[] | DataSource | PeriodComparisonConfig | DualAxisConfig | null | undefined) => void;
   handleDateRangeChange: (presetId: string, startDate: string, endDate: string) => void;
   selectedDatePreset?: string;
   isLoadingSchema: boolean;
@@ -127,6 +128,7 @@ export default function ChartBuilderCore({
             <option value="horizontal-bar">Horizontal Bar Chart</option>
             <option value="progress-bar">Progress Bar</option>
             <option value="line">Line Chart</option>
+            <option value="dual-axis">Dual-Axis Combo Chart</option>
             <option value="doughnut">Doughnut Chart</option>
             <option value="table">Table</option>
           </select>
@@ -243,6 +245,133 @@ export default function ChartBuilderCore({
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Dual-Axis Configuration - Show when dual-axis chart type selected */}
+        {chartConfig.chartType === 'dual-axis' && (
+          <div className="md:col-span-2 border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
+            <h3 className="text-md font-medium text-gray-900 dark:text-gray-100 mb-4">
+              Dual-Axis Configuration
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Primary Measure (Left Axis - Bar) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Primary Measure (Left Axis - Bar) <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={chartConfig.dualAxisConfig?.primary.measure || ''}
+                  onChange={(e) => {
+                    const currentConfig = chartConfig.dualAxisConfig || {
+                      enabled: true,
+                      primary: { measure: '', chartType: 'bar' as const, axisPosition: 'left' as const },
+                      secondary: { measure: '', chartType: 'line' as const, axisPosition: 'right' as const }
+                    };
+                    updateConfig('dualAxisConfig', {
+                      ...currentConfig,
+                      primary: { ...currentConfig.primary, measure: e.target.value }
+                    });
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="">Select primary measure...</option>
+                  {schemaInfo?.availableMeasures.map((measureObj) => (
+                    <option key={measureObj.measure} value={measureObj.measure}>
+                      {measureObj.measure}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  placeholder="Optional axis label"
+                  value={chartConfig.dualAxisConfig?.primary.axisLabel || ''}
+                  onChange={(e) => {
+                    const currentConfig = chartConfig.dualAxisConfig || {
+                      enabled: true,
+                      primary: { measure: '', chartType: 'bar' as const, axisPosition: 'left' as const },
+                      secondary: { measure: '', chartType: 'line' as const, axisPosition: 'right' as const }
+                    };
+                    updateConfig('dualAxisConfig', {
+                      ...currentConfig,
+                      primary: { ...currentConfig.primary, axisLabel: e.target.value }
+                    });
+                  }}
+                  className="w-full mt-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+
+              {/* Secondary Measure (Right Axis) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Secondary Measure (Right Axis) <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={chartConfig.dualAxisConfig?.secondary.measure || ''}
+                  onChange={(e) => {
+                    const currentConfig = chartConfig.dualAxisConfig || {
+                      enabled: true,
+                      primary: { measure: '', chartType: 'bar' as const, axisPosition: 'left' as const },
+                      secondary: { measure: '', chartType: 'line' as const, axisPosition: 'right' as const }
+                    };
+                    updateConfig('dualAxisConfig', {
+                      ...currentConfig,
+                      secondary: { ...currentConfig.secondary, measure: e.target.value }
+                    });
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="">Select secondary measure...</option>
+                  {schemaInfo?.availableMeasures.map((measureObj) => (
+                    <option key={measureObj.measure} value={measureObj.measure}>
+                      {measureObj.measure}
+                    </option>
+                  ))}
+                </select>
+                <div className="flex gap-2 mt-2">
+                  <select
+                    value={chartConfig.dualAxisConfig?.secondary.chartType || 'line'}
+                    onChange={(e) => {
+                      const currentConfig = chartConfig.dualAxisConfig || {
+                        enabled: true,
+                        primary: { measure: '', chartType: 'bar' as const, axisPosition: 'left' as const },
+                        secondary: { measure: '', chartType: 'line' as const, axisPosition: 'right' as const }
+                      };
+                      updateConfig('dualAxisConfig', {
+                        ...currentConfig,
+                        secondary: { ...currentConfig.secondary, chartType: e.target.value as 'line' | 'bar' }
+                      });
+                    }}
+                    className="w-1/3 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="line">Line</option>
+                    <option value="bar">Bar</option>
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="Optional axis label"
+                    value={chartConfig.dualAxisConfig?.secondary.axisLabel || ''}
+                    onChange={(e) => {
+                      const currentConfig = chartConfig.dualAxisConfig || {
+                        enabled: true,
+                        primary: { measure: '', chartType: 'bar' as const, axisPosition: 'left' as const },
+                        secondary: { measure: '', chartType: 'line' as const, axisPosition: 'right' as const }
+                      };
+                      updateConfig('dualAxisConfig', {
+                        ...currentConfig,
+                        secondary: { ...currentConfig.secondary, axisLabel: e.target.value }
+                      });
+                    }}
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                ℹ️ Dual-axis charts display two measures with independent y-axes. The primary measure shows as bars on the left axis, and the secondary measure shows as a line or bars on the right axis.
+              </p>
+            </div>
           </div>
         )}
 
