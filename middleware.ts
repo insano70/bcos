@@ -255,13 +255,16 @@ export async function middleware(request: NextRequest) {
 
   // Handle API routes
   if (pathname.startsWith('/api/')) {
-    // Request sanitization for JSON bodies (skip for CSP reports - they contain policy strings that trigger false positives)
-    if (['POST', 'PUT', 'PATCH'].includes(request.method) && pathname !== '/api/security/csp-report') {
+    // Request sanitization for JSON bodies
+    // Skip for: CSP reports (policy strings trigger false positives), chart-data (large measure arrays are expected)
+    const skipSanitization = pathname === '/api/security/csp-report' || pathname === '/api/admin/analytics/chart-data'
+
+    if (['POST', 'PUT', 'PATCH'].includes(request.method) && !skipSanitization) {
       try {
         // Clone the request to read the body
         const clonedRequest = request.clone()
         const body = await clonedRequest.json().catch(() => null)
-        
+
         if (body) {
           // Pass null for logger since it's not used (_logger parameter)
           const sanitizationResult = await sanitizeRequestBody(body, null as any)

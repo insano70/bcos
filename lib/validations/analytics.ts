@@ -254,6 +254,30 @@ export const dataSourceSchema = z.object({
   is_active: z.boolean().default(true),
 });
 
+// Chart data transformation request schema (server-side transformation)
+// Note: measures array contains dynamic fields based on data source columns
+// Using z.unknown() for flexible typing while avoiding 'any'
+export const chartDataRequestSchema = z.object({
+  measures: z.array(z.record(z.string(), z.unknown())),
+  chartType: z.enum([
+    'line',
+    'bar',
+    'stacked-bar',
+    'horizontal-bar',
+    'progress-bar',
+    'pie',
+    'doughnut',
+    'area',
+    'table',
+  ]),
+  groupBy: z.string().default('none'),
+  colorPalette: z.string().default('default'),
+  dataSourceId: z.coerce.number().int().positive().optional(),
+  stackingMode: z.enum(['normal', 'percentage']).optional(),
+  multipleSeries: z.array(multipleSeriesConfigSchema).optional(),
+  periodComparison: periodComparisonConfigSchema.optional(),
+});
+
 // Export type definitions for use in API routes
 export type ChartCategoryCreate = z.infer<typeof chartCategoryCreateSchema>;
 export type ChartCategoryUpdate = z.infer<typeof chartCategoryUpdateSchema>;
@@ -264,3 +288,4 @@ export type DashboardUpdate = z.infer<typeof dashboardUpdateSchema>;
 export type FavoriteCreate = z.infer<typeof favoriteCreateSchema>;
 export type BulkOperation = z.infer<typeof bulkOperationSchema>;
 export type DataSource = z.infer<typeof dataSourceSchema>;
+export type ChartDataRequest = z.infer<typeof chartDataRequestSchema>;

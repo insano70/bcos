@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ChartData, AnalyticsQueryParams, MeasureType, FrequencyType, ChartFilter, MultipleSeriesConfig, PeriodComparisonConfig } from '@/lib/types/analytics';
 import type { ResponsiveChartProps } from '@/lib/types/responsive-charts';
-import { SimplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
 import { calculatedFieldsService } from '@/lib/services/calculated-fields';
 import { chartExportService } from '@/lib/services/chart-export';
 import ChartErrorBoundary from './chart-error-boundary';
@@ -261,120 +260,76 @@ export default function AnalyticsChart({
           throw new Error('Invalid response format from analytics API');
         }
 
-      // Use groupBy directly - no hard-coded mapping needed
-      const mappedGroupBy = groupBy || 'none';
+        // Use groupBy directly - no hard-coded mapping needed
+        const mappedGroupBy = groupBy || 'none';
 
-      // GroupBy mapping completed
+        // Apply calculated fields if selected
+        let processedMeasures = data.measures;
+        if (calculatedField) {
+          try {
+            console.log('🔍 APPLYING CALCULATED FIELD:', {
+              calculatedFieldId: calculatedField,
+              originalDataCount: processedMeasures.length
+            });
 
-      // Apply calculated fields if selected
-      let processedMeasures = data.measures;
-      if (calculatedField) {
-        try {
-          console.log('🔍 APPLYING CALCULATED FIELD:', {
-            calculatedFieldId: calculatedField,
-            originalDataCount: processedMeasures.length
-          });
-          
-          processedMeasures = calculatedFieldsService.applyCalculatedField(calculatedField, processedMeasures);
-          
-          console.log('🔍 CALCULATED FIELD RESULT:', {
-            processedDataCount: processedMeasures.length,
-            sampleCalculatedRecord: processedMeasures[0]
-          });
-        } catch (error) {
-          console.error('❌ Calculated field processing failed:', error);
-          setError(`Calculated field error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          return;
-        }
-      }
+            processedMeasures = calculatedFieldsService.applyCalculatedField(calculatedField, processedMeasures);
 
-      // Transform data - handle both single and multiple series
-      // Create transformer instance (metadata loading happens server-side only)
-      const transformer = new SimplifiedChartTransformer();
-
-      let transformedData: ChartData;
-
-      if (multipleSeries && multipleSeries.length > 0) {
-        console.log('🔍 USING MULTI-SERIES TRANSFORMER:', {
-          seriesCount: multipleSeries.length,
-          dataCount: processedMeasures.length,
-          mappedGroupBy,
-          seriesLabels: multipleSeries.map(s => s.label)
-        });
-
-        // Use the enhanced multi-series transformer
-        const aggregations: Record<string, 'sum' | 'avg' | 'count' | 'min' | 'max'> = {};
-        multipleSeries.forEach(series => {
-          if (series.label) {
-            aggregations[series.label] = series.aggregation;
+            console.log('🔍 CALCULATED FIELD RESULT:', {
+              processedDataCount: processedMeasures.length,
+              sampleCalculatedRecord: processedMeasures[0]
+            });
+          } catch (error) {
+            console.error('❌ Calculated field processing failed:', error);
+            setError(`Calculated field error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            return;
           }
-        });
+        }
 
-        transformedData = transformer.createEnhancedMultiSeriesChart(
-          processedMeasures,
-          'measure', // Group by measure for multiple series
-          aggregations,
-          colorPalette
-        );
-
-        console.log('🔍 MULTI-SERIES RESULT:', {
-          labelCount: transformedData.labels.length,
-          datasetCount: transformedData.datasets.length,
-          datasetLabels: transformedData.datasets.map(d => d.label)
-        });
-      } else if (processedMeasures.some(m => m.series_id === 'current' || m.series_id === 'comparison')) {
-        console.log('🔍 USING PERIOD COMPARISON TRANSFORMER:', {
+        // Transform data server-side for better performance
+        console.log('🚀 TRANSFORMING DATA SERVER-SIDE:', {
           chartType,
-          mappedGroupBy,
-          dataCount: processedMeasures.length,
-          currentRecords: processedMeasures.filter(m => m.series_id === 'current').length,
-          comparisonRecords: processedMeasures.filter(m => m.series_id === 'comparison').length
+          groupBy: mappedGroupBy,
+          measureCount: processedMeasures.length,
+          hasMultipleSeries: Boolean(multipleSeries && multipleSeries.length > 0),
+          hasPeriodComparison: processedMeasures.some(m => m.series_id === 'current' || m.series_id === 'comparison')
         });
 
-        // Use the period comparison transformer
-        transformedData = transformer.transformDataWithPeriodComparison(
-          processedMeasures,
-          chartType === 'stacked-bar' ? 'bar' : chartType, // Map stacked-bar to bar for transformation
-          mappedGroupBy,
-          colorPalette
-        );
+        // Build request payload, only including stacking mode for stacked charts
+        const requestPayload = {
+          measures: processedMeasures,
+          chartType: chartType === 'stacked-bar' ? 'bar' : chartType, // Map stacked-bar to bar
+          groupBy: mappedGroupBy,
+          colorPalette,
+          dataSourceId,
+          ...(chartType === 'stacked-bar' && { stackingMode }), // Only include for stacked charts
+          multipleSeries: multipleSeries && multipleSeries.length > 0 ? multipleSeries : undefined,
+          periodComparison
+        };
 
-        console.log('🔍 PERIOD COMPARISON RESULT:', {
-          labelCount: transformedData.labels.length,
-          datasetCount: transformedData.datasets.length,
-          datasetLabels: transformedData.datasets.map(d => d.label)
-        });
-      } else {
-        console.log('🔍 USING SINGLE-SERIES TRANSFORMER:', {
-          measure,
-          chartType,
-          mappedGroupBy,
-          dataCount: processedMeasures.length
+        console.log('📤 REQUEST PAYLOAD:', {
+          ...requestPayload,
+          measures: `[${processedMeasures.length} items]` // Don't log all measures
         });
 
-        // Map stacked-bar to bar for data transformation (progress-bar uses its own method)
-        const transformChartType = chartType === 'stacked-bar' ? 'bar' : chartType;
+        const transformResponse: {
+          chartData: ChartData;
+          metadata: {
+            transformedAt: string;
+            chartType: string;
+            duration: number;
+            measureCount: number;
+            datasetCount: number;
+          };
+        } = await apiClient.post('/api/admin/analytics/chart-data', requestPayload);
 
-        transformedData = transformer.transformData(
-          processedMeasures,
-          transformChartType,
-          mappedGroupBy,
-          colorPalette
-        );
-
-        console.log('🔍 SINGLE-SERIES RESULT:', {
-          labelCount: transformedData.labels.length,
-          datasetCount: transformedData.datasets.length,
-          datasetLabels: transformedData.datasets.map(d => d.label)
+        console.log('✅ SERVER-SIDE TRANSFORMATION COMPLETE:', {
+          duration: transformResponse.metadata.duration,
+          labelCount: transformResponse.chartData.labels.length,
+          datasetCount: transformResponse.chartData.datasets.length,
+          datasetLabels: transformResponse.chartData.datasets.map(d => d.label)
         });
-      }
 
-        // Transformation completed
-
-        // Show EXACT data structure being passed to Chart.js
-        // Chart data structure prepared
-
-        setChartData(transformedData);
+        setChartData(transformResponse.chartData);
         setMetadata(data.metadata);
         setRawData(data.measures); // Store raw data for export
       } // End of else block for non-table charts
