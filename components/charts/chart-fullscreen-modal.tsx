@@ -309,7 +309,7 @@ export default function ChartFullscreenModal({
           zoom: {
             pan: {
               enabled: true,
-              mode: 'xy',
+              mode: isHorizontal ? 'y' : 'x', // Horizontal: pan on Y (categories), Vertical: pan on X (categories)
             },
             zoom: {
               wheel: {
@@ -319,11 +319,14 @@ export default function ChartFullscreenModal({
               pinch: {
                 enabled: true,
               },
-              mode: 'xy',
+              mode: isHorizontal ? 'y' : 'x', // Horizontal: zoom on Y (categories), Vertical: zoom on X (categories)
             },
-            limits: {
-              x: { min: 'original', max: 'original' },
-              y: { min: 0, max: 'original' },
+            limits: isHorizontal ? {
+              x: { min: 0, max: 'original' }, // Keep value axis full range
+              y: { min: 'original', max: 'original' }, // Allow zooming on category axis
+            } : {
+              x: { min: 'original', max: 'original' }, // Allow zooming on category axis
+              y: { min: 0, max: 'original' }, // Keep value axis full range
             },
           },
         },
