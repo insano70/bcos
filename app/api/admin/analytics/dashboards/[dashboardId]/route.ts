@@ -40,9 +40,13 @@ const getDashboardHandler = async (
 
     log.db('SELECT', 'dashboards', Date.now() - startTime, { rowCount: 1 });
 
+    // Extract charts array from dashboard object to match frontend expectations
+    const { charts, ...dashboardWithoutCharts } = dashboard;
+
     return createSuccessResponse(
       {
-        dashboard,
+        dashboard: dashboardWithoutCharts,
+        charts,
       },
       'Dashboard retrieved successfully'
     );
