@@ -349,6 +349,17 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
                             </li>
                           </ProtectedComponent>
 
+                          {/* Work Item Types - Protected by RBAC */}
+                          <ProtectedComponent permission="work-items:manage:organization">
+                            <li className="mb-1 last:mb-0">
+                              <SidebarLink href="/configure/work-item-types">
+                                <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                                  Work Item Types
+                                </span>
+                              </SidebarLink>
+                            </li>
+                          </ProtectedComponent>
+
                           {/* Charts - Protected by Analytics RBAC */}
                           <ProtectedComponent permission="analytics:read:all">
                             <li className="mb-1 last:mb-0">

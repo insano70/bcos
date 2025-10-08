@@ -5,6 +5,7 @@ import {
   users,
   work_item_field_values,
   work_item_statuses,
+  work_item_status_transitions,
   work_item_types,
   work_items,
 } from '@/lib/db/schema';
@@ -12,6 +13,7 @@ import { BaseRBACService } from '@/lib/rbac/base-service';
 import { PermissionDeniedError } from '@/lib/types/rbac';
 import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
+import { ValidationError } from '@/lib/api/responses/error';
 
 /**
  * Work Items Service with RBAC
@@ -502,15 +504,26 @@ export class RBACWorkItemsService extends BaseRBACService {
       throw new PermissionDeniedError('work-items:update:*', workItemId);
     }
 
+    // Get current work item to check organization access and validate status transition
+    const targetWorkItem = await this.getWorkItemById(workItemId);
+    if (!targetWorkItem) {
+      throw new Error('Work item not found');
+    }
+
     // Verify organization access for org scope
     if (canUpdateOrg && !canUpdateAll) {
-      const targetWorkItem = await this.getWorkItemById(workItemId);
-      if (!targetWorkItem) {
-        throw new Error('Work item not found');
-      }
       if (!this.canAccessOrganization(targetWorkItem.organization_id)) {
         throw new PermissionDeniedError('work-items:update:organization', workItemId);
       }
+    }
+
+    // Phase 4: Validate status transition if status is being changed
+    if (updateData.status_id && updateData.status_id !== targetWorkItem.status_id) {
+      await this.validateStatusTransition(
+        targetWorkItem.work_item_type_id,
+        targetWorkItem.status_id,
+        updateData.status_id
+      );
     }
 
     // Update work item
@@ -1040,6 +1053,83 @@ export class RBACWorkItemsService extends BaseRBACService {
     }
 
     return customFieldsMap;
+  }
+
+  /**
+   * Phase 4: Validate status transition
+   * Checks if a status transition is allowed based on work_item_status_transitions rules
+   */
+  private async validateStatusTransition(
+    typeId: string,
+    fromStatusId: string,
+    toStatusId: string
+  ): Promise<void> {
+    const queryStart = Date.now();
+
+    try {
+      // Check if a transition rule exists for this type and status pair
+      const transitionResults = await db
+        .select({
+          work_item_status_transition_id: work_item_status_transitions.work_item_status_transition_id,
+          is_allowed: work_item_status_transitions.is_allowed,
+        })
+        .from(work_item_status_transitions)
+        .where(
+          and(
+            eq(work_item_status_transitions.work_item_type_id, typeId),
+            eq(work_item_status_transitions.from_status_id, fromStatusId),
+            eq(work_item_status_transitions.to_status_id, toStatusId)
+          )
+        )
+        .limit(1);
+
+      // If no transition rule exists, allow the transition (permissive by default)
+      if (transitionResults.length === 0) {
+        log.info('No transition rule found, allowing status change', {
+          typeId,
+          fromStatusId,
+          toStatusId,
+          duration: Date.now() - queryStart,
+        });
+        return;
+      }
+
+      const transition = transitionResults[0];
+
+      // If transition rule exists but is_allowed is false, reject the transition
+      if (transition && !transition.is_allowed) {
+        log.warn('Status transition not allowed', {
+          typeId,
+          fromStatusId,
+          toStatusId,
+          transitionId: transition.work_item_status_transition_id,
+          userId: this.userContext.user_id,
+          duration: Date.now() - queryStart,
+        });
+
+        throw ValidationError(
+          'Status transition from current status to selected status is not allowed',
+          `Cannot transition from status ${fromStatusId} to ${toStatusId}`
+        );
+      }
+
+      log.info('Status transition validated successfully', {
+        typeId,
+        fromStatusId,
+        toStatusId,
+        transitionId: transition?.work_item_status_transition_id,
+        duration: Date.now() - queryStart,
+      });
+    } catch (error) {
+      const duration = Date.now() - queryStart;
+      log.error('Status transition validation failed', error, {
+        typeId,
+        fromStatusId,
+        toStatusId,
+        duration,
+      });
+      throw error;
+    }
   }
 }
 

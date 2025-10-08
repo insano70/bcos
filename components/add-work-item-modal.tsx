@@ -67,7 +67,7 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess }: AddWork
   });
 
   const selectedTypeId = watch('work_item_type_id');
-  const { data: statuses = [] } = useWorkItemStatuses(selectedTypeId || null);
+  const { data: statuses = [] } = useWorkItemStatuses(selectedTypeId || undefined);
   const { data: customFields = [] } = useWorkItemFields({
     work_item_type_id: selectedTypeId || '',
   });
