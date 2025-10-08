@@ -121,6 +121,18 @@ export const extractOrganizationResourceId = (request: NextRequest): string | un
 };
 
 /**
+ * Extract work item ID from URL path
+ * Matches patterns like: /api/work-items/123
+ */
+export const extractWorkItemId = (request: NextRequest): string | undefined => {
+  const pathSegments = request.nextUrl.pathname.split('/');
+  const workItemIndex = pathSegments.indexOf('work-items');
+  return workItemIndex >= 0 && pathSegments[workItemIndex + 1]
+    ? pathSegments[workItemIndex + 1]
+    : undefined;
+};
+
+/**
  * Common extraction patterns grouped by use case
  */
 export const extractors = {
@@ -133,6 +145,7 @@ export const extractors = {
   roleId: extractRoleId,
   templateId: extractTemplateId,
   organizationResourceId: extractOrganizationResourceId,
+  workItemId: extractWorkItemId,
 
   // Organization ID extractors
   organizationId: extractOrganizationId,

@@ -61,6 +61,30 @@ export {
   webauthn_challenges,
   webauthn_credentials,
 } from './webauthn-schema';
+// Import Work Items tables
+export {
+  work_item_activity,
+  work_item_attachments,
+  work_item_comments,
+  work_item_status_transitions,
+  work_item_statuses,
+  work_item_types,
+  work_items,
+  workItemActivityRelations,
+  workItemAttachmentsRelations,
+  workItemCommentsRelations,
+  workItemsRelations,
+  workItemStatusesRelations,
+  workItemStatusTransitionsRelations,
+  workItemTypesRelations,
+} from './work-items-schema';
+// Import Work Item Fields tables
+export {
+  work_item_fields,
+  work_item_field_values,
+  workItemFieldsRelations,
+  workItemFieldValuesRelations,
+} from './work-item-fields-schema';
 
 // System users (admins who manage the platform)
 export const users = pgTable(

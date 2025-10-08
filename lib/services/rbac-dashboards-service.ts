@@ -93,7 +93,11 @@ export class RBACDashboardsService extends BaseRBACService {
    * Get dashboards with automatic permission-based filtering
    */
   async getDashboards(options: DashboardQueryOptions = {}): Promise<DashboardWithCharts[]> {
-    this.requireAnyPermission(['analytics:read:organization', 'analytics:read:all']);
+    this.requireAnyPermission([
+      'dashboards:read:own',
+      'dashboards:read:organization',
+      'dashboards:read:all',
+    ]);
 
     // Build query conditions
     const conditions = [];
@@ -220,7 +224,11 @@ export class RBACDashboardsService extends BaseRBACService {
    * Get a specific dashboard by ID with permission checking
    */
   async getDashboardById(dashboardId: string): Promise<DashboardWithCharts | null> {
-    this.requireAnyPermission(['analytics:read:organization', 'analytics:read:all']);
+    this.requireAnyPermission([
+      'dashboards:read:own',
+      'dashboards:read:organization',
+      'dashboards:read:all',
+    ]);
 
     // Get dashboard with creator and category info
     const dashboardResult = await db
@@ -314,7 +322,11 @@ export class RBACDashboardsService extends BaseRBACService {
    * Get dashboard count for pagination
    */
   async getDashboardCount(options: DashboardQueryOptions = {}): Promise<number> {
-    this.requireAnyPermission(['analytics:read:organization', 'analytics:read:all']);
+    this.requireAnyPermission([
+      'dashboards:read:own',
+      'dashboards:read:organization',
+      'dashboards:read:all',
+    ]);
 
     // Build query conditions
     const conditions = [];
@@ -365,7 +377,10 @@ export class RBACDashboardsService extends BaseRBACService {
       securityLevel: 'medium',
     });
 
-    this.requirePermission('analytics:read:all', undefined);
+    this.requireAnyPermission([
+      'dashboards:create:organization',
+      'dashboards:manage:all',
+    ]);
 
     // If setting this as default, clear any existing default dashboard
     if (dashboardData.is_default === true) {
@@ -535,7 +550,10 @@ export class RBACDashboardsService extends BaseRBACService {
     dashboardId: string,
     updateData: UpdateDashboardData
   ): Promise<DashboardWithCharts> {
-    this.requirePermission('analytics:read:all', undefined);
+    this.requireAnyPermission([
+      'dashboards:create:organization',
+      'dashboards:manage:all',
+    ]);
 
     // Check if dashboard exists
     const existingDashboard = await this.getDashboardById(dashboardId);
@@ -698,7 +716,10 @@ export class RBACDashboardsService extends BaseRBACService {
    * Delete a dashboard with permission checking
    */
   async deleteDashboard(dashboardId: string): Promise<void> {
-    this.requirePermission('analytics:read:all', undefined);
+    this.requireAnyPermission([
+      'dashboards:create:organization',
+      'dashboards:manage:all',
+    ]);
 
     // Check if dashboard exists
     const existingDashboard = await this.getDashboardById(dashboardId);
@@ -731,7 +752,10 @@ export class RBACDashboardsService extends BaseRBACService {
     chartId: string,
     positionConfig?: Record<string, unknown>
   ): Promise<void> {
-    this.requirePermission('analytics:read:all', undefined);
+    this.requireAnyPermission([
+      'dashboards:create:organization',
+      'dashboards:manage:all',
+    ]);
 
     // Check if dashboard exists
     const existingDashboard = await this.getDashboardById(dashboardId);
@@ -767,7 +791,10 @@ export class RBACDashboardsService extends BaseRBACService {
    * Remove a chart from a dashboard
    */
   async removeChartFromDashboard(dashboardId: string, chartId: string): Promise<void> {
-    this.requirePermission('analytics:read:all', undefined);
+    this.requireAnyPermission([
+      'dashboards:create:organization',
+      'dashboards:manage:all',
+    ]);
 
     // Check if dashboard exists
     const existingDashboard = await this.getDashboardById(dashboardId);
@@ -799,7 +826,10 @@ export class RBACDashboardsService extends BaseRBACService {
     chartId: string,
     positionConfig: Record<string, unknown>
   ): Promise<void> {
-    this.requirePermission('analytics:read:all', undefined);
+    this.requireAnyPermission([
+      'dashboards:create:organization',
+      'dashboards:manage:all',
+    ]);
 
     // Check if dashboard exists
     const existingDashboard = await this.getDashboardById(dashboardId);

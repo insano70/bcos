@@ -117,6 +117,20 @@ export const RESOURCE_PERMISSIONS = {
     delete: ['data-sources:delete:organization', 'data-sources:delete:all'],
     manage: ['data-sources:manage:all'],
   },
+  dashboards: {
+    read: ['dashboards:read:own', 'dashboards:read:organization', 'dashboards:read:all'],
+    create: ['dashboards:create:own', 'dashboards:create:organization'],
+    update: ['dashboards:update:own', 'dashboards:update:organization'],
+    delete: ['dashboards:delete:own', 'dashboards:delete:organization'],
+    manage: ['dashboards:manage:all'],
+  },
+  charts: {
+    read: ['charts:read:own', 'charts:read:organization', 'charts:read:all'],
+    create: ['charts:create:own', 'charts:create:organization'],
+    update: ['charts:update:own', 'charts:update:organization'],
+    delete: ['charts:delete:own', 'charts:delete:organization'],
+    manage: ['charts:manage:all'],
+  },
 } as const;
 
 /**
@@ -136,6 +150,10 @@ export const ROLE_ACCESS_PATTERNS = {
     'data-sources:update:all',
     'data-sources:delete:all',
     'data-sources:manage:all',
+    'dashboards:read:all',
+    'dashboards:manage:all',
+    'charts:read:all',
+    'charts:manage:all',
     'roles:manage:all',
     'settings:read:all',
     'settings:update:all',

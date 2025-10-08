@@ -58,7 +58,19 @@ INSERT INTO public.permissions (name, description, resource, action, scope, is_a
 ('data-sources:update:all', 'Update all data sources (super admin)', 'data-sources', 'update', 'all', true),
 ('data-sources:delete:organization', 'Delete data sources in organization', 'data-sources', 'delete', 'organization', true),
 ('data-sources:delete:all', 'Delete all data sources (super admin)', 'data-sources', 'delete', 'all', true),
-('data-sources:manage:all', 'Full data source management (super admin)', 'data-sources', 'manage', 'all', true)
+('data-sources:manage:all', 'Full data source management (super admin)', 'data-sources', 'manage', 'all', true),
+
+-- Work Items Management Permissions
+('work-items:read:own', 'Read own work items', 'work-items', 'read', 'own', true),
+('work-items:read:organization', 'Read work items in organization', 'work-items', 'read', 'organization', true),
+('work-items:read:all', 'Read all work items (super admin)', 'work-items', 'read', 'all', true),
+('work-items:create:organization', 'Create work items in organization', 'work-items', 'create', 'organization', true),
+('work-items:update:own', 'Update own work items', 'work-items', 'update', 'own', true),
+('work-items:update:organization', 'Update work items in organization', 'work-items', 'update', 'organization', true),
+('work-items:update:all', 'Update all work items (super admin)', 'work-items', 'update', 'all', true),
+('work-items:delete:own', 'Delete own work items', 'work-items', 'delete', 'own', true),
+('work-items:delete:organization', 'Delete work items in organization', 'work-items', 'delete', 'organization', true),
+('work-items:delete:all', 'Delete all work items (super admin)', 'work-items', 'delete', 'all', true)
 ON CONFLICT (name) DO UPDATE SET
   description = EXCLUDED.description,
   resource = EXCLUDED.resource,
@@ -108,8 +120,23 @@ FROM roles r
 JOIN permissions p ON p.scope = 'own'
 WHERE r.name = 'user'
   AND NOT EXISTS (
-    SELECT 1 FROM role_permissions rp2 
-    WHERE rp2.role_id = r.role_id 
+    SELECT 1 FROM role_permissions rp2
+    WHERE rp2.role_id = r.role_id
+    AND rp2.permission_id = p.permission_id
+  );
+
+-- USER: Also assign work items organization-level permissions
+INSERT INTO role_permissions (role_id, permission_id)
+SELECT r.role_id, p.permission_id
+FROM roles r
+JOIN permissions p ON p.name IN (
+  'work-items:read:organization',
+  'work-items:create:organization'
+)
+WHERE r.name = 'user'
+  AND NOT EXISTS (
+    SELECT 1 FROM role_permissions rp2
+    WHERE rp2.role_id = r.role_id
     AND rp2.permission_id = p.permission_id
   );
 

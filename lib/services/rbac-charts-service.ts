@@ -77,7 +77,7 @@ export class RBACChartsService extends BaseRBACService {
    * Get charts list with RBAC filtering, pagination, and metadata joins
    */
   async getCharts(options: ChartQueryOptions = {}): Promise<ChartWithMetadata[]> {
-    this.requireAnyPermission(['analytics:read:all']);
+    this.requireAnyPermission(['charts:read:own', 'charts:read:organization', 'charts:read:all']);
 
     // Build where conditions
     const conditions = [];
@@ -154,7 +154,7 @@ export class RBACChartsService extends BaseRBACService {
    * Get chart count for pagination
    */
   async getChartCount(options: ChartQueryOptions = {}): Promise<number> {
-    this.requireAnyPermission(['analytics:read:all']);
+    this.requireAnyPermission(['charts:read:own', 'charts:read:organization', 'charts:read:all']);
 
     // Build where conditions
     const conditions = [];
@@ -186,7 +186,7 @@ export class RBACChartsService extends BaseRBACService {
    * Get a specific chart by ID with permission checking
    */
   async getChartById(chartId: string): Promise<ChartWithMetadata | null> {
-    this.requireAnyPermission(['analytics:read:all']);
+    this.requireAnyPermission(['charts:read:own', 'charts:read:organization', 'charts:read:all']);
 
     // Get chart with category and creator info
     const charts = await db
@@ -259,7 +259,7 @@ export class RBACChartsService extends BaseRBACService {
       securityLevel: 'medium',
     });
 
-    this.requirePermission('analytics:read:all', undefined);
+    this.requireAnyPermission(['charts:create:organization', 'charts:manage:all']);
 
     // Create new chart
     const [newChart] = await db
@@ -346,7 +346,7 @@ export class RBACChartsService extends BaseRBACService {
    * Update a chart with permission checking
    */
   async updateChart(chartId: string, updateData: UpdateChartData): Promise<ChartWithMetadata> {
-    this.requirePermission('analytics:read:all', undefined);
+    this.requireAnyPermission(['charts:create:organization', 'charts:manage:all']);
 
     // Check if chart exists
     const existingChart = await this.getChartById(chartId);
@@ -449,7 +449,7 @@ export class RBACChartsService extends BaseRBACService {
    * Delete a chart with permission checking
    */
   async deleteChart(chartId: string): Promise<void> {
-    this.requirePermission('analytics:read:all', undefined);
+    this.requireAnyPermission(['charts:create:organization', 'charts:manage:all']);
 
     // Check if chart exists
     const existingChart = await this.getChartById(chartId);

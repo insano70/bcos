@@ -85,7 +85,11 @@ export type ResourceType =
   | 'roles'
   | 'settings'
   | 'templates'
-  | 'api';
+  | 'api'
+  | 'work-items'
+  | 'dashboards'
+  | 'charts'
+  | 'data-sources';
 
 export type ActionType =
   | 'read'
@@ -166,6 +170,45 @@ export type DataSourcePermission =
   | 'data-sources:delete:all'
   | 'data-sources:manage:all';
 
+export type WorkItemPermission =
+  | 'work-items:read:own'
+  | 'work-items:create:own'
+  | 'work-items:update:own'
+  | 'work-items:delete:own'
+  | 'work-items:read:organization'
+  | 'work-items:create:organization'
+  | 'work-items:update:organization'
+  | 'work-items:delete:organization'
+  | 'work-items:manage:organization'
+  | 'work-items:read:all'
+  | 'work-items:update:all'
+  | 'work-items:delete:all'
+  | 'work-items:manage:all';
+
+export type DashboardPermission =
+  | 'dashboards:read:own'
+  | 'dashboards:create:own'
+  | 'dashboards:update:own'
+  | 'dashboards:delete:own'
+  | 'dashboards:read:organization'
+  | 'dashboards:create:organization'
+  | 'dashboards:update:organization'
+  | 'dashboards:delete:organization'
+  | 'dashboards:read:all'
+  | 'dashboards:manage:all';
+
+export type ChartPermission =
+  | 'charts:read:own'
+  | 'charts:create:own'
+  | 'charts:update:own'
+  | 'charts:delete:own'
+  | 'charts:read:organization'
+  | 'charts:create:organization'
+  | 'charts:update:organization'
+  | 'charts:delete:organization'
+  | 'charts:read:all'
+  | 'charts:manage:all';
+
 export type PermissionName =
   | UserPermission
   | PracticePermission
@@ -175,7 +218,10 @@ export type PermissionName =
   | SettingsPermission
   | TemplatePermission
   | ApiPermission
-  | DataSourcePermission;
+  | DataSourcePermission
+  | WorkItemPermission
+  | DashboardPermission
+  | ChartPermission;
 
 // Role Types for Healthcare Practices
 export type SystemRoleName = 'super_admin';
