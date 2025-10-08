@@ -18,8 +18,9 @@ const chartFilterSchema = z.object({
 });
 
 const multipleSeriesConfigSchema = z.object({
-  seriesId: z.string(),
-  seriesLabel: z.string(),
+  id: z.string(),
+  label: z.string(),
+  measure: z.string().optional(), // Measure field used by frontend
   aggregation: z.enum(['sum', 'avg', 'count', 'min', 'max']),
   color: z.string().optional(),
 });
