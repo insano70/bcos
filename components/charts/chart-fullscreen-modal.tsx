@@ -309,7 +309,7 @@ export default function ChartFullscreenModal({
           zoom: {
             pan: {
               enabled: true,
-              mode: 'xy',
+              mode: 'x', // Only pan horizontally
             },
             zoom: {
               wheel: {
@@ -319,7 +319,7 @@ export default function ChartFullscreenModal({
               pinch: {
                 enabled: true,
               },
-              mode: 'xy',
+              mode: 'x', // Only zoom horizontally, keep full bars visible vertically
             },
             limits: {
               x: { min: 'original', max: 'original' },
