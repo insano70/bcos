@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import {
   organizations,
   users,
+  work_item_field_values,
   work_item_statuses,
   work_item_types,
   work_items,
@@ -75,6 +76,7 @@ export interface WorkItemWithDetails {
   created_by_name: string;
   created_at: Date;
   updated_at: Date;
+  custom_fields?: Record<string, unknown> | undefined; // Phase 3: Custom field values
 }
 
 export class RBACWorkItemsService extends BaseRBACService {
@@ -212,6 +214,10 @@ export class RBACWorkItemsService extends BaseRBACService {
       .limit(options.limit || 50)
       .offset(options.offset || 0);
 
+    // Phase 3: Fetch custom field values for all work items
+    const workItemIds = results.map((r) => r.work_item_id);
+    const customFieldsMap = await this.getCustomFieldValues(workItemIds);
+
     const duration = Date.now() - startTime;
     log.info('Work items query completed', {
       requestingUserId: this.userContext.user_id,
@@ -245,6 +251,7 @@ export class RBACWorkItemsService extends BaseRBACService {
         : '',
       created_at: result.created_at || new Date(),
       updated_at: result.updated_at || new Date(),
+      custom_fields: customFieldsMap.get(result.work_item_id), // Phase 3: Include custom field values
     }));
   }
 
@@ -316,6 +323,10 @@ export class RBACWorkItemsService extends BaseRBACService {
       }
     }
 
+    // Phase 3: Fetch custom field values
+    const customFieldsMap = await this.getCustomFieldValues([workItemId]);
+    const customFields = customFieldsMap.get(workItemId);
+
     const duration = Date.now() - startTime;
     log.info('Work item fetch completed', {
       workItemId,
@@ -346,6 +357,7 @@ export class RBACWorkItemsService extends BaseRBACService {
       created_by_name: '', // Need to join creator separately
       created_at: workItem.created_at || new Date(),
       updated_at: workItem.updated_at || new Date(),
+      custom_fields: customFields, // Phase 3: Include custom field values
     };
   }
 
@@ -999,6 +1011,35 @@ export class RBACWorkItemsService extends BaseRBACService {
         })
         .where(eq(work_items.work_item_id, descendant.work_item_id));
     }
+  }
+
+  /**
+   * Get custom field values for work items
+   * Phase 3: Retrieves field values and formats them as a key-value map
+   */
+  private async getCustomFieldValues(workItemIds: string[]): Promise<Map<string, Record<string, unknown>>> {
+    if (workItemIds.length === 0) {
+      return new Map();
+    }
+
+    const fieldValues = await db
+      .select()
+      .from(work_item_field_values)
+      .where(inArray(work_item_field_values.work_item_id, workItemIds));
+
+    const customFieldsMap = new Map<string, Record<string, unknown>>();
+
+    for (const fieldValue of fieldValues) {
+      if (!customFieldsMap.has(fieldValue.work_item_id)) {
+        customFieldsMap.set(fieldValue.work_item_id, {});
+      }
+      const workItemFields = customFieldsMap.get(fieldValue.work_item_id);
+      if (workItemFields) {
+        workItemFields[fieldValue.work_item_field_id] = fieldValue.field_value;
+      }
+    }
+
+    return customFieldsMap;
   }
 }
 

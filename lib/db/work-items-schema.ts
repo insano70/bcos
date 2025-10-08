@@ -324,3 +324,59 @@ export const workItemAttachmentsRelations = relations(work_item_attachments, ({ 
     references: [users.user_id],
   }),
 }));
+
+/**
+ * Work Item Status Transitions - Define allowed status transitions per work item type
+ * Phase 4: Multiple work item types with configurable workflows
+ */
+export const work_item_status_transitions = pgTable(
+  'work_item_status_transitions',
+  {
+    work_item_status_transition_id: uuid('work_item_status_transition_id')
+      .primaryKey()
+      .defaultRandom(),
+    work_item_type_id: uuid('work_item_type_id')
+      .notNull()
+      .references(() => work_item_types.work_item_type_id, { onDelete: 'cascade' }),
+    from_status_id: uuid('from_status_id')
+      .notNull()
+      .references(() => work_item_statuses.work_item_status_id, { onDelete: 'cascade' }),
+    to_status_id: uuid('to_status_id')
+      .notNull()
+      .references(() => work_item_statuses.work_item_status_id, { onDelete: 'cascade' }),
+    is_allowed: boolean('is_allowed').default(true).notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    typeIdx: index('idx_transitions_type').on(table.work_item_type_id),
+    fromStatusIdx: index('idx_transitions_from').on(table.from_status_id),
+    toStatusIdx: index('idx_transitions_to').on(table.to_status_id),
+    // Unique constraint: one transition rule per type + from_status + to_status combination
+    uniqueTransitionIdx: index('idx_unique_transition').on(
+      table.work_item_type_id,
+      table.from_status_id,
+      table.to_status_id
+    ),
+  })
+);
+
+export const workItemStatusTransitionsRelations = relations(
+  work_item_status_transitions,
+  ({ one }) => ({
+    workItemType: one(work_item_types, {
+      fields: [work_item_status_transitions.work_item_type_id],
+      references: [work_item_types.work_item_type_id],
+    }),
+    fromStatus: one(work_item_statuses, {
+      fields: [work_item_status_transitions.from_status_id],
+      references: [work_item_statuses.work_item_status_id],
+      relationName: 'transitionsFrom',
+    }),
+    toStatus: one(work_item_statuses, {
+      fields: [work_item_status_transitions.to_status_id],
+      references: [work_item_statuses.work_item_status_id],
+      relationName: 'transitionsTo',
+    }),
+  })
+);

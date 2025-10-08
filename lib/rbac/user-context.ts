@@ -293,7 +293,7 @@ export async function getUserContext(userId: string): Promise<UserContext> {
 /**
  * Get organizations accessible to user (includes children via hierarchy)
  */
-async function getAccessibleOrganizations(
+async function _getAccessibleOrganizations(
   directOrganizationIds: string[]
 ): Promise<Organization[]> {
   if (directOrganizationIds.length === 0) {

@@ -10,7 +10,9 @@ import { useActiveWorkItemTypes } from '@/lib/hooks/use-work-item-types';
 import { useWorkItemStatuses } from '@/lib/hooks/use-work-item-statuses';
 import { useOrganizations } from '@/lib/hooks/use-organizations';
 import { useUsers } from '@/lib/hooks/use-users';
+import { useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
+import DynamicFieldRenderer from '@/components/dynamic-field-renderer';
 import Toast from './toast';
 
 const createWorkItemSchema = z.object({
@@ -37,6 +39,7 @@ interface AddWorkItemModalProps {
 export default function AddWorkItemModal({ isOpen, onClose, onSuccess }: AddWorkItemModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, unknown>>({});
   const createWorkItem = useCreateWorkItem();
   const { data: workItemTypes, isLoading: typesLoading } = useActiveWorkItemTypes();
   const { data: organizations = [] } = useOrganizations();
@@ -65,6 +68,9 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess }: AddWork
 
   const selectedTypeId = watch('work_item_type_id');
   const { data: statuses = [] } = useWorkItemStatuses(selectedTypeId || null);
+  const { data: customFields = [] } = useWorkItemFields({
+    work_item_type_id: selectedTypeId || '',
+  });
 
   // Pre-select first work item type when types load
   useEffect(() => {
@@ -86,6 +92,7 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess }: AddWork
         assigned_to: data.assigned_to,
         due_date: data.due_date && data.due_date.trim() !== '' ? new Date(data.due_date).toISOString() : undefined,
         parent_work_item_id: data.parent_work_item_id,
+        custom_fields: Object.keys(customFieldValues).length > 0 ? customFieldValues : undefined,
       };
 
       await createWorkItem.mutateAsync(workItemData);
@@ -94,6 +101,7 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess }: AddWork
 
       setTimeout(() => {
         reset();
+        setCustomFieldValues({});
         onClose();
         onSuccess?.();
         setShowToast(false);
@@ -110,8 +118,16 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess }: AddWork
   const handleClose = () => {
     if (!isSubmitting) {
       reset();
+      setCustomFieldValues({});
       onClose();
     }
+  };
+
+  const handleCustomFieldChange = (fieldId: string, value: unknown) => {
+    setCustomFieldValues((prev) => ({
+      ...prev,
+      [fieldId]: value,
+    }));
   };
 
   // Filter active users only
@@ -353,6 +369,15 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess }: AddWork
                     )}
                   </div>
                 </div>
+
+                {/* Phase 3: Custom Fields */}
+                {customFields.length > 0 && (
+                  <DynamicFieldRenderer
+                    fields={customFields}
+                    values={customFieldValues}
+                    onChange={handleCustomFieldChange}
+                  />
+                )}
 
                 {/* Error display */}
                 {createWorkItem.error && (

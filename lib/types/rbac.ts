@@ -179,6 +179,7 @@ export type WorkItemPermission =
   | 'work-items:create:organization'
   | 'work-items:update:organization'
   | 'work-items:delete:organization'
+  | 'work-items:manage:organization'
   | 'work-items:read:all'
   | 'work-items:update:all'
   | 'work-items:delete:all'

@@ -97,6 +97,7 @@ export const workItemStatusUpdateSchema = z.object({
 /**
  * Work Item Schemas
  * Phase 2: Added parent_work_item_id for hierarchy support
+ * Phase 3: Added custom_fields for custom field values
  */
 export const workItemCreateSchema = z.object({
   work_item_type_id: z.string().uuid('Invalid work item type ID'),
@@ -113,6 +114,8 @@ export const workItemCreateSchema = z.object({
     .nullable(),
   // Phase 2: Hierarchy support
   parent_work_item_id: z.string().uuid('Invalid parent work item ID').optional().nullable(),
+  // Phase 3: Custom fields support
+  custom_fields: z.record(z.string().uuid(), z.unknown()).optional(),
 });
 
 export const workItemUpdateSchema = z.object({
@@ -139,6 +142,8 @@ export const workItemUpdateSchema = z.object({
     .transform((val) => new Date(val))
     .optional()
     .nullable(),
+  // Phase 3: Custom fields support
+  custom_fields: z.record(z.string().uuid(), z.unknown()).optional(),
 });
 
 export const workItemQuerySchema = z.object({
@@ -296,3 +301,59 @@ export const workItemActivityQuerySchema = z.object({
 
 export type WorkItemActivityCreate = z.infer<typeof workItemActivityCreateSchema>;
 export type WorkItemActivityQuery = z.infer<typeof workItemActivityQuerySchema>;
+
+/**
+ * Phase 4: Work Item Status Params Schema
+ */
+export const workItemStatusParamsSchema = z.object({
+  id: z.string().uuid('Invalid work item status ID'),
+});
+
+export type WorkItemStatusParams = z.infer<typeof workItemStatusParamsSchema>;
+
+/**
+ * Phase 4: Work Item Status Transitions Schemas
+ */
+export const workItemStatusTransitionCreateSchema = z.object({
+  work_item_type_id: z.string().uuid('Invalid work item type ID'),
+  from_status_id: z.string().uuid('Invalid from status ID'),
+  to_status_id: z.string().uuid('Invalid to status ID'),
+  is_allowed: z.boolean().default(true),
+});
+
+export const workItemStatusTransitionUpdateSchema = z.object({
+  is_allowed: z.boolean(),
+});
+
+export const workItemStatusTransitionQuerySchema = z.object({
+  work_item_type_id: z.string().uuid('Invalid work item type ID').optional(),
+  from_status_id: z.string().uuid('Invalid from status ID').optional(),
+  to_status_id: z.string().uuid('Invalid to status ID').optional(),
+  limit: z
+    .string()
+    .default('50')
+    .transform((val) => parseInt(val, 10))
+    .pipe(z.number().int().min(1).max(100)),
+  offset: z
+    .string()
+    .default('0')
+    .transform((val) => parseInt(val, 10))
+    .pipe(z.number().int().min(0)),
+});
+
+export const workItemStatusTransitionParamsSchema = z.object({
+  id: z.string().uuid('Invalid work item status transition ID'),
+});
+
+export type WorkItemStatusTransitionCreate = z.infer<
+  typeof workItemStatusTransitionCreateSchema
+>;
+export type WorkItemStatusTransitionUpdate = z.infer<
+  typeof workItemStatusTransitionUpdateSchema
+>;
+export type WorkItemStatusTransitionQuery = z.infer<
+  typeof workItemStatusTransitionQuerySchema
+>;
+export type WorkItemStatusTransitionParams = z.infer<
+  typeof workItemStatusTransitionParamsSchema
+>;

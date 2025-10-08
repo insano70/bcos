@@ -8,7 +8,9 @@ import { z } from 'zod';
 import { useUpdateWorkItem, type WorkItem } from '@/lib/hooks/use-work-items';
 import { useWorkItemStatuses } from '@/lib/hooks/use-work-item-statuses';
 import { useUsers } from '@/lib/hooks/use-users';
+import { useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
+import DynamicFieldRenderer from '@/components/dynamic-field-renderer';
 import Toast from './toast';
 
 const updateWorkItemSchema = z.object({
@@ -39,9 +41,13 @@ export default function EditWorkItemModal({
 }: EditWorkItemModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, unknown>>({});
   const updateWorkItem = useUpdateWorkItem();
   const { data: statuses = [] } = useWorkItemStatuses(workItem?.work_item_type_id || null);
   const { data: users = [] } = useUsers();
+  const { data: customFields = [] } = useWorkItemFields({
+    work_item_type_id: workItem?.work_item_type_id || '',
+  });
 
   const {
     register,
@@ -88,6 +94,7 @@ export default function EditWorkItemModal({
           priority: data.priority,
           assigned_to: data.assigned_to,
           due_date: data.due_date && data.due_date.trim() !== '' ? new Date(data.due_date).toISOString() : undefined,
+          custom_fields: Object.keys(customFieldValues).length > 0 ? customFieldValues : undefined,
         },
       });
 
@@ -95,6 +102,7 @@ export default function EditWorkItemModal({
 
       setTimeout(() => {
         reset();
+        setCustomFieldValues({});
         onClose();
         onSuccess?.();
         setShowToast(false);
@@ -111,8 +119,16 @@ export default function EditWorkItemModal({
   const handleClose = () => {
     if (!isSubmitting) {
       reset();
+      setCustomFieldValues({});
       onClose();
     }
+  };
+
+  const handleCustomFieldChange = (fieldId: string, value: unknown) => {
+    setCustomFieldValues((prev) => ({
+      ...prev,
+      [fieldId]: value,
+    }));
   };
 
   // Filter active users only
@@ -327,6 +343,15 @@ export default function EditWorkItemModal({
                     )}
                   </div>
                 </div>
+
+                {/* Phase 3: Custom Fields */}
+                {customFields.length > 0 && (
+                  <DynamicFieldRenderer
+                    fields={customFields}
+                    values={customFieldValues}
+                    onChange={handleCustomFieldChange}
+                  />
+                )}
 
                 {/* Error display */}
                 {updateWorkItem.error && (

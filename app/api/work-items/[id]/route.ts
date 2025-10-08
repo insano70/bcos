@@ -7,6 +7,7 @@ import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { createRBACWorkItemsService } from '@/lib/services/rbac-work-items-service';
+import { createRBACWorkItemFieldValuesService } from '@/lib/services/rbac-work-item-field-values-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
 
@@ -127,6 +128,20 @@ const updateWorkItemHandler = async (
     const updateStart = Date.now();
     const updatedWorkItem = await workItemsService.updateWorkItem(validatedParams.id, validatedData);
     log.db('UPDATE', 'work_items', Date.now() - updateStart, { rowCount: 1 });
+
+    // Phase 3: Handle custom field values if provided
+    if (validatedData.custom_fields && Object.keys(validatedData.custom_fields).length > 0) {
+      const fieldValuesStart = Date.now();
+      const fieldValuesService = createRBACWorkItemFieldValuesService(userContext);
+      await fieldValuesService.setFieldValues(
+        validatedParams.id,
+        updatedWorkItem.work_item_type_id,
+        validatedData.custom_fields
+      );
+      log.db('UPSERT', 'work_item_field_values', Date.now() - fieldValuesStart, {
+        rowCount: Object.keys(validatedData.custom_fields).length,
+      });
+    }
 
     const totalDuration = Date.now() - startTime;
     log.info('Work item updated successfully', {

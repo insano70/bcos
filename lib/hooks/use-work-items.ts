@@ -22,6 +22,7 @@ export interface WorkItem {
   created_by_name: string;
   created_at: Date;
   updated_at: Date;
+  custom_fields?: Record<string, unknown> | undefined; // Phase 3: Custom field values
 }
 
 interface WorkItemsQueryParams {
@@ -99,6 +100,7 @@ export interface UpdateWorkItemInput {
   due_date?: string | undefined;
   started_at?: string | undefined;
   completed_at?: string | undefined;
+  custom_fields?: Record<string, unknown> | undefined;
 }
 
 /**

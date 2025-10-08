@@ -233,6 +233,210 @@ export class RBACWorkItemTypesService extends BaseRBACService {
       throw error;
     }
   }
+
+  /**
+   * Create a new work item type
+   * Phase 4: Make work item types user-configurable
+   */
+  async createWorkItemType(data: {
+    organization_id: string;
+    name: string;
+    description?: string;
+    icon?: string;
+    color?: string;
+    is_active?: boolean;
+  }): Promise<WorkItemTypeWithDetails> {
+    const startTime = Date.now();
+
+    log.info('Work item type creation initiated', {
+      requestingUserId: this.userContext.user_id,
+      organizationId: data.organization_id,
+      operation: 'create_work_item_type',
+    });
+
+    // Check permission - using work-items:manage:organization
+    this.requirePermission('work-items:manage:organization', undefined, data.organization_id);
+    this.requireOrganizationAccess(data.organization_id);
+
+    try {
+      const [newType] = await db
+        .insert(work_item_types)
+        .values({
+          organization_id: data.organization_id,
+          name: data.name,
+          description: data.description || null,
+          icon: data.icon || null,
+          color: data.color || null,
+          is_active: data.is_active ?? true,
+          created_by: this.userContext.user_id,
+        })
+        .returning();
+
+      if (!newType) {
+        throw new Error('Failed to create work item type');
+      }
+
+      log.info('Work item type created successfully', {
+        workItemTypeId: newType.work_item_type_id,
+        userId: this.userContext.user_id,
+        duration: Date.now() - startTime,
+      });
+
+      // Return full details
+      const typeWithDetails = await this.getWorkItemTypeById(newType.work_item_type_id);
+      if (!typeWithDetails) {
+        throw new Error('Failed to retrieve created work item type');
+      }
+
+      return typeWithDetails;
+    } catch (error) {
+      log.error('Failed to create work item type', error, {
+        organizationId: data.organization_id,
+        duration: Date.now() - startTime,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Update a work item type
+   * Phase 4: Make work item types user-configurable
+   */
+  async updateWorkItemType(
+    typeId: string,
+    data: {
+      name?: string;
+      description?: string | null;
+      icon?: string | null;
+      color?: string | null;
+      is_active?: boolean;
+    }
+  ): Promise<WorkItemTypeWithDetails> {
+    const startTime = Date.now();
+
+    log.info('Work item type update initiated', {
+      requestingUserId: this.userContext.user_id,
+      typeId,
+      operation: 'update_work_item_type',
+    });
+
+    // Get existing type to check organization
+    const existingType = await this.getWorkItemTypeById(typeId);
+    if (!existingType) {
+      throw new Error('Work item type not found');
+    }
+
+    if (!existingType.organization_id) {
+      throw new Error('Cannot update global work item types');
+    }
+
+    // Check permission
+    this.requirePermission('work-items:manage:organization', undefined, existingType.organization_id);
+    this.requireOrganizationAccess(existingType.organization_id);
+
+    try {
+      await db
+        .update(work_item_types)
+        .set({
+          ...data,
+          updated_at: new Date(),
+        })
+        .where(eq(work_item_types.work_item_type_id, typeId));
+
+      log.info('Work item type updated successfully', {
+        typeId,
+        userId: this.userContext.user_id,
+        duration: Date.now() - startTime,
+      });
+
+      // Return updated details
+      const updatedType = await this.getWorkItemTypeById(typeId);
+      if (!updatedType) {
+        throw new Error('Failed to retrieve updated work item type');
+      }
+
+      return updatedType;
+    } catch (error) {
+      log.error('Failed to update work item type', error, {
+        typeId,
+        duration: Date.now() - startTime,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Delete (soft delete) a work item type
+   * Phase 4: Make work item types user-configurable
+   * Only allowed if no work items exist for this type
+   */
+  async deleteWorkItemType(typeId: string): Promise<void> {
+    const startTime = Date.now();
+
+    log.info('Work item type deletion initiated', {
+      requestingUserId: this.userContext.user_id,
+      typeId,
+      operation: 'delete_work_item_type',
+    });
+
+    // Get existing type to check organization
+    const existingType = await this.getWorkItemTypeById(typeId);
+    if (!existingType) {
+      throw new Error('Work item type not found');
+    }
+
+    if (!existingType.organization_id) {
+      throw new Error('Cannot delete global work item types');
+    }
+
+    // Check permission
+    this.requirePermission('work-items:manage:organization', undefined, existingType.organization_id);
+    this.requireOrganizationAccess(existingType.organization_id);
+
+    // Check if any work items exist for this type
+    const { work_items } = await import('@/lib/db/schema');
+    const [workItemCount] = await db
+      .select({ count: count() })
+      .from(work_items)
+      .where(
+        and(
+          eq(work_items.work_item_type_id, typeId),
+          eq(work_items.deleted_at, null as unknown as Date)
+        )
+      );
+
+    if (!workItemCount) {
+      throw new Error('Failed to check work item count');
+    }
+
+    if (workItemCount.count > 0) {
+      throw new Error(
+        `Cannot delete work item type with existing work items (${workItemCount.count} items found)`
+      );
+    }
+
+    try {
+      // Soft delete
+      await db
+        .update(work_item_types)
+        .set({
+          deleted_at: new Date(),
+        })
+        .where(eq(work_item_types.work_item_type_id, typeId));
+
+      log.info('Work item type deleted successfully', {
+        typeId,
+        userId: this.userContext.user_id,
+        duration: Date.now() - startTime,
+      });
+    } catch (error) {
+      log.error('Failed to delete work item type', error, {
+        typeId,
+        duration: Date.now() - startTime,
+      });
+      throw error;
+    }
+  }
 }
 
 /**
