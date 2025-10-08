@@ -15,6 +15,7 @@ import {
 } from 'chart.js';
 import type { ChartData } from 'chart.js';
 import 'chartjs-adapter-moment';
+import moment from 'moment';
 import { formatValue } from '@/components/utils/utils';
 import { simplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
 
@@ -90,10 +91,10 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
       options: {
         layout: {
           padding: {
-            top: 12,
-            bottom: 16,
-            left: 20,
-            right: 20,
+            top: 8,
+            bottom: 4,
+            left: 12,
+            right: 12,
           },
         },
         scales: {
@@ -111,7 +112,8 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
                 if (isPercentageMode) {
                   return `${value}%`;
                 }
-                return simplifiedChartTransformer.formatValue(+value, measureType as string);
+                // Use compact format for Y-axis to save space (e.g., $2.5M instead of $2,500,000)
+                return simplifiedChartTransformer.formatValueCompact(+value, measureType as string);
               },
               color: darkMode ? textColor.dark : textColor.light,
             },
@@ -144,12 +146,21 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
             callbacks: {
               title: (context) => {
                 // Format tooltip title based on frequency
-                const date = new Date(context[0]?.label || '');
-                return date.toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'short',
-                  day: frequency === 'Weekly' ? 'numeric' : undefined
-                });
+                // Use moment.js for Safari/iOS compatibility - new Date() parsing is unreliable
+                const labelValue = context[0]?.label || '';
+                const parsedDate = moment(labelValue, ['YYYY-MM-DD', 'MMM YYYY', 'DD-MMM-YY', moment.ISO_8601], true);
+
+                if (!parsedDate.isValid()) {
+                  return labelValue;
+                }
+
+                if (frequency === 'Weekly') {
+                  return parsedDate.format('MMM D, YYYY');
+                } else if (frequency === 'Quarterly') {
+                  return parsedDate.format('[Q]Q YYYY');
+                } else {
+                  return parsedDate.format('MMM YYYY');
+                }
               },
               label: (context) => {
                 // Get measure type from dataset metadata, fallback to chart data, then to 'number'
@@ -207,7 +218,26 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
             }
             // Reuse the built-in legendItems generator
             const items = c.options.plugins?.legend?.labels?.generateLabels?.(c);
-            items?.forEach((item) => {
+
+            // Calculate totals for each item and sort by value (descending)
+            const itemsWithTotals = items?.map((item) => {
+              const dataset = c.data.datasets[item.datasetIndex!];
+              const dataArray = dataset?.data || [];
+              const total = dataArray.reduce((sum: number, value) => {
+                if (typeof value === 'number') {
+                  return sum + value;
+                } else if (value && typeof value === 'object' && 'y' in value) {
+                  return sum + (typeof value.y === 'number' ? value.y : 0);
+                }
+                return sum;
+              }, 0) as number;
+              return { item, total };
+            }) || [];
+
+            // Sort by total value descending (largest to smallest)
+            itemsWithTotals.sort((a, b) => b.total - a.total);
+
+            itemsWithTotals.forEach(({ item, total: theValue }) => {
               const li = document.createElement('li');
               // Button element
               const button = document.createElement('button');
@@ -237,7 +267,7 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
               labelContainer.style.alignItems = 'center';
               const value = document.createElement('span');
               value.classList.add('text-gray-800', 'dark:text-gray-100');
-              value.style.fontSize = '18px'; // Reduced from 30px
+              value.style.fontSize = '15px'; // Between value and label (was 18px)
               value.style.lineHeight = '1.4';
               value.style.fontWeight = '600'; // Reduced from 700
               value.style.marginRight = '6px'; // Reduced from 8px
@@ -250,24 +280,8 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
               label.style.overflow = 'hidden';
               label.style.textOverflow = 'ellipsis';
               label.style.maxWidth = '120px'; // Limit label width
-              // Calculate total for this dataset
-              const dataset = c.data.datasets[item.datasetIndex!];
-              const dataArray = dataset?.data || [];
-              
-              const theValue: number = dataArray.reduce(
-                (sum: number, value) => {
-                  // Handle Chart.js data types safely
-                  if (typeof value === 'number') {
-                    return sum + value;
-                  } else if (value && typeof value === 'object' && 'y' in value) {
-                    // Handle Point objects
-                    return sum + (typeof value.y === 'number' ? value.y : 0);
-                  }
-                  return sum;
-                },
-                0
-              ) as number;
-              
+
+              // theValue already calculated during sorting step
               // Get measure type from chart data, fallback to 'number'
               const measureType = ((data as unknown as Record<string, unknown>)?.measureType || 'number') as string;
               const valueText = document.createTextNode(simplifiedChartTransformer.formatValue(theValue, measureType));
@@ -332,12 +346,12 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
 
   return (
     <div className="w-full h-full flex flex-col">
-      <div className="px-3 py-2 flex-shrink-0 overflow-hidden">
-        <ul 
-          ref={legend} 
+      <div className="px-2 py-1 flex-shrink-0 overflow-hidden">
+        <ul
+          ref={legend}
           className="flex flex-wrap gap-x-2 gap-y-1"
           style={{
-            maxHeight: '80px', // Limit legend height
+            maxHeight: '60px', // Reduced max height for tighter layout
             overflowY: 'auto',
             overflowX: 'hidden'
           }}

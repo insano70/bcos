@@ -53,8 +53,8 @@ export default function ColorPicker({
           className="w-full flex items-center space-x-3 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:ring-2 focus:ring-blue-500"
         >
           <div
-            className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600 flex-shrink-0 color-swatch"
-            data-color={displayColor}
+            className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600 flex-shrink-0"
+            style={{ backgroundColor: displayColor }}
           />
           <span className="text-gray-900 dark:text-gray-100 font-mono text-sm">
             {displayColor.toUpperCase()}
@@ -94,8 +94,8 @@ export default function ColorPicker({
                         onChange(color);
                         setIsOpen(false);
                       }}
-                      className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600 hover:scale-110 transition-transform color-preset-swatch"
-                      data-color={color}
+                      className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600 hover:scale-110 transition-transform"
+                      style={{ backgroundColor: color }}
                       title={color}
                     />
                   ))}

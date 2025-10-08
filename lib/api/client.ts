@@ -8,6 +8,7 @@ interface AuthContext {
   csrfToken?: string | null | undefined;
   refreshToken?: () => Promise<void>;
   logout?: () => Promise<void>;
+  ensureCsrfToken?: (forceRefresh?: boolean) => Promise<string | null>;
 }
 
 interface ApiClientOptions {
@@ -111,6 +112,62 @@ class ApiClient {
           // No refresh capability, redirect to login
           this.handleSessionExpired();
           throw new Error('Session expired - redirecting to login');
+        }
+      }
+
+      // Handle 403 Forbidden - Possibly stale CSRF token
+      if (response.status === 403) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || '';
+
+        // Check if this is a CSRF token error
+        if (errorMessage.toLowerCase().includes('csrf')) {
+          // CSRF error logging (client-side debug)
+          if (process.env.NODE_ENV === 'development') {
+            console.log('API request returned 403 - CSRF token validation failed, fetching fresh token...');
+          }
+
+          // Try to get a fresh CSRF token
+          if (this.authContext?.ensureCsrfToken && includeAuth) {
+            try {
+              // Fetch a fresh CSRF token via the auth context
+              // Force refresh to ensure we get a new token, not a cached one
+              const freshToken = await this.authContext.ensureCsrfToken(true);
+
+              if (!freshToken) {
+                throw new Error('Failed to obtain fresh CSRF token');
+              }
+
+              // Update the request header with the new CSRF token
+              requestHeaders.set('x-csrf-token', freshToken);
+
+              // Retry the original request with fresh CSRF token
+              const retryResponse = await fetch(url, {
+                ...requestOptions,
+                headers: requestHeaders,
+                credentials: 'include',
+              });
+
+              if (retryResponse.ok) {
+                const data = await retryResponse.json();
+                return data.data || data; // Handle standardized API response format
+              }
+
+              // If retry still fails, throw the error
+              if (!retryResponse.ok) {
+                const retryErrorData = await retryResponse.json().catch(() => ({}));
+                throw new Error(retryErrorData.error || 'CSRF token validation failed');
+              }
+            } catch (csrfRefreshError) {
+              // CSRF refresh failure logging (client-side debug)
+              if (process.env.NODE_ENV === 'development') {
+                console.log('CSRF token refresh failed:', csrfRefreshError);
+              }
+              throw new Error('CSRF token validation failed');
+            }
+          } else {
+            throw new Error('CSRF token validation failed');
+          }
         }
       }
 

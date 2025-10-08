@@ -393,16 +393,16 @@ export default function PracticeConfigForm({
             <div className="flex items-center space-x-3">
               <div className="flex space-x-2">
                 <div
-                  className="w-8 h-8 rounded color-preview-swatch"
-                  data-color={watch('primary_color') || '#00AEEF'}
+                  className="w-8 h-8 rounded border border-gray-300 dark:border-gray-600"
+                  style={{ backgroundColor: watch('primary_color') || '#00AEEF' }}
                 />
                 <div
-                  className="w-8 h-8 rounded color-preview-swatch"
-                  data-color={watch('secondary_color') || '#FFFFFF'}
+                  className="w-8 h-8 rounded border border-gray-300 dark:border-gray-600"
+                  style={{ backgroundColor: watch('secondary_color') || '#FFFFFF' }}
                 />
                 <div
-                  className="w-8 h-8 rounded color-preview-swatch"
-                  data-color={watch('accent_color') || '#44C0AE'}
+                  className="w-8 h-8 rounded border border-gray-300 dark:border-gray-600"
+                  style={{ backgroundColor: watch('accent_color') || '#44C0AE' }}
                 />
               </div>
               <span className="text-sm text-gray-600 dark:text-gray-400">

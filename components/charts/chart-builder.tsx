@@ -164,6 +164,9 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
           dateRangePreset?: string;
           series?: { groupBy?: string };
           dataSourceId?: number;
+          colorPalette?: string;
+          stackingMode?: 'normal' | 'percentage';
+          periodComparison?: PeriodComparisonConfig;
         } || {};
 
         // Try to find the selected data source by matching table reference or dataSourceId
@@ -184,7 +187,7 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
         const useMultipleSeries = Array.isArray(seriesConfigs) && seriesConfigs.length > 0;
         const selectedPreset = chartConfigData.dateRangePreset || 'custom';
         
-        const newConfig = {
+        const newConfig: ChartConfig = {
           chartName: editingChart.chart_name || '',
           chartType: (editingChart.chart_type === 'pie' || editingChart.chart_type === 'area' ? 'bar' : editingChart.chart_type) || 'bar',
           measure: String(measureFilter?.value || ''),
@@ -198,7 +201,10 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
           useAdvancedFiltering,
           useMultipleSeries,
           seriesConfigs,
-          selectedDataSource: savedDataSource
+          selectedDataSource: savedDataSource,
+          ...(chartConfigData.colorPalette && { colorPalette: chartConfigData.colorPalette }),
+          ...(chartConfigData.stackingMode && { stackingMode: chartConfigData.stackingMode }),
+          ...(chartConfigData.periodComparison && { periodComparison: chartConfigData.periodComparison })
         };
         
         setSelectedDatePreset(selectedPreset);

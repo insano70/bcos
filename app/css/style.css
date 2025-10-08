@@ -182,18 +182,6 @@
     align-items: center;
     justify-content: center;
   }
-  
-  .color-swatch {
-    background-color: attr(data-color);
-  }
-  
-  .color-preset-swatch {
-    background-color: attr(data-color);
-  }
-
-  .color-preview-swatch {
-    background-color: attr(data-color);
-  }
 }
 
 /* Template theming utilities (CSP-compliant) */
@@ -257,13 +245,6 @@
   .progress-bar-15 { width: 15%; }
   .progress-bar-12 { width: 12%; }
   .progress-bar-10 { width: 10%; }
-}
-
-/* Configuration interface utilities */
-@layer utilities {
-  .color-preview-swatch {
-    background-color: var(--preview-color);
-  }
 }
 
 /* Loading skeleton utilities (CSP-compliant) */

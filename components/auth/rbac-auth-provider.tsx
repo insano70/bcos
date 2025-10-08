@@ -48,7 +48,7 @@ export interface RBACAuthContextType extends RBACAuthState {
   logout: () => Promise<void>;
   refreshToken: () => Promise<void>;
   refreshUserContext: () => Promise<void>;
-  ensureCsrfToken: () => Promise<string | null>;
+  ensureCsrfToken: (forceRefresh?: boolean) => Promise<string | null>;
   completeMFASetup: (sessionData: {
     user: {
       id: string;
@@ -127,7 +127,8 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     apiClient.setAuthContext({
       csrfToken: state.csrfToken,
       refreshToken,
-      logout
+      logout,
+      ensureCsrfToken
     });
   }, [state.csrfToken]);
 
@@ -283,30 +284,34 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     }
   };
 
-  const ensureCsrfToken = async (): Promise<string | null> => {
+  const ensureCsrfToken = async (forceRefresh = false): Promise<string | null> => {
     try {
-      // Check if we have a cached token and validate it
-      if (state.csrfToken) {
+      // Check if we have a cached token and validate it (unless force refresh is requested)
+      if (state.csrfToken && !forceRefresh) {
         const shouldRefresh = shouldRefreshToken(state.csrfToken, lastTokenFetchTime);
-        
+
         if (!shouldRefresh) {
           // Token is still valid, return it
           return state.csrfToken;
         }
-        
+
         // Token validation failed or needs refresh
         debugLog.auth('CSRF token validation failed or expired, fetching new token');
+      }
+
+      if (forceRefresh) {
+        debugLog.auth('Force refreshing CSRF token...');
       }
 
       // Fetch new token from server
       debugLog.auth('Fetching new CSRF token...');
       // Use current domain instead of hardcoded NEXT_PUBLIC_APP_URL to avoid CORS issues
-      const baseUrl = typeof window !== 'undefined' 
-        ? window.location.origin 
+      const baseUrl = typeof window !== 'undefined'
+        ? window.location.origin
         : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001');
-      const resp = await fetch(`${baseUrl}/api/csrf`, { 
-        method: 'GET', 
-        credentials: 'include' 
+      const resp = await fetch(`${baseUrl}/api/csrf`, {
+        method: 'GET',
+        credentials: 'include'
       });
 
       if (!resp.ok) {

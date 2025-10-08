@@ -771,6 +771,32 @@ export class SimplifiedChartTransformer {
   }
 
   /**
+   * Format value with abbreviations for compact display (e.g., Y-axis labels)
+   * Converts large numbers to K, M, B notation
+   */
+  formatValueCompact(value: number, measureType: string): string {
+    const absValue = Math.abs(value);
+    let abbreviated: string;
+
+    if (absValue >= 1_000_000_000) {
+      abbreviated = `${(value / 1_000_000_000).toFixed(1).replace(/\.0$/, '')}B`;
+    } else if (absValue >= 1_000_000) {
+      abbreviated = `${(value / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+    } else if (absValue >= 1_000) {
+      abbreviated = `${(value / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
+    } else {
+      abbreviated = value.toString();
+    }
+
+    // Add currency symbol for currency types
+    if (measureType === 'currency') {
+      return `$${abbreviated}`;
+    }
+
+    return abbreviated;
+  }
+
+  /**
    * Transform data with period comparison support
    */
   transformDataWithPeriodComparison(
