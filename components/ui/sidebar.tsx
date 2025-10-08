@@ -171,28 +171,25 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
                               </SidebarLink>
                             </li>
                           )}
-                          <li className="mb-1 last:mb-0">
-                            <SidebarLink href="/dashboard">
-                              <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
-                                Main
-                              </span>
-                            </SidebarLink>
-                          </li>
-                          <li className="mb-1 last:mb-0">
-                            <SidebarLink href="/dashboard/analytics">
-                              <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
-                                Analytics
-                              </span>
-                            </SidebarLink>
-                          </li>
-                          <li className="mb-1 last:mb-0">
-                            <SidebarLink href="/dashboard/fintech">
-                              <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
-                                Fintech
-                              </span>
-                            </SidebarLink>
-                          </li>
-                            
+                          {isExperimentalMode && (
+                            <>
+                              <li className="mb-1 last:mb-0">
+                                <SidebarLink href="/dashboard/analytics">
+                                  <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                                    Analytics
+                                  </span>
+                                </SidebarLink>
+                              </li>
+                              <li className="mb-1 last:mb-0">
+                                <SidebarLink href="/dashboard/fintech">
+                                  <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                                    Fintech
+                                  </span>
+                                </SidebarLink>
+                              </li>
+                            </>
+                          )}
+
                           {/* Published Dashboards - Protected by Analytics RBAC */}
                           <ProtectedComponent permission="analytics:read:all">
                             <>

@@ -10,6 +10,12 @@ import ChartErrorBoundary from './chart-error-boundary';
 import { apiClient } from '@/lib/api/client';
 import { ChartSkeleton } from '@/components/ui/loading-skeleton';
 import ResponsiveChartContainer from './responsive-chart-container';
+import dynamic from 'next/dynamic';
+
+// Lazy load the fullscreen modal to prevent affecting global Chart.js state at page load
+const ChartFullscreenModal = dynamic(() => import('./chart-fullscreen-modal'), {
+  ssr: false,
+});
 
 // Import existing chart components
 import LineChart01 from './line-chart-01';
@@ -106,6 +112,7 @@ export default function AnalyticsChart({
     icon_mapping?: unknown;
   }>>([]);
   const chartRef = useRef<HTMLCanvasElement | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Memoize complex dependencies to prevent infinite loops
   const stableAdvancedFilters = useMemo(() => JSON.stringify(advancedFilters || []), [advancedFilters]);
@@ -571,7 +578,7 @@ export default function AnalyticsChart({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </button>
-            
+
             {/* Export Menu */}
             <div className="absolute right-0 top-full mt-1 w-32 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
               <button
@@ -595,23 +602,37 @@ export default function AnalyticsChart({
             </div>
           </div>
 
+          {/* Expand to Fullscreen - Only for bar, stacked-bar, and horizontal-bar charts */}
+          {(chartType === 'bar' || chartType === 'stacked-bar' || chartType === 'horizontal-bar') && (
+            <button
+              onClick={() => setIsFullscreen(true)}
+              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              title="Expand to fullscreen"
+              aria-label="Expand chart to fullscreen"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+            </button>
+          )}
+
           <button
             onClick={fetchChartData}
             disabled={isLoading}
             className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-50"
             title="Refresh chart data"
           >
-            <svg 
-              className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} 
-              fill="none" 
-              stroke="currentColor" 
+            <svg
+              className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}
+              fill="none"
+              stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                strokeWidth={2} 
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" 
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
               />
             </svg>
           </button>
@@ -622,6 +643,19 @@ export default function AnalyticsChart({
       <div className="flex-1 p-2">
         {renderChart()}
       </div>
+
+      {/* Fullscreen Modal */}
+      {isFullscreen && (chartType === 'bar' || chartType === 'stacked-bar' || chartType === 'horizontal-bar') && (
+        <ChartFullscreenModal
+          isOpen={isFullscreen}
+          onClose={() => setIsFullscreen(false)}
+          chartTitle={title || `${measure} - ${frequency}`}
+          chartData={chartData}
+          chartType={chartType}
+          frequency={frequency}
+          stackingMode={stackingMode}
+        />
+      )}
     </div>
   );
 }
