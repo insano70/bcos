@@ -253,8 +253,8 @@ export default function ChartFullscreenModal({
           },
         },
         interaction: {
-          mode: 'index',
-          intersect: false,
+          mode: 'nearest',
+          intersect: true,
         },
         plugins: {
           legend: {
@@ -264,8 +264,8 @@ export default function ChartFullscreenModal({
             ? createPeriodComparisonTooltipCallbacks(frequency, darkMode)
             : {
               enabled: true,
-              mode: 'index',
-              intersect: false,
+              mode: 'nearest',
+              intersect: true,
               backgroundColor: darkMode ? tooltipBgColor.dark : tooltipBgColor.light,
               borderColor: darkMode ? tooltipBorderColor.dark : tooltipBorderColor.light,
               borderWidth: 1,
@@ -425,14 +425,14 @@ export default function ChartFullscreenModal({
   const modalContent = (
     <div
       ref={modalRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 sm:p-4"
       onClick={handleOverlayClick}
       role="dialog"
       aria-modal="true"
       aria-labelledby="fullscreen-chart-title"
     >
       <div
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-7xl max-h-[95vh] flex flex-col overflow-hidden"
+        className="bg-white dark:bg-gray-800 sm:rounded-xl shadow-2xl w-full h-full sm:h-auto sm:max-w-7xl sm:max-h-[95vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
