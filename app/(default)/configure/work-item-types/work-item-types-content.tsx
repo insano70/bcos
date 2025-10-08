@@ -11,6 +11,7 @@ import DateSelect, { type DateRange } from '@/components/date-select';
 import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
 import EditWorkItemTypeModal from '@/components/edit-work-item-type-modal';
 import ManageStatusesModal from '@/components/manage-statuses-modal';
+import ManageWorkItemFieldsModal from '@/components/manage-work-item-fields-modal';
 import WorkflowVisualizationModal from '@/components/workflow-visualization-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { apiClient } from '@/lib/api/client';
@@ -21,6 +22,7 @@ export default function WorkItemTypesContent() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isManageStatusesOpen, setIsManageStatusesOpen] = useState(false);
+  const [isManageFieldsOpen, setIsManageFieldsOpen] = useState(false);
   const [isWorkflowOpen, setIsWorkflowOpen] = useState(false);
   const [selectedWorkItemType, setSelectedWorkItemType] = useState<WorkItemType | null>(null);
 
@@ -236,6 +238,11 @@ export default function WorkItemTypesContent() {
     setIsManageStatusesOpen(true);
   }, []);
 
+  const handleManageFields = useCallback((workItemType: WorkItemType) => {
+    setSelectedWorkItemType(workItemType);
+    setIsManageFieldsOpen(true);
+  }, []);
+
   const handleViewWorkflow = useCallback((workItemType: WorkItemType) => {
     setSelectedWorkItemType(workItemType);
     setIsWorkflowOpen(true);
@@ -245,6 +252,20 @@ export default function WorkItemTypesContent() {
   const getDropdownActions = useCallback(
     (workItemType: WorkItemType): DataTableDropdownAction<WorkItemType>[] => {
       const actions: DataTableDropdownAction<WorkItemType>[] = [];
+
+      // Manage Fields - available for all types
+      actions.push({
+        label: 'Manage Custom Fields',
+        icon: (
+          <svg
+            className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0"
+            viewBox="0 0 16 16"
+          >
+            <path d="M9 12h6v6H9v-6zm-9 0h6v6H0v-6zm0-9h6v6H0V3zm9 0h6v6H9V3z" />
+          </svg>
+        ),
+        onClick: handleManageFields,
+      });
 
       // Manage Statuses - available for all types
       actions.push({
@@ -319,7 +340,7 @@ export default function WorkItemTypesContent() {
 
       return actions;
     },
-    [handleManageStatuses, handleViewWorkflow, handleEditWorkItemType, handleToggleActive, handleDeleteWorkItemType]
+    [handleManageFields, handleManageStatuses, handleViewWorkflow, handleEditWorkItemType, handleToggleActive, handleDeleteWorkItemType]
   );
 
   // Bulk actions for mass operations (memoized)
@@ -428,6 +449,19 @@ export default function WorkItemTypesContent() {
             refetch();
           }}
           workItemType={selectedWorkItemType}
+        />
+      )}
+
+      {/* Manage Custom Fields Modal */}
+      {selectedWorkItemType && (
+        <ManageWorkItemFieldsModal
+          isOpen={isManageFieldsOpen}
+          onClose={() => {
+            setIsManageFieldsOpen(false);
+            setSelectedWorkItemType(null);
+          }}
+          workItemTypeId={selectedWorkItemType.id}
+          workItemTypeName={selectedWorkItemType.name}
         />
       )}
 
