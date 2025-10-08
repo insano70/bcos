@@ -1,10 +1,15 @@
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { users, work_item_attachments, work_items } from '@/lib/db/schema';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import { PermissionDeniedError } from '@/lib/types/rbac';
 import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
+import {
+  generateUploadUrl,
+  generateDownloadUrl,
+  deleteFile,
+} from '@/lib/s3/work-items-attachments';
 
 /**
  * Work Item Attachments Service with RBAC
@@ -16,8 +21,6 @@ export interface CreateWorkItemAttachmentData {
   file_name: string;
   file_size: number;
   file_type: string;
-  s3_key: string;
-  s3_bucket: string;
 }
 
 export interface WorkItemAttachmentQueryOptions {
@@ -183,9 +186,13 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
   }
 
   /**
-   * Create new attachment
+   * Create new attachment and generate upload URL
+   * Two-step process: 1) Create record with presigned URL, 2) Client uploads to S3
    */
-  async createAttachment(attachmentData: CreateWorkItemAttachmentData): Promise<WorkItemAttachmentWithDetails> {
+  async createAttachment(attachmentData: CreateWorkItemAttachmentData): Promise<{
+    attachment: WorkItemAttachmentWithDetails;
+    uploadUrl: string;
+  }> {
     const startTime = Date.now();
 
     log.info('Work item attachment creation initiated', {
@@ -200,16 +207,28 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
       throw new PermissionDeniedError('work-items:update:*', attachmentData.work_item_id);
     }
 
-    // Create attachment
+    // Generate attachment ID for S3 key
+    const attachmentId = crypto.randomUUID();
+
+    // Generate presigned upload URL
+    const { uploadUrl, s3Key, bucket } = await generateUploadUrl(
+      attachmentData.work_item_id,
+      attachmentId,
+      attachmentData.file_name,
+      attachmentData.file_type
+    );
+
+    // Create attachment record
     const [newAttachment] = await db
       .insert(work_item_attachments)
       .values({
+        work_item_attachment_id: attachmentId,
         work_item_id: attachmentData.work_item_id,
         file_name: attachmentData.file_name,
         file_size: attachmentData.file_size,
         file_type: attachmentData.file_type,
-        s3_key: attachmentData.s3_key,
-        s3_bucket: attachmentData.s3_bucket,
+        s3_key: s3Key,
+        s3_bucket: bucket,
         uploaded_by: this.userContext.user_id,
       })
       .returning();
@@ -221,6 +240,7 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
     log.info('Work item attachment created successfully', {
       attachmentId: newAttachment.work_item_attachment_id,
       workItemId: attachmentData.work_item_id,
+      s3Key,
       duration: Date.now() - startTime,
     });
 
@@ -232,11 +252,43 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
       throw new Error('Failed to retrieve created attachment');
     }
 
-    return attachmentWithDetails;
+    return {
+      attachment: attachmentWithDetails,
+      uploadUrl,
+    };
   }
 
   /**
-   * Delete attachment (soft delete)
+   * Generate download URL for an attachment
+   * Requires work-items:read permission
+   */
+  async getDownloadUrl(attachmentId: string): Promise<string> {
+    const startTime = Date.now();
+
+    log.info('Generating download URL for attachment', {
+      attachmentId,
+      requestingUserId: this.userContext.user_id,
+    });
+
+    // Get attachment details
+    const attachment = await this.getAttachmentById(attachmentId);
+    if (!attachment) {
+      throw new Error('Attachment not found');
+    }
+
+    // Generate download URL
+    const downloadUrl = await generateDownloadUrl(attachment.s3_key, attachment.file_name);
+
+    log.info('Download URL generated', {
+      attachmentId,
+      duration: Date.now() - startTime,
+    });
+
+    return downloadUrl;
+  }
+
+  /**
+   * Delete attachment (soft delete in DB, hard delete from S3)
    */
   async deleteAttachment(attachmentId: string): Promise<void> {
     const startTime = Date.now();
@@ -258,7 +310,10 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
       throw new PermissionDeniedError('work-items:update:*', attachment.work_item_id);
     }
 
-    // Soft delete
+    // Delete from S3
+    await deleteFile(attachment.s3_key);
+
+    // Soft delete in database
     await db
       .update(work_item_attachments)
       .set({
@@ -268,10 +323,45 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
 
     log.info('Work item attachment deleted successfully', {
       attachmentId,
+      s3Key: attachment.s3_key,
       duration: Date.now() - startTime,
     });
 
     await this.logPermissionCheck('work-items:update:attachment_delete', attachment.work_item_id);
+  }
+
+  /**
+   * Get total attachment size for a work item
+   * Useful for enforcing storage limits
+   */
+  async getTotalAttachmentSize(workItemId: string): Promise<number> {
+    const startTime = Date.now();
+
+    // Verify read permission
+    const canReadWorkItem = await this.canReadWorkItem(workItemId);
+    if (!canReadWorkItem) {
+      throw new PermissionDeniedError('work-items:read:*', workItemId);
+    }
+
+    const [result] = await db
+      .select({
+        total: sql<number>`COALESCE(SUM(${work_item_attachments.file_size}), 0)`,
+      })
+      .from(work_item_attachments)
+      .where(
+        and(
+          eq(work_item_attachments.work_item_id, workItemId),
+          isNull(work_item_attachments.deleted_at)
+        )
+      );
+
+    log.info('Total attachment size calculated', {
+      workItemId,
+      totalSize: result?.total ?? 0,
+      duration: Date.now() - startTime,
+    });
+
+    return Number(result?.total) || 0;
   }
 
   /**

@@ -110,6 +110,7 @@ export type UserPermission =
   | 'users:update:organization'
   | 'users:delete:organization'
   | 'users:read:all'
+  | 'users:update:all'
   | 'users:manage:all';
 
 export type PracticePermission =
@@ -142,6 +143,7 @@ export type AnalyticsPermission =
   | 'analytics:read:all';
 
 export type RolePermission =
+  | 'roles:read:own'
   | 'roles:read:organization'
   | 'roles:create:organization'
   | 'roles:update:organization'

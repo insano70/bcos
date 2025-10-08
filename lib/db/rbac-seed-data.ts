@@ -96,6 +96,12 @@ export const RBAC_PERMISSIONS: Record<string, PermissionDefinition> = {
     action: 'read',
     scope: 'all',
   },
+  'users:update:all': {
+    description: 'Update all users (super admin)',
+    resource: 'users',
+    action: 'update',
+    scope: 'all',
+  },
   'users:manage:all': {
     description: 'Full user management (super admin)',
     resource: 'users',
@@ -122,6 +128,12 @@ export const RBAC_PERMISSIONS: Record<string, PermissionDefinition> = {
     description: 'Manage practice staff',
     resource: 'practices',
     action: 'staff:manage',
+    scope: 'own',
+  },
+  'practices:staff:read:own': {
+    description: 'Read practice staff information',
+    resource: 'practices',
+    action: 'staff:read',
     scope: 'own',
   },
   'practices:read:organization': {
@@ -274,6 +286,12 @@ export const RBAC_PERMISSIONS: Record<string, PermissionDefinition> = {
     description: 'Delete work items in organization',
     resource: 'work-items',
     action: 'delete',
+    scope: 'organization',
+  },
+  'work-items:manage:organization': {
+    description: 'Manage work item types, statuses, and fields in organization',
+    resource: 'work-items',
+    action: 'manage',
     scope: 'organization',
   },
   'work-items:read:all': {
@@ -512,6 +530,12 @@ export const RBAC_PERMISSIONS: Record<string, PermissionDefinition> = {
   // ============================================================================
   // ROLE MANAGEMENT PERMISSIONS
   // ============================================================================
+  'roles:read:own': {
+    description: 'Read own roles',
+    resource: 'roles',
+    action: 'read',
+    scope: 'own',
+  },
   'roles:read:organization': {
     description: 'Read roles in organization',
     resource: 'roles',

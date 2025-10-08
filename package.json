@@ -45,6 +45,8 @@
     "db:backfill:account-security": "tsx --env-file=.env.local scripts/backfill-account-security.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.901.0",
+    "@aws-sdk/s3-request-presigner": "^3.901.0",
     "@gsap/react": "^2.1.2",
     "@headlessui/react": "^2.2.9",
     "@hookform/resolvers": "^5.2.2",

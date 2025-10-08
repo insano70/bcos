@@ -119,38 +119,38 @@ const createWorkItemAttachmentHandler = async (
     log.info('RBAC service created', { duration: Date.now() - serviceStart });
 
     // Create attachment with automatic permission checking
+    // This generates a presigned upload URL and creates the DB record
     const attachmentCreationStart = Date.now();
-    const newAttachment = await attachmentsService.createAttachment({
+    const result = await attachmentsService.createAttachment({
       work_item_id: validatedParams.id,
       file_name: validatedData.file_name,
       file_size: validatedData.file_size,
       file_type: validatedData.file_type,
-      s3_key: validatedData.s3_key,
-      s3_bucket: validatedData.s3_bucket,
     });
     log.db('INSERT', 'work_item_attachments', Date.now() - attachmentCreationStart, { rowCount: 1 });
 
     const totalDuration = Date.now() - startTime;
     log.info('Work item attachment created successfully', {
-      attachmentId: newAttachment.work_item_attachment_id,
+      attachmentId: result.attachment.work_item_attachment_id,
       workItemId: validatedParams.id,
       totalDuration,
     });
 
     return createSuccessResponse(
       {
-        work_item_attachment_id: newAttachment.work_item_attachment_id,
-        work_item_id: newAttachment.work_item_id,
-        file_name: newAttachment.file_name,
-        file_size: newAttachment.file_size,
-        file_type: newAttachment.file_type,
-        s3_key: newAttachment.s3_key,
-        s3_bucket: newAttachment.s3_bucket,
-        uploaded_by: newAttachment.uploaded_by,
-        uploaded_by_name: newAttachment.uploaded_by_name,
-        uploaded_at: newAttachment.uploaded_at,
+        work_item_attachment_id: result.attachment.work_item_attachment_id,
+        work_item_id: result.attachment.work_item_id,
+        file_name: result.attachment.file_name,
+        file_size: result.attachment.file_size,
+        file_type: result.attachment.file_type,
+        s3_key: result.attachment.s3_key,
+        s3_bucket: result.attachment.s3_bucket,
+        uploaded_by: result.attachment.uploaded_by,
+        uploaded_by_name: result.attachment.uploaded_by_name,
+        uploaded_at: result.attachment.uploaded_at,
+        upload_url: result.uploadUrl, // Presigned URL for client to upload to S3
       },
-      'Attachment created successfully'
+      'Attachment created successfully. Use upload_url to upload file to S3.'
     );
   } catch (error) {
     const totalDuration = Date.now() - startTime;

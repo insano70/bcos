@@ -202,15 +202,15 @@ Phase 1: Core Foundation     [████████  ]  80% 🚧 In Progress 
 Phase 2: Hierarchy           [█████     ]  50% 🚧 In Progress (Schemas Complete, API/UI Pending)
 Phase 3: Custom Fields       [█████████ ]  85% 🚧 In Progress (Core Complete, Testing & Logging Pending)
 Phase 4: Multiple Types      [██████████] 100% ✅ Complete
-Phase 5: File Attachments    [          ]   0% ⏳ Not Started
+Phase 5: File Attachments    [████      ]  45% 🚧 In Progress (Backend Complete, Frontend Pending)
 Phase 6: Type Relationships  [          ]   0% ⏳ Not Started
 Phase 7: Advanced Workflows  [          ]   0% ⏳ Not Started
 Phase 8: Advanced Fields     [          ]   0% ⏳ Not Started
 Phase 9: Reporting           [          ]   0% ⏳ Not Started
 Phase 10: Polish             [          ]   0% ⏳ Not Started
 
-Overall Progress:            [██████    ]  54% (Phase 1: 80%, Phase 2: 50%, Phase 3: 85%, Phase 4: 100%)
-Last Updated:                2025-10-08 (Phase 4: 100% Complete ✅)
+Overall Progress:            [██████    ]  59% (Phase 1: 80%, Phase 2: 50%, Phase 3: 85%, Phase 4: 100%, Phase 5: 45%)
+Last Updated:                2025-10-08 (Phase 5: Backend Complete - S3 Integration ✅)
 ```
 
 ---
@@ -3685,10 +3685,11 @@ None - Phase 4 is complete!
 
 ## Phase 5: File Attachments (Week 7)
 
-**Status**: ⏳ Not Started (0% Complete)
+**Status**: 🚧 In Progress (45% Complete)
 **Goal**: Upload and manage files on work items with S3 storage
 **Duration**: 1 week (5 working days)
-**Current Focus**: Database schema and S3 integration
+**Current Focus**: Backend complete - API endpoints and service layer with S3 integration done
+**Last Updated**: 2025-10-08
 
 ### Overview
 
@@ -3701,14 +3702,95 @@ Enable users to upload and manage files attached to work items:
 - Organized S3 structure for easy management
 - File deletion with S3 cleanup
 
-### 🚧 Remaining Tasks
+### ✅ Completed Tasks (2025-10-08)
 
-#### Task 5.1: Database Schema - Attachments Table (Day 16)
+#### Task 5.1: Database Schema - Attachments Table ✅
 
 **File**: `lib/db/work-items-schema.ts`
 
+**Status**: Complete - Schema already existed in codebase from Phase 2
 **Subtasks**:
-- [ ] 5.1.1: Add `work_item_attachments` table to schema
+- [x] 5.1.1: `work_item_attachments` table schema exists (lines 291-315)
+- [x] 5.1.2: Relations defined (lines 317-326)
+- [x] 5.1.3: Exported from main schema file
+
+#### Task 5.2: Migration File ✅
+
+**File**: `lib/db/migrations/0022_work_item_attachments.sql`
+
+**Status**: Complete - Migration created with all necessary constraints
+**Subtasks**:
+- [x] 5.2.1: Created migration SQL file with:
+  - Table creation with CASCADE delete
+  - CHECK constraint for file size (1 byte to 100MB)
+  - UNIQUE constraint on s3_key
+  - 4 indexes (work_item, uploaded_by, uploaded_at, deleted_at)
+  - Table and column comments
+
+#### Task 5.3: Validation Schemas ✅
+
+**File**: `lib/validations/work-item-attachments.ts`
+
+**Status**: Complete - Comprehensive validation schemas created
+**Subtasks**:
+- [x] 5.3.1: Created `workItemAttachmentUploadSchema` with:
+  - File name validation (1-500 chars)
+  - File size validation (max 100MB)
+  - File type validation against whitelist
+  - 27 allowed MIME types (images, documents, text, archives)
+- [x] 5.3.2: Created `workItemAttachmentQuerySchema`
+- [x] 5.3.3: Created `workItemAttachmentParamsSchema`
+- [x] 5.3.4: Created `workItemAttachmentConfirmSchema`
+- [x] 5.3.5: Exported constants (MAX_FILE_SIZE, ALLOWED_FILE_TYPES)
+
+#### Task 5.4: S3 Utility Functions ✅
+
+**File**: `lib/s3/work-items-attachments.ts`
+
+**Status**: Complete - Full S3 integration with presigned URLs
+**Subtasks**:
+- [x] 5.4.1: S3 client initialized with AWS SDK v3
+- [x] 5.4.2: `generateUploadUrl()` - Creates presigned upload URLs (1 hour expiry)
+- [x] 5.4.3: `generateDownloadUrl()` - Creates presigned download URLs (1 hour expiry)
+- [x] 5.4.4: `deleteFile()` - Deletes files from S3
+- [x] 5.4.5: `fileExists()` - Checks if file exists in S3
+- [x] 5.4.6: `generateS3Key()` - Sanitizes and generates S3 keys
+- [x] 5.4.7: `getBucketName()` - Utility to get bucket name
+- [x] All functions include comprehensive error handling and logging
+
+**S3 Key Pattern**: `work-items/{work_item_id}/attachments/{attachment_id}/{filename}`
+
+#### Task 5.5: Service Layer - Attachments CRUD ✅
+
+**File**: `lib/services/rbac-work-item-attachments-service.ts`
+
+**Status**: Complete - Enhanced existing service with S3 integration
+**Subtasks**:
+- [x] 5.5.1: `RBACWorkItemAttachmentsService` class extends BaseRBACService
+- [x] 5.5.2: `getAttachments()` - Lists attachments with RBAC checking
+- [x] 5.5.3: `getAttachmentById()` - Gets single attachment
+- [x] 5.5.4: `createAttachment()` - Two-step process:
+  - Generates presigned upload URL
+  - Creates DB record
+  - Returns both attachment details and upload URL
+- [x] 5.5.5: `getDownloadUrl()` - Generates presigned download URL
+- [x] 5.5.6: `deleteAttachment()` - Soft deletes DB record + hard deletes from S3
+- [x] 5.5.7: `getTotalAttachmentSize()` - Calculates total attachment size
+- [x] Helper methods for work item permission checking
+- [x] Factory function `createRBACWorkItemAttachmentsService()`
+
+**API Route Integration**: `app/api/work-items/[id]/attachments/route.ts` updated to use new service interface
+
+**Dependencies Installed**:
+- `@aws-sdk/client-s3@3.901.0`
+- `@aws-sdk/s3-request-presigner@3.901.0`
+
+**Quality Checks**:
+- ✅ TypeScript compilation: 0 errors in Phase 5 code
+- ✅ Linting: No warnings/errors
+- ✅ No `any` types used
+
+### 🚧 Remaining Tasks
   ```typescript
   export const workItemAttachments = pgTable(
     'work_item_attachments',
