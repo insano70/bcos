@@ -1010,6 +1010,122 @@ export class SimplifiedChartTransformer {
       datasets: styledDatasets,
     };
   }
+
+  /**
+   * Transform data for dual-axis chart (bar + line combo)
+   * Primary measure shows as bars on left y-axis
+   * Secondary measure shows as line/bar on right y-axis
+   */
+  transformDualAxisData(
+    primaryMeasures: AggAppMeasure[],
+    secondaryMeasures: AggAppMeasure[],
+    primaryLabel: string,
+    secondaryLabel: string,
+    secondaryChartType: 'line' | 'bar',
+    _groupBy: string = 'none', // Reserved for future use
+    paletteId: string = 'default'
+  ): ChartData {
+    if (primaryMeasures.length === 0 && secondaryMeasures.length === 0) {
+      return { labels: [], datasets: [] };
+    }
+
+    // Collect all unique dates from both measure sets
+    const allDatesSet = new Set<string>();
+    primaryMeasures.forEach((m) => {
+      allDatesSet.add(m.date_index);
+    });
+    secondaryMeasures.forEach((m) => {
+      allDatesSet.add(m.date_index);
+    });
+
+    // Sort dates chronologically
+    const sortedDates = Array.from(allDatesSet).sort(
+      (a, b) => new Date(`${a}T00:00:00`).getTime() - new Date(`${b}T00:00:00`).getTime()
+    );
+
+    // Create date label map for Chart.js
+    const labels = sortedDates.map((dateStr) => {
+      const date = new Date(`${dateStr}T12:00:00Z`);
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      const year = date.getUTCFullYear();
+      return `${month}-${day}-${year}`;
+    });
+
+    // Get color palette
+    const colors = getPaletteColors(paletteId);
+
+    // Build data map for primary measure
+    const primaryDataMap = new Map<string, number>();
+    primaryMeasures.forEach((m) => {
+      const value = typeof m.measure_value === 'string' ? parseFloat(m.measure_value) : m.measure_value;
+      primaryDataMap.set(m.date_index, value);
+    });
+
+    // Build data map for secondary measure
+    const secondaryDataMap = new Map<string, number>();
+    secondaryMeasures.forEach((m) => {
+      const value = typeof m.measure_value === 'string' ? parseFloat(m.measure_value) : m.measure_value;
+      secondaryDataMap.set(m.date_index, value);
+    });
+
+    // Extract measure types
+    const primaryMeasureType = this.extractMeasureType(primaryMeasures);
+    const secondaryMeasureType = this.extractMeasureType(secondaryMeasures);
+
+    // Create datasets
+    const datasets: ChartDataset[] = [
+      // Primary dataset (bar chart, left axis)
+      {
+        label: primaryLabel,
+        type: 'bar',
+        data: sortedDates.map((date) => primaryDataMap.get(date) ?? 0),
+        backgroundColor: colors[0] || getCssVariable('--color-violet-500'),
+        borderColor: colors[0] || getCssVariable('--color-violet-500'),
+        borderWidth: 1,
+        borderRadius: 4,
+        barPercentage: 0.6,
+        categoryPercentage: 0.7,
+        yAxisID: 'y-left',
+        measureType: primaryMeasureType,
+        order: 2, // Draw bars first (behind lines)
+      },
+      // Secondary dataset (line or bar, right axis)
+      {
+        label: secondaryLabel,
+        type: secondaryChartType,
+        data: sortedDates.map((date) => secondaryDataMap.get(date) ?? 0),
+        backgroundColor: secondaryChartType === 'line'
+          ? 'transparent'
+          : (colors[1] || getCssVariable('--color-cyan-500')),
+        borderColor: colors[1] || getCssVariable('--color-cyan-500'),
+        borderWidth: 2,
+        ...(secondaryChartType === 'line'
+          ? {
+              tension: 0.4,
+              pointRadius: 4,
+              pointHoverRadius: 6,
+              pointBackgroundColor: colors[1] || getCssVariable('--color-cyan-500'),
+              pointBorderColor: '#fff',
+              pointBorderWidth: 2,
+            }
+          : {
+              borderRadius: 4,
+              barPercentage: 0.6,
+              categoryPercentage: 0.7,
+            }),
+        yAxisID: 'y-right',
+        measureType: secondaryMeasureType,
+        order: 1, // Draw line on top
+      },
+    ];
+
+    return {
+      labels,
+      datasets,
+      measureType: primaryMeasureType, // Use primary as default
+    };
+  }
 }
 
 // Export singleton instance for backward compatibility

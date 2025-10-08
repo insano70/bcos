@@ -157,6 +157,7 @@ export interface ChartData {
 export interface ChartDataset {
   label: string;
   data: number[];
+  type?: 'line' | 'bar'; // Chart type for mixed charts (dual-axis)
   backgroundColor?: string | string[];
   borderColor?: string | string[];
   borderWidth?: number;
@@ -165,6 +166,7 @@ export interface ChartDataset {
   pointRadius?: number;
   pointHoverRadius?: number;
   pointBackgroundColor?: string;
+  pointBorderColor?: string; // Point border color for line charts
   measureType?: string; // Measure type specific to this dataset (e.g., 'currency', 'count')
   pointHoverBackgroundColor?: string;
   pointBorderWidth?: number;
@@ -174,6 +176,8 @@ export interface ChartDataset {
   borderRadius?: number;
   hoverBackgroundColor?: string | string[];
   clip?: number;
+  yAxisID?: string; // Y-axis ID for dual-axis charts
+  order?: number; // Draw order (lower = drawn first, higher = drawn on top)
 }
 
 /**
@@ -195,6 +199,25 @@ export interface PeriodComparisonConfig {
   comparisonType: 'previous_period' | 'same_period_last_year' | 'custom_period';
   customPeriodOffset?: number; // For custom period comparisons (number of periods to go back)
   labelFormat: string; // Display label for comparison period (e.g., "Previous Month", "Last Quarter")
+}
+
+/**
+ * Dual-axis configuration for combo charts (bar + line)
+ */
+export interface DualAxisConfig {
+  enabled: boolean;
+  primary: {
+    measure: string;
+    chartType: 'bar';
+    axisLabel?: string;
+    axisPosition: 'left';
+  };
+  secondary: {
+    measure: string;
+    chartType: 'line' | 'bar';
+    axisLabel?: string;
+    axisPosition: 'right';
+  };
 }
 
 /**
