@@ -41,7 +41,14 @@ const MEASURES = {
   'Cancellations': { type: 'count', min: 0, max: 15 },
   'Unbilled Encounters': { type: 'count', min: 0, max: 25 },
   'Encounters': { type: 'count', min: 50, max: 300 },
-  'Cash Transfer': { type: 'currency', min: 1000, max: 50000 },
+  'New Patients': { type: 'count', min: 15, max: 30 },
+  'Follow Up': { type: 'count', min: 60, max: 120 },
+  'Tasks': { type: 'count', min: 0, max: 5 },
+  'Denials': { type: 'count', min: 2, max: 14 },
+  'Unbilled Claims': { type: 'count', min: 0, max: 6 },
+  'Unsigned Encounters': { type: 'count', min: 2, max: 13 },
+  'New Infusions': { type: 'count', min: 1, max: 11 },
+  'Cash Transfer': { type: 'currency', min: 75000, max: 150000 },
   'CPO Invoices': { type: 'currency', min: 2000, max: 75000 },
 };
 

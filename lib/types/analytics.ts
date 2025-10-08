@@ -4,24 +4,47 @@
  */
 
 /**
- * Pre-aggregated measure record from ih.agg_app_measures table
- * Simplified structure with pre-calculated aggregations
+ * Pre-aggregated measure record from analytics tables
+ * Semi-dynamic structure - common fields defined, additional fields dynamic
  */
 export interface AggAppMeasure {
-  practice: string; // Practice name/identifier
-  practice_primary: string; // Primary practice identifier
-  practice_uid: number; // Practice UID for filtering
-  provider_name: string; // Provider name
-  measure: string; // What we're measuring (e.g., "Charges by Provider", "Payments by Provider")
-  frequency: string; // Time unit ("Monthly", "Weekly", "Quarterly")
+  // Core required fields that exist in all data sources
   date_index: string; // Date field for filtering and X-axis (ISO date string)
   measure_value: number; // The actual numeric value
   measure_type: string; // Type of measure ("currency", "count", etc.)
+
+  // Common fields from standard data sources (may not exist in all sources)
+  practice?: string; // Practice name/identifier
+  practice_primary?: string; // Primary practice identifier
+  practice_uid?: number; // Practice UID for filtering
+  provider_name?: string; // Provider name
+  entity_name?: string; // Entity name for grouping
+  measure?: string; // What we're measuring
+  frequency?: string; // Time unit ("Monthly", "Weekly", "Quarterly")
+
   // Multiple series metadata (added dynamically for multi-series queries)
   series_id?: string;
   series_label?: string;
   series_aggregation?: 'sum' | 'avg' | 'count' | 'min' | 'max';
   series_color?: string;
+
+  // All other fields are dynamic based on data source columns
+  // This allows grouping by any field marked as is_groupable in the database
+  [key: string]: string | number | undefined;
+}
+
+/**
+ * Standard measure record for ih.agg_app_measures table
+ * Extended interface for backward compatibility and type safety
+ * Use this when you know you're working with the standard data source
+ */
+export interface StandardAggAppMeasure extends AggAppMeasure {
+  practice: string; // Practice name/identifier (required for standard)
+  practice_primary: string; // Primary practice identifier (required for standard)
+  practice_uid: number; // Practice UID for filtering (required for standard)
+  provider_name: string; // Provider name (required for standard)
+  measure: string; // What we're measuring (required for standard)
+  frequency: string; // Time unit (required for standard)
 }
 
 /**

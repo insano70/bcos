@@ -35,6 +35,106 @@ This document contains the rules, guidelines, and context for AI assistants work
 - Never make an infrastructure or code change that will negatively impact the security profile
 - Always consider security implications of any changes
 
+## Logging Standards
+
+### Core Principles
+- Use native `console.log/error/warn/debug` through the logger wrapper in `lib/logger/index.ts`
+- **NEVER** use external logging libraries (Pino, Winston, etc.)
+- **NEVER** use `console.*` directly - always use the `log` wrapper
+- All logs automatically include file, line, function, and correlation ID
+
+### Logger Usage
+
+#### Import Pattern
+```typescript
+import { log, correlation } from '@/lib/logger';
+```
+
+#### Basic Logging
+```typescript
+// Info logging
+log.info('Operation completed', { data });
+
+// Warnings
+log.warn('Approaching limit', { limit, current });
+
+// Errors (always include error object)
+try {
+  await operation();
+} catch (error) {
+  log.error('Operation failed', error, { context });
+  // Automatically includes stack trace, file, line, function
+}
+
+// Debug (1% sampled in production)
+log.debug('Debug state', { variable });
+```
+
+#### API Routes with Correlation
+```typescript
+export const POST = async (request: NextRequest) => {
+  return correlation.withContext(
+    correlation.generate(),
+    {
+      method: request.method,
+      path: new URL(request.url).pathname,
+    },
+    async () => {
+      log.api('Request started', request);
+
+      try {
+        // ... handler logic
+
+        log.api('Request completed', request, 200, duration);
+        return NextResponse.json(result);
+      } catch (error) {
+        log.error('Request failed', error);
+        return NextResponse.json({ error: 'Failed' }, { status: 500 });
+      }
+    }
+  );
+};
+```
+
+#### Specialized Logging
+```typescript
+// Authentication
+log.auth('login', true, { userId, method: 'saml' });
+log.auth('login', false, { email, reason: 'invalid_password' });
+
+// Security events
+log.security('suspicious_activity', 'high', {
+  blocked: true,
+  reason: 'rate_limit_exceeded'
+});
+
+// Database operations
+log.db('SELECT', 'users', duration, { recordCount });
+```
+
+### PII Protection
+- **NEVER** log raw passwords, tokens, or sensitive data
+- The logger automatically sanitizes: emails, phone numbers, SSNs, credit cards, UUIDs
+- When in doubt, use generic identifiers instead of actual values
+
+### Log Levels
+- **ERROR**: Application errors, exceptions, failures (100% in production)
+- **WARN**: Potential issues, degraded performance (100% in production)
+- **INFO**: Business events, successful operations (10% sampled in production)
+- **DEBUG**: Detailed debugging (1% sampled in production)
+
+### Required Context
+When logging errors, always include:
+1. The error object itself
+2. Relevant context (operation, resourceId, etc.)
+3. Never suppress stack traces
+
+### Debugging
+- Use CloudWatch Logs Insights for production debugging
+- Query by `correlationId` to trace complete requests
+- All logs include automatic context capture (file:line:function)
+- See `/docs/logging_strategy.md` for CloudWatch query examples
+
 ## File Naming Conventions
 
 - Do not use adjectives or buzzwords in file naming

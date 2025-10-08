@@ -75,7 +75,7 @@ const chartConfigSchema = z
 
     // Legacy/internal state fields (for backwards compatibility)
     chartName: z.string().optional(),
-    chartType: z.enum(['line', 'bar', 'stacked-bar', 'horizontal-bar', 'doughnut']).optional(),
+    chartType: z.enum(['line', 'bar', 'stacked-bar', 'horizontal-bar', 'progress-bar', 'doughnut']).optional(),
     measure: z.string().optional(),
     frequency: z.string().optional(),
     practiceUid: z.string().optional(),
@@ -138,6 +138,7 @@ export const chartDefinitionCreateSchema = z.object({
     'bar',
     'stacked-bar',
     'horizontal-bar',
+    'progress-bar',
     'pie',
     'doughnut',
     'area',

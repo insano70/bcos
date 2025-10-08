@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ChartData, AnalyticsQueryParams, MeasureType, FrequencyType, ChartFilter, MultipleSeriesConfig, PeriodComparisonConfig } from '@/lib/types/analytics';
 import type { ResponsiveChartProps } from '@/lib/types/responsive-charts';
-import { simplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
+import { SimplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
 import { calculatedFieldsService } from '@/lib/services/calculated-fields';
 import { chartExportService } from '@/lib/services/chart-export';
 import ChartErrorBoundary from './chart-error-boundary';
@@ -289,8 +289,11 @@ export default function AnalyticsChart({
       }
 
       // Transform data - handle both single and multiple series
+      // Create transformer instance (metadata loading happens server-side only)
+      const transformer = new SimplifiedChartTransformer();
+
       let transformedData: ChartData;
-      
+
       if (multipleSeries && multipleSeries.length > 0) {
         console.log('🔍 USING MULTI-SERIES TRANSFORMER:', {
           seriesCount: multipleSeries.length,
@@ -298,7 +301,7 @@ export default function AnalyticsChart({
           mappedGroupBy,
           seriesLabels: multipleSeries.map(s => s.label)
         });
-        
+
         // Use the enhanced multi-series transformer
         const aggregations: Record<string, 'sum' | 'avg' | 'count' | 'min' | 'max'> = {};
         multipleSeries.forEach(series => {
@@ -306,14 +309,14 @@ export default function AnalyticsChart({
             aggregations[series.label] = series.aggregation;
           }
         });
-        
-        transformedData = simplifiedChartTransformer.createEnhancedMultiSeriesChart(
+
+        transformedData = transformer.createEnhancedMultiSeriesChart(
           processedMeasures,
           'measure', // Group by measure for multiple series
           aggregations,
           colorPalette
         );
-        
+
         console.log('🔍 MULTI-SERIES RESULT:', {
           labelCount: transformedData.labels.length,
           datasetCount: transformedData.datasets.length,
@@ -327,15 +330,15 @@ export default function AnalyticsChart({
           currentRecords: processedMeasures.filter(m => m.series_id === 'current').length,
           comparisonRecords: processedMeasures.filter(m => m.series_id === 'comparison').length
         });
-        
+
         // Use the period comparison transformer
-        transformedData = simplifiedChartTransformer.transformDataWithPeriodComparison(
+        transformedData = transformer.transformDataWithPeriodComparison(
           processedMeasures,
           chartType === 'stacked-bar' ? 'bar' : chartType, // Map stacked-bar to bar for transformation
           mappedGroupBy,
           colorPalette
         );
-        
+
         console.log('🔍 PERIOD COMPARISON RESULT:', {
           labelCount: transformedData.labels.length,
           datasetCount: transformedData.datasets.length,
@@ -348,17 +351,17 @@ export default function AnalyticsChart({
           mappedGroupBy,
           dataCount: processedMeasures.length
         });
-        
+
         // Map stacked-bar to bar for data transformation (progress-bar uses its own method)
         const transformChartType = chartType === 'stacked-bar' ? 'bar' : chartType;
-        
-        transformedData = simplifiedChartTransformer.transformData(
+
+        transformedData = transformer.transformData(
           processedMeasures,
           transformChartType,
           mappedGroupBy,
           colorPalette
         );
-        
+
         console.log('🔍 SINGLE-SERIES RESULT:', {
           labelCount: transformedData.labels.length,
           datasetCount: transformedData.datasets.length,

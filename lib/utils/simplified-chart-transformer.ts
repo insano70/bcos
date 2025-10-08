@@ -2,14 +2,35 @@ import { getCssVariable } from '@/components/utils/utils';
 import { getPaletteColors } from '@/lib/services/color-palettes';
 import type { AggAppMeasure, ChartData, ChartDataset } from '@/lib/types/analytics';
 import { applyPeriodComparisonColors, getColorScheme } from './period-comparison-colors';
+import type { ColumnConfig } from '@/lib/services/chart-config-service';
 
 /**
  * Simplified Chart Data Transformer
  * Works with pre-aggregated data from ih.agg_app_measures
- * No complex grouping or calculations needed
+ * Fully dynamic - uses database column metadata for grouping
  */
 
 export class SimplifiedChartTransformer {
+  private columnMetadata?: Map<string, ColumnConfig>;
+
+  /**
+   * Constructor
+   * @param columnMetadata - Optional column metadata for dynamic grouping validation
+   */
+  constructor(columnMetadata?: Map<string, ColumnConfig>) {
+    if (columnMetadata) {
+      this.columnMetadata = columnMetadata;
+    }
+  }
+
+  /**
+   * Set column metadata for dynamic grouping validation
+   * Use this to provide server-loaded metadata to the transformer
+   */
+  setColumnMetadata(columnMetadata: Map<string, ColumnConfig>): void {
+    this.columnMetadata = columnMetadata;
+  }
+
   /**
    * Extract measure type from data (assumes all records have same measure type)
    */
@@ -459,22 +480,43 @@ export class SimplifiedChartTransformer {
 
   /**
    * Get value for grouping from measure object
+   * Fully dynamic - uses column metadata for display names and validation
    */
   private getGroupValue(measure: AggAppMeasure, groupBy: string): string {
-    switch (groupBy) {
-      case 'practice':
-        return measure.practice || 'Unknown Practice';
-      case 'practice_primary':
-        return measure.practice_primary || 'Unknown Practice';
-      case 'provider_name':
-        return measure.provider_name || 'Unknown Provider';
-      case 'measure':
-        return measure.measure;
-      case 'frequency':
-        return measure.frequency;
-      default:
-        return 'Unknown';
+    // Direct property access - works for ANY field in the measure object
+    const value = (measure as Record<string, unknown>)[groupBy];
+
+    // Get column metadata for better formatting and validation
+    const columnConfig = this.columnMetadata?.get(groupBy);
+
+    // If we have column metadata, validate that the field is groupable
+    if (columnConfig && !columnConfig.isGroupable) {
+      console.warn(
+        `Field '${groupBy}' (${columnConfig.displayName}) is not marked as groupable in data source configuration`
+      );
     }
+
+    // Determine appropriate fallback label
+    let fallbackLabel = 'Unknown';
+    if (columnConfig) {
+      // Use display name from column metadata
+      fallbackLabel = `Unknown ${columnConfig.displayName}`;
+    } else {
+      // Use field name if no metadata available
+      const formattedFieldName = groupBy
+        .split('_')
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+      fallbackLabel = `Unknown ${formattedFieldName}`;
+    }
+
+    // Handle null, undefined, or empty values
+    if (value == null || value === '') {
+      return fallbackLabel;
+    }
+
+    // Return string value or convert to string
+    return typeof value === 'string' ? value : String(value);
   }
 
   /**
@@ -642,7 +684,7 @@ export class SimplifiedChartTransformer {
     const allDates = new Set<string>();
 
     measures.forEach((measure) => {
-      const seriesLabel = measure.series_label || measure.measure;
+      const seriesLabel = measure.series_label || measure.measure || 'Unknown';
       const dateKey = measure.date_index;
 
       allDates.add(dateKey);
@@ -970,5 +1012,7 @@ export class SimplifiedChartTransformer {
   }
 }
 
-// Export singleton instance
+// Export singleton instance for backward compatibility
+// Note: This instance does not have data source metadata loaded
+// For dynamic grouping with column validation, create a new instance with dataSourceId
 export const simplifiedChartTransformer = new SimplifiedChartTransformer();
