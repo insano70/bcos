@@ -17,10 +17,11 @@
 7. [Validation Patterns](#validation-patterns)
 8. [Service Layer Requirements](#service-layer-requirements)
 9. [RBAC Integration](#rbac-integration)
-10. [Response Patterns](#response-patterns)
-11. [Testing Requirements](#testing-requirements)
-12. [Complete Examples](#complete-examples)
-13. [Anti-Patterns](#anti-patterns)
+10. [Rate Limiting](#rate-limiting)
+11. [Response Patterns](#response-patterns)
+12. [Testing Requirements](#testing-requirements)
+13. [Complete Examples](#complete-examples)
+14. [Anti-Patterns](#anti-patterns)
 
 ---
 
@@ -597,6 +598,121 @@ export const DELETE = rbacRoute(
     rateLimit: 'api'
   }
 );
+```
+
+---
+
+## Rate Limiting
+
+### Configuration
+
+All API routes are protected by rate limiting to prevent abuse and ensure fair resource allocation. Rate limiting is configured at the route level using the `rateLimit` parameter in `rbacRoute` and `publicRoute` configurations.
+
+### Rate Limit Tiers
+
+The system supports multiple rate limit tiers based on endpoint sensitivity and usage patterns:
+
+```typescript
+// Standard API rate limit (default for most endpoints)
+export const GET = rbacRoute(
+  getResourceHandler,
+  {
+    permission: 'resource:read:all',
+    rateLimit: 'api' // 100 requests per 15 minutes per user
+  }
+);
+
+// Strict rate limit for sensitive operations
+export const POST = rbacRoute(
+  createResourceHandler,
+  {
+    permission: 'resource:create:all',
+    rateLimit: 'strict' // 20 requests per 15 minutes per user
+  }
+);
+
+// Relaxed rate limit for public endpoints
+export const GET = publicRoute(
+  publicResourceHandler,
+  'Public resource access',
+  {
+    rateLimit: 'public' // 50 requests per 15 minutes per IP
+  }
+);
+```
+
+### Rate Limit Implementation
+
+Rate limiting is implemented using:
+- **In-Memory Storage**: Redis-backed rate limit tracking
+- **Per-User Limits**: Authenticated requests are rate limited per `user_id`
+- **Per-IP Limits**: Public/unauthenticated requests are rate limited per IP address
+- **Sliding Window**: Uses sliding window algorithm for accurate request counting
+
+### Rate Limit Headers
+
+All API responses include rate limit information in headers:
+
+```
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1704672000
+```
+
+### Rate Limit Response
+
+When rate limit is exceeded, the API returns:
+
+```typescript
+{
+  success: false,
+  error: 'Rate limit exceeded. Please try again later.',
+  statusCode: 429,
+  retryAfter: 900 // seconds until rate limit resets
+}
+```
+
+### Best Practices
+
+1. **Choose Appropriate Tier**: Use `strict` for write operations, `api` for reads, `public` for unauthenticated endpoints
+2. **Document Limits**: Include rate limit information in API documentation
+3. **Handle 429 Responses**: Client applications should implement exponential backoff when receiving 429 responses
+4. **Monitor Usage**: Track rate limit hits to identify potential abuse or legitimate high-traffic patterns
+
+### Bypassing Rate Limits
+
+Rate limits can be bypassed for:
+- **Super Admins**: Users with `is_super_admin: true` bypass all rate limits
+- **Service Accounts**: Internal service-to-service calls bypass rate limits
+- **Health Checks**: Health check endpoints are exempt from rate limiting
+
+```typescript
+// Health check endpoint (no rate limiting)
+export const GET = publicRoute(
+  healthCheckHandler,
+  'System health check',
+  {
+    rateLimit: 'none' // No rate limiting for health checks
+  }
+);
+```
+
+### Monitoring Rate Limits
+
+Monitor rate limit effectiveness through:
+- **Logs**: Rate limit hits are logged with `log.warn()`
+- **Metrics**: Rate limit metrics are tracked in application monitoring
+- **Alerts**: Set up alerts for sustained rate limit violations
+
+```typescript
+// Rate limit logging example
+log.warn('Rate limit exceeded', {
+  userId: userContext.user_id,
+  ip: request.ip,
+  endpoint: request.url,
+  limit: 100,
+  window: '15m'
+});
 ```
 
 ---

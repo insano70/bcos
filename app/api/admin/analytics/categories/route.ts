@@ -3,8 +3,9 @@ import { validateRequest } from '@/lib/api/middleware/validation';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { chart_categories, db } from '@/lib/db';
+import { getErrorStatusCode } from '@/lib/errors/api-errors';
 import { log } from '@/lib/logger';
+import { createRBACCategoriesService } from '@/lib/services/rbac-categories-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { chartCategoryCreateSchema } from '@/lib/validations/analytics';
 
@@ -22,29 +23,23 @@ const getCategoriesHandler = async (request: NextRequest, userContext: UserConte
   });
 
   try {
-    // Fetch all categories with hierarchy
-    const categories = await db
-      .select()
-      .from(chart_categories)
-      .orderBy(chart_categories.category_name);
+    // Use categories service with RBAC
+    const categoriesService = createRBACCategoriesService(userContext);
+    const result = await categoriesService.getCategories();
 
-    log.db('SELECT', 'chart_categories', Date.now() - startTime, { rowCount: categories.length });
+    log.info('Chart categories list retrieved successfully', {
+      count: result.categories.length,
+      duration: Date.now() - startTime,
+    });
 
-    return createSuccessResponse(
-      {
-        categories: categories,
-        metadata: {
-          total_count: categories.length,
-          generatedAt: new Date().toISOString(),
-        },
-      },
-      'Chart categories retrieved successfully'
-    );
+    return createSuccessResponse(result, 'Chart categories retrieved successfully');
   } catch (error) {
     log.error('Chart categories list error', error, {
+      duration: Date.now() - startTime,
       requestingUserId: userContext.user_id,
     });
 
+    const statusCode = getErrorStatusCode(error);
     const errorMessage =
       process.env.NODE_ENV === 'development'
         ? error instanceof Error
@@ -52,7 +47,7 @@ const getCategoriesHandler = async (request: NextRequest, userContext: UserConte
           : 'Unknown error'
         : 'Internal server error';
 
-    return createErrorResponse(errorMessage, 500, request);
+    return createErrorResponse(errorMessage, statusCode, request);
   }
 };
 
@@ -68,26 +63,12 @@ const createCategoryHandler = async (request: NextRequest, userContext: UserCont
     // Validate request body with Zod
     const validatedData = await validateRequest(request, chartCategoryCreateSchema);
 
-    // Create new category
-    const [newCategory] = await db
-      .insert(chart_categories)
-      .values({
-        category_name: validatedData.category_name,
-        category_description: validatedData.category_description,
-        parent_category_id: validatedData.parent_category_id,
-      })
-      .returning();
-
-    if (!newCategory) {
-      return createErrorResponse('Failed to create category', 500, request);
-    }
-
-    log.db('INSERT', 'chart_categories', Date.now() - startTime, { rowCount: 1 });
-
-    log.info('Chart category created successfully', {
-      categoryId: newCategory.chart_category_id,
-      categoryName: newCategory.category_name,
-      createdBy: userContext.user_id,
+    // Use categories service with RBAC
+    const categoriesService = createRBACCategoriesService(userContext);
+    const newCategory = await categoriesService.createCategory({
+      category_name: validatedData.category_name,
+      ...(validatedData.category_description && { category_description: validatedData.category_description }),
+      ...(validatedData.parent_category_id && { parent_category_id: validatedData.parent_category_id }),
     });
 
     return createSuccessResponse(
@@ -98,6 +79,7 @@ const createCategoryHandler = async (request: NextRequest, userContext: UserCont
     );
   } catch (error) {
     log.error('Chart category creation error', error, {
+      duration: Date.now() - startTime,
       requestingUserId: userContext.user_id,
     });
 

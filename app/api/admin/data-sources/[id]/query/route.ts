@@ -1,5 +1,6 @@
 import { type SQL, sql } from 'drizzle-orm';
 import type { NextRequest } from 'next/server';
+import { z } from 'zod';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
@@ -14,6 +15,28 @@ import { dataSourceParamsSchema } from '@/lib/validations/data-sources';
  * Admin Data Sources Query API
  * Executes queries against a specific data source
  */
+
+// Advanced filter schema for input validation
+const advancedFilterSchema = z.array(
+  z.object({
+    field: z.string().min(1).max(200),
+    operator: z.enum([
+      'eq',
+      'neq',
+      'gt',
+      'gte',
+      'lt',
+      'lte',
+      'like',
+      'not_like',
+      'in',
+      'not_in',
+      'is_null',
+      'is_not_null',
+    ]),
+    value: z.union([z.string(), z.number(), z.boolean(), z.array(z.union([z.string(), z.number()]))]),
+  })
+);
 
 // GET - Query data from data source
 const queryDataSourceHandler = async (
@@ -35,13 +58,25 @@ const queryDataSourceHandler = async (
     const practiceUid = searchParams.get('practice_uid');
     const advancedFiltersParam = searchParams.get('advanced_filters');
 
-    // Parse advanced filters if provided
+    // Parse and validate advanced filters if provided
     let advancedFilters: Array<{ field: string; operator: string; value: unknown }> = [];
     if (advancedFiltersParam) {
       try {
-        advancedFilters = JSON.parse(decodeURIComponent(advancedFiltersParam));
+        const parsed = JSON.parse(decodeURIComponent(advancedFiltersParam));
+        const validationResult = advancedFilterSchema.safeParse(parsed);
+
+        if (!validationResult.success) {
+          log.warn('Invalid advanced filters format', {
+            error: validationResult.error,
+            advancedFiltersParam,
+          });
+          return createErrorResponse('Invalid filter format', 400, request);
+        }
+
+        advancedFilters = validationResult.data;
       } catch (error) {
-        log.warn('Failed to parse advanced filters', { error, advancedFiltersParam });
+        log.warn('Failed to parse advanced filters JSON', { error, advancedFiltersParam });
+        return createErrorResponse('Invalid JSON in advanced_filters parameter', 400, request);
       }
     }
 
@@ -83,6 +118,9 @@ const queryDataSourceHandler = async (
     // Build WHERE clause with proper SQL parameter binding
     const whereClauses: SQL[] = [];
 
+    // Create allowed columns set for validation (SECURITY: prevent SQL injection)
+    const allowedColumns = new Set(columns.map((col) => col.column_name));
+
     if (practiceUid) {
       whereClauses.push(sql`practice_uid = ${parseInt(practiceUid, 10)}`);
     }
@@ -91,14 +129,16 @@ const queryDataSourceHandler = async (
       // Find the date column - look for columns that are date fields
       const dateColumn = columns.find((col) => col.is_date_field);
       if (dateColumn) {
-        whereClauses.push(sql.raw(`${dateColumn.column_name} >= '${startDate}'`));
+        // SECURITY FIX: Use parameterized query instead of sql.raw
+        whereClauses.push(sql`${sql.identifier(dateColumn.column_name)} >= ${startDate}`);
       }
     }
 
     if (endDate) {
       const dateColumn = columns.find((col) => col.is_date_field);
       if (dateColumn) {
-        whereClauses.push(sql.raw(`${dateColumn.column_name} <= '${endDate}'`));
+        // SECURITY FIX: Use parameterized query instead of sql.raw
+        whereClauses.push(sql`${sql.identifier(dateColumn.column_name)} <= ${endDate}`);
       }
     }
 
@@ -113,96 +153,104 @@ const queryDataSourceHandler = async (
           continue;
         }
 
-        // Build SQL condition based on operator
+        // SECURITY FIX: Validate field name against allowed columns
+        if (!allowedColumns.has(field)) {
+          log.warn('Attempted to use invalid field name in filter', {
+            field,
+            allowedColumns: Array.from(allowedColumns),
+            requestingUserId: userContext.user_id,
+          });
+          continue;
+        }
+
+        // Build SQL condition based on operator using parameterized queries
         switch (operator) {
           case 'eq':
             if (typeof value === 'string') {
-              whereClauses.push(sql.raw(`${field} = '${value.replace(/'/g, "''")}'`));
+              whereClauses.push(sql`${sql.identifier(field)} = ${value}`);
             } else if (typeof value === 'number') {
-              whereClauses.push(sql`${sql.raw(field)} = ${value}`);
+              whereClauses.push(sql`${sql.identifier(field)} = ${value}`);
             } else if (typeof value === 'boolean') {
-              whereClauses.push(sql`${sql.raw(field)} = ${value}`);
+              whereClauses.push(sql`${sql.identifier(field)} = ${value}`);
             }
             break;
 
           case 'neq':
             if (typeof value === 'string') {
-              whereClauses.push(sql.raw(`${field} != '${value.replace(/'/g, "''")}'`));
+              whereClauses.push(sql`${sql.identifier(field)} != ${value}`);
             } else if (typeof value === 'number') {
-              whereClauses.push(sql`${sql.raw(field)} != ${value}`);
+              whereClauses.push(sql`${sql.identifier(field)} != ${value}`);
             } else if (typeof value === 'boolean') {
-              whereClauses.push(sql`${sql.raw(field)} != ${value}`);
+              whereClauses.push(sql`${sql.identifier(field)} != ${value}`);
             }
             break;
 
           case 'gt':
             if (typeof value === 'number') {
-              whereClauses.push(sql`${sql.raw(field)} > ${value}`);
+              whereClauses.push(sql`${sql.identifier(field)} > ${value}`);
             } else if (typeof value === 'string') {
-              whereClauses.push(sql.raw(`${field} > '${value.replace(/'/g, "''")}'`));
+              whereClauses.push(sql`${sql.identifier(field)} > ${value}`);
             }
             break;
 
           case 'gte':
             if (typeof value === 'number') {
-              whereClauses.push(sql`${sql.raw(field)} >= ${value}`);
+              whereClauses.push(sql`${sql.identifier(field)} >= ${value}`);
             } else if (typeof value === 'string') {
-              whereClauses.push(sql.raw(`${field} >= '${value.replace(/'/g, "''")}'`));
+              whereClauses.push(sql`${sql.identifier(field)} >= ${value}`);
             }
             break;
 
           case 'lt':
             if (typeof value === 'number') {
-              whereClauses.push(sql`${sql.raw(field)} < ${value}`);
+              whereClauses.push(sql`${sql.identifier(field)} < ${value}`);
             } else if (typeof value === 'string') {
-              whereClauses.push(sql.raw(`${field} < '${value.replace(/'/g, "''")}'`));
+              whereClauses.push(sql`${sql.identifier(field)} < ${value}`);
             }
             break;
 
           case 'lte':
             if (typeof value === 'number') {
-              whereClauses.push(sql`${sql.raw(field)} <= ${value}`);
+              whereClauses.push(sql`${sql.identifier(field)} <= ${value}`);
             } else if (typeof value === 'string') {
-              whereClauses.push(sql.raw(`${field} <= '${value.replace(/'/g, "''")}'`));
+              whereClauses.push(sql`${sql.identifier(field)} <= ${value}`);
             }
             break;
 
           case 'like':
             if (typeof value === 'string') {
-              whereClauses.push(sql.raw(`${field} LIKE '%${value.replace(/'/g, "''")}%'`));
+              // SECURITY FIX: Use parameterized query with LIKE pattern
+              whereClauses.push(sql`${sql.identifier(field)} LIKE ${`%${value}%`}`);
             }
             break;
 
           case 'not_like':
             if (typeof value === 'string') {
-              whereClauses.push(sql.raw(`${field} NOT LIKE '%${value.replace(/'/g, "''")}%'`));
+              // SECURITY FIX: Use parameterized query with NOT LIKE pattern
+              whereClauses.push(sql`${sql.identifier(field)} NOT LIKE ${`%${value}%`}`);
             }
             break;
 
           case 'in':
             if (Array.isArray(value) && value.length > 0) {
-              const valuesList = value
-                .map((v) => (typeof v === 'string' ? `'${v.replace(/'/g, "''")}'` : v))
-                .join(', ');
-              whereClauses.push(sql.raw(`${field} IN (${valuesList})`));
+              // SECURITY FIX: Use parameterized query for IN clause
+              whereClauses.push(sql`${sql.identifier(field)} IN ${value}`);
             }
             break;
 
           case 'not_in':
             if (Array.isArray(value) && value.length > 0) {
-              const valuesList = value
-                .map((v) => (typeof v === 'string' ? `'${v.replace(/'/g, "''")}'` : v))
-                .join(', ');
-              whereClauses.push(sql.raw(`${field} NOT IN (${valuesList})`));
+              // SECURITY FIX: Use parameterized query for NOT IN clause
+              whereClauses.push(sql`${sql.identifier(field)} NOT IN ${value}`);
             }
             break;
 
           case 'is_null':
-            whereClauses.push(sql.raw(`${field} IS NULL`));
+            whereClauses.push(sql`${sql.identifier(field)} IS NULL`);
             break;
 
           case 'is_not_null':
-            whereClauses.push(sql.raw(`${field} IS NOT NULL`));
+            whereClauses.push(sql`${sql.identifier(field)} IS NOT NULL`);
             break;
 
           default:
