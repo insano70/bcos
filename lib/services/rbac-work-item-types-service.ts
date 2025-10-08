@@ -46,7 +46,7 @@ export class RBACWorkItemTypesService extends BaseRBACService {
 
     try {
       // Build WHERE conditions
-      const conditions = [eq(work_item_types.deleted_at, null as unknown as Date)];
+      const conditions = [isNull(work_item_types.deleted_at)];
 
       // Filter by organization_id or include global types
       if (organization_id) {
@@ -136,7 +136,7 @@ export class RBACWorkItemTypesService extends BaseRBACService {
     const { organization_id, is_active } = options;
 
     try {
-      const conditions = [eq(work_item_types.deleted_at, null as unknown as Date)];
+      const conditions = [isNull(work_item_types.deleted_at)];
 
       if (organization_id) {
         const orgCondition = or(
@@ -201,7 +201,7 @@ export class RBACWorkItemTypesService extends BaseRBACService {
         .where(
           and(
             eq(work_item_types.work_item_type_id, typeId),
-            eq(work_item_types.deleted_at, null as unknown as Date)
+            isNull(work_item_types.deleted_at)
           )
         )
         .limit(1);
