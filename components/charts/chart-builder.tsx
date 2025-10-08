@@ -84,7 +84,6 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
     chartType: 'bar',
     measure: '',
     frequency: '',
-    practiceUid: '114',
     startDate: '2024-01-01',
     endDate: '2025-12-31',
     groupBy: 'provider_name',
@@ -172,8 +171,7 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
         // Try to find the selected data source by matching table reference or dataSourceId
         const savedDataSource = await findDataSourceFromChart(dataSource.table, chartConfigData.dataSourceId);
 
-        // Find practice UID from filters
-        const practiceFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'practice_uid');
+        // Find filters from saved chart
         const measureFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'measure');
         const frequencyFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'frequency');
         const startDateFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'date_index' && f.operator === 'gte');
@@ -192,7 +190,6 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
           chartType: (editingChart.chart_type === 'pie' || editingChart.chart_type === 'area' ? 'bar' : editingChart.chart_type) || 'bar',
           measure: String(measureFilter?.value || ''),
           frequency: String(frequencyFilter?.value || ''),
-          practiceUid: practiceFilter?.value?.toString() || '',
           startDate: String(startDateFilter?.value || '2024-01-01'),
           endDate: String(endDateFilter?.value || '2025-12-31'),
           groupBy: chartConfigData.series?.groupBy || 'provider_name',
@@ -396,10 +393,7 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
         );
       }
 
-      // Add other filters
-      if (chartConfig.practiceUid) {
-        filters.push({ field: 'practice_uid', operator: 'eq', value: parseInt(chartConfig.practiceUid) });
-      }
+      // Add date range filters
       if (chartConfig.startDate) {
         filters.push({ field: 'date_index', operator: 'gte', value: chartConfig.startDate });
       }

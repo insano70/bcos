@@ -36,7 +36,6 @@ export interface ChartConfig {
   chartType: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'progress-bar' | 'doughnut' | 'table';
   measure: string;
   frequency: string;
-  practiceUid: string;
   startDate: string;
   endDate: string;
   groupBy: string;
@@ -208,20 +207,6 @@ export default function ChartBuilderCore({
             </select>
           </div>
         )}
-
-        {/* Practice Filter */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Practice Filter
-          </label>
-          <input
-            type="text"
-            value={chartConfig.practiceUid}
-            onChange={(e) => updateConfig('practiceUid', e.target.value)}
-            placeholder="Filter by practice (e.g., 114)"
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-          />
-        </div>
 
         {/* Group By - Hidden for table charts */}
         {chartConfig.chartType !== 'table' && (

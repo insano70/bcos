@@ -4,11 +4,6 @@ import { ChartFilter, MeasureType, MultipleSeriesConfig, PeriodComparisonConfig 
 import AdvancedFilterBuilder from './advanced-filter-builder';
 import { calculatedFieldsService } from '@/lib/services/calculated-fields';
 import { ChartConfig } from './chart-builder-core';
-import HistoricalComparisonWidget from './historical-comparison-widget';
-import TrendAnalysisDashboard from './trend-analysis-dashboard';
-import AnomalyMonitoringDashboard from './anomaly-monitoring-dashboard';
-import AnomalyRuleConfigurator from './anomaly-rule-configurator';
-import AccordionBasic from '@/components/accordion-basic';
 
 interface FieldDefinition {
   name: string;
@@ -284,59 +279,6 @@ export default function ChartBuilderAdvanced({
           )}
         </div>
       )}
-
-      {/* Analysis Section - Hidden under accordion */}
-      <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
-        <AccordionBasic title="Analysis">
-          <div className="space-y-6 pt-4">
-            {/* Historical Analysis Section */}
-            {chartConfig.measure && chartConfig.frequency && (
-              <div>
-                <h4 className="text-md font-medium text-gray-900 dark:text-gray-100 mb-4">
-                  Historical Analysis
-                </h4>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Historical Comparison */}
-                  <HistoricalComparisonWidget
-                    measure={typeof chartConfig.measure === 'object' ? (chartConfig.measure as any).measure : chartConfig.measure as any}
-                    frequency={typeof chartConfig.frequency === 'object' ? (chartConfig.frequency as any).frequency : chartConfig.frequency as any}
-                    practiceUid={chartConfig.practiceUid}
-                    className="h-fit"
-                  />
-                  
-                  {/* Trend Analysis */}
-                  <TrendAnalysisDashboard
-                    measure={typeof chartConfig.measure === 'object' ? (chartConfig.measure as any).measure : chartConfig.measure as any}
-                    frequency={typeof chartConfig.frequency === 'object' ? (chartConfig.frequency as any).frequency : chartConfig.frequency as any}
-                    practiceUid={chartConfig.practiceUid}
-                    periods={12}
-                    className="h-fit"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Anomaly Detection Section */}
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-              <h4 className="text-md font-medium text-gray-900 dark:text-gray-100 mb-4">
-                Anomaly Detection & Monitoring
-              </h4>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Anomaly Monitoring Dashboard */}
-                <AnomalyMonitoringDashboard className="h-fit" />
-                
-                {/* Anomaly Rule Configurator */}
-                <AnomalyRuleConfigurator
-                  measure={typeof chartConfig.measure === 'object' ? (chartConfig.measure as any).measure : chartConfig.measure as any}
-                  className="h-fit"
-                />
-              </div>
-            </div>
-          </div>
-        </AccordionBasic>
-      </div>
     </div>
   );
 }

@@ -42,7 +42,6 @@ export default function ChartBuilderPreview({
             chartType={chartConfig.chartType}
             measure={chartConfig.measure as any}
             frequency={chartConfig.frequency as any}
-            practice={chartConfig.practiceUid.trim() || undefined}
             startDate={chartConfig.startDate || undefined}
             endDate={chartConfig.endDate || undefined}
             groupBy={chartConfig.groupBy}

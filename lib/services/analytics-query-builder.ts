@@ -222,26 +222,51 @@ export class AnalyticsQueryBuilder {
   }
 
   /**
-   * Get the measure type column name for a data source
+   * Get dynamic column mappings from data source metadata
    */
-  private async getMeasureTypeColumn(dataSourceId: number): Promise<string | null> {
-    try {
-      // Query for the column marked as measure type indicator
-      const result = await executeAnalyticsQuery<{ column_name: string }>(
-        `
-        SELECT column_name 
-        FROM chart_data_source_columns 
-        WHERE data_source_id = $1 AND is_measure_type = true AND is_active = true
-        LIMIT 1
-      `,
-        [dataSourceId]
-      );
+  private async getColumnMappings(tableName: string, schemaName: string): Promise<{
+    dateField: string;
+    timePeriodField: string;
+    measureValueField: string;
+    measureTypeField: string;
+    allColumns: string[];
+  }> {
+    const config = await chartConfigService.getDataSourceConfig(tableName, schemaName);
 
-      return result && result.length > 0 ? result[0]?.column_name || null : null;
-    } catch (error) {
-      this.log.warn('Failed to get measure type column', { dataSourceId, error });
-      return null;
+    if (!config) {
+      throw new Error(`Data source configuration not found for ${schemaName}.${tableName}`);
     }
+
+    // Find the time period field first (it's the frequency column like 'Daily', 'Weekly', etc.)
+    const timePeriodColumn = config.columns.find(col => col.isTimePeriod);
+    const timePeriodField = timePeriodColumn?.columnName || 'frequency';
+
+    // Find the date field - exclude time period field, prefer column named 'date_value' or 'date_index'
+    const dateColumn = config.columns.find(col =>
+      col.isDateField &&
+      col.columnName !== timePeriodField &&
+      (col.columnName === 'date_value' || col.columnName === 'date_index' || col.dataType === 'date')
+    ) || config.columns.find(col => col.isDateField && col.columnName !== timePeriodField);
+    const dateField = dateColumn?.columnName || 'date_index';
+
+    // Find the measure value field
+    const measureColumn = config.columns.find(col => col.isMeasure);
+    const measureValueField = measureColumn?.columnName || 'measure_value';
+
+    // Find the measure type field
+    const measureTypeColumn = config.columns.find(col => col.isMeasureType);
+    const measureTypeField = measureTypeColumn?.columnName || 'measure_type';
+
+    // Get all column names
+    const allColumns = config.columns.map(col => col.columnName);
+
+    return {
+      dateField,
+      timePeriodField,
+      measureValueField,
+      measureTypeField,
+      allColumns
+    };
   }
 
   /**
@@ -314,19 +339,18 @@ export class AnalyticsQueryBuilder {
       // Validate table access
       await this.validateTable(tableName, schemaName);
 
-      // Build filters from params - use column mappings if available
-      const filters: ChartFilter[] = [];
+      // Get dynamic column mappings from metadata
+      const columnMappings = await this.getColumnMappings(tableName, schemaName);
 
-      // Define field mappings based on table type
-      const mainDateField = tableName === 'agg_chart_data' ? 'date_value' : 'date_index';
-      const mainFrequencyField = tableName === 'agg_chart_data' ? 'time_period' : 'frequency';
+      // Build filters from params - use dynamic column mappings
+      const filters: ChartFilter[] = [];
 
       if (params.measure) {
         filters.push({ field: 'measure', operator: 'eq', value: params.measure });
       }
 
       if (params.frequency) {
-        filters.push({ field: mainFrequencyField, operator: 'eq', value: params.frequency });
+        filters.push({ field: columnMappings.timePeriodField, operator: 'eq', value: params.frequency });
       }
 
       if (params.practice) {
@@ -346,11 +370,11 @@ export class AnalyticsQueryBuilder {
       }
 
       if (params.start_date) {
-        filters.push({ field: mainDateField, operator: 'gte', value: params.start_date });
+        filters.push({ field: columnMappings.dateField, operator: 'gte', value: params.start_date });
       }
 
       if (params.end_date) {
-        filters.push({ field: mainDateField, operator: 'lte', value: params.end_date });
+        filters.push({ field: columnMappings.dateField, operator: 'lte', value: params.end_date });
       }
 
       // Process advanced filters if provided
@@ -367,40 +391,22 @@ export class AnalyticsQueryBuilder {
         schemaName
       );
 
-      // Build complete query for pre-aggregated data
-      // Build the query with dynamic table name and column mapping
-      const mainQueryDateField = tableName === 'agg_chart_data' ? 'date_value' : 'date_index';
-      const valueField = tableName === 'agg_chart_data' ? 'numeric_value' : 'measure_value';
-      const mainQueryFrequencyField = tableName === 'agg_chart_data' ? 'time_period' : 'frequency';
-
-      // Get the dynamic measure type column name for this data source
-      let measureTypeColumn = 'measure_type'; // Default fallback
-      if (params.data_source_id) {
-        const dynamicMeasureTypeColumn = await this.getMeasureTypeColumn(params.data_source_id);
-        if (dynamicMeasureTypeColumn) {
-          measureTypeColumn = dynamicMeasureTypeColumn;
-        }
-      }
-
-      // Build column list - entity_name only exists in agg_chart_data table
-      const columns = [
-        'practice',
-        'practice_primary',
-        'practice_uid',
-        'provider_name',
-        ...(tableName === 'agg_chart_data' ? ['entity_name'] : []),
-        'measure',
-        `${mainQueryFrequencyField} as frequency`,
-        `${mainQueryDateField} as date_index`,
-        `${valueField} as measure_value`,
-        `${measureTypeColumn} as measure_type`,
-      ];
+      // Build dynamic SELECT column list using metadata
+      const selectColumns = columnMappings.allColumns
+        .map(col => {
+          // Alias special columns for consistent interface
+          if (col === columnMappings.dateField) return `${col} as date_index`;
+          if (col === columnMappings.timePeriodField) return `${col} as frequency`;
+          if (col === columnMappings.measureValueField) return `${col} as measure_value`;
+          if (col === columnMappings.measureTypeField) return `${col} as measure_type`;
+          return col;
+        });
 
       const query = `
-        SELECT ${columns.join(', ')}
+        SELECT ${selectColumns.join(', ')}
         FROM ${schemaName}.${tableName}
         ${whereClause}
-        ORDER BY ${mainQueryDateField} ASC
+        ORDER BY ${columnMappings.dateField} ASC
       `;
 
       // Execute query
@@ -409,15 +415,15 @@ export class AnalyticsQueryBuilder {
       // Get appropriate total based on measure_type
       // For currency: sum the values, for count: count the rows
       const totalQuery = `
-        SELECT 
-          CASE 
-            WHEN ${measureTypeColumn} = 'currency' THEN SUM(${valueField})::text
+        SELECT
+          CASE
+            WHEN ${columnMappings.measureTypeField} = 'currency' THEN SUM(${columnMappings.measureValueField})::text
             ELSE COUNT(*)::text
           END as total,
-          ${measureTypeColumn} as measure_type
+          ${columnMappings.measureTypeField} as measure_type
         FROM ${schemaName}.${tableName}
         ${whereClause}
-        GROUP BY ${measureTypeColumn}
+        GROUP BY ${columnMappings.measureTypeField}
       `;
 
       const totalResult = await executeAnalyticsQuery<{ total: string; measure_type: string }>(
@@ -527,19 +533,18 @@ export class AnalyticsQueryBuilder {
     // Validate table access
     await this.validateTable(tableName, schemaName);
 
-    // Build filters from params - use column mappings if available
-    const filters: ChartFilter[] = [];
+    // Get dynamic column mappings from metadata
+    const columnMappings = await this.getColumnMappings(tableName, schemaName);
 
-    // Define field mappings based on table type
-    const mainDateField = tableName === 'agg_chart_data' ? 'date_value' : 'date_index';
-    const mainFrequencyField = tableName === 'agg_chart_data' ? 'time_period' : 'frequency';
+    // Build filters from params - use dynamic column mappings
+    const filters: ChartFilter[] = [];
 
     if (params.measure) {
       filters.push({ field: 'measure', operator: 'eq', value: params.measure });
     }
 
     if (params.frequency) {
-      filters.push({ field: mainFrequencyField, operator: 'eq', value: params.frequency });
+      filters.push({ field: columnMappings.timePeriodField, operator: 'eq', value: params.frequency });
     }
 
     if (params.practice) {
@@ -559,11 +564,11 @@ export class AnalyticsQueryBuilder {
     }
 
     if (params.start_date) {
-      filters.push({ field: mainDateField, operator: 'gte', value: params.start_date });
+      filters.push({ field: columnMappings.dateField, operator: 'gte', value: params.start_date });
     }
 
     if (params.end_date) {
-      filters.push({ field: mainDateField, operator: 'lte', value: params.end_date });
+      filters.push({ field: columnMappings.dateField, operator: 'lte', value: params.end_date });
     }
 
     // Process advanced filters if provided
@@ -580,40 +585,22 @@ export class AnalyticsQueryBuilder {
       schemaName
     );
 
-    // Build complete query for pre-aggregated data
-    // Build the query with dynamic table name and column mapping
-    const mainQueryDateField = tableName === 'agg_chart_data' ? 'date_value' : 'date_index';
-    const valueField = tableName === 'agg_chart_data' ? 'numeric_value' : 'measure_value';
-    const mainQueryFrequencyField = tableName === 'agg_chart_data' ? 'time_period' : 'frequency';
-
-    // Get the dynamic measure type column name for this data source
-    let measureTypeColumn = 'measure_type'; // Default fallback
-    if (params.data_source_id) {
-      const dynamicMeasureTypeColumn = await this.getMeasureTypeColumn(params.data_source_id);
-      if (dynamicMeasureTypeColumn) {
-        measureTypeColumn = dynamicMeasureTypeColumn;
-      }
-    }
-
-    // Build column list - entity_name only exists in agg_chart_data table
-    const pcColumns = [
-      'practice',
-      'practice_primary',
-      'practice_uid',
-      'provider_name',
-      ...(tableName === 'agg_chart_data' ? ['entity_name'] : []),
-      'measure',
-      `${mainQueryFrequencyField} as frequency`,
-      `${mainQueryDateField} as date_index`,
-      `${valueField} as measure_value`,
-      `${measureTypeColumn} as measure_type`,
-    ];
+    // Build dynamic SELECT column list using metadata
+    const selectColumns = columnMappings.allColumns
+      .map(col => {
+        // Alias special columns for consistent interface
+        if (col === columnMappings.dateField) return `${col} as date_index`;
+        if (col === columnMappings.timePeriodField) return `${col} as frequency`;
+        if (col === columnMappings.measureValueField) return `${col} as measure_value`;
+        if (col === columnMappings.measureTypeField) return `${col} as measure_type`;
+        return col;
+      });
 
     const query = `
-      SELECT ${pcColumns.join(', ')}
+      SELECT ${selectColumns.join(', ')}
       FROM ${schemaName}.${tableName}
       ${whereClause}
-      ORDER BY ${mainQueryDateField} ASC
+      ORDER BY ${columnMappings.dateField} ASC
     `;
 
     // Execute query
@@ -622,15 +609,15 @@ export class AnalyticsQueryBuilder {
     // Get appropriate total based on measure_type
     // For currency: sum the values, for count: count the rows
     const totalQuery = `
-      SELECT 
-        CASE 
-          WHEN ${measureTypeColumn} = 'currency' THEN SUM(${valueField})::text
+      SELECT
+        CASE
+          WHEN ${columnMappings.measureTypeField} = 'currency' THEN SUM(${columnMappings.measureValueField})::text
           ELSE COUNT(*)::text
         END as total,
-        ${measureTypeColumn} as measure_type
+        ${columnMappings.measureTypeField} as measure_type
       FROM ${schemaName}.${tableName}
       ${whereClause}
-      GROUP BY ${measureTypeColumn}
+      GROUP BY ${columnMappings.measureTypeField}
     `;
 
     const totalResult = await executeAnalyticsQuery<{ total: string; measure_type: string }>(
@@ -711,19 +698,18 @@ export class AnalyticsQueryBuilder {
     // Validate table access
     await this.validateTable(tableName, schemaName);
 
+    // Get dynamic column mappings from metadata
+    const columnMappings = await this.getColumnMappings(tableName, schemaName);
+
     // Build filters from params (excluding measure - we'll handle that separately)
     const filters: ChartFilter[] = [];
-
-    // Use column mappings based on table type
-    const msDateField = tableName === 'agg_chart_data' ? 'date_value' : 'date_index';
-    const msFrequencyField = tableName === 'agg_chart_data' ? 'time_period' : 'frequency';
 
     // Add multiple measures using IN operator for efficiency
     const measures = params.multiple_series.map((s) => s.measure);
     filters.push({ field: 'measure', operator: 'in', value: measures });
 
     if (params.frequency) {
-      filters.push({ field: msFrequencyField, operator: 'eq', value: params.frequency });
+      filters.push({ field: columnMappings.timePeriodField, operator: 'eq', value: params.frequency });
     }
 
     if (params.practice) {
@@ -743,11 +729,11 @@ export class AnalyticsQueryBuilder {
     }
 
     if (params.start_date) {
-      filters.push({ field: 'date_index', operator: 'gte', value: params.start_date });
+      filters.push({ field: columnMappings.dateField, operator: 'gte', value: params.start_date });
     }
 
     if (params.end_date) {
-      filters.push({ field: 'date_index', operator: 'lte', value: params.end_date });
+      filters.push({ field: columnMappings.dateField, operator: 'lte', value: params.end_date });
     }
 
     // Process advanced filters if provided
@@ -759,31 +745,27 @@ export class AnalyticsQueryBuilder {
     // Build WHERE clause with security context
     const { clause: whereClause, params: queryParams } = await this.buildWhereClause(
       filters,
-      context
+      context,
+      tableName,
+      schemaName
     );
 
-    // Build complete query for pre-aggregated data with dynamic table and column mapping
-    const msValueField = tableName === 'agg_chart_data' ? 'numeric_value' : 'measure_value';
-
-    // Build column list - entity_name only exists in agg_chart_data table
-    const msColumns = [
-      'practice',
-      'practice_primary',
-      'practice_uid',
-      'provider_name',
-      ...(tableName === 'agg_chart_data' ? ['entity_name'] : []),
-      'measure',
-      `${msFrequencyField} as frequency`,
-      `${msDateField} as date_index`,
-      `${msValueField} as measure_value`,
-      'measure_type',
-    ];
+    // Build dynamic SELECT column list using metadata
+    const selectColumns = columnMappings.allColumns
+      .map(col => {
+        // Alias special columns for consistent interface
+        if (col === columnMappings.dateField) return `${col} as date_index`;
+        if (col === columnMappings.timePeriodField) return `${col} as frequency`;
+        if (col === columnMappings.measureValueField) return `${col} as measure_value`;
+        if (col === columnMappings.measureTypeField) return `${col} as measure_type`;
+        return col;
+      });
 
     const query = `
-      SELECT ${msColumns.join(', ')}
+      SELECT ${selectColumns.join(', ')}
       FROM ${schemaName}.${tableName}
       ${whereClause}
-      ORDER BY measure, ${msDateField} ASC
+      ORDER BY measure, ${columnMappings.dateField} ASC
     `;
 
     // Execute query
@@ -804,7 +786,7 @@ export class AnalyticsQueryBuilder {
     // Get total count
     const countQuery = `
       SELECT COUNT(*) as count
-      FROM ih.agg_app_measures
+      FROM ${schemaName}.${tableName}
       ${whereClause}
     `;
 

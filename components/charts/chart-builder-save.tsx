@@ -27,7 +27,6 @@ export default function ChartBuilderSave({
           <div><strong>Measure:</strong> {chartConfig.measure}</div>
           <div><strong>Frequency:</strong> {chartConfig.frequency}</div>
           <div><strong>Group By:</strong> {chartConfig.groupBy}</div>
-          {chartConfig.practiceUid && <div><strong>Practice:</strong> {chartConfig.practiceUid}</div>}
           {chartConfig.calculatedField && <div><strong>Calculated Field:</strong> {chartConfig.calculatedField}</div>}
           {chartConfig.useAdvancedFiltering && <div><strong>Advanced Filters:</strong> Enabled ({chartConfig.advancedFilters.length} filters)</div>}
           {chartConfig.useMultipleSeries && <div><strong>Multiple Series:</strong> Enabled ({chartConfig.seriesConfigs.length} series)</div>}
