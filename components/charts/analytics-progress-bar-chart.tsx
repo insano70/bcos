@@ -73,6 +73,14 @@ export default function AnalyticsProgressBarChart({
     }
   };
 
+  // Calculate max value for scaling bars to use full width
+  const maxValue = Math.max(...data.map(item => item.value));
+
+  // Calculate bar width as percentage of max value (so largest bar is ~95% width)
+  const getBarWidth = (value: number): number => {
+    return (value / maxValue) * 95; // Scale to 95% max width
+  };
+
   return (
     <div style={{ height: `${height}px` }} className="w-full">
       {title && (
@@ -80,20 +88,20 @@ export default function AnalyticsProgressBarChart({
           <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
         </div>
       )}
-      
+
       <div className="p-4 overflow-y-auto" style={{ maxHeight: title ? `${height - 50}px` : `${height}px` }}>
         <ul className="space-y-2">
           {data.map((item, index) => {
             const barColor = getColorForIndex(index);
+            const barWidth = getBarWidth(item.value);
             return (
               <li key={`${item.label}-${index}`} className="relative px-3 py-2 rounded-md">
-                {/* Progress bar background - extends almost full width */}
+                {/* Progress bar background - scales relative to max value */}
                 <div
                   className="absolute inset-y-0 left-0 rounded-r opacity-20 dark:opacity-30 transition-all duration-300"
-                  style={{ 
+                  style={{
                     backgroundColor: barColor,
-                    width: `calc(${item.percentage}% * 2)`, // Double the visual width for better display
-                    maxWidth: '95%' // Cap at 95% to leave room for values
+                    width: `${barWidth}%`
                   }}
                   aria-hidden="true"
                 />

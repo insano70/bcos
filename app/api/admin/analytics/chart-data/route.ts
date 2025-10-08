@@ -78,12 +78,26 @@ const transformChartDataHandler = async (
     const transformChartType = validatedData.chartType === 'stacked-bar' ? 'bar' : validatedData.chartType;
 
     // Debug: Log sample measure and grouping info
+    const sampleMeasures = measures.slice(0, 5);
+    const groupByField = validatedData.groupBy;
+    const groupValues = measures.map(m => (m as Record<string, unknown>)[groupByField]);
+    const uniqueGroupValues = [...new Set(groupValues)];
+
     log.info('Transformation parameters', {
       requestingUserId: userContext.user_id,
       transformChartType,
-      groupBy: validatedData.groupBy,
-      sampleMeasure: measures[0],
-      uniqueGroupValues: [...new Set(measures.slice(0, 10).map(m => (m as Record<string, unknown>)[validatedData.groupBy]))],
+      groupBy: groupByField,
+      totalMeasures: measures.length,
+      sampleMeasures: sampleMeasures.map(m => ({
+        entity_name: (m as Record<string, unknown>).entity_name,
+        provider_name: (m as Record<string, unknown>).provider_name,
+        measure_value: m.measure_value,
+        [groupByField]: (m as Record<string, unknown>)[groupByField],
+      })),
+      uniqueGroupValuesCount: uniqueGroupValues.length,
+      uniqueGroupValuesSample: uniqueGroupValues.slice(0, 10),
+      hasNullValues: groupValues.filter(v => v == null).length,
+      hasUndefinedValues: groupValues.filter(v => v === undefined).length,
     });
 
     let chartData: ChartData;

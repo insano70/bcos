@@ -382,17 +382,22 @@ export class AnalyticsQueryBuilder {
         }
       }
 
+      // Build column list - entity_name only exists in agg_chart_data table
+      const columns = [
+        'practice',
+        'practice_primary',
+        'practice_uid',
+        'provider_name',
+        ...(tableName === 'agg_chart_data' ? ['entity_name'] : []),
+        'measure',
+        `${mainQueryFrequencyField} as frequency`,
+        `${mainQueryDateField} as date_index`,
+        `${valueField} as measure_value`,
+        `${measureTypeColumn} as measure_type`,
+      ];
+
       const query = `
-        SELECT 
-          practice,
-          practice_primary,
-          practice_uid,
-          provider_name,
-          measure,
-          ${mainQueryFrequencyField} as frequency,
-          ${mainQueryDateField} as date_index,
-          ${valueField} as measure_value,
-          ${measureTypeColumn} as measure_type
+        SELECT ${columns.join(', ')}
         FROM ${schemaName}.${tableName}
         ${whereClause}
         ORDER BY ${mainQueryDateField} ASC
@@ -590,17 +595,22 @@ export class AnalyticsQueryBuilder {
       }
     }
 
+    // Build column list - entity_name only exists in agg_chart_data table
+    const pcColumns = [
+      'practice',
+      'practice_primary',
+      'practice_uid',
+      'provider_name',
+      ...(tableName === 'agg_chart_data' ? ['entity_name'] : []),
+      'measure',
+      `${mainQueryFrequencyField} as frequency`,
+      `${mainQueryDateField} as date_index`,
+      `${valueField} as measure_value`,
+      `${measureTypeColumn} as measure_type`,
+    ];
+
     const query = `
-      SELECT 
-        practice,
-        practice_primary,
-        practice_uid,
-        provider_name,
-        measure,
-        ${mainQueryFrequencyField} as frequency,
-        ${mainQueryDateField} as date_index,
-        ${valueField} as measure_value,
-        ${measureTypeColumn} as measure_type
+      SELECT ${pcColumns.join(', ')}
       FROM ${schemaName}.${tableName}
       ${whereClause}
       ORDER BY ${mainQueryDateField} ASC
@@ -755,17 +765,22 @@ export class AnalyticsQueryBuilder {
     // Build complete query for pre-aggregated data with dynamic table and column mapping
     const msValueField = tableName === 'agg_chart_data' ? 'numeric_value' : 'measure_value';
 
+    // Build column list - entity_name only exists in agg_chart_data table
+    const msColumns = [
+      'practice',
+      'practice_primary',
+      'practice_uid',
+      'provider_name',
+      ...(tableName === 'agg_chart_data' ? ['entity_name'] : []),
+      'measure',
+      `${msFrequencyField} as frequency`,
+      `${msDateField} as date_index`,
+      `${msValueField} as measure_value`,
+      'measure_type',
+    ];
+
     const query = `
-      SELECT 
-        practice,
-        practice_primary,
-        practice_uid,
-        provider_name,
-        measure,
-        ${msFrequencyField} as frequency,
-        ${msDateField} as date_index,
-        ${msValueField} as measure_value,
-        measure_type
+      SELECT ${msColumns.join(', ')}
       FROM ${schemaName}.${tableName}
       ${whereClause}
       ORDER BY measure, ${msDateField} ASC
