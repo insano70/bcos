@@ -14,12 +14,14 @@ import {
   type WorkItemStatusTransition,
 } from '@/lib/hooks/use-work-item-transitions';
 import Toast from './toast';
+import EditTransitionConfigModal from './edit-transition-config-modal';
 
 interface WorkflowVisualizationModalProps {
   isOpen: boolean;
   onClose: () => void;
   workItemTypeId: string;
   workItemTypeName: string;
+  organizationId: string;
 }
 
 export default function WorkflowVisualizationModal({
@@ -27,6 +29,7 @@ export default function WorkflowVisualizationModal({
   onClose,
   workItemTypeId,
   workItemTypeName,
+  organizationId,
 }: WorkflowVisualizationModalProps) {
   const { data: statuses = [], isLoading: statusesLoading } = useWorkItemStatuses(workItemTypeId);
   const { data: transitions = [], isLoading: transitionsLoading, refetch } = useWorkItemTransitions(workItemTypeId);
@@ -38,6 +41,7 @@ export default function WorkflowVisualizationModal({
   const [toastMessage, setToastMessage] = useState('');
   const [selectedFromStatus, setSelectedFromStatus] = useState<string | null>(null);
   const [selectedToStatus, setSelectedToStatus] = useState<string | null>(null);
+  const [editingTransition, setEditingTransition] = useState<WorkItemStatusTransition | null>(null);
 
   const sortedStatuses = [...statuses].sort((a, b) => a.display_order - b.display_order);
 
@@ -304,17 +308,34 @@ export default function WorkflowVisualizationModal({
                                     >
                                       {transition.is_allowed ? 'Allowed' : 'Blocked'}
                                     </span>
+                                    {(transition.validation_config !== null || transition.action_config !== null) && (
+                                      <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                                        Configured
+                                      </span>
+                                    )}
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteTransition(transition)}
-                                    className="text-red-400 hover:text-red-600 dark:hover:text-red-300"
-                                    title="Delete rule"
-                                  >
-                                    <svg className="w-4 h-4 fill-current" viewBox="0 0 16 16">
-                                      <path d="M5 7h6v6H5V7zm6-3.5V2h-1V.5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5V2H5v1.5H4V4h8v-.5H11zM7 2V1h2v1H7zM6 5v6h1V5H6zm3 0v6h1V5H9z" />
-                                    </svg>
-                                  </button>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingTransition(transition)}
+                                      className="text-blue-500 hover:text-blue-600 dark:hover:text-blue-400"
+                                      title="Configure validation and actions"
+                                    >
+                                      <svg className="w-4 h-4 fill-current" viewBox="0 0 16 16">
+                                        <path d="M11.7.3c-.4-.4-1-.4-1.4 0l-10 10c-.2.2-.3.4-.3.7v4c0 .6.4 1 1 1h4c.3 0 .5-.1.7-.3l10-10c.4-.4.4-1 0-1.4l-4-4zM4.6 14H2v-2.6l6-6L10.6 8l-6 6zM12 6.6L9.4 4 11 2.4 13.6 5 12 6.6z" />
+                                      </svg>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteTransition(transition)}
+                                      className="text-red-400 hover:text-red-600 dark:hover:text-red-300"
+                                      title="Delete rule"
+                                    >
+                                      <svg className="w-4 h-4 fill-current" viewBox="0 0 16 16">
+                                        <path d="M5 7h6v6H5V7zm6-3.5V2h-1V.5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5V2H5v1.5H4V4h8v-.5H11zM7 2V1h2v1H7zM6 5v6h1V5H6zm3 0v6h1V5H9z" />
+                                      </svg>
+                                    </button>
+                                  </div>
                                 </div>
                               );
                             })}
@@ -342,6 +363,20 @@ export default function WorkflowVisualizationModal({
           </TransitionChild>
         </Dialog>
       </Transition>
+
+      {editingTransition && (
+        <EditTransitionConfigModal
+          isOpen={!!editingTransition}
+          onClose={() => {
+            setEditingTransition(null);
+            refetch(); // Refresh transitions after config changes
+          }}
+          transition={editingTransition}
+          fromStatusName={statuses.find((s) => s.work_item_status_id === editingTransition.from_status_id)?.status_name || 'Unknown'}
+          toStatusName={statuses.find((s) => s.work_item_status_id === editingTransition.to_status_id)?.status_name || 'Unknown'}
+          workItemTypeId={workItemTypeId}
+        />
+      )}
 
       <Toast type="success" open={showToast} setOpen={setShowToast}>
         {toastMessage}

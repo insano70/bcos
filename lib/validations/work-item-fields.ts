@@ -14,6 +14,13 @@ export const fieldTypeSchema = z.enum([
   'dropdown',
   'checkbox',
   'user_picker',
+  'multi_select',
+  'rich_text',
+  'url',
+  'email',
+  'phone',
+  'currency',
+  'percentage',
 ]);
 
 // Field option schema
@@ -34,6 +41,20 @@ export const validationRulesSchema = z
   })
   .optional();
 
+// Conditional visibility rule schema
+export const conditionalVisibilityRuleSchema = z.object({
+  field_id: z.string().uuid('Invalid field ID'),
+  operator: z.enum(['equals', 'not_equals', 'contains', 'not_contains', 'greater_than', 'less_than', 'is_empty', 'is_not_empty']),
+  value: z.unknown().optional(), // Value to compare against (not needed for is_empty/is_not_empty)
+});
+
+// Field config schema
+export const fieldConfigSchema = z
+  .object({
+    conditional_visibility: z.array(conditionalVisibilityRuleSchema).optional(),
+  })
+  .optional();
+
 // Create work item field schema
 export const workItemFieldCreateSchema = z.object({
   work_item_type_id: z.string().uuid('Invalid work item type ID'),
@@ -46,6 +67,7 @@ export const workItemFieldCreateSchema = z.object({
   field_type: fieldTypeSchema,
   field_description: z.string().max(1000).optional(),
   field_options: z.array(fieldOptionSchema).optional(),
+  field_config: fieldConfigSchema,
   is_required: z.boolean().optional().default(false),
   validation_rules: validationRulesSchema,
   default_value: z.string().max(1000).optional(),
@@ -58,6 +80,7 @@ export const workItemFieldUpdateSchema = z.object({
   field_label: z.string().min(1, 'Field label is required').max(255, 'Field label must not exceed 255 characters').optional(),
   field_description: z.string().max(1000).optional(),
   field_options: z.array(fieldOptionSchema).optional(),
+  field_config: fieldConfigSchema,
   is_required: z.boolean().optional(),
   validation_rules: validationRulesSchema,
   default_value: z.string().max(1000).optional(),

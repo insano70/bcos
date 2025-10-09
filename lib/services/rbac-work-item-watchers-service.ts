@@ -1,4 +1,4 @@
-import { and, eq, or, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { users, work_item_watchers, work_items } from '@/lib/db/schema';
 import { BaseRBACService } from '@/lib/rbac/base-service';
@@ -176,7 +176,11 @@ export class RBACWorkItemWatchersService extends BaseRBACService {
         workItemId: data.work_item_id,
         userId: data.user_id,
       });
-      return this.getWatcherById(existingWatcher[0].work_item_watcher_id);
+      const watcherId = existingWatcher[0]?.work_item_watcher_id;
+      if (!watcherId) {
+        throw new Error('Failed to retrieve existing watcher ID');
+      }
+      return this.getWatcherById(watcherId);
     }
 
     // Create new watcher
@@ -368,6 +372,10 @@ export class RBACWorkItemWatchersService extends BaseRBACService {
     }
 
     const result = results[0];
+    if (!result) {
+      throw new Error('Watcher not found');
+    }
+
     return {
       work_item_watcher_id: result.work_item_watcher_id,
       work_item_id: result.work_item_id,
@@ -410,7 +418,7 @@ export class RBACWorkItemWatchersService extends BaseRBACService {
         .where(eq(work_items.work_item_id, workItemId))
         .limit(1);
 
-      if (workItem.length === 0) {
+      if (workItem.length === 0 || !workItem[0]) {
         return false;
       }
 

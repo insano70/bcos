@@ -9,6 +9,11 @@ import WorkItemActivitySection from '@/components/work-items/work-item-activity-
 import WorkItemAttachmentsSection from '@/components/work-items/work-item-attachments-section';
 import EditWorkItemModal from '@/components/edit-work-item-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
+import { WorkItemWatchButton } from '@/components/work-item-watch-button';
+import { WorkItemWatchersList } from '@/components/work-item-watchers-list';
+import { useWorkItemWatchers } from '@/lib/hooks/use-work-item-watchers';
+import { useAuth } from '@/components/auth-provider';
+import { log } from '@/lib/logger';
 
 interface WorkItemDetailContentProps {
   workItemId: string;
@@ -17,10 +22,15 @@ interface WorkItemDetailContentProps {
 export default function WorkItemDetailContent({ workItemId }: WorkItemDetailContentProps) {
   const router = useRouter();
   const { data: workItem, isLoading, error, refetch } = useWorkItem(workItemId);
+  const { data: watchers } = useWorkItemWatchers(workItemId);
+  const { user } = useAuth();
   const updateWorkItem = useUpdateWorkItem();
   const deleteWorkItem = useDeleteWorkItem();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'details' | 'comments' | 'activity' | 'history'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'comments' | 'activity' | 'history' | 'watchers'>('details');
+
+  // Check if current user is watching
+  const isWatching = watchers?.some(w => w.user_id === user?.user_id) || false;
 
   const handleDelete = async () => {
     if (confirm('Are you sure you want to delete this work item? This action cannot be undone.')) {
@@ -28,7 +38,11 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
         await deleteWorkItem.mutateAsync(workItemId);
         router.push('/work');
       } catch (error) {
-        console.error('Failed to delete work item:', error);
+        log.error('Failed to delete work item', error, {
+          workItemId,
+          operation: 'delete_work_item',
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
   };
@@ -107,6 +121,12 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
           </button>
 
           <div className="flex gap-2">
+            {/* Phase 7: Watch/Unwatch Button */}
+            <WorkItemWatchButton
+              workItemId={workItemId}
+              isWatching={isWatching}
+            />
+
             <ProtectedComponent
               permissions={['work-items:update:own', 'work-items:update:organization', 'work-items:update:all']}
               requireAll={false}
@@ -211,6 +231,17 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
           >
             Activity
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('watchers')}
+            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'watchers'
+                ? 'border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            Watchers
+          </button>
         </nav>
       </div>
 
@@ -240,6 +271,18 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
 
           {activeTab === 'activity' && (
             <WorkItemActivitySection workItemId={workItemId} />
+          )}
+
+          {activeTab === 'watchers' && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                Watchers
+              </h2>
+              <WorkItemWatchersList
+                workItemId={workItemId}
+                currentUserId={user?.user_id || ''}
+              />
+            </div>
           )}
         </div>
 

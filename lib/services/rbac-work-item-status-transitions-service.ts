@@ -18,6 +18,8 @@ export interface WorkItemStatusTransitionWithDetails {
   from_status_id: string;
   to_status_id: string;
   is_allowed: boolean;
+  validation_config: unknown | null;
+  action_config: unknown | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -50,6 +52,8 @@ export class RBACWorkItemStatusTransitionsService extends BaseRBACService {
           from_status_id: work_item_status_transitions.from_status_id,
           to_status_id: work_item_status_transitions.to_status_id,
           is_allowed: work_item_status_transitions.is_allowed,
+          validation_config: work_item_status_transitions.validation_config,
+          action_config: work_item_status_transitions.action_config,
           created_at: work_item_status_transitions.created_at,
           updated_at: work_item_status_transitions.updated_at,
         })
@@ -91,6 +95,8 @@ export class RBACWorkItemStatusTransitionsService extends BaseRBACService {
           from_status_id: work_item_status_transitions.from_status_id,
           to_status_id: work_item_status_transitions.to_status_id,
           is_allowed: work_item_status_transitions.is_allowed,
+          validation_config: work_item_status_transitions.validation_config,
+          action_config: work_item_status_transitions.action_config,
           created_at: work_item_status_transitions.created_at,
           updated_at: work_item_status_transitions.updated_at,
         })
@@ -221,7 +227,11 @@ export class RBACWorkItemStatusTransitionsService extends BaseRBACService {
         duration,
       });
 
-      return result;
+      return {
+        ...result,
+        validation_config: result.validation_config ?? null,
+        action_config: result.action_config ?? null,
+      };
     } catch (error) {
       const duration = Date.now() - queryStart;
       log.error(`Failed to create status transition`, error, {
@@ -240,6 +250,8 @@ export class RBACWorkItemStatusTransitionsService extends BaseRBACService {
     transitionId: string,
     data: {
       is_allowed?: boolean;
+      validation_config?: unknown;
+      action_config?: unknown;
     }
   ): Promise<WorkItemStatusTransitionWithDetails> {
     const queryStart = Date.now();
@@ -284,12 +296,28 @@ export class RBACWorkItemStatusTransitionsService extends BaseRBACService {
       }
 
       // Update the transition
+      const updateData: {
+        is_allowed?: boolean;
+        validation_config?: unknown;
+        action_config?: unknown;
+        updated_at: Date;
+      } = {
+        updated_at: new Date(),
+      };
+
+      if (data.is_allowed !== undefined) {
+        updateData.is_allowed = data.is_allowed;
+      }
+      if (data.validation_config !== undefined) {
+        updateData.validation_config = data.validation_config;
+      }
+      if (data.action_config !== undefined) {
+        updateData.action_config = data.action_config;
+      }
+
       const results = await db
         .update(work_item_status_transitions)
-        .set({
-          is_allowed: data.is_allowed,
-          updated_at: new Date(),
-        })
+        .set(updateData)
         .where(eq(work_item_status_transitions.work_item_status_transition_id, transitionId))
         .returning();
 
@@ -307,7 +335,11 @@ export class RBACWorkItemStatusTransitionsService extends BaseRBACService {
         duration,
       });
 
-      return result;
+      return {
+        ...result,
+        validation_config: result.validation_config ?? null,
+        action_config: result.action_config ?? null,
+      };
     } catch (error) {
       const duration = Date.now() - queryStart;
       log.error(`Failed to update status transition ${transitionId}`, error, {

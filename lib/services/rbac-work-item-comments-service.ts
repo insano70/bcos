@@ -185,6 +185,27 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
       duration: Date.now() - startTime,
     });
 
+    // Phase 7: Auto-add commenter as watcher
+    try {
+      const { createRBACWorkItemWatchersService } = await import('./rbac-work-item-watchers-service');
+      const watchersService = createRBACWorkItemWatchersService(this.userContext);
+      await watchersService.autoAddWatcher(
+        commentData.work_item_id,
+        this.userContext.user_id,
+        'auto_commenter'
+      );
+      log.info('Auto-added commenter as watcher', {
+        workItemId: commentData.work_item_id,
+        userId: this.userContext.user_id,
+      });
+    } catch (error) {
+      // Don't fail comment creation if watcher addition fails
+      log.error('Failed to auto-add commenter as watcher', error, {
+        workItemId: commentData.work_item_id,
+        userId: this.userContext.user_id,
+      });
+    }
+
     const comment = await this.getCommentById(newComment.work_item_comment_id);
     if (!comment) {
       throw new Error('Failed to retrieve created comment');

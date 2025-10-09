@@ -21,6 +21,8 @@ import {
   extractInheritFields,
 } from '@/lib/utils/template-interpolation';
 import type { WorkItemForInterpolation } from '@/lib/utils/template-interpolation';
+import { createNotificationService } from '@/lib/services/notification-service';
+import type { WorkItemStatus } from '@/lib/hooks/use-work-item-statuses';
 
 /**
  * Work Items Service with RBAC
@@ -505,6 +507,27 @@ export class RBACWorkItemsService extends BaseRBACService {
     // Phase 6: Auto-create child items based on type relationships
     await this.autoCreateChildItems(newWorkItem.work_item_id, workItemData.work_item_type_id);
 
+    // Phase 7: Auto-add creator as watcher
+    try {
+      const { createRBACWorkItemWatchersService } = await import('./rbac-work-item-watchers-service');
+      const watchersService = createRBACWorkItemWatchersService(this.userContext);
+      await watchersService.autoAddWatcher(
+        newWorkItem.work_item_id,
+        this.userContext.user_id,
+        'auto_creator'
+      );
+      log.info('Auto-added creator as watcher', {
+        workItemId: newWorkItem.work_item_id,
+        userId: this.userContext.user_id,
+      });
+    } catch (error) {
+      // Don't fail work item creation if watcher addition fails
+      log.error('Failed to auto-add creator as watcher', error, {
+        workItemId: newWorkItem.work_item_id,
+        userId: this.userContext.user_id,
+      });
+    }
+
     // Fetch and return the created work item with full details
     const workItemWithDetails = await this.getWorkItemById(newWorkItem.work_item_id);
     if (!workItemWithDetails) {
@@ -730,12 +753,78 @@ export class RBACWorkItemsService extends BaseRBACService {
     }
 
     // Phase 4: Validate status transition if status is being changed
+    // Phase 7: Store old status details for notification
+    let oldStatus: WorkItemStatus | undefined;
+    let newStatus: WorkItemStatus | undefined;
+
     if (updateData.status_id && updateData.status_id !== targetWorkItem.status_id) {
       await this.validateStatusTransition(
         targetWorkItem.work_item_type_id,
         targetWorkItem.status_id,
         updateData.status_id
       );
+
+      // Fetch old and new status details for notification
+      const oldStatusResults = await db
+        .select({
+          work_item_status_id: work_item_statuses.work_item_status_id,
+          work_item_type_id: work_item_statuses.work_item_type_id,
+          status_name: work_item_statuses.status_name,
+          status_category: work_item_statuses.status_category,
+          is_initial: work_item_statuses.is_initial,
+          is_final: work_item_statuses.is_final,
+          color: work_item_statuses.color,
+          display_order: work_item_statuses.display_order,
+          created_at: work_item_statuses.created_at,
+          updated_at: work_item_statuses.updated_at,
+        })
+        .from(work_item_statuses)
+        .where(eq(work_item_statuses.work_item_status_id, targetWorkItem.status_id))
+        .limit(1);
+
+      const newStatusResults = await db
+        .select({
+          work_item_status_id: work_item_statuses.work_item_status_id,
+          work_item_type_id: work_item_statuses.work_item_type_id,
+          status_name: work_item_statuses.status_name,
+          status_category: work_item_statuses.status_category,
+          is_initial: work_item_statuses.is_initial,
+          is_final: work_item_statuses.is_final,
+          color: work_item_statuses.color,
+          display_order: work_item_statuses.display_order,
+          created_at: work_item_statuses.created_at,
+          updated_at: work_item_statuses.updated_at,
+        })
+        .from(work_item_statuses)
+        .where(eq(work_item_statuses.work_item_status_id, updateData.status_id))
+        .limit(1);
+
+      if (oldStatusResults[0] && newStatusResults[0]) {
+        oldStatus = {
+          work_item_status_id: oldStatusResults[0].work_item_status_id,
+          work_item_type_id: oldStatusResults[0].work_item_type_id,
+          status_name: oldStatusResults[0].status_name,
+          status_category: oldStatusResults[0].status_category,
+          is_initial: oldStatusResults[0].is_initial,
+          is_final: oldStatusResults[0].is_final,
+          color: oldStatusResults[0].color,
+          display_order: oldStatusResults[0].display_order,
+          created_at: oldStatusResults[0].created_at || new Date(),
+          updated_at: oldStatusResults[0].updated_at || new Date(),
+        };
+        newStatus = {
+          work_item_status_id: newStatusResults[0].work_item_status_id,
+          work_item_type_id: newStatusResults[0].work_item_type_id,
+          status_name: newStatusResults[0].status_name,
+          status_category: newStatusResults[0].status_category,
+          is_initial: newStatusResults[0].is_initial,
+          is_final: newStatusResults[0].is_final,
+          color: newStatusResults[0].color,
+          display_order: newStatusResults[0].display_order,
+          created_at: newStatusResults[0].created_at || new Date(),
+          updated_at: newStatusResults[0].updated_at || new Date(),
+        };
+      }
     }
 
     // Update work item
@@ -759,6 +848,58 @@ export class RBACWorkItemsService extends BaseRBACService {
     });
 
     await this.logPermissionCheck('work-items:update', workItemId);
+
+    // Phase 7: Send status change notification to watchers
+    if (oldStatus && newStatus) {
+      try {
+        const notificationService = createNotificationService();
+        await notificationService.sendStatusChangeNotification(
+          {
+            work_item_id: workItemId,
+            subject: targetWorkItem.subject,
+            description: targetWorkItem.description,
+            priority: targetWorkItem.priority,
+            organization_id: targetWorkItem.organization_id,
+            organization_name: targetWorkItem.organization_name,
+          },
+          oldStatus,
+          newStatus
+        );
+        log.info('Status change notification sent', {
+          workItemId,
+          oldStatus: oldStatus.status_name,
+          newStatus: newStatus.status_name,
+        });
+      } catch (error) {
+        // Don't fail work item update if notification fails
+        log.error('Failed to send status change notification', error, {
+          workItemId,
+        });
+      }
+    }
+
+    // Phase 7: Auto-add new assignee as watcher if assigned_to changed
+    if (updateData.assigned_to && updateData.assigned_to !== targetWorkItem.assigned_to) {
+      try {
+        const { createRBACWorkItemWatchersService } = await import('./rbac-work-item-watchers-service');
+        const watchersService = createRBACWorkItemWatchersService(this.userContext);
+        await watchersService.autoAddWatcher(
+          workItemId,
+          updateData.assigned_to,
+          'auto_assignee'
+        );
+        log.info('Auto-added assignee as watcher', {
+          workItemId,
+          assignedTo: updateData.assigned_to,
+        });
+      } catch (error) {
+        // Don't fail work item update if watcher addition fails
+        log.error('Failed to auto-add assignee as watcher', error, {
+          workItemId,
+          assignedTo: updateData.assigned_to,
+        });
+      }
+    }
 
     // Fetch and return updated work item with full details
     const workItemWithDetails = await this.getWorkItemById(workItemId);

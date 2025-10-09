@@ -522,6 +522,7 @@ export default function WorkItemTypesContent() {
           }}
           workItemTypeId={selectedWorkItemType.id}
           workItemTypeName={selectedWorkItemType.name}
+          organizationId={selectedWorkItemType.organization_id || ''}
         />
       )}
     </div>

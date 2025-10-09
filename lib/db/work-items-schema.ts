@@ -339,6 +339,7 @@ export const workItemAttachmentsRelations = relations(work_item_attachments, ({ 
 /**
  * Work Item Status Transitions - Define allowed status transitions per work item type
  * Phase 4: Multiple work item types with configurable workflows
+ * Phase 7: Added validation_config and action_config for workflow automation
  */
 export const work_item_status_transitions = pgTable(
   'work_item_status_transitions',
@@ -356,6 +357,8 @@ export const work_item_status_transitions = pgTable(
       .notNull()
       .references(() => work_item_statuses.work_item_status_id, { onDelete: 'cascade' }),
     is_allowed: boolean('is_allowed').default(true).notNull(),
+    validation_config: jsonb('validation_config'),
+    action_config: jsonb('action_config'),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },

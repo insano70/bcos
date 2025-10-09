@@ -201,6 +201,24 @@ export class EmailService {
   }
 
   /**
+   * Send work item notification
+   * Public method for work item notification service
+   */
+  async sendWorkItemNotification(
+    to: string,
+    subject: string,
+    html: string,
+    text: string
+  ): Promise<void> {
+    await this.send({
+      to,
+      subject,
+      html,
+      text,
+    });
+  }
+
+  /**
    * Core email sending method
    */
   private async send(options: EmailOptions): Promise<void> {

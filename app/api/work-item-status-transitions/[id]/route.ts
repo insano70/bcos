@@ -46,6 +46,8 @@ const getTransitionHandler = async (
       from_status_id: transition.from_status_id,
       to_status_id: transition.to_status_id,
       is_allowed: transition.is_allowed,
+      validation_config: transition.validation_config,
+      action_config: transition.action_config,
       created_at: transition.created_at,
       updated_at: transition.updated_at,
     });
@@ -75,9 +77,19 @@ const updateTransitionHandler = async (
     const validatedData = await validateRequest(request, workItemStatusTransitionUpdateSchema);
 
     // Filter out undefined values for exactOptionalPropertyTypes
-    const filteredData: { is_allowed?: boolean } = {};
+    const filteredData: {
+      is_allowed?: boolean;
+      validation_config?: unknown;
+      action_config?: unknown;
+    } = {};
     if (validatedData.is_allowed !== undefined) {
       filteredData.is_allowed = validatedData.is_allowed;
+    }
+    if (validatedData.validation_config !== undefined) {
+      filteredData.validation_config = validatedData.validation_config;
+    }
+    if (validatedData.action_config !== undefined) {
+      filteredData.action_config = validatedData.action_config;
     }
 
     const transitionsService = createRBACWorkItemStatusTransitionsService(userContext);

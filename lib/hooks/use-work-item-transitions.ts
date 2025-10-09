@@ -7,6 +7,8 @@ export interface WorkItemStatusTransition {
   from_status_id: string;
   to_status_id: string;
   is_allowed: boolean;
+  validation_config: unknown | null;
+  action_config: unknown | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -20,6 +22,8 @@ export interface CreateWorkItemTransitionData {
 
 export interface UpdateWorkItemTransitionData {
   is_allowed?: boolean;
+  validation_config?: unknown;
+  action_config?: unknown;
 }
 
 export interface TransitionFilters {

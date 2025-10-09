@@ -12,7 +12,7 @@ import { log } from '@/lib/logger';
  * Phase 6: Type relationships with auto-creation
  */
 const getRelationshipHandler = async (
-  request: NextRequest,
+  _request: NextRequest,
   userContext: UserContext,
   ...args: unknown[]
 ) => {
@@ -164,7 +164,7 @@ export const PATCH = rbacRoute(patchRelationshipHandler, {
  * Phase 6: Type relationships with auto-creation
  */
 const deleteRelationshipHandler = async (
-  request: NextRequest,
+  _request: NextRequest,
   userContext: UserContext,
   ...args: unknown[]
 ) => {

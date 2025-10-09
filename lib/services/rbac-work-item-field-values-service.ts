@@ -4,6 +4,7 @@ import { work_item_field_values, work_item_fields } from '@/lib/db/schema';
 import { log } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
+import { getFieldValueValidator } from '@/lib/validations/field-value-validators';
 
 /**
  * RBAC Work Item Field Values Service
@@ -105,6 +106,19 @@ export class RBACWorkItemFieldValuesService extends BaseRBACService {
     for (const fieldId of Object.keys(fieldValues)) {
       if (!validFieldMap.has(fieldId)) {
         throw new Error(`Invalid field ID: ${fieldId} for work item type ${workItemTypeId}`);
+      }
+
+      // Validate field value format
+      const field = validFieldMap.get(fieldId);
+      if (field) {
+        const validator = getFieldValueValidator(field.field_type);
+        try {
+          validator.parse(fieldValues[fieldId]);
+        } catch (error) {
+          throw new Error(
+            `Invalid value for field ${field.field_name}: ${error instanceof Error ? error.message : 'Validation failed'}`
+          );
+        }
       }
     }
 

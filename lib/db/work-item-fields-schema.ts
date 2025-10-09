@@ -26,6 +26,9 @@ export const work_item_fields = pgTable(
     // Field Options (for dropdown, multi_select)
     field_options: jsonb('field_options'), // Array of options: [{value: string, label: string}]
 
+    // Field Configuration (for conditional visibility, etc.)
+    field_config: jsonb('field_config'), // {conditional_visibility: {field_id: string, operator: string, value: any}[]}
+
     // Validation Rules
     is_required: boolean('is_required').default(false),
     validation_rules: jsonb('validation_rules'), // {min, max, pattern, etc}
