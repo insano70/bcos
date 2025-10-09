@@ -5,7 +5,7 @@ import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { refreshTokenPair } from '@/lib/auth/token-manager';
-import { correlation, log } from '@/lib/logger';
+import { correlation, log, logTemplates } from '@/lib/logger';
 import { setCSRFToken } from '@/lib/security/csrf-unified';
 
 // Force dynamic rendering for this API route
@@ -45,8 +45,20 @@ const refreshHandler = async (request: NextRequest) => {
     });
 
     if (!refreshToken) {
-      log.warn('Token refresh failed - no refresh token in cookie');
-      log.auth('token_refresh', false, { reason: 'no_refresh_token' });
+      // Enriched auth log - no refresh token
+      log.warn('Token refresh failed: no_refresh_token', {
+        operation: 'token_refresh',
+        success: false,
+        reason: 'no_refresh_token',
+        ...(request.headers.get('x-forwarded-for') && {
+          ipAddress: request.headers.get('x-forwarded-for'),
+        }),
+        ...(request.headers.get('user-agent') && { userAgent: request.headers.get('user-agent') }),
+        cookiePresent: false,
+        duration: Date.now() - startTime,
+        component: 'auth',
+        severity: 'low',
+      });
       return createErrorResponse('Refresh token not found', 401, request);
     }
 
@@ -55,6 +67,7 @@ const refreshHandler = async (request: NextRequest) => {
 
     // Authenticate user from refresh token
     let userId: string;
+    let tokenPayload: { userId: string; exp?: number; iat?: number };
     try {
       const tokenValidationStart = Date.now();
       const { verifyRefreshToken } = await import('@/lib/auth/token-verification');
@@ -65,28 +78,38 @@ const refreshHandler = async (request: NextRequest) => {
       }
 
       userId = payload.userId;
-      log.info('Refresh token validation completed', {
-        duration: Date.now() - tokenValidationStart,
-      });
+      tokenPayload = payload;
 
       log.debug('Refresh token validated successfully', {
         userId,
         tokenExpiry: payload.exp ? new Date(payload.exp * 1000).toISOString() : 'unknown',
+        duration: Date.now() - tokenValidationStart,
       });
     } catch (tokenError) {
-      // Security logging for token validation failure
+      // Enriched auth log - invalid token
+      log.error('Token refresh failed: invalid_refresh_token', tokenError, {
+        operation: 'token_refresh',
+        success: false,
+        reason: 'invalid_refresh_token',
+        ...(request.headers.get('x-forwarded-for') && {
+          ipAddress: request.headers.get('x-forwarded-for'),
+        }),
+        ...(request.headers.get('user-agent') && { userAgent: request.headers.get('user-agent') }),
+        tokenLength: refreshToken.length,
+        errorType: tokenError instanceof Error ? tokenError.constructor.name : typeof tokenError,
+        duration: Date.now() - startTime,
+        securityThreat: 'credential_attack',
+        component: 'auth',
+        severity: 'medium',
+      });
+
+      // Security logging
       log.security('token_validation_failure', 'high', {
         action: 'refresh_token_invalid',
         blocked: true,
         threat: 'credential_attack',
-        reason: 'invalid_refresh_token',
       });
 
-      log.error('Refresh token validation failed', tokenError, {
-        tokenLength: refreshToken.length,
-        errorType: tokenError instanceof Error ? tokenError.constructor.name : typeof tokenError,
-      });
-      log.auth('token_refresh', false, { reason: 'invalid_refresh_token' });
       return createErrorResponse('Invalid refresh token', 401, request);
     }
 
@@ -270,19 +293,29 @@ const refreshHandler = async (request: NextRequest) => {
       sessionId: tokenPair.sessionId,
     });
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Token refresh completed successfully', {
-      userId,
-      sessionId: tokenPair.sessionId,
-      totalDuration,
-      roleCount: userRoles.length,
-    });
+    // Enriched auth log - successful refresh
+    const sessionAge = tokenPayload.iat ? Date.now() - (tokenPayload.iat * 1000) : undefined;
+    const lastActivity = tokenPayload.iat ? new Date(tokenPayload.iat * 1000).toISOString() : undefined;
 
-    log.auth('token_refresh', true, { userId });
-    log.info('Total refresh duration', {
-      duration: totalDuration,
-      userId,
+    log.info('Token refresh successful', {
+      operation: 'token_refresh',
       success: true,
+      userId,
+      email: user.email,
+      ...(sessionAge && { sessionAge }),
+      ...(lastActivity && { lastActivity }),
+      ipAddress: deviceInfo.ipAddress,
+      userAgent: deviceInfo.userAgent,
+      sessionId: tokenPair.sessionId,
+      roleCount: userRoles.length,
+      ...(primaryRole && { primaryRole }),
+      permissionCount: userContext?.all_permissions?.length || 0,
+      deviceName: deviceInfo.deviceName,
+      deviceFingerprint: deviceInfo.fingerprint.substring(0, 8),
+      newTokenExpiry: tokenPair.expiresAt.toISOString(),
+      duration: Date.now() - startTime,
+      component: 'auth',
+      severity: 'info',
     });
 
     return response;

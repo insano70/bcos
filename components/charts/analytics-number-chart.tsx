@@ -86,24 +86,22 @@ export default function AnalyticsNumberChart({
 
   return (
     <div
-      className={`w-full h-full flex items-center justify-center ${className}`}
+      className={`w-full h-full flex flex-col items-center justify-center ${className}`}
       style={containerStyle}
     >
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg border border-slate-200 dark:border-gray-700 w-full">
-        <div className="text-center">
-          {title && (
-            <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-4">
-              {title}
-            </p>
-          )}
-          <div className="text-6xl font-bold text-slate-800 dark:text-white">
-            <AnimatedCounter
-              value={value}
-              format={displayFormat}
-              decimals={decimals}
-              duration={animationDuration}
-            />
-          </div>
+      <div className="text-center">
+        {title && (
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-4">
+            {title}
+          </p>
+        )}
+        <div className="text-7xl font-bold text-slate-800 dark:text-white">
+          <AnimatedCounter
+            value={value}
+            format={displayFormat}
+            decimals={decimals}
+            duration={animationDuration}
+          />
         </div>
       </div>
     </div>

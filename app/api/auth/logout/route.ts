@@ -5,7 +5,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { revokeAllUserTokens, revokeRefreshToken } from '@/lib/auth/token-manager';
 import { db, token_blacklist } from '@/lib/db';
-import { log } from '@/lib/logger';
+import { correlation, log } from '@/lib/logger';
 import { verifyCSRFToken } from '@/lib/security/csrf';
 
 // Force dynamic rendering for this API route
@@ -130,6 +130,27 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Enriched logout success log with session cleanup metrics
+    log.info('Logout successful - session terminated', {
+      operation: 'logout',
+      success: true,
+      userId: session.user.id,
+      ...(metadata.ipAddress && { ipAddress: metadata.ipAddress }),
+      ...(metadata.userAgent && { userAgent: metadata.userAgent }),
+      deviceName: metadata.deviceName,
+      deviceFingerprint: metadata.fingerprint.substring(0, 8),
+      sessionCleanup: {
+        refreshTokenRevoked: revoked,
+        accessTokenBlacklisted: !!authHeader,
+        cookiesCleared: 3, // refresh-token, access-token, csrf-token
+        csrfProtection: 'verified',
+      },
+      reason: 'user_initiated',
+      duration: Date.now() - startTime,
+      component: 'auth',
+      correlationId: correlation.current(),
+    });
+
     // Clear refresh token cookie
     const response = NextResponse.json({
       success: true,
@@ -168,13 +189,6 @@ export async function POST(request: NextRequest) {
       maxAge: 0, // Expire immediately
     });
 
-    // Logout completion logging
-    log.auth('logout_success', true, {
-      userId: session.user.id,
-    });
-
-    log.api('POST /api/auth/logout - Success', request, 200, Date.now() - startTime);
-
     return response;
   } catch (error) {
     log.error('Logout failed', error);
@@ -190,11 +204,9 @@ export async function POST(request: NextRequest) {
  * SECURED: Requires authentication and token validation
  */
 export async function DELETE(request: NextRequest) {
-  const _startTime = Date.now();
+  const startTime = Date.now();
 
   try {
-    log.api('DELETE /api/auth/logout - Revoke all sessions', request, 0, 0);
-
     log.security('revoke_all_sessions_requested', 'medium', {
       action: 'emergency_logout',
       threat: 'potential_compromise',
@@ -256,6 +268,32 @@ export async function DELETE(request: NextRequest) {
         reason: 'user_requested',
       },
       severity: 'medium',
+    });
+
+    // Enriched revoke all sessions log with security context
+    log.info('Revoke all sessions successful - all devices logged out', {
+      operation: 'revoke_all_sessions',
+      success: true,
+      userId: session.user.id,
+      ...(metadata.ipAddress && { ipAddress: metadata.ipAddress }),
+      ...(metadata.userAgent && { userAgent: metadata.userAgent }),
+      deviceName: metadata.deviceName,
+      deviceFingerprint: metadata.fingerprint.substring(0, 8),
+      sessionCleanup: {
+        tokensRevoked: revokedCount,
+        allDevices: true,
+        cookiesCleared: 3, // refresh-token, access-token, csrf-token
+        csrfProtection: 'verified',
+      },
+      securityContext: {
+        reason: 'user_requested',
+        severity: 'medium',
+        threat: 'potential_compromise',
+        action: 'emergency_logout',
+      },
+      duration: Date.now() - startTime,
+      component: 'auth',
+      correlationId: correlation.current(),
     });
 
     // Clear refresh token cookie
