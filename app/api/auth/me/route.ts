@@ -3,7 +3,7 @@ import { requireJWTAuth } from '@/lib/api/middleware/jwt-auth';
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { errorLog } from '@/lib/utils/debug';
+import { log } from '@/lib/logger';
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
@@ -13,19 +13,39 @@ export const dynamic = 'force-dynamic';
  * Provides complete user information including roles, permissions, and organization access
  */
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+
+  log.api('GET /api/auth/me - User context request', request);
+
   try {
     // RATE LIMITING: Apply API-level rate limiting to prevent user context abuse
+    const rateLimitStart = Date.now();
     await applyRateLimit(request, 'api');
+    log.info('Rate limit check completed', { duration: Date.now() - rateLimitStart });
 
     // Get authenticated user session with JWT-enhanced data (eliminates database queries!)
+    const authStart = Date.now();
     const session = await requireJWTAuth(request);
+    log.info('JWT authentication completed', { duration: Date.now() - authStart });
 
     // User context is already available from JWT + cache - no additional database queries needed!
     const userContext = session.userContext;
 
     if (!userContext) {
+      log.warn('User context not found in session', {
+        userId: session.user?.id,
+        hasSession: !!session,
+      });
       return createErrorResponse('User context not found', 404, request);
     }
+
+    log.info('User context retrieved successfully', {
+      userId: userContext.user_id,
+      roleCount: userContext.roles.length,
+      permissionCount: userContext.all_permissions.length,
+      organizationCount: userContext.organizations.length,
+      duration: Date.now() - startTime,
+    });
 
     // Return user data with full RBAC context
     return createSuccessResponse(
@@ -76,7 +96,10 @@ export async function GET(request: NextRequest) {
       'User context retrieved successfully'
     );
   } catch (error) {
-    errorLog('Get user context error:', error);
+    log.error('User context retrieval failed', error, {
+      duration: Date.now() - startTime,
+      endpoint: '/api/auth/me',
+    });
     return createErrorResponse(
       error instanceof Error ? error.message : 'Failed to retrieve user context',
       500,
