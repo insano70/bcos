@@ -7,67 +7,32 @@ interface SkeletonProps {
   style?: React.CSSProperties;
 }
 
-// Basic skeleton component
+// Basic skeleton component with shimmer effect
 export function Skeleton({ className = '', style }: SkeletonProps) {
   // Use CSS custom properties for dynamic styling (CSP-compliant)
-  const dynamicStyle = style && Object.keys(style).length > 0 
+  const dynamicStyle = style && Object.keys(style).length > 0
     ? { ...Object.fromEntries(Object.entries(style).map(([key, value]) => [`--${key}`, value])), ...style }
     : undefined;
-    
+
   return (
-    <div 
-      className={`animate-pulse bg-gray-200 dark:bg-gray-700 rounded ${className}`} 
+    <div
+      className={`bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 rounded animate-shimmer bg-[length:200%_100%] ${className}`}
       style={dynamicStyle}
     />
   );
 }
 
-// Chart skeleton
-export function ChartSkeleton({ width = 800, height = 400 }: { width?: number; height?: number }) {
+// Shimmer card for chart loading - entire card shimmers
+export function ChartSkeleton({ width, height }: { width?: number; height?: number }) {
+  // If width/height not specified, fill container with w-full h-full
+  const sizeClasses = !width && !height ? 'w-full h-full' : '';
+  const inlineStyles = width || height ? { width: width ? `${width}px` : undefined, height: height ? `${height}px` : undefined } : undefined;
+
   return (
-    <div 
-      className="bg-white dark:bg-gray-800 rounded-lg p-4 skeleton-container" 
-      style={{ '--skeleton-width': `${width}px`, '--skeleton-height': `${height}px` } as React.CSSProperties}
-    >
-      <div className="space-y-4">
-        {/* Chart title skeleton */}
-        <Skeleton className="h-6 w-48" />
-        
-        {/* Chart area skeleton */}
-        <div 
-          className="relative skeleton-chart-area" 
-          style={{ '--chart-area-height': `${height - 80}px` } as React.CSSProperties}
-        >
-          {/* Y-axis labels */}
-          <div className="absolute left-0 top-0 h-full flex flex-col justify-between py-4">
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-3 w-12" />
-            ))}
-          </div>
-          
-          {/* Chart area */}
-          <div className="ml-16 h-full bg-gray-100 dark:bg-gray-700 rounded relative">
-            {/* Bars or data points */}
-            <div className="absolute bottom-0 left-0 right-0 flex items-end justify-around px-4 pb-4">
-              {[...Array(8)].map((_, i) => (
-                <Skeleton 
-                  key={i} 
-                  className="w-8 skeleton-random-bar" 
-                  style={{ '--random-bar-height': `${Math.random() * 60 + 20}%` } as React.CSSProperties}
-                />
-              ))}
-            </div>
-          </div>
-          
-          {/* X-axis labels */}
-          <div className="ml-16 mt-2 flex justify-around">
-            {[...Array(8)].map((_, i) => (
-              <Skeleton key={i} className="h-3 w-16" />
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
+    <div
+      className={`bg-gradient-to-r from-slate-200 via-slate-300 to-slate-200 dark:from-slate-700 dark:via-slate-600 dark:to-slate-700 rounded-xl animate-shimmer bg-[length:200%_100%] ${sizeClasses}`}
+      style={inlineStyles}
+    />
   );
 }
 

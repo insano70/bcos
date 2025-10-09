@@ -36,11 +36,11 @@ const transformChartDataHandler = async (
 
   try {
     // 1. Validate request body
-    // Debug: Log request body before validation
     const requestBody = await request.clone().json();
     log.info('Chart data request body received', {
       requestingUserId: userContext.user_id,
-      body: requestBody,
+      chartType: requestBody.chartType,
+      measureCount: requestBody.measures?.length || 0,
     });
 
     const validatedData = await validateRequest(request, chartDataRequestSchema);
