@@ -94,6 +94,7 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     }
 
     const dataSourceIdParam = searchParams.get('data_source_id');
+    const chartType = searchParams.get('chart_type') || undefined;
 
     // Handle dynamic date range calculation from presets
     const dateRangePreset = searchParams.get('date_range_preset') || undefined;
@@ -181,8 +182,38 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
       totalRequestTime: Date.now() - startTime,
     });
 
+    // For 'number' chart type, aggregate to a single total value
+    let measuresData = result.data;
+    if (chartType === 'number' && result.data.length > 0) {
+      // Convert measure_value to number and sum (handle string or number types)
+      const total = result.data.reduce((sum, measure) => {
+        const value = typeof measure.measure_value === 'string'
+          ? parseFloat(measure.measure_value)
+          : (measure.measure_value || 0);
+        return sum + (isNaN(value) ? 0 : value);
+      }, 0);
+
+      // Return a single measure with the aggregated total
+      measuresData = [{
+        measure_value: total,
+        measure_type: result.data[0]?.measure_type || 'number',
+        date_index: new Date().toISOString().split('T')[0] || '',
+        measure: queryParams.measure || 'Total',
+        aggregation_type: 'sum'
+      }];
+
+      log.info('Number chart aggregation completed', {
+        originalCount: result.data.length,
+        total,
+        sampleValues: result.data.slice(0, 3).map(m => ({
+          value: m.measure_value,
+          type: typeof m.measure_value
+        }))
+      });
+    }
+
     const analytics = {
-      measures: result.data,
+      measures: measuresData,
       pagination: {
         total_count: result.total_count,
         limit: queryParams.limit || 1000,

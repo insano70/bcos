@@ -75,7 +75,7 @@ const chartConfigSchema = z
 
     // Legacy/internal state fields (for backwards compatibility)
     chartName: z.string().optional(),
-    chartType: z.enum(['line', 'bar', 'stacked-bar', 'horizontal-bar', 'progress-bar', 'doughnut', 'dual-axis']).optional(),
+    chartType: z.enum(['line', 'bar', 'stacked-bar', 'horizontal-bar', 'progress-bar', 'doughnut', 'dual-axis', 'number']).optional(),
     measure: z.string().optional(),
     frequency: z.string().optional(),
     practiceUid: z.string().optional(),
@@ -147,6 +147,7 @@ export const chartDefinitionCreateSchema = z.object({
     'heatmap',
     'table',
     'dual-axis',
+    'number',
   ]),
   chart_category_id: z.union([integerIdSchema, z.null()]).optional(),
   chart_config: chartConfigSchema.optional(), // Properly typed chart configuration
@@ -256,10 +257,21 @@ export const dataSourceSchema = z.object({
 });
 
 // Chart data transformation request schema (server-side transformation)
-// Note: measures array contains dynamic fields based on data source columns
-// Using z.unknown() for flexible typing while avoiding 'any'
+// Updated to accept query parameters instead of measures array
 export const chartDataRequestSchema = z.object({
-  measures: z.array(z.record(z.string(), z.unknown())),
+  // Query parameters for fetching data
+  measure: z.string().optional(), // Primary measure to fetch
+  frequency: z.string().optional(), // Data frequency (Daily, Weekly, Monthly, etc.)
+  startDate: z.string().optional(), // Start date for data range
+  endDate: z.string().optional(), // End date for data range
+  dateRangePreset: z.string().optional(), // For dynamic date range calculation
+  practice: z.string().optional(), // Practice filter
+  practiceUid: z.string().optional(), // Practice UID filter
+  providerName: z.string().optional(), // Provider filter
+  advancedFilters: z.array(chartFilterSchema).optional(), // Advanced filtering
+  calculatedField: z.string().optional(), // Calculated field to apply
+
+  // Chart configuration
   chartType: z.enum([
     'line',
     'bar',
@@ -271,6 +283,7 @@ export const chartDataRequestSchema = z.object({
     'area',
     'table',
     'dual-axis',
+    'number',
   ]),
   groupBy: z.string().default('none'),
   colorPalette: z.string().default('default'),
@@ -278,7 +291,6 @@ export const chartDataRequestSchema = z.object({
   stackingMode: z.enum(['normal', 'percentage']).optional(),
   multipleSeries: z.array(multipleSeriesConfigSchema).optional(),
   periodComparison: periodComparisonConfigSchema.optional(),
-  dateRangePreset: z.string().optional(), // For dynamic date range calculation
 });
 
 // Export type definitions for use in API routes

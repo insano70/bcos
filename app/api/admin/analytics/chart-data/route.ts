@@ -5,19 +5,22 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import type { UserContext } from '@/lib/types/rbac';
-import type { ChartData, AggAppMeasure } from '@/lib/types/analytics';
+import type { ChartData, AggAppMeasure, AnalyticsQueryParams, ChartRenderContext } from '@/lib/types/analytics';
 import { chartDataRequestSchema } from '@/lib/validations/analytics';
 import { SimplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
 import { loadColumnMetadata } from '@/lib/utils/chart-metadata-loader.server';
 import { log } from '@/lib/logger';
+import { analyticsQueryBuilder } from '@/lib/services/analytics-query-builder';
+import { calculatedFieldsService } from '@/lib/services/calculated-fields';
+import { getDateRange } from '@/lib/utils/date-presets';
 
 /**
  * Transform Chart Data Handler
  * POST /api/admin/analytics/chart-data
  *
- * Transforms raw analytics data into Chart.js format on the server side.
- * This approach reduces client bundle size, improves mobile performance,
- * and enables response caching.
+ * Fetches, transforms, and returns chart-ready data in a single API call.
+ * This optimized approach reduces network overhead, improves performance,
+ * and minimizes data transfer between client and server.
  *
  * @param request - Next.js request object
  * @param userContext - Authenticated user context
@@ -36,11 +39,12 @@ const transformChartDataHandler = async (
 
   try {
     // 1. Validate request body
-    // Debug: Log request body before validation
     const requestBody = await request.clone().json();
-    log.info('Chart data request body received', {
+    log.info('Chart data request received', {
       requestingUserId: userContext.user_id,
-      body: requestBody,
+      chartType: requestBody.chartType,
+      measure: requestBody.measure,
+      hasMultipleSeries: Boolean(requestBody.multipleSeries),
     });
 
     const validatedData = await validateRequest(request, chartDataRequestSchema);
@@ -48,25 +52,81 @@ const transformChartDataHandler = async (
     log.info('Chart data request validated', {
       requestingUserId: userContext.user_id,
       chartType: validatedData.chartType,
-      measureCount: validatedData.measures.length,
+      measure: validatedData.measure,
       hasDataSourceId: Boolean(validatedData.dataSourceId),
       hasMultipleSeries: Boolean(validatedData.multipleSeries),
       hasPeriodComparison: Boolean(validatedData.periodComparison),
     });
 
-    // Dual-axis charts handle their own data fetching and transformation
-    if (validatedData.chartType === 'dual-axis') {
-      log.warn('Dual-axis chart type should not use this endpoint', {
+    // 2. Fetch measures from analytics database
+    const { startDate, endDate } = getDateRange(
+      validatedData.dateRangePreset,
+      validatedData.startDate,
+      validatedData.endDate
+    );
+
+    // Build query parameters for analytics query builder
+    const queryParams: AnalyticsQueryParams = {
+      ...(validatedData.measure && { measure: validatedData.measure as import('@/lib/types/analytics').MeasureType }),
+      ...(validatedData.frequency && { frequency: validatedData.frequency as import('@/lib/types/analytics').FrequencyType }),
+      ...(validatedData.practice && { practice: validatedData.practice }),
+      ...(validatedData.practiceUid && { practice_uid: parseInt(validatedData.practiceUid, 10) }),
+      ...(validatedData.providerName && { provider_name: validatedData.providerName }),
+      ...(startDate && { start_date: startDate }),
+      ...(endDate && { end_date: endDate }),
+      ...(validatedData.advancedFilters && { advanced_filters: validatedData.advancedFilters as import('@/lib/types/analytics').ChartFilter[] }),
+      ...(validatedData.calculatedField && { calculated_field: validatedData.calculatedField }),
+      ...(validatedData.dataSourceId && { data_source_id: validatedData.dataSourceId }),
+      limit: 1000,
+      ...(validatedData.multipleSeries && { multiple_series: validatedData.multipleSeries as import('@/lib/types/analytics').MultipleSeriesConfig[] }),
+      ...(validatedData.periodComparison && { period_comparison: validatedData.periodComparison as import('@/lib/types/analytics').PeriodComparisonConfig }),
+    };
+
+    // Build chart render context from user context with proper RBAC
+    const chartContext: ChartRenderContext = {
+      user_id: userContext.user_id,
+      accessible_practices: [],
+      accessible_providers: [],
+      roles: userContext.roles?.map((role) => role.name) || [],
+    };
+
+    log.info('Fetching measures from analytics database', {
+      requestingUserId: userContext.user_id,
+      queryParams: {
+        measure: queryParams.measure,
+        frequency: queryParams.frequency,
+        hasFilters: Boolean(queryParams.advanced_filters?.length),
+        hasMultipleSeries: Boolean(queryParams.multiple_series?.length),
+      },
+    });
+
+    // Fetch measures
+    const result = await analyticsQueryBuilder.queryMeasures(queryParams, chartContext);
+    let measures = result.data;
+
+    log.info('Measures fetched successfully', {
+      requestingUserId: userContext.user_id,
+      measureCount: measures.length,
+      queryTimeMs: result.query_time_ms,
+    });
+
+    // 3. Apply calculated fields if specified
+    if (validatedData.calculatedField && measures.length > 0) {
+      log.info('Applying calculated field', {
         requestingUserId: userContext.user_id,
+        calculatedField: validatedData.calculatedField,
+        originalCount: measures.length,
       });
-      return createErrorResponse(
-        'Dual-axis charts handle their own data fetching. Use the AnalyticsDualAxisChart component instead.',
-        400,
-        request
-      );
+
+      measures = calculatedFieldsService.applyCalculatedField(validatedData.calculatedField, measures);
+
+      log.info('Calculated field applied', {
+        requestingUserId: userContext.user_id,
+        processedCount: measures.length,
+      });
     }
 
-    // 2. Load column metadata (server-side only)
+    // 4. Load column metadata (server-side only)
     const metadata = validatedData.dataSourceId
       ? await loadColumnMetadata(validatedData.dataSourceId)
       : undefined;
@@ -79,21 +139,29 @@ const transformChartDataHandler = async (
       groupByColumn: metadata?.get(validatedData.groupBy),
     });
 
-    // 3. Create transformer with metadata
+    // 5. Create transformer with metadata
     const transformer = new SimplifiedChartTransformer(metadata);
 
-    // 4. Transform data based on chart type and features
-    // Cast measures to AggAppMeasure[] since Zod validation uses Record type
-    const measures = validatedData.measures as unknown as AggAppMeasure[];
+    // 6. Transform data based on chart type and features
 
     // Map stacked-bar to bar for transformation (stacking is handled by Chart.js config)
-    const transformChartType = validatedData.chartType === 'stacked-bar' ? 'bar' : validatedData.chartType;
+    // Filter out chart types not supported by transformer
+    let transformChartType: 'line' | 'bar' | 'horizontal-bar' | 'progress-bar' | 'pie' | 'doughnut' | 'area' | 'table';
+
+    if (validatedData.chartType === 'stacked-bar') {
+      transformChartType = 'bar';
+    } else if (validatedData.chartType === 'dual-axis' || validatedData.chartType === 'number') {
+      // These types should not use this endpoint, but provide fallback
+      transformChartType = 'bar';
+    } else {
+      transformChartType = validatedData.chartType;
+    }
 
     // Debug: Log sample measure and grouping info
     const sampleMeasures = measures.slice(0, 5);
     const groupByField = validatedData.groupBy;
     const groupValues = measures.map(m => (m as Record<string, unknown>)[groupByField]);
-    const uniqueGroupValues = [...new Set(groupValues)];
+    const uniqueGroupValues = Array.from(new Set(groupValues));
 
     log.info('Transformation parameters', {
       requestingUserId: userContext.user_id,
@@ -155,20 +223,22 @@ const transformChartDataHandler = async (
       requestingUserId: userContext.user_id,
       duration,
       chartType: validatedData.chartType,
-      measureCount: validatedData.measures.length,
+      measureCount: measures.length,
       datasetCount: chartData.datasets?.length ?? 0,
       labelCount: chartData.labels?.length ?? 0,
     });
 
-    // 5. Return transformed data with metadata and caching headers
+    // 7. Return transformed data with metadata and caching headers
     const response = createSuccessResponse({
       chartData,
+      rawData: measures, // Include raw data for export functionality
       metadata: {
         transformedAt: new Date().toISOString(),
         chartType: validatedData.chartType,
         duration,
-        measureCount: validatedData.measures.length,
+        measureCount: measures.length,
         datasetCount: chartData.datasets?.length ?? 0,
+        queryTimeMs: result.query_time_ms,
       },
     });
 

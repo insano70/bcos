@@ -73,6 +73,7 @@
     "dotenv": "^17.2.3",
     "drizzle-kit": "^0.31.5",
     "drizzle-orm": "^0.44.6",
+    "framer-motion": "^12.23.22",
     "gsap": "^3.13.0",
     "iron-session": "^8.0.4",
     "isomorphic-dompurify": "^2.28.0",

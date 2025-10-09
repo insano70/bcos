@@ -367,6 +367,7 @@ export default function DashboardRowBuilder({
                                 stackingMode={(chartConfig as any).stackingMode}
                                 colorPalette={(chartConfig as any).colorPalette}
                                 {...((chartConfig as any).seriesConfigs && (chartConfig as any).seriesConfigs.length > 0 ? { multipleSeries: (chartConfig as any).seriesConfigs } : {})}
+                                {...((chartConfig as any).dualAxisConfig ? { dualAxisConfig: (chartConfig as any).dualAxisConfig } : {})}
                                 className="w-full h-full flex-1"
                                 responsive={true}
                                 minHeight={minHeight}
