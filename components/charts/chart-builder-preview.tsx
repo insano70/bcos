@@ -5,6 +5,7 @@ import { ChartConfig } from './chart-builder-core';
 
 interface ChartBuilderPreviewProps {
   chartConfig: ChartConfig;
+  dateRangePreset?: string;
   previewKey: number;
   onBackToConfigure: () => void;
   onSave: () => void;
@@ -13,6 +14,7 @@ interface ChartBuilderPreviewProps {
 
 export default function ChartBuilderPreview({
   chartConfig,
+  dateRangePreset,
   previewKey,
   onBackToConfigure,
   onSave,
@@ -44,6 +46,7 @@ export default function ChartBuilderPreview({
             frequency={chartConfig.frequency as any}
             startDate={chartConfig.startDate || undefined}
             endDate={chartConfig.endDate || undefined}
+            dateRangePreset={dateRangePreset}
             groupBy={chartConfig.groupBy}
             width={700}
             height={400}

@@ -75,7 +75,7 @@ const chartConfigSchema = z
 
     // Legacy/internal state fields (for backwards compatibility)
     chartName: z.string().optional(),
-    chartType: z.enum(['line', 'bar', 'stacked-bar', 'horizontal-bar', 'progress-bar', 'doughnut']).optional(),
+    chartType: z.enum(['line', 'bar', 'stacked-bar', 'horizontal-bar', 'progress-bar', 'doughnut', 'dual-axis']).optional(),
     measure: z.string().optional(),
     frequency: z.string().optional(),
     practiceUid: z.string().optional(),
@@ -146,6 +146,7 @@ export const chartDefinitionCreateSchema = z.object({
     'histogram',
     'heatmap',
     'table',
+    'dual-axis',
   ]),
   chart_category_id: z.union([integerIdSchema, z.null()]).optional(),
   chart_config: chartConfigSchema.optional(), // Properly typed chart configuration
@@ -269,6 +270,7 @@ export const chartDataRequestSchema = z.object({
     'doughnut',
     'area',
     'table',
+    'dual-axis',
   ]),
   groupBy: z.string().default('none'),
   colorPalette: z.string().default('default'),
@@ -276,6 +278,7 @@ export const chartDataRequestSchema = z.object({
   stackingMode: z.enum(['normal', 'percentage']).optional(),
   multipleSeries: z.array(multipleSeriesConfigSchema).optional(),
   periodComparison: periodComparisonConfigSchema.optional(),
+  dateRangePreset: z.string().optional(), // For dynamic date range calculation
 });
 
 // Export type definitions for use in API routes

@@ -405,11 +405,16 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 
     // Redirect to authenticating page which waits for auth state before final redirect
     // This eliminates white page flashes and cookie race conditions
+    // OPTIMIZATION: Resolve default dashboard server-side to eliminate intermediate loading screen
+    const { getDefaultReturnUrl } = await import('@/lib/services/default-dashboard-service');
+    const finalReturnUrl = await getDefaultReturnUrl(sessionData.returnUrl);
+
     const authenticatingUrl = new URL('/authenticating', baseUrl);
-    authenticatingUrl.searchParams.set('returnUrl', sessionData.returnUrl);
+    authenticatingUrl.searchParams.set('returnUrl', finalReturnUrl);
 
     log.info('OIDC callback redirect', {
-      returnUrl: sessionData.returnUrl,
+      requestedReturnUrl: sessionData.returnUrl,
+      resolvedReturnUrl: finalReturnUrl,
       baseUrl,
       finalRedirect: authenticatingUrl.toString(),
     });

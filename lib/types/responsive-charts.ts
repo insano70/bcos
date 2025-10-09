@@ -4,10 +4,10 @@
  */
 
 export interface ResponsiveChartProps {
-  responsive?: boolean; // Enable responsive behavior (default: false for backwards compatibility)
-  minHeight?: number; // Minimum height for responsive charts (default: 200px)
-  maxHeight?: number; // Maximum height for responsive charts (default: 800px)
-  aspectRatio?: number; // Fixed aspect ratio (width/height) for responsive charts
+  responsive?: boolean | undefined; // Enable responsive behavior (default: false for backwards compatibility)
+  minHeight?: number | undefined; // Minimum height for responsive charts (default: 200px)
+  maxHeight?: number | undefined; // Maximum height for responsive charts (default: 800px)
+  aspectRatio?: number | undefined; // Fixed aspect ratio (width/height) for responsive charts
 }
 
 export interface ResponsiveChartContainerProps {

@@ -136,8 +136,8 @@ export default function ChartBuilderCore({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-        {/* Measure - Hidden when multiple series is enabled OR table chart type */}
-        {!chartConfig.useMultipleSeries && chartConfig.chartType !== 'table' ? (
+        {/* Measure - Hidden when multiple series is enabled OR table chart type OR dual-axis chart type */}
+        {!chartConfig.useMultipleSeries && chartConfig.chartType !== 'table' && chartConfig.chartType !== 'dual-axis' ? (
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Measure *
@@ -171,6 +171,8 @@ export default function ChartBuilderCore({
               </div>
             </div>
           </div>
+        ) : chartConfig.chartType === 'dual-axis' ? (
+          null
         ) : (
           <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md border border-blue-200 dark:border-blue-800">
             <div className="flex items-start">

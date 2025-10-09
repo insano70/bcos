@@ -37,6 +37,7 @@ interface AnalyticsChartProps extends ResponsiveChartProps {
   providerUid?: string | undefined; // Legacy support
   startDate?: string | undefined;
   endDate?: string | undefined;
+  dateRangePreset?: string | undefined; // For dynamic date range calculation
   width?: number;
   height?: number;
   title?: string;
@@ -78,6 +79,7 @@ export default function AnalyticsChart({
   providerUid, // Legacy support
   startDate,
   endDate,
+  dateRangePreset, // For dynamic date range calculation
   width = 800,
   height = 400,
   title,
@@ -115,12 +117,22 @@ export default function AnalyticsChart({
   }>>([]);
   const chartRef = useRef<HTMLCanvasElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [dualAxisRefreshTrigger, setDualAxisRefreshTrigger] = useState(0);
 
   // Memoize complex dependencies to prevent infinite loops
   const stableAdvancedFilters = useMemo(() => JSON.stringify(advancedFilters || []), [advancedFilters]);
   const stableMultipleSeries = useMemo(() => JSON.stringify(multipleSeries || []), [multipleSeries]);
 
   const fetchChartData = useCallback(async () => {
+    // Dual-axis charts handle their own data fetching
+    if (chartType === 'dual-axis') {
+      // Dual-axis component manages its own loading state
+      setIsLoading(false);
+      // Trigger refresh in the dual-axis component
+      setDualAxisRefreshTrigger(prev => prev + 1);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -155,7 +167,11 @@ export default function AnalyticsChart({
       
       if (providerName && providerName.trim()) params.append('provider_name', providerName);
       if (providerUid && providerUid.trim()) params.append('provider_name', providerUid); // Legacy mapping
-      
+
+      // Dynamic date range calculation - pass preset for server-side calculation
+      if (dateRangePreset && dateRangePreset.trim()) {
+        params.append('date_range_preset', dateRangePreset);
+      }
       if (startDate && startDate.trim()) params.append('start_date', startDate);
       if (endDate && endDate.trim()) params.append('end_date', endDate);
 
@@ -417,8 +433,8 @@ export default function AnalyticsChart({
       );
     }
 
-    // Skip empty data check for table charts (they use rawData instead of chartData.datasets)
-    if (chartType !== 'table' && chartData.datasets.length === 0) {
+    // Skip empty data check for table charts (they use rawData) and dual-axis charts (they manage their own data)
+    if (chartType !== 'table' && chartType !== 'dual-axis' && chartData.datasets.length === 0) {
       const noDataContainer = (
         <div className="flex flex-col items-center justify-center">
           <div className="text-gray-500 mb-2">📊 No Data</div>
@@ -491,6 +507,7 @@ export default function AnalyticsChart({
           );
         case 'dual-axis':
           if (!dualAxisConfig) {
+            console.error('Dual-axis configuration is missing');
             return <div>Dual-axis configuration is required</div>;
           }
           return (
@@ -499,6 +516,7 @@ export default function AnalyticsChart({
               frequency={frequency}
               startDate={startDate}
               endDate={endDate}
+              dateRangePreset={dateRangePreset}
               groupBy={groupBy}
               width={width}
               height={height}
@@ -507,6 +525,11 @@ export default function AnalyticsChart({
               advancedFilters={advancedFilters}
               dataSourceId={dataSourceId}
               colorPalette={colorPalette}
+              refreshTrigger={dualAxisRefreshTrigger}
+              responsive={responsive}
+              minHeight={minHeight}
+              maxHeight={maxHeight}
+              aspectRatio={aspectRatio}
             />
           );
         default:

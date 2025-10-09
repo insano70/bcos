@@ -10,6 +10,7 @@ import { getAnalyticsDb } from '@/lib/services/analytics-db';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { dataSourceParamsSchema } from '@/lib/validations/data-sources';
+import { getDateRange } from '@/lib/utils/date-presets';
 
 /**
  * Admin Data Sources Query API
@@ -53,8 +54,13 @@ const queryDataSourceHandler = async (
 
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '100', 10);
-    const startDate = searchParams.get('start_date');
-    const endDate = searchParams.get('end_date');
+    const dateRangePreset = searchParams.get('date_range_preset') || undefined;
+    const providedStartDate = searchParams.get('start_date') || undefined;
+    const providedEndDate = searchParams.get('end_date') || undefined;
+
+    // Calculate dates: prefer preset calculation over provided dates
+    const { startDate, endDate } = getDateRange(dateRangePreset, providedStartDate, providedEndDate);
+
     const practiceUid = searchParams.get('practice_uid');
     const advancedFiltersParam = searchParams.get('advanced_filters');
 
