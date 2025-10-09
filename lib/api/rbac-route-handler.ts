@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { log } from '@/lib/logger';
+import { correlation, log } from '@/lib/logger';
 import { createRBACMiddleware } from '@/lib/rbac/middleware';
 import type { PermissionName, UserContext } from '@/lib/types/rbac';
 import { applyGlobalAuth, markAsPublicRoute } from './middleware/global-auth';
@@ -37,10 +37,31 @@ export function rbacRoute(
   options: RBACRouteOptions & { permission: PermissionName | PermissionName[] }
 ) {
   return async (request: NextRequest, ...args: unknown[]): Promise<Response> => {
-    const startTime = Date.now();
+    // Extract or generate correlation ID from request header (set by middleware)
+    const correlationId = request.headers.get('x-correlation-id') || correlation.generate();
     const url = new URL(request.url);
 
-    log.api(`${request.method} ${url.pathname} - RBAC route`, request, 0, 0);
+    // Wrap entire request lifecycle in correlation context
+    return correlation.withContext(
+      correlationId,
+      {
+        method: request.method,
+        path: url.pathname,
+        requestId: request.headers.get('x-request-id') || undefined,
+      },
+      async () => {
+        const startTime = Date.now();
+
+        // Set additional request context (IP, User-Agent)
+        correlation.setRequest({
+          method: request.method,
+          path: url.pathname,
+          ipAddress:
+            request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+          userAgent: request.headers.get('user-agent') || undefined,
+        });
+
+        log.api(`${request.method} ${url.pathname} - RBAC route`, request, 0, 0);
 
     log.info('RBAC route initiated', {
       endpoint: url.pathname,
@@ -275,6 +296,8 @@ export function rbacRoute(
         request
       ) as Response;
     }
+      }
+    ); // End correlation.withContext
   };
 }
 
@@ -315,14 +338,35 @@ export function legacySecureRoute(
   } = {}
 ) {
   return async (request: NextRequest, ...args: unknown[]): Promise<Response> => {
-    const startTime = Date.now();
+    // Extract or generate correlation ID from request header (set by middleware)
+    const correlationId = request.headers.get('x-correlation-id') || correlation.generate();
     const url = new URL(request.url);
 
-    log.info('Legacy secure route initiated', {
-      endpoint: url.pathname,
-      method: request.method,
-      requireAuth: options.requireAuth !== false,
-    });
+    // Wrap entire request lifecycle in correlation context
+    return correlation.withContext(
+      correlationId,
+      {
+        method: request.method,
+        path: url.pathname,
+        requestId: request.headers.get('x-request-id') || undefined,
+      },
+      async () => {
+        const startTime = Date.now();
+
+        // Set additional request context (IP, User-Agent)
+        correlation.setRequest({
+          method: request.method,
+          path: url.pathname,
+          ipAddress:
+            request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+          userAgent: request.headers.get('user-agent') || undefined,
+        });
+
+        log.info('Legacy secure route initiated', {
+          endpoint: url.pathname,
+          method: request.method,
+          requireAuth: options.requireAuth !== false,
+        });
 
     try {
       // 1. Apply rate limiting
@@ -405,6 +449,8 @@ export function legacySecureRoute(
         request
       ) as Response;
     }
+      }
+    ); // End correlation.withContext
   };
 }
 
@@ -477,14 +523,35 @@ export function webhookRoute(
   options: WebhookRouteOptions
 ) {
   return async (request: NextRequest, ..._args: unknown[]): Promise<Response> => {
-    const startTime = Date.now();
+    // Extract or generate correlation ID from request header (set by middleware)
+    const correlationId = request.headers.get('x-correlation-id') || correlation.generate();
     const url = new URL(request.url);
 
-    log.info('Webhook request initiated', {
-      endpoint: url.pathname,
-      method: request.method,
-      source: options.source,
-    });
+    // Wrap entire request lifecycle in correlation context
+    return correlation.withContext(
+      correlationId,
+      {
+        method: request.method,
+        path: url.pathname,
+        requestId: request.headers.get('x-request-id') || undefined,
+      },
+      async () => {
+        const startTime = Date.now();
+
+        // Set additional request context (IP, User-Agent)
+        correlation.setRequest({
+          method: request.method,
+          path: url.pathname,
+          ipAddress:
+            request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+          userAgent: request.headers.get('user-agent') || undefined,
+        });
+
+        log.info('Webhook request initiated', {
+          endpoint: url.pathname,
+          method: request.method,
+          source: options.source,
+        });
 
     try {
       // 1. Apply rate limiting specific to webhooks
@@ -593,6 +660,8 @@ export function webhookRoute(
         request
       ) as Response;
     }
+      }
+    ); // End correlation.withContext
   };
 }
 

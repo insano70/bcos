@@ -3,6 +3,7 @@ import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import type { UserContext } from '@/lib/types/rbac';
+import { log } from '@/lib/logger';
 
 /**
  * External services health check endpoint
@@ -46,7 +47,7 @@ const servicesHealthHandler = async (request: NextRequest, _userContext: UserCon
 
     return createSuccessResponse(healthData, 'Services are healthy');
   } catch (error) {
-    console.error('Services health check error:', error);
+    log.error('Services health check error', error instanceof Error ? error : new Error(String(error)));
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 503, request);
   }
 };

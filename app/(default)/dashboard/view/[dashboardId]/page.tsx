@@ -128,33 +128,15 @@ export default function DashboardViewPage() {
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
       {/* Dashboard Header */}
-      <div className="sm:flex sm:justify-between sm:items-center mb-8">
-        <div className="mb-4 sm:mb-0">
-          <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
-            {dashboard.dashboard_name}
-          </h1>
-          {dashboard.dashboard_description && (
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              {dashboard.dashboard_description}
-            </p>
-          )}
-        </div>
-
-        {/* Dashboard Info */}
-        <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-          <div className="flex items-center">
-            <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            {charts.length} {charts.length === 1 ? 'chart' : 'charts'}
-          </div>
-          <div className="flex items-center">
-            <svg className="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Updated {new Date(dashboard.updated_at).toLocaleDateString()}
-          </div>
-        </div>
+      <div className="mb-8">
+        <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
+          {dashboard.dashboard_name}
+        </h1>
+        {dashboard.dashboard_description && (
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
+            {dashboard.dashboard_description}
+          </p>
+        )}
       </div>
 
       {/* Dashboard Content - Use DashboardView component */}

@@ -7,6 +7,7 @@ import { getPagination } from '@/lib/api/utils/request';
 import { createRBACRolesService } from '@/lib/services/rbac-roles-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { roleQuerySchema } from '@/lib/validations/role';
+import { log } from '@/lib/logger';
 
 const getRolesHandler = async (request: NextRequest, userContext: UserContext) => {
   try {
@@ -48,7 +49,7 @@ const getRolesHandler = async (request: NextRequest, userContext: UserContext) =
       }
     );
   } catch (error) {
-    console.error('Error fetching roles:', error);
+    log.error('Error fetching roles', error instanceof Error ? error : new Error(String(error)));
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
       500,

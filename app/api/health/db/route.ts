@@ -6,6 +6,7 @@ import { createSuccessResponse } from '@/lib/api/responses/success';
 import { checkDbHealth, db } from '@/lib/db';
 import { checkAnalyticsDbHealth } from '@/lib/services/analytics-db';
 import type { UserContext } from '@/lib/types/rbac';
+import { log } from '@/lib/logger';
 
 /**
  * Database health check endpoint
@@ -79,10 +80,10 @@ const healthCheckHandler = async (request: NextRequest, _userContext: UserContex
 
     // Log warnings for degraded performance
     if (isSlowResponse) {
-      console.warn(`Database response time is slow: ${responseTime}ms`);
+      log.warn(`Database response time is slow: ${responseTime}ms`, { responseTime });
     }
     if (!isAnalyticsDbHealthy && process.env.ANALYTICS_DATABASE_URL) {
-      console.warn('Analytics database is unhealthy:', analyticsDbHealth.error);
+      log.warn('Analytics database is unhealthy', { error: analyticsDbHealth.error });
     }
 
     if (overallStatus === 'unhealthy') {
@@ -91,7 +92,7 @@ const healthCheckHandler = async (request: NextRequest, _userContext: UserContex
 
     return createSuccessResponse(healthData, `Database status: ${overallStatus}`);
   } catch (error) {
-    console.error('Database health check error:', error);
+    log.error('Database health check error', error instanceof Error ? error : new Error(String(error)));
 
     const _healthData = {
       status: 'unhealthy',
