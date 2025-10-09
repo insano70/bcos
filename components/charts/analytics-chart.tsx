@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ChartData, AnalyticsQueryParams, MeasureType, FrequencyType, ChartFilter, MultipleSeriesConfig, PeriodComparisonConfig, DualAxisConfig, AggAppMeasure } from '@/lib/types/analytics';
 import type { ResponsiveChartProps } from '@/lib/types/responsive-charts';
-import { calculatedFieldsService } from '@/lib/services/calculated-fields';
 import { chartExportService } from '@/lib/services/chart-export';
 import ChartErrorBoundary from './chart-error-boundary';
 import { apiClient } from '@/lib/api/client';
@@ -129,6 +128,7 @@ export default function AnalyticsChart({
   // Memoize complex dependencies to prevent infinite loops
   const stableAdvancedFilters = useMemo(() => JSON.stringify(advancedFilters || []), [advancedFilters]);
   const stableMultipleSeries = useMemo(() => JSON.stringify(multipleSeries || []), [multipleSeries]);
+  const stablePeriodComparison = useMemo(() => JSON.stringify(periodComparison || null), [periodComparison]);
 
 
   const fetchChartData = useCallback(async () => {
@@ -194,25 +194,18 @@ export default function AnalyticsChart({
       // Add multiple series configuration if provided (not for table charts)
       if (chartType !== 'table' && multipleSeries && multipleSeries.length > 0) {
         console.log('🔍 MULTIPLE SERIES CONFIG:', {
-          multipleSeries,
           seriesCount: multipleSeries.length,
-          measures: multipleSeries.map(s => s.measure),
-          labels: multipleSeries.map(s => s.label)
+          measures: multipleSeries.map(s => s.measure)
         });
         params.append('multiple_series', encodeURIComponent(JSON.stringify(multipleSeries)));
         // Don't add individual measure param when using multiple series
       } else if (chartType !== 'table') {
-        console.log('🔍 SINGLE SERIES MODE:', { measure, frequency });
         if (measure) params.append('measure', measure);
       }
 
       // Add period comparison configuration if provided (not for table charts)
       if (chartType !== 'table' && periodComparison?.enabled) {
-        console.log('🔍 PERIOD COMPARISON CONFIG:', {
-          periodComparison,
-          comparisonType: periodComparison.comparisonType,
-          labelFormat: periodComparison.labelFormat
-        });
+        console.log('🔍 PERIOD COMPARISON:', periodComparison.comparisonType);
         params.append('period_comparison', encodeURIComponent(JSON.stringify(periodComparison)));
       }
 
@@ -361,67 +354,60 @@ export default function AnalyticsChart({
         setRawData([...primaryResult.value, ...secondaryResult.value]);
         setMetadata(null);
       } else {
-        // Fetch data from admin analytics API (for chart visualizations)
-        console.log('🚀 FETCHING SINGLE SERIES DATA:', { measure, frequency });
-        const data: ApiResponse = await apiClient.get(`/api/admin/analytics/measures?${params.toString()}`);
-
-        if (!data.measures) {
-          throw new Error('Invalid response format from analytics API');
+        // Optimized single API call - server fetches and transforms data
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🚀 FETCHING AND TRANSFORMING CHART DATA');
         }
 
-        // Use groupBy directly - no hard-coded mapping needed
-        const mappedGroupBy = groupBy || 'none';
-
-        // Apply calculated fields if selected
-        let processedMeasures = data.measures;
-        if (calculatedField) {
-          try {
-            console.log('🔍 APPLYING CALCULATED FIELD:', {
-              calculatedFieldId: calculatedField,
-              originalDataCount: processedMeasures.length
-            });
-
-            processedMeasures = calculatedFieldsService.applyCalculatedField(calculatedField, processedMeasures);
-
-            console.log('🔍 CALCULATED FIELD RESULT:', {
-              processedDataCount: processedMeasures.length,
-              sampleCalculatedRecord: processedMeasures[0]
-            });
-          } catch (error) {
-            console.error('❌ Calculated field processing failed:', error);
-            setError(`Calculated field error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-            return;
-          }
+        // Client-side validation
+        if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+          setError('Start date must be before end date');
+          setIsLoading(false);
+          return;
         }
 
-        // Transform data server-side for better performance
-        console.log('🚀 TRANSFORMING DATA SERVER-SIDE:', {
-          chartType,
-          groupBy: mappedGroupBy,
-          measureCount: processedMeasures.length,
-          hasMultipleSeries: Boolean(multipleSeries && multipleSeries.length > 0),
-          hasPeriodComparison: processedMeasures.some(m => m.series_id === 'current' || m.series_id === 'comparison')
-        });
-
-        // Build request payload, only including stacking mode for stacked charts
+        // Build request payload with query parameters (not measures array)
         const requestPayload = {
-          measures: processedMeasures,
-          chartType: chartType === 'stacked-bar' ? 'bar' : chartType, // Map stacked-bar to bar
-          groupBy: mappedGroupBy,
+          // Data fetching params (passed through dynamically)
+          // Only include measure if NOT using multipleSeries (multipleSeries contains its own measures)
+          ...(!(multipleSeries && multipleSeries.length > 0) && measure && { measure }),
+          frequency,
+          startDate,
+          endDate,
+          dateRangePreset,
+          providerName,
+          advancedFilters,
+          calculatedField,
+
+          // Chart config
+          chartType: chartType === 'stacked-bar' ? 'bar' : chartType,
+          groupBy: groupBy || 'none',
           colorPalette,
           dataSourceId,
-          ...(chartType === 'stacked-bar' && { stackingMode }), // Only include for stacked charts
+          ...(chartType === 'stacked-bar' && { stackingMode }),
           multipleSeries: multipleSeries && multipleSeries.length > 0 ? multipleSeries : undefined,
           periodComparison
         };
 
-        console.log('📤 REQUEST PAYLOAD:', {
-          ...requestPayload,
-          measures: `[${processedMeasures.length} items]` // Don't log all measures
-        });
+        if (process.env.NODE_ENV === 'development') {
+          console.log('📤 REQUEST PAYLOAD:', {
+            chartType: requestPayload.chartType,
+            measure: requestPayload.measure,
+            frequency: requestPayload.frequency,
+            startDate: requestPayload.startDate,
+            endDate: requestPayload.endDate,
+            dateRangePreset: requestPayload.dateRangePreset,
+            groupBy: requestPayload.groupBy,
+            hasMultipleSeries: !!(multipleSeries && multipleSeries.length > 0),
+            multipleSeriesCount: multipleSeries?.length,
+            multipleSeriesDetails: multipleSeries?.map(s => ({ measure: s.measure, label: s.label }))
+          });
+        }
 
-        const transformResponse: {
+        // API client automatically unwraps {success: true, data: {...}} responses
+        const response: {
           chartData: ChartData;
+          rawData: AggAppMeasure[];
           metadata: {
             transformedAt: string;
             chartType: string;
@@ -431,16 +417,28 @@ export default function AnalyticsChart({
           };
         } = await apiClient.post('/api/admin/analytics/chart-data', requestPayload);
 
-        console.log('✅ SERVER-SIDE TRANSFORMATION COMPLETE:', {
-          duration: transformResponse.metadata.duration,
-          labelCount: transformResponse.chartData.labels.length,
-          datasetCount: transformResponse.chartData.datasets.length,
-          datasetLabels: transformResponse.chartData.datasets.map(d => d.label)
-        });
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ SERVER-SIDE TRANSFORMATION COMPLETE:', {
+            duration: response.metadata.duration,
+            labelCount: response.chartData.labels.length,
+            datasetCount: response.chartData.datasets?.length ?? 0,
+            datasetLabels: response.chartData.datasets?.map(d => d.label) ?? [],
+            rawDataCount: response.rawData?.length
+          });
+        }
 
-        setChartData(transformResponse.chartData);
-        setMetadata(data.metadata);
-        setRawData(data.measures); // Store raw data for export
+        // Validate response has data
+        if (!response.chartData.datasets || response.chartData.datasets.length === 0) {
+          if (!response.rawData || response.rawData.length === 0) {
+            setError('No data available for the selected filters');
+            setIsLoading(false);
+            return;
+          }
+        }
+
+        setChartData(response.chartData);
+        setRawData(response.rawData);
+        setMetadata(null); // New API doesn't return query metadata
       } // End of else block for non-table charts
 
     } catch (err) {
@@ -451,7 +449,7 @@ export default function AnalyticsChart({
     } finally {
       setIsLoading(false);
     }
-  }, [chartType, measure, frequency, practice, practiceUid, providerName, providerUid, startDate, endDate, groupBy, calculatedField, stableAdvancedFilters, stableMultipleSeries, dataSourceId]);
+  }, [chartType, measure, frequency, practice, practiceUid, providerName, providerUid, startDate, endDate, dateRangePreset, groupBy, calculatedField, colorPalette, stackingMode, stableAdvancedFilters, stableMultipleSeries, stablePeriodComparison, dataSourceId]);
 
   useEffect(() => {
     fetchChartData();
