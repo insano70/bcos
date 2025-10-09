@@ -76,3 +76,47 @@ export function isHtmlSafe(html: string): boolean {
 export function getHtmlTextLength(html: string): number {
   return stripHtml(html).length;
 }
+
+/**
+ * Sanitize URL to prevent javascript: and data: URLs
+ * Returns empty string if URL is potentially dangerous
+ */
+export function sanitizeUrl(url: string): string {
+  if (!url) return '';
+
+  const trimmedUrl = url.trim().toLowerCase();
+
+  // Block dangerous protocols
+  if (
+    trimmedUrl.startsWith('javascript:') ||
+    trimmedUrl.startsWith('data:') ||
+    trimmedUrl.startsWith('vbscript:') ||
+    trimmedUrl.startsWith('file:')
+  ) {
+    return '';
+  }
+
+  return url.trim();
+}
+
+/**
+ * Convert plain text to safe HTML by escaping special characters
+ * and converting newlines to <br> tags
+ */
+export function textToSafeHtml(text: string): string {
+  if (!text) return '';
+
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/\n/g, '<br>');
+}
+
+/**
+ * Re-export SafeHtmlRenderer component from separate file
+ * Note: Import from '@/lib/utils/html-sanitizer' for the React component
+ */
+export { SafeHtmlRenderer } from './safe-html-renderer';

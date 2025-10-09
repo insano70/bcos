@@ -1,8 +1,5 @@
 'use client';
 
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-
 /**
  * Format-Specific Field Components
  * Specialized input components for URL, email, phone, currency, and percentage fields
@@ -33,21 +30,21 @@ export function URLField({
   return (
     <div className="space-y-2">
       {label && (
-        <Label>
+        <label className="block text-sm font-medium mb-1">
           {label}
-          {required && <span className="text-destructive ml-1">*</span>}
-        </Label>
+          {required && <span className="text-red-500 ml-1">*</span>}
+        </label>
       )}
-      <Input
+      <input
         type="url"
         value={value as string}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
         required={required}
-        className={error ? 'border-destructive' : ''}
+        className={`form-input w-full ${error ? 'border-red-500' : ''}`}
       />
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-sm text-red-500">{error}</p>}
     </div>
   );
 }
@@ -67,21 +64,21 @@ export function EmailField({
   return (
     <div className="space-y-2">
       {label && (
-        <Label>
+        <label className="block text-sm font-medium mb-1">
           {label}
-          {required && <span className="text-destructive ml-1">*</span>}
-        </Label>
+          {required && <span className="text-red-500 ml-1">*</span>}
+        </label>
       )}
-      <Input
+      <input
         type="email"
         value={value as string}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
         required={required}
-        className={error ? 'border-destructive' : ''}
+        className={`form-input w-full ${error ? 'border-red-500' : ''}`}
       />
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-sm text-red-500">{error}</p>}
     </div>
   );
 }
@@ -107,21 +104,21 @@ export function PhoneField({
   return (
     <div className="space-y-2">
       {label && (
-        <Label>
+        <label className="block text-sm font-medium mb-1">
           {label}
-          {required && <span className="text-destructive ml-1">*</span>}
-        </Label>
+          {required && <span className="text-red-500 ml-1">*</span>}
+        </label>
       )}
-      <Input
+      <input
         type="tel"
         value={value as string}
-        onChange={(e) => handleChange(e.target.value)}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleChange(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
         required={required}
-        className={error ? 'border-destructive' : ''}
+        className={`form-input w-full ${error ? 'border-red-500' : ''}`}
       />
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-sm text-red-500">{error}</p>}
     </div>
   );
 }
@@ -149,7 +146,7 @@ export function CurrencyField({
     }
 
     // Limit to 2 decimal places
-    if (parts.length === 2 && parts[1]?.length > 2) {
+    if (parts.length === 2 && parts[1] && parts[1].length > 2) {
       return;
     }
 
@@ -160,27 +157,27 @@ export function CurrencyField({
   return (
     <div className="space-y-2">
       {label && (
-        <Label>
+        <label className="block text-sm font-medium mb-1">
           {label}
-          {required && <span className="text-destructive ml-1">*</span>}
-        </Label>
+          {required && <span className="text-red-500 ml-1">*</span>}
+        </label>
       )}
       <div className="relative">
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">
           $
         </span>
-        <Input
+        <input
           type="text"
           inputMode="decimal"
           value={value === 0 ? '' : value.toString()}
-          onChange={(e) => handleChange(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleChange(e.target.value)}
           placeholder={placeholder}
           disabled={disabled}
           required={required}
-          className={`pl-7 ${error ? 'border-destructive' : ''}`}
+          className={`form-input w-full pl-7 ${error ? 'border-red-500' : ''}`}
         />
       </div>
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-sm text-red-500">{error}</p>}
     </div>
   );
 }
@@ -208,7 +205,7 @@ export function PercentageField({
     }
 
     // Limit to 2 decimal places
-    if (parts.length === 2 && parts[1]?.length > 2) {
+    if (parts.length === 2 && parts[1] && parts[1].length > 2) {
       return;
     }
 
@@ -224,29 +221,29 @@ export function PercentageField({
   return (
     <div className="space-y-2">
       {label && (
-        <Label>
+        <label className="block text-sm font-medium mb-1">
           {label}
-          {required && <span className="text-destructive ml-1">*</span>}
-        </Label>
+          {required && <span className="text-red-500 ml-1">*</span>}
+        </label>
       )}
       <div className="relative">
-        <Input
+        <input
           type="text"
           inputMode="decimal"
           value={value === 0 ? '' : value.toString()}
-          onChange={(e) => handleChange(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleChange(e.target.value)}
           placeholder={placeholder}
           disabled={disabled}
           required={required}
-          className={`pr-7 ${error ? 'border-destructive' : ''}`}
+          className={`form-input w-full pr-7 ${error ? 'border-red-500' : ''}`}
         />
-        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">
           %
         </span>
       </div>
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && <p className="text-sm text-red-500">{error}</p>}
       {!error && value !== 0 && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-gray-500 dark:text-gray-400">
           Value: {value}% (0-100)
         </p>
       )}

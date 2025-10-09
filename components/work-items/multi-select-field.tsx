@@ -1,22 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Check, X, ChevronDown } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 
 /**
  * Multi-Select Field Component
@@ -47,14 +31,17 @@ export function MultiSelectField({
   error,
   disabled = false,
 }: MultiSelectFieldProps) {
-  const [open, setOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
 
   const selectedOptions = options.filter((opt) => value.includes(opt.value));
-  const availableOptions = options.filter((opt) => !value.includes(opt.value));
 
-  const handleSelect = (optionValue: string) => {
+  const filteredOptions = options.filter((opt) =>
+    opt.label.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleToggle = (optionValue: string) => {
     if (value.includes(optionValue)) {
       onChange(value.filter((v) => v !== optionValue));
     } else {
@@ -76,94 +63,113 @@ export function MultiSelectField({
   };
 
   useEffect(() => {
-    if (!open) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
       setSearchQuery('');
     }
-  }, [open]);
+  }, [isOpen]);
 
   return (
-    <div ref={containerRef} className="w-full space-y-2">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            disabled={disabled}
-            className={`w-full justify-between ${error ? 'border-destructive' : ''}`}
-          >
-            <div className="flex flex-1 flex-wrap gap-1">
-              {selectedOptions.length === 0 ? (
-                <span className="text-muted-foreground">{placeholder}</span>
-              ) : (
-                selectedOptions.map((option) => (
-                  <Badge
-                    key={option.value}
-                    variant="secondary"
-                    className="mr-1 flex items-center gap-1"
+    <div ref={containerRef} className="w-full space-y-2 relative">
+      <div
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        className={`form-input w-full min-h-[42px] cursor-pointer flex items-center justify-between ${
+          error ? 'border-red-500' : ''
+        } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+      >
+        <div className="flex flex-1 flex-wrap gap-1">
+          {selectedOptions.length === 0 ? (
+            <span className="text-gray-400 dark:text-gray-500">{placeholder}</span>
+          ) : (
+            selectedOptions.map((option) => (
+              <span
+                key={option.value}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-violet-100 dark:bg-violet-900/30 text-violet-900 dark:text-violet-100 text-sm"
+              >
+                {option.label}
+                {!disabled && (
+                  <button
+                    type="button"
+                    onClick={(e) => handleRemove(option.value, e)}
+                    className="hover:text-red-500"
                   >
-                    {option.label}
-                    {!disabled && (
-                      <X
-                        className="h-3 w-3 cursor-pointer hover:text-destructive"
-                        onClick={(e) => handleRemove(option.value, e)}
-                      />
-                    )}
-                  </Badge>
-                ))
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {selectedOptions.length > 0 && !disabled && (
-                <X
-                  className="h-4 w-4 cursor-pointer opacity-50 hover:opacity-100"
-                  onClick={handleClear}
-                />
-              )}
-              <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
-            </div>
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-full p-0" align="start">
-          <Command>
-            <CommandInput
-              placeholder="Search options..."
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                )}
+              </span>
+            ))
+          )}
+        </div>
+        <div className="flex items-center gap-2 ml-2">
+          {selectedOptions.length > 0 && !disabled && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="hover:text-red-500"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          )}
+          <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+          </svg>
+        </div>
+      </div>
+
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-hidden">
+          <div className="p-2 border-b border-gray-200 dark:border-gray-700">
+            <input
+              type="text"
               value={searchQuery}
-              onValueChange={setSearchQuery}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+              placeholder="Search options..."
+              className="form-input w-full text-sm"
             />
-            <CommandList>
-              <CommandEmpty>No options found.</CommandEmpty>
-              <CommandGroup>
-                {availableOptions.map((option) => (
-                  <CommandItem
-                    key={option.value}
-                    value={option.value}
-                    onSelect={() => handleSelect(option.value)}
-                  >
-                    <Check
-                      className={`mr-2 h-4 w-4 ${value.includes(option.value) ? 'opacity-100' : 'opacity-0'}`}
-                    />
-                    {option.label}
-                  </CommandItem>
-                ))}
-                {selectedOptions.map((option) => (
-                  <CommandItem
-                    key={option.value}
-                    value={option.value}
-                    onSelect={() => handleSelect(option.value)}
-                  >
-                    <Check className="mr-2 h-4 w-4 opacity-100" />
-                    {option.label}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-      {error && <p className="text-sm text-destructive">{error}</p>}
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            {filteredOptions.length === 0 ? (
+              <div className="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                No options found.
+              </div>
+            ) : (
+              filteredOptions.map((option) => (
+                <div
+                  key={option.value}
+                  onClick={() => handleToggle(option.value)}
+                  className="flex items-center px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={value.includes(option.value)}
+                    readOnly
+                    className="form-checkbox mr-2"
+                  />
+                  <span className="text-sm">{option.label}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {error && <p className="text-sm text-red-500">{error}</p>}
       {value.length > 0 && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-gray-500 dark:text-gray-400">
           {value.length} of {maxSelections} selected
         </p>
       )}

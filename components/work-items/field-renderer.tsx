@@ -1,16 +1,5 @@
 'use client';
 
-import { useState } from 'react';
-import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { RichTextEditor } from './rich-text-editor';
 import { MultiSelectField, type MultiSelectOption } from './multi-select-field';
 import {
@@ -78,23 +67,23 @@ export function FieldRenderer({
   if (field.field_type === 'text') {
     return (
       <div className="space-y-2">
-        <Label>
+        <label className="block text-sm font-medium mb-1">
           {field.field_label}
-          {isRequired && <span className="text-destructive ml-1">*</span>}
-        </Label>
+          {isRequired && <span className="text-red-500 ml-1">*</span>}
+        </label>
         {field.field_description && (
-          <p className="text-sm text-muted-foreground">{field.field_description}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{field.field_description}</p>
         )}
-        <Input
+        <input
           type="text"
-          value={value as string || ''}
-          onChange={(e) => onChange(e.target.value)}
+          value={(value as string) || ''}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
           disabled={disabled}
           required={isRequired}
           maxLength={field.validation_rules?.maxLength}
-          className={error ? 'border-destructive' : ''}
+          className={`form-input w-full ${error ? 'border-red-500' : ''}`}
         />
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-sm text-red-500">{error}</p>}
       </div>
     );
   }
@@ -103,24 +92,24 @@ export function FieldRenderer({
   if (field.field_type === 'number') {
     return (
       <div className="space-y-2">
-        <Label>
+        <label className="block text-sm font-medium mb-1">
           {field.field_label}
-          {isRequired && <span className="text-destructive ml-1">*</span>}
-        </Label>
+          {isRequired && <span className="text-red-500 ml-1">*</span>}
+        </label>
         {field.field_description && (
-          <p className="text-sm text-muted-foreground">{field.field_description}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{field.field_description}</p>
         )}
-        <Input
+        <input
           type="number"
-          value={value as number || ''}
-          onChange={(e) => onChange(parseFloat(e.target.value))}
+          value={(value as number) || ''}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(parseFloat(e.target.value))}
           disabled={disabled}
           required={isRequired}
           min={field.validation_rules?.min}
           max={field.validation_rules?.max}
-          className={error ? 'border-destructive' : ''}
+          className={`form-input w-full ${error ? 'border-red-500' : ''}`}
         />
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-sm text-red-500">{error}</p>}
       </div>
     );
   }
@@ -129,22 +118,22 @@ export function FieldRenderer({
   if (field.field_type === 'date') {
     return (
       <div className="space-y-2">
-        <Label>
+        <label className="block text-sm font-medium mb-1">
           {field.field_label}
-          {isRequired && <span className="text-destructive ml-1">*</span>}
-        </Label>
+          {isRequired && <span className="text-red-500 ml-1">*</span>}
+        </label>
         {field.field_description && (
-          <p className="text-sm text-muted-foreground">{field.field_description}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{field.field_description}</p>
         )}
-        <Input
+        <input
           type="date"
-          value={value as string || ''}
-          onChange={(e) => onChange(e.target.value)}
+          value={(value as string) || ''}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
           disabled={disabled}
           required={isRequired}
-          className={error ? 'border-destructive' : ''}
+          className={`form-input w-full ${error ? 'border-red-500' : ''}`}
         />
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-sm text-red-500">{error}</p>}
       </div>
     );
   }
@@ -153,22 +142,22 @@ export function FieldRenderer({
   if (field.field_type === 'datetime') {
     return (
       <div className="space-y-2">
-        <Label>
+        <label className="block text-sm font-medium mb-1">
           {field.field_label}
-          {isRequired && <span className="text-destructive ml-1">*</span>}
-        </Label>
+          {isRequired && <span className="text-red-500 ml-1">*</span>}
+        </label>
         {field.field_description && (
-          <p className="text-sm text-muted-foreground">{field.field_description}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{field.field_description}</p>
         )}
-        <Input
+        <input
           type="datetime-local"
-          value={value as string || ''}
-          onChange={(e) => onChange(e.target.value)}
+          value={(value as string) || ''}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
           disabled={disabled}
           required={isRequired}
-          className={error ? 'border-destructive' : ''}
+          className={`form-input w-full ${error ? 'border-red-500' : ''}`}
         />
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-sm text-red-500">{error}</p>}
       </div>
     );
   }
@@ -176,24 +165,28 @@ export function FieldRenderer({
   // Checkbox field
   if (field.field_type === 'checkbox') {
     return (
-      <div className="flex items-center space-x-2">
-        <Checkbox
-          id={field.work_item_field_id}
-          checked={value as boolean || false}
-          onCheckedChange={(checked) => onChange(checked)}
-          disabled={disabled}
-        />
-        <Label
-          htmlFor={field.work_item_field_id}
-          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-        >
-          {field.field_label}
-          {isRequired && <span className="text-destructive ml-1">*</span>}
-        </Label>
+      <div className="space-y-2">
+        <div className="flex items-center">
+          <input
+            id={field.work_item_field_id}
+            type="checkbox"
+            checked={(value as boolean) || false}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.checked)}
+            disabled={disabled}
+            className="form-checkbox"
+          />
+          <label
+            htmlFor={field.work_item_field_id}
+            className="text-sm font-medium ml-2"
+          >
+            {field.field_label}
+            {isRequired && <span className="text-red-500 ml-1">*</span>}
+          </label>
+        </div>
         {field.field_description && (
-          <p className="text-sm text-muted-foreground">{field.field_description}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{field.field_description}</p>
         )}
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-sm text-red-500">{error}</p>}
       </div>
     );
   }
@@ -203,30 +196,28 @@ export function FieldRenderer({
     const options = (field.field_options ?? []) as FieldOption[];
     return (
       <div className="space-y-2">
-        <Label>
+        <label className="block text-sm font-medium mb-1">
           {field.field_label}
-          {isRequired && <span className="text-destructive ml-1">*</span>}
-        </Label>
+          {isRequired && <span className="text-red-500 ml-1">*</span>}
+        </label>
         {field.field_description && (
-          <p className="text-sm text-muted-foreground">{field.field_description}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{field.field_description}</p>
         )}
-        <Select
-          value={value as string || ''}
-          onValueChange={onChange}
+        <select
+          value={(value as string) || ''}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onChange(e.target.value)}
           disabled={disabled}
+          required={isRequired}
+          className={`form-select w-full ${error ? 'border-red-500' : ''}`}
         >
-          <SelectTrigger className={error ? 'border-destructive' : ''}>
-            <SelectValue placeholder="Select an option" />
-          </SelectTrigger>
-          <SelectContent>
-            {options.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {error && <p className="text-sm text-destructive">{error}</p>}
+          <option value="">Select an option</option>
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        {error && <p className="text-sm text-red-500">{error}</p>}
       </div>
     );
   }
@@ -236,12 +227,12 @@ export function FieldRenderer({
     const options = (field.field_options ?? []) as MultiSelectOption[];
     return (
       <div className="space-y-2">
-        <Label>
+        <label className="block text-sm font-medium mb-1">
           {field.field_label}
-          {isRequired && <span className="text-destructive ml-1">*</span>}
-        </Label>
+          {isRequired && <span className="text-red-500 ml-1">*</span>}
+        </label>
         {field.field_description && (
-          <p className="text-sm text-muted-foreground">{field.field_description}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{field.field_description}</p>
         )}
         <MultiSelectField
           options={options}
@@ -258,15 +249,15 @@ export function FieldRenderer({
   if (field.field_type === 'rich_text') {
     return (
       <div className="space-y-2">
-        <Label>
+        <label className="block text-sm font-medium mb-1">
           {field.field_label}
-          {isRequired && <span className="text-destructive ml-1">*</span>}
-        </Label>
+          {isRequired && <span className="text-red-500 ml-1">*</span>}
+        </label>
         {field.field_description && (
-          <p className="text-sm text-muted-foreground">{field.field_description}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{field.field_description}</p>
         )}
         <RichTextEditor
-          value={value as string || ''}
+          value={(value as string) || ''}
           onChange={onChange}
           readOnly={disabled}
           maxLength={field.validation_rules?.maxLength ?? 50000}
@@ -350,23 +341,23 @@ export function FieldRenderer({
   if (field.field_type === 'user_picker') {
     return (
       <div className="space-y-2">
-        <Label>
+        <label className="block text-sm font-medium mb-1">
           {field.field_label}
-          {isRequired && <span className="text-destructive ml-1">*</span>}
-        </Label>
+          {isRequired && <span className="text-red-500 ml-1">*</span>}
+        </label>
         {field.field_description && (
-          <p className="text-sm text-muted-foreground">{field.field_description}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{field.field_description}</p>
         )}
-        <Input
+        <input
           type="text"
-          value={value as string || ''}
-          onChange={(e) => onChange(e.target.value)}
+          value={(value as string) || ''}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
           disabled={disabled}
           required={isRequired}
           placeholder="User ID"
-          className={error ? 'border-destructive' : ''}
+          className={`form-input w-full ${error ? 'border-red-500' : ''}`}
         />
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && <p className="text-sm text-red-500">{error}</p>}
       </div>
     );
   }
@@ -374,8 +365,8 @@ export function FieldRenderer({
   // Default fallback
   return (
     <div className="space-y-2">
-      <Label>{field.field_label}</Label>
-      <p className="text-sm text-muted-foreground">
+      <label className="block text-sm font-medium mb-1">{field.field_label}</label>
+      <p className="text-sm text-gray-500 dark:text-gray-400">
         Unsupported field type: {field.field_type}
       </p>
     </div>
