@@ -8,7 +8,7 @@ import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { createRBACWorkItemsService } from '@/lib/services/rbac-work-items-service';
 import { createRBACWorkItemFieldValuesService } from '@/lib/services/rbac-work-item-field-values-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
+import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
 
 /**
  * GET /api/work-items
@@ -17,47 +17,14 @@ import { log } from '@/lib/logger';
 const getWorkItemsHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
 
-  log.info('List work items request initiated', {
-    operation: 'list_work_items',
-    requestingUserId: userContext.user_id,
-    organizationId: userContext.current_organization_id,
-  });
-
   try {
     const { searchParams } = new URL(request.url);
-
-    const validationStart = Date.now();
     const query = validateQuery(searchParams, workItemQuerySchema);
-    log.info('Request validation completed', { duration: Date.now() - validationStart });
-
-    log.info('Request parameters parsed', {
-      filters: {
-        work_item_type_id: query.work_item_type_id,
-        organization_id: query.organization_id,
-        status_id: query.status_id,
-        status_category: query.status_category,
-        priority: query.priority,
-        assigned_to: query.assigned_to,
-        created_by: query.created_by,
-        search: query.search,
-      },
-      pagination: {
-        limit: query.limit,
-        offset: query.offset,
-      },
-      sort: {
-        sortBy: query.sortBy,
-        sortOrder: query.sortOrder,
-      },
-    });
 
     // Create RBAC service
-    const serviceStart = Date.now();
     const workItemsService = createRBACWorkItemsService(userContext);
-    log.info('RBAC service created', { duration: Date.now() - serviceStart });
 
     // Get work items with automatic permission-based filtering
-    const workItemsStart = Date.now();
     const workItems = await workItemsService.getWorkItems({
       work_item_type_id: query.work_item_type_id,
       organization_id: query.organization_id,
@@ -72,10 +39,8 @@ const getWorkItemsHandler = async (request: NextRequest, userContext: UserContex
       sortBy: query.sortBy,
       sortOrder: query.sortOrder,
     });
-    log.db('SELECT', 'work_items', Date.now() - workItemsStart, { rowCount: workItems.length });
 
     // Get total count
-    const countStart = Date.now();
     const totalCount = await workItemsService.getWorkItemCount({
       work_item_type_id: query.work_item_type_id,
       organization_id: query.organization_id,
@@ -86,7 +51,6 @@ const getWorkItemsHandler = async (request: NextRequest, userContext: UserContex
       created_by: query.created_by,
       search: query.search,
     });
-    log.db('SELECT', 'work_items_count', Date.now() - countStart, { rowCount: 1 });
 
     const responseData = workItems.map((item) => ({
       id: item.work_item_id,
@@ -111,11 +75,50 @@ const getWorkItemsHandler = async (request: NextRequest, userContext: UserContex
       updated_at: item.updated_at,
     }));
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Work items list retrieved successfully', {
-      workItemsReturned: workItems.length,
-      totalCount,
-      totalDuration,
+    // Prepare sanitized filter context
+    const filters = sanitizeFilters({
+      type: query.work_item_type_id,
+      organization: query.organization_id,
+      status: query.status_id || query.status_category,
+      priority: query.priority,
+      assignee: query.assigned_to,
+      creator: query.created_by,
+      search: query.search,
+    });
+
+    // Count active filters
+    const activeFilters = [
+      query.work_item_type_id,
+      query.organization_id,
+      query.status_id,
+      query.status_category,
+      query.priority,
+      query.assigned_to,
+      query.created_by,
+      query.search,
+    ].filter(Boolean);
+
+    // Enriched success log - consolidates 6 separate logs into 1 comprehensive log
+    log.info(`work-items list query completed - returned ${workItems.length} of ${totalCount}`, {
+      operation: 'list_work_items',
+      resourceType: 'work_items',
+      userId: userContext.user_id,
+      organizationId: userContext.current_organization_id,
+      filters,
+      filterCount: activeFilters.length,
+      results: {
+        returned: workItems.length,
+        total: totalCount,
+        page: Math.floor((query.offset || 0) / (query.limit || 50)) + 1,
+        pageSize: query.limit || 50,
+      },
+      sort: {
+        field: query.sortBy || 'created_at',
+        direction: query.sortOrder || 'desc',
+      },
+      duration: Date.now() - startTime,
+      slow: Date.now() - startTime > 1000,
+      component: 'business-logic',
     });
 
     return createPaginatedResponse(responseData, {
@@ -124,12 +127,12 @@ const getWorkItemsHandler = async (request: NextRequest, userContext: UserContex
       total: totalCount,
     });
   } catch (error) {
-    const totalDuration = Date.now() - startTime;
-
-    log.error('Work items list request failed', error, {
-      requestingUserId: userContext.user_id,
+    log.error('Work items list query failed', error, {
+      operation: 'list_work_items',
+      userId: userContext.user_id,
       organizationId: userContext.current_organization_id,
-      totalDuration,
+      duration: Date.now() - startTime,
+      component: 'business-logic',
     });
 
     return createErrorResponse(
@@ -154,23 +157,13 @@ export const GET = rbacRoute(getWorkItemsHandler, {
 const createWorkItemHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
 
-  log.info('Work item creation request initiated', {
-    createdByUserId: userContext.user_id,
-    organizationId: userContext.current_organization_id,
-  });
-
   try {
-    const validationStart = Date.now();
     const validatedData = await validateRequest(request, workItemCreateSchema);
-    log.info('Request validation completed', { duration: Date.now() - validationStart });
 
     // Create RBAC service
-    const serviceStart = Date.now();
     const workItemsService = createRBACWorkItemsService(userContext);
-    log.info('RBAC service created', { duration: Date.now() - serviceStart });
 
     // Create work item with automatic permission checking
-    const workItemCreationStart = Date.now();
     const newWorkItem = await workItemsService.createWorkItem({
       work_item_type_id: validatedData.work_item_type_id,
       organization_id: validatedData.organization_id || userContext.current_organization_id || '',
@@ -180,24 +173,20 @@ const createWorkItemHandler = async (request: NextRequest, userContext: UserCont
       assigned_to: validatedData.assigned_to || null,
       due_date: validatedData.due_date || null,
     });
-    log.db('INSERT', 'work_items', Date.now() - workItemCreationStart, { rowCount: 1 });
 
-    // Phase 3: Handle custom field values if provided
+    // Handle custom field values if provided
+    let customFieldCount = 0;
     if (validatedData.custom_fields && Object.keys(validatedData.custom_fields).length > 0) {
-      const fieldValuesStart = Date.now();
       const fieldValuesService = createRBACWorkItemFieldValuesService(userContext);
       await fieldValuesService.setFieldValues(
         newWorkItem.work_item_id,
         validatedData.work_item_type_id,
         validatedData.custom_fields
       );
-      log.db('INSERT', 'work_item_field_values', Date.now() - fieldValuesStart, {
-        rowCount: Object.keys(validatedData.custom_fields).length,
-      });
+      customFieldCount = Object.keys(validatedData.custom_fields).length;
     }
 
-    // Phase 6: Auto-create child work items based on type relationships
-    const autoCreateStart = Date.now();
+    // Auto-create child work items based on type relationships
     const { createRBACWorkItemTypeRelationshipsService } = await import('@/lib/services/rbac-work-item-type-relationships-service');
     const relationshipsService = createRBACWorkItemTypeRelationshipsService(userContext);
 
@@ -207,16 +196,12 @@ const createWorkItemHandler = async (request: NextRequest, userContext: UserCont
       auto_create: true,
     });
 
-    if (autoCreateRelationships.length > 0) {
-      log.info('Auto-creating child work items', {
-        parentWorkItemId: newWorkItem.work_item_id,
-        relationshipCount: autoCreateRelationships.length,
-      });
+    let autoCreatedCount = 0;
+    const autoCreatedChildren: string[] = [];
 
+    if (autoCreateRelationships.length > 0) {
       for (const relationship of autoCreateRelationships) {
         try {
-          const childCreationStart = Date.now();
-
           // Prepare subject using template interpolation
           let childSubject = 'New Item';
           if (relationship.auto_create_config?.subject_template) {
@@ -248,34 +233,26 @@ const createWorkItemHandler = async (request: NextRequest, userContext: UserCont
             );
           }
 
-          log.info('Auto-created child work item', {
-            parentWorkItemId: newWorkItem.work_item_id,
-            childWorkItemId: childWorkItem.work_item_id,
-            childTypeId: relationship.child_type_id,
-            relationshipName: relationship.relationship_name,
-            duration: Date.now() - childCreationStart,
-          });
+          autoCreatedCount++;
+          autoCreatedChildren.push(childWorkItem.work_item_id);
         } catch (error) {
           log.error('Failed to auto-create child work item', error, {
+            operation: 'auto_create_child',
             parentWorkItemId: newWorkItem.work_item_id,
             relationshipId: relationship.work_item_type_relationship_id,
             childTypeId: relationship.child_type_id,
+            component: 'business-logic',
           });
           // Continue with other auto-create relationships even if one fails
         }
       }
-
-      log.info('Auto-create child items completed', {
-        parentWorkItemId: newWorkItem.work_item_id,
-        duration: Date.now() - autoCreateStart,
-      });
     }
 
-    // Phase 7: Add creator as watcher (auto-watcher logic)
-    const watcherStart = Date.now();
+    // Add creator as watcher (auto-watcher logic)
     const { createRBACWorkItemWatchersService } = await import('@/lib/services/rbac-work-item-watchers-service');
     const watchersService = createRBACWorkItemWatchersService(userContext);
 
+    let watcherAdded = false;
     try {
       await watchersService.addWatcher({
         work_item_id: newWorkItem.work_item_id,
@@ -286,25 +263,41 @@ const createWorkItemHandler = async (request: NextRequest, userContext: UserCont
         notify_assignments: true,
         notify_due_date: true,
       });
-      log.info('Creator added as watcher', {
-        workItemId: newWorkItem.work_item_id,
-        userId: userContext.user_id,
-        duration: Date.now() - watcherStart,
-      });
+      watcherAdded = true;
     } catch (error) {
       log.error('Failed to add creator as watcher', error, {
+        operation: 'add_watcher',
         workItemId: newWorkItem.work_item_id,
         userId: userContext.user_id,
+        component: 'business-logic',
       });
       // Don't fail work item creation if watcher addition fails
     }
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Work item creation completed successfully', {
-      newWorkItemId: newWorkItem.work_item_id,
-      autoCreatedChildCount: autoCreateRelationships.length,
-      totalDuration,
+    // Enriched creation success log - consolidates 8+ separate logs into 1 comprehensive log
+    const template = logTemplates.crud.create('work_item', {
+      resourceId: newWorkItem.work_item_id,
+      resourceName: newWorkItem.subject,
+      userId: userContext.user_id,
+      organizationId: newWorkItem.organization_id,
+      duration: Date.now() - startTime,
+      metadata: {
+        workItemType: newWorkItem.work_item_type_name,
+        workItemTypeId: newWorkItem.work_item_type_id,
+        status: newWorkItem.status_name,
+        priority: newWorkItem.priority,
+        hasDescription: !!newWorkItem.description,
+        ...(newWorkItem.assigned_to && { assignedTo: newWorkItem.assigned_to }),
+        ...(newWorkItem.due_date && { dueDate: newWorkItem.due_date }),
+        customFieldsSet: customFieldCount,
+        autoCreatedChildren: autoCreatedCount,
+        ...(autoCreatedChildren.length > 0 && { autoCreatedChildIds: autoCreatedChildren }),
+        creatorWatcherAdded: watcherAdded,
+        organizationName: newWorkItem.organization_name,
+      },
     });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse(
       {
@@ -328,12 +321,12 @@ const createWorkItemHandler = async (request: NextRequest, userContext: UserCont
       'Work item created successfully'
     );
   } catch (error) {
-    const totalDuration = Date.now() - startTime;
-
     log.error('Work item creation failed', error, {
-      createdByUserId: userContext.user_id,
+      operation: 'create_work_item',
+      userId: userContext.user_id,
       organizationId: userContext.current_organization_id,
-      totalDuration,
+      duration: Date.now() - startTime,
+      component: 'business-logic',
     });
 
     return createErrorResponse(
