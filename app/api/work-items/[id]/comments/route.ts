@@ -122,6 +122,42 @@ const createWorkItemCommentHandler = async (
     });
     log.db('INSERT', 'work_item_comments', Date.now() - commentCreationStart, { rowCount: 1 });
 
+    // Phase 7: Add commenter as watcher (auto-watcher logic)
+    const watcherStart = Date.now();
+    const { createRBACWorkItemWatchersService } = await import('@/lib/services/rbac-work-item-watchers-service');
+    const watchersService = createRBACWorkItemWatchersService(userContext);
+
+    try {
+      // Check if commenter is already a watcher
+      const existingWatchers = await watchersService.getWatchersForWorkItem(validatedParams.id);
+      const isAlreadyWatcher = existingWatchers.some(
+        (w) => w.user_id === userContext.user_id
+      );
+
+      if (!isAlreadyWatcher) {
+        await watchersService.addWatcher({
+          work_item_id: validatedParams.id,
+          user_id: userContext.user_id,
+          watch_type: 'auto_commenter',
+          notify_status_changes: true,
+          notify_comments: true,
+          notify_assignments: true,
+          notify_due_date: true,
+        });
+        log.info('Commenter added as watcher', {
+          workItemId: validatedParams.id,
+          userId: userContext.user_id,
+          duration: Date.now() - watcherStart,
+        });
+      }
+    } catch (error) {
+      log.error('Failed to add commenter as watcher', error, {
+        workItemId: validatedParams.id,
+        userId: userContext.user_id,
+      });
+      // Don't fail comment creation if watcher addition fails
+    }
+
     const totalDuration = Date.now() - startTime;
     log.info('Work item comment created successfully', {
       commentId: newComment.work_item_comment_id,

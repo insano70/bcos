@@ -2,14 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import ModalBasic from '@/components/modal-basic';
+import ConditionalVisibilityBuilder from '@/components/conditional-visibility-builder';
 import { useUpdateWorkItemField } from '@/lib/hooks/use-work-item-fields';
-import type { WorkItemField, FieldOption } from '@/lib/types/work-item-fields';
+import type { WorkItemField, FieldOption, ConditionalVisibilityRule } from '@/lib/types/work-item-fields';
 
 interface EditWorkItemFieldModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   field: WorkItemField | null;
+  allFields: WorkItemField[];
 }
 
 export default function EditWorkItemFieldModal({
@@ -17,6 +19,7 @@ export default function EditWorkItemFieldModal({
   onClose,
   onSuccess,
   field,
+  allFields,
 }: EditWorkItemFieldModalProps) {
   const [fieldLabel, setFieldLabel] = useState('');
   const [fieldDescription, setFieldDescription] = useState('');
@@ -26,6 +29,7 @@ export default function EditWorkItemFieldModal({
   const [options, setOptions] = useState<FieldOption[]>([]);
   const [newOptionValue, setNewOptionValue] = useState('');
   const [newOptionLabel, setNewOptionLabel] = useState('');
+  const [conditionalVisibilityRules, setConditionalVisibilityRules] = useState<ConditionalVisibilityRule[]>([]);
 
   const updateFieldMutation = useUpdateWorkItemField();
 
@@ -37,6 +41,7 @@ export default function EditWorkItemFieldModal({
       setIsVisible(field.is_visible);
       setDisplayOrder(field.display_order);
       setOptions(field.field_options || []);
+      setConditionalVisibilityRules(field.field_config?.conditional_visibility || []);
     }
   }, [field]);
 
@@ -55,6 +60,7 @@ export default function EditWorkItemFieldModal({
           is_visible: isVisible,
           display_order: displayOrder,
           field_options: field.field_type === 'dropdown' ? options : undefined,
+          field_config: conditionalVisibilityRules.length > 0 ? { conditional_visibility: conditionalVisibilityRules } : undefined,
         } as never,
       });
 
@@ -212,6 +218,16 @@ export default function EditWorkItemFieldModal({
               min="0"
               value={displayOrder}
               onChange={(e) => setDisplayOrder(parseInt(e.target.value))}
+            />
+          </div>
+
+          {/* Conditional Visibility */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+            <ConditionalVisibilityBuilder
+              rules={conditionalVisibilityRules}
+              onChange={setConditionalVisibilityRules}
+              availableFields={allFields}
+              currentFieldId={field.work_item_field_id}
             />
           </div>
 

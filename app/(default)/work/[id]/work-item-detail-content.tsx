@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useWorkItem, useUpdateWorkItem, useDeleteWorkItem } from '@/lib/hooks/use-work-items';
+import { useWorkItem, useUpdateWorkItem, useDeleteWorkItem, useWorkItemChildren } from '@/lib/hooks/use-work-items';
 import WorkItemHierarchySection from '@/components/work-items/work-item-hierarchy-section';
 import WorkItemCommentsSection from '@/components/work-items/work-item-comments-section';
 import WorkItemActivitySection from '@/components/work-items/work-item-activity-section';
 import WorkItemAttachmentsSection from '@/components/work-items/work-item-attachments-section';
+import WorkItemBreadcrumbs from '@/components/work-items/work-item-breadcrumbs';
 import EditWorkItemModal from '@/components/edit-work-item-modal';
+import DeleteWorkItemModal from '@/components/delete-work-item-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { WorkItemWatchButton } from '@/components/work-item-watch-button';
 import { WorkItemWatchersList } from '@/components/work-item-watchers-list';
@@ -23,27 +25,28 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
   const router = useRouter();
   const { data: workItem, isLoading, error, refetch } = useWorkItem(workItemId);
   const { data: watchers } = useWorkItemWatchers(workItemId);
+  const { data: children } = useWorkItemChildren(workItemId);
   const { user } = useAuth();
   const updateWorkItem = useUpdateWorkItem();
   const deleteWorkItem = useDeleteWorkItem();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'details' | 'comments' | 'activity' | 'history' | 'watchers'>('details');
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'details' | 'comments' | 'activity' | 'history' | 'watchers' | 'subItems'>('details');
 
   // Check if current user is watching
   const isWatching = watchers?.some(w => w.user_id === user?.user_id) || false;
 
-  const handleDelete = async () => {
-    if (confirm('Are you sure you want to delete this work item? This action cannot be undone.')) {
-      try {
-        await deleteWorkItem.mutateAsync(workItemId);
-        router.push('/work');
-      } catch (error) {
-        log.error('Failed to delete work item', error, {
-          workItemId,
-          operation: 'delete_work_item',
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteWorkItem.mutateAsync(id);
+      router.push('/work');
+    } catch (error) {
+      log.error('Failed to delete work item', error, {
+        workItemId: id,
+        operation: 'delete_work_item',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error; // Re-throw to let modal handle the error state
     }
   };
 
@@ -106,6 +109,9 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
+      {/* Breadcrumbs */}
+      <WorkItemBreadcrumbs workItemId={workItemId} currentSubject={workItem.subject} />
+
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
@@ -149,7 +155,7 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
             >
               <button
                 type="button"
-                onClick={handleDelete}
+                onClick={() => setIsDeleteModalOpen(true)}
                 className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-red-600 dark:text-red-400"
               >
                 <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 16 16">
@@ -242,6 +248,17 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
           >
             Watchers
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('subItems')}
+            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'subItems'
+                ? 'border-gray-900 dark:border-gray-100 text-gray-900 dark:text-gray-100'
+                : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+            }`}
+          >
+            Sub-items
+          </button>
         </nav>
       </div>
 
@@ -282,6 +299,75 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
                 workItemId={workItemId}
                 currentUserId={user?.user_id || ''}
               />
+            </div>
+          )}
+
+          {activeTab === 'subItems' && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Child Work Items
+                </h2>
+                {children && children.length > 0 && (
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {children.length} {children.length === 1 ? 'item' : 'items'}
+                  </span>
+                )}
+              </div>
+
+              {children && children.length > 0 ? (
+                <div className="space-y-2">
+                  {children.map((child) => (
+                    <div
+                      key={child.id}
+                      className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
+                      onClick={() => router.push(`/work/${child.id}`)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                              {child.subject}
+                            </span>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                              child.priority === 'critical' ? 'text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400' :
+                              child.priority === 'high' ? 'text-orange-700 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400' :
+                              child.priority === 'medium' ? 'text-yellow-700 bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                              'text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400'
+                            }`}>
+                              {child.priority}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+                              {child.status_name}
+                            </span>
+                            <span>{child.work_item_type_name}</span>
+                            {child.assigned_to_name && (
+                              <span>Assigned to {child.assigned_to_name}</span>
+                            )}
+                          </div>
+                        </div>
+                        <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 20 20" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    No child work items
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                    Create a new work item and set this item as its parent
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -335,6 +421,17 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
             refetch();
           }}
           workItem={workItem}
+        />
+      )}
+
+      {/* Delete Modal */}
+      {isDeleteModalOpen && (
+        <DeleteWorkItemModal
+          isOpen={isDeleteModalOpen}
+          setIsOpen={setIsDeleteModalOpen}
+          workItemId={workItemId}
+          workItemSubject={workItem.subject}
+          onConfirm={handleDelete}
         />
       )}
     </div>

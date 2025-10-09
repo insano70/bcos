@@ -284,6 +284,7 @@ export default function ManageWorkItemFieldsModal({
             refetch();
           }}
           field={editingField}
+          allFields={sortedFields}
         />
       )}
     </>

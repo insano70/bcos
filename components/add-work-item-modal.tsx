@@ -13,6 +13,7 @@ import { useUsers } from '@/lib/hooks/use-users';
 import { useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
 import DynamicFieldRenderer from '@/components/dynamic-field-renderer';
+import UserPicker from '@/components/user-picker';
 import Toast from './toast';
 
 const createWorkItemSchema = z.object({
@@ -327,24 +328,15 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess }: AddWork
                     >
                       Assigned To
                     </label>
-                    <select
-                      id="assigned_to"
-                      {...register('assigned_to')}
+                    <UserPicker
+                      users={activeUsers}
+                      value={watch('assigned_to')}
+                      onChange={(userId) => setValue('assigned_to', userId)}
                       disabled={isSubmitting}
-                      className="form-select w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
-                    >
-                      <option value="">Unassigned</option>
-                      {activeUsers.map((user) => (
-                        <option key={user.id} value={user.id}>
-                          {user.first_name} {user.last_name}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.assigned_to && (
-                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                        {errors.assigned_to.message}
-                      </p>
-                    )}
+                      error={errors.assigned_to?.message}
+                      placeholder="Unassigned"
+                      allowClear={true}
+                    />
                   </div>
 
                   {/* Due Date */}

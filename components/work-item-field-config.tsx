@@ -242,6 +242,7 @@ export default function WorkItemFieldConfig({
         }}
         onSuccess={refetch}
         field={selectedField}
+        allFields={fields || []}
       />
     </div>
   );
