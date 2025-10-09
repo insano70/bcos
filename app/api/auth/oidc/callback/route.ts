@@ -39,7 +39,7 @@ import { validateAuthProfile, validateEmailDomain } from '@/lib/auth/input-valid
 import { createTokenPair } from '@/lib/auth/token-manager';
 import { db, users } from '@/lib/db';
 import { getOIDCConfig } from '@/lib/env';
-import { correlation, log } from '@/lib/logger';
+import { correlation, log, logTemplates } from '@/lib/logger';
 import { getOIDCClient } from '@/lib/oidc/client';
 import { databaseStateManager } from '@/lib/oidc/database-state-manager';
 import { SessionError, StateValidationError } from '@/lib/oidc/errors';
@@ -72,9 +72,19 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 
     // Check for provider errors
     if (error) {
-      log.error('OIDC provider returned error', {
-        error,
-        errorDescription,
+      log.error('OIDC callback failed - provider error', new Error(errorDescription || error), {
+        operation: 'oidc_callback',
+        success: false,
+        reason: 'provider_error',
+        errorCode: error,
+        errorDescription: errorDescription || 'no description provided',
+        duration: Date.now() - startTime,
+        component: 'auth',
+        severity: 'medium',
+        securityContext: {
+          threat: 'authentication_failure',
+          blocked: true,
+        },
       });
 
       await AuditLogger.logAuth({
@@ -154,8 +164,20 @@ const oidcCallbackHandler = async (request: NextRequest) => {
     // Database-backed validation for horizontal scaling
     const isValid = await databaseStateManager.validateAndMarkUsed(state);
     if (!isValid) {
-      log.error('State token replay or expiration', {
-        state: state.substring(0, 8),
+      log.error('OIDC callback blocked - state token replay detected', new Error('State replay attack'), {
+        operation: 'oidc_callback',
+        success: false,
+        reason: 'state_replay',
+        statePrefix: state.substring(0, 8),
+        duration: Date.now() - startTime,
+        component: 'auth',
+        severity: 'high',
+        securityContext: {
+          threat: 'replay_attack',
+          blocked: true,
+          alert: 'CRITICAL_SECURITY_EVENT',
+          description: 'State token was already used or expired - possible replay attack',
+        },
       });
 
       await AuditLogger.logAuth({
@@ -181,10 +203,23 @@ const oidcCallbackHandler = async (request: NextRequest) => {
     if (sessionData.fingerprint !== currentFingerprint) {
       if (strictMode) {
         // Reject in strict mode
-        log.error('OIDC session hijack attempt detected', {
-          expected: sessionData.fingerprint.substring(0, 16),
-          received: currentFingerprint.substring(0, 16),
-          ipAddress: currentMetadata.ipAddress,
+        log.error('OIDC callback blocked - session hijack detected', new Error('Session hijack attempt'), {
+          operation: 'oidc_callback',
+          success: false,
+          reason: 'session_hijack',
+          expectedFingerprint: sessionData.fingerprint.substring(0, 16),
+          receivedFingerprint: currentFingerprint.substring(0, 16),
+          ...(currentMetadata.ipAddress && { ipAddress: currentMetadata.ipAddress }),
+          duration: Date.now() - startTime,
+          component: 'auth',
+          severity: 'critical',
+          securityContext: {
+            threat: 'session_hijacking',
+            blocked: true,
+            alert: 'CRITICAL_SECURITY_EVENT',
+            description: 'Device fingerprint mismatch indicates session hijack attempt',
+            strictMode: true,
+          },
         });
 
         await AuditLogger.logAuth({
@@ -202,9 +237,15 @@ const oidcCallbackHandler = async (request: NextRequest) => {
       }
 
       // Log warning in normal mode (mobile networks can change IPs)
-      log.warn('OIDC session fingerprint changed', {
-        expected: sessionData.fingerprint.substring(0, 16),
-        received: currentFingerprint.substring(0, 16),
+      log.warn('OIDC session fingerprint changed - allowing due to relaxed mode', {
+        operation: 'oidc_callback',
+        reason: 'fingerprint_mismatch',
+        expectedFingerprint: sessionData.fingerprint.substring(0, 16),
+        receivedFingerprint: currentFingerprint.substring(0, 16),
+        strictMode: false,
+        component: 'auth',
+        severity: 'low',
+        note: 'Mobile networks can change IPs - monitor for abuse',
       });
     }
 
@@ -375,10 +416,33 @@ const oidcCallbackHandler = async (request: NextRequest) => {
       },
     });
 
-    log.info('OIDC login successful', {
+    // Enriched success log with complete security validation metrics
+    log.info('OIDC callback successful - user authenticated', {
+      operation: 'oidc_callback',
+      success: true,
       userId: existingUser.user_id,
       email: sanitizedProfile.email.replace(/(.{2}).*@/, '$1***@'),
+      authMethod: 'oidc',
+      sessionId: tokens.sessionId,
+      ...(currentMetadata.ipAddress && { ipAddress: currentMetadata.ipAddress }),
+      ...(currentMetadata.userAgent && { userAgent: currentMetadata.userAgent }),
+      deviceName: currentMetadata.deviceName,
+      deviceFingerprint: currentMetadata.fingerprint.substring(0, 8),
+      securityValidations: {
+        sessionDecryption: 'passed',
+        stateCsrfProtection: 'passed',
+        stateReplayPrevention: 'passed',
+        deviceFingerprintCheck: sessionData.fingerprint === currentFingerprint ? 'passed' : 'warning',
+        pkceValidation: 'passed',
+        emailVerification: userInfo.emailVerified ? 'verified' : 'unverified',
+        emailDomain: allowedDomains.length > 0 ? 'validated' : 'unrestricted',
+        profileSanitization: 'passed',
+        userProvisioning: 'existing',
+        userActiveStatus: 'active',
+      },
       duration: Date.now() - startTime,
+      component: 'auth',
+      severity: 'info',
     });
 
     // ===== 12. Set Auth Cookies and Redirect =====

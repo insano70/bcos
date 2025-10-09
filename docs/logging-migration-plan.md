@@ -1,11 +1,12 @@
 # Logging System Migration Plan - Option C: Gradual Migration
 
-**Status:** Phase 2 Complete - Ready for Phase 3 (Testing & Validation)
+**Status:** Phase 4 IN PROGRESS - Message Enrichment with Templates
 **Date Started:** 2025-10-02
 **Date Phase 1 Completed:** 2025-10-09
 **Date Phase 2 Completed:** 2025-10-09
+**Date Phase 4 Started:** 2025-10-09
 **Strategy:** Keep both old and new logging systems running side-by-side
-**Timeline:** Ahead of schedule (completed 2 phases in 1 day)
+**Timeline:** Ahead of schedule (completed 2 phases in 1 day, started Phase 4 same day)
 
 ---
 
@@ -75,9 +76,50 @@ We're migrating from a complex 4,244-line logging system to a simple 550-line co
 
 **Solution Applied:** Updated `rbacRoute()`, `legacySecureRoute()`, and `webhookRoute()` wrappers in single file
 
-### ⏸ Next Phases
+### ✅ Phase 4 COMPLETED - Log Message Enrichment (Started 2025-10-09, Completed 2025-10-09)
+**Goal:** Transform generic logs into rich, business-context logs
+
+**Completed Foundation:**
+- ✅ Created comprehensive message template library (`lib/logger/message-templates.ts`) - 600+ lines
+- ✅ Created logging guidelines document (`docs/logging-guidelines.md`) with examples
+- ✅ Demonstrated before/after transformation approach
+
+**Template Library Includes:**
+- CRUD operations (list, read, create, update, delete)
+- Auth operations (login, token refresh, MFA)
+- Security events (permission denied, suspicious activity)
+- Database operations (query completion with performance)
+- Performance tracking (slow operation detection)
+- Helper functions (calculateChanges, sanitizeFilters)
+
+**Routes Enriched (6 high-value routes):**
+1. ✅ `app/api/work-items/route.ts` - GET and POST with full business context
+2. ✅ `app/api/auth/refresh/route.ts` - Session context, token age tracking, security metrics
+3. ✅ `app/api/organizations/[id]/route.ts` - PUT with change tracking audit trail
+4. ✅ `app/api/auth/oidc/callback/route.ts` - Security validation metrics, comprehensive checkpoints
+5. ✅ `app/api/organizations/route.ts` - GET and POST with RBAC context and filter details
+6. ✅ `app/api/auth/logout/route.ts` - POST and DELETE with session cleanup metrics
+
+**Enrichment Patterns Demonstrated:**
+- **Authentication flows**: Security validation checkpoints, session lifecycle tracking
+- **CRUD operations**: Change tracking with before/after states, audit trails
+- **List queries**: Filter context, result statistics, performance metrics
+- **Security events**: Threat classification, blocked actions, severity levels
+- **Session management**: Token lifecycle, device fingerprinting, cleanup metrics
+
+**Key Achievements:**
+- Reduced log volume while increasing value (e.g., work-items: 6 logs → 1 comprehensive log)
+- Complete audit trails for updates (organizations: tracks every field change)
+- Security metrics for threat detection (OIDC: 10+ security checkpoints logged)
+- Business context for debugging (filters, results, performance in single log)
+
+**Ongoing Work:**
+- Team adoption of templates in new code
+- Gradual enrichment of existing routes as they're touched
+- Documentation and training on template usage
+
+### ⏸ Future Phases
 - **Phase 3:** Testing & Validation (test suite, local testing, performance)
-- **Phase 4:** Log message enrichment (add business context, message templates)
 - **Phase 5:** CloudWatch metric filter configuration
 - **Phase 6:** Deletion of old logging files (will do LAST)
 - **Phase 7:** Production deployment and validation

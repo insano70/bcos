@@ -5,7 +5,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createPaginatedResponse, createSuccessResponse } from '@/lib/api/responses/success';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { getPagination, getSortParams } from '@/lib/api/utils/request';
-import { log } from '@/lib/logger';
+import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
 import { createRBACOrganizationsService } from '@/lib/services/rbac-organizations-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { organizationCreateSchema, organizationQuerySchema } from '@/lib/validations/organization';
@@ -13,50 +13,24 @@ import { organizationCreateSchema, organizationQuerySchema } from '@/lib/validat
 const getOrganizationsHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
 
-  log.info('List organizations request initiated', {
-    operation: 'list_organizations',
-    requestingUserId: userContext.user_id,
-    isSuperAdmin: userContext.is_super_admin,
-  });
-
   try {
     const { searchParams } = new URL(request.url);
 
-    const validationStart = Date.now();
     const pagination = getPagination(searchParams);
     const sort = getSortParams(searchParams, ['name', 'created_at']);
     const query = validateQuery(searchParams, organizationQuerySchema);
-    log.info('Request validation completed', { duration: Date.now() - validationStart });
-
-    log.info('Request parameters parsed', {
-      pagination,
-      sort,
-      filters: {
-        is_active: query.is_active,
-        search: query.search,
-      },
-    });
 
     // Create RBAC service
-    const serviceStart = Date.now();
     const organizationService = createRBACOrganizationsService(userContext);
-    log.info('RBAC service created', { duration: Date.now() - serviceStart });
 
     // Get organizations with automatic permission-based filtering (no limit - fetch all)
-    const organizationsStart = Date.now();
     const organizations = await organizationService.getOrganizations({
       search: query.search,
       is_active: query.is_active,
       parent_organization_id: query.parent_organization_id,
     });
-    log.db('SELECT', 'organizations', Date.now() - organizationsStart, {
-      rowCount: organizations.length,
-    });
 
-    // Get total count
-    const countStart = Date.now();
     const totalCount = organizations.length; // Service already filters, so count is length
-    log.db('SELECT', 'organizations_count', Date.now() - countStart, { rowCount: 1 });
 
     const responseData = organizations.map((organization) => ({
       id: organization.organization_id,
@@ -70,12 +44,42 @@ const getOrganizationsHandler = async (request: NextRequest, userContext: UserCo
       children_count: organization.children_count,
     }));
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Organizations list retrieved successfully', {
-      organizationsReturned: organizations.length,
-      totalCount,
-      page: pagination.page,
-      totalDuration,
+    // Count active vs inactive organizations
+    const activeCount = organizations.filter((org) => org.is_active).length;
+    const inactiveCount = totalCount - activeCount;
+
+    // Prepare sanitized filter context
+    const filters = sanitizeFilters({
+      is_active: query.is_active,
+      search: query.search,
+      parent_organization_id: query.parent_organization_id,
+    });
+
+    // Enriched success log with RBAC context and filter details
+    log.info(`organizations list query completed - returned ${totalCount} organizations`, {
+      operation: 'list_organizations',
+      resourceType: 'organizations',
+      userId: userContext.user_id,
+      ...(userContext.current_organization_id && {
+        organizationId: userContext.current_organization_id,
+      }),
+      isSuperAdmin: userContext.is_super_admin,
+      filters,
+      filterCount: Object.values(filters).filter((v) => v !== null && v !== undefined).length,
+      results: {
+        returned: totalCount,
+        active: activeCount,
+        inactive: inactiveCount,
+        page: pagination.page,
+        pageSize: pagination.limit,
+      },
+      sort: {
+        field: sort.sortBy,
+        direction: sort.sortOrder,
+      },
+      duration: Date.now() - startTime,
+      slow: Date.now() - startTime > 1000,
+      component: 'business-logic',
     });
 
     return createPaginatedResponse(responseData, {
@@ -86,10 +90,14 @@ const getOrganizationsHandler = async (request: NextRequest, userContext: UserCo
   } catch (error) {
     const totalDuration = Date.now() - startTime;
 
-    log.error('Organizations list request failed', error, {
-      requestingUserId: userContext.user_id,
-      organizationId: userContext.current_organization_id,
-      totalDuration,
+    log.error('Organizations list query failed', error, {
+      operation: 'list_organizations',
+      userId: userContext.user_id,
+      ...(userContext.current_organization_id && {
+        organizationId: userContext.current_organization_id,
+      }),
+      duration: totalDuration,
+      component: 'business-logic',
     });
 
     return createErrorResponse(
@@ -114,36 +122,41 @@ export const GET = rbacRoute(getOrganizationsHandler, {
 const createOrganizationHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
 
-  log.info('Organization creation request initiated', {
-    createdByUserId: userContext.user_id,
-    organizationId: userContext.current_organization_id,
-  });
-
   try {
-    const validationStart = Date.now();
     const validatedData = await validateRequest(request, organizationCreateSchema);
-    log.info('Request validation completed', { duration: Date.now() - validationStart });
 
     // Create RBAC service
-    const serviceStart = Date.now();
     const organizationService = createRBACOrganizationsService(userContext);
-    log.info('RBAC service created', { duration: Date.now() - serviceStart });
 
     // Create organization with automatic permission checking
-    const organizationCreationStart = Date.now();
     const newOrganization = await organizationService.createOrganization({
       name: validatedData.name,
       slug: validatedData.slug,
       parent_organization_id: validatedData.parent_organization_id,
       is_active: validatedData.is_active ?? true,
     });
-    log.db('INSERT', 'organizations', Date.now() - organizationCreationStart, { rowCount: 1 });
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Organization creation completed successfully', {
-      newOrganizationId: newOrganization.organization_id,
-      totalDuration,
+    // Use CRUD template for organization creation
+    const template = logTemplates.crud.create('organization', {
+      resourceId: newOrganization.organization_id,
+      resourceName: newOrganization.name,
+      userId: userContext.user_id,
+      ...(userContext.current_organization_id && {
+        organizationId: userContext.current_organization_id,
+      }),
+      duration: Date.now() - startTime,
+      metadata: {
+        slug: newOrganization.slug,
+        isActive: newOrganization.is_active,
+        ...(newOrganization.parent_organization_id && {
+          parentOrganizationId: newOrganization.parent_organization_id,
+        }),
+        isChildOrganization: !!newOrganization.parent_organization_id,
+        createdBy: userContext.user_id,
+      },
     });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse(
       {
@@ -162,9 +175,13 @@ const createOrganizationHandler = async (request: NextRequest, userContext: User
     const totalDuration = Date.now() - startTime;
 
     log.error('Organization creation failed', error, {
-      createdByUserId: userContext.user_id,
-      organizationId: userContext.current_organization_id,
-      totalDuration,
+      operation: 'create_organization',
+      userId: userContext.user_id,
+      ...(userContext.current_organization_id && {
+        organizationId: userContext.current_organization_id,
+      }),
+      duration: totalDuration,
+      component: 'business-logic',
     });
 
     return createErrorResponse(

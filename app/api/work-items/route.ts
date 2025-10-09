@@ -8,7 +8,7 @@ import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { createRBACWorkItemsService } from '@/lib/services/rbac-work-items-service';
 import { createRBACWorkItemFieldValuesService } from '@/lib/services/rbac-work-item-field-values-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
+import { log, logTemplates } from '@/lib/logger';
 
 /**
  * GET /api/work-items
@@ -17,47 +17,19 @@ import { log } from '@/lib/logger';
 const getWorkItemsHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
 
-  log.info('List work items request initiated', {
-    operation: 'list_work_items',
-    requestingUserId: userContext.user_id,
-    organizationId: userContext.current_organization_id,
-  });
-
   try {
     const { searchParams } = new URL(request.url);
 
+    // Track performance breakdown
     const validationStart = Date.now();
     const query = validateQuery(searchParams, workItemQuerySchema);
-    log.info('Request validation completed', { duration: Date.now() - validationStart });
-
-    log.info('Request parameters parsed', {
-      filters: {
-        work_item_type_id: query.work_item_type_id,
-        organization_id: query.organization_id,
-        status_id: query.status_id,
-        status_category: query.status_category,
-        priority: query.priority,
-        assigned_to: query.assigned_to,
-        created_by: query.created_by,
-        search: query.search,
-      },
-      pagination: {
-        limit: query.limit,
-        offset: query.offset,
-      },
-      sort: {
-        sortBy: query.sortBy,
-        sortOrder: query.sortOrder,
-      },
-    });
+    const validationDuration = Date.now() - validationStart;
 
     // Create RBAC service
-    const serviceStart = Date.now();
     const workItemsService = createRBACWorkItemsService(userContext);
-    log.info('RBAC service created', { duration: Date.now() - serviceStart });
 
     // Get work items with automatic permission-based filtering
-    const workItemsStart = Date.now();
+    const queryStart = Date.now();
     const workItems = await workItemsService.getWorkItems({
       work_item_type_id: query.work_item_type_id,
       organization_id: query.organization_id,
@@ -72,10 +44,8 @@ const getWorkItemsHandler = async (request: NextRequest, userContext: UserContex
       sortBy: query.sortBy,
       sortOrder: query.sortOrder,
     });
-    log.db('SELECT', 'work_items', Date.now() - workItemsStart, { rowCount: workItems.length });
 
     // Get total count
-    const countStart = Date.now();
     const totalCount = await workItemsService.getWorkItemCount({
       work_item_type_id: query.work_item_type_id,
       organization_id: query.organization_id,
@@ -86,7 +56,7 @@ const getWorkItemsHandler = async (request: NextRequest, userContext: UserContex
       created_by: query.created_by,
       search: query.search,
     });
-    log.db('SELECT', 'work_items_count', Date.now() - countStart, { rowCount: 1 });
+    const queryDuration = Date.now() - queryStart;
 
     const responseData = workItems.map((item) => ({
       id: item.work_item_id,
@@ -111,11 +81,45 @@ const getWorkItemsHandler = async (request: NextRequest, userContext: UserContex
       updated_at: item.updated_at,
     }));
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Work items list retrieved successfully', {
-      workItemsReturned: workItems.length,
-      totalCount,
-      totalDuration,
+    // Single comprehensive log with rich context
+    log.info(`work_items list query completed - returned ${workItems.length} of ${totalCount}`, {
+      operation: 'list_work_items',
+      resourceType: 'work_items',
+      userId: userContext.user_id,
+      ...(userContext.current_organization_id && { organizationId: userContext.current_organization_id }),
+
+      // Filters applied
+      filters: {
+        type: query.work_item_type_id || 'all',
+        status: query.status_id || query.status_category || 'all',
+        priority: query.priority || 'all',
+        assignee: query.assigned_to || 'all',
+        creator: query.created_by || 'all',
+        search: query.search ? query.search.substring(0, 50) : null,
+      },
+      filterCount: [query.work_item_type_id, query.status_id || query.status_category, query.priority, query.assigned_to, query.created_by, query.search].filter(Boolean).length,
+
+      // Results summary
+      results: {
+        returned: workItems.length,
+        total: totalCount,
+        page: Math.floor((query.offset || 0) / (query.limit || 50)) + 1,
+      },
+      empty: workItems.length === 0,
+
+      // Performance
+      duration: Date.now() - startTime,
+      slow: (Date.now() - startTime) > 1000,
+      performance: {
+        validation: validationDuration,
+        query: queryDuration,
+      },
+      sort: {
+        by: query.sortBy || 'created_at',
+        order: query.sortOrder || 'desc',
+      },
+
+      component: 'business-logic',
     });
 
     return createPaginatedResponse(responseData, {
@@ -154,23 +158,17 @@ export const GET = rbacRoute(getWorkItemsHandler, {
 const createWorkItemHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
 
-  log.info('Work item creation request initiated', {
-    createdByUserId: userContext.user_id,
-    organizationId: userContext.current_organization_id,
-  });
-
   try {
+    // Validate request
     const validationStart = Date.now();
     const validatedData = await validateRequest(request, workItemCreateSchema);
-    log.info('Request validation completed', { duration: Date.now() - validationStart });
+    const validationDuration = Date.now() - validationStart;
 
     // Create RBAC service
-    const serviceStart = Date.now();
     const workItemsService = createRBACWorkItemsService(userContext);
-    log.info('RBAC service created', { duration: Date.now() - serviceStart });
 
     // Create work item with automatic permission checking
-    const workItemCreationStart = Date.now();
+    const creationStart = Date.now();
     const newWorkItem = await workItemsService.createWorkItem({
       work_item_type_id: validatedData.work_item_type_id,
       organization_id: validatedData.organization_id || userContext.current_organization_id || '',
@@ -180,27 +178,40 @@ const createWorkItemHandler = async (request: NextRequest, userContext: UserCont
       assigned_to: validatedData.assigned_to || null,
       due_date: validatedData.due_date || null,
     });
-    log.db('INSERT', 'work_items', Date.now() - workItemCreationStart, { rowCount: 1 });
 
-    // Phase 3: Handle custom field values if provided
+    // Handle custom field values if provided
+    let customFieldCount = 0;
     if (validatedData.custom_fields && Object.keys(validatedData.custom_fields).length > 0) {
-      const fieldValuesStart = Date.now();
       const fieldValuesService = createRBACWorkItemFieldValuesService(userContext);
       await fieldValuesService.setFieldValues(
         newWorkItem.work_item_id,
         validatedData.work_item_type_id,
         validatedData.custom_fields
       );
-      log.db('INSERT', 'work_item_field_values', Date.now() - fieldValuesStart, {
-        rowCount: Object.keys(validatedData.custom_fields).length,
-      });
+      customFieldCount = Object.keys(validatedData.custom_fields).length;
     }
+    const creationDuration = Date.now() - creationStart;
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Work item creation completed successfully', {
-      newWorkItemId: newWorkItem.work_item_id,
-      totalDuration,
+    // Single comprehensive log with rich context using template
+    const template = logTemplates.crud.create('work_item', {
+      resourceId: newWorkItem.work_item_id,
+      resourceName: newWorkItem.subject,
+      userId: userContext.user_id,
+      organizationId: newWorkItem.organization_id,
+      duration: Date.now() - startTime,
+      metadata: {
+        type: newWorkItem.work_item_type_name,
+        priority: newWorkItem.priority,
+        assignee: newWorkItem.assigned_to_name || 'unassigned',
+        hasDueDate: !!newWorkItem.due_date,
+        customFieldCount,
+        performance: {
+          validation: validationDuration,
+          creation: creationDuration,
+        },
+      },
     });
+    log.info(template.message, template.context);
 
     return createSuccessResponse(
       {

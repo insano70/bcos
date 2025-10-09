@@ -5,7 +5,7 @@ import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
-import { log } from '@/lib/logger';
+import { calculateChanges, log, logTemplates } from '@/lib/logger';
 import { createRBACOrganizationsService } from '@/lib/services/rbac-organizations-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { organizationParamsSchema, organizationUpdateSchema } from '@/lib/validations/organization';
@@ -70,23 +70,54 @@ const updateOrganizationHandler = async (
   try {
     const { id: organizationId } = await extractRouteParams(args[0], organizationParamsSchema);
 
-    log.info('Update organization request initiated', {
-      targetOrganizationId: organizationId,
-      requestingUserId: userContext.user_id,
-    });
+    const organizationService = createRBACOrganizationsService(userContext);
+
+    // Get current state BEFORE update for change tracking
+    const before = await organizationService.getOrganizationById(organizationId);
+
+    if (!before) {
+      throw NotFoundError('Organization');
+    }
 
     const updateData = await validateRequest(request, organizationUpdateSchema);
 
-    const organizationService = createRBACOrganizationsService(userContext);
+    // Perform update
     const updatedOrganization = await organizationService.updateOrganization(
       organizationId,
       updateData
     );
 
-    log.info('Organization updated successfully', {
-      targetOrganizationId: organizationId,
+    // Calculate changes for audit trail (using explicit object properties)
+    const changes = calculateChanges(
+      {
+        name: before.name,
+        slug: before.slug,
+        parent_organization_id: before.parent_organization_id,
+        is_active: before.is_active,
+      },
+      {
+        name: updatedOrganization.name,
+        slug: updatedOrganization.slug,
+        parent_organization_id: updatedOrganization.parent_organization_id,
+        is_active: updatedOrganization.is_active,
+      }
+    );
+
+    // Enriched update log with change tracking
+    const template = logTemplates.crud.update('organization', {
+      resourceId: updatedOrganization.organization_id,
+      resourceName: updatedOrganization.name,
+      userId: userContext.user_id,
+      changes,
       duration: Date.now() - startTime,
+      metadata: {
+        parentOrg: updatedOrganization.parent_organization_id || 'none',
+        memberCount: updatedOrganization.member_count,
+        childrenCount: updatedOrganization.children_count,
+        reason: changes.is_active && changes.is_active.to === false ? 'deactivation' : 'update',
+      },
     });
+    log.info(template.message, template.context);
 
     return createSuccessResponse(
       {
