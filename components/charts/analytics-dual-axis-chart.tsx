@@ -5,7 +5,6 @@ import { useTheme } from 'next-themes';
 import { Chart, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend } from 'chart.js';
 import type { ChartData as ChartJSData, ChartConfiguration } from 'chart.js';
 import { ChartData, type DualAxisConfig, type ChartFilter, AggAppMeasure } from '@/lib/types/analytics';
-import { SimplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
 import { apiClient } from '@/lib/api/client';
 import { ChartSkeleton } from '@/components/ui/loading-skeleton';
 import { chartColors } from '@/components/charts/chartjs-config';
@@ -39,7 +38,7 @@ interface AnalyticsDualAxisChartProps {
 }
 
 interface ApiResponse {
-  measures: unknown[];
+  measures: AggAppMeasure[];
   pagination: {
     total_count: number;
     limit: number;
@@ -100,17 +99,26 @@ export default function AnalyticsDualAxisChart({
       setError(null);
 
       try {
-        // Fetch data for both measures in parallel
-        const [primaryResponse, secondaryResponse] = await Promise.all([
+        // Fetch data for both measures in parallel with better error handling
+        const [primaryResult, secondaryResult] = await Promise.allSettled([
           fetchMeasureData(dualAxisConfig.primary.measure),
           fetchMeasureData(dualAxisConfig.secondary.measure)
         ]);
 
+        // Check if primary fetch failed
+        if (primaryResult.status === 'rejected') {
+          throw new Error(`Failed to fetch primary measure "${dualAxisConfig.primary.measure}": ${primaryResult.reason}`);
+        }
+
+        // Check if secondary fetch failed
+        if (secondaryResult.status === 'rejected') {
+          throw new Error(`Failed to fetch secondary measure "${dualAxisConfig.secondary.measure}": ${secondaryResult.reason}`);
+        }
+
         // Transform data using SimplifiedChartTransformer
-        const transformer = new SimplifiedChartTransformer();
-        const transformedData = transformer.transformDualAxisData(
-          primaryResponse as AggAppMeasure[],
-          secondaryResponse as AggAppMeasure[],
+        const transformedData = simplifiedChartTransformer.transformDualAxisData(
+          primaryResult.value,
+          secondaryResult.value,
           dualAxisConfig.primary.axisLabel || dualAxisConfig.primary.measure,
           dualAxisConfig.secondary.axisLabel || dualAxisConfig.secondary.measure,
           dualAxisConfig.secondary.chartType,
@@ -141,7 +149,7 @@ export default function AnalyticsDualAxisChart({
   ]);
 
   // Helper function to fetch data for a single measure
-  const fetchMeasureData = async (measure: string): Promise<unknown[]> => {
+  const fetchMeasureData = async (measure: string): Promise<AggAppMeasure[]> => {
     const params = new URLSearchParams({
       frequency,
       measure,
@@ -166,11 +174,20 @@ export default function AnalyticsDualAxisChart({
     return response.measures;
   };
 
+  // Cleanup chart on unmount
+  useEffect(() => {
+    return () => {
+      if (chart) {
+        chart.destroy();
+      }
+    };
+  }, []); // Run only on unmount
+
   // Create and update chart with Chart.js
   useEffect(() => {
     if (!canvas.current || !chartData || chartData.datasets.length === 0) return;
 
-    // Destroy existing chart
+    // Destroy existing chart before creating new one
     if (chart) {
       chart.destroy();
     }
@@ -314,11 +331,7 @@ export default function AnalyticsDualAxisChart({
 
     const newChart = new Chart(ctx, config);
     setChart(newChart);
-
-    return () => {
-      newChart.destroy();
-    };
-  }, [chartData, darkMode, theme, title, dualAxisConfig]);
+  }, [chartData, darkMode, theme, title, dualAxisConfig, chart]);
 
   if (isLoading) {
     return <ChartSkeleton height={height} />;
