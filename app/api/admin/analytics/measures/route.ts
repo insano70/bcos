@@ -5,6 +5,7 @@ import { createSuccessResponse } from '@/lib/api/responses/success';
 import { log } from '@/lib/logger';
 import { checkAnalyticsDbHealth } from '@/lib/services/analytics-db';
 import { analyticsQueryBuilder } from '@/lib/services/analytics-query-builder';
+import { getDateRange } from '@/lib/utils/date-presets';
 import type {
   AnalyticsQueryParams,
   ChartFilter,
@@ -93,6 +94,15 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     }
 
     const dataSourceIdParam = searchParams.get('data_source_id');
+
+    // Handle dynamic date range calculation from presets
+    const dateRangePreset = searchParams.get('date_range_preset') || undefined;
+    const providedStartDate = searchParams.get('start_date') || undefined;
+    const providedEndDate = searchParams.get('end_date') || undefined;
+
+    // Calculate dates: prefer preset calculation over provided dates
+    const { startDate, endDate } = getDateRange(dateRangePreset, providedStartDate, providedEndDate);
+
     const queryParams: AnalyticsQueryParams = {
       measure: (searchParams.get('measure') as MeasureType) || undefined,
       frequency: (searchParams.get('frequency') as FrequencyType) || undefined,
@@ -100,8 +110,8 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
       practice_primary: searchParams.get('practice_primary') || undefined,
       practice_uid: practiceUidParam ? parseInt(practiceUidParam, 10) : undefined,
       provider_name: searchParams.get('provider_name') || undefined,
-      start_date: searchParams.get('start_date') || undefined,
-      end_date: searchParams.get('end_date') || undefined,
+      start_date: startDate || undefined,
+      end_date: endDate || undefined,
       limit: searchParams.get('limit') ? parseInt(searchParams.get('limit') || '', 10) : undefined,
       offset: searchParams.get('offset')
         ? parseInt(searchParams.get('offset') || '', 10)

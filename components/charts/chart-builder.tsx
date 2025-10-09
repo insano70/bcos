@@ -167,6 +167,7 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
           stackingMode?: 'normal' | 'percentage';
           periodComparison?: PeriodComparisonConfig;
           dualAxisConfig?: DualAxisConfig;
+          frequency?: string; // For dual-axis charts, frequency is stored here
         } || {};
 
         // Try to find the selected data source by matching table reference or dataSourceId
@@ -190,7 +191,8 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
           chartName: editingChart.chart_name || '',
           chartType: (editingChart.chart_type === 'pie' || editingChart.chart_type === 'area' ? 'bar' : editingChart.chart_type) || 'bar',
           measure: String(measureFilter?.value || ''),
-          frequency: String(frequencyFilter?.value || ''),
+          // For dual-axis charts, frequency is in chart_config; for others, it's in filters
+          frequency: String(chartConfigData.frequency || frequencyFilter?.value || ''),
           startDate: String(startDateFilter?.value || '2024-01-01'),
           endDate: String(endDateFilter?.value || '2025-12-31'),
           groupBy: chartConfigData.series?.groupBy || 'provider_name',
@@ -295,10 +297,32 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
         ...prev,
         [key]: value,
         // Set groupBy to first available field if currently none, otherwise keep current
-        groupBy: prev.groupBy === 'none' 
+        groupBy: prev.groupBy === 'none'
           ? (schemaInfo?.availableGroupByFields?.[0]?.columnName || 'practice_primary')
           : prev.groupBy,
         colorPalette: prev.colorPalette || 'blue' // Auto-select blue palette
+      }));
+    } else if (key === 'chartType' && value === 'dual-axis') {
+      // Initialize dual-axis configuration when dual-axis chart type is selected
+      // Clear measure and frequency since dual-axis uses dualAxisConfig instead
+      setChartConfig(prev => ({
+        ...prev,
+        [key]: value,
+        measure: '', // Clear single measure field
+        frequency: '', // Clear frequency field
+        dualAxisConfig: prev.dualAxisConfig || {
+          enabled: true,
+          primary: {
+            measure: '',
+            chartType: 'bar' as const,
+            axisPosition: 'left' as const
+          },
+          secondary: {
+            measure: '',
+            chartType: 'line' as const,
+            axisPosition: 'right' as const
+          }
+        }
       }));
     } else {
       // Handle all other config updates normally
@@ -356,8 +380,29 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
       return;
     }
 
-    // Measure is not required for table charts
-    if (chartConfig.chartType !== 'table' && !chartConfig.measure) {
+    // For dual-axis charts, validate dual-axis configuration
+    if (chartConfig.chartType === 'dual-axis') {
+      if (!chartConfig.dualAxisConfig) {
+        setToastMessage('Dual-axis configuration is required');
+        setToastType('error');
+        setShowToast(true);
+        return;
+      }
+      if (!chartConfig.dualAxisConfig.primary.measure) {
+        setToastMessage('Primary measure is required for dual-axis charts');
+        setToastType('error');
+        setShowToast(true);
+        return;
+      }
+      if (!chartConfig.dualAxisConfig.secondary.measure) {
+        setToastMessage('Secondary measure is required for dual-axis charts');
+        setToastType('error');
+        setShowToast(true);
+        return;
+      }
+    }
+    // Measure is not required for table charts or dual-axis (validated above)
+    else if (chartConfig.chartType !== 'table' && !chartConfig.measure) {
       setToastMessage('Measure selection is required');
       setToastType('error');
       setShowToast(true);
@@ -387,8 +432,9 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
       // Build filters based on chart type
       const filters = [];
 
-      // Table charts don't need measure/frequency filters
-      if (chartConfig.chartType !== 'table') {
+      // Table charts and dual-axis charts don't need measure/frequency filters
+      // (dual-axis charts store measures in dualAxisConfig instead)
+      if (chartConfig.chartType !== 'table' && chartConfig.chartType !== 'dual-axis') {
         filters.push(
           { field: 'measure', operator: 'eq', value: chartConfig.measure },
           { field: 'frequency', operator: 'eq', value: chartConfig.frequency }
@@ -408,7 +454,9 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
         chart_name: chartConfig.chartName,
         chart_description: chartConfig.chartType === 'table'
           ? `Table view of ${chartConfig.selectedDataSource?.name || 'data'}`
-          : `${chartConfig.chartType} chart showing ${chartConfig.measure} by ${chartConfig.groupBy}`,
+          : chartConfig.chartType === 'dual-axis'
+            ? `Dual-axis chart showing ${chartConfig.dualAxisConfig?.primary.measure} and ${chartConfig.dualAxisConfig?.secondary.measure}`
+            : `${chartConfig.chartType} chart showing ${chartConfig.measure} by ${chartConfig.groupBy}`,
         chart_type: chartConfig.chartType,
         chart_category_id: null, // No category by default
         chart_config: {
@@ -426,7 +474,9 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
           stackingMode: chartConfig.stackingMode, // Save stacking mode for stacked-bar charts
           colorPalette: chartConfig.colorPalette, // Save color palette at root level too for easier access
           periodComparison: chartConfig.periodComparison, // Save period comparison config
-          dualAxisConfig: chartConfig.dualAxisConfig // Save dual-axis configuration
+          dualAxisConfig: chartConfig.dualAxisConfig, // Save dual-axis configuration
+          // For dual-axis charts, save frequency in chart_config since it's not in filters
+          ...(chartConfig.chartType === 'dual-axis' && chartConfig.frequency && { frequency: chartConfig.frequency })
         },
         // Save advanced filters in data_source
         data_source: {
@@ -560,6 +610,7 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
         {currentStep === 'preview' && (
           <ChartBuilderPreview
             chartConfig={chartConfig}
+            dateRangePreset={selectedDatePreset}
             previewKey={previewKey}
             onBackToConfigure={() => setCurrentStep('configure')}
             onSave={handleSave}

@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTheme } from 'next-themes';
 import { Chart, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend } from 'chart.js';
 import type { ChartData as ChartJSData, ChartConfiguration } from 'chart.js';
 import { ChartData, type DualAxisConfig, type ChartFilter, AggAppMeasure } from '@/lib/types/analytics';
+import type { ResponsiveChartProps } from '@/lib/types/responsive-charts';
 import { apiClient } from '@/lib/api/client';
 import { ChartSkeleton } from '@/components/ui/loading-skeleton';
 import { chartColors } from '@/components/charts/chartjs-config';
@@ -22,11 +23,12 @@ Chart.register(
   Legend
 );
 
-interface AnalyticsDualAxisChartProps {
+interface AnalyticsDualAxisChartProps extends ResponsiveChartProps {
   dualAxisConfig: DualAxisConfig; // Required since checked before passing
   frequency?: string | undefined;
   startDate?: string | undefined;
   endDate?: string | undefined;
+  dateRangePreset?: string | undefined; // For dynamic date range calculation
   groupBy?: string | undefined;
   width?: number | undefined;
   height?: number | undefined;
@@ -35,6 +37,7 @@ interface AnalyticsDualAxisChartProps {
   advancedFilters?: ChartFilter[] | undefined;
   dataSourceId?: number | undefined;
   colorPalette?: string | undefined;
+  refreshTrigger?: number | undefined; // Increment to trigger data refresh
 }
 
 interface ApiResponse {
@@ -57,6 +60,7 @@ export default function AnalyticsDualAxisChart({
   frequency = 'Monthly',
   startDate,
   endDate,
+  dateRangePreset,
   groupBy = 'none',
   width = 800,
   height = 400,
@@ -64,7 +68,13 @@ export default function AnalyticsDualAxisChart({
   calculatedField,
   advancedFilters = [],
   dataSourceId,
-  colorPalette = 'default'
+  colorPalette = 'default',
+  refreshTrigger = 0,
+  // Responsive props
+  responsive = false,
+  minHeight = 200,
+  maxHeight = 800,
+  aspectRatio
 }: AnalyticsDualAxisChartProps) {
   const [chartData, setChartData] = useState<ChartData>({ labels: [], datasets: [] });
   const [isLoading, setIsLoading] = useState(true);
@@ -75,21 +85,31 @@ export default function AnalyticsDualAxisChart({
   const darkMode = theme === 'dark';
   const { textColor, gridColor, tooltipBodyColor, tooltipBgColor, tooltipBorderColor } = chartColors;
 
+  // Memoize complex dependencies to prevent infinite loops
+  const stableDualAxisConfig = useMemo(() => JSON.stringify(dualAxisConfig), [JSON.stringify(dualAxisConfig)]);
+  const stableAdvancedFilters = useMemo(() => JSON.stringify(advancedFilters), [JSON.stringify(advancedFilters)]);
+
   useEffect(() => {
     const fetchDualMeasureData = async () => {
       if (!dualAxisConfig || !dualAxisConfig.enabled) {
+        console.error('Dual-axis configuration validation failed', { dualAxisConfig });
         setError('Dual-axis configuration is required');
         setIsLoading(false);
         return;
       }
 
       if (!dualAxisConfig.primary.measure || !dualAxisConfig.secondary.measure) {
+        console.error('Dual-axis measures not selected', {
+          primary: dualAxisConfig.primary.measure,
+          secondary: dualAxisConfig.secondary.measure
+        });
         setError('Both primary and secondary measures are required');
         setIsLoading(false);
         return;
       }
 
       if (dualAxisConfig.primary.measure === dualAxisConfig.secondary.measure) {
+        console.error('Dual-axis: Same measure selected for both axes');
         setError('Primary and secondary measures must be different');
         setIsLoading(false);
         return;
@@ -137,15 +157,17 @@ export default function AnalyticsDualAxisChart({
 
     fetchDualMeasureData();
   }, [
-    dualAxisConfig,
+    stableDualAxisConfig,
     frequency,
     startDate,
     endDate,
+    dateRangePreset,
     groupBy,
     calculatedField,
-    advancedFilters,
+    stableAdvancedFilters,
     dataSourceId,
-    colorPalette
+    colorPalette,
+    refreshTrigger
   ]);
 
   // Helper function to fetch data for a single measure
@@ -154,6 +176,7 @@ export default function AnalyticsDualAxisChart({
       frequency,
       measure,
       ...(groupBy && groupBy !== 'none' && { group_by: groupBy }),
+      ...(dateRangePreset && { date_range_preset: dateRangePreset }),
       ...(startDate && { start_date: startDate }),
       ...(endDate && { end_date: endDate }),
       ...(dataSourceId && { data_source_id: dataSourceId.toString() })
@@ -167,10 +190,8 @@ export default function AnalyticsDualAxisChart({
       params.append('advanced_filters', JSON.stringify(advancedFilters));
     }
 
-    const response = await apiClient.get<ApiResponse>(
-      `/api/admin/analytics/measures?${params.toString()}`
-    );
-
+    const url = `/api/admin/analytics/measures?${params.toString()}`;
+    const response = await apiClient.get<ApiResponse>(url);
     return response.measures;
   };
 
@@ -331,15 +352,18 @@ export default function AnalyticsDualAxisChart({
 
     const newChart = new Chart(ctx, config);
     setChart(newChart);
-  }, [chartData, darkMode, theme, title, dualAxisConfig, chart]);
+  }, [chartData, darkMode, theme, title, stableDualAxisConfig]);
 
   if (isLoading) {
-    return <ChartSkeleton height={height} />;
+    return <ChartSkeleton {...(!responsive && height ? { height } : {})} />;
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-8" style={{ height }}>
+      <div
+        className="flex items-center justify-center bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-8"
+        style={responsive ? { width: '100%', height: '100%' } : { height }}
+      >
         <div className="text-center">
           <p className="text-red-600 dark:text-red-400 font-medium mb-2">Chart Error</p>
           <p className="text-sm text-red-500 dark:text-red-500">{error}</p>
@@ -350,15 +374,25 @@ export default function AnalyticsDualAxisChart({
 
   if (chartData.datasets.length === 0) {
     return (
-      <div className="flex items-center justify-center bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg p-8" style={{ height }}>
+      <div
+        className="flex items-center justify-center bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg p-8"
+        style={responsive ? { width: '100%', height: '100%' } : { height }}
+      >
         <p className="text-gray-500 dark:text-gray-400">No data available</p>
       </div>
     );
   }
 
   return (
-    <div style={{ width, height }}>
-      <canvas ref={canvas} width={width} height={height}></canvas>
+    <div className="w-full h-full">
+      <canvas
+        ref={canvas}
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'block'
+        }}
+      ></canvas>
     </div>
   );
 }

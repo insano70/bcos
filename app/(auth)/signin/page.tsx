@@ -24,14 +24,6 @@ export default function SignIn() {
                 text="Welcome back!"
                 tag="h1"
                 className="text-3xl text-gray-800 dark:text-gray-100 font-bold mb-6"
-                delay={50}
-                duration={0.8}
-                ease="power3.out"
-                splitType="chars"
-                from={{ opacity: 0, y: 30, scale: 0.8 }}
-                to={{ opacity: 1, y: 0, scale: 1 }}
-                threshold={0.8}
-                rootMargin="0px"
                 textAlign="left"
               />
               {/* Form */}

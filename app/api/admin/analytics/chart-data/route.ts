@@ -54,6 +54,18 @@ const transformChartDataHandler = async (
       hasPeriodComparison: Boolean(validatedData.periodComparison),
     });
 
+    // Dual-axis charts handle their own data fetching and transformation
+    if (validatedData.chartType === 'dual-axis') {
+      log.warn('Dual-axis chart type should not use this endpoint', {
+        requestingUserId: userContext.user_id,
+      });
+      return createErrorResponse(
+        'Dual-axis charts handle their own data fetching. Use the AnalyticsDualAxisChart component instead.',
+        400,
+        request
+      );
+    }
+
     // 2. Load column metadata (server-side only)
     const metadata = validatedData.dataSourceId
       ? await loadColumnMetadata(validatedData.dataSourceId)
