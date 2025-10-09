@@ -136,12 +136,6 @@ export default function AnalyticsChart({
     setError(null);
 
     try {
-      // Handle multiple series by passing the configuration to the API
-      if (multipleSeries && multipleSeries.length > 0) {
-        console.log('🚀 FETCHING MULTIPLE SERIES DATA:', multipleSeries);
-        // The API will handle multiple measures efficiently with WHERE measure IN (...)
-      }
-
       // Build query parameters
       const params = new URLSearchParams();
 
