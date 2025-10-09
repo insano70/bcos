@@ -313,16 +313,73 @@ export type WorkItemStatusParams = z.infer<typeof workItemStatusParamsSchema>;
 
 /**
  * Phase 4: Work Item Status Transitions Schemas
+ * Phase 7: Enhanced with validation_config and action_config
  */
+
+// Validation config schema for status transitions
+const customRuleSchema = z.object({
+  field: z.string().min(1, 'Field is required'),
+  operator: z.enum(['equals', 'not_equals', 'greater_than', 'less_than', 'contains']),
+  value: z.string(),
+  message: z.string().optional(),
+});
+
+export const validationConfigSchema = z
+  .object({
+    required_fields: z.array(z.string()).optional(),
+    custom_rules: z.array(customRuleSchema).optional(),
+  })
+  .optional();
+
+export type ValidationConfig = z.infer<typeof validationConfigSchema>;
+export type CustomRule = z.infer<typeof customRuleSchema>;
+
+// Action config schema for status transitions
+const notificationActionSchema = z.object({
+  type: z.literal('email'),
+  recipients: z.array(z.string()), // 'assigned_to', 'creator', 'watchers', or user IDs
+  template: z.string(),
+  subject: z.string().optional(),
+});
+
+const fieldUpdateActionSchema = z.object({
+  field: z.string(),
+  value: z.string(),
+  condition: z.string().optional(),
+});
+
+const assignmentActionSchema = z.object({
+  action: z.literal('assign_to'),
+  user_id: z.string(),
+  condition: z.string().optional(),
+});
+
+export const actionConfigSchema = z
+  .object({
+    notifications: z.array(notificationActionSchema).optional(),
+    field_updates: z.array(fieldUpdateActionSchema).optional(),
+    assignments: z.array(assignmentActionSchema).optional(),
+  })
+  .optional();
+
+export type ActionConfig = z.infer<typeof actionConfigSchema>;
+export type NotificationAction = z.infer<typeof notificationActionSchema>;
+export type FieldUpdateAction = z.infer<typeof fieldUpdateActionSchema>;
+export type AssignmentAction = z.infer<typeof assignmentActionSchema>;
+
 export const workItemStatusTransitionCreateSchema = z.object({
   work_item_type_id: z.string().uuid('Invalid work item type ID'),
   from_status_id: z.string().uuid('Invalid from status ID'),
   to_status_id: z.string().uuid('Invalid to status ID'),
   is_allowed: z.boolean().default(true),
+  validation_config: validationConfigSchema,
+  action_config: actionConfigSchema,
 });
 
 export const workItemStatusTransitionUpdateSchema = z.object({
-  is_allowed: z.boolean(),
+  is_allowed: z.boolean().optional(),
+  validation_config: validationConfigSchema,
+  action_config: actionConfigSchema,
 });
 
 export const workItemStatusTransitionQuerySchema = z.object({

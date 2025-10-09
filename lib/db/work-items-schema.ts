@@ -202,6 +202,9 @@ export const workItemsRelations = relations(work_items, ({ one, many }) => ({
   comments: many(work_item_comments),
   attachments: many(work_item_attachments),
   activities: many(work_item_activity),
+
+  // Phase 7: Watchers relation
+  watchers: many(work_item_watchers),
 }));
 
 /**
@@ -461,3 +464,52 @@ export const workItemTypeRelationshipsRelations = relations(
     }),
   })
 );
+
+/**
+ * Work Item Watchers - Users subscribed to notifications for specific work items
+ * Phase 7: Advanced Workflows & Automation
+ *
+ * Watch types:
+ * - manual: User explicitly watched the work item
+ * - auto_creator: Automatically added when user creates the work item
+ * - auto_assignee: Automatically added when work item is assigned to user
+ * - auto_commenter: Automatically added when user comments on the work item
+ *
+ * Notification preferences allow users to control which events trigger notifications
+ */
+export const work_item_watchers = pgTable(
+  'work_item_watchers',
+  {
+    work_item_watcher_id: uuid('work_item_watcher_id').primaryKey().defaultRandom(),
+    work_item_id: uuid('work_item_id')
+      .notNull()
+      .references(() => work_items.work_item_id, { onDelete: 'cascade' }),
+    user_id: uuid('user_id')
+      .notNull()
+      .references(() => users.user_id, { onDelete: 'cascade' }),
+    watch_type: text('watch_type').default('manual').notNull(), // 'manual', 'auto_creator', 'auto_assignee', 'auto_commenter'
+    notify_status_changes: boolean('notify_status_changes').default(true).notNull(),
+    notify_comments: boolean('notify_comments').default(true).notNull(),
+    notify_assignments: boolean('notify_assignments').default(true).notNull(),
+    notify_due_date: boolean('notify_due_date').default(true).notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    workItemIdx: index('idx_watchers_work_item').on(table.work_item_id),
+    userIdx: index('idx_watchers_user').on(table.user_id),
+    watchTypeIdx: index('idx_watchers_type').on(table.watch_type),
+    // Unique constraint: one watcher entry per work_item + user combination
+    uniqueWatcherIdx: index('idx_unique_watcher').on(table.work_item_id, table.user_id),
+  })
+);
+
+export const workItemWatchersRelations = relations(work_item_watchers, ({ one }) => ({
+  workItem: one(work_items, {
+    fields: [work_item_watchers.work_item_id],
+    references: [work_items.work_item_id],
+  }),
+  user: one(users, {
+    fields: [work_item_watchers.user_id],
+    references: [users.user_id],
+  }),
+}));

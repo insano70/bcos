@@ -3,14 +3,14 @@
 **Project**: Work System - Hierarchical Task Management Platform
 **Start Date**: 2025-10-07
 **Target Completion**: TBD (16 weeks for full MVP)
-**Current Phase**: Phases 1-5 COMPLETE 🎉
-**Status**: Fully operational work system with custom fields, hierarchy, comments, activity tracking, and file attachments
+**Current Phase**: Phase 7 - Advanced Workflows & Automation (IN PROGRESS)
+**Status**: Phases 1-6 complete; implementing watchers, notifications, and workflow automation
 **Owner**: Engineering Team
-**Last Updated**: 2025-10-08 (Phases 1-5 completed with full UI implementation)
+**Last Updated**: 2025-10-09 (Phase 6 complete, Phase 7 planning complete)
 
 ---
 
-## 🎯 Current Sprint Summary (2025-10-08)
+## 🎯 Current Sprint Summary (2025-10-09)
 
 ### ✅ What's Complete - COMPREHENSIVE AUDIT VERIFIED
 - **Phase 1 (100%)**: Database schemas (Drizzle ORM), validation (Zod), service layer (9 services), API routes (16 endpoints), React hooks (6 hooks), UI pages and modals (13 components) - ALL COMPLETE ✅
@@ -18,14 +18,25 @@
 - **Phase 3 (100%)**: Custom fields (7 field types), dynamic rendering, field management UI with "Manage Custom Fields" button, add/edit field modals, JSONB storage - ALL COMPLETE ✅
 - **Phase 4 (100%)**: Work item types, statuses (per type), transitions (workflow rules), full CRUD with UI, workflow visualization modal, status management - ALL COMPLETE ✅
 - **Phase 5 (100%)**: File attachments with S3 integration (AWS SDK v3), presigned URLs (upload/download), drag-drop UI (react-dropzone), 100MB limit, 27 file types - ALL COMPLETE ✅
+- **Phase 6 (100%)**: Type relationships with auto-creation, template interpolation, field inheritance, full UI for relationship configuration - ALL COMPLETE ✅
 - **RBAC Integration**: All work item permissions defined and integrated (work-items:read/create/update/delete/manage with :own/:organization/:all scopes)
-- **Code Quality**: ✅ **PERFECT SCORE** - Zero TypeScript errors, zero linting errors, zero `any` types, zero security issues across all 42+ files
+- **Code Quality**: ✅ **PERFECT SCORE** - Zero TypeScript errors, zero linting errors, zero `any` types, zero security issues across all Phase 1-6 files
+
+### 🚧 What's In Progress
+**Phase 7 (0%)**: Advanced Workflows & Automation
+- Work item watchers (watch/unwatch, auto-watch)
+- Notification system (email and in-app)
+- Status transition validation (required fields, custom rules)
+- Status transition actions (notifications, field updates, assignments)
+- Full UI for automation configuration
 
 ### 🚧 What's Next
-1. **NOTE: Migration Management**:
-   - User confirmed Drizzle manages migrations automatically via `db:push`
-   - No manual SQL migration files needed
-   - Database schema kept in sync via Drizzle schema files
+1. **Phase 7 Tasks** (Current Focus):
+   - Database schema for work_item_watchers table
+   - Watchers service layer with auto-watch logic
+   - Notification service for email delivery
+   - Transition validation and action utilities
+   - UI components for watch buttons, automation builders
 
 2. **Testing Suite** (Optional - for future quality assurance):
    - Service layer unit tests
@@ -33,7 +44,7 @@
    - UI component tests
    - E2E workflow tests
 
-3. **Phase 6+**: Future enhancements (type relationships, advanced workflows, reporting)
+3. **Phase 8+**: Future enhancements (advanced field types, reporting, analytics)
 
 ### 🎉 Major Accomplishments (2025-10-08) - COMPREHENSIVE AUDIT VERIFIED
 
@@ -5528,6 +5539,769 @@ Phase 6 is complete - all criteria met:
 - ✅ Enhances createWorkItem service method with auto-creation
 - ✅ Uses existing hierarchy system (parent_work_item_id, depth, path)
 - ✅ Builds on custom fields system via useWorkItemFields hook
+
+---
+
+## Phase 7: Advanced Workflows & Automation (Week 10-11)
+
+**Status**: 🔄 **IN PROGRESS** (0% Complete)
+**Goal**: Automate actions based on status changes and add notification system
+**Duration**: 2 weeks (10 working days)
+**Started**: 2025-10-09
+**Completed**: TBD
+**Focus**: Workflow automation, notification triggers, conditional transitions, and watchers
+
+**Note**: This phase adds automation capabilities to the work system, allowing status transitions to trigger actions (notifications, field updates, assignments) and enabling users to watch work items for updates.
+
+### Overview
+
+Phase 7 enables organizations to automate workflows based on status transitions, configure conditional validation rules, and implement a comprehensive notification system with watchers.
+
+**Key Features**:
+- Enhanced status transitions with validation and action configurations
+- Automated actions on status change (notifications, field updates, assignments)
+- Conditional transition rules (e.g., can't complete if required fields empty)
+- Work item watchers (manual watch/unwatch, auto-watch for creators/assignees/commenters)
+- Email and in-app notification system
+- Due date reminders
+
+### Database Schema
+
+#### `work_item_watchers` Table (NEW)
+
+```sql
+CREATE TABLE work_item_watchers (
+  work_item_watcher_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  work_item_id UUID NOT NULL REFERENCES work_items(work_item_id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+  watch_type VARCHAR(50) DEFAULT 'manual' NOT NULL, -- 'manual', 'auto_creator', 'auto_assignee', 'auto_commenter'
+  notify_status_changes BOOLEAN DEFAULT true,
+  notify_comments BOOLEAN DEFAULT true,
+  notify_assignments BOOLEAN DEFAULT true,
+  notify_due_date BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(work_item_id, user_id)
+);
+
+CREATE INDEX idx_watchers_work_item ON work_item_watchers(work_item_id);
+CREATE INDEX idx_watchers_user ON work_item_watchers(user_id);
+CREATE INDEX idx_watchers_type ON work_item_watchers(watch_type);
+```
+
+#### `work_item_status_transitions` Table Updates
+
+Update `validation_config` and `action_config` columns (already exist as JSONB):
+
+**validation_config Structure (JSONB)**:
+```json
+{
+  "required_fields": ["patient_name", "date_of_birth"],
+  "custom_rules": [
+    {
+      "field": "priority",
+      "operator": "not_equals",
+      "value": "urgent",
+      "message": "Cannot complete urgent items without supervisor approval"
+    }
+  ]
+}
+```
+
+**action_config Structure (JSONB)**:
+```json
+{
+  "notifications": [
+    {
+      "type": "email",
+      "recipients": ["assigned_to", "creator"],
+      "template": "status_change",
+      "subject": "Work item {work_item.subject} is now {status.name}"
+    }
+  ],
+  "field_updates": [
+    {
+      "field": "completed_at",
+      "value": "{now}",
+      "condition": "status_is_terminal"
+    }
+  ],
+  "assignments": [
+    {
+      "action": "assign_to",
+      "user_id": "{creator}",
+      "condition": "status_name_equals:In Review"
+    }
+  ]
+}
+```
+
+### Tasks Breakdown
+
+#### Task 7.1: Database Schema & Migration (Day 1)
+
+**Status**: ⏳ Pending
+
+**Subtasks**:
+- [ ] 7.1.1: Create `work_item_watchers` table schema in `lib/db/work-items-schema.ts`
+- [ ] 7.1.2: Define Drizzle relations for watchers (work_item, user)
+- [ ] 7.1.3: Export schema in `lib/db/schema.ts`
+- [ ] 7.1.4: Create migration file `0025_work_item_watchers.sql`
+- [ ] 7.1.5: Test migration locally with `db:push`
+
+**Acceptance Criteria**:
+- [ ] Table created with proper foreign keys and indexes
+- [ ] Unique constraint on work_item_id + user_id
+- [ ] Watch type enum with manual/auto options
+- [ ] Notification preference flags
+- [ ] Migration runs without errors
+
+**Estimated Time**: 3-4 hours
+
+---
+
+#### Task 7.2: Validation Schemas (Day 1)
+
+**Status**: ⏳ Pending
+
+**File**: `lib/validations/work-item-watchers.ts`, `lib/validations/work-item-status-transitions.ts` (update)
+
+**Subtasks**:
+- [ ] 7.2.1: Create `watcherCreateSchema` for creating watchers
+- [ ] 7.2.2: Create `watcherUpdateSchema` for notification preferences
+- [ ] 7.2.3: Create `watcherQuerySchema` for filtering
+- [ ] 7.2.4: Update `statusTransitionUpdateSchema` to include validation_config and action_config schemas
+- [ ] 7.2.5: Create `validationConfigSchema` with required_fields and custom_rules
+- [ ] 7.2.6: Create `actionConfigSchema` with notifications, field_updates, assignments
+- [ ] 7.2.7: Export TypeScript types with `z.infer`
+
+**Implementation Notes**:
+- Watch type should be enum: 'manual' | 'auto_creator' | 'auto_assignee' | 'auto_commenter'
+- Notification preference flags are all booleans with defaults to true
+- Validation config supports field checks and custom rules
+- Action config supports notifications, field updates, and assignments
+
+**Acceptance Criteria**:
+- [ ] All schemas use proper Zod validation
+- [ ] JSONB configs properly typed
+- [ ] UUID validation on all ID fields
+- [ ] TypeScript types exported
+- [ ] No `any` types
+
+**Estimated Time**: 3-4 hours
+
+---
+
+#### Task 7.3: Service Layer - Watchers CRUD (Day 2)
+
+**Status**: ⏳ Pending
+
+**File**: `lib/services/rbac-work-item-watchers-service.ts` (new)
+
+**Subtasks**:
+- [ ] 7.3.1: Create `RBACWorkItemWatchersService` class extending `BaseRBACService`
+- [ ] 7.3.2: Implement `getWatchersForWorkItem(workItemId)` method
+- [ ] 7.3.3: Implement `getWatchedWorkItemsForUser(userId)` method
+- [ ] 7.3.4: Implement `addWatcher(workItemId, userId, watchType)` method with auto-add support
+- [ ] 7.3.5: Implement `removeWatcher(workItemId, userId)` method
+- [ ] 7.3.6: Implement `updateWatcherPreferences(watcherId, preferences)` method
+- [ ] 7.3.7: Implement `autoAddWatcher(workItemId, userId, watchType)` helper for auto-addition
+- [ ] 7.3.8: Create factory function `createRBACWorkItemWatchersService()`
+
+**Implementation Notes**:
+- addWatcher should check if watcher already exists before creating
+- autoAddWatcher used by other services (work items, comments) to auto-add watchers
+- getWatchersForWorkItem should return user details joined
+- Proper RBAC checks for work-items:read permissions
+
+**Acceptance Criteria**:
+- [ ] All methods enforce RBAC (work-items:read for viewing, work-items:update for watching own items)
+- [ ] Auto-add logic prevents duplicate watchers
+- [ ] Comprehensive logging with timing metrics
+- [ ] Returns properly typed objects
+- [ ] Factory function created
+
+**Estimated Time**: 5-6 hours
+
+---
+
+#### Task 7.4: Service Layer - Notification System (Day 2-3)
+
+**Status**: ⏳ Pending
+
+**Files**: `lib/services/notification-service.ts` (new)
+
+**Subtasks**:
+- [ ] 7.4.1: Create `NotificationService` class with dependency injection
+- [ ] 7.4.2: Implement `sendStatusChangeNotification(workItem, oldStatus, newStatus)` method
+- [ ] 7.4.3: Implement `sendCommentNotification(workItem, comment)` method
+- [ ] 7.4.4: Implement `sendAssignmentNotification(workItem, assignedUser)` method
+- [ ] 7.4.5: Implement `sendDueDateReminderNotification(workItem)` method
+- [ ] 7.4.6: Implement `getNotificationRecipients(workItem, notificationType)` method
+- [ ] 7.4.7: Implement email sending via existing email service
+- [ ] 7.4.8: Implement in-app notification creation (prepare for future phase)
+- [ ] 7.4.9: Create factory function `createNotificationService()`
+
+**Implementation Notes**:
+- Use work_item_watchers to determine recipients
+- Filter recipients by notification preferences (notify_status_changes, notify_comments, etc.)
+- Email templates should use existing email service patterns
+- In-app notifications can be placeholder for now (prepare interface)
+- Include work item context (subject, status, assignee) in notifications
+
+**Acceptance Criteria**:
+- [ ] Status change notifications sent to watchers with notify_status_changes=true
+- [ ] Comment notifications sent to watchers with notify_comments=true
+- [ ] Assignment notifications sent to assignee and watchers with notify_assignments=true
+- [ ] Due date reminders sent to assignee and watchers with notify_due_date=true
+- [ ] Email service integration working
+- [ ] Comprehensive logging
+- [ ] Graceful error handling (notification failures don't break operations)
+
+**Estimated Time**: 6-8 hours
+
+---
+
+#### Task 7.5: Service Layer - Transition Validation & Actions (Day 3-4)
+
+**Status**: ⏳ Pending
+
+**File**: `lib/services/rbac-work-items-service.ts` (enhance), `lib/utils/transition-validation.ts` (new), `lib/utils/transition-actions.ts` (new)
+
+**Subtasks**:
+- [ ] 7.5.1: Create `validateTransitionConditions(workItem, transition)` utility function
+- [ ] 7.5.2: Implement required fields validation from validation_config
+- [ ] 7.5.3: Implement custom rules validation (field operators)
+- [ ] 7.5.4: Create `executeTransitionActions(workItem, transition, oldStatus, newStatus)` utility function
+- [ ] 7.5.5: Implement notification action execution
+- [ ] 7.5.6: Implement field update action execution
+- [ ] 7.5.7: Implement assignment action execution
+- [ ] 7.5.8: Enhance `updateWorkItem()` to call validation and action execution on status changes
+- [ ] 7.5.9: Add comprehensive logging for validation failures and action execution
+
+**Implementation Notes**:
+- validateTransitionConditions should return { valid: boolean, errors: string[] }
+- Custom rules support operators: equals, not_equals, greater_than, less_than, contains
+- Field updates support template tokens: {now}, {creator}, {assigned_to}
+- Notification actions should call NotificationService
+- Assignment actions should update assigned_to field
+- Validation failures should prevent status transition with clear error messages
+
+**Acceptance Criteria**:
+- [ ] Required fields validation prevents status change if fields empty
+- [ ] Custom rules validation works with all operators
+- [ ] Notification actions trigger emails/in-app notifications
+- [ ] Field update actions modify work item fields correctly
+- [ ] Assignment actions update assigned_to correctly
+- [ ] Template token interpolation works ({now}, {creator}, etc.)
+- [ ] Status changes log validation results and executed actions
+- [ ] Graceful error handling
+
+**Estimated Time**: 8-10 hours
+
+---
+
+#### Task 7.6: Auto-Watcher Integration (Day 4)
+
+**Status**: ⏳ Pending
+
+**Files**: `lib/services/rbac-work-items-service.ts` (enhance), `lib/services/rbac-comments-service.ts` (enhance)
+
+**Subtasks**:
+- [ ] 7.6.1: Update `createWorkItem()` to auto-add creator as watcher
+- [ ] 7.6.2: Update `updateWorkItem()` to auto-add assignee as watcher when assigned_to changes
+- [ ] 7.6.3: Update `createComment()` to auto-add commenter as watcher
+- [ ] 7.6.4: Ensure auto-add watchers have proper watch_type set
+- [ ] 7.6.5: Add logging for auto-watcher additions
+
+**Implementation Notes**:
+- Use watchersService.autoAddWatcher() for all auto-additions
+- Creator gets watch_type='auto_creator'
+- Assignee gets watch_type='auto_assignee'
+- Commenter gets watch_type='auto_commenter'
+- Auto-add should be silent (not logged as user action, but logged in system logs)
+
+**Acceptance Criteria**:
+- [ ] Creating work item auto-adds creator as watcher
+- [ ] Assigning work item auto-adds assignee as watcher
+- [ ] Adding comment auto-adds commenter as watcher
+- [ ] Proper watch_type set for each auto-addition
+- [ ] Duplicate watchers prevented
+- [ ] System logs record auto-additions
+
+**Estimated Time**: 3-4 hours
+
+---
+
+#### Task 7.7: API Endpoints - Watchers (Day 5)
+
+**Status**: ⏳ Pending
+
+**Files**: `app/api/work-items/[id]/watchers/route.ts` (new), `app/api/work-items/[id]/watch/route.ts` (new)
+
+**Subtasks**:
+- [ ] 7.7.1: Create GET `/api/work-items/:id/watchers` handler (list watchers)
+- [ ] 7.7.2: Create POST `/api/work-items/:id/watch` handler (add self as watcher)
+- [ ] 7.7.3: Create DELETE `/api/work-items/:id/watch` handler (remove self as watcher)
+- [ ] 7.7.4: Create PATCH `/api/work-items/:id/watchers/:watcherId` handler (update preferences)
+- [ ] 7.7.5: Use Next.js 15 async params pattern
+- [ ] 7.7.6: Add proper logging and error handling
+
+**Implementation Notes**:
+- GET watchers requires work-items:read permission
+- POST watch adds current user with watch_type='manual'
+- DELETE watch removes current user's watcher entry
+- PATCH preferences only allows updating notification flags
+- Standard response formats
+
+**Acceptance Criteria**:
+- [ ] All endpoints enforce RBAC
+- [ ] GET returns watcher list with user details
+- [ ] POST creates manual watcher for current user
+- [ ] DELETE removes watcher for current user
+- [ ] PATCH updates notification preferences
+- [ ] Standard error handling and responses
+- [ ] Comprehensive logging
+
+**Estimated Time**: 4-5 hours
+
+---
+
+#### Task 7.8: API Endpoints - Transition Configuration (Day 5-6)
+
+**Status**: ⏳ Pending
+
+**File**: `app/api/work-item-status-transitions/[id]/route.ts` (enhance)
+
+**Subtasks**:
+- [ ] 7.8.1: Enhance PATCH handler to accept validation_config in request body
+- [ ] 7.8.2: Enhance PATCH handler to accept action_config in request body
+- [ ] 7.8.3: Validate validation_config against schema
+- [ ] 7.8.4: Validate action_config against schema
+- [ ] 7.8.5: Update service to save configs to database
+- [ ] 7.8.6: Add logging for configuration changes
+
+**Implementation Notes**:
+- validation_config and action_config are optional JSONB fields
+- Validate structure before saving to database
+- Return updated transition with configs
+- Use Next.js 15 async params pattern
+
+**Acceptance Criteria**:
+- [ ] PATCH accepts validation_config
+- [ ] PATCH accepts action_config
+- [ ] Configs validated against schemas
+- [ ] Configs saved to database correctly
+- [ ] Updated transition returned
+- [ ] RBAC enforcement (work-items:manage:organization)
+
+**Estimated Time**: 3-4 hours
+
+---
+
+#### Task 7.9: React Query Hooks - Watchers (Day 6)
+
+**Status**: ⏳ Pending
+
+**File**: `lib/hooks/use-work-item-watchers.ts` (new)
+
+**Subtasks**:
+- [ ] 7.9.1: Create `useWorkItemWatchers(workItemId)` hook
+- [ ] 7.9.2: Create `useWatchWorkItem()` mutation hook
+- [ ] 7.9.3: Create `useUnwatchWorkItem()` mutation hook
+- [ ] 7.9.4: Create `useUpdateWatcherPreferences()` mutation hook
+- [ ] 7.9.5: Create `useWatchedWorkItems()` hook for current user's watched items
+- [ ] 7.9.6: Add proper cache invalidation strategies
+
+**Implementation Notes**:
+- useWorkItemWatchers fetches watcher list for a work item
+- useWatchWorkItem adds current user as watcher
+- useUnwatchWorkItem removes current user as watcher
+- useUpdateWatcherPreferences updates notification flags
+- useWatchedWorkItems gets all work items watched by current user
+- Invalidate watchers cache on mutations
+- Invalidate work items cache to update watch status
+
+**Acceptance Criteria**:
+- [ ] All hooks properly typed
+- [ ] Optimistic updates for watch/unwatch
+- [ ] Cache invalidation works correctly
+- [ ] Error handling included
+- [ ] Loading states managed
+
+**Estimated Time**: 4-5 hours
+
+---
+
+#### Task 7.10: React Query Hooks - Transition Configuration (Day 6)
+
+**Status**: ⏳ Pending
+
+**File**: `lib/hooks/use-work-item-status-transitions.ts` (enhance)
+
+**Subtasks**:
+- [ ] 7.10.1: Enhance `useUpdateStatusTransition()` to accept validation_config
+- [ ] 7.10.2: Enhance `useUpdateStatusTransition()` to accept action_config
+- [ ] 7.10.3: Update TypeScript types for transition objects
+- [ ] 7.10.4: Add cache invalidation for transition updates
+
+**Implementation Notes**:
+- Update existing hook to support new config fields
+- Ensure validation_config and action_config are optional
+- Types should match backend WorkItemStatusTransition interface
+
+**Acceptance Criteria**:
+- [ ] Hook accepts validation_config
+- [ ] Hook accepts action_config
+- [ ] TypeScript types match backend
+- [ ] Cache invalidation works
+- [ ] Backward compatible with existing uses
+
+**Estimated Time**: 2-3 hours
+
+---
+
+#### Task 7.11: UI Component - Watch/Unwatch Button (Day 7)
+
+**Status**: ⏳ Pending
+
+**File**: `components/watch-button.tsx` (new)
+
+**Subtasks**:
+- [ ] 7.11.1: Create WatchButton component with eye icon
+- [ ] 7.11.2: Display current watch status (watching/not watching)
+- [ ] 7.11.3: Integrate useWatchWorkItem and useUnwatchWorkItem hooks
+- [ ] 7.11.4: Show loading state during mutation
+- [ ] 7.11.5: Display success/error toast messages
+- [ ] 7.11.6: Add tooltip explaining watch functionality
+- [ ] 7.11.7: Support dark mode styling
+
+**Implementation Notes**:
+- Button should show "Watch" or "Watching" text with eye icon
+- Use Eye icon from Lucide or similar
+- Optimistic UI update for immediate feedback
+- Toast on success/error
+- Disabled state while loading
+
+**Acceptance Criteria**:
+- [ ] Button displays current watch status
+- [ ] Click toggles watch/unwatch
+- [ ] Loading state shows during mutation
+- [ ] Toast messages on success/error
+- [ ] Tooltip explains functionality
+- [ ] Dark mode support
+- [ ] Accessible (keyboard navigation, ARIA labels)
+
+**Estimated Time**: 3-4 hours
+
+---
+
+#### Task 7.12: UI Component - Watchers List & Preferences (Day 7)
+
+**Status**: ⏳ Pending
+
+**File**: `components/watchers-modal.tsx` (new)
+
+**Subtasks**:
+- [ ] 7.12.1: Create WatchersModal component listing all watchers
+- [ ] 7.12.2: Display watcher avatars, names, and watch types
+- [ ] 7.12.3: Show current user's notification preferences
+- [ ] 7.12.4: Add checkboxes for notification preferences (status, comments, assignments, due dates)
+- [ ] 7.12.5: Integrate useUpdateWatcherPreferences hook
+- [ ] 7.12.6: Add loading states and error handling
+- [ ] 7.12.7: Support dark mode styling
+
+**Implementation Notes**:
+- Modal triggered from work item detail page
+- List all watchers with user avatars and names
+- Show watch type badge (manual/auto)
+- Current user can edit their own preferences only
+- Checkboxes for notify_status_changes, notify_comments, notify_assignments, notify_due_date
+- Save button updates preferences
+
+**Acceptance Criteria**:
+- [ ] Modal displays all watchers
+- [ ] Watch types indicated with badges
+- [ ] Current user can edit preferences
+- [ ] Checkboxes update notification settings
+- [ ] Loading states during updates
+- [ ] Error handling with toast messages
+- [ ] Dark mode support
+
+**Estimated Time**: 4-5 hours
+
+---
+
+#### Task 7.13: UI Component - Transition Validation Builder (Day 8)
+
+**Status**: ⏳ Pending
+
+**File**: `components/transition-validation-builder.tsx` (new)
+
+**Subtasks**:
+- [ ] 7.13.1: Create TransitionValidationBuilder component
+- [ ] 7.13.2: Add required fields selector (multi-select from work item fields)
+- [ ] 7.13.3: Add custom rules builder (field, operator, value, message)
+- [ ] 7.13.4: Support operators: equals, not_equals, greater_than, less_than, contains
+- [ ] 7.13.5: Add/remove custom rule rows
+- [ ] 7.13.6: Display validation config preview
+- [ ] 7.13.7: Integrate with EditStatusTransitionModal
+- [ ] 7.13.8: Support dark mode styling
+
+**Implementation Notes**:
+- Component receives childTypeId to fetch available fields
+- Required fields shown as multi-select checkboxes
+- Custom rules shown as dynamic rows with field dropdown, operator dropdown, value input
+- Add/Remove buttons for custom rules
+- Preview shows JSON structure (collapsible)
+- Returns validation_config object
+
+**Acceptance Criteria**:
+- [ ] Can select multiple required fields
+- [ ] Can add/remove custom rules
+- [ ] All operators supported
+- [ ] Validation config properly formatted
+- [ ] Preview shows current config
+- [ ] Integrates with transition modal
+- [ ] Dark mode support
+
+**Estimated Time**: 5-6 hours
+
+---
+
+#### Task 7.14: UI Component - Transition Action Builder (Day 8-9)
+
+**Status**: ⏳ Pending
+
+**File**: `components/transition-action-builder.tsx` (new)
+
+**Subtasks**:
+- [ ] 7.14.1: Create TransitionActionBuilder component
+- [ ] 7.14.2: Add notifications section (email recipients, template, subject)
+- [ ] 7.14.3: Add field updates section (field, value template, condition)
+- [ ] 7.14.4: Add assignments section (assign to user, condition)
+- [ ] 7.14.5: Support recipient types: assigned_to, creator, watchers, specific user
+- [ ] 7.14.6: Support template tokens: {now}, {creator}, {assigned_to}, {work_item.*}
+- [ ] 7.14.7: Add/remove action rows for each section
+- [ ] 7.14.8: Display action config preview
+- [ ] 7.14.9: Integrate with EditStatusTransitionModal
+- [ ] 7.14.10: Support dark mode styling
+
+**Implementation Notes**:
+- Component has three sections: Notifications, Field Updates, Assignments
+- Each section has dynamic rows for multiple actions
+- Template token help text with quick-insert buttons
+- Condition inputs for conditional actions
+- Returns action_config object
+- Preview shows JSON structure (collapsible)
+
+**Acceptance Criteria**:
+- [ ] Can configure notification actions
+- [ ] Can configure field update actions
+- [ ] Can configure assignment actions
+- [ ] Template tokens explained with help text
+- [ ] Quick-insert buttons for common tokens
+- [ ] Add/remove action rows
+- [ ] Conditions supported
+- [ ] Action config properly formatted
+- [ ] Preview shows current config
+- [ ] Integrates with transition modal
+- [ ] Dark mode support
+
+**Estimated Time**: 6-8 hours
+
+---
+
+#### Task 7.15: Integrate Watchers into Work Item Detail Page (Day 9)
+
+**Status**: ⏳ Pending
+
+**File**: `app/(default)/work-items/[id]/work-item-detail-content.tsx` (enhance)
+
+**Subtasks**:
+- [ ] 7.15.1: Add WatchButton to work item header
+- [ ] 7.15.2: Add "Watchers" button/link that opens WatchersModal
+- [ ] 7.15.3: Display watcher count in UI
+- [ ] 7.15.4: Test watch/unwatch functionality
+- [ ] 7.15.5: Verify auto-watch behavior (creator, assignee, commenters)
+
+**Implementation Notes**:
+- WatchButton placed near other action buttons (Edit, Delete)
+- Watchers section shows count and button to view list
+- Auto-watch verified: creating item, assigning, commenting all auto-add watchers
+
+**Acceptance Criteria**:
+- [ ] Watch button visible on work item detail page
+- [ ] Watcher count displayed
+- [ ] Watchers modal accessible
+- [ ] Auto-watch works for creators
+- [ ] Auto-watch works for assignees
+- [ ] Auto-watch works for commenters
+- [ ] UI updates reflect watcher changes
+
+**Estimated Time**: 3-4 hours
+
+---
+
+#### Task 7.16: Integrate Automation into Status Transitions (Day 10)
+
+**Status**: ⏳ Pending
+
+**File**: `app/(default)/configure/work-item-types/[id]/manage-statuses-modal.tsx` (enhance)
+
+**Subtasks**:
+- [ ] 7.16.1: Add "Configure Automation" button to each transition row
+- [ ] 7.16.2: Create EditTransitionAutomationModal component
+- [ ] 7.16.3: Integrate TransitionValidationBuilder into modal
+- [ ] 7.16.4: Integrate TransitionActionBuilder into modal
+- [ ] 7.16.5: Save validation_config and action_config on submit
+- [ ] 7.16.6: Display indicator when transition has automation configured
+- [ ] 7.16.7: Test validation prevents invalid status changes
+- [ ] 7.16.8: Test actions execute on status change
+
+**Implementation Notes**:
+- EditTransitionAutomationModal has two tabs: Validation, Actions
+- Validation tab uses TransitionValidationBuilder
+- Actions tab uses TransitionActionBuilder
+- Save button updates transition with both configs
+- Indicator (badge or icon) shows transitions with automation
+- Manual testing verifies validation and actions work end-to-end
+
+**Acceptance Criteria**:
+- [ ] Can configure automation for transitions
+- [ ] Validation rules prevent invalid transitions
+- [ ] Actions execute on status change
+- [ ] Notifications sent correctly
+- [ ] Field updates applied correctly
+- [ ] Assignments applied correctly
+- [ ] Automation indicator visible
+- [ ] Modal integrates cleanly
+- [ ] End-to-end functionality verified
+
+**Estimated Time**: 6-8 hours
+
+---
+
+#### Task 7.17: Testing & Quality Assurance (Day 10)
+
+**Status**: ⏳ Pending
+
+**Subtasks**:
+- [ ] 7.17.1: Run `pnpm tsc --noEmit` - verify zero errors in Phase 7 code
+- [ ] 7.17.2: Run `pnpm lint` - verify zero warnings in Phase 7 code
+- [ ] 7.17.3: Code review of all Phase 7 components
+- [ ] 7.17.4: Manual test: Watch/unwatch work items
+- [ ] 7.17.5: Manual test: Auto-watch on create, assign, comment
+- [ ] 7.17.6: Manual test: Notification preferences update
+- [ ] 7.17.7: Manual test: Required fields validation prevents transition
+- [ ] 7.17.8: Manual test: Custom rules validation works
+- [ ] 7.17.9: Manual test: Notification actions send emails
+- [ ] 7.17.10: Manual test: Field update actions modify fields
+- [ ] 7.17.11: Manual test: Assignment actions update assigned_to
+- [ ] 7.17.12: Verify all acceptance criteria met
+
+**Quality Metrics**:
+- **TypeScript**: 0 errors in Phase 7 code ✅
+- **Linting**: 0 warnings in Phase 7 code ✅
+- **Code Quality**: All components follow existing patterns ✅
+- **Dark Mode**: Fully supported throughout ✅
+- **RBAC**: All endpoints and UI properly protected ✅
+
+**Manual Testing Checklist**:
+- [ ] Watchers functionality (watch/unwatch, preferences)
+- [ ] Auto-watch behavior (creator, assignee, commenter)
+- [ ] Transition validation (required fields, custom rules)
+- [ ] Transition actions (notifications, field updates, assignments)
+- [ ] End-to-end workflow automation
+
+**Estimated Time**: 6-8 hours
+
+---
+
+#### Task 7.18: Documentation Update (Day 10)
+
+**Status**: ⏳ Pending
+
+**File**: `docs/work_system_progress.md`
+
+**Subtasks**:
+- [ ] 7.18.1: Update Phase 7 completion percentage to 100%
+- [ ] 7.18.2: Document all implemented features
+- [ ] 7.18.3: Add file inventory for Phase 7
+- [ ] 7.18.4: Update task statuses with actual times
+- [ ] 7.18.5: Document automation patterns and examples
+
+**Acceptance Criteria**:
+- [ ] Progress document reflects actual completion
+- [ ] All new files listed
+- [ ] Phase 7 marked as complete
+- [ ] Task statuses updated with actual times
+- [ ] Automation examples documented
+
+**Estimated Time**: 2-3 hours
+
+---
+
+### Success Criteria
+
+Phase 7 will be complete when all criteria are met:
+
+- [ ] Can watch/unwatch work items via UI
+- [ ] Auto-watch works for creators, assignees, and commenters
+- [ ] Can configure notification preferences per watcher
+- [ ] Can configure validation rules for status transitions
+- [ ] Required fields validation prevents invalid transitions
+- [ ] Custom rules validation works with all operators
+- [ ] Can configure action rules for status transitions
+- [ ] Notification actions send emails to correct recipients
+- [ ] Field update actions modify work item fields on status change
+- [ ] Assignment actions update assigned_to on status change
+- [ ] Template token interpolation works in actions
+- [ ] Conditional actions execute only when conditions met
+- [ ] Zero TypeScript errors (in Phase 7 code)
+- [ ] Zero linting errors (in Phase 7 code)
+- [ ] All UI supports dark mode
+- [ ] RBAC enforcement throughout
+
+### Phase 7 Summary
+
+**Total Estimated Time**: 10 days (80 hours)
+**Actual Time**: TBD
+
+**Planned Deliverables**:
+- [ ] `work_item_watchers` table with migration
+- [ ] RBAC service for watchers management
+- [ ] Notification service for email and in-app notifications
+- [ ] Transition validation utility with required fields and custom rules
+- [ ] Transition action utility with notifications, field updates, assignments
+- [ ] API endpoints for watchers (4 endpoints)
+- [ ] Enhanced API endpoints for transition configuration
+- [ ] React Query hooks for watchers (5 hooks)
+- [ ] WatchButton UI component
+- [ ] WatchersModal UI component
+- [ ] TransitionValidationBuilder UI component
+- [ ] TransitionActionBuilder UI component
+- [ ] EditTransitionAutomationModal UI component
+- [ ] Auto-watcher integration (creator, assignee, commenter)
+- [ ] Quality assurance (TypeScript + linting checks)
+
+**Estimated Files**: 18-20 files total
+- 12-14 new files created
+- 6 existing files modified
+
+**Key Technical Achievements (Planned)**:
+1. [ ] Comprehensive notification system with email delivery
+2. [ ] Flexible validation rules with custom operators
+3. [ ] Powerful action system with template interpolation
+4. [ ] Auto-watcher logic for improved notification coverage
+5. [ ] Conditional execution of actions based on rules
+6. [ ] Full UI for automation configuration (no API-only configuration)
+
+**Integration Points**:
+- [ ] Extends work items service with validation and action execution
+- [ ] Extends comments service with auto-watcher addition
+- [ ] Uses existing email service for notifications
+- [ ] Builds on status transitions from Phase 4
+- [ ] Integrates with work item detail page and status management UI
 
 ---
 

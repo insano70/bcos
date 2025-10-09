@@ -70,6 +70,7 @@ export {
   work_item_statuses,
   work_item_type_relationships,
   work_item_types,
+  work_item_watchers,
   work_items,
   workItemActivityRelations,
   workItemAttachmentsRelations,
@@ -79,6 +80,7 @@ export {
   workItemStatusTransitionsRelations,
   workItemTypeRelationshipsRelations,
   workItemTypesRelations,
+  workItemWatchersRelations,
 } from './work-items-schema';
 // Import Work Item Fields tables
 export {
