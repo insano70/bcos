@@ -38,6 +38,7 @@ interface AnalyticsDualAxisChartProps extends ResponsiveChartProps {
   dataSourceId?: number | undefined;
   colorPalette?: string | undefined;
   refreshTrigger?: number | undefined; // Increment to trigger data refresh
+  onDataLoaded?: (data: ChartData) => void; // Callback when data is loaded
 }
 
 interface ApiResponse {
@@ -70,6 +71,7 @@ export default function AnalyticsDualAxisChart({
   dataSourceId,
   colorPalette = 'default',
   refreshTrigger = 0,
+  onDataLoaded,
   // Responsive props
   responsive = false,
   minHeight = 200,
@@ -147,6 +149,11 @@ export default function AnalyticsDualAxisChart({
         );
 
         setChartData(transformedData);
+
+        // Notify parent component that data is loaded
+        if (onDataLoaded) {
+          onDataLoaded(transformedData);
+        }
       } catch (err) {
         console.error('Failed to fetch dual-axis data:', err);
         setError(err instanceof Error ? err.message : 'Failed to load chart data');

@@ -10,9 +10,14 @@ import { apiClient } from '@/lib/api/client';
 import { ChartSkeleton } from '@/components/ui/loading-skeleton';
 import ResponsiveChartContainer from './responsive-chart-container';
 import dynamic from 'next/dynamic';
+import { GlassCard } from '@/components/ui/glass-card';
 
-// Lazy load the fullscreen modal to prevent affecting global Chart.js state at page load
+// Lazy load the fullscreen modals to prevent affecting global Chart.js state at page load
 const ChartFullscreenModal = dynamic(() => import('./chart-fullscreen-modal'), {
+  ssr: false,
+});
+
+const DualAxisFullscreenModal = dynamic(() => import('./dual-axis-fullscreen-modal'), {
   ssr: false,
 });
 
@@ -26,9 +31,10 @@ import AnalyticsProgressBarChart from './analytics-progress-bar-chart';
 import AnalyticsTableChart from './analytics-table-chart';
 import DoughnutChart from './doughnut-chart';
 import AnalyticsDualAxisChart from './analytics-dual-axis-chart';
+import AnalyticsNumberChart from './analytics-number-chart';
 
 interface AnalyticsChartProps extends ResponsiveChartProps {
-  chartType: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'progress-bar' | 'doughnut' | 'table' | 'dual-axis';
+  chartType: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'progress-bar' | 'doughnut' | 'table' | 'dual-axis' | 'number';
   measure?: MeasureType;
   frequency?: FrequencyType;
   practice?: string | undefined;
@@ -117,6 +123,8 @@ export default function AnalyticsChart({
   }>>([]);
   const chartRef = useRef<HTMLCanvasElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isDualAxisFullscreen, setIsDualAxisFullscreen] = useState(false);
+  const [dualAxisChartData, setDualAxisChartData] = useState<ChartData | null>(null);
   const [dualAxisRefreshTrigger, setDualAxisRefreshTrigger] = useState(0);
 
   // Memoize complex dependencies to prevent infinite loops
@@ -175,6 +183,9 @@ export default function AnalyticsChart({
       if (startDate && startDate.trim()) params.append('start_date', startDate);
       if (endDate && endDate.trim()) params.append('end_date', endDate);
 
+      // Add chart type for server-side aggregation (e.g., number charts need sum)
+      params.append('chart_type', chartType);
+
       // Add advanced filters if provided
       if (advancedFilters && advancedFilters.length > 0) {
         params.append('advanced_filters', encodeURIComponent(JSON.stringify(advancedFilters)));
@@ -190,8 +201,8 @@ export default function AnalyticsChart({
         params.append('data_source_id', dataSourceId.toString());
       }
 
-      // Add groupBy parameter if provided (not for table charts)
-      if (chartType !== 'table' && groupBy && groupBy !== 'none') {
+      // Add groupBy parameter if provided (not for table charts or number charts)
+      if (chartType !== 'table' && chartType !== 'number' && groupBy && groupBy !== 'none') {
         params.append('group_by', groupBy);
       }
 
@@ -269,6 +280,34 @@ export default function AnalyticsChart({
         console.log('✅ TABLE DATA STORED:', {
           rawDataLength: tableData.data.length,
           columnsLength: mappedColumns.length
+        });
+      } else if (chartType === 'number') {
+        // For number charts, fetch aggregated data from measures API and store directly
+        console.log('🚀 FETCHING NUMBER CHART DATA:', { measure, chartType, url: `/api/admin/analytics/measures?${params.toString()}` });
+        const data: ApiResponse = await apiClient.get(`/api/admin/analytics/measures?${params.toString()}`);
+
+        if (!data.measures) {
+          throw new Error('Invalid response format from analytics API');
+        }
+
+        console.log('📊 NUMBER DATA RECEIVED:', {
+          measureCount: data.measures.length,
+          measures: data.measures,
+          sampleMeasure: data.measures[0],
+          fullResponse: data
+        });
+
+        // For number charts, store raw aggregated data directly - no transformation needed
+        setChartData({ labels: [], datasets: [] }); // Not used for number charts
+        setRawData(data.measures);
+        setMetadata(data.metadata);
+
+        console.log('✅ NUMBER DATA STORED:', {
+          rawDataLength: data.measures.length,
+          rawData: data.measures,
+          value: data.measures[0]?.measure_value,
+          measureValue: data.measures[0]?.measure_value,
+          firstMeasure: data.measures[0]
         });
       } else {
         // Fetch data from admin analytics API (for chart visualizations)
@@ -433,8 +472,8 @@ export default function AnalyticsChart({
       );
     }
 
-    // Skip empty data check for table charts (they use rawData) and dual-axis charts (they manage their own data)
-    if (chartType !== 'table' && chartType !== 'dual-axis' && chartData.datasets.length === 0) {
+    // Skip empty data check for table charts (they use rawData), dual-axis charts (they manage their own data), and number charts (they use rawData)
+    if (chartType !== 'table' && chartType !== 'dual-axis' && chartType !== 'number' && chartData.datasets.length === 0) {
       const noDataContainer = (
         <div className="flex flex-col items-center justify-center">
           <div className="text-gray-500 mb-2">📊 No Data</div>
@@ -526,6 +565,19 @@ export default function AnalyticsChart({
               dataSourceId={dataSourceId}
               colorPalette={colorPalette}
               refreshTrigger={dualAxisRefreshTrigger}
+              onDataLoaded={setDualAxisChartData}
+              responsive={responsive}
+              minHeight={minHeight}
+              maxHeight={maxHeight}
+              aspectRatio={aspectRatio}
+            />
+          );
+        case 'number':
+          return (
+            <AnalyticsNumberChart
+              data={rawData}
+              title={measure}
+              animationDuration={2}
               responsive={responsive}
               minHeight={minHeight}
               maxHeight={maxHeight}
@@ -561,9 +613,9 @@ export default function AnalyticsChart({
   };
 
   return (
-    <div className={`flex flex-col bg-white dark:bg-gray-800 shadow-sm rounded-xl ${className}`}>
+    <GlassCard className={`flex flex-col ${className}`}>
       {/* Chart Header */}
-      <header className="px-4 py-2 border-b border-gray-100 dark:border-gray-700/60 flex items-center justify-between">
+      <header className="px-4 py-2 border-b border-white/20 dark:border-gray-700/50 flex items-center justify-between">
         <div>
           <h2 className="font-semibold text-gray-800 dark:text-gray-100">
             {title || `${measure} - ${frequency}`}
@@ -606,10 +658,23 @@ export default function AnalyticsChart({
             </div>
           </div>
 
-          {/* Expand to Fullscreen - Only for bar, stacked-bar, and horizontal-bar charts */}
+          {/* Expand to Fullscreen - For bar, stacked-bar, horizontal-bar, and dual-axis charts */}
           {(chartType === 'bar' || chartType === 'stacked-bar' || chartType === 'horizontal-bar') && (
             <button
               onClick={() => setIsFullscreen(true)}
+              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+              title="Expand to fullscreen"
+              aria-label="Expand chart to fullscreen"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+            </button>
+          )}
+
+          {chartType === 'dual-axis' && (
+            <button
+              onClick={() => setIsDualAxisFullscreen(true)}
               className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               title="Expand to fullscreen"
               aria-label="Expand chart to fullscreen"
@@ -660,7 +725,19 @@ export default function AnalyticsChart({
           stackingMode={stackingMode}
         />
       )}
-    </div>
+
+      {/* Dual-Axis Fullscreen Modal */}
+      {isDualAxisFullscreen && chartType === 'dual-axis' && dualAxisChartData && dualAxisConfig && (
+        <DualAxisFullscreenModal
+          isOpen={isDualAxisFullscreen}
+          onClose={() => setIsDualAxisFullscreen(false)}
+          chartTitle={title || 'Dual-Axis Chart'}
+          chartData={dualAxisChartData}
+          primaryAxisLabel={dualAxisConfig.primary.axisLabel}
+          secondaryAxisLabel={dualAxisConfig.secondary.axisLabel}
+        />
+      )}
+    </GlassCard>
   );
 }
 

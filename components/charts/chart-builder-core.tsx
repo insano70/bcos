@@ -33,7 +33,7 @@ export interface DataSource {
 
 export interface ChartConfig {
   chartName: string;
-  chartType: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'progress-bar' | 'doughnut' | 'table' | 'dual-axis';
+  chartType: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'progress-bar' | 'doughnut' | 'table' | 'dual-axis' | 'number';
   measure: string;
   frequency: string;
   startDate: string;
@@ -123,6 +123,7 @@ export default function ChartBuilderCore({
             onChange={(e) => updateConfig('chartType', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
           >
+            <option value="number">Number (Single Stat)</option>
             <option value="bar">Bar Chart</option>
             <option value="stacked-bar">Stacked Bar Chart</option>
             <option value="horizontal-bar">Horizontal Bar Chart</option>
@@ -212,8 +213,8 @@ export default function ChartBuilderCore({
           </div>
         )}
 
-        {/* Group By - Hidden for table charts */}
-        {chartConfig.chartType !== 'table' && (
+        {/* Group By - Hidden for table charts and number charts */}
+        {chartConfig.chartType !== 'table' && chartConfig.chartType !== 'number' && (
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Group By

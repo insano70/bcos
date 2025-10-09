@@ -75,7 +75,7 @@ const chartConfigSchema = z
 
     // Legacy/internal state fields (for backwards compatibility)
     chartName: z.string().optional(),
-    chartType: z.enum(['line', 'bar', 'stacked-bar', 'horizontal-bar', 'progress-bar', 'doughnut', 'dual-axis']).optional(),
+    chartType: z.enum(['line', 'bar', 'stacked-bar', 'horizontal-bar', 'progress-bar', 'doughnut', 'dual-axis', 'number']).optional(),
     measure: z.string().optional(),
     frequency: z.string().optional(),
     practiceUid: z.string().optional(),
@@ -147,6 +147,7 @@ export const chartDefinitionCreateSchema = z.object({
     'heatmap',
     'table',
     'dual-axis',
+    'number',
   ]),
   chart_category_id: z.union([integerIdSchema, z.null()]).optional(),
   chart_config: chartConfigSchema.optional(), // Properly typed chart configuration
@@ -271,6 +272,7 @@ export const chartDataRequestSchema = z.object({
     'area',
     'table',
     'dual-axis',
+    'number',
   ]),
   groupBy: z.string().default('none'),
   colorPalette: z.string().default('default'),

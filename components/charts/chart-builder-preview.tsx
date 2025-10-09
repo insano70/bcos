@@ -38,7 +38,10 @@ export default function ChartBuilderPreview({
         </div>
         
         {/* Live Chart Preview */}
-        <div className="bg-white dark:bg-gray-700 rounded-lg p-4">
+        <div
+          className="bg-white dark:bg-gray-700 rounded-lg p-4 flex flex-col"
+          style={{ height: '500px', maxHeight: '500px', overflow: 'hidden' }}
+        >
           <AnalyticsChart
             key={previewKey}
             chartType={chartConfig.chartType}
@@ -48,14 +51,16 @@ export default function ChartBuilderPreview({
             endDate={chartConfig.endDate || undefined}
             dateRangePreset={dateRangePreset}
             groupBy={chartConfig.groupBy}
-            width={700}
-            height={400}
             title={chartConfig.chartName}
             calculatedField={chartConfig.calculatedField}
             advancedFilters={chartConfig.advancedFilters}
             dataSourceId={chartConfig.selectedDataSource?.id}
             stackingMode={chartConfig.stackingMode || 'normal'}
             colorPalette={chartConfig.colorPalette || 'default'}
+            className="w-full h-full flex-1"
+            responsive={true}
+            minHeight={200}
+            maxHeight={400}
             {...(chartConfig.useMultipleSeries && chartConfig.seriesConfigs.length > 0 ? { multipleSeries: chartConfig.seriesConfigs } : {})}
             {...(chartConfig.periodComparison?.enabled ? { periodComparison: chartConfig.periodComparison } : {})}
             {...(chartConfig.dualAxisConfig ? { dualAxisConfig: chartConfig.dualAxisConfig } : {})}

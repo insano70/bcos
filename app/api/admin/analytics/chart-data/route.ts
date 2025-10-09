@@ -54,13 +54,24 @@ const transformChartDataHandler = async (
       hasPeriodComparison: Boolean(validatedData.periodComparison),
     });
 
-    // Dual-axis charts handle their own data fetching and transformation
+    // Dual-axis and number charts handle their own data fetching and transformation
     if (validatedData.chartType === 'dual-axis') {
       log.warn('Dual-axis chart type should not use this endpoint', {
         requestingUserId: userContext.user_id,
       });
       return createErrorResponse(
         'Dual-axis charts handle their own data fetching. Use the AnalyticsDualAxisChart component instead.',
+        400,
+        request
+      );
+    }
+
+    if (validatedData.chartType === 'number') {
+      log.warn('Number chart type should not use this endpoint', {
+        requestingUserId: userContext.user_id,
+      });
+      return createErrorResponse(
+        'Number charts handle their own data fetching and aggregation via the measures API.',
         400,
         request
       );
