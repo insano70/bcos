@@ -14,7 +14,7 @@ import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { WorkItemWatchButton } from '@/components/work-item-watch-button';
 import { WorkItemWatchersList } from '@/components/work-item-watchers-list';
 import { useWorkItemWatchers } from '@/lib/hooks/use-work-item-watchers';
-import { useAuth } from '@/components/auth-provider';
+import { useAuth } from '@/components/auth/rbac-auth-provider';
 import { log } from '@/lib/logger';
 
 interface WorkItemDetailContentProps {
@@ -34,7 +34,7 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
   const [activeTab, setActiveTab] = useState<'details' | 'comments' | 'activity' | 'history' | 'watchers' | 'subItems'>('details');
 
   // Check if current user is watching
-  const isWatching = watchers?.some(w => w.user_id === user?.user_id) || false;
+  const isWatching = watchers?.some(w => w.user_id === user?.id) || false;
 
   const handleDelete = async (id: string) => {
     try {
@@ -297,7 +297,7 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
               </h2>
               <WorkItemWatchersList
                 workItemId={workItemId}
-                currentUserId={user?.user_id || ''}
+                currentUserId={user?.id || ''}
               />
             </div>
           )}
