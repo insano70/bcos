@@ -2,6 +2,7 @@ import {
   boolean,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -138,6 +139,13 @@ export const workItemTypesRelations = relations(work_item_types, ({ one, many })
   }),
   workItems: many(work_items),
   statuses: many(work_item_statuses),
+  // Phase 6: Type relationships
+  parentTypeRelationships: many(work_item_type_relationships, {
+    relationName: 'parentTypeRelationships',
+  }),
+  childTypeRelationships: many(work_item_type_relationships, {
+    relationName: 'childTypeRelationships',
+  }),
 }));
 
 export const workItemStatusesRelations = relations(work_item_statuses, ({ one, many }) => ({
@@ -377,6 +385,79 @@ export const workItemStatusTransitionsRelations = relations(
       fields: [work_item_status_transitions.to_status_id],
       references: [work_item_statuses.work_item_status_id],
       relationName: 'transitionsTo',
+    }),
+  })
+);
+
+/**
+ * Work Item Type Relationships - Define parent-child type relationships
+ * Phase 6: Type relationships with auto-creation and field inheritance
+ *
+ * Features:
+ * - Define which child types can be added to which parent types
+ * - Set min/max counts for child items (e.g., "Patient must have 1-3 visits")
+ * - Auto-create child items when parent is created
+ * - Template interpolation for subject and field values
+ * - Field inheritance from parent to child
+ *
+ * Example auto_create_config:
+ * {
+ *   "subject_template": "Patient Record for {parent.patient_name}",
+ *   "field_values": {
+ *     "patient_id": "{parent.patient_id}",
+ *     "facility": "{parent.facility}"
+ *   },
+ *   "inherit_fields": ["patient_name", "due_date", "assigned_to"]
+ * }
+ */
+export const work_item_type_relationships = pgTable(
+  'work_item_type_relationships',
+  {
+    work_item_type_relationship_id: uuid('work_item_type_relationship_id')
+      .primaryKey()
+      .defaultRandom(),
+    parent_type_id: uuid('parent_type_id')
+      .notNull()
+      .references(() => work_item_types.work_item_type_id, { onDelete: 'cascade' }),
+    child_type_id: uuid('child_type_id')
+      .notNull()
+      .references(() => work_item_types.work_item_type_id, { onDelete: 'cascade' }),
+    relationship_name: text('relationship_name').notNull(),
+    is_required: boolean('is_required').default(false).notNull(),
+    min_count: integer('min_count'),
+    max_count: integer('max_count'),
+    auto_create: boolean('auto_create').default(false).notNull(),
+    auto_create_config: jsonb('auto_create_config'),
+    display_order: integer('display_order').default(0).notNull(),
+    created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+    deleted_at: timestamp('deleted_at', { withTimezone: true }),
+  },
+  (table) => ({
+    parentTypeIdx: index('idx_type_relationships_parent').on(table.parent_type_id),
+    childTypeIdx: index('idx_type_relationships_child').on(table.child_type_id),
+    deletedAtIdx: index('idx_type_relationships_deleted_at').on(table.deleted_at),
+    // Unique constraint: one relationship per parent_type + child_type combination (when not deleted)
+    uniqueRelationshipIdx: index('idx_unique_type_relationship').on(
+      table.parent_type_id,
+      table.child_type_id,
+      table.deleted_at
+    ),
+  })
+);
+
+export const workItemTypeRelationshipsRelations = relations(
+  work_item_type_relationships,
+  ({ one }) => ({
+    parentType: one(work_item_types, {
+      fields: [work_item_type_relationships.parent_type_id],
+      references: [work_item_types.work_item_type_id],
+      relationName: 'parentTypeRelationships',
+    }),
+    childType: one(work_item_types, {
+      fields: [work_item_type_relationships.child_type_id],
+      references: [work_item_types.work_item_type_id],
+      relationName: 'childTypeRelationships',
     }),
   })
 );

@@ -12,6 +12,7 @@ import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/
 import EditWorkItemTypeModal from '@/components/edit-work-item-type-modal';
 import ManageStatusesModal from '@/components/manage-statuses-modal';
 import ManageWorkItemFieldsModal from '@/components/manage-work-item-fields-modal';
+import ManageRelationshipsModal from '@/components/manage-relationships-modal';
 import WorkflowVisualizationModal from '@/components/workflow-visualization-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { apiClient } from '@/lib/api/client';
@@ -23,6 +24,7 @@ export default function WorkItemTypesContent() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isManageStatusesOpen, setIsManageStatusesOpen] = useState(false);
   const [isManageFieldsOpen, setIsManageFieldsOpen] = useState(false);
+  const [isManageRelationshipsOpen, setIsManageRelationshipsOpen] = useState(false);
   const [isWorkflowOpen, setIsWorkflowOpen] = useState(false);
   const [selectedWorkItemType, setSelectedWorkItemType] = useState<WorkItemType | null>(null);
 
@@ -243,6 +245,11 @@ export default function WorkItemTypesContent() {
     setIsManageFieldsOpen(true);
   }, []);
 
+  const handleManageRelationships = useCallback((workItemType: WorkItemType) => {
+    setSelectedWorkItemType(workItemType);
+    setIsManageRelationshipsOpen(true);
+  }, []);
+
   const handleViewWorkflow = useCallback((workItemType: WorkItemType) => {
     setSelectedWorkItemType(workItemType);
     setIsWorkflowOpen(true);
@@ -279,6 +286,20 @@ export default function WorkItemTypesContent() {
           </svg>
         ),
         onClick: handleManageStatuses,
+      });
+
+      // Manage Relationships - available for all types
+      actions.push({
+        label: 'Manage Relationships',
+        icon: (
+          <svg
+            className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0"
+            viewBox="0 0 16 16"
+          >
+            <path d="M13 10V3L4 14h7v-4zm-9 0V3L0 14h4v-4zm9-7V0l-4 4h4z" />
+          </svg>
+        ),
+        onClick: handleManageRelationships,
       });
 
       // View Workflow - available for all types
@@ -340,7 +361,7 @@ export default function WorkItemTypesContent() {
 
       return actions;
     },
-    [handleManageFields, handleManageStatuses, handleViewWorkflow, handleEditWorkItemType, handleToggleActive, handleDeleteWorkItemType]
+    [handleManageFields, handleManageStatuses, handleManageRelationships, handleViewWorkflow, handleEditWorkItemType, handleToggleActive, handleDeleteWorkItemType]
   );
 
   // Bulk actions for mass operations (memoized)
@@ -471,6 +492,19 @@ export default function WorkItemTypesContent() {
           isOpen={isManageStatusesOpen}
           onClose={() => {
             setIsManageStatusesOpen(false);
+            setSelectedWorkItemType(null);
+          }}
+          workItemTypeId={selectedWorkItemType.id}
+          workItemTypeName={selectedWorkItemType.name}
+        />
+      )}
+
+      {/* Manage Relationships Modal */}
+      {selectedWorkItemType && (
+        <ManageRelationshipsModal
+          isOpen={isManageRelationshipsOpen}
+          onClose={() => {
+            setIsManageRelationshipsOpen(false);
             setSelectedWorkItemType(null);
           }}
           workItemTypeId={selectedWorkItemType.id}

@@ -6,6 +6,7 @@ import {
   work_item_field_values,
   work_item_statuses,
   work_item_status_transitions,
+  work_item_type_relationships,
   work_item_types,
   work_items,
 } from '@/lib/db/schema';
@@ -14,6 +15,12 @@ import { PermissionDeniedError } from '@/lib/types/rbac';
 import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
 import { ValidationError } from '@/lib/api/responses/error';
+import {
+  interpolateTemplate,
+  interpolateFieldValues,
+  extractInheritFields,
+} from '@/lib/utils/template-interpolation';
+import type { WorkItemForInterpolation } from '@/lib/utils/template-interpolation';
 
 /**
  * Work Items Service with RBAC
@@ -74,6 +81,10 @@ export interface WorkItemWithDetails {
   due_date: Date | null;
   started_at: Date | null;
   completed_at: Date | null;
+  parent_work_item_id: string | null; // Phase 2: Hierarchy
+  root_work_item_id: string | null; // Phase 2: Hierarchy
+  depth: number; // Phase 2: Hierarchy
+  path: string | null; // Phase 2: Hierarchy
   created_by: string;
   created_by_name: string;
   created_at: Date;
@@ -200,6 +211,10 @@ export class RBACWorkItemsService extends BaseRBACService {
         due_date: work_items.due_date,
         started_at: work_items.started_at,
         completed_at: work_items.completed_at,
+        parent_work_item_id: work_items.parent_work_item_id,
+        root_work_item_id: work_items.root_work_item_id,
+        depth: work_items.depth,
+        path: work_items.path,
         created_by: work_items.created_by,
         created_by_first_name: users.first_name,
         created_by_last_name: users.last_name,
@@ -247,6 +262,10 @@ export class RBACWorkItemsService extends BaseRBACService {
       due_date: result.due_date,
       started_at: result.started_at,
       completed_at: result.completed_at,
+      parent_work_item_id: result.parent_work_item_id,
+      root_work_item_id: result.root_work_item_id,
+      depth: result.depth,
+      path: result.path,
       created_by: result.created_by,
       created_by_name: result.created_by_first_name && result.created_by_last_name
         ? `${result.created_by_first_name} ${result.created_by_last_name}`
@@ -297,6 +316,10 @@ export class RBACWorkItemsService extends BaseRBACService {
         due_date: work_items.due_date,
         started_at: work_items.started_at,
         completed_at: work_items.completed_at,
+        parent_work_item_id: work_items.parent_work_item_id,
+        root_work_item_id: work_items.root_work_item_id,
+        depth: work_items.depth,
+        path: work_items.path,
         created_by: work_items.created_by,
         created_at: work_items.created_at,
         updated_at: work_items.updated_at,
@@ -355,6 +378,10 @@ export class RBACWorkItemsService extends BaseRBACService {
       due_date: workItem.due_date,
       started_at: workItem.started_at,
       completed_at: workItem.completed_at,
+      parent_work_item_id: workItem.parent_work_item_id,
+      root_work_item_id: workItem.root_work_item_id,
+      depth: workItem.depth,
+      path: workItem.path,
       created_by: workItem.created_by,
       created_by_name: '', // Need to join creator separately
       created_at: workItem.created_at || new Date(),
@@ -475,6 +502,9 @@ export class RBACWorkItemsService extends BaseRBACService {
 
     await this.logPermissionCheck('work-items:create:organization', newWorkItem.work_item_id, workItemData.organization_id);
 
+    // Phase 6: Auto-create child items based on type relationships
+    await this.autoCreateChildItems(newWorkItem.work_item_id, workItemData.work_item_type_id);
+
     // Fetch and return the created work item with full details
     const workItemWithDetails = await this.getWorkItemById(newWorkItem.work_item_id);
     if (!workItemWithDetails) {
@@ -482,6 +512,188 @@ export class RBACWorkItemsService extends BaseRBACService {
     }
 
     return workItemWithDetails;
+  }
+
+  /**
+   * Auto-create child work items based on type relationships
+   * Phase 6: Type relationships with auto-creation
+   */
+  private async autoCreateChildItems(
+    parentWorkItemId: string,
+    parentTypeId: string
+  ): Promise<void> {
+    try {
+      // Get all auto-create relationships for this parent type
+      const relationships = await db
+        .select()
+        .from(work_item_type_relationships)
+        .where(
+          and(
+            eq(work_item_type_relationships.parent_type_id, parentTypeId),
+            eq(work_item_type_relationships.auto_create, true),
+            isNull(work_item_type_relationships.deleted_at)
+          )
+        );
+
+      if (relationships.length === 0) {
+        return; // No auto-create relationships
+      }
+
+      // Fetch parent work item with details for interpolation
+      const parentWorkItem = await this.getWorkItemById(parentWorkItemId);
+      if (!parentWorkItem) {
+        log.error('Parent work item not found for auto-creation', { parentWorkItemId });
+        return;
+      }
+
+      // Create child items for each auto-create relationship
+      for (const relationship of relationships) {
+        const config = relationship.auto_create_config as {
+          subject_template?: string;
+          field_values?: Record<string, string>;
+          inherit_fields?: string[];
+        } | null;
+
+        if (!config) {
+          log.warn('Auto-create relationship missing configuration', {
+            relationshipId: relationship.work_item_type_relationship_id,
+          });
+          continue;
+        }
+
+        // Get initial status for child type
+        const [childInitialStatus] = await db
+          .select()
+          .from(work_item_statuses)
+          .where(
+            and(
+              eq(work_item_statuses.work_item_type_id, relationship.child_type_id),
+              eq(work_item_statuses.is_initial, true)
+            )
+          )
+          .limit(1);
+
+        if (!childInitialStatus) {
+          log.error('No initial status found for child type', {
+            childTypeId: relationship.child_type_id,
+          });
+          continue;
+        }
+
+        // Interpolate subject template
+        const subject = config.subject_template
+          ? interpolateTemplate(
+              config.subject_template,
+              parentWorkItem as unknown as WorkItemForInterpolation,
+              parentWorkItem.custom_fields
+            )
+          : `Child of ${parentWorkItem.subject}`;
+
+        // Interpolate field values
+        const interpolatedFieldValues = config.field_values
+          ? interpolateFieldValues(
+              config.field_values,
+              parentWorkItem as unknown as WorkItemForInterpolation,
+              parentWorkItem.custom_fields
+            )
+          : {};
+
+        // Extract inherited fields
+        const inheritedFields = config.inherit_fields
+          ? extractInheritFields(
+              config.inherit_fields,
+              parentWorkItem as unknown as WorkItemForInterpolation,
+              parentWorkItem.custom_fields
+            )
+          : {};
+
+        // Create child work item
+        const [childWorkItem] = await db
+          .insert(work_items)
+          .values({
+            work_item_type_id: relationship.child_type_id,
+            organization_id: parentWorkItem.organization_id,
+            subject,
+            description: null,
+            status_id: childInitialStatus.work_item_status_id,
+            priority:
+              (inheritedFields.priority as string) ||
+              parentWorkItem.priority ||
+              'medium',
+            assigned_to:
+              (inheritedFields.assigned_to as string) ||
+              parentWorkItem.assigned_to ||
+              null,
+            due_date:
+              (inheritedFields.due_date as Date) || parentWorkItem.due_date || null,
+            parent_work_item_id: parentWorkItemId,
+            root_work_item_id: parentWorkItem.work_item_id, // Parent becomes root
+            depth: 1, // Child is always depth 1 from parent
+            created_by: this.userContext.user_id,
+          })
+          .returning();
+
+        if (!childWorkItem) {
+          log.error('Failed to create child work item', {
+            parentWorkItemId,
+            childTypeId: relationship.child_type_id,
+          });
+          continue;
+        }
+
+        // Update path
+        const path = `/${parentWorkItemId}/${childWorkItem.work_item_id}`;
+        await db
+          .update(work_items)
+          .set({ path })
+          .where(eq(work_items.work_item_id, childWorkItem.work_item_id));
+
+        // Create custom field values from interpolated field values
+        if (Object.keys(interpolatedFieldValues).length > 0) {
+          // Get custom field definitions for child type
+          const { work_item_fields } = await import('@/lib/db/schema');
+          const fieldDefinitions = await db
+            .select()
+            .from(work_item_fields)
+            .where(
+              and(
+                eq(work_item_fields.work_item_type_id, relationship.child_type_id),
+                isNull(work_item_fields.deleted_at)
+              )
+            );
+
+          const fieldMap = new Map(
+            fieldDefinitions.map((f) => [f.field_name, f.work_item_field_id])
+          );
+
+          // Insert field values
+          for (const [fieldName, fieldValue] of Object.entries(
+            interpolatedFieldValues
+          )) {
+            const fieldId = fieldMap.get(fieldName);
+            if (fieldId) {
+              await db.insert(work_item_field_values).values({
+                work_item_id: childWorkItem.work_item_id,
+                work_item_field_id: fieldId,
+                field_value: fieldValue,
+              });
+            }
+          }
+        }
+
+        log.info('Child work item auto-created', {
+          childWorkItemId: childWorkItem.work_item_id,
+          parentWorkItemId,
+          relationshipId: relationship.work_item_type_relationship_id,
+        });
+      }
+    } catch (error) {
+      // Log error but don't fail parent creation
+      log.error('Failed to auto-create child items', error, {
+        parentWorkItemId,
+        parentTypeId,
+      });
+    }
   }
 
   /**
@@ -707,6 +919,10 @@ export class RBACWorkItemsService extends BaseRBACService {
         due_date: work_items.due_date,
         started_at: work_items.started_at,
         completed_at: work_items.completed_at,
+        parent_work_item_id: work_items.parent_work_item_id,
+        root_work_item_id: work_items.root_work_item_id,
+        depth: work_items.depth,
+        path: work_items.path,
         created_by: work_items.created_by,
         created_by_first_name: users.first_name,
         created_by_last_name: users.last_name,
@@ -747,6 +963,10 @@ export class RBACWorkItemsService extends BaseRBACService {
       due_date: result.due_date,
       started_at: result.started_at,
       completed_at: result.completed_at,
+      parent_work_item_id: result.parent_work_item_id,
+      root_work_item_id: result.root_work_item_id,
+      depth: result.depth,
+      path: result.path,
       created_by: result.created_by,
       created_by_name: result.created_by_first_name && result.created_by_last_name
         ? `${result.created_by_first_name} ${result.created_by_last_name}`
@@ -836,12 +1056,15 @@ export class RBACWorkItemsService extends BaseRBACService {
         due_date: work_items.due_date,
         started_at: work_items.started_at,
         completed_at: work_items.completed_at,
+        parent_work_item_id: work_items.parent_work_item_id,
+        root_work_item_id: work_items.root_work_item_id,
+        depth: work_items.depth,
+        path: work_items.path,
         created_by: work_items.created_by,
         created_by_first_name: users.first_name,
         created_by_last_name: users.last_name,
         created_at: work_items.created_at,
         updated_at: work_items.updated_at,
-        depth: work_items.depth,
       })
       .from(work_items)
       .leftJoin(work_item_types, eq(work_items.work_item_type_id, work_item_types.work_item_type_id))
@@ -877,6 +1100,10 @@ export class RBACWorkItemsService extends BaseRBACService {
       due_date: result.due_date,
       started_at: result.started_at,
       completed_at: result.completed_at,
+      parent_work_item_id: result.parent_work_item_id,
+      root_work_item_id: result.root_work_item_id,
+      depth: result.depth,
+      path: result.path,
       created_by: result.created_by,
       created_by_name: result.created_by_first_name && result.created_by_last_name
         ? `${result.created_by_first_name} ${result.created_by_last_name}`
