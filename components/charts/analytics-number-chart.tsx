@@ -79,6 +79,36 @@ export default function AnalyticsNumberChart({
   // Determine decimals: 0 for currency and large numbers, 1 for percentages
   const decimals = displayFormat === 'percentage' ? 1 : 0;
 
+  // Calculate formatted string to determine character count for dynamic font sizing
+  const getFormattedString = (val: number): string => {
+    const rounded = decimals > 0 ? Number(val.toFixed(decimals)) : Math.round(val);
+
+    if (displayFormat === 'currency') {
+      return `$${rounded.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+    } else if (displayFormat === 'percentage') {
+      return `${rounded.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}%`;
+    } else {
+      return rounded.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    }
+  };
+
+  const formattedValue = getFormattedString(value);
+  const charCount = formattedValue.length;
+
+  // Dynamic font size based on character count (Tailwind classes - no inline styles)
+  let fontSizeClass = 'text-7xl'; // default
+  if (charCount <= 5) {
+    fontSizeClass = 'text-9xl'; // ≤5 chars: $123, 45.5%
+  } else if (charCount <= 8) {
+    fontSizeClass = 'text-8xl'; // 6-8 chars: $1,234, 12.3%
+  } else if (charCount <= 12) {
+    fontSizeClass = 'text-7xl'; // 9-12 chars: $1,234,567
+  } else if (charCount <= 16) {
+    fontSizeClass = 'text-6xl'; // 13-16 chars: $123,456,789
+  } else {
+    fontSizeClass = 'text-5xl'; // 17+ chars: $1,234,567,890
+  }
+
   // Responsive sizing
   const containerStyle = responsive
     ? { minHeight: `${minHeight}px`, maxHeight: `${maxHeight}px` }
@@ -95,7 +125,7 @@ export default function AnalyticsNumberChart({
             {title}
           </p>
         )}
-        <div className="text-7xl font-bold text-slate-800 dark:text-white">
+        <div className={`${fontSizeClass} font-bold text-slate-800 dark:text-white truncate max-w-full px-4`}>
           <AnimatedCounter
             value={value}
             format={displayFormat}
