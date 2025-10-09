@@ -196,9 +196,113 @@ const createWorkItemHandler = async (request: NextRequest, userContext: UserCont
       });
     }
 
+    // Phase 6: Auto-create child work items based on type relationships
+    const autoCreateStart = Date.now();
+    const { createRBACWorkItemTypeRelationshipsService } = await import('@/lib/services/rbac-work-item-type-relationships-service');
+    const relationshipsService = createRBACWorkItemTypeRelationshipsService(userContext);
+
+    // Get relationships with auto_create enabled for this parent type
+    const autoCreateRelationships = await relationshipsService.getRelationships({
+      parent_type_id: validatedData.work_item_type_id,
+      auto_create: true,
+    });
+
+    if (autoCreateRelationships.length > 0) {
+      log.info('Auto-creating child work items', {
+        parentWorkItemId: newWorkItem.work_item_id,
+        relationshipCount: autoCreateRelationships.length,
+      });
+
+      for (const relationship of autoCreateRelationships) {
+        try {
+          const childCreationStart = Date.now();
+
+          // Prepare subject using template interpolation
+          let childSubject = 'New Item';
+          if (relationship.auto_create_config?.subject_template) {
+            childSubject = relationship.auto_create_config.subject_template
+              .replace(/{parent\.subject}/g, newWorkItem.subject)
+              .replace(/{parent\.id}/g, newWorkItem.work_item_id)
+              .replace(/{relationship}/g, relationship.relationship_name);
+          }
+
+          // Create child work item
+          const childWorkItem = await workItemsService.createWorkItem({
+            work_item_type_id: relationship.child_type_id,
+            organization_id: newWorkItem.organization_id,
+            subject: childSubject,
+            description: null,
+            priority: newWorkItem.priority,
+            assigned_to: newWorkItem.assigned_to,
+            due_date: null,
+            parent_work_item_id: newWorkItem.work_item_id,
+          });
+
+          // Set custom field values for auto-created child if configured
+          if (relationship.auto_create_config?.field_values) {
+            const childFieldValuesService = createRBACWorkItemFieldValuesService(userContext);
+            await childFieldValuesService.setFieldValues(
+              childWorkItem.work_item_id,
+              relationship.child_type_id,
+              relationship.auto_create_config.field_values
+            );
+          }
+
+          log.info('Auto-created child work item', {
+            parentWorkItemId: newWorkItem.work_item_id,
+            childWorkItemId: childWorkItem.work_item_id,
+            childTypeId: relationship.child_type_id,
+            relationshipName: relationship.relationship_name,
+            duration: Date.now() - childCreationStart,
+          });
+        } catch (error) {
+          log.error('Failed to auto-create child work item', error, {
+            parentWorkItemId: newWorkItem.work_item_id,
+            relationshipId: relationship.work_item_type_relationship_id,
+            childTypeId: relationship.child_type_id,
+          });
+          // Continue with other auto-create relationships even if one fails
+        }
+      }
+
+      log.info('Auto-create child items completed', {
+        parentWorkItemId: newWorkItem.work_item_id,
+        duration: Date.now() - autoCreateStart,
+      });
+    }
+
+    // Phase 7: Add creator as watcher (auto-watcher logic)
+    const watcherStart = Date.now();
+    const { createRBACWorkItemWatchersService } = await import('@/lib/services/rbac-work-item-watchers-service');
+    const watchersService = createRBACWorkItemWatchersService(userContext);
+
+    try {
+      await watchersService.addWatcher({
+        work_item_id: newWorkItem.work_item_id,
+        user_id: userContext.user_id,
+        watch_type: 'auto_creator',
+        notify_status_changes: true,
+        notify_comments: true,
+        notify_assignments: true,
+        notify_due_date: true,
+      });
+      log.info('Creator added as watcher', {
+        workItemId: newWorkItem.work_item_id,
+        userId: userContext.user_id,
+        duration: Date.now() - watcherStart,
+      });
+    } catch (error) {
+      log.error('Failed to add creator as watcher', error, {
+        workItemId: newWorkItem.work_item_id,
+        userId: userContext.user_id,
+      });
+      // Don't fail work item creation if watcher addition fails
+    }
+
     const totalDuration = Date.now() - startTime;
     log.info('Work item creation completed successfully', {
       newWorkItemId: newWorkItem.work_item_id,
+      autoCreatedChildCount: autoCreateRelationships.length,
       totalDuration,
     });
 

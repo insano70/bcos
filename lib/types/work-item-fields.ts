@@ -6,7 +6,7 @@
 /**
  * Supported field types for custom fields
  */
-export type FieldType = 'text' | 'number' | 'date' | 'datetime' | 'dropdown' | 'checkbox' | 'user_picker';
+export type FieldType = 'text' | 'number' | 'date' | 'datetime' | 'dropdown' | 'checkbox' | 'user_picker' | 'multi_select' | 'rich_text' | 'url' | 'email' | 'phone' | 'currency' | 'percentage';
 
 /**
  * Field option for dropdown/multi_select fields
@@ -14,6 +14,22 @@ export type FieldType = 'text' | 'number' | 'date' | 'datetime' | 'dropdown' | '
 export interface FieldOption {
   value: string;
   label: string;
+}
+
+/**
+ * Conditional visibility rule for fields
+ */
+export interface ConditionalVisibilityRule {
+  field_id: string;
+  operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'greater_than' | 'less_than' | 'is_empty' | 'is_not_empty';
+  value?: unknown;
+}
+
+/**
+ * Field configuration (Phase 8)
+ */
+export interface FieldConfig {
+  conditional_visibility?: ConditionalVisibilityRule[];
 }
 
 /**
@@ -39,6 +55,7 @@ export interface WorkItemField {
   field_type: FieldType;
   field_description: string | null;
   field_options: FieldOption[] | null;
+  field_config: FieldConfig | null;
   is_required: boolean;
   validation_rules: ValidationRules | null;
   default_value: string | null;
@@ -80,6 +97,7 @@ export interface CreateWorkItemFieldData {
   field_type: FieldType;
   field_description?: string;
   field_options?: FieldOption[];
+  field_config?: FieldConfig;
   is_required?: boolean;
   validation_rules?: ValidationRules;
   default_value?: string;
@@ -94,6 +112,7 @@ export interface UpdateWorkItemFieldData {
   field_label?: string;
   field_description?: string;
   field_options?: FieldOption[];
+  field_config?: FieldConfig;
   is_required?: boolean;
   validation_rules?: ValidationRules;
   default_value?: string;

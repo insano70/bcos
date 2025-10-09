@@ -177,6 +177,20 @@ export class PermissionChecker {
    * Check if user can access a specific organization
    */
   canAccessOrganization(organizationId: string): boolean {
+    // Check if user has any :all scope permission for organizations
+    // This allows users with organizations:*:all to access any organization
+    const hasAllScopePermission = this.getUserPermissions().some(
+      (permission) =>
+        permission.resource === 'organizations' &&
+        permission.scope === 'all' &&
+        permission.is_active
+    );
+
+    if (hasAllScopePermission) {
+      return true;
+    }
+
+    // Otherwise, check membership in accessible organizations
     return this.userContext.accessible_organizations.some(
       (org) => org.organization_id === organizationId && org.is_active
     );
