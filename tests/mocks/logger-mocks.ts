@@ -3,6 +3,11 @@ import { vi } from 'vitest'
 /**
  * Logger Mock Factory
  * Provides standardized logger mocking for consistent test patterns
+ *
+ * MODERNIZED: Aligned with current @/lib/logger API
+ * - Uses log.* methods (info, error, warn, debug, auth, security, api, db, timing)
+ * - Uses correlation.* utilities (generate, current, withContext, addMetadata, setUser)
+ * - Maintains backward compatibility with old API names via type aliases
  */
 
 export interface LoggerMockOptions {
@@ -14,28 +19,53 @@ export interface LoggerMockOptions {
   logLevel?: 'debug' | 'info' | 'warn' | 'error'
 }
 
-export interface UniversalLoggerMock {
+/**
+ * Current logger mock interface - matches @/lib/logger log.* API
+ */
+export interface LoggerMock {
   // Standard logging methods
   debug: ReturnType<typeof vi.fn>
   info: ReturnType<typeof vi.fn>
   warn: ReturnType<typeof vi.fn>
   error: ReturnType<typeof vi.fn>
-  
-  // Enhanced logging methods
+
+  // Enhanced logging methods (current API)
+  auth: ReturnType<typeof vi.fn>
   security: ReturnType<typeof vi.fn>
+  api: ReturnType<typeof vi.fn>
+  db: ReturnType<typeof vi.fn>
   timing: ReturnType<typeof vi.fn>
-  audit: ReturnType<typeof vi.fn>
-  
-  // Specialized methods
-  log: ReturnType<typeof vi.fn>
-  trace: ReturnType<typeof vi.fn>
+
+  // Legacy methods for backward compatibility
+  audit?: ReturnType<typeof vi.fn>
+  log?: ReturnType<typeof vi.fn>
+  trace?: ReturnType<typeof vi.fn>
 }
 
-export interface AppLoggerMock extends UniversalLoggerMock {
-  // App-specific logger methods
-  getLogger: ReturnType<typeof vi.fn>
-  child: ReturnType<typeof vi.fn>
+/**
+ * Correlation utilities mock - matches @/lib/logger correlation.* API
+ */
+export interface CorrelationMock {
+  generate: ReturnType<typeof vi.fn>
+  current: ReturnType<typeof vi.fn>
   withContext: ReturnType<typeof vi.fn>
+  addMetadata: ReturnType<typeof vi.fn>
+  setUser: ReturnType<typeof vi.fn>
+}
+
+/**
+ * @deprecated Use LoggerMock instead - kept for backward compatibility
+ */
+export type UniversalLoggerMock = LoggerMock
+
+/**
+ * @deprecated Legacy interface - kept for backward compatibility only
+ */
+export interface AppLoggerMock extends LoggerMock {
+  // Legacy app-specific logger methods (no longer in use)
+  getLogger?: ReturnType<typeof vi.fn>
+  child?: ReturnType<typeof vi.fn>
+  withContext?: ReturnType<typeof vi.fn>
 }
 
 export interface ConsoleMocks {
@@ -58,18 +88,24 @@ export interface LoggerMockSuite {
 }
 
 /**
- * Create a universal logger mock that works with all logger types
+ * Create a logger mock matching current @/lib/logger API
  */
-export function createUniversalLoggerMock(options: LoggerMockOptions = {}): UniversalLoggerMock {
+export function createLoggerMock(options: LoggerMockOptions = {}): LoggerMock {
   const { trackCalls = true } = options
 
-  const loggerMock: UniversalLoggerMock = {
+  const loggerMock: LoggerMock = {
+    // Standard methods
     debug: vi.fn(),
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
+    // Current API methods
+    auth: vi.fn(),
     security: vi.fn(),
+    api: vi.fn(),
+    db: vi.fn(),
     timing: vi.fn(),
+    // Legacy methods for backward compatibility
     audit: vi.fn(),
     log: vi.fn(),
     trace: vi.fn()
@@ -78,10 +114,12 @@ export function createUniversalLoggerMock(options: LoggerMockOptions = {}): Univ
   // Add call tracking if enabled
   if (trackCalls) {
     Object.values(loggerMock).forEach(mockFn => {
-      mockFn.mockImplementation((...args: unknown[]) => {
-        // Implementation can be customized per test
-        return undefined
-      })
+      if (mockFn) {
+        mockFn.mockImplementation((...args: unknown[]) => {
+          // Implementation can be customized per test
+          return undefined
+        })
+      }
     })
   }
 
@@ -89,16 +127,36 @@ export function createUniversalLoggerMock(options: LoggerMockOptions = {}): Univ
 }
 
 /**
- * Create an app logger mock (for createAppLogger factory)
+ * Create correlation utilities mock matching current @/lib/logger API
+ */
+export function createCorrelationMock(): CorrelationMock {
+  return {
+    generate: vi.fn(() => 'test-correlation-id'),
+    current: vi.fn(() => 'test-correlation-id'),
+    withContext: vi.fn((id, metadata, fn) => fn()),
+    addMetadata: vi.fn(),
+    setUser: vi.fn()
+  }
+}
+
+/**
+ * @deprecated Use createLoggerMock instead - kept for backward compatibility
+ */
+export function createUniversalLoggerMock(options: LoggerMockOptions = {}): UniversalLoggerMock {
+  return createLoggerMock(options)
+}
+
+/**
+ * @deprecated Legacy factory - kept for backward compatibility only
  */
 export function createAppLoggerMock(options: LoggerMockOptions = {}): AppLoggerMock {
-  const universalMock = createUniversalLoggerMock(options)
+  const loggerMock = createLoggerMock(options)
 
   return {
-    ...universalMock,
-    getLogger: vi.fn(() => universalMock),
-    child: vi.fn(() => universalMock),
-    withContext: vi.fn(() => universalMock)
+    ...loggerMock,
+    getLogger: vi.fn(() => loggerMock),
+    child: vi.fn(() => loggerMock),
+    withContext: vi.fn(() => loggerMock)
   }
 }
 
@@ -148,32 +206,38 @@ export function createLoggerMockSuite(options: LoggerMockOptions = {}): LoggerMo
 }
 
 /**
- * Vi.mock factory function for @/lib/logger module
+ * Vi.mock factory function for @/lib/logger module (current API)
  */
 export function createLoggerModuleMock(options: LoggerMockOptions = {}) {
-  const loggerMock = createUniversalLoggerMock(options)
-  
+  const loggerMock = createLoggerMock(options)
+  const correlationMock = createCorrelationMock()
+
   return () => ({
-    logger: loggerMock,
+    log: loggerMock,
+    logger: loggerMock, // Backward compatibility alias
+    correlation: correlationMock,
     // Export mock for test access
     _mockLoggerHelpers: {
-      resetMocks: () => vi.clearAllMocks()
+      resetMocks: () => vi.clearAllMocks(),
+      getLoggerMock: () => loggerMock,
+      getCorrelationMock: () => correlationMock
     }
   })
 }
 
 /**
- * Vi.mock factory function for @/lib/logger/factory module
+ * @deprecated lib/logger/factory module no longer exists - kept for backward compatibility
+ * This factory returns a no-op mock to prevent test failures
  */
 export function createLoggerFactoryModuleMock(options: LoggerMockOptions = {}) {
-  const appLoggerMock = createAppLoggerMock(options)
-  
+  const loggerMock = createLoggerMock(options)
+
   return () => ({
-    createAppLogger: vi.fn(() => appLoggerMock),
+    createAppLogger: vi.fn(() => loggerMock),
     // Export mock for test access
     _mockFactoryHelpers: {
       resetMocks: () => vi.clearAllMocks(),
-      getAppLoggerMock: () => appLoggerMock
+      getAppLoggerMock: () => loggerMock
     }
   })
 }

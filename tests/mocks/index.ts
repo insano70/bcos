@@ -19,20 +19,28 @@ export {
 
 // Logger Mocks
 export {
-  createUniversalLoggerMock,
-  createAppLoggerMock,
+  // Current API
+  createLoggerMock,
+  createCorrelationMock,
   createConsoleMocks,
   createLoggerMockSuite,
   createLoggerModuleMock,
-  createLoggerFactoryModuleMock,
   createSimpleLoggerMock,
   createDebugLoggerMock,
   LoggerMockPresets,
-  type UniversalLoggerMock,
-  type AppLoggerMock,
+  // Backward compatibility exports
+  createUniversalLoggerMock,
+  createAppLoggerMock,
+  createLoggerFactoryModuleMock,
+  // Types
+  type LoggerMock,
+  type CorrelationMock,
   type ConsoleMocks,
   type LoggerMockSuite,
-  type LoggerMockOptions
+  type LoggerMockOptions,
+  // Legacy types (deprecated)
+  type UniversalLoggerMock,
+  type AppLoggerMock
 } from './logger-mocks'
 
 // Auth Mocks

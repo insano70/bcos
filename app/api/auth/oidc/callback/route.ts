@@ -39,12 +39,11 @@ import { validateAuthProfile, validateEmailDomain } from '@/lib/auth/input-valid
 import { createTokenPair } from '@/lib/auth/token-manager';
 import { db, users } from '@/lib/db';
 import { getOIDCConfig } from '@/lib/env';
-import { correlation, log, logTemplates } from '@/lib/logger';
+import { correlation, log } from '@/lib/logger';
 import { getOIDCClient } from '@/lib/oidc/client';
 import { databaseStateManager } from '@/lib/oidc/database-state-manager';
 import { SessionError, StateValidationError } from '@/lib/oidc/errors';
 import type { OIDCSessionData } from '@/lib/oidc/types';
-import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -395,27 +394,12 @@ const oidcCallbackHandler = async (request: NextRequest) => {
       existingUser.user_id,
       deviceInfo,
       false, // rememberMe = false for SSO
-      sanitizedProfile.email
+      sanitizedProfile.email,
+      'oidc' // authMethod
     );
 
-    // Get user context with permissions
-    const _userContext = await getCachedUserContextSafe(existingUser.user_id);
-
-    // ===== 11. Audit Log Successful Login =====
-    await AuditLogger.logAuth({
-      action: 'login',
-      userId: existingUser.user_id,
-      email: sanitizedProfile.email,
-      ipAddress: currentMetadata.ipAddress,
-      userAgent: currentMetadata.userAgent,
-      metadata: {
-        authMethod: 'oidc',
-        deviceName: currentMetadata.deviceName,
-        sessionId: tokens.sessionId,
-        duration: Date.now() - startTime,
-      },
-    });
-
+    // ===== 11. Success Log with Security Validation Metrics =====
+    // Note: Audit log is created by createTokenPair() above
     // Enriched success log with complete security validation metrics
     log.info('OIDC callback successful - user authenticated', {
       operation: 'oidc_callback',

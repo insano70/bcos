@@ -1,15 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { debugLog, errorLog } from '@/lib/utils/debug'
 
-// Mock the universal logger factory
-vi.mock('@/lib/logger/factory', () => ({
-  createAppLogger: vi.fn(() => ({
+// Mock the logger module
+vi.mock('@/lib/logger', () => ({
+  log: {
     debug: vi.fn(),
     error: vi.fn(),
     info: vi.fn(),
+    warn: vi.fn(),
     security: vi.fn(),
-    timing: vi.fn()
-  }))
+    timing: vi.fn(),
+    api: vi.fn(),
+    db: vi.fn(),
+    auth: vi.fn()
+  },
+  correlation: {
+    generate: vi.fn(() => 'test-correlation-id'),
+    current: vi.fn(() => 'test-correlation-id'),
+    withContext: vi.fn((id, metadata, fn) => fn()),
+    addMetadata: vi.fn(),
+    setUser: vi.fn()
+  }
 }))
 
 describe('debug utilities - business value tests', () => {

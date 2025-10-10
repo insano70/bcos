@@ -92,10 +92,8 @@ const oidcLoginHandler = async (request: NextRequest) => {
     // Database-backed for horizontal scaling
     await databaseStateManager.registerState(state, nonce, fingerprint);
 
-    const stateCount = await databaseStateManager.getStateCount();
-    log.info('OIDC state token registered in database', {
+    log.debug('OIDC state token registered', {
       state: `${state.substring(0, 8)}...`,
-      totalStates: stateCount,
     });
 
     // Encrypt session data before storing (CRITICAL SECURITY)

@@ -43,24 +43,26 @@ vi.mock('@/lib/logger', () => ({
     error: vi.fn(),
     info: vi.fn(),
     warn: vi.fn(),
-    debug: vi.fn()
+    debug: vi.fn(),
+    auth: vi.fn(),
+    security: vi.fn(),
+    api: vi.fn(),
+    db: vi.fn(),
+    timing: vi.fn()
   },
   logger: {
     error: vi.fn(),
     info: vi.fn(),
     warn: vi.fn(),
     debug: vi.fn()
+  },
+  correlation: {
+    generate: vi.fn(() => 'test-correlation-id'),
+    current: vi.fn(() => 'test-correlation-id'),
+    withContext: vi.fn((id, metadata, fn) => fn()),
+    addMetadata: vi.fn(),
+    setUser: vi.fn()
   }
-}))
-
-vi.mock('@/lib/logger/factory', () => ({
-  createAppLogger: vi.fn(() => ({
-    info: vi.fn(),
-    debug: vi.fn(),
-    error: vi.fn(),
-    security: vi.fn(),
-    timing: vi.fn()
-  }))
 }))
 
 // Mock database with comprehensive structure and method chaining

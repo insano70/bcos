@@ -55,7 +55,8 @@ export async function createTokenPair(
   userId: string,
   deviceInfo: DeviceInfo,
   rememberMe: boolean = false,
-  email?: string
+  email?: string,
+  authMethod?: string
 ): Promise<TokenPair> {
   const now = new Date();
   const sessionId = nanoid(32);
@@ -130,13 +131,16 @@ export async function createTokenPair(
   await AuditLogger.logAuth({
     action: 'login',
     userId,
+    email,
     ipAddress: deviceInfo.ipAddress,
     userAgent: deviceInfo.userAgent,
     metadata: {
+      authMethod,
       sessionId,
       refreshTokenId,
       rememberMe,
       deviceFingerprint: deviceInfo.fingerprint,
+      deviceName: deviceInfo.deviceName,
     },
   });
 
