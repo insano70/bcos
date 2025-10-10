@@ -5,7 +5,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createPaginatedResponse, createSuccessResponse } from '@/lib/api/responses/success';
 import { extractors, rbacConfigs } from '@/lib/api/utils/rbac-extractors';
 import { getPagination, getSortParams } from '@/lib/api/utils/request';
-import { log } from '@/lib/logger';
+import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
 import { createRBACPracticesService } from '@/lib/services/rbac-practices-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { practiceCreateSchema, practiceQuerySchema } from '@/lib/validations/practice';
@@ -23,13 +23,6 @@ const getPracticesHandler = async (request: NextRequest, userContext: UserContex
     const pagination = getPagination(searchParams);
     const sort = getSortParams(searchParams, ['name', 'domain', 'status', 'created_at']);
     const query = validateQuery(searchParams, practiceQuerySchema);
-
-    log.info('List practices request initiated', {
-      requestingUserId: userContext.user_id,
-      filters: { status: query.status, template_id: query.template_id },
-      pagination,
-      sort,
-    });
 
     // Use the RBAC practices service
     const practicesService = createRBACPracticesService(userContext);
@@ -50,10 +43,46 @@ const getPracticesHandler = async (request: NextRequest, userContext: UserContex
       }),
     ]);
 
-    log.info('List practices completed successfully', {
-      count: practicesData.length,
-      total: totalCount,
+    // Prepare sanitized filter context
+    const filters = sanitizeFilters({
+      status: query.status,
+      template_id: query.template_id,
+    });
+
+    // Count practices by status
+    const statusCounts = practicesData.reduce(
+      (acc, practice) => {
+        const status = practice.status || 'unknown';
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+
+    // Enriched success log - consolidates multiple logs into 1 comprehensive log
+    log.info(`practices list query completed - returned ${practicesData.length} of ${totalCount}`, {
+      operation: 'list_practices',
+      resourceType: 'practices',
+      userId: userContext.user_id,
+      ...(userContext.current_organization_id && {
+        organizationId: userContext.current_organization_id,
+      }),
+      filters,
+      filterCount: Object.values(filters).filter((v) => v !== null && v !== undefined).length,
+      results: {
+        returned: practicesData.length,
+        total: totalCount,
+        statusBreakdown: statusCounts,
+        page: pagination.page,
+        pageSize: pagination.limit,
+      },
+      sort: {
+        field: sort.sortBy,
+        direction: sort.sortOrder,
+      },
       duration: Date.now() - startTime,
+      slow: Date.now() - startTime > 1000,
+      component: 'business-logic',
     });
 
     return createPaginatedResponse(practicesData, {
@@ -62,16 +91,17 @@ const getPracticesHandler = async (request: NextRequest, userContext: UserContex
       total: totalCount,
     });
   } catch (error) {
+    log.error('Practices list query failed', error, {
+      operation: 'list_practices',
+      userId: userContext.user_id,
+      duration: Date.now() - startTime,
+      component: 'business-logic',
+    });
+
     const errorMessage =
       error && typeof error === 'object' && 'message' in error
         ? String(error.message)
         : 'Unknown error';
-
-    log.error('List practices failed', error, {
-      requestingUserId: userContext.user_id,
-      duration: Date.now() - startTime,
-    });
-
     const clientErrorMessage =
       process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
     return createErrorResponse(clientErrorMessage, 500, request);
@@ -84,11 +114,6 @@ const createPracticeHandler = async (request: NextRequest, userContext: UserCont
   try {
     const validatedData = await validateRequest(request, practiceCreateSchema);
 
-    log.info('Create practice request initiated', {
-      requestingUserId: userContext.user_id,
-      domain: validatedData.domain,
-    });
-
     // Use the RBAC practices service
     const practicesService = createRBACPracticesService(userContext);
 
@@ -100,11 +125,26 @@ const createPracticeHandler = async (request: NextRequest, userContext: UserCont
       owner_user_id: validatedData.owner_user_id,
     });
 
-    log.info('Practice created successfully', {
-      practiceId: newPractice.id,
-      domain: newPractice.domain,
+    // Enriched creation success log using template
+    const template = logTemplates.crud.create('practice', {
+      resourceId: newPractice.id,
+      resourceName: newPractice.name,
+      userId: userContext.user_id,
+      ...(userContext.current_organization_id && {
+        organizationId: userContext.current_organization_id,
+      }),
       duration: Date.now() - startTime,
+      metadata: {
+        domain: newPractice.domain,
+        templateId: newPractice.template_id,
+        status: newPractice.status,
+        ownerId: newPractice.owner_user_id,
+        createdBy: userContext.user_id,
+        isSuperAdmin: userContext.is_super_admin,
+      },
     });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse(
       {
@@ -120,16 +160,17 @@ const createPracticeHandler = async (request: NextRequest, userContext: UserCont
       'Practice created successfully'
     );
   } catch (error) {
+    log.error('Practice creation failed', error, {
+      operation: 'create_practice',
+      userId: userContext.user_id,
+      duration: Date.now() - startTime,
+      component: 'business-logic',
+    });
+
     const errorMessage =
       error && typeof error === 'object' && 'message' in error
         ? String(error.message)
         : 'Unknown error';
-
-    log.error('Create practice failed', error, {
-      requestingUserId: userContext.user_id,
-      duration: Date.now() - startTime,
-    });
-
     const clientErrorMessage =
       process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
     return createErrorResponse(clientErrorMessage, 500, request);

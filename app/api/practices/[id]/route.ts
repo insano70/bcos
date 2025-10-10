@@ -5,7 +5,7 @@ import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors, rbacConfigs } from '@/lib/api/utils/rbac-extractors';
-import { log } from '@/lib/logger';
+import { calculateChanges, log, logTemplates } from '@/lib/logger';
 import { createRBACPracticesService } from '@/lib/services/rbac-practices-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { practiceParamsSchema, practiceUpdateSchema } from '@/lib/validations/practice';
@@ -22,11 +22,6 @@ const getPracticeHandler = async (
     const params = await extractRouteParams(args[0], practiceParamsSchema);
     practiceId = params.id;
 
-    log.info('Get practice by ID request initiated', {
-      requestingUserId: userContext.user_id,
-      practiceId,
-    });
-
     // Use the RBAC practices service
     const practicesService = createRBACPracticesService(userContext);
 
@@ -37,10 +32,22 @@ const getPracticeHandler = async (
       throw NotFoundError('Practice');
     }
 
-    log.info('Get practice by ID completed successfully', {
-      practiceId,
+    // Enriched read log with practice context
+    const template = logTemplates.crud.read('practice', {
+      resourceId: practice.id,
+      resourceName: practice.name,
+      userId: userContext.user_id,
+      found: true,
       duration: Date.now() - startTime,
+      metadata: {
+        domain: practice.domain,
+        status: practice.status,
+        templateId: practice.template_id,
+        ownerId: practice.owner_user_id,
+      },
     });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse({
       id: practice.id,
@@ -53,17 +60,18 @@ const getPracticeHandler = async (
       updated_at: practice.updated_at,
     });
   } catch (error) {
+    log.error('Get practice failed', error, {
+      operation: 'read_practice',
+      practiceId,
+      userId: userContext.user_id,
+      duration: Date.now() - startTime,
+      component: 'business-logic',
+    });
+
     const errorMessage =
       error && typeof error === 'object' && 'message' in error
         ? String(error.message)
         : 'Unknown error';
-
-    log.error('Get practice by ID failed', error, {
-      practiceId,
-      requestingUserId: userContext.user_id,
-      duration: Date.now() - startTime,
-    });
-
     const clientErrorMessage =
       process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
     return createErrorResponse(clientErrorMessage, 500, request);
@@ -83,14 +91,14 @@ const updatePracticeHandler = async (
     practiceId = params.id;
     const validatedData = await validateRequest(request, practiceUpdateSchema);
 
-    log.info('Update practice request initiated', {
-      requestingUserId: userContext.user_id,
-      practiceId,
-      updateFields: Object.keys(validatedData),
-    });
-
     // Use the RBAC practices service
     const practicesService = createRBACPracticesService(userContext);
+
+    // Get current state BEFORE update for change tracking
+    const before = await practicesService.getPracticeById(practiceId);
+    if (!before) {
+      throw NotFoundError('Practice');
+    }
 
     // Update practice with automatic RBAC checking
     const updatedPractice = await practicesService.updatePractice(practiceId, {
@@ -100,10 +108,39 @@ const updatePracticeHandler = async (
       status: validatedData.status,
     });
 
-    log.info('Practice updated successfully', {
-      practiceId,
+    // Calculate changes for audit trail
+    const changes = calculateChanges(
+      {
+        name: before.name,
+        domain: before.domain,
+        template_id: before.template_id,
+        status: before.status,
+      },
+      {
+        name: updatedPractice.name,
+        domain: updatedPractice.domain,
+        template_id: updatedPractice.template_id,
+        status: updatedPractice.status,
+      }
+    );
+
+    // Enriched update log with change tracking
+    const template = logTemplates.crud.update('practice', {
+      resourceId: updatedPractice.id,
+      resourceName: updatedPractice.name,
+      userId: userContext.user_id,
+      changes,
       duration: Date.now() - startTime,
+      metadata: {
+        domain: updatedPractice.domain,
+        status: updatedPractice.status,
+        templateId: updatedPractice.template_id,
+        ownerId: updatedPractice.owner_user_id,
+        ...(changes.status && { statusChange: `${changes.status.from} -> ${changes.status.to}` }),
+      },
     });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse(
       {
@@ -119,17 +156,18 @@ const updatePracticeHandler = async (
       'Practice updated successfully'
     );
   } catch (error) {
+    log.error('Update practice failed', error, {
+      operation: 'update_practice',
+      practiceId,
+      userId: userContext.user_id,
+      duration: Date.now() - startTime,
+      component: 'business-logic',
+    });
+
     const errorMessage =
       error && typeof error === 'object' && 'message' in error
         ? String(error.message)
         : 'Unknown error';
-
-    log.error('Update practice failed', error, {
-      practiceId,
-      requestingUserId: userContext.user_id,
-      duration: Date.now() - startTime,
-    });
-
     const clientErrorMessage =
       process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
     return createErrorResponse(clientErrorMessage, 500, request);
@@ -148,35 +186,50 @@ const deletePracticeHandler = async (
     const params = await extractRouteParams(args[0], practiceParamsSchema);
     practiceId = params.id;
 
-    log.info('Delete practice request initiated', {
-      requestingUserId: userContext.user_id,
-      practiceId,
-    });
-
     // Use the RBAC practices service
     const practicesService = createRBACPracticesService(userContext);
+
+    // Get practice info BEFORE deletion for logging
+    const practice = await practicesService.getPracticeById(practiceId);
+    if (!practice) {
+      throw NotFoundError('Practice');
+    }
 
     // Delete practice with automatic RBAC checking
     await practicesService.deletePractice(practiceId);
 
-    log.info('Practice deleted successfully', {
-      practiceId,
+    // Enriched deletion log with practice context
+    const template = logTemplates.crud.delete('practice', {
+      resourceId: practiceId,
+      resourceName: practice.name,
+      userId: userContext.user_id,
+      soft: false,
       duration: Date.now() - startTime,
+      metadata: {
+        domain: practice.domain,
+        status: practice.status,
+        templateId: practice.template_id,
+        ownerId: practice.owner_user_id,
+        isSuperAdmin: userContext.is_super_admin,
+      },
     });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse({ id: practiceId }, 'Practice deleted successfully');
   } catch (error) {
+    log.error('Delete practice failed', error, {
+      operation: 'delete_practice',
+      practiceId,
+      userId: userContext.user_id,
+      duration: Date.now() - startTime,
+      component: 'business-logic',
+    });
+
     const errorMessage =
       error && typeof error === 'object' && 'message' in error
         ? String(error.message)
         : 'Unknown error';
-
-    log.error('Delete practice failed', error, {
-      practiceId,
-      requestingUserId: userContext.user_id,
-      duration: Date.now() - startTime,
-    });
-
     const clientErrorMessage =
       process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
     return createErrorResponse(clientErrorMessage, 500, request);

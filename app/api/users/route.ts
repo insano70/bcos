@@ -7,7 +7,7 @@ import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { getPagination, getSortParams } from '@/lib/api/utils/request';
 import { db } from '@/lib/db';
 import { user_roles } from '@/lib/db/rbac-schema';
-import { log } from '@/lib/logger';
+import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
 import { createRBACUsersService } from '@/lib/services/rbac-users-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { userCreateSchema, userQuerySchema } from '@/lib/validations/user';
@@ -15,38 +15,16 @@ import { userCreateSchema, userQuerySchema } from '@/lib/validations/user';
 const getUsersHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
 
-  log.info('List users request initiated', {
-    operation: 'list_users',
-    requestingUserId: userContext.user_id,
-    isSuperAdmin: userContext.is_super_admin,
-  });
-
   try {
     const { searchParams } = new URL(request.url);
-
-    const validationStart = Date.now();
     const pagination = getPagination(searchParams);
     const sort = getSortParams(searchParams, ['first_name', 'last_name', 'email', 'created_at']);
     const query = validateQuery(searchParams, userQuerySchema);
-    log.info('Request validation completed', { duration: Date.now() - validationStart });
-
-    log.info('Request parameters parsed', {
-      pagination,
-      sort,
-      search: query.search ? '[FILTERED]' : undefined,
-      filters: {
-        is_active: query.is_active,
-        email_verified: query.email_verified,
-      },
-    });
 
     // Create RBAC users service
-    const serviceStart = Date.now();
     const usersService = createRBACUsersService(userContext);
-    log.info('RBAC service created', { duration: Date.now() - serviceStart });
 
     // Get users with automatic permission-based filtering
-    const usersStart = Date.now();
     const users = await usersService.getUsers({
       search: query.search,
       is_active: query.is_active,
@@ -54,12 +32,9 @@ const getUsersHandler = async (request: NextRequest, userContext: UserContext) =
       limit: pagination.limit,
       offset: pagination.offset,
     });
-    log.db('SELECT', 'users', Date.now() - usersStart, { rowCount: users.length });
 
     // Get total count
-    const countStart = Date.now();
     const totalCount = await usersService.getUserCount();
-    log.db('SELECT', 'users_count', Date.now() - countStart, { rowCount: 1 });
 
     const responseData = users.map((user) => ({
       id: user.user_id,
@@ -73,12 +48,45 @@ const getUsersHandler = async (request: NextRequest, userContext: UserContext) =
       roles: user.roles || [],
     }));
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Users list retrieved successfully', {
-      usersReturned: users.length,
-      totalCount,
-      page: pagination.page,
-      totalDuration,
+    // Prepare sanitized filter context
+    const filters = sanitizeFilters({
+      is_active: query.is_active,
+      email_verified: query.email_verified,
+      search: query.search,
+    });
+
+    // Count users by status
+    const activeCount = users.filter((u) => u.is_active).length;
+    const inactiveCount = users.length - activeCount;
+    const verifiedCount = users.filter((u) => u.email_verified).length;
+
+    // Enriched success log - consolidates 6 separate logs into 1 comprehensive log
+    log.info(`users list query completed - returned ${users.length} of ${totalCount}`, {
+      operation: 'list_users',
+      resourceType: 'users',
+      userId: userContext.user_id,
+      ...(userContext.current_organization_id && {
+        organizationId: userContext.current_organization_id,
+      }),
+      isSuperAdmin: userContext.is_super_admin,
+      filters,
+      filterCount: Object.values(filters).filter((v) => v !== null && v !== undefined).length,
+      results: {
+        returned: users.length,
+        total: totalCount,
+        active: activeCount,
+        inactive: inactiveCount,
+        emailVerified: verifiedCount,
+        page: pagination.page,
+        pageSize: pagination.limit,
+      },
+      sort: {
+        field: sort.sortBy,
+        direction: sort.sortOrder,
+      },
+      duration: Date.now() - startTime,
+      slow: Date.now() - startTime > 1000,
+      component: 'business-logic',
     });
 
     return createPaginatedResponse(responseData, {
@@ -87,12 +95,14 @@ const getUsersHandler = async (request: NextRequest, userContext: UserContext) =
       total: totalCount,
     });
   } catch (error) {
-    const totalDuration = Date.now() - startTime;
-
-    log.error('Users list request failed', error, {
-      requestingUserId: userContext.user_id,
-      organizationId: userContext.current_organization_id,
-      totalDuration,
+    log.error('Users list query failed', error, {
+      operation: 'list_users',
+      userId: userContext.user_id,
+      ...(userContext.current_organization_id && {
+        organizationId: userContext.current_organization_id,
+      }),
+      duration: Date.now() - startTime,
+      component: 'business-logic',
     });
 
     return createErrorResponse(
@@ -114,34 +124,15 @@ export const GET = rbacRoute(getUsersHandler, {
 const createUserHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
 
-  log.info('User creation request initiated', {
-    createdByUserId: userContext.user_id,
-    organizationId: userContext.current_organization_id,
-  });
-
   try {
-    const validationStart = Date.now();
     const validatedData = await validateRequest(request, userCreateSchema);
     const { email, password, first_name, last_name, email_verified, is_active, role_ids } =
       validatedData;
-    log.info('Request validation completed', { duration: Date.now() - validationStart });
-
-    log.info('User creation data validated', {
-      email: email.replace(/(.{2}).*@/, '$1***@'), // Mask email
-      first_name,
-      last_name,
-      email_verified: email_verified || false,
-      is_active: is_active || true,
-      roleCount: role_ids?.length || 0,
-    });
 
     // Create RBAC users service
-    const serviceStart = Date.now();
     const usersService = createRBACUsersService(userContext);
-    log.info('RBAC service created', { duration: Date.now() - serviceStart });
 
     // Create user with automatic permission checking
-    const userCreationStart = Date.now();
     const newUser = await usersService.createUser({
       email,
       password,
@@ -151,24 +142,9 @@ const createUserHandler = async (request: NextRequest, userContext: UserContext)
       email_verified: email_verified || false,
       is_active: is_active || true,
     });
-    log.db('INSERT', 'users', Date.now() - userCreationStart, { rowCount: 1 });
-
-    log.info('User created successfully', {
-      newUserId: newUser.user_id,
-      userEmail: email.replace(/(.{2}).*@/, '$1***@'),
-      createdByUserId: userContext.user_id,
-    });
 
     // Assign roles to the user if provided
     if (role_ids && role_ids.length > 0) {
-      const roleAssignmentStart = Date.now();
-
-      log.info('Assigning roles to new user', {
-        newUserId: newUser.user_id,
-        roleIds: role_ids,
-        roleCount: role_ids.length,
-      });
-
       // Verify that the user has permission to assign these roles
       // This is a simplified check - in a real app you'd want more sophisticated validation
       const roleAssignments = role_ids.map((roleId) => ({
@@ -179,22 +155,32 @@ const createUserHandler = async (request: NextRequest, userContext: UserContext)
       }));
 
       await db.insert(user_roles).values(roleAssignments);
-      log.db('INSERT', 'user_roles', Date.now() - roleAssignmentStart, {
-        rowCount: role_ids.length,
-      });
-
-      log.info('Roles assigned to new user', {
-        newUserId: newUser.user_id,
-        rolesAssigned: role_ids.length,
-      });
     }
 
-    const totalDuration = Date.now() - startTime;
-    log.info('User creation completed successfully', {
-      newUserId: newUser.user_id,
-      rolesAssigned: role_ids?.length || 0,
-      totalDuration,
+    // Enriched creation success log - consolidates 8+ separate logs into 1 comprehensive log
+    const template = logTemplates.crud.create('user', {
+      resourceId: newUser.user_id,
+      resourceName: `${newUser.first_name} ${newUser.last_name}`,
+      userId: userContext.user_id,
+      ...(userContext.current_organization_id && {
+        organizationId: userContext.current_organization_id,
+      }),
+      duration: Date.now() - startTime,
+      metadata: {
+        email: newUser.email.replace(/(.{2}).*@/, '$1***@'),
+        firstName: newUser.first_name,
+        lastName: newUser.last_name,
+        emailVerified: newUser.email_verified,
+        isActive: newUser.is_active,
+        rolesAssigned: role_ids?.length || 0,
+        ...(role_ids && role_ids.length > 0 && { roleIds: role_ids }),
+        hasPassword: !!password,
+        organizationCount: newUser.organizations?.length || 0,
+        createdBy: userContext.user_id,
+      },
     });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse(
       {
@@ -211,12 +197,14 @@ const createUserHandler = async (request: NextRequest, userContext: UserContext)
       'User created successfully'
     );
   } catch (error) {
-    const totalDuration = Date.now() - startTime;
-
     log.error('User creation failed', error, {
-      createdByUserId: userContext.user_id,
-      organizationId: userContext.current_organization_id,
-      totalDuration,
+      operation: 'create_user',
+      userId: userContext.user_id,
+      ...(userContext.current_organization_id && {
+        organizationId: userContext.current_organization_id,
+      }),
+      duration: Date.now() - startTime,
+      component: 'business-logic',
     });
 
     return createErrorResponse(

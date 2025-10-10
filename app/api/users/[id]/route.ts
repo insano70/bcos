@@ -5,7 +5,7 @@ import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
-import { log } from '@/lib/logger';
+import { calculateChanges, log, logTemplates } from '@/lib/logger';
 import { createRBACUsersService } from '@/lib/services/rbac-users-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { userParamsSchema, userUpdateSchema } from '@/lib/validations/user';
@@ -21,11 +21,6 @@ const getUserHandler = async (
   try {
     const { id: userId } = await extractRouteParams(args[0], userParamsSchema);
 
-    log.info('Get user request initiated', {
-      targetUserId: userId,
-      requestingUserId: userContext.user_id,
-    });
-
     // Create RBAC users service
     const usersService = createRBACUsersService(userContext);
 
@@ -36,11 +31,24 @@ const getUserHandler = async (
       throw NotFoundError('User');
     }
 
-    log.info('User retrieved successfully', {
-      targetUserId: userId,
-      hasOrganizations: user.organizations.length > 0,
+    // Enriched read log with user context
+    const template = logTemplates.crud.read('user', {
+      resourceId: user.user_id,
+      resourceName: `${user.first_name} ${user.last_name}`,
+      userId: userContext.user_id,
+      found: true,
       duration: Date.now() - startTime,
+      metadata: {
+        email: user.email.replace(/(.{2}).*@/, '$1***@'),
+        emailVerified: user.email_verified,
+        isActive: user.is_active,
+        organizationCount: user.organizations.length,
+        roleCount: user.roles?.length || 0,
+        isSelfRead: userId === userContext.user_id,
+      },
     });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse({
       id: user.user_id,
@@ -55,14 +63,16 @@ const getUserHandler = async (
       roles: user.roles || [],
     });
   } catch (error) {
-    const duration = Date.now() - startTime;
     log.error('Get user failed', error, {
-      duration,
+      operation: 'read_user',
+      userId: userContext.user_id,
+      duration: Date.now() - startTime,
+      component: 'business-logic',
     });
 
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
-      error instanceof NotFoundError ? 404 : 500,
+      error instanceof Error && error.name === 'NotFoundError' ? 404 : 500,
       request
     );
   }
@@ -77,11 +87,6 @@ const updateUserHandler = async (
 
   try {
     const { id: userId } = await extractRouteParams(args[0], userParamsSchema);
-
-    log.info('Update user request initiated', {
-      targetUserId: userId,
-      requestingUserId: userContext.user_id,
-    });
 
     // Parse the request body to extract the data field
     const requestBody = await request.text();
@@ -100,21 +105,21 @@ const updateUserHandler = async (
       updateData = await validateRequest(requestForValidation, userUpdateSchema);
     } catch (validationError) {
       log.error('Validation failed', validationError, {
+        operation: 'update_user',
         targetUserId: userId,
+        component: 'validation',
       });
       throw validationError;
     }
 
-    log.info('Validation successful', {
-      targetUserId: userId,
-      requestingUserId: userContext.user_id,
-      updateFields: Object.keys(updateData),
-      hasRoleIds: !!updateData.role_ids,
-      roleCount: updateData.role_ids?.length || 0,
-    });
-
     // Create RBAC users service
     const usersService = createRBACUsersService(userContext);
+
+    // Get current state BEFORE update for change tracking
+    const before = await usersService.getUserById(userId);
+    if (!before) {
+      throw NotFoundError('User');
+    }
 
     // Filter out undefined values to match UpdateUserData type requirements
     const cleanUpdateData = Object.fromEntries(
@@ -122,15 +127,45 @@ const updateUserHandler = async (
     );
 
     // Update user with automatic permission checking
-    const dbStart = Date.now();
     const updatedUser = await usersService.updateUser(userId, cleanUpdateData);
-    log.db('UPDATE', 'users', Date.now() - dbStart, { rowCount: 1 });
 
-    log.info('User updated successfully', {
-      targetUserId: userId,
-      updatedFields: Object.keys(updateData),
+    // Calculate changes for audit trail
+    const changes = calculateChanges(
+      {
+        first_name: before.first_name,
+        last_name: before.last_name,
+        email: before.email,
+        email_verified: before.email_verified,
+        is_active: before.is_active,
+      },
+      {
+        first_name: updatedUser.first_name,
+        last_name: updatedUser.last_name,
+        email: updatedUser.email,
+        email_verified: updatedUser.email_verified,
+        is_active: updatedUser.is_active,
+      }
+    );
+
+    // Enriched update log with change tracking
+    const template = logTemplates.crud.update('user', {
+      resourceId: updatedUser.user_id,
+      resourceName: `${updatedUser.first_name} ${updatedUser.last_name}`,
+      userId: userContext.user_id,
+      changes,
       duration: Date.now() - startTime,
+      metadata: {
+        email: updatedUser.email.replace(/(.{2}).*@/, '$1***@'),
+        organizationCount: updatedUser.organizations?.length || 0,
+        isSelfUpdate: userId === userContext.user_id,
+        ...(changes.is_active && changes.is_active.to === false && { reason: 'deactivation' }),
+        ...(changes.email_verified && {
+          emailVerificationChanged: `${changes.email_verified.from} -> ${changes.email_verified.to}`,
+        }),
+      },
     });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse(
       {
@@ -147,10 +182,11 @@ const updateUserHandler = async (
       'User updated successfully'
     );
   } catch (error) {
-    const duration = Date.now() - startTime;
-
     log.error('Update user failed', error, {
-      duration,
+      operation: 'update_user',
+      userId: userContext.user_id,
+      duration: Date.now() - startTime,
+      component: 'business-logic',
     });
 
     return createErrorResponse(
@@ -171,29 +207,44 @@ const deleteUserHandler = async (
   try {
     const { id: userId } = await extractRouteParams(args[0], userParamsSchema);
 
-    log.info('Delete user request initiated', {
-      targetUserId: userId,
-      requestingUserId: userContext.user_id,
-    });
-
     // Create RBAC users service
     const usersService = createRBACUsersService(userContext);
 
-    // Delete user with automatic permission checking
-    const dbStart = Date.now();
-    await usersService.deleteUser(userId);
-    log.db('DELETE', 'users', Date.now() - dbStart, { rowCount: 1 });
+    // Get user info BEFORE deletion for logging
+    const user = await usersService.getUserById(userId);
+    if (!user) {
+      throw NotFoundError('User');
+    }
 
-    log.info('User deleted successfully', {
-      targetUserId: userId,
+    // Delete user with automatic permission checking
+    await usersService.deleteUser(userId);
+
+    // Enriched deletion log with user context
+    const template = logTemplates.crud.delete('user', {
+      resourceId: userId,
+      resourceName: `${user.first_name} ${user.last_name}`,
+      userId: userContext.user_id,
+      soft: false,
       duration: Date.now() - startTime,
+      metadata: {
+        email: user.email.replace(/(.{2}).*@/, '$1***@'),
+        wasActive: user.is_active,
+        emailVerified: user.email_verified,
+        hadOrganizations: user.organizations.length,
+        hadRoles: user.roles?.length || 0,
+        isSelfDelete: userId === userContext.user_id,
+      },
     });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse(null, 'User deleted successfully');
   } catch (error) {
-    const duration = Date.now() - startTime;
     log.error('Delete user failed', error, {
-      duration,
+      operation: 'delete_user',
+      userId: userContext.user_id,
+      duration: Date.now() - startTime,
+      component: 'business-logic',
     });
 
     return createErrorResponse(
