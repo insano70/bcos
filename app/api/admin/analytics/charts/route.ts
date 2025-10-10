@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { log } from '@/lib/logger';
+import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
 import { createRBACChartsService } from '@/lib/services/rbac-charts-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { chartDefinitionCreateSchema } from '@/lib/validations/analytics';
@@ -15,11 +15,6 @@ import { chartDefinitionCreateSchema } from '@/lib/validations/analytics';
 // GET - List all chart definitions
 const getChartsHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
-
-  log.info('Chart definitions list request initiated', {
-    requestingUserId: userContext.user_id,
-    isSuperAdmin: userContext.is_super_admin,
-  });
 
   try {
     const { searchParams } = new URL(request.url);
@@ -38,12 +33,42 @@ const getChartsHandler = async (request: NextRequest, userContext: UserContext) 
       is_active: isActive,
     });
 
-    log.info('Chart definitions list completed successfully', {
-      resultCount: charts.length,
-      totalCount,
-      categoryFilter: categoryId,
-      activeFilter: isActive,
-      totalRequestTime: Date.now() - startTime,
+    // Prepare sanitized filter context
+    const filters = sanitizeFilters({
+      category_id: categoryId,
+      is_active: isActive,
+    });
+
+    // Count charts by type
+    const chartTypeCounts = charts.reduce(
+      (acc, chart) => {
+        const type = chart.chart_type || 'unknown';
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+
+    // Enriched success log with analytics-specific metrics
+    log.info(`charts list query completed - returned ${charts.length} of ${totalCount}`, {
+      operation: 'list_charts',
+      resourceType: 'chart_definitions',
+      userId: userContext.user_id,
+      ...(userContext.current_organization_id && {
+        organizationId: userContext.current_organization_id,
+      }),
+      filters,
+      filterCount: Object.values(filters).filter((v) => v !== null && v !== undefined).length,
+      results: {
+        returned: charts.length,
+        total: totalCount,
+        chartTypeBreakdown: chartTypeCounts,
+        activeCount: charts.filter((c) => c.is_active).length,
+        inactiveCount: charts.filter((c) => !c.is_active).length,
+      },
+      duration: Date.now() - startTime,
+      slow: Date.now() - startTime > 1000,
+      component: 'analytics',
     });
 
     return createSuccessResponse(
@@ -59,8 +84,11 @@ const getChartsHandler = async (request: NextRequest, userContext: UserContext) 
       'Chart definitions retrieved successfully'
     );
   } catch (error) {
-    log.error('Chart definitions list error', error, {
-      requestingUserId: userContext.user_id,
+    log.error('Charts list query failed', error, {
+      operation: 'list_charts',
+      userId: userContext.user_id,
+      duration: Date.now() - startTime,
+      component: 'analytics',
     });
 
     const errorMessage =
@@ -78,27 +106,26 @@ const getChartsHandler = async (request: NextRequest, userContext: UserContext) 
 const createChartHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
 
-  log.info('Chart definition creation request initiated', {
-    requestingUserId: userContext.user_id,
-    isSuperAdmin: userContext.is_super_admin,
-  });
-
   try {
-    // Parse and log request body for debugging
+    // Parse and validate request body with Zod
     const requestBody = await request.json();
-    console.log('📥 Received chart definition request:', JSON.stringify(requestBody, null, 2));
-
-    // Validate request body with Zod
     const validationResult = chartDefinitionCreateSchema.safeParse(requestBody);
 
     if (!validationResult.success) {
       const errorDetails = validationResult.error.issues
         .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
         .join(', ');
-      console.error(
-        '❌ Validation failed:',
-        JSON.stringify(validationResult.error.issues, null, 2)
-      );
+
+      log.error('Chart definition validation failed', new Error('Validation error'), {
+        operation: 'create_chart',
+        userId: userContext.user_id,
+        validationErrors: validationResult.error.issues.map((issue) => ({
+          path: issue.path.join('.'),
+          message: issue.message,
+        })),
+        component: 'analytics',
+      });
+
       return createErrorResponse(`Validation failed: ${errorDetails}`, 400);
     }
 
@@ -116,13 +143,27 @@ const createChartHandler = async (request: NextRequest, userContext: UserContext
       is_active: validatedData.is_active,
     });
 
-    log.info('Chart definition created successfully', {
-      chartId: createdChart.chart_definition_id,
-      chartName: createdChart.chart_name,
-      chartType: createdChart.chart_type,
-      createdBy: userContext.user_id,
-      totalRequestTime: Date.now() - startTime,
+    // Enriched creation success log using template
+    const template = logTemplates.crud.create('chart_definition', {
+      resourceId: createdChart.chart_definition_id,
+      resourceName: createdChart.chart_name,
+      userId: userContext.user_id,
+      ...(userContext.current_organization_id && {
+        organizationId: userContext.current_organization_id,
+      }),
+      duration: Date.now() - startTime,
+      metadata: {
+        chartType: createdChart.chart_type,
+        dataSource: createdChart.data_source,
+        categoryId: createdChart.chart_category_id,
+        isActive: createdChart.is_active,
+        hasDescription: !!createdChart.chart_description,
+        configKeys: Object.keys(createdChart.chart_config || {}),
+        createdBy: userContext.user_id,
+      },
     });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse(
       {
@@ -131,8 +172,11 @@ const createChartHandler = async (request: NextRequest, userContext: UserContext
       'Chart definition created successfully'
     );
   } catch (error) {
-    log.error('Chart definition creation error', error, {
-      requestingUserId: userContext.user_id,
+    log.error('Chart definition creation failed', error, {
+      operation: 'create_chart',
+      userId: userContext.user_id,
+      duration: Date.now() - startTime,
+      component: 'analytics',
     });
 
     const errorMessage =

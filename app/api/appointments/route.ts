@@ -5,7 +5,7 @@ import { publicRoute } from '@/lib/api/rbac-route-handler';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { emailService } from '@/lib/api/services/email-service-instance';
-import { log } from '@/lib/logger';
+import { log, logTemplates } from '@/lib/logger';
 
 const AppointmentRequestSchema = z.object({
   firstName: z.string().min(1, 'First name is required').max(50, 'First name too long'),
@@ -20,21 +20,14 @@ const AppointmentRequestSchema = z.object({
 });
 
 const handler = async (request: NextRequest) => {
+  const startTime = Date.now();
+
   try {
     // Use standard validation helper
     const validatedData = await validateRequest(request, AppointmentRequestSchema);
 
-    log.info('Appointment request received', {
-      patientName: `${validatedData.firstName} ${validatedData.lastName}`,
-      email: validatedData.email,
-      preferredDate: validatedData.preferredDate,
-      preferredTime: validatedData.preferredTime,
-      reason: validatedData.reason,
-      practiceEmail: validatedData.practiceEmail,
-      operation: 'appointment-request',
-    });
-
     // Send email notification to practice
+    const emailStart = Date.now();
     await emailService.sendAppointmentRequest(validatedData.practiceEmail, {
       firstName: validatedData.firstName,
       lastName: validatedData.lastName,
@@ -45,18 +38,46 @@ const handler = async (request: NextRequest) => {
       ...(validatedData.reason && { reason: validatedData.reason }),
       ...(validatedData.message && { message: validatedData.message }),
     });
+    const emailDuration = Date.now() - emailStart;
 
-    log.info('Appointment request processed successfully', {
+    // Enriched appointment request log with patient and scheduling context
+    log.info('appointment request submitted and email sent', {
+      operation: 'create_appointment_request',
+      resourceType: 'appointment_request',
       patientName: `${validatedData.firstName} ${validatedData.lastName}`,
-      email: validatedData.email,
-      practiceEmail: validatedData.practiceEmail,
-      operation: 'appointment-request-success',
+      patientEmail: validatedData.email.replace(/(.{2}).*@/, '$1***@'),
+      patientPhone: validatedData.phone.replace(/(\d{3})\d+(\d{2})/, '$1***$2'),
+      practiceEmail: validatedData.practiceEmail.replace(/(.{2}).*@/, '$1***@'),
+      scheduling: {
+        hasPreferredDate: !!validatedData.preferredDate,
+        hasPreferredTime: !!validatedData.preferredTime,
+        preferredDate: validatedData.preferredDate,
+        preferredTime: validatedData.preferredTime,
+      },
+      request: {
+        hasReason: !!validatedData.reason,
+        hasMessage: !!validatedData.message,
+        reasonLength: validatedData.reason?.length || 0,
+        messageLength: validatedData.message?.length || 0,
+      },
+      email: {
+        sent: true,
+        duration: emailDuration,
+        slow: emailDuration > 2000,
+      },
+      duration: Date.now() - startTime,
+      slow: Date.now() - startTime > 3000,
+      component: 'appointments',
+      isPublic: true,
     });
 
     return createSuccessResponse({ submitted: true }, 'Appointment request submitted successfully');
   } catch (error) {
     log.error('Appointment request failed', error, {
-      operation: 'appointment-request-error',
+      operation: 'create_appointment_request',
+      duration: Date.now() - startTime,
+      component: 'appointments',
+      isPublic: true,
     });
 
     return createErrorResponse(

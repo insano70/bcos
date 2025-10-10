@@ -3,7 +3,7 @@ import { validateRequest } from '@/lib/api/middleware/validation';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { log } from '@/lib/logger';
+import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
 import { createRBACDashboardsService } from '@/lib/services/rbac-dashboards-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { dashboardCreateSchema } from '@/lib/validations/analytics';
@@ -15,10 +15,7 @@ import { dashboardCreateSchema } from '@/lib/validations/analytics';
 
 // GET - List all dashboards
 const getDashboardsHandler = async (request: NextRequest, userContext: UserContext) => {
-  log.info('Dashboards list request initiated', {
-    requestingUserId: userContext.user_id,
-    isSuperAdmin: userContext.is_super_admin,
-  });
+  const startTime = Date.now();
 
   try {
     const { searchParams } = new URL(request.url);
@@ -54,6 +51,47 @@ const getDashboardsHandler = async (request: NextRequest, userContext: UserConte
       is_published: isPublished,
     });
 
+    // Prepare sanitized filter context
+    const filters = sanitizeFilters({
+      category_id: categoryId,
+      is_active: isActive,
+      is_published: isPublished,
+    });
+
+    // Calculate dashboard statistics
+    const publishedCount = dashboards.filter((d) => d.is_published).length;
+    const draftCount = dashboards.filter((d) => !d.is_published).length;
+    const defaultDashboard = dashboards.find((d) => d.is_default);
+    const totalCharts = dashboards.reduce((sum, d) => sum + (d.chart_count || 0), 0);
+
+    // Enriched success log with dashboard-specific metrics
+    log.info(`dashboards list query completed - returned ${dashboards.length} of ${totalCount}`, {
+      operation: 'list_dashboards',
+      resourceType: 'dashboards',
+      userId: userContext.user_id,
+      ...(userContext.current_organization_id && {
+        organizationId: userContext.current_organization_id,
+      }),
+      filters,
+      filterCount: Object.values(filters).filter((v) => v !== null && v !== undefined).length,
+      results: {
+        returned: dashboards.length,
+        total: totalCount,
+        published: publishedCount,
+        draft: draftCount,
+        hasDefault: !!defaultDashboard,
+        ...(defaultDashboard && { defaultDashboardId: defaultDashboard.dashboard_id }),
+        totalCharts,
+        averageChartsPerDashboard:
+          dashboards.length > 0 ? Math.round(totalCharts / dashboards.length) : 0,
+        page: offset && limit ? Math.floor(offset / limit) + 1 : 1,
+        pageSize: limit || totalCount,
+      },
+      duration: Date.now() - startTime,
+      slow: Date.now() - startTime > 1000,
+      component: 'analytics',
+    });
+
     return createSuccessResponse(
       {
         dashboards,
@@ -67,8 +105,11 @@ const getDashboardsHandler = async (request: NextRequest, userContext: UserConte
       'Dashboards retrieved successfully'
     );
   } catch (error) {
-    log.error('Dashboards list error', error, {
-      requestingUserId: userContext.user_id,
+    log.error('Dashboards list query failed', error, {
+      operation: 'list_dashboards',
+      userId: userContext.user_id,
+      duration: Date.now() - startTime,
+      component: 'analytics',
     });
 
     return createErrorResponse(
@@ -81,9 +122,7 @@ const getDashboardsHandler = async (request: NextRequest, userContext: UserConte
 
 // POST - Create new dashboard
 const createDashboardHandler = async (request: NextRequest, userContext: UserContext) => {
-  log.info('Dashboard creation request initiated', {
-    requestingUserId: userContext.user_id,
-  });
+  const startTime = Date.now();
 
   try {
     // Validate request body with Zod
@@ -105,12 +144,29 @@ const createDashboardHandler = async (request: NextRequest, userContext: UserCon
       is_default: validatedData.is_default,
     });
 
-    log.info('Dashboard created successfully', {
-      dashboardId: createdDashboard.dashboard_id,
-      dashboardName: createdDashboard.dashboard_name,
-      chartCount: createdDashboard.chart_count,
-      createdBy: userContext.user_id,
+    // Enriched creation success log using template
+    const template = logTemplates.crud.create('dashboard', {
+      resourceId: createdDashboard.dashboard_id,
+      resourceName: createdDashboard.dashboard_name,
+      userId: userContext.user_id,
+      ...(userContext.current_organization_id && {
+        organizationId: userContext.current_organization_id,
+      }),
+      duration: Date.now() - startTime,
+      metadata: {
+        chartCount: createdDashboard.chart_count || 0,
+        categoryId: createdDashboard.dashboard_category_id,
+        isActive: createdDashboard.is_active,
+        isPublished: createdDashboard.is_published,
+        isDefault: createdDashboard.is_default,
+        hasDescription: !!createdDashboard.dashboard_description,
+        hasLayoutConfig: !!validatedData.layout_config,
+        hasChartPositions: !!validatedData.chart_positions,
+        createdBy: userContext.user_id,
+      },
     });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse(
       {
@@ -119,8 +175,11 @@ const createDashboardHandler = async (request: NextRequest, userContext: UserCon
       'Dashboard created successfully'
     );
   } catch (error) {
-    log.error('Dashboard creation error', error, {
-      requestingUserId: userContext.user_id,
+    log.error('Dashboard creation failed', error, {
+      operation: 'create_dashboard',
+      userId: userContext.user_id,
+      duration: Date.now() - startTime,
+      component: 'analytics',
     });
 
     return createErrorResponse(
