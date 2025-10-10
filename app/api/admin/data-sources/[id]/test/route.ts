@@ -26,16 +26,26 @@ const testConnectionHandler = async (
     const { id } = await extractRouteParams(args[0], dataSourceParamsSchema);
     dataSourceId = parseInt(id, 10);
 
-    log.info('Data source connection test request initiated', {
-      requestingUserId: userContext.user_id,
-      dataSourceId,
-    });
-
     // Create service instance and test connection
     const dataSourcesService = createRBACDataSourcesService(userContext);
     const testResult = await dataSourcesService.testConnection(dataSourceId);
 
-    log.info('Data source connection test completed', { duration: Date.now() - startTime });
+    const duration = Date.now() - startTime;
+
+    log.info(`data source connection test ${testResult.success ? 'succeeded' : 'failed'}`, {
+      operation: 'test_data_source_connection',
+      resourceType: 'data_source',
+      resourceId: dataSourceId,
+      userId: userContext.user_id,
+      test: {
+        success: testResult.success,
+        ...(testResult.error && { error: testResult.error }),
+        ...(testResult.details && { details: testResult.details }),
+      },
+      duration,
+      slow: duration > 5000,
+      component: 'admin',
+    });
 
     const message = testResult.success
       ? 'Connection test successful'
@@ -43,9 +53,11 @@ const testConnectionHandler = async (
 
     return createSuccessResponse(testResult, message);
   } catch (error) {
-    log.error('Data source connection test error', error, {
-      requestingUserId: userContext.user_id,
-      dataSourceId,
+    log.error('data source connection test failed', error, {
+      operation: 'test_data_source_connection',
+      resourceId: dataSourceId,
+      userId: userContext.user_id,
+      component: 'admin',
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);

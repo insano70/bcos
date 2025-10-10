@@ -14,7 +14,7 @@ const combinedParamsSchema = dataSourceParamsSchema.extend({
   columnId: dataSourceColumnParamsSchema.shape.id,
 });
 
-import { log } from '@/lib/logger';
+import { log, logTemplates, calculateChanges } from '@/lib/logger';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 import type { UserContext } from '@/lib/types/rbac';
 
@@ -37,26 +37,45 @@ const getDataSourceColumnHandler = async (
     const _dataSourceId = parseInt(id, 10);
     columnId = parseInt(columnIdParam, 10);
 
-    log.info('Data source column get request initiated', {
-      requestingUserId: userContext.user_id,
-      columnId,
-    });
-
     // Create service instance and get column
     const dataSourcesService = createRBACDataSourcesService(userContext);
     const column = await dataSourcesService.getDataSourceColumnById(columnId);
 
     if (!column) {
+      const template = logTemplates.crud.read('data_source_column', {
+        resourceId: String(columnId),
+        found: false,
+        userId: userContext.user_id,
+        duration: Date.now() - startTime,
+      });
+      log.info(template.message, template.context);
       return createErrorResponse('Data source column not found', 404);
     }
 
-    log.info('Data source column retrieved', { duration: Date.now() - startTime });
+    const duration = Date.now() - startTime;
+    const template = logTemplates.crud.read('data_source_column', {
+      resourceId: String(column.column_id),
+      resourceName: column.column_name,
+      found: true,
+      userId: userContext.user_id,
+      duration,
+      metadata: {
+        dataSourceId: column.data_source_id,
+        displayName: column.display_name,
+        dataType: column.data_type,
+        isActive: column.is_active,
+      },
+    });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse({ column }, 'Data source column retrieved successfully');
   } catch (error) {
-    log.error('Data source column get error', error, {
-      requestingUserId: userContext.user_id,
-      columnId,
+    log.error('data source column read failed', error, {
+      operation: 'read_data_source_column',
+      resourceId: String(columnId),
+      userId: userContext.user_id,
+      component: 'admin',
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
@@ -77,32 +96,69 @@ const updateDataSourceColumnHandler = async (
     const _dataSourceId = parseInt(id, 10);
     columnId = parseInt(columnIdParam, 10);
 
-    log.info('Data source column update request initiated', {
-      requestingUserId: userContext.user_id,
-      columnId,
-    });
-
     // Validate request body
     const updateData = await validateRequest(request, dataSourceColumnUpdateRefinedSchema);
 
-    // Create service instance and update column
+    // Get before state for change tracking
     const dataSourcesService = createRBACDataSourcesService(userContext);
+    const before = await dataSourcesService.getDataSourceColumnById(columnId);
+
+    if (!before) {
+      return createErrorResponse('Data source column not found', 404);
+    }
+
+    // Update column
     const updatedColumn = await dataSourcesService.updateDataSourceColumn(columnId, updateData);
 
     if (!updatedColumn) {
-      return createErrorResponse('Data source column not found or update failed', 404);
+      return createErrorResponse('Data source column update failed', 500);
     }
 
-    log.info('Data source column updated', { duration: Date.now() - startTime });
+    const duration = Date.now() - startTime;
+    const changes = calculateChanges(
+      {
+        display_name: before.display_name,
+        data_type: before.data_type,
+        is_active: before.is_active,
+        is_filterable: before.is_filterable,
+        is_measure: before.is_measure,
+        sort_order: before.sort_order,
+      },
+      {
+        display_name: updatedColumn.display_name,
+        data_type: updatedColumn.data_type,
+        is_active: updatedColumn.is_active,
+        is_filterable: updatedColumn.is_filterable,
+        is_measure: updatedColumn.is_measure,
+        sort_order: updatedColumn.sort_order,
+      }
+    );
+
+    const template = logTemplates.crud.update('data_source_column', {
+      resourceId: String(updatedColumn.column_id),
+      resourceName: updatedColumn.column_name,
+      userId: userContext.user_id,
+      changes,
+      duration,
+      metadata: {
+        dataSourceId: updatedColumn.data_source_id,
+        dataType: updatedColumn.data_type,
+        isActive: updatedColumn.is_active,
+      },
+    });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse(
       { column: updatedColumn },
       'Data source column updated successfully'
     );
   } catch (error) {
-    log.error('Data source column update error', error, {
-      requestingUserId: userContext.user_id,
-      columnId,
+    log.error('data source column update failed', error, {
+      operation: 'update_data_source_column',
+      resourceId: String(columnId),
+      userId: userContext.user_id,
+      component: 'admin',
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
@@ -123,26 +179,44 @@ const deleteDataSourceColumnHandler = async (
     const _dataSourceId = parseInt(id, 10);
     columnId = parseInt(columnIdParam, 10);
 
-    log.info('Data source column delete request initiated', {
-      requestingUserId: userContext.user_id,
-      columnId,
-    });
-
-    // Create service instance and delete column
+    // Get column info before deletion
     const dataSourcesService = createRBACDataSourcesService(userContext);
+    const column = await dataSourcesService.getDataSourceColumnById(columnId);
+
+    if (!column) {
+      return createErrorResponse('Data source column not found', 404);
+    }
+
+    // Delete column
     const deleted = await dataSourcesService.deleteDataSourceColumn(columnId);
 
     if (!deleted) {
-      return createErrorResponse('Data source column not found or delete failed', 404);
+      return createErrorResponse('Data source column delete failed', 500);
     }
 
-    log.info('Data source column deleted', { duration: Date.now() - startTime });
+    const duration = Date.now() - startTime;
+    const template = logTemplates.crud.delete('data_source_column', {
+      resourceId: String(column.column_id),
+      resourceName: column.column_name,
+      userId: userContext.user_id,
+      soft: false,
+      duration,
+      metadata: {
+        dataSourceId: column.data_source_id,
+        dataType: column.data_type,
+        wasActive: column.is_active,
+      },
+    });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse({ deleted: true }, 'Data source column deleted successfully');
   } catch (error) {
-    log.error('Data source column delete error', error, {
-      requestingUserId: userContext.user_id,
-      columnId,
+    log.error('data source column deletion failed', error, {
+      operation: 'delete_data_source_column',
+      resourceId: String(columnId),
+      userId: userContext.user_id,
+      component: 'admin',
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);

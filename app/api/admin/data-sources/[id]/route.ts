@@ -4,7 +4,7 @@ import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { extractRouteParams } from '@/lib/api/utils/params';
-import { log } from '@/lib/logger';
+import { log, logTemplates, calculateChanges } from '@/lib/logger';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 import type { UserContext } from '@/lib/types/rbac';
 import {
@@ -30,26 +30,43 @@ const getDataSourceHandler = async (
     const { id } = await extractRouteParams(args[0], dataSourceParamsSchema);
     dataSourceId = parseInt(id, 10);
 
-    log.info('Data source get request initiated', {
-      requestingUserId: userContext.user_id,
-      dataSourceId,
-    });
-
     // Create service instance and get data source
     const dataSourcesService = createRBACDataSourcesService(userContext);
     const dataSource = await dataSourcesService.getDataSourceById(dataSourceId);
 
     if (!dataSource) {
+      const template = logTemplates.crud.read('data_source', {
+        resourceId: String(dataSourceId),
+        found: false,
+        userId: userContext.user_id,
+        duration: Date.now() - startTime,
+      });
+      log.info(template.message, template.context);
       return createErrorResponse('Data source not found', 404);
     }
 
-    log.info('Data source retrieved', { duration: Date.now() - startTime });
+    const duration = Date.now() - startTime;
+    const template = logTemplates.crud.read('data_source', {
+      resourceId: String(dataSource.data_source_id),
+      found: true,
+      userId: userContext.user_id,
+      duration,
+      metadata: {
+        databaseType: dataSource.database_type,
+        schemaName: dataSource.schema_name,
+        isActive: dataSource.is_active,
+      },
+    });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse({ dataSource }, 'Data source retrieved successfully');
   } catch (error) {
-    log.error('Data source get error', error, {
-      requestingUserId: userContext.user_id,
-      dataSourceId,
+    log.error('data source read failed', error, {
+      operation: 'read_data_source',
+      resourceId: String(dataSourceId),
+      userId: userContext.user_id,
+      component: 'admin',
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
@@ -69,32 +86,65 @@ const updateDataSourceHandler = async (
     const { id } = await extractRouteParams(args[0], dataSourceParamsSchema);
     dataSourceId = parseInt(id, 10);
 
-    log.info('Data source update request initiated', {
-      requestingUserId: userContext.user_id,
-      dataSourceId,
-    });
-
     // Validate request body
     const updateData = await validateRequest(request, dataSourceUpdateRefinedSchema);
 
-    // Create service instance and update data source
+    // Get before state for change tracking
     const dataSourcesService = createRBACDataSourcesService(userContext);
+    const before = await dataSourcesService.getDataSourceById(dataSourceId);
+
+    if (!before) {
+      return createErrorResponse('Data source not found', 404);
+    }
+
+    // Update data source
     const updatedDataSource = await dataSourcesService.updateDataSource(dataSourceId, updateData);
 
     if (!updatedDataSource) {
-      return createErrorResponse('Data source not found or update failed', 404);
+      return createErrorResponse('Data source update failed', 500);
     }
 
-    log.info('Data source updated', { duration: Date.now() - startTime });
+    const duration = Date.now() - startTime;
+    const changes = calculateChanges(
+      {
+        database_type: before.database_type,
+        schema_name: before.schema_name,
+        is_active: before.is_active,
+        connection_config: before.connection_config,
+      },
+      {
+        database_type: updatedDataSource.database_type,
+        schema_name: updatedDataSource.schema_name,
+        is_active: updatedDataSource.is_active,
+        connection_config: updatedDataSource.connection_config,
+      }
+    );
+
+    const template = logTemplates.crud.update('data_source', {
+      resourceId: String(updatedDataSource.data_source_id),
+      userId: userContext.user_id,
+      changes,
+      duration,
+      metadata: {
+        databaseType: updatedDataSource.database_type,
+        schemaName: updatedDataSource.schema_name,
+        isActive: updatedDataSource.is_active,
+        configUpdated: !!updateData.connection_config,
+      },
+    });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse(
       { dataSource: updatedDataSource },
       'Data source updated successfully'
     );
   } catch (error) {
-    log.error('Data source update error', error, {
-      requestingUserId: userContext.user_id,
-      dataSourceId,
+    log.error('data source update failed', error, {
+      operation: 'update_data_source',
+      resourceId: String(dataSourceId),
+      userId: userContext.user_id,
+      component: 'admin',
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
@@ -114,26 +164,43 @@ const deleteDataSourceHandler = async (
     const { id } = await extractRouteParams(args[0], dataSourceParamsSchema);
     dataSourceId = parseInt(id, 10);
 
-    log.info('Data source delete request initiated', {
-      requestingUserId: userContext.user_id,
-      dataSourceId,
-    });
-
-    // Create service instance and delete data source
+    // Get data source info before deletion
     const dataSourcesService = createRBACDataSourcesService(userContext);
+    const dataSource = await dataSourcesService.getDataSourceById(dataSourceId);
+
+    if (!dataSource) {
+      return createErrorResponse('Data source not found', 404);
+    }
+
+    // Delete data source
     const deleted = await dataSourcesService.deleteDataSource(dataSourceId);
 
     if (!deleted) {
-      return createErrorResponse('Data source not found or delete failed', 404);
+      return createErrorResponse('Data source delete failed', 500);
     }
 
-    log.info('Data source deleted', { duration: Date.now() - startTime });
+    const duration = Date.now() - startTime;
+    const template = logTemplates.crud.delete('data_source', {
+      resourceId: String(dataSource.data_source_id),
+      userId: userContext.user_id,
+      soft: false,
+      duration,
+      metadata: {
+        databaseType: dataSource.database_type,
+        schemaName: dataSource.schema_name,
+        wasActive: dataSource.is_active,
+      },
+    });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse({ deleted: true }, 'Data source deleted successfully');
   } catch (error) {
-    log.error('Data source delete error', error, {
-      requestingUserId: userContext.user_id,
-      dataSourceId,
+    log.error('data source deletion failed', error, {
+      operation: 'delete_data_source',
+      resourceId: String(dataSourceId),
+      userId: userContext.user_id,
+      component: 'admin',
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);

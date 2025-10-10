@@ -5,6 +5,7 @@
 
 import { and, eq } from 'drizzle-orm';
 import { rolePermissionCache } from '@/lib/cache/role-permission-cache';
+import { rbacCache } from '@/lib/cache';
 import { db } from '@/lib/db';
 import {
   organizations,
@@ -23,12 +24,28 @@ const requestCache = new Map<string, Promise<UserContext | null>>();
 
 /**
  * Get role permissions from cache or database
+ * Now uses Redis with fallback to in-memory cache and database
  */
 async function getRolePermissions(roleId: string, roleName: string): Promise<Permission[]> {
-  // Check cache first
-  const cached = rolePermissionCache.get(roleId);
-  if (cached) {
-    return cached.permissions;
+  // Check Redis cache first
+  const redisCached = await rbacCache.getRolePermissions(roleId);
+  if (redisCached) {
+    return redisCached.permissions;
+  }
+
+  // Fallback to in-memory cache
+  const memoryCached = rolePermissionCache.get(roleId);
+  if (memoryCached) {
+    // Cache hit in memory - also cache to Redis for next time (fire and forget)
+    rbacCache.setRolePermissions(
+      roleId,
+      roleName,
+      memoryCached.permissions,
+      memoryCached.version
+    ).catch(() => {
+      // Ignore Redis cache errors
+    });
+    return memoryCached.permissions;
   }
 
   // Cache miss - query database
@@ -54,7 +71,7 @@ async function getRolePermissions(roleId: string, roleName: string): Promise<Per
     .innerJoin(permissions, eq(role_permissions.permission_id, permissions.permission_id))
     .where(and(eq(role_permissions.role_id, roleId), eq(permissions.is_active, true)));
 
-  // Transform and cache the results for 24 hours
+  // Transform and cache the results
   const transformedPermissions: Permission[] = rolePermissions.map((p) => ({
     permission_id: p.permission_id,
     name: p.name,
@@ -67,12 +84,14 @@ async function getRolePermissions(roleId: string, roleName: string): Promise<Per
     updated_at: p.updated_at ?? new Date(),
   }));
 
-  rolePermissionCache.set(
-    roleId,
-    roleName,
-    transformedPermissions,
-    rolePermissionCache.getRoleVersion(roleId)
-  );
+  const version = rolePermissionCache.getRoleVersion(roleId);
+
+  // Cache in both memory and Redis (fire and forget for Redis)
+  rolePermissionCache.set(roleId, roleName, transformedPermissions, version);
+
+  rbacCache.setRolePermissions(roleId, roleName, transformedPermissions, version).catch(() => {
+    // Ignore Redis cache errors
+  });
 
   return transformedPermissions;
 }
@@ -284,6 +303,7 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
 
 /**
  * Get cached user context with error handling and request-scoped caching
+ * Now uses Redis cache before database fetch
  */
 export async function getCachedUserContextSafe(userId: string): Promise<UserContext | null> {
   const isDev = process.env.NODE_ENV === 'development';
@@ -310,7 +330,29 @@ export async function getCachedUserContextSafe(userId: string): Promise<UserCont
   // Create promise and cache it immediately to prevent race conditions
   const contextPromise = (async (): Promise<UserContext | null> => {
     try {
+      // Check Redis cache before database fetch
+      const redisContext = await rbacCache.getUserContext(userId);
+
+      if (redisContext) {
+        if (isDev) {
+          log.debug('Redis user context cache hit', {
+            userId,
+            rolesCount: redisContext.roles?.length || 0,
+            permissionsCount: redisContext.all_permissions?.length || 0,
+            fromRedis: true,
+          });
+        }
+        return redisContext;
+      }
+
+      // Redis cache miss - fetch from database
       const context = await getCachedUserContext(userId);
+
+      // Cache to Redis (fire and forget)
+      rbacCache.setUserContext(userId, context).catch(() => {
+        // Ignore Redis cache errors
+      });
+
       if (isDev) {
         const stats = rolePermissionCache.getStats();
         log.debug('Cached user context loaded successfully', {

@@ -4,7 +4,7 @@ import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { extractRouteParams } from '@/lib/api/utils/params';
-import { log } from '@/lib/logger';
+import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 import type { UserContext } from '@/lib/types/rbac';
 import {
@@ -31,11 +31,6 @@ const getDataSourceColumnsHandler = async (
     const { id } = await extractRouteParams(args[0], dataSourceParamsSchema);
     dataSourceId = parseInt(id, 10);
 
-    log.info('Data source columns list request initiated', {
-      requestingUserId: userContext.user_id,
-      dataSourceId,
-    });
-
     // Validate query parameters
     const { searchParams } = new URL(request.url);
     const queryParams = {
@@ -56,7 +51,7 @@ const getDataSourceColumnsHandler = async (
       pagination: {
         limit: validatedQuery.limit,
         offset: validatedQuery.offset,
-        total: columns.length, // For now, could add separate count query later
+        total: columns.length,
       },
       metadata: {
         dataSourceId,
@@ -64,13 +59,44 @@ const getDataSourceColumnsHandler = async (
       },
     };
 
-    log.info('Data source columns list completed', { duration: Date.now() - startTime });
+    const duration = Date.now() - startTime;
+    const filters = sanitizeFilters({
+      data_source_id: dataSourceId,
+      is_active: validatedQuery.is_active,
+    });
+
+    const activeCount = columns.filter((col) => col.is_active).length;
+    const inactiveCount = columns.length - activeCount;
+    const dataTypeCounts = columns.reduce((acc, col) => {
+      const type = col.data_type || 'unknown';
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    log.info(`data source columns list completed - returned ${columns.length} columns`, {
+      operation: 'list_data_source_columns',
+      resourceType: 'data_source_columns',
+      userId: userContext.user_id,
+      dataSourceId,
+      filters,
+      results: {
+        returned: columns.length,
+        active: activeCount,
+        inactive: inactiveCount,
+        byDataType: dataTypeCounts,
+      },
+      duration,
+      slow: duration > 1000,
+      component: 'admin',
+    });
 
     return createSuccessResponse(responseData, 'Data source columns retrieved successfully');
   } catch (error) {
-    log.error('Data source columns list error', error, {
-      requestingUserId: userContext.user_id,
+    log.error('data source columns list failed', error, {
+      operation: 'list_data_source_columns',
+      userId: userContext.user_id,
       dataSourceId,
+      component: 'admin',
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
@@ -90,11 +116,6 @@ const createDataSourceColumnHandler = async (
     const { id } = await extractRouteParams(args[0], dataSourceParamsSchema);
     dataSourceId = parseInt(id, 10);
 
-    log.info('Data source column creation request initiated', {
-      requestingUserId: userContext.user_id,
-      dataSourceId,
-    });
-
     // Validate request body and ensure data_source_id matches route
     const createData = await validateRequest(request, dataSourceColumnCreateRefinedSchema);
     if (createData.data_source_id !== dataSourceId) {
@@ -108,13 +129,31 @@ const createDataSourceColumnHandler = async (
     const dataSourcesService = createRBACDataSourcesService(userContext);
     const newColumn = await dataSourcesService.createDataSourceColumn(createData);
 
-    log.info('Data source column created', { duration: Date.now() - startTime });
+    const duration = Date.now() - startTime;
+    const template = logTemplates.crud.create('data_source_column', {
+      resourceId: String(newColumn.column_id),
+      resourceName: newColumn.column_name,
+      userId: userContext.user_id,
+      duration,
+      metadata: {
+        dataSourceId,
+        displayName: newColumn.display_name,
+        dataType: newColumn.data_type,
+        isActive: newColumn.is_active,
+        isFilterable: newColumn.is_filterable,
+        isMeasure: newColumn.is_measure,
+      },
+    });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse(newColumn, 'Data source column created successfully');
   } catch (error) {
-    log.error('Data source column creation error', error, {
-      requestingUserId: userContext.user_id,
+    log.error('data source column creation failed', error, {
+      operation: 'create_data_source_column',
+      userId: userContext.user_id,
       dataSourceId,
+      component: 'admin',
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);

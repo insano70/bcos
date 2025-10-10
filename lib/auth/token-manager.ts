@@ -6,6 +6,7 @@ import { AuditLogger } from '@/lib/api/services/audit';
 import { db, login_attempts, refresh_tokens, token_blacklist, user_sessions } from '@/lib/db';
 import { getJWTConfig } from '@/lib/env';
 import { log } from '@/lib/logger';
+import { authCache } from '@/lib/cache';
 
 /**
  * Enterprise JWT + Refresh Token Manager - Pure Functions Module
@@ -231,12 +232,10 @@ export async function refreshTokenPair(
         throw new Error('Invalid refresh token');
       }
 
-      // Check if token is blacklisted (within transaction)
-      const [blacklisted] = await tx
-        .select()
-        .from(token_blacklist)
-        .where(eq(token_blacklist.jti, refreshTokenId))
-        .limit(1);
+      // Check if token is blacklisted (uses Redis cache with database fallback)
+      // Note: We're inside a transaction, but the cache check happens outside tx
+      // This is acceptable because blacklist is write-once (tokens don't get un-blacklisted)
+      const blacklisted = await authCache.isTokenBlacklisted(refreshTokenId);
 
       if (blacklisted) {
         throw new Error('Refresh token has been revoked');
@@ -343,19 +342,15 @@ export async function refreshTokenPair(
 
 /**
  * Validate access token
- * Verifies JWT signature and checks blacklist
+ * Verifies JWT signature and checks blacklist (with Redis caching)
  */
 export async function validateAccessToken(accessToken: string): Promise<JWTPayload | null> {
   try {
     const { payload } = await jwtVerify(accessToken, ACCESS_TOKEN_SECRET);
 
-    // Check if token is blacklisted
+    // Check if token is blacklisted (uses Redis cache with database fallback)
     const jti = payload.jti as string;
-    const [blacklisted] = await db
-      .select()
-      .from(token_blacklist)
-      .where(eq(token_blacklist.jti, jti))
-      .limit(1);
+    const blacklisted = await authCache.isTokenBlacklisted(jti);
 
     if (blacklisted) {
       return null;
@@ -393,14 +388,9 @@ export async function revokeRefreshToken(
       })
       .where(eq(refresh_tokens.token_id, refreshTokenId));
 
-    // Add to blacklist
-    await db.insert(token_blacklist).values({
-      jti: refreshTokenId,
-      user_id: userId,
-      token_type: 'refresh',
-      expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), // Keep in blacklist for 30 days
-      reason,
-    });
+    // Add to blacklist (with Redis caching)
+    const blacklistExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    await authCache.addTokenToBlacklist(refreshTokenId, userId, 'refresh', blacklistExpiresAt, reason);
 
     // End session
     await db
@@ -412,7 +402,7 @@ export async function revokeRefreshToken(
       })
       .where(eq(user_sessions.session_id, sessionId));
 
-    // Invalidate token from middleware cache
+    // Invalidate token from middleware cache (legacy middleware cache)
     try {
       const { invalidateTokenCache } = await import('@/middleware');
       invalidateTokenCache(refreshTokenId);
@@ -468,18 +458,14 @@ export async function revokeAllUserTokens(
     })
     .where(and(eq(refresh_tokens.user_id, userId), eq(refresh_tokens.is_active, true)));
 
-  // Add all to blacklist
+  // Add all to blacklist (with Redis caching)
+  const blacklistExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
   for (const token of activeTokens) {
-    await db.insert(token_blacklist).values({
-      jti: token.tokenId,
-      user_id: userId,
-      token_type: 'refresh',
-      expires_at: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
-      reason,
-    });
+    await authCache.addTokenToBlacklist(token.tokenId, userId, 'refresh', blacklistExpiresAt, reason);
   }
 
-  // Invalidate all tokens from middleware cache
+  // Invalidate all tokens from middleware cache (legacy middleware cache)
   try {
     const { invalidateTokenCache } = await import('@/middleware');
     for (const token of activeTokens) {

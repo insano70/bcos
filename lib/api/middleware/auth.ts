@@ -1,9 +1,8 @@
-import { eq } from 'drizzle-orm';
 import { validateAccessToken } from '@/lib/auth/token-manager';
-import { db, users } from '@/lib/db';
 import { getUserContextSafe } from '@/lib/rbac/user-context';
-import { debugLog } from '@/lib/utils/debug';
 import { AuthenticationError, AuthorizationError } from '../responses/error';
+import { authCache } from '@/lib/cache';
+import { log } from '@/lib/logger';
 
 export async function requireAuth(request: Request) {
   // Extract access token from Authorization header OR httpOnly cookie
@@ -24,7 +23,7 @@ export async function requireAuth(request: Request) {
 
       if (accessTokenCookie) {
         accessToken = accessTokenCookie;
-        debugLog.auth('Using access token from httpOnly cookie');
+        log.debug('Using access token from httpOnly cookie', { component: 'auth' });
       }
     }
   }
@@ -41,8 +40,8 @@ export async function requireAuth(request: Request) {
 
   const userId = payload.sub as string;
 
-  // Get user info from database
-  const [user] = await db.select().from(users).where(eq(users.user_id, userId)).limit(1);
+  // Get user info from cache or database
+  const user = await authCache.getUser(userId);
 
   if (!user || !user.is_active) {
     throw AuthenticationError('User account is inactive');

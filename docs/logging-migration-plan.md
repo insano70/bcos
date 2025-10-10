@@ -52,9 +52,19 @@
 
 ### Final State
 - **New logger:** 550 lines (index.ts, logger.ts, message-templates.ts)
-- **Routes enriched:** 13 routes (29 handlers) with gold standard logging
+- **Routes enriched:** 19 routes (45+ handlers) with gold standard logging
 - **Code reduction:** 93% (4,244 → 550 lines)
 - **Legacy code remaining:** 0 lines
+
+**Batch 4 - Data Sources Admin (6 routes):**
+14. ✅ `app/api/admin/data-sources/route.ts` - GET (list with type breakdown), POST (create with credentials tracking)
+15. ✅ `app/api/admin/data-sources/[id]/route.ts` - GET, PATCH (change tracking), DELETE
+16. ✅ `app/api/admin/data-sources/[id]/columns/route.ts` - GET (list with data type breakdown), POST
+17. ✅ `app/api/admin/data-sources/[id]/columns/[columnId]/route.ts` - GET, PATCH (change tracking), DELETE
+18. ✅ `app/api/admin/data-sources/[id]/test/route.ts` - POST (connection test with success/failure tracking)
+19. ✅ `app/api/admin/data-sources/[id]/introspect/route.ts` - POST (column introspection with creation stats)
+
+**Total: 19 routes fully enriched (45+ individual handlers)**
 
 ---
 

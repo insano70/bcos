@@ -8,15 +8,20 @@ import postgres from 'postgres';
 import { getDatabaseConfig } from '@/lib/env';
 import { log } from '@/lib/logger';
 
-// Initialize database connection with connection pooling
-let dbInstance: ReturnType<typeof drizzle> | null = null;
-let client: postgres.Sql | null = null;
+// Extend globalThis to include our database connection
+declare global {
+  // eslint-disable-next-line no-var
+  var dbInstance: ReturnType<typeof drizzle> | undefined;
+  // eslint-disable-next-line no-var
+  var dbClient: postgres.Sql | undefined;
+}
 
 /**
  * Get database connection with connection pooling
+ * Uses globalThis to ensure single instance across hot reloads in development
  */
 export const getDb = () => {
-  if (!dbInstance) {
+  if (!globalThis.dbInstance) {
     const config = getDatabaseConfig();
 
     if (!config.url) {
@@ -24,7 +29,7 @@ export const getDb = () => {
     }
 
     // Create postgres connection with pooling settings
-    client = postgres(config.url, {
+    globalThis.dbClient = postgres(config.url, {
       prepare: false,
       max: config.max || 10, // Connection pool size
       idle_timeout: config.idleTimeoutMillis ? config.idleTimeoutMillis / 1000 : 20,
@@ -36,12 +41,12 @@ export const getDb = () => {
       }),
     });
 
-    dbInstance = drizzle(client, {
+    globalThis.dbInstance = drizzle(globalThis.dbClient, {
       logger: process.env.NODE_ENV === 'development',
     });
   }
 
-  return dbInstance;
+  return globalThis.dbInstance;
 };
 
 // Export the database instance (backwards compatibility)
@@ -56,15 +61,15 @@ export const checkDbHealth = async (): Promise<{
   error?: string;
 }> => {
   try {
-    if (!client) {
+    if (!globalThis.dbClient) {
       getDb(); // Initialize connection
     }
 
     const startTime = Date.now();
-    if (!client) {
+    if (!globalThis.dbClient) {
       throw new Error('Database client not initialized');
     }
-    await client`SELECT 1 as health_check`;
+    await globalThis.dbClient`SELECT 1 as health_check`;
     const latency = Date.now() - startTime;
 
     log.info('Main database health check passed', { latency });
@@ -89,10 +94,10 @@ export const checkDbHealth = async (): Promise<{
  */
 export const closeDb = async () => {
   try {
-    if (client) {
-      await client.end();
-      client = null;
-      dbInstance = null;
+    if (globalThis.dbClient) {
+      await globalThis.dbClient.end();
+      globalThis.dbClient = undefined;
+      globalThis.dbInstance = undefined;
       log.info('Main database connections closed');
     }
   } catch (error) {

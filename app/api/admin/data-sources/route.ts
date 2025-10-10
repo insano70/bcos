@@ -3,7 +3,7 @@ import { validateRequest } from '@/lib/api/middleware/validation';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { log } from '@/lib/logger';
+import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 import type { UserContext } from '@/lib/types/rbac';
 import {
@@ -20,11 +20,6 @@ import {
 // GET - List all data sources
 const getDataSourcesHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
-
-  log.info('Data sources list request initiated', {
-    requestingUserId: userContext.user_id,
-    isSuperAdmin: userContext.is_super_admin,
-  });
 
   try {
     // Validate query parameters
@@ -49,19 +44,55 @@ const getDataSourcesHandler = async (request: NextRequest, userContext: UserCont
       pagination: {
         limit: validatedQuery.limit,
         offset: validatedQuery.offset,
-        total: dataSources.length, // For now, could add separate count query later
+        total: dataSources.length,
       },
       metadata: {
         generatedAt: new Date().toISOString(),
       },
     };
 
-    log.info('Data sources list completed', { duration: Date.now() - startTime });
+    const duration = Date.now() - startTime;
+    const filters = sanitizeFilters({
+      search: validatedQuery.search,
+      is_active: validatedQuery.is_active,
+      database_type: validatedQuery.database_type,
+      schema_name: validatedQuery.schema_name,
+    });
+
+    const dbTypeCounts = dataSources.reduce((acc, ds) => {
+      const type = ds.database_type || 'unknown';
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const activeCount = dataSources.filter((ds) => ds.is_active).length;
+    const inactiveCount = dataSources.length - activeCount;
+
+    log.info(`data sources list query completed - returned ${dataSources.length} sources`, {
+      operation: 'list_data_sources',
+      resourceType: 'data_sources',
+      userId: userContext.user_id,
+      isSuperAdmin: userContext.is_super_admin,
+      filters,
+      results: {
+        returned: dataSources.length,
+        active: activeCount,
+        inactive: inactiveCount,
+        byType: dbTypeCounts,
+        page: Math.floor((validatedQuery.offset || 0) / (validatedQuery.limit || 50)) + 1,
+        pageSize: validatedQuery.limit || 50,
+      },
+      duration,
+      slow: duration > 1000,
+      component: 'admin',
+    });
 
     return createSuccessResponse(responseData, 'Data sources retrieved successfully');
   } catch (error) {
-    log.error('Data sources list error', error, {
-      requestingUserId: userContext.user_id,
+    log.error('data sources list query failed', error, {
+      operation: 'list_data_sources',
+      userId: userContext.user_id,
+      component: 'admin',
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
@@ -72,10 +103,6 @@ const getDataSourcesHandler = async (request: NextRequest, userContext: UserCont
 const createDataSourceHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
 
-  log.info('Data source creation request initiated', {
-    requestingUserId: userContext.user_id,
-  });
-
   try {
     // Validate request body
     const createData = await validateRequest(request, dataSourceCreateRefinedSchema);
@@ -84,12 +111,28 @@ const createDataSourceHandler = async (request: NextRequest, userContext: UserCo
     const dataSourcesService = createRBACDataSourcesService(userContext);
     const newDataSource = await dataSourcesService.createDataSource(createData);
 
-    log.info('Data source created', { duration: Date.now() - startTime });
+    const duration = Date.now() - startTime;
+    const template = logTemplates.crud.create('data_source', {
+      resourceId: String(newDataSource.data_source_id),
+      userId: userContext.user_id,
+      duration,
+      metadata: {
+        databaseType: newDataSource.database_type,
+        schemaName: newDataSource.schema_name,
+        isActive: newDataSource.is_active,
+        hasCredentials: !!createData.connection_config?.password,
+        isSuperAdmin: userContext.is_super_admin,
+      },
+    });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse(newDataSource, 'Data source created successfully');
   } catch (error) {
-    log.error('Data source creation error', error, {
-      requestingUserId: userContext.user_id,
+    log.error('data source creation failed', error, {
+      operation: 'create_data_source',
+      userId: userContext.user_id,
+      component: 'admin',
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
@@ -99,10 +142,6 @@ const createDataSourceHandler = async (request: NextRequest, userContext: UserCo
 // GET - Get table columns for schema/table
 const getTableColumnsHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
-
-  log.info('Table columns request initiated', {
-    requestingUserId: userContext.user_id,
-  });
 
   try {
     // Validate query parameters
@@ -129,12 +168,37 @@ const getTableColumnsHandler = async (request: NextRequest, userContext: UserCon
       },
     };
 
-    log.info('Table columns retrieved', { duration: Date.now() - startTime });
+    const duration = Date.now() - startTime;
+    const dataTypeCounts = columns.reduce((acc, col) => {
+      const type = col.data_type || 'unknown';
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    log.info(`table columns introspection completed - returned ${columns.length} columns`, {
+      operation: 'introspect_table_columns',
+      resourceType: 'table_columns',
+      userId: userContext.user_id,
+      table: {
+        schema: validatedQuery.schema_name,
+        name: validatedQuery.table_name,
+        databaseType: validatedQuery.database_type,
+      },
+      results: {
+        columnCount: columns.length,
+        byDataType: dataTypeCounts,
+      },
+      duration,
+      slow: duration > 2000,
+      component: 'admin',
+    });
 
     return createSuccessResponse(responseData, 'Table columns retrieved successfully');
   } catch (error) {
-    log.error('Table columns error', error, {
-      requestingUserId: userContext.user_id,
+    log.error('table columns introspection failed', error, {
+      operation: 'introspect_table_columns',
+      userId: userContext.user_id,
+      component: 'admin',
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);

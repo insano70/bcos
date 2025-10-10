@@ -26,22 +26,33 @@ const introspectDataSourceHandler = async (
     const { id } = await extractRouteParams(args[0], dataSourceParamsSchema);
     dataSourceId = parseInt(id, 10);
 
-    log.info('Data source introspection request initiated', {
-      requestingUserId: userContext.user_id,
-      dataSourceId,
-    });
-
     // Create service instance and introspect columns
     const dataSourcesService = createRBACDataSourcesService(userContext);
     const result = await dataSourcesService.introspectDataSourceColumns(dataSourceId);
 
-    log.info('Data source introspection completed', { duration: Date.now() - startTime });
+    const duration = Date.now() - startTime;
+
+    log.info(`data source introspection completed - created ${result.created} columns`, {
+      operation: 'introspect_data_source',
+      resourceType: 'data_source',
+      resourceId: dataSourceId,
+      userId: userContext.user_id,
+      results: {
+        created: result.created,
+        columnsReturned: result.columns?.length || 0,
+      },
+      duration,
+      slow: duration > 10000,
+      component: 'admin',
+    });
 
     return createSuccessResponse(result, `Successfully introspected ${result.created} columns`);
   } catch (error) {
-    log.error('Data source introspection error', error, {
-      requestingUserId: userContext.user_id,
-      dataSourceId,
+    log.error('data source introspection failed', error, {
+      operation: 'introspect_data_source',
+      resourceId: dataSourceId,
+      userId: userContext.user_id,
+      component: 'admin',
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);

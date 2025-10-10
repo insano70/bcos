@@ -7,7 +7,8 @@ import type {
   ChartFilterValue,
   ChartRenderContext,
 } from '@/lib/types/analytics';
-import { analyticsCache } from './analytics-cache';
+// Note: Query result caching removed - was in-memory only and not effective across serverless instances
+// Metadata caching (columns, dashboards, charts) handled by @/lib/cache/analytics-cache
 import { executeAnalyticsQuery } from './analytics-db';
 import { chartConfigService } from './chart-config-service';
 
@@ -289,23 +290,6 @@ export class AnalyticsQueryBuilder {
         return await this.queryWithPeriodComparison(params, context);
       }
 
-      // Check cache first
-      const cachedResult = analyticsCache.get(params, context.user_id);
-      if (cachedResult) {
-        this.log.info('Analytics query served from cache', {
-          params,
-          userId: context.user_id,
-          cacheAge:
-            typeof cachedResult === 'object' &&
-            cachedResult !== null &&
-            'timestamp' in cachedResult &&
-            typeof cachedResult.timestamp === 'number'
-              ? Date.now() - cachedResult.timestamp
-              : 0,
-        });
-        return cachedResult;
-      }
-
       this.log.info('Building analytics query', {
         params: { ...params, limit: params.limit || 1000 },
         userId: context.user_id,
@@ -449,15 +433,11 @@ export class AnalyticsQueryBuilder {
         cache_hit: false,
       };
 
-      // Cache the result
-      analyticsCache.set(params, context.user_id, result);
-
       this.log.info('Analytics query completed', {
         queryTime,
         resultCount: data.length,
         totalCount,
         userId: context.user_id,
-        cached: true,
       });
 
       return result;
@@ -482,23 +462,6 @@ export class AnalyticsQueryBuilder {
     context: ChartRenderContext
   ): Promise<AnalyticsQueryResult> {
     const startTime = Date.now();
-
-    // Check cache first
-    const cachedResult = analyticsCache.get(params, context.user_id);
-    if (cachedResult) {
-      this.log.info('Analytics query served from cache', {
-        params,
-        userId: context.user_id,
-        cacheAge:
-          typeof cachedResult === 'object' &&
-          cachedResult !== null &&
-          'timestamp' in cachedResult &&
-          typeof cachedResult.timestamp === 'number'
-            ? Date.now() - cachedResult.timestamp
-            : 0,
-      });
-      return cachedResult;
-    }
 
     this.log.info('Building analytics query', {
       params: { ...params, limit: params.limit || 1000 },
@@ -641,15 +604,11 @@ export class AnalyticsQueryBuilder {
       cache_hit: false,
     };
 
-    // Cache the result
-    analyticsCache.set(params, context.user_id, result);
-
     this.log.info('Analytics query completed', {
       queryTime,
       resultCount: data.length,
       totalCount,
       userId: context.user_id,
-      cached: true,
     });
 
     return result;
@@ -883,17 +842,6 @@ export class AnalyticsQueryBuilder {
       end_date: comparisonRange.end,
     };
 
-    // Check cache first for period comparison query
-    const cachedResult = analyticsCache.get(params, context.user_id);
-    if (cachedResult) {
-      this.log.info('Period comparison query served from cache', {
-        comparisonType: params.period_comparison.comparisonType,
-        userId: context.user_id,
-        cacheAge: Date.now() - (cachedResult as unknown as { timestamp: number }).timestamp || 0,
-      });
-      return cachedResult;
-    }
-
     // Execute both queries in parallel
     let currentResult: AnalyticsQueryResult, comparisonResult: AnalyticsQueryResult;
     try {
@@ -954,9 +902,6 @@ export class AnalyticsQueryBuilder {
       query_time_ms: Date.now() - startTime,
       cache_hit: false,
     };
-
-    // Cache the result
-    analyticsCache.set(params, context.user_id, result);
 
     this.log.info('Period comparison query completed', {
       comparisonType: params.period_comparison.comparisonType,
