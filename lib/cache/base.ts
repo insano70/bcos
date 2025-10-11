@@ -211,6 +211,56 @@ export abstract class CacheService<T = unknown> {
   }
 
   /**
+   * Delete keys matching a pattern
+   * Uses SCAN to find keys safely in cluster mode
+   *
+   * @param pattern - Pattern to match (e.g., "user:*:permissions")
+   * @returns Number of keys deleted
+   */
+  protected async delPattern(pattern: string): Promise<number> {
+    const client = getRedisClient();
+    if (!client) {
+      return 0;
+    }
+
+    try {
+      let cursor = '0';
+      let deletedCount = 0;
+
+      do {
+        const result = await client.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+        cursor = result[0];
+        const keys = result[1];
+
+        if (keys.length > 0) {
+          // Delete keys one at a time to avoid CROSSSLOT errors in cluster mode
+          for (const key of keys) {
+            await client.del(key);
+            deletedCount++;
+          }
+        }
+      } while (cursor !== '0');
+
+      log.debug('Keys deleted by pattern', {
+        component: 'cache',
+        namespace: this.namespace,
+        pattern,
+        deletedCount,
+      });
+
+      return deletedCount;
+    } catch (error) {
+      log.error('Redis DEL pattern failed', error instanceof Error ? error : new Error(String(error)), {
+        component: 'cache',
+        namespace: this.namespace,
+        pattern,
+        operation: 'DEL_PATTERN',
+      });
+      return 0;
+    }
+  }
+
+  /**
    * Check if key exists in cache
    *
    * @param key - Cache key (without prefix)

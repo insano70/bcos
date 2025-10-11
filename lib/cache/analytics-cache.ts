@@ -26,19 +26,19 @@ import { log } from '@/lib/logger';
  * Chart data source column
  */
 export interface DataSourceColumn {
-  column_id: string;
+  column_id: number;
   data_source_id: number;
   column_name: string;
   display_name: string;
   column_description: string | null;
   data_type: string;
-  is_filterable: boolean;
-  is_groupable: boolean;
-  is_measure: boolean;
-  is_dimension: boolean;
-  is_date_field: boolean;
-  is_measure_type: boolean;
-  is_time_period: boolean;
+  is_filterable: boolean | null;
+  is_groupable: boolean | null;
+  is_measure: boolean | null;
+  is_dimension: boolean | null;
+  is_date_field: boolean | null;
+  is_measure_type: boolean | null;
+  is_time_period: boolean | null;
   format_type: string | null;
   sort_order: number | null;
   default_aggregation: string | null;

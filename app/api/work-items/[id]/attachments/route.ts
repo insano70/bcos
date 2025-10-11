@@ -12,7 +12,7 @@ import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { createRBACWorkItemAttachmentsService } from '@/lib/services/rbac-work-item-attachments-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
+import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
 
 /**
  * GET /api/work-items/[id]/attachments
@@ -27,37 +27,43 @@ const getWorkItemAttachmentsHandler = async (
 
   try {
     const { searchParams } = new URL(request.url);
-    const validationStart = Date.now();
     const validatedParams = await extractRouteParams(args[0], workItemParamsSchema);
     const query = validateQuery(searchParams, workItemAttachmentQuerySchema);
-    log.info('Request validation completed', { duration: Date.now() - validationStart });
 
-    log.info('Get work item attachments request initiated', {
-      requestingUserId: userContext.user_id,
-      workItemId: validatedParams.id,
-    });
-
-    // Create RBAC service
-    const serviceStart = Date.now();
     const attachmentsService = createRBACWorkItemAttachmentsService(userContext);
-    log.info('RBAC service created', { duration: Date.now() - serviceStart });
-
-    // Get attachments with automatic permission checking
-    const attachmentsStart = Date.now();
     const attachments = await attachmentsService.getAttachments({
       work_item_id: validatedParams.id,
       limit: query.limit,
       offset: query.offset,
     });
-    log.db('SELECT', 'work_item_attachments', Date.now() - attachmentsStart, {
-      rowCount: attachments.length,
+
+    const duration = Date.now() - startTime;
+    const filters = sanitizeFilters({
+      work_item_id: validatedParams.id,
+      limit: query.limit,
+      offset: query.offset,
     });
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Work item attachments retrieved successfully', {
-      workItemId: validatedParams.id,
-      attachmentCount: attachments.length,
-      totalDuration,
+    const totalSize = attachments.reduce((sum, a) => sum + a.file_size, 0);
+    const fileTypeCounts = attachments.reduce((acc, a) => {
+      const type = a.file_type || 'unknown';
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    log.info(`work item attachments list completed - returned ${attachments.length} attachments`, {
+      operation: 'list_work_item_attachments',
+      resourceType: 'work_item_attachments',
+      userId: userContext.user_id,
+      filters,
+      results: {
+        returned: attachments.length,
+        totalSize,
+        byFileType: fileTypeCounts,
+      },
+      duration,
+      slow: duration > 1000,
+      component: 'work-items',
     });
 
     return createSuccessResponse(
@@ -75,11 +81,10 @@ const getWorkItemAttachmentsHandler = async (
       }))
     );
   } catch (error) {
-    const totalDuration = Date.now() - startTime;
-
-    log.error('Get work item attachments failed', error, {
-      requestingUserId: userContext.user_id,
-      totalDuration,
+    log.error('work item attachments list failed', error, {
+      operation: 'list_work_item_attachments',
+      userId: userContext.user_id,
+      component: 'work-items',
     });
 
     return createErrorResponse(
@@ -102,39 +107,35 @@ const createWorkItemAttachmentHandler = async (
   const startTime = Date.now();
 
   try {
-    const validationStart = Date.now();
     const validatedParams = await extractRouteParams(args[0], workItemParamsSchema);
     const validatedData = await validateRequest(request, workItemAttachmentCreateSchema);
-    log.info('Request validation completed', { duration: Date.now() - validationStart });
 
-    log.info('Create work item attachment request initiated', {
-      requestingUserId: userContext.user_id,
-      workItemId: validatedParams.id,
-      fileName: validatedData.file_name,
-    });
-
-    // Create RBAC service
-    const serviceStart = Date.now();
     const attachmentsService = createRBACWorkItemAttachmentsService(userContext);
-    log.info('RBAC service created', { duration: Date.now() - serviceStart });
 
-    // Create attachment with automatic permission checking
     // This generates a presigned upload URL and creates the DB record
-    const attachmentCreationStart = Date.now();
     const result = await attachmentsService.createAttachment({
       work_item_id: validatedParams.id,
       file_name: validatedData.file_name,
       file_size: validatedData.file_size,
       file_type: validatedData.file_type,
     });
-    log.db('INSERT', 'work_item_attachments', Date.now() - attachmentCreationStart, { rowCount: 1 });
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Work item attachment created successfully', {
-      attachmentId: result.attachment.work_item_attachment_id,
-      workItemId: validatedParams.id,
-      totalDuration,
+    const duration = Date.now() - startTime;
+    const template = logTemplates.crud.create('work_item_attachment', {
+      resourceId: String(result.attachment.work_item_attachment_id),
+      userId: userContext.user_id,
+      duration,
+      metadata: {
+        workItemId: result.attachment.work_item_id,
+        fileName: result.attachment.file_name,
+        fileSize: result.attachment.file_size,
+        fileType: result.attachment.file_type,
+        s3Bucket: result.attachment.s3_bucket,
+        presignedUrlGenerated: !!result.uploadUrl,
+      },
     });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse(
       {
@@ -153,11 +154,10 @@ const createWorkItemAttachmentHandler = async (
       'Attachment created successfully. Use upload_url to upload file to S3.'
     );
   } catch (error) {
-    const totalDuration = Date.now() - startTime;
-
-    log.error('Create work item attachment failed', error, {
-      requestingUserId: userContext.user_id,
-      totalDuration,
+    log.error('work item attachment creation failed', error, {
+      operation: 'create_work_item_attachment',
+      userId: userContext.user_id,
+      component: 'work-items',
     });
 
     return createErrorResponse(

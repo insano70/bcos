@@ -1,12 +1,10 @@
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import {
-  chart_data_source_columns,
   chart_data_sources,
-  chart_display_configurations,
-  color_palettes,
   db,
 } from '@/lib/db';
 import { log } from '@/lib/logger';
+import { chartConfigCache } from '@/lib/cache/chart-config-cache';
 
 /**
  * Chart Configuration Service
@@ -72,9 +70,7 @@ export interface ColorPalette {
 }
 
 export class ChartConfigService {
-  private dataSourceCache = new Map<string, DataSourceConfig>();
-  private displayConfigCache = new Map<string, ChartDisplayConfig>();
-  private colorPaletteCache = new Map<number, ColorPalette>();
+  // In-memory caches removed - now using Redis via chartConfigCache
 
   /**
    * Get all available data sources
@@ -109,25 +105,76 @@ export class ChartConfigService {
   }
 
   /**
+   * Get data source configuration by ID
+   * Preferred method - uses data_source_id directly from chart_definitions
+   * Now uses Redis cache for multi-instance consistency
+   */
+  async getDataSourceConfigById(dataSourceId: number): Promise<DataSourceConfig | null> {
+    try {
+      // Get from Redis cache using data source ID
+      const cached = await chartConfigCache.getDataSourceConfig(dataSourceId);
+
+      if (!cached) {
+        return null;
+      }
+
+      // Convert from cached format to service format
+      const dataSourceConfig: DataSourceConfig = {
+        id: cached.id,
+        name: cached.name,
+        tableName: cached.tableName,
+        schemaName: cached.schemaName,
+        isActive: cached.isActive,
+        columns: cached.columns.map((col) => {
+          const columnConfig: ColumnConfig = {
+            id: col.id,
+            columnName: col.columnName,
+            displayName: col.displayName,
+            dataType: col.dataType,
+            isFilterable: col.isFilterable,
+            isGroupable: col.isGroupable,
+            isMeasure: col.isMeasure,
+            isDimension: col.isDimension,
+            isDateField: col.isDateField,
+            isMeasureType: col.isMeasureType,
+            isTimePeriod: col.isTimePeriod,
+            sortOrder: col.sortOrder,
+          };
+          if (col.description !== undefined) columnConfig.description = col.description;
+          if (col.formatType !== undefined) columnConfig.formatType = col.formatType;
+          if (col.defaultAggregation !== undefined) columnConfig.defaultAggregation = col.defaultAggregation;
+          if (col.exampleValue !== undefined) columnConfig.exampleValue = col.exampleValue;
+          if (col.allowedValues !== undefined) columnConfig.allowedValues = col.allowedValues;
+          return columnConfig;
+        }),
+      };
+      if (cached.description !== undefined) dataSourceConfig.description = cached.description;
+
+      return dataSourceConfig;
+    } catch (error) {
+      log.error(
+        'Failed to load data source config by ID',
+        error instanceof Error ? error : new Error(String(error)),
+        { dataSourceId }
+      );
+      return null;
+    }
+  }
+
+  /**
    * Get data source configuration by table name
+   * DEPRECATED: Use getDataSourceConfigById() instead when data_source_id is available
+   * This method is inefficient and potentially unsafe (table_name is not unique)
+   * Now uses Redis cache for multi-instance consistency
    */
   async getDataSourceConfig(
     tableName: string,
     schemaName: string = 'ih'
   ): Promise<DataSourceConfig | null> {
-    const cacheKey = `${schemaName}.${tableName}`;
-
-    if (this.dataSourceCache.has(cacheKey)) {
-      const cached = this.dataSourceCache.get(cacheKey);
-      if (cached) {
-        return cached;
-      }
-    }
-
     try {
-      // Get data source
+      // First, we need to find the data source ID from table name
       const [dataSource] = await db
-        .select()
+        .select({ data_source_id: chart_data_sources.data_source_id })
         .from(chart_data_sources)
         .where(
           and(
@@ -142,58 +189,14 @@ export class ChartConfigService {
         return null;
       }
 
-      // Get columns for this data source
-      const columns = await db
-        .select()
-        .from(chart_data_source_columns)
-        .where(
-          and(
-            eq(chart_data_source_columns.data_source_id, dataSource.data_source_id),
-            eq(chart_data_source_columns.is_active, true)
-          )
-        )
-        .orderBy(chart_data_source_columns.sort_order);
-
-      const config: DataSourceConfig = {
-        id: dataSource.data_source_id,
-        name: dataSource.data_source_name,
-        tableName: dataSource.table_name,
-        schemaName: dataSource.schema_name,
-        isActive: dataSource.is_active ?? false,
-        columns: columns.map((col) => {
-          const columnConfig: ColumnConfig = {
-            id: col.column_id,
-            columnName: col.column_name,
-            displayName: col.display_name,
-            dataType: col.data_type,
-            isFilterable: col.is_filterable ?? false,
-            isGroupable: col.is_groupable ?? false,
-            isMeasure: col.is_measure ?? false,
-            isDimension: col.is_dimension ?? false,
-            isDateField: col.is_date_field ?? false,
-            isMeasureType: col.is_measure_type ?? false,
-            isTimePeriod: col.is_time_period ?? false,
-            sortOrder: col.sort_order ?? 0,
-          };
-
-          if (col.column_description) columnConfig.description = col.column_description;
-          if (col.format_type) columnConfig.formatType = col.format_type;
-          if (col.default_aggregation) columnConfig.defaultAggregation = col.default_aggregation;
-          if (col.example_value) columnConfig.exampleValue = col.example_value;
-          if (col.allowed_values) columnConfig.allowedValues = col.allowed_values as string[];
-
-          return columnConfig;
-        }),
-      };
-
-      if (dataSource.data_source_description) {
-        config.description = dataSource.data_source_description;
-      }
-
-      this.dataSourceCache.set(cacheKey, config);
-      return config;
+      // Delegate to the ID-based method
+      return this.getDataSourceConfigById(dataSource.data_source_id);
     } catch (error) {
-      log.error('Failed to load data source config', { tableName, schemaName, error });
+      log.error(
+        'Failed to load data source config',
+        error instanceof Error ? error : new Error(String(error)),
+        { tableName, schemaName }
+      );
       return null;
     }
   }
@@ -240,162 +243,93 @@ export class ChartConfigService {
 
   /**
    * Get chart display configuration
+   * Now uses Redis cache for multi-instance consistency
    */
   async getChartDisplayConfig(
     chartType: string,
     frequency?: string
   ): Promise<ChartDisplayConfig | null> {
-    const cacheKey = `${chartType}-${frequency || 'default'}`;
-
-    if (this.displayConfigCache.has(cacheKey)) {
-      const cached = this.displayConfigCache.get(cacheKey);
-      if (cached) {
-        return cached;
-      }
-    }
-
     try {
-      const [config] = await db
-        .select()
-        .from(chart_display_configurations)
-        .where(
-          and(
-            eq(chart_display_configurations.chart_type, chartType),
-            frequency
-              ? eq(chart_display_configurations.frequency, frequency)
-              : isNull(chart_display_configurations.frequency),
-            eq(chart_display_configurations.is_active, true)
-          )
-        );
+      // Get from Redis cache
+      const cached = await chartConfigCache.getDisplayConfig(chartType, frequency);
 
-      if (!config) {
-        // Try to get default config for chart type
-        const [defaultConfig] = await db
-          .select()
-          .from(chart_display_configurations)
-          .where(
-            and(
-              eq(chart_display_configurations.chart_type, chartType),
-              eq(chart_display_configurations.is_default, true),
-              eq(chart_display_configurations.is_active, true)
-            )
-          );
-
-        if (!defaultConfig) {
-          log.warn('No display config found', { chartType, frequency });
-          return null;
-        }
-
-        const displayConfig: ChartDisplayConfig = {
-          chartType: defaultConfig.chart_type,
-          defaultWidth: defaultConfig.default_width ?? 800,
-          defaultHeight: defaultConfig.default_height ?? 400,
-          showLegend: defaultConfig.show_legend ?? true,
-          showTooltips: defaultConfig.show_tooltips ?? true,
-          enableAnimation: defaultConfig.enable_animation ?? true,
-        };
-
-        if (defaultConfig.frequency) displayConfig.frequency = defaultConfig.frequency;
-        if (defaultConfig.x_axis_config) displayConfig.xAxisConfig = defaultConfig.x_axis_config;
-        if (defaultConfig.y_axis_config) displayConfig.yAxisConfig = defaultConfig.y_axis_config;
-        if (defaultConfig.time_unit) displayConfig.timeUnit = defaultConfig.time_unit;
-        if (defaultConfig.time_display_format)
-          displayConfig.timeDisplayFormat = defaultConfig.time_display_format;
-        if (defaultConfig.time_tooltip_format)
-          displayConfig.timeTooltipFormat = defaultConfig.time_tooltip_format;
-        if (defaultConfig.default_color_palette_id)
-          displayConfig.defaultColorPaletteId = defaultConfig.default_color_palette_id;
-
-        this.displayConfigCache.set(cacheKey, displayConfig);
-        return displayConfig;
+      if (!cached) {
+        return null;
       }
 
+      // Convert from cached format to service format
       const displayConfig: ChartDisplayConfig = {
-        chartType: config.chart_type,
-        defaultWidth: config.default_width ?? 800,
-        defaultHeight: config.default_height ?? 400,
-        showLegend: config.show_legend ?? true,
-        showTooltips: config.show_tooltips ?? true,
-        enableAnimation: config.enable_animation ?? true,
+        chartType: cached.chartType,
+        defaultWidth: cached.defaultWidth,
+        defaultHeight: cached.defaultHeight,
+        showLegend: cached.showLegend,
+        showTooltips: cached.showTooltips,
+        enableAnimation: cached.enableAnimation,
       };
 
-      if (config.frequency) displayConfig.frequency = config.frequency;
-      if (config.x_axis_config) displayConfig.xAxisConfig = config.x_axis_config;
-      if (config.y_axis_config) displayConfig.yAxisConfig = config.y_axis_config;
-      if (config.time_unit) displayConfig.timeUnit = config.time_unit;
-      if (config.time_display_format) displayConfig.timeDisplayFormat = config.time_display_format;
-      if (config.time_tooltip_format) displayConfig.timeTooltipFormat = config.time_tooltip_format;
-      if (config.default_color_palette_id)
-        displayConfig.defaultColorPaletteId = config.default_color_palette_id;
+      if (cached.frequency) displayConfig.frequency = cached.frequency;
+      if (cached.xAxisConfig) displayConfig.xAxisConfig = cached.xAxisConfig;
+      if (cached.yAxisConfig) displayConfig.yAxisConfig = cached.yAxisConfig;
+      if (cached.timeUnit) displayConfig.timeUnit = cached.timeUnit;
+      if (cached.timeDisplayFormat) displayConfig.timeDisplayFormat = cached.timeDisplayFormat;
+      if (cached.timeTooltipFormat) displayConfig.timeTooltipFormat = cached.timeTooltipFormat;
+      if (cached.defaultColorPaletteId) displayConfig.defaultColorPaletteId = cached.defaultColorPaletteId;
 
-      this.displayConfigCache.set(cacheKey, displayConfig);
       return displayConfig;
     } catch (error) {
-      log.error('Failed to load chart display config', { chartType, frequency, error });
+      log.error(
+        'Failed to load chart display config',
+        error instanceof Error ? error : new Error(String(error)),
+        { chartType, frequency }
+      );
       return null;
     }
   }
 
   /**
    * Get color palette
+   * Now uses Redis cache for multi-instance consistency
    */
   async getColorPalette(paletteId?: number): Promise<ColorPalette | null> {
-    if (paletteId && this.colorPaletteCache.has(paletteId)) {
-      const cached = this.colorPaletteCache.get(paletteId);
-      if (cached) {
-        return cached;
-      }
-    }
-
     try {
-      let palette: typeof color_palettes.$inferSelect | undefined;
+      // Get from Redis cache
+      const cached = await chartConfigCache.getColorPalette(paletteId);
 
-      if (paletteId) {
-        [palette] = await db
-          .select()
-          .from(color_palettes)
-          .where(and(eq(color_palettes.palette_id, paletteId), eq(color_palettes.is_active, true)));
-      } else {
-        // Get default palette
-        [palette] = await db
-          .select()
-          .from(color_palettes)
-          .where(and(eq(color_palettes.is_default, true), eq(color_palettes.is_active, true)));
-      }
-
-      if (!palette) {
-        log.warn('Color palette not found', { paletteId });
+      if (!cached) {
         return null;
       }
 
+      // Convert from cached format to service format
       const colorPalette: ColorPalette = {
-        id: palette.palette_id,
-        name: palette.palette_name,
-        colors: palette.colors as string[],
-        paletteType: palette.palette_type ?? 'general',
-        isColorblindSafe: palette.is_colorblind_safe ?? false,
-        isDefault: palette.is_default ?? false,
+        id: cached.id,
+        name: cached.name,
+        colors: cached.colors,
+        paletteType: cached.paletteType,
+        isColorblindSafe: cached.isColorblindSafe,
+        isDefault: cached.isDefault,
       };
 
-      if (palette.palette_description) colorPalette.description = palette.palette_description;
-      if (palette.max_colors) colorPalette.maxColors = palette.max_colors;
+      if (cached.description) colorPalette.description = cached.description;
+      if (cached.maxColors) colorPalette.maxColors = cached.maxColors;
 
-      this.colorPaletteCache.set(palette.palette_id, colorPalette);
       return colorPalette;
     } catch (error) {
-      log.error('Failed to load color palette', { paletteId, error });
+      log.error(
+        'Failed to load color palette',
+        error instanceof Error ? error : new Error(String(error)),
+        { paletteId }
+      );
       return null;
     }
   }
 
   /**
    * Clear caches (call when configurations change)
+   * Now invalidates Redis cache for multi-instance consistency
    */
-  clearCache(): void {
-    this.dataSourceCache.clear();
-    this.displayConfigCache.clear();
-    this.colorPaletteCache.clear();
-    log.info('Chart configuration caches cleared');
+  async clearCache(): Promise<void> {
+    await chartConfigCache.invalidate();
+    log.info('Chart configuration caches cleared (Redis)');
   }
 
   /**

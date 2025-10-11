@@ -7,7 +7,7 @@ import { extractRouteParams } from '@/lib/api/utils/params';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { createRBACWorkItemTypesService } from '@/lib/services/rbac-work-item-types-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
+import { log, logTemplates, calculateChanges } from '@/lib/logger';
 
 /**
  * GET /api/work-item-types/[id]
@@ -24,31 +24,33 @@ const getWorkItemTypeHandler = async (
     const { workItemTypeParamsSchema } = await import('@/lib/validations/work-items');
     const { id } = await extractRouteParams(args[0], workItemTypeParamsSchema);
 
-    log.info('Get work item type request initiated', {
-      operation: 'get_work_item_type',
-      requestingUserId: userContext.user_id,
-      typeId: id,
-    });
-
-    // Create RBAC service
     const workItemTypesService = createRBACWorkItemTypesService(userContext);
-
-    // Get work item type
-    const queryStart = Date.now();
     const workItemType = await workItemTypesService.getWorkItemTypeById(id);
-    log.db('SELECT', 'work_item_types', Date.now() - queryStart, {
-      rowCount: workItemType ? 1 : 0,
-    });
 
     if (!workItemType) {
+      const template = logTemplates.crud.read('work_item_type', {
+        resourceId: String(id),
+        found: false,
+        userId: userContext.user_id,
+        duration: Date.now() - startTime,
+      });
+      log.info(template.message, template.context);
       throw NotFoundError('Work item type');
     }
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Work item type retrieved successfully', {
-      typeId: id,
-      totalDuration,
+    const duration = Date.now() - startTime;
+    const template = logTemplates.crud.read('work_item_type', {
+      resourceId: String(workItemType.work_item_type_id),
+      resourceName: workItemType.name,
+      found: true,
+      userId: userContext.user_id,
+      duration,
+      metadata: {
+        organizationId: workItemType.organization_id,
+        isActive: workItemType.is_active,
+      },
     });
+    log.info(template.message, template.context);
 
     return createSuccessResponse({
       id: workItemType.work_item_type_id,
@@ -65,8 +67,11 @@ const getWorkItemTypeHandler = async (
       updated_at: workItemType.updated_at,
     });
   } catch (error) {
-    const totalDuration = Date.now() - startTime;
-    log.error('Get work item type request failed', error, { totalDuration });
+    log.error('work item type read failed', error, {
+      operation: 'read_work_item_type',
+      userId: userContext.user_id,
+      component: 'work-items',
+    });
 
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
@@ -99,20 +104,18 @@ const updateWorkItemTypeHandler = async (
     );
     const { id } = await extractRouteParams(args[0], workItemTypeParamsSchema);
 
-    log.info('Update work item type request initiated', {
-      operation: 'update_work_item_type',
-      requestingUserId: userContext.user_id,
-      typeId: id,
-    });
-
     // Validate body
     const validatedData = await validateRequest(request, workItemTypeUpdateSchema);
 
-    // Create RBAC service
+    // Create RBAC service and get before state
     const workItemTypesService = createRBACWorkItemTypesService(userContext);
+    const before = await workItemTypesService.getWorkItemTypeById(id);
+
+    if (!before) {
+      throw NotFoundError('Work item type');
+    }
 
     // Update work item type (filter out undefined values)
-    const updateStart = Date.now();
     const filteredData: {
       name?: string;
       description?: string | null;
@@ -127,13 +130,38 @@ const updateWorkItemTypeHandler = async (
     if (validatedData.is_active !== undefined) filteredData.is_active = validatedData.is_active;
 
     const updatedType = await workItemTypesService.updateWorkItemType(id, filteredData);
-    log.db('UPDATE', 'work_item_types', Date.now() - updateStart, { rowCount: 1 });
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Work item type updated successfully', {
-      typeId: id,
-      totalDuration,
+    const duration = Date.now() - startTime;
+    const changes = calculateChanges(
+      {
+        name: before.name,
+        description: before.description,
+        icon: before.icon,
+        color: before.color,
+        is_active: before.is_active,
+      },
+      {
+        name: updatedType.name,
+        description: updatedType.description,
+        icon: updatedType.icon,
+        color: updatedType.color,
+        is_active: updatedType.is_active,
+      }
+    );
+
+    const template = logTemplates.crud.update('work_item_type', {
+      resourceId: String(updatedType.work_item_type_id),
+      resourceName: updatedType.name,
+      userId: userContext.user_id,
+      changes,
+      duration,
+      metadata: {
+        organizationId: updatedType.organization_id,
+        isActive: updatedType.is_active,
+      },
     });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse({
       id: updatedType.work_item_type_id,
@@ -150,12 +178,15 @@ const updateWorkItemTypeHandler = async (
       updated_at: updatedType.updated_at,
     });
   } catch (error) {
-    const totalDuration = Date.now() - startTime;
-    log.error('Update work item type request failed', error, { totalDuration });
+    log.error('work item type update failed', error, {
+      operation: 'update_work_item_type',
+      userId: userContext.user_id,
+      component: 'work-items',
+    });
 
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
-      500,
+      error instanceof NotFoundError ? 404 : 500,
       request
     );
   }
@@ -182,37 +213,46 @@ const deleteWorkItemTypeHandler = async (
     const { workItemTypeParamsSchema } = await import('@/lib/validations/work-items');
     const { id } = await extractRouteParams(args[0], workItemTypeParamsSchema);
 
-    log.info('Delete work item type request initiated', {
-      operation: 'delete_work_item_type',
-      requestingUserId: userContext.user_id,
-      typeId: id,
-    });
-
-    // Create RBAC service
+    // Create RBAC service and get work item type before deletion
     const workItemTypesService = createRBACWorkItemTypesService(userContext);
+    const workItemType = await workItemTypesService.getWorkItemTypeById(id);
+
+    if (!workItemType) {
+      throw NotFoundError('Work item type');
+    }
 
     // Delete work item type
-    const deleteStart = Date.now();
     await workItemTypesService.deleteWorkItemType(id);
-    log.db('UPDATE', 'work_item_types', Date.now() - deleteStart, { rowCount: 1 });
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Work item type deleted successfully', {
-      typeId: id,
-      totalDuration,
+    const duration = Date.now() - startTime;
+    const template = logTemplates.crud.delete('work_item_type', {
+      resourceId: String(workItemType.work_item_type_id),
+      resourceName: workItemType.name,
+      userId: userContext.user_id,
+      soft: true,
+      duration,
+      metadata: {
+        organizationId: workItemType.organization_id,
+        wasActive: workItemType.is_active,
+      },
     });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse({
       message: 'Work item type deleted successfully',
       id,
     });
   } catch (error) {
-    const totalDuration = Date.now() - startTime;
-    log.error('Delete work item type request failed', error, { totalDuration });
+    log.error('work item type deletion failed', error, {
+      operation: 'delete_work_item_type',
+      userId: userContext.user_id,
+      component: 'work-items',
+    });
 
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
-      500,
+      error instanceof NotFoundError ? 404 : 500,
       request
     );
   }

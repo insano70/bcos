@@ -4,7 +4,6 @@
  */
 
 import { and, eq } from 'drizzle-orm';
-import { rolePermissionCache } from '@/lib/cache/role-permission-cache';
 import { rbacCache } from '@/lib/cache';
 import { db } from '@/lib/db';
 import {
@@ -23,29 +22,14 @@ import type { Permission, Role, UserContext, UserRole } from '@/lib/types/rbac';
 const requestCache = new Map<string, Promise<UserContext | null>>();
 
 /**
- * Get role permissions from cache or database
- * Now uses Redis with fallback to in-memory cache and database
+ * Get role permissions from Redis cache or database
+ * Redis-only approach for multi-instance consistency
  */
 async function getRolePermissions(roleId: string, roleName: string): Promise<Permission[]> {
   // Check Redis cache first
   const redisCached = await rbacCache.getRolePermissions(roleId);
   if (redisCached) {
     return redisCached.permissions;
-  }
-
-  // Fallback to in-memory cache
-  const memoryCached = rolePermissionCache.get(roleId);
-  if (memoryCached) {
-    // Cache hit in memory - also cache to Redis for next time (fire and forget)
-    rbacCache.setRolePermissions(
-      roleId,
-      roleName,
-      memoryCached.permissions,
-      memoryCached.version
-    ).catch(() => {
-      // Ignore Redis cache errors
-    });
-    return memoryCached.permissions;
   }
 
   // Cache miss - query database
@@ -84,12 +68,8 @@ async function getRolePermissions(roleId: string, roleName: string): Promise<Per
     updated_at: p.updated_at ?? new Date(),
   }));
 
-  const version = rolePermissionCache.getRoleVersion(roleId);
-
-  // Cache in both memory and Redis (fire and forget for Redis)
-  rolePermissionCache.set(roleId, roleName, transformedPermissions, version);
-
-  rbacCache.setRolePermissions(roleId, roleName, transformedPermissions, version).catch(() => {
+  // Cache to Redis (fire and forget)
+  rbacCache.setRolePermissions(roleId, roleName, transformedPermissions).catch(() => {
     // Ignore Redis cache errors
   });
 
@@ -354,13 +334,11 @@ export async function getCachedUserContextSafe(userId: string): Promise<UserCont
       });
 
       if (isDev) {
-        const stats = rolePermissionCache.getStats();
         log.debug('Cached user context loaded successfully', {
           userId,
           rolesCount: context.roles?.length || 0,
           permissionsCount: context.all_permissions?.length || 0,
           organizationsCount: context.organizations?.length || 0,
-          cacheStats: stats,
         });
       }
       return context;

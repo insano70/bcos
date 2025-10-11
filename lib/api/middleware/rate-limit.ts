@@ -1,65 +1,63 @@
+import { rateLimitCache, type RateLimitResult } from '@/lib/cache';
+import { log } from '@/lib/logger';
 import { RateLimitError } from '../responses/error';
 
-interface RateLimitEntry {
-  count: number;
-  resetTime: number;
+/**
+ * Rate limit configuration
+ */
+interface RateLimitConfig {
+  limit: number;
+  windowSeconds: number;
 }
 
-class InMemoryRateLimiter {
-  private store = new Map<string, RateLimitEntry>();
-  private windowMs: number;
-  private maxRequests: number;
+/**
+ * Rate limit configurations by type
+ * Now centralized for easy adjustment
+ */
+const RATE_LIMIT_CONFIGS: Record<string, RateLimitConfig> = {
+  auth: {
+    limit: 20, // 20 auth attempts per 15 minutes
+    windowSeconds: 15 * 60,
+  },
+  mfa: {
+    limit: 5, // 5 MFA attempts per 15 minutes
+    windowSeconds: 15 * 60,
+  },
+  upload: {
+    limit: 10, // 10 uploads per minute
+    windowSeconds: 60,
+  },
+  api: {
+    limit: 200, // 200 requests per minute
+    windowSeconds: 60,
+  },
+  global: {
+    limit: 100, // 100 requests per 15 minutes
+    windowSeconds: 15 * 60,
+  },
+};
 
-  constructor(windowMs: number = 15 * 60 * 1000, maxRequests: number = 100) {
-    this.windowMs = windowMs;
-    this.maxRequests = maxRequests;
-
-    // Clean up expired entries every 5 minutes
-    setInterval(() => this.cleanup(), 5 * 60 * 1000);
-  }
-
-  private cleanup(): void {
-    const now = Date.now();
-    for (const [key, entry] of Array.from(this.store.entries())) {
-      if (now > entry.resetTime) {
-        this.store.delete(key);
-      }
-    }
-  }
-
-  checkLimit(identifier: string): { success: boolean; remaining: number; resetTime: number } {
-    const now = Date.now();
-    const resetTime = now + this.windowMs;
-    const existing = this.store.get(identifier);
-
-    if (!existing || now > existing.resetTime) {
-      this.store.set(identifier, { count: 1, resetTime });
-      return { success: true, remaining: this.maxRequests - 1, resetTime };
-    }
-
-    existing.count++;
-    const remaining = Math.max(0, this.maxRequests - existing.count);
-
-    return {
-      success: existing.count <= this.maxRequests,
-      remaining,
-      resetTime: existing.resetTime,
-    };
-  }
-}
-
-// Rate limiter instances
-export const globalRateLimiter = new InMemoryRateLimiter(15 * 60 * 1000, 100); // 100 req/15min
-export const authRateLimiter = new InMemoryRateLimiter(15 * 60 * 1000, 20); // 20 req/15min (increased for refresh tokens)
-export const mfaRateLimiter = new InMemoryRateLimiter(15 * 60 * 1000, 5); // 5 MFA attempts/15min per user
-export const apiRateLimiter = new InMemoryRateLimiter(60 * 1000, 200); // 200 req/min
-
+/**
+ * Extract IP address from request
+ * Checks x-forwarded-for and x-real-ip headers first
+ */
 export function getRateLimitKey(request: Request, prefix = ''): string {
-  const ip =
-    request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'anonymous';
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  const firstIp = forwardedFor ? forwardedFor.split(',')[0] : null;
+  const trimmedIp = firstIp ? firstIp.trim() : null;
+  const ip = trimmedIp || request.headers.get('x-real-ip') || 'anonymous';
   return prefix ? `${prefix}:${ip}` : ip;
 }
 
+/**
+ * Apply Redis-based rate limiting
+ * Multi-instance safe - rate limits enforced globally across all instances
+ *
+ * @param request - HTTP request
+ * @param type - Rate limit type (auth, api, upload, mfa)
+ * @returns Rate limit result with remaining count and reset time
+ * @throws RateLimitError if rate limit exceeded
+ */
 export async function applyRateLimit(
   request: Request,
   type: 'auth' | 'api' | 'upload' | 'mfa' = 'api'
@@ -70,41 +68,43 @@ export async function applyRateLimit(
   limit: number;
   windowMs: number;
 }> {
-  const rateLimitKey = getRateLimitKey(request, type);
-  let limiter = apiRateLimiter;
-  let limit = 200;
-  let windowMs = 60 * 1000;
-
-  switch (type) {
-    case 'auth':
-      limiter = authRateLimiter;
-      limit = 5;
-      windowMs = 15 * 60 * 1000;
-      break;
-    case 'mfa':
-      limiter = mfaRateLimiter;
-      limit = 5;
-      windowMs = 15 * 60 * 1000;
-      break;
-    case 'upload':
-      limiter = new InMemoryRateLimiter(60 * 1000, 10); // 10 uploads per minute
-      limit = 10;
-      windowMs = 60 * 1000;
-      break;
-    case 'api':
-      limit = 200;
-      windowMs = 60 * 1000;
-      break;
+  // Get rate limit config
+  const config = RATE_LIMIT_CONFIGS[type];
+  if (!config) {
+    log.error('Unknown rate limit type, falling back to api', new Error('Unknown rate limit type'), {
+      type,
+      fallbackType: 'api',
+    });
+    return applyRateLimit(request, 'api');
   }
 
-  const result = limiter.checkLimit(rateLimitKey);
+  // Get identifier (IP address)
+  const identifier = getRateLimitKey(request);
 
-  if (!result.success) {
+  // Check rate limit using Redis
+  const result: RateLimitResult = await rateLimitCache.checkIpRateLimit(
+    identifier,
+    config.limit,
+    config.windowSeconds
+  );
+
+  // Log rate limit enforcement
+  if (!result.allowed) {
+    log.security('rate_limit_exceeded', 'medium', {
+      action: 'rate_limit_block',
+      threat: 'dos_attempt',
+      blocked: true,
+      type,
+      identifier,
+      current: result.current,
+      limit: result.limit,
+      resetAt: result.resetAt,
+    });
+
     const error = RateLimitError(result.resetTime);
-    // Add additional context to the error
     error.details = {
-      limit,
-      windowMs,
+      limit: result.limit,
+      windowMs: config.windowSeconds * 1000,
       resetTime: result.resetTime,
       retryAfter: Math.ceil((result.resetTime - Date.now()) / 1000),
       type,
@@ -112,10 +112,23 @@ export async function applyRateLimit(
     throw error;
   }
 
+  // Debug log for successful rate limit checks (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    log.debug('Rate limit check passed', {
+      type,
+      identifier,
+      current: result.current,
+      remaining: result.remaining,
+      limit: result.limit,
+    });
+  }
+
   return {
-    ...result,
-    limit,
-    windowMs,
+    success: result.allowed,
+    remaining: result.remaining,
+    resetTime: result.resetTime,
+    limit: result.limit,
+    windowMs: config.windowSeconds * 1000,
   };
 }
 

@@ -7,7 +7,7 @@ import { extractRouteParams } from '@/lib/api/utils/params';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { createRBACWorkItemStatusesService } from '@/lib/services/rbac-work-item-statuses-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
+import { log, logTemplates, calculateChanges } from '@/lib/logger';
 
 /**
  * GET /api/work-item-statuses/[id]
@@ -24,29 +24,36 @@ const getStatusHandler = async (
     const { workItemStatusParamsSchema } = await import('@/lib/validations/work-items');
     const { id } = await extractRouteParams(args[0], workItemStatusParamsSchema);
 
-    log.info('Get work item status request initiated', {
-      operation: 'get_work_item_status',
-      requestingUserId: userContext.user_id,
-      statusId: id,
-    });
-
     const statusesService = createRBACWorkItemStatusesService(userContext);
-
-    const queryStart = Date.now();
     const status = await statusesService.getStatusById(id);
-    log.db('SELECT', 'work_item_statuses', Date.now() - queryStart, {
-      rowCount: status ? 1 : 0,
-    });
 
     if (!status) {
+      const template = logTemplates.crud.read('work_item_status', {
+        resourceId: String(id),
+        found: false,
+        userId: userContext.user_id,
+        duration: Date.now() - startTime,
+      });
+      log.info(template.message, template.context);
       throw NotFoundError('Work item status');
     }
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Work item status retrieved successfully', {
-      statusId: id,
-      totalDuration,
+    const duration = Date.now() - startTime;
+    const template = logTemplates.crud.read('work_item_status', {
+      resourceId: String(status.work_item_status_id),
+      resourceName: status.status_name,
+      found: true,
+      userId: userContext.user_id,
+      duration,
+      metadata: {
+        workItemTypeId: status.work_item_type_id,
+        category: status.status_category,
+        isInitial: status.is_initial,
+        isFinal: status.is_final,
+      },
     });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse({
       id: status.work_item_status_id,
@@ -61,8 +68,11 @@ const getStatusHandler = async (
       updated_at: status.updated_at,
     });
   } catch (error) {
-    const totalDuration = Date.now() - startTime;
-    log.error('Get work item status request failed', error, { totalDuration });
+    log.error('work item status read failed', error, {
+      operation: 'read_work_item_status',
+      userId: userContext.user_id,
+      component: 'work-items',
+    });
 
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
@@ -95,15 +105,16 @@ const updateStatusHandler = async (
     );
     const { id } = await extractRouteParams(args[0], workItemStatusParamsSchema);
 
-    log.info('Update work item status request initiated', {
-      operation: 'update_work_item_status',
-      requestingUserId: userContext.user_id,
-      statusId: id,
-    });
-
     const validatedData = await validateRequest(request, workItemStatusUpdateSchema);
 
-    // Filter undefined values
+    // Get before state and filter undefined values
+    const statusesService = createRBACWorkItemStatusesService(userContext);
+    const before = await statusesService.getStatusById(id);
+
+    if (!before) {
+      throw NotFoundError('Work item status');
+    }
+
     const filteredData: {
       status_name?: string;
       status_category?: string;
@@ -121,17 +132,43 @@ const updateStatusHandler = async (
     if (validatedData.display_order !== undefined)
       filteredData.display_order = validatedData.display_order;
 
-    const statusesService = createRBACWorkItemStatusesService(userContext);
-
-    const updateStart = Date.now();
     const updatedStatus = await statusesService.updateStatus(id, filteredData);
-    log.db('UPDATE', 'work_item_statuses', Date.now() - updateStart, { rowCount: 1 });
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Work item status updated successfully', {
-      statusId: id,
-      totalDuration,
+    const duration = Date.now() - startTime;
+    const changes = calculateChanges(
+      {
+        status_name: before.status_name,
+        status_category: before.status_category,
+        is_initial: before.is_initial,
+        is_final: before.is_final,
+        color: before.color,
+        display_order: before.display_order,
+      },
+      {
+        status_name: updatedStatus.status_name,
+        status_category: updatedStatus.status_category,
+        is_initial: updatedStatus.is_initial,
+        is_final: updatedStatus.is_final,
+        color: updatedStatus.color,
+        display_order: updatedStatus.display_order,
+      }
+    );
+
+    const template = logTemplates.crud.update('work_item_status', {
+      resourceId: String(updatedStatus.work_item_status_id),
+      resourceName: updatedStatus.status_name,
+      userId: userContext.user_id,
+      changes,
+      duration,
+      metadata: {
+        workItemTypeId: updatedStatus.work_item_type_id,
+        category: updatedStatus.status_category,
+        isInitial: updatedStatus.is_initial,
+        isFinal: updatedStatus.is_final,
+      },
     });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse({
       id: updatedStatus.work_item_status_id,
@@ -146,12 +183,15 @@ const updateStatusHandler = async (
       updated_at: updatedStatus.updated_at,
     });
   } catch (error) {
-    const totalDuration = Date.now() - startTime;
-    log.error('Update work item status request failed', error, { totalDuration });
+    log.error('work item status update failed', error, {
+      operation: 'update_work_item_status',
+      userId: userContext.user_id,
+      component: 'work-items',
+    });
 
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
-      500,
+      error instanceof NotFoundError ? 404 : 500,
       request
     );
   }
@@ -178,35 +218,46 @@ const deleteStatusHandler = async (
     const { workItemStatusParamsSchema } = await import('@/lib/validations/work-items');
     const { id } = await extractRouteParams(args[0], workItemStatusParamsSchema);
 
-    log.info('Delete work item status request initiated', {
-      operation: 'delete_work_item_status',
-      requestingUserId: userContext.user_id,
-      statusId: id,
-    });
-
     const statusesService = createRBACWorkItemStatusesService(userContext);
+    const status = await statusesService.getStatusById(id);
 
-    const deleteStart = Date.now();
+    if (!status) {
+      throw NotFoundError('Work item status');
+    }
+
     await statusesService.deleteStatus(id);
-    log.db('DELETE', 'work_item_statuses', Date.now() - deleteStart, { rowCount: 1 });
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Work item status deleted successfully', {
-      statusId: id,
-      totalDuration,
+    const duration = Date.now() - startTime;
+    const template = logTemplates.crud.delete('work_item_status', {
+      resourceId: String(status.work_item_status_id),
+      resourceName: status.status_name,
+      userId: userContext.user_id,
+      soft: false,
+      duration,
+      metadata: {
+        workItemTypeId: status.work_item_type_id,
+        category: status.status_category,
+        wasInitial: status.is_initial,
+        wasFinal: status.is_final,
+      },
     });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse({
       message: 'Work item status deleted successfully',
       id,
     });
   } catch (error) {
-    const totalDuration = Date.now() - startTime;
-    log.error('Delete work item status request failed', error, { totalDuration });
+    log.error('work item status deletion failed', error, {
+      operation: 'delete_work_item_status',
+      userId: userContext.user_id,
+      component: 'work-items',
+    });
 
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
-      500,
+      error instanceof NotFoundError ? 404 : 500,
       request
     );
   }

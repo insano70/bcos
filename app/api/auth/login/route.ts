@@ -27,37 +27,16 @@ import { correlation, log } from '@/lib/logger';
 const loginHandler = async (request: NextRequest) => {
   const startTime = Date.now();
 
-  // Log API request
-  log.api('POST /api/auth/login - Login attempt', request, 0, 0);
-
   try {
-    // Apply rate limiting
-    const rateLimitStartTime = Date.now();
     await applyRateLimit(request, 'auth');
-    log.info('Rate limit check completed', { duration: Date.now() - rateLimitStartTime });
 
-    // Validate request data
-    const validationStartTime = Date.now();
     const validatedData = await validateRequest(request, loginSchema);
     const { email, password, remember } = validatedData;
-    log.info('Request validation completed', { duration: Date.now() - validationStartTime });
 
-    // Validation success logging
-    log.auth('login_validation', true, {
-      method: 'session',
-      sessionDuration: remember ? 86400 * 30 : 86400,
-      emailMasked: email.replace(/(.{2}).*@/, '$1***@'),
-      rememberMe: remember,
-    });
-
-    // Extract device info
     const { extractRequestMetadata } = await import('@/lib/api/utils/request');
     const metadata = extractRequestMetadata(request);
 
-    // Check account lockout
-    const lockoutStartTime = Date.now();
     const lockoutStatus = await isAccountLocked(email);
-    log.info('Account lockout check completed', { duration: Date.now() - lockoutStartTime });
 
     if (lockoutStatus.locked) {
       // Account lockout logging
@@ -88,10 +67,7 @@ const loginHandler = async (request: NextRequest) => {
       );
     }
 
-    // Fetch user from database
-    const dbStartTime = Date.now();
     const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-    log.db('SELECT', 'users', Date.now() - dbStartTime, { rowCount: user ? 1 : 0 });
 
     if (!user) {
       // Security logging for non-existent user attempts
@@ -125,10 +101,6 @@ const loginHandler = async (request: NextRequest) => {
     }
 
     if (!user.is_active) {
-      log.warn('Login attempt with inactive user', {
-        userId: user.user_id,
-        email: email.replace(/(.{2}).*@/, '$1***@'),
-      });
 
       await AuditLogger.logAuth({
         action: 'login_failed',
@@ -146,17 +118,8 @@ const loginHandler = async (request: NextRequest) => {
       throw AuthenticationError('Account is inactive');
     }
 
-    log.debug('User found and active', {
-      userId: user.user_id,
-      emailVerified: user.email_verified,
-    });
-
     // Check if user is SSO-only (no password set)
     if (!user.password_hash) {
-      log.warn('Password login attempted for SSO-only user', {
-        userId: user.user_id,
-        email: email.replace(/(.{2}).*@/, '$1***@'),
-      });
 
       log.security('sso_only_user_password_attempt', 'medium', {
         action: 'password_login_blocked',
@@ -181,10 +144,7 @@ const loginHandler = async (request: NextRequest) => {
       throw AuthenticationError('This account uses Single Sign-On. Please sign in with Microsoft.');
     }
 
-    // Verify password
-    const passwordStartTime = Date.now();
     const isValidPassword = await verifyPassword(password, user.password_hash);
-    log.info('Password verification completed', { duration: Date.now() - passwordStartTime });
 
     if (!isValidPassword) {
       // Password failure logging
@@ -219,17 +179,11 @@ const loginHandler = async (request: NextRequest) => {
       throw AuthenticationError('Invalid email or password');
     }
 
-    // Authentication success logging
     log.auth('password_verification', true, {
       userId: user.user_id,
       method: 'session',
     });
 
-    log.info('Password verification successful', {
-      userId: user.user_id,
-    });
-
-    // Clear failed attempts on successful login
     await clearFailedAttempts(email);
 
     // CHECK MFA STATUS - Before creating full session
@@ -268,22 +222,14 @@ const loginHandler = async (request: NextRequest) => {
 
     // If MFA is enabled with active credentials, require passkey verification
     if (mfaStatus.enabled && mfaStatus.credential_count > 0) {
-      log.info('MFA verification required for user', {
-        userId: user.user_id,
-        credentialCount: mfaStatus.credential_count,
-      });
-
-      // Generate authentication challenge
       const { options, challenge_id } = await beginAuthentication(
         user.user_id,
         metadata.ipAddress,
         metadata.userAgent
       );
 
-      // Create temporary MFA token (NOT a full session)
       const tempToken = await createMFATempToken(user.user_id, challenge_id);
 
-      // Generate anonymous CSRF token for MFA requests
       const { generateAnonymousToken } = await import('@/lib/security/csrf-unified');
       const csrfToken = await generateAnonymousToken(request);
 
@@ -298,10 +244,19 @@ const loginHandler = async (request: NextRequest) => {
         },
       });
 
-      const totalDuration = Date.now() - startTime;
-      log.api('POST /api/auth/login - MFA Required', request, 200, totalDuration);
+      const duration = Date.now() - startTime;
+      log.info('login password verification succeeded - mfa challenge issued', {
+        operation: 'login',
+        userId: user.user_id,
+        status: 'mfa_required',
+        credentialCount: mfaStatus.credential_count,
+        rememberMe: remember,
+        duration,
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
+        component: 'auth',
+      });
 
-      // Return MFA challenge response with temp token and CSRF (NOT a session)
       return createSuccessResponse(
         {
           status: 'mfa_required',
@@ -314,17 +269,8 @@ const loginHandler = async (request: NextRequest) => {
       );
     }
 
-    // Password users require MFA setup if not yet configured
-    log.info('MFA setup required for password user', {
-      userId: user.user_id,
-      mfaEnabled: mfaStatus.enabled,
-      credentialCount: mfaStatus.credential_count,
-    });
-
-    // Create temporary MFA token for setup (NOT a full session)
     const tempToken = await createMFATempToken(user.user_id);
 
-    // Generate anonymous CSRF token for MFA requests
     const { generateAnonymousToken } = await import('@/lib/security/csrf-unified');
     const csrfToken = await generateAnonymousToken(request);
 
@@ -339,10 +285,18 @@ const loginHandler = async (request: NextRequest) => {
       },
     });
 
-    const totalDuration = Date.now() - startTime;
-    log.api('POST /api/auth/login - MFA Setup Required', request, 200, totalDuration);
+    const duration = Date.now() - startTime;
+    log.info('login password verification succeeded - mfa setup required', {
+      operation: 'login',
+      userId: user.user_id,
+      status: 'mfa_setup_required',
+      rememberMe: remember,
+      duration,
+      ipAddress: metadata.ipAddress,
+      userAgent: metadata.userAgent,
+      component: 'auth',
+    });
 
-    // Return MFA setup required response with temp token and CSRF (NOT a session)
     return createSuccessResponse(
       {
         status: 'mfa_setup_required',
@@ -357,14 +311,11 @@ const loginHandler = async (request: NextRequest) => {
       'Passkey setup required for password login'
     );
   } catch (error) {
-    const totalDuration = Date.now() - startTime;
-
-    log.error('Login failed with error', error, {
-      totalDuration,
-      errorType: error instanceof Error ? error.constructor.name : typeof error,
+    log.error('login failed', error, {
+      operation: 'login',
+      duration: Date.now() - startTime,
+      component: 'auth',
     });
-
-    log.api('POST /api/auth/login - Error', request, 500, totalDuration);
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   }

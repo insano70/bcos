@@ -37,32 +37,27 @@ const handler = async (request: NextRequest) => {
   const startTime = Date.now();
 
   try {
-    // MFA-specific rate limiting (5 attempts per 15 minutes)
     await applyRateLimit(request, 'mfa');
 
     let userId: string;
     let isFirstTimeSetup = false;
+    let authMethod: 'session' | 'temp_token';
 
     // Try full authentication first (for users adding additional passkeys)
     try {
       const session = await requireAuth(request);
       userId = session.user.id;
-
-      log.debug('MFA registration complete - using full session', { userId });
+      authMethod = 'session';
     } catch {
       // Fall back to temp token (for first-time MFA setup during login)
       const tempPayload = await requireMFATempToken(request);
       userId = tempPayload.sub;
       isFirstTimeSetup = true;
-
-      log.debug('MFA registration complete - using temp token (first-time setup)', { userId });
+      authMethod = 'temp_token';
     }
 
-    // Extract IP and user agent
     const { extractRequestMetadata } = await import('@/lib/api/utils/request');
     const metadata = extractRequestMetadata(request);
-    const ipAddress = metadata.ipAddress;
-    const userAgent = metadata.userAgent;
 
     // Parse request body
     const body = (await request.json()) as RegistrationCompleteRequest;
@@ -92,22 +87,14 @@ const handler = async (request: NextRequest) => {
       throw new Error('Invalid challenge_id format');
     }
 
-    // Complete registration with validated name
     const result = await completeRegistration(
       userId,
       challenge_id,
       credential,
       trimmedName,
-      ipAddress,
-      userAgent
+      metadata.ipAddress,
+      metadata.userAgent
     );
-
-    log.info('Passkey registration completed', {
-      userId,
-      credentialId: result.credential_id.substring(0, 16),
-      credentialName: result.credential_name,
-      isFirstTimeSetup,
-    });
 
     // If this is first-time setup (using temp token), create full session
     if (isFirstTimeSetup) {
@@ -118,13 +105,12 @@ const handler = async (request: NextRequest) => {
         throw AuthenticationError('User account is inactive');
       }
 
-      // Generate device info
-      const deviceFingerprint = generateDeviceFingerprint(ipAddress, userAgent || 'unknown');
-      const deviceName = generateDeviceName(userAgent || 'unknown');
+      const deviceFingerprint = generateDeviceFingerprint(metadata.ipAddress, metadata.userAgent || 'unknown');
+      const deviceName = generateDeviceName(metadata.userAgent || 'unknown');
 
       const deviceInfo = {
-        ipAddress,
-        userAgent: userAgent || 'unknown',
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent || 'unknown',
         fingerprint: deviceFingerprint,
         deviceName,
       };
@@ -158,18 +144,23 @@ const handler = async (request: NextRequest) => {
       const userRoles = userContext?.roles?.map((r) => r.name) || [];
       const primaryRole = userRoles.length > 0 ? userRoles[0] : 'user';
 
-      // Generate CSRF token
       const csrfToken = await setCSRFToken(user.user_id);
 
-      const totalDuration = Date.now() - startTime;
-      log.api(
-        'POST /api/auth/mfa/register/complete - First-time setup success',
-        request,
-        200,
-        totalDuration
-      );
+      const duration = Date.now() - startTime;
+      log.info('mfa registration completed - first-time setup with session creation', {
+        operation: 'mfa_register_complete',
+        userId: user.user_id,
+        authMethod,
+        credentialId: result.credential_id.substring(0, 16),
+        credentialName: result.credential_name,
+        isFirstTimeSetup: true,
+        sessionCreated: true,
+        duration,
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
+        component: 'auth',
+      });
 
-      // Return full session data for first-time setup
       return createSuccessResponse(
         {
           success: true,
@@ -196,30 +187,34 @@ const handler = async (request: NextRequest) => {
       );
     }
 
-    // For adding additional passkeys (already has session), just return success
+    const duration = Date.now() - startTime;
+    log.info('mfa registration completed - additional credential added', {
+      operation: 'mfa_register_complete',
+      userId,
+      authMethod,
+      credentialId: result.credential_id.substring(0, 16),
+      credentialName: result.credential_name,
+      isFirstTimeSetup: false,
+      sessionCreated: false,
+      duration,
+      ipAddress: metadata.ipAddress,
+      userAgent: metadata.userAgent,
+      component: 'auth',
+    });
+
     const response: RegistrationCompleteResponse = {
       success: true,
       credential_id: result.credential_id,
       credential_name: result.credential_name,
     };
 
-    const totalDuration = Date.now() - startTime;
-    log.api(
-      'POST /api/auth/mfa/register/complete - Additional passkey added',
-      request,
-      200,
-      totalDuration
-    );
-
     return createSuccessResponse(response, 'Passkey registered successfully');
   } catch (error) {
-    const totalDuration = Date.now() - startTime;
-    log.error('Passkey registration complete failed', {
-      error: error instanceof Error ? error.message : String(error),
-      duration: totalDuration,
+    log.error('mfa registration complete failed', error, {
+      operation: 'mfa_register_complete',
+      duration: Date.now() - startTime,
+      component: 'auth',
     });
-
-    log.api('POST /api/auth/mfa/register/complete - Error', request, 500, totalDuration);
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   }

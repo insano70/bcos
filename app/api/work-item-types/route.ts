@@ -7,7 +7,7 @@ import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { createRBACWorkItemTypesService } from '@/lib/services/rbac-work-item-types-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
+import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
 
 /**
  * GET /api/work-item-types
@@ -16,43 +16,23 @@ import { log } from '@/lib/logger';
 const getWorkItemTypesHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
 
-  log.info('List work item types request initiated', {
-    operation: 'list_work_item_types',
-    requestingUserId: userContext.user_id,
-    organizationId: userContext.current_organization_id,
-  });
-
   try {
     const { searchParams } = new URL(request.url);
-
-    const validationStart = Date.now();
     const query = validateQuery(searchParams, workItemTypeQuerySchema);
-    log.info('Request validation completed', { duration: Date.now() - validationStart });
 
-    // Create RBAC service
-    const serviceStart = Date.now();
+    // Create RBAC service and get work item types
     const workItemTypesService = createRBACWorkItemTypesService(userContext);
-    log.info('RBAC service created', { duration: Date.now() - serviceStart });
-
-    // Get work item types with automatic permission-based filtering
-    const workItemTypesStart = Date.now();
     const workItemTypes = await workItemTypesService.getWorkItemTypes({
       organization_id: query.organization_id,
       is_active: query.is_active,
       limit: query.limit,
       offset: query.offset,
     });
-    log.db('SELECT', 'work_item_types', Date.now() - workItemTypesStart, {
-      rowCount: workItemTypes.length,
-    });
 
-    // Get total count
-    const countStart = Date.now();
     const totalCount = await workItemTypesService.getWorkItemTypeCount({
       organization_id: query.organization_id,
       is_active: query.is_active,
     });
-    log.db('SELECT', 'work_item_types_count', Date.now() - countStart, { rowCount: 1 });
 
     const responseData = workItemTypes.map((type) => ({
       id: type.work_item_type_id,
@@ -69,11 +49,32 @@ const getWorkItemTypesHandler = async (request: NextRequest, userContext: UserCo
       updated_at: type.updated_at,
     }));
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Work item types list retrieved successfully', {
-      workItemTypesReturned: workItemTypes.length,
-      totalCount,
-      totalDuration,
+    const duration = Date.now() - startTime;
+    const filters = sanitizeFilters({
+      organization_id: query.organization_id,
+      is_active: query.is_active,
+    });
+
+    const activeCount = workItemTypes.filter((t) => t.is_active).length;
+    const inactiveCount = workItemTypes.length - activeCount;
+
+    log.info(`work item types list completed - returned ${workItemTypes.length} of ${totalCount}`, {
+      operation: 'list_work_item_types',
+      resourceType: 'work_item_types',
+      userId: userContext.user_id,
+      organizationId: userContext.current_organization_id,
+      filters,
+      results: {
+        returned: workItemTypes.length,
+        total: totalCount,
+        active: activeCount,
+        inactive: inactiveCount,
+        page: Math.floor((query.offset || 0) / (query.limit || 50)) + 1,
+        pageSize: query.limit || 50,
+      },
+      duration,
+      slow: duration > 1000,
+      component: 'work-items',
     });
 
     return createPaginatedResponse(responseData, {
@@ -82,12 +83,11 @@ const getWorkItemTypesHandler = async (request: NextRequest, userContext: UserCo
       total: totalCount,
     });
   } catch (error) {
-    const totalDuration = Date.now() - startTime;
-
-    log.error('Work item types list request failed', error, {
-      requestingUserId: userContext.user_id,
+    log.error('work item types list failed', error, {
+      operation: 'list_work_item_types',
+      userId: userContext.user_id,
       organizationId: userContext.current_organization_id,
-      totalDuration,
+      component: 'work-items',
     });
 
     return createErrorResponse(
@@ -111,26 +111,13 @@ export const GET = rbacRoute(getWorkItemTypesHandler, {
 const createWorkItemTypeHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
 
-  log.info('Create work item type request initiated', {
-    operation: 'create_work_item_type',
-    requestingUserId: userContext.user_id,
-    organizationId: userContext.current_organization_id,
-  });
-
   try {
     const body = await request.json();
-    const validationStart = Date.now();
     const { workItemTypeCreateSchema } = await import('@/lib/validations/work-items');
     const validatedData = workItemTypeCreateSchema.parse(body);
-    log.info('Request validation completed', { duration: Date.now() - validationStart });
 
-    // Create RBAC service
-    const serviceStart = Date.now();
+    // Create RBAC service and work item type
     const workItemTypesService = createRBACWorkItemTypesService(userContext);
-    log.info('RBAC service created', { duration: Date.now() - serviceStart });
-
-    // Create work item type (filter out undefined values)
-    const createStart = Date.now();
     const newType = await workItemTypesService.createWorkItemType({
       organization_id: validatedData.organization_id,
       name: validatedData.name,
@@ -139,13 +126,23 @@ const createWorkItemTypeHandler = async (request: NextRequest, userContext: User
       ...(validatedData.color !== undefined && { color: validatedData.color }),
       ...(validatedData.is_active !== undefined && { is_active: validatedData.is_active }),
     });
-    log.db('INSERT', 'work_item_types', Date.now() - createStart, { rowCount: 1 });
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Work item type created successfully', {
-      workItemTypeId: newType.work_item_type_id,
-      totalDuration,
+    const duration = Date.now() - startTime;
+    const template = logTemplates.crud.create('work_item_type', {
+      resourceId: String(newType.work_item_type_id),
+      resourceName: newType.name,
+      userId: userContext.user_id,
+      duration,
+      metadata: {
+        organizationId: newType.organization_id,
+        icon: newType.icon,
+        color: newType.color,
+        isActive: newType.is_active,
+        hasDescription: !!newType.description,
+      },
     });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse({
       id: newType.work_item_type_id,
@@ -162,12 +159,11 @@ const createWorkItemTypeHandler = async (request: NextRequest, userContext: User
       updated_at: newType.updated_at,
     });
   } catch (error) {
-    const totalDuration = Date.now() - startTime;
-
-    log.error('Create work item type request failed', error, {
-      requestingUserId: userContext.user_id,
+    log.error('work item type creation failed', error, {
+      operation: 'create_work_item_type',
+      userId: userContext.user_id,
       organizationId: userContext.current_organization_id,
-      totalDuration,
+      component: 'work-items',
     });
 
     return createErrorResponse(

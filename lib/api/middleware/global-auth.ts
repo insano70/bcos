@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { log } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
 import { requireAuth } from './auth';
+import { applyRateLimit } from './rate-limit';
 
 /**
  * Global API Authentication Middleware
@@ -88,6 +89,16 @@ export async function applyGlobalAuth(request: NextRequest): Promise<AuthResult 
   const method = request.method;
 
   log.debug('API auth check initiated', { pathname, path: pathname, method });
+
+  // UNIVERSAL RATE LIMITING: Apply to ALL API routes (public and protected)
+  // This runs BEFORE authentication to prevent abuse
+  try {
+    const rateLimitType = pathname.startsWith('/api/auth/') ? 'auth' : 'api';
+    await applyRateLimit(request, rateLimitType);
+  } catch (rateLimitError) {
+    // Rate limit error will be thrown and handled by the route handler
+    throw rateLimitError;
+  }
 
   // Skip auth for public routes
   if (isPublicApiRoute(pathname)) {

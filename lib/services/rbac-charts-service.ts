@@ -261,6 +261,11 @@ export class RBACChartsService extends BaseRBACService {
 
     this.requireAnyPermission(['charts:create:organization', 'charts:manage:all']);
 
+    // Extract data_source_id from chart_config if present
+    const dataSourceId = chartData.chart_config && typeof chartData.chart_config === 'object'
+      ? (chartData.chart_config as { dataSourceId?: number }).dataSourceId
+      : undefined;
+
     // Create new chart
     const [newChart] = await db
       .insert(chart_definitions)
@@ -270,6 +275,7 @@ export class RBACChartsService extends BaseRBACService {
         chart_type: chartData.chart_type,
         data_source: chartData.data_source,
         chart_config: chartData.chart_config || {},
+        data_source_id: dataSourceId || null,
         chart_category_id: chartData.chart_category_id || null,
         created_by: this.userContext.user_id,
         is_active: chartData.is_active ?? true,
@@ -364,8 +370,16 @@ export class RBACChartsService extends BaseRBACService {
         updateFields.chart_description = updateData.chart_description;
       if (updateData.chart_type !== undefined) updateFields.chart_type = updateData.chart_type;
       if (updateData.data_source !== undefined) updateFields.data_source = updateData.data_source;
-      if (updateData.chart_config !== undefined)
+      if (updateData.chart_config !== undefined) {
         updateFields.chart_config = updateData.chart_config;
+        // Extract and update data_source_id from chart_config if present
+        const dataSourceId = typeof updateData.chart_config === 'object'
+          ? (updateData.chart_config as { dataSourceId?: number }).dataSourceId
+          : undefined;
+        if (dataSourceId !== undefined) {
+          updateFields.data_source_id = dataSourceId || null;
+        }
+      }
       if (updateData.chart_category_id !== undefined)
         updateFields.chart_category_id = updateData.chart_category_id;
       if (updateData.is_active !== undefined) updateFields.is_active = updateData.is_active;

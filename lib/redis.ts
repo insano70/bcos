@@ -99,7 +99,7 @@ class RedisClientManager {
         component: 'redis',
         host: config.host,
         port: config.port,
-        username: config.username || '(none)',
+        username: config.username ? '[REDACTED]' : '(none)',
         keyPrefix: config.keyPrefix,
         tls: config.tls,
       });
@@ -143,7 +143,7 @@ class RedisClientManager {
       this.client.on('connect', () => {
         log.info('Redis connected successfully', {
           component: 'redis',
-          host: config.host,
+          host: '[REDACTED]',
           port: config.port,
         });
       });
@@ -162,7 +162,7 @@ class RedisClientManager {
         this.isConnected = false;
         log.error('Redis connection error', error, {
           component: 'redis',
-          host: config.host,
+          host: '[REDACTED]',
         });
       });
 

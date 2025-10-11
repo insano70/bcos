@@ -4,7 +4,7 @@
  */
 
 import { validateAccessToken } from '@/lib/auth/token-manager';
-import { rolePermissionCache } from '@/lib/cache/role-permission-cache';
+import { rbacCache } from '@/lib/cache';
 import { log } from '@/lib/logger';
 import type { Permission, Role, UserContext } from '@/lib/types/rbac';
 import { debugLog } from '@/lib/utils/debug';
@@ -53,11 +53,13 @@ async function buildUserContextFromJWT(
     const permissionMap = new Map<string, Permission>();
 
     for (const roleId of roleIds) {
-      const cached = rolePermissionCache.get(roleId);
+      const cached = await rbacCache.getRolePermissions(roleId);
       if (cached) {
-        // Check if cache version matches JWT version
+        // Check if cache version matches JWT version (if versions are tracked)
         const jwtVersion = rolesVersion[roleId] || 1;
-        if (cached.version === jwtVersion) {
+        const cachedVersion = cached.version || 1;
+
+        if (cachedVersion === jwtVersion) {
           // Use cached data
           const role: Role = {
             role_id: roleId,
@@ -81,7 +83,7 @@ async function buildUserContextFromJWT(
         } else {
           // Version mismatch - cache is stale, need fresh data
           debugLog.auth(
-            `Role cache version mismatch for role ${roleId}: cached=${cached.version}, jwt=${jwtVersion}`
+            `Role cache version mismatch for role ${roleId}: cached=${cachedVersion}, jwt=${jwtVersion}`
           );
           return null; // Force fallback to database
         }

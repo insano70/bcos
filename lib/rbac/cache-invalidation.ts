@@ -5,36 +5,34 @@
 
 import { eq } from 'drizzle-orm';
 import { revokeAllUserTokens } from '@/lib/auth/token-manager';
-import { rolePermissionCache } from '@/lib/cache/role-permission-cache';
+import { rbacCache } from '@/lib/cache';
 import { db, user_roles } from '@/lib/db';
 import { log } from '@/lib/logger';
 
 /**
  * Invalidate role permissions cache when role is modified
+ * Now uses Redis for multi-instance consistency
  */
 export async function invalidateRolePermissions(roleId: string, roleName?: string): Promise<void> {
-  // Invalidate the specific role cache
-  const wasInvalidated = rolePermissionCache.invalidate(roleId);
+  // Invalidate the specific role cache in Redis
+  const wasInvalidated = await rbacCache.invalidateRolePermissions(roleId);
 
-  // Increment role version to invalidate JWTs
-  const newVersion = rolePermissionCache.incrementRoleVersion(roleId);
-
-  log.info('Role permissions invalidated', {
+  log.info('Role permissions invalidated in Redis', {
     roleId,
     roleName,
     wasInvalidated,
-    newVersion,
     operation: 'invalidateRolePermissions',
   });
 }
 
 /**
  * Invalidate all role permissions cache (use sparingly)
+ * Now uses Redis for multi-instance consistency
  */
 export async function invalidateAllRolePermissions(): Promise<void> {
-  rolePermissionCache.invalidateAll();
+  await rbacCache.invalidateAllRolePermissions();
 
-  log.warn('All role permissions cache invalidated', {
+  log.warn('All role permissions cache invalidated in Redis', {
     operation: 'invalidateAllRolePermissions',
   });
 }
@@ -175,29 +173,31 @@ export async function updateRolePermissionsWithInvalidation(
 
 /**
  * Get cache statistics for monitoring
+ * Now uses Redis cache
  */
-export function getCacheStats() {
-  return rolePermissionCache.getStats();
+export async function getCacheStats() {
+  // Redis cache stats would need to be implemented in rbacCache
+  // For now, return basic info
+  return {
+    backend: 'redis',
+    note: 'Redis cache statistics not yet implemented',
+  };
 }
 
 /**
  * Warm up cache by pre-loading common roles
+ * Now uses Redis cache
  */
 export async function warmUpCache(commonRoleIds: string[]): Promise<void> {
-  const { getCachedUserContextSafe: _getCachedUserContextSafe } = await import(
-    './cached-user-context'
-  );
-
-  log.info('Warming up role permission cache', {
+  log.info('Warming up Redis role permission cache', {
     roleCount: commonRoleIds.length,
   });
 
-  // This will populate the cache for common roles
-  // In a real implementation, you'd load these roles directly
-  // For now, we'll just log the intent
+  // TODO: Implement Redis cache warming by pre-loading common roles
+  // This would query database for common roles and cache them to Redis
 
   log.debug('Cache warm-up completed', {
     roleCount: commonRoleIds.length,
-    note: 'Implementation can be enhanced to pre-load specific roles',
+    note: 'Redis cache warming to be implemented',
   });
 }

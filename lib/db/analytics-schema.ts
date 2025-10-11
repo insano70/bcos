@@ -10,6 +10,7 @@ import {
   varchar,
 } from 'drizzle-orm/pg-core';
 import { users } from './schema';
+import { chart_data_sources } from './chart-config-schema';
 
 /**
  * Analytics Configuration Schema
@@ -46,6 +47,10 @@ export const chart_definitions = pgTable(
     data_source: jsonb('data_source').notNull(), // DataSourceConfig as JSON
     chart_config: jsonb('chart_config').notNull(), // ChartConfig as JSON
     access_control: jsonb('access_control'), // ChartAccessControl as JSON
+    data_source_id: integer('data_source_id').references(
+      () => chart_data_sources.data_source_id,
+      { onDelete: 'set null' }
+    ), // Denormalized from chart_config for performance
     chart_category_id: integer('chart_category_id').references(
       () => chart_categories.chart_category_id
     ),
@@ -60,6 +65,7 @@ export const chart_definitions = pgTable(
     chartNameIdx: index('idx_chart_definitions_name').on(table.chart_name),
     chartTypeIdx: index('idx_chart_definitions_type').on(table.chart_type),
     createdByIdx: index('idx_chart_definitions_created_by').on(table.created_by),
+    dataSourceIdx: index('idx_chart_definitions_data_source').on(table.data_source_id),
     categoryIdx: index('idx_chart_definitions_category').on(table.chart_category_id),
     activeIdx: index('idx_chart_definitions_active').on(table.is_active),
     createdAtIdx: index('idx_chart_definitions_created_at').on(table.created_at),

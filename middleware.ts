@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { addSecurityHeaders, getEnhancedContentSecurityPolicy, addRateLimitHeaders, generateCSPNonces, type CSPNonces } from '@/lib/security/headers'
+import { addSecurityHeaders, getEnhancedContentSecurityPolicy, generateCSPNonces, type CSPNonces } from '@/lib/security/headers'
 import { requiresCSRFProtection, verifyCSRFToken } from '@/lib/security/csrf-unified'
 import { getJWTConfig } from '@/lib/env'
 import { isPublicApiRoute } from '@/lib/api/middleware/global-auth'
 import { debugLog } from '@/lib/utils/debug'
 import { sanitizeRequestBody } from '@/lib/api/middleware/request-sanitization'
-import { applyRateLimit } from '@/lib/api/middleware/rate-limit'
 import { eq } from 'drizzle-orm'
 import type { JWTPayload } from 'jose'
 
@@ -198,41 +197,9 @@ export async function middleware(request: NextRequest) {
   response.headers.set('X-Nonce-Timestamp', cspNonces.timestamp.toString())
   response.headers.set('X-Nonce-Environment', cspNonces.environment)
 
-  // GLOBAL RATE LIMITING: Apply before any other processing to prevent abuse
-  // Skip rate limiting for static files and internal Next.js routes
-  if (!pathname.startsWith('/_next/') && 
-      !pathname.startsWith('/favicon.ico') && 
-      !pathname.startsWith('/static/') && 
-      !pathname.includes('.')) {
-    try {
-      const rateLimitResult = await applyRateLimit(request, 'api')
-      
-      // Add rate limit headers to response
-      response = addRateLimitHeaders(response, rateLimitResult)
-      
-      debugLog.middleware(`Global rate limit check: ${rateLimitResult.remaining} remaining`)
-    } catch (rateLimitError) {
-      debugLog.middleware(`Global rate limit exceeded for ${pathname}`)
-      
-      const errorResponse = new NextResponse(
-        JSON.stringify({ 
-          error: 'Rate limit exceeded',
-          message: 'Too many requests. Please try again later.',
-          retryAfter: Math.ceil(Date.now() / 1000) + 60 // 1 minute
-        }), 
-        {
-          status: 429,
-          headers: {
-            ...response.headers,
-            'Content-Type': 'application/json',
-            'Retry-After': '60'
-          }
-        }
-      )
-      
-      return addSecurityHeaders(errorResponse)
-    }
-  }
+  // NOTE: Global rate limiting removed from middleware due to Edge Runtime limitations
+  // Rate limiting is now enforced at the API route level using Redis (see lib/api/middleware/rate-limit.ts)
+  // This provides better security as it uses Redis for multi-instance consistency
 
   // CSRF Protection for state-changing operations
   // Applied before any other processing to fail fast

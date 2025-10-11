@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { workItemCommentUpdateSchema, workItemCommentParamsSchema } from '@/lib/validations/work-items';
@@ -8,7 +8,7 @@ import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { createRBACWorkItemCommentsService } from '@/lib/services/rbac-work-item-comments-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
+import { log, logTemplates, calculateChanges } from '@/lib/logger';
 
 /**
  * PUT /api/work-items/[id]/comments/[commentId]
@@ -22,33 +22,44 @@ const updateWorkItemCommentHandler = async (
   const startTime = Date.now();
 
   try {
-    const validationStart = Date.now();
     const validatedParams = await extractRouteParams(args[0], workItemCommentParamsSchema);
     const validatedData = await validateRequest(request, workItemCommentUpdateSchema);
-    log.info('Request validation completed', { duration: Date.now() - validationStart });
 
-    log.info('Update work item comment request initiated', {
-      requestingUserId: userContext.user_id,
-      commentId: validatedParams.commentId,
-    });
-
-    // Create RBAC service
-    const serviceStart = Date.now();
     const commentsService = createRBACWorkItemCommentsService(userContext);
-    log.info('RBAC service created', { duration: Date.now() - serviceStart });
+    const before = await commentsService.getComments({
+      work_item_id: validatedParams.id,
+      limit: 1000,
+      offset: 0,
+    });
+    const beforeComment = before.find((c) => c.work_item_comment_id === validatedParams.commentId);
 
-    // Update comment with automatic permission checking
-    const updateStart = Date.now();
+    if (!beforeComment) {
+      throw NotFoundError('Work item comment');
+    }
+
     const updatedComment = await commentsService.updateComment(validatedParams.commentId, {
       comment_text: validatedData.comment_text,
     });
-    log.db('UPDATE', 'work_item_comments', Date.now() - updateStart, { rowCount: 1 });
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Work item comment updated successfully', {
-      commentId: validatedParams.commentId,
-      totalDuration,
+    const duration = Date.now() - startTime;
+    const changes = calculateChanges(
+      { comment_text: beforeComment.comment_text },
+      { comment_text: updatedComment.comment_text }
+    );
+
+    const template = logTemplates.crud.update('work_item_comment', {
+      resourceId: String(updatedComment.work_item_comment_id),
+      userId: userContext.user_id,
+      changes,
+      duration,
+      metadata: {
+        workItemId: updatedComment.work_item_id,
+        isReply: !!updatedComment.parent_comment_id,
+        commentLength: updatedComment.comment_text.length,
+      },
     });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse(
       {
@@ -64,16 +75,15 @@ const updateWorkItemCommentHandler = async (
       'Comment updated successfully'
     );
   } catch (error) {
-    const totalDuration = Date.now() - startTime;
-
-    log.error('Update work item comment failed', error, {
-      requestingUserId: userContext.user_id,
-      totalDuration,
+    log.error('work item comment update failed', error, {
+      operation: 'update_work_item_comment',
+      userId: userContext.user_id,
+      component: 'work-items',
     });
 
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
-      500,
+      error instanceof NotFoundError ? 404 : 500,
       request
     );
   }
@@ -91,43 +101,48 @@ const deleteWorkItemCommentHandler = async (
   const startTime = Date.now();
 
   try {
-    const validationStart = Date.now();
     const validatedParams = await extractRouteParams(args[0], workItemCommentParamsSchema);
-    log.info('Request validation completed', { duration: Date.now() - validationStart });
 
-    log.info('Delete work item comment request initiated', {
-      requestingUserId: userContext.user_id,
-      commentId: validatedParams.commentId,
-    });
-
-    // Create RBAC service
-    const serviceStart = Date.now();
     const commentsService = createRBACWorkItemCommentsService(userContext);
-    log.info('RBAC service created', { duration: Date.now() - serviceStart });
-
-    // Delete comment with automatic permission checking
-    const deleteStart = Date.now();
-    await commentsService.deleteComment(validatedParams.commentId);
-    log.db('UPDATE', 'work_item_comments', Date.now() - deleteStart, { rowCount: 1 });
-
-    const totalDuration = Date.now() - startTime;
-    log.info('Work item comment deleted successfully', {
-      commentId: validatedParams.commentId,
-      totalDuration,
+    const comments = await commentsService.getComments({
+      work_item_id: validatedParams.id,
+      limit: 1000,
+      offset: 0,
     });
+    const comment = comments.find((c) => c.work_item_comment_id === validatedParams.commentId);
+
+    if (!comment) {
+      throw NotFoundError('Work item comment');
+    }
+
+    await commentsService.deleteComment(validatedParams.commentId);
+
+    const duration = Date.now() - startTime;
+    const template = logTemplates.crud.delete('work_item_comment', {
+      resourceId: String(comment.work_item_comment_id),
+      userId: userContext.user_id,
+      soft: true,
+      duration,
+      metadata: {
+        workItemId: comment.work_item_id,
+        wasReply: !!comment.parent_comment_id,
+        commentLength: comment.comment_text.length,
+      },
+    });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse(null, 'Comment deleted successfully');
   } catch (error) {
-    const totalDuration = Date.now() - startTime;
-
-    log.error('Delete work item comment failed', error, {
-      requestingUserId: userContext.user_id,
-      totalDuration,
+    log.error('work item comment deletion failed', error, {
+      operation: 'delete_work_item_comment',
+      userId: userContext.user_id,
+      component: 'work-items',
     });
 
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
-      500,
+      error instanceof NotFoundError ? 404 : 500,
       request
     );
   }

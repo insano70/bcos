@@ -46,9 +46,14 @@ export class AnalyticsQueryBuilder {
 
   /**
    * Validate table name against database configuration
+   * If dataSourceConfig is provided, skip the lookup for efficiency
    */
-  private async validateTable(tableName: string, schemaName: string = 'ih'): Promise<void> {
-    const config = await chartConfigService.getDataSourceConfig(tableName, schemaName);
+  private async validateTable(
+    tableName: string,
+    schemaName: string = 'ih',
+    dataSourceConfig?: import('@/lib/services/chart-config-service').DataSourceConfig | null
+  ): Promise<void> {
+    const config = dataSourceConfig || await chartConfigService.getDataSourceConfig(tableName, schemaName);
     if (!config || !config.isActive) {
       throw new Error(`Unauthorized table access: ${schemaName}.${tableName}`);
     }
@@ -60,9 +65,14 @@ export class AnalyticsQueryBuilder {
   private async validateField(
     fieldName: string,
     tableName: string,
-    schemaName: string = 'ih'
+    schemaName: string = 'ih',
+    dataSourceConfig?: import('@/lib/services/chart-config-service').DataSourceConfig | null
   ): Promise<void> {
-    const allowedFields = await chartConfigService.getAllowedFields(tableName, schemaName);
+    // Use provided config to avoid redundant lookup
+    const allowedFields = dataSourceConfig
+      ? dataSourceConfig.columns.map((col) => col.columnName)
+      : await chartConfigService.getAllowedFields(tableName, schemaName);
+
     if (!allowedFields.includes(fieldName)) {
       throw new Error(`Unauthorized field access: ${fieldName}`);
     }
@@ -170,7 +180,8 @@ export class AnalyticsQueryBuilder {
     filters: ChartFilter[],
     context: ChartRenderContext,
     tableName: string = 'agg_app_measures',
-    schemaName: string = 'ih'
+    schemaName: string = 'ih',
+    dataSourceConfig?: import('@/lib/services/chart-config-service').DataSourceConfig | null
   ): Promise<{ clause: string; params: unknown[] }> {
     const conditions: string[] = [];
     const params: unknown[] = [];
@@ -191,7 +202,7 @@ export class AnalyticsQueryBuilder {
 
     // Add user-specified filters
     for (const filter of filters) {
-      await this.validateField(filter.field, tableName, schemaName);
+      await this.validateField(filter.field, tableName, schemaName, dataSourceConfig);
       this.validateOperator(filter.operator);
 
       const sanitizedValue = this.sanitizeValue(filter.value, filter.operator);
@@ -224,15 +235,20 @@ export class AnalyticsQueryBuilder {
 
   /**
    * Get dynamic column mappings from data source metadata
+   * If dataSourceConfig is provided, skip the lookup for efficiency
    */
-  private async getColumnMappings(tableName: string, schemaName: string): Promise<{
+  private async getColumnMappings(
+    tableName: string,
+    schemaName: string,
+    dataSourceConfig?: import('@/lib/services/chart-config-service').DataSourceConfig | null
+  ): Promise<{
     dateField: string;
     timePeriodField: string;
     measureValueField: string;
     measureTypeField: string;
     allColumns: string[];
   }> {
-    const config = await chartConfigService.getDataSourceConfig(tableName, schemaName);
+    const config = dataSourceConfig || await chartConfigService.getDataSourceConfig(tableName, schemaName);
 
     if (!config) {
       throw new Error(`Data source configuration not found for ${schemaName}.${tableName}`);
@@ -303,28 +319,20 @@ export class AnalyticsQueryBuilder {
       let schemaName = 'ih';
 
       if (params.data_source_id) {
-        // Load data source directly from database using chart config service
-        const { db, chart_data_sources } = await import('@/lib/db');
-        const { eq } = await import('drizzle-orm');
+        // Use data_source_id directly to get config from cache
+        _dataSourceConfig = await chartConfigService.getDataSourceConfigById(params.data_source_id);
 
-        const [dataSource] = await db
-          .select()
-          .from(chart_data_sources)
-          .where(eq(chart_data_sources.data_source_id, params.data_source_id))
-          .limit(1);
-
-        if (dataSource) {
-          tableName = dataSource.table_name;
-          schemaName = dataSource.schema_name;
-          _dataSourceConfig = await chartConfigService.getDataSourceConfig(tableName, schemaName);
+        if (_dataSourceConfig) {
+          tableName = _dataSourceConfig.tableName;
+          schemaName = _dataSourceConfig.schemaName;
         }
       }
 
-      // Validate table access
-      await this.validateTable(tableName, schemaName);
+      // Validate table access - pass config to avoid redundant lookup
+      await this.validateTable(tableName, schemaName, _dataSourceConfig);
 
-      // Get dynamic column mappings from metadata
-      const columnMappings = await this.getColumnMappings(tableName, schemaName);
+      // Get dynamic column mappings from metadata - pass config to avoid redundant lookup
+      const columnMappings = await this.getColumnMappings(tableName, schemaName, _dataSourceConfig);
 
       // Build filters from params - use dynamic column mappings
       const filters: ChartFilter[] = [];
@@ -367,12 +375,13 @@ export class AnalyticsQueryBuilder {
         filters.push(...advancedFilters);
       }
 
-      // Build WHERE clause with security context
+      // Build WHERE clause with security context - pass config to avoid redundant lookups
       const { clause: whereClause, params: queryParams } = await this.buildWhereClause(
         filters,
         context,
         tableName,
-        schemaName
+        schemaName,
+        _dataSourceConfig
       );
 
       // Build dynamic SELECT column list using metadata
@@ -476,28 +485,20 @@ export class AnalyticsQueryBuilder {
     let schemaName = 'ih';
 
     if (params.data_source_id) {
-      // Load data source directly from database using chart config service
-      const { db, chart_data_sources } = await import('@/lib/db');
-      const { eq } = await import('drizzle-orm');
+      // Use data_source_id directly to get config from cache
+      _dataSourceConfig = await chartConfigService.getDataSourceConfigById(params.data_source_id);
 
-      const [dataSource] = await db
-        .select()
-        .from(chart_data_sources)
-        .where(eq(chart_data_sources.data_source_id, params.data_source_id))
-        .limit(1);
-
-      if (dataSource) {
-        tableName = dataSource.table_name;
-        schemaName = dataSource.schema_name;
-        _dataSourceConfig = await chartConfigService.getDataSourceConfig(tableName, schemaName);
+      if (_dataSourceConfig) {
+        tableName = _dataSourceConfig.tableName;
+        schemaName = _dataSourceConfig.schemaName;
       }
     }
 
-    // Validate table access
-    await this.validateTable(tableName, schemaName);
+    // Validate table access - pass config to avoid redundant lookup
+    await this.validateTable(tableName, schemaName, _dataSourceConfig);
 
-    // Get dynamic column mappings from metadata
-    const columnMappings = await this.getColumnMappings(tableName, schemaName);
+    // Get dynamic column mappings from metadata - pass config to avoid redundant lookup
+    const columnMappings = await this.getColumnMappings(tableName, schemaName, _dataSourceConfig);
 
     // Build filters from params - use dynamic column mappings
     const filters: ChartFilter[] = [];
@@ -540,12 +541,13 @@ export class AnalyticsQueryBuilder {
       filters.push(...advancedFilters);
     }
 
-    // Build WHERE clause with security context
+    // Build WHERE clause with security context - pass config to avoid redundant lookups
     const { clause: whereClause, params: queryParams } = await this.buildWhereClause(
       filters,
       context,
       tableName,
-      schemaName
+      schemaName,
+      _dataSourceConfig
     );
 
     // Build dynamic SELECT column list using metadata
@@ -636,29 +638,23 @@ export class AnalyticsQueryBuilder {
     // Get data source configuration if data_source_id is provided
     let tableName = 'agg_app_measures'; // Default fallback for backwards compatibility
     let schemaName = 'ih';
+    let _dataSourceConfig: import('@/lib/services/chart-config-service').DataSourceConfig | null = null;
 
     if (params.data_source_id) {
-      // Load data source directly from database using chart config service
-      const { db, chart_data_sources } = await import('@/lib/db');
-      const { eq } = await import('drizzle-orm');
+      // Use data_source_id directly to get config from cache
+      _dataSourceConfig = await chartConfigService.getDataSourceConfigById(params.data_source_id);
 
-      const [dataSource] = await db
-        .select()
-        .from(chart_data_sources)
-        .where(eq(chart_data_sources.data_source_id, params.data_source_id))
-        .limit(1);
-
-      if (dataSource) {
-        tableName = dataSource.table_name;
-        schemaName = dataSource.schema_name;
+      if (_dataSourceConfig) {
+        tableName = _dataSourceConfig.tableName;
+        schemaName = _dataSourceConfig.schemaName;
       }
     }
 
-    // Validate table access
-    await this.validateTable(tableName, schemaName);
+    // Validate table access - pass config to avoid redundant lookup
+    await this.validateTable(tableName, schemaName, _dataSourceConfig);
 
-    // Get dynamic column mappings from metadata
-    const columnMappings = await this.getColumnMappings(tableName, schemaName);
+    // Get dynamic column mappings from metadata - pass config to avoid redundant lookup
+    const columnMappings = await this.getColumnMappings(tableName, schemaName, _dataSourceConfig);
 
     // Build filters from params (excluding measure - we'll handle that separately)
     const filters: ChartFilter[] = [];
@@ -701,12 +697,13 @@ export class AnalyticsQueryBuilder {
       filters.push(...advancedFilters);
     }
 
-    // Build WHERE clause with security context
+    // Build WHERE clause with security context - pass config to avoid redundant lookups
     const { clause: whereClause, params: queryParams } = await this.buildWhereClause(
       filters,
       context,
       tableName,
-      schemaName
+      schemaName,
+      _dataSourceConfig
     );
 
     // Build dynamic SELECT column list using metadata

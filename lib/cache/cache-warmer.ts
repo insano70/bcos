@@ -1,21 +1,22 @@
 /**
  * Cache Warming Service
- * Pre-loads common roles and permissions on application startup
+ * Pre-loads common roles and permissions to Redis on application startup
  */
 
 import { and, eq } from 'drizzle-orm';
+import { rbacCache } from '@/lib/cache';
 import { db } from '@/lib/db';
 import { permissions, role_permissions, roles } from '@/lib/db/schema';
 import { log } from '@/lib/logger';
 import type { Permission } from '@/lib/types/rbac';
-import { rolePermissionCache } from './role-permission-cache';
 
 /**
- * Warm up the role permission cache with all active roles
+ * Warm up the role permission cache in Redis with all active roles
+ * Multi-instance safe - all instances will benefit from warmed cache
  */
 export async function warmUpRolePermissionCache(): Promise<void> {
   try {
-    log.info('Starting role permission cache warm-up...');
+    log.info('Starting Redis role permission cache warm-up...');
 
     // Get all active roles with their permissions
     const rolePermissionsData = await db
@@ -64,22 +65,23 @@ export async function warmUpRolePermissionCache(): Promise<void> {
       }
     }
 
-    // Populate cache
+    // Populate Redis cache
     let cachedRoles = 0;
     const entries = Array.from(rolePermissionsMap.entries());
     for (const [roleId, roleData] of entries) {
-      rolePermissionCache.set(roleId, roleData.name, roleData.permissions);
+      // Cache to Redis (await to ensure it completes during warmup)
+      await rbacCache.setRolePermissions(roleId, roleData.name, roleData.permissions);
       cachedRoles++;
     }
 
-    log.info('Role permission cache warm-up completed', {
+    log.info('Redis role permission cache warm-up completed', {
       cachedRoles,
       totalPermissions: rolePermissionsData.length,
-      cacheSize: rolePermissionCache.getStats().size,
+      backend: 'redis',
     });
   } catch (error) {
     log.error(
-      'Failed to warm up role permission cache',
+      'Failed to warm up Redis role permission cache',
       error instanceof Error ? error : new Error(String(error)),
       {}
     );

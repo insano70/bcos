@@ -21,10 +21,13 @@ import type { RegistrationBeginResponse } from '@/lib/types/webauthn';
 export const dynamic = 'force-dynamic';
 
 const handler = async (request: NextRequest) => {
+  const startTime = Date.now();
+
   try {
     let userId: string;
     let userEmail: string;
     let userName: string;
+    let authMethod: 'session' | 'temp_token';
 
     // Try full authentication first (for users adding additional passkeys)
     try {
@@ -32,14 +35,12 @@ const handler = async (request: NextRequest) => {
       userId = session.user.id;
       userEmail = session.user.email || '';
       userName = session.user.name;
-
-      log.debug('MFA registration begin - using full session', { userId });
+      authMethod = 'session';
     } catch {
       // Fall back to temp token (for first-time MFA setup during login)
       const tempPayload = await requireMFATempToken(request);
       userId = tempPayload.sub;
 
-      // Fetch user details from database
       const [user] = await db.select().from(users).where(eq(users.user_id, userId)).limit(1);
 
       if (!user) {
@@ -48,28 +49,30 @@ const handler = async (request: NextRequest) => {
 
       userEmail = user.email;
       userName = `${user.first_name} ${user.last_name}`;
-
-      log.debug('MFA registration begin - using temp token', { userId });
+      authMethod = 'temp_token';
     }
 
-    // Extract IP and user agent
     const { extractRequestMetadata } = await import('@/lib/api/utils/request');
     const metadata = extractRequestMetadata(request);
-    const ipAddress = metadata.ipAddress;
-    const userAgent = metadata.userAgent;
 
-    // Generate registration options
     const { options, challenge_id } = await beginRegistration(
       userId,
       userEmail,
       userName,
-      ipAddress,
-      userAgent
+      metadata.ipAddress,
+      metadata.userAgent
     );
 
-    log.info('Passkey registration begin', {
+    const duration = Date.now() - startTime;
+    log.info('mfa registration challenge generated', {
+      operation: 'mfa_register_begin',
       userId,
+      authMethod,
       challengeId: challenge_id.substring(0, 8),
+      duration,
+      ipAddress: metadata.ipAddress,
+      userAgent: metadata.userAgent,
+      component: 'auth',
     });
 
     const response: RegistrationBeginResponse = {
@@ -79,8 +82,10 @@ const handler = async (request: NextRequest) => {
 
     return createSuccessResponse(response, 'Passkey registration challenge generated');
   } catch (error) {
-    log.error('Passkey registration begin failed', {
-      error: error instanceof Error ? error.message : String(error),
+    log.error('mfa registration begin failed', error, {
+      operation: 'mfa_register_begin',
+      duration: Date.now() - startTime,
+      component: 'auth',
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);

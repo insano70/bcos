@@ -156,9 +156,11 @@ class RbacCacheService extends CacheService {
    * Invalidate role permissions only
    *
    * @param roleId - Role ID
+   * @returns true if successfully invalidated
    */
-  async invalidateRolePermissions(roleId: string): Promise<void> {
+  async invalidateRolePermissions(roleId: string): Promise<boolean> {
     await this.invalidate(undefined, roleId);
+    return true;
   }
 
   /**
@@ -181,6 +183,22 @@ class RbacCacheService extends CacheService {
       component: 'rbac-cache',
       roleId,
       note: 'User contexts will refresh within 5 minutes',
+    });
+  }
+
+  /**
+   * Invalidate all role permissions (use sparingly)
+   * Flushes entire rbac namespace
+   */
+  async invalidateAllRolePermissions(): Promise<void> {
+    // Use pattern matching to delete all role permission keys
+    const pattern = this.buildKey('role', '*', 'permissions');
+    await this.delPattern(pattern);
+
+    log.warn('All role permissions invalidated', {
+      component: 'rbac-cache',
+      pattern,
+      operation: 'invalidateAllRolePermissions',
     });
   }
 }

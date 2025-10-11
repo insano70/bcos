@@ -29,6 +29,8 @@
 export { authCache } from './auth-cache';
 export { rbacCache } from './rbac-cache';
 export { analyticsCache } from './analytics-cache';
+export { rateLimitCache } from './rate-limit-cache';
+export { chartConfigCache } from './chart-config-cache';
 
 // Base class (for extending with custom cache services)
 export { CacheService } from './base';
@@ -48,3 +50,10 @@ export type {
   Dashboard,
   ChartDefinition,
 } from './analytics-cache';
+export type { RateLimitResult } from './rate-limit-cache';
+export type {
+  CachedDataSourceConfig,
+  CachedColumnConfig,
+  CachedDisplayConfig,
+  CachedColorPalette,
+} from './chart-config-cache';

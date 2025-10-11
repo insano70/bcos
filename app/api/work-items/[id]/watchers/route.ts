@@ -3,7 +3,7 @@ import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { createRBACWorkItemWatchersService } from '@/lib/services/rbac-work-item-watchers-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
+import { log, sanitizeFilters } from '@/lib/logger';
 
 /**
  * GET /api/work-items/[id]/watchers
@@ -19,32 +19,39 @@ const getWatchersHandler = async (
   const { id: workItemId } = await params;
   const startTime = Date.now();
 
-  log.info('Work item watchers list request initiated', {
-    workItemId,
-    userId: userContext.user_id,
-  });
-
   try {
-    // Get watchers
     const watchersService = createRBACWorkItemWatchersService(userContext);
     const watchers = await watchersService.getWatchersForWorkItem(workItemId);
 
     const duration = Date.now() - startTime;
+    const filters = sanitizeFilters({ work_item_id: workItemId });
 
-    log.info('Work item watchers retrieved successfully', {
-      workItemId,
-      count: watchers.length,
+    const watchTypeCounts = watchers.reduce((acc, w) => {
+      const type = w.watch_type || 'unknown';
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    log.info(`work item watchers list completed - returned ${watchers.length} watchers`, {
+      operation: 'list_work_item_watchers',
+      resourceType: 'work_item_watchers',
+      userId: userContext.user_id,
+      filters,
+      results: {
+        returned: watchers.length,
+        byWatchType: watchTypeCounts,
+      },
       duration,
+      slow: duration > 1000,
+      component: 'work-items',
     });
 
     return NextResponse.json(watchers);
   } catch (error) {
-    const duration = Date.now() - startTime;
-
-    log.error('Failed to retrieve work item watchers', error, {
-      workItemId,
+    log.error('work item watchers list failed', error, {
+      operation: 'list_work_item_watchers',
       userId: userContext.user_id,
-      duration,
+      component: 'work-items',
     });
 
     if (error instanceof Error) {

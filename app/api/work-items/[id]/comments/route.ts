@@ -12,7 +12,7 @@ import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { createRBACWorkItemCommentsService } from '@/lib/services/rbac-work-item-comments-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
+import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
 
 /**
  * GET /api/work-items/[id]/comments
@@ -27,35 +27,39 @@ const getWorkItemCommentsHandler = async (
 
   try {
     const { searchParams } = new URL(request.url);
-    const validationStart = Date.now();
     const validatedParams = await extractRouteParams(args[0], workItemParamsSchema);
     const query = validateQuery(searchParams, workItemCommentQuerySchema);
-    log.info('Request validation completed', { duration: Date.now() - validationStart });
 
-    log.info('Get work item comments request initiated', {
-      requestingUserId: userContext.user_id,
-      workItemId: validatedParams.id,
-    });
-
-    // Create RBAC service
-    const serviceStart = Date.now();
     const commentsService = createRBACWorkItemCommentsService(userContext);
-    log.info('RBAC service created', { duration: Date.now() - serviceStart });
-
-    // Get comments with automatic permission checking
-    const commentsStart = Date.now();
     const comments = await commentsService.getComments({
       work_item_id: validatedParams.id,
       limit: query.limit,
       offset: query.offset,
     });
-    log.db('SELECT', 'work_item_comments', Date.now() - commentsStart, { rowCount: comments.length });
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Work item comments retrieved successfully', {
-      workItemId: validatedParams.id,
-      commentCount: comments.length,
-      totalDuration,
+    const duration = Date.now() - startTime;
+    const filters = sanitizeFilters({
+      work_item_id: validatedParams.id,
+      limit: query.limit,
+      offset: query.offset,
+    });
+
+    const parentComments = comments.filter((c) => !c.parent_comment_id).length;
+    const replyComments = comments.length - parentComments;
+
+    log.info(`work item comments list completed - returned ${comments.length} comments`, {
+      operation: 'list_work_item_comments',
+      resourceType: 'work_item_comments',
+      userId: userContext.user_id,
+      filters,
+      results: {
+        returned: comments.length,
+        parents: parentComments,
+        replies: replyComments,
+      },
+      duration,
+      slow: duration > 1000,
+      component: 'work-items',
     });
 
     return createSuccessResponse(
@@ -71,11 +75,10 @@ const getWorkItemCommentsHandler = async (
       }))
     );
   } catch (error) {
-    const totalDuration = Date.now() - startTime;
-
-    log.error('Get work item comments failed', error, {
-      requestingUserId: userContext.user_id,
-      totalDuration,
+    log.error('work item comments list failed', error, {
+      operation: 'list_work_item_comments',
+      userId: userContext.user_id,
+      component: 'work-items',
     });
 
     return createErrorResponse(
@@ -98,37 +101,22 @@ const createWorkItemCommentHandler = async (
   const startTime = Date.now();
 
   try {
-    const validationStart = Date.now();
     const validatedParams = await extractRouteParams(args[0], workItemParamsSchema);
     const validatedData = await validateRequest(request, workItemCommentCreateSchema);
-    log.info('Request validation completed', { duration: Date.now() - validationStart });
 
-    log.info('Create work item comment request initiated', {
-      requestingUserId: userContext.user_id,
-      workItemId: validatedParams.id,
-    });
-
-    // Create RBAC service
-    const serviceStart = Date.now();
     const commentsService = createRBACWorkItemCommentsService(userContext);
-    log.info('RBAC service created', { duration: Date.now() - serviceStart });
-
-    // Create comment with automatic permission checking
-    const commentCreationStart = Date.now();
     const newComment = await commentsService.createComment({
       work_item_id: validatedParams.id,
       parent_comment_id: validatedData.parent_comment_id,
       comment_text: validatedData.comment_text,
     });
-    log.db('INSERT', 'work_item_comments', Date.now() - commentCreationStart, { rowCount: 1 });
 
-    // Phase 7: Add commenter as watcher (auto-watcher logic)
-    const watcherStart = Date.now();
+    // Add commenter as watcher (auto-watcher logic)
+    let watcherAdded = false;
     const { createRBACWorkItemWatchersService } = await import('@/lib/services/rbac-work-item-watchers-service');
     const watchersService = createRBACWorkItemWatchersService(userContext);
 
     try {
-      // Check if commenter is already a watcher
       const existingWatchers = await watchersService.getWatchersForWorkItem(validatedParams.id);
       const isAlreadyWatcher = existingWatchers.some(
         (w) => w.user_id === userContext.user_id
@@ -144,26 +132,30 @@ const createWorkItemCommentHandler = async (
           notify_assignments: true,
           notify_due_date: true,
         });
-        log.info('Commenter added as watcher', {
-          workItemId: validatedParams.id,
-          userId: userContext.user_id,
-          duration: Date.now() - watcherStart,
-        });
+        watcherAdded = true;
       }
     } catch (error) {
-      log.error('Failed to add commenter as watcher', error, {
+      log.error('failed to add commenter as watcher', error, {
         workItemId: validatedParams.id,
         userId: userContext.user_id,
       });
-      // Don't fail comment creation if watcher addition fails
     }
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Work item comment created successfully', {
-      commentId: newComment.work_item_comment_id,
-      workItemId: validatedParams.id,
-      totalDuration,
+    const duration = Date.now() - startTime;
+    const template = logTemplates.crud.create('work_item_comment', {
+      resourceId: String(newComment.work_item_comment_id),
+      userId: userContext.user_id,
+      duration,
+      metadata: {
+        workItemId: newComment.work_item_id,
+        isReply: !!newComment.parent_comment_id,
+        parentCommentId: newComment.parent_comment_id,
+        commentLength: newComment.comment_text.length,
+        watcherAdded,
+      },
     });
+
+    log.info(template.message, template.context);
 
     return createSuccessResponse(
       {
@@ -179,11 +171,10 @@ const createWorkItemCommentHandler = async (
       'Comment created successfully'
     );
   } catch (error) {
-    const totalDuration = Date.now() - startTime;
-
-    log.error('Create work item comment failed', error, {
-      requestingUserId: userContext.user_id,
-      totalDuration,
+    log.error('work item comment creation failed', error, {
+      operation: 'create_work_item_comment',
+      userId: userContext.user_id,
+      component: 'work-items',
     });
 
     return createErrorResponse(
