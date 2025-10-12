@@ -16,7 +16,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '@/lib/api/client';
-import type { ChartData } from '@/lib/types/analytics';
+import type { ChartData, ChartFilter } from '@/lib/types/analytics';
 
 /**
  * Formatted cell structure for table charts (Phase 3.2)
@@ -76,6 +76,8 @@ interface UniversalChartDataRequest {
     providerName?: string;
     measure?: string;
     frequency?: string;
+    advancedFilters?: ChartFilter[];
+    calculatedField?: string;
   };
 }
 

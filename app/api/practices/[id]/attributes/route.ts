@@ -5,7 +5,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
-import { log } from '@/lib/logger';
+import { log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACPracticeAttributesService } from '@/lib/services/rbac-practice-attributes-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { practiceAttributesUpdateSchema, practiceParamsSchema } from '@/lib/validations/practice';
@@ -15,7 +15,9 @@ const getPracticeAttributesHandler = async (
   userContext: UserContext,
   ...args: unknown[]
 ) => {
+  const startTime = Date.now();
   let practiceId: string | undefined;
+
   try {
     const params = await extractRouteParams(args[0], practiceParamsSchema);
     practiceId = params.id;
@@ -24,18 +26,33 @@ const getPracticeAttributesHandler = async (
     const attributesService = createRBACPracticeAttributesService(userContext);
     const attributes = await attributesService.getPracticeAttributes(practiceId);
 
+    const duration = Date.now() - startTime;
+
+    log.info('Practice attributes retrieved', {
+      operation: 'read_practice_attributes',
+      userId: userContext.user_id,
+      practiceId,
+      duration,
+      slow: duration > SLOW_THRESHOLDS.API_OPERATION,
+      component: 'api',
+    });
+
     return createSuccessResponse(attributes);
   } catch (error) {
+    const duration = Date.now() - startTime;
+
+    log.error('Practice attributes retrieval failed', error, {
+      operation: 'read_practice_attributes',
+      userId: userContext.user_id,
+      practiceId,
+      duration,
+      component: 'api',
+    });
+
     const errorMessage =
       error && typeof error === 'object' && 'message' in error
         ? String(error.message)
         : 'Unknown error';
-
-    log.error('Error fetching practice attributes', error, {
-      practiceId,
-      operation: 'fetchPracticeAttributes',
-    });
-
     const clientErrorMessage =
       process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
     return createErrorResponse(clientErrorMessage, 500, request);
@@ -47,7 +64,9 @@ const updatePracticeAttributesHandler = async (
   userContext: UserContext,
   ...args: unknown[]
 ) => {
+  const startTime = Date.now();
   let practiceId: string | undefined;
+
   try {
     const params = await extractRouteParams(args[0], practiceParamsSchema);
     practiceId = params.id;
@@ -60,18 +79,31 @@ const updatePracticeAttributesHandler = async (
       validatedData
     );
 
+    const duration = Date.now() - startTime;
+
+    const template = logTemplates.crud.update('practice_attributes', {
+      resourceId: practiceId,
+      userId: userContext.user_id,
+      duration,
+    });
+    log.info(template.message, template.context);
+
     return createSuccessResponse(updatedAttributes, 'Practice attributes updated successfully');
   } catch (error) {
+    const duration = Date.now() - startTime;
+
+    log.error('Practice attributes update failed', error, {
+      operation: 'update_practice_attributes',
+      userId: userContext.user_id,
+      practiceId,
+      duration,
+      component: 'api',
+    });
+
     const errorMessage =
       error && typeof error === 'object' && 'message' in error
         ? String(error.message)
         : 'Unknown error';
-
-    log.error('Error updating practice attributes', error, {
-      practiceId,
-      operation: 'updatePracticeAttributes',
-    });
-
     const clientErrorMessage =
       process.env.NODE_ENV === 'development' ? errorMessage : 'Internal server error';
     return createErrorResponse(clientErrorMessage, 500, request);

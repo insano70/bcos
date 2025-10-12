@@ -6,14 +6,16 @@ import { createSuccessResponse } from '@/lib/api/responses/success';
 import { checkDbHealth, db } from '@/lib/db';
 import { checkAnalyticsDbHealth } from '@/lib/services/analytics-db';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
+import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 
 /**
  * Database health check endpoint
  * Tests database connectivity, connection pooling, and performance
  * Protected - only admin users can access detailed health information
  */
-const healthCheckHandler = async (request: NextRequest, _userContext: UserContext) => {
+const healthCheckHandler = async (request: NextRequest, userContext: UserContext) => {
+  const startTime = Date.now();
+
   try {
     // Check main database health with connection pooling info
     const mainDbHealth = await checkDbHealth();
@@ -22,10 +24,10 @@ const healthCheckHandler = async (request: NextRequest, _userContext: UserContex
     const analyticsDbHealth = await checkAnalyticsDbHealth();
 
     // Test basic connectivity and queries
-    const startTime = Date.now();
+    const queryStartTime = Date.now();
     const [result] = await db.execute(sql`SELECT 1 as health_check, NOW() as current_time`);
-    const endTime = Date.now();
-    const responseTime = endTime - startTime;
+    const queryEndTime = Date.now();
+    const responseTime = queryEndTime - queryStartTime;
 
     // Test queries on real tables
     const [userCount] = await db.execute(
@@ -78,13 +80,40 @@ const healthCheckHandler = async (request: NextRequest, _userContext: UserContex
       timestamp: new Date().toISOString(),
     };
 
+    const duration = Date.now() - startTime;
+
     // Log warnings for degraded performance
     if (isSlowResponse) {
-      log.warn(`Database response time is slow: ${responseTime}ms`, { responseTime });
+      log.warn('Database response time is slow', {
+        operation: 'db_health_check',
+        userId: userContext.user_id,
+        responseTime,
+        duration,
+        component: 'health',
+      });
     }
     if (!isAnalyticsDbHealthy && process.env.ANALYTICS_DATABASE_URL) {
-      log.warn('Analytics database is unhealthy', { error: analyticsDbHealth.error });
+      log.warn('Analytics database is unhealthy', {
+        operation: 'db_health_check',
+        userId: userContext.user_id,
+        error: analyticsDbHealth.error,
+        duration,
+        component: 'health',
+      });
     }
+
+    // Log health check completion
+    log.info('Database health check completed', {
+      operation: 'db_health_check',
+      userId: userContext.user_id,
+      status: overallStatus,
+      mainDbHealthy: isMainDbHealthy,
+      analyticsDbHealthy: isAnalyticsDbHealthy,
+      responseTime,
+      duration,
+      slow: duration > SLOW_THRESHOLDS.API_OPERATION,
+      component: 'health',
+    });
 
     if (overallStatus === 'unhealthy') {
       return createErrorResponse('Database health check failed', 503, request);
@@ -92,7 +121,14 @@ const healthCheckHandler = async (request: NextRequest, _userContext: UserContex
 
     return createSuccessResponse(healthData, `Database status: ${overallStatus}`);
   } catch (error) {
-    log.error('Database health check error', error instanceof Error ? error : new Error(String(error)));
+    const duration = Date.now() - startTime;
+
+    log.error('Database health check failed', error, {
+      operation: 'db_health_check',
+      userId: userContext.user_id,
+      duration,
+      component: 'health',
+    });
 
     const _healthData = {
       status: 'unhealthy',

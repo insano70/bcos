@@ -33,7 +33,7 @@ export interface DataSource {
 
 export interface ChartConfig {
   chartName: string;
-  chartType: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'progress-bar' | 'doughnut' | 'table' | 'dual-axis' | 'number';
+  chartType: 'line' | 'area' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'progress-bar' | 'pie' | 'doughnut' | 'table' | 'dual-axis' | 'number';
   measure: string;
   frequency: string;
   startDate: string;
@@ -129,7 +129,9 @@ export default function ChartBuilderCore({
             <option value="horizontal-bar">Horizontal Bar Chart</option>
             <option value="progress-bar">Progress Bar</option>
             <option value="line">Line Chart</option>
+            <option value="area">Area Chart</option>
             <option value="dual-axis">Dual-Axis Combo Chart</option>
+            <option value="pie">Pie Chart</option>
             <option value="doughnut">Doughnut Chart</option>
             <option value="table">Table</option>
           </select>

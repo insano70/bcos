@@ -3,14 +3,16 @@ import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
+import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 
 /**
  * External services health check endpoint
  * Tests connectivity to external dependencies
  * Protected - only admin users can access service health information
  */
-const servicesHealthHandler = async (request: NextRequest, _userContext: UserContext) => {
+const servicesHealthHandler = async (request: NextRequest, userContext: UserContext) => {
+  const startTime = Date.now();
+
   try {
     const services = await Promise.allSettled([
       checkEmailService(),
@@ -39,7 +41,21 @@ const servicesHealthHandler = async (request: NextRequest, _userContext: UserCon
       healthData.status = 'degraded';
     }
 
+    const duration = Date.now() - startTime;
     const statusCode = healthData.status === 'healthy' ? 200 : 503;
+
+    // Log health check completion
+    log.info('Services health check completed', {
+      operation: 'services_health_check',
+      userId: userContext.user_id,
+      status: healthData.status,
+      emailHealthy: healthData.services.email.status === 'healthy',
+      storageHealthy: healthData.services.storage.status === 'healthy',
+      authHealthy: healthData.services.auth.status === 'healthy',
+      duration,
+      slow: duration > SLOW_THRESHOLDS.API_OPERATION,
+      component: 'health',
+    });
 
     if (statusCode === 503) {
       return Response.json(healthData, { status: statusCode });
@@ -47,7 +63,15 @@ const servicesHealthHandler = async (request: NextRequest, _userContext: UserCon
 
     return createSuccessResponse(healthData, 'Services are healthy');
   } catch (error) {
-    log.error('Services health check error', error instanceof Error ? error : new Error(String(error)));
+    const duration = Date.now() - startTime;
+
+    log.error('Services health check failed', error, {
+      operation: 'services_health_check',
+      userId: userContext.user_id,
+      duration,
+      component: 'health',
+    });
+
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 503, request);
   }
 };
