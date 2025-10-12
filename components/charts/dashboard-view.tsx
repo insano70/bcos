@@ -181,7 +181,7 @@ export default function DashboardView({
                 practice={practiceFilter?.value?.toString()}
                 startDate={startDateFilter?.value?.toString()}
                 endDate={endDateFilter?.value?.toString()}
-                groupBy={chartConfig.series?.groupBy || 'provider_name'}
+                groupBy={chartConfig.series?.groupBy || 'none'}
                 title={chartDef.chart_name}
                 calculatedField={(chartConfig as any).calculatedField}
                 advancedFilters={(dataSource as any).advancedFilters || []}
@@ -190,6 +190,8 @@ export default function DashboardView({
                 colorPalette={(chartConfig as any).colorPalette}
                 {...((chartConfig as any).seriesConfigs && (chartConfig as any).seriesConfigs.length > 0 ? { multipleSeries: (chartConfig as any).seriesConfigs } : {})}
                 {...((chartConfig as any).dualAxisConfig ? { dualAxisConfig: (chartConfig as any).dualAxisConfig } : {})}
+                {...((chartConfig as any).target && { target: (chartConfig as any).target })}
+                {...((chartConfig as any).aggregation && { aggregation: (chartConfig as any).aggregation })}
                 className="w-full h-full flex-1"
                 responsive={true}
                 minHeight={200}

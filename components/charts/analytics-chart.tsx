@@ -303,8 +303,8 @@ export default function AnalyticsChart({
             } : {}),
             ...(chartType === 'progress-bar' && target !== undefined && { target }),
             ...(chartType === 'dual-axis' && dualAxisConfig && { dualAxisConfig }),
-            // Only include groupBy for dual-axis charts (number/progress-bar aggregate to single value)
-            ...(chartType === 'dual-axis' && groupBy && groupBy !== 'none' && { groupBy }),
+            // Include groupBy for progress-bar and dual-axis charts (number charts aggregate to single value)
+            ...((chartType === 'progress-bar' || chartType === 'dual-axis') && groupBy && groupBy !== 'none' && { groupBy }),
             ...(title && { title }),
             colorPalette: colorPalette || 'default',
           },
@@ -598,19 +598,22 @@ export default function AnalyticsChart({
           return <AnalyticsHorizontalBarChart ref={chartRef} data={chartData} width={width} height={height} />;
         case 'progress-bar':
           // Phase 3: Progress bar uses server-side calculation
-          // Data comes pre-calculated from MetricChartHandler
+          // Data comes pre-calculated from ProgressBarChartHandler
           const dataset = chartData.datasets[0];
+          const rawValues = (dataset as any)?.rawValues as number[] | undefined;
+          const originalMeasureType = (dataset as any)?.originalMeasureType as string | undefined;
+
           const progressData = chartData.labels.map((label, index) => ({
             label: String(label),
-            // dataset.data already contains percentages from server
-            value: dataset?.rawValue ?? Number(dataset?.data[index] || 0),
+            // dataset.data contains percentages, rawValues contains actual values
+            value: rawValues?.[index] ?? Number(dataset?.data[index] || 0),
             percentage: Number(dataset?.data[index] || 0)
           }));
           return (
             <AnalyticsProgressBarChart
               data={progressData}
               colorPalette={colorPalette}
-              measureType={chartData.measureType}
+              measureType={originalMeasureType || chartData.measureType}
               height={height}
             />
           );

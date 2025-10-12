@@ -15,6 +15,7 @@ import { BarChartHandler } from './bar-chart-handler';
 import { DistributionChartHandler } from './distribution-handler';
 import { TableChartHandler } from './table-handler';
 import { MetricChartHandler } from './metric-handler';
+import { ProgressBarChartHandler } from './progress-bar-handler';
 import { ComboChartHandler } from './combo-handler';
 import { log } from '@/lib/logger';
 
@@ -41,14 +42,12 @@ function registerAllHandlers(): void {
   const tableHandler = new TableChartHandler();
   chartTypeRegistry.register(tableHandler);
 
-  // Register metric handler (handles number and progress-bar)
+  // Register metric handler (handles number charts only)
   const metricHandler = new MetricChartHandler();
   chartTypeRegistry.register(metricHandler);
 
-  // Register progress-bar as an alias for the metric handler
-  // MetricChartHandler.canHandle() checks for both 'number' and 'progress-bar'
-  const progressBarHandler = new MetricChartHandler();
-  progressBarHandler.type = 'progress-bar';
+  // Register progress bar handler (handles grouped progress-bar charts)
+  const progressBarHandler = new ProgressBarChartHandler();
   chartTypeRegistry.register(progressBarHandler);
 
   // Register combo handler (handles dual-axis)
@@ -73,6 +72,7 @@ export {
   DistributionChartHandler,
   TableChartHandler,
   MetricChartHandler,
+  ProgressBarChartHandler,
   ComboChartHandler,
 };
 

@@ -29,7 +29,7 @@ export class MetricChartHandler extends BaseChartHandler {
 
   canHandle(config: Record<string, unknown>): boolean {
     const chartType = config.chartType as string;
-    return chartType === 'number' || chartType === 'progress-bar';
+    return chartType === 'number';
   }
 
   /**
@@ -160,20 +160,41 @@ export class MetricChartHandler extends BaseChartHandler {
         // Progress bar chart: calculate percentage if target is provided
         // Phase 3: Server-side percentage calculation
         const target = config.target as number | undefined;
-        const percentage = target && target > 0 ? (aggregatedValue / target) * 100 : 0;
 
-        chartData = {
-          labels: ['Progress'],
-          datasets: [{
-            label: config.label as string || 'Progress',
-            data: [percentage],
+        if (!target || target <= 0) {
+          // No valid target - fall back to number chart display
+          log.warn('Progress bar chart has no valid target - displaying as number chart', {
+            aggregatedValue,
+            target,
+          });
+
+          chartData = {
+            labels: [],
+            datasets: [{
+              label: config.title as string || 'Total',
+              data: [aggregatedValue],
+              measureType,
+              aggregationType,
+            }],
+            measureType,
+          };
+        } else {
+          // Calculate percentage with valid target
+          const percentage = (aggregatedValue / target) * 100;
+
+          chartData = {
+            labels: ['Progress'],
+            datasets: [{
+              label: config.label as string || 'Progress',
+              data: [percentage],
+              measureType: 'percentage',
+              // Include raw value and target for reference
+              rawValue: aggregatedValue,
+              target,
+            }],
             measureType: 'percentage',
-            // Include raw value and target for reference
-            rawValue: aggregatedValue,
-            ...(target !== undefined && { target }),
-          }],
-          measureType: 'percentage',
-        };
+          };
+        }
       }
 
       const duration = Date.now() - startTime;
@@ -223,16 +244,20 @@ export class MetricChartHandler extends BaseChartHandler {
       }
     }
 
-    // Progress bar requires target for percentage calculation
-    if (config.chartType === 'progress-bar' && !config.target) {
-      errors.push('Progress bar charts require a target value for percentage calculation');
-    }
-
-    // Validate target is a positive number
-    if (config.chartType === 'progress-bar' && config.target) {
-      const target = config.target as number;
-      if (typeof target !== 'number' || target <= 0) {
-        errors.push('Progress bar target must be a positive number');
+    // Progress bar target validation (optional with warning)
+    if (config.chartType === 'progress-bar') {
+      if (!config.target) {
+        // Log warning but don't fail validation - chart will display as number
+        log.warn('Progress bar chart missing target value - will display as number chart', {
+          chartType: config.chartType,
+          hasTarget: false,
+        });
+      } else {
+        // Validate target is a positive number
+        const target = config.target as number;
+        if (typeof target !== 'number' || target <= 0) {
+          errors.push('Progress bar target must be a positive number');
+        }
       }
     }
 
