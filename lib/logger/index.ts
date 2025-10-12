@@ -35,3 +35,6 @@ export { correlation, log, log as logger, log as default } from './logger';
 
 // Message templates for rich, consistent logging
 export { logTemplates, calculateChanges, sanitizeFilters } from './message-templates';
+
+// Logging constants (slow thresholds, etc.)
+export { SLOW_THRESHOLDS } from './constants';

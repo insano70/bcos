@@ -119,8 +119,34 @@ const handler = async (request: NextRequest) => {
     // Generate CSRF token
     const csrfToken = await setCSRFToken(user.user_id);
 
-    const totalDuration = Date.now() - startTime;
-    log.api('POST /api/auth/mfa/verify - Success', request, 200, totalDuration);
+    const duration = Date.now() - startTime;
+
+    log.info('mfa verification successful - passkey validated and session created', {
+      operation: 'mfa_verify',
+      userId: user.user_id,
+      email: user.email,
+      sessionId: tokenPair.sessionId,
+      credentialId: verificationResult.credentialId?.substring(0, 16),
+      authMethod: 'temp_token',
+      rbac: {
+        roles: userRoles.length,
+        primaryRole,
+        permissions: userContext?.all_permissions?.length || 0,
+      },
+      session: {
+        rememberMe: false,
+        maxAge: maxAge,
+        sessionId: tokenPair.sessionId,
+      },
+      device: {
+        name: deviceName,
+        fingerprint: deviceFingerprint.substring(0, 8),
+      },
+      duration,
+      slow: duration > 2000,
+      ipAddress,
+      component: 'auth',
+    });
 
     const response: AuthenticationCompleteResponse = {
       success: true,
@@ -149,13 +175,12 @@ const handler = async (request: NextRequest) => {
       'Passkey verification successful'
     );
   } catch (error) {
-    const totalDuration = Date.now() - startTime;
-    log.error('Passkey verification failed', {
-      error: error instanceof Error ? error.message : String(error),
-      duration: totalDuration,
+    const duration = Date.now() - startTime;
+    log.error('Passkey verification failed', error, {
+      operation: 'mfa_verify',
+      duration,
+      component: 'auth',
     });
-
-    log.api('POST /api/auth/mfa/verify - Error', request, 500, totalDuration);
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   }

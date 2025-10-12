@@ -32,9 +32,9 @@ const chargesPaymentsHandler = async (request: NextRequest, userContext: UserCon
       ORDER BY count DESC
     `;
 
-    console.log('🔍 EXPLORING PRACTICE DATA:', { practiceUid, exploreQuery });
+    log.debug('exploring practice data', { practiceUid, exploreQuery });
     const practiceData = await executeAnalyticsQuery(exploreQuery, [practiceUid]);
-    console.log('📊 PRACTICE DATA AVAILABLE:', practiceData);
+    log.debug('practice data available', { practiceData });
 
     // Simplified query for pre-aggregated data
     const query = `
@@ -57,7 +57,7 @@ const chargesPaymentsHandler = async (request: NextRequest, userContext: UserCon
     `;
 
     // Log the exact query being executed
-    console.log('🔍 CHARGES & PAYMENTS SQL:', {
+    log.debug('charges and payments SQL query', {
       sql: query,
       practiceUid: practiceUid,
       practiceUidType: typeof practiceUid,
@@ -68,7 +68,7 @@ const chargesPaymentsHandler = async (request: NextRequest, userContext: UserCon
     const data = await executeAnalyticsQuery(query, [practiceUid]);
     log.info('Charges payments query completed', { duration: Date.now() - queryStart });
 
-    console.log('✅ CHARGES & PAYMENTS RESULT:', {
+    log.debug('charges and payments query result', {
       rowCount: data.length,
       sampleRows: data.slice(0, 3),
     });

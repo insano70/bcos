@@ -10,7 +10,6 @@ import { ChartSkeleton } from '@/components/ui/loading-skeleton';
 import ResponsiveChartContainer from './responsive-chart-container';
 import dynamic from 'next/dynamic';
 import { GlassCard } from '@/components/ui/glass-card';
-import { simplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
 
 // Lazy load the fullscreen modals to prevent affecting global Chart.js state at page load
 const ChartFullscreenModal = dynamic(() => import('./chart-fullscreen-modal'), {
@@ -57,6 +56,9 @@ interface AnalyticsChartProps extends ResponsiveChartProps {
   colorPalette?: string; // Color palette ID for chart colors
   periodComparison?: PeriodComparisonConfig; // Period comparison support
   dualAxisConfig?: DualAxisConfig; // Dual-axis configuration for combo charts
+  // Phase 3: Server-side aggregation for number and progress-bar charts
+  aggregation?: 'sum' | 'avg' | 'count' | 'min' | 'max'; // Aggregation type for number charts
+  target?: number; // Target value for progress-bar charts
 }
 
 interface ApiResponse {
@@ -99,6 +101,8 @@ export default function AnalyticsChart({
   colorPalette = 'default', // Color palette for chart colors
   periodComparison, // Period comparison support
   dualAxisConfig, // Dual-axis configuration
+  aggregation = 'sum', // Phase 3: Aggregation type for number charts
+  target, // Phase 3: Target value for progress-bar charts
   // Responsive sizing options
   responsive = false,
   minHeight = 200,
@@ -110,6 +114,19 @@ export default function AnalyticsChart({
   const [error, setError] = useState<string | null>(null);
   const [metadata, setMetadata] = useState<ApiResponse['metadata'] | null>(null);
   const [rawData, setRawData] = useState<Record<string, unknown>[]>([]);
+
+  // Phase 3.2: Server-formatted table data
+  interface FormattedCellState {
+    formatted: string;
+    raw: unknown;
+    icon?: {
+      name: string;
+      color?: string;
+      type?: string;
+    };
+  }
+  const [formattedData, setFormattedData] = useState<Array<Record<string, FormattedCellState>> | undefined>(undefined);
+
   const [dataSourceColumns, setDataSourceColumns] = useState<Array<{
     column_name: string;
     display_name: string;
@@ -259,100 +276,135 @@ export default function AnalyticsChart({
           rawDataLength: tableData.data.length,
           columnsLength: mappedColumns.length
         });
-      } else if (chartType === 'number') {
-        // For number charts, fetch aggregated data from measures API and store directly
-        console.log('🚀 FETCHING NUMBER CHART DATA:', { measure, chartType, url: `/api/admin/analytics/measures?${params.toString()}` });
-        const data: ApiResponse = await apiClient.get(`/api/admin/analytics/measures?${params.toString()}`);
-
-        if (!data.measures) {
-          throw new Error('Invalid response format from analytics API');
+      } else if (chartType === 'number' || chartType === 'progress-bar' || chartType === 'dual-axis') {
+        // Phase 3: Number, progress-bar, and dual-axis charts use universal endpoint with server-side transformation
+        if (!dataSourceId) {
+          throw new Error(`Data source ID is required for ${chartType} charts`);
         }
 
-        console.log('📊 NUMBER DATA RECEIVED:', {
-          measureCount: data.measures.length
-        });
-
-        // For number charts, store raw aggregated data directly - no transformation needed
-        setChartData({ labels: [], datasets: [] }); // Not used for number charts
-        setRawData(data.measures);
-        setMetadata(data.metadata);
-
-        console.log('✅ NUMBER DATA STORED:', {
-          rawDataLength: data.measures.length
-        });
-      } else if (chartType === 'dual-axis') {
-        // Dual-axis charts: fetch both measures and transform data in parent
-        if (!dualAxisConfig || !dualAxisConfig.enabled) {
-          throw new Error('Dual-axis configuration is missing');
-        }
-
-        if (!dualAxisConfig.primary.measure || !dualAxisConfig.secondary.measure) {
-          throw new Error('Both primary and secondary measures are required');
-        }
-
-        if (dualAxisConfig.primary.measure === dualAxisConfig.secondary.measure) {
-          throw new Error('Primary and secondary measures must be different');
-        }
-
-
-        // Helper to fetch a single measure
-        const fetchMeasure = async (measureName: string): Promise<AggAppMeasure[]> => {
-          const measureParams = new URLSearchParams();
-
-          if (frequency) measureParams.append('frequency', frequency);
-          measureParams.append('measure', measureName);
-
-          if (groupBy && groupBy !== 'none') measureParams.append('group_by', groupBy);
-          if (dateRangePreset && dateRangePreset.trim()) measureParams.append('date_range_preset', dateRangePreset);
-          if (startDate && startDate.trim()) measureParams.append('start_date', startDate);
-          if (endDate && endDate.trim()) measureParams.append('end_date', endDate);
-          if (dataSourceId) measureParams.append('data_source_id', dataSourceId.toString());
-          if (calculatedField && calculatedField.trim()) measureParams.append('calculated_field', calculatedField);
-          if (advancedFilters && advancedFilters.length > 0) {
-            measureParams.append('advanced_filters', encodeURIComponent(JSON.stringify(advancedFilters)));
+        // Phase 3.3: Validate dual-axis config
+        if (chartType === 'dual-axis') {
+          if (!dualAxisConfig || !dualAxisConfig.enabled) {
+            throw new Error('Dual-axis configuration is required');
           }
-
-          measureParams.append('limit', '1000');
-          measureParams.append('_t', Date.now().toString());
-
-          const data: ApiResponse = await apiClient.get(`/api/admin/analytics/measures?${measureParams.toString()}`);
-
-          if (!data.measures) {
-            throw new Error('Invalid response format from analytics API');
+          if (!dualAxisConfig.primary?.measure || !dualAxisConfig.secondary?.measure) {
+            throw new Error('Both primary and secondary measures are required for dual-axis charts');
           }
+        }
 
-          return data.measures;
+        console.log(`🚀 FETCHING ${chartType.toUpperCase()} CHART DATA via universal endpoint`);
+
+        const requestPayload = {
+          chartConfig: {
+            chartType,
+            dataSourceId,
+            ...(chartType === 'number' || chartType === 'progress-bar' ? {
+              aggregation: aggregation || 'sum', // Default to sum if not specified
+            } : {}),
+            ...(chartType === 'progress-bar' && target !== undefined && { target }),
+            ...(chartType === 'dual-axis' && dualAxisConfig && { dualAxisConfig }),
+            // Only include groupBy for dual-axis charts (number/progress-bar aggregate to single value)
+            ...(chartType === 'dual-axis' && groupBy && groupBy !== 'none' && { groupBy }),
+            ...(title && { title }),
+            colorPalette: colorPalette || 'default',
+          },
+          runtimeFilters: {
+            startDate,
+            endDate,
+            dateRangePreset,
+            practice,
+            practiceUid,
+            providerName,
+            ...(chartType !== 'dual-axis' && measure && { measure }), // Dual-axis uses dualAxisConfig measures
+            frequency,
+          },
         };
 
-        // Fetch both measures in parallel
-        const [primaryResult, secondaryResult] = await Promise.allSettled([
-          fetchMeasure(dualAxisConfig.primary.measure),
-          fetchMeasure(dualAxisConfig.secondary.measure)
-        ]);
-
-        // Check for failures
-        if (primaryResult.status === 'rejected') {
-          throw new Error(`Failed to fetch primary measure "${dualAxisConfig.primary.measure}": ${primaryResult.reason}`);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('📤 UNIVERSAL ENDPOINT REQUEST:', {
+            chartType,
+            ...(chartType !== 'dual-axis' && { aggregation: aggregation || 'sum' }),
+            hasTarget: chartType === 'progress-bar' && target !== undefined,
+            ...(chartType === 'dual-axis' && {
+              primaryMeasure: dualAxisConfig?.primary?.measure,
+              secondaryMeasure: dualAxisConfig?.secondary?.measure,
+              secondaryChartType: dualAxisConfig?.secondary?.chartType,
+            }),
+          });
         }
-        if (secondaryResult.status === 'rejected') {
-          throw new Error(`Failed to fetch secondary measure "${dualAxisConfig.secondary.measure}": ${secondaryResult.reason}`);
+
+        interface FormattedCell {
+          formatted: string;
+          raw: unknown;
+          icon?: {
+            name: string;
+            color?: string;
+            type?: string;
+          };
         }
 
+        const response: {
+          chartData: ChartData;
+          rawData: Record<string, unknown>[];
+          columns?: Array<{
+            columnName: string;
+            displayName: string;
+            dataType: string;
+            formatType?: string | null;
+            displayIcon?: boolean | null;
+            iconType?: string | null;
+            iconColorMode?: string | null;
+            iconColor?: string | null;
+            iconMapping?: Record<string, unknown> | null;
+          }>;
+          formattedData?: Array<Record<string, FormattedCell>>;
+          metadata: {
+            chartType: string;
+            dataSourceId: number;
+            queryTimeMs: number;
+            cacheHit: boolean;
+            recordCount: number;
+          };
+        } = await apiClient.post('/api/admin/analytics/chart-data/universal', requestPayload);
 
-        // Transform data using SimplifiedChartTransformer
-        const transformedData = simplifiedChartTransformer.transformDualAxisData(
-          primaryResult.value,
-          secondaryResult.value,
-          dualAxisConfig.primary.axisLabel || dualAxisConfig.primary.measure,
-          dualAxisConfig.secondary.axisLabel || dualAxisConfig.secondary.measure,
-          dualAxisConfig.secondary.chartType,
-          groupBy || 'none',
-          colorPalette || 'default'
-        );
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ UNIVERSAL ENDPOINT RESPONSE:', {
+            chartType: response.metadata.chartType,
+            queryTimeMs: response.metadata.queryTimeMs,
+            cacheHit: response.metadata.cacheHit,
+            datasetCount: response.chartData.datasets?.length ?? 0,
+          });
+        }
 
-        setChartData(transformedData);
-        setRawData([...primaryResult.value, ...secondaryResult.value]);
-        setMetadata(null);
+        // Store transformed chart data
+        setChartData(response.chartData);
+        setRawData(response.rawData);
+
+        // Phase 3.2: Store formatted data for table charts
+        if (response.formattedData) {
+          setFormattedData(response.formattedData);
+        }
+
+        // Phase 3.2: Store columns from server if available
+        if (response.columns) {
+          setDataSourceColumns(response.columns.map(col => ({
+            column_name: col.columnName,
+            display_name: col.displayName,
+            data_type: col.dataType,
+            format_type: col.formatType || null,
+            display_icon: col.displayIcon,
+            icon_type: col.iconType,
+            icon_color_mode: col.iconColorMode,
+            icon_color: col.iconColor,
+            icon_mapping: col.iconMapping || undefined
+          })));
+        }
+
+        setMetadata({
+          query_time_ms: response.metadata.queryTimeMs,
+          cache_hit: response.metadata.cacheHit,
+          generatedAt: new Date().toISOString(),
+        });
       } else {
         // Optimized single API call - server fetches and transforms data
         if (process.env.NODE_ENV === 'development') {
@@ -545,14 +597,14 @@ export default function AnalyticsChart({
         case 'horizontal-bar':
           return <AnalyticsHorizontalBarChart ref={chartRef} data={chartData} width={width} height={height} />;
         case 'progress-bar':
-          // Progress bar uses custom CSS rendering, not Chart.js
-          // Reconstruct progress data from chartData
+          // Phase 3: Progress bar uses server-side calculation
+          // Data comes pre-calculated from MetricChartHandler
           const dataset = chartData.datasets[0];
-          const total = dataset?.data.reduce((sum: number, val: number) => sum + val, 0) || 0;
           const progressData = chartData.labels.map((label, index) => ({
             label: String(label),
-            value: Number(dataset?.data[index] || 0),
-            percentage: total > 0 ? (Number(dataset?.data[index] || 0) / total) * 100 : 0
+            // dataset.data already contains percentages from server
+            value: dataset?.rawValue ?? Number(dataset?.data[index] || 0),
+            percentage: Number(dataset?.data[index] || 0)
           }));
           return (
             <AnalyticsProgressBarChart
@@ -565,24 +617,26 @@ export default function AnalyticsChart({
         case 'doughnut':
           return <DoughnutChart ref={chartRef} data={chartData} width={width} height={height} />;
         case 'table':
-          return (
-            <AnalyticsTableChart
-              data={rawData}
-              columns={dataSourceColumns.map(col => ({
-                columnName: col.column_name,
-                displayName: col.display_name,
-                dataType: col.data_type,
-                formatType: col.format_type,
-                displayIcon: col.display_icon,
-                iconType: col.icon_type,
-                iconColorMode: col.icon_color_mode,
-                iconColor: col.icon_color,
-                iconMapping: col.icon_mapping
-              }))}
-              colorPalette={colorPalette}
-              height={height}
-            />
-          );
+          // Phase 3.2: Pass server-formatted data to table component
+          const tableProps = {
+            data: rawData,
+            columns: dataSourceColumns.map(col => ({
+              columnName: col.column_name,
+              displayName: col.display_name,
+              dataType: col.data_type,
+              formatType: col.format_type,
+              displayIcon: col.display_icon,
+              iconType: col.icon_type,
+              iconColorMode: col.icon_color_mode,
+              iconColor: col.icon_color,
+              iconMapping: col.icon_mapping
+            })),
+            colorPalette,
+            height,
+            ...(formattedData && { formattedData })
+          };
+
+          return <AnalyticsTableChart {...tableProps} />;
         case 'dual-axis':
           if (!dualAxisConfig) {
             console.error('Dual-axis configuration is missing');
@@ -604,7 +658,7 @@ export default function AnalyticsChart({
         case 'number':
           return (
             <AnalyticsNumberChart
-              data={rawData}
+              data={chartData}
               title={measure}
               animationDuration={2}
               responsive={responsive}

@@ -7,29 +7,54 @@ import { getPagination } from '@/lib/api/utils/request';
 import { createRBACRolesService } from '@/lib/services/rbac-roles-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { roleQuerySchema } from '@/lib/validations/role';
-import { log } from '@/lib/logger';
+import { log, sanitizeFilters } from '@/lib/logger';
 
 const getRolesHandler = async (request: NextRequest, userContext: UserContext) => {
+  const startTime = Date.now();
+
   try {
     const { searchParams } = new URL(request.url);
     const pagination = getPagination(searchParams);
     const query = validateQuery(searchParams, roleQuerySchema) || {};
 
-    // Create RBAC roles service
     const rolesService = createRBACRolesService(userContext);
 
-    // Get roles with automatic permission-based filtering
-    // For roles dropdown, we want all roles, not paginated results
     const roles = await rolesService.getRoles({
       search: query.search,
       is_active: query.is_active,
       organization_id: query.organization_id,
-      limit: 1000, // Get all roles
+      limit: 1000,
       offset: 0,
     });
 
-    // Get total count
     const totalCount = await rolesService.getRoleCount();
+
+    const duration = Date.now() - startTime;
+    const filters = sanitizeFilters({
+      search: query.search,
+      is_active: query.is_active,
+      organization_id: query.organization_id,
+    });
+
+    const activeCount = roles.filter((r) => r.is_active).length;
+    const systemRoleCount = roles.filter((r) => r.is_system_role).length;
+
+    log.info(`roles list query completed - returned ${roles.length} of ${totalCount}`, {
+      operation: 'list_roles',
+      resourceType: 'roles',
+      userId: userContext.user_id,
+      filters,
+      results: {
+        returned: roles.length,
+        total: totalCount,
+        active: activeCount,
+        inactive: roles.length - activeCount,
+        systemRoles: systemRoleCount,
+      },
+      duration,
+      slow: duration > 1000,
+      component: 'rbac',
+    });
 
     return createPaginatedResponse(
       roles.map((role) => ({
@@ -49,7 +74,13 @@ const getRolesHandler = async (request: NextRequest, userContext: UserContext) =
       }
     );
   } catch (error) {
-    log.error('Error fetching roles', error instanceof Error ? error : new Error(String(error)));
+    log.error('roles list query failed', error, {
+      operation: 'list_roles',
+      userId: userContext.user_id,
+      duration: Date.now() - startTime,
+      component: 'rbac',
+    });
+
     return createErrorResponse(
       error instanceof Error ? error.message : 'Unknown error',
       500,

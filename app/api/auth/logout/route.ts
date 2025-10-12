@@ -14,6 +14,41 @@ export const dynamic = 'force-dynamic';
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 
 /**
+ * Helper function to clear authentication cookies
+ * Used by both logout and revoke all sessions endpoints
+ */
+function clearAuthCookies(response: NextResponse): void {
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  // Clear refresh token cookie
+  response.cookies.set('refresh-token', '', {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'strict',
+    path: '/',
+    maxAge: 0, // Expire immediately
+  });
+
+  // Clear access token cookie
+  response.cookies.set('access-token', '', {
+    httpOnly: true, // ✅ SECURITY FIX: Consistent with secure token model
+    secure: isProduction,
+    sameSite: 'strict',
+    path: '/',
+    maxAge: 0, // Expire immediately
+  });
+
+  // Clear CSRF token cookie
+  response.cookies.set('csrf-token', '', {
+    httpOnly: false, // CSRF tokens need to be readable by JavaScript
+    secure: isProduction,
+    sameSite: 'strict',
+    path: '/',
+    maxAge: 0, // Expire immediately
+  });
+}
+
+/**
  * Custom Logout Endpoint
  * Complete token cleanup and session termination
  * SECURED: Requires authentication to prevent unauthorized logout
@@ -22,13 +57,7 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
   try {
-    log.api('POST /api/auth/logout - Request received', request, 0, 0);
-
-    // RATE LIMITING: Apply auth-level rate limiting to prevent logout abuse
-    const rateLimitStart = Date.now();
     await applyRateLimit(request, 'auth');
-
-    log.info('Rate limit check completed', { duration: Date.now() - rateLimitStart });
 
     // CSRF PROTECTION: Verify CSRF token before authentication check
     const isValidCSRF = await verifyCSRFToken(request);
@@ -135,8 +164,8 @@ export async function POST(request: NextRequest) {
       operation: 'logout',
       success: true,
       userId: session.user.id,
-      ...(metadata.ipAddress && { ipAddress: metadata.ipAddress }),
-      ...(metadata.userAgent && { userAgent: metadata.userAgent }),
+      ipAddress: metadata.ipAddress,
+      userAgent: metadata.userAgent,
       deviceName: metadata.deviceName,
       deviceFingerprint: metadata.fingerprint.substring(0, 8),
       sessionCleanup: {
@@ -151,7 +180,7 @@ export async function POST(request: NextRequest) {
       correlationId: correlation.current(),
     });
 
-    // Clear refresh token cookie
+    // Create response and clear authentication cookies
     const response = NextResponse.json({
       success: true,
       data: { message: 'Logged out successfully' },
@@ -159,41 +188,15 @@ export async function POST(request: NextRequest) {
       meta: { timestamp: new Date().toISOString() },
     });
 
-    // Clear authentication cookies
-    const isProduction = process.env.NODE_ENV === 'production';
-
-    // Clear refresh token cookie
-    response.cookies.set('refresh-token', '', {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 0, // Expire immediately
-    });
-
-    // Clear access token cookie
-    response.cookies.set('access-token', '', {
-      httpOnly: true, // ✅ SECURITY FIX: Consistent with secure token model
-      secure: isProduction,
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 0, // Expire immediately
-    });
-
-    // Clear CSRF token cookie
-    response.cookies.set('csrf-token', '', {
-      httpOnly: false, // CSRF tokens need to be readable by JavaScript
-      secure: isProduction,
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 0, // Expire immediately
-    });
+    clearAuthCookies(response);
 
     return response;
   } catch (error) {
-    log.error('Logout failed', error);
-    log.api('POST /api/auth/logout - Error', request, 500, Date.now() - startTime);
-
+    log.error('Logout failed', error, {
+      operation: 'logout',
+      duration: Date.now() - startTime,
+      component: 'auth',
+    });
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   }
 }
@@ -275,8 +278,8 @@ export async function DELETE(request: NextRequest) {
       operation: 'revoke_all_sessions',
       success: true,
       userId: session.user.id,
-      ...(metadata.ipAddress && { ipAddress: metadata.ipAddress }),
-      ...(metadata.userAgent && { userAgent: metadata.userAgent }),
+      ipAddress: metadata.ipAddress,
+      userAgent: metadata.userAgent,
       deviceName: metadata.deviceName,
       deviceFingerprint: metadata.fingerprint.substring(0, 8),
       sessionCleanup: {
@@ -296,7 +299,7 @@ export async function DELETE(request: NextRequest) {
       correlationId: correlation.current(),
     });
 
-    // Clear refresh token cookie
+    // Create response and clear authentication cookies
     const response = NextResponse.json({
       success: true,
       data: { revokedSessions: revokedCount },
@@ -304,39 +307,15 @@ export async function DELETE(request: NextRequest) {
       meta: { timestamp: new Date().toISOString() },
     });
 
-    // Clear authentication cookies
-    const isProduction = process.env.NODE_ENV === 'production';
-
-    // Clear refresh token cookie
-    response.cookies.set('refresh-token', '', {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 0,
-    });
-
-    // Clear access token cookie
-    response.cookies.set('access-token', '', {
-      httpOnly: true, // ✅ SECURITY FIX: Consistent with secure token model
-      secure: isProduction,
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 0,
-    });
-
-    // Clear CSRF token cookie
-    response.cookies.set('csrf-token', '', {
-      httpOnly: false, // CSRF tokens need to be readable by JavaScript
-      secure: isProduction,
-      sameSite: 'strict',
-      path: '/',
-      maxAge: 0,
-    });
+    clearAuthCookies(response);
 
     return response;
   } catch (error) {
-    log.error('Revoke all sessions error', error);
+    log.error('Revoke all sessions error', error, {
+      operation: 'revoke_all_sessions',
+      duration: Date.now() - startTime,
+      component: 'auth',
+    });
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   }
 }

@@ -34,6 +34,8 @@ const deleteHandler = async (
   session: AuthSession | null,
   ...args: unknown[]
 ) => {
+  const startTime = Date.now();
+
   try {
     // Require fresh authentication for security
     await requireFreshAuth(request, 5);
@@ -49,15 +51,27 @@ const deleteHandler = async (
     // Delete credential
     await deleteCredential(userId, credentialId);
 
-    log.info('Passkey credential deleted', {
+    const duration = Date.now() - startTime;
+
+    log.info('mfa credential deleted successfully - passkey deactivated', {
+      operation: 'delete_mfa_credential',
       userId,
       credentialId: credentialId.substring(0, 16),
+      security: {
+        freshAuthRequired: true,
+        maxAuthAge: 5,
+      },
+      duration,
+      slow: duration > 1000,
+      component: 'auth',
     });
 
     return createSuccessResponse({ success: true }, 'Passkey deleted successfully');
   } catch (error) {
-    log.error('Failed to delete passkey credential', {
-      error: error instanceof Error ? error.message : String(error),
+    log.error('Failed to delete passkey credential', error, {
+      operation: 'delete_mfa_credential',
+      duration: Date.now() - startTime,
+      component: 'auth',
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
@@ -72,6 +86,8 @@ const renameHandler = async (
   session: AuthSession | null,
   ...args: unknown[]
 ) => {
+  const startTime = Date.now();
+
   try {
     const userId = session?.user.id;
 
@@ -97,16 +113,25 @@ const renameHandler = async (
     // Rename credential
     await renameCredential(userId, credentialId, credential_name.trim());
 
-    log.info('Passkey credential renamed', {
+    const duration = Date.now() - startTime;
+
+    log.info('mfa credential renamed successfully', {
+      operation: 'rename_mfa_credential',
       userId,
       credentialId: credentialId.substring(0, 16),
-      newName: credential_name,
+      newName: credential_name.trim(),
+      nameLength: credential_name.trim().length,
+      duration,
+      slow: duration > 1000,
+      component: 'auth',
     });
 
     return createSuccessResponse({ success: true }, 'Passkey renamed successfully');
   } catch (error) {
-    log.error('Failed to rename passkey credential', {
-      error: error instanceof Error ? error.message : String(error),
+    log.error('Failed to rename passkey credential', error, {
+      operation: 'rename_mfa_credential',
+      duration: Date.now() - startTime,
+      component: 'auth',
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);

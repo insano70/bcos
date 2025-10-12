@@ -4,6 +4,7 @@ import type { ChartTypeHandler, ValidationResult } from '../chart-type-registry'
 import { log } from '@/lib/logger';
 import { analyticsQueryBuilder } from '../analytics-query-builder';
 import { getDateRange } from '@/lib/utils/date-presets';
+import { QUERY_LIMITS } from '@/lib/constants/analytics';
 
 /**
  * Base Chart Handler
@@ -140,7 +141,7 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
       data_source_id: config.dataSourceId as number,
       start_date: startDate,
       end_date: endDate,
-      limit: 1000,
+      limit: (config.limit as number) || QUERY_LIMITS.DEFAULT_ANALYTICS_LIMIT,
     };
 
     // Add optional parameters if present

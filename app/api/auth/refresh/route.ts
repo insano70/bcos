@@ -22,27 +22,16 @@ const refreshHandler = async (request: NextRequest) => {
   // Store refresh token for error handling (declared at function level)
   let refreshTokenForError: string | undefined;
 
-  log.api('POST /api/auth/refresh - Token refresh initiated', request, 0, 0);
-
   try {
     // NOTE: We don't require auth header here since we're validating the refresh token cookie directly
     // This allows token refresh without needing a valid access token
 
     // Apply aggressive rate limiting for token refresh
-    const rateLimitStart = Date.now();
     await applyRateLimit(request, 'auth');
-    log.info('Rate limit check completed', { duration: Date.now() - rateLimitStart });
 
     // Get refresh token from httpOnly cookie
-    const cookieStart = Date.now();
     const cookieStore = await cookies();
     const refreshToken = cookieStore.get('refresh-token')?.value;
-    log.info('Cookie retrieval completed', { duration: Date.now() - cookieStart });
-
-    log.debug('Refresh token cookie check', {
-      hasRefreshToken: !!refreshToken,
-      tokenLength: refreshToken?.length || 0,
-    });
 
     if (!refreshToken) {
       // Enriched auth log - no refresh token
@@ -69,7 +58,6 @@ const refreshHandler = async (request: NextRequest) => {
     let userId: string;
     let tokenPayload: { userId: string; exp?: number; iat?: number };
     try {
-      const tokenValidationStart = Date.now();
       const { verifyRefreshToken } = await import('@/lib/auth/token-verification');
       const payload = await verifyRefreshToken(refreshToken);
 
@@ -79,12 +67,6 @@ const refreshHandler = async (request: NextRequest) => {
 
       userId = payload.userId;
       tokenPayload = payload;
-
-      log.debug('Refresh token validated successfully', {
-        userId,
-        tokenExpiry: payload.exp ? new Date(payload.exp * 1000).toISOString() : 'unknown',
-        duration: Date.now() - tokenValidationStart,
-      });
     } catch (tokenError) {
       // Enriched auth log - invalid token
       log.error('Token refresh failed: invalid_refresh_token', tokenError, {
@@ -96,7 +78,6 @@ const refreshHandler = async (request: NextRequest) => {
         }),
         ...(request.headers.get('user-agent') && { userAgent: request.headers.get('user-agent') }),
         tokenLength: refreshToken.length,
-        errorType: tokenError instanceof Error ? tokenError.constructor.name : typeof tokenError,
         duration: Date.now() - startTime,
         securityThreat: 'credential_attack',
         component: 'auth',
@@ -114,7 +95,6 @@ const refreshHandler = async (request: NextRequest) => {
     }
 
     // Get user details from database
-    const dbStart = Date.now();
     const db = (await import('@/lib/db')).db;
     const users = (await import('@/lib/db')).users;
     const [user] = await db
@@ -122,14 +102,8 @@ const refreshHandler = async (request: NextRequest) => {
       .from(users)
       .where((await import('drizzle-orm')).eq(users.user_id, userId))
       .limit(1);
-    log.db('SELECT', 'users', Date.now() - dbStart, { userId });
 
     if (!user || !user.is_active) {
-      log.warn('Token refresh failed - user not found or inactive', {
-        userId,
-        userExists: !!user,
-        userActive: user?.is_active || false,
-      });
       log.auth('token_refresh', false, {
         userId,
         reason: user ? 'user_inactive' : 'user_not_found',
@@ -137,42 +111,18 @@ const refreshHandler = async (request: NextRequest) => {
       return createErrorResponse('User account is inactive', 401, request);
     }
 
-    log.debug('Active user found for token refresh', {
-      userId: user.user_id,
-      userEmail: user.email?.replace(/(.{2}).*@/, '$1***@'), // Mask email
-      emailVerified: user.email_verified,
-    });
-
     // Get user's RBAC context for complete user data
-    const contextStart = Date.now();
     const { getUserContextSafe } = await import('@/lib/rbac/user-context');
     const userContext = await getUserContextSafe(user.user_id);
-    log.info('RBAC context fetched', { duration: Date.now() - contextStart, userId });
 
     // Extract device info
-    const deviceStart = Date.now();
     const { extractRequestMetadata } = await import('@/lib/api/utils/request');
     const deviceInfo = extractRequestMetadata(request);
-    log.info('Device info generated', { duration: Date.now() - deviceStart });
-
-    log.debug('Device information generated for token refresh', {
-      userId,
-      deviceName: deviceInfo.deviceName,
-      fingerprintHash: `${deviceInfo.fingerprint.substring(0, 8)}...`,
-    });
 
     // Rotate tokens
-    const tokenRotationStart = Date.now();
     const tokenPair = await refreshTokenPair(refreshToken, deviceInfo);
-    log.info('Token rotation completed', { duration: Date.now() - tokenRotationStart, userId });
 
     if (!tokenPair) {
-      log.warn('Token rotation failed', {
-        userId,
-        deviceFingerprint: `${deviceInfo.fingerprint.substring(0, 8)}...`,
-        deviceName: deviceInfo.deviceName,
-      });
-
       // AUDIT LOGGING: Log failed refresh attempt with authenticated user info
       await AuditLogger.logUserAction({
         action: 'token_refresh_failed',
@@ -192,12 +142,6 @@ const refreshHandler = async (request: NextRequest) => {
       log.auth('token_refresh', false, { userId, reason: 'token_rotation_failed' });
       return createErrorResponse('Invalid or expired refresh token', 401, request);
     }
-
-    log.info('Token rotation successful', {
-      userId,
-      sessionId: tokenPair.sessionId,
-      newTokensGenerated: true,
-    });
 
     // AUDIT LOGGING: Log successful token refresh
     await AuditLogger.logUserAction({
@@ -219,18 +163,10 @@ const refreshHandler = async (request: NextRequest) => {
     const userRoles = userContext?.roles?.map((r) => r.name) || [];
     const primaryRole = userRoles.length > 0 ? userRoles[0] : 'user';
 
-    log.debug('User roles and permissions loaded', {
-      userId,
-      roleCount: userRoles.length,
-      primaryRole,
-      permissionCount: userContext?.all_permissions?.length || 0,
-    });
-
     // Generate new authenticated CSRF token as part of token rotation
     const csrfToken = await setCSRFToken(user.user_id);
 
     // Set new refresh token in httpOnly cookie and return user data
-    const _responseStart = Date.now();
     const response = NextResponse.json({
       success: true,
       data: {
@@ -255,19 +191,8 @@ const refreshHandler = async (request: NextRequest) => {
     });
 
     // Set secure cookies for both tokens
-    const cookieSetupStart = Date.now();
     // Use NODE_ENV to determine cookie security (staging should use NODE_ENV=production)
     const isSecureEnvironment = process.env.NODE_ENV === 'production';
-
-    log.debug('Preparing refresh token cookies', {
-      userId,
-      sessionId: tokenPair.sessionId,
-      nodeEnv: process.env.NODE_ENV,
-      environment: process.env.ENVIRONMENT,
-      isSecureEnvironment,
-      refreshTokenLength: tokenPair.refreshToken.length,
-      accessTokenLength: tokenPair.accessToken.length,
-    });
 
     // Set HTTP-only refresh token cookie (server-only)
     response.cookies.set('refresh-token', tokenPair.refreshToken, {
@@ -285,12 +210,6 @@ const refreshHandler = async (request: NextRequest) => {
       sameSite: 'strict',
       path: '/',
       maxAge: 15 * 60, // 15 minutes
-    });
-
-    log.info('Cookie setup completed', {
-      duration: Date.now() - cookieSetupStart,
-      userId,
-      sessionId: tokenPair.sessionId,
     });
 
     // Enriched auth log - successful refresh
@@ -323,9 +242,10 @@ const refreshHandler = async (request: NextRequest) => {
     const totalDuration = Date.now() - startTime;
 
     log.error('Token refresh failed with error', error, {
-      totalDuration,
-      errorType: error instanceof Error ? error.constructor.name : typeof error,
+      operation: 'token_refresh',
+      duration: totalDuration,
       hasRefreshToken: !!refreshTokenForError,
+      component: 'auth',
     });
 
     // Extract device info for logging
@@ -340,15 +260,10 @@ const refreshHandler = async (request: NextRequest) => {
         const extractedUserId = await extractUserIdUnsafe(refreshTokenForError);
         if (extractedUserId) {
           failedUserId = extractedUserId;
-          log.debug('Extracted user ID from failed refresh token', {
-            userId: failedUserId,
-          });
         }
       }
-    } catch (tokenError) {
-      log.debug('Could not extract user ID from refresh token', {
-        tokenError: tokenError instanceof Error ? tokenError.message : 'unknown',
-      });
+    } catch {
+      // Could not extract user ID from token
     }
 
     // Try to get user info from the request (may not be available if auth failed)
@@ -366,12 +281,8 @@ const refreshHandler = async (request: NextRequest) => {
           correlationId: correlation.current(),
         },
       });
-    } catch (authError) {
+    } catch {
       // If we can't get authenticated user, log as anonymous security event
-      log.warn('Logging refresh error as security event due to auth failure', {
-        authError: authError instanceof Error ? authError.message : 'unknown',
-      });
-
       await AuditLogger.logSecurity({
         action: 'token_refresh_error',
         ipAddress: metadata.ipAddress,
@@ -383,12 +294,6 @@ const refreshHandler = async (request: NextRequest) => {
         severity: 'medium',
       });
     }
-
-    log.info('Total refresh duration', {
-      duration: totalDuration,
-      success: false,
-      errorType: error instanceof Error ? error.name : 'unknown',
-    });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   }

@@ -12,6 +12,10 @@
 import { chartTypeRegistry } from '../chart-type-registry';
 import { TimeSeriesChartHandler } from './time-series-handler';
 import { BarChartHandler } from './bar-chart-handler';
+import { DistributionChartHandler } from './distribution-handler';
+import { TableChartHandler } from './table-handler';
+import { MetricChartHandler } from './metric-handler';
+import { ComboChartHandler } from './combo-handler';
 import { log } from '@/lib/logger';
 
 /**
@@ -29,11 +33,27 @@ function registerAllHandlers(): void {
   const barChartHandler = new BarChartHandler();
   chartTypeRegistry.register(barChartHandler);
 
-  // TODO: Register additional handlers in future phases
-  // - DistributionChartHandler (pie, doughnut)
-  // - TableChartHandler (table)
-  // - MetricChartHandler (number, progress-bar)
-  // - ComboChartHandler (dual-axis)
+  // Register distribution handler (handles pie and doughnut)
+  const distributionHandler = new DistributionChartHandler();
+  chartTypeRegistry.register(distributionHandler);
+
+  // Register table handler (handles table)
+  const tableHandler = new TableChartHandler();
+  chartTypeRegistry.register(tableHandler);
+
+  // Register metric handler (handles number and progress-bar)
+  const metricHandler = new MetricChartHandler();
+  chartTypeRegistry.register(metricHandler);
+
+  // Register progress-bar as an alias for the metric handler
+  // MetricChartHandler.canHandle() checks for both 'number' and 'progress-bar'
+  const progressBarHandler = new MetricChartHandler();
+  progressBarHandler.type = 'progress-bar';
+  chartTypeRegistry.register(progressBarHandler);
+
+  // Register combo handler (handles dual-axis)
+  const comboHandler = new ComboChartHandler();
+  chartTypeRegistry.register(comboHandler);
 
   const registeredTypes = chartTypeRegistry.getAllTypes();
 
@@ -47,7 +67,14 @@ function registerAllHandlers(): void {
 registerAllHandlers();
 
 // Export handlers for direct use if needed
-export { TimeSeriesChartHandler, BarChartHandler };
+export {
+  TimeSeriesChartHandler,
+  BarChartHandler,
+  DistributionChartHandler,
+  TableChartHandler,
+  MetricChartHandler,
+  ComboChartHandler,
+};
 
 // Re-export registry for convenience
 export { chartTypeRegistry };

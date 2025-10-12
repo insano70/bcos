@@ -45,13 +45,13 @@ const exploreHandler = async (request: NextRequest, userContext: UserContext) =>
       FROM ih.gr_app_measures
     `;
 
-    console.log('🔍 EXPLORING DATA - Practices Query:', practicesQuery);
+    log.debug('exploring data - practices query', { query: practicesQuery });
     const practices = await executeAnalyticsQuery(practicesQuery, []);
 
-    console.log('🔍 EXPLORING DATA - Measures Query:', measuresQuery);
+    log.debug('exploring data - measures query', { query: measuresQuery });
     const measures = await executeAnalyticsQuery(measuresQuery, []);
 
-    console.log('🔍 EXPLORING DATA - Date Range Query:', dateRangeQuery);
+    log.debug('exploring data - date range query', { query: dateRangeQuery });
     const dateRange = await executeAnalyticsQuery(dateRangeQuery, []);
 
     const explorationData = {
@@ -65,7 +65,7 @@ const exploreHandler = async (request: NextRequest, userContext: UserContext) =>
       },
     };
 
-    console.log('✅ DATA EXPLORATION RESULTS:', explorationData);
+    log.debug('data exploration results', { explorationData });
 
     return createSuccessResponse(explorationData, 'Data exploration completed successfully');
   } catch (error) {

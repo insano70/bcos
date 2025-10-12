@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { motion, useSpring, useTransform } from 'framer-motion';
 import type { ResponsiveChartProps } from '@/lib/types/responsive-charts';
+import type { ChartData } from '@/lib/types/analytics';
 
 interface AnimatedCounterProps {
   value: number;
@@ -53,7 +54,7 @@ function AnimatedCounter({
 }
 
 interface AnalyticsNumberChartProps extends ResponsiveChartProps {
-  data: Array<Record<string, unknown>>;
+  data: ChartData | Array<Record<string, unknown>>; // Phase 3: Supports both ChartData and raw data array
   title?: string | undefined;
   format?: 'currency' | 'number' | 'percentage' | undefined;
   animationDuration?: number | undefined;
@@ -70,11 +71,33 @@ export default function AnalyticsNumberChart({
   minHeight = 200,
   maxHeight = 400,
 }: AnalyticsNumberChartProps) {
-  // Extract the total value (should be a single aggregated value from API)
-  const value = typeof data[0]?.measure_value === 'number' ? data[0].measure_value : 0;
+  // Phase 3: Server-side aggregation complete
+  // Data now comes pre-aggregated from MetricChartHandler
+  // Extract the value - supports both old format (raw data) and new format (ChartData)
+  let value = 0;
+  let measureType = 'number';
+
+  // Check if data is in new ChartData format (from universal endpoint)
+  if (data && typeof data === 'object' && 'datasets' in data) {
+    // New format: ChartData with datasets
+    const chartData = data as ChartData;
+    const datasets = chartData.datasets;
+    if (datasets && datasets.length > 0) {
+      const dataset = datasets[0];
+      if (dataset && dataset.data) {
+        const dataArray = dataset.data as number[];
+        value = dataArray[0] || 0;
+        measureType = (dataset.measureType as string) || 'number';
+      }
+    }
+  } else if (Array.isArray(data) && data.length > 0) {
+    // Old format: raw data array (backward compatibility)
+    value = typeof data[0]?.measure_value === 'number' ? data[0].measure_value : 0;
+    measureType = (data[0]?.measure_type as string) || 'number';
+  }
 
   // Determine format from measure_type if not explicitly provided
-  const displayFormat = format || (data[0]?.measure_type === 'currency' ? 'currency' : 'number');
+  const displayFormat = format || (measureType === 'currency' ? 'currency' : 'number') as 'currency' | 'number' | 'percentage';
 
   // Determine decimals: 0 for currency and large numbers, 1 for percentages
   const decimals = displayFormat === 'percentage' ? 1 : 0;

@@ -1,12 +1,13 @@
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, NotFoundError, ValidationError, APIError } from '@/lib/api/responses/error';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import type { UserContext } from '@/lib/types/rbac';
 import type { ChartData } from '@/lib/types/analytics';
 import { log } from '@/lib/logger';
 import { chartDataOrchestrator } from '@/lib/services/chart-data-orchestrator';
+import { buildCacheControlHeader } from '@/lib/constants/analytics';
 
 /**
  * Universal Chart Data Endpoint
@@ -80,11 +81,41 @@ const universalChartDataRequestSchema = z.object({
 type UniversalChartDataRequest = z.infer<typeof universalChartDataRequestSchema>;
 
 /**
+ * Column definition for table charts
+ */
+interface ColumnDefinition {
+  columnName: string;
+  displayName: string;
+  dataType: string;
+  formatType?: string | null;
+  displayIcon?: boolean | null;
+  iconType?: string | null;
+  iconColorMode?: string | null;
+  iconColor?: string | null;
+  iconMapping?: Record<string, unknown> | null;
+}
+
+/**
+ * Formatted cell for table charts (Phase 3.2)
+ */
+interface FormattedCell {
+  formatted: string; // Display value (e.g., "$1,000.00")
+  raw: unknown; // Original value for sorting/exporting
+  icon?: {
+    name: string;
+    color?: string;
+    type?: string;
+  };
+}
+
+/**
  * Unified response format for all chart types
  */
 interface UniversalChartDataResponse {
   chartData: ChartData; // Transformed Chart.js format
   rawData: Record<string, unknown>[]; // Original data for exports
+  columns?: ColumnDefinition[]; // Optional: Column metadata for table charts
+  formattedData?: Array<Record<string, FormattedCell>>; // Optional: Formatted table data (Phase 3.2)
   metadata: {
     chartType: string;
     dataSourceId: number;
@@ -99,6 +130,14 @@ interface UniversalChartDataResponse {
 /**
  * Universal chart data handler
  * Routes requests to appropriate chart type handler via registry
+ *
+ * @param request - Next.js request object containing chart data request
+ * @param userContext - Authenticated user context from RBAC middleware
+ * @returns Response with transformed chart data or error
+ *
+ * @throws {ValidationError} If request body fails schema validation
+ * @throws {NotFoundError} If chart definition or data source not found
+ * @throws {APIError} If user lacks access to requested data source or other errors
  */
 const universalChartDataHandler = async (
   request: NextRequest,
@@ -106,9 +145,16 @@ const universalChartDataHandler = async (
 ): Promise<Response> => {
   const startTime = Date.now();
 
+  // Extract client IP for security monitoring
+  const clientIp =
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    request.headers.get('x-real-ip') ||
+    'unknown';
+
   log.info('Universal chart data request initiated', {
     requestingUserId: userContext.user_id,
     currentOrganizationId: userContext.current_organization_id,
+    ipAddress: clientIp,
   });
 
   try {
@@ -168,6 +214,8 @@ const universalChartDataHandler = async (
     const response: UniversalChartDataResponse = {
       chartData: result.chartData,
       rawData: result.rawData,
+      ...(result.columns && { columns: result.columns }), // Include columns if present (table charts)
+      ...(result.formattedData && { formattedData: result.formattedData }), // Include formatted data if present (Phase 3.2)
       metadata: {
         chartType: result.metadata.chartType,
         dataSourceId: result.metadata.dataSourceId,
@@ -192,11 +240,8 @@ const universalChartDataHandler = async (
     // 4. Return with caching headers
     const successResponse = createSuccessResponse(response, 'Chart data fetched successfully');
 
-    // Add caching headers
-    successResponse.headers.set(
-      'Cache-Control',
-      'private, max-age=300, stale-while-revalidate=60'
-    );
+    // Add caching headers (using centralized constants)
+    successResponse.headers.set('Cache-Control', buildCacheControlHeader());
     successResponse.headers.set('X-Chart-Type', result.metadata.chartType);
     successResponse.headers.set('X-Transform-Duration', `${duration}ms`);
     successResponse.headers.set('X-Cache-Hit', result.metadata.cacheHit ? 'true' : 'false');
@@ -211,9 +256,25 @@ const universalChartDataHandler = async (
       currentOrganizationId: userContext.current_organization_id,
     });
 
+    // Determine appropriate HTTP status code based on error type
+    let statusCode = 500;
+    if (error instanceof APIError) {
+      // APIError already has statusCode
+      statusCode = error.statusCode;
+    } else if (error instanceof Error) {
+      // Check error message for common patterns
+      if (error.message.includes('not found')) {
+        statusCode = 404;
+      } else if (error.message.includes('validation') || error.message.includes('invalid')) {
+        statusCode = 400;
+      } else if (error.message.includes('permission') || error.message.includes('access denied')) {
+        statusCode = 403;
+      }
+    }
+
     return createErrorResponse(
       error instanceof Error ? error.message : 'Failed to fetch chart data',
-      500,
+      statusCode,
       request
     );
   }

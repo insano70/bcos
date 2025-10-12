@@ -1,7 +1,7 @@
-import type { ChartData, AggAppMeasure } from '@/lib/types/analytics';
-import { BaseChartHandler } from './base-handler';
-import { SimplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
+import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
 import { log } from '@/lib/logger';
+import { SimplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
+import { BaseChartHandler } from './base-handler';
 
 /**
  * Time Series Chart Handler

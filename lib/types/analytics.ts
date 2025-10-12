@@ -178,6 +178,10 @@ export interface ChartDataset {
   clip?: number;
   yAxisID?: string; // Y-axis ID for dual-axis charts
   order?: number; // Draw order (lower = drawn first, higher = drawn on top)
+  // Phase 3: Server-side metric aggregation
+  aggregationType?: 'sum' | 'avg' | 'count' | 'min' | 'max'; // Aggregation type for metric charts
+  rawValue?: number; // Raw aggregated value (for progress bars)
+  target?: number; // Target value (for progress bars)
 }
 
 /**

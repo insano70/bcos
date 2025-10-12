@@ -14,8 +14,19 @@ interface TableColumn {
   iconMapping?: unknown;
 }
 
+interface FormattedCell {
+  formatted: string; // Display value (e.g., "$1,000.00")
+  raw: unknown; // Original value for sorting/exporting
+  icon?: {
+    name: string;
+    color?: string;
+    type?: string;
+  };
+}
+
 interface AnalyticsTableChartProps {
-  data: Record<string, unknown>[];
+  data: Record<string, unknown>[]; // Legacy: raw data (for backward compatibility)
+  formattedData?: Array<Record<string, FormattedCell>>; // Phase 3.2: Server-formatted data
   columns: TableColumn[];
   colorPalette?: string;
   title?: string;
@@ -24,11 +35,15 @@ interface AnalyticsTableChartProps {
 
 export default function AnalyticsTableChart({
   data,
+  formattedData,
   columns,
   colorPalette = 'default',
   title,
   height = 400
 }: AnalyticsTableChartProps) {
+  // Phase 3.2: Use server-formatted data if available, otherwise fall back to raw data
+  const useFormattedData = formattedData && formattedData.length > 0;
+  const displayData = useFormattedData ? formattedData : data;
   const [mounted, setMounted] = useState(false);
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   const [showScrollIndicator, setShowScrollIndicator] = useState(false);
@@ -38,10 +53,12 @@ export default function AnalyticsTableChart({
     setMounted(true);
     console.log('🎨 AnalyticsTableChart mounted:', {
       dataRows: data?.length,
+      formattedDataRows: formattedData?.length,
+      useFormattedData,
       columns: columns?.length,
       columnsData: columns
     });
-  }, [data, columns]);
+  }, [data, formattedData, useFormattedData, columns]);
 
   // Check if content is scrollable and update indicator
   useEffect(() => {
@@ -120,9 +137,14 @@ export default function AnalyticsTableChart({
     );
   }
 
-  console.log('🎨 Rendering table with:', { dataLength: data?.length, columnsLength: columns?.length });
+  console.log('🎨 Rendering table with:', {
+    dataLength: data?.length,
+    formattedDataLength: formattedData?.length,
+    useFormattedData,
+    columnsLength: columns?.length
+  });
 
-  if (!data || data.length === 0) {
+  if (!displayData || displayData.length === 0) {
     console.log('⚠️ No data to display');
     return (
       <div style={{ height: `${height}px` }} className="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
@@ -143,15 +165,48 @@ export default function AnalyticsTableChart({
     );
   }
 
-  // Format value based on column type
-  const formatValue = (value: unknown, column: TableColumn): string => {
+  /**
+   * Get cell value from either formatted or raw data
+   * Phase 3.2: Prioritize server-formatted data, fallback to client formatting
+   */
+  const getCellValue = (
+    row: Record<string, unknown> | Record<string, FormattedCell>,
+    columnName: string
+  ): { displayValue: string; rawValue: unknown; icon?: { name: string; color?: string; type?: string } } => {
+    const cellData = row[columnName];
+
+    // Phase 3.2: Check if this is formatted data from server
+    if (cellData && typeof cellData === 'object' && 'formatted' in cellData) {
+      const formattedCell = cellData as FormattedCell;
+      const result: { displayValue: string; rawValue: unknown; icon?: { name: string; color?: string; type?: string } } = {
+        displayValue: formattedCell.formatted,
+        rawValue: formattedCell.raw
+      };
+      if (formattedCell.icon) {
+        result.icon = formattedCell.icon;
+      }
+      return result;
+    }
+
+    // Legacy: Client-side formatting for backward compatibility
+    return {
+      displayValue: formatValueLegacy(cellData, columns.find(c => c.columnName === columnName)!),
+      rawValue: cellData
+    };
+  };
+
+  /**
+   * Legacy client-side formatting (kept for backward compatibility)
+   * Will be removed once all table charts use universal endpoint
+   */
+  const formatValueLegacy = (value: unknown, column: TableColumn): string => {
     if (value === null || value === undefined) return '-';
 
     const formatType = column.formatType || column.dataType;
 
     if (formatType === 'currency' || formatType === 'decimal') {
       const numValue = typeof value === 'string' ? parseFloat(value) : Number(value);
-      if (isNaN(numValue)) return String(value);
+      if (Number.isNaN(numValue)) return String(value);
 
       if (formatType === 'currency') {
         return new Intl.NumberFormat('en-US', {
@@ -182,8 +237,8 @@ export default function AnalyticsTableChart({
     }
 
     if (formatType === 'integer' || column.dataType === 'integer') {
-      const numValue = typeof value === 'string' ? parseInt(value) : Number(value);
-      if (isNaN(numValue)) return String(value);
+      const numValue = typeof value === 'string' ? Number.parseInt(value) : Number(value);
+      if (Number.isNaN(numValue)) return String(value);
       return new Intl.NumberFormat('en-US').format(numValue);
     }
 
@@ -341,13 +396,17 @@ export default function AnalyticsTableChart({
             </thead>
             {/* Table body - matches fintech card styling exactly */}
             <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
-              {data.map((row, rowIndex) => {
+              {displayData.map((row, rowIndex) => {
                 console.log(`🔍 Rendering row ${rowIndex}:`, row);
                 return (
                 <tr key={rowIndex}>
                   {columns.map((column, colIndex) => {
-                    const cellValue = row[column.columnName];
+                    const { displayValue, rawValue, icon } = getCellValue(row, column.columnName);
                     const showIcon = column.displayIcon && colIndex === 0;
+
+                    // Phase 3.2: Use server-provided icon if available, otherwise fall back to client generation
+                    const iconColor = icon?.color || getIconColor(rawValue, column);
+                    const iconContent = icon?.name || getIconContent(rawValue, column);
 
                     return (
                       <td key={`${rowIndex}-${column.columnName}`} className="p-2 whitespace-nowrap">
@@ -355,19 +414,19 @@ export default function AnalyticsTableChart({
                           <div className="flex items-center">
                             <div
                               className="shrink-0 rounded-full mr-2 sm:mr-3 flex items-center justify-center w-9 h-9"
-                              style={{ backgroundColor: getIconColor(cellValue, column) }}
+                              style={{ backgroundColor: iconColor }}
                             >
                               <span className="text-white font-semibold text-sm">
-                                {getIconContent(cellValue, column)}
+                                {iconContent}
                               </span>
                             </div>
                             <div className="font-medium text-gray-800 dark:text-gray-100">
-                              {formatValue(cellValue, column)}
+                              {displayValue}
                             </div>
                           </div>
                         ) : (
                           <div className={`${colIndex === 0 ? 'font-medium text-gray-800 dark:text-gray-100' : ''} ${getAlignment(column)}`}>
-                            {formatValue(cellValue, column)}
+                            {displayValue}
                           </div>
                         )}
                       </td>

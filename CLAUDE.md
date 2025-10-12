@@ -135,6 +135,193 @@ When logging errors, always include:
 - All logs include automatic context capture (file:line:function)
 - See `/docs/logging_strategy.md` for CloudWatch query examples
 
+## Enriched Logging Patterns
+
+### Standard Patterns for API Routes
+
+#### Success Log Pattern
+All successful operations should log with rich context:
+
+```typescript
+import { log, SLOW_THRESHOLDS } from '@/lib/logger';
+
+const duration = Date.now() - startTime;
+
+log.info('operation completed - summary', {
+  operation: 'list_users',  // Required: unique operation identifier
+  userId: userContext.user_id,  // Required: who performed the operation
+  results: {
+    returned: users.length,
+    total: totalCount,
+    page: currentPage,
+  },
+  filters: sanitizeFilters(filters),  // Use sanitizeFilters() for filter context
+  duration,
+  slow: duration > SLOW_THRESHOLDS.API_OPERATION,  // Use constants
+  component: 'api',  // Required: component tag for CloudWatch filtering
+});
+```
+
+#### Error Log Pattern
+All errors must include operation and component:
+
+```typescript
+log.error('operation failed', error, {
+  operation: 'create_user',  // Required
+  userId: userContext.user_id,
+  duration: Date.now() - startTime,
+  component: 'api',  // Required
+});
+```
+
+#### CRUD Operations Pattern
+For standard CRUD operations, use logTemplates:
+
+```typescript
+import { logTemplates, calculateChanges } from '@/lib/logger';
+
+// CREATE
+const template = logTemplates.crud.create('user', {
+  resourceId: String(newUser.user_id),
+  resourceName: newUser.email,
+  userId: userContext.user_id,
+  organizationId: userContext.current_organization_id,
+  duration,
+  metadata: { role: newUser.role, emailVerified: newUser.email_verified },
+});
+log.info(template.message, template.context);
+
+// UPDATE (with change tracking)
+const changes = calculateChanges(existingUser, updatedData);
+const template = logTemplates.crud.update('user', {
+  resourceId: String(user.user_id),
+  resourceName: user.email,
+  userId: userContext.user_id,
+  changes,
+  duration,
+  metadata: { fieldsChanged: Object.keys(changes).length },
+});
+log.info(template.message, template.context);
+
+// LIST
+const template = logTemplates.crud.list('users', {
+  userId: userContext.user_id,
+  organizationId: userContext.current_organization_id,
+  filters: { status: 'active', role: 'admin' },
+  results: { returned: 25, total: 100, page: 1 },
+  duration,
+});
+log.info(template.message, template.context);
+```
+
+### Slow Thresholds
+
+Use centralized constants for consistency:
+
+```typescript
+import { SLOW_THRESHOLDS } from '@/lib/logger';
+
+// Database queries - 500ms threshold
+slow: dbDuration > SLOW_THRESHOLDS.DB_QUERY
+
+// Standard API operations - 1000ms threshold
+slow: duration > SLOW_THRESHOLDS.API_OPERATION
+
+// Complex auth operations - 2000ms threshold
+slow: duration > SLOW_THRESHOLDS.AUTH_OPERATION
+```
+
+**Rationale:**
+- `DB_QUERY: 500ms` - Detect missing indexes, complex joins
+- `API_OPERATION: 1000ms` - User experience threshold for simple operations
+- `AUTH_OPERATION: 2000ms` - Tolerance for password hashing, token generation, MFA
+
+### Security Event Logging
+
+Always preserve security logs:
+
+```typescript
+// Authentication events
+log.auth('login_attempt', true, {
+  userId,
+  method: 'password',
+  mfaRequired: true
+});
+
+// Security threats
+log.security('rate_limit_exceeded', 'high', {
+  userId,
+  ipAddress: metadata.ipAddress,
+  blocked: true,
+  threat: 'credential_attack',
+});
+
+// Use AuditLogger for compliance
+await AuditLogger.logUserAction({
+  action: 'user_deleted',
+  userId: actingUserId,
+  resourceType: 'user',
+  resourceId: deletedUserId,
+  ipAddress: metadata.ipAddress,
+  metadata: { reason: 'admin_action' },
+});
+```
+
+### What NOT to Log
+
+#### ❌ Verbose Intermediate Logs
+```typescript
+// DON'T DO THIS:
+log.info('Rate limit check completed', { duration: 5 });
+log.info('Request validation completed', { duration: 12 });
+log.info('Database query completed', { duration: 234 });
+log.info('Response formatted', { duration: 3 });
+
+// DO THIS INSTEAD:
+// Remove intermediate logs, keep one comprehensive final log
+log.info('user list completed - returned 25 of 100', {
+  operation: 'list_users',
+  results: { returned: 25, total: 100 },
+  query: { duration: 234, slow: false },
+  duration: 254,  // Total duration only
+  component: 'api',
+});
+```
+
+#### ❌ Debug console.log Statements
+```typescript
+// DON'T DO THIS:
+console.log('🔍 Debugging:', data);
+
+// DO THIS INSTEAD:
+log.debug('debugging context', { data });  // 1% sampled in production
+```
+
+### CloudWatch Queries
+
+Query logs by operation:
+```
+fields @timestamp, message, duration, operation, userId
+| filter component = "api" and operation = "list_users"
+| sort @timestamp desc
+| limit 100
+```
+
+Find slow operations:
+```
+fields @timestamp, message, duration, operation
+| filter slow = true
+| stats count() by operation
+| sort count desc
+```
+
+Trace request by correlation ID:
+```
+fields @timestamp, message, level, file
+| filter correlationId = "abc123..."
+| sort @timestamp asc
+```
+
 ## File Naming Conventions
 
 - Do not use adjectives or buzzwords in file naming

@@ -23,7 +23,7 @@ const schemaHandler = async (request: NextRequest, userContext: UserContext) => 
     let tableName = searchParams.get('table') || 'agg_app_measures';
     let schemaName = searchParams.get('schema') || 'ih';
 
-    console.log('🔍 Loading schema from database configuration...');
+    log.debug('loading schema from database configuration', { tableName, schemaName });
 
     // If data_source_id is provided, load the data source configuration
     if (dataSourceIdParam) {
@@ -103,7 +103,7 @@ const schemaHandler = async (request: NextRequest, userContext: UserContext) => 
       dataSource: dataSourceConfig,
     };
 
-    console.log('✅ Schema information compiled:', {
+    log.debug('schema information compiled', {
       fieldCount: Object.keys(fieldDefinitions).length,
       measureCount: availableMeasures.length,
       frequencyCount: availableFrequencies.length,

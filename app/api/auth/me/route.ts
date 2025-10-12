@@ -15,36 +15,48 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
 
-  log.api('GET /api/auth/me - User context request', request);
-
   try {
     // RATE LIMITING: Apply API-level rate limiting to prevent user context abuse
-    const rateLimitStart = Date.now();
     await applyRateLimit(request, 'api');
-    log.info('Rate limit check completed', { duration: Date.now() - rateLimitStart });
 
     // Get authenticated user session with JWT-enhanced data (eliminates database queries!)
-    const authStart = Date.now();
     const session = await requireJWTAuth(request);
-    log.info('JWT authentication completed', { duration: Date.now() - authStart });
 
     // User context is already available from JWT + cache - no additional database queries needed!
     const userContext = session.userContext;
 
     if (!userContext) {
-      log.warn('User context not found in session', {
+      log.warn('user context not found in session', {
+        operation: 'get_user_context',
         userId: session.user?.id,
         hasSession: !!session,
+        duration: Date.now() - startTime,
+        component: 'auth',
       });
       return createErrorResponse('User context not found', 404, request);
     }
 
-    log.info('User context retrieved successfully', {
+    const duration = Date.now() - startTime;
+
+    log.info('user context retrieved successfully from JWT token', {
+      operation: 'get_user_context',
       userId: userContext.user_id,
-      roleCount: userContext.roles.length,
-      permissionCount: userContext.all_permissions.length,
-      organizationCount: userContext.organizations.length,
-      duration: Date.now() - startTime,
+      email: userContext.email,
+      rbac: {
+        roles: userContext.roles.length,
+        permissions: userContext.all_permissions.length,
+        isSuperAdmin: userContext.is_super_admin,
+        orgAdminFor: userContext.organization_admin_for.length,
+      },
+      organizations: {
+        direct: userContext.organizations.length,
+        accessible: userContext.accessible_organizations.length,
+        current: userContext.current_organization_id || null,
+      },
+      duration,
+      slow: duration > 1000,
+      component: 'auth',
+      cached: true, // JWT token contains cached user context
     });
 
     // Return user data with full RBAC context
@@ -97,8 +109,9 @@ export async function GET(request: NextRequest) {
     );
   } catch (error) {
     log.error('User context retrieval failed', error, {
+      operation: 'get_user_context',
       duration: Date.now() - startTime,
-      endpoint: '/api/auth/me',
+      component: 'auth',
     });
     return createErrorResponse(
       error instanceof Error ? error.message : 'Failed to retrieve user context',

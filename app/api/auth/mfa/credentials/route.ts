@@ -17,6 +17,8 @@ import type { CredentialListItem } from '@/lib/types/webauthn';
 export const dynamic = 'force-dynamic';
 
 const handler = async (request: NextRequest) => {
+  const startTime = Date.now();
+
   try {
     const session = await requireAuth(request);
     const userId = session.user.id;
@@ -35,9 +37,33 @@ const handler = async (request: NextRequest) => {
       backed_up: cred.backed_up,
     }));
 
-    log.info('User passkey credentials listed', {
+    const duration = Date.now() - startTime;
+
+    const deviceTypes = credentials.reduce((acc, cred) => {
+      const type = cred.credential_device_type || 'unknown';
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const backedUpCount = credentials.filter((c) => c.backed_up).length;
+    const recentlyUsed = credentials.filter((c) => {
+      if (!c.last_used) return false;
+      const daysSinceUse = (Date.now() - c.last_used.getTime()) / (1000 * 60 * 60 * 24);
+      return daysSinceUse <= 30;
+    }).length;
+
+    log.info(`mfa credentials list completed - returned ${credentials.length} passkeys`, {
+      operation: 'list_mfa_credentials',
       userId,
-      credentialCount: credentials.length,
+      results: {
+        returned: credentials.length,
+        backedUp: backedUpCount,
+        recentlyUsed30d: recentlyUsed,
+        deviceTypes,
+      },
+      duration,
+      slow: duration > 1000,
+      component: 'auth',
     });
 
     return createSuccessResponse(
@@ -45,8 +71,10 @@ const handler = async (request: NextRequest) => {
       'Passkey credentials retrieved successfully'
     );
   } catch (error) {
-    log.error('Failed to list passkey credentials', {
-      error: error instanceof Error ? error.message : String(error),
+    log.error('Failed to list passkey credentials', error, {
+      operation: 'list_mfa_credentials',
+      duration: Date.now() - startTime,
+      component: 'auth',
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);

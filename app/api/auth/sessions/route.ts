@@ -31,14 +31,6 @@ const revokeSessionSchema = z.object({
 const getSessionsHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
 
-  log.api('GET /api/auth/sessions - List sessions request', request, 0, 0);
-
-  log.info('Sessions list request initiated', {
-    userId: userContext.user_id,
-    endpoint: '/api/auth/sessions',
-    method: 'GET',
-  });
-
   try {
     // Get current session ID from refresh token to mark the current session
     const cookieStore = await cookies();
@@ -50,9 +42,6 @@ const getSessionsHandler = async (request: NextRequest, userContext: UserContext
       const payload = await verifyRefreshToken(refreshToken);
       if (payload) {
         currentSessionId = payload.sessionId;
-      } else {
-        // If we can't parse the token, continue without marking current session
-        log.debug('Could not extract session ID from refresh token');
       }
     }
 
@@ -80,14 +69,28 @@ const getSessionsHandler = async (request: NextRequest, userContext: UserContext
       )
       .orderBy(desc(user_sessions.last_activity));
 
-    log.db('SELECT', 'user_sessions', Date.now() - dbStartTime, { rowCount: sessions.length });
+    const duration = Date.now() - startTime;
+    const dbDuration = Date.now() - dbStartTime;
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Sessions list retrieved successfully', {
+    const currentSessionCount = sessions.filter((s) => s.isCurrent).length;
+    const rememberMeCount = sessions.filter((s) => s.rememberMe).length;
+
+    log.info(`user sessions list completed - returned ${sessions.length} active sessions`, {
+      operation: 'list_user_sessions',
       userId: userContext.user_id,
-      sessionCount: sessions.length,
-      currentSessionId,
-      duration: totalDuration,
+      results: {
+        returned: sessions.length,
+        currentSession: currentSessionCount,
+        rememberMeSessions: rememberMeCount,
+      },
+      ...(currentSessionId && { currentSessionId }),
+      query: {
+        duration: dbDuration,
+        slow: dbDuration > 1000,
+      },
+      duration,
+      slow: duration > 2000,
+      component: 'auth',
     });
 
     return createSuccessResponse(
@@ -111,9 +114,10 @@ const getSessionsHandler = async (request: NextRequest, userContext: UserContext
     const totalDuration = Date.now() - startTime;
 
     log.error('Get sessions error', error, {
+      operation: 'list_user_sessions',
       userId: userContext.user_id,
       duration: totalDuration,
-      errorType: error instanceof Error ? error.constructor.name : typeof error,
+      component: 'auth',
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
@@ -126,25 +130,10 @@ const getSessionsHandler = async (request: NextRequest, userContext: UserContext
 const revokeSessionHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
 
-  log.api('DELETE /api/auth/sessions - Revoke session request', request, 0, 0);
-
-  log.info('Session revocation request initiated', {
-    userId: userContext.user_id,
-    endpoint: '/api/auth/sessions',
-    method: 'DELETE',
-  });
-
   try {
     // Validate request body
-    const validationStartTime = Date.now();
     const validatedData = await validateRequest(request, revokeSessionSchema);
     const { sessionId } = validatedData;
-    log.info('Request validation completed', { duration: Date.now() - validationStartTime });
-
-    log.debug('Session revocation request validated', {
-      userId: userContext.user_id,
-      targetSessionId: sessionId,
-    });
 
     // Get the session to revoke
     const dbStartTime = Date.now();
@@ -163,14 +152,15 @@ const revokeSessionHandler = async (request: NextRequest, userContext: UserConte
       )
       .limit(1);
 
-    log.db('SELECT', 'user_sessions', Date.now() - dbStartTime, {
-      rowCount: sessionToRevoke ? 1 : 0,
-    });
+    const dbDuration = Date.now() - dbStartTime;
 
     if (!sessionToRevoke) {
-      log.warn('Session not found or already revoked', {
+      log.warn('session revocation failed - session not found or already revoked', {
+        operation: 'revoke_user_session',
         userId: userContext.user_id,
         targetSessionId: sessionId,
+        duration: Date.now() - startTime,
+        component: 'auth',
       });
       return createErrorResponse('Session not found or already revoked', 404, request);
     }
@@ -180,10 +170,8 @@ const revokeSessionHandler = async (request: NextRequest, userContext: UserConte
     const refreshToken = cookieStore.get('refresh-token')?.value;
 
     if (refreshToken && sessionToRevoke.refreshTokenId) {
-      const revokeStartTime = Date.now();
       // Revoke the refresh token (this will also end the session)
       await revokeRefreshToken(refreshToken, 'security');
-      log.info('Token revocation completed', { duration: Date.now() - revokeStartTime });
     }
 
     // Log the security action
@@ -193,11 +181,19 @@ const revokeSessionHandler = async (request: NextRequest, userContext: UserConte
       reason: 'user_requested',
     });
 
-    const totalDuration = Date.now() - startTime;
-    log.info('Session revoked successfully', {
+    const duration = Date.now() - startTime;
+    log.info('session revoked successfully - refresh token and session terminated', {
+      operation: 'revoke_user_session',
       userId: userContext.user_id,
       revokedSessionId: sessionId,
-      duration: totalDuration,
+      tokenRevoked: !!(refreshToken && sessionToRevoke.refreshTokenId),
+      query: {
+        duration: dbDuration,
+        slow: dbDuration > 500,
+      },
+      duration,
+      slow: duration > 1000,
+      component: 'auth',
     });
 
     return createSuccessResponse({ sessionId }, 'Session revoked successfully');
@@ -205,9 +201,10 @@ const revokeSessionHandler = async (request: NextRequest, userContext: UserConte
     const totalDuration = Date.now() - startTime;
 
     log.error('Revoke session error', error, {
+      operation: 'revoke_user_session',
       userId: userContext.user_id,
       duration: totalDuration,
-      errorType: error instanceof Error ? error.constructor.name : typeof error,
+      component: 'auth',
     });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
