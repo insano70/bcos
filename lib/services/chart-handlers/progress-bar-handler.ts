@@ -198,24 +198,24 @@ export class ProgressBarChartHandler extends BaseChartHandler {
                          (data[0]?.measure_type as string) ||
                          'number';
 
-      const chartData = {
+      const chartData: ChartData = {
         labels,
         datasets: [{
           label: config.title as string || 'Progress',
           data: percentages,
           measureType: 'percentage',
-          // Store raw values for display alongside percentages (using 'as any' for custom fields)
-          ...(rawValues && { rawValues }),
+          // Store raw values for display alongside percentages
+          rawValues,
           // Store dynamic target (sum of all values)
           target: dynamicTarget,
-          ...(aggregationType && { aggregationType }),
+          aggregationType,
           // Store original measure type for formatting raw values
-          ...(measureType && { originalMeasureType: measureType }),
-        } as any],
+          originalMeasureType: measureType,
+        }],
         measureType: 'percentage',
-        // Store colors for frontend reference (using type assertion for custom field)
+        // Store colors for frontend reference
         colors: getPaletteColors(colorPalette),
-      } as ChartData;
+      };
 
       const duration = Date.now() - startTime;
 

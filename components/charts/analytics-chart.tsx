@@ -406,9 +406,10 @@ export default function AnalyticsChart({
           generatedAt: new Date().toISOString(),
         });
       } else {
-        // Optimized single API call - server fetches and transforms data
+        // Standard chart types: line, bar, stacked-bar, horizontal-bar, pie, doughnut, area
+        // Phase 5: Migrated to universal endpoint
         if (process.env.NODE_ENV === 'development') {
-          console.log('🚀 FETCHING AND TRANSFORMING CHART DATA');
+          console.log(`🚀 FETCHING ${chartType.toUpperCase()} CHART DATA via universal endpoint`);
         }
 
         // Client-side validation
@@ -418,64 +419,67 @@ export default function AnalyticsChart({
           return;
         }
 
-        // Build request payload with query parameters (not measures array)
+        // Build universal endpoint request payload
         const requestPayload = {
-          // Data fetching params (passed through dynamically)
-          // Only include measure if NOT using multipleSeries (multipleSeries contains its own measures)
-          ...(!(multipleSeries && multipleSeries.length > 0) && measure && { measure }),
-          frequency,
-          startDate,
-          endDate,
-          dateRangePreset,
-          providerName,
-          advancedFilters,
-          calculatedField,
-
-          // Chart config
-          chartType: chartType === 'stacked-bar' ? 'bar' : chartType,
-          groupBy: groupBy || 'none',
-          colorPalette,
-          dataSourceId,
-          ...(chartType === 'stacked-bar' && { stackingMode }),
-          multipleSeries: multipleSeries && multipleSeries.length > 0 ? multipleSeries : undefined,
-          periodComparison
+          chartConfig: {
+            chartType,
+            dataSourceId: dataSourceId!,
+            groupBy: groupBy || 'none',
+            colorPalette: colorPalette || 'default',
+            ...(chartType === 'stacked-bar' && { stackingMode }),
+            ...(multipleSeries && multipleSeries.length > 0 && { multipleSeries }),
+            ...(periodComparison && { periodComparison }),
+            ...(title && { title }),
+          },
+          runtimeFilters: {
+            startDate,
+            endDate,
+            dateRangePreset,
+            practice,
+            practiceUid,
+            providerName,
+            // Only include measure if NOT using multipleSeries (multipleSeries contains its own measures)
+            ...(!(multipleSeries && multipleSeries.length > 0) && measure && { measure }),
+            frequency,
+            ...(advancedFilters && advancedFilters.length > 0 && { advancedFilters }),
+            ...(calculatedField && { calculatedField }),
+          },
         };
 
         if (process.env.NODE_ENV === 'development') {
-          console.log('📤 REQUEST PAYLOAD:', {
-            chartType: requestPayload.chartType,
-            measure: requestPayload.measure,
-            frequency: requestPayload.frequency,
-            startDate: requestPayload.startDate,
-            endDate: requestPayload.endDate,
-            dateRangePreset: requestPayload.dateRangePreset,
-            groupBy: requestPayload.groupBy,
+          console.log('📤 UNIVERSAL ENDPOINT REQUEST:', {
+            chartType,
+            groupBy: groupBy || 'none',
+            colorPalette: colorPalette || 'default',
             hasMultipleSeries: !!(multipleSeries && multipleSeries.length > 0),
             multipleSeriesCount: multipleSeries?.length,
-            multipleSeriesDetails: multipleSeries?.map(s => ({ measure: s.measure, label: s.label }))
+            hasPeriodComparison: !!periodComparison,
+            hasAdvancedFilters: !!(advancedFilters && advancedFilters.length > 0),
           });
         }
 
-        // API client automatically unwraps {success: true, data: {...}} responses
+        // Universal endpoint response format
         const response: {
           chartData: ChartData;
-          rawData: AggAppMeasure[];
+          rawData: Record<string, unknown>[];
           metadata: {
-            transformedAt: string;
             chartType: string;
-            duration: number;
-            measureCount: number;
-            datasetCount: number;
+            dataSourceId: number;
+            queryTimeMs: number;
+            cacheHit: boolean;
+            recordCount: number;
           };
-        } = await apiClient.post('/api/admin/analytics/chart-data', requestPayload);
+        } = await apiClient.post('/api/admin/analytics/chart-data/universal', requestPayload);
 
         if (process.env.NODE_ENV === 'development') {
-          console.log('✅ SERVER-SIDE TRANSFORMATION COMPLETE:', {
-            duration: response.metadata.duration,
+          console.log('✅ UNIVERSAL ENDPOINT RESPONSE:', {
+            chartType: response.metadata.chartType,
+            recordCount: response.metadata.recordCount,
+            queryTimeMs: response.metadata.queryTimeMs,
+            cacheHit: response.metadata.cacheHit,
             labelCount: response.chartData.labels.length,
             datasetCount: response.chartData.datasets?.length ?? 0,
             datasetLabels: response.chartData.datasets?.map(d => d.label) ?? [],
-            rawDataCount: response.rawData?.length
           });
         }
 
@@ -490,8 +494,8 @@ export default function AnalyticsChart({
 
         setChartData(response.chartData);
         setRawData(response.rawData);
-        setMetadata(null); // New API doesn't return query metadata
-      } // End of else block for non-table charts
+        setMetadata(null); // Universal endpoint uses different metadata format
+      } // End of else block for standard charts
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch chart data';

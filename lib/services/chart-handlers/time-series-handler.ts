@@ -47,7 +47,7 @@ export class TimeSeriesChartHandler extends BaseChartHandler {
         colorPalette,
       });
 
-      // Create transformer (metadata loading will be improved in Phase 3)
+      // Create transformer
       const transformer = new SimplifiedChartTransformer();
 
       // Determine if filled (area chart)

@@ -100,7 +100,7 @@ export class MetricChartHandler extends BaseChartHandler {
     const startTime = Date.now();
 
     try {
-      const chartType = config.chartType as 'number' | 'progress-bar';
+      const chartType = config.chartType as 'number';
       const aggregationType = (config.aggregation as AggregationType) || 'sum';
       // Determine which column contains the value to aggregate
       const valueColumn = (config.valueColumn as string) || 'measure_value';
@@ -110,7 +110,6 @@ export class MetricChartHandler extends BaseChartHandler {
         recordCount: data.length,
         aggregationType,
         valueColumn,
-        hasTarget: Boolean(config.target),
       });
 
       // Defensive check: handle empty data array
@@ -141,61 +140,18 @@ export class MetricChartHandler extends BaseChartHandler {
                          (data[0]?.measure_type as string) ||
                          'number';
 
-      let chartData: ChartData;
-
-      if (chartType === 'number') {
-        // Number chart: return single aggregated value in a dataset
-        // Phase 3: Server-side aggregation complete
-        chartData = {
-          labels: [],
-          datasets: [{
-            label: config.title as string || 'Total',
-            data: [aggregatedValue],
-            measureType,
-            aggregationType, // Include aggregation type for frontend reference
-          }],
+      // Number chart: return single aggregated value in a dataset
+      // Phase 3: Server-side aggregation complete
+      const chartData: ChartData = {
+        labels: [],
+        datasets: [{
+          label: config.title as string || 'Total',
+          data: [aggregatedValue],
           measureType,
-        };
-      } else {
-        // Progress bar chart: calculate percentage if target is provided
-        // Phase 3: Server-side percentage calculation
-        const target = config.target as number | undefined;
-
-        if (!target || target <= 0) {
-          // No valid target - fall back to number chart display
-          log.warn('Progress bar chart has no valid target - displaying as number chart', {
-            aggregatedValue,
-            target,
-          });
-
-          chartData = {
-            labels: [],
-            datasets: [{
-              label: config.title as string || 'Total',
-              data: [aggregatedValue],
-              measureType,
-              aggregationType,
-            }],
-            measureType,
-          };
-        } else {
-          // Calculate percentage with valid target
-          const percentage = (aggregatedValue / target) * 100;
-
-          chartData = {
-            labels: ['Progress'],
-            datasets: [{
-              label: config.label as string || 'Progress',
-              data: [percentage],
-              measureType: 'percentage',
-              // Include raw value and target for reference
-              rawValue: aggregatedValue,
-              target,
-            }],
-            measureType: 'percentage',
-          };
-        }
-      }
+          aggregationType, // Include aggregation type for frontend reference
+        }],
+        measureType,
+      };
 
       const duration = Date.now() - startTime;
 
@@ -224,12 +180,12 @@ export class MetricChartHandler extends BaseChartHandler {
 
     // Metric charts don't support groupBy
     if (config.groupBy) {
-      errors.push('Metric charts (number/progress-bar) do not use groupBy - data is aggregated to a single value');
+      errors.push('Metric number charts do not use groupBy - data is aggregated to a single value');
     }
 
     // Metric charts don't support multiple series
     if (config.multipleSeries && Array.isArray(config.multipleSeries) && config.multipleSeries.length > 0) {
-      errors.push('Metric charts do not support multiple series');
+      errors.push('Metric number charts do not support multiple series');
     }
 
     // Validate aggregation type if specified (Phase 3)
@@ -241,23 +197,6 @@ export class MetricChartHandler extends BaseChartHandler {
         errors.push(
           `Invalid aggregation type: ${aggregation}. Must be one of: ${validAggregations.join(', ')}`
         );
-      }
-    }
-
-    // Progress bar target validation (optional with warning)
-    if (config.chartType === 'progress-bar') {
-      if (!config.target) {
-        // Log warning but don't fail validation - chart will display as number
-        log.warn('Progress bar chart missing target value - will display as number chart', {
-          chartType: config.chartType,
-          hasTarget: false,
-        });
-      } else {
-        // Validate target is a positive number
-        const target = config.target as number;
-        if (typeof target !== 'number' || target <= 0) {
-          errors.push('Progress bar target must be a positive number');
-        }
       }
     }
 

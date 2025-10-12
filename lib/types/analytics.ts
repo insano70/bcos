@@ -152,6 +152,8 @@ export interface ChartData {
   labels: (string | Date)[];
   datasets: ChartDataset[];
   measureType?: string; // Global measure type for the chart (e.g., 'currency', 'count')
+  // Phase 3.4: Progress bar chart colors
+  colors?: readonly string[]; // Array of colors from palette for progress bars
 }
 
 export interface ChartDataset {
@@ -180,8 +182,11 @@ export interface ChartDataset {
   order?: number; // Draw order (lower = drawn first, higher = drawn on top)
   // Phase 3: Server-side metric aggregation
   aggregationType?: 'sum' | 'avg' | 'count' | 'min' | 'max'; // Aggregation type for metric charts
-  rawValue?: number; // Raw aggregated value (for progress bars)
+  rawValue?: number; // Raw aggregated value (for single-value progress bars)
   target?: number; // Target value (for progress bars)
+  // Phase 3.4: Progress bar chart with multiple groups
+  rawValues?: number[]; // Array of raw values for grouped progress bars (one per label)
+  originalMeasureType?: string; // Original measure type before percentage conversion
 }
 
 /**

@@ -103,21 +103,40 @@ class ChartTypeRegistry {
   /**
    * Get handler for a specific chart type
    *
+   * Uses two-step lookup:
+   * 1. Direct map lookup by type (fast path)
+   * 2. Check all handlers' canHandle() method (allows multi-type handlers)
+   *
    * @param chartType - Chart type identifier
    * @returns Handler instance or null if not found
    */
   getHandler(chartType: string): ChartTypeHandler | null {
-    const handler = this.handlers.get(chartType);
-
-    if (!handler) {
-      log.warn('No handler found for chart type', {
-        chartType,
-        availableTypes: Array.from(this.handlers.keys()),
-      });
-      return null;
+    // Fast path: Direct lookup by primary type
+    const directHandler = this.handlers.get(chartType);
+    if (directHandler) {
+      return directHandler;
     }
 
-    return handler;
+    // Slow path: Check all handlers' canHandle() method
+    // This allows handlers to support multiple chart types
+    // (e.g., BarChartHandler handles 'bar', 'stacked-bar', 'horizontal-bar')
+    for (const handler of this.handlers.values()) {
+      if (handler.canHandle({ chartType })) {
+        log.debug('Handler found via canHandle() method', {
+          chartType,
+          handlerType: handler.type,
+        });
+        return handler;
+      }
+    }
+
+    // No handler found
+    log.warn('No handler found for chart type', {
+      chartType,
+      availableTypes: Array.from(this.handlers.keys()),
+      message: 'Checked both direct lookup and canHandle() methods',
+    });
+    return null;
   }
 
   /**
