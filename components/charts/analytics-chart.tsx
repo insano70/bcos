@@ -109,6 +109,12 @@ export default function AnalyticsChart(props: AnalyticsChartProps) {
     aspectRatio,
   } = props;
 
+  // Debug logging for dual-axis charts only
+  if (chartType === 'dual-axis' && dualAxisConfig) {
+    const time = new Date().toISOString().split('T')[1]?.substring(0, 12) || 'unknown';
+    console.log(`[DUAL-AXIS-RENDER ${time}] ${title || 'Untitled'} | ${dualAxisConfig.primary?.measure} + ${dualAxisConfig.secondary?.measure}`);
+  }
+
   // Table charts use a completely different flow - render early
   if (chartType === 'table') {
     return <TableChartComponent {...props} />;

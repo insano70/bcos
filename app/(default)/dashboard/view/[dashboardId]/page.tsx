@@ -19,8 +19,12 @@ export default function DashboardViewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Ref to track if we've loaded this dashboard ID to prevent double execution
+  const loadedDashboardIdRef = React.useRef<string | null>(null);
+
   useEffect(() => {
-    if (dashboardId) {
+    if (dashboardId && loadedDashboardIdRef.current !== dashboardId) {
+      loadedDashboardIdRef.current = dashboardId;
       loadDashboard();
     }
   }, [dashboardId]);

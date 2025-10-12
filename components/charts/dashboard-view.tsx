@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import AnalyticsChart from './analytics-chart';
 import type { Dashboard, DashboardChart, ChartDefinition, MeasureType, FrequencyType, ChartFilter } from '@/lib/types/analytics';
 import { apiClient } from '@/lib/api/client';
@@ -17,11 +17,6 @@ export default function DashboardView({
   const [availableCharts, setAvailableCharts] = useState<ChartDefinition[]>([]);
   const [isLoadingCharts, setIsLoadingCharts] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Load available chart definitions for rendering
-  useEffect(() => {
-    loadChartDefinitions();
-  }, []);
 
   const loadChartDefinitions = async () => {
     try {
@@ -41,8 +36,19 @@ export default function DashboardView({
     }
   };
 
+  // Load available chart definitions for rendering - use ref to prevent double execution
+  const hasLoadedRef = React.useRef(false);
+  
+  useEffect(() => {
+    if (!hasLoadedRef.current) {
+      hasLoadedRef.current = true;
+      loadChartDefinitions();
+    }
+  }, []);
+
   // Create dashboard configuration from saved dashboard data
-  const dashboardConfig = {
+  // Memoized to prevent unnecessary re-renders and duplicate chart loads
+  const dashboardConfig = useMemo(() => ({
     dashboardName: dashboard.dashboard_name || 'Unnamed Dashboard',
     dashboardDescription: dashboard.dashboard_description || '',
     charts: dashboardCharts?.map((chartAssoc, index) => {
@@ -50,11 +56,18 @@ export default function DashboardView({
         chart.chart_definition_id === chartAssoc.chart_definition_id
       );
       
+      // Extract and stabilize config objects to prevent duplicate renders
+      const dataSource = chartDefinition?.data_source || {};
+      const chartConfig = chartDefinition?.chart_config || {};
+      
       return {
         id: `dashboard-chart-${index}`,
         chartDefinitionId: chartAssoc.chart_definition_id,
         position: chartAssoc.position_config,
-        chartDefinition
+        chartDefinition,
+        // Pre-extract configs to stabilize object references
+        dataSource,
+        chartConfig,
       };
     }).filter(chart => chart.chartDefinition) || [],
     layout: {
@@ -62,7 +75,7 @@ export default function DashboardView({
       rowHeight: (dashboard.layout_config as any)?.rowHeight || 150,
       margin: (dashboard.layout_config as any)?.margin || 10
     }
-  };
+  }), [dashboard, dashboardCharts, availableCharts]);
 
   if (isLoadingCharts) {
     return (
@@ -135,10 +148,10 @@ export default function DashboardView({
             );
           }
 
-          // Extract chart configuration for rendering
+          // Use pre-extracted configs from memoized dashboardConfig
           const chartDef = dashboardChart.chartDefinition;
-          const dataSource = chartDef.data_source || {};
-          const chartConfig = chartDef.chart_config || {};
+          const dataSource = dashboardChart.dataSource as any;
+          const chartConfig = dashboardChart.chartConfig as any;
           
           // Extract filters to get chart parameters
           const measureFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'measure');
@@ -183,15 +196,15 @@ export default function DashboardView({
                 endDate={endDateFilter?.value?.toString()}
                 groupBy={chartConfig.series?.groupBy || 'none'}
                 title={chartDef.chart_name}
-                calculatedField={(chartConfig as any).calculatedField}
-                advancedFilters={(dataSource as any).advancedFilters || []}
-                dataSourceId={(chartConfig as any).dataSourceId}
-                stackingMode={(chartConfig as any).stackingMode}
-                colorPalette={(chartConfig as any).colorPalette}
-                {...((chartConfig as any).seriesConfigs && (chartConfig as any).seriesConfigs.length > 0 ? { multipleSeries: (chartConfig as any).seriesConfigs } : {})}
-                {...((chartConfig as any).dualAxisConfig ? { dualAxisConfig: (chartConfig as any).dualAxisConfig } : {})}
-                {...((chartConfig as any).target && { target: (chartConfig as any).target })}
-                {...((chartConfig as any).aggregation && { aggregation: (chartConfig as any).aggregation })}
+                calculatedField={chartConfig.calculatedField}
+                advancedFilters={dataSource.advancedFilters || []}
+                dataSourceId={chartConfig.dataSourceId}
+                stackingMode={chartConfig.stackingMode}
+                colorPalette={chartConfig.colorPalette}
+                {...(chartConfig.seriesConfigs && chartConfig.seriesConfigs.length > 0 ? { multipleSeries: chartConfig.seriesConfigs } : {})}
+                {...(chartConfig.dualAxisConfig ? { dualAxisConfig: chartConfig.dualAxisConfig } : {})}
+                {...(chartConfig.target && { target: chartConfig.target })}
+                {...(chartConfig.aggregation && { aggregation: chartConfig.aggregation })}
                 className="w-full h-full flex-1"
                 responsive={true}
                 minHeight={200}

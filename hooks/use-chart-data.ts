@@ -14,7 +14,7 @@
  * - Automatic refetch capability
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '@/lib/api/client';
 import type { ChartData } from '@/lib/types/analytics';
 
@@ -148,6 +148,15 @@ export function useChartData(request: UniversalChartDataRequest): UseChartDataRe
    * Fetch chart data from universal endpoint
    */
   const fetchData = useCallback(async () => {
+    // Debug logging for dual-axis only
+    if (request.chartConfig?.chartType === 'dual-axis' && request.chartConfig?.dualAxisConfig) {
+      const time = new Date().toISOString().split('T')[1]?.substring(0, 12) || 'unknown';
+      const config = request.chartConfig.dualAxisConfig as any;
+      const primary = config?.primary?.measure || 'unknown';
+      const secondary = config?.secondary?.measure || 'unknown';
+      console.log(`[DUAL-AXIS-FETCH ${time}] ${primary} + ${secondary}`);
+    }
+
     // Validate request
     if (!request.chartDefinitionId && !request.chartConfig) {
       setError('Either chartDefinitionId or chartConfig must be provided');
@@ -185,7 +194,8 @@ export function useChartData(request: UniversalChartDataRequest): UseChartDataRe
     } finally {
       setIsLoading(false);
     }
-  }, [request]);
+    // Use serialized request for dependency to compare values, not references
+  }, [JSON.stringify(request)]);
 
   /**
    * Refetch data (bypasses cache)
@@ -196,8 +206,18 @@ export function useChartData(request: UniversalChartDataRequest): UseChartDataRe
 
   /**
    * Fetch data on mount or when request changes
+   * Use ref to prevent duplicate fetches from React 19's double-render pattern
    */
+  const lastFetchTimeRef = React.useRef<number>(0);
+  
   useEffect(() => {
+    const now = Date.now();
+    // Skip if we fetched less than 50ms ago (same render cycle)
+    if (now - lastFetchTimeRef.current < 50) {
+      return;
+    }
+    
+    lastFetchTimeRef.current = now;
     fetchData();
   }, [fetchData]);
 
