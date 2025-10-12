@@ -174,11 +174,12 @@ export function useChartData(request: UniversalChartDataRequest): UseChartDataRe
       setError(errorMessage);
       setData(null);
 
-      // Log error for debugging
+      // Log error for development debugging only
       if (process.env.NODE_ENV === 'development') {
-        console.error('useChartData error:', {
-          error: err,
-          request,
+        console.error('Chart data fetch failed:', err, {
+          chartType: request.chartConfig?.chartType,
+          dataSourceId: request.chartConfig?.dataSourceId,
+          hasDefinitionId: Boolean(request.chartDefinitionId),
         });
       }
     } finally {

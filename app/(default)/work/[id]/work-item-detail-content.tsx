@@ -15,7 +15,6 @@ import { WorkItemWatchButton } from '@/components/work-item-watch-button';
 import { WorkItemWatchersList } from '@/components/work-item-watchers-list';
 import { useWorkItemWatchers } from '@/lib/hooks/use-work-item-watchers';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
-import { log } from '@/lib/logger';
 
 interface WorkItemDetailContentProps {
   workItemId: string;
@@ -41,12 +40,9 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
       await deleteWorkItem.mutateAsync(id);
       router.push('/work');
     } catch (error) {
-      log.error('Failed to delete work item', error, {
-        workItemId: id,
-        operation: 'delete_work_item',
-        error: error instanceof Error ? error.message : String(error),
-      });
-      throw error; // Re-throw to let modal handle the error state
+      // Re-throw to let modal handle the error state
+      // Server-side API will handle logging
+      throw error;
     }
   };
 

@@ -240,7 +240,8 @@ function TableChartComponent(props: AnalyticsChartProps) {
         }
       }
     } catch (error) {
-      console.error('Export failed:', error);
+      // Export errors are client-side only, no server logging needed
+      console.error('Table chart export failed:', error);
     }
   };
 
@@ -480,7 +481,8 @@ function UniversalChartComponent(props: AnalyticsChartProps) {
         throw new Error(result.error || 'Export failed');
       }
     } catch (error) {
-      console.error('Export failed:', error);
+      // Export errors are client-side only, no server logging needed
+      console.error('Chart export failed:', error);
     }
   };
 

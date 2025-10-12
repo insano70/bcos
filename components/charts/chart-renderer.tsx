@@ -99,6 +99,13 @@ interface ChartRendererProps {
  * To add a new chart type:
  * 1. Import the component above
  * 2. Add an entry to this map
+ *
+ * Note: Using `any` here because each chart component has different prop interfaces
+ * (LineChart01Props, AnalyticsBarChartProps, etc.) and TypeScript doesn't support
+ * heterogeneous component maps without a union type of all props. The actual props
+ * are validated through TypeScript at the call site.
+ *
+ * This is an acceptable use of `any` for dynamic component dispatch.
  */
 const CHART_COMPONENTS: Record<string, React.ComponentType<any>> = {
   line: LineChart01,
