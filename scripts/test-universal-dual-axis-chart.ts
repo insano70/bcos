@@ -18,8 +18,17 @@ import type { UserContext } from '@/lib/types/rbac';
 const testUserContext: UserContext = {
   user_id: '00000000-0000-0000-0000-000000000000',
   email: 'test@example.com',
+  first_name: 'Test',
+  last_name: 'User',
+  is_active: true,
+  email_verified: true,
   current_organization_id: '00000000-0000-0000-0000-000000000000',
   is_super_admin: true,
+  roles: [],
+  user_roles: [],
+  user_organizations: [],
+  accessible_organizations: [],
+  organization_admin_for: [],
   all_permissions: [
     {
       permission_id: '1',
@@ -63,7 +72,7 @@ const testUserContext: UserContext = {
     is_active: true,
     created_at: new Date(),
     updated_at: new Date(),
-    deleted_at: null,
+    deleted_at: undefined,
   }],
 };
 

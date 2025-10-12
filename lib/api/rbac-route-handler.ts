@@ -53,12 +53,14 @@ export function rbacRoute(
         const startTime = Date.now();
 
         // Set additional request context (IP, User-Agent)
+        const ipAddress = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip');
+        const userAgent = request.headers.get('user-agent');
+
         correlation.setRequest({
           method: request.method,
           path: url.pathname,
-          ipAddress:
-            request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
-          userAgent: request.headers.get('user-agent') || undefined,
+          ...(ipAddress && { ipAddress }),
+          ...(userAgent && { userAgent }),
         });
 
         log.api(`${request.method} ${url.pathname} - RBAC route`, request, 0, 0);
@@ -354,12 +356,14 @@ export function legacySecureRoute(
         const startTime = Date.now();
 
         // Set additional request context (IP, User-Agent)
+        const ipAddress = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip');
+        const userAgent = request.headers.get('user-agent');
+
         correlation.setRequest({
           method: request.method,
           path: url.pathname,
-          ipAddress:
-            request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
-          userAgent: request.headers.get('user-agent') || undefined,
+          ...(ipAddress && { ipAddress }),
+          ...(userAgent && { userAgent }),
         });
 
         log.info('Legacy secure route initiated', {
@@ -539,12 +543,14 @@ export function webhookRoute(
         const startTime = Date.now();
 
         // Set additional request context (IP, User-Agent)
+        const ipAddress = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip');
+        const userAgent = request.headers.get('user-agent');
+
         correlation.setRequest({
           method: request.method,
           path: url.pathname,
-          ipAddress:
-            request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
-          userAgent: request.headers.get('user-agent') || undefined,
+          ...(ipAddress && { ipAddress }),
+          ...(userAgent && { userAgent }),
         });
 
         log.info('Webhook request initiated', {

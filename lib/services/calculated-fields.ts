@@ -65,11 +65,14 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
       >();
 
       measures.forEach((measure) => {
-        const key = `${measure.provider_name}_${measure.date_index}`;
+        const providerName = measure.provider_name ?? 'Unknown Provider';
+        const measureName = measure.measure ?? '';
+
+        const key = `${providerName}_${measure.date_index}`;
         if (!grouped.has(key)) {
           grouped.set(key, {
             date: measure.date_index,
-            provider: measure.provider_name,
+            provider: providerName,
           });
         }
 
@@ -77,9 +80,9 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
         if (!group) {
           throw new Error(`Group not found for key: ${key}`);
         }
-        if (measure.measure.includes('Charges')) {
+        if (measureName.includes('Charges')) {
           group.charges = measure.measure_value;
-        } else if (measure.measure.includes('Payments')) {
+        } else if (measureName.includes('Payments')) {
           group.payments = measure.measure_value;
         }
       });

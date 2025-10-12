@@ -175,7 +175,7 @@ const universalChartDataHandler = async (
       return createErrorResponse(`Validation failed: ${errorDetails}`, 400, request);
     }
 
-    const validatedData: UniversalChartDataRequest = validationResult.data;
+    const validatedData = validationResult.data;
 
     // Validate that either chartDefinitionId or chartConfig is provided
     if (!validatedData.chartDefinitionId && !validatedData.chartConfig) {

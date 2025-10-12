@@ -730,10 +730,14 @@ export class AnalyticsQueryBuilder {
     // Add series metadata to each data point
     const enhancedData = data.map((item) => {
       const seriesConfig = params.multiple_series?.find((s) => s.measure === item.measure);
+      // Ensure series_id and series_label are always defined strings
+      const seriesId = seriesConfig?.id ?? item.measure ?? 'default';
+      const seriesLabel = seriesConfig?.label ?? item.measure ?? 'Unknown';
+
       return {
         ...item,
-        series_id: seriesConfig?.id || item.measure,
-        series_label: seriesConfig?.label || item.measure,
+        series_id: seriesId,
+        series_label: seriesLabel,
         series_aggregation: seriesConfig?.aggregation || 'sum',
         ...(seriesConfig?.color && { series_color: seriesConfig.color }),
       };

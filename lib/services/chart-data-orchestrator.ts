@@ -26,22 +26,22 @@ import './chart-handlers';
  * Universal chart data request (from API endpoint)
  */
 interface UniversalChartDataRequest {
-  chartDefinitionId?: string;
+  chartDefinitionId?: string | undefined;
   chartConfig?: {
     chartType: string;
     dataSourceId: number;
     [key: string]: unknown;
-  };
+  } | undefined;
   runtimeFilters?: {
-    startDate?: string;
-    endDate?: string;
-    dateRangePreset?: string;
-    practice?: string;
-    practiceUid?: string;
-    providerName?: string;
-    measure?: string;
-    frequency?: string;
-  };
+    startDate?: string | undefined;
+    endDate?: string | undefined;
+    dateRangePreset?: string | undefined;
+    practice?: string | undefined;
+    practiceUid?: string | undefined;
+    providerName?: string | undefined;
+    measure?: string | undefined;
+    frequency?: string | undefined;
+  } | undefined;
 }
 
 /**

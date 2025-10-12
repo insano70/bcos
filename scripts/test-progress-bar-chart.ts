@@ -5,9 +5,27 @@ import type { UserContext } from '@/lib/types/rbac';
 const testUserContext: UserContext = {
   user_id: '00000000-0000-0000-0000-000000000000',
   email: 'test@example.com',
+  first_name: 'Test',
+  last_name: 'User',
+  is_active: true,
+  email_verified: true,
   current_organization_id: '00000000-0000-0000-0000-000000000000',
   is_super_admin: true,
-  all_permissions: ['*:*:*'],
+  roles: [],
+  user_roles: [],
+  user_organizations: [],
+  accessible_organizations: [],
+  all_permissions: [{
+    permission_id: '00000000-0000-0000-0000-000000000000',
+    name: '*:*:*',
+    description: 'Super admin permission',
+    resource: '*',
+    action: '*',
+    scope: 'all',
+    is_active: true,
+    created_at: new Date(),
+    updated_at: new Date(),
+  }],
   organizations: [{
     organization_id: '00000000-0000-0000-0000-000000000000',
     name: 'Test Organization',
@@ -16,6 +34,7 @@ const testUserContext: UserContext = {
     created_at: new Date(),
     updated_at: new Date(),
   }],
+  organization_admin_for: [],
 };
 
 async function testProgressBarChart() {
@@ -59,14 +78,16 @@ async function testProgressBarChart() {
 
     if (result.chartData.datasets.length > 0) {
       const dataset = result.chartData.datasets[0];
-      console.log('\n  Dataset 0:');
-      console.log('    Label:', dataset.label);
-      console.log('    Data (percentages):', dataset.data);
-      console.log('    Raw Values:', (dataset as any).rawValues);
-      console.log('    Target:', (dataset as any).target);
-      console.log('    Aggregation:', (dataset as any).aggregationType);
-      console.log('    Measure Type:', dataset.measureType);
-      console.log('    Original Measure Type:', (dataset as any).originalMeasureType);
+      if (dataset) {
+        console.log('\n  Dataset 0:');
+        console.log('    Label:', dataset.label);
+        console.log('    Data (percentages):', dataset.data);
+        console.log('    Raw Values:', (dataset as unknown as Record<string, unknown>).rawValues);
+        console.log('    Target:', (dataset as unknown as Record<string, unknown>).target);
+        console.log('    Aggregation:', (dataset as unknown as Record<string, unknown>).aggregationType);
+        console.log('    Measure Type:', dataset.measureType);
+        console.log('    Original Measure Type:', (dataset as unknown as Record<string, unknown>).originalMeasureType);
+      }
     }
 
     // Validate the data structure
@@ -83,7 +104,7 @@ async function testProgressBarChart() {
       },
       {
         name: 'Dataset has data',
-        pass: result.chartData.datasets[0]?.data.length > 0,
+        pass: (result.chartData.datasets[0]?.data.length ?? 0) > 0,
       },
       {
         name: 'Data contains percentages',
@@ -91,15 +112,15 @@ async function testProgressBarChart() {
       },
       {
         name: 'Has raw values',
-        pass: Boolean((result.chartData.datasets[0] as any)?.rawValues),
+        pass: Boolean((result.chartData.datasets[0] as unknown as Record<string, unknown> | undefined)?.rawValues),
       },
       {
         name: 'Has target',
-        pass: (result.chartData.datasets[0] as any)?.target === 10000000,
+        pass: (result.chartData.datasets[0] as unknown as Record<string, unknown> | undefined)?.target === 10000000,
       },
       {
         name: 'Labels match data length',
-        pass: result.chartData.labels.length === result.chartData.datasets[0]?.data.length,
+        pass: result.chartData.labels.length === (result.chartData.datasets[0]?.data.length ?? 0),
       },
     ];
 
@@ -117,19 +138,23 @@ async function testProgressBarChart() {
     if (result.chartData.labels.length > 0) {
       console.log('\n📈 Sample Progress Bars (first 5):');
       const dataset = result.chartData.datasets[0];
-      const rawValues = (dataset as any).rawValues as number[] | undefined;
-      const target = (dataset as any).target as number;
+      if (!dataset) {
+        console.log('  ⚠️  No dataset available');
+      } else {
+        const rawValues = (dataset as unknown as Record<string, unknown>).rawValues as number[] | undefined;
+        const target = (dataset as unknown as Record<string, unknown>).target as number;
 
-      for (let i = 0; i < Math.min(5, result.chartData.labels.length); i++) {
-        const label = result.chartData.labels[i];
-        const percentage = dataset.data[i] as number;
-        const rawValue = rawValues?.[i] ?? 0;
+        for (let i = 0; i < Math.min(5, result.chartData.labels.length); i++) {
+          const label = result.chartData.labels[i];
+          const percentage = dataset.data[i] as number;
+          const rawValue = rawValues?.[i] ?? 0;
 
-        console.log(`\n  ${i + 1}. ${label}`);
-        console.log(`     Raw Value: $${rawValue.toLocaleString()}`);
-        console.log(`     Target: $${target.toLocaleString()}`);
-        console.log(`     Percentage: ${percentage.toFixed(2)}%`);
-        console.log(`     Progress: ${'█'.repeat(Math.min(50, Math.floor(percentage / 2)))} ${percentage.toFixed(1)}%`);
+          console.log(`\n  ${i + 1}. ${label}`);
+          console.log(`     Raw Value: $${rawValue.toLocaleString()}`);
+          console.log(`     Target: $${target.toLocaleString()}`);
+          console.log(`     Percentage: ${percentage.toFixed(2)}%`);
+          console.log(`     Progress: ${'█'.repeat(Math.min(50, Math.floor(percentage / 2)))} ${percentage.toFixed(1)}%`);
+        }
       }
     }
 

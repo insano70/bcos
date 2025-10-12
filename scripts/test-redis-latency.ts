@@ -207,7 +207,8 @@ async function testLatency() {
 function percentile(arr: number[], p: number): number {
   const sorted = [...arr].sort((a, b) => a - b);
   const index = Math.ceil((p / 100) * sorted.length) - 1;
-  return sorted[index];
+  const value = sorted[index];
+  return value ?? 0;
 }
 
 testLatency().catch((error) => {

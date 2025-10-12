@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import AnalyticsChart, { AnalyticsChartPresets } from '@/components/charts/analytics-chart';
+import AnalyticsChart from '@/components/charts/analytics-chart';
+import { AnalyticsChartPresets } from '@/components/charts/analytics-chart-presets';
 import ChargesPaymentsChart from '@/components/charts/charges-payments-chart';
 import { MeasureType, FrequencyType } from '@/lib/types/analytics';
 

@@ -70,10 +70,23 @@ interface ChartRendererProps {
   colorPalette?: string;
   stackingMode?: string;
   dualAxisConfig?: DualAxisConfig;
+  measure?: string;
 
   // Table-specific props
   columns?: ColumnDefinition[];
   formattedData?: Array<Record<string, FormattedCell>>;
+
+  // Chart reference for export functionality
+  chartRef?: React.RefObject<HTMLCanvasElement | null>;
+
+  // Sizing props
+  width?: number;
+  height?: number;
+  responsive?: boolean;
+  minHeight?: number;
+  maxHeight?: number;
+  aspectRatio?: number;
+  frequency?: string;
 
   // Additional props passed through
   [key: string]: unknown;
@@ -105,6 +118,7 @@ const CHART_COMPONENTS: Record<string, React.ComponentType<any>> = {
  * ChartRenderer
  *
  * Dynamically renders the appropriate chart component based on chartType.
+ * Handles chart-type-specific data transformations and prop requirements.
  *
  * @param props - Chart renderer props
  * @returns Rendered chart component or error message
@@ -124,6 +138,19 @@ export default function ChartRenderer({
   rawData,
   columns,
   formattedData,
+  chartRef,
+  width = 800,
+  height = 400,
+  frequency,
+  stackingMode,
+  colorPalette,
+  dualAxisConfig,
+  title,
+  measure,
+  responsive,
+  minHeight,
+  maxHeight,
+  aspectRatio,
   ...otherProps
 }: ChartRendererProps) {
   // Get the component for this chart type
@@ -145,15 +172,109 @@ export default function ChartRenderer({
     );
   }
 
-  // Render the appropriate chart component
-  // Each component has its own prop requirements
-  return (
-    <Component
-      data={data}
-      rawData={rawData}
-      columns={columns}
-      formattedData={formattedData}
-      {...otherProps}
-    />
-  );
+  // Special handling for progress bar charts
+  // Phase 3.4: Transform ChartData to ProgressBarData format
+  if (chartType === 'progress-bar') {
+    const dataset = data.datasets[0];
+    
+    // Extract custom fields from dataset (typed in ChartDataset interface)
+    const rawValues = dataset?.rawValues;
+    const originalMeasureType = dataset?.originalMeasureType;
+
+    // Transform to progress bar data format
+    const progressData = data.labels.map((label, index) => ({
+      label: String(label),
+      value: rawValues?.[index] ?? Number(dataset?.data[index] || 0),
+      percentage: Number(dataset?.data[index] || 0),
+    }));
+
+    return (
+      <AnalyticsProgressBarChart
+        data={progressData}
+        colorPalette={colorPalette || 'default'}
+        measureType={originalMeasureType || data.measureType}
+        height={height}
+        {...otherProps}
+      />
+    );
+  }
+
+  // Special handling for table charts
+  if (chartType === 'table') {
+    const tableProps = {
+      data: rawData || [],
+      columns: columns?.map(col => ({
+        columnName: col.columnName,
+        displayName: col.displayName,
+        dataType: col.dataType,
+        formatType: col.formatType,
+        displayIcon: col.displayIcon,
+        iconType: col.iconType,
+        iconColorMode: col.iconColorMode,
+        iconColor: col.iconColor,
+        iconMapping: col.iconMapping,
+      })) || [],
+      colorPalette: colorPalette || 'default',
+      height,
+      ...(formattedData && { formattedData }),
+    };
+
+    return <AnalyticsTableChart {...tableProps} />;
+  }
+
+  // Special handling for number charts
+  if (chartType === 'number') {
+    return (
+      <AnalyticsNumberChart
+        data={data}
+        title={measure}
+        animationDuration={2}
+        responsive={responsive}
+        minHeight={minHeight}
+        maxHeight={maxHeight}
+        aspectRatio={aspectRatio}
+        {...otherProps}
+      />
+    );
+  }
+
+  // Special handling for dual-axis charts
+  if (chartType === 'dual-axis') {
+    if (!dualAxisConfig) {
+      return (
+        <div className="flex items-center justify-center h-64">
+          <p className="text-red-600">Dual-axis configuration is required</p>
+        </div>
+      );
+    }
+
+    return (
+      <AnalyticsDualAxisChart
+        dualAxisConfig={dualAxisConfig}
+        chartData={data}
+        title={title}
+        width={width}
+        height={height}
+        responsive={responsive}
+        minHeight={minHeight}
+        maxHeight={maxHeight}
+        aspectRatio={aspectRatio}
+        {...otherProps}
+      />
+    );
+  }
+
+  // Standard chart rendering (line, bar, stacked-bar, horizontal-bar, pie, doughnut, area)
+  // Pass ref for export functionality
+  const chartProps = {
+    ref: chartRef,
+    data,
+    width,
+    height,
+    ...(frequency && { frequency }),
+    ...(stackingMode && { stackingMode }),
+    ...otherProps,
+  };
+
+  return <Component {...chartProps} />;
 }

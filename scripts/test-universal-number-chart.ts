@@ -15,8 +15,17 @@ import { log } from '@/lib/logger';
 const mockUserContext: UserContext = {
   user_id: '00000000-0000-0000-0000-000000000000',
   email: 'test@example.com',
+  first_name: 'Test',
+  last_name: 'User',
+  is_active: true,
+  email_verified: true,
   current_organization_id: '00000000-0000-0000-0000-000000000000',
   is_super_admin: true,
+  roles: [],
+  user_roles: [],
+  user_organizations: [],
+  accessible_organizations: [],
+  organization_admin_for: [],
   all_permissions: [
     {
       permission_id: '1',
@@ -49,7 +58,7 @@ const mockUserContext: UserContext = {
     is_active: true,
     created_at: new Date(),
     updated_at: new Date(),
-    deleted_at: null,
+    deleted_at: undefined,
   }],
 };
 
@@ -186,13 +195,15 @@ async function testProgressBarChart() {
     if (dataset?.rawValue && dataset?.target) {
       const expectedPercentage = (dataset.rawValue / dataset.target) * 100;
       const actualPercentage = dataset.data[0];
-      const isCorrect = Math.abs(expectedPercentage - actualPercentage) < 0.01;
+      if (actualPercentage !== undefined) {
+        const isCorrect = Math.abs(expectedPercentage - actualPercentage) < 0.01;
 
-      console.log('🎯 Server-Side Percentage Calculation Verification:');
-      console.log('- Expected:', expectedPercentage.toFixed(2), '%');
-      console.log('- Actual:', actualPercentage, '%');
-      console.log('- Match:', isCorrect ? '✅' : '❌');
-      console.log('');
+        console.log('🎯 Server-Side Percentage Calculation Verification:');
+        console.log('- Expected:', expectedPercentage.toFixed(2), '%');
+        console.log('- Actual:', actualPercentage, '%');
+        console.log('- Match:', isCorrect ? '✅' : '❌');
+        console.log('');
+      }
     }
 
     console.log('✅ Progress Bar Chart Test Passed!\n');

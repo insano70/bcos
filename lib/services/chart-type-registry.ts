@@ -120,7 +120,8 @@ class ChartTypeRegistry {
     // Slow path: Check all handlers' canHandle() method
     // This allows handlers to support multiple chart types
     // (e.g., BarChartHandler handles 'bar', 'stacked-bar', 'horizontal-bar')
-    for (const handler of this.handlers.values()) {
+    const allHandlers = Array.from(this.handlers.values());
+    for (const handler of allHandlers) {
       if (handler.canHandle({ chartType })) {
         log.debug('Handler found via canHandle() method', {
           chartType,

@@ -201,11 +201,9 @@ class RedisClientManager {
     const env = process.env.NODE_ENV || 'development';
     const environment = process.env.ENVIRONMENT || env;
 
-    return {
+    const config: RedisConfig = {
       host: process.env.REDIS_HOST || '',
       port: parseInt(process.env.REDIS_PORT || '6379', 10),
-      username: process.env.REDIS_USERNAME,
-      password: process.env.REDIS_PASSWORD,
       tls: process.env.REDIS_TLS === 'true',
       keyPrefix: `bcos:${environment}:`,
       maxRetriesPerRequest: 3,
@@ -226,6 +224,16 @@ class RedisClientManager {
         return delay;
       },
     };
+
+    // Only add optional properties if they have values
+    if (process.env.REDIS_USERNAME) {
+      config.username = process.env.REDIS_USERNAME;
+    }
+    if (process.env.REDIS_PASSWORD) {
+      config.password = process.env.REDIS_PASSWORD;
+    }
+
+    return config;
   }
 
   /**

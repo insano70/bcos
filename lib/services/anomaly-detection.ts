@@ -104,17 +104,19 @@ export class AnomalyDetectionService {
     // Check against thresholds
     for (const threshold of thresholds.sort((a, b) => b.threshold - a.threshold)) {
       if (percentageChange >= threshold.threshold) {
+        const measureName = latestMeasure.measure ?? 'Unknown Measure';
+
         const alert: AnomalyAlert = {
           id: `anomaly_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           ruleId: ruleId || 'default',
           chartDefinitionId: rule?.chartDefinitionId || 'unknown',
-          measure: latestMeasure.measure,
+          measure: measureName,
           detectedAt: new Date(),
           severity: threshold.severity,
           currentValue,
           expectedValue,
           percentageChange,
-          description: `${threshold.name}: ${latestMeasure.measure} changed by ${percentageChange.toFixed(1)}% (${currentValue.toLocaleString()} vs expected ${expectedValue.toLocaleString()})`,
+          description: `${threshold.name}: ${measureName} changed by ${percentageChange.toFixed(1)}% (${currentValue.toLocaleString()} vs expected ${expectedValue.toLocaleString()})`,
           isResolved: false,
         };
 
