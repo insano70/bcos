@@ -79,6 +79,9 @@ interface UniversalChartDataRequest {
     advancedFilters?: ChartFilter[];
     calculatedField?: string;
   };
+  
+  // Cache control (Phase 6)
+  nocache?: boolean;
 }
 
 /**
@@ -200,11 +203,35 @@ export function useChartData(request: UniversalChartDataRequest): UseChartDataRe
   }, [JSON.stringify(request)]);
 
   /**
-   * Refetch data (bypasses cache)
+   * Refetch data
+   * @param bypassCache - If true, bypasses cache and fetches fresh data
    */
-  const refetch = useCallback(async () => {
-    await fetchData();
-  }, [fetchData]);
+  const refetch = useCallback(async (bypassCache = false) => {
+    if (bypassCache && request.chartConfig) {
+      // Create new request with nocache flag
+      const freshRequest = {
+        ...request,
+        nocache: true,
+      };
+      
+      // Directly call API with nocache flag
+      try {
+        const response = await apiClient.post<UniversalChartDataResponse>(
+          '/api/admin/analytics/chart-data/universal?nocache=true',
+          freshRequest
+        );
+        setData(response);
+        setError(null);
+      } catch (err) {
+        const errorMessage = err instanceof Error
+          ? err.message
+          : 'Failed to fetch chart data';
+        setError(errorMessage);
+      }
+    } else {
+      await fetchData();
+    }
+  }, [fetchData, request]);
 
   /**
    * Fetch data on mount or when request changes

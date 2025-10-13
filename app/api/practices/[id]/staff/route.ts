@@ -6,7 +6,7 @@ import { createPaginatedResponse, createSuccessResponse } from '@/lib/api/respon
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { getPagination } from '@/lib/api/utils/request';
-import { log } from '@/lib/logger';
+import { log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACStaffMembersService } from '@/lib/services/rbac-staff-members-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { practiceParamsSchema } from '@/lib/validations/practice';
@@ -17,6 +17,7 @@ const getPracticeStaffHandler = async (
   userContext: UserContext,
   ...args: unknown[]
 ) => {
+  const startTime = Date.now();
   let practiceId: string | undefined;
   try {
     ({ id: practiceId } = await extractRouteParams(args[0], practiceParamsSchema));
@@ -37,20 +38,36 @@ const getPracticeStaffHandler = async (
       sortOrder,
     });
 
+    const duration = Date.now() - startTime;
+    log.info('Staff members retrieved', {
+      operation: 'list_staff_members',
+      userId: userContext.user_id,
+      practiceId,
+      returned: staff.length,
+      total,
+      duration,
+      slow: duration > SLOW_THRESHOLDS.API_OPERATION,
+      component: 'api',
+    });
+
     return createPaginatedResponse(staff, {
       page: pagination.page,
       limit: pagination.limit,
       total,
     });
   } catch (error) {
+    const duration = Date.now() - startTime;
     const errorMessage =
       error && typeof error === 'object' && 'message' in error
         ? String(error.message)
         : 'Unknown error';
 
     log.error('Error fetching staff members', error, {
+      operation: 'list_staff_members',
+      userId: userContext.user_id,
       practiceId,
-      operation: 'fetchStaffMembers',
+      duration,
+      component: 'api',
     });
 
     const clientErrorMessage =
@@ -64,6 +81,7 @@ const createPracticeStaffHandler = async (
   userContext: UserContext,
   ...args: unknown[]
 ) => {
+  const startTime = Date.now();
   let practiceId: string | undefined;
   try {
     ({ id: practiceId } = await extractRouteParams(args[0], practiceParamsSchema));
@@ -73,16 +91,29 @@ const createPracticeStaffHandler = async (
     const staffService = createRBACStaffMembersService(userContext);
     const newStaff = await staffService.createStaffMember(practiceId, validatedData);
 
+    const duration = Date.now() - startTime;
+    const template = logTemplates.crud.create('staff_member', {
+      resourceId: newStaff.staff_id,
+      resourceName: newStaff.name,
+      userId: userContext.user_id,
+      duration,
+    });
+    log.info(template.message, template.context);
+
     return createSuccessResponse(newStaff, 'Staff member created successfully');
   } catch (error) {
+    const duration = Date.now() - startTime;
     const errorMessage =
       error && typeof error === 'object' && 'message' in error
         ? String(error.message)
         : 'Unknown error';
 
     log.error('Error creating staff member', error, {
+      operation: 'create_staff_member',
+      userId: userContext.user_id,
       practiceId,
-      operation: 'createStaffMember',
+      duration,
+      component: 'api',
     });
 
     const clientErrorMessage =

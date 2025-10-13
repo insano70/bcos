@@ -791,33 +791,52 @@ class ChartDataCache {
 
 ---
 
-### Phase 7: Dashboard Performance 🎯 LOW PRIORITY
+### Phase 7: Dashboard Batch Rendering + Universal Filters 🎯 HIGH PRIORITY
 
-**Goal:** Optimize dashboard page load with multiple charts
+**Goal:** Optimize dashboard performance AND enable dashboard-level filtering for superior UX
+
+**Status:** ✅ PLANNED - Ready for Implementation
 
 **Current Issues:**
-- Each chart fetches independently
-- No query batching
-- Waterfall requests on render
+- Each chart fetches independently (waterfall requests)
+- No query batching (N API calls for N charts)
+- No dashboard-level filters (must edit each chart individually)
+- Cannot quickly compare time periods across entire dashboard
+- Cannot filter by organization/practice at dashboard level
 
-**Proposed: Batch Rendering API**
+**Proposed: Batch Rendering + Dashboard-Level Filters**
 
+#### Batch Rendering API
+
+**Endpoint:** `POST /api/admin/analytics/dashboard/[id]/render`
+
+**Request:**
 ```typescript
-// New endpoint
-POST /api/admin/analytics/dashboard/[id]/render
-
-// Request
 interface DashboardRenderRequest {
   dashboardId: string;
-  chartIds: string[];
-  runtimeFilters?: {
+  
+  // Dashboard-level universal filters (NEW - apply to ALL charts)
+  universalFilters?: {
     startDate?: string;
     endDate?: string;
     dateRangePreset?: string;
+    organizationId?: string;
+    practiceUid?: number;
+    providerName?: string;
   };
+  
+  // Chart-specific overrides (optional)
+  chartOverrides?: Record<string, {
+    measure?: string;
+    frequency?: string;
+  }>;
+  
+  nocache?: boolean;
 }
+```
 
-// Response
+**Response:**
+```typescript
 interface DashboardRenderResponse {
   charts: Record<string, UnifiedChartDataResponse>;
   metadata: {
@@ -825,23 +844,53 @@ interface DashboardRenderResponse {
     cacheHits: number;
     cacheMisses: number;
     queriesExecuted: number;
+    chartsRendered: number;
+    dashboardFiltersApplied: string[];
   };
 }
 ```
 
+#### Dashboard-Level Universal Filters (NEW)
+
+**Filter Cascade Model:**
+```
+Priority 1: Dashboard Filters (HIGHEST - overrides chart filters)
+  ├── Date Range (startDate, endDate, or preset)
+  ├── Organization (organizationId)
+  ├── Practice (practiceUid)
+  └── Provider (providerName)
+
+Priority 2: Chart Filters (used if no dashboard filter)
+  ├── Measure (specific to chart)
+  ├── Frequency (specific to chart)
+  └── Advanced Filters (additive)
+```
+
+**User Experience:**
+- User selects "Last Quarter" at dashboard level
+- ALL charts update to show Q3 data
+- Single click vs editing 10 charts individually
+- Shareable filtered dashboard URLs
+
 **Benefits:**
-- Single round-trip for all dashboard charts
-- Server-side query parallelization
-- Shared connection pooling
-- Reduced client-server latency
+- 🚀 **60% faster** dashboard loads (batch vs sequential)
+- 🎯 **Superior UX** - Filter entire dashboard with one control
+- 💾 **90% reduction** in API calls (1 vs N)
+- 🔗 **Shareable** filtered dashboards via URL params
+- ⚡ **Instant updates** - Change filter, all charts regenerate
 
 **Files to Create:**
-- `app/api/admin/analytics/dashboard/[id]/render/route.ts` - Batch rendering endpoint
-- `hooks/use-dashboard-data.ts` - Dashboard data fetching hook
-- `lib/services/dashboard-renderer.ts` - Batch query orchestration
+- `components/charts/dashboard-filter-bar.tsx` - Filter UI component
+- `app/api/admin/analytics/dashboard/[id]/render/route.ts` - Batch endpoint
+- `hooks/use-dashboard-data.ts` - Dashboard data hook
+- `lib/services/dashboard-renderer.ts` - Batch orchestration
 
 **Files to Modify:**
-- `components/charts/dashboard-view.tsx` - Use batch API instead of individual fetches
+- `components/charts/dashboard-view.tsx` - Add filter bar, use batch API
+- `lib/db/analytics-schema.ts` - Document layout_config.filterConfig (comment)
+- `docs/PHASE_7_PLAN.md` - Detailed implementation plan (800+ lines)
+
+**Timeline:** ~12 hours implementation + 2 hours testing
 
 ---
 

@@ -17,6 +17,7 @@ const combinedParamsSchema = dataSourceParamsSchema.extend({
 import { log, logTemplates, calculateChanges } from '@/lib/logger';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 import type { UserContext } from '@/lib/types/rbac';
+import { chartDataCache } from '@/lib/cache/chart-data-cache';
 
 /**
  * Admin Individual Data Source Column CRUD API
@@ -148,6 +149,14 @@ const updateDataSourceColumnHandler = async (
     });
 
     log.info(template.message, template.context);
+
+    // Phase 6: Invalidate cache for all charts using this data source
+    await chartDataCache.invalidateByDataSource(updatedColumn.data_source_id);
+    
+    log.info('Cache invalidated after column update', {
+      columnId: updatedColumn.column_id,
+      dataSourceId: updatedColumn.data_source_id,
+    });
 
     return createSuccessResponse(
       { column: updatedColumn },

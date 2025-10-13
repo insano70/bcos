@@ -8,6 +8,8 @@ import type { ChartData } from '@/lib/types/analytics';
 import { log } from '@/lib/logger';
 import { chartDataOrchestrator } from '@/lib/services/chart-data-orchestrator';
 import { buildCacheControlHeader } from '@/lib/constants/analytics';
+import { chartDataCache } from '@/lib/cache/chart-data-cache';
+import { generateCacheKey } from '@/lib/utils/cache-key-generator';
 
 /**
  * Universal Chart Data Endpoint
@@ -194,12 +196,72 @@ const universalChartDataHandler = async (
       hasRuntimeFilters: Boolean(validatedData.runtimeFilters),
     });
 
-    // 2. Orchestrate chart data fetching and transformation
+    // 2. Check cache before fetching (Phase 6)
+    const { searchParams } = new URL(request.url);
+    const bypassCache = searchParams.get('nocache') === 'true';
+    
+    let cacheKey: string | null = null;
+    let cachedData: Awaited<ReturnType<typeof chartDataCache.get>> = null;
+
+    if (!bypassCache && validatedData.chartConfig) {
+      // Merge chartConfig with runtimeFilters for cache key
+      const configForCache = {
+        ...validatedData.chartConfig,
+        ...validatedData.runtimeFilters,
+      };
+      
+      cacheKey = generateCacheKey(configForCache);
+      cachedData = await chartDataCache.get(cacheKey);
+      
+      if (cachedData) {
+        log.info('Chart data served from cache', {
+          requestingUserId: userContext.user_id,
+          chartType: cachedData.metadata.chartType,
+          cacheKey,
+          cachedAt: cachedData.metadata.cachedAt,
+        });
+        
+        // Return cached data immediately
+        const cachedResponse = {
+          ...cachedData,
+          metadata: {
+            ...cachedData.metadata,
+            cacheHit: true,
+            transformedAt: new Date().toISOString(),
+            transformDuration: 0, // Cached, no transformation time
+          },
+        };
+        
+        const successResponse = createSuccessResponse(cachedResponse, 'Chart data fetched from cache');
+        successResponse.headers.set('Cache-Control', buildCacheControlHeader());
+        successResponse.headers.set('X-Cache-Hit', 'true');
+        successResponse.headers.set('X-Chart-Type', cachedData.metadata.chartType);
+        
+        return successResponse;
+      }
+    }
+
+    // 3. Orchestrate chart data fetching and transformation (cache miss)
     const orchestratorStartTime = Date.now();
 
     const result = await chartDataOrchestrator.orchestrate(validatedData, userContext);
 
     const orchestratorDuration = Date.now() - orchestratorStartTime;
+    
+    // 4. Set cache after successful orchestration (Phase 6)
+    if (cacheKey && result) {
+      await chartDataCache.set(cacheKey, {
+        chartData: result.chartData,
+        rawData: result.rawData,
+        metadata: {
+          chartType: result.metadata.chartType,
+          dataSourceId: result.metadata.dataSourceId,
+          queryTimeMs: result.metadata.queryTimeMs,
+          recordCount: result.metadata.recordCount,
+          cachedAt: new Date().toISOString(),
+        },
+      });
+    }
 
     log.info('Chart data orchestration completed', {
       requestingUserId: userContext.user_id,

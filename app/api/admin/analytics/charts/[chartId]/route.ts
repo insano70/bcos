@@ -7,6 +7,7 @@ import { log } from '@/lib/logger';
 import { createRBACChartsService } from '@/lib/services/rbac-charts-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { chartDefinitionUpdateSchema } from '@/lib/validations/analytics';
+import { chartDataCache } from '@/lib/cache/chart-data-cache';
 
 /**
  * Admin Analytics - Individual Chart Definition CRUD
@@ -90,6 +91,19 @@ const updateChartHandler = async (
       updatedBy: userContext.user_id,
     });
 
+    // Phase 6: Invalidate cache for this chart's data source
+    // Extract data source ID from updated chart config
+    const dataSourceId = (updatedChart.chart_config as { dataSourceId?: number })?.dataSourceId;
+    
+    if (dataSourceId) {
+      await chartDataCache.invalidateByDataSource(dataSourceId);
+      
+      log.info('Cache invalidated after chart update', {
+        chartId: params.chartId,
+        dataSourceId,
+      });
+    }
+
     return createSuccessResponse({ chart: updatedChart }, 'Chart definition updated successfully');
   } catch (error) {
     log.error('Chart definition update error', error, {
@@ -125,12 +139,26 @@ const deleteChartHandler = async (
     // Use the RBAC charts service
     const chartsService = createRBACChartsService(userContext);
 
+    // Get chart before deletion to get data source ID for cache invalidation
+    const chart = await chartsService.getChartById(params.chartId);
+    const dataSourceId = (chart?.chart_config as { dataSourceId?: number })?.dataSourceId;
+
     await chartsService.deleteChart(params.chartId);
 
     log.info('Chart definition deleted successfully', {
       chartId: params.chartId,
       deletedBy: userContext.user_id,
     });
+
+    // Phase 6: Invalidate cache for this chart's data source
+    if (dataSourceId) {
+      await chartDataCache.invalidateByDataSource(dataSourceId);
+      
+      log.info('Cache invalidated after chart deletion', {
+        chartId: params.chartId,
+        dataSourceId,
+      });
+    }
 
     return createSuccessResponse(
       {

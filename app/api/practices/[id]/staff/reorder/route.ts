@@ -6,7 +6,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
-import { log } from '@/lib/logger';
+import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACStaffMembersService } from '@/lib/services/rbac-staff-members-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { practiceParamsSchema } from '@/lib/validations/practice';
@@ -29,6 +29,7 @@ const reorderStaffHandler = async (
   userContext: UserContext,
   ...args: unknown[]
 ) => {
+  const startTime = Date.now();
   let practiceId: string | undefined;
 
   try {
@@ -49,16 +50,31 @@ const reorderStaffHandler = async (
     const staffService = createRBACStaffMembersService(userContext);
     await staffService.reorderStaff(practiceId, staffOrder);
 
+    const duration = Date.now() - startTime;
+    log.info('Staff members reordered', {
+      operation: 'reorder_staff_members',
+      userId: userContext.user_id,
+      practiceId,
+      count: staffOrder.length,
+      duration,
+      slow: duration > SLOW_THRESHOLDS.API_OPERATION,
+      component: 'api',
+    });
+
     return createSuccessResponse(null, 'Staff members reordered successfully');
   } catch (error) {
+    const duration = Date.now() - startTime;
     const errorMessage =
       error && typeof error === 'object' && 'message' in error
         ? String(error.message)
         : 'Unknown error';
 
     log.error('Staff reorder request failed', error, {
+      operation: 'reorder_staff_members',
+      userId: userContext.user_id,
       practiceId,
-      requestingUserId: userContext.user_id,
+      duration,
+      component: 'api',
     });
 
     return createErrorResponse(errorMessage, 500, request);

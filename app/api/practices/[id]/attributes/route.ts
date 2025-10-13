@@ -84,6 +84,7 @@ const updatePracticeAttributesHandler = async (
     const template = logTemplates.crud.update('practice_attributes', {
       resourceId: practiceId,
       userId: userContext.user_id,
+      changes: {},
       duration,
     });
     log.info(template.message, template.context);
