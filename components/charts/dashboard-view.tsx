@@ -3,7 +3,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import AnalyticsChart from './analytics-chart';
+import BatchChartRenderer, { type BatchChartData } from './batch-chart-renderer';
 import DashboardFilterBar, { type DashboardUniversalFilters } from './dashboard-filter-bar';
+import { useDashboardData } from '@/hooks/use-dashboard-data';
 import type { Dashboard, DashboardChart, ChartDefinition, MeasureType, FrequencyType, ChartFilter } from '@/lib/types/analytics';
 import { apiClient } from '@/lib/api/client';
 
@@ -22,9 +24,13 @@ export default function DashboardView({
   const [isLoadingCharts, setIsLoadingCharts] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Phase 7: Check if dashboard has filter bar enabled
-  const filterConfig = (dashboard.layout_config as any)?.filterConfig;
+  // Phase 7: Check dashboard configuration
+  const layoutConfig = dashboard.layout_config as any;
+  const filterConfig = layoutConfig?.filterConfig;
   const showFilterBar = filterConfig?.enabled !== false; // Default to true if not specified
+  
+  // Phase 7: Batch rendering feature flag (default: false for gradual rollout)
+  const useBatchRendering = layoutConfig?.useBatchRendering === true;
 
   // Phase 7: Dashboard-level universal filters with default values
   // Priority: URL params > default filters from config > system defaults
@@ -94,6 +100,19 @@ export default function DashboardView({
     }
   }, []);
 
+  // Phase 7: Batch rendering data (only if batch mode enabled)
+  const { 
+    data: batchData, 
+    isLoading: isBatchLoading, 
+    error: batchError,
+    refetch: refetchBatch,
+    metrics: batchMetrics
+  } = useDashboardData({
+    dashboardId: dashboard.dashboard_id,
+    universalFilters,
+    enabled: useBatchRendering && !isLoadingCharts, // Only fetch after chart definitions loaded
+  });
+
   // Create dashboard configuration from saved dashboard data
   // Memoized to prevent unnecessary re-renders and duplicate chart loads
   const dashboardConfig = useMemo(() => ({
@@ -119,19 +138,32 @@ export default function DashboardView({
       };
     }).filter(chart => chart.chartDefinition) || [],
     layout: {
-      columns: (dashboard.layout_config as any)?.columns || 12,
-      rowHeight: (dashboard.layout_config as any)?.rowHeight || 150,
-      margin: (dashboard.layout_config as any)?.margin || 10
+      columns: layoutConfig?.columns || 12,
+      rowHeight: layoutConfig?.rowHeight || 150,
+      margin: layoutConfig?.margin || 10
     }
-  }), [dashboard, dashboardCharts, availableCharts]);
+  }), [dashboard, dashboardCharts, availableCharts, layoutConfig]);
 
-  if (isLoadingCharts) {
+  // Phase 7: Combined loading state (chart definitions + batch data)
+  const isLoading = isLoadingCharts || (useBatchRendering && isBatchLoading);
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600"></div>
-        <span className="ml-3 text-gray-600 dark:text-gray-400">Loading dashboard...</span>
+        <span className="ml-3 text-gray-600 dark:text-gray-400">
+          {isLoadingCharts ? 'Loading dashboard...' : 'Loading chart data...'}
+        </span>
       </div>
     );
+  }
+
+  // Phase 7: Handle batch error (fallback to individual fetching)
+  if (useBatchRendering && batchError) {
+    console.warn('[Dashboard] Batch rendering failed, falling back to individual fetching', {
+      dashboardId: dashboard.dashboard_id,
+      error: batchError,
+    });
   }
 
   if (error) {
@@ -169,9 +201,37 @@ export default function DashboardView({
         <DashboardFilterBar
           initialFilters={universalFilters}
           onFiltersChange={handleFilterChange}
-          loading={isLoadingCharts}
+          loading={isLoading}
           filterConfig={filterConfig}
         />
+      )}
+
+      {/* Phase 7: Performance Metrics (dev mode only) */}
+      {process.env.NODE_ENV === 'development' && useBatchRendering && batchMetrics && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-4">
+              <span className="font-medium text-blue-900 dark:text-blue-100">
+                ⚡ Batch Rendering Metrics
+              </span>
+              <span className="text-blue-700 dark:text-blue-300">
+                Load Time: {batchMetrics.totalTime}ms
+              </span>
+              <span className="text-blue-700 dark:text-blue-300">
+                Cache Hit Rate: {batchMetrics.cacheHitRate}%
+              </span>
+              <span className="text-blue-700 dark:text-blue-300">
+                Charts: {batchMetrics.chartsRendered}
+              </span>
+            </div>
+            <button
+              onClick={() => refetchBatch(true)}
+              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 text-xs"
+            >
+              🔄 Force Refresh
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Dashboard Grid - Following /dashboard pattern */}
@@ -234,6 +294,11 @@ export default function DashboardView({
             colSpanClass = 'col-span-full';
           }
 
+          // Phase 7: Check if we have batch data for this chart
+          const batchChartData = useBatchRendering && batchData && !batchError
+            ? batchData.charts[dashboardChart.chartDefinitionId]
+            : null;
+
           return (
             <div
               key={dashboardChart.id}
@@ -245,30 +310,48 @@ export default function DashboardView({
                 overflow: 'hidden'
               }}
             >
-              <AnalyticsChart
-                chartType={chartDef.chart_type as any}
-                {...(measureFilter?.value && { measure: measureFilter.value as MeasureType })}
-                {...(frequencyFilter?.value && { frequency: frequencyFilter.value as FrequencyType })}
-                practice={practiceFilter?.value?.toString()}
-                // Phase 7: Dashboard filters override chart filters
-                startDate={universalFilters.startDate || startDateFilter?.value?.toString()}
-                endDate={universalFilters.endDate || endDateFilter?.value?.toString()}
-                groupBy={chartConfig.series?.groupBy || 'none'}
-                title={chartDef.chart_name}
-                calculatedField={chartConfig.calculatedField}
-                advancedFilters={dataSource.advancedFilters || []}
-                dataSourceId={chartConfig.dataSourceId}
-                stackingMode={chartConfig.stackingMode}
-                colorPalette={chartConfig.colorPalette}
-                {...(chartConfig.seriesConfigs && chartConfig.seriesConfigs.length > 0 ? { multipleSeries: chartConfig.seriesConfigs } : {})}
-                {...(chartConfig.dualAxisConfig ? { dualAxisConfig: chartConfig.dualAxisConfig } : {})}
-                {...(chartConfig.target && { target: chartConfig.target })}
-                {...(chartConfig.aggregation && { aggregation: chartConfig.aggregation })}
-                className="w-full h-full flex-1"
-                responsive={true}
-                minHeight={200}
-                maxHeight={containerHeight - 100}
-              />
+              {/* Phase 7: Render with batch data if available, otherwise fallback to individual fetching */}
+              {batchChartData ? (
+                <BatchChartRenderer
+                  chartData={batchChartData as BatchChartData}
+                  chartDefinition={{
+                    chart_definition_id: chartDef.chart_definition_id,
+                    chart_name: chartDef.chart_name,
+                    chart_type: chartDef.chart_type,
+                    chart_config: chartConfig,
+                  }}
+                  position={dashboardChart.position}
+                  className="w-full h-full flex-1"
+                  responsive={true}
+                  minHeight={200}
+                  maxHeight={containerHeight - 100}
+                />
+              ) : (
+                <AnalyticsChart
+                  chartType={chartDef.chart_type as any}
+                  {...(measureFilter?.value && { measure: measureFilter.value as MeasureType })}
+                  {...(frequencyFilter?.value && { frequency: frequencyFilter.value as FrequencyType })}
+                  practice={practiceFilter?.value?.toString()}
+                  // Phase 7: Dashboard filters override chart filters
+                  startDate={universalFilters.startDate || startDateFilter?.value?.toString()}
+                  endDate={universalFilters.endDate || endDateFilter?.value?.toString()}
+                  groupBy={chartConfig.series?.groupBy || 'none'}
+                  title={chartDef.chart_name}
+                  calculatedField={chartConfig.calculatedField}
+                  advancedFilters={dataSource.advancedFilters || []}
+                  dataSourceId={chartConfig.dataSourceId}
+                  stackingMode={chartConfig.stackingMode}
+                  colorPalette={chartConfig.colorPalette}
+                  {...(chartConfig.seriesConfigs && chartConfig.seriesConfigs.length > 0 ? { multipleSeries: chartConfig.seriesConfigs } : {})}
+                  {...(chartConfig.dualAxisConfig ? { dualAxisConfig: chartConfig.dualAxisConfig } : {})}
+                  {...(chartConfig.target && { target: chartConfig.target })}
+                  {...(chartConfig.aggregation && { aggregation: chartConfig.aggregation })}
+                  className="w-full h-full flex-1"
+                  responsive={true}
+                  minHeight={200}
+                  maxHeight={containerHeight - 100}
+                />
+              )}
             </div>
           );
         })}
