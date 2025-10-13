@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import AnalyticsChart from './analytics-chart';
+import DashboardFilterBar, { type DashboardUniversalFilters } from './dashboard-filter-bar';
 import type { Dashboard, DashboardChart, ChartDefinition, MeasureType, FrequencyType, ChartFilter } from '@/lib/types/analytics';
 import { apiClient } from '@/lib/api/client';
 
@@ -14,9 +16,20 @@ export default function DashboardView({
   dashboard,
   dashboardCharts
 }: DashboardViewProps) {
+  const searchParams = useSearchParams();
   const [availableCharts, setAvailableCharts] = useState<ChartDefinition[]>([]);
   const [isLoadingCharts, setIsLoadingCharts] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Phase 7: Dashboard-level universal filters
+  const [universalFilters, setUniversalFilters] = useState<DashboardUniversalFilters>(() => ({
+    dateRangePreset: searchParams.get('datePreset') || 'last_30_days',
+    startDate: searchParams.get('startDate') || null,
+    endDate: searchParams.get('endDate') || null,
+    practiceUid: searchParams.get('practice') ? parseInt(searchParams.get('practice')!, 10) : null,
+    organizationId: searchParams.get('org') || null,
+    providerName: searchParams.get('provider') || null,
+  }));
 
   const loadChartDefinitions = async () => {
     try {
@@ -192,8 +205,10 @@ export default function DashboardView({
                 {...(measureFilter?.value && { measure: measureFilter.value as MeasureType })}
                 {...(frequencyFilter?.value && { frequency: frequencyFilter.value as FrequencyType })}
                 practice={practiceFilter?.value?.toString()}
-                startDate={startDateFilter?.value?.toString()}
-                endDate={endDateFilter?.value?.toString()}
+                // Phase 7: Dashboard filters override chart filters
+                startDate={universalFilters.startDate || startDateFilter?.value?.toString()}
+                endDate={universalFilters.endDate || endDateFilter?.value?.toString()}
+                practiceUid={universalFilters.practiceUid?.toString() || undefined}
                 groupBy={chartConfig.series?.groupBy || 'none'}
                 title={chartDef.chart_name}
                 calculatedField={chartConfig.calculatedField}
