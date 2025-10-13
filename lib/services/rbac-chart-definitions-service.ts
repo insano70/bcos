@@ -1,9 +1,9 @@
-import type { UserContext } from '@/lib/types/rbac';
+import { and, eq, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { chart_definitions } from '@/lib/db/analytics-schema';
-import { eq, and } from 'drizzle-orm';
+import { log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
 import { NotFoundError } from '@/lib/api/responses/error';
-import { log } from '@/lib/logger';
+import type { UserContext } from '@/lib/types/rbac';
 
 /**
  * Chart Definition data structure
@@ -21,9 +21,29 @@ export interface ChartDefinition {
 }
 
 /**
- * RBAC Chart Definitions Service Interface
+ * Chart Definitions Service Interface
  *
- * Provides methods for accessing chart definitions with RBAC enforcement
+ * Provides read-only access to chart definitions with automatic RBAC enforcement.
+ * Chart definitions define the structure and configuration for analytics charts.
+ *
+ * **Permission Model:**
+ * - `analytics:read:all` OR `charts:read:all` - Read all chart definitions
+ * - `analytics:read:own` OR `charts:read:own` - Read only charts created by user
+ * - `analytics:read:organization` - Read charts in user's organizations (treated as :own for charts)
+ *
+ * **Note:** Chart definitions table does not have organization_id column.
+ * RBAC is based on created_by field only.
+ *
+ * @example
+ * ```typescript
+ * const service = createRBACChartDefinitionsService(userContext);
+ *
+ * // Get single chart definition
+ * const chartDef = await service.getChartDefinitionById('uuid');
+ *
+ * // List active chart definitions
+ * const charts = await service.getChartDefinitions({ is_active: true });
+ * ```
  */
 export interface ChartDefinitionsServiceInterface {
   getChartDefinitionById(chartDefinitionId: string): Promise<ChartDefinition | null>;
@@ -34,9 +54,217 @@ export interface ChartDefinitionsServiceInterface {
 }
 
 /**
- * Create RBAC-enabled Chart Definitions Service
+ * Internal Chart Definitions Service Implementation
  *
- * Following API Standards section 8 - Service Layer Requirements
+ * Uses hybrid pattern: internal class with factory function.
+ * Provides read-only access to chart definitions with automatic RBAC enforcement.
+ */
+class ChartDefinitionsService implements ChartDefinitionsServiceInterface {
+  private readonly canReadAll: boolean;
+  private readonly canReadOwn: boolean;
+
+  constructor(private readonly userContext: UserContext) {
+    // Check permissions at service creation (cached for performance)
+    // Note: chart_definitions table does not have organization_id column
+    // Only supports all/own scoping, not organization-level scoping
+    this.canReadAll =
+      userContext.all_permissions?.some(
+        (p) => p.name === 'analytics:read:all' || p.name === 'charts:read:all'
+      ) || userContext.is_super_admin;
+
+    this.canReadOwn = userContext.all_permissions?.some(
+      (p) =>
+        p.name === 'analytics:read:own' ||
+        p.name === 'charts:read:own' ||
+        p.name === 'analytics:read:organization'
+    );
+  }
+
+  /**
+   * Build RBAC where conditions for queries
+   * @returns Array of where conditions based on user permissions
+   */
+  private buildRBACWhereConditions(): SQL[] {
+    const conditions: SQL[] = [];
+
+    if (!this.canReadAll) {
+      if (this.canReadOwn) {
+        // Filter to only charts created by this user
+        conditions.push(eq(chart_definitions.created_by, this.userContext.user_id));
+      } else {
+        // No permission - return condition that matches nothing
+        conditions.push(sql`FALSE`);
+      }
+    }
+
+    return conditions;
+  }
+  /**
+   * Get chart definition by ID with RBAC enforcement
+   *
+   * @param chartDefinitionId - UUID of chart definition
+   * @returns Chart definition or null if not found/no access
+   * @throws NotFoundError if chart not found or access denied
+   */
+  async getChartDefinitionById(chartDefinitionId: string): Promise<ChartDefinition | null> {
+    const startTime = Date.now();
+
+    try {
+      // Execute query with performance tracking
+      const queryStart = Date.now();
+      const [chartDefinition] = await db
+        .select()
+        .from(chart_definitions)
+        .where(eq(chart_definitions.chart_definition_id, chartDefinitionId))
+        .limit(1);
+
+      const queryDuration = Date.now() - queryStart;
+
+      if (!chartDefinition) {
+        const duration = Date.now() - startTime;
+        const template = logTemplates.crud.read('chart_definition', {
+          resourceId: chartDefinitionId,
+          userId: this.userContext.user_id,
+          found: false,
+          duration,
+          metadata: { queryDuration, slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY },
+        });
+
+        log.info(template.message, template.context);
+        return null;
+      }
+
+      // Apply RBAC filtering
+      // Chart definitions don't have organization_id, only created_by
+      if (!this.canReadAll) {
+        if (this.canReadOwn) {
+          // Check if chart was created by user
+          if (chartDefinition.created_by !== this.userContext.user_id) {
+            throw NotFoundError('Chart definition');
+          }
+        } else {
+          throw NotFoundError('Chart definition');
+        }
+      }
+
+      const duration = Date.now() - startTime;
+
+      // Log successful read using logTemplates
+      const template = logTemplates.crud.read('chart_definition', {
+        resourceId: chartDefinitionId,
+        resourceName: chartDefinition.chart_name,
+        userId: this.userContext.user_id,
+        found: true,
+        duration,
+        metadata: {
+          chartType: chartDefinition.chart_type,
+          isActive: chartDefinition.is_active,
+          queryDuration,
+          slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+        },
+      });
+
+      log.info(template.message, template.context);
+
+      return chartDefinition as ChartDefinition;
+    } catch (error) {
+      log.error('chart definition read failed', error, {
+        operation: 'read_chart_definition',
+        chartDefinitionId,
+        userId: this.userContext.user_id,
+        duration: Date.now() - startTime,
+        component: 'service',
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Get list of chart definitions with optional filters
+   *
+   * @param filters - Optional filters for chart definitions
+   * @returns Array of chart definitions user has access to
+   */
+  async getChartDefinitions(filters?: {
+    is_active?: boolean;
+    chart_type?: string;
+  }): Promise<ChartDefinition[]> {
+    const startTime = Date.now();
+
+    try {
+      const whereConditions = [];
+
+      // Apply RBAC filtering
+      const rbacConditions = this.buildRBACWhereConditions();
+      whereConditions.push(...rbacConditions);
+
+      // If no permission, return empty array immediately
+      if (!this.canReadAll && !this.canReadOwn) {
+        const template = logTemplates.crud.list('chart_definitions', {
+          userId: this.userContext.user_id,
+          filters: filters || {},
+          results: { returned: 0, total: 0, page: 1 },
+          duration: Date.now() - startTime,
+          metadata: { noPermission: true },
+        });
+
+        log.info(template.message, template.context);
+        return [];
+      }
+
+      // Apply filters
+      if (filters?.is_active !== undefined) {
+        whereConditions.push(eq(chart_definitions.is_active, filters.is_active));
+      }
+
+      if (filters?.chart_type) {
+        whereConditions.push(eq(chart_definitions.chart_type, filters.chart_type));
+      }
+
+      // Execute query with performance tracking
+      const queryStart = Date.now();
+      const results = await db
+        .select()
+        .from(chart_definitions)
+        .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
+
+      const queryDuration = Date.now() - queryStart;
+      const duration = Date.now() - startTime;
+
+      // Log using logTemplates
+      const template = logTemplates.crud.list('chart_definitions', {
+        userId: this.userContext.user_id,
+        filters: filters || {},
+        results: { returned: results.length, total: results.length, page: 1 },
+        duration,
+        metadata: {
+          queryDuration,
+          slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+          rbacScope: this.canReadAll ? 'all' : 'own',
+        },
+      });
+
+      log.info(template.message, template.context);
+
+      return results as ChartDefinition[];
+    } catch (error) {
+      log.error('chart definitions list failed', error, {
+        operation: 'list_chart_definitions',
+        userId: this.userContext.user_id,
+        duration: Date.now() - startTime,
+        component: 'service',
+      });
+
+      throw error;
+    }
+  }
+}
+
+/**
+ * Factory function to create RBAC Chart Definitions Service
+ *
+ * Following service layer standards - hybrid pattern with internal class.
  *
  * @param userContext - User context with RBAC permissions
  * @returns Chart definitions service with RBAC enforcement
@@ -50,156 +278,5 @@ export interface ChartDefinitionsServiceInterface {
 export function createRBACChartDefinitionsService(
   userContext: UserContext
 ): ChartDefinitionsServiceInterface {
-  // Check permissions at service creation
-  // Note: chart_definitions table does not have organization_id column
-  // Only supports all/own scoping, not organization-level scoping
-  const canReadAll = userContext.all_permissions?.some(p =>
-    p.name === 'analytics:read:all' || p.name === 'charts:read:all'
-  ) || userContext.is_super_admin;
-
-  const canReadOwn = userContext.all_permissions?.some(p =>
-    p.name === 'analytics:read:own' || p.name === 'charts:read:own' || p.name === 'analytics:read:organization'
-  );
-
-  return {
-    /**
-     * Get chart definition by ID with RBAC enforcement
-     *
-     * @param chartDefinitionId - UUID of chart definition
-     * @returns Chart definition or null if not found/no access
-     * @throws NotFoundError if chart not found or access denied
-     */
-    async getChartDefinitionById(chartDefinitionId: string): Promise<ChartDefinition | null> {
-      const startTime = Date.now();
-
-      try {
-        log.info('Fetching chart definition', {
-          chartDefinitionId,
-          userId: userContext.user_id,
-        });
-
-        const [chartDefinition] = await db
-          .select()
-          .from(chart_definitions)
-          .where(eq(chart_definitions.chart_definition_id, chartDefinitionId))
-          .limit(1);
-
-        if (!chartDefinition) {
-          log.warn('Chart definition not found', {
-            chartDefinitionId,
-            userId: userContext.user_id,
-          });
-          return null;
-        }
-
-        // Apply RBAC filtering
-        // Chart definitions don't have organization_id, only created_by
-        if (!canReadAll) {
-          if (canReadOwn) {
-            // Check if chart was created by user
-            if (chartDefinition.created_by !== userContext.user_id) {
-              log.warn('Chart definition access denied - not owner', {
-                chartDefinitionId,
-                userId: userContext.user_id,
-                chartOwnerId: chartDefinition.created_by,
-              });
-              throw NotFoundError('Chart definition');
-            }
-          } else {
-            log.warn('Chart definition access denied - no permission', {
-              chartDefinitionId,
-              userId: userContext.user_id,
-            });
-            throw NotFoundError('Chart definition');
-          }
-        }
-
-        const duration = Date.now() - startTime;
-
-        log.info('Chart definition fetched successfully', {
-          chartDefinitionId,
-          chartType: chartDefinition.chart_type,
-          isActive: chartDefinition.is_active,
-          duration,
-        });
-
-        return chartDefinition as ChartDefinition;
-      } catch (error) {
-        log.error('Failed to fetch chart definition', error, {
-          chartDefinitionId,
-          userId: userContext.user_id,
-          duration: Date.now() - startTime,
-        });
-
-        throw error;
-      }
-    },
-
-    /**
-     * Get list of chart definitions with optional filters
-     *
-     * @param filters - Optional filters for chart definitions
-     * @returns Array of chart definitions user has access to
-     */
-    async getChartDefinitions(filters?: {
-      is_active?: boolean;
-      chart_type?: string;
-    }): Promise<ChartDefinition[]> {
-      const startTime = Date.now();
-
-      try {
-        log.info('Fetching chart definitions list', {
-          userId: userContext.user_id,
-          filters,
-        });
-
-        const whereConditions = [];
-
-        // Apply RBAC filtering
-        // Chart definitions don't have organization_id, only created_by
-        if (!canReadAll) {
-          if (canReadOwn) {
-            whereConditions.push(
-              eq(chart_definitions.created_by, userContext.user_id)
-            );
-          } else {
-            log.warn('No permission to read chart definitions', {
-              userId: userContext.user_id,
-            });
-            return [];
-          }
-        }
-
-        // Apply filters
-        if (filters?.is_active !== undefined) {
-          whereConditions.push(eq(chart_definitions.is_active, filters.is_active));
-        }
-
-        if (filters?.chart_type) {
-          whereConditions.push(eq(chart_definitions.chart_type, filters.chart_type));
-        }
-
-        const results = await db
-          .select()
-          .from(chart_definitions)
-          .where(whereConditions.length > 0 ? and(...whereConditions) : undefined);
-
-        const duration = Date.now() - startTime;
-
-        log.info('Chart definitions list fetched successfully', {
-          count: results.length,
-          duration,
-        });
-
-        return results as ChartDefinition[];
-      } catch (error) {
-        log.error('Failed to fetch chart definitions list', error, {
-          userId: userContext.user_id,
-          duration: Date.now() - startTime,
-        });
-
-        throw error;
-      }
-    },
-  };
+  return new ChartDefinitionsService(userContext);
 }

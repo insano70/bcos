@@ -636,7 +636,7 @@ export const RBAC_PERMISSIONS: Record<string, PermissionDefinition> = {
 
 /**
  * Official System Roles
- * Only 2 roles as per system requirements: super_admin and user
+ * System roles for different user types and access levels
  */
 export const RBAC_ROLES: Record<string, RoleDefinition> = {
   super_admin: {
@@ -669,6 +669,23 @@ export const RBAC_ROLES: Record<string, RoleDefinition> = {
       'dashboards:read:organization',
       'charts:read:organization',
       'analytics:read:organization',
+    ],
+  },
+  organization_analytics_user: {
+    name: 'organization_analytics_user',
+    description: 'Organization analytics user with read-only access to dashboards and data sources',
+    is_system_role: true,
+    permissions: [
+      // Own scope - basic self-management
+      'users:read:own',
+      'users:update:own',
+      'organizations:read:own',
+
+      // Analytics access - organization scope read-only
+      'data-sources:read:organization',
+      'analytics:read:organization',
+      'charts:read:organization',
+      'dashboards:read:organization',
     ],
   },
 } as const;
