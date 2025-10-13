@@ -14,14 +14,30 @@ import { apiClient } from '@/lib/api/client';
  */
 export interface DashboardUniversalFilters {
   dateRangePreset?: string;
-  startDate?: string | null;
-  endDate?: string | null;
-  organizationId?: string | null;
-  providerName?: string | null;
+  startDate?: string;
+  endDate?: string;
+  organizationId?: string;
+  providerName?: string;
   
   // Auto-populated from organizationId on backend (not directly user-editable)
   // Includes hierarchy: if org has children, their practice_uids are included
-  practiceUids?: number[] | null;
+  practiceUids?: number[];
+}
+
+/**
+ * Dashboard filter configuration (Phase 7)
+ * Controls which filters are visible in the filter bar
+ */
+export interface DashboardFilterConfig {
+  enabled?: boolean;          // Show filter bar (default: true)
+  showDateRange?: boolean;    // Show date range filter (default: true)
+  showOrganization?: boolean; // Show organization filter (default: true)
+  showPractice?: boolean;     // Show practice filter (default: false)
+  showProvider?: boolean;     // Show provider filter (default: false)
+  defaultFilters?: {          // Default filter values
+    dateRangePreset?: string;
+    organizationId?: string;
+  };
 }
 
 interface DashboardFilterBarProps {
@@ -29,6 +45,7 @@ interface DashboardFilterBarProps {
   onFiltersChange: (filters: DashboardUniversalFilters) => void;
   loading?: boolean;
   className?: string;
+  filterConfig?: DashboardFilterConfig; // Phase 7: Configure which filters to show
 }
 
 interface Organization {
@@ -56,17 +73,27 @@ export default function DashboardFilterBar({
   onFiltersChange,
   loading = false,
   className = '',
+  filterConfig = {},
 }: DashboardFilterBarProps) {
   const [filters, setFilters] = useState<DashboardUniversalFilters>(initialFilters);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loadingOrganizations, setLoadingOrganizations] = useState(false);
 
-  // Load available organizations for dropdown
+  // Phase 7: Determine which filters to show (defaults to true if not specified)
+  const showDateRange = filterConfig.showDateRange !== false;
+  const showOrganization = filterConfig.showOrganization !== false;
+  const showPractice = filterConfig.showPractice === true; // Default off
+  const showProvider = filterConfig.showProvider === true; // Default off
+
+  // Load available organizations for dropdown (only if needed)
   useEffect(() => {
     loadOrganizations();
-  }, []);
+  }, [showOrganization]); // Reload if filter visibility changes
 
   const loadOrganizations = async () => {
+    // Only load if organization filter is visible
+    if (!showOrganization) return;
+
     try {
       setLoadingOrganizations(true);
       const result = await apiClient.get<{ organizations: Organization[] }>(
@@ -85,9 +112,9 @@ export default function DashboardFilterBar({
     const newFilters = {
       ...filters,
       dateRangePreset: presetId,
-      startDate: presetId === 'custom' ? startDate : null,
-      endDate: presetId === 'custom' ? endDate : null,
-    };
+      startDate: presetId === 'custom' ? startDate : undefined,
+      endDate: presetId === 'custom' ? endDate : undefined,
+    } as DashboardUniversalFilters;
     setFilters(newFilters);
     onFiltersChange(newFilters);
   }, [filters, onFiltersChange]);
@@ -95,8 +122,8 @@ export default function DashboardFilterBar({
   const handleOrganizationChange = useCallback((organizationId: string) => {
     const newFilters = {
       ...filters,
-      organizationId: organizationId || null,
-    };
+      organizationId: organizationId || undefined,
+    } as DashboardUniversalFilters;
     setFilters(newFilters);
     onFiltersChange(newFilters);
   }, [filters, onFiltersChange]);
@@ -104,10 +131,6 @@ export default function DashboardFilterBar({
   const handleReset = useCallback(() => {
     const resetFilters: DashboardUniversalFilters = {
       dateRangePreset: 'last_30_days',
-      startDate: null,
-      endDate: null,
-      organizationId: null,
-      providerName: null,
     };
     setFilters(resetFilters);
     onFiltersChange(resetFilters);
@@ -129,19 +152,23 @@ export default function DashboardFilterBar({
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Dynamic grid based on visible filters */}
+      <div className={`grid grid-cols-1 ${(showDateRange && showOrganization) ? 'lg:grid-cols-2' : ''} gap-6`}>
         {/* Date Range Filter */}
-        <div>
-          <DateRangePresets
-            onDateRangeChange={handleDateRangeChange}
-            {...(filters.startDate && { currentStartDate: filters.startDate })}
-            {...(filters.endDate && { currentEndDate: filters.endDate })}
-            selectedPreset={filters.dateRangePreset || 'last_30_days'}
-          />
-        </div>
+        {showDateRange && (
+          <div>
+            <DateRangePresets
+              onDateRangeChange={handleDateRangeChange}
+              {...(filters.startDate && { currentStartDate: filters.startDate })}
+              {...(filters.endDate && { currentEndDate: filters.endDate })}
+              selectedPreset={filters.dateRangePreset || 'last_30_days'}
+            />
+          </div>
+        )}
 
         {/* Organization Filter */}
-        <div className="space-y-4">
+        {showOrganization && (
+          <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Organization Filter
@@ -168,13 +195,14 @@ export default function DashboardFilterBar({
 
           {/* Provider Filter - Future Enhancement */}
 
-          {loading && (
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-violet-600"></div>
-              <span>Updating all charts...</span>
-            </div>
-          )}
-        </div>
+            {loading && (
+              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-violet-600"></div>
+                <span>Updating all charts...</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="mt-4 text-xs text-gray-500 dark:text-gray-400">

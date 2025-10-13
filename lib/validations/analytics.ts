@@ -293,6 +293,23 @@ export const chartDataRequestSchema = z.object({
   periodComparison: periodComparisonConfigSchema.optional(),
 });
 
+// Dashboard Universal Filters Schema (Phase 7)
+export const dashboardUniversalFiltersSchema = z.object({
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  dateRangePreset: z.string().optional(),
+  organizationId: z.string().optional(),
+  practiceUids: z.array(z.number()).optional(), // Auto-populated from organizationId on backend
+  providerName: z.string().optional(),
+});
+
+// Dashboard Batch Rendering Request Schema (Phase 7)
+export const dashboardRenderRequestSchema = z.object({
+  universalFilters: dashboardUniversalFiltersSchema.optional(),
+  chartOverrides: z.record(z.string(), z.any()).optional(), // Chart-specific overrides by chart ID
+  nocache: z.boolean().optional().default(false),
+});
+
 // Export type definitions for use in API routes
 export type ChartCategoryCreate = z.infer<typeof chartCategoryCreateSchema>;
 export type ChartCategoryUpdate = z.infer<typeof chartCategoryUpdateSchema>;
@@ -304,3 +321,5 @@ export type FavoriteCreate = z.infer<typeof favoriteCreateSchema>;
 export type BulkOperation = z.infer<typeof bulkOperationSchema>;
 export type DataSource = z.infer<typeof dataSourceSchema>;
 export type ChartDataRequest = z.infer<typeof chartDataRequestSchema>;
+export type DashboardUniversalFilters = z.infer<typeof dashboardUniversalFiltersSchema>;
+export type DashboardRenderRequest = z.infer<typeof dashboardRenderRequestSchema>;

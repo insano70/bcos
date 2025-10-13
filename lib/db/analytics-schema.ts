@@ -120,7 +120,32 @@ export const dashboards = pgTable(
     dashboard_id: uuid('dashboard_id').primaryKey().defaultRandom(),
     dashboard_name: varchar('dashboard_name', { length: 255 }).notNull(),
     dashboard_description: text('dashboard_description'),
-    layout_config: jsonb('layout_config').notNull(), // Dashboard layout as JSON
+    /**
+     * Dashboard layout configuration (JSONB)
+     * 
+     * Structure:
+     * {
+     *   columns: number;           // Grid columns (default: 12)
+     *   rowHeight: number;         // Row height in pixels (default: 150)
+     *   margin: number;            // Margin between cards (default: 10)
+     *   
+     *   // Phase 7: Dashboard-level universal filters
+     *   filterConfig?: {
+     *     enabled: boolean;        // Show filter bar (default: true)
+     *     showDateRange: boolean;  // Show date range filter (default: true)
+     *     showOrganization: boolean; // Show organization filter (default: true)
+     *     showPractice: boolean;   // Show practice filter (default: false)
+     *     showProvider: boolean;   // Show provider filter (default: false)
+     *     defaultFilters?: {       // Default filter values
+     *       dateRangePreset?: string;    // e.g., 'last_30_days'
+     *       organizationId?: string;     // Default organization
+     *       practiceUid?: number;        // Default practice
+     *       providerName?: string;       // Default provider
+     *     }
+     *   }
+     * }
+     */
+    layout_config: jsonb('layout_config').notNull(),
     dashboard_category_id: integer('dashboard_category_id').references(
       () => chart_categories.chart_category_id
     ),

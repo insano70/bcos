@@ -6,6 +6,7 @@ import DashboardRowBuilder, { RowBasedDashboardConfig, DashboardRow, DashboardCh
 import DashboardPreviewModal from '@/components/dashboard-preview-modal';
 import Toast from '@/components/toast';
 import { apiClient } from '@/lib/api/client';
+import type { DashboardFilterConfig } from './dashboard-filter-bar';
 
 interface RowBasedDashboardBuilderProps {
   editingDashboard?: any;
@@ -22,6 +23,18 @@ export default function RowBasedDashboardBuilder({
     dashboardName: '',
     dashboardDescription: '',
     rows: []
+  });
+
+  // Phase 7: Dashboard filter configuration state
+  const [filterConfig, setFilterConfig] = useState<DashboardFilterConfig>({
+    enabled: true,
+    showDateRange: true,
+    showOrganization: true,
+    showPractice: false,
+    showProvider: false,
+    defaultFilters: {
+      dateRangePreset: 'last_30_days',
+    },
   });
 
   const [availableCharts, setAvailableCharts] = useState<ChartDefinition[]>([]);
@@ -85,6 +98,20 @@ export default function RowBasedDashboardBuilder({
         dashboardDescription: editingDashboard.dashboard_description || '',
         rows
       });
+
+      // Phase 7: Load filter config if exists
+      if (editingDashboard.layout_config?.filterConfig) {
+        setFilterConfig({
+          enabled: editingDashboard.layout_config.filterConfig.enabled !== false,
+          showDateRange: editingDashboard.layout_config.filterConfig.showDateRange !== false,
+          showOrganization: editingDashboard.layout_config.filterConfig.showOrganization !== false,
+          showPractice: editingDashboard.layout_config.filterConfig.showPractice === true,
+          showProvider: editingDashboard.layout_config.filterConfig.showProvider === true,
+          defaultFilters: editingDashboard.layout_config.filterConfig.defaultFilters || {
+            dateRangePreset: 'last_30_days',
+          },
+        });
+      }
 
       setIsEditMode(true);
     }
@@ -198,7 +225,9 @@ export default function RowBasedDashboardBuilder({
               chartDefinitionId: chart.chartDefinitionId,
               widthPercentage: chart.widthPercentage
             }))
-          }))
+          })),
+          // Phase 7: Include filter configuration
+          filterConfig,
         },
         // Legacy format for compatibility (convert to grid positions)
         chart_ids: dashboardConfig.rows.flatMap(row => 
@@ -329,6 +358,120 @@ export default function RowBasedDashboardBuilder({
           </div>
         </div>
 
+        {/* Phase 7: Dashboard Filter Configuration */}
+        <div className="mb-6 border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900/30">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-md font-semibold text-gray-900 dark:text-gray-100">
+                Dashboard Filters
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Configure dashboard-wide filters that apply to all charts
+              </p>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={filterConfig.enabled}
+                onChange={(e) => setFilterConfig(prev => ({ ...prev, enabled: e.target.checked }))}
+                className="w-4 h-4 text-violet-600 border-gray-300 rounded focus:ring-violet-500"
+              />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Enable Filter Bar
+              </span>
+            </label>
+          </div>
+
+          {filterConfig.enabled && (
+            <div className="space-y-4 pl-4 border-l-2 border-violet-200 dark:border-violet-800">
+              <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Visible Filters:
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filterConfig.showDateRange}
+                    onChange={(e) => setFilterConfig(prev => ({ ...prev, showDateRange: e.target.checked }))}
+                    className="w-4 h-4 text-violet-600 border-gray-300 rounded focus:ring-violet-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Date Range</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filterConfig.showOrganization}
+                    onChange={(e) => setFilterConfig(prev => ({ ...prev, showOrganization: e.target.checked }))}
+                    className="w-4 h-4 text-violet-600 border-gray-300 rounded focus:ring-violet-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Organization</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filterConfig.showPractice}
+                    onChange={(e) => setFilterConfig(prev => ({ ...prev, showPractice: e.target.checked }))}
+                    className="w-4 h-4 text-violet-600 border-gray-300 rounded focus:ring-violet-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Practice</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filterConfig.showProvider}
+                    onChange={(e) => setFilterConfig(prev => ({ ...prev, showProvider: e.target.checked }))}
+                    className="w-4 h-4 text-violet-600 border-gray-300 rounded focus:ring-violet-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Provider</span>
+                </label>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  Default Filter Values:
+                </div>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                      Default Date Range Preset
+                    </label>
+                    <select
+                      value={filterConfig.defaultFilters?.dateRangePreset || 'last_30_days'}
+                      onChange={(e) => setFilterConfig(prev => ({
+                        ...prev,
+                        defaultFilters: {
+                          ...prev.defaultFilters,
+                          dateRangePreset: e.target.value
+                        }
+                      }))}
+                      className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    >
+                      <option value="today">Today</option>
+                      <option value="yesterday">Yesterday</option>
+                      <option value="last_7_days">Last 7 Days</option>
+                      <option value="last_30_days">Last 30 Days</option>
+                      <option value="last_90_days">Last 90 Days</option>
+                      <option value="this_month">This Month</option>
+                      <option value="last_month">Last Month</option>
+                      <option value="this_quarter">This Quarter</option>
+                      <option value="this_year">This Year</option>
+                    </select>
+                  </div>
+                </div>
+
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                  💡 Default values are applied when the dashboard loads. Users can override with URL parameters.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Dashboard Rows */}
         <div className="mb-6">
           <div className="flex justify-between items-center mb-4">
@@ -420,6 +563,7 @@ export default function RowBasedDashboardBuilder({
       <DashboardPreviewModal
         isOpen={previewModalOpen}
         setIsOpen={setPreviewModalOpen}
+        filterConfig={filterConfig}
         dashboardConfig={{
           dashboardName: dashboardConfig.dashboardName,
           dashboardDescription: dashboardConfig.dashboardDescription,

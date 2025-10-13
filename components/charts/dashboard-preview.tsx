@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import AnalyticsChart from './analytics-chart';
+import DashboardFilterBar, { type DashboardUniversalFilters, type DashboardFilterConfig } from './dashboard-filter-bar';
 import type { Dashboard, DashboardChart, ChartDefinition, MeasureType, FrequencyType, ChartFilter } from '@/lib/types/analytics';
 import { apiClient } from '@/lib/api/client';
 
@@ -29,6 +30,9 @@ interface DashboardPreviewProps {
   // For previewing unsaved configurations (from builder)
   dashboardConfig?: DashboardConfig;
   
+  // Phase 7: Filter configuration preview
+  filterConfig?: DashboardFilterConfig;
+  
   // Navigation
   onClose: () => void;
   title?: string;
@@ -38,12 +42,19 @@ export default function DashboardPreview({
   dashboard,
   dashboardCharts,
   dashboardConfig,
+  filterConfig,
   onClose,
   title
 }: DashboardPreviewProps) {
   const [availableCharts, setAvailableCharts] = useState<ChartDefinition[]>([]);
   const [isLoadingCharts, setIsLoadingCharts] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Phase 7: Preview filter state (non-functional, just visual)
+  const [previewFilters, setPreviewFilters] = useState<DashboardUniversalFilters>(() => ({
+    dateRangePreset: filterConfig?.defaultFilters?.dateRangePreset || 'last_30_days',
+    organizationId: filterConfig?.defaultFilters?.organizationId,
+  } as DashboardUniversalFilters));
 
   // Load available chart definitions for rendering
   useEffect(() => {
@@ -128,8 +139,26 @@ export default function DashboardPreview({
     );
   }
 
+  // Phase 7: Check if filter bar should be shown in preview
+  const showFilterBarInPreview = filterConfig?.enabled !== false;
+
   return (
     <div className="space-y-6">
+      {/* Phase 7: Filter Bar Preview */}
+      {showFilterBarInPreview && filterConfig && (
+        <div className="relative">
+          <DashboardFilterBar
+            initialFilters={previewFilters}
+            onFiltersChange={setPreviewFilters}
+            loading={false}
+            filterConfig={filterConfig}
+          />
+          <div className="absolute top-2 right-2 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 text-xs px-2 py-1 rounded border border-yellow-300 dark:border-yellow-700">
+            Preview Mode
+          </div>
+        </div>
+      )}
+
       {/* Preview Header */}
       <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-6 mb-6">
         <div>

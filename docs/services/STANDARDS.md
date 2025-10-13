@@ -1,6 +1,11 @@
 # Service Layer Development Standards
 
-**Status**: Active | **Last Updated**: 2025-01-13 | **Version**: 3.0
+**Status**: Active | **Last Updated**: 2025-01-13 | **Version**: 3.1
+
+**What's New in v3.1:**
+- ✨ Advanced Logging Patterns section (calculateChanges, separate query timing, RBAC scope visibility)
+- 📏 File Size Guidelines with decision framework (when to split, acceptable exceptions)
+- 🏆 Gold Standard Reference Examples (rbac-chart-definitions-service, rbac-staff-members-service)
 
 > **New to services?** Read this document completely. For advanced patterns, see [ADVANCED_PATTERNS.md](./ADVANCED_PATTERNS.md).
 
@@ -20,7 +25,10 @@
 10. [Transaction Handling](#transaction-handling)
 11. [Database Requirements](#database-requirements)
 12. [Anti-Patterns](#anti-patterns)
-13. [Quick Checklist](#quick-checklist)
+13. [Advanced Logging Patterns](#advanced-logging-patterns) 🆕
+14. [File Size Guidelines](#file-size-guidelines) 🆕
+15. [Quick Checklist](#quick-checklist)
+16. [Gold Standard Reference Examples](#gold-standard-reference-examples) 🆕
 
 ---
 
@@ -939,6 +947,398 @@ async createOrderWithItems(order: Order, items: OrderItem[]) {
 
 ---
 
+## Advanced Logging Patterns
+
+### Separate Query Timing
+
+Track individual queries separately for detailed performance insights:
+
+```typescript
+// ✅ EXCELLENT - Separate timing for count vs list
+async getStaffMembers(practiceId: string, filters: StaffFilters) {
+  const startTime = Date.now();
+
+  try {
+    // Track count query separately
+    const countStart = Date.now();
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(staff_members)
+      .where(...conditions);
+    const countDuration = Date.now() - countStart;
+
+    // Track list query separately
+    const queryStart = Date.now();
+    const staff = await db
+      .select()
+      .from(staff_members)
+      .where(...conditions)
+      .limit(filters.limit || 100);
+    const queryDuration = Date.now() - queryStart;
+
+    const duration = Date.now() - startTime;  // Total operation
+
+    const template = logTemplates.crud.list('staff_members', {
+      userId: this.userContext.user_id,
+      filters,
+      results: { returned: staff.length, total: Number(countResult.count) },
+      duration,
+      metadata: {
+        countDuration,        // Count query timing
+        queryDuration,        // List query timing
+        slowCount: countDuration > SLOW_THRESHOLDS.DB_QUERY,
+        slowQuery: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+      },
+    });
+
+    log.info(template.message, template.context);
+    return { staff, total: Number(countResult.count) };
+  } catch (error) {
+    log.error('list staff members failed', error, {...});
+    throw error;
+  }
+}
+```
+
+**Why this matters:**
+- Identifies whether count or list query is the bottleneck
+- Enables CloudWatch queries like: `filter slowCount = true | stats count() by operation`
+- Helps diagnose missing indexes
+
+### calculateChanges Integration
+
+Track what fields changed in updates for audit trails:
+
+```typescript
+// ✅ EXCELLENT - Audit trail with calculateChanges
+async updateStaffMember(
+  practiceId: string,
+  staffId: string,
+  data: UpdateStaffData
+): Promise<StaffMember> {
+  const startTime = Date.now();
+
+  try {
+    // Fetch existing record
+    const [existing] = await db
+      .select()
+      .from(staff_members)
+      .where(...)
+      .limit(1);
+
+    if (!existing) {
+      throw NotFoundError('Staff member');
+    }
+
+    // Prepare update data
+    const updateData = {
+      ...data,
+      updated_at: new Date(),
+    };
+
+    // Calculate changes for audit logging
+    const changes = calculateChanges(
+      existing as Record<string, unknown>,
+      updateData as Record<string, unknown>,
+      Object.keys(data) as (keyof typeof existing)[]
+    );
+
+    // Perform update
+    const updateStart = Date.now();
+    const [updated] = await db
+      .update(staff_members)
+      .set(updateData)
+      .where(...)
+      .returning();
+    const updateDuration = Date.now() - updateStart;
+
+    const duration = Date.now() - startTime;
+
+    // Log with changes
+    const template = logTemplates.crud.update('staff_member', {
+      resourceId: staffId,
+      resourceName: updated.name,
+      userId: this.userContext.user_id,
+      changes,  // 🎯 Audit trail of what changed
+      duration,
+      metadata: {
+        updateDuration,
+        slow: updateDuration > SLOW_THRESHOLDS.DB_QUERY,
+        fieldsChanged: Object.keys(changes).length,  // Count of changed fields
+      },
+    });
+
+    log.info(template.message, template.context);
+    return parsedMember;
+  } catch (error) {
+    log.error('update staff member failed', error, {...});
+    throw error;
+  }
+}
+```
+
+**Type Casting Pattern:**
+```typescript
+// calculateChanges requires Record<string, unknown>
+const changes = calculateChanges(
+  existing as Record<string, unknown>,        // Cast Drizzle type
+  updateData as Record<string, unknown>,      // Cast update data
+  Object.keys(data) as (keyof typeof existing)[]  // Only track updated fields
+);
+```
+
+**Why this matters:**
+- Compliance and audit requirements
+- Debugging - see exactly what changed
+- Analytics - track most-modified fields
+
+### RBAC Scope Visibility
+
+Include RBAC scope in logs for security analysis:
+
+```typescript
+// ✅ EXCELLENT - RBAC scope visibility
+async getChartDefinitions(filters?: ChartFilters) {
+  const startTime = Date.now();
+
+  try {
+    const whereConditions = this.buildRBACWhereConditions();
+    const results = await db.select()...;
+    const duration = Date.now() - startTime;
+
+    const template = logTemplates.crud.list('chart_definitions', {
+      userId: this.userContext.user_id,
+      filters: filters || {},
+      results: { returned: results.length },
+      duration,
+      metadata: {
+        rbacScope: this.canReadAll ? 'all' : 'own',  // 🎯 Security visibility
+      },
+    });
+
+    log.info(template.message, template.context);
+    return results;
+  } catch (error) {
+    log.error('list chart definitions failed', error, {...});
+    throw error;
+  }
+}
+```
+
+**CloudWatch query example:**
+```
+fields @timestamp, message, duration, userId, metadata.rbacScope
+| filter component = "service" and operation = "list_chart_definitions"
+| filter metadata.rbacScope = "own" and duration > 1000
+| stats count() by userId
+```
+
+**Why this matters:**
+- Security auditing - who accessed what with which scope
+- Performance analysis - do "own" queries perform differently than "all" queries?
+- Compliance - prove data access was appropriately scoped
+
+### Transaction Timing
+
+Track transaction duration separately:
+
+```typescript
+// ✅ EXCELLENT - Transaction timing
+async reorderStaff(
+  practiceId: string,
+  staffOrder: { staff_id: string; display_order: number }[]
+): Promise<boolean> {
+  const startTime = Date.now();
+
+  try {
+    // Track transaction separately
+    const txStart = Date.now();
+    await db.transaction(async (tx) => {
+      for (const item of staffOrder) {
+        await tx.update(staff_members).set({
+          display_order: item.display_order,
+          updated_at: new Date(),
+        }).where(...);
+      }
+    });
+    const txDuration = Date.now() - txStart;
+
+    const duration = Date.now() - startTime;
+
+    log.info('staff reordered successfully', {
+      operation: 'reorder_staff',
+      practiceId,
+      userId: this.userContext.user_id,
+      staffCount: staffOrder.length,
+      duration,
+      metadata: {
+        txDuration,  // Just the transaction
+        slow: txDuration > SLOW_THRESHOLDS.DB_QUERY,
+        updatesPerSecond: staffOrder.length / (txDuration / 1000),
+      },
+    });
+
+    return true;
+  } catch (error) {
+    log.error('reorder staff failed', error, {...});
+    throw error;
+  }
+}
+```
+
+**Why this matters:**
+- Transaction lock time visibility
+- Bulk operation performance
+- Helps tune batch sizes
+
+### Custom Operation Logging
+
+For non-CRUD operations, use structured manual logging:
+
+```typescript
+// ✅ GOOD - Custom operation with structured logging
+async reorderStaff(...) {
+  // ... operation logic
+
+  log.info('staff reordered successfully', {
+    operation: 'reorder_staff',  // snake_case
+    practiceId,
+    userId: this.userContext.user_id,
+    staffCount: staffOrder.length,  // Operation-specific metadata
+    duration,
+    component: 'service',
+    metadata: {
+      txDuration,
+      slow: txDuration > SLOW_THRESHOLDS.DB_QUERY,
+    },
+  });
+}
+```
+
+**When to use manual logging:**
+- Bulk operations (reorder, batch update)
+- Business operations (calculate, process, transform)
+- Operations that don't fit CRUD pattern
+
+**Always include:**
+- `operation` (snake_case)
+- `userId`
+- `duration`
+- `component: 'service'`
+
+---
+
+## File Size Guidelines
+
+### Target: 500 Lines or Less
+
+**General Rule**: Services should be 500 lines or less for maintainability.
+
+### When to Split
+
+If a service exceeds 500 lines, consider splitting:
+
+```typescript
+// ❌ BAD - One massive service
+// rbac-practices-service.ts (913 lines)
+class PracticesService {
+  async getPractices() { ... }
+  async createPractice() { ... }
+  // ... 20 CRUD methods
+  async getAnalytics() { ... }
+  async getMetrics() { ... }
+  async generateReport() { ... }
+  // ... 10 analytics methods
+}
+
+// ✅ GOOD - Split by responsibility
+// rbac-practices-service.ts (~450 lines)
+class PracticesService {
+  async getPractices() { ... }
+  async createPractice() { ... }
+  // ... Only CRUD methods
+}
+
+// practice-analytics-service.ts (~400 lines)
+class PracticeAnalyticsService {
+  async getAnalytics() { ... }
+  async getMetrics() { ... }
+  async generateReport() { ... }
+  // ... Only analytics methods
+}
+```
+
+### Acceptable Exceptions
+
+Services **may exceed 500 lines** if:
+
+1. **Comprehensive Observability** - Extensive performance tracking justified
+2. **Multiple CRUD Operations** - 6+ CRUD methods with full logging
+3. **Complex Business Logic** - Domain complexity cannot be reasonably split
+4. **Helper Methods Included** - Helper methods already reduce duplication
+
+**Example: rbac-staff-members-service.ts (632 lines) ✅ ACCEPTABLE**
+
+This service is 132 lines over the limit, but it's justified because:
+- **6 CRUD methods** (list, read, create, update, delete, reorder)
+- **8+ query operations** with separate performance tracking
+- **calculateChanges integration** for audit trails
+- **Transaction handling** for reorderStaff
+- **2 helper methods** that reduce duplication across methods
+- **Comprehensive metadata** in all logTemplates
+
+```typescript
+// Each operation tracks separate query timing
+const countStart = Date.now();
+const [countResult] = await db.select({ count: sql`count(*)` })...;
+const countDuration = Date.now() - countStart;  // Count query timing
+
+const queryStart = Date.now();
+const staff = await db.select()...;
+const queryDuration = Date.now() - queryStart;  // List query timing
+
+const duration = Date.now() - startTime;  // Total operation timing
+
+metadata: {
+  countDuration,
+  queryDuration,
+  slowCount: countDuration > SLOW_THRESHOLDS.DB_QUERY,
+  slowQuery: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+}
+```
+
+**Alternative would sacrifice observability** - We prioritize comprehensive performance tracking over arbitrary line counts.
+
+### Decision Framework
+
+**Ask these questions:**
+
+1. **Can I split without scattering related operations?**
+   - ✅ Yes → Split (e.g., CRUD + Analytics = 2 services)
+   - ❌ No → Keep together
+
+2. **Is the file size due to comprehensive tracking?**
+   - ✅ Yes → Acceptable (observability is critical)
+   - ❌ No → Refactor and reduce
+
+3. **Would splitting improve or harm maintainability?**
+   - ✅ Improve → Split
+   - ❌ Harm → Keep together
+
+4. **Are there 6+ CRUD methods?**
+   - ✅ Yes → May exceed 500 lines if tracking is comprehensive
+   - ❌ No → Should stay under 500 lines
+
+### Rule of Thumb
+
+**Prioritize observability over arbitrary line counts for complex services.**
+
+If you have 3-5 simple methods, stay under 500 lines.
+If you have 6+ methods with comprehensive tracking, 600-700 lines may be acceptable.
+If you exceed 700 lines, strongly consider splitting.
+
+---
+
 ## Quick Checklist
 
 Use this before submitting a PR:
@@ -946,7 +1346,7 @@ Use this before submitting a PR:
 ### Architecture
 - [ ] Uses hybrid pattern (internal class + factory)
 - [ ] Exports service interface
-- [ ] File under 500 lines (split if larger)
+- [ ] File under 500 lines (see File Size Guidelines section for exceptions)
 
 ### Type Safety
 - [ ] No `any` types anywhere
@@ -962,6 +1362,10 @@ Use this before submitting a PR:
 - [ ] Uses logTemplates for CRUD
 - [ ] Has startTime/duration tracking
 - [ ] Logs on success and error
+- [ ] Separate query timing for complex operations (count vs list)
+- [ ] Uses calculateChanges for update operations
+- [ ] Includes RBAC scope in metadata where applicable
+- [ ] Transaction timing tracked separately
 
 ### Error Handling
 - [ ] Try-catch in every method
@@ -979,6 +1383,116 @@ Use this before submitting a PR:
 
 ---
 
+## Gold Standard Reference Examples
+
+Use these production services as reference templates:
+
+### Simple Services (1-3 Methods, Read-Only or Simple CRUD)
+
+**📄 [rbac-chart-definitions-service.ts](../../lib/services/rbac-chart-definitions-service.ts)** (283 lines)
+- **Grade**: A+ (98%)
+- **Use for**: Read-only services, simple CRUD
+- **Highlights**:
+  - Perfect hybrid pattern
+  - Clean RBAC documentation
+  - RBAC scope visibility in logs (`rbacScope: 'all' | 'own'`)
+  - Early return optimization for no permission
+  - Handles not found gracefully with `found: false` logging
+
+**Key Patterns:**
+```typescript
+// Early return for no permission
+if (!this.canReadAll && !this.canReadOwn) {
+  const template = logTemplates.crud.list('chart_definitions', {
+    userId: this.userContext.user_id,
+    filters: filters || {},
+    results: { returned: 0, total: 0, page: 1 },
+    duration: Date.now() - startTime,
+    metadata: { noPermission: true },
+  });
+  log.info(template.message, template.context);
+  return [];
+}
+
+// RBAC scope visibility
+metadata: {
+  rbacScope: this.canReadAll ? 'all' : 'own',
+}
+```
+
+---
+
+### Complex Services (5-7 Methods, Full CRUD + Transactions)
+
+**📄 [rbac-staff-members-service.ts](../../lib/services/rbac-staff-members-service.ts)** (632 lines)
+- **Grade**: A (95%)
+- **Use for**: Complex CRUD services, multiple operations
+- **Highlights**:
+  - 6 CRUD methods with comprehensive logging
+  - First service to use `calculateChanges` for audit trails
+  - Separate count vs query timing (8+ tracked queries)
+  - Transaction handling with timing
+  - 2 helper methods reducing duplication
+
+**Key Patterns:**
+```typescript
+// Separate count vs list timing
+const countStart = Date.now();
+const [countResult] = await db.select({ count: sql`count(*)` })...;
+const countDuration = Date.now() - countStart;
+
+const queryStart = Date.now();
+const staff = await db.select()...;
+const queryDuration = Date.now() - queryStart;
+
+metadata: {
+  countDuration,
+  queryDuration,
+  slowCount: countDuration > SLOW_THRESHOLDS.DB_QUERY,
+  slowQuery: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+}
+
+// calculateChanges for audit trail
+const changes = calculateChanges(
+  existing as Record<string, unknown>,
+  updateData as Record<string, unknown>,
+  Object.keys(data) as (keyof typeof existing)[]
+);
+
+metadata: {
+  fieldsChanged: Object.keys(changes).length,
+}
+
+// Transaction timing
+const txStart = Date.now();
+await db.transaction(async (tx) => { ... });
+const txDuration = Date.now() - txStart;
+
+metadata: {
+  txDuration,
+  slow: txDuration > SLOW_THRESHOLDS.DB_QUERY,
+}
+```
+
+---
+
+### Quick Reference
+
+| Service Type | Template | Lines | Methods | Complexity |
+|--------------|----------|-------|---------|------------|
+| **Read-only** | rbac-chart-definitions-service.ts | 283 | 2 | Low |
+| **Simple CRUD** | (Use chart definitions as base) | ~300 | 3-4 | Low-Medium |
+| **Complex CRUD** | rbac-staff-members-service.ts | 632 | 6 | High |
+
+**When starting a new service:**
+1. Identify complexity (1-3 methods = simple, 5+ methods = complex)
+2. Copy the appropriate reference file
+3. Replace resource names and interfaces
+4. Adapt permission model to your resource
+5. Run `pnpm tsc` and `pnpm lint`
+
+---
+
 ## Next Steps
 
 **For advanced patterns**, see:
@@ -989,4 +1503,4 @@ Use this before submitting a PR:
 
 ---
 
-**Version**: 3.0 | **Lines**: ~600 | **Read Time**: 15-20 minutes
+**Version**: 3.1 | **Last Updated**: 2025-01-13 | **Read Time**: 20-25 minutes

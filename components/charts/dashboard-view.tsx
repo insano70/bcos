@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import AnalyticsChart from './analytics-chart';
 import DashboardFilterBar, { type DashboardUniversalFilters } from './dashboard-filter-bar';
 import type { Dashboard, DashboardChart, ChartDefinition, MeasureType, FrequencyType, ChartFilter } from '@/lib/types/analytics';
@@ -17,19 +17,54 @@ export default function DashboardView({
   dashboardCharts
 }: DashboardViewProps) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [availableCharts, setAvailableCharts] = useState<ChartDefinition[]>([]);
   const [isLoadingCharts, setIsLoadingCharts] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Phase 7: Dashboard-level universal filters
-  const [universalFilters, setUniversalFilters] = useState<DashboardUniversalFilters>(() => ({
-    dateRangePreset: searchParams.get('datePreset') || 'last_30_days',
-    startDate: searchParams.get('startDate') || null,
-    endDate: searchParams.get('endDate') || null,
-    organizationId: searchParams.get('org') || null,
-    practiceUid: searchParams.get('practice') ? parseInt(searchParams.get('practice')!, 10) : null,
-    providerName: searchParams.get('provider') || null,
-  }));
+  // Phase 7: Check if dashboard has filter bar enabled
+  const filterConfig = (dashboard.layout_config as any)?.filterConfig;
+  const showFilterBar = filterConfig?.enabled !== false; // Default to true if not specified
+
+  // Phase 7: Dashboard-level universal filters with default values
+  // Priority: URL params > default filters from config > system defaults
+  const [universalFilters, setUniversalFilters] = useState<DashboardUniversalFilters>(() => {
+    const practice = searchParams.get('practice');
+    const defaultFilters = filterConfig?.defaultFilters || {};
+
+    return {
+      // URL params take highest priority, then default config, then system defaults
+      dateRangePreset: searchParams.get('datePreset') || defaultFilters.dateRangePreset || undefined,
+      startDate: searchParams.get('startDate') || undefined,
+      endDate: searchParams.get('endDate') || undefined,
+      organizationId: searchParams.get('org') || defaultFilters.organizationId || undefined,
+      practiceUids: practice ? [parseInt(practice, 10)] : undefined,
+      providerName: searchParams.get('provider') || undefined,
+    } as DashboardUniversalFilters;
+  });
+
+  // Phase 7: URL param management
+  const updateUrlParams = useCallback((filters: DashboardUniversalFilters) => {
+    const params = new URLSearchParams();
+    
+    if (filters.dateRangePreset) params.set('datePreset', filters.dateRangePreset);
+    if (filters.startDate) params.set('startDate', filters.startDate);
+    if (filters.endDate) params.set('endDate', filters.endDate);
+    if (filters.organizationId) params.set('org', filters.organizationId);
+    if (filters.practiceUids && filters.practiceUids.length > 0 && filters.practiceUids[0] !== undefined) {
+      params.set('practice', filters.practiceUids[0].toString());
+    }
+    if (filters.providerName) params.set('provider', filters.providerName);
+    
+    // Update URL without scroll, preserving history
+    router.push(`?${params.toString()}`, { scroll: false });
+  }, [router]);
+
+  // Phase 7: Handle filter changes
+  const handleFilterChange = useCallback((newFilters: DashboardUniversalFilters) => {
+    setUniversalFilters(newFilters);
+    updateUrlParams(newFilters);
+  }, [updateUrlParams]);
 
   const loadChartDefinitions = async () => {
     try {
@@ -129,6 +164,16 @@ export default function DashboardView({
 
   return (
     <div className="space-y-6">
+      {/* Phase 7: Dashboard Filter Bar */}
+      {showFilterBar && (
+        <DashboardFilterBar
+          initialFilters={universalFilters}
+          onFiltersChange={handleFilterChange}
+          loading={isLoadingCharts}
+          filterConfig={filterConfig}
+        />
+      )}
+
       {/* Dashboard Grid - Following /dashboard pattern */}
       <div className="grid grid-cols-12 gap-6 w-full p-4">
         {dashboardConfig.charts.map((dashboardChart) => {

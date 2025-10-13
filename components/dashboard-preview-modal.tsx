@@ -2,6 +2,7 @@
 
 import DashboardPreview from './charts/dashboard-preview';
 import type { Dashboard, DashboardChart, ChartDefinition } from '@/lib/types/analytics';
+import type { DashboardFilterConfig } from './charts/dashboard-filter-bar';
 
 interface DashboardConfig {
   dashboardName: string;
@@ -30,6 +31,9 @@ interface DashboardPreviewModalProps {
   // For previewing unsaved configurations (from builder)
   dashboardConfig?: DashboardConfig;
   
+  // Phase 7: Filter configuration preview
+  filterConfig?: DashboardFilterConfig;
+  
   title?: string;
 }
 
@@ -39,6 +43,7 @@ export default function DashboardPreviewModal({
   dashboard,
   dashboardCharts,
   dashboardConfig,
+  filterConfig,
   title
 }: DashboardPreviewModalProps) {
   const handleClose = () => {
@@ -79,6 +84,7 @@ export default function DashboardPreviewModal({
               {...(dashboard && { dashboard })}
               {...(dashboardCharts && { dashboardCharts })}
               {...(dashboardConfig && { dashboardConfig })}
+              {...(filterConfig && { filterConfig })}
               onClose={handleClose}
               {...(title && { title })}
             />

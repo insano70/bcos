@@ -35,15 +35,15 @@ import { organizationHierarchyService } from './organization-hierarchy-service';
  * - Not directly user-editable (security critical)
  */
 export interface DashboardUniversalFilters {
-  startDate?: string | null;
-  endDate?: string | null;
-  dateRangePreset?: string | null;
-  organizationId?: string | null;
-  providerName?: string | null;
+  startDate?: string;
+  endDate?: string;
+  dateRangePreset?: string;
+  organizationId?: string;
+  providerName?: string;
   
   // Auto-populated from organizationId (not directly user-editable)
   // Includes hierarchy: if org has children, their practice_uids are included
-  practiceUids?: number[] | null;
+  practiceUids?: number[];
 }
 
 /**
@@ -129,12 +129,12 @@ export class DashboardRenderer {
           universalFilters.organizationId
         );
 
-        log.info('Dashboard organization filter processed', {
-          dashboardId,
-          organizationId: universalFilters.organizationId,
-          practiceUidCount: universalFilters.practiceUids?.length || 0,
-          practiceUids: universalFilters.practiceUids,
-        });
+      log.info('Dashboard organization filter processed', {
+        dashboardId,
+        organizationId: universalFilters.organizationId || null,
+        practiceUidCount: universalFilters.practiceUids?.length || 0,
+        practiceUids: universalFilters.practiceUids || [],
+      });
       }
 
       // 2. Load all chart definitions for this dashboard
@@ -442,7 +442,7 @@ export class DashboardRenderer {
       applied.push('dateRange');
     }
     if (filters.organizationId) applied.push('organization');
-    if (filters.practiceUid) applied.push('practice');
+    if (filters.practiceUids && filters.practiceUids.length > 0) applied.push('practice');
     if (filters.providerName) applied.push('provider');
 
     return applied;
