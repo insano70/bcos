@@ -10,6 +10,7 @@ import DataTable, {
 import DateSelect, { type DateRange } from '@/components/date-select';
 import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
 import EditOrganizationModal from '@/components/edit-organization-modal';
+import OrganizationUsersModal from '@/components/organization-users-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { apiClient } from '@/lib/api/client';
 import { type Organization, useOrganizations } from '@/lib/hooks/use-organizations';
@@ -18,6 +19,7 @@ export default function OrganizationsContent() {
   const { data: organizations, isLoading, error, refetch } = useOrganizations();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isManageUsersModalOpen, setIsManageUsersModalOpen] = useState(false);
   const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(null);
 
   // Filter state
@@ -84,6 +86,11 @@ export default function OrganizationsContent() {
   const handleEditOrganization = useCallback((organization: Organization) => {
     setSelectedOrganization(organization);
     setIsEditModalOpen(true);
+  }, []);
+
+  const handleManageUsers = useCallback((organization: Organization) => {
+    setSelectedOrganization(organization);
+    setIsManageUsersModalOpen(true);
   }, []);
 
   const handleToggleActive = useCallback(
@@ -241,6 +248,18 @@ export default function OrganizationsContent() {
         onClick: handleEditOrganization,
       },
       {
+        label: 'Manage Users',
+        icon: (
+          <svg
+            className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0"
+            viewBox="0 0 16 16"
+          >
+            <path d="M11 0c1.3 0 2.6.5 3.5 1.5 1 .9 1.5 2.2 1.5 3.5 0 1.3-.5 2.6-1.4 3.5l-1.2 1.2c-.2.2-.5.3-.7.3-.2 0-.5-.1-.7-.3-.2-.2-.3-.4-.3-.7 0-.2.1-.5.3-.7l1.2-1.2c.6-.5.9-1.3.9-2.1s-.3-1.6-.9-2.2C12 1.7 11.3 1.3 10.5 1.3s-1.6.3-2.1.9c-.6.6-.9 1.3-.9 2.1 0 .2-.1.5-.3.7-.2.2-.4.3-.7.3-.2 0-.5-.1-.7-.3-.2-.2-.3-.4-.3-.7 0-1.3.5-2.6 1.5-3.5C8 .5 9.3 0 11 0zM5.5 1c1.3 0 2.6.5 3.5 1.5l.7.7c.2.2.3.5.3.7 0 .2-.1.5-.3.7-.2.2-.4.3-.7.3-.2 0-.5-.1-.7-.3l-.7-.7c-.6-.6-1.3-.9-2.1-.9s-1.6.3-2.1.9c-.6.5-.9 1.3-.9 2.1s.3 1.6.9 2.2c.5.5 1.3.9 2.1.9.2 0 .5.1.7.3.2.2.3.4.3.7 0 .2-.1.5-.3.7-.2.2-.4.3-.7.3-1.3 0-2.6-.5-3.5-1.4C.5 8.1 0 6.8 0 5.5 0 4.2.5 2.9 1.5 2 2.4.5 3.7 0 5.5 0z" />
+          </svg>
+        ),
+        onClick: handleManageUsers,
+      },
+      {
         label: (o) => (o.is_active ? 'Inactivate' : 'Activate'),
         icon: (
           <svg
@@ -268,7 +287,7 @@ export default function OrganizationsContent() {
         confirm: (o) => `Are you sure you want to delete ${o.name}? This action cannot be undone.`,
       },
     ],
-    [handleEditOrganization, handleToggleActive, handleDeleteOrganization]
+    [handleEditOrganization, handleManageUsers, handleToggleActive, handleDeleteOrganization]
   );
 
   // Bulk actions for mass operations (memoized)
@@ -374,6 +393,13 @@ export default function OrganizationsContent() {
       <EditOrganizationModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
+        onSuccess={refetch}
+        organization={selectedOrganization}
+      />
+
+      <OrganizationUsersModal
+        isOpen={isManageUsersModalOpen}
+        onClose={() => setIsManageUsersModalOpen(false)}
         onSuccess={refetch}
         organization={selectedOrganization}
       />

@@ -32,6 +32,7 @@ export interface UpdateUserData {
   role_ids?: string[];
   email_verified?: boolean;
   is_active?: boolean;
+  provider_uid?: number | null | undefined; // Analytics security - provider-level filtering
 }
 
 export interface UserQueryOptions {
@@ -50,6 +51,7 @@ export interface UserWithOrganizations {
   last_name: string;
   email_verified: boolean;
   is_active: boolean;
+  provider_uid?: number | null | undefined; // Analytics security - provider-level filtering
   created_at: Date;
   updated_at: Date;
   organizations: {
@@ -137,6 +139,7 @@ export class RBACUsersService extends BaseRBACService {
         last_name: users.last_name,
         email_verified: users.email_verified,
         is_active: users.is_active,
+        provider_uid: users.provider_uid, // Analytics security field
         created_at: users.created_at,
         updated_at: users.updated_at,
         // Organization info
@@ -180,6 +183,7 @@ export class RBACUsersService extends BaseRBACService {
           last_name: row.last_name,
           email_verified: row.email_verified ?? false,
           is_active: row.is_active ?? true,
+          provider_uid: row.provider_uid || undefined, // Analytics security field
           created_at: row.created_at ?? new Date(),
           updated_at: row.updated_at ?? new Date(),
           organizations: [],
@@ -266,6 +270,7 @@ export class RBACUsersService extends BaseRBACService {
         last_name: users.last_name,
         email_verified: users.email_verified,
         is_active: users.is_active,
+        provider_uid: users.provider_uid, // Analytics security field
         created_at: users.created_at,
         updated_at: users.updated_at,
         organization_id: user_organizations.organization_id,
@@ -324,6 +329,7 @@ export class RBACUsersService extends BaseRBACService {
       last_name: firstResult.last_name,
       email_verified: firstResult.email_verified ?? false,
       is_active: firstResult.is_active ?? true,
+      provider_uid: firstResult.provider_uid || undefined, // Analytics security field
       created_at: firstResult.created_at ?? new Date(),
       updated_at: firstResult.updated_at ?? new Date(),
       organizations: [],
@@ -534,6 +540,7 @@ export class RBACUsersService extends BaseRBACService {
         role_ids?: string[];
         email_verified: boolean;
         is_active: boolean;
+        provider_uid: number | null | undefined; // Analytics security field
         updated_at: Date;
       }> = {
         ...updateData,

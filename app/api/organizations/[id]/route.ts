@@ -9,6 +9,7 @@ import { calculateChanges, log, logTemplates } from '@/lib/logger';
 import { createRBACOrganizationsService } from '@/lib/services/rbac-organizations-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { organizationParamsSchema, organizationUpdateSchema } from '@/lib/validations/organization';
+import { rbacCache } from '@/lib/cache';
 
 const getOrganizationHandler = async (
   request: NextRequest,
@@ -42,6 +43,7 @@ const getOrganizationHandler = async (
       name: organization.name,
       slug: organization.slug,
       parent_organization_id: organization.parent_organization_id,
+      practice_uids: organization.practice_uids || [], // Analytics security field
       is_active: organization.is_active,
       created_at: organization.created_at,
       updated_at: organization.updated_at,
@@ -87,18 +89,23 @@ const updateOrganizationHandler = async (
       updateData
     );
 
+    // Invalidate organization hierarchy cache (practice_uids or structure may have changed)
+    await rbacCache.invalidateOrganizationHierarchy();
+
     // Calculate changes for audit trail (using explicit object properties)
     const changes = calculateChanges(
       {
         name: before.name,
         slug: before.slug,
         parent_organization_id: before.parent_organization_id,
+        practice_uids: before.practice_uids,
         is_active: before.is_active,
       },
       {
         name: updatedOrganization.name,
         slug: updatedOrganization.slug,
         parent_organization_id: updatedOrganization.parent_organization_id,
+        practice_uids: updatedOrganization.practice_uids,
         is_active: updatedOrganization.is_active,
       }
     );
@@ -125,6 +132,7 @@ const updateOrganizationHandler = async (
         name: updatedOrganization.name,
         slug: updatedOrganization.slug,
         parent_organization_id: updatedOrganization.parent_organization_id,
+        practice_uids: updatedOrganization.practice_uids || [], // Analytics security field
         is_active: updatedOrganization.is_active,
         created_at: updatedOrganization.created_at,
         updated_at: updatedOrganization.updated_at,
@@ -162,6 +170,9 @@ const deleteOrganizationHandler = async (
 
     const organizationService = createRBACOrganizationsService(userContext);
     await organizationService.deleteOrganization(organizationId);
+
+    // Invalidate organization hierarchy cache (org removed from tree)
+    await rbacCache.invalidateOrganizationHierarchy();
 
     log.info('Organization deleted successfully', {
       targetOrganizationId: organizationId,

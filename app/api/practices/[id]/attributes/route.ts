@@ -5,7 +5,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
-import { log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
+import { log, logTemplates, calculateChanges, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACPracticeAttributesService } from '@/lib/services/rbac-practice-attributes-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { practiceAttributesUpdateSchema, practiceParamsSchema } from '@/lib/validations/practice';
@@ -74,6 +74,11 @@ const updatePracticeAttributesHandler = async (
 
     // Use the RBAC practice attributes service
     const attributesService = createRBACPracticeAttributesService(userContext);
+
+    // Get current attributes for change tracking
+    const beforeAttributes = await attributesService.getPracticeAttributes(practiceId);
+
+    // Perform update
     const updatedAttributes = await attributesService.updatePracticeAttributes(
       practiceId,
       validatedData
@@ -81,10 +86,16 @@ const updatePracticeAttributesHandler = async (
 
     const duration = Date.now() - startTime;
 
+    // Calculate actual changes for audit trail
+    const changes = calculateChanges(
+      beforeAttributes as unknown as Record<string, unknown>,
+      updatedAttributes as unknown as Record<string, unknown>
+    );
+
     const template = logTemplates.crud.update('practice_attributes', {
       resourceId: practiceId,
       userId: userContext.user_id,
-      changes: {},
+      changes,
       duration,
     });
     log.info(template.message, template.context);

@@ -38,3 +38,34 @@ export { logTemplates, calculateChanges, sanitizeFilters } from './message-templ
 
 // Logging constants (slow thresholds, etc.)
 export { SLOW_THRESHOLDS } from './constants';
+
+/**
+ * Extract error message from unknown error type
+ * Handles Error instances, objects with message property, and unknown types
+ *
+ * @param error - Unknown error to extract message from
+ * @returns Human-readable error message string
+ *
+ * @example
+ * try {
+ *   await riskyOperation();
+ * } catch (error) {
+ *   const errorMessage = getErrorMessage(error);
+ *   return createErrorResponse(errorMessage, 500, request);
+ * }
+ */
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String(error.message);
+  }
+
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  return 'Unknown error';
+}

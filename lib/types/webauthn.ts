@@ -137,6 +137,18 @@ export interface MFAStatus {
   method: 'webauthn' | null;
   credential_count: number;
   enforced_at: Date | null;
+  skips_remaining?: number;
+  skip_count?: number;
+}
+
+/**
+ * MFA skip tracking types
+ */
+export interface MFASkipStatus {
+  skips_remaining: number;
+  skip_count: number;
+  first_skipped_at: Date | null;
+  last_skipped_at: Date | null;
 }
 
 /**

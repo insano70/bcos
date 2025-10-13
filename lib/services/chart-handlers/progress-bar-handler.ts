@@ -1,4 +1,4 @@
-import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
+import type { ChartData } from '@/lib/types/analytics';
 import { log } from '@/lib/logger';
 import { BaseChartHandler } from './base-handler';
 import { getPaletteColors } from '@/lib/services/color-palettes';
@@ -136,7 +136,10 @@ export class ProgressBarChartHandler extends BaseChartHandler {
         if (!grouped.has(groupKey)) {
           grouped.set(groupKey, []);
         }
-        grouped.get(groupKey)!.push(numValue);
+        const group = grouped.get(groupKey);
+        if (group) {
+          group.push(numValue);
+        }
       }
 
       log.info('Data grouped for progress bars', {
@@ -189,7 +192,7 @@ export class ProgressBarChartHandler extends BaseChartHandler {
         sampleGroups: groupedDataWithPercentages.slice(0, 3).map(g => ({
           label: g.label,
           value: g.value,
-          percentage: g.percentage.toFixed(2) + '%',
+          percentage: `${g.percentage.toFixed(2)}%`,
         })),
       });
 

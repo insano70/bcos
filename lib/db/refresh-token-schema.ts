@@ -136,6 +136,11 @@ export const account_security = pgTable(
     mfa_enabled: boolean('mfa_enabled').notNull().default(false),
     mfa_method: varchar('mfa_method', { length: 20 }), // 'webauthn' (future: 'totp')
     mfa_enforced_at: timestamp('mfa_enforced_at', { withTimezone: true }),
+    // MFA skip tracking (graceful onboarding)
+    mfa_skips_remaining: integer('mfa_skips_remaining').notNull().default(5),
+    mfa_skip_count: integer('mfa_skip_count').notNull().default(0),
+    mfa_first_skipped_at: timestamp('mfa_first_skipped_at', { withTimezone: true }),
+    mfa_last_skipped_at: timestamp('mfa_last_skipped_at', { withTimezone: true }),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -143,5 +148,6 @@ export const account_security = pgTable(
     lockedUntilIdx: index('idx_account_security_locked_until').on(table.locked_until),
     suspiciousIdx: index('idx_account_security_suspicious').on(table.suspicious_activity_detected),
     mfaEnabledIdx: index('idx_account_security_mfa_enabled').on(table.mfa_enabled),
+    mfaSkipsIdx: index('idx_account_security_mfa_skips').on(table.mfa_skips_remaining),
   })
 );

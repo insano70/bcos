@@ -21,6 +21,7 @@ const editUserSchema = z.object({
   role_ids: z.array(z.string()).min(1, 'Please select at least one role'),
   email_verified: z.boolean().optional(),
   is_active: z.boolean().optional(),
+  provider_uid_input: z.string().optional(), // String input for provider_uid
 }).refine((data) => {
   // If password is provided, it must meet requirements and match confirmation
   if (data.password && data.password.length > 0) {
@@ -85,6 +86,9 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
       setValue('role_ids', user.roles?.map(role => role.id) || []);
       setValue('email_verified', user.email_verified || false);
       setValue('is_active', user.is_active !== false); // Handle null as true
+      // Convert provider_uid to string for input (empty string if null/undefined)
+      const providerUidStr = (user as any).provider_uid?.toString() || '';
+      setValue('provider_uid_input', providerUidStr);
     }
   }, [user, isOpen, setValue]);
 
@@ -94,6 +98,15 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
     setIsSubmitting(true);
 
     try {
+      // Parse provider_uid from string input to integer or null
+      let provider_uid: number | null = null;
+      if (data.provider_uid_input && data.provider_uid_input.trim()) {
+        const parsed = parseInt(data.provider_uid_input.trim(), 10);
+        if (!Number.isNaN(parsed) && parsed > 0) {
+          provider_uid = parsed;
+        }
+      }
+
       const updateData: any = {
         first_name: data.first_name,
         last_name: data.last_name,
@@ -101,6 +114,7 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
         role_ids: data.role_ids,
         email_verified: data.email_verified,
         is_active: data.is_active,
+        provider_uid,
       };
 
       // Only include password if it was provided
@@ -305,6 +319,45 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                   disabled={isSubmitting}
                   required
                 />
+
+                {/* Provider UID - Analytics Security */}
+                <div>
+                  <label htmlFor="edit_provider_uid" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Provider UID
+                    <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
+                      (For Analytics Data Filtering)
+                    </span>
+                  </label>
+                  <input
+                    type="number"
+                    id="edit_provider_uid"
+                    {...register('provider_uid_input')}
+                    className="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600"
+                    placeholder="Enter provider_uid (e.g., 42)"
+                    disabled={isSubmitting}
+                  />
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Optional. Only required for users with analytics:read:own permission.
+                    Must match provider_uid from ih.agg_app_measures table in analytics database.
+                    Leave empty if user does not need provider-level analytics access.
+                  </p>
+                  <details className="mt-2">
+                    <summary className="text-xs text-violet-600 dark:text-violet-400 cursor-pointer hover:text-violet-700 dark:hover:text-violet-300">
+                      💡 How to find provider_uid values
+                    </summary>
+                    <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded text-xs font-mono">
+                      <code className="text-gray-700 dark:text-gray-300">
+                        SELECT DISTINCT provider_uid, provider_name<br />
+                        FROM ih.agg_app_measures<br />
+                        WHERE provider_uid IS NOT NULL<br />
+                        ORDER BY provider_uid;
+                      </code>
+                    </div>
+                  </details>
+                  {errors.provider_uid_input && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.provider_uid_input.message}</p>
+                  )}
+                </div>
 
                 {/* Email Verified */}
                 <div className="flex items-center">

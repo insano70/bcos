@@ -217,7 +217,6 @@ class RateLimitCacheService {
 
     try {
       // Delete all keys matching the pattern
-      const now = Math.floor(Date.now() / 1000);
       const pattern = `${this.namespace}:${type}:${identifier}:*`;
 
       // Use SCAN to find and delete keys (cluster-safe)

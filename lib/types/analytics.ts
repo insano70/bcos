@@ -261,13 +261,32 @@ export interface AnalyticsQueryResult {
 }
 
 /**
- * Chart rendering context
+ * Chart rendering context with security filtering
+ * 
+ * Used to apply row-level security to analytics queries based on user permissions.
+ * 
+ * Security Model:
+ * - accessible_practices: Array of practice_uid values (integers) from user's organizations
+ * - accessible_providers: Array of provider_uid values (integers) for provider-level access
+ * - Empty arrays mean different things based on permission_scope:
+ *   - 'all' scope: Empty = no filtering (super admin)
+ *   - 'organization' scope: Empty = fail-closed (no data)
+ *   - 'own' scope: Uses accessible_providers instead
  */
 export interface ChartRenderContext {
   user_id: string;
-  accessible_practices: string[];
-  accessible_providers: string[];
+  
+  // Security filters (integers matching analytics database columns)
+  accessible_practices: number[]; // practice_uid values from organizations
+  accessible_providers: number[]; // provider_uid values for provider-level filtering
+  
   roles: string[];
+  
+  // Security metadata for audit logging
+  permission_scope?: 'own' | 'organization' | 'all' | 'none';
+  organization_ids?: string[]; // Organizations providing access (including hierarchy)
+  includes_hierarchy?: boolean; // True if parent org includes child org data
+  provider_uid?: number | null; // User's provider_uid (for analytics:read:own)
 }
 
 /**

@@ -375,6 +375,7 @@ const DUAL_TOKEN_ALLOWED_ENDPOINTS = [
   '/api/auth/login', // Users might login while already authenticated (re-auth, account switching)
   '/api/auth/mfa/register', // MFA setup during login (pre-auth state with temp token)
   '/api/auth/mfa/verify', // MFA verification during login (pre-auth state with temp token)
+  '/api/auth/mfa/skip', // MFA skip during login (pre-auth state with temp token)
 ];
 
 /**

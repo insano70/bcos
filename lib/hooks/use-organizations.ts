@@ -42,6 +42,7 @@ export interface CreateOrganizationInput {
   name: string;
   slug: string;
   parent_organization_id?: string | undefined;
+  practice_uids?: number[] | undefined; // Analytics security - practice_uid filtering
   is_active?: boolean | undefined;
 }
 
@@ -49,6 +50,7 @@ export interface UpdateOrganizationInput {
   name?: string | undefined;
   slug?: string | undefined;
   parent_organization_id?: string | null | undefined;
+  practice_uids?: number[] | undefined; // Analytics security - practice_uid filtering
   is_active?: boolean | undefined;
 }
 
@@ -90,6 +92,73 @@ export function useDeleteOrganization() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organizations'] });
+    },
+  });
+}
+
+export interface OrganizationUser {
+  user_id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  is_active: boolean;
+  email_verified: boolean;
+  created_at: Date;
+  is_member: boolean;
+  joined_at?: Date;
+}
+
+export function useOrganizationUsers(organizationId: string) {
+  return useQuery<OrganizationUser[], Error>({
+    queryKey: ['organizations', organizationId, 'users'],
+    queryFn: async () => {
+      const data = await apiClient.get<OrganizationUser[]>(
+        `/api/organizations/${organizationId}/users`
+      );
+      return data;
+    },
+    enabled: !!organizationId,
+    staleTime: 2 * 60 * 1000, // 2 minutes - user membership changes more frequently
+    gcTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+export interface UpdateOrganizationUsersInput {
+  add_user_ids: string[];
+  remove_user_ids: string[];
+}
+
+export function useUpdateOrganizationUsers() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      organizationId,
+      data,
+    }: {
+      organizationId: string;
+      data: UpdateOrganizationUsersInput;
+    }) => {
+      const result = await apiClient.put<{
+        added: number;
+        removed: number;
+        organization_id: string;
+      }>(`/api/organizations/${organizationId}/users`, data);
+      return result;
+    },
+    onSuccess: (_, variables) => {
+      // Invalidate organization users list
+      queryClient.invalidateQueries({
+        queryKey: ['organizations', variables.organizationId, 'users'],
+      });
+      // Invalidate organization details (member_count may have changed)
+      queryClient.invalidateQueries({
+        queryKey: ['organizations', variables.organizationId],
+      });
+      // Invalidate organizations list (member_count in list may have changed)
+      queryClient.invalidateQueries({
+        queryKey: ['organizations'],
+      });
     },
   });
 }

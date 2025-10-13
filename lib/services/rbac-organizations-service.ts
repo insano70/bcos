@@ -18,6 +18,7 @@ export interface CreateOrganizationData {
   name: string;
   slug: string;
   parent_organization_id?: string | undefined;
+  practice_uids?: number[] | undefined; // Analytics security - practice_uid filtering
   is_active?: boolean | undefined;
 }
 
@@ -25,6 +26,7 @@ export interface UpdateOrganizationData {
   name?: string | undefined;
   slug?: string | undefined;
   parent_organization_id?: string | null | undefined;
+  practice_uids?: number[] | undefined; // Analytics security - practice_uid filtering
   is_active?: boolean | undefined;
 }
 
@@ -234,6 +236,7 @@ export class RBACOrganizationsService extends BaseRBACService {
         name: orgData.name,
         slug: orgData.slug,
         parent_organization_id: orgData.parent_organization_id,
+        practice_uids: orgData.practice_uids || [], // Analytics security field
         is_active: orgData.is_active ?? true,
       })
       .returning();
@@ -430,6 +433,204 @@ export class RBACOrganizationsService extends BaseRBACService {
       this.checker.hasPermission('organizations:update:organization', organizationId) ||
       this.checker.hasPermission('organizations:manage:all')
     );
+  }
+
+  /**
+   * Get all users with their membership status for a specific organization
+   * Returns all active users in the system with is_member flag
+   */
+  async getOrganizationUsersWithStatus(organizationId: string): Promise<
+    Array<{
+      user_id: string;
+      email: string;
+      first_name: string;
+      last_name: string;
+      is_active: boolean;
+      email_verified: boolean;
+      created_at: Date;
+      is_member: boolean;
+      joined_at?: Date;
+    }>
+  > {
+    this.requirePermission('organizations:manage:all');
+    this.requireOrganizationAccess(organizationId);
+
+    // Get all active users in the system
+    const allUsers = await db
+      .select({
+        user_id: users.user_id,
+        email: users.email,
+        first_name: users.first_name,
+        last_name: users.last_name,
+        is_active: users.is_active,
+        email_verified: users.email_verified,
+        created_at: users.created_at,
+      })
+      .from(users)
+      .where(and(eq(users.is_active, true), isNull(users.deleted_at)))
+      .orderBy(users.last_name, users.first_name);
+
+    // Get current members of this organization
+    const currentMembers = await db
+      .select({
+        user_id: user_organizations.user_id,
+        joined_at: user_organizations.joined_at,
+      })
+      .from(user_organizations)
+      .where(
+        and(
+          eq(user_organizations.organization_id, organizationId),
+          eq(user_organizations.is_active, true)
+        )
+      );
+
+    // Create a map of member user_ids for quick lookup
+    const memberMap = new Map(
+      currentMembers.map((m) => [m.user_id, m.joined_at])
+    );
+
+    // Combine data: all users with membership flag
+    return allUsers.map((user) => {
+      const joinedAt = memberMap.get(user.user_id);
+      const result: {
+        user_id: string;
+        email: string;
+        first_name: string;
+        last_name: string;
+        is_active: boolean;
+        email_verified: boolean;
+        created_at: Date;
+        is_member: boolean;
+        joined_at?: Date;
+      } = {
+        user_id: user.user_id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        is_active: user.is_active ?? true,
+        email_verified: user.email_verified ?? false,
+        created_at: user.created_at ?? new Date(),
+        is_member: memberMap.has(user.user_id),
+      };
+
+      // Only include joined_at if it exists (for exactOptionalPropertyTypes)
+      if (joinedAt) {
+        result.joined_at = joinedAt;
+      }
+
+      return result;
+    });
+  }
+
+  /**
+   * Batch update organization users - add and remove associations
+   */
+  async updateOrganizationUsers(
+    organizationId: string,
+    addUserIds: string[],
+    removeUserIds: string[]
+  ): Promise<{ added: number; removed: number }> {
+    this.requirePermission('organizations:manage:all');
+    this.requireOrganizationAccess(organizationId);
+
+    let added = 0;
+    let removed = 0;
+
+    // Validate organization exists
+    const [org] = await db
+      .select()
+      .from(organizations)
+      .where(eq(organizations.organization_id, organizationId))
+      .limit(1);
+
+    if (!org) {
+      throw new Error('Organization not found');
+    }
+
+    // Process additions
+    if (addUserIds.length > 0) {
+      // Validate all users exist and are active
+      const existingUsers = await db
+        .select({ user_id: users.user_id })
+        .from(users)
+        .where(
+          and(
+            inArray(users.user_id, addUserIds),
+            eq(users.is_active, true),
+            isNull(users.deleted_at)
+          )
+        );
+
+      const validUserIds = existingUsers.map((u) => u.user_id);
+
+      if (validUserIds.length === 0) {
+        throw new Error('No valid users found to add');
+      }
+
+      // For each user, either insert new or reactivate existing
+      for (const userId of validUserIds) {
+        // Check if association already exists
+        const [existing] = await db
+          .select()
+          .from(user_organizations)
+          .where(
+            and(
+              eq(user_organizations.user_id, userId),
+              eq(user_organizations.organization_id, organizationId)
+            )
+          )
+          .limit(1);
+
+        if (existing) {
+          // Reactivate if inactive
+          if (!existing.is_active) {
+            await db
+              .update(user_organizations)
+              .set({
+                is_active: true,
+                joined_at: new Date(),
+              })
+              .where(
+                eq(user_organizations.user_organization_id, existing.user_organization_id)
+              );
+            added++;
+          }
+          // Already active - skip
+        } else {
+          // Insert new association
+          await db.insert(user_organizations).values({
+            user_id: userId,
+            organization_id: organizationId,
+            is_active: true,
+            joined_at: new Date(),
+          });
+          added++;
+        }
+      }
+    }
+
+    // Process removals (soft delete)
+    if (removeUserIds.length > 0) {
+      const result = await db
+        .update(user_organizations)
+        .set({
+          is_active: false,
+        })
+        .where(
+          and(
+            eq(user_organizations.organization_id, organizationId),
+            inArray(user_organizations.user_id, removeUserIds),
+            eq(user_organizations.is_active, true)
+          )
+        )
+        .returning();
+
+      removed = result.length;
+    }
+
+    await this.logPermissionCheck('organizations:manage:all', organizationId);
+
+    return { added, removed };
   }
 }
 

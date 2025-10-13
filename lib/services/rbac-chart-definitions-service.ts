@@ -1,7 +1,7 @@
 import type { UserContext } from '@/lib/types/rbac';
 import { db } from '@/lib/db';
 import { chart_definitions } from '@/lib/db/analytics-schema';
-import { eq, and, isNull } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { NotFoundError } from '@/lib/api/responses/error';
 import { log } from '@/lib/logger';
 

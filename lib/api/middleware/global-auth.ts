@@ -92,13 +92,9 @@ export async function applyGlobalAuth(request: NextRequest): Promise<AuthResult 
 
   // UNIVERSAL RATE LIMITING: Apply to ALL API routes (public and protected)
   // This runs BEFORE authentication to prevent abuse
-  try {
-    const rateLimitType = pathname.startsWith('/api/auth/') ? 'auth' : 'api';
-    await applyRateLimit(request, rateLimitType);
-  } catch (rateLimitError) {
-    // Rate limit error will be thrown and handled by the route handler
-    throw rateLimitError;
-  }
+  // Note: Rate limit errors will propagate to the route handler
+  const rateLimitType = pathname.startsWith('/api/auth/') ? 'auth' : 'api';
+  await applyRateLimit(request, rateLimitType);
 
   // Skip auth for public routes
   if (isPublicApiRoute(pathname)) {

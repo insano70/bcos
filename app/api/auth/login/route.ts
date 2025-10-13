@@ -189,8 +189,10 @@ const loginHandler = async (request: NextRequest) => {
     // CHECK MFA STATUS - Before creating full session
     const { getMFAStatus, beginAuthentication } = await import('@/lib/auth/webauthn');
     const { createMFATempToken } = await import('@/lib/auth/webauthn-temp-token');
+    const { getMFASkipStatus } = await import('@/lib/auth/mfa-skip-tracker');
 
     const mfaStatus = await getMFAStatus(user.user_id);
+    const skipStatus = await getMFASkipStatus(user.user_id);
 
     // EDGE CASE: MFA enabled but all credentials disabled
     // This can happen if passkeys were disabled due to security issues
@@ -269,27 +271,77 @@ const loginHandler = async (request: NextRequest) => {
       );
     }
 
-    const tempToken = await createMFATempToken(user.user_id);
-
+    // MFA not configured - check skip status
     const { generateAnonymousToken } = await import('@/lib/security/csrf-unified');
     const csrfToken = await generateAnonymousToken(request);
 
+    // If no skips remaining, ENFORCE MFA setup (fail-closed security)
+    if (skipStatus.skips_remaining <= 0) {
+      const tempToken = await createMFATempToken(user.user_id);
+
+      await AuditLogger.logAuth({
+        action: 'mfa_setup_enforced',
+        userId: user.user_id,
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
+        metadata: {
+          reason: 'skip_limit_exceeded',
+          totalSkips: skipStatus.skip_count,
+          correlationId: correlation.current(),
+        },
+      });
+
+      const duration = Date.now() - startTime;
+      log.info('login password verification succeeded - mfa setup enforced', {
+        operation: 'login',
+        userId: user.user_id,
+        status: 'mfa_setup_enforced',
+        skipsExhausted: true,
+        totalSkips: skipStatus.skip_count,
+        rememberMe: remember,
+        duration,
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent,
+        component: 'auth',
+      });
+
+      return createSuccessResponse(
+        {
+          status: 'mfa_setup_enforced',
+          tempToken,
+          user: {
+            id: user.user_id,
+            email: user.email,
+            name: `${user.first_name} ${user.last_name}`,
+          },
+          csrfToken,
+        },
+        'MFA setup is now required to access your account'
+      );
+    }
+
+    // Skips available - offer OPTIONAL setup with skip option
+    const tempToken = await createMFATempToken(user.user_id);
+
     await AuditLogger.logAuth({
-      action: 'mfa_setup_required',
+      action: 'mfa_setup_optional',
       userId: user.user_id,
       ipAddress: metadata.ipAddress,
       userAgent: metadata.userAgent,
       metadata: {
-        reason: 'password_login_requires_mfa',
+        reason: 'password_login_skip_available',
+        skipsRemaining: skipStatus.skips_remaining,
         correlationId: correlation.current(),
       },
     });
 
     const duration = Date.now() - startTime;
-    log.info('login password verification succeeded - mfa setup required', {
+    log.info('login password verification succeeded - mfa setup optional', {
       operation: 'login',
       userId: user.user_id,
-      status: 'mfa_setup_required',
+      status: 'mfa_setup_optional',
+      skipsRemaining: skipStatus.skips_remaining,
+      skipCount: skipStatus.skip_count,
       rememberMe: remember,
       duration,
       ipAddress: metadata.ipAddress,
@@ -299,16 +351,17 @@ const loginHandler = async (request: NextRequest) => {
 
     return createSuccessResponse(
       {
-        status: 'mfa_setup_required',
+        status: 'mfa_setup_optional',
         tempToken,
         user: {
           id: user.user_id,
           email: user.email,
           name: `${user.first_name} ${user.last_name}`,
         },
+        skipsRemaining: skipStatus.skips_remaining,
         csrfToken,
       },
-      'Passkey setup required for password login'
+      'Passkey setup recommended for enhanced security'
     );
   } catch (error) {
     log.error('login failed', error, {

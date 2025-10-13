@@ -192,11 +192,11 @@ const createDashboardHandler = async (request: NextRequest, userContext: UserCon
 
 // Route handlers
 export const GET = rbacRoute(getDashboardsHandler, {
-  permission: 'analytics:read:all',
+  permission: ['analytics:read:all', 'analytics:read:organization', 'analytics:read:own'],
   rateLimit: 'api',
 });
 
 export const POST = rbacRoute(createDashboardHandler, {
-  permission: 'analytics:read:all',
+  permission: ['dashboards:create:organization', 'dashboards:create:own', 'analytics:read:all'],
   rateLimit: 'api',
 });

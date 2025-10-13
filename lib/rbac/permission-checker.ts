@@ -33,14 +33,15 @@ export class PermissionChecker {
       const result = this.checkPermission(permissionName, { resourceId, organizationId });
       return result.granted;
     } catch (error) {
-      // Log permission check failures for audit (client-safe logging)
-      console.warn('Permission check failed:', {
-        userId: this.userContext.user_id,
-        permission: permissionName,
-        resourceId,
-        organizationId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
+      // Client-safe error handling (no server-side logger in client bundle)
+      // In development, errors are logged to console for debugging
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Permission check failed:', {
+          userId: this.userContext.user_id,
+          permission: permissionName,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
       return false;
     }
   }
@@ -87,7 +88,8 @@ export class PermissionChecker {
     }
 
     // Check if user has the permission through any of their roles
-    const matchingPermissions = this.getUserPermissions().filter((permission) => {
+    const userPermissions = this.getUserPermissions();
+    const matchingPermissions = userPermissions.filter((permission) => {
       // Exact match
       if (permission.name === permissionName) {
         return true;

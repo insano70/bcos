@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse, NotFoundError, ValidationError, APIError } from '@/lib/api/responses/error';
+import { createErrorResponse } from '@/lib/api/responses/error';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import type { UserContext } from '@/lib/types/rbac';
 import type { ChartData } from '@/lib/types/analytics';
@@ -79,8 +79,6 @@ const universalChartDataRequestSchema = z.object({
     })
     .optional(),
 });
-
-type UniversalChartDataRequest = z.infer<typeof universalChartDataRequestSchema>;
 
 /**
  * Column definition for table charts
@@ -320,10 +318,7 @@ const universalChartDataHandler = async (
 
     // Determine appropriate HTTP status code based on error type
     let statusCode = 500;
-    if (error instanceof APIError) {
-      // APIError already has statusCode
-      statusCode = error.statusCode;
-    } else if (error instanceof Error) {
+    if (error instanceof Error) {
       // Check error message for common patterns
       if (error.message.includes('not found')) {
         statusCode = 404;

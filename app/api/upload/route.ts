@@ -173,7 +173,17 @@ const uploadFilesHandler = async (request: NextRequest, userContext: UserContext
           );
         }
       } catch (dbError) {
-        console.error('Database update failed after file upload:', dbError);
+        const totalDuration = Date.now() - startTime;
+
+        log.error('Database update failed after file upload', dbError, {
+          operation: 'update_practice_image',
+          userId: userContext.user_id,
+          practiceId,
+          imageType,
+          duration: totalDuration,
+          component: 'api',
+        });
+
         return createErrorResponse(
           dbError instanceof Error
             ? dbError.message

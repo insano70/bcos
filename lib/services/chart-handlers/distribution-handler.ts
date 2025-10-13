@@ -1,5 +1,4 @@
 import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
-import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
 import { SimplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
 import { BaseChartHandler } from './base-handler';

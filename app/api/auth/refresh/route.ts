@@ -5,7 +5,7 @@ import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { refreshTokenPair } from '@/lib/auth/token-manager';
-import { correlation, log, logTemplates } from '@/lib/logger';
+import { correlation, log } from '@/lib/logger';
 import { setCSRFToken } from '@/lib/security/csrf-unified';
 
 // Force dynamic rendering for this API route

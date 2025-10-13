@@ -5,6 +5,7 @@ import { log } from '@/lib/logger';
 import { analyticsQueryBuilder } from '../analytics-query-builder';
 import { getDateRange } from '@/lib/utils/date-presets';
 import { QUERY_LIMITS } from '@/lib/constants/analytics';
+import { createOrganizationAccessService } from '../organization-access-service';
 
 /**
  * Base Chart Handler
@@ -47,16 +48,22 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
       // Build analytics query parameters from config
       const queryParams = this.buildQueryParams(config);
 
-      // Build chart render context with RBAC
-      const chartContext = this.buildChartContext(userContext);
+      // Build chart render context with RBAC and security filtering
+      // UPDATED: Now async to integrate with OrganizationAccessService
+      const chartContext = await this.buildChartContext(userContext);
 
-      log.info('Fetching chart data', {
+      log.info('Fetching chart data with security context', {
         chartType: this.type,
         dataSourceId: config.dataSourceId,
         userId: userContext.user_id,
+        // Security context for audit
+        permissionScope: chartContext.permission_scope,
+        practiceUidCount: chartContext.accessible_practices.length,
+        providerUidCount: chartContext.accessible_providers.length,
+        includesHierarchy: chartContext.includes_hierarchy,
       });
 
-      // Execute query via analytics query builder
+      // Execute query via analytics query builder (applies security filters)
       const result = await analyticsQueryBuilder.queryMeasures(queryParams, chartContext);
 
       const duration = Date.now() - startTime;
@@ -66,6 +73,8 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
         recordCount: result.data.length,
         queryTimeMs: result.query_time_ms,
         fetchDuration: duration,
+        securityFiltersApplied:
+          chartContext.accessible_practices.length > 0 || chartContext.accessible_providers.length > 0,
       });
 
       return result.data as Record<string, unknown>[];
@@ -191,14 +200,58 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
 
   /**
    * Build chart render context from user context
-   * Helper method for fetchData
+   * 
+   * SECURITY-CRITICAL: This method populates security filters based on user permissions
+   * 
+   * Permission Model:
+   * - analytics:read:all → No filtering (super admin sees all data)
+   * - analytics:read:organization → Filter by org's practice_uids (+ hierarchy)
+   * - analytics:read:own → Filter by user's provider_uid
+   * - No permission → Fail-closed (no data)
+   * 
+   * UPDATED: Now async to integrate with OrganizationAccessService
+   * All chart handlers must await this method
    */
-  protected buildChartContext(userContext: UserContext): ChartRenderContext {
+  protected async buildChartContext(userContext: UserContext): Promise<ChartRenderContext> {
+    const startTime = Date.now();
+
+    // Create access service for permission resolution
+    const accessService = createOrganizationAccessService(userContext);
+
+    // Get organization-based practice_uid filtering
+    const practiceAccess = await accessService.getAccessiblePracticeUids();
+
+    // Get provider-based provider_uid filtering
+    const providerAccess = await accessService.getAccessibleProviderUid();
+
+    const duration = Date.now() - startTime;
+
+    log.debug('Chart security context built', {
+      userId: userContext.user_id,
+      permissionScope: practiceAccess.scope,
+      practiceUidCount: practiceAccess.practiceUids.length,
+      providerUid: providerAccess.providerUid,
+      includesHierarchy: practiceAccess.includesHierarchy,
+      organizationCount: practiceAccess.organizationIds.length,
+      duration,
+    });
+
     return {
       user_id: userContext.user_id,
-      accessible_practices: [], // Empty = all accessible (filtered by route-level RBAC)
-      accessible_providers: [], // Empty = all accessible (filtered by route-level RBAC)
+
+      // UPDATED: Actual practice_uid filtering based on organizations + hierarchy
+      accessible_practices: practiceAccess.practiceUids,
+
+      // UPDATED: Actual provider_uid filtering for analytics:read:own
+      accessible_providers: providerAccess.providerUid ? [providerAccess.providerUid] : [],
+
       roles: userContext.roles?.map((role) => role.name) || [],
+
+      // NEW: Metadata for logging and security audit
+      permission_scope: practiceAccess.scope,
+      organization_ids: practiceAccess.organizationIds,
+      includes_hierarchy: practiceAccess.includesHierarchy,
+      provider_uid: providerAccess.providerUid,
     };
   }
 

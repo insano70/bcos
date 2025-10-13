@@ -40,6 +40,7 @@ class RbacCacheService extends CacheService {
   // TTL constants
   private readonly USER_CONTEXT_TTL = 300; // 5 minutes
   private readonly ROLE_PERMISSIONS_TTL = 86400; // 24 hours
+  private readonly ORGANIZATION_HIERARCHY_TTL = 86400; // 24 hours (organizations change infrequently)
 
   /**
    * Get user context from cache
@@ -199,6 +200,52 @@ class RbacCacheService extends CacheService {
       component: 'rbac-cache',
       pattern,
       operation: 'invalidateAllRolePermissions',
+    });
+  }
+
+  /**
+   * Get organization hierarchy from cache
+   * 
+   * Caches all active organizations for 24 hours since org structure changes infrequently.
+   * Used by OrganizationHierarchyService.
+   * 
+   * @returns Array of organizations or null if not cached
+   */
+  async getOrganizationHierarchy(): Promise<import('@/lib/types/rbac').Organization[] | null> {
+    // Key: rbac:org:hierarchy:all
+    const key = this.buildKey('org', 'hierarchy', 'all');
+    return await this.get<import('@/lib/types/rbac').Organization[]>(key);
+  }
+
+  /**
+   * Cache organization hierarchy
+   * 
+   * @param organizations - Array of all active organizations
+   * @returns true if successful
+   */
+  async setOrganizationHierarchy(
+    organizations: import('@/lib/types/rbac').Organization[]
+  ): Promise<boolean> {
+    // Key: rbac:org:hierarchy:all
+    const key = this.buildKey('org', 'hierarchy', 'all');
+    return await this.set(key, organizations, { ttl: this.ORGANIZATION_HIERARCHY_TTL });
+  }
+
+  /**
+   * Invalidate organization hierarchy cache
+   * 
+   * Should be called when:
+   * - Organization created
+   * - Organization updated (name, parent_organization_id, practice_uids, etc.)
+   * - Organization deleted/deactivated
+   */
+  async invalidateOrganizationHierarchy(): Promise<void> {
+    const key = this.buildKey('org', 'hierarchy', 'all');
+    await this.del(key);
+
+    log.info('Organization hierarchy cache invalidated', {
+      component: 'rbac-cache',
+      operation: 'invalidateOrganizationHierarchy',
     });
   }
 }

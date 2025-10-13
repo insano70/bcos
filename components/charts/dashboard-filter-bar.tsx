@@ -7,14 +7,21 @@ import { apiClient } from '@/lib/api/client';
 /**
  * Dashboard Universal Filters
  * Filters that apply to ALL charts in a dashboard
+ * 
+ * Security Note:
+ * - practiceUids is auto-populated from organizationId on backend (includes hierarchy)
+ * - Not directly user-editable (security critical)
  */
 export interface DashboardUniversalFilters {
   dateRangePreset?: string;
   startDate?: string | null;
   endDate?: string | null;
   organizationId?: string | null;
-  practiceUid?: number | null;
   providerName?: string | null;
+  
+  // Auto-populated from organizationId on backend (not directly user-editable)
+  // Includes hierarchy: if org has children, their practice_uids are included
+  practiceUids?: number[] | null;
 }
 
 interface DashboardFilterBarProps {
@@ -24,10 +31,10 @@ interface DashboardFilterBarProps {
   className?: string;
 }
 
-interface Practice {
-  practice_uid: number;
-  practice_name: string;
-  practice_primary: string;
+interface Organization {
+  organization_id: string;
+  name: string;
+  slug: string;
 }
 
 /**
@@ -36,11 +43,11 @@ interface Practice {
  * Phase 7: Dashboard-level universal filters
  *
  * Provides dashboard-wide filtering controls that apply to ALL charts.
- * Supports date ranges, organization, practice, and provider filtering.
+ * Supports date ranges and organization filtering.
  *
  * Features:
  * - Reuses DateRangePresets component
- * - Fetches available practices from API
+ * - Fetches available organizations from API
  * - Filter changes trigger dashboard-wide regeneration
  * - Filters persist in URL query params (Phase 7.3.2)
  */
@@ -51,26 +58,26 @@ export default function DashboardFilterBar({
   className = '',
 }: DashboardFilterBarProps) {
   const [filters, setFilters] = useState<DashboardUniversalFilters>(initialFilters);
-  const [practices, setPractices] = useState<Practice[]>([]);
-  const [loadingPractices, setLoadingPractices] = useState(false);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [loadingOrganizations, setLoadingOrganizations] = useState(false);
 
-  // Load available practices for dropdown
+  // Load available organizations for dropdown
   useEffect(() => {
-    loadPractices();
+    loadOrganizations();
   }, []);
 
-  const loadPractices = async () => {
+  const loadOrganizations = async () => {
     try {
-      setLoadingPractices(true);
-      const result = await apiClient.get<{ practices: Practice[] }>(
-        '/api/admin/analytics/practices'
+      setLoadingOrganizations(true);
+      const result = await apiClient.get<{ organizations: Organization[] }>(
+        '/api/organizations?is_active=true'
       );
-      setPractices(result.practices || []);
+      setOrganizations(result.organizations || []);
     } catch (error) {
-      // Silently fail - practices dropdown just won't be populated
-      console.error('Failed to load practices:', error);
+      // Silently fail - organizations dropdown just won't be populated
+      console.error('Failed to load organizations:', error);
     } finally {
-      setLoadingPractices(false);
+      setLoadingOrganizations(false);
     }
   };
 
@@ -85,10 +92,10 @@ export default function DashboardFilterBar({
     onFiltersChange(newFilters);
   }, [filters, onFiltersChange]);
 
-  const handlePracticeChange = useCallback((practiceUid: string) => {
+  const handleOrganizationChange = useCallback((organizationId: string) => {
     const newFilters = {
       ...filters,
-      practiceUid: practiceUid ? parseInt(practiceUid, 10) : null,
+      organizationId: organizationId || null,
     };
     setFilters(newFilters);
     onFiltersChange(newFilters);
@@ -100,7 +107,6 @@ export default function DashboardFilterBar({
       startDate: null,
       endDate: null,
       organizationId: null,
-      practiceUid: null,
       providerName: null,
     };
     setFilters(resetFilters);
@@ -134,33 +140,32 @@ export default function DashboardFilterBar({
           />
         </div>
 
-        {/* Organization/Practice Filters */}
+        {/* Organization Filter */}
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Practice Filter
+              Organization Filter
             </label>
             <select
-              value={filters.practiceUid || ''}
-              onChange={(e) => handlePracticeChange(e.target.value)}
-              disabled={loading || loadingPractices}
+              value={filters.organizationId || ''}
+              onChange={(e) => handleOrganizationChange(e.target.value)}
+              disabled={loading || loadingOrganizations}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 disabled:opacity-50"
             >
-              <option value="">All Practices</option>
-              {practices.map((practice) => (
-                <option key={practice.practice_uid} value={practice.practice_uid}>
-                  {practice.practice_name} - {practice.practice_primary}
+              <option value="">All Organizations</option>
+              {organizations.map((org) => (
+                <option key={org.organization_id} value={org.organization_id}>
+                  {org.name} ({org.slug})
                 </option>
               ))}
             </select>
-            {loadingPractices && (
+            {loadingOrganizations && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Loading practices...
+                Loading organizations...
               </p>
             )}
           </div>
 
-          {/* Organization Filter - Future Enhancement */}
           {/* Provider Filter - Future Enhancement */}
 
           {loading && (

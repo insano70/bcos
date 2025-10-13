@@ -5,7 +5,7 @@ import { publicRoute } from '@/lib/api/rbac-route-handler';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { emailService } from '@/lib/api/services/email-service-instance';
-import { log, logTemplates } from '@/lib/logger';
+import { log } from '@/lib/logger';
 
 const AppointmentRequestSchema = z.object({
   firstName: z.string().min(1, 'First name is required').max(50, 'First name too long'),

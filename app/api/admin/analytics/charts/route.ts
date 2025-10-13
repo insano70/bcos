@@ -192,11 +192,11 @@ const createChartHandler = async (request: NextRequest, userContext: UserContext
 
 // Route handlers
 export const GET = rbacRoute(getChartsHandler, {
-  permission: 'analytics:read:all',
+  permission: ['analytics:read:all', 'analytics:read:organization', 'analytics:read:own'],
   rateLimit: 'api',
 });
 
 export const POST = rbacRoute(createChartHandler, {
-  permission: 'analytics:read:all',
+  permission: ['charts:create:organization', 'charts:create:own', 'analytics:read:all'],
   rateLimit: 'api',
 });

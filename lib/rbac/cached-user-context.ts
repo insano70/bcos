@@ -80,7 +80,7 @@ async function getRolePermissions(roleId: string, roleName: string): Promise<Per
  * Get complete user context with caching optimization
  */
 export async function getCachedUserContext(userId: string): Promise<UserContext> {
-  // 1. Get basic user information
+  // 1. Get basic user information (including provider_uid for analytics security)
   const [user] = await db
     .select({
       user_id: users.user_id,
@@ -89,6 +89,7 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
       last_name: users.last_name,
       is_active: users.is_active,
       email_verified: users.email_verified,
+      provider_uid: users.provider_uid, // Analytics security - provider-level filtering
       created_at: users.created_at,
       updated_at: users.updated_at,
     })
@@ -104,7 +105,7 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
     throw new Error(`User account is inactive: ${userId}`);
   }
 
-  // 2. Get user's organizations
+  // 2. Get user's organizations (including practice_uids for analytics security)
   const userOrgs = await db
     .select({
       user_organization_id: user_organizations.user_organization_id,
@@ -117,6 +118,7 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
       org_name: organizations.name,
       org_slug: organizations.slug,
       org_parent_id: organizations.parent_organization_id,
+      org_practice_uids: organizations.practice_uids, // Analytics security - practice_uid filtering
       org_is_active: organizations.is_active,
       org_created_at: organizations.created_at,
       org_updated_at: organizations.updated_at,
@@ -207,12 +209,13 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
     }
   }
 
-  // 5. Transform organizations
+  // 5. Transform organizations (including practice_uids for analytics security)
   const organizationsArray = userOrgs.map((org) => ({
     organization_id: org.organization_id,
     name: org.org_name,
     slug: org.org_slug,
     parent_organization_id: org.org_parent_id || undefined,
+    practice_uids: org.org_practice_uids || undefined, // Analytics security - practice_uid filtering
     is_active: org.org_is_active ?? true,
     created_at: org.org_created_at ?? new Date(),
     updated_at: org.org_updated_at ?? new Date(),
@@ -245,7 +248,7 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
     })
     .filter(Boolean);
 
-  // 8. Build final user context
+  // 8. Build final user context (including analytics security fields)
   const userContext: UserContext = {
     // Basic user information
     user_id: user.user_id,
@@ -254,6 +257,9 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
     last_name: user.last_name,
     is_active: user.is_active,
     email_verified: user.email_verified ?? false,
+    
+    // Analytics security - provider-level filtering
+    provider_uid: user.provider_uid || undefined,
 
     // RBAC information
     roles: Array.from(rolesMap.values()),

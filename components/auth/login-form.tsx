@@ -41,6 +41,8 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     csrfToken,
     mfaRequired,
     mfaSetupRequired,
+    mfaSetupEnforced,
+    mfaSkipsRemaining,
     mfaTempToken,
     mfaChallenge,
     mfaChallengeId,
@@ -169,6 +171,27 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     }, 200);
   };
 
+  const handleMFASkipSuccess = (sessionData: {
+    user: {
+      id: string;
+      email: string;
+      name: string;
+      firstName: string;
+      lastName: string;
+      role: string;
+      emailVerified: boolean;
+    };
+    sessionId: string;
+  }) => {
+    completeMFASetup(sessionData); // Reuse existing completion handler
+    onSuccess?.();
+
+    // Small delay to ensure auth state is synchronized before redirect
+    setTimeout(() => {
+      window.location.href = callbackUrl;
+    }, 200);
+  };
+
   const handleMFAVerificationSuccess = (sessionData: {
     user: {
       id: string;
@@ -229,9 +252,12 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
           isOpen={mfaSetupRequired}
           onClose={clearMFAState}
           onSuccess={handleMFASetupSuccess}
+          onSkip={handleMFASkipSuccess}
           tempToken={mfaTempToken}
           csrfToken={csrfToken}
           user={mfaUser}
+          skipsRemaining={mfaSkipsRemaining}
+          isEnforced={mfaSetupEnforced}
         />
       )}
 

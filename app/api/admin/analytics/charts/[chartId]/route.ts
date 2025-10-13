@@ -185,21 +185,21 @@ const deleteChartHandler = async (
 
 // Route exports
 export const GET = rbacRoute(getChartHandler, {
-  permission: 'analytics:read:all',
+  permission: ['analytics:read:all', 'analytics:read:organization', 'analytics:read:own'],
   rateLimit: 'api',
 });
 
 export const PUT = rbacRoute(updateChartHandler, {
-  permission: 'analytics:read:all',
+  permission: ['charts:update:organization', 'charts:update:own', 'charts:manage:all'],
   rateLimit: 'api',
 });
 
 export const PATCH = rbacRoute(updateChartHandler, {
-  permission: 'analytics:read:all',
+  permission: ['charts:update:organization', 'charts:update:own', 'charts:manage:all'],
   rateLimit: 'api',
 });
 
 export const DELETE = rbacRoute(deleteChartHandler, {
-  permission: 'analytics:read:all',
+  permission: ['charts:delete:organization', 'charts:delete:own', 'charts:manage:all'],
   rateLimit: 'api',
 });

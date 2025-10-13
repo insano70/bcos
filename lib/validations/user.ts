@@ -21,6 +21,17 @@ export const userUpdateSchema = z.object({
   role_ids: z.array(z.string().uuid('Invalid role ID')).optional(),
   email_verified: z.boolean().optional(),
   is_active: z.boolean().optional(),
+  
+  // Analytics security - provider-level filtering
+  // Provider UID from analytics database (ih.agg_app_measures.provider_uid)
+  // Users with analytics:read:own can only see data where provider_uid = this value
+  // null = no provider_uid configured (fail-closed for analytics:read:own users)
+  provider_uid: z
+    .number()
+    .int()
+    .positive('Provider UID must be a positive integer')
+    .optional()
+    .nullable(),
 });
 
 export const userQuerySchema = z.object({

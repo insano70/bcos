@@ -18,6 +18,7 @@ const editOrganizationSchema = z.object({
     .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens')
     .transform((val) => val.toLowerCase()),
   parent_organization_id: z.string().uuid().optional().nullable(),
+  practice_uids_input: z.string().optional(), // Comma-separated string input
   is_active: z.boolean().optional(),
 });
 
@@ -120,6 +121,9 @@ export default function EditOrganizationModal({
       setValue('name', organization.name);
       setValue('slug', organization.slug);
       setValue('parent_organization_id', organization.parent_organization_id ?? null);
+      // Convert practice_uids array to comma-separated string for input
+      const practiceUidsStr = (organization as any).practice_uids?.join(', ') || '';
+      setValue('practice_uids_input', practiceUidsStr);
       setValue('is_active', organization.is_active !== false);
     }
   }, [organization, isOpen, setValue]);
@@ -130,12 +134,24 @@ export default function EditOrganizationModal({
     setIsSubmitting(true);
 
     try {
+      // Parse practice_uids from comma-separated string to integer array
+      let practice_uids: number[] = [];
+      if (data.practice_uids_input && data.practice_uids_input.trim()) {
+        practice_uids = data.practice_uids_input
+          .split(',')
+          .map(s => s.trim())
+          .filter(s => s.length > 0)
+          .map(s => parseInt(s, 10))
+          .filter(n => !Number.isNaN(n) && n > 0);
+      }
+
       await updateOrganization.mutateAsync({
         id: organization.id,
         data: {
           name: data.name,
           slug: data.slug,
           parent_organization_id: data.parent_organization_id ?? null,
+          practice_uids,
           is_active: data.is_active ?? true,
         },
       });
@@ -267,6 +283,43 @@ export default function EditOrganizationModal({
                   </p>
                   {errors.parent_organization_id && (
                     <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.parent_organization_id.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="edit-practice_uids" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Practice UIDs
+                    <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
+                      (For Analytics Data Filtering)
+                    </span>
+                  </label>
+                  <input
+                    id="edit-practice_uids"
+                    type="text"
+                    {...register('practice_uids_input')}
+                    disabled={isSubmitting}
+                    placeholder="100, 101, 102"
+                    className="form-input w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
+                  />
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Comma-separated list of practice_uid values from analytics database (ih.agg_app_measures).
+                    Users in this organization can only see data where practice_uid matches these values.
+                    Leave empty to restrict all analytics access (fail-closed security).
+                  </p>
+                  <details className="mt-2">
+                    <summary className="text-xs text-violet-600 dark:text-violet-400 cursor-pointer hover:text-violet-700 dark:hover:text-violet-300">
+                      💡 How to find practice_uid values
+                    </summary>
+                    <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded text-xs font-mono">
+                      <code className="text-gray-700 dark:text-gray-300">
+                        SELECT DISTINCT practice_uid, practice<br />
+                        FROM ih.agg_app_measures<br />
+                        ORDER BY practice_uid;
+                      </code>
+                    </div>
+                  </details>
+                  {errors.practice_uids_input && (
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.practice_uids_input.message}</p>
                   )}
                 </div>
 

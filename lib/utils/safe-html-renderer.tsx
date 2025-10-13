@@ -23,6 +23,7 @@ export function SafeHtmlRenderer({ html, className, stripTags = false }: SafeHtm
   return (
     <div
       className={className}
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: HTML is sanitized via DOMPurify before rendering
       dangerouslySetInnerHTML={{ __html: sanitized }}
     />
   );

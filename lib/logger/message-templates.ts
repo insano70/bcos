@@ -596,7 +596,7 @@ export function sanitizeFilters(filters: Record<string, unknown>): Record<string
     }
 
     if (typeof value === 'string' && value.length > 100) {
-      sanitized[key] = value.substring(0, 100) + '...';
+      sanitized[key] = `${value.substring(0, 100)}...`;
     } else {
       sanitized[key] = value;
     }

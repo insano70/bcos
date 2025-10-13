@@ -26,8 +26,8 @@ export default function DashboardView({
     dateRangePreset: searchParams.get('datePreset') || 'last_30_days',
     startDate: searchParams.get('startDate') || null,
     endDate: searchParams.get('endDate') || null,
-    practiceUid: searchParams.get('practice') ? parseInt(searchParams.get('practice')!, 10) : null,
     organizationId: searchParams.get('org') || null,
+    practiceUid: searchParams.get('practice') ? parseInt(searchParams.get('practice')!, 10) : null,
     providerName: searchParams.get('provider') || null,
   }));
 
@@ -208,7 +208,6 @@ export default function DashboardView({
                 // Phase 7: Dashboard filters override chart filters
                 startDate={universalFilters.startDate || startDateFilter?.value?.toString()}
                 endDate={universalFilters.endDate || endDateFilter?.value?.toString()}
-                practiceUid={universalFilters.practiceUid?.toString() || undefined}
                 groupBy={chartConfig.series?.groupBy || 'none'}
                 title={chartDef.chart_name}
                 calculatedField={chartConfig.calculatedField}

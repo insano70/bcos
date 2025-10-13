@@ -182,21 +182,21 @@ const deleteDashboardHandler = async (
 
 // Route exports
 export const GET = rbacRoute(getDashboardHandler, {
-  permission: 'analytics:read:all',
+  permission: ['analytics:read:all', 'analytics:read:organization', 'analytics:read:own'],
   rateLimit: 'api',
 });
 
 export const PUT = rbacRoute(updateDashboardHandler, {
-  permission: 'analytics:read:all',
+  permission: ['dashboards:update:organization', 'dashboards:update:own', 'dashboards:manage:all'],
   rateLimit: 'api',
 });
 
 export const PATCH = rbacRoute(updateDashboardHandler, {
-  permission: 'analytics:read:all',
+  permission: ['dashboards:update:organization', 'dashboards:update:own', 'dashboards:manage:all'],
   rateLimit: 'api',
 });
 
 export const DELETE = rbacRoute(deleteDashboardHandler, {
-  permission: 'analytics:read:all',
+  permission: ['dashboards:delete:organization', 'dashboards:delete:own', 'dashboards:manage:all'],
   rateLimit: 'api',
 });

@@ -57,6 +57,7 @@ const getUserHandler = async (
       email: user.email,
       email_verified: user.email_verified,
       is_active: user.is_active,
+      provider_uid: user.provider_uid || null, // Analytics security field
       created_at: user.created_at,
       updated_at: user.updated_at,
       organizations: user.organizations,
@@ -137,6 +138,7 @@ const updateUserHandler = async (
         email: before.email,
         email_verified: before.email_verified,
         is_active: before.is_active,
+        provider_uid: before.provider_uid,
       },
       {
         first_name: updatedUser.first_name,
@@ -144,6 +146,7 @@ const updateUserHandler = async (
         email: updatedUser.email,
         email_verified: updatedUser.email_verified,
         is_active: updatedUser.is_active,
+        provider_uid: updatedUser.provider_uid,
       }
     );
 
@@ -175,6 +178,7 @@ const updateUserHandler = async (
         email: updatedUser.email,
         email_verified: updatedUser.email_verified,
         is_active: updatedUser.is_active,
+        provider_uid: updatedUser.provider_uid || null, // Analytics security field
         created_at: updatedUser.created_at,
         updated_at: updatedUser.updated_at,
         organizations: updatedUser.organizations,

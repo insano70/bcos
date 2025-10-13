@@ -6,7 +6,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
-import { log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
+import { log, logTemplates, calculateChanges, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACStaffMembersService } from '@/lib/services/rbac-staff-members-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { staffUpdateSchema } from '@/lib/validations/staff';
@@ -92,13 +92,25 @@ const updateStaffMemberHandler = async (
 
     // Use the RBAC staff members service
     const staffService = createRBACStaffMembersService(userContext);
+
+    // Get current staff member for change tracking
+    const beforeStaff = await staffService.getStaffMember(practiceId, staffId);
+
+    // Perform update
     const updatedStaff = await staffService.updateStaffMember(practiceId, staffId, validatedData);
 
     const duration = Date.now() - startTime;
+
+    // Calculate actual changes for audit trail
+    const changes = calculateChanges(
+      beforeStaff as unknown as Record<string, unknown>,
+      updatedStaff as unknown as Record<string, unknown>
+    );
+
     const template = logTemplates.crud.update('staff_member', {
       resourceId: staffId,
       userId: userContext.user_id,
-      changes: {},
+      changes,
       duration,
     });
     log.info(template.message, template.context);

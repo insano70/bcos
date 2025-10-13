@@ -207,7 +207,7 @@ export class ChartDataCache {
         return;
       }
 
-      const keys = await redis.keys(this.KEY_PREFIX + '*');
+      const keys = await redis.keys(`${this.KEY_PREFIX}*`);
 
       if (keys.length === 0) {
         log.debug('No chart cache keys to clear');
@@ -239,7 +239,7 @@ export class ChartDataCache {
         return { totalKeys: 0, keysByType: {} };
       }
 
-      const keys = await redis.keys(this.KEY_PREFIX + '*');
+      const keys = await redis.keys(`${this.KEY_PREFIX}*`);
       const keysByType: Record<string, number> = {};
 
       for (const key of keys) {

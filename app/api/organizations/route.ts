@@ -9,6 +9,7 @@ import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
 import { createRBACOrganizationsService } from '@/lib/services/rbac-organizations-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { organizationCreateSchema, organizationQuerySchema } from '@/lib/validations/organization';
+import { rbacCache } from '@/lib/cache';
 
 const getOrganizationsHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
@@ -37,6 +38,7 @@ const getOrganizationsHandler = async (request: NextRequest, userContext: UserCo
       name: organization.name,
       slug: organization.slug,
       parent_organization_id: organization.parent_organization_id,
+      practice_uids: organization.practice_uids || [], // Analytics security field
       is_active: organization.is_active,
       created_at: organization.created_at,
       updated_at: organization.updated_at,
@@ -133,8 +135,12 @@ const createOrganizationHandler = async (request: NextRequest, userContext: User
       name: validatedData.name,
       slug: validatedData.slug,
       parent_organization_id: validatedData.parent_organization_id,
+      practice_uids: validatedData.practice_uids || [], // Analytics security field
       is_active: validatedData.is_active ?? true,
     });
+
+    // Invalidate organization hierarchy cache (new org added to tree)
+    await rbacCache.invalidateOrganizationHierarchy();
 
     // Use CRUD template for organization creation
     const template = logTemplates.crud.create('organization', {
@@ -164,6 +170,7 @@ const createOrganizationHandler = async (request: NextRequest, userContext: User
         name: newOrganization.name,
         slug: newOrganization.slug,
         parent_organization_id: newOrganization.parent_organization_id,
+        practice_uids: newOrganization.practice_uids || [], // Analytics security field
         is_active: newOrganization.is_active,
         created_at: newOrganization.created_at,
         member_count: newOrganization.member_count,

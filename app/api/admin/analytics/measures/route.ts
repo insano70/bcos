@@ -190,7 +190,7 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
         const value = typeof measure.measure_value === 'string'
           ? parseFloat(measure.measure_value)
           : (measure.measure_value || 0);
-        return sum + (isNaN(value) ? 0 : value);
+        return sum + (Number.isNaN(value) ? 0 : value);
       }, 0);
 
       // Return a single measure with the aggregated total

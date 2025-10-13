@@ -37,6 +37,8 @@ export interface RBACAuthState {
   // MFA state
   mfaRequired: boolean;
   mfaSetupRequired: boolean;
+  mfaSetupEnforced: boolean;
+  mfaSkipsRemaining: number;
   mfaTempToken: string | null;
   mfaChallenge: unknown | null;
   mfaChallengeId: string | null;
@@ -102,6 +104,8 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     rbacError: null,
     mfaRequired: false,
     mfaSetupRequired: false,
+    mfaSetupEnforced: false,
+    mfaSkipsRemaining: 0,
     mfaTempToken: null,
     mfaChallenge: null,
     mfaChallengeId: null,
@@ -389,6 +393,8 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
             rbacError: null,
             mfaRequired: false,
             mfaSetupRequired: false,
+            mfaSetupEnforced: false,
+            mfaSkipsRemaining: 0,
             mfaTempToken: null,
             mfaChallenge: null,
             mfaChallengeId: null,
@@ -547,14 +553,37 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
         // Check response status for MFA flows
         const status = result.data?.status;
 
-        if (status === 'mfa_setup_required') {
-          // MFA setup required - show setup dialog
-          debugLog.auth('MFA setup required for:', result.data.user.email);
+        if (status === 'mfa_setup_optional') {
+          // MFA setup optional (skips available) - show setup dialog with skip option
+          debugLog.auth(`MFA setup optional for: ${result.data.user.email}, Skips remaining: ${result.data.skipsRemaining}`);
           debugLog.auth(`CSRF token received: ${!!result.data.csrfToken}, length: ${result.data.csrfToken?.length || 0}`);
           setState(prev => ({
             ...prev,
             isLoading: false,
             mfaSetupRequired: true,
+            mfaSetupEnforced: false,
+            mfaSkipsRemaining: result.data.skipsRemaining || 0,
+            mfaTempToken: result.data.tempToken,
+            csrfToken: result.data.csrfToken || prev.csrfToken, // Use new authenticated CSRF token
+            mfaUser: result.data.user,
+            // Clear MFA verification state
+            mfaRequired: false,
+            mfaChallenge: null,
+            mfaChallengeId: null,
+          }));
+          return; // Exit - MFA setup dialog will be shown
+        }
+
+        if (status === 'mfa_setup_enforced') {
+          // MFA setup enforced (no skips remaining) - show setup dialog without skip option
+          debugLog.auth('MFA setup enforced for:', result.data.user.email);
+          debugLog.auth(`CSRF token received: ${!!result.data.csrfToken}, length: ${result.data.csrfToken?.length || 0}`);
+          setState(prev => ({
+            ...prev,
+            isLoading: false,
+            mfaSetupRequired: true,
+            mfaSetupEnforced: true,
+            mfaSkipsRemaining: 0,
             mfaTempToken: result.data.tempToken,
             csrfToken: result.data.csrfToken || prev.csrfToken, // Use new authenticated CSRF token
             mfaUser: result.data.user,
@@ -599,6 +628,8 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
           // Clear MFA state
           mfaRequired: false,
           mfaSetupRequired: false,
+          mfaSetupEnforced: false,
+          mfaSkipsRemaining: 0,
           mfaTempToken: null,
           mfaChallenge: null,
           mfaChallengeId: null,
@@ -674,6 +705,8 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
         rbacError: null,
         mfaRequired: false,
         mfaSetupRequired: false,
+        mfaSetupEnforced: false,
+        mfaSkipsRemaining: 0,
         mfaTempToken: null,
         mfaChallenge: null,
         mfaChallengeId: null,
@@ -695,6 +728,8 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
         rbacError: null,
         mfaRequired: false,
         mfaSetupRequired: false,
+        mfaSetupEnforced: false,
+        mfaSkipsRemaining: 0,
         mfaTempToken: null,
         mfaChallenge: null,
         mfaChallengeId: null,
@@ -747,6 +782,8 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
           rbacError: null,
           mfaRequired: false,
           mfaSetupRequired: false,
+          mfaSetupEnforced: false,
+          mfaSkipsRemaining: 0,
           mfaTempToken: null,
           mfaChallenge: null,
           mfaChallengeId: null,
@@ -785,6 +822,8 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
         rbacError: null,
         mfaRequired: false,
         mfaSetupRequired: false,
+        mfaSetupEnforced: false,
+        mfaSkipsRemaining: 0,
         mfaTempToken: null,
         mfaChallenge: null,
         mfaChallengeId: null,
@@ -832,6 +871,8 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
       // Clear MFA state
       mfaRequired: false,
       mfaSetupRequired: false,
+      mfaSetupEnforced: false,
+      mfaSkipsRemaining: 0,
       mfaTempToken: null,
       mfaChallenge: null,
       mfaChallengeId: null,
@@ -869,6 +910,8 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
       // Clear MFA state
       mfaRequired: false,
       mfaSetupRequired: false,
+      mfaSetupEnforced: false,
+      mfaSkipsRemaining: 0,
       mfaTempToken: null,
       mfaChallenge: null,
       mfaChallengeId: null,
@@ -881,6 +924,8 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
       ...prev,
       mfaRequired: false,
       mfaSetupRequired: false,
+      mfaSetupEnforced: false,
+      mfaSkipsRemaining: 0,
       mfaTempToken: null,
       mfaChallenge: null,
       mfaChallengeId: null,

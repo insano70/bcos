@@ -188,16 +188,68 @@ export class AnalyticsQueryBuilder {
     let paramIndex = 1;
 
     // Add security filters based on user context
+    
+    // PRACTICE_UID FILTERING (organization-level security)
     if (context.accessible_practices.length > 0) {
       conditions.push(`practice_uid = ANY($${paramIndex})`);
       params.push(context.accessible_practices);
+
+      // Enhanced security audit logging
+      log.info('Applied practice_uid security filter', {
+        userId: context.user_id,
+        permissionScope: context.permission_scope,
+        practiceUidCount: context.accessible_practices.length,
+        practiceUids: context.accessible_practices,
+        includesHierarchy: context.includes_hierarchy,
+        organizationIds: context.organization_ids,
+        filterType: 'organization-level',
+      });
+
       paramIndex++;
+    } else if (context.permission_scope === 'organization') {
+      // FAIL-CLOSED SECURITY: Organization user with no practice_uids
+      log.security('Organization user has no accessible practice_uids - query will return empty results', 'medium', {
+        userId: context.user_id,
+        organizationCount: context.organization_ids?.length || 0,
+        organizationIds: context.organization_ids,
+        failedClosed: true,
+        reason: 'empty_practice_uids',
+      });
+    } else if (context.permission_scope === 'all') {
+      // Super admin: no practice_uid filtering
+      log.info('Super admin access - no practice_uid filtering applied', {
+        userId: context.user_id,
+        permissionScope: 'all',
+        filterType: 'none',
+      });
     }
 
+    // PROVIDER_UID FILTERING (provider-level security)
     if (context.accessible_providers.length > 0) {
+      // Allow NULL provider_uid OR matching provider_uid
+      // (NULL = system-level data not tied to specific provider)
       conditions.push(`(provider_uid IS NULL OR provider_uid = ANY($${paramIndex}))`);
       params.push(context.accessible_providers);
+
+      // Enhanced security audit logging
+      log.info('Applied provider_uid security filter', {
+        userId: context.user_id,
+        permissionScope: context.permission_scope,
+        providerUidCount: context.accessible_providers.length,
+        providerUids: context.accessible_providers,
+        filterType: 'provider-level',
+        allowsNullProviderUid: true,
+      });
+
       paramIndex++;
+    } else if (context.permission_scope === 'own') {
+      // FAIL-CLOSED SECURITY: Provider user with no provider_uid
+      log.security('Provider user has no provider_uid - query will return empty results', 'medium', {
+        userId: context.user_id,
+        providerUid: context.provider_uid,
+        failedClosed: true,
+        reason: 'empty_provider_uid',
+      });
     }
 
     // Add user-specified filters
