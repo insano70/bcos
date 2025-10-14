@@ -175,12 +175,68 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
       }
     }
 
+    // Handle dashboard universal filter: practiceUids array from organization selection
+    // SECURITY-CRITICAL: Empty array = organization has no practices = FAIL CLOSED (return no data)
+    if (config.practiceUids && Array.isArray(config.practiceUids)) {
+      if (config.practiceUids.length === 0) {
+        // FAIL-CLOSED SECURITY: Empty array means organization has no practices
+        // Use impossible value to ensure query returns no results
+        const practiceUidFilter: import('@/lib/types/analytics').ChartFilter = {
+          field: 'practice_uid',
+          operator: 'in',
+          value: [-1] as unknown as import('@/lib/types/analytics').ChartFilterValue, // Impossible practice_uid value
+        };
+
+        if (!queryParams.advanced_filters) {
+          queryParams.advanced_filters = [];
+        }
+        queryParams.advanced_filters.push(practiceUidFilter);
+
+        log.security('dashboard organization filter applied - empty organization (fail-closed)', 'high', {
+          operation: 'build_query_params',
+          practiceUidCount: 0,
+          result: 'no_data_returned',
+          reason: 'organization_has_no_practices',
+          source: 'dashboard_universal_filter',
+          component: 'chart-handler',
+          failedClosed: true,
+        });
+      } else {
+        // Normal case: organization has practices
+        const practiceUidFilter: import('@/lib/types/analytics').ChartFilter = {
+          field: 'practice_uid',
+          operator: 'in',
+          value: config.practiceUids as unknown as import('@/lib/types/analytics').ChartFilterValue,
+        };
+
+        if (!queryParams.advanced_filters) {
+          queryParams.advanced_filters = [];
+        }
+        queryParams.advanced_filters.push(practiceUidFilter);
+
+        log.info('dashboard organization filter applied', {
+          operation: 'build_query_params',
+          practiceUidCount: (config.practiceUids as number[]).length,
+          practiceUids: config.practiceUids,
+          source: 'dashboard_universal_filter',
+          component: 'chart-handler',
+        });
+      }
+    }
+
     if (config.providerName) {
       queryParams.provider_name = config.providerName as string;
     }
 
+    // Merge chart-specific advanced filters with any filters we've already added
     if (config.advancedFilters) {
-      queryParams.advanced_filters = config.advancedFilters as import('@/lib/types/analytics').ChartFilter[];
+      const chartFilters = config.advancedFilters as import('@/lib/types/analytics').ChartFilter[];
+      if (queryParams.advanced_filters) {
+        // Merge with existing filters (e.g., practiceUids filter added above)
+        queryParams.advanced_filters = [...queryParams.advanced_filters, ...chartFilters];
+      } else {
+        queryParams.advanced_filters = chartFilters;
+      }
     }
 
     if (config.calculatedField) {

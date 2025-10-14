@@ -1,0 +1,180 @@
+/**
+ * At-Risk Users API
+ *
+ * GET /api/admin/monitoring/at-risk-users
+ *
+ * Returns users with failed logins, locked accounts, or suspicious activity.
+ * Calculates risk scores (0-100) based on security factors.
+ *
+ * RBAC: settings:read:all (Super Admin only)
+ */
+
+import type { NextRequest } from 'next/server';
+import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { log } from '@/lib/logger';
+import { db, users, account_security, login_attempts } from '@/lib/db';
+import { eq, sql, or, gt } from 'drizzle-orm';
+import { calculateRiskScore, getRiskFactors } from '@/lib/monitoring/risk-score';
+import type { AtRiskUsersResponse, AtRiskUser } from '@/lib/monitoring/types';
+
+const atRiskUsersHandler = async (request: NextRequest) => {
+  const startTime = Date.now();
+
+  try {
+    const { searchParams } = new URL(request.url);
+    const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 500);
+    const minRiskScore = parseInt(searchParams.get('minRiskScore') || '0', 10);
+
+    log.info('At-risk users query initiated', {
+      operation: 'query_at_risk_users',
+      limit,
+      minRiskScore,
+      component: 'monitoring',
+    });
+
+    const now = new Date();
+    const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    // Query users with security issues
+    const atRiskUsersData = await db
+      .select({
+        userId: users.user_id,
+        email: users.email,
+        firstName: users.first_name,
+        lastName: users.last_name,
+        failedAttempts: account_security.failed_login_attempts,
+        lastFailedAttempt: account_security.last_failed_attempt,
+        lockedUntil: account_security.locked_until,
+        suspiciousActivity: account_security.suspicious_activity_detected,
+        lockoutReason: account_security.lockout_reason,
+      })
+      .from(users)
+      .leftJoin(account_security, eq(users.user_id, account_security.user_id))
+      .where(
+        or(
+          gt(account_security.failed_login_attempts, 0),
+          gt(account_security.locked_until, now),
+          eq(account_security.suspicious_activity_detected, true)
+        )
+      )
+      .orderBy(sql`${account_security.failed_login_attempts} DESC, ${account_security.last_failed_attempt} DESC NULLS LAST`)
+      .limit(limit);
+
+    // Enrich with recent activity stats and calculate risk scores
+    const enrichedUsers: AtRiskUser[] = await Promise.all(
+      atRiskUsersData.map(async (user) => {
+        // Count recent login attempts
+        const [recentStats] = await db
+          .select({
+            attempts24h: sql<string>`COUNT(*) FILTER (WHERE ${login_attempts.attempted_at} > ${twentyFourHoursAgo})`,
+            uniqueIPs7d: sql<string>`COUNT(DISTINCT ${login_attempts.ip_address}) FILTER (WHERE ${login_attempts.attempted_at} > ${sevenDaysAgo})`,
+          })
+          .from(login_attempts)
+          .where(eq(login_attempts.user_id, user.userId));
+
+        const recentAttempts24h = parseInt(recentStats?.attempts24h || '0', 10);
+        const uniqueIPs7d = parseInt(recentStats?.uniqueIPs7d || '0', 10);
+
+        // Calculate risk score
+        const riskScore = calculateRiskScore({
+          failedAttempts: user.failedAttempts || 0,
+          lockedUntil: user.lockedUntil?.toISOString() || null,
+          suspiciousActivity: user.suspiciousActivity || false,
+          recentAttempts24h,
+          uniqueIPs7d,
+        });
+
+        // Get risk factors
+        const riskFactors = getRiskFactors({
+          failedAttempts: user.failedAttempts || 0,
+          lockedUntil: user.lockedUntil?.toISOString() || null,
+          suspiciousActivity: user.suspiciousActivity || false,
+          recentAttempts24h,
+          uniqueIPs7d,
+        });
+
+        return {
+          userId: user.userId,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          failedAttempts: user.failedAttempts || 0,
+          lastFailedAttempt: user.lastFailedAttempt?.toISOString() || null,
+          lockedUntil: user.lockedUntil?.toISOString() || null,
+          suspiciousActivity: user.suspiciousActivity || false,
+          lockoutReason: user.lockoutReason || null,
+          riskScore,
+          riskFactors,
+          recentAttempts24h,
+          uniqueIPs7d,
+        };
+      })
+    );
+
+    // Filter by minimum risk score if specified
+    const filteredUsers = enrichedUsers.filter((user) => user.riskScore >= minRiskScore);
+
+    // Calculate summary
+    const summary = {
+      locked: filteredUsers.filter(
+        (u) => u.lockedUntil && new Date(u.lockedUntil) > now
+      ).length,
+      suspicious: filteredUsers.filter((u) => u.suspiciousActivity).length,
+      monitoring: filteredUsers.filter(
+        (u) =>
+          !u.suspiciousActivity &&
+          (!u.lockedUntil || new Date(u.lockedUntil) <= now) &&
+          u.failedAttempts > 0
+      ).length,
+    };
+
+    const response: AtRiskUsersResponse = {
+      users: filteredUsers,
+      totalCount: filteredUsers.length,
+      summary,
+    };
+
+    const duration = Date.now() - startTime;
+
+    log.info('At-risk users retrieved', {
+      operation: 'query_at_risk_users',
+      duration,
+      userCount: filteredUsers.length,
+      locked: summary.locked,
+      suspicious: summary.suspicious,
+      component: 'monitoring',
+    });
+
+    return createSuccessResponse(response);
+  } catch (error) {
+    const duration = Date.now() - startTime;
+
+    log.error(
+      'Failed to get at-risk users',
+      error instanceof Error ? error : new Error(String(error)),
+      {
+        operation: 'query_at_risk_users',
+        duration,
+        component: 'monitoring',
+      }
+    );
+
+    // Return empty result on error
+    const fallback: AtRiskUsersResponse = {
+      users: [],
+      totalCount: 0,
+      summary: { locked: 0, suspicious: 0, monitoring: 0 },
+    };
+
+    return createSuccessResponse(fallback);
+  }
+};
+
+// Export with RBAC protection - only super admins can access
+export const GET = rbacRoute(atRiskUsersHandler, {
+  permission: 'settings:read:all',
+  rateLimit: 'api',
+});
+

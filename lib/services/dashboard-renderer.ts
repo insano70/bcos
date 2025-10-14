@@ -259,7 +259,8 @@ export class DashboardRenderer {
           // Universal filters override chart-level filters (dashboard filters win)
           if (universalFilters.startDate) runtimeFilters.startDate = universalFilters.startDate;
           if (universalFilters.endDate) runtimeFilters.endDate = universalFilters.endDate;
-          if (universalFilters.practiceUids && universalFilters.practiceUids.length > 0) {
+          // SECURITY-CRITICAL: Pass empty arrays through (fail-closed for orgs with no practices)
+          if (universalFilters.practiceUids !== undefined) {
             runtimeFilters.practiceUids = universalFilters.practiceUids;
           }
 
@@ -289,7 +290,8 @@ export class DashboardRenderer {
           };
 
           // Flatten series.groupBy to top-level groupBy (critical for progress/bar charts)
-          if (chartConfigTyped.series?.groupBy) {
+          // EXCEPT for number charts which don't support groupBy
+          if (chartDef.chart_type !== 'number' && chartConfigTyped.series?.groupBy) {
             finalChartConfig.groupBy = chartConfigTyped.series.groupBy;
           }
 

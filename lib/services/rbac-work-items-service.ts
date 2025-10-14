@@ -1,1091 +1,166 @@
-import { and, asc, count, desc, eq, inArray, isNull, like, or } from 'drizzle-orm';
-import { db } from '@/lib/db';
-import {
-  organizations,
-  users,
-  work_item_field_values,
-  work_item_statuses,
-  work_item_status_transitions,
-  work_item_type_relationships,
-  work_item_types,
-  work_items,
-} from '@/lib/db/schema';
-import { BaseRBACService } from '@/lib/rbac/base-service';
-import { PermissionDeniedError } from '@/lib/types/rbac';
-import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
-import { ValidationError } from '@/lib/api/responses/error';
-import {
-  interpolateTemplate,
-  interpolateFieldValues,
-  extractInheritFields,
-} from '@/lib/utils/template-interpolation';
-import type { WorkItemForInterpolation } from '@/lib/utils/template-interpolation';
-import { createNotificationService } from '@/lib/services/notification-service';
-import type { WorkItemStatus } from '@/lib/hooks/use-work-item-statuses';
-
 /**
- * Work Items Service with RBAC
- * Manages work items with automatic permission checking and scope-based filtering
+ * RBAC Work Items Service (Phase 1 - Core CRUD)
+ *
+ * Manages work items CRUD operations with automatic permission checking.
+ * Following hybrid pattern with comprehensive observability.
+ *
+ * **Phase 1 Status**: 2/6 methods migrated (getWorkItemById, getWorkItemCount)
+ * **Next Phase**: Migrate remaining CRUD methods (getWorkItems, createWorkItem, updateWorkItem, deleteWorkItem)
  */
 
-export interface CreateWorkItemData {
-  work_item_type_id: string;
-  organization_id: string;
-  subject: string;
-  description?: string | null | undefined;
-  priority?: string | undefined;
-  assigned_to?: string | null | undefined;
-  due_date?: Date | null | undefined;
-  parent_work_item_id?: string | null | undefined; // Phase 2: Hierarchy support
+import { and, asc, count, desc, eq, inArray, isNull, like, or, type SQL } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import {
+  work_items,
+  work_item_statuses,
+  work_item_field_values,
+  work_item_status_transitions,
+} from '@/lib/db/schema';
+import { log, logTemplates, SLOW_THRESHOLDS, calculateChanges } from '@/lib/logger';
+import { NotFoundError, AuthorizationError, ValidationError } from '@/lib/api/responses/error';
+import type { UserContext } from '@/lib/types/rbac';
+import type {
+  WorkItemWithDetails,
+  WorkItemQueryOptions,
+  CreateWorkItemData,
+  UpdateWorkItemData,
+} from '@/lib/types/work-items';
+import { getWorkItemQueryBuilder, type WorkItemQueryResult } from './work-items/query-builder';
+
+/**
+ * Work Items Service Interface (Phase 2 - Complete)
+ *
+ * Implements all core CRUD operations:
+ * - getWorkItemById (read single)
+ * - getWorkItemCount (count with filters)
+ * - getWorkItems (list with filters)
+ * - createWorkItem (create new work item)
+ * - updateWorkItem (update existing work item)
+ * - deleteWorkItem (soft delete work item)
+ */
+export interface WorkItemsServiceInterface {
+  getWorkItemById(workItemId: string): Promise<WorkItemWithDetails | null>;
+  getWorkItemCount(options?: WorkItemQueryOptions): Promise<number>;
+  getWorkItems(options?: WorkItemQueryOptions): Promise<WorkItemWithDetails[]>;
+  createWorkItem(workItemData: CreateWorkItemData): Promise<WorkItemWithDetails>;
+  updateWorkItem(workItemId: string, updateData: UpdateWorkItemData): Promise<WorkItemWithDetails>;
+  deleteWorkItem(workItemId: string): Promise<void>;
+  getWorkItemChildren(workItemId: string): Promise<WorkItemWithDetails[]>;
+  getWorkItemAncestors(workItemId: string): Promise<WorkItemWithDetails[]>;
 }
 
-export interface UpdateWorkItemData {
-  subject?: string | undefined;
-  description?: string | null | undefined;
-  status_id?: string | undefined;
-  priority?: string | undefined;
-  assigned_to?: string | null | undefined;
-  due_date?: Date | null | undefined;
-  started_at?: Date | null | undefined;
-  completed_at?: Date | null | undefined;
-}
+/**
+ * Internal Work Items Service Implementation
+ *
+ * Uses hybrid pattern: internal class with factory function.
+ * Provides CRUD operations for work items with automatic RBAC enforcement.
+ */
+class WorkItemsService implements WorkItemsServiceInterface {
+  private readonly canReadAll: boolean;
+  private readonly canReadOwn: boolean;
+  private readonly canReadOrg: boolean;
+  private readonly canManageAll: boolean;
+  private readonly canManageOwn: boolean;
+  private readonly canManageOrg: boolean;
+  private readonly accessibleOrgIds: string[];
 
-export interface WorkItemQueryOptions {
-  work_item_type_id?: string | undefined;
-  organization_id?: string | undefined;
-  status_id?: string | undefined;
-  status_category?: string | undefined;
-  priority?: string | undefined;
-  assigned_to?: string | undefined;
-  created_by?: string | undefined;
-  search?: string | undefined;
-  limit?: number | undefined;
-  offset?: number | undefined;
-  sortBy?: string | undefined;
-  sortOrder?: 'asc' | 'desc' | undefined;
-}
+  constructor(private readonly userContext: UserContext) {
+    // Cache permission checks once in constructor
+    this.canReadAll =
+      userContext.is_super_admin ||
+      userContext.all_permissions?.some((p) => p.name === 'work-items:read:all') ||
+      false;
 
-export interface WorkItemWithDetails {
-  work_item_id: string;
-  work_item_type_id: string;
-  work_item_type_name: string;
-  organization_id: string;
-  organization_name: string;
-  subject: string;
-  description: string | null;
-  status_id: string;
-  status_name: string;
-  status_category: string;
-  priority: string;
-  assigned_to: string | null;
-  assigned_to_name: string | null;
-  due_date: Date | null;
-  started_at: Date | null;
-  completed_at: Date | null;
-  parent_work_item_id: string | null; // Phase 2: Hierarchy
-  root_work_item_id: string | null; // Phase 2: Hierarchy
-  depth: number; // Phase 2: Hierarchy
-  path: string | null; // Phase 2: Hierarchy
-  created_by: string;
-  created_by_name: string;
-  created_at: Date;
-  updated_at: Date;
-  custom_fields?: Record<string, unknown> | undefined; // Phase 3: Custom field values
-}
+    this.canReadOwn =
+      userContext.all_permissions?.some((p) => p.name === 'work-items:read:own') || false;
 
-export class RBACWorkItemsService extends BaseRBACService {
+    this.canReadOrg =
+      userContext.all_permissions?.some((p) => p.name === 'work-items:read:organization') || false;
+
+    this.canManageAll =
+      userContext.is_super_admin ||
+      userContext.all_permissions?.some((p) => p.name === 'work-items:manage:all') ||
+      false;
+
+    this.canManageOwn =
+      userContext.all_permissions?.some((p) => p.name === 'work-items:manage:own') || false;
+
+    this.canManageOrg =
+      userContext.all_permissions?.some((p) => p.name === 'work-items:manage:organization') ||
+      false;
+
+    // Cache accessible organization IDs
+    this.accessibleOrgIds = userContext.organizations?.map((org) => org.organization_id) || [];
+  }
+
   /**
-   * Get work items with automatic permission-based filtering
+   * Build where conditions for work item queries
+   * Applies RBAC filtering based on user permissions
+   *
+   * @param options - Query filter options
+   * @returns Array of SQL where conditions
    */
-  async getWorkItems(options: WorkItemQueryOptions = {}): Promise<WorkItemWithDetails[]> {
-    const startTime = Date.now();
-    const accessScope = this.getAccessScope('work-items', 'read');
+  private buildWorkItemWhereConditions(options: WorkItemQueryOptions = {}): SQL[] {
+    const conditions: SQL[] = [isNull(work_items.deleted_at)];
 
-    log.info('Work items query initiated', {
-      requestingUserId: this.userContext.user_id,
-      scope: accessScope.scope,
-      options,
-    });
-
-    // Build where conditions
-    const whereConditions = [isNull(work_items.deleted_at)];
-
-    // Apply scope-based filtering
-    switch (accessScope.scope) {
-      case 'own':
-        if (!this.userContext.user_id) {
-          throw new Error('User ID required for own scope');
-        }
-        whereConditions.push(eq(work_items.created_by, this.userContext.user_id));
-        break;
-
-      case 'organization': {
-        const accessibleOrgIds = accessScope.organizationIds || [];
-        if (accessibleOrgIds.length > 0) {
-          whereConditions.push(inArray(work_items.organization_id, accessibleOrgIds));
+    // Apply RBAC filtering
+    if (!this.canReadAll) {
+      if (this.canReadOrg) {
+        if (this.accessibleOrgIds.length > 0) {
+          conditions.push(inArray(work_items.organization_id, this.accessibleOrgIds));
         } else {
-          return [];
+          // No organizations accessible - return impossible condition
+          conditions.push(eq(work_items.work_item_id, 'impossible-id'));
         }
-        break;
+      } else if (this.canReadOwn) {
+        conditions.push(eq(work_items.created_by, this.userContext.user_id));
+      } else {
+        // No read permission - return impossible condition
+        conditions.push(eq(work_items.work_item_id, 'impossible-id'));
       }
-
-      case 'all':
-        // Super admin can see all work items
-        break;
-    }
-
-    // Apply additional filters
-    if (options.work_item_type_id) {
-      whereConditions.push(eq(work_items.work_item_type_id, options.work_item_type_id));
-    }
-
-    if (options.organization_id) {
-      whereConditions.push(eq(work_items.organization_id, options.organization_id));
-    }
-
-    if (options.status_id) {
-      whereConditions.push(eq(work_items.status_id, options.status_id));
-    }
-
-    if (options.status_category) {
-      whereConditions.push(eq(work_item_statuses.status_category, options.status_category));
-    }
-
-    if (options.priority) {
-      whereConditions.push(eq(work_items.priority, options.priority));
-    }
-
-    if (options.assigned_to) {
-      whereConditions.push(eq(work_items.assigned_to, options.assigned_to));
-    }
-
-    if (options.created_by) {
-      whereConditions.push(eq(work_items.created_by, options.created_by));
-    }
-
-    if (options.search) {
-      const searchCondition = or(
-        like(work_items.subject, `%${options.search}%`),
-        like(work_items.description, `%${options.search}%`)
-      );
-      if (searchCondition) {
-        whereConditions.push(searchCondition);
-      }
-    }
-
-    // Build sorting
-    const sortBy = options.sortBy || 'created_at';
-    const sortOrder = options.sortOrder || 'desc';
-
-    // Map sortBy to actual column - TypeScript-safe approach
-    const sortColumn = (() => {
-      switch (sortBy) {
-        case 'subject': return work_items.subject;
-        case 'priority': return work_items.priority;
-        case 'due_date': return work_items.due_date;
-        case 'status_id': return work_items.status_id;
-        case 'assigned_to': return work_items.assigned_to;
-        case 'updated_at': return work_items.updated_at;
-        default: return work_items.created_at;
-      }
-    })();
-
-    const orderByClause = sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn);
-
-    // Execute query with joins
-    const results = await db
-      .select({
-        work_item_id: work_items.work_item_id,
-        work_item_type_id: work_items.work_item_type_id,
-        work_item_type_name: work_item_types.name,
-        organization_id: work_items.organization_id,
-        organization_name: organizations.name,
-        subject: work_items.subject,
-        description: work_items.description,
-        status_id: work_items.status_id,
-        status_name: work_item_statuses.status_name,
-        status_category: work_item_statuses.status_category,
-        priority: work_items.priority,
-        assigned_to: work_items.assigned_to,
-        assigned_to_first_name: users.first_name,
-        assigned_to_last_name: users.last_name,
-        due_date: work_items.due_date,
-        started_at: work_items.started_at,
-        completed_at: work_items.completed_at,
-        parent_work_item_id: work_items.parent_work_item_id,
-        root_work_item_id: work_items.root_work_item_id,
-        depth: work_items.depth,
-        path: work_items.path,
-        created_by: work_items.created_by,
-        created_by_first_name: users.first_name,
-        created_by_last_name: users.last_name,
-        created_at: work_items.created_at,
-        updated_at: work_items.updated_at,
-      })
-      .from(work_items)
-      .leftJoin(work_item_types, eq(work_items.work_item_type_id, work_item_types.work_item_type_id))
-      .leftJoin(organizations, eq(work_items.organization_id, organizations.organization_id))
-      .leftJoin(work_item_statuses, eq(work_items.status_id, work_item_statuses.work_item_status_id))
-      .leftJoin(users, eq(work_items.assigned_to, users.user_id))
-      .where(and(...whereConditions))
-      .orderBy(orderByClause)
-      .limit(options.limit || 50)
-      .offset(options.offset || 0);
-
-    // Phase 3: Fetch custom field values for all work items
-    const workItemIds = results.map((r) => r.work_item_id);
-    const customFieldsMap = await this.getCustomFieldValues(workItemIds);
-
-    const duration = Date.now() - startTime;
-    log.info('Work items query completed', {
-      requestingUserId: this.userContext.user_id,
-      resultCount: results.length,
-      duration,
-    });
-
-    // Map results to WorkItemWithDetails
-    return results.map((result) => ({
-      work_item_id: result.work_item_id,
-      work_item_type_id: result.work_item_type_id,
-      work_item_type_name: result.work_item_type_name || '',
-      organization_id: result.organization_id,
-      organization_name: result.organization_name || '',
-      subject: result.subject,
-      description: result.description,
-      status_id: result.status_id,
-      status_name: result.status_name || '',
-      status_category: result.status_category || '',
-      priority: result.priority || 'medium',
-      assigned_to: result.assigned_to,
-      assigned_to_name: result.assigned_to_first_name && result.assigned_to_last_name
-        ? `${result.assigned_to_first_name} ${result.assigned_to_last_name}`
-        : null,
-      due_date: result.due_date,
-      started_at: result.started_at,
-      completed_at: result.completed_at,
-      parent_work_item_id: result.parent_work_item_id,
-      root_work_item_id: result.root_work_item_id,
-      depth: result.depth,
-      path: result.path,
-      created_by: result.created_by,
-      created_by_name: result.created_by_first_name && result.created_by_last_name
-        ? `${result.created_by_first_name} ${result.created_by_last_name}`
-        : '',
-      created_at: result.created_at || new Date(),
-      updated_at: result.updated_at || new Date(),
-      custom_fields: customFieldsMap.get(result.work_item_id), // Phase 3: Include custom field values
-    }));
-  }
-
-  /**
-   * Get single work item by ID with permission checking
-   */
-  async getWorkItemById(workItemId: string): Promise<WorkItemWithDetails | null> {
-    const startTime = Date.now();
-
-    log.info('Work item fetch by ID initiated', {
-      workItemId,
-      requestingUserId: this.userContext.user_id,
-    });
-
-    // Check read permission
-    const canReadOwn = this.checker.hasPermission('work-items:read:own', workItemId);
-    const canReadOrg = this.checker.hasPermission('work-items:read:organization');
-    const canReadAll = this.checker.hasPermission('work-items:read:all');
-
-    if (!canReadOwn && !canReadOrg && !canReadAll) {
-      throw new PermissionDeniedError('work-items:read:*', workItemId);
-    }
-
-    // Fetch the work item with joins
-    const result = await db
-      .select({
-        work_item_id: work_items.work_item_id,
-        work_item_type_id: work_items.work_item_type_id,
-        work_item_type_name: work_item_types.name,
-        organization_id: work_items.organization_id,
-        organization_name: organizations.name,
-        subject: work_items.subject,
-        description: work_items.description,
-        status_id: work_items.status_id,
-        status_name: work_item_statuses.status_name,
-        status_category: work_item_statuses.status_category,
-        priority: work_items.priority,
-        assigned_to: work_items.assigned_to,
-        assigned_to_first_name: users.first_name,
-        assigned_to_last_name: users.last_name,
-        due_date: work_items.due_date,
-        started_at: work_items.started_at,
-        completed_at: work_items.completed_at,
-        parent_work_item_id: work_items.parent_work_item_id,
-        root_work_item_id: work_items.root_work_item_id,
-        depth: work_items.depth,
-        path: work_items.path,
-        created_by: work_items.created_by,
-        created_at: work_items.created_at,
-        updated_at: work_items.updated_at,
-      })
-      .from(work_items)
-      .leftJoin(work_item_types, eq(work_items.work_item_type_id, work_item_types.work_item_type_id))
-      .leftJoin(organizations, eq(work_items.organization_id, organizations.organization_id))
-      .leftJoin(work_item_statuses, eq(work_items.status_id, work_item_statuses.work_item_status_id))
-      .leftJoin(users, eq(work_items.assigned_to, users.user_id))
-      .where(and(eq(work_items.work_item_id, workItemId), isNull(work_items.deleted_at)))
-      .limit(1);
-
-    if (result.length === 0) {
-      return null;
-    }
-
-    const workItem = result[0];
-    if (!workItem) {
-      return null;
-    }
-
-    // Additional permission check for organization scope
-    if (canReadOrg && !canReadAll) {
-      if (!this.canAccessOrganization(workItem.organization_id)) {
-        throw new PermissionDeniedError('work-items:read:organization', workItemId);
-      }
-    }
-
-    // Phase 3: Fetch custom field values
-    const customFieldsMap = await this.getCustomFieldValues([workItemId]);
-    const customFields = customFieldsMap.get(workItemId);
-
-    const duration = Date.now() - startTime;
-    log.info('Work item fetch completed', {
-      workItemId,
-      requestingUserId: this.userContext.user_id,
-      duration,
-    });
-
-    return {
-      work_item_id: workItem.work_item_id,
-      work_item_type_id: workItem.work_item_type_id,
-      work_item_type_name: workItem.work_item_type_name || '',
-      organization_id: workItem.organization_id,
-      organization_name: workItem.organization_name || '',
-      subject: workItem.subject,
-      description: workItem.description,
-      status_id: workItem.status_id,
-      status_name: workItem.status_name || '',
-      status_category: workItem.status_category || '',
-      priority: workItem.priority || 'medium',
-      assigned_to: workItem.assigned_to,
-      assigned_to_name: workItem.assigned_to_first_name && workItem.assigned_to_last_name
-        ? `${workItem.assigned_to_first_name} ${workItem.assigned_to_last_name}`
-        : null,
-      due_date: workItem.due_date,
-      started_at: workItem.started_at,
-      completed_at: workItem.completed_at,
-      parent_work_item_id: workItem.parent_work_item_id,
-      root_work_item_id: workItem.root_work_item_id,
-      depth: workItem.depth,
-      path: workItem.path,
-      created_by: workItem.created_by,
-      created_by_name: '', // Need to join creator separately
-      created_at: workItem.created_at || new Date(),
-      updated_at: workItem.updated_at || new Date(),
-      custom_fields: customFields, // Phase 3: Include custom field values
-    };
-  }
-
-  /**
-   * Create new work item
-   */
-  async createWorkItem(workItemData: CreateWorkItemData): Promise<WorkItemWithDetails> {
-    const startTime = Date.now();
-
-    log.info('Work item creation initiated', {
-      requestingUserId: this.userContext.user_id,
-      targetOrganizationId: workItemData.organization_id,
-      operation: 'create_work_item',
-    });
-
-    // Permission already checked by rbacRoute - just verify organization access
-    this.requireOrganizationAccess(workItemData.organization_id);
-
-    // Get initial status for this work item type
-    const [initialStatus] = await db
-      .select()
-      .from(work_item_statuses)
-      .where(
-        and(
-          eq(work_item_statuses.work_item_type_id, workItemData.work_item_type_id),
-          eq(work_item_statuses.is_initial, true)
-        )
-      )
-      .limit(1);
-
-    if (!initialStatus) {
-      throw new Error('No initial status found for this work item type');
-    }
-
-    // Phase 2: Calculate hierarchy fields
-    let depth = 0;
-    let rootId: string | null = null;
-    let path: string | null = null;
-
-    if (workItemData.parent_work_item_id) {
-      // Validate parent exists and depth is not exceeded
-      const parentInfo = await db
-        .select({
-          depth: work_items.depth,
-          root_work_item_id: work_items.root_work_item_id,
-          path: work_items.path,
-        })
-        .from(work_items)
-        .where(eq(work_items.work_item_id, workItemData.parent_work_item_id))
-        .limit(1);
-
-      if (!parentInfo[0]) {
-        throw new Error('Parent work item not found');
-      }
-
-      depth = (parentInfo[0].depth || 0) + 1;
-      if (depth > 10) {
-        throw new Error('Maximum nesting depth of 10 levels exceeded');
-      }
-
-      rootId = parentInfo[0].root_work_item_id || workItemData.parent_work_item_id;
-      // Path will be updated after insert with actual work item ID
-    }
-
-    // Create work item
-    const [newWorkItem] = await db
-      .insert(work_items)
-      .values({
-        work_item_type_id: workItemData.work_item_type_id,
-        organization_id: workItemData.organization_id,
-        subject: workItemData.subject,
-        description: workItemData.description || null,
-        status_id: initialStatus.work_item_status_id,
-        priority: workItemData.priority || 'medium',
-        assigned_to: workItemData.assigned_to || null,
-        due_date: workItemData.due_date || null,
-        parent_work_item_id: workItemData.parent_work_item_id || null,
-        root_work_item_id: rootId,
-        depth,
-        created_by: this.userContext.user_id,
-      })
-      .returning();
-
-    if (!newWorkItem) {
-      throw new Error('Failed to create work item');
-    }
-
-    // Update path now that we have the work item ID
-    if (workItemData.parent_work_item_id) {
-      const parentInfo = await db
-        .select({ path: work_items.path })
-        .from(work_items)
-        .where(eq(work_items.work_item_id, workItemData.parent_work_item_id))
-        .limit(1);
-
-      path = `${parentInfo[0]?.path || ''}/${newWorkItem.work_item_id}`;
-    } else {
-      // Root level work item
-      path = `/${newWorkItem.work_item_id}`;
-      rootId = newWorkItem.work_item_id;
-    }
-
-    await db
-      .update(work_items)
-      .set({ path, root_work_item_id: rootId })
-      .where(eq(work_items.work_item_id, newWorkItem.work_item_id));
-
-    log.info('Work item created successfully', {
-      workItemId: newWorkItem.work_item_id,
-      userId: this.userContext.user_id,
-      duration: Date.now() - startTime,
-    });
-
-    await this.logPermissionCheck('work-items:create:organization', newWorkItem.work_item_id, workItemData.organization_id);
-
-    // Phase 6: Auto-create child items based on type relationships
-    await this.autoCreateChildItems(newWorkItem.work_item_id, workItemData.work_item_type_id);
-
-    // Phase 7: Auto-add creator as watcher
-    try {
-      const { createRBACWorkItemWatchersService } = await import('./rbac-work-item-watchers-service');
-      const watchersService = createRBACWorkItemWatchersService(this.userContext);
-      await watchersService.autoAddWatcher(
-        newWorkItem.work_item_id,
-        this.userContext.user_id,
-        'auto_creator'
-      );
-      log.info('Auto-added creator as watcher', {
-        workItemId: newWorkItem.work_item_id,
-        userId: this.userContext.user_id,
-      });
-    } catch (error) {
-      // Don't fail work item creation if watcher addition fails
-      log.error('Failed to auto-add creator as watcher', error, {
-        workItemId: newWorkItem.work_item_id,
-        userId: this.userContext.user_id,
-      });
-    }
-
-    // Fetch and return the created work item with full details
-    const workItemWithDetails = await this.getWorkItemById(newWorkItem.work_item_id);
-    if (!workItemWithDetails) {
-      throw new Error('Failed to retrieve created work item');
-    }
-
-    return workItemWithDetails;
-  }
-
-  /**
-   * Auto-create child work items based on type relationships
-   * Phase 6: Type relationships with auto-creation
-   */
-  private async autoCreateChildItems(
-    parentWorkItemId: string,
-    parentTypeId: string
-  ): Promise<void> {
-    try {
-      // Get all auto-create relationships for this parent type
-      const relationships = await db
-        .select()
-        .from(work_item_type_relationships)
-        .where(
-          and(
-            eq(work_item_type_relationships.parent_type_id, parentTypeId),
-            eq(work_item_type_relationships.auto_create, true),
-            isNull(work_item_type_relationships.deleted_at)
-          )
-        );
-
-      if (relationships.length === 0) {
-        return; // No auto-create relationships
-      }
-
-      // Fetch parent work item with details for interpolation
-      const parentWorkItem = await this.getWorkItemById(parentWorkItemId);
-      if (!parentWorkItem) {
-        log.error('Parent work item not found for auto-creation', { parentWorkItemId });
-        return;
-      }
-
-      // Create child items for each auto-create relationship
-      for (const relationship of relationships) {
-        const config = relationship.auto_create_config as {
-          subject_template?: string;
-          field_values?: Record<string, string>;
-          inherit_fields?: string[];
-        } | null;
-
-        if (!config) {
-          log.warn('Auto-create relationship missing configuration', {
-            relationshipId: relationship.work_item_type_relationship_id,
-          });
-          continue;
-        }
-
-        // Get initial status for child type
-        const [childInitialStatus] = await db
-          .select()
-          .from(work_item_statuses)
-          .where(
-            and(
-              eq(work_item_statuses.work_item_type_id, relationship.child_type_id),
-              eq(work_item_statuses.is_initial, true)
-            )
-          )
-          .limit(1);
-
-        if (!childInitialStatus) {
-          log.error('No initial status found for child type', {
-            childTypeId: relationship.child_type_id,
-          });
-          continue;
-        }
-
-        // Interpolate subject template
-        const subject = config.subject_template
-          ? interpolateTemplate(
-              config.subject_template,
-              parentWorkItem as unknown as WorkItemForInterpolation,
-              parentWorkItem.custom_fields
-            )
-          : `Child of ${parentWorkItem.subject}`;
-
-        // Interpolate field values
-        const interpolatedFieldValues = config.field_values
-          ? interpolateFieldValues(
-              config.field_values,
-              parentWorkItem as unknown as WorkItemForInterpolation,
-              parentWorkItem.custom_fields
-            )
-          : {};
-
-        // Extract inherited fields
-        const inheritedFields = config.inherit_fields
-          ? extractInheritFields(
-              config.inherit_fields,
-              parentWorkItem as unknown as WorkItemForInterpolation,
-              parentWorkItem.custom_fields
-            )
-          : {};
-
-        // Create child work item
-        const [childWorkItem] = await db
-          .insert(work_items)
-          .values({
-            work_item_type_id: relationship.child_type_id,
-            organization_id: parentWorkItem.organization_id,
-            subject,
-            description: null,
-            status_id: childInitialStatus.work_item_status_id,
-            priority:
-              (inheritedFields.priority as string) ||
-              parentWorkItem.priority ||
-              'medium',
-            assigned_to:
-              (inheritedFields.assigned_to as string) ||
-              parentWorkItem.assigned_to ||
-              null,
-            due_date:
-              (inheritedFields.due_date as Date) || parentWorkItem.due_date || null,
-            parent_work_item_id: parentWorkItemId,
-            root_work_item_id: parentWorkItem.work_item_id, // Parent becomes root
-            depth: 1, // Child is always depth 1 from parent
-            created_by: this.userContext.user_id,
-          })
-          .returning();
-
-        if (!childWorkItem) {
-          log.error('Failed to create child work item', {
-            parentWorkItemId,
-            childTypeId: relationship.child_type_id,
-          });
-          continue;
-        }
-
-        // Update path
-        const path = `/${parentWorkItemId}/${childWorkItem.work_item_id}`;
-        await db
-          .update(work_items)
-          .set({ path })
-          .where(eq(work_items.work_item_id, childWorkItem.work_item_id));
-
-        // Create custom field values from interpolated field values
-        if (Object.keys(interpolatedFieldValues).length > 0) {
-          // Get custom field definitions for child type
-          const { work_item_fields } = await import('@/lib/db/schema');
-          const fieldDefinitions = await db
-            .select()
-            .from(work_item_fields)
-            .where(
-              and(
-                eq(work_item_fields.work_item_type_id, relationship.child_type_id),
-                isNull(work_item_fields.deleted_at)
-              )
-            );
-
-          const fieldMap = new Map(
-            fieldDefinitions.map((f) => [f.field_name, f.work_item_field_id])
-          );
-
-          // Insert field values
-          for (const [fieldName, fieldValue] of Object.entries(
-            interpolatedFieldValues
-          )) {
-            const fieldId = fieldMap.get(fieldName);
-            if (fieldId) {
-              await db.insert(work_item_field_values).values({
-                work_item_id: childWorkItem.work_item_id,
-                work_item_field_id: fieldId,
-                field_value: fieldValue,
-              });
-            }
-          }
-        }
-
-        log.info('Child work item auto-created', {
-          childWorkItemId: childWorkItem.work_item_id,
-          parentWorkItemId,
-          relationshipId: relationship.work_item_type_relationship_id,
-        });
-      }
-    } catch (error) {
-      // Log error but don't fail parent creation
-      log.error('Failed to auto-create child items', error, {
-        parentWorkItemId,
-        parentTypeId,
-      });
-    }
-  }
-
-  /**
-   * Update work item
-   */
-  async updateWorkItem(workItemId: string, updateData: UpdateWorkItemData): Promise<WorkItemWithDetails> {
-    const startTime = Date.now();
-
-    log.info('Work item update initiated', {
-      workItemId,
-      requestingUserId: this.userContext.user_id,
-    });
-
-    // Check permission
-    const canUpdateOwn = this.checker.hasPermission('work-items:update:own', workItemId);
-    const canUpdateOrg = this.checker.hasPermission('work-items:update:organization');
-    const canUpdateAll = this.checker.hasPermission('work-items:update:all');
-
-    if (!canUpdateOwn && !canUpdateOrg && !canUpdateAll) {
-      throw new PermissionDeniedError('work-items:update:*', workItemId);
-    }
-
-    // Get current work item to check organization access and validate status transition
-    const targetWorkItem = await this.getWorkItemById(workItemId);
-    if (!targetWorkItem) {
-      throw new Error('Work item not found');
-    }
-
-    // Verify organization access for org scope
-    if (canUpdateOrg && !canUpdateAll) {
-      if (!this.canAccessOrganization(targetWorkItem.organization_id)) {
-        throw new PermissionDeniedError('work-items:update:organization', workItemId);
-      }
-    }
-
-    // Phase 4: Validate status transition if status is being changed
-    // Phase 7: Store old status details for notification
-    let oldStatus: WorkItemStatus | undefined;
-    let newStatus: WorkItemStatus | undefined;
-
-    if (updateData.status_id && updateData.status_id !== targetWorkItem.status_id) {
-      await this.validateStatusTransition(
-        targetWorkItem.work_item_type_id,
-        targetWorkItem.status_id,
-        updateData.status_id
-      );
-
-      // Fetch old and new status details for notification
-      const oldStatusResults = await db
-        .select({
-          work_item_status_id: work_item_statuses.work_item_status_id,
-          work_item_type_id: work_item_statuses.work_item_type_id,
-          status_name: work_item_statuses.status_name,
-          status_category: work_item_statuses.status_category,
-          is_initial: work_item_statuses.is_initial,
-          is_final: work_item_statuses.is_final,
-          color: work_item_statuses.color,
-          display_order: work_item_statuses.display_order,
-          created_at: work_item_statuses.created_at,
-          updated_at: work_item_statuses.updated_at,
-        })
-        .from(work_item_statuses)
-        .where(eq(work_item_statuses.work_item_status_id, targetWorkItem.status_id))
-        .limit(1);
-
-      const newStatusResults = await db
-        .select({
-          work_item_status_id: work_item_statuses.work_item_status_id,
-          work_item_type_id: work_item_statuses.work_item_type_id,
-          status_name: work_item_statuses.status_name,
-          status_category: work_item_statuses.status_category,
-          is_initial: work_item_statuses.is_initial,
-          is_final: work_item_statuses.is_final,
-          color: work_item_statuses.color,
-          display_order: work_item_statuses.display_order,
-          created_at: work_item_statuses.created_at,
-          updated_at: work_item_statuses.updated_at,
-        })
-        .from(work_item_statuses)
-        .where(eq(work_item_statuses.work_item_status_id, updateData.status_id))
-        .limit(1);
-
-      if (oldStatusResults[0] && newStatusResults[0]) {
-        oldStatus = {
-          work_item_status_id: oldStatusResults[0].work_item_status_id,
-          work_item_type_id: oldStatusResults[0].work_item_type_id,
-          status_name: oldStatusResults[0].status_name,
-          status_category: oldStatusResults[0].status_category,
-          is_initial: oldStatusResults[0].is_initial,
-          is_final: oldStatusResults[0].is_final,
-          color: oldStatusResults[0].color,
-          display_order: oldStatusResults[0].display_order,
-          created_at: oldStatusResults[0].created_at || new Date(),
-          updated_at: oldStatusResults[0].updated_at || new Date(),
-        };
-        newStatus = {
-          work_item_status_id: newStatusResults[0].work_item_status_id,
-          work_item_type_id: newStatusResults[0].work_item_type_id,
-          status_name: newStatusResults[0].status_name,
-          status_category: newStatusResults[0].status_category,
-          is_initial: newStatusResults[0].is_initial,
-          is_final: newStatusResults[0].is_final,
-          color: newStatusResults[0].color,
-          display_order: newStatusResults[0].display_order,
-          created_at: newStatusResults[0].created_at || new Date(),
-          updated_at: newStatusResults[0].updated_at || new Date(),
-        };
-      }
-    }
-
-    // Update work item
-    const [updatedWorkItem] = await db
-      .update(work_items)
-      .set({
-        ...updateData,
-        updated_at: new Date(),
-      })
-      .where(eq(work_items.work_item_id, workItemId))
-      .returning();
-
-    if (!updatedWorkItem) {
-      throw new Error('Failed to update work item');
-    }
-
-    log.info('Work item updated successfully', {
-      workItemId,
-      userId: this.userContext.user_id,
-      duration: Date.now() - startTime,
-    });
-
-    await this.logPermissionCheck('work-items:update', workItemId);
-
-    // Phase 7: Send status change notification to watchers
-    if (oldStatus && newStatus) {
-      try {
-        const notificationService = createNotificationService();
-        await notificationService.sendStatusChangeNotification(
-          {
-            work_item_id: workItemId,
-            subject: targetWorkItem.subject,
-            description: targetWorkItem.description,
-            priority: targetWorkItem.priority,
-            organization_id: targetWorkItem.organization_id,
-            organization_name: targetWorkItem.organization_name,
-          },
-          oldStatus,
-          newStatus
-        );
-        log.info('Status change notification sent', {
-          workItemId,
-          oldStatus: oldStatus.status_name,
-          newStatus: newStatus.status_name,
-        });
-      } catch (error) {
-        // Don't fail work item update if notification fails
-        log.error('Failed to send status change notification', error, {
-          workItemId,
-        });
-      }
-    }
-
-    // Phase 7: Auto-add new assignee as watcher if assigned_to changed
-    if (updateData.assigned_to && updateData.assigned_to !== targetWorkItem.assigned_to) {
-      try {
-        const { createRBACWorkItemWatchersService } = await import('./rbac-work-item-watchers-service');
-        const watchersService = createRBACWorkItemWatchersService(this.userContext);
-        await watchersService.autoAddWatcher(
-          workItemId,
-          updateData.assigned_to,
-          'auto_assignee'
-        );
-        log.info('Auto-added assignee as watcher', {
-          workItemId,
-          assignedTo: updateData.assigned_to,
-        });
-      } catch (error) {
-        // Don't fail work item update if watcher addition fails
-        log.error('Failed to auto-add assignee as watcher', error, {
-          workItemId,
-          assignedTo: updateData.assigned_to,
-        });
-      }
-    }
-
-    // Fetch and return updated work item with full details
-    const workItemWithDetails = await this.getWorkItemById(workItemId);
-    if (!workItemWithDetails) {
-      throw new Error('Failed to retrieve updated work item');
-    }
-
-    return workItemWithDetails;
-  }
-
-  /**
-   * Delete work item (soft delete)
-   */
-  async deleteWorkItem(workItemId: string): Promise<void> {
-    const startTime = Date.now();
-
-    log.info('Work item deletion initiated', {
-      workItemId,
-      requestingUserId: this.userContext.user_id,
-    });
-
-    // Check permission
-    const canDeleteOwn = this.checker.hasPermission('work-items:delete:own', workItemId);
-    const canDeleteOrg = this.checker.hasPermission('work-items:delete:organization');
-    const canDeleteAll = this.checker.hasPermission('work-items:delete:all');
-
-    if (!canDeleteOwn && !canDeleteOrg && !canDeleteAll) {
-      throw new PermissionDeniedError('work-items:delete:*', workItemId);
-    }
-
-    // Verify organization access for org scope
-    if (canDeleteOrg && !canDeleteAll) {
-      const targetWorkItem = await this.getWorkItemById(workItemId);
-      if (!targetWorkItem) {
-        throw new Error('Work item not found');
-      }
-      if (!this.canAccessOrganization(targetWorkItem.organization_id)) {
-        throw new PermissionDeniedError('work-items:delete:organization', workItemId);
-      }
-    }
-
-    // Soft delete
-    await db
-      .update(work_items)
-      .set({
-        deleted_at: new Date(),
-        updated_at: new Date(),
-      })
-      .where(eq(work_items.work_item_id, workItemId));
-
-    log.info('Work item deleted successfully', {
-      workItemId,
-      userId: this.userContext.user_id,
-      duration: Date.now() - startTime,
-    });
-
-    await this.logPermissionCheck('work-items:delete', workItemId);
-  }
-
-  /**
-   * Get work item count
-   */
-  async getWorkItemCount(options: WorkItemQueryOptions = {}): Promise<number> {
-    const accessScope = this.getAccessScope('work-items', 'read');
-    const whereConditions = [isNull(work_items.deleted_at)];
-
-    // Apply scope-based filtering
-    switch (accessScope.scope) {
-      case 'own':
-        whereConditions.push(eq(work_items.created_by, this.userContext.user_id));
-        break;
-
-      case 'organization': {
-        const accessibleOrgIds = accessScope.organizationIds || [];
-        if (accessibleOrgIds.length > 0) {
-          whereConditions.push(inArray(work_items.organization_id, accessibleOrgIds));
-        } else {
-          return 0;
-        }
-        break;
-      }
-
-      case 'all':
-        break;
     }
 
     // Apply filters
     if (options.work_item_type_id) {
-      whereConditions.push(eq(work_items.work_item_type_id, options.work_item_type_id));
+      conditions.push(eq(work_items.work_item_type_id, options.work_item_type_id));
     }
 
     if (options.organization_id) {
-      whereConditions.push(eq(work_items.organization_id, options.organization_id));
+      conditions.push(eq(work_items.organization_id, options.organization_id));
     }
 
-    const result = await db
-      .select({ count: count() })
-      .from(work_items)
-      .where(and(...whereConditions));
+    if (options.status_id) {
+      conditions.push(eq(work_items.status_id, options.status_id));
+    }
 
-    return result[0]?.count || 0;
+    if (options.priority) {
+      conditions.push(eq(work_items.priority, options.priority));
+    }
+
+    if (options.assigned_to) {
+      conditions.push(eq(work_items.assigned_to, options.assigned_to));
+    }
+
+    if (options.created_by) {
+      conditions.push(eq(work_items.created_by, options.created_by));
+    }
+
+    return conditions;
   }
 
   /**
-   * Phase 2: Get children of a work item
+   * Map database query result to WorkItemWithDetails
+   * Handles name concatenation and default values
+   *
+   * @param result - Raw database result
+   * @param customFields - Optional custom field values
+   * @returns Mapped work item with details
    */
-  async getWorkItemChildren(workItemId: string): Promise<WorkItemWithDetails[]> {
-    const startTime = Date.now();
-
-    log.info('Work item children fetch initiated', {
-      workItemId,
-      requestingUserId: this.userContext.user_id,
-    });
-
-    // Verify permission to read the work item
-    await this.getWorkItemById(workItemId);
-
-    const accessScope = this.getAccessScope('work-items', 'read');
-    const whereConditions = [
-      isNull(work_items.deleted_at),
-      eq(work_items.parent_work_item_id, workItemId),
-    ];
-
-    // Apply scope-based filtering
-    switch (accessScope.scope) {
-      case 'own':
-        whereConditions.push(eq(work_items.created_by, this.userContext.user_id));
-        break;
-      case 'organization': {
-        const accessibleOrgIds = accessScope.organizationIds || [];
-        if (accessibleOrgIds.length > 0) {
-          whereConditions.push(inArray(work_items.organization_id, accessibleOrgIds));
-        } else {
-          return [];
-        }
-        break;
-      }
-      case 'all':
-        break;
-    }
-
-    const results = await db
-      .select({
-        work_item_id: work_items.work_item_id,
-        work_item_type_id: work_items.work_item_type_id,
-        work_item_type_name: work_item_types.name,
-        organization_id: work_items.organization_id,
-        organization_name: organizations.name,
-        subject: work_items.subject,
-        description: work_items.description,
-        status_id: work_items.status_id,
-        status_name: work_item_statuses.status_name,
-        status_category: work_item_statuses.status_category,
-        priority: work_items.priority,
-        assigned_to: work_items.assigned_to,
-        assigned_to_first_name: users.first_name,
-        assigned_to_last_name: users.last_name,
-        due_date: work_items.due_date,
-        started_at: work_items.started_at,
-        completed_at: work_items.completed_at,
-        parent_work_item_id: work_items.parent_work_item_id,
-        root_work_item_id: work_items.root_work_item_id,
-        depth: work_items.depth,
-        path: work_items.path,
-        created_by: work_items.created_by,
-        created_by_first_name: users.first_name,
-        created_by_last_name: users.last_name,
-        created_at: work_items.created_at,
-        updated_at: work_items.updated_at,
-      })
-      .from(work_items)
-      .leftJoin(work_item_types, eq(work_items.work_item_type_id, work_item_types.work_item_type_id))
-      .leftJoin(organizations, eq(work_items.organization_id, organizations.organization_id))
-      .leftJoin(work_item_statuses, eq(work_items.status_id, work_item_statuses.work_item_status_id))
-      .leftJoin(users, eq(work_items.assigned_to, users.user_id))
-      .where(and(...whereConditions))
-      .orderBy(asc(work_items.created_at));
-
-    const duration = Date.now() - startTime;
-    log.info('Work item children fetch completed', {
-      workItemId,
-      childCount: results.length,
-      duration,
-    });
-
-    return results.map((result) => ({
+  private mapWorkItemResult(
+    result: WorkItemQueryResult,
+    customFields?: Record<string, unknown>
+  ): WorkItemWithDetails {
+    return {
       work_item_id: result.work_item_id,
       work_item_type_id: result.work_item_type_id,
       work_item_type_name: result.work_item_type_name || '',
@@ -1098,9 +173,10 @@ export class RBACWorkItemsService extends BaseRBACService {
       status_category: result.status_category || '',
       priority: result.priority || 'medium',
       assigned_to: result.assigned_to,
-      assigned_to_name: result.assigned_to_first_name && result.assigned_to_last_name
-        ? `${result.assigned_to_first_name} ${result.assigned_to_last_name}`
-        : null,
+      assigned_to_name:
+        result.assigned_to_first_name && result.assigned_to_last_name
+          ? `${result.assigned_to_first_name} ${result.assigned_to_last_name}`
+          : null,
       due_date: result.due_date,
       started_at: result.started_at,
       completed_at: result.completed_at,
@@ -1109,296 +185,338 @@ export class RBACWorkItemsService extends BaseRBACService {
       depth: result.depth,
       path: result.path,
       created_by: result.created_by,
-      created_by_name: result.created_by_first_name && result.created_by_last_name
-        ? `${result.created_by_first_name} ${result.created_by_last_name}`
-        : '',
-      created_at: result.created_at || new Date(),
-      updated_at: result.updated_at || new Date(),
-    }));
+      created_by_name:
+        result.created_by_first_name && result.created_by_last_name
+          ? `${result.created_by_first_name} ${result.created_by_last_name}`
+          : '',
+      created_at: result.created_at,
+      updated_at: result.updated_at,
+      custom_fields: customFields,
+    };
   }
 
   /**
-   * Phase 2: Get ancestors of a work item (breadcrumb trail)
+   * Get work item by ID with RBAC enforcement
+   *
+   * @param workItemId - UUID of work item
+   * @returns Work item with details or null if not found/no access
+   * @throws AuthorizationError if no read permission
    */
-  async getWorkItemAncestors(workItemId: string): Promise<WorkItemWithDetails[]> {
+  async getWorkItemById(workItemId: string): Promise<WorkItemWithDetails | null> {
     const startTime = Date.now();
 
-    log.info('Work item ancestors fetch initiated', {
-      workItemId,
-      requestingUserId: this.userContext.user_id,
-    });
+    try {
+      // Check permission
+      if (!this.canReadAll && !this.canReadOrg && !this.canReadOwn) {
+        throw AuthorizationError('You do not have permission to read work items');
+      }
 
-    // Verify permission to read the work item
-    const workItem = await this.getWorkItemById(workItemId);
-    if (!workItem) {
-      return [];
-    }
+      // Execute query with performance tracking
+      const queryStart = Date.now();
+      const [result] = await getWorkItemQueryBuilder()
+        .where(and(eq(work_items.work_item_id, workItemId), isNull(work_items.deleted_at)))
+        .limit(1);
+      const queryDuration = Date.now() - queryStart;
 
-    // Parse path to get ancestor IDs
-    const [rawWorkItem] = await db
-      .select({ path: work_items.path })
-      .from(work_items)
-      .where(eq(work_items.work_item_id, workItemId))
-      .limit(1);
+      if (!result) {
+        const duration = Date.now() - startTime;
+        const template = logTemplates.crud.read('work_item', {
+          resourceId: workItemId,
+          userId: this.userContext.user_id,
+          found: false,
+          duration,
+          metadata: {
+            queryDuration,
+            slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+          },
+        });
 
-    if (!rawWorkItem?.path) {
-      return [];
-    }
+        log.info(template.message, template.context);
+        return null;
+      }
 
-    // Path format: '/root_id/parent_id/this_id' - extract ancestor IDs
-    const ancestorIds = rawWorkItem.path
-      .split('/')
-      .filter((id) => id && id !== workItemId);
-
-    if (ancestorIds.length === 0) {
-      return [];
-    }
-
-    const accessScope = this.getAccessScope('work-items', 'read');
-    const whereConditions = [
-      isNull(work_items.deleted_at),
-      inArray(work_items.work_item_id, ancestorIds),
-    ];
-
-    // Apply scope-based filtering
-    switch (accessScope.scope) {
-      case 'own':
-        whereConditions.push(eq(work_items.created_by, this.userContext.user_id));
-        break;
-      case 'organization': {
-        const accessibleOrgIds = accessScope.organizationIds || [];
-        if (accessibleOrgIds.length > 0) {
-          whereConditions.push(inArray(work_items.organization_id, accessibleOrgIds));
-        } else {
-          return [];
+      // Additional RBAC check after fetch
+      if (!this.canReadAll) {
+        if (this.canReadOrg) {
+          if (!this.accessibleOrgIds.includes(result.organization_id)) {
+            throw AuthorizationError(
+              'You do not have permission to access work items in this organization'
+            );
+          }
+        } else if (this.canReadOwn) {
+          if (result.created_by !== this.userContext.user_id) {
+            throw AuthorizationError('You can only access your own work items');
+          }
         }
-        break;
       }
-      case 'all':
-        break;
+
+      // Map result to WorkItemWithDetails
+      const workItem = this.mapWorkItemResult(result);
+      const duration = Date.now() - startTime;
+
+      // Log successful read using logTemplates
+      const template = logTemplates.crud.read('work_item', {
+        resourceId: workItemId,
+        resourceName: workItem.subject,
+        userId: this.userContext.user_id,
+        found: true,
+        duration,
+        metadata: {
+          workItemType: workItem.work_item_type_name,
+          status: workItem.status_name,
+          organizationId: workItem.organization_id,
+          queryDuration,
+          slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+          rbacScope: this.canReadAll ? 'all' : this.canReadOrg ? 'organization' : 'own',
+        },
+      });
+
+      log.info(template.message, template.context);
+
+      return workItem;
+    } catch (error) {
+      log.error('work item read failed', error, {
+        operation: 'read_work_item',
+        workItemId,
+        userId: this.userContext.user_id,
+        duration: Date.now() - startTime,
+        component: 'service',
+      });
+
+      throw error;
     }
-
-    const results = await db
-      .select({
-        work_item_id: work_items.work_item_id,
-        work_item_type_id: work_items.work_item_type_id,
-        work_item_type_name: work_item_types.name,
-        organization_id: work_items.organization_id,
-        organization_name: organizations.name,
-        subject: work_items.subject,
-        description: work_items.description,
-        status_id: work_items.status_id,
-        status_name: work_item_statuses.status_name,
-        status_category: work_item_statuses.status_category,
-        priority: work_items.priority,
-        assigned_to: work_items.assigned_to,
-        assigned_to_first_name: users.first_name,
-        assigned_to_last_name: users.last_name,
-        due_date: work_items.due_date,
-        started_at: work_items.started_at,
-        completed_at: work_items.completed_at,
-        parent_work_item_id: work_items.parent_work_item_id,
-        root_work_item_id: work_items.root_work_item_id,
-        depth: work_items.depth,
-        path: work_items.path,
-        created_by: work_items.created_by,
-        created_by_first_name: users.first_name,
-        created_by_last_name: users.last_name,
-        created_at: work_items.created_at,
-        updated_at: work_items.updated_at,
-      })
-      .from(work_items)
-      .leftJoin(work_item_types, eq(work_items.work_item_type_id, work_item_types.work_item_type_id))
-      .leftJoin(organizations, eq(work_items.organization_id, organizations.organization_id))
-      .leftJoin(work_item_statuses, eq(work_items.status_id, work_item_statuses.work_item_status_id))
-      .leftJoin(users, eq(work_items.assigned_to, users.user_id))
-      .where(and(...whereConditions))
-      .orderBy(asc(work_items.depth));
-
-    const duration = Date.now() - startTime;
-    log.info('Work item ancestors fetch completed', {
-      workItemId,
-      ancestorCount: results.length,
-      duration,
-    });
-
-    return results.map((result) => ({
-      work_item_id: result.work_item_id,
-      work_item_type_id: result.work_item_type_id,
-      work_item_type_name: result.work_item_type_name || '',
-      organization_id: result.organization_id,
-      organization_name: result.organization_name || '',
-      subject: result.subject,
-      description: result.description,
-      status_id: result.status_id,
-      status_name: result.status_name || '',
-      status_category: result.status_category || '',
-      priority: result.priority || 'medium',
-      assigned_to: result.assigned_to,
-      assigned_to_name: result.assigned_to_first_name && result.assigned_to_last_name
-        ? `${result.assigned_to_first_name} ${result.assigned_to_last_name}`
-        : null,
-      due_date: result.due_date,
-      started_at: result.started_at,
-      completed_at: result.completed_at,
-      parent_work_item_id: result.parent_work_item_id,
-      root_work_item_id: result.root_work_item_id,
-      depth: result.depth,
-      path: result.path,
-      created_by: result.created_by,
-      created_by_name: result.created_by_first_name && result.created_by_last_name
-        ? `${result.created_by_first_name} ${result.created_by_last_name}`
-        : '',
-      created_at: result.created_at || new Date(),
-      updated_at: result.updated_at || new Date(),
-    }));
   }
 
   /**
-   * Phase 2: Move work item to a new parent (reparent)
+   * Get count of work items with optional filters
+   *
+   * @param options - Query filter options
+   * @returns Count of work items user has access to
    */
-  async moveWorkItem(
-    workItemId: string,
-    newParentId: string | null
-  ): Promise<WorkItemWithDetails> {
+  async getWorkItemCount(options: WorkItemQueryOptions = {}): Promise<number> {
     const startTime = Date.now();
 
-    log.info('Work item move initiated', {
-      workItemId,
-      newParentId,
-      requestingUserId: this.userContext.user_id,
-    });
-
-    // Check permission
-    const canUpdateOwn = this.checker.hasPermission('work-items:update:own', workItemId);
-    const canUpdateOrg = this.checker.hasPermission('work-items:update:organization');
-    const canUpdateAll = this.checker.hasPermission('work-items:update:all');
-
-    if (!canUpdateOwn && !canUpdateOrg && !canUpdateAll) {
-      throw new PermissionDeniedError('work-items:update:*', workItemId);
-    }
-
-    // Get the work item being moved
-    const workItem = await this.getWorkItemById(workItemId);
-    if (!workItem) {
-      throw new Error('Work item not found');
-    }
-
-    // Validate new parent if provided
-    let newParent: WorkItemWithDetails | null = null;
-    let newDepth = 0;
-    let newRootId = workItemId;
-    let newPath = `/${workItemId}`;
-
-    if (newParentId) {
-      newParent = await this.getWorkItemById(newParentId);
-      if (!newParent) {
-        throw new Error('Parent work item not found');
+    try {
+      // Check permission
+      if (!this.canReadAll && !this.canReadOrg && !this.canReadOwn) {
+        log.info('work item count - no permission', {
+          operation: 'count_work_items',
+          userId: this.userContext.user_id,
+          duration: Date.now() - startTime,
+          component: 'service',
+          metadata: { noPermission: true, count: 0 },
+        });
+        return 0;
       }
 
-      // Prevent circular references
-      const parentPath = await db
-        .select({ path: work_items.path })
+      // Build where conditions
+      const whereConditions = this.buildWorkItemWhereConditions(options);
+
+      // Execute count query with performance tracking
+      const queryStart = Date.now();
+      const [result] = await db
+        .select({ count: count() })
         .from(work_items)
-        .where(eq(work_items.work_item_id, newParentId))
-        .limit(1);
+        .where(and(...whereConditions));
+      const queryDuration = Date.now() - queryStart;
 
-      if (parentPath[0]?.path?.includes(`/${workItemId}/`)) {
-        throw new Error('Cannot move work item to its own descendant');
-      }
+      const totalCount = result?.count || 0;
+      const duration = Date.now() - startTime;
 
-      // Get parent depth to calculate new depth
-      const parentDepth = await db
-        .select({ depth: work_items.depth, root_work_item_id: work_items.root_work_item_id, path: work_items.path })
-        .from(work_items)
-        .where(eq(work_items.work_item_id, newParentId))
-        .limit(1);
+      // Log count operation
+      log.info('work item count completed', {
+        operation: 'count_work_items',
+        userId: this.userContext.user_id,
+        filters: {
+          work_item_type_id: options.work_item_type_id,
+          organization_id: options.organization_id,
+          status_id: options.status_id,
+        },
+        count: totalCount,
+        duration,
+        component: 'service',
+        metadata: {
+          queryDuration,
+          slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+          rbacScope: this.canReadAll ? 'all' : this.canReadOrg ? 'organization' : 'own',
+        },
+      });
 
-      newDepth = (parentDepth[0]?.depth || 0) + 1;
-      newRootId = parentDepth[0]?.root_work_item_id || newParentId;
-      newPath = `${parentDepth[0]?.path || ''}/${workItemId}`;
+      return totalCount;
+    } catch (error) {
+      log.error('work item count failed', error, {
+        operation: 'count_work_items',
+        userId: this.userContext.user_id,
+        duration: Date.now() - startTime,
+        component: 'service',
+      });
 
-      // Validate max depth (10 levels)
-      if (newDepth > 10) {
-        throw new Error('Maximum nesting depth of 10 levels exceeded');
-      }
-    }
-
-    // Update the work item
-    await db
-      .update(work_items)
-      .set({
-        parent_work_item_id: newParentId,
-        root_work_item_id: newRootId,
-        depth: newDepth,
-        path: newPath,
-        updated_at: new Date(),
-      })
-      .where(eq(work_items.work_item_id, workItemId));
-
-    // Update all descendants recursively
-    await this.updateDescendantPaths(workItemId, newPath, newRootId);
-
-    const duration = Date.now() - startTime;
-    log.info('Work item moved successfully', {
-      workItemId,
-      newParentId,
-      newDepth,
-      duration,
-    });
-
-    await this.logPermissionCheck('work-items:update:move', workItemId);
-
-    const updatedWorkItem = await this.getWorkItemById(workItemId);
-    if (!updatedWorkItem) {
-      throw new Error('Failed to retrieve moved work item');
-    }
-
-    return updatedWorkItem;
-  }
-
-  /**
-   * Phase 2: Helper to update descendant paths when a work item is moved
-   */
-  private async updateDescendantPaths(
-    workItemId: string,
-    newParentPath: string,
-    newRootId: string
-  ): Promise<void> {
-    // Get all descendants
-    const descendants = await db
-      .select({
-        work_item_id: work_items.work_item_id,
-        path: work_items.path,
-        depth: work_items.depth,
-      })
-      .from(work_items)
-      .where(like(work_items.path, `${newParentPath}/${workItemId}/%`));
-
-    // Update each descendant
-    for (const descendant of descendants) {
-      const oldPath = descendant.path || '';
-      const relativePath = oldPath.replace(new RegExp(`^.*/${workItemId}/`), '');
-      const updatedPath = `${newParentPath}/${workItemId}/${relativePath}`;
-      const updatedDepth = updatedPath.split('/').filter((id) => id).length - 1;
-
-      await db
-        .update(work_items)
-        .set({
-          path: updatedPath,
-          depth: updatedDepth,
-          root_work_item_id: newRootId,
-          updated_at: new Date(),
-        })
-        .where(eq(work_items.work_item_id, descendant.work_item_id));
+      throw error;
     }
   }
 
   /**
-   * Get custom field values for work items
-   * Phase 3: Retrieves field values and formats them as a key-value map
+   * Get work items list with optional filters and pagination
+   *
+   * @param options - Query filter and pagination options
+   * @returns Array of work items user has access to
    */
-  private async getCustomFieldValues(workItemIds: string[]): Promise<Map<string, Record<string, unknown>>> {
+  async getWorkItems(options: WorkItemQueryOptions = {}): Promise<WorkItemWithDetails[]> {
+    const startTime = Date.now();
+
+    try {
+      // Check permission
+      if (!this.canReadAll && !this.canReadOrg && !this.canReadOwn) {
+        const template = logTemplates.crud.list('work_items', {
+          userId: this.userContext.user_id,
+          filters: {
+            work_item_type_id: options.work_item_type_id,
+            organization_id: options.organization_id,
+            status_id: options.status_id,
+          },
+          results: { returned: 0, total: 0, page: 1 },
+          duration: Date.now() - startTime,
+          metadata: { noPermission: true },
+        });
+
+        log.info(template.message, template.context);
+        return [];
+      }
+
+      // Build where conditions with RBAC filtering
+      const whereConditions = this.buildWorkItemWhereConditions(options);
+
+      // Add status_category filter if provided
+      if (options.status_category) {
+        whereConditions.push(eq(work_item_statuses.status_category, options.status_category));
+      }
+
+      // Add search filter if provided
+      if (options.search) {
+        const searchCondition = or(
+          like(work_items.subject, `%${options.search}%`),
+          like(work_items.description, `%${options.search}%`)
+        );
+        if (searchCondition) {
+          whereConditions.push(searchCondition);
+        }
+      }
+
+      // Execute count query first
+      const countStart = Date.now();
+      const [countResult] = await db
+        .select({ count: count() })
+        .from(work_items)
+        .leftJoin(work_item_statuses, eq(work_items.status_id, work_item_statuses.work_item_status_id))
+        .where(and(...whereConditions));
+      const countDuration = Date.now() - countStart;
+      const totalCount = countResult?.count || 0;
+
+      // Build sorting
+      const sortBy = options.sortBy || 'created_at';
+      const sortOrder = options.sortOrder || 'desc';
+      const sortColumn = (() => {
+        switch (sortBy) {
+          case 'subject':
+            return work_items.subject;
+          case 'priority':
+            return work_items.priority;
+          case 'due_date':
+            return work_items.due_date;
+          case 'status_id':
+            return work_items.status_id;
+          case 'assigned_to':
+            return work_items.assigned_to;
+          case 'updated_at':
+            return work_items.updated_at;
+          default:
+            return work_items.created_at;
+        }
+      })();
+      const orderByClause = sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn);
+
+      // Execute list query with joins
+      const queryStart = Date.now();
+      const results = await getWorkItemQueryBuilder()
+        .leftJoin(work_item_statuses, eq(work_items.status_id, work_item_statuses.work_item_status_id))
+        .where(and(...whereConditions))
+        .orderBy(orderByClause)
+        .limit(options.limit || 50)
+        .offset(options.offset || 0);
+      const queryDuration = Date.now() - queryStart;
+
+      // Fetch custom field values for all work items
+      const workItemIds = results.map((r) => r.work_item_id);
+      const customFieldsStart = Date.now();
+      const customFieldsMap = await this.getCustomFieldValues(workItemIds);
+      const customFieldsDuration = Date.now() - customFieldsStart;
+
+      // Map results to WorkItemWithDetails
+      const workItems = results.map((result) =>
+        this.mapWorkItemResult(result, customFieldsMap.get(result.work_item_id))
+      );
+
+      const duration = Date.now() - startTime;
+
+      // Log using logTemplates.crud.list
+      const template = logTemplates.crud.list('work_items', {
+        userId: this.userContext.user_id,
+        filters: {
+          work_item_type_id: options.work_item_type_id,
+          organization_id: options.organization_id,
+          status_id: options.status_id,
+          status_category: options.status_category,
+          priority: options.priority,
+          assigned_to: options.assigned_to,
+          created_by: options.created_by,
+          search: options.search,
+        },
+        results: {
+          returned: workItems.length,
+          total: totalCount,
+          page: Math.floor((options.offset || 0) / (options.limit || 50)) + 1,
+        },
+        duration,
+        metadata: {
+          countDuration,
+          queryDuration,
+          customFieldsDuration,
+          slowCount: countDuration > SLOW_THRESHOLDS.DB_QUERY,
+          slowQuery: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+          slowCustomFields: customFieldsDuration > SLOW_THRESHOLDS.DB_QUERY,
+          rbacScope: this.canReadAll ? 'all' : this.canReadOrg ? 'organization' : 'own',
+          limit: options.limit || 50,
+          offset: options.offset || 0,
+          sortBy,
+          sortOrder,
+        },
+      });
+
+      log.info(template.message, template.context);
+
+      return workItems;
+    } catch (error) {
+      log.error('work items list failed', error, {
+        operation: 'list_work_items',
+        userId: this.userContext.user_id,
+        duration: Date.now() - startTime,
+        component: 'service',
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Get custom field values for multiple work items
+   * Helper method to fetch and organize custom field values
+   *
+   * @param workItemIds - Array of work item IDs
+   * @returns Map of work item ID to custom field values
+   */
+  private async getCustomFieldValues(
+    workItemIds: string[]
+  ): Promise<Map<string, Record<string, unknown>>> {
     if (workItemIds.length === 0) {
       return new Map();
     }
@@ -1424,8 +542,565 @@ export class RBACWorkItemsService extends BaseRBACService {
   }
 
   /**
-   * Phase 4: Validate status transition
-   * Checks if a status transition is allowed based on work_item_status_transitions rules
+   * Create new work item with RBAC enforcement
+   *
+   * @param workItemData - Work item creation data
+   * @returns Created work item with full details
+   * @throws AuthorizationError if no create permission in target organization
+   */
+  async createWorkItem(workItemData: CreateWorkItemData): Promise<WorkItemWithDetails> {
+    const startTime = Date.now();
+
+    try {
+      // Check organization access
+      if (!this.canManageAll) {
+        if (this.canManageOrg) {
+          if (!this.accessibleOrgIds.includes(workItemData.organization_id)) {
+            throw AuthorizationError(
+              'You do not have permission to create work items in this organization'
+            );
+          }
+        } else {
+          throw AuthorizationError('You do not have permission to create work items');
+        }
+      }
+
+      // Get initial status for this work item type
+      const statusStart = Date.now();
+      const [initialStatus] = await db
+        .select()
+        .from(work_item_statuses)
+        .where(
+          and(
+            eq(work_item_statuses.work_item_type_id, workItemData.work_item_type_id),
+            eq(work_item_statuses.is_initial, true)
+          )
+        )
+        .limit(1);
+      const statusDuration = Date.now() - statusStart;
+
+      if (!initialStatus) {
+        throw NotFoundError('No initial status found for this work item type');
+      }
+
+      // Calculate hierarchy fields if parent exists
+      let depth = 0;
+      let rootId: string | null = null;
+      let parentPath: string | null = null;
+
+      if (workItemData.parent_work_item_id) {
+        const hierarchyStart = Date.now();
+        const [parentInfo] = await db
+          .select({
+            depth: work_items.depth,
+            root_work_item_id: work_items.root_work_item_id,
+            path: work_items.path,
+          })
+          .from(work_items)
+          .where(eq(work_items.work_item_id, workItemData.parent_work_item_id))
+          .limit(1);
+        const hierarchyDuration = Date.now() - hierarchyStart;
+
+        if (!parentInfo) {
+          throw NotFoundError('Parent work item not found');
+        }
+
+        depth = (parentInfo.depth || 0) + 1;
+        if (depth > 10) {
+          throw AuthorizationError('Maximum nesting depth of 10 levels exceeded');
+        }
+
+        rootId = parentInfo.root_work_item_id || workItemData.parent_work_item_id;
+        parentPath = parentInfo.path;
+
+        log.debug('hierarchy fields calculated', {
+          parentId: workItemData.parent_work_item_id,
+          depth,
+          rootId,
+          hierarchyDuration,
+        });
+      }
+
+      // Create work item
+      const insertStart = Date.now();
+      const [newWorkItem] = await db
+        .insert(work_items)
+        .values({
+          work_item_type_id: workItemData.work_item_type_id,
+          organization_id: workItemData.organization_id,
+          subject: workItemData.subject,
+          description: workItemData.description || null,
+          status_id: initialStatus.work_item_status_id,
+          priority: workItemData.priority || 'medium',
+          assigned_to: workItemData.assigned_to || null,
+          due_date: workItemData.due_date || null,
+          parent_work_item_id: workItemData.parent_work_item_id || null,
+          root_work_item_id: rootId,
+          depth,
+          created_by: this.userContext.user_id,
+        })
+        .returning();
+      const insertDuration = Date.now() - insertStart;
+
+      if (!newWorkItem) {
+        throw NotFoundError('Failed to create work item');
+      }
+
+      // Update path now that we have the work item ID
+      let path: string;
+      if (workItemData.parent_work_item_id && parentPath) {
+        path = `${parentPath}/${newWorkItem.work_item_id}`;
+      } else {
+        // Root level work item
+        path = `/${newWorkItem.work_item_id}`;
+        rootId = newWorkItem.work_item_id;
+      }
+
+      const updateStart = Date.now();
+      await db
+        .update(work_items)
+        .set({ path, root_work_item_id: rootId })
+        .where(eq(work_items.work_item_id, newWorkItem.work_item_id));
+      const updateDuration = Date.now() - updateStart;
+
+      // Fetch the created work item with full details
+      const workItemWithDetails = await this.getWorkItemById(newWorkItem.work_item_id);
+      if (!workItemWithDetails) {
+        throw NotFoundError('Failed to retrieve created work item');
+      }
+
+      const duration = Date.now() - startTime;
+
+      // Log using logTemplates.crud.create
+      const template = logTemplates.crud.create('work_item', {
+        resourceId: newWorkItem.work_item_id,
+        resourceName: newWorkItem.subject,
+        userId: this.userContext.user_id,
+        organizationId: workItemData.organization_id,
+        duration,
+        metadata: {
+          workItemType: workItemData.work_item_type_id,
+          priority: workItemData.priority || 'medium',
+          hasParent: !!workItemData.parent_work_item_id,
+          depth,
+          statusDuration,
+          insertDuration,
+          updateDuration,
+          slowStatus: statusDuration > SLOW_THRESHOLDS.DB_QUERY,
+          slowInsert: insertDuration > SLOW_THRESHOLDS.DB_QUERY,
+          slowUpdate: updateDuration > SLOW_THRESHOLDS.DB_QUERY,
+          rbacScope: this.canManageAll ? 'all' : 'organization',
+        },
+      });
+
+      log.info(template.message, template.context);
+
+      return workItemWithDetails;
+    } catch (error) {
+      log.error('work item create failed', error, {
+        operation: 'create_work_item',
+        organizationId: workItemData.organization_id,
+        userId: this.userContext.user_id,
+        duration: Date.now() - startTime,
+        component: 'service',
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Update work item with RBAC enforcement
+   *
+   * @param workItemId - Work item ID to update
+   * @param updateData - Fields to update
+   * @returns Updated work item with full details
+   * @throws AuthorizationError if no update permission
+   * @throws ValidationError if status transition is not allowed
+   */
+  async updateWorkItem(
+    workItemId: string,
+    updateData: UpdateWorkItemData
+  ): Promise<WorkItemWithDetails> {
+    const startTime = Date.now();
+
+    try {
+      // Get current work item to check permissions
+      const targetWorkItem = await this.getWorkItemById(workItemId);
+      if (!targetWorkItem) {
+        throw NotFoundError('Work item not found');
+      }
+
+      // Check update permission
+      if (!this.canManageAll) {
+        if (this.canManageOrg) {
+          if (!this.accessibleOrgIds.includes(targetWorkItem.organization_id)) {
+            throw AuthorizationError(
+              'You do not have permission to update work items in this organization'
+            );
+          }
+        } else if (this.canManageOwn) {
+          if (targetWorkItem.created_by !== this.userContext.user_id) {
+            throw AuthorizationError('You can only update your own work items');
+          }
+        } else {
+          throw AuthorizationError('You do not have permission to update work items');
+        }
+      }
+
+      // Validate status transition if status is being changed
+      if (updateData.status_id && updateData.status_id !== targetWorkItem.status_id) {
+        await this.validateStatusTransition(
+          targetWorkItem.work_item_type_id,
+          targetWorkItem.status_id,
+          updateData.status_id
+        );
+      }
+
+      // Calculate changes for audit logging
+      const changes = calculateChanges(
+        targetWorkItem as unknown as Record<string, unknown>,
+        updateData as unknown as Record<string, unknown>
+      );
+
+      // Update work item
+      const updateStart = Date.now();
+      const [updatedWorkItem] = await db
+        .update(work_items)
+        .set({
+          ...updateData,
+          updated_at: new Date(),
+        })
+        .where(eq(work_items.work_item_id, workItemId))
+        .returning();
+      const updateDuration = Date.now() - updateStart;
+
+      if (!updatedWorkItem) {
+        throw NotFoundError('Failed to update work item');
+      }
+
+      // Fetch the updated work item with full details
+      const workItemWithDetails = await this.getWorkItemById(workItemId);
+      if (!workItemWithDetails) {
+        throw NotFoundError('Failed to retrieve updated work item');
+      }
+
+      const duration = Date.now() - startTime;
+
+      // Log using logTemplates.crud.update with calculateChanges
+      const template = logTemplates.crud.update('work_item', {
+        resourceId: workItemId,
+        resourceName: workItemWithDetails.subject,
+        userId: this.userContext.user_id,
+        changes,
+        duration,
+        metadata: {
+          fieldsChanged: Object.keys(changes).length,
+          statusChanged: !!updateData.status_id,
+          assigneeChanged: !!updateData.assigned_to,
+          updateDuration,
+          slowUpdate: updateDuration > SLOW_THRESHOLDS.DB_QUERY,
+          rbacScope: this.canManageAll ? 'all' : this.canManageOrg ? 'organization' : 'own',
+        },
+      });
+
+      log.info(template.message, template.context);
+
+      return workItemWithDetails;
+    } catch (error) {
+      log.error('work item update failed', error, {
+        operation: 'update_work_item',
+        workItemId,
+        userId: this.userContext.user_id,
+        duration: Date.now() - startTime,
+        component: 'service',
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Delete work item (soft delete) with RBAC enforcement
+   *
+   * @param workItemId - Work item ID to delete
+   * @throws AuthorizationError if no delete permission
+   */
+  async deleteWorkItem(workItemId: string): Promise<void> {
+    const startTime = Date.now();
+
+    try {
+      // Get current work item to check permissions
+      const targetWorkItem = await this.getWorkItemById(workItemId);
+      if (!targetWorkItem) {
+        throw NotFoundError('Work item not found');
+      }
+
+      // Check delete permission
+      if (!this.canManageAll) {
+        if (this.canManageOrg) {
+          if (!this.accessibleOrgIds.includes(targetWorkItem.organization_id)) {
+            throw AuthorizationError(
+              'You do not have permission to delete work items in this organization'
+            );
+          }
+        } else if (this.canManageOwn) {
+          if (targetWorkItem.created_by !== this.userContext.user_id) {
+            throw AuthorizationError('You can only delete your own work items');
+          }
+        } else {
+          throw AuthorizationError('You do not have permission to delete work items');
+        }
+      }
+
+      // Soft delete
+      const deleteStart = Date.now();
+      await db
+        .update(work_items)
+        .set({
+          deleted_at: new Date(),
+          updated_at: new Date(),
+        })
+        .where(eq(work_items.work_item_id, workItemId));
+      const deleteDuration = Date.now() - deleteStart;
+
+      const duration = Date.now() - startTime;
+
+      // Log using logTemplates.crud.delete
+      const template = logTemplates.crud.delete('work_item', {
+        resourceId: workItemId,
+        resourceName: targetWorkItem.subject,
+        userId: this.userContext.user_id,
+        organizationId: targetWorkItem.organization_id,
+        soft: true,
+        duration,
+        metadata: {
+          deleteDuration,
+          slowDelete: deleteDuration > SLOW_THRESHOLDS.DB_QUERY,
+          rbacScope: this.canManageAll ? 'all' : this.canManageOrg ? 'organization' : 'own',
+        },
+      });
+
+      log.info(template.message, template.context);
+    } catch (error) {
+      log.error('work item delete failed', error, {
+        operation: 'delete_work_item',
+        workItemId,
+        userId: this.userContext.user_id,
+        duration: Date.now() - startTime,
+        component: 'service',
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Get child work items for a parent
+   *
+   * @param workItemId - Parent work item ID
+   * @returns Array of child work items with full details
+   */
+  async getWorkItemChildren(workItemId: string): Promise<WorkItemWithDetails[]> {
+    const startTime = Date.now();
+
+    try {
+      // Check permission
+      if (!this.canReadAll && !this.canReadOrg && !this.canReadOwn) {
+        log.info('work item children list - no permission', {
+          operation: 'list_work_item_children',
+          parentWorkItemId: workItemId,
+          userId: this.userContext.user_id,
+          duration: Date.now() - startTime,
+          component: 'service',
+        });
+        return [];
+      }
+
+      // Verify parent exists and user has access to it
+      const parent = await this.getWorkItemById(workItemId);
+      if (!parent) {
+        throw NotFoundError('Parent work item not found');
+      }
+
+      // Build where conditions for children
+      const whereConditions: SQL[] = [
+        isNull(work_items.deleted_at),
+        eq(work_items.parent_work_item_id, workItemId),
+      ];
+
+      // Apply RBAC filtering
+      if (!this.canReadAll) {
+        if (this.canReadOrg) {
+          if (this.accessibleOrgIds.length > 0) {
+            whereConditions.push(inArray(work_items.organization_id, this.accessibleOrgIds));
+          } else {
+            whereConditions.push(eq(work_items.work_item_id, 'impossible-id'));
+          }
+        } else if (this.canReadOwn) {
+          whereConditions.push(eq(work_items.created_by, this.userContext.user_id));
+        }
+      }
+
+      // Execute query
+      const queryStart = Date.now();
+      const results = await getWorkItemQueryBuilder()
+        .where(and(...whereConditions))
+        .orderBy(asc(work_items.created_at));
+      const queryDuration = Date.now() - queryStart;
+
+      // Map results to WorkItemWithDetails
+      const children = results.map((result) => this.mapWorkItemResult(result));
+
+      const duration = Date.now() - startTime;
+
+      // Log using custom format
+      log.info('work item children listed', {
+        operation: 'list_work_item_children',
+        parentWorkItemId: workItemId,
+        userId: this.userContext.user_id,
+        count: children.length,
+        duration,
+        component: 'service',
+        metadata: {
+          queryDuration,
+          slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+          rbacScope: this.canReadAll ? 'all' : this.canReadOrg ? 'organization' : 'own',
+        },
+      });
+
+      return children;
+    } catch (error) {
+      log.error('work item children list failed', error, {
+        operation: 'list_work_item_children',
+        parentWorkItemId: workItemId,
+        userId: this.userContext.user_id,
+        duration: Date.now() - startTime,
+        component: 'service',
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Get ancestor work items (breadcrumb trail from root to this item)
+   *
+   * @param workItemId - Work item ID to get ancestors for
+   * @returns Array of ancestor work items ordered from root to parent
+   */
+  async getWorkItemAncestors(workItemId: string): Promise<WorkItemWithDetails[]> {
+    const startTime = Date.now();
+
+    try {
+      // Check permission
+      if (!this.canReadAll && !this.canReadOrg && !this.canReadOwn) {
+        log.info('work item ancestors list - no permission', {
+          operation: 'list_work_item_ancestors',
+          workItemId,
+          userId: this.userContext.user_id,
+          duration: Date.now() - startTime,
+          component: 'service',
+        });
+        return [];
+      }
+
+      // Get the work item to extract its path
+      const workItem = await this.getWorkItemById(workItemId);
+      if (!workItem) {
+        throw NotFoundError('Work item not found');
+      }
+
+      // If no path or no parent, return empty array
+      if (!workItem.path || !workItem.parent_work_item_id) {
+        log.info('work item ancestors listed - no ancestors', {
+          operation: 'list_work_item_ancestors',
+          workItemId,
+          userId: this.userContext.user_id,
+          count: 0,
+          duration: Date.now() - startTime,
+          component: 'service',
+        });
+        return [];
+      }
+
+      // Extract ancestor IDs from path (excluding the work item itself)
+      // Path format: /root-id/parent-id/work-item-id
+      const pathSegments = workItem.path.split('/').filter((id) => id && id !== workItemId);
+
+      if (pathSegments.length === 0) {
+        return [];
+      }
+
+      // Build where conditions for ancestors
+      const whereConditions: SQL[] = [
+        isNull(work_items.deleted_at),
+        inArray(work_items.work_item_id, pathSegments),
+      ];
+
+      // Apply RBAC filtering
+      if (!this.canReadAll) {
+        if (this.canReadOrg) {
+          if (this.accessibleOrgIds.length > 0) {
+            whereConditions.push(inArray(work_items.organization_id, this.accessibleOrgIds));
+          } else {
+            whereConditions.push(eq(work_items.work_item_id, 'impossible-id'));
+          }
+        } else if (this.canReadOwn) {
+          whereConditions.push(eq(work_items.created_by, this.userContext.user_id));
+        }
+      }
+
+      // Execute query
+      const queryStart = Date.now();
+      const results = await getWorkItemQueryBuilder()
+        .where(and(...whereConditions))
+        .orderBy(asc(work_items.depth));
+      const queryDuration = Date.now() - queryStart;
+
+      // Map results to WorkItemWithDetails
+      const ancestors = results.map((result) => this.mapWorkItemResult(result));
+
+      const duration = Date.now() - startTime;
+
+      // Log using custom format
+      log.info('work item ancestors listed', {
+        operation: 'list_work_item_ancestors',
+        workItemId,
+        userId: this.userContext.user_id,
+        count: ancestors.length,
+        duration,
+        component: 'service',
+        metadata: {
+          queryDuration,
+          slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+          rbacScope: this.canReadAll ? 'all' : this.canReadOrg ? 'organization' : 'own',
+          depth: workItem.depth,
+        },
+      });
+
+      return ancestors;
+    } catch (error) {
+      log.error('work item ancestors list failed', error, {
+        operation: 'list_work_item_ancestors',
+        workItemId,
+        userId: this.userContext.user_id,
+        duration: Date.now() - startTime,
+        component: 'service',
+      });
+
+      throw error;
+    }
+  }
+
+  /**
+   * Validate status transition is allowed
+   * Helper method to check if status transition is permitted
+   *
+   * @param typeId - Work item type ID
+   * @param fromStatusId - Current status ID
+   * @param toStatusId - Desired status ID
+   * @throws ValidationError if transition is not allowed
    */
   private async validateStatusTransition(
     typeId: string,
@@ -1436,9 +1111,10 @@ export class RBACWorkItemsService extends BaseRBACService {
 
     try {
       // Check if a transition rule exists for this type and status pair
-      const transitionResults = await db
+      const [transition] = await db
         .select({
-          work_item_status_transition_id: work_item_status_transitions.work_item_status_transition_id,
+          work_item_status_transition_id:
+            work_item_status_transitions.work_item_status_transition_id,
           is_allowed: work_item_status_transitions.is_allowed,
         })
         .from(work_item_status_transitions)
@@ -1450,29 +1126,28 @@ export class RBACWorkItemsService extends BaseRBACService {
           )
         )
         .limit(1);
+      const queryDuration = Date.now() - queryStart;
 
       // If no transition rule exists, allow the transition (permissive by default)
-      if (transitionResults.length === 0) {
-        log.info('No transition rule found, allowing status change', {
+      if (!transition) {
+        log.debug('no transition rule found, allowing status change', {
           typeId,
           fromStatusId,
           toStatusId,
-          duration: Date.now() - queryStart,
+          queryDuration,
         });
         return;
       }
 
-      const transition = transitionResults[0];
-
       // If transition rule exists but is_allowed is false, reject the transition
-      if (transition && !transition.is_allowed) {
-        log.warn('Status transition not allowed', {
+      if (!transition.is_allowed) {
+        log.warn('status transition not allowed', {
           typeId,
           fromStatusId,
           toStatusId,
           transitionId: transition.work_item_status_transition_id,
           userId: this.userContext.user_id,
-          duration: Date.now() - queryStart,
+          queryDuration,
         });
 
         throw ValidationError(
@@ -1481,29 +1156,64 @@ export class RBACWorkItemsService extends BaseRBACService {
         );
       }
 
-      log.info('Status transition validated successfully', {
+      log.debug('status transition validated successfully', {
         typeId,
         fromStatusId,
         toStatusId,
-        transitionId: transition?.work_item_status_transition_id,
-        duration: Date.now() - queryStart,
+        transitionId: transition.work_item_status_transition_id,
+        queryDuration,
       });
     } catch (error) {
       const duration = Date.now() - queryStart;
-      log.error('Status transition validation failed', error, {
+      log.error('status transition validation failed', error, {
         typeId,
         fromStatusId,
         toStatusId,
         duration,
       });
+
       throw error;
     }
   }
 }
 
 /**
- * Factory function to create RBACWorkItemsService
+ * Factory function to create RBAC Work Items Service
+ *
+ * **Phase 1 Implementation**: Core read operations only
+ * - getWorkItemById: Fetch single work item by ID
+ * - getWorkItemCount: Count work items with filters
+ *
+ * **Phase 2 TODO**: Add remaining CRUD operations
+ * - getWorkItems: List work items with pagination/filtering
+ * - createWorkItem: Create new work item
+ * - updateWorkItem: Update existing work item
+ * - deleteWorkItem: Soft delete work item
+ *
+ * @param userContext - User context with RBAC permissions
+ * @returns Work items service with RBAC enforcement
+ *
+ * @example
+ * ```typescript
+ * const workItemsService = createRBACWorkItemsService(userContext);
+ *
+ * // Get single work item
+ * const workItem = await workItemsService.getWorkItemById('work-item-uuid');
+ *
+ * // Count work items
+ * const count = await workItemsService.getWorkItemCount({ status_id: 'in-progress' });
+ * ```
+ *
+ * **Permissions Required**:
+ * - Read: work-items:read:all OR work-items:read:organization OR work-items:read:own
+ *
+ * **RBAC Scopes**:
+ * - `all`: Super admins can see all work items
+ * - `organization`: Users can see work items in their organizations
+ * - `own`: Users can only see work items they created
  */
-export function createRBACWorkItemsService(userContext: UserContext): RBACWorkItemsService {
-  return new RBACWorkItemsService(userContext);
+export function createRBACWorkItemsService(
+  userContext: UserContext
+): WorkItemsServiceInterface {
+  return new WorkItemsService(userContext);
 }

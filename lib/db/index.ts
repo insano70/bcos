@@ -32,12 +32,18 @@ export const getDb = () => {
     globalThis.dbClient = postgres(config.url, {
       prepare: false,
       max: config.max || 10, // Connection pool size
-      idle_timeout: config.idleTimeoutMillis ? config.idleTimeoutMillis / 1000 : 20,
+      idle_timeout: config.idleTimeoutMillis ? config.idleTimeoutMillis / 1000 : 30,
       connect_timeout: config.connectionTimeoutMillis ? config.connectionTimeoutMillis / 1000 : 10,
+      max_lifetime: 60 * 30, // 30 minutes - recycle connections to prevent stale connections
       // Production optimizations
       ...(process.env.NODE_ENV === 'production' && {
         ssl: 'require',
         keep_alive: 30,
+      }),
+      // Development optimizations
+      ...(process.env.NODE_ENV === 'development' && {
+        onnotice: () => {}, // Suppress PostgreSQL notices in development
+        debug: false, // Disable debug logging
       }),
     });
 

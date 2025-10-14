@@ -186,67 +186,14 @@ const createWorkItemHandler = async (request: NextRequest, userContext: UserCont
       customFieldCount = Object.keys(validatedData.custom_fields).length;
     }
 
-    // Auto-create child work items based on type relationships
-    const { createRBACWorkItemTypeRelationshipsService } = await import('@/lib/services/rbac-work-item-type-relationships-service');
-    const relationshipsService = createRBACWorkItemTypeRelationshipsService(userContext);
+    // Auto-create child work items based on type relationships using automation service
+    const { createWorkItemAutomationService } = await import('@/lib/services/work-item-automation-service');
+    const automationService = createWorkItemAutomationService(userContext);
 
-    // Get relationships with auto_create enabled for this parent type
-    const autoCreateRelationships = await relationshipsService.getRelationships({
-      parent_type_id: validatedData.work_item_type_id,
-      auto_create: true,
-    });
-
-    let autoCreatedCount = 0;
-    const autoCreatedChildren: string[] = [];
-
-    if (autoCreateRelationships.length > 0) {
-      for (const relationship of autoCreateRelationships) {
-        try {
-          // Prepare subject using template interpolation
-          let childSubject = 'New Item';
-          if (relationship.auto_create_config?.subject_template) {
-            childSubject = relationship.auto_create_config.subject_template
-              .replace(/{parent\.subject}/g, newWorkItem.subject)
-              .replace(/{parent\.id}/g, newWorkItem.work_item_id)
-              .replace(/{relationship}/g, relationship.relationship_name);
-          }
-
-          // Create child work item
-          const childWorkItem = await workItemsService.createWorkItem({
-            work_item_type_id: relationship.child_type_id,
-            organization_id: newWorkItem.organization_id,
-            subject: childSubject,
-            description: null,
-            priority: newWorkItem.priority,
-            assigned_to: newWorkItem.assigned_to,
-            due_date: null,
-            parent_work_item_id: newWorkItem.work_item_id,
-          });
-
-          // Set custom field values for auto-created child if configured
-          if (relationship.auto_create_config?.field_values) {
-            const childFieldValuesService = createRBACWorkItemFieldValuesService(userContext);
-            await childFieldValuesService.setFieldValues(
-              childWorkItem.work_item_id,
-              relationship.child_type_id,
-              relationship.auto_create_config.field_values
-            );
-          }
-
-          autoCreatedCount++;
-          autoCreatedChildren.push(childWorkItem.work_item_id);
-        } catch (error) {
-          log.error('Failed to auto-create child work item', error, {
-            operation: 'auto_create_child',
-            parentWorkItemId: newWorkItem.work_item_id,
-            relationshipId: relationship.work_item_type_relationship_id,
-            childTypeId: relationship.child_type_id,
-            component: 'business-logic',
-          });
-          // Continue with other auto-create relationships even if one fails
-        }
-      }
-    }
+    const autoCreatedCount = await automationService.autoCreateChildItems(
+      newWorkItem.work_item_id,
+      validatedData.work_item_type_id
+    );
 
     // Add creator as watcher (auto-watcher logic)
     const { createRBACWorkItemWatchersService } = await import('@/lib/services/rbac-work-item-watchers-service');
@@ -291,7 +238,6 @@ const createWorkItemHandler = async (request: NextRequest, userContext: UserCont
         ...(newWorkItem.due_date && { dueDate: newWorkItem.due_date }),
         customFieldsSet: customFieldCount,
         autoCreatedChildren: autoCreatedCount,
-        ...(autoCreatedChildren.length > 0 && { autoCreatedChildIds: autoCreatedChildren }),
         creatorWatcherAdded: watcherAdded,
         organizationName: newWorkItem.organization_name,
       },

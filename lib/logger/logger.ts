@@ -469,6 +469,7 @@ export const log = {
    * API request/response logging
    * Specialized method for HTTP-related logs
    * Automatically extracts correlation ID from request headers
+   * Note: Metrics are now tracked at the route handler level (rbacRoute/publicRoute)
    */
   api(
     message: string,

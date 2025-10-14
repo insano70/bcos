@@ -137,6 +137,62 @@ const updateWorkItemHandler = async (
       );
     }
 
+    // Send status change notification if status changed
+    let statusChangeNotificationSent = false;
+    if (validatedData.status_id && before.status_id !== updatedWorkItem.status_id) {
+      try {
+        const { createNotificationService } = await import('@/lib/services/notification-service');
+        const notificationService = createNotificationService();
+
+        await notificationService.sendStatusChangeNotification(
+          {
+            work_item_id: updatedWorkItem.work_item_id,
+            subject: updatedWorkItem.subject,
+            description: updatedWorkItem.description,
+            priority: updatedWorkItem.priority,
+            organization_id: updatedWorkItem.organization_id,
+            organization_name: updatedWorkItem.organization_name,
+          },
+          {
+            work_item_status_id: before.status_id,
+            work_item_type_id: before.work_item_type_id,
+            status_name: before.status_name,
+            status_category: before.status_category,
+            is_initial: false,
+            is_final: false,
+            color: null,
+            display_order: 0,
+            created_at: new Date(),
+            updated_at: new Date(),
+          },
+          {
+            work_item_status_id: updatedWorkItem.status_id,
+            work_item_type_id: updatedWorkItem.work_item_type_id,
+            status_name: updatedWorkItem.status_name,
+            status_category: updatedWorkItem.status_category,
+            is_initial: false,
+            is_final: false,
+            color: null,
+            display_order: 0,
+            created_at: new Date(),
+            updated_at: new Date(),
+          }
+        );
+        statusChangeNotificationSent = true;
+
+        log.info('status change notification sent', {
+          workItemId: validatedParams.id,
+          oldStatus: before.status_name,
+          newStatus: updatedWorkItem.status_name,
+        });
+      } catch (error) {
+        // Don't fail work item update if notification fails
+        log.error('failed to send status change notification', error, {
+          workItemId: validatedParams.id,
+        });
+      }
+    }
+
     // Add assignee as watcher when assignment changes
     let watcherAdded = false;
     if (validatedData.assigned_to && updatedWorkItem.assigned_to) {
@@ -204,6 +260,7 @@ const updateWorkItemHandler = async (
         customFieldsUpdated: validatedData.custom_fields
           ? Object.keys(validatedData.custom_fields).length
           : 0,
+        statusChangeNotificationSent,
         watcherAdded,
       },
     });

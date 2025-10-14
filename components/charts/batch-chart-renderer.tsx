@@ -20,13 +20,23 @@
 
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import ChartRenderer from './chart-renderer';
 import ChartHeader from './chart-header';
 import ChartError from './chart-error';
 import ResponsiveChartContainer from './responsive-chart-container';
 import { GlassCard } from '@/components/ui/glass-card';
 import type { ChartData } from '@/lib/types/analytics';
+import dynamic from 'next/dynamic';
+
+// Lazy load fullscreen modals (like AnalyticsChart)
+const ChartFullscreenModal = dynamic(() => import('./chart-fullscreen-modal'), {
+  ssr: false,
+});
+
+const DualAxisFullscreenModal = dynamic(() => import('./dual-axis-fullscreen-modal'), {
+  ssr: false,
+});
 
 /**
  * Formatted cell structure for table charts (from batch API)
@@ -200,6 +210,10 @@ export default function BatchChartRenderer({
   // Chart ref for export functionality (like AnalyticsChart)
   const chartRef = useRef<HTMLCanvasElement | null>(null);
   
+  // Fullscreen state (like AnalyticsChart lines 382-383)
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isDualAxisFullscreen, setIsDualAxisFullscreen] = useState(false);
+  
   // Handle export functionality
   const handleExport = (format: 'png' | 'pdf' | 'csv') => {
     if (onExport) {
@@ -223,6 +237,14 @@ export default function BatchChartRenderer({
         title={chartDefinition.chart_name}
         onExport={handleExport}
         onRefresh={onRetry || (() => {})}
+        {...((chartDefinition.chart_type === 'bar' ||
+          chartDefinition.chart_type === 'stacked-bar' ||
+          chartDefinition.chart_type === 'horizontal-bar') && {
+            onFullscreen: () => setIsFullscreen(true)
+          })}
+        {...(chartDefinition.chart_type === 'dual-axis' && {
+          onFullscreen: () => setIsDualAxisFullscreen(true)
+        })}
       />
 
       {/* Chart Content - Match AnalyticsChart structure exactly */}
@@ -292,6 +314,31 @@ export default function BatchChartRenderer({
         <div className="absolute top-2 right-2 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 text-xs px-2 py-1 rounded border border-green-300 dark:border-green-700">
           ⚡ Cached
         </div>
+      )}
+
+      {/* Fullscreen Modal for Bar Charts */}
+      {isFullscreen && (chartDefinition.chart_type === 'bar' || chartDefinition.chart_type === 'stacked-bar' || chartDefinition.chart_type === 'horizontal-bar') && (
+        <ChartFullscreenModal
+          isOpen={isFullscreen}
+          onClose={() => setIsFullscreen(false)}
+          chartTitle={chartDefinition.chart_name}
+          chartData={chartData.chartData}
+          chartType={chartDefinition.chart_type as 'bar' | 'stacked-bar' | 'horizontal-bar'}
+          frequency={chartData.metadata.frequency || 'Monthly'}
+          {...(stackingMode && { stackingMode: stackingMode as 'normal' | 'percentage' })}
+        />
+      )}
+
+      {/* Dual-Axis Fullscreen Modal */}
+      {isDualAxisFullscreen && chartDefinition.chart_type === 'dual-axis' && chartData.chartData && dualAxisConfig && (
+        <DualAxisFullscreenModal
+          isOpen={isDualAxisFullscreen}
+          onClose={() => setIsDualAxisFullscreen(false)}
+          chartTitle={chartDefinition.chart_name}
+          chartData={chartData.chartData}
+          primaryAxisLabel={dualAxisConfig.primary.axisLabel}
+          secondaryAxisLabel={dualAxisConfig.secondary.axisLabel}
+        />
       )}
     </GlassCard>
   );

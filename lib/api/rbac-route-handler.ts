@@ -146,6 +146,29 @@ export function rbacRoute(
           totalDuration,
         });
 
+        // Record metrics in MetricsCollector for public routes
+        try {
+          const { metricsCollector } = await import('@/lib/monitoring/metrics-collector');
+          const { categorizeEndpoint } = await import('@/lib/monitoring/endpoint-categorizer');
+          
+          const category = categorizeEndpoint(url.pathname);
+          
+          metricsCollector.recordRequest(
+            url.pathname,
+            totalDuration,
+            response.status,
+            undefined, // No userId for public routes
+            category
+          );
+
+          // Record security events
+          if (response.status === 429) {
+            metricsCollector.recordRateLimitBlock();
+          }
+        } catch {
+          // Silently fail if MetricsCollector not available
+        }
+
         return response;
       }
 
@@ -249,6 +272,33 @@ export function rbacRoute(
           totalDuration,
         });
 
+        // Record metrics in MetricsCollector for real-time monitoring
+        try {
+          const { metricsCollector } = await import('@/lib/monitoring/metrics-collector');
+          const { categorizeEndpoint } = await import('@/lib/monitoring/endpoint-categorizer');
+          
+          const category = categorizeEndpoint(url.pathname);
+          
+          metricsCollector.recordRequest(
+            url.pathname,
+            totalDuration,
+            response.status,
+            userContext.user_id,
+            category
+          );
+
+          // Record security events
+          if (response.status === 429) {
+            metricsCollector.recordRateLimitBlock();
+          }
+          if (response.status === 401 || response.status === 403) {
+            metricsCollector.recordFailedLogin();
+          }
+        } catch {
+          // Silently fail if MetricsCollector not available
+          // Don't break the response if monitoring fails
+        }
+
         return response;
       } else {
         // Permission denied - return RBAC response
@@ -271,6 +321,29 @@ export function rbacRoute(
           userId: userContext.user_id,
           reason: 'permission_denied',
         });
+
+        // Record metrics for permission denied
+        try {
+          const { metricsCollector } = await import('@/lib/monitoring/metrics-collector');
+          const { categorizeEndpoint } = await import('@/lib/monitoring/endpoint-categorizer');
+          
+          const response = rbacResult as Response;
+          const category = categorizeEndpoint(url.pathname);
+          
+          metricsCollector.recordRequest(
+            url.pathname,
+            Date.now() - startTime,
+            response.status,
+            userContext.user_id,
+            category
+          );
+          if (response.status === 403) {
+            metricsCollector.recordSecurityEvent('permission_denied');
+          }
+        } catch {
+          // Silently fail
+        }
+
         return rbacResult as Response;
       }
     } catch (error) {
@@ -289,6 +362,24 @@ export function rbacRoute(
             ? String(error.constructor.name)
             : typeof error,
       });
+
+      // Record metrics for error
+      try {
+        const { metricsCollector } = await import('@/lib/monitoring/metrics-collector');
+        const { categorizeEndpoint } = await import('@/lib/monitoring/endpoint-categorizer');
+        
+        const category = categorizeEndpoint(url.pathname);
+        
+        metricsCollector.recordRequest(
+          url.pathname,
+          totalDuration,
+          500,
+          undefined, // May not have userId if error occurred before auth
+          category
+        );
+      } catch {
+        // Silently fail
+      }
 
       return createErrorResponse(
         error && typeof error === 'object' && 'message' in error
@@ -427,6 +518,32 @@ export function legacySecureRoute(
         totalDuration,
       });
 
+      // Record metrics for legacy routes
+      try {
+        const { metricsCollector } = await import('@/lib/monitoring/metrics-collector');
+        const { categorizeEndpoint } = await import('@/lib/monitoring/endpoint-categorizer');
+        
+        const category = categorizeEndpoint(url.pathname);
+        
+        metricsCollector.recordRequest(
+          url.pathname,
+          totalDuration,
+          response.status,
+          session?.user?.id,
+          category
+        );
+
+        // Record security events
+        if (response.status === 429) {
+          metricsCollector.recordRateLimitBlock();
+        }
+        if (response.status === 401 || response.status === 403) {
+          metricsCollector.recordFailedLogin();
+        }
+      } catch {
+        // Silently fail
+      }
+
       return response;
     } catch (error) {
       const totalDuration = Date.now() - startTime;
@@ -444,6 +561,24 @@ export function legacySecureRoute(
             ? String(error.constructor.name)
             : typeof error,
       });
+
+      // Record metrics for legacy error
+      try {
+        const { metricsCollector } = await import('@/lib/monitoring/metrics-collector');
+        const { categorizeEndpoint } = await import('@/lib/monitoring/endpoint-categorizer');
+        
+        const category = categorizeEndpoint(url.pathname);
+        
+        metricsCollector.recordRequest(
+          url.pathname,
+          totalDuration,
+          500,
+          undefined, // May not have userId if error occurred before auth
+          category
+        );
+      } catch {
+        // Silently fail
+      }
 
       return createErrorResponse(
         error && typeof error === 'object' && 'message' in error

@@ -1,7 +1,7 @@
 'use client';
 
 import { Popover, PopoverButton, PopoverPanel, Transition } from '@headlessui/react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api/client';
 import type { DashboardUniversalFilters } from './dashboard-filter-bar';
 
@@ -175,12 +175,21 @@ export default function DashboardFilterDropdown({
 
   // Calculate active filter count
   const activeFilterCount = [
-    pendingFilters.dateRangePreset && pendingFilters.dateRangePreset !== 'last_30_days',
+    pendingFilters.dateRangePreset !== undefined,
     pendingFilters.organizationId,
   ].filter(Boolean).length;
 
   const handleDatePresetChange = (presetId: string) => {
-    if (presetId === 'custom') {
+    if (presetId === 'default') {
+      // Clear date range override - use chart defaults
+      setPendingFilters(prev => {
+        const newFilters = { ...prev };
+        delete newFilters.dateRangePreset;
+        delete newFilters.startDate;
+        delete newFilters.endDate;
+        return newFilters;
+      });
+    } else if (presetId === 'custom') {
       setPendingFilters(prev => ({ ...prev, dateRangePreset: presetId }));
     } else {
       const preset = DATE_PRESETS.find(p => p.id === presetId);
@@ -204,9 +213,7 @@ export default function DashboardFilterDropdown({
   };
 
   const handleClear = () => {
-    const resetFilters: DashboardUniversalFilters = {
-      dateRangePreset: 'last_30_days',
-    };
+    const resetFilters: DashboardUniversalFilters = {};
     setPendingFilters(resetFilters);
   };
 
@@ -293,10 +300,11 @@ export default function DashboardFilterDropdown({
                     Date Range
                   </label>
                   <select
-                    value={pendingFilters.dateRangePreset || 'last_30_days'}
+                    value={pendingFilters.dateRangePreset || 'default'}
                     onChange={(e) => handleDatePresetChange(e.target.value)}
                     className="w-full px-2.5 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   >
+                    <option value="default">Default Date Range</option>
                     {DATE_PRESETS.map(preset => (
                       <option key={preset.id} value={preset.id}>
                         {preset.label}

@@ -441,16 +441,25 @@ export default function RowBasedDashboardBuilder({
                       Default Date Range Preset
                     </label>
                     <select
-                      value={filterConfig.defaultFilters?.dateRangePreset || 'last_30_days'}
-                      onChange={(e) => setFilterConfig(prev => ({
-                        ...prev,
-                        defaultFilters: {
-                          ...prev.defaultFilters,
-                          dateRangePreset: e.target.value
-                        }
-                      }))}
+                      value={filterConfig.defaultFilters?.dateRangePreset || ''}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setFilterConfig(prev => {
+                          const newDefaultFilters = { ...prev.defaultFilters };
+                          if (value) {
+                            newDefaultFilters.dateRangePreset = value;
+                          } else {
+                            delete newDefaultFilters.dateRangePreset;
+                          }
+                          return {
+                            ...prev,
+                            defaultFilters: newDefaultFilters
+                          };
+                        });
+                      }}
                       className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                     >
+                      <option value="">No Default (Use Chart Defaults)</option>
                       <option value="today">Today</option>
                       <option value="yesterday">Yesterday</option>
                       <option value="last_7_days">Last 7 Days</option>

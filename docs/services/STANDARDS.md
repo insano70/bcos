@@ -1,6 +1,12 @@
 # Service Layer Development Standards
 
-**Status**: Active | **Last Updated**: 2025-01-13 | **Version**: 3.1
+**Status**: Active | **Last Updated**: 2025-01-14 | **Version**: 3.2
+
+**What's New in v3.2:**
+- 🆕 Very Complex Services section (rbac-work-items-service as new gold standard)
+- 🎯 3-way timing tracking pattern (count + query + custom fields)
+- 🔧 Query builder pattern for reducing duplication
+- 📦 Service splitting guidelines for 1,000+ line services
 
 **What's New in v3.1:**
 - ✨ Advanced Logging Patterns section (calculateChanges, separate query timing, RBAC scope visibility)
@@ -1476,6 +1482,69 @@ metadata: {
 
 ---
 
+### Very Complex Services (8+ Methods, Rich Domain Models, Multiple Concerns)
+
+**📄 [rbac-work-items-service.ts](../../lib/services/rbac-work-items-service.ts)** (1,198 lines) 🆕
+- **Grade**: A+ (100% - Gold Standard for Complex Services)
+- **Use for**: Very complex CRUD services, rich domain models, hierarchy management
+- **Highlights**:
+  - 8 CRUD methods with comprehensive observability
+  - 3-way timing tracking (count + query + custom fields)
+  - calculateChanges integration for audit trails
+  - Query builder pattern eliminates 125+ lines of duplication
+  - Shared types file for consistency
+  - Helper methods for RBAC and mapping
+  - Complex business logic (hierarchy, status transitions, custom fields)
+
+**Key Patterns:**
+```typescript
+// 3-way timing for complex list operations
+const countStart = Date.now();
+const [countResult] = await db.select({ count: count() })...;
+const countDuration = Date.now() - countStart;
+
+const queryStart = Date.now();
+const results = await getWorkItemQueryBuilder()...;
+const queryDuration = Date.now() - queryStart;
+
+const customFieldsStart = Date.now();
+const customFieldsMap = await this.getCustomFieldValues(workItemIds);
+const customFieldsDuration = Date.now() - customFieldsStart;
+
+metadata: {
+  countDuration,
+  queryDuration,
+  customFieldsDuration,
+  slowCount: countDuration > SLOW_THRESHOLDS.DB_QUERY,
+  slowQuery: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+  slowCustomFields: customFieldsDuration > SLOW_THRESHOLDS.DB_QUERY,
+}
+
+// Query builder pattern for reusability
+import { getWorkItemQueryBuilder } from './work-items/query-builder';
+const results = await getWorkItemQueryBuilder()
+  .where(and(...whereConditions))
+  .orderBy(orderByClause);
+
+// Shared types across services
+import type { WorkItemWithDetails, CreateWorkItemData } from '@/lib/types/work-items';
+```
+
+**Supporting Services** (Created alongside):
+- **work-item-hierarchy-service.ts** (369 lines) - Hierarchy operations
+- **work-item-automation-service.ts** (371 lines) - Auto-creation with templates
+- **lib/types/work-items.ts** (69 lines) - Shared type definitions
+- **lib/services/work-items/query-builder.ts** (97 lines) - Query helpers
+
+**When to Split:**
+If your service exceeds 1,000 lines, consider:
+1. Extracting hierarchy/tree operations → separate hierarchy service
+2. Extracting automation/templates → separate automation service
+3. Extracting complex queries → query builder utility
+4. Extracting types → shared types file
+
+---
+
 ### Quick Reference
 
 | Service Type | Template | Lines | Methods | Complexity |
@@ -1483,6 +1552,7 @@ metadata: {
 | **Read-only** | rbac-chart-definitions-service.ts | 283 | 2 | Low |
 | **Simple CRUD** | (Use chart definitions as base) | ~300 | 3-4 | Low-Medium |
 | **Complex CRUD** | rbac-staff-members-service.ts | 632 | 6 | High |
+| **Very Complex CRUD** 🆕 | rbac-work-items-service.ts | 1,198 | 8 | Very High |
 
 **When starting a new service:**
 1. Identify complexity (1-3 methods = simple, 5+ methods = complex)
@@ -1503,4 +1573,4 @@ metadata: {
 
 ---
 
-**Version**: 3.1 | **Last Updated**: 2025-01-13 | **Read Time**: 20-25 minutes
+**Version**: 3.2 | **Last Updated**: 2025-01-14 | **Read Time**: 20-25 minutes

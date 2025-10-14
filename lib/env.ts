@@ -206,9 +206,9 @@ export const getDatabaseConfig = () => {
         };
       default: // development
         return {
-          max: 5, // Moderate pool for development
-          idleTimeoutMillis: 10000, // 10 seconds
-          connectionTimeoutMillis: 1500, // 1.5 seconds
+          max: 10, // Increased pool for development (handles concurrent requests)
+          idleTimeoutMillis: 30000, // 30 seconds (keep connections alive longer)
+          connectionTimeoutMillis: 10000, // 10 seconds (increased from 1.5s)
         };
     }
   };

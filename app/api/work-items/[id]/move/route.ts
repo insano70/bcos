@@ -6,7 +6,7 @@ import { extractRouteParams } from '@/lib/api/utils/params';
 import { workItemMoveSchema, workItemParamsSchema } from '@/lib/validations/work-items';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
-import { createRBACWorkItemsService } from '@/lib/services/rbac-work-items-service';
+import { createWorkItemHierarchyService } from '@/lib/services/work-item-hierarchy-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
 
@@ -33,14 +33,14 @@ const moveWorkItemHandler = async (
       newParentId: validatedData.parent_work_item_id,
     });
 
-    // Create RBAC service
+    // Create hierarchy service
     const serviceStart = Date.now();
-    const workItemsService = createRBACWorkItemsService(userContext);
-    log.info('RBAC service created', { duration: Date.now() - serviceStart });
+    const hierarchyService = createWorkItemHierarchyService(userContext);
+    log.info('Hierarchy service created', { duration: Date.now() - serviceStart });
 
     // Move work item with automatic permission checking and path recalculation
     const moveStart = Date.now();
-    const movedWorkItem = await workItemsService.moveWorkItem(
+    const movedWorkItem = await hierarchyService.moveWorkItem(
       validatedParams.id,
       validatedData.parent_work_item_id
     );
