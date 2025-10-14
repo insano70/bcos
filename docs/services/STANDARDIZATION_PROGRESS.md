@@ -489,7 +489,34 @@ Track overall progress:
 - Missing: RBAC scope in create/update/delete metadata for audit trail
 - See full review in conversation for detailed recommendations
 
-### Week 4+ (TBD)
+### Week 4 (Next) - RECOMMENDED
+**Target Service**: `rbac-organizations-service.ts`
+
+**Selection Rationale**:
+- ✅ File size compliant (675 lines - no split needed)
+- ✅ Natural progression from practices (Phase 2)
+- ✅ Fast migration (4 hours estimated)
+- ✅ Hierarchy pattern learning opportunity
+- ✅ High business value (multi-tenancy core)
+- ✅ Low risk (clear CRUD, helper functions already extracted)
+
+**Alternatives Considered**:
+1. `rbac-dashboards-service.ts` - Rejected (requires split, excessive logging fix, 8 hours)
+2. `rbac-users-service.ts` - Rejected (3-way split, high risk, 12 hours)
+
+**Migration Plan**: See [next_service_recommendation.md](../../next_service_recommendation.md)
+
+**Key Challenges**:
+- Hierarchy helper integration (maintain existing pattern)
+- Parent-child RBAC validation
+- Recursive operation logging
+
+**Expected Outcome**:
+- Phase 2: 2/3 complete (67%)
+- Overall: 5/15 services (33%)
+- Compliance: 55% → 58%
+
+### Week 5+ (TBD)
 - [ ] Continue per phase plan
 
 ---

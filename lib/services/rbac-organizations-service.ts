@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, isNull, like } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNotNull, isNull, like } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { organizations, practices, user_organizations, users } from '@/lib/db/schema';
 import { BaseRBACService } from '@/lib/rbac/base-service';
@@ -177,13 +177,14 @@ export class RBACOrganizationsService extends BaseRBACService {
     // Batch Query 2: Get all children counts in a single query
     const childrenCountResults = await db
       .select({
-        parent_organization_id: organizations.organization_id,
+        parent_organization_id: organizations.parent_organization_id,
         count: count(),
       })
       .from(organizations)
       .where(
         and(
           inArray(organizations.parent_organization_id, organizationIds),
+          isNotNull(organizations.parent_organization_id),
           eq(organizations.is_active, true),
           isNull(organizations.deleted_at)
         )
