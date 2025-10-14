@@ -57,6 +57,13 @@ interface Organization {
 /**
  * DashboardFilterBar Component
  *
+ * @deprecated Use DashboardFilterDropdown instead for a more compact UI
+ * 
+ * This component is deprecated in favor of the compact filter dropdown.
+ * The full-width filter bar takes up too much screen space.
+ * 
+ * New component: components/charts/dashboard-filter-dropdown.tsx
+ * 
  * Phase 7: Dashboard-level universal filters
  *
  * Provides dashboard-wide filtering controls that apply to ALL charts.
@@ -96,13 +103,15 @@ export default function DashboardFilterBar({
 
     try {
       setLoadingOrganizations(true);
-      const result = await apiClient.get<{ organizations: Organization[] }>(
+      // apiClient automatically unwraps { success: true, data: [...] } to just [...]
+      const orgList = await apiClient.get<Organization[]>(
         '/api/organizations?is_active=true'
       );
-      setOrganizations(result.organizations || []);
+      setOrganizations(orgList || []);
     } catch (error) {
       // Silently fail - organizations dropdown just won't be populated
       console.error('Failed to load organizations:', error);
+      setOrganizations([]);
     } finally {
       setLoadingOrganizations(false);
     }

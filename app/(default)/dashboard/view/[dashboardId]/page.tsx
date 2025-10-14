@@ -130,20 +130,8 @@ export default function DashboardViewPage() {
   const { dashboard, charts } = dashboardData;
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-9xl mx-auto">
-      {/* Dashboard Header */}
-      <div className="mb-8">
-        <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
-          {dashboard.dashboard_name}
-        </h1>
-        {dashboard.dashboard_description && (
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            {dashboard.dashboard_description}
-          </p>
-        )}
-      </div>
-
-      {/* Dashboard Content - Use DashboardView component */}
+    <div className="px-4 sm:px-6 lg:px-8 py-4 w-full max-w-9xl mx-auto">
+      {/* Dashboard Content - DashboardView includes its own title */}
       <DashboardView
         dashboard={dashboard}
         dashboardCharts={charts}

@@ -4,7 +4,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import AnalyticsChart from './analytics-chart';
 import BatchChartRenderer, { type BatchChartData } from './batch-chart-renderer';
-import DashboardFilterBar, { type DashboardUniversalFilters } from './dashboard-filter-bar';
+import DashboardFilterDropdown from './dashboard-filter-dropdown';
+import { type DashboardUniversalFilters } from './dashboard-filter-bar';
 import { useDashboardData } from '@/hooks/use-dashboard-data';
 import type { Dashboard, DashboardChart, ChartDefinition, MeasureType, FrequencyType, ChartFilter } from '@/lib/types/analytics';
 import { apiClient } from '@/lib/api/client';
@@ -195,47 +196,52 @@ export default function DashboardView({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Phase 7: Dashboard Filter Bar */}
-      {showFilterBar && (
-        <DashboardFilterBar
-          initialFilters={universalFilters}
-          onFiltersChange={handleFilterChange}
-          loading={isLoading}
-          filterConfig={filterConfig}
-        />
-      )}
+    <div className="space-y-4">
+      {/* Compact Title Row with Filter Icon */}
+      <div className="flex items-center justify-between px-4 pt-4">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+          {dashboardConfig.dashboardName}
+        </h1>
+        {showFilterBar && (
+          <DashboardFilterDropdown
+            initialFilters={universalFilters}
+            onFiltersChange={handleFilterChange}
+            loading={isLoading}
+            align="right"
+          />
+        )}
+      </div>
 
       {/* Phase 7: Performance Metrics (dev mode only) */}
       {process.env.NODE_ENV === 'development' && useBatchRendering && batchMetrics && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-4">
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mx-4">
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-3">
               <span className="font-medium text-blue-900 dark:text-blue-100">
-                ⚡ Batch Rendering Metrics
+                ⚡ Batch
               </span>
               <span className="text-blue-700 dark:text-blue-300">
-                Load Time: {batchMetrics.totalTime}ms
+                {batchMetrics.totalTime}ms
               </span>
               <span className="text-blue-700 dark:text-blue-300">
-                Cache Hit Rate: {batchMetrics.cacheHitRate}%
+                {batchMetrics.cacheHitRate}% cache
               </span>
               <span className="text-blue-700 dark:text-blue-300">
-                Charts: {batchMetrics.chartsRendered}
+                {batchMetrics.chartsRendered} charts
               </span>
             </div>
             <button
               onClick={() => refetchBatch(true)}
-              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 text-xs"
+              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
             >
-              🔄 Force Refresh
+              🔄
             </button>
           </div>
         </div>
       )}
 
       {/* Dashboard Grid - Following /dashboard pattern */}
-      <div className="grid grid-cols-12 gap-6 w-full p-4">
+      <div className="grid grid-cols-12 gap-6 w-full px-4 pb-4">
         {dashboardConfig.charts.map((dashboardChart) => {
           if (!dashboardChart.chartDefinition) {
             // Determine responsive column span classes like dashboard cards

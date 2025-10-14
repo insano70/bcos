@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import AnalyticsChart from './analytics-chart';
-import DashboardFilterBar, { type DashboardUniversalFilters, type DashboardFilterConfig } from './dashboard-filter-bar';
+import DashboardFilterDropdown from './dashboard-filter-dropdown';
+import { type DashboardUniversalFilters, type DashboardFilterConfig } from './dashboard-filter-bar';
 import type { Dashboard, DashboardChart, ChartDefinition, MeasureType, FrequencyType, ChartFilter } from '@/lib/types/analytics';
 import { apiClient } from '@/lib/api/client';
 
@@ -139,44 +140,49 @@ export default function DashboardPreview({
     );
   }
 
-  // Phase 7: Check if filter bar should be shown in preview
-  const showFilterBarInPreview = filterConfig?.enabled !== false;
+  // Phase 7: Check if filter dropdown should be shown in preview
+  const showFilterInPreview = filterConfig?.enabled !== false;
 
   return (
-    <div className="space-y-6">
-      {/* Phase 7: Filter Bar Preview */}
-      {showFilterBarInPreview && filterConfig && (
-        <div className="relative">
-          <DashboardFilterBar
-            initialFilters={previewFilters}
-            onFiltersChange={setPreviewFilters}
-            loading={false}
-            filterConfig={filterConfig}
-          />
-          <div className="absolute top-2 right-2 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 text-xs px-2 py-1 rounded border border-yellow-300 dark:border-yellow-700">
+    <div className="space-y-4">
+      {/* Compact Title Row with Filter Icon */}
+      <div className="flex items-center justify-between px-4 pt-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+            {previewConfig.dashboardName}
+          </h1>
+          {/* Preview Mode Badge */}
+          <div className="inline-block mt-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 text-xs px-2 py-1 rounded border border-yellow-300 dark:border-yellow-700">
             Preview Mode
           </div>
         </div>
-      )}
+        {showFilterInPreview && filterConfig && (
+          <DashboardFilterDropdown
+            initialFilters={previewFilters}
+            onFiltersChange={setPreviewFilters}
+            loading={false}
+            align="right"
+          />
+        )}
+      </div>
 
-      {/* Preview Header */}
-      <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-6 mb-6">
-        <div>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-            {previewConfig.dashboardName || 'Unnamed Dashboard'}
-          </h3>
-          {previewConfig.dashboardDescription && (
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              {previewConfig.dashboardDescription}
-            </p>
-          )}
-          <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-            {previewConfig.charts.length} chart{previewConfig.charts.length !== 1 ? 's' : ''} • 
-            {previewConfig.layout.columns} column grid • 
-            {previewConfig.layout.rowHeight}px row height
+      {/* Preview Info - Description and Stats Only */}
+      {(previewConfig.dashboardDescription || previewConfig.charts.length > 0) && (
+        <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 mx-4">
+          <div>
+            {previewConfig.dashboardDescription && (
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {previewConfig.dashboardDescription}
+              </p>
+            )}
+            <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              {previewConfig.charts.length} chart{previewConfig.charts.length !== 1 ? 's' : ''} • 
+              {previewConfig.layout.columns} column grid • 
+              {previewConfig.layout.rowHeight}px row height
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Dashboard Grid Preview - Following /dashboard pattern */}
       <div className="grid grid-cols-12 gap-6 w-full p-4">
