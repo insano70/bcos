@@ -269,14 +269,71 @@ export class DashboardRenderer {
             universalFilters
           );
 
+          // FIX: Flatten nested series.* fields (handlers expect top-level)
+          const chartConfigTyped = chartDef.chart_config as { 
+            series?: { groupBy?: string; colorPalette?: string };
+            groupBy?: string;
+            colorPalette?: string;
+            dualAxisConfig?: unknown;
+            aggregation?: string;
+            target?: number;
+            stackingMode?: string;
+            dataSourceId?: number;
+          };
+
+          // Build final config with flattened fields
+          const finalChartConfig: Record<string, unknown> = {
+            ...mergedChartConfig,
+            chartType: chartDef.chart_type,
+            dataSourceId: chartConfigTyped.dataSourceId || 0,
+          };
+
+          // Flatten series.groupBy to top-level groupBy (critical for progress/bar charts)
+          if (chartConfigTyped.series?.groupBy) {
+            finalChartConfig.groupBy = chartConfigTyped.series.groupBy;
+          }
+
+          // Flatten series.colorPalette to top-level colorPalette
+          if (chartConfigTyped.series?.colorPalette) {
+            finalChartConfig.colorPalette = chartConfigTyped.series.colorPalette;
+          }
+
+          // Ensure critical chart-type-specific fields are present
+          if (chartDef.chart_type === 'dual-axis' && chartConfigTyped.dualAxisConfig) {
+            finalChartConfig.dualAxisConfig = chartConfigTyped.dualAxisConfig;
+          }
+
+          if (chartDef.chart_type === 'progress-bar') {
+            if (chartConfigTyped.aggregation) finalChartConfig.aggregation = chartConfigTyped.aggregation;
+            if (chartConfigTyped.target !== undefined) finalChartConfig.target = chartConfigTyped.target;
+          }
+
+          if (chartConfigTyped.stackingMode) {
+            finalChartConfig.stackingMode = chartConfigTyped.stackingMode;
+          }
+
+          // CRITICAL: Multi-series support - field stored as 'seriesConfigs' but passed as 'multipleSeries'
+          const seriesConfigs = (chartDef.chart_config as { seriesConfigs?: unknown[] })?.seriesConfigs;
+          if (seriesConfigs && Array.isArray(seriesConfigs) && seriesConfigs.length > 0) {
+            finalChartConfig.multipleSeries = seriesConfigs;
+          }
+
+          // Debug logging
+          log.info('Batch chart config prepared', {
+            chartId: chartDef.chart_definition_id,
+            chartType: chartDef.chart_type,
+            chartName: chartDef.chart_name,
+            hasGroupBy: !!finalChartConfig.groupBy,
+            groupByValue: finalChartConfig.groupBy,
+            hasDualAxisConfig: !!finalChartConfig.dualAxisConfig,
+            hasAggregation: !!finalChartConfig.aggregation,
+            runtimeFilterKeys: Object.keys(runtimeFilters),
+          });
+
           // Execute chart via orchestrator
           const result = await chartDataOrchestrator.orchestrate(
             {
-              chartConfig: {
-                ...mergedChartConfig,
-                chartType: chartDef.chart_type,
-                dataSourceId: (chartDef.chart_config as {dataSourceId?: number})?.dataSourceId || 0,
-              },
+              chartConfig: finalChartConfig as typeof finalChartConfig & { chartType: string; dataSourceId: number },
               runtimeFilters, // FIX #4: Pass extracted filters to orchestrator
             },
             userContext

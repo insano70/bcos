@@ -179,6 +179,7 @@ export const dashboardCreateSchema = z
     dashboard_name: nameSchema,
     dashboard_description: descriptionSchema,
     dashboard_category_id: integerIdSchema.optional(),
+    organization_id: z.string().uuid().nullable().optional(), // undefined = user's current org, null = universal, UUID = specific org
     chart_ids: z.array(uuidSchema).max(50, 'Too many charts').optional(),
     chart_positions: z.array(chartPositionSchema).max(50, 'Too many chart positions').optional(),
     layout_config: z.record(z.string(), z.any()).optional(), // JSON layout configuration

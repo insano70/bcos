@@ -1,4 +1,4 @@
-import { and, count, desc, eq, like, or } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNull, like, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   chart_categories,
@@ -21,6 +21,13 @@ export interface CreateDashboardData {
   dashboard_name: string;
   dashboard_description?: string | undefined;
   dashboard_category_id?: number | undefined;
+  /**
+   * Organization ID for dashboard scoping
+   * - undefined: defaults to user's current_organization_id (or null if none)
+   * - null: creates universal dashboard (visible to all orgs)
+   * - UUID: creates org-specific dashboard (visible only to that org)
+   */
+  organization_id?: string | null | undefined;
   chart_ids?: string[] | undefined;
   chart_positions?: Record<string, unknown>[] | undefined;
   layout_config?: Record<string, unknown> | undefined;
@@ -33,6 +40,13 @@ export interface UpdateDashboardData {
   dashboard_name?: string;
   dashboard_description?: string;
   dashboard_category_id?: number;
+  /**
+   * Organization ID for dashboard scoping
+   * - undefined: don't update (keep existing value)
+   * - null: set to universal dashboard (visible to all orgs)
+   * - UUID: set to org-specific dashboard (visible only to that org)
+   */
+  organization_id?: string | null;
   chart_ids?: string[];
   chart_positions?: Record<string, unknown>[];
   layout_config?: Record<string, unknown>;
@@ -46,6 +60,13 @@ export interface DashboardQueryOptions {
   is_active?: boolean | undefined;
   is_published?: boolean | undefined;
   search?: string | undefined;
+  /**
+   * Filter by organization
+   * - undefined: apply RBAC-based filtering (universal + user's orgs)
+   * - null: only universal dashboards
+   * - UUID: only dashboards for that specific org (+ universal)
+   */
+  organization_id?: string | null | undefined;
   limit?: number | undefined;
   offset?: number | undefined;
 }
@@ -57,6 +78,12 @@ export interface DashboardWithCharts {
   dashboard_description: string | undefined;
   layout_config: Record<string, unknown>;
   dashboard_category_id: number | undefined;
+  /**
+   * Organization ID for dashboard scoping
+   * - undefined: universal dashboard (visible to all orgs)
+   * - UUID: org-specific dashboard (visible only to that org)
+   */
+  organization_id: string | undefined;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -91,6 +118,7 @@ export interface DashboardWithCharts {
 export class RBACDashboardsService extends BaseRBACService {
   /**
    * Get dashboards with automatic permission-based filtering
+   * Implements organization scoping: NULL organization_id = universal (all orgs can see)
    */
   async getDashboards(options: DashboardQueryOptions = {}): Promise<DashboardWithCharts[]> {
     this.requireAnyPermission([
@@ -98,6 +126,9 @@ export class RBACDashboardsService extends BaseRBACService {
       'dashboards:read:organization',
       'dashboards:read:all',
     ]);
+
+    // Get user's access scope for organization-based filtering
+    const accessScope = this.getAccessScope('dashboards', 'read');
 
     // Build query conditions
     const conditions = [];
@@ -126,6 +157,46 @@ export class RBACDashboardsService extends BaseRBACService {
       );
     }
 
+    // Apply organization-based filtering based on access scope
+    switch (accessScope.scope) {
+      case 'own':
+        // Own scope: user's dashboards only
+        conditions.push(eq(dashboards.created_by, this.userContext.user_id));
+
+        // Also apply org filter (universal OR user's orgs)
+        if (accessScope.organizationIds && accessScope.organizationIds.length > 0) {
+          conditions.push(
+            or(
+              isNull(dashboards.organization_id), // Universal dashboards
+              inArray(dashboards.organization_id, accessScope.organizationIds)
+            )
+          );
+        } else {
+          // No orgs - only universal dashboards
+          conditions.push(isNull(dashboards.organization_id));
+        }
+        break;
+
+      case 'organization':
+        // Organization scope: universal OR user's accessible orgs
+        if (accessScope.organizationIds && accessScope.organizationIds.length > 0) {
+          conditions.push(
+            or(
+              isNull(dashboards.organization_id), // Universal dashboards
+              inArray(dashboards.organization_id, accessScope.organizationIds)
+            )
+          );
+        } else {
+          // No accessible orgs - only universal dashboards
+          conditions.push(isNull(dashboards.organization_id));
+        }
+        break;
+
+      case 'all':
+        // Super admin - no organization filter (see everything)
+        break;
+    }
+
     // Fetch dashboards with creator, category info, and chart counts in single query
     const dashboardList = await db
       .select({
@@ -135,6 +206,7 @@ export class RBACDashboardsService extends BaseRBACService {
         dashboard_description: dashboards.dashboard_description,
         layout_config: dashboards.layout_config,
         dashboard_category_id: dashboards.dashboard_category_id,
+        organization_id: dashboards.organization_id, // Added for org filtering
         created_by: dashboards.created_by,
         created_at: dashboards.created_at,
         updated_at: dashboards.updated_at,
@@ -167,6 +239,7 @@ export class RBACDashboardsService extends BaseRBACService {
         dashboards.dashboard_description,
         dashboards.layout_config,
         dashboards.dashboard_category_id,
+        dashboards.organization_id, // Added for org filtering
         dashboards.created_by,
         dashboards.created_at,
         dashboards.updated_at,
@@ -192,6 +265,7 @@ export class RBACDashboardsService extends BaseRBACService {
       dashboard_description: dashboard.dashboard_description || undefined,
       layout_config: (dashboard.layout_config as Record<string, unknown>) || {},
       dashboard_category_id: dashboard.dashboard_category_id || undefined,
+      organization_id: dashboard.organization_id || undefined, // Added for org filtering
       created_by: dashboard.created_by,
       created_at: (dashboard.created_at || new Date()).toISOString(),
       updated_at: (dashboard.updated_at || new Date()).toISOString(),
@@ -284,6 +358,7 @@ export class RBACDashboardsService extends BaseRBACService {
       dashboard_description: dashboard.dashboards.dashboard_description || undefined,
       layout_config: (dashboard.dashboards.layout_config as Record<string, unknown>) || {},
       dashboard_category_id: dashboard.dashboards.dashboard_category_id || undefined,
+      organization_id: dashboard.dashboards.organization_id || undefined,
       created_by: dashboard.dashboards.created_by,
       created_at: (dashboard.dashboards.created_at || new Date()).toISOString(),
       updated_at: (dashboard.dashboards.updated_at || new Date()).toISOString(),
@@ -330,6 +405,40 @@ export class RBACDashboardsService extends BaseRBACService {
 
     // Build query conditions
     const conditions = [];
+
+    // Apply organization-based filtering
+    const accessScope = this.getAccessScope('dashboards', 'read');
+
+    switch (accessScope.scope) {
+      case 'own':
+        conditions.push(eq(dashboards.created_by, this.userContext.user_id));
+        if (accessScope.organizationIds && accessScope.organizationIds.length > 0) {
+          conditions.push(
+            or(
+              isNull(dashboards.organization_id), // Universal dashboards
+              inArray(dashboards.organization_id, accessScope.organizationIds)
+            )
+          );
+        } else {
+          conditions.push(isNull(dashboards.organization_id));
+        }
+        break;
+      case 'organization':
+        if (accessScope.organizationIds && accessScope.organizationIds.length > 0) {
+          conditions.push(
+            or(
+              isNull(dashboards.organization_id), // Universal dashboards
+              inArray(dashboards.organization_id, accessScope.organizationIds)
+            )
+          );
+        } else {
+          conditions.push(isNull(dashboards.organization_id));
+        }
+        break;
+      case 'all':
+        // Super admin - no organization filter
+        break;
+    }
 
     if (options.is_active !== undefined) {
       conditions.push(eq(dashboards.is_active, options.is_active));
@@ -382,6 +491,26 @@ export class RBACDashboardsService extends BaseRBACService {
       'dashboards:manage:all',
     ]);
 
+    // Determine organization_id for dashboard
+    // undefined = use user's current org (or null if none)
+    // null = universal dashboard
+    // UUID = specific organization
+    let organizationId: string | null;
+    if (dashboardData.organization_id === undefined) {
+      // Default to user's current organization, or null if none
+      organizationId = this.userContext.current_organization_id || null;
+    } else {
+      // Explicitly set (null for universal, or specific UUID)
+      organizationId = dashboardData.organization_id;
+    }
+
+    // If setting specific organization, validate user has access
+    if (organizationId && !this.canAccessOrganization(organizationId)) {
+      throw new Error(
+        `Cannot create dashboard for organization ${organizationId}: Access denied`
+      );
+    }
+
     // If setting this as default, clear any existing default dashboard
     if (dashboardData.is_default === true) {
       await db.update(dashboards).set({ is_default: false }).where(eq(dashboards.is_default, true));
@@ -395,6 +524,7 @@ export class RBACDashboardsService extends BaseRBACService {
         dashboard_description: dashboardData.dashboard_description,
         layout_config: dashboardData.layout_config || {},
         dashboard_category_id: dashboardData.dashboard_category_id,
+        organization_id: organizationId, // Added for org scoping
         created_by: this.userContext.user_id,
         is_active: dashboardData.is_active ?? true,
         is_published: dashboardData.is_published ?? false,
@@ -475,6 +605,7 @@ export class RBACDashboardsService extends BaseRBACService {
       layout_config:
         (createdDashboardData.dashboards.layout_config as Record<string, unknown>) || {},
       dashboard_category_id: createdDashboardData.dashboards.dashboard_category_id || undefined,
+      organization_id: createdDashboardData.dashboards.organization_id || undefined,
       created_by: createdDashboardData.dashboards.created_by,
       created_at:
         createdDashboardData.dashboards.created_at?.toISOString() || new Date().toISOString(),
@@ -561,6 +692,19 @@ export class RBACDashboardsService extends BaseRBACService {
       throw new Error('Dashboard not found');
     }
 
+    // If changing organization_id, validate access
+    if (updateData.organization_id !== undefined) {
+      if (updateData.organization_id !== null) {
+        // Changing to specific org - validate user has access
+        if (!this.canAccessOrganization(updateData.organization_id)) {
+          throw new Error(
+            `Cannot assign dashboard to organization ${updateData.organization_id}: Access denied`
+          );
+        }
+      }
+      // null is allowed (making it universal)
+    }
+
     // Execute dashboard update and chart management as atomic transaction
     const _updatedDashboard = await db.transaction(async (tx) => {
       // If setting this as default, clear any existing default dashboard
@@ -577,6 +721,7 @@ export class RBACDashboardsService extends BaseRBACService {
         dashboard_description: string;
         layout_config: Record<string, unknown>;
         dashboard_category_id: number;
+        organization_id: string | null; // Added for org scoping
         is_active: boolean;
         is_published: boolean;
         is_default: boolean;
@@ -675,6 +820,7 @@ export class RBACDashboardsService extends BaseRBACService {
       layout_config:
         (updatedDashboardData.dashboards.layout_config as Record<string, unknown>) || {},
       dashboard_category_id: updatedDashboardData.dashboards.dashboard_category_id || undefined,
+      organization_id: updatedDashboardData.dashboards.organization_id || undefined,
       created_by: updatedDashboardData.dashboards.created_by,
       created_at:
         updatedDashboardData.dashboards.created_at?.toISOString() || new Date().toISOString(),

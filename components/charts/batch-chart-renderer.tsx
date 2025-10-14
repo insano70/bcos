@@ -20,10 +20,12 @@
 
 'use client';
 
-import React from 'react';
+import React, { useRef } from 'react';
 import ChartRenderer from './chart-renderer';
 import ChartHeader from './chart-header';
 import ChartError from './chart-error';
+import ResponsiveChartContainer from './responsive-chart-container';
+import { GlassCard } from '@/components/ui/glass-card';
 import type { ChartData } from '@/lib/types/analytics';
 
 /**
@@ -182,6 +184,21 @@ export default function BatchChartRenderer({
   const configRecord = chartConfig as Record<string, unknown>;
   const colorPalette = configRecord.colorPalette as string | undefined;
   const stackingMode = configRecord.stackingMode as string | undefined;
+  const dualAxisConfig = configRecord.dualAxisConfig as import('@/lib/types/analytics').DualAxisConfig | undefined;
+  const calculatedField = configRecord.calculatedField as string | undefined;
+  // CRITICAL: Field is stored as 'seriesConfigs' in chart_config, not 'multipleSeries'
+  const multipleSeries = configRecord.seriesConfigs as unknown[] | undefined;
+  const target = configRecord.target as number | undefined;
+  const aggregation = configRecord.aggregation as string | undefined;
+  const advancedFilters = configRecord.advancedFilters as unknown[] | undefined;
+  const dataSourceId = configRecord.dataSourceId as number | undefined;
+  
+  // Calculate dimensions from position (approximate grid-based sizing)
+  const chartWidth = position.w * 100; // Grid width to pixels
+  const chartHeight = position.h * 150; // Grid height to pixels
+  
+  // Chart ref for export functionality (like AnalyticsChart)
+  const chartRef = useRef<HTMLCanvasElement | null>(null);
   
   // Handle export functionality
   const handleExport = (format: 'png' | 'pdf' | 'csv') => {
@@ -200,7 +217,7 @@ export default function BatchChartRenderer({
   };
 
   return (
-    <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 relative ${className}`}>
+    <GlassCard className={`flex flex-col ${className}`}>
       {/* Chart Header */}
       <ChartHeader
         title={chartDefinition.chart_name}
@@ -208,25 +225,66 @@ export default function BatchChartRenderer({
         onRefresh={onRetry || (() => {})}
       />
 
-      {/* Chart Content */}
-      <div className="flex-1 p-2" style={{ minHeight: `${minHeight}px`, maxHeight: `${maxHeight}px` }}>
-        <ChartRenderer
-          chartType={chartData.metadata.chartType}
-          data={chartData.chartData}
-          rawData={chartData.rawData}
-          {...(chartData.columns && { columns: chartData.columns })}
-          {...(chartData.formattedData && { formattedData: chartData.formattedData })}
-          title={chartDefinition.chart_name}
-          // FIX #7: Pass measure/frequency/groupBy from metadata (conditional for exactOptionalPropertyTypes)
-          {...(chartData.metadata.measure && { measure: chartData.metadata.measure })}
-          {...(chartData.metadata.frequency && { frequency: chartData.metadata.frequency })}
-          {...(chartData.metadata.groupBy && { groupBy: chartData.metadata.groupBy })}
-          {...(colorPalette && { colorPalette })}
-          {...(stackingMode && { stackingMode })}
-          responsive={responsive}
-          minHeight={minHeight}
-          maxHeight={maxHeight}
-        />
+      {/* Chart Content - Match AnalyticsChart structure exactly */}
+      <div className="flex-1 p-2">
+        {responsive ? (
+          <ResponsiveChartContainer
+            minHeight={minHeight}
+            maxHeight={maxHeight}
+            className="w-full h-full"
+          >
+            <ChartRenderer
+              chartType={chartData.metadata.chartType}
+              data={chartData.chartData}
+              rawData={chartData.rawData}
+              {...(chartData.columns && { columns: chartData.columns })}
+              {...(chartData.formattedData && { formattedData: chartData.formattedData })}
+              chartRef={chartRef}
+              width={chartWidth}
+              height={chartHeight}
+              title={chartDefinition.chart_name}
+              {...(chartData.metadata.measure && { measure: chartData.metadata.measure })}
+              {...(chartData.metadata.frequency && { frequency: chartData.metadata.frequency })}
+              {...(chartData.metadata.groupBy && { groupBy: chartData.metadata.groupBy })}
+              {...(colorPalette && { colorPalette })}
+              {...(stackingMode && { stackingMode })}
+              {...(dualAxisConfig && { dualAxisConfig })}
+              {...(calculatedField && { calculatedField })}
+              {...(multipleSeries && { multipleSeries })}
+              {...(target !== undefined && { target })}
+              {...(aggregation && { aggregation })}
+              {...(advancedFilters && { advancedFilters })}
+              {...(dataSourceId && { dataSourceId })}
+              responsive={responsive}
+              minHeight={minHeight}
+              maxHeight={maxHeight}
+            />
+          </ResponsiveChartContainer>
+        ) : (
+          <ChartRenderer
+            chartType={chartData.metadata.chartType}
+            data={chartData.chartData}
+            rawData={chartData.rawData}
+            {...(chartData.columns && { columns: chartData.columns })}
+            {...(chartData.formattedData && { formattedData: chartData.formattedData })}
+            chartRef={chartRef}
+            width={chartWidth}
+            height={chartHeight}
+            title={chartDefinition.chart_name}
+            {...(chartData.metadata.measure && { measure: chartData.metadata.measure })}
+            {...(chartData.metadata.frequency && { frequency: chartData.metadata.frequency })}
+            {...(chartData.metadata.groupBy && { groupBy: chartData.metadata.groupBy })}
+            {...(colorPalette && { colorPalette })}
+            {...(stackingMode && { stackingMode })}
+            {...(dualAxisConfig && { dualAxisConfig })}
+            {...(calculatedField && { calculatedField })}
+            {...(multipleSeries && { multipleSeries })}
+            {...(target !== undefined && { target })}
+            {...(aggregation && { aggregation })}
+            {...(advancedFilters && { advancedFilters })}
+            {...(dataSourceId && { dataSourceId })}
+          />
+        )}
       </div>
 
       {/* Performance Badge (dev mode only) */}
@@ -235,7 +293,7 @@ export default function BatchChartRenderer({
           ⚡ Cached
         </div>
       )}
-    </div>
+    </GlassCard>
   );
 }
 

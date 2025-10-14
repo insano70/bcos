@@ -331,6 +331,7 @@ export interface Dashboard {
   dashboard_description?: string;
   layout_config: DashboardLayoutConfig;
   dashboard_category_id?: number;
+  organization_id?: string; // undefined = universal, UUID = org-specific
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -369,6 +370,7 @@ export interface DashboardListItem {
   dashboard_name: string;
   dashboard_description?: string | undefined;
   dashboard_category_id?: number | undefined;
+  organization_id?: string | undefined; // undefined = universal, UUID = org-specific
   category_name?: string | undefined;
   chart_count: number;
   created_by: string;

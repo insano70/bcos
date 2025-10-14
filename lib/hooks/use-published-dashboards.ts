@@ -5,6 +5,7 @@ export interface PublishedDashboard {
   dashboard_id: string;
   dashboard_name: string;
   dashboard_description?: string;
+  organization_id?: string; // undefined = universal, UUID = org-specific
   created_at: string;
   updated_at: string;
   is_default?: boolean;

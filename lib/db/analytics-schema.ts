@@ -9,7 +9,7 @@ import {
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
-import { users } from './schema';
+import { users, organizations } from './schema';
 import { chart_data_sources } from './chart-config-schema';
 
 /**
@@ -149,6 +149,19 @@ export const dashboards = pgTable(
     dashboard_category_id: integer('dashboard_category_id').references(
       () => chart_categories.chart_category_id
     ),
+    /**
+     * Organization scoping for dashboards
+     * NULL = Universal dashboard (visible to all organizations)
+     * UUID = Organization-specific dashboard (visible only to that organization)
+     *
+     * Data is always filtered at query time via practice_uids, so sharing
+     * dashboard configs is secure. This provides additive organization-level
+     * access control for dashboard visibility.
+     */
+    organization_id: uuid('organization_id').references(
+      () => organizations.organization_id,
+      { onDelete: 'set null' }
+    ),
     created_by: uuid('created_by')
       .references(() => users.user_id)
       .notNull(),
@@ -162,6 +175,8 @@ export const dashboards = pgTable(
     dashboardNameIdx: index('idx_dashboards_name').on(table.dashboard_name),
     createdByIdx: index('idx_dashboards_created_by').on(table.created_by),
     categoryIdx: index('idx_dashboards_category').on(table.dashboard_category_id),
+    organizationIdx: index('idx_dashboards_organization_id').on(table.organization_id),
+    publishedOrgIdx: index('idx_dashboards_published_org').on(table.is_published, table.organization_id),
     activeIdx: index('idx_dashboards_active').on(table.is_active),
     publishedIdx: index('idx_dashboards_published').on(table.is_published),
     defaultIdx: index('idx_dashboards_default').on(table.is_default),
