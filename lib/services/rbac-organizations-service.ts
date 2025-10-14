@@ -150,24 +150,56 @@ export class RBACOrganizationsService extends BaseRBACService {
       return filtered;
     })();
 
-    // Enhance results with additional data
+    // Collect all organization IDs for batched queries
+    const organizationIds = results.map(row => row.organization_id);
+
+    // Batch Query 1: Get all member counts in a single query
+    const memberCountResults = await db
+      .select({
+        organization_id: user_organizations.organization_id,
+        count: count(),
+      })
+      .from(user_organizations)
+      .where(
+        and(
+          inArray(user_organizations.organization_id, organizationIds),
+          eq(user_organizations.is_active, true)
+        )
+      )
+      .groupBy(user_organizations.organization_id);
+
+    // Create member count lookup map for O(1) access
+    const memberCountMap = new Map<string, number>();
+    for (const result of memberCountResults) {
+      memberCountMap.set(result.organization_id, result.count);
+    }
+
+    // Batch Query 2: Get all children counts in a single query
+    const childrenCountResults = await db
+      .select({
+        parent_organization_id: organizations.organization_id,
+        count: count(),
+      })
+      .from(organizations)
+      .where(
+        and(
+          inArray(organizations.parent_organization_id, organizationIds),
+          eq(organizations.is_active, true),
+          isNull(organizations.deleted_at)
+        )
+      )
+      .groupBy(organizations.parent_organization_id);
+
+    // Create children count lookup map for O(1) access
+    const childrenCountMap = new Map<string, number>();
+    for (const result of childrenCountResults) {
+      childrenCountMap.set(result.parent_organization_id, result.count);
+    }
+
+    // Enhance results with batched data
     const enhancedResults: OrganizationWithDetails[] = [];
 
     for (const row of results) {
-      // Get member count
-      const [memberCountResult] = await db
-        .select({ count: count() })
-        .from(user_organizations)
-        .where(
-          and(
-            eq(user_organizations.organization_id, row.organization_id),
-            eq(user_organizations.is_active, true)
-          )
-        );
-
-      // Get children count
-      const children = await getOrganizationChildren(row.organization_id);
-
       const enhanced: OrganizationWithDetails = {
         organization_id: row.organization_id,
         name: row.name,
@@ -177,8 +209,8 @@ export class RBACOrganizationsService extends BaseRBACService {
         created_at: row.created_at ?? new Date(),
         updated_at: row.updated_at ?? new Date(),
         deleted_at: row.deleted_at || undefined,
-        member_count: memberCountResult?.count || 0,
-        children_count: children.length,
+        member_count: memberCountMap.get(row.organization_id) || 0,
+        children_count: childrenCountMap.get(row.organization_id) || 0,
         practice_info: row.practice_id
           ? {
               practice_id: row.practice_id,

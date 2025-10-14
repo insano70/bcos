@@ -26,6 +26,9 @@ import SecurityEventsFeed from './components/security-events-feed';
 import AtRiskUsersPanel from './components/at-risk-users-panel';
 import UserDetailModal from './components/user-detail-modal';
 import RedisCacheStats from './components/redis-cache-stats';
+import PerformanceChart from './components/performance-chart';
+import ErrorRateChart from './components/error-rate-chart';
+import SlowQueriesPanel from './components/slow-queries-panel';
 import { ToastProvider } from './components/toast';
 import { KPISkeleton, PanelSkeleton } from './components/skeleton';
 import type { AtRiskUser } from '@/lib/monitoring/types';
@@ -243,48 +246,10 @@ export default function CommandCenterPage() {
             <SecurityStatusKPI security={metrics.security} />
           </div>
 
-          {/* Row 2: Performance Breakdown */}
+          {/* Row 2: Performance Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Standard API Performance (detailed) */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
-                Standard API Performance
-              </h3>
-              <div className="space-y-4">
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">p50</div>
-                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                      {metrics.performance.responseTime.p50}ms
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">p95</div>
-                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                      {metrics.performance.responseTime.p95}ms
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">p99</div>
-                    <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                      {metrics.performance.responseTime.p99}ms
-                    </div>
-                  </div>
-                </div>
-                <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    {metrics.performance.requests.total} requests • {metrics.performance.slowRequests.count} slow
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Analytics Performance */}
-            <AnalyticsPerformanceKPI
-              responseTime={metrics.analytics.responseTime}
-              requestCount={metrics.analytics.requests.total}
-              slowCount={metrics.analytics.slowRequests.count}
-            />
+            <PerformanceChart category="standard" timeRange="1h" height={350} />
+            <ErrorRateChart category="standard" timeRange="1h" height={350} />
           </div>
 
           {/* Row 3: Cache & Database */}
@@ -293,15 +258,10 @@ export default function CommandCenterPage() {
               autoRefresh={autoRefresh}
               refreshInterval={refreshInterval}
             />
-
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
-                Slow Queries
-              </h3>
-              <div className="text-gray-600 dark:text-gray-400 text-center py-8">
-                Coming in Phase 4
-              </div>
-            </div>
+            <SlowQueriesPanel
+              autoRefresh={autoRefresh}
+              refreshInterval={refreshInterval}
+            />
           </div>
 
           {/* Row 4: Security Monitoring */}

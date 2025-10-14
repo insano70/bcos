@@ -395,3 +395,57 @@ export interface LoginHistoryResponse {
   };
 }
 
+/**
+ * Performance data point for time-series charts
+ */
+export interface PerformanceDataPoint {
+  timestamp: string;
+  responseTime: {
+    p50: number;
+    p95: number;
+    p99: number;
+    avg: number;
+  };
+  requestCount: number;
+  errorCount: number;
+  errorRate: number;
+}
+
+/**
+ * Performance history response
+ */
+export interface PerformanceHistoryResponse {
+  dataPoints: PerformanceDataPoint[];
+  interval: string;
+  category: 'standard' | 'analytics';
+  timeRange: string;
+}
+
+/**
+ * Slow queries API response
+ */
+export interface SlowQueriesResponse {
+  queries: SlowQuery[];
+  totalCount: number;
+  avgDuration: number;
+  slowThreshold: number;
+  summary: {
+    byTable: Record<string, { count: number; avgDuration: number }>;
+    byOperation: Record<string, number>;
+  };
+}
+
+/**
+ * Errors API response
+ */
+export interface ErrorsResponse {
+  errors: ErrorLogEntry[];
+  totalCount: number;
+  summary: {
+    byEndpoint: Record<string, number>;
+    byType: Record<string, number>;
+    byStatusCode: Record<number, number>;
+  };
+  timeRange: string;
+}
+

@@ -30,8 +30,8 @@ export default function DashboardView({
   const filterConfig = layoutConfig?.filterConfig;
   const showFilterBar = filterConfig?.enabled !== false; // Default to true if not specified
   
-  // Phase 7: Batch rendering feature flag (default: false for gradual rollout)
-  const useBatchRendering = layoutConfig?.useBatchRendering === true;
+  // Phase 7: Batch rendering feature flag (default: true - Phase 7 complete)
+  const useBatchRendering = layoutConfig?.useBatchRendering !== false;
 
   // Phase 7: Dashboard-level universal filters with default values
   // Priority: URL params > default filters from config > system defaults
