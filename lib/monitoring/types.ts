@@ -192,9 +192,11 @@ export interface MonitoringMetrics {
  */
 export interface RedisStats {
   connected: boolean;
+  uptime: number; // seconds
   memory: {
     used: number; // MB
     total: number; // MB
+    peak: number; // MB
     percentage: number;
     fragmentation: number;
   };
@@ -210,8 +212,59 @@ export interface RedisStats {
     connectedClients: number;
     evictedKeys: number;
     expiredKeys: number;
+    totalCommands: number;
   };
   commandStats: Record<string, number>;
+}
+
+/**
+ * Redis key information
+ */
+export interface RedisKeyInfo {
+  key: string;
+  type: string;
+  ttl: number; // seconds, -1 = no expiry
+  size: number; // bytes
+}
+
+/**
+ * Redis key details with value
+ */
+export interface RedisKeyDetails extends RedisKeyInfo {
+  value: unknown;
+  encoding?: string;
+}
+
+/**
+ * Redis keys search response
+ */
+export interface RedisKeysResponse {
+  keys: RedisKeyInfo[];
+  totalCount: number;
+  page: number;
+  limit: number;
+  pattern: string;
+}
+
+/**
+ * Redis purge operation result
+ */
+export interface RedisPurgeResult {
+  success: boolean;
+  keysDeleted: number;
+  pattern: string;
+  preview: boolean;
+  keys?: string[] | undefined;
+}
+
+/**
+ * Redis TTL update result
+ */
+export interface RedisTTLUpdateResult {
+  success: boolean;
+  keysUpdated: number;
+  pattern: string;
+  ttl: number;
 }
 
 /**

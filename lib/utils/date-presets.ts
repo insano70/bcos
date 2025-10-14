@@ -5,14 +5,29 @@
  */
 
 export type DatePresetId =
+  // Day-based periods
+  | 'today'
+  | 'yesterday'
   | 'last_7_days'
+  | 'last_14_days'
   | 'last_30_days'
+  | 'last_90_days'
+  | 'last_180_days'
+  | 'last_365_days'
+  // Month-based periods
   | 'this_month'
   | 'last_month'
+  | 'last_3_full_months'
+  | 'last_6_full_months'
+  | 'last_12_full_months'
+  // Quarter-based periods
   | 'this_quarter'
   | 'last_quarter'
+  // Year-based periods
   | 'ytd'
+  | 'this_year'
   | 'last_year'
+  // Custom
   | 'custom';
 
 export interface DateRange {
@@ -45,6 +60,23 @@ export function calculateDateRangeFromPreset(
   }
 
   switch (presetId) {
+    case 'today': {
+      const today = new Date(referenceDate);
+      return {
+        startDate: toDateString(today),
+        endDate: toDateString(today)
+      };
+    }
+
+    case 'yesterday': {
+      const yesterday = new Date(referenceDate);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return {
+        startDate: toDateString(yesterday),
+        endDate: toDateString(yesterday)
+      };
+    }
+
     case 'last_7_days': {
       const end = new Date(referenceDate);
       const start = new Date(referenceDate);
@@ -55,10 +87,50 @@ export function calculateDateRangeFromPreset(
       };
     }
 
+    case 'last_14_days': {
+      const end = new Date(referenceDate);
+      const start = new Date(referenceDate);
+      start.setDate(start.getDate() - 14);
+      return {
+        startDate: toDateString(start),
+        endDate: toDateString(end)
+      };
+    }
+
     case 'last_30_days': {
       const end = new Date(referenceDate);
       const start = new Date(referenceDate);
       start.setDate(start.getDate() - 30);
+      return {
+        startDate: toDateString(start),
+        endDate: toDateString(end)
+      };
+    }
+
+    case 'last_90_days': {
+      const end = new Date(referenceDate);
+      const start = new Date(referenceDate);
+      start.setDate(start.getDate() - 90);
+      return {
+        startDate: toDateString(start),
+        endDate: toDateString(end)
+      };
+    }
+
+    case 'last_180_days': {
+      const end = new Date(referenceDate);
+      const start = new Date(referenceDate);
+      start.setDate(start.getDate() - 180);
+      return {
+        startDate: toDateString(start),
+        endDate: toDateString(end)
+      };
+    }
+
+    case 'last_365_days': {
+      const end = new Date(referenceDate);
+      const start = new Date(referenceDate);
+      start.setDate(start.getDate() - 365);
       return {
         startDate: toDateString(start),
         endDate: toDateString(end)
@@ -77,6 +149,39 @@ export function calculateDateRangeFromPreset(
     case 'last_month': {
       const start = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - 1, 1);
       const end = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 0);
+      return {
+        startDate: toDateString(start),
+        endDate: toDateString(end)
+      };
+    }
+
+    case 'last_3_full_months': {
+      // End = last day of previous month
+      const end = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 0);
+      // Start = first day of (current month - 3)
+      const start = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - 3, 1);
+      return {
+        startDate: toDateString(start),
+        endDate: toDateString(end)
+      };
+    }
+
+    case 'last_6_full_months': {
+      // End = last day of previous month
+      const end = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 0);
+      // Start = first day of (current month - 6)
+      const start = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - 6, 1);
+      return {
+        startDate: toDateString(start),
+        endDate: toDateString(end)
+      };
+    }
+
+    case 'last_12_full_months': {
+      // End = last day of previous month
+      const end = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 0);
+      // Start = first day of (current month - 12)
+      const start = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - 12, 1);
       return {
         startDate: toDateString(start),
         endDate: toDateString(end)
@@ -114,6 +219,15 @@ export function calculateDateRangeFromPreset(
       };
     }
 
+    case 'this_year': {
+      const start = new Date(referenceDate.getFullYear(), 0, 1);
+      const end = new Date(referenceDate.getFullYear(), 11, 31);
+      return {
+        startDate: toDateString(start),
+        endDate: toDateString(end)
+      };
+    }
+
     case 'last_year': {
       const start = new Date(referenceDate.getFullYear() - 1, 0, 1);
       const end = new Date(referenceDate.getFullYear() - 1, 11, 31);
@@ -136,13 +250,23 @@ export function calculateDateRangeFromPreset(
  */
 export function isValidPreset(presetId: string): presetId is DatePresetId {
   const validPresets: DatePresetId[] = [
+    'today',
+    'yesterday',
     'last_7_days',
+    'last_14_days',
     'last_30_days',
+    'last_90_days',
+    'last_180_days',
+    'last_365_days',
     'this_month',
     'last_month',
+    'last_3_full_months',
+    'last_6_full_months',
+    'last_12_full_months',
     'this_quarter',
     'last_quarter',
     'ytd',
+    'this_year',
     'last_year',
     'custom'
   ];

@@ -25,6 +25,7 @@ import AnalyticsPerformanceKPI from './components/analytics-performance-kpi';
 import SecurityEventsFeed from './components/security-events-feed';
 import AtRiskUsersPanel from './components/at-risk-users-panel';
 import UserDetailModal from './components/user-detail-modal';
+import RedisCacheStats from './components/redis-cache-stats';
 import { ToastProvider } from './components/toast';
 import { KPISkeleton, PanelSkeleton } from './components/skeleton';
 import type { AtRiskUser } from '@/lib/monitoring/types';
@@ -286,30 +287,12 @@ export default function CommandCenterPage() {
             />
           </div>
 
-          {/* Row 3: Cache & Database - Placeholder for Phase 3 */}
+          {/* Row 3: Cache & Database */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
-                Redis Cache Statistics
-              </h3>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Hit Rate</span>
-                  <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                    {metrics.cache.hitRate.toFixed(1)}%
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div
-                    className="bg-violet-500 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${metrics.cache.hitRate}%` }}
-                  />
-                </div>
-                <div className="text-gray-600 dark:text-gray-400 text-sm text-center mt-4">
-                  Full Redis admin tools coming in Phase 3
-                </div>
-              </div>
-            </div>
+            <RedisCacheStats
+              autoRefresh={autoRefresh}
+              refreshInterval={refreshInterval}
+            />
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">

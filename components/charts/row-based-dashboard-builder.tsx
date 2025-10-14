@@ -463,12 +463,21 @@ export default function RowBasedDashboardBuilder({
                       <option value="today">Today</option>
                       <option value="yesterday">Yesterday</option>
                       <option value="last_7_days">Last 7 Days</option>
+                      <option value="last_14_days">Last 14 Days</option>
                       <option value="last_30_days">Last 30 Days</option>
                       <option value="last_90_days">Last 90 Days</option>
+                      <option value="last_180_days">Last 180 Days</option>
+                      <option value="last_365_days">Last 365 Days</option>
                       <option value="this_month">This Month</option>
                       <option value="last_month">Last Month</option>
+                      <option value="last_3_full_months">Trailing 3 Months</option>
+                      <option value="last_6_full_months">Trailing 6 Months</option>
+                      <option value="last_12_full_months">Trailing 12 Months</option>
                       <option value="this_quarter">This Quarter</option>
+                      <option value="last_quarter">Last Quarter</option>
+                      <option value="ytd">Year to Date</option>
                       <option value="this_year">This Year</option>
+                      <option value="last_year">Last Year</option>
                     </select>
                   </div>
                 </div>

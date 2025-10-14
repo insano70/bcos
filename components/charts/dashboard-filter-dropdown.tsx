@@ -33,6 +33,30 @@ interface DatePreset {
 }
 
 const DATE_PRESETS: DatePreset[] = [
+  // Day-based periods
+  {
+    id: 'today',
+    label: 'Today',
+    getDateRange: () => {
+      const today = new Date();
+      return {
+        startDate: today.toISOString().split('T')[0]!,
+        endDate: today.toISOString().split('T')[0]!
+      };
+    }
+  },
+  {
+    id: 'yesterday',
+    label: 'Yesterday',
+    getDateRange: () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      return {
+        startDate: yesterday.toISOString().split('T')[0]!,
+        endDate: yesterday.toISOString().split('T')[0]!
+      };
+    }
+  },
   {
     id: 'last_7_days',
     label: 'Last 7 Days',
@@ -40,6 +64,19 @@ const DATE_PRESETS: DatePreset[] = [
       const end = new Date();
       const start = new Date();
       start.setDate(start.getDate() - 7);
+      return {
+        startDate: start.toISOString().split('T')[0]!,
+        endDate: end.toISOString().split('T')[0]!
+      };
+    }
+  },
+  {
+    id: 'last_14_days',
+    label: 'Last 14 Days',
+    getDateRange: () => {
+      const end = new Date();
+      const start = new Date();
+      start.setDate(start.getDate() - 14);
       return {
         startDate: start.toISOString().split('T')[0]!,
         endDate: end.toISOString().split('T')[0]!
@@ -59,6 +96,46 @@ const DATE_PRESETS: DatePreset[] = [
       };
     }
   },
+  {
+    id: 'last_90_days',
+    label: 'Last 90 Days',
+    getDateRange: () => {
+      const end = new Date();
+      const start = new Date();
+      start.setDate(start.getDate() - 90);
+      return {
+        startDate: start.toISOString().split('T')[0]!,
+        endDate: end.toISOString().split('T')[0]!
+      };
+    }
+  },
+  {
+    id: 'last_180_days',
+    label: 'Last 180 Days',
+    getDateRange: () => {
+      const end = new Date();
+      const start = new Date();
+      start.setDate(start.getDate() - 180);
+      return {
+        startDate: start.toISOString().split('T')[0]!,
+        endDate: end.toISOString().split('T')[0]!
+      };
+    }
+  },
+  {
+    id: 'last_365_days',
+    label: 'Last 365 Days',
+    getDateRange: () => {
+      const end = new Date();
+      const start = new Date();
+      start.setDate(start.getDate() - 365);
+      return {
+        startDate: start.toISOString().split('T')[0]!,
+        endDate: end.toISOString().split('T')[0]!
+      };
+    }
+  },
+  // Month-based periods
   {
     id: 'this_month',
     label: 'This Month',
@@ -85,6 +162,46 @@ const DATE_PRESETS: DatePreset[] = [
       };
     }
   },
+  {
+    id: 'last_3_full_months',
+    label: 'Trailing 3 Months',
+    getDateRange: () => {
+      const now = new Date();
+      const end = new Date(now.getFullYear(), now.getMonth(), 0);
+      const start = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+      return {
+        startDate: start.toISOString().split('T')[0]!,
+        endDate: end.toISOString().split('T')[0]!
+      };
+    }
+  },
+  {
+    id: 'last_6_full_months',
+    label: 'Trailing 6 Months',
+    getDateRange: () => {
+      const now = new Date();
+      const end = new Date(now.getFullYear(), now.getMonth(), 0);
+      const start = new Date(now.getFullYear(), now.getMonth() - 6, 1);
+      return {
+        startDate: start.toISOString().split('T')[0]!,
+        endDate: end.toISOString().split('T')[0]!
+      };
+    }
+  },
+  {
+    id: 'last_12_full_months',
+    label: 'Trailing 12 Months',
+    getDateRange: () => {
+      const now = new Date();
+      const end = new Date(now.getFullYear(), now.getMonth(), 0);
+      const start = new Date(now.getFullYear(), now.getMonth() - 12, 1);
+      return {
+        startDate: start.toISOString().split('T')[0]!,
+        endDate: end.toISOString().split('T')[0]!
+      };
+    }
+  },
+  // Quarter-based periods
   {
     id: 'this_quarter',
     label: 'This Quarter',
@@ -113,6 +230,7 @@ const DATE_PRESETS: DatePreset[] = [
       };
     }
   },
+  // Year-based periods
   {
     id: 'ytd',
     label: 'Year to Date',
@@ -122,6 +240,32 @@ const DATE_PRESETS: DatePreset[] = [
       return {
         startDate: start.toISOString().split('T')[0]!,
         endDate: now.toISOString().split('T')[0]!
+      };
+    }
+  },
+  {
+    id: 'this_year',
+    label: 'This Year',
+    getDateRange: () => {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), 0, 1);
+      const end = new Date(now.getFullYear(), 11, 31);
+      return {
+        startDate: start.toISOString().split('T')[0]!,
+        endDate: end.toISOString().split('T')[0]!
+      };
+    }
+  },
+  {
+    id: 'last_year',
+    label: 'Last Year',
+    getDateRange: () => {
+      const now = new Date();
+      const start = new Date(now.getFullYear() - 1, 0, 1);
+      const end = new Date(now.getFullYear() - 1, 11, 31);
+      return {
+        startDate: start.toISOString().split('T')[0]!,
+        endDate: end.toISOString().split('T')[0]!
       };
     }
   },

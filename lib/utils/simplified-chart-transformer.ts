@@ -1,8 +1,22 @@
 import { getCssVariable } from '@/components/utils/utils';
-import { getPaletteColors } from '@/lib/services/color-palettes';
 import type { AggAppMeasure, ChartData, ChartDataset } from '@/lib/types/analytics';
 import { applyPeriodComparisonColors, getColorScheme } from './period-comparison-colors';
 import type { ColumnConfig } from '@/lib/services/chart-config-service';
+import {
+  formatDateLabel,
+} from './chart-data/formatters/date-formatter';
+import {
+  formatValue as formatValueUtil,
+  formatValueCompact as formatValueCompactUtil,
+} from './chart-data/formatters/value-formatter';
+import {
+  getGroupValue as getGroupValueUtil,
+} from './chart-data/services/data-aggregator';
+import {
+  getColorPalette,
+  adjustColorOpacity as adjustColorOpacityUtil,
+} from './chart-data/services/chart-color-service';
+import { chartTransformerFactory } from './chart-data/strategies/chart-transformer-factory';
 
 /**
  * Simplified Chart Data Transformer
@@ -44,6 +58,9 @@ export class SimplifiedChartTransformer {
 
   /**
    * Transform pre-aggregated data to Chart.js format
+   * 
+   * Phase 2: Now delegates to strategy pattern for supported chart types
+   * Falls back to legacy methods for backward compatibility
    */
   transformData(
     measures: AggAppMeasure[],
@@ -63,6 +80,24 @@ export class SimplifiedChartTransformer {
       return { labels: [], datasets: [] };
     }
 
+    // Phase 2: Try strategy pattern first (new architecture)
+    const strategy = chartTransformerFactory.getStrategy(chartType);
+    if (strategy) {
+      try {
+        const config = {
+          groupBy,
+          paletteId,
+          filled: chartType === 'area',
+          ...(this.columnMetadata && { columnMetadata: this.columnMetadata }),
+        };
+        return strategy.transform(measures, config);
+      } catch (error) {
+        // If strategy fails, fall back to legacy logic
+        console.warn(`Strategy failed for ${chartType}, falling back to legacy:`, error);
+      }
+    }
+
+    // Legacy logic (Phase 1) - maintained for backward compatibility
     // Extract measure type from data
     const measureType = this.extractMeasureType(measures);
 
@@ -483,9 +518,6 @@ export class SimplifiedChartTransformer {
    * Fully dynamic - uses column metadata for display names and validation
    */
   private getGroupValue(measure: AggAppMeasure, groupBy: string): string {
-    // Direct property access - works for ANY field in the measure object
-    const value = (measure as Record<string, unknown>)[groupBy];
-
     // Get column metadata for better formatting and validation
     const columnConfig = this.columnMetadata?.get(groupBy);
 
@@ -496,67 +528,30 @@ export class SimplifiedChartTransformer {
       );
     }
 
-    // Determine appropriate fallback label
-    let fallbackLabel = 'Unknown';
-    if (columnConfig) {
-      // Use display name from column metadata
-      fallbackLabel = `Unknown ${columnConfig.displayName}`;
-    } else {
-      // Use field name if no metadata available
-      const formattedFieldName = groupBy
-        .split('_')
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-      fallbackLabel = `Unknown ${formattedFieldName}`;
-    }
-
-    // Handle null, undefined, or empty values
-    if (value == null || value === '') {
-      return fallbackLabel;
-    }
-
-    // Return string value or convert to string
-    return typeof value === 'string' ? value : String(value);
+    // Use utility function for core grouping logic
+    return getGroupValueUtil(measure, groupBy);
   }
 
   /**
    * Get color palette for charts
    * Enhanced with multiple palette support
+   * @deprecated Use getColorPalette from chart-color-service directly
    */
   private getColorPalette(paletteId: string = 'default'): readonly string[] {
-    return getPaletteColors(paletteId);
+    return getColorPalette(paletteId);
   }
 
   /**
    * Format date label based on frequency (consolidated from chart-data-transformer)
+   * @deprecated Use formatDateLabel from date-formatter directly
    */
   private formatDateLabel(dateIndex: string, frequency: string): string {
-    const date = new Date(`${dateIndex}T12:00:00Z`);
-
-    switch (frequency) {
-      case 'Weekly':
-        return date.toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          timeZone: 'UTC',
-        });
-      case 'Monthly':
-        return date.toLocaleDateString('en-US', {
-          month: 'short',
-          year: 'numeric',
-          timeZone: 'UTC',
-        });
-      case 'Quarterly': {
-        const quarter = Math.floor(date.getUTCMonth() / 3) + 1;
-        return `Q${quarter} ${date.getUTCFullYear()}`;
-      }
-      default:
-        return dateIndex;
-    }
+    return formatDateLabel(dateIndex, frequency);
   }
 
   /**
    * Enhanced multi-series support with better data handling
+   * @deprecated Use MultiSeriesStrategy directly via chartTransformerFactory
    */
   createEnhancedMultiSeriesChart(
     measures: AggAppMeasure[],
@@ -564,15 +559,28 @@ export class SimplifiedChartTransformer {
     aggregations: Record<string, 'sum' | 'avg' | 'count' | 'min' | 'max'> = {},
     paletteId: string = 'default'
   ): ChartData {
-    // Extract measure type from data
-    const measureType = this.extractMeasureType(measures);
+    // Phase 2: Delegate to MultiSeriesStrategy
+    const strategy = chartTransformerFactory.getStrategy('multi-series');
+    if (strategy) {
+      try {
+        const config = {
+          groupBy,
+          paletteId,
+          aggregations,
+          ...(this.columnMetadata && { columnMetadata: this.columnMetadata }),
+        };
+        return strategy.transform(measures, config);
+      } catch (error) {
+        console.warn('MultiSeriesStrategy failed, falling back to legacy:', error);
+      }
+    }
 
-    // Check if we have series-tagged data (from multiple series query)
+    // Legacy fallback
+    const measureType = this.extractMeasureType(measures);
     const hasSeriesLabels = measures.some((m) => m.series_label);
 
     if (hasSeriesLabels) {
       const chartData = this.createMultiSeriesFromTaggedData(measures, aggregations, paletteId);
-      // Attach measure type to chart data and all datasets
       chartData.measureType = measureType;
       chartData.datasets.forEach((dataset) => {
         dataset.measureType = measureType;
@@ -776,66 +784,27 @@ export class SimplifiedChartTransformer {
 
   /**
    * Adjust color opacity
+   * @deprecated Use adjustColorOpacity from chart-color-service directly
    */
   private adjustColorOpacity(color: string, opacity: number): string {
-    if (color.startsWith('rgb(')) {
-      return color.replace('rgb(', 'rgba(').replace(')', `, ${opacity})`);
-    }
-
-    // For hex colors, convert to rgba
-    const hex = color.replace('#', '');
-    const r = parseInt(hex.substr(0, 2), 16);
-    const g = parseInt(hex.substr(2, 2), 16);
-    const b = parseInt(hex.substr(4, 2), 16);
-
-    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+    return adjustColorOpacityUtil(color, opacity);
   }
 
   /**
    * Format value based on measure type
+   * @deprecated Use formatValue from value-formatter directly
    */
   formatValue(value: number, measureType: string): string {
-    switch (measureType) {
-      case 'currency':
-        return new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: 'USD',
-          minimumFractionDigits: 0,
-          maximumFractionDigits: 0,
-        }).format(value);
-
-      case 'count':
-        return new Intl.NumberFormat('en-US').format(value);
-
-      default:
-        return value.toString();
-    }
+    return formatValueUtil(value, measureType);
   }
 
   /**
    * Format value with abbreviations for compact display (e.g., Y-axis labels)
    * Converts large numbers to K, M, B notation
+   * @deprecated Use formatValueCompact from value-formatter directly
    */
   formatValueCompact(value: number, measureType: string): string {
-    const absValue = Math.abs(value);
-    let abbreviated: string;
-
-    if (absValue >= 1_000_000_000) {
-      abbreviated = `${(value / 1_000_000_000).toFixed(1).replace(/\.0$/, '')}B`;
-    } else if (absValue >= 1_000_000) {
-      abbreviated = `${(value / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
-    } else if (absValue >= 1_000) {
-      abbreviated = `${(value / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
-    } else {
-      abbreviated = value.toString();
-    }
-
-    // Add currency symbol for currency types
-    if (measureType === 'currency') {
-      return `$${abbreviated}`;
-    }
-
-    return abbreviated;
+    return formatValueCompactUtil(value, measureType);
   }
 
   /**
@@ -1015,6 +984,7 @@ export class SimplifiedChartTransformer {
    * Transform data for dual-axis chart (bar + line combo)
    * Primary measure shows as bars on left y-axis
    * Secondary measure shows as line/bar on right y-axis
+   * @deprecated Use DualAxisStrategy directly via chartTransformerFactory
    */
   transformDualAxisData(
     primaryMeasures: AggAppMeasure[],
@@ -1025,6 +995,33 @@ export class SimplifiedChartTransformer {
     _groupBy: string = 'none', // Reserved for future use
     paletteId: string = 'default'
   ): ChartData {
+    if (primaryMeasures.length === 0 && secondaryMeasures.length === 0) {
+      return { labels: [], datasets: [] };
+    }
+
+    // Phase 2: Delegate to DualAxisStrategy
+    const strategy = chartTransformerFactory.getStrategy('dual-axis');
+    if (strategy) {
+      try {
+        // Tag measures with series_id for strategy
+        const taggedPrimary = primaryMeasures.map(m => ({ ...m, series_id: 'primary' as const }));
+        const taggedSecondary = secondaryMeasures.map(m => ({ ...m, series_id: 'secondary' as const }));
+        const combinedMeasures = [...taggedPrimary, ...taggedSecondary];
+
+        const config = {
+          paletteId,
+          primaryLabel,
+          secondaryLabel,
+          secondaryChartType,
+          ...(this.columnMetadata && { columnMetadata: this.columnMetadata }),
+        };
+        return strategy.transform(combinedMeasures, config);
+      } catch (error) {
+        console.warn('DualAxisStrategy failed, falling back to legacy:', error);
+      }
+    }
+
+    // Legacy fallback
     if (primaryMeasures.length === 0 && secondaryMeasures.length === 0) {
       return { labels: [], datasets: [] };
     }
@@ -1053,7 +1050,7 @@ export class SimplifiedChartTransformer {
     });
 
     // Get color palette
-    const colors = getPaletteColors(paletteId);
+    const colors = this.getColorPalette(paletteId);
 
     // Build data map for primary measure
     const primaryDataMap = new Map<string, number>();
