@@ -68,6 +68,10 @@ export interface BatchChartData {
     cacheHit: boolean;
     recordCount: number;
     transformDuration: number;
+    // FIX #7: Add these for proper rendering
+    measure?: string;
+    frequency?: string;
+    groupBy?: string;
   };
   
   // Table-specific data (optional)
@@ -175,6 +179,9 @@ export default function BatchChartRenderer({
 
   // Extract chart configuration from definition
   const chartConfig = chartDefinition.chart_config || {};
+  const configRecord = chartConfig as Record<string, unknown>;
+  const colorPalette = configRecord.colorPalette as string | undefined;
+  const stackingMode = configRecord.stackingMode as string | undefined;
   
   // Handle export functionality
   const handleExport = (format: 'png' | 'pdf' | 'csv') => {
@@ -210,9 +217,12 @@ export default function BatchChartRenderer({
           {...(chartData.columns && { columns: chartData.columns })}
           {...(chartData.formattedData && { formattedData: chartData.formattedData })}
           title={chartDefinition.chart_name}
-          colorPalette={(chartConfig as any).colorPalette}
-          stackingMode={(chartConfig as any).stackingMode}
-          dualAxisConfig={(chartConfig as any).dualAxisConfig}
+          // FIX #7: Pass measure/frequency/groupBy from metadata (conditional for exactOptionalPropertyTypes)
+          {...(chartData.metadata.measure && { measure: chartData.metadata.measure })}
+          {...(chartData.metadata.frequency && { frequency: chartData.metadata.frequency })}
+          {...(chartData.metadata.groupBy && { groupBy: chartData.metadata.groupBy })}
+          {...(colorPalette && { colorPalette })}
+          {...(stackingMode && { stackingMode })}
           responsive={responsive}
           minHeight={minHeight}
           maxHeight={maxHeight}

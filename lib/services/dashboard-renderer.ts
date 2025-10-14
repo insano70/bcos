@@ -55,14 +55,24 @@ export interface ChartRenderResult {
   metadata: {
     chartType: string;
     dataSourceId: number;
+    transformedAt: string;
     queryTimeMs: number;
     cacheHit: boolean;
     recordCount: number;
-    appliedFilters: {
-      dashboardLevel: string[];
-      chartLevel: string[];
-    };
+    transformDuration: number;
+    // FIX #6: Add these for proper chart rendering
+    measure?: string;
+    frequency?: string;
+    groupBy?: string;
   };
+  // Table-specific fields (optional)
+  columns?: Array<{
+    columnName: string;
+    displayName: string;
+    dataType: string;
+    formatType?: string | null;
+  }>;
+  formattedData?: Array<Record<string, unknown>>;
 }
 
 /**
@@ -137,17 +147,39 @@ export class DashboardRenderer {
       });
       }
 
-      // 2. Load all chart definitions for this dashboard
-      const chartsService = createRBACChartsService(userContext);
-      
-      // Get all active charts
-      const allCharts = await chartsService.getCharts({ is_active: true });
-      
-      // For now, render all charts (future: filter by dashboard association)
-      const validCharts = allCharts.filter((chart) => chart?.is_active);
+      // 2. Load chart definitions for THIS dashboard only
+      // FIX #1: Use dashboard.charts (filtered to this dashboard) instead of ALL charts
+      const dashboardCharts = dashboard.charts || [];
 
-      if (!validCharts || validCharts.length === 0) {
+      if (dashboardCharts.length === 0) {
         log.warn('Dashboard has no charts', { dashboardId });
+        return {
+          charts: {},
+          metadata: {
+            totalQueryTime: 0,
+            cacheHits: 0,
+            cacheMisses: 0,
+            queriesExecuted: 0,
+            chartsRendered: 0,
+            dashboardFiltersApplied: this.getAppliedFilterNames(universalFilters),
+            parallelExecution: false,
+          },
+        };
+      }
+
+      // FIX #2: Load full chart definitions (dashboard.charts has minimal info)
+      const chartsService = createRBACChartsService(userContext);
+      const fullChartDefsPromises = dashboardCharts.map(dashboardChart =>
+        chartsService.getChartById(dashboardChart.chart_definition_id)
+      );
+
+      const fullChartDefs = await Promise.all(fullChartDefsPromises);
+      
+      // Filter out nulls and inactive charts
+      const validCharts = fullChartDefs.filter((chart) => chart?.is_active);
+
+      if (validCharts.length === 0) {
+        log.warn('Dashboard has no active/accessible charts', { dashboardId });
         return {
           charts: {},
           metadata: {
@@ -164,15 +196,76 @@ export class DashboardRenderer {
 
       log.info('Dashboard charts loaded', {
         dashboardId,
-        totalCharts: validCharts.length,
+        totalCharts: dashboardCharts.length,
+        validCharts: validCharts.length,
+        chartTypes: validCharts.map(c => c?.chart_type || 'unknown'),
       });
 
       // 4. Render all charts in parallel with universal filters
-      const renderPromises = validCharts.map(async (chartDef) => {
+      const renderPromises = validCharts.map(async (chart) => {
+        // Null guard
+        if (!chart) {
+          return { chartId: '', result: null };
+        }
+
+        const chartDef = chart; // Type guard: chart is not null after this point
+
         try {
-          // Merge dashboard universal filters with chart config
-          const mergedConfig = this.mergeFilters(
-            chartDef?.chart_config as Record<string, unknown>,
+          // FIX #5: Skip table charts (they use different endpoint)
+          if (chartDef.chart_type === 'table') {
+            log.warn('Skipping table chart in batch rendering', {
+              chartId: chartDef.chart_definition_id,
+              chartName: chartDef.chart_name,
+              reason: 'table_charts_use_different_endpoint',
+            });
+            
+            return {
+              chartId: chartDef.chart_definition_id,
+              result: null, // Will be handled separately in dashboard-view
+            };
+          }
+
+          // FIX #3: Extract filters from data_source (like dashboard-view does)
+          interface DataSourceFilter {
+            field: string;
+            operator?: string;
+            value?: unknown;
+          }
+          
+          const dataSource = chartDef.data_source as { filters?: DataSourceFilter[]; advancedFilters?: unknown[] } || {};
+          const dataSourceFilters = dataSource.filters || [];
+
+          const measureFilter = dataSourceFilters.find(f => f.field === 'measure');
+          const frequencyFilter = dataSourceFilters.find(f => f.field === 'frequency');
+          const practiceFilter = dataSourceFilters.find(f => f.field === 'practice_uid');
+          const startDateFilter = dataSourceFilters.find(f => f.field === 'date_index' && f.operator === 'gte');
+          const endDateFilter = dataSourceFilters.find(f => f.field === 'date_index' && f.operator === 'lte');
+
+          // FIX #4: Build runtimeFilters from data_source filters
+          const runtimeFilters: Record<string, unknown> = {};
+          
+          // Extract from data_source.filters
+          if (measureFilter?.value) runtimeFilters.measure = measureFilter.value;
+          if (frequencyFilter?.value) runtimeFilters.frequency = frequencyFilter.value;
+          if (practiceFilter?.value) runtimeFilters.practiceUid = practiceFilter.value;
+          if (startDateFilter?.value) runtimeFilters.startDate = startDateFilter.value;
+          if (endDateFilter?.value) runtimeFilters.endDate = endDateFilter.value;
+
+          // Extract advancedFilters if present
+          if (dataSource.advancedFilters && Array.isArray(dataSource.advancedFilters)) {
+            runtimeFilters.advancedFilters = dataSource.advancedFilters;
+          }
+
+          // Universal filters override chart-level filters (dashboard filters win)
+          if (universalFilters.startDate) runtimeFilters.startDate = universalFilters.startDate;
+          if (universalFilters.endDate) runtimeFilters.endDate = universalFilters.endDate;
+          if (universalFilters.practiceUids && universalFilters.practiceUids.length > 0) {
+            runtimeFilters.practiceUids = universalFilters.practiceUids;
+          }
+
+          // Merge chart_config with universal filters
+          const mergedChartConfig = this.mergeFilters(
+            chartDef.chart_config as Record<string, unknown>,
             universalFilters
           );
 
@@ -180,41 +273,58 @@ export class DashboardRenderer {
           const result = await chartDataOrchestrator.orchestrate(
             {
               chartConfig: {
-                ...mergedConfig,
-                chartType: chartDef?.chart_type,
-                dataSourceId: (chartDef?.chart_config as {dataSourceId?: number})?.dataSourceId || 0,
+                ...mergedChartConfig,
+                chartType: chartDef.chart_type,
+                dataSourceId: (chartDef.chart_config as {dataSourceId?: number})?.dataSourceId || 0,
               },
+              runtimeFilters, // FIX #4: Pass extracted filters to orchestrator
             },
             userContext
           );
 
-          return {
-            chartId: chartDef?.chart_definition_id,
-            result: {
-              chartData: result.chartData,
-              rawData: result.rawData,
-              metadata: {
-                chartType: result.metadata.chartType,
-                dataSourceId: result.metadata.dataSourceId,
-                queryTimeMs: result.metadata.queryTimeMs,
-                cacheHit: result.metadata.cacheHit,
-                recordCount: result.metadata.recordCount,
-                appliedFilters: {
-                  dashboardLevel: this.getAppliedFilterNames(universalFilters),
-                  chartLevel: this.getChartFilterNames(chartDef?.chart_config as Record<string, unknown>),
-                },
-              },
+          // FIX #6: Include measure/frequency/groupBy in metadata
+          const groupByValue = (chartDef.chart_config as { groupBy?: string; series?: { groupBy?: string } })?.groupBy || 
+                              (chartDef.chart_config as { series?: { groupBy?: string } })?.series?.groupBy;
+
+          const chartResult: ChartRenderResult = {
+            chartData: result.chartData,
+            rawData: result.rawData,
+            metadata: {
+              chartType: result.metadata.chartType,
+              dataSourceId: result.metadata.dataSourceId,
+              transformedAt: new Date().toISOString(),
+              queryTimeMs: result.metadata.queryTimeMs,
+              cacheHit: result.metadata.cacheHit,
+              recordCount: result.metadata.recordCount,
+              transformDuration: 0,
             },
+          };
+
+          // FIX #6: Add optional fields only if they exist (exactOptionalPropertyTypes)
+          const measureValue = measureFilter?.value?.toString();
+          const frequencyValue = frequencyFilter?.value?.toString();
+          
+          if (measureValue) chartResult.metadata.measure = measureValue;
+          if (frequencyValue) chartResult.metadata.frequency = frequencyValue;
+          if (groupByValue) chartResult.metadata.groupBy = groupByValue;
+
+          // Include columns/formattedData if present (from result)
+          if (result.columns) chartResult.columns = result.columns;
+          if (result.formattedData) chartResult.formattedData = result.formattedData;
+
+          return {
+            chartId: chartDef.chart_definition_id,
+            result: chartResult,
           };
         } catch (error) {
           log.error('Chart render failed in batch', error, {
-            chartId: chartDef?.chart_definition_id,
-            chartName: chartDef?.chart_name,
+            chartId: chartDef.chart_definition_id,
+            chartName: chartDef.chart_name,
           });
 
           // Return null for failed charts (partial success)
           return {
-            chartId: chartDef?.chart_definition_id,
+            chartId: chartDef.chart_definition_id,
             result: null,
           };
         }
@@ -448,20 +558,6 @@ export class DashboardRenderer {
     return applied;
   }
 
-  /**
-   * Get names of chart-level filters for logging
-   */
-  private getChartFilterNames(config: Record<string, unknown>): string[] {
-    const filters: string[] = [];
-
-    if (config.measure) filters.push('measure');
-    if (config.frequency) filters.push('frequency');
-    if (config.groupBy) filters.push('groupBy');
-    if (config.advancedFilters) filters.push('advancedFilters');
-    if (config.calculatedField) filters.push('calculatedField');
-
-    return filters;
-  }
 }
 
 // Export singleton instance
