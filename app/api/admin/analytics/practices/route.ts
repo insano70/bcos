@@ -3,7 +3,7 @@ import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { log } from '@/lib/logger';
-import { createRBACPracticesService } from '@/lib/services/rbac-practices-service';
+import { createPracticeAnalyticsService } from '@/lib/services/practice-analytics-service';
 import type { UserContext } from '@/lib/types/rbac';
 
 /**
@@ -27,10 +27,10 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
       timeframe,
     });
 
-    // Create RBAC practices service
-    const practicesService = createRBACPracticesService(userContext);
+    // Create analytics service
+    const analyticsService = createPracticeAnalyticsService(userContext);
 
-    // Get analytics data through service with automatic permission checking
+    // Get analytics data through service
     const [
       practiceAnalytics,
       creationTrends,
@@ -41,14 +41,14 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
       recentPractices,
       attributesCompletion,
     ] = await Promise.all([
-      practicesService.getPracticeAnalytics(timeframe),
-      practicesService.getCreationTrends(timeframe),
-      practicesService.getTemplateUsage(),
-      practicesService.getStatusDistribution(),
-      practicesService.getStaffStatistics(),
-      practicesService.getPracticesWithMostStaff(10),
-      practicesService.getRecentPractices(10),
-      practicesService.getAttributesCompletion(),
+      analyticsService.getPracticeAnalytics(timeframe),
+      analyticsService.getCreationTrends(timeframe),
+      analyticsService.getTemplateUsage(),
+      analyticsService.getStatusDistribution(),
+      analyticsService.getStaffStatistics(),
+      analyticsService.getPracticesWithMostStaff(10),
+      analyticsService.getRecentPractices(10),
+      analyticsService.getAttributesCompletion(),
     ]);
 
     const analytics = {
