@@ -25,7 +25,6 @@ Successfully migrated the practices service from a monolithic 912-line file to a
 - `lib/services/practice-analytics-service.ts` (441 lines) - ✅ Analytics only
 - `lib/services/practices/query-builder.ts` (28 lines) - ✅ Shared queries
 - **Total**: 1,146 lines (234 lines added for better organization)
-- **Backup**: `lib/services/rbac-practices-service-original.ts` (retained for safety)
 
 ### Code Improvements
 
@@ -282,9 +281,6 @@ fields @timestamp, message, duration, operation
 
 ### Modified (1 file)
 - `app/api/admin/analytics/practices/route.ts` (import updated)
-
-### Backed Up (1 file)
-- `lib/services/rbac-practices-service-original.ts` (912 lines)
 
 ## Risk Assessment
 

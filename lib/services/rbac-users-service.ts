@@ -1,11 +1,25 @@
-import { and, count, eq, inArray, isNull, like, or } from 'drizzle-orm';
-import type { SQL } from 'drizzle-orm';
+import { and, count, eq } from 'drizzle-orm';
 import { ensureSecurityRecord, hashPassword } from '@/lib/auth/security';
 import { account_security, db } from '@/lib/db';
-import { organizations, user_organizations, users } from '@/lib/db/schema';
+import { user_organizations, users } from '@/lib/db/schema';
 import { calculateChanges, log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
 import { PermissionDeniedError } from '@/lib/types/rbac';
+import {
+  getUsersBaseQuery,
+  buildUserRBACConditions,
+  applyUserSearchFilters,
+  groupUsersByIdWithOrganizations,
+  getSingleUserQuery,
+  buildSingleUserWithOrganizations,
+} from './users/query-builders';
+import {
+  getRBACScope,
+  canAccessOrganization,
+  requireOrganizationAccess,
+  requirePermission,
+  requireAnyPermission,
+} from './users/rbac-helpers';
 
 /**
  * Users Service with RBAC
@@ -111,11 +125,6 @@ export interface UserWithOrganizations {
 }
 
 /**
- * RBAC scope for user access
- */
-type RBACScope = 'own' | 'organization' | 'all';
-
-/**
  * Users Service Interface
  */
 export interface UsersServiceInterface {
@@ -161,110 +170,33 @@ class RBACUsersService implements UsersServiceInterface {
   }
 
   /**
-   * Get RBAC scope for current user
-   */
-  private getRBACScope(): RBACScope {
-    if (this.canReadAll || this.isSuperAdmin) {
-      return 'all';
-    }
-    if (this.canReadOrganization) {
-      return 'organization';
-    }
-    return 'own';
-  }
-
-  /**
-   * Check if user can access an organization
-   */
-  private canAccessOrganization(organizationId: string): boolean {
-    if (this.isSuperAdmin || this.canReadAll) {
-      return true;
-    }
-    return this.accessibleOrganizationIds.includes(organizationId);
-  }
-
-  /**
-   * Build RBAC where conditions for user queries
-   */
-  private buildRBACWhereConditions(): SQL[] {
-    const conditions: SQL[] = [isNull(users.deleted_at), eq(users.is_active, true)];
-
-    const scope = this.getRBACScope();
-
-    switch (scope) {
-      case 'own':
-        conditions.push(eq(users.user_id, this.userContext.user_id));
-        break;
-
-      case 'organization':
-        if (this.accessibleOrganizationIds.length > 0) {
-          conditions.push(
-            inArray(user_organizations.organization_id, this.accessibleOrganizationIds),
-            eq(user_organizations.is_active, true)
-          );
-        }
-        break;
-
-      case 'all':
-        // No additional filtering for super admin
-        break;
-    }
-
-    return conditions;
-  }
-
-  /**
-   * Require permission or throw AuthorizationError
-   */
-  private requirePermission(permission: string, resourceId?: string): void {
-    const hasPermission = this.userContext.all_permissions?.some((p) => p.name === permission);
-    if (!hasPermission && !this.isSuperAdmin) {
-      throw new PermissionDeniedError(permission, resourceId || 'unknown');
-    }
-  }
-
-  /**
-   * Require organization access or throw error
-   */
-  private requireOrganizationAccess(organizationId: string): void {
-    if (!this.canAccessOrganization(organizationId)) {
-      throw new PermissionDeniedError('organization:access', organizationId);
-    }
-  }
-
-  /**
-   * Require any of the specified permissions
-   */
-  private requireAnyPermission(permissions: string[]): void {
-    const hasAny = permissions.some((permission) =>
-      this.userContext.all_permissions?.some((p) => p.name === permission)
-    );
-    if (!hasAny && !this.isSuperAdmin) {
-      throw new PermissionDeniedError(permissions.join('|'), 'unknown');
-    }
-  }
-
-  /**
    * Get users with automatic permission-based filtering
    */
   async getUsers(options: UserQueryOptions = {}): Promise<UserWithOrganizations[]> {
     const startTime = Date.now();
 
     try {
-      // Build all where conditions upfront
-      const whereConditions = this.buildRBACWhereConditions();
+      // Build RBAC where conditions using query builder
+      const whereConditions = buildUserRBACConditions(
+        this.canReadAll,
+        this.canReadOrganization,
+        this.accessibleOrganizationIds,
+        this.userContext.user_id
+      );
 
       // If organization scope and no accessible orgs, return empty
-      if (
-        this.getRBACScope() === 'organization' &&
-        this.accessibleOrganizationIds.length === 0
-      ) {
+      const scope = getRBACScope(this.canReadAll, this.canReadOrganization);
+      if (scope === 'organization' && this.accessibleOrganizationIds.length === 0) {
         return [];
       }
 
       // Apply additional filters
       if (options.organizationId) {
-        this.requireOrganizationAccess(options.organizationId);
+        requireOrganizationAccess(
+          options.organizationId,
+          this.isSuperAdmin,
+          this.accessibleOrganizationIds
+        );
         whereConditions.push(eq(user_organizations.organization_id, options.organizationId));
       }
 
@@ -276,43 +208,12 @@ class RBACUsersService implements UsersServiceInterface {
         whereConditions.push(eq(users.email_verified, options.email_verified));
       }
 
-      if (options.search) {
-        const searchCondition = or(
-          like(users.first_name, `%${options.search}%`),
-          like(users.last_name, `%${options.search}%`),
-          like(users.email, `%${options.search}%`)
-        );
-        if (searchCondition) {
-          whereConditions.push(searchCondition);
-        }
-      }
+      // Apply search filters using query builder
+      applyUserSearchFilters(whereConditions, options.search);
 
-      // Build complete query with all conditions
+      // Execute query using base query builder
       const queryStart = Date.now();
-      const baseQuery = db
-        .select({
-          user_id: users.user_id,
-          email: users.email,
-          first_name: users.first_name,
-          last_name: users.last_name,
-          email_verified: users.email_verified,
-          is_active: users.is_active,
-          provider_uid: users.provider_uid,
-          created_at: users.created_at,
-          updated_at: users.updated_at,
-          // Organization info
-          organization_id: organizations.organization_id,
-          org_name: organizations.name,
-          org_slug: organizations.slug,
-          org_is_active: organizations.is_active,
-        })
-        .from(users)
-        .leftJoin(user_organizations, eq(users.user_id, user_organizations.user_id))
-        .leftJoin(
-          organizations,
-          eq(user_organizations.organization_id, organizations.organization_id)
-        )
-        .where(and(...whereConditions));
+      const baseQuery = getUsersBaseQuery().where(and(...whereConditions));
 
       // Execute base query
       const baseResults = await baseQuery;
@@ -330,45 +231,8 @@ class RBACUsersService implements UsersServiceInterface {
         return filtered;
       })();
 
-      // Group by user and aggregate organizations
-      const usersMap = new Map<string, UserWithOrganizations>();
-
-      results.forEach((row) => {
-        if (!usersMap.has(row.user_id)) {
-          usersMap.set(row.user_id, {
-            user_id: row.user_id,
-            email: row.email,
-            first_name: row.first_name,
-            last_name: row.last_name,
-            email_verified: row.email_verified ?? false,
-            is_active: row.is_active ?? true,
-            provider_uid: row.provider_uid || undefined,
-            created_at: row.created_at ?? new Date(),
-            updated_at: row.updated_at ?? new Date(),
-            organizations: [],
-          });
-        }
-
-        const user = usersMap.get(row.user_id);
-        if (!user) {
-          throw new Error(`User unexpectedly not found in map: ${row.user_id}`);
-        }
-
-        // Add organization if present and not already added
-        if (
-          row.organization_id &&
-          row.org_name &&
-          row.org_slug &&
-          !user.organizations.some((org) => org.organization_id === row.organization_id)
-        ) {
-          user.organizations.push({
-            organization_id: row.organization_id,
-            name: row.org_name,
-            slug: row.org_slug,
-            is_active: row.org_is_active ?? true,
-          });
-        }
-      });
+      // Group by user and aggregate organizations using query builder
+      const usersMap = groupUsersByIdWithOrganizations(results);
 
       const duration = Date.now() - startTime;
 
@@ -391,7 +255,7 @@ class RBACUsersService implements UsersServiceInterface {
         duration,
         metadata: {
           usersQuery: { duration: queryDuration, slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY },
-          rbacScope: this.getRBACScope(),
+          rbacScope: scope,
           component: 'service',
         },
       });
@@ -422,102 +286,22 @@ class RBACUsersService implements UsersServiceInterface {
         throw new PermissionDeniedError('users:read:*', userId);
       }
 
-      // Get user with organizations
+      // Get user with organizations using query builder
       const queryStart = Date.now();
-      const query = db
-        .select({
-          user_id: users.user_id,
-          email: users.email,
-          first_name: users.first_name,
-          last_name: users.last_name,
-          email_verified: users.email_verified,
-          is_active: users.is_active,
-          provider_uid: users.provider_uid,
-          created_at: users.created_at,
-          updated_at: users.updated_at,
-          organization_id: user_organizations.organization_id,
-          org_name: organizations.name,
-          org_slug: organizations.slug,
-          org_is_active: organizations.is_active,
-        })
-        .from(users)
-        .leftJoin(
-          user_organizations,
-          and(eq(user_organizations.user_id, users.user_id), eq(user_organizations.is_active, true))
-        )
-        .leftJoin(
-          organizations,
-          and(
-            eq(organizations.organization_id, user_organizations.organization_id),
-            isNull(organizations.deleted_at)
-          )
-        )
-        .where(and(eq(users.user_id, userId), isNull(users.deleted_at)));
-
-      const results = await query;
+      const results = await getSingleUserQuery(userId);
       const queryDuration = Date.now() - queryStart;
 
-      if (results.length === 0) {
+      // Build user object using query builder
+      const userObj = buildSingleUserWithOrganizations(results);
+
+      if (!userObj) {
         return null;
       }
-
-      // Build user object with organizations
-      const firstResult = results[0];
-      if (!firstResult) {
-        log.warn('User result had length > 0 but first item was null', { userId });
-        return null;
-      }
-
-      if (
-        !firstResult.user_id ||
-        !firstResult.email ||
-        !firstResult.first_name ||
-        !firstResult.last_name
-      ) {
-        log.error('User result missing required fields', {
-          userId,
-          hasUserId: !!firstResult.user_id,
-          hasEmail: !!firstResult.email,
-          hasFirstName: !!firstResult.first_name,
-          hasLastName: !!firstResult.last_name,
-        });
-        return null;
-      }
-
-      const userObj: UserWithOrganizations = {
-        user_id: firstResult.user_id,
-        email: firstResult.email,
-        first_name: firstResult.first_name,
-        last_name: firstResult.last_name,
-        email_verified: firstResult.email_verified ?? false,
-        is_active: firstResult.is_active ?? true,
-        provider_uid: firstResult.provider_uid || undefined,
-        created_at: firstResult.created_at ?? new Date(),
-        updated_at: firstResult.updated_at ?? new Date(),
-        organizations: [],
-      };
-
-      // Add organizations
-      results.forEach((row) => {
-        if (
-          row.organization_id &&
-          row.org_name &&
-          row.org_slug &&
-          !userObj.organizations.some((org) => org.organization_id === row.organization_id)
-        ) {
-          userObj.organizations.push({
-            organization_id: row.organization_id,
-            name: row.org_name,
-            slug: row.org_slug,
-            is_active: row.org_is_active ?? true,
-          });
-        }
-      });
 
       // For organization scope, verify user is in accessible organization
       if (this.canReadOrganization && !this.canReadAll && !this.canReadOwn) {
         const hasSharedOrg = userObj.organizations.some((org) =>
-          this.canAccessOrganization(org.organization_id)
+          canAccessOrganization(org.organization_id, this.isSuperAdmin, this.accessibleOrganizationIds)
         );
 
         if (!hasSharedOrg) {
@@ -526,6 +310,7 @@ class RBACUsersService implements UsersServiceInterface {
       }
 
       const duration = Date.now() - startTime;
+      const scope = getRBACScope(this.canReadAll, this.canReadOrganization);
 
       const template = logTemplates.crud.read('user', {
         resourceId: userId,
@@ -536,7 +321,7 @@ class RBACUsersService implements UsersServiceInterface {
         metadata: {
           userQuery: { duration: queryDuration, slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY },
           organizationCount: userObj.organizations.length,
-          rbacScope: this.getRBACScope(),
+          rbacScope: scope,
           component: 'service',
         },
       });
@@ -562,8 +347,15 @@ class RBACUsersService implements UsersServiceInterface {
     const startTime = Date.now();
 
     try {
-      this.requirePermission('users:create:organization', undefined);
-      this.requireOrganizationAccess(userData.organization_id);
+      const hasCreatePermission = this.userContext.all_permissions?.some(
+        (p) => p.name === 'users:create:organization'
+      );
+      requirePermission('users:create:organization', !!hasCreatePermission, this.isSuperAdmin);
+      requireOrganizationAccess(
+        userData.organization_id,
+        this.isSuperAdmin,
+        this.accessibleOrganizationIds
+      );
 
       // Hash password
       const hashedPassword = await hashPassword(userData.password);
@@ -602,6 +394,7 @@ class RBACUsersService implements UsersServiceInterface {
       }
 
       const duration = Date.now() - startTime;
+      const scope = getRBACScope(this.canReadAll, this.canReadOrganization);
 
       const template = logTemplates.crud.create('user', {
         resourceId: newUser.user_id,
@@ -613,7 +406,7 @@ class RBACUsersService implements UsersServiceInterface {
           emailVerified: userData.email_verified ?? false,
           securityRecordCreated: true,
           passwordHashed: true,
-          rbacScope: this.getRBACScope(),
+          rbacScope: scope,
           component: 'service',
         },
       });
@@ -662,7 +455,7 @@ class RBACUsersService implements UsersServiceInterface {
         }
 
         const hasSharedOrg = targetUser.organizations.some((org) =>
-          this.canAccessOrganization(org.organization_id)
+          canAccessOrganization(org.organization_id, this.isSuperAdmin, this.accessibleOrganizationIds)
         );
 
         if (!hasSharedOrg) {
@@ -746,6 +539,8 @@ class RBACUsersService implements UsersServiceInterface {
         Object.keys(updateData)
       );
 
+      const scope = getRBACScope(this.canReadAll, this.canReadOrganization);
+
       const template = logTemplates.crud.update('user', {
         resourceId: userId,
         resourceName: userWithOrgs.email,
@@ -754,7 +549,7 @@ class RBACUsersService implements UsersServiceInterface {
         duration,
         metadata: {
           passwordChanged: !!updateData.password,
-          rbacScope: this.getRBACScope(),
+          rbacScope: scope,
           component: 'service',
         },
       });
@@ -780,7 +575,10 @@ class RBACUsersService implements UsersServiceInterface {
     const startTime = Date.now();
 
     try {
-      this.requirePermission('users:delete:organization', userId);
+      const hasDeletePermission = this.userContext.all_permissions?.some(
+        (p) => p.name === 'users:delete:organization'
+      );
+      requirePermission('users:delete:organization', !!hasDeletePermission, this.isSuperAdmin, userId);
 
       // Prevent self-deletion
       if (userId === this.userContext.user_id) {
@@ -811,6 +609,7 @@ class RBACUsersService implements UsersServiceInterface {
         .where(eq(user_organizations.user_id, userId));
 
       const duration = Date.now() - startTime;
+      const scope = getRBACScope(this.canReadAll, this.canReadOrganization);
 
       const template = logTemplates.crud.delete('user', {
         resourceId: userId,
@@ -820,7 +619,7 @@ class RBACUsersService implements UsersServiceInterface {
         duration,
         metadata: {
           organizationMembershipsDeactivated: targetUser.organizations.length,
-          rbacScope: this.getRBACScope(),
+          rbacScope: scope,
           component: 'service',
         },
       });
@@ -841,7 +640,14 @@ class RBACUsersService implements UsersServiceInterface {
    * Search users across accessible organizations
    */
   async searchUsers(searchTerm: string, organizationId?: string): Promise<UserWithOrganizations[]> {
-    this.requireAnyPermission(['users:read:own', 'users:read:organization', 'users:read:all']);
+    const hasAny = ['users:read:own', 'users:read:organization', 'users:read:all'].some(
+      (permission) => this.userContext.all_permissions?.some((p) => p.name === permission)
+    );
+    requireAnyPermission(
+      ['users:read:own', 'users:read:organization', 'users:read:all'],
+      hasAny,
+      this.isSuperAdmin
+    );
     return await this.getUsers({
       search: searchTerm,
       organizationId,
@@ -855,24 +661,32 @@ class RBACUsersService implements UsersServiceInterface {
     const startTime = Date.now();
 
     try {
-      // Build where conditions
-      const whereConditions = this.buildRBACWhereConditions();
+      // Build where conditions using query builder
+      const whereConditions = buildUserRBACConditions(
+        this.canReadAll,
+        this.canReadOrganization,
+        this.accessibleOrganizationIds,
+        this.userContext.user_id
+      );
+
+      const scope = getRBACScope(this.canReadAll, this.canReadOrganization);
 
       // If organization scope and no accessible orgs, return 0
-      if (
-        this.getRBACScope() === 'organization' &&
-        this.accessibleOrganizationIds.length === 0
-      ) {
+      if (scope === 'organization' && this.accessibleOrganizationIds.length === 0) {
         return 0;
       }
 
       if (organizationId) {
-        this.requireOrganizationAccess(organizationId);
+        requireOrganizationAccess(
+          organizationId,
+          this.isSuperAdmin,
+          this.accessibleOrganizationIds
+        );
         whereConditions.push(eq(user_organizations.organization_id, organizationId));
       }
 
       // Build query based on whether we need organization joins
-      const needsOrgJoin = this.getRBACScope() === 'organization' || organizationId;
+      const needsOrgJoin = scope === 'organization' || organizationId;
 
       const queryStart = Date.now();
       const query = needsOrgJoin
@@ -898,7 +712,7 @@ class RBACUsersService implements UsersServiceInterface {
         metadata: {
           count: result?.count || 0,
           countQuery: { duration: queryDuration, slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY },
-          rbacScope: this.getRBACScope(),
+          rbacScope: scope,
           component: 'service',
         },
       });

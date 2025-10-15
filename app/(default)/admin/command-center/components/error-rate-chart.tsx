@@ -78,6 +78,31 @@ export default function ErrorRateChart({
 
         if (chartRef.current) {
           chartRef.current.data = chartData;
+          
+          // Update colors for current theme
+          const chart = chartRef.current;
+          if (chart.options.scales?.x?.ticks) {
+            chart.options.scales.x.ticks.color = darkMode ? chartColors.textColor.dark : chartColors.textColor.light;
+          }
+          if (chart.options.scales?.y?.ticks) {
+            chart.options.scales.y.ticks.color = darkMode ? chartColors.textColor.dark : chartColors.textColor.light;
+          }
+          if (chart.options.scales?.y?.grid) {
+            chart.options.scales.y.grid.color = darkMode ? chartColors.gridColor.dark : chartColors.gridColor.light;
+          }
+          if (chart.options.scales?.y1?.ticks) {
+            chart.options.scales.y1.ticks.color = darkMode ? chartColors.textColor.dark : chartColors.textColor.light;
+          }
+          if (chart.options.plugins?.legend?.labels) {
+            chart.options.plugins.legend.labels.color = darkMode ? chartColors.textColor.dark : chartColors.textColor.light;
+          }
+          if (chart.options.plugins?.tooltip) {
+            chart.options.plugins.tooltip.backgroundColor = darkMode ? chartColors.tooltipBgColor.dark : chartColors.tooltipBgColor.light;
+            chart.options.plugins.tooltip.titleColor = darkMode ? chartColors.tooltipTitleColor.dark : chartColors.tooltipTitleColor.light;
+            chart.options.plugins.tooltip.bodyColor = darkMode ? chartColors.tooltipBodyColor.dark : chartColors.tooltipBodyColor.light;
+            chart.options.plugins.tooltip.borderColor = darkMode ? chartColors.tooltipBorderColor.dark : chartColors.tooltipBorderColor.light;
+          }
+          
           chartRef.current.update();
         } else if (canvasRef.current) {
           const ctx = canvasRef.current.getContext('2d');
@@ -185,7 +210,39 @@ export default function ErrorRateChart({
         chartRef.current = null;
       }
     };
-  }, [timeRange, category, darkMode]);
+  }, [timeRange, category]);
+
+  // Separate effect for theme changes
+  useEffect(() => {
+    if (!chartRef.current) return;
+
+    const chart = chartRef.current;
+    
+    // Update all colors when theme changes
+    if (chart.options.scales?.x?.ticks) {
+      chart.options.scales.x.ticks.color = darkMode ? chartColors.textColor.dark : chartColors.textColor.light;
+    }
+    if (chart.options.scales?.y?.ticks) {
+      chart.options.scales.y.ticks.color = darkMode ? chartColors.textColor.dark : chartColors.textColor.light;
+    }
+    if (chart.options.scales?.y?.grid) {
+      chart.options.scales.y.grid.color = darkMode ? chartColors.gridColor.dark : chartColors.gridColor.light;
+    }
+    if (chart.options.scales?.y1?.ticks) {
+      chart.options.scales.y1.ticks.color = darkMode ? chartColors.textColor.dark : chartColors.textColor.light;
+    }
+    if (chart.options.plugins?.legend?.labels) {
+      chart.options.plugins.legend.labels.color = darkMode ? chartColors.textColor.dark : chartColors.textColor.light;
+    }
+    if (chart.options.plugins?.tooltip) {
+      chart.options.plugins.tooltip.backgroundColor = darkMode ? chartColors.tooltipBgColor.dark : chartColors.tooltipBgColor.light;
+      chart.options.plugins.tooltip.titleColor = darkMode ? chartColors.tooltipTitleColor.dark : chartColors.tooltipTitleColor.light;
+      chart.options.plugins.tooltip.bodyColor = darkMode ? chartColors.tooltipBodyColor.dark : chartColors.tooltipBodyColor.light;
+      chart.options.plugins.tooltip.borderColor = darkMode ? chartColors.tooltipBorderColor.dark : chartColors.tooltipBorderColor.light;
+    }
+
+    chart.update('none'); // Update without animation
+  }, [darkMode]);
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6" style={{ height }}>

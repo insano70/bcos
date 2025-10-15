@@ -42,7 +42,7 @@ export interface OrganizationsServiceInterface {
 export interface OrganizationHierarchyServiceInterface {
   getAccessibleHierarchy(rootOrganizationId?: string): Promise<Organization[]>;
   getOrganizationAncestors(organizationId: string): Promise<Organization[]>;
-  getOrganizationDescendants(organizationId: string): Promise<Organization[]>;
+  getOrganizationDescendants(organizationId: string, maxDepth?: number): Promise<Organization[]>;
   validateHierarchyMove(organizationId: string, newParentId: string): Promise<boolean>;
 }
 
@@ -94,6 +94,7 @@ export interface UpdateOrganizationData {
  * Organization query options for filtering and pagination
  */
 export interface OrganizationQueryOptions {
+  organization_id?: string | undefined; // Filter by specific organization ID
   search?: string | undefined;
   parent_organization_id?: string | undefined;
   is_active?: boolean | undefined;

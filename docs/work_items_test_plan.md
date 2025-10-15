@@ -569,8 +569,6 @@ describe('Work Items Full Flow', () => {
 
 ## Sign-Off Criteria
 
-Before removing `rbac-work-items-service-original.ts`:
-
 ### Must Pass
 - [ ] All Priority 1 tests passing
 - [ ] TypeScript compilation passing
@@ -595,11 +593,10 @@ Before removing `rbac-work-items-service-original.ts`:
 
 If critical issues found during testing:
 
-1. **Keep Original Service**: Don't remove `rbac-work-items-service-original.ts`
+1. **Restore from Git**: Use git history to restore previous version if needed
 2. **Document Issues**: Create detailed bug reports
 3. **Fix Forward**: Address issues in new services
 4. **Re-test**: Run full test suite again
-5. **Sign-Off**: Only remove original after all issues resolved
 
 ---
 

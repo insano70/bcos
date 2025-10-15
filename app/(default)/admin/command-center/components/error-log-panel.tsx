@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
-import { generateCorrelationTraceURL } from '@/lib/monitoring/cloudwatch-queries';
+import { generateCorrelationTraceURL } from '@/lib/monitoring/cloudwatch-client-utils';
 import type { ErrorsResponse, ErrorLogEntry } from '@/lib/monitoring/types';
 
 interface ErrorLogPanelProps {

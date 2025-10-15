@@ -17,6 +17,7 @@ import {
 } from './query-builder';
 import { createOrganizationMembersService } from './members-service';
 import { createOrganizationHierarchyService } from './hierarchy-service';
+import { sanitizeLikePattern, validatePagination } from './sanitization';
 import type {
   CreateOrganizationData,
   OrganizationQueryOptions,
@@ -212,9 +213,18 @@ class OrganizationsService implements OrganizationsServiceInterface {
         return [];
       }
 
+      // Validate and sanitize pagination parameters
+      const { limit, offset } = validatePagination(options.limit, options.offset);
+
       // Apply additional filters
+      if (options.organization_id) {
+        whereConditions.push(eq(organizations.organization_id, options.organization_id));
+      }
+
       if (options.search) {
-        whereConditions.push(like(organizations.name, `%${options.search}%`));
+        // Sanitize search input to prevent SQL injection via LIKE pattern
+        const sanitizedSearch = sanitizeLikePattern(options.search);
+        whereConditions.push(like(organizations.name, `%${sanitizedSearch}%`));
       }
 
       if (options.parent_organization_id !== undefined) {
@@ -238,17 +248,8 @@ class OrganizationsService implements OrganizationsServiceInterface {
         .orderBy(desc(organizations.created_at));
       const queryDuration = Date.now() - queryStart;
 
-      // Apply pagination manually (after filtering)
-      const results = (() => {
-        let filtered = baseResults;
-        if (options.offset) {
-          filtered = filtered.slice(options.offset);
-        }
-        if (options.limit) {
-          filtered = filtered.slice(0, options.limit);
-        }
-        return filtered;
-      })();
+      // Apply pagination manually (after filtering) using validated parameters
+      const results = baseResults.slice(offset, offset + limit);
 
       if (results.length === 0) {
         const template = logTemplates.crud.list('organizations', {
@@ -366,10 +367,15 @@ class OrganizationsService implements OrganizationsServiceInterface {
         throw AuthorizationError('Access denied to this organization');
       }
 
-      // Reuse getOrganizations with filtering
-      const [result] = await this.getOrganizations({ limit: 1 });
+      // Reuse getOrganizations with ID filtering
+      const results = await this.getOrganizations({
+        organization_id: organizationId,
+        limit: 1
+      });
 
-      if (!result || result.organization_id !== organizationId) {
+      const result = results[0] || null;
+
+      if (!result) {
         const template = logTemplates.crud.read('organization', {
           resourceId: organizationId,
           userId: this.userContext.user_id,

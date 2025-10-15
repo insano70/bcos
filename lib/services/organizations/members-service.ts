@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import {
   AuthorizationError,
   NotFoundError,
@@ -440,10 +440,7 @@ class OrganizationMembersService implements OrganizationMembersServiceInterface 
         throw AuthorizationError('Access denied to this organization');
       }
 
-      let added = 0;
-      let removed = 0;
-
-      // Validate organization exists
+      // Validate organization exists (outside transaction for early validation)
       const [org] = await db
         .select()
         .from(organizations)
@@ -454,85 +451,97 @@ class OrganizationMembersService implements OrganizationMembersServiceInterface 
         throw NotFoundError('Organization');
       }
 
-      // Process additions
-      if (addUserIds.length > 0) {
-        // Validate all users exist and are active
-        const existingUsers = await db
-          .select({ user_id: users.user_id })
-          .from(users)
-          .where(
-            and(
-              inArray(users.user_id, addUserIds),
-              eq(users.is_active, true),
-              isNull(users.deleted_at)
-            )
-          );
+      // Wrap all mutations in a transaction for consistency
+      const { added, removed } = await db.transaction(async (tx) => {
+        // Set statement timeout for this transaction (30 seconds)
+        // Prevents long-running transactions from holding locks indefinitely
+        await tx.execute(sql`SET LOCAL statement_timeout = '30s'`);
 
-        const validUserIds = existingUsers.map((u) => u.user_id);
+        let addedCount = 0;
+        let removedCount = 0;
 
-        if (validUserIds.length === 0) {
-          throw ValidationError(null, 'No valid users found to add');
-        }
-
-        // For each user, either insert new or reactivate existing
-        for (const userId of validUserIds) {
-          const [existing] = await db
-            .select()
-            .from(user_organizations)
+        // Process additions
+        if (addUserIds.length > 0) {
+          // Validate all users exist and are active
+          const existingUsers = await tx
+            .select({ user_id: users.user_id })
+            .from(users)
             .where(
               and(
-                eq(user_organizations.user_id, userId),
-                eq(user_organizations.organization_id, organizationId)
+                inArray(users.user_id, addUserIds),
+                eq(users.is_active, true),
+                isNull(users.deleted_at)
               )
-            )
-            .limit(1);
+            );
 
-          if (existing) {
-            // Reactivate if inactive
-            if (!existing.is_active) {
-              await db
-                .update(user_organizations)
-                .set({
-                  is_active: true,
-                  joined_at: new Date(),
-                })
-                .where(
-                  eq(user_organizations.user_organization_id, existing.user_organization_id)
-                );
-              added++;
+          const validUserIds = existingUsers.map((u) => u.user_id);
+
+          if (validUserIds.length === 0) {
+            throw ValidationError(null, 'No valid users found to add');
+          }
+
+          // For each user, either insert new or reactivate existing
+          for (const userId of validUserIds) {
+            const [existing] = await tx
+              .select()
+              .from(user_organizations)
+              .where(
+                and(
+                  eq(user_organizations.user_id, userId),
+                  eq(user_organizations.organization_id, organizationId)
+                )
+              )
+              .limit(1);
+
+            if (existing) {
+              // Reactivate if inactive
+              if (!existing.is_active) {
+                await tx
+                  .update(user_organizations)
+                  .set({
+                    is_active: true,
+                    joined_at: new Date(),
+                  })
+                  .where(
+                    eq(user_organizations.user_organization_id, existing.user_organization_id)
+                  );
+                addedCount++;
+              }
+              // Already active - skip
+            } else {
+              // Insert new association
+              await tx.insert(user_organizations).values({
+                user_id: userId,
+                organization_id: organizationId,
+                is_active: true,
+                joined_at: new Date(),
+              });
+              addedCount++;
             }
-            // Already active - skip
-          } else {
-            // Insert new association
-            await db.insert(user_organizations).values({
-              user_id: userId,
-              organization_id: organizationId,
-              is_active: true,
-              joined_at: new Date(),
-            });
-            added++;
           }
         }
-      }
 
-      // Process removals (soft delete)
-      if (removeUserIds.length > 0) {
-        const result = await db
-          .update(user_organizations)
-          .set({
-            is_active: false,
-          })
-          .where(
-            and(
-              eq(user_organizations.organization_id, organizationId),
-              inArray(user_organizations.user_id, removeUserIds),
-              eq(user_organizations.is_active, true)
+        // Process removals (soft delete)
+        if (removeUserIds.length > 0) {
+          const result = await tx
+            .update(user_organizations)
+            .set({
+              is_active: false,
+            })
+            .where(
+              and(
+                eq(user_organizations.organization_id, organizationId),
+                inArray(user_organizations.user_id, removeUserIds),
+                eq(user_organizations.is_active, true)
+              )
             )
-          )
-          .returning();
+            .returning();
 
-        removed = result.length;
-      }
+          removedCount = result.length;
+        }
+
+        return { added: addedCount, removed: removedCount };
+      });
 
       const duration = Date.now() - startTime;
       log.info('organization users updated', {

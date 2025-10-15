@@ -5,6 +5,7 @@ import {
 } from '@/lib/rbac/organization-hierarchy';
 import { SLOW_THRESHOLDS, log } from '@/lib/logger';
 import type { Organization, UserContext } from '@/lib/types/rbac';
+import { MAX_CHILDREN_PER_LEVEL } from './sanitization';
 import type { OrganizationHierarchyServiceInterface } from './types';
 
 /**
@@ -207,12 +208,20 @@ class OrganizationHierarchyService implements OrganizationHierarchyServiceInterf
    * Get all descendant organizations for a given organization
    *
    * Walks down the hierarchy tree to find all children, grandchildren, etc.
+   * Includes depth limit to prevent stack overflow on deep hierarchies.
    *
    * @param organizationId - Organization ID to start from
+   * @param maxDepth - Maximum depth to traverse (default: 10 levels)
+   * @param currentDepth - Internal parameter for recursion tracking
    * @returns Array of descendant organizations
    * @throws {AuthorizationError} If user lacks access to organization
+   * @throws {Error} If max depth exceeded
    */
-  async getOrganizationDescendants(organizationId: string): Promise<Organization[]> {
+  async getOrganizationDescendants(
+    organizationId: string,
+    maxDepth: number = 10,
+    currentDepth: number = 0
+  ): Promise<Organization[]> {
     const startTime = Date.now();
 
     try {
@@ -221,37 +230,80 @@ class OrganizationHierarchyService implements OrganizationHierarchyServiceInterf
         throw AuthorizationError('Access denied to this organization');
       }
 
+      // Check depth limit
+      if (currentDepth >= maxDepth) {
+        log.warn('organization descendants max depth exceeded', {
+          operation: 'get_organization_descendants',
+          organizationId,
+          userId: this.userContext.user_id,
+          currentDepth,
+          maxDepth,
+          component: 'hierarchy_service',
+        });
+        throw new Error(
+          `Maximum hierarchy depth of ${maxDepth} exceeded. Consider increasing maxDepth parameter or checking for circular references.`
+        );
+      }
+
       // Get immediate children
       const children = await getOrganizationChildren(organizationId);
+
+      // Check children count limit to prevent "wide" attacks
+      if (children.length > MAX_CHILDREN_PER_LEVEL) {
+        log.warn('excessive children count detected in hierarchy', {
+          operation: 'get_organization_descendants',
+          organizationId,
+          userId: this.userContext.user_id,
+          childrenCount: children.length,
+          maxChildrenPerLevel: MAX_CHILDREN_PER_LEVEL,
+          currentDepth,
+          component: 'hierarchy_service',
+        });
+        throw new Error(
+          `Organization hierarchy is too wide to process (${children.length} children at level ${currentDepth})`
+        );
+      }
+
       const descendants: Organization[] = [...children];
 
       // Recursively get descendants of each child
       for (const child of children) {
-        const childDescendants = await this.getOrganizationDescendants(child.organization_id);
+        const childDescendants = await this.getOrganizationDescendants(
+          child.organization_id,
+          maxDepth,
+          currentDepth + 1
+        );
         descendants.push(...childDescendants);
       }
 
-      const duration = Date.now() - startTime;
-      log.info('organization descendants retrieved', {
-        operation: 'get_organization_descendants',
-        organizationId,
-        userId: this.userContext.user_id,
-        descendantCount: descendants.length,
-        immediateChildren: children.length,
-        duration,
-        slow: duration > SLOW_THRESHOLDS.DB_QUERY,
-        component: 'hierarchy_service',
-      });
+      // Only log at the top level (currentDepth === 0) to avoid log spam
+      if (currentDepth === 0) {
+        const duration = Date.now() - startTime;
+        log.info('organization descendants retrieved', {
+          operation: 'get_organization_descendants',
+          organizationId,
+          userId: this.userContext.user_id,
+          descendantCount: descendants.length,
+          immediateChildren: children.length,
+          maxDepthReached: currentDepth,
+          duration,
+          slow: duration > SLOW_THRESHOLDS.DB_QUERY,
+          component: 'hierarchy_service',
+        });
+      }
 
       return descendants;
     } catch (error) {
-      log.error('get organization descendants failed', error, {
-        operation: 'get_organization_descendants',
-        organizationId,
-        userId: this.userContext.user_id,
-        duration: Date.now() - startTime,
-        component: 'hierarchy_service',
-      });
+      // Only log at top level to avoid duplicate error logs
+      if (currentDepth === 0) {
+        log.error('get organization descendants failed', error, {
+          operation: 'get_organization_descendants',
+          organizationId,
+          userId: this.userContext.user_id,
+          duration: Date.now() - startTime,
+          component: 'hierarchy_service',
+        });
+      }
       throw error;
     }
   }

@@ -575,7 +575,6 @@ fields @timestamp, results.returned, metadata.query.duration
 - [STANDARDS.md](./services/STANDARDS.md) - Service standards and patterns
 - [STANDARDIZATION_PROGRESS.md](./services/STANDARDIZATION_PROGRESS.md) - Overall progress tracker
 - [rbac-organizations-service.ts](../lib/services/rbac-organizations-service.ts) - Refactored service (1,366 lines)
-- [rbac-organizations-service-original.ts](../lib/services/rbac-organizations-service-original.ts) - Backup (675 lines)
 
 ---
 
