@@ -57,15 +57,18 @@ export class LineChartStrategy extends BaseChartTransformStrategy {
 
     // Handle dates based on frequency
     const dateObjects = sortedMeasures.map((m) => {
-      return toChartJsDate(m.date_index, m.frequency || 'Monthly');
+      return toChartJsDate((m.date_index ?? m.date_value ?? '') as string, (m.frequency ?? 'Monthly') as string);
     });
 
     const chartData: ChartData = {
       labels: dateObjects,
       datasets: [
         {
-          label: sortedMeasures[0]?.measure || 'Value',
-          data: sortedMeasures.map((m) => this.parseValue(m.measure_value)),
+          label: (sortedMeasures[0]?.measure ?? 'Value') as string,
+          data: sortedMeasures.map((m) => {
+            const value = m.measure_value ?? m.numeric_value ?? 0;
+            return this.parseValue(typeof value === 'string' || typeof value === 'number' ? value : 0);
+          }),
           borderColor: getCssVariable('--color-violet-500'),
           backgroundColor: filled
             ? adjustColorOpacity(getCssVariable('--color-violet-500'), 0.1)
@@ -97,7 +100,7 @@ export class LineChartStrategy extends BaseChartTransformStrategy {
 
     measures.forEach((measure) => {
       const groupKey = this.getGroupKey(measure, groupBy, config);
-      const dateKey = measure.date_index;
+      const dateKey = (measure.date_index ?? measure.date_value ?? '') as string;
 
       allDates.add(dateKey);
 
@@ -107,7 +110,8 @@ export class LineChartStrategy extends BaseChartTransformStrategy {
         groupedData.set(groupKey, dateMap);
       }
 
-      const measureValue = this.parseValue(measure.measure_value);
+      const value = measure.measure_value ?? measure.numeric_value ?? 0;
+      const measureValue = this.parseValue(typeof value === 'string' || typeof value === 'number' ? value : 0);
       dateMap.set(dateKey, measureValue);
     });
 
@@ -147,7 +151,7 @@ export class LineChartStrategy extends BaseChartTransformStrategy {
 
     // Convert dates to Chart.js format
     const finalLabels = datesWithData.map((dateStr) => {
-      return toChartJsDate(dateStr, measures[0]?.frequency || 'Monthly');
+      return toChartJsDate(dateStr, (measures[0]?.frequency ?? 'Monthly') as string);
     });
 
     const chartData: ChartData = {

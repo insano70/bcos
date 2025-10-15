@@ -1,10 +1,12 @@
 import type { ChartData, ChartDataset, DualAxisConfig } from '@/lib/types/analytics';
+import { MeasureAccessor } from '@/lib/types/analytics';
 import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
 import { getPaletteColors } from '@/lib/services/color-palettes';
 import { getCssVariable } from '@/components/utils/utils';
 import { BaseChartHandler } from './base-handler';
 import { getResolvedColumns } from './column-resolver';
+import { columnMappingService } from '../column-mapping-service';
 
 /**
  * Combo Chart Handler
@@ -190,14 +192,27 @@ export class ComboChartHandler extends BaseChartHandler {
       }
     }
 
-    // Extract measure types (assumes all records of same measure have same type)
-    const primaryMeasureType = primaryData.length > 0 && primaryData[0]
-      ? String(primaryData[0].measure_type || 'number')
-      : 'number';
-
-    const secondaryMeasureType = secondaryData.length > 0 && secondaryData[0]
-      ? String(secondaryData[0].measure_type || 'number')
-      : 'number';
+    // Extract measure types using MeasureAccessor
+    let primaryMeasureType = 'number';
+    let secondaryMeasureType = 'number';
+    
+    if (config.dataSourceId) {
+      try {
+        const mapping = await columnMappingService.getMapping(config.dataSourceId as number);
+        
+        if (primaryData.length > 0 && primaryData[0]) {
+          const primaryAccessor = new MeasureAccessor(primaryData[0] as unknown as import('@/lib/types/analytics').AggAppMeasure, mapping);
+          primaryMeasureType = primaryAccessor.getMeasureType();
+        }
+        
+        if (secondaryData.length > 0 && secondaryData[0]) {
+          const secondaryAccessor = new MeasureAccessor(secondaryData[0] as unknown as import('@/lib/types/analytics').AggAppMeasure, mapping);
+          secondaryMeasureType = secondaryAccessor.getMeasureType();
+        }
+      } catch (error) {
+        log.warn('Failed to get measure types from accessor, using defaults', { error });
+      }
+    }
 
     // Get labels for axes
     const primaryLabel = dualAxisConfig.primary.axisLabel || dualAxisConfig.primary.measure;

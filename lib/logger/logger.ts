@@ -116,10 +116,20 @@ export const correlation = {
 /**
  * HIPAA-compliant PII sanitization
  * Recursively redacts sensitive information from log data
+ * Handles circular references safely
  */
-function sanitize(obj: unknown): unknown {
+function sanitize(obj: unknown, seen = new WeakSet<object>()): unknown {
   if (typeof obj !== 'object' || obj === null) return obj;
-  if (Array.isArray(obj)) return obj.map(sanitize);
+
+  // Detect circular references
+  if (seen.has(obj)) {
+    return '[Circular Reference]';
+  }
+  seen.add(obj);
+
+  if (Array.isArray(obj)) {
+    return obj.map((item) => sanitize(item, seen));
+  }
 
   const sanitized: Record<string, unknown> = {};
   const sensitiveKeys = [
@@ -152,7 +162,7 @@ function sanitize(obj: unknown): unknown {
     if (isSensitive) {
       sanitized[key] = '[REDACTED]';
     } else if (typeof value === 'object' && value !== null) {
-      sanitized[key] = sanitize(value);
+      sanitized[key] = sanitize(value, seen);
     } else if (typeof value === 'string') {
       sanitized[key] = sanitizeString(value);
     } else {
@@ -198,9 +208,16 @@ function sanitizeString(value: string): string {
 /**
  * Serialize error object with full stack trace
  * Error objects are not enumerable, so JSON.stringify loses them
+ * Handles circular references safely
  */
-function serializeError(error: unknown): Record<string, unknown> {
+function serializeError(error: unknown, seen = new WeakSet<object>()): Record<string, unknown> {
   if (error instanceof Error) {
+    // Prevent infinite recursion on circular references
+    if (seen.has(error)) {
+      return { circular: '[Circular Reference]' };
+    }
+    seen.add(error);
+
     const result: Record<string, unknown> = {
       name: error.name,
       message: error.message,
@@ -210,14 +227,39 @@ function serializeError(error: unknown): Record<string, unknown> {
 
     // Capture error cause chain (if present)
     if (error.cause) {
-      result.cause = serializeError(error.cause);
+      result.cause = serializeError(error.cause, seen);
     }
 
-    // Capture any custom properties on the error
+    // Capture any custom properties on the error, safely handling circular refs
     const customProps = Object.getOwnPropertyNames(error).reduce(
       (acc, key) => {
-        if (!['name', 'message', 'stack'].includes(key)) {
-          acc[key] = (error as unknown as Record<string, unknown>)[key];
+        if (!['name', 'message', 'stack', 'cause'].includes(key)) {
+          const value = (error as unknown as Record<string, unknown>)[key];
+
+          // Handle different value types safely
+          if (typeof value === 'object' && value !== null) {
+            // Check for circular reference
+            if (seen.has(value)) {
+              acc[key] = '[Circular]';
+            } else {
+              // Try to safely serialize complex objects
+              try {
+                // Test if object can be serialized without circular refs
+                JSON.stringify(value);
+                acc[key] = value;
+              } catch {
+                // Object has circular refs or is non-serializable
+                acc[key] = '[Non-serializable Object]';
+              }
+            }
+          } else if (typeof value === 'function') {
+            acc[key] = '[Function]';
+          } else if (typeof value === 'symbol') {
+            acc[key] = '[Symbol]';
+          } else {
+            // Primitive values are safe
+            acc[key] = value;
+          }
         }
         return acc;
       },

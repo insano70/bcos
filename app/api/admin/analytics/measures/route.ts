@@ -13,7 +13,10 @@ import type {
   MeasureType,
   MultipleSeriesConfig,
   PeriodComparisonConfig,
+  AggAppMeasure,
 } from '@/lib/types/analytics';
+import { MeasureAccessor } from '@/lib/types/analytics';
+import { columnMappingService } from '@/lib/services/column-mapping-service';
 import type { UserContext } from '@/lib/types/rbac';
 
 /**
@@ -171,18 +174,56 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     // For 'number' chart type, aggregate to a single total value
     let measuresData = result.data;
     if (chartType === 'number' && result.data.length > 0) {
-      // Convert measure_value to number and sum (handle string or number types)
-      const total = result.data.reduce((sum, measure) => {
-        const value = typeof measure.measure_value === 'string'
-          ? parseFloat(measure.measure_value)
-          : (measure.measure_value || 0);
-        return sum + (Number.isNaN(value) ? 0 : value);
-      }, 0);
+      // Use MeasureAccessor for dynamic column access
+      let total = 0;
+      
+      if (queryParams.data_source_id && result.data.length > 0) {
+        try {
+          const mapping = await columnMappingService.getMapping(queryParams.data_source_id);
+          
+          // Sum all measure values using accessor
+          total = result.data.reduce((sum, measure) => {
+            const accessor = new MeasureAccessor(measure as unknown as AggAppMeasure, mapping);
+            return sum + accessor.getMeasureValue();
+          }, 0);
+        } catch (error) {
+          log.warn('Failed to use MeasureAccessor for aggregation, using default', { error });
+          // Fallback to default behavior
+          total = result.data.reduce((sum, measure) => {
+            const value = typeof measure.measure_value === 'string'
+              ? parseFloat(measure.measure_value as string)
+              : (measure.measure_value as number || 0);
+            return sum + (Number.isNaN(value) ? 0 : value);
+          }, 0);
+        }
+      } else {
+        // No data source ID, use default behavior
+        total = result.data.reduce((sum, measure) => {
+          const value = typeof measure.measure_value === 'string'
+            ? parseFloat(measure.measure_value as string)
+            : (measure.measure_value as number || 0);
+          return sum + (Number.isNaN(value) ? 0 : value);
+        }, 0);
+      }
+
+      // Determine measure type using accessor if available
+      let measureType = 'number';
+      if (queryParams.data_source_id && result.data[0]) {
+        try {
+          const mapping = await columnMappingService.getMapping(queryParams.data_source_id);
+          const accessor = new MeasureAccessor(result.data[0] as unknown as AggAppMeasure, mapping);
+          measureType = accessor.getMeasureType();
+        } catch {
+          measureType = (result.data[0]?.measure_type as string) || 'number';
+        }
+      } else {
+        measureType = (result.data[0]?.measure_type as string) || 'number';
+      }
 
       // Return a single measure with the aggregated total
       measuresData = [{
         measure_value: total,
-        measure_type: result.data[0]?.measure_type || 'number',
+        measure_type: measureType,
         date_index: new Date().toISOString().split('T')[0] || '',
         measure: queryParams.measure || 'Total',
         aggregation_type: 'sum'

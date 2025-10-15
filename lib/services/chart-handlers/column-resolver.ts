@@ -5,9 +5,13 @@
  * to avoid hardcoding column names in chart handlers.
  * 
  * All chart handlers should use these utilities instead of hardcoded strings.
+ * 
+ * NOTE: For new code, prefer columnMappingService over these legacy functions.
+ * @see lib/services/column-mapping-service.ts
  */
 
 import { chartConfigService } from '@/lib/services/chart-config-service';
+import type { DataSourceColumnMapping } from '@/lib/types/analytics';
 import { log } from '@/lib/logger';
 
 /**
@@ -195,6 +199,33 @@ function getDefaultColumns(): ResolvedColumns {
     timePeriodColumn: 'time_period',
     practiceColumn: 'practice_uid',
     providerColumn: 'provider_uid',
+  };
+}
+
+/**
+ * Get column mapping for a data source
+ * 
+ * Converts ResolvedColumns format to DataSourceColumnMapping format
+ * for use with MeasureAccessor.
+ * 
+ * NOTE: This is a bridge function for migration. New code should use
+ * columnMappingService.getMapping() directly.
+ * 
+ * @param dataSourceId - Data source ID
+ * @returns Column mapping in DataSourceColumnMapping format
+ */
+export async function getColumnMapping(
+  dataSourceId: number | undefined
+): Promise<DataSourceColumnMapping> {
+  const columns = await getResolvedColumns(dataSourceId);
+  
+  return {
+    dateField: columns.dateColumn,
+    measureField: columns.measureColumn,
+    measureTypeField: 'measure_type', // Assuming standard for now
+    timePeriodField: columns.timePeriodColumn,
+    practiceField: columns.practiceColumn,
+    providerField: columns.providerColumn,
   };
 }
 

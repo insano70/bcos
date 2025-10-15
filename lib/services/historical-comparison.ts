@@ -1,5 +1,15 @@
 import type { AggAppMeasure } from '@/lib/types/analytics';
 
+// Helper functions for safe dynamic column access
+const getDate = (m: AggAppMeasure): string => {
+  return (m.date_index ?? m.date_value ?? '') as string;
+};
+
+const getMeasureValue = (m: AggAppMeasure): number => {
+  const value = m.measure_value ?? m.numeric_value ?? 0;
+  return typeof value === 'number' ? value : typeof value === 'string' ? parseFloat(value) : 0;
+};
+
 /**
  * Historical Comparison Service
  * Implements period-over-period and year-over-year analysis tools
@@ -232,8 +242,8 @@ export class HistoricalComparisonService {
     }
 
     const values = measures
-      .sort((a, b) => new Date(a.date_index).getTime() - new Date(b.date_index).getTime())
-      .map((m) => m.measure_value);
+      .sort((a, b) => new Date(getDate(a)).getTime() - new Date(getDate(b)).getTime())
+      .map((m) => getMeasureValue(m));
 
     // Calculate linear trend
     const n = values.length;
@@ -280,13 +290,7 @@ export class HistoricalComparisonService {
 
   private calculateTotal(measures: AggAppMeasure[]): number {
     return measures.reduce((sum, measure) => {
-      // Ensure measure_value is treated as a number, not concatenated as string
-      const value =
-        typeof measure.measure_value === 'string'
-          ? parseFloat(measure.measure_value)
-          : measure.measure_value;
-
-      // Only add valid numbers
+      const value = getMeasureValue(measure);
       return sum + (Number.isNaN(value) ? 0 : value);
     }, 0);
   }
@@ -294,7 +298,7 @@ export class HistoricalComparisonService {
   private formatPeriod(measures: AggAppMeasure[]): string {
     if (measures.length === 0) return 'No data';
 
-    const dates = measures.map((m) => new Date(m.date_index));
+    const dates = measures.map((m) => new Date(getDate(m)));
     const minDate = new Date(Math.min(...dates.map((d) => d.getTime())));
     const maxDate = new Date(Math.max(...dates.map((d) => d.getTime())));
 
@@ -315,8 +319,8 @@ export class HistoricalComparisonService {
     const grouped: Record<string, number> = {};
 
     measures.forEach((measure) => {
-      const period = measure.date_index;
-      grouped[period] = (grouped[period] || 0) + measure.measure_value;
+      const period = getDate(measure);
+      grouped[period] = (grouped[period] || 0) + getMeasureValue(measure);
     });
 
     return grouped;

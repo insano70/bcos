@@ -1,44 +1,219 @@
 /**
  * Analytics Types
  * Based on the ih.gr_app_measures table structure from the design document
+ * 
+ * REFACTORED: Now supports dynamic column names via DataSourceColumnMapping
+ * See: docs/DYNAMIC_COLUMN_REFACTORING_PLAN.md
  */
 
 /**
+ * Data source column mapping configuration
+ * Defines how to access columns dynamically based on data source schema
+ * 
+ * Example:
+ * - Data Source 1: { dateField: "date_index", measureField: "measure_value", ... }
+ * - Data Source 3: { dateField: "date_value", measureField: "numeric_value", ... }
+ */
+export interface DataSourceColumnMapping {
+  /** Name of the date column (e.g., "date_value", "date_index") */
+  dateField: string;
+  
+  /** Name of the measure value column (e.g., "numeric_value", "measure_value") */
+  measureField: string;
+  
+  /** Name of the measure type column (e.g., "measure_type") */
+  measureTypeField: string;
+  
+  /** Name of the time period/frequency column (e.g., "time_period", "frequency") */
+  timePeriodField: string;
+  
+  /** Name of the practice UID column (optional, defaults to "practice_uid") */
+  practiceField?: string;
+  
+  /** Name of the provider UID column (optional, defaults to "provider_uid") */
+  providerField?: string;
+}
+
+/**
+ * Type-safe accessor for dynamic measure fields
+ * 
+ * Use this instead of direct property access to support multiple data sources
+ * with different column names.
+ * 
+ * @example
+ * ```typescript
+ * const mapping = await columnMappingService.getMapping(dataSourceId);
+ * const accessor = new MeasureAccessor(row, mapping);
+ * 
+ * // ✅ Dynamic access based on config
+ * const date = accessor.getDate();
+ * const value = accessor.getMeasureValue();
+ * 
+ * // ❌ Don't do this (hardcoded)
+ * const date = row.date_index;
+ * const value = row.measure_value;
+ * ```
+ */
+export class MeasureAccessor {
+  constructor(
+    private readonly row: AggAppMeasure,
+    private readonly mapping: DataSourceColumnMapping
+  ) {}
+  
+  /**
+   * Get the date value from the row
+   * Column name determined by mapping.dateField
+   */
+  getDate(): string {
+    const value = this.row[this.mapping.dateField];
+    if (typeof value !== 'string') {
+      throw new Error(`Date field "${this.mapping.dateField}" is not a string`);
+    }
+    return value;
+  }
+  
+  /**
+   * Get the measure value from the row
+   * Column name determined by mapping.measureField
+   */
+  getMeasureValue(): number {
+    const value = this.row[this.mapping.measureField];
+    if (typeof value === 'string') {
+      return parseFloat(value);
+    }
+    if (typeof value !== 'number') {
+      throw new Error(`Measure field "${this.mapping.measureField}" is not a number`);
+    }
+    return value;
+  }
+  
+  /**
+   * Get the measure type from the row (e.g., "currency", "count", "percentage")
+   * Column name determined by mapping.measureTypeField
+   */
+  getMeasureType(): string {
+    const value = this.row[this.mapping.measureTypeField];
+    if (typeof value !== 'string') {
+      return 'number'; // Default fallback
+    }
+    return value;
+  }
+  
+  /**
+   * Get the time period/frequency from the row (e.g., "Monthly", "Weekly")
+   * Column name determined by mapping.timePeriodField
+   */
+  getTimePeriod(): string | undefined {
+    const value = this.row[this.mapping.timePeriodField];
+    return typeof value === 'string' ? value : undefined;
+  }
+  
+  /**
+   * Get the practice UID from the row
+   * Column name determined by mapping.practiceField or defaults to "practice_uid"
+   */
+  getPracticeUid(): number | undefined {
+    const fieldName = this.mapping.practiceField || 'practice_uid';
+    const value = this.row[fieldName];
+    if (typeof value === 'string') {
+      return parseInt(value, 10);
+    }
+    return typeof value === 'number' ? value : undefined;
+  }
+  
+  /**
+   * Get the provider UID from the row
+   * Column name determined by mapping.providerField or defaults to "provider_uid"
+   */
+  getProviderUid(): number | undefined {
+    const fieldName = this.mapping.providerField || 'provider_uid';
+    const value = this.row[fieldName];
+    if (typeof value === 'string') {
+      return parseInt(value, 10);
+    }
+    return typeof value === 'number' ? value : undefined;
+  }
+  
+  /**
+   * Generic accessor for any field in the row
+   * Use this for grouping fields or other dynamic columns
+   */
+  get(fieldName: string): string | number | boolean | null | undefined {
+    return this.row[fieldName];
+  }
+  
+  /**
+   * Get the underlying row data
+   * Use sparingly - prefer typed accessors above
+   */
+  getRaw(): AggAppMeasure {
+    return this.row;
+  }
+}
+
+/**
  * Pre-aggregated measure record from analytics tables
- * Semi-dynamic structure - common fields defined, additional fields dynamic
+ * FULLY DYNAMIC - column names determined by data source configuration
+ * 
+ * ⚠️ BREAKING CHANGE: No longer has hardcoded `date_index`, `measure_value`, etc.
+ * Use MeasureAccessor for type-safe access to dynamic columns.
+ * 
+ * For legacy code, see LegacyAggAppMeasure (deprecated)
  */
 export interface AggAppMeasure {
-  // Core required fields that exist in all data sources
-  date_index: string; // Date field for filtering and X-axis (ISO date string)
-  measure_value: number; // The actual numeric value
-  measure_type: string; // Type of measure ("currency", "count", etc.)
-
-  // Common fields from standard data sources (may not exist in all sources)
-  practice?: string; // Practice name/identifier
-  practice_primary?: string; // Primary practice identifier
-  practice_uid?: number; // Practice UID for filtering
-  provider_name?: string; // Provider name
-  entity_name?: string; // Entity name for grouping
-  measure?: string; // What we're measuring
-  frequency?: string; // Time unit ("Monthly", "Weekly", "Quarterly")
-
-  // Multiple series metadata (added dynamically for multi-series queries)
+  // NO hardcoded column names
+  // All fields are dynamic based on data source schema
+  // Access via MeasureAccessor class or column mapping configuration
+  
+  // Metadata fields (added dynamically for multi-series queries)
   series_id?: string;
   series_label?: string;
   series_aggregation?: 'sum' | 'avg' | 'count' | 'min' | 'max';
   series_color?: string;
+  
+  // Index signature for all dynamic columns
+  [key: string]: string | number | boolean | null | undefined;
+}
 
-  // All other fields are dynamic based on data source columns
-  // This allows grouping by any field marked as is_groupable in the database
-  [key: string]: string | number | undefined;
+/**
+ * Legacy measure record with hardcoded column names
+ * 
+ * @deprecated Use AggAppMeasure with MeasureAccessor instead
+ * 
+ * This interface is maintained for backward compatibility during the migration
+ * to dynamic column names. New code should use:
+ * - AggAppMeasure for the data type
+ * - MeasureAccessor for accessing fields
+ * - DataSourceColumnMapping for configuration
+ * 
+ * Will be removed in a future version.
+ */
+export interface LegacyAggAppMeasure extends AggAppMeasure {
+  // Hardcoded column names from original schema
+  date_index: string;
+  measure_value: number;
+  measure_type: string;
+  
+  // Common optional fields
+  practice?: string;
+  practice_primary?: string;
+  practice_uid?: number;
+  provider_name?: string;
+  entity_name?: string;
+  measure?: string;
+  frequency?: string;
 }
 
 /**
  * Standard measure record for ih.agg_app_measures table
+ * 
+ * @deprecated Use LegacyAggAppMeasure if you need hardcoded fields, or better yet, migrate to MeasureAccessor
+ * 
  * Extended interface for backward compatibility and type safety
  * Use this when you know you're working with the standard data source
  */
-export interface StandardAggAppMeasure extends AggAppMeasure {
+export interface StandardAggAppMeasure extends LegacyAggAppMeasure {
+  // All fields from LegacyAggAppMeasure as required
   practice: string; // Practice name/identifier (required for standard)
   practice_primary: string; // Primary practice identifier (required for standard)
   practice_uid: number; // Practice UID for filtering (required for standard)

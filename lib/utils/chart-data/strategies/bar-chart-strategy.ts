@@ -42,11 +42,14 @@ export class BarChartStrategy extends BaseChartTransformStrategy {
     const sortedMeasures = this.sortMeasuresByDate(measures);
 
     const chartData: ChartData = {
-      labels: sortedMeasures.map((m) => toMMDDYYYY(m.date_index)),
+      labels: sortedMeasures.map((m) => toMMDDYYYY((m.date_index ?? m.date_value ?? '') as string)),
       datasets: [
         {
-          label: sortedMeasures[0]?.measure || 'Value',
-          data: sortedMeasures.map((m) => this.parseValue(m.measure_value)),
+          label: (sortedMeasures[0]?.measure ?? 'Value') as string,
+          data: sortedMeasures.map((m) => {
+            const value = m.measure_value ?? m.numeric_value ?? 0;
+            return this.parseValue(typeof value === 'string' || typeof value === 'number' ? value : 0);
+          }),
           backgroundColor: getCssVariable('--color-violet-500'),
           hoverBackgroundColor: getCssVariable('--color-violet-600'),
           borderRadius: 4,
@@ -74,7 +77,7 @@ export class BarChartStrategy extends BaseChartTransformStrategy {
 
     measures.forEach((measure) => {
       const groupKey = this.getGroupKey(measure, groupBy, config);
-      const dateKey = measure.date_index;
+      const dateKey = (measure.date_index ?? measure.date_value ?? '') as string;
 
       allDates.add(dateKey);
 
@@ -84,7 +87,8 @@ export class BarChartStrategy extends BaseChartTransformStrategy {
         groupedData.set(groupKey, dateMap);
       }
 
-      const measureValue = this.parseValue(measure.measure_value);
+      const value = measure.measure_value ?? measure.numeric_value ?? 0;
+      const measureValue = this.parseValue(typeof value === 'string' || typeof value === 'number' ? value : 0);
       dateMap.set(dateKey, measureValue);
     });
 
@@ -123,7 +127,7 @@ export class BarChartStrategy extends BaseChartTransformStrategy {
 
     // Create category labels based on frequency
     const categoryLabels = datesWithData.map((dateStr) => {
-      return createCategoryLabel(dateStr, measures[0]?.frequency || 'Monthly');
+      return createCategoryLabel(dateStr, (measures[0]?.frequency ?? 'Monthly') as string);
     });
 
     const chartData: ChartData = {

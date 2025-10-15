@@ -22,9 +22,20 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
     formula: '((current - previous) / previous) * 100',
     dependencies: ['measure_value', 'date_index'],
     calculate: (measures: AggAppMeasure[]) => {
+      // Helper to safely get date value
+      const getDate = (m: AggAppMeasure): string => {
+        return (m.date_index ?? m.date_value ?? '') as string;
+      };
+
+      // Helper to safely get measure value
+      const getMeasureValue = (m: AggAppMeasure): number => {
+        const value = m.measure_value ?? m.numeric_value ?? 0;
+        return typeof value === 'number' ? value : typeof value === 'string' ? parseFloat(value) : 0;
+      };
+
       // Sort by date to calculate period-over-period growth
       const sorted = measures.sort(
-        (a, b) => new Date(a.date_index).getTime() - new Date(b.date_index).getTime()
+        (a, b) => new Date(getDate(a)).getTime() - new Date(getDate(b)).getTime()
       );
 
       return sorted.map((measure, index) => {
@@ -38,8 +49,8 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
           };
         }
 
-        const current = measure.measure_value;
-        const previous = sorted[index - 1]?.measure_value ?? 0;
+        const current = getMeasureValue(measure);
+        const previous = getMeasureValue(sorted[index - 1] as AggAppMeasure);
         const growthRate = previous !== 0 ? ((current - previous) / previous) * 100 : 0;
 
         return {
@@ -58,6 +69,17 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
     formula: 'charges / payments',
     dependencies: ['measure', 'measure_value'],
     calculate: (measures: AggAppMeasure[]) => {
+      // Helper to safely get date value
+      const getDate = (m: AggAppMeasure): string => {
+        return (m.date_index ?? m.date_value ?? '') as string;
+      };
+
+      // Helper to safely get measure value
+      const getMeasureValue = (m: AggAppMeasure): number => {
+        const value = m.measure_value ?? m.numeric_value ?? 0;
+        return typeof value === 'number' ? value : typeof value === 'string' ? parseFloat(value) : 0;
+      };
+
       // Group by provider and date to calculate ratios
       const grouped = new Map<
         string,
@@ -65,13 +87,13 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
       >();
 
       measures.forEach((measure) => {
-        const providerName = measure.provider_name ?? 'Unknown Provider';
-        const measureName = measure.measure ?? '';
+        const providerName = (measure.provider_name ?? 'Unknown Provider') as string;
+        const measureName = (measure.measure ?? '') as string;
 
-        const key = `${providerName}_${measure.date_index}`;
+        const key = `${providerName}_${getDate(measure)}`;
         if (!grouped.has(key)) {
           grouped.set(key, {
-            date: measure.date_index,
+            date: getDate(measure),
             provider: providerName,
           });
         }
@@ -81,9 +103,9 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
           throw new Error(`Group not found for key: ${key}`);
         }
         if (measureName.includes('Charges')) {
-          group.charges = measure.measure_value;
+          group.charges = getMeasureValue(measure);
         } else if (measureName.includes('Payments')) {
-          group.payments = measure.measure_value;
+          group.payments = getMeasureValue(measure);
         }
       });
 
@@ -115,8 +137,19 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
     formula: '(current + previous + previous2) / 3',
     dependencies: ['measure_value', 'date_index'],
     calculate: (measures: AggAppMeasure[]) => {
+      // Helper to safely get date value
+      const getDate = (m: AggAppMeasure): string => {
+        return (m.date_index ?? m.date_value ?? '') as string;
+      };
+
+      // Helper to safely get measure value
+      const getMeasureValue = (m: AggAppMeasure): number => {
+        const value = m.measure_value ?? m.numeric_value ?? 0;
+        return typeof value === 'number' ? value : typeof value === 'string' ? parseFloat(value) : 0;
+      };
+
       const sorted = measures.sort(
-        (a, b) => new Date(a.date_index).getTime() - new Date(b.date_index).getTime()
+        (a, b) => new Date(getDate(a)).getTime() - new Date(getDate(b)).getTime()
       );
 
       return sorted.map((measure, index) => {
@@ -125,14 +158,14 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
           return {
             ...measure,
             measure: 'Moving Average (3 periods)',
-            measure_value: measure.measure_value, // Use actual value
+            measure_value: getMeasureValue(measure), // Use actual value
             measure_type: 'currency',
           };
         }
 
-        const current = measure.measure_value;
-        const previous1 = sorted[index - 1]?.measure_value ?? 0;
-        const previous2 = sorted[index - 2]?.measure_value ?? 0;
+        const current = getMeasureValue(measure);
+        const previous1 = getMeasureValue(sorted[index - 1] as AggAppMeasure);
+        const previous2 = getMeasureValue(sorted[index - 2] as AggAppMeasure);
         const average = (current + previous1 + previous2) / 3;
 
         return {
@@ -151,18 +184,20 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
     formula: '((value - average) / average) * 100',
     dependencies: ['measure_value'],
     calculate: (measures: AggAppMeasure[]) => {
+      // Helper to safely get measure value
+      const getMeasureValue = (m: AggAppMeasure): number => {
+        const value = m.measure_value ?? m.numeric_value ?? 0;
+        return typeof value === 'number' ? value : typeof value === 'string' ? parseFloat(value) : 0;
+      };
+
       const total = measures.reduce((sum, m) => {
-        const value =
-          typeof m.measure_value === 'string' ? parseFloat(m.measure_value) : m.measure_value;
+        const value = getMeasureValue(m);
         return sum + (Number.isNaN(value) ? 0 : value);
       }, 0);
       const average = total / measures.length;
 
       return measures.map((measure) => {
-        const measureValue =
-          typeof measure.measure_value === 'string'
-            ? parseFloat(measure.measure_value)
-            : measure.measure_value;
+        const measureValue = getMeasureValue(measure);
         const variance = average !== 0 ? ((measureValue - average) / average) * 100 : 0;
 
         return {

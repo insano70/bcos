@@ -70,7 +70,7 @@ export class ProgressBarStrategy extends BaseChartTransformStrategy {
       labels: progressData.map((d) => d.label),
       datasets: [
         {
-          label: measures[0]?.measure || 'Value',
+          label: (measures[0]?.measure ?? 'Value') as string,
           data: progressData.map((d) => d.value),
           backgroundColor: colors[0] || '#8B5CF6',
           // Note: Progress bar metadata stored in data array, not as extension

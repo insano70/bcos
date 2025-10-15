@@ -93,7 +93,7 @@ export abstract class BaseChartTransformStrategy implements ChartTransformStrate
   protected extractMeasureType(measures: AggAppMeasure[]): string {
     if (measures.length === 0) return 'number';
     const measureType = measures[0]?.measure_type;
-    return measureType || 'number';
+    return (typeof measureType === 'string' ? measureType : 'number');
   }
 
   /**
@@ -178,7 +178,7 @@ export abstract class BaseChartTransformStrategy implements ChartTransformStrate
   protected extractAndSortDates(measures: AggAppMeasure[]): string[] {
     const allDates = new Set<string>();
     measures.forEach((m) => {
-      allDates.add(m.date_index);
+      allDates.add((m.date_index ?? m.date_value ?? '') as string);
     });
     return Array.from(allDates).sort(
       (a, b) => new Date(`${a}T00:00:00`).getTime() - new Date(`${b}T00:00:00`).getTime()

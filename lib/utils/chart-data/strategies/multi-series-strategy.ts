@@ -123,7 +123,7 @@ export class MultiSeriesStrategy extends BaseChartTransformStrategy {
 
     // Format labels
     const labels = sortedDates.map((dateStr) => {
-      return formatDateLabel(dateStr, measures[0]?.frequency || 'Monthly');
+      return formatDateLabel(dateStr, (measures[0]?.frequency ?? 'Monthly') as string);
     });
 
     const chartData: ChartData = {
@@ -183,7 +183,7 @@ export class MultiSeriesStrategy extends BaseChartTransformStrategy {
 
     // Format labels
     const labels = sortedDates.map((dateStr) => {
-      return formatDateLabel(dateStr, measures[0]?.frequency || 'Monthly');
+      return formatDateLabel(dateStr, (measures[0]?.frequency ?? 'Monthly') as string);
     });
 
     const chartData: ChartData = {

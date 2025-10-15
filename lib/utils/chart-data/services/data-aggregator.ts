@@ -8,6 +8,16 @@
 import type { AggAppMeasure } from '@/lib/types/analytics';
 import { parseNumericValue } from '../formatters/value-formatter';
 
+// Helper functions for safe dynamic column access
+const getDate = (m: AggAppMeasure): string => {
+  return (m.date_index ?? m.date_value ?? '') as string;
+};
+
+const getMeasureValue = (m: AggAppMeasure): string | number => {
+  const value = m.measure_value ?? m.numeric_value ?? 0;
+  return typeof value === 'string' || typeof value === 'number' ? value : 0;
+};
+
 /**
  * Aggregation types supported by the aggregator
  */
@@ -28,7 +38,7 @@ export function groupByFieldAndDate(
   
   measures.forEach((measure) => {
     const groupKey = getGroupValue(measure, groupByField);
-    const dateKey = measure.date_index;
+    const dateKey = getDate(measure);
     
     if (!groupedData.has(groupKey)) {
       groupedData.set(groupKey, new Map());
@@ -43,7 +53,7 @@ export function groupByFieldAndDate(
       dateMap.set(dateKey, []);
     }
     
-    const measureValue = parseNumericValue(measure.measure_value);
+    const measureValue = parseNumericValue(getMeasureValue(measure));
     const dateValues = dateMap.get(dateKey);
     if (!dateValues) {
       throw new Error(`Date values not found for date key: ${dateKey}`);
@@ -66,8 +76,8 @@ export function groupBySeriesAndDate(
   const groupedBySeries = new Map<string, Map<string, number[]>>();
   
   measures.forEach((measure) => {
-    const seriesLabel = measure.series_label || measure.measure || 'Unknown';
-    const dateKey = measure.date_index;
+    const seriesLabel = (measure.series_label ?? measure.measure ?? 'Unknown') as string;
+    const dateKey = getDate(measure);
     
     if (!groupedBySeries.has(seriesLabel)) {
       groupedBySeries.set(seriesLabel, new Map());
@@ -82,7 +92,7 @@ export function groupBySeriesAndDate(
       dateMap.set(dateKey, []);
     }
     
-    const measureValue = parseNumericValue(measure.measure_value);
+    const measureValue = parseNumericValue(getMeasureValue(measure));
     const dateValues = dateMap.get(dateKey);
     if (!dateValues) {
       throw new Error(`Date values not found for date key: ${dateKey}`);
@@ -111,7 +121,7 @@ export function aggregateAcrossDates(
   
   measures.forEach((measure) => {
     const groupKey = getGroupValue(measure, groupByField);
-    const measureValue = parseNumericValue(measure.measure_value);
+    const measureValue = parseNumericValue(getMeasureValue(measure));
     
     const currentValue = aggregatedData.get(groupKey) || 0;
     
@@ -181,7 +191,7 @@ export function extractAndSortDates(measures: AggAppMeasure[]): string[] {
   const allDates = new Set<string>();
   
   measures.forEach((measure) => {
-    allDates.add(measure.date_index);
+    allDates.add(getDate(measure));
   });
   
   return Array.from(allDates).sort(

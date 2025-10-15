@@ -59,7 +59,7 @@ export class HorizontalBarStrategy extends BaseChartTransformStrategy {
       labels: sortedEntries.map(([label]) => label),
       datasets: [
         {
-          label: measures[0]?.measure || 'Value',
+          label: (measures[0]?.measure ?? 'Value') as string,
           data: sortedEntries.map(([, value]) => value),
           backgroundColor: Array.from(colors),
           hoverBackgroundColor: Array.from(colors).map((color) => adjustColorOpacity(color, 0.8)),

@@ -26,6 +26,7 @@ import type {
  *
  * NOTE: Requires AWS SDK and credentials to be configured.
  * Returns empty array if CloudWatch is not available (graceful degradation).
+ * Does NOT run in development mode (local machines).
  *
  * To enable CloudWatch integration:
  * 1. pnpm add @aws-sdk/client-cloudwatch-logs
@@ -43,6 +44,15 @@ export async function querySecurityEvents(
   limit: number = 50
 ): Promise<SecurityEvent[]> {
   try {
+    // Skip CloudWatch queries in development mode (local machines)
+    if (process.env.NODE_ENV === 'development') {
+      log.debug('CloudWatch queries disabled in development mode', {
+        operation: 'query_security_events',
+        component: 'monitoring',
+      });
+      return [];
+    }
+
     log.info('Querying security events', {
       operation: 'query_security_events',
       timeRange,
@@ -280,6 +290,7 @@ export function buildSecurityEventsQuery(
 
 /**
  * Query slow database queries from CloudWatch Logs
+ * Does NOT run in development mode (local machines).
  */
 export async function querySlowQueries(
   timeRange: string = '1h',
@@ -287,6 +298,11 @@ export async function querySlowQueries(
   limit: number = 50
 ): Promise<Record<string, string>[]> {
   try {
+    // Skip CloudWatch queries in development mode (local machines)
+    if (process.env.NODE_ENV === 'development') {
+      return [];
+    }
+
     // Check if CloudWatch SDK is available
     let CloudWatchLogsClient: typeof CWLClient | undefined;
     let StartQueryCommand: typeof SQCommand | undefined;
@@ -352,12 +368,18 @@ export async function querySlowQueries(
 
 /**
  * Query application errors from CloudWatch Logs
+ * Does NOT run in development mode (local machines).
  */
 export async function queryErrors(
   timeRange: string = '1h',
   limit: number = 50
 ): Promise<Record<string, string>[]> {
   try {
+    // Skip CloudWatch queries in development mode (local machines)
+    if (process.env.NODE_ENV === 'development') {
+      return [];
+    }
+
     let CloudWatchLogsClient: typeof CWLClient | undefined;
     let StartQueryCommand: typeof SQCommand | undefined;
     let GetQueryResultsCommand: typeof GQRCommand | undefined;

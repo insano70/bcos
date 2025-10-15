@@ -1,8 +1,10 @@
 import type { ChartData } from '@/lib/types/analytics';
+import { MeasureAccessor } from '@/lib/types/analytics';
 import { log } from '@/lib/logger';
 import { BaseChartHandler } from './base-handler';
 import { getPaletteColors } from '@/lib/services/color-palettes';
 import { getColumnName } from './column-resolver';
+import { columnMappingService } from '../column-mapping-service';
 
 type AggregationType = 'sum' | 'avg' | 'count' | 'min' | 'max';
 
@@ -201,10 +203,21 @@ export class ProgressBarChartHandler extends BaseChartHandler {
         })),
       });
 
-      // Determine measure type from data
-      const measureType = (config.measureType as string) ||
-                         (data[0]?.measure_type as string) ||
-                         'number';
+      // Determine measure type from data using MeasureAccessor
+      let measureType = (config.measureType as string);
+      
+      if (!measureType && data[0] && config.dataSourceId) {
+        try {
+          const mapping = await columnMappingService.getMapping(config.dataSourceId as number);
+          const accessor = new MeasureAccessor(data[0] as unknown as import('@/lib/types/analytics').AggAppMeasure, mapping);
+          measureType = accessor.getMeasureType();
+        } catch (error) {
+          log.warn('Failed to get measure type from accessor, using default', { error });
+          measureType = 'number';
+        }
+      }
+      
+      measureType = measureType || 'number';
 
       const chartData: ChartData = {
         labels,

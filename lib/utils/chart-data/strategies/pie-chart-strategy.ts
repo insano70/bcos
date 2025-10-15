@@ -34,7 +34,8 @@ export class PieChartStrategy extends BaseChartTransformStrategy {
     measures.forEach((measure) => {
       const groupKey = this.getGroupKey(measure, groupField, config);
       const currentValue = groupedData.get(groupKey) || 0;
-      const measureValue = this.parseValue(measure.measure_value);
+      const value = measure.measure_value ?? measure.numeric_value ?? 0;
+      const measureValue = this.parseValue(typeof value === 'string' || typeof value === 'number' ? value : 0);
       groupedData.set(groupKey, currentValue + measureValue);
     });
 
@@ -46,7 +47,7 @@ export class PieChartStrategy extends BaseChartTransformStrategy {
       labels,
       datasets: [
         {
-          label: measures[0]?.measure || 'Value',
+          label: (measures[0]?.measure ?? 'Value') as string,
           data,
           backgroundColor: colors.slice(0, labels.length),
           hoverBackgroundColor: colors

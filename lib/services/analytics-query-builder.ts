@@ -7,6 +7,7 @@ import type {
   ChartFilterValue,
   ChartRenderContext,
 } from '@/lib/types/analytics';
+import { MeasureAccessor } from '@/lib/types/analytics';
 import type { UserContext } from '@/lib/types/rbac';
 // Redis cache integration for data source query results
 import { dataSourceCache, type CacheQueryParams } from '@/lib/cache';
@@ -14,6 +15,7 @@ import { dataSourceCache, type CacheQueryParams } from '@/lib/cache';
 // Metadata caching (columns, dashboards, charts) handled by @/lib/cache/analytics-cache
 import { executeAnalyticsQuery } from './analytics-db';
 import { chartConfigService } from './chart-config-service';
+import { columnMappingService } from './column-mapping-service';
 
 /**
  * Secure Query Builder for Analytics Database
@@ -368,13 +370,13 @@ export class AnalyticsQueryBuilder {
   }
 
   /**
-   * Calculate total count from filtered rows
-   * For currency: sum measure_value, for others: count rows
+   * Calculate total count from filtered rows using MeasureAccessor
+   * For currency: sum measure values, for others: count rows
    * 
    * @param rows - The data rows
-   * @param measureValueField - The field name for measure values (from data source config)
+   * @param dataSourceId - Data source ID for column mapping
    */
-  private calculateTotal(rows: Record<string, unknown>[], measureValueField?: string): number {
+  private async calculateTotal(rows: AggAppMeasure[], dataSourceId: number): Promise<number> {
     if (rows.length === 0) {
       return 0;
     }
@@ -384,18 +386,17 @@ export class AnalyticsQueryBuilder {
       return 0;
     }
 
-    const measureType = firstRow.measure_type;
-
-    // Dynamically determine the value field from data source config or fallback to common names
-    const valueField = measureValueField || 
-                       ('measure_value' in firstRow ? 'measure_value' : 
-                       ('numeric_value' in firstRow ? 'numeric_value' : 'value'));
+    // Get column mapping for this data source
+    const mapping = await columnMappingService.getMapping(dataSourceId);
+    const accessor = new MeasureAccessor(firstRow, mapping);
+    
+    const measureType = accessor.getMeasureType();
 
     if (measureType === 'currency') {
-      // Sum all value fields
+      // Sum all measure values using accessor
       return rows.reduce((sum, row) => {
-        const value = row[valueField] as number;
-        return sum + (typeof value === 'number' ? value : 0);
+        const rowAccessor = new MeasureAccessor(row, mapping);
+        return sum + rowAccessor.getMeasureValue();
       }, 0);
     }
 
@@ -480,10 +481,6 @@ export class AnalyticsQueryBuilder {
           ...(params.advanced_filters && { advancedFilters: params.advanced_filters }),
         };
 
-        // Get the measure value field name from data source config
-        const measureValueColumn = dataSourceConfig?.columns.find(col => col.isMeasure);
-        const measureValueField = measureValueColumn?.columnName;
-
         // Fetch with caching (passing UserContext - ChartRenderContext built internally)
         const rows = await dataSourceCache.fetchDataSource(
           cacheParams,
@@ -491,8 +488,8 @@ export class AnalyticsQueryBuilder {
           params.nocache || false
         );
 
-        // Calculate total using the correct field name from config
-        const totalCount = this.calculateTotal(rows, measureValueField);
+        // Calculate total using MeasureAccessor for dynamic column access
+        const totalCount = await this.calculateTotal(rows as AggAppMeasure[], params.data_source_id);
 
         const duration = Date.now() - startTime;
 
@@ -585,15 +582,8 @@ export class AnalyticsQueryBuilder {
       );
 
       // Build dynamic SELECT column list using metadata
-      const selectColumns = columnMappings.allColumns
-        .map(col => {
-          // Alias special columns for consistent interface
-          if (col === columnMappings.dateField) return `${col} as date_index`;
-          if (col === columnMappings.timePeriodField) return `${col} as frequency`;
-          if (col === columnMappings.measureValueField) return `${col} as measure_value`;
-          if (col === columnMappings.measureTypeField) return `${col} as measure_type`;
-          return col;
-        });
+      // NO aliasing - use actual column names from data source
+      const selectColumns = columnMappings.allColumns;
 
       const query = `
         SELECT ${selectColumns.join(', ')}
@@ -753,15 +743,8 @@ export class AnalyticsQueryBuilder {
     );
 
     // Build dynamic SELECT column list using metadata
-    const selectColumns = columnMappings.allColumns
-      .map(col => {
-        // Alias special columns for consistent interface
-        if (col === columnMappings.dateField) return `${col} as date_index`;
-        if (col === columnMappings.timePeriodField) return `${col} as frequency`;
-        if (col === columnMappings.measureValueField) return `${col} as measure_value`;
-        if (col === columnMappings.measureTypeField) return `${col} as measure_type`;
-        return col;
-      });
+    // NO aliasing - use actual column names from data source
+    const selectColumns = columnMappings.allColumns;
 
     const query = `
       SELECT ${selectColumns.join(', ')}

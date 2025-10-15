@@ -75,7 +75,7 @@ export class SimplifiedChartTransformer {
 
     // Get measure type from first record (all should be the same for a single chart)
     const measureType = measures[0]?.measure_type;
-    return measureType || 'number'; // Default fallback
+    return (typeof measureType === 'string' ? measureType : 'number'); // Default fallback
   }
 
   /**
@@ -250,8 +250,8 @@ export class SimplifiedChartTransformer {
     const allDates = new Set<string>();
 
     measures.forEach((measure) => {
-      const seriesLabel = measure.series_label || measure.measure || 'Unknown';
-      const dateKey = measure.date_index;
+      const seriesLabel = (measure.series_label ?? measure.measure ?? 'Unknown') as string;
+      const dateKey = (measure.date_index ?? measure.date_value ?? '') as string;
 
       allDates.add(dateKey);
 
@@ -267,10 +267,13 @@ export class SimplifiedChartTransformer {
         dateMap.set(dateKey, []);
       }
 
+      const rawValue = measure.measure_value ?? measure.numeric_value ?? 0;
       const measureValue =
-        typeof measure.measure_value === 'string'
-          ? parseFloat(measure.measure_value)
-          : measure.measure_value;
+        typeof rawValue === 'string'
+          ? parseFloat(rawValue)
+          : typeof rawValue === 'number'
+          ? rawValue
+          : 0;
 
       const dateValues = dateMap.get(dateKey);
       if (!dateValues) {
@@ -333,7 +336,7 @@ export class SimplifiedChartTransformer {
 
     return {
       labels: sortedDates.map((dateStr) => {
-        return formatDateLabel(dateStr, measures[0]?.frequency || 'Monthly');
+        return formatDateLabel(dateStr, (measures[0]?.frequency ?? 'Monthly') as string);
       }),
       datasets,
     };

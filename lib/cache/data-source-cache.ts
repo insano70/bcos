@@ -720,19 +720,29 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
   }
   
   /**
-   * Apply date range filter in-memory
+   * Apply date range filter in-memory using dynamic column names
    */
-  private applyDateRangeFilter(
+  private async applyDateRangeFilter(
     rows: Record<string, unknown>[],
+    dataSourceId: number,
     startDate?: string,
     endDate?: string
-  ): Record<string, unknown>[] {
+  ): Promise<Record<string, unknown>[]> {
     if (!startDate && !endDate) {
       return rows;
     }
     
+    // Get column mapping for dynamic date field access
+    const { columnMappingService } = await import('@/lib/services/column-mapping-service');
+    const mapping = await columnMappingService.getMapping(dataSourceId);
+    const dateField = mapping.dateField;
+    
     return rows.filter((row) => {
-      const dateValue = (row.date_index || row.date_value) as string;
+      const dateValue = row[dateField] as string;
+      
+      if (!dateValue) {
+        return false; // Filter out rows without date value
+      }
       
       if (startDate && dateValue < startDate) {
         return false;
@@ -789,8 +799,9 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
         
         // 2. Date range filtering (in-memory for maximum cache reuse)
         if (params.startDate || params.endDate) {
-          filteredRows = this.applyDateRangeFilter(
+          filteredRows = await this.applyDateRangeFilter(
             filteredRows,
+            params.dataSourceId,
             params.startDate,
             params.endDate
           );
@@ -840,8 +851,9 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
     
     // 2. Date range filtering (in-memory for maximum cache reuse)
     if (params.startDate || params.endDate) {
-      filteredRows = this.applyDateRangeFilter(
+      filteredRows = await this.applyDateRangeFilter(
         filteredRows,
+        params.dataSourceId,
         params.startDate,
         params.endDate
       );

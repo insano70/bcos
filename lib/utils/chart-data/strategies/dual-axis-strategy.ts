@@ -69,15 +69,17 @@ export class DualAxisStrategy extends BaseChartTransformStrategy {
     // Build data map for primary measure
     const primaryDataMap = new Map<string, number>();
     primaryMeasures.forEach((m) => {
-      const value = this.parseValue(m.measure_value);
-      primaryDataMap.set(m.date_index, value);
+      const rawValue = m.measure_value ?? m.numeric_value ?? 0;
+      const value = this.parseValue(typeof rawValue === 'string' || typeof rawValue === 'number' ? rawValue : 0);
+      primaryDataMap.set((m.date_index ?? m.date_value ?? '') as string, value);
     });
 
     // Build data map for secondary measure
     const secondaryDataMap = new Map<string, number>();
     secondaryMeasures.forEach((m) => {
-      const value = this.parseValue(m.measure_value);
-      secondaryDataMap.set(m.date_index, value);
+      const rawValue = m.measure_value ?? m.numeric_value ?? 0;
+      const value = this.parseValue(typeof rawValue === 'string' || typeof rawValue === 'number' ? rawValue : 0);
+      secondaryDataMap.set((m.date_index ?? m.date_value ?? '') as string, value);
     });
 
     // Extract measure types

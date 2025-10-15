@@ -1,7 +1,9 @@
 import type { ChartData } from '@/lib/types/analytics';
+import { MeasureAccessor } from '@/lib/types/analytics';
 import { log } from '@/lib/logger';
 import { BaseChartHandler } from './base-handler';
 import { getColumnName } from './column-resolver';
+import { columnMappingService } from '../column-mapping-service';
 
 /**
  * Aggregation type for metric charts
@@ -139,10 +141,21 @@ export class MetricChartHandler extends BaseChartHandler {
       const aggregatedValue = this.aggregateData(data, aggregationType, valueColumn);
 
       // Determine the measure type for formatting (currency, percentage, number)
-      // Use config override, or fall back to data column, or default to 'number'
-      const measureType = (config.measureType as string) ||
-                         (data[0]?.measure_type as string) ||
-                         'number';
+      // Use config override, or fall back to data column using MeasureAccessor, or default to 'number'
+      let measureType = (config.measureType as string);
+      
+      if (!measureType && data[0] && config.dataSourceId) {
+        try {
+          const mapping = await columnMappingService.getMapping(config.dataSourceId as number);
+          const accessor = new MeasureAccessor(data[0] as unknown as import('@/lib/types/analytics').AggAppMeasure, mapping);
+          measureType = accessor.getMeasureType();
+        } catch (error) {
+          log.warn('Failed to get measure type from accessor, using default', { error });
+          measureType = 'number';
+        }
+      }
+      
+      measureType = measureType || 'number';
 
       // Number chart: return single aggregated value in a dataset
       // Phase 3: Server-side aggregation complete
