@@ -6,7 +6,7 @@ import { createPaginatedResponse, createSuccessResponse } from '@/lib/api/respon
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { getPagination, getSortParams } from '@/lib/api/utils/request';
 import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
-import { createRBACOrganizationsService } from '@/lib/services/rbac-organizations-service';
+import { createRBACOrganizationsService } from '@/lib/services/organizations';
 import type { UserContext } from '@/lib/types/rbac';
 import { organizationCreateSchema, organizationQuerySchema } from '@/lib/validations/organization';
 import { rbacCache } from '@/lib/cache';

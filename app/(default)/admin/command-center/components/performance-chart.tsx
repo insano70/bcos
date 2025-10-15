@@ -3,14 +3,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTheme } from 'next-themes';
 import { Chart, LineController, LineElement, PointElement, LinearScale, TimeScale, Tooltip, Legend } from 'chart.js';
+import zoomPlugin from 'chartjs-plugin-zoom';
 import 'chartjs-adapter-moment';
 import type { Chart as ChartType } from 'chart.js';
 import { chartColors } from '@/components/charts/chartjs-config';
 import { apiClient } from '@/lib/api/client';
 import type { PerformanceHistoryResponse } from '@/lib/monitoring/types';
-import { BRAND_COLOR } from '@/lib/monitoring/chart-config';
 
-Chart.register(LineController, LineElement, PointElement, LinearScale, TimeScale, Tooltip, Legend);
+const BRAND_COLOR = '#00AEEF'; // violet-500
+
+Chart.register(LineController, LineElement, PointElement, LinearScale, TimeScale, Tooltip, Legend, zoomPlugin);
 
 interface PerformanceChartProps {
   category: 'standard' | 'analytics';
@@ -29,6 +31,12 @@ export default function PerformanceChart({
   const [error, setError] = useState<string | null>(null);
   const { theme } = useTheme();
   const darkMode = theme === 'dark';
+
+  const handleResetZoom = () => {
+    if (chartRef.current) {
+      chartRef.current.resetZoom();
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -133,6 +141,21 @@ export default function PerformanceChart({
                     borderColor: darkMode ? chartColors.tooltipBorderColor.dark : chartColors.tooltipBorderColor.light,
                     borderWidth: 1,
                   },
+                  zoom: {
+                    pan: {
+                      enabled: true,
+                      mode: 'x',
+                    },
+                    zoom: {
+                      wheel: {
+                        enabled: true,
+                      },
+                      pinch: {
+                        enabled: true,
+                      },
+                      mode: 'x',
+                    },
+                  },
                 },
               },
             });
@@ -159,9 +182,18 @@ export default function PerformanceChart({
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6" style={{ height }}>
-      <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
-        {category === 'standard' ? 'API' : 'Analytics'} Response Times
-      </h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+          {category === 'standard' ? 'API' : 'Analytics'} Response Times
+        </h3>
+        <button
+          onClick={handleResetZoom}
+          className="px-3 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
+          title="Reset zoom"
+        >
+          Reset Zoom
+        </button>
+      </div>
       {loading && <div className="flex items-center justify-center h-48"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div></div>}
       {error && <div className="text-center text-red-600 py-8">{error}</div>}
       {!loading && !error && <canvas ref={canvasRef} />}

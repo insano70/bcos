@@ -34,8 +34,7 @@ const securityEventsHandler = async (request: NextRequest) => {
       component: 'monitoring',
     });
 
-    // Query security events from CloudWatch
-    // Note: Returns mock data until CloudWatch SDK is configured
+    // Query security events from CloudWatch (returns empty array if SDK not installed)
     const events = await querySecurityEvents(timeRange, severities, limit);
 
     // Calculate summary by severity

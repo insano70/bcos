@@ -353,6 +353,7 @@ fields @timestamp, message, level, file
 4. Fix any errors that you created
 5. Only proceed when all checks pass
 6. Do not create documents unless asked. Display your findings to the user.
+7. Do not defer work unless previously instructed and approved.
 
 ## Project Context
 

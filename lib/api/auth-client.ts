@@ -6,6 +6,7 @@
 
 import type { UserContext } from '@/lib/types/rbac';
 import type { PublicKeyCredentialCreationOptionsJSON, PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/browser';
+import type { ApiUser, ApiRole, ApiOrganization, ApiPermission } from './types/auth-api-types';
 
 // User interface (extracted from rbac-auth-provider for decoupling)
 export interface User {
@@ -27,6 +28,11 @@ export interface AuthApiResponse<T = unknown> {
 
 interface UserApiResponse {
   user: User;
+  sessionId: string;
+}
+
+interface UserContextApiResponse {
+  user: ApiUser;
   sessionId: string;
 }
 
@@ -129,7 +135,7 @@ export class AuthApiService {
       throw new Error(`Failed to fetch user context: ${response.status}`);
     }
 
-    const data: AuthApiResponse<UserApiResponse> = await response.json();
+    const data: AuthApiResponse<UserContextApiResponse> = await response.json();
     if (!data.success || !data.data?.user) {
       throw new Error('Invalid user context response');
     }
@@ -357,23 +363,22 @@ export class AuthApiService {
   /**
    * Transform API user response to UserContext format
    */
-  // biome-ignore lint/suspicious/noExplicitAny: API response transformation during refactoring
-  private transformUserContext(apiUser: unknown): UserContext {
+  private transformUserContext(apiUser: ApiUser): UserContext {
     return {
-      user_id: (apiUser as any).id,
-      email: (apiUser as any).email,
-      first_name: (apiUser as any).firstName,
-      last_name: (apiUser as any).lastName,
+      user_id: String(apiUser.id),
+      email: apiUser.email,
+      first_name: apiUser.firstName,
+      last_name: apiUser.lastName,
       is_active: true,
-      email_verified: (apiUser as any).emailVerified,
+      email_verified: apiUser.emailVerified,
 
     // RBAC data from API
-    roles: (apiUser as any).roles.map((role: unknown) => ({
-      role_id: (role as any).id,
-      name: (role as any).name,
-      description: (role as any).description || '',
+    roles: apiUser.roles.map((role: ApiRole) => ({
+      role_id: String(role.id),
+      name: role.name,
+      description: role.description || '',
       organization_id: undefined,
-      is_system_role: (role as any).isSystemRole,
+      is_system_role: role.isSystemRole,
       is_active: true,
       created_at: new Date(),
       updated_at: new Date(),
@@ -381,10 +386,10 @@ export class AuthApiService {
       permissions: [] // Will be populated from all_permissions
     })),
 
-    organizations: (apiUser as any).organizations.map((org: unknown) => ({
-      organization_id: (org as any).id,
-      name: (org as any).name,
-      slug: (org as any).slug,
+    organizations: apiUser.organizations.map((org: ApiOrganization) => ({
+      organization_id: org.id,
+      name: org.name,
+      slug: org.slug,
       parent_organization_id: undefined,
       is_active: true,
       created_at: new Date(),
@@ -392,19 +397,19 @@ export class AuthApiService {
       deleted_at: undefined
     })),
 
-    accessible_organizations: (apiUser as any).accessibleOrganizations?.map((org: unknown) => ({
-      organization_id: (org as any).id,
-      name: (org as any).name,
-      slug: (org as any).slug,
+    accessible_organizations: apiUser.accessibleOrganizations?.map((org: ApiOrganization) => ({
+      organization_id: org.id,
+      name: org.name,
+      slug: org.slug,
       parent_organization_id: undefined,
       is_active: true,
       created_at: new Date(),
       updated_at: new Date(),
       deleted_at: undefined
-    })) || (apiUser as any).organizations.map((org: unknown) => ({
-      organization_id: (org as any).id,
-      name: (org as any).name,
-      slug: (org as any).slug,
+    })) || apiUser.organizations.map((org: ApiOrganization) => ({
+      organization_id: org.id,
+      name: org.name,
+      slug: org.slug,
       parent_organization_id: undefined,
       is_active: true,
       created_at: new Date(),
@@ -416,23 +421,23 @@ export class AuthApiService {
     user_organizations: [], // Could be populated if needed
 
     // Current context
-    current_organization_id: (apiUser as any).currentOrganizationId,
+    current_organization_id: apiUser.currentOrganizationId,
 
     // Computed properties from API
-    all_permissions: (apiUser as any).permissions.map((perm: unknown) => ({
-      permission_id: (perm as any).id,
-      name: (perm as any).name,
+    all_permissions: apiUser.permissions.map((perm: ApiPermission) => ({
+      permission_id: String(perm.id),
+      name: perm.name,
       description: undefined,
-      resource: (perm as any).resource,
-      action: (perm as any).action,
-      scope: (perm as any).scope,
+      resource: perm.resource,
+      action: perm.action,
+      scope: perm.scope as 'own' | 'organization' | 'all',
       is_active: true,
       created_at: new Date(),
       updated_at: new Date()
     })),
 
-      is_super_admin: (apiUser as any).isSuperAdmin,
-      organization_admin_for: (apiUser as any).organizationAdminFor || []
+      is_super_admin: apiUser.isSuperAdmin,
+      organization_admin_for: apiUser.organizationAdminFor || []
     };
   }
 }

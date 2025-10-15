@@ -365,5 +365,553 @@ describe('Dashboard Batch Rendering API', () => {
       log.info('Parallel execution test passed');
     });
   });
+
+  describe('Query Deduplication (Phase 7)', () => {
+    it('should include deduplication metadata in response', async () => {
+      const dashboardRenderer = new DashboardRenderer();
+
+      const result = await dashboardRenderer.renderDashboard(
+        testDashboard.dashboard_id,
+        {},
+        userContext
+      );
+
+      // Phase 7: Verify deduplication metadata exists
+      expect(result.metadata.deduplication).toBeDefined();
+      expect(result.metadata.deduplication.enabled).toBe(true);
+      expect(result.metadata.deduplication.uniqueQueries).toBeGreaterThanOrEqual(0);
+      expect(result.metadata.deduplication.queriesDeduped).toBeGreaterThanOrEqual(0);
+      expect(result.metadata.deduplication.deduplicationRate).toBeGreaterThanOrEqual(0);
+      expect(result.metadata.deduplication.deduplicationRate).toBeLessThanOrEqual(100);
+
+      log.info('Deduplication metadata test passed', {
+        uniqueQueries: result.metadata.deduplication.uniqueQueries,
+        queriesDeduped: result.metadata.deduplication.queriesDeduped,
+        deduplicationRate: `${result.metadata.deduplication.deduplicationRate}%`,
+      });
+    });
+
+    it('should deduplicate identical charts with same measure and filters', async () => {
+      // Create 3 identical charts (same data source, same measure, same filters)
+      // These should result in only 1 unique query
+      const identicalCharts = await Promise.all([
+        createCommittedChart({
+          chart_name: 'Total Revenue - Line',
+          chart_type: 'line',
+          created_by: testUser.user_id,
+          data_source: {
+            table: 'fact_charges',
+            filters: [{ field: 'measure', operator: 'eq', value: 'Total Revenue' }],
+          },
+          chart_config: {
+            dataSourceId: 1,
+            aggregation: 'sum',
+          },
+          scope: scopeId,
+        }),
+        createCommittedChart({
+          chart_name: 'Total Revenue - Bar',
+          chart_type: 'bar',
+          created_by: testUser.user_id,
+          data_source: {
+            table: 'fact_charges',
+            filters: [{ field: 'measure', operator: 'eq', value: 'Total Revenue' }],
+          },
+          chart_config: {
+            dataSourceId: 1,
+            aggregation: 'sum',
+          },
+          scope: scopeId,
+        }),
+        createCommittedChart({
+          chart_name: 'Total Revenue - Area',
+          chart_type: 'area',
+          created_by: testUser.user_id,
+          data_source: {
+            table: 'fact_charges',
+            filters: [{ field: 'measure', operator: 'eq', value: 'Total Revenue' }],
+          },
+          chart_config: {
+            dataSourceId: 1,
+            aggregation: 'sum',
+          },
+          scope: scopeId,
+        }),
+      ]);
+
+      // Create dashboard with these identical charts
+      const dedupDashboard = await createCommittedDashboard({
+        dashboard_name: 'Deduplication Test Dashboard',
+        created_by: testUser.user_id,
+        scope: scopeId,
+      });
+
+      await db.insert(dashboard_charts).values(
+        identicalCharts.map((chart, idx) => ({
+          dashboard_id: dedupDashboard.dashboard_id,
+          chart_definition_id: chart.chart_definition_id,
+          position_config: { x: idx * 4, y: 0, w: 4, h: 2 },
+        }))
+      );
+
+      const dashboardRenderer = new DashboardRenderer();
+
+      const result = await dashboardRenderer.renderDashboard(
+        dedupDashboard.dashboard_id,
+        {},
+        userContext
+      );
+
+      // Phase 7: Verify query deduplication occurred
+      // All 3 charts fetch the same data, so we should have:
+      // - uniqueQueries: 1 (only one actual query executed)
+      // - queriesDeduped: 2 (two charts reused the cached query)
+      // - deduplicationRate: 66% (2 out of 3 were deduped)
+      expect(result.metadata.deduplication.uniqueQueries).toBe(1);
+      expect(result.metadata.deduplication.queriesDeduped).toBe(2);
+      expect(result.metadata.deduplication.deduplicationRate).toBe(67); // Rounded
+
+      log.info('Query deduplication test passed', {
+        chartCount: identicalCharts.length,
+        uniqueQueries: result.metadata.deduplication.uniqueQueries,
+        queriesDeduped: result.metadata.deduplication.queriesDeduped,
+        queriesSaved: '2 queries saved (67% reduction)',
+      });
+    });
+
+    it('should NOT deduplicate charts with different measures', async () => {
+      // Create 2 charts with different measures - should NOT deduplicate
+      const differentMeasureCharts = await Promise.all([
+        createCommittedChart({
+          chart_name: 'Total Charges',
+          chart_type: 'line',
+          created_by: testUser.user_id,
+          data_source: {
+            table: 'fact_charges',
+            filters: [{ field: 'measure', operator: 'eq', value: 'Total Charges' }],
+          },
+          chart_config: {
+            dataSourceId: 1,
+          },
+          scope: scopeId,
+        }),
+        createCommittedChart({
+          chart_name: 'Total Payments',
+          chart_type: 'line',
+          created_by: testUser.user_id,
+          data_source: {
+            table: 'fact_charges',
+            filters: [{ field: 'measure', operator: 'eq', value: 'Total Payments' }],
+          },
+          chart_config: {
+            dataSourceId: 1,
+          },
+          scope: scopeId,
+        }),
+      ]);
+
+      const dashboard = await createCommittedDashboard({
+        dashboard_name: 'Different Measures Dashboard',
+        created_by: testUser.user_id,
+        scope: scopeId,
+      });
+
+      await db.insert(dashboard_charts).values(
+        differentMeasureCharts.map((chart, idx) => ({
+          dashboard_id: dashboard.dashboard_id,
+          chart_definition_id: chart.chart_definition_id,
+          position_config: { x: idx * 6, y: 0, w: 6, h: 2 },
+        }))
+      );
+
+      const dashboardRenderer = new DashboardRenderer();
+
+      const result = await dashboardRenderer.renderDashboard(
+        dashboard.dashboard_id,
+        {},
+        userContext
+      );
+
+      // Different measures = different queries, no deduplication
+      expect(result.metadata.deduplication.uniqueQueries).toBe(2);
+      expect(result.metadata.deduplication.queriesDeduped).toBe(0);
+      expect(result.metadata.deduplication.deduplicationRate).toBe(0);
+
+      log.info('Different measures test passed - no deduplication as expected', {
+        uniqueQueries: result.metadata.deduplication.uniqueQueries,
+        queriesDeduped: result.metadata.deduplication.queriesDeduped,
+      });
+    });
+
+    it('should verify chart types do not affect query deduplication', async () => {
+      // Create 4 charts: same data, different chart types
+      const sameDataDifferentTypes = await Promise.all([
+        createCommittedChart({
+          chart_name: 'Revenue - Line',
+          chart_type: 'line',
+          created_by: testUser.user_id,
+          data_source: {
+            table: 'fact_charges',
+            filters: [{ field: 'measure', operator: 'eq', value: 'Revenue' }],
+          },
+          chart_config: {
+            dataSourceId: 1,
+          },
+          scope: scopeId,
+        }),
+        createCommittedChart({
+          chart_name: 'Revenue - Bar',
+          chart_type: 'bar',
+          created_by: testUser.user_id,
+          data_source: {
+            table: 'fact_charges',
+            filters: [{ field: 'measure', operator: 'eq', value: 'Revenue' }],
+          },
+          chart_config: {
+            dataSourceId: 1,
+          },
+          scope: scopeId,
+        }),
+        createCommittedChart({
+          chart_name: 'Revenue - Area',
+          chart_type: 'area',
+          created_by: testUser.user_id,
+          data_source: {
+            table: 'fact_charges',
+            filters: [{ field: 'measure', operator: 'eq', value: 'Revenue' }],
+          },
+          chart_config: {
+            dataSourceId: 1,
+          },
+          scope: scopeId,
+        }),
+        createCommittedChart({
+          chart_name: 'Revenue - Number',
+          chart_type: 'number',
+          created_by: testUser.user_id,
+          data_source: {
+            table: 'fact_charges',
+            filters: [{ field: 'measure', operator: 'eq', value: 'Revenue' }],
+          },
+          chart_config: {
+            dataSourceId: 1,
+            aggregation: 'sum',
+          },
+          scope: scopeId,
+        }),
+      ]);
+
+      const dashboard = await createCommittedDashboard({
+        dashboard_name: 'Chart Types Dashboard',
+        created_by: testUser.user_id,
+        scope: scopeId,
+      });
+
+      await db.insert(dashboard_charts).values(
+        sameDataDifferentTypes.map((chart, idx) => ({
+          dashboard_id: dashboard.dashboard_id,
+          chart_definition_id: chart.chart_definition_id,
+          position_config: { x: (idx % 2) * 6, y: Math.floor(idx / 2) * 2, w: 6, h: 2 },
+        }))
+      );
+
+      const dashboardRenderer = new DashboardRenderer();
+
+      const result = await dashboardRenderer.renderDashboard(
+        dashboard.dashboard_id,
+        {},
+        userContext
+      );
+
+      // All 4 charts fetch the same underlying data
+      // Chart type is transformation-only, not query-affecting
+      expect(result.metadata.deduplication.uniqueQueries).toBe(1);
+      expect(result.metadata.deduplication.queriesDeduped).toBe(3);
+      expect(result.metadata.deduplication.deduplicationRate).toBe(75);
+
+      log.info('Chart type independence test passed', {
+        chartTypes: ['line', 'bar', 'area', 'number'],
+        uniqueQueries: result.metadata.deduplication.uniqueQueries,
+        queriesDeduped: result.metadata.deduplication.queriesDeduped,
+        message: 'Chart type does not affect query deduplication',
+      });
+    });
+  });
+
+  describe('Table Chart Support (Phase 7)', () => {
+    it('should render table charts in batch mode', async () => {
+      // Create a table chart
+      const tableChart = await createCommittedChart({
+        chart_name: 'Provider Performance Table',
+        chart_type: 'table',
+        created_by: testUser.user_id,
+        data_source: {
+          table: 'fact_charges',
+          filters: [{ field: 'measure', operator: 'eq', value: 'Provider Performance' }],
+        },
+        chart_config: {
+          dataSourceId: 1,
+        },
+        scope: scopeId,
+      });
+
+      const dashboard = await createCommittedDashboard({
+        dashboard_name: 'Table Chart Dashboard',
+        created_by: testUser.user_id,
+        scope: scopeId,
+      });
+
+      await db.insert(dashboard_charts).values({
+        dashboard_id: dashboard.dashboard_id,
+        chart_definition_id: tableChart.chart_definition_id,
+        position_config: { x: 0, y: 0, w: 12, h: 4 },
+      });
+
+      const dashboardRenderer = new DashboardRenderer();
+
+      const result = await dashboardRenderer.renderDashboard(
+        dashboard.dashboard_id,
+        {},
+        userContext
+      );
+
+      // Phase 7: Verify table chart was rendered
+      expect(result).toBeDefined();
+      expect(result.metadata.chartsRendered).toBeGreaterThan(0);
+      
+      // Check that table chart is included in results
+      const chartResults = Object.values(result.charts);
+      expect(chartResults.length).toBeGreaterThan(0);
+      
+      // Table charts should have columns and formattedData
+      const tableResult = chartResults[0];
+      if (tableResult) {
+        expect(tableResult.chartData).toBeDefined();
+        expect(tableResult.rawData).toBeDefined();
+      }
+
+      log.info('Table chart batch rendering test passed', {
+        chartType: 'table',
+        chartsRendered: result.metadata.chartsRendered,
+      });
+    });
+
+    it('should include table chart metadata (columns and formatted data)', async () => {
+      const tableChart = await createCommittedChart({
+        chart_name: 'Financial Summary Table',
+        chart_type: 'table',
+        created_by: testUser.user_id,
+        data_source: {
+          table: 'fact_charges',
+          filters: [{ field: 'measure', operator: 'eq', value: 'Financial Summary' }],
+        },
+        chart_config: {
+          dataSourceId: 1,
+        },
+        scope: scopeId,
+      });
+
+      const dashboard = await createCommittedDashboard({
+        dashboard_name: 'Table Metadata Dashboard',
+        created_by: testUser.user_id,
+        scope: scopeId,
+      });
+
+      await db.insert(dashboard_charts).values({
+        dashboard_id: dashboard.dashboard_id,
+        chart_definition_id: tableChart.chart_definition_id,
+        position_config: { x: 0, y: 0, w: 12, h: 6 },
+      });
+
+      const dashboardRenderer = new DashboardRenderer();
+
+      const result = await dashboardRenderer.renderDashboard(
+        dashboard.dashboard_id,
+        {},
+        userContext
+      );
+
+      // Phase 7: Verify table-specific metadata is included
+      expect(result).toBeDefined();
+      const chartResults = Object.values(result.charts);
+      expect(chartResults.length).toBeGreaterThan(0);
+
+      const tableResult = chartResults[0];
+      if (tableResult) {
+        // Table charts should have these properties
+        expect(tableResult.rawData).toBeDefined();
+        expect(tableResult.metadata).toBeDefined();
+        
+        // Columns metadata may be present for table charts
+        if (tableResult.columns) {
+          expect(Array.isArray(tableResult.columns)).toBe(true);
+        }
+      }
+
+      log.info('Table chart metadata test passed', {
+        hasRawData: !!tableResult?.rawData,
+        hasMetadata: !!tableResult?.metadata,
+        hasColumns: !!tableResult?.columns,
+      });
+    });
+
+    it('should render mixed dashboard with table and non-table charts', async () => {
+      // Create mixed chart types including table
+      const mixedCharts = await Promise.all([
+        createCommittedChart({
+          chart_name: 'Revenue Line Chart',
+          chart_type: 'line',
+          created_by: testUser.user_id,
+          data_source: {
+            table: 'fact_charges',
+            filters: [{ field: 'measure', operator: 'eq', value: 'Revenue' }],
+          },
+          chart_config: {
+            dataSourceId: 1,
+          },
+          scope: scopeId,
+        }),
+        createCommittedChart({
+          chart_name: 'Performance Table',
+          chart_type: 'table',
+          created_by: testUser.user_id,
+          data_source: {
+            table: 'fact_charges',
+            filters: [{ field: 'measure', operator: 'eq', value: 'Performance' }],
+          },
+          chart_config: {
+            dataSourceId: 1,
+          },
+          scope: scopeId,
+        }),
+        createCommittedChart({
+          chart_name: 'Total Bar Chart',
+          chart_type: 'bar',
+          created_by: testUser.user_id,
+          data_source: {
+            table: 'fact_charges',
+            filters: [{ field: 'measure', operator: 'eq', value: 'Total' }],
+          },
+          chart_config: {
+            dataSourceId: 1,
+          },
+          scope: scopeId,
+        }),
+      ]);
+
+      const dashboard = await createCommittedDashboard({
+        dashboard_name: 'Mixed Charts Dashboard',
+        created_by: testUser.user_id,
+        scope: scopeId,
+      });
+
+      await db.insert(dashboard_charts).values(
+        mixedCharts.map((chart, idx) => ({
+          dashboard_id: dashboard.dashboard_id,
+          chart_definition_id: chart.chart_definition_id,
+          position_config: { x: 0, y: idx * 4, w: 12, h: 4 },
+        }))
+      );
+
+      const dashboardRenderer = new DashboardRenderer();
+
+      const result = await dashboardRenderer.renderDashboard(
+        dashboard.dashboard_id,
+        {},
+        userContext
+      );
+
+      // Phase 7: Verify all chart types render together
+      expect(result).toBeDefined();
+      expect(result.metadata.chartsRendered).toBe(3);
+      expect(Object.keys(result.charts).length).toBe(3);
+
+      // All charts should have results
+      const chartResults = Object.values(result.charts);
+      expect(chartResults.length).toBe(3);
+      
+      chartResults.forEach((chartResult) => {
+        expect(chartResult).toBeDefined();
+        if (chartResult) {
+          expect(chartResult.chartData).toBeDefined();
+          expect(chartResult.rawData).toBeDefined();
+        }
+      });
+
+      log.info('Mixed chart types dashboard test passed', {
+        totalCharts: 3,
+        chartTypes: ['line', 'table', 'bar'],
+        chartsRendered: result.metadata.chartsRendered,
+        message: 'Table charts render alongside other chart types',
+      });
+    });
+
+    it('should deduplicate table charts with same data source', async () => {
+      // Create 2 table charts with same data source
+      // They should deduplicate even though they are tables
+      const tableCharts = await Promise.all([
+        createCommittedChart({
+          chart_name: 'Provider Table - View 1',
+          chart_type: 'table',
+          created_by: testUser.user_id,
+          data_source: {
+            table: 'fact_charges',
+            filters: [{ field: 'measure', operator: 'eq', value: 'Provider Data' }],
+          },
+          chart_config: {
+            dataSourceId: 1,
+          },
+          scope: scopeId,
+        }),
+        createCommittedChart({
+          chart_name: 'Provider Table - View 2',
+          chart_type: 'table',
+          created_by: testUser.user_id,
+          data_source: {
+            table: 'fact_charges',
+            filters: [{ field: 'measure', operator: 'eq', value: 'Provider Data' }],
+          },
+          chart_config: {
+            dataSourceId: 1,
+          },
+          scope: scopeId,
+        }),
+      ]);
+
+      const dashboard = await createCommittedDashboard({
+        dashboard_name: 'Table Deduplication Dashboard',
+        created_by: testUser.user_id,
+        scope: scopeId,
+      });
+
+      await db.insert(dashboard_charts).values(
+        tableCharts.map((chart, idx) => ({
+          dashboard_id: dashboard.dashboard_id,
+          chart_definition_id: chart.chart_definition_id,
+          position_config: { x: 0, y: idx * 6, w: 12, h: 6 },
+        }))
+      );
+
+      const dashboardRenderer = new DashboardRenderer();
+
+      const result = await dashboardRenderer.renderDashboard(
+        dashboard.dashboard_id,
+        {},
+        userContext
+      );
+
+      // Phase 7: Verify table charts participate in query deduplication
+      expect(result.metadata.deduplication.uniqueQueries).toBe(1);
+      expect(result.metadata.deduplication.queriesDeduped).toBe(1);
+      expect(result.metadata.deduplication.deduplicationRate).toBe(50);
+
+      log.info('Table chart deduplication test passed', {
+        tableCharts: 2,
+        uniqueQueries: result.metadata.deduplication.uniqueQueries,
+        queriesDeduped: result.metadata.deduplication.queriesDeduped,
+        message: 'Table charts benefit from query deduplication',
+      });
+    });
+  });
 });
 

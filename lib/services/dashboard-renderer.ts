@@ -25,6 +25,8 @@ import { createRBACDashboardsService } from './rbac-dashboards-service';
 import { createRBACChartsService } from './rbac-charts-service';
 import { createOrganizationAccessService } from './organization-access-service';
 import { organizationHierarchyService } from './organization-hierarchy-service';
+import { generateQueryHash, DashboardQueryCache } from './dashboard-query-cache';
+import { chartTypeRegistry } from './chart-type-registry';
 
 /**
  * Dashboard-level universal filters
@@ -88,6 +90,14 @@ export interface DashboardRenderResponse {
     chartsRendered: number;
     dashboardFiltersApplied: string[];
     parallelExecution: boolean;
+    
+    // Phase 7: Query deduplication metrics
+    deduplication: {
+      enabled: boolean;
+      queriesDeduped: number;        // How many charts reused queries
+      uniqueQueries: number;          // How many unique queries executed
+      deduplicationRate: number;      // Percentage of queries saved
+    };
   };
 }
 
@@ -112,6 +122,9 @@ export class DashboardRenderer {
     userContext: UserContext
   ): Promise<DashboardRenderResponse> {
     const startTime = Date.now();
+    
+    // Phase 7: Query deduplication cache (per-render scope)
+    const queryCache = new DashboardQueryCache();
 
     try {
       log.info('Dashboard batch render initiated', {
@@ -119,6 +132,7 @@ export class DashboardRenderer {
         userId: userContext.user_id,
         hasUniversalFilters: Boolean(universalFilters && Object.keys(universalFilters).length > 0),
         organizationFilter: universalFilters.organizationId || null,
+        queryDeduplicationEnabled: true,
       });
 
       // 1. Load dashboard definition with RBAC
@@ -163,6 +177,12 @@ export class DashboardRenderer {
             chartsRendered: 0,
             dashboardFiltersApplied: this.getAppliedFilterNames(universalFilters),
             parallelExecution: false,
+            deduplication: {
+              enabled: false,
+              queriesDeduped: 0,
+              uniqueQueries: 0,
+              deduplicationRate: 0,
+            },
           },
         };
       }
@@ -190,6 +210,12 @@ export class DashboardRenderer {
             chartsRendered: 0,
             dashboardFiltersApplied: this.getAppliedFilterNames(universalFilters),
             parallelExecution: false,
+            deduplication: {
+              enabled: false,
+              queriesDeduped: 0,
+              uniqueQueries: 0,
+              deduplicationRate: 0,
+            },
           },
         };
       }
@@ -211,19 +237,13 @@ export class DashboardRenderer {
         const chartDef = chart; // Type guard: chart is not null after this point
 
         try {
-          // FIX #5: Skip table charts (they use different endpoint)
-          if (chartDef.chart_type === 'table') {
-            log.warn('Skipping table chart in batch rendering', {
-              chartId: chartDef.chart_definition_id,
-              chartName: chartDef.chart_name,
-              reason: 'table_charts_use_different_endpoint',
-            });
-            
-            return {
-              chartId: chartDef.chart_definition_id,
-              result: null, // Will be handled separately in dashboard-view
-            };
-          }
+          // Phase 7: Table charts now supported in batch rendering
+          log.info('Processing chart in batch', {
+            chartId: chartDef.chart_definition_id,
+            chartName: chartDef.chart_name,
+            chartType: chartDef.chart_type,
+            batchSupported: true,
+          });
 
           // FIX #3: Extract filters from data_source (like dashboard-view does)
           interface DataSourceFilter {
@@ -332,14 +352,21 @@ export class DashboardRenderer {
             runtimeFilterKeys: Object.keys(runtimeFilters),
           });
 
-          // Execute chart via orchestrator
-          const result = await chartDataOrchestrator.orchestrate(
-            {
-              chartConfig: finalChartConfig as typeof finalChartConfig & { chartType: string; dataSourceId: number },
-              runtimeFilters, // FIX #4: Pass extracted filters to orchestrator
-            },
-            userContext
-          );
+          // Phase 7: Generate query hash for deduplication
+          const queryHash = generateQueryHash(finalChartConfig, runtimeFilters);
+
+          // Phase 7: Execute query with deduplication
+          // Cache stores full orchestrator results (with chartData, rawData, metadata)
+          const result = await queryCache.get(queryHash, async () => {
+            // Execute chart via orchestrator - returns full OrchestrationResult
+            return await chartDataOrchestrator.orchestrate(
+              {
+                chartConfig: finalChartConfig as typeof finalChartConfig & { chartType: string; dataSourceId: number },
+                runtimeFilters, // FIX #4: Pass extracted filters to orchestrator
+              },
+              userContext
+            );
+          });
 
           // FIX #6: Include measure/frequency/groupBy in metadata
           const groupByValue = (chartDef.chart_config as { groupBy?: string; series?: { groupBy?: string } })?.groupBy || 
@@ -413,6 +440,9 @@ export class DashboardRenderer {
       }
 
       const duration = Date.now() - startTime;
+      
+      // Phase 7: Get deduplication statistics
+      const dedupStats = queryCache.getStats();
 
       log.info('Dashboard batch render completed', {
         dashboardId,
@@ -422,6 +452,14 @@ export class DashboardRenderer {
         totalQueryTime,
         parallelDuration,
         duration,
+        // Phase 7: Deduplication stats
+        queryDeduplication: {
+          uniqueQueries: dedupStats.uniqueQueries,
+          queriesDeduped: dedupStats.hits,
+          deduplicationRate: `${dedupStats.deduplicationRate}%`,
+          totalCharts: validCharts.length,
+          queriesSaved: dedupStats.hits,
+        },
       });
 
       return {
@@ -434,6 +472,14 @@ export class DashboardRenderer {
           chartsRendered: Object.keys(charts).length,
           dashboardFiltersApplied: this.getAppliedFilterNames(universalFilters),
           parallelExecution: true,
+          
+          // Phase 7: Query deduplication metrics
+          deduplication: {
+            enabled: true,
+            queriesDeduped: dedupStats.hits,
+            uniqueQueries: dedupStats.uniqueQueries,
+            deduplicationRate: dedupStats.deduplicationRate,
+          },
         },
       };
     } catch (error) {
@@ -443,6 +489,9 @@ export class DashboardRenderer {
       });
 
       throw error;
+    } finally {
+      // Phase 7: Clear query cache after render completes
+      queryCache.clear();
     }
   }
 

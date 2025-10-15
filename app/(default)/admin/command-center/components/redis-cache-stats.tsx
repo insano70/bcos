@@ -237,25 +237,28 @@ export default function RedisCacheStats({
         </details>
       )}
 
-      {/* Actions */}
-      <div className="flex gap-2 mt-4">
-        {onViewKeys && (
-          <button
-            onClick={onViewKeys}
-            className="flex-1 px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600 transition-colors text-sm font-medium"
-          >
-            Browse Keys
-          </button>
-        )}
-        {onViewAdminTools && (
-          <button
-            onClick={onViewAdminTools}
-            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium"
-          >
-            Admin Tools
-          </button>
-        )}
-      </div>
+      {/* Cache Management APIs */}
+      <details className="mt-4">
+        <summary className="cursor-pointer text-sm text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium">
+          View cache management APIs
+        </summary>
+        <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700 rounded text-xs space-y-2">
+          <div className="font-medium text-gray-900 dark:text-gray-100 mb-2">
+            Available Cache Management APIs:
+          </div>
+          <div className="space-y-1 text-gray-600 dark:text-gray-400">
+            <div><code className="bg-gray-200 dark:bg-gray-800 px-1 rounded">GET /api/admin/redis/stats</code> - Statistics</div>
+            <div><code className="bg-gray-200 dark:bg-gray-800 px-1 rounded">GET /api/admin/redis/keys?pattern=*</code> - Search keys</div>
+            <div><code className="bg-gray-200 dark:bg-gray-800 px-1 rounded">GET /api/admin/redis/inspect?key=...</code> - View key</div>
+            <div><code className="bg-gray-200 dark:bg-gray-800 px-1 rounded">POST /api/admin/redis/purge</code> - Delete keys</div>
+            <div><code className="bg-gray-200 dark:bg-gray-800 px-1 rounded">POST /api/admin/redis/ttl</code> - Update TTL</div>
+          </div>
+          <div className="mt-2 pt-2 border-t border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400">
+            Full UI components for key browsing and cache purging can be added in a future iteration.
+            For now, use the APIs directly via curl/Postman or browser dev tools.
+          </div>
+        </div>
+      </details>
     </div>
   );
 }

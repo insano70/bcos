@@ -19,25 +19,22 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/rbac-route-handler';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
-import { log } from '@/lib/logger';
 import { db, account_security, users } from '@/lib/db';
 import { eq } from 'drizzle-orm';
-import { AuditLogger } from '@/lib/api/services/audit';
-import type { UserContext } from '@/lib/types/rbac';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { validateRequest } from '@/lib/api/middleware/validation';
 import { extractRouteParams } from '@/lib/api/utils/params';
+import { flagUserSchema } from '@/lib/validations/monitoring';
+import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import type { UserContext } from '@/lib/types/rbac';
+import { log } from '@/lib/logger';
+import { AuditLogger } from '@/lib/api/services/audit';
 import { z } from 'zod';
 
 const userIdParamsSchema = z.object({
   userId: z.string().uuid(),
 });
-
-interface FlagUserRequest {
-  flag: boolean; // true to flag, false to unflag
-  reason: string;
-}
 
 const flagUserHandler = async (
   request: NextRequest,
@@ -48,16 +45,8 @@ const flagUserHandler = async (
   const { userId } = await extractRouteParams(args[0], userIdParamsSchema);
 
   try {
-    // Parse request body
-    const body = (await request.json()) as FlagUserRequest;
-
-    if (!body.reason || body.reason.trim().length === 0) {
-      return createErrorResponse('Reason is required for flagging/unflagging users', 400, request);
-    }
-
-    if (typeof body.flag !== 'boolean') {
-      return createErrorResponse('Flag field must be a boolean', 400, request);
-    }
+    // Validate request body with Zod
+    const body = await validateRequest(request, flagUserSchema);
 
     const action = body.flag ? 'flag_user' : 'unflag_user';
 

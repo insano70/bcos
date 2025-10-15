@@ -13,6 +13,7 @@ import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { log } from '@/lib/logger';
+import { queryErrors } from '@/lib/monitoring/cloudwatch-queries';
 import type { ErrorsResponse, ErrorLogEntry } from '@/lib/monitoring/types';
 
 const errorsHandler = async (request: NextRequest) => {
@@ -22,8 +23,6 @@ const errorsHandler = async (request: NextRequest) => {
     const { searchParams } = new URL(request.url);
     const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 500);
     const timeRange = searchParams.get('timeRange') || '1h';
-    // const endpointFilter = searchParams.get('endpoint');
-    // const errorTypeFilter = searchParams.get('errorType');
 
     log.info('Errors query initiated', {
       operation: 'query_errors',
@@ -32,9 +31,20 @@ const errorsHandler = async (request: NextRequest) => {
       component: 'monitoring',
     });
 
-    // TODO: Query CloudWatch Logs for errors
-    // For now, return empty data until CloudWatch SDK is configured
-    const errors: ErrorLogEntry[] = [];
+    // Query CloudWatch Logs for errors
+    const cloudwatchResults = await queryErrors(timeRange, limit);
+    
+    // Transform CloudWatch results to ErrorLogEntry objects
+    const errors: ErrorLogEntry[] = cloudwatchResults.map((result) => ({
+      timestamp: result['@timestamp'] || new Date().toISOString(),
+      level: result.level || 'ERROR',
+      message: result.message || 'Unknown error',
+      operation: result.operation || 'unknown',
+      endpoint: result.endpoint || 'unknown',
+      statusCode: parseInt(result.statusCode || '500', 10),
+      correlationId: result.correlationId,
+      userId: result.userId,
+    }));
 
     // Calculate summary
     const byEndpoint: Record<string, number> = {};

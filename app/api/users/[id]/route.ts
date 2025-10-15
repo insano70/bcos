@@ -7,6 +7,7 @@ import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { calculateChanges, log, logTemplates } from '@/lib/logger';
 import { createRBACUsersService } from '@/lib/services/rbac-users-service';
+import { createUserRolesService } from '@/lib/services/user-roles-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { userParamsSchema, userUpdateSchema } from '@/lib/validations/user';
 import type { z } from 'zod';
@@ -21,8 +22,9 @@ const getUserHandler = async (
   try {
     const { id: userId } = await extractRouteParams(args[0], userParamsSchema);
 
-    // Create RBAC users service
+    // Create services
     const usersService = createRBACUsersService(userContext);
+    const rolesService = createUserRolesService(userContext);
 
     // Get user with automatic permission checking
     const user = await usersService.getUserById(userId);
@@ -30,6 +32,9 @@ const getUserHandler = async (
     if (!user) {
       throw NotFoundError('User');
     }
+
+    // Fetch user roles separately
+    const roles = await rolesService.getUserRoles(userId);
 
     // Enriched read log with user context
     const template = logTemplates.crud.read('user', {
@@ -43,7 +48,7 @@ const getUserHandler = async (
         emailVerified: user.email_verified,
         isActive: user.is_active,
         organizationCount: user.organizations.length,
-        roleCount: user.roles?.length || 0,
+        roleCount: roles.length,
         isSelfRead: userId === userContext.user_id,
       },
     });
@@ -61,7 +66,7 @@ const getUserHandler = async (
       created_at: user.created_at,
       updated_at: user.updated_at,
       organizations: user.organizations,
-      roles: user.roles || [],
+      roles,
     });
   } catch (error) {
     log.error('Get user failed', error, {
@@ -211,14 +216,18 @@ const deleteUserHandler = async (
   try {
     const { id: userId } = await extractRouteParams(args[0], userParamsSchema);
 
-    // Create RBAC users service
+    // Create services
     const usersService = createRBACUsersService(userContext);
+    const rolesService = createUserRolesService(userContext);
 
     // Get user info BEFORE deletion for logging
     const user = await usersService.getUserById(userId);
     if (!user) {
       throw NotFoundError('User');
     }
+
+    // Get roles for logging
+    const roles = await rolesService.getUserRoles(userId);
 
     // Delete user with automatic permission checking
     await usersService.deleteUser(userId);
@@ -235,7 +244,7 @@ const deleteUserHandler = async (
         wasActive: user.is_active,
         emailVerified: user.email_verified,
         hadOrganizations: user.organizations.length,
-        hadRoles: user.roles?.length || 0,
+        hadRoles: roles.length,
         isSelfDelete: userId === userContext.user_id,
       },
     });

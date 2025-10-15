@@ -62,20 +62,37 @@ const atRiskUsersHandler = async (request: NextRequest) => {
       .orderBy(sql`${account_security.failed_login_attempts} DESC, ${account_security.last_failed_attempt} DESC NULLS LAST`)
       .limit(limit);
 
-    // Enrich with recent activity stats and calculate risk scores
-    const enrichedUsers: AtRiskUser[] = await Promise.all(
-      atRiskUsersData.map(async (user) => {
-        // Count recent login attempts
-        const [recentStats] = await db
-          .select({
-            attempts24h: sql<string>`COUNT(*) FILTER (WHERE ${login_attempts.attempted_at} > ${twentyFourHoursAgo})`,
-            uniqueIPs7d: sql<string>`COUNT(DISTINCT ${login_attempts.ip_address}) FILTER (WHERE ${login_attempts.attempted_at} > ${sevenDaysAgo})`,
-          })
-          .from(login_attempts)
-          .where(eq(login_attempts.user_id, user.userId));
+    // Get all user IDs for batch query
+    const userIds = atRiskUsersData.map((u) => u.userId);
 
-        const recentAttempts24h = parseInt(recentStats?.attempts24h || '0', 10);
-        const uniqueIPs7d = parseInt(recentStats?.uniqueIPs7d || '0', 10);
+    // Batch query for recent activity stats (fixes N+1 query problem)
+    const recentStatsArray = userIds.length > 0 ? await db
+      .select({
+        userId: login_attempts.user_id,
+        attempts24h: sql<string>`COUNT(*) FILTER (WHERE ${login_attempts.attempted_at} > ${twentyFourHoursAgo})`,
+        uniqueIPs7d: sql<string>`COUNT(DISTINCT ${login_attempts.ip_address}) FILTER (WHERE ${login_attempts.attempted_at} > ${sevenDaysAgo})`,
+      })
+      .from(login_attempts)
+      .where(sql`${login_attempts.user_id} = ANY(${userIds})`)
+      .groupBy(login_attempts.user_id) : [];
+
+    // Create lookup map for O(1) access
+    const statsLookup = new Map(
+      recentStatsArray.map((stat) => [
+        stat.userId,
+        {
+          attempts24h: parseInt(stat.attempts24h || '0', 10),
+          uniqueIPs7d: parseInt(stat.uniqueIPs7d || '0', 10),
+        },
+      ])
+    );
+
+    // Enrich with recent activity stats and calculate risk scores
+    const enrichedUsers: AtRiskUser[] = atRiskUsersData.map((user) => {
+        // Lookup stats from map (O(1) operation)
+        const stats = statsLookup.get(user.userId);
+        const recentAttempts24h = stats?.attempts24h || 0;
+        const uniqueIPs7d = stats?.uniqueIPs7d || 0;
 
         // Calculate risk score
         const riskScore = calculateRiskScore({
@@ -110,8 +127,7 @@ const atRiskUsersHandler = async (request: NextRequest) => {
           recentAttempts24h,
           uniqueIPs7d,
         };
-      })
-    );
+      });
 
     // Filter by minimum risk score if specified
     const filteredUsers = enrichedUsers.filter((user) => user.riskScore >= minRiskScore);

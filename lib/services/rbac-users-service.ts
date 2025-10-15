@@ -1,19 +1,68 @@
-import { and, count, desc, eq, gte, inArray, isNull, like, or, sql } from 'drizzle-orm';
+import { and, count, eq, inArray, isNull, like, or } from 'drizzle-orm';
+import type { SQL } from 'drizzle-orm';
 import { ensureSecurityRecord, hashPassword } from '@/lib/auth/security';
-import { account_security, audit_logs, db, practices } from '@/lib/db';
-import { roles, user_roles } from '@/lib/db/rbac-schema';
+import { account_security, db } from '@/lib/db';
 import { organizations, user_organizations, users } from '@/lib/db/schema';
-import { log } from '@/lib/logger';
-import { BaseRBACService } from '@/lib/rbac/base-service';
+import { calculateChanges, log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
 import { PermissionDeniedError } from '@/lib/types/rbac';
 
 /**
- * Enhanced Users Service with RBAC
- * Provides user management with automatic permission checking and data filtering
+ * Users Service with RBAC
+ *
+ * Provides core user management with automatic permission-based filtering.
+ *
+ * **RBAC Scopes**:
+ * - `own`: Users can only access their own user record
+ * - `organization`: Users can access users within their accessible organizations
+ * - `all`: Super admins can access all users across all organizations
+ *
+ * **Core Operations**:
+ * - List users with RBAC filtering
+ * - Get single user by ID
+ * - Create new users with security record initialization
+ * - Update users with password tracking
+ * - Soft delete users
+ * - Search users
+ * - Count users
+ * - Check user management permissions
+ *
+ * **Security Features**:
+ * - Automatic account_security record creation on user creation
+ * - Password change tracking in account_security table
+ * - Transaction handling for user updates with role assignments
+ * - Self-deletion prevention
+ *
+ * **Note**: For organization membership management (add/remove users to/from organizations),
+ * use the `user-organization-service.ts` instead.
+ *
+ * @example
+ * ```typescript
+ * const service = createRBACUsersService(userContext);
+ *
+ * // List users (automatically filtered by RBAC)
+ * const users = await service.getUsers({ organizationId: 'org-123' });
+ *
+ * // Create user
+ * const newUser = await service.createUser({
+ *   email: 'user@example.com',
+ *   password: 'secure-password',
+ *   first_name: 'John',
+ *   last_name: 'Doe',
+ *   organization_id: 'org-123',
+ * });
+ *
+ * // Update user with role assignment
+ * const updated = await service.updateUser('user-123', {
+ *   role_ids: ['role-admin', 'role-user'],
+ * });
+ * ```
  */
 
-// Universal logger for RBAC user service operations
+// ============================================================================
+// Type Definitions
+// ============================================================================
+
 export interface CreateUserData {
   email: string;
   password: string;
@@ -29,10 +78,9 @@ export interface UpdateUserData {
   last_name?: string;
   email?: string;
   password?: string;
-  role_ids?: string[];
   email_verified?: boolean;
   is_active?: boolean;
-  provider_uid?: number | null | undefined; // Analytics security - provider-level filtering
+  provider_uid?: number | null | undefined;
 }
 
 export interface UserQueryOptions {
@@ -51,7 +99,7 @@ export interface UserWithOrganizations {
   last_name: string;
   email_verified: boolean;
   is_active: boolean;
-  provider_uid?: number | null | undefined; // Analytics security - provider-level filtering
+  provider_uid?: number | null | undefined;
   created_at: Date;
   updated_at: Date;
   organizations: {
@@ -60,331 +108,451 @@ export interface UserWithOrganizations {
     slug: string;
     is_active: boolean;
   }[];
-  roles?: {
-    id: string;
-    name: string;
-  }[];
 }
 
-export class RBACUsersService extends BaseRBACService {
+/**
+ * RBAC scope for user access
+ */
+type RBACScope = 'own' | 'organization' | 'all';
+
+/**
+ * Users Service Interface
+ */
+export interface UsersServiceInterface {
+  getUsers(options?: UserQueryOptions): Promise<UserWithOrganizations[]>;
+  getUserById(userId: string): Promise<UserWithOrganizations | null>;
+  createUser(userData: CreateUserData): Promise<UserWithOrganizations>;
+  updateUser(userId: string, updateData: UpdateUserData): Promise<UserWithOrganizations>;
+  deleteUser(userId: string): Promise<void>;
+  searchUsers(searchTerm: string, organizationId?: string): Promise<UserWithOrganizations[]>;
+  getUserCount(organizationId?: string): Promise<number>;
+}
+
+// ============================================================================
+// Service Implementation
+// ============================================================================
+
+class RBACUsersService implements UsersServiceInterface {
+  // Permission flags cached in constructor
+  private readonly canReadAll: boolean;
+  private readonly canReadOrganization: boolean;
+  private readonly canReadOwn: boolean;
+  private readonly canUpdate: boolean;
+  private readonly canUpdateOwn: boolean;
+  private readonly canUpdateOrganization: boolean;
+  private readonly isSuperAdmin: boolean;
+  private readonly accessibleOrganizationIds: string[];
+
+  constructor(private readonly userContext: UserContext) {
+    // Cache permission checks in constructor (called once)
+    const permissions = userContext.all_permissions || [];
+
+    this.canReadAll = permissions.some((p) => p.name === 'users:read:all');
+    this.canReadOrganization = permissions.some((p) => p.name === 'users:read:organization');
+    this.canReadOwn = permissions.some((p) => p.name === 'users:read:own');
+    this.canUpdate = permissions.some((p) => p.name === 'users:update:all');
+    this.canUpdateOwn = permissions.some((p) => p.name === 'users:update:own');
+    this.canUpdateOrganization = permissions.some((p) => p.name === 'users:update:organization');
+    this.isSuperAdmin = userContext.is_super_admin || false;
+
+    // Cache accessible organization IDs
+    this.accessibleOrganizationIds =
+      userContext.accessible_organizations?.map((org) => org.organization_id) || [];
+  }
+
   /**
-   * Get users with automatic permission-based filtering
+   * Get RBAC scope for current user
    */
-  async getUsers(options: UserQueryOptions = {}): Promise<UserWithOrganizations[]> {
-    const accessScope = this.getAccessScope('users', 'read');
+  private getRBACScope(): RBACScope {
+    if (this.canReadAll || this.isSuperAdmin) {
+      return 'all';
+    }
+    if (this.canReadOrganization) {
+      return 'organization';
+    }
+    return 'own';
+  }
 
-    // Build all where conditions upfront
-    const whereConditions = [isNull(users.deleted_at), eq(users.is_active, true)];
+  /**
+   * Check if user can access an organization
+   */
+  private canAccessOrganization(organizationId: string): boolean {
+    if (this.isSuperAdmin || this.canReadAll) {
+      return true;
+    }
+    return this.accessibleOrganizationIds.includes(organizationId);
+  }
 
-    // Apply scope-based filtering
-    switch (accessScope.scope) {
+  /**
+   * Build RBAC where conditions for user queries
+   */
+  private buildRBACWhereConditions(): SQL[] {
+    const conditions: SQL[] = [isNull(users.deleted_at), eq(users.is_active, true)];
+
+    const scope = this.getRBACScope();
+
+    switch (scope) {
       case 'own':
-        if (!accessScope.userId) {
-          throw new Error('User ID required for own scope');
-        }
-        whereConditions.push(eq(users.user_id, accessScope.userId));
+        conditions.push(eq(users.user_id, this.userContext.user_id));
         break;
 
-      case 'organization': {
-        // Filter by accessible organizations
-        const accessibleOrgIds = accessScope.organizationIds || [];
-        if (accessibleOrgIds.length > 0) {
-          whereConditions.push(
-            inArray(user_organizations.organization_id, accessibleOrgIds),
+      case 'organization':
+        if (this.accessibleOrganizationIds.length > 0) {
+          conditions.push(
+            inArray(user_organizations.organization_id, this.accessibleOrganizationIds),
             eq(user_organizations.is_active, true)
           );
-        } else {
-          // No accessible organizations - return empty result
-          return [];
         }
         break;
-      }
 
       case 'all':
         // No additional filtering for super admin
         break;
     }
 
-    // Apply additional filters
-    if (options.organizationId) {
-      this.requireOrganizationAccess(options.organizationId);
-      whereConditions.push(eq(user_organizations.organization_id, options.organizationId));
+    return conditions;
+  }
+
+  /**
+   * Require permission or throw AuthorizationError
+   */
+  private requirePermission(permission: string, resourceId?: string): void {
+    const hasPermission = this.userContext.all_permissions?.some((p) => p.name === permission);
+    if (!hasPermission && !this.isSuperAdmin) {
+      throw new PermissionDeniedError(permission, resourceId || 'unknown');
     }
+  }
 
-    if (options.is_active !== undefined) {
-      whereConditions.push(eq(users.is_active, options.is_active));
+  /**
+   * Require organization access or throw error
+   */
+  private requireOrganizationAccess(organizationId: string): void {
+    if (!this.canAccessOrganization(organizationId)) {
+      throw new PermissionDeniedError('organization:access', organizationId);
     }
+  }
 
-    if (options.email_verified !== undefined) {
-      whereConditions.push(eq(users.email_verified, options.email_verified));
+  /**
+   * Require any of the specified permissions
+   */
+  private requireAnyPermission(permissions: string[]): void {
+    const hasAny = permissions.some((permission) =>
+      this.userContext.all_permissions?.some((p) => p.name === permission)
+    );
+    if (!hasAny && !this.isSuperAdmin) {
+      throw new PermissionDeniedError(permissions.join('|'), 'unknown');
     }
+  }
 
-    if (options.search) {
-      const searchCondition = or(
-        like(users.first_name, `%${options.search}%`),
-        like(users.last_name, `%${options.search}%`),
-        like(users.email, `%${options.search}%`)
-      );
-      if (searchCondition) {
-        whereConditions.push(searchCondition);
-      }
-    }
+  /**
+   * Get users with automatic permission-based filtering
+   */
+  async getUsers(options: UserQueryOptions = {}): Promise<UserWithOrganizations[]> {
+    const startTime = Date.now();
 
-    // Build complete query with all conditions
-    const baseQuery = db
-      .select({
-        user_id: users.user_id,
-        email: users.email,
-        first_name: users.first_name,
-        last_name: users.last_name,
-        email_verified: users.email_verified,
-        is_active: users.is_active,
-        provider_uid: users.provider_uid, // Analytics security field
-        created_at: users.created_at,
-        updated_at: users.updated_at,
-        // Organization info
-        organization_id: organizations.organization_id,
-        org_name: organizations.name,
-        org_slug: organizations.slug,
-        org_is_active: organizations.is_active,
-      })
-      .from(users)
-      .leftJoin(user_organizations, eq(users.user_id, user_organizations.user_id))
-      .leftJoin(
-        organizations,
-        eq(user_organizations.organization_id, organizations.organization_id)
-      )
-      .where(and(...whereConditions));
+    try {
+      // Build all where conditions upfront
+      const whereConditions = this.buildRBACWhereConditions();
 
-    // Execute base query
-    const baseResults = await baseQuery;
-
-    // Apply pagination manually if needed (simpler approach)
-    const results = (() => {
-      let filtered = baseResults;
-      if (options.offset) {
-        filtered = filtered.slice(options.offset);
-      }
-      if (options.limit) {
-        filtered = filtered.slice(0, options.limit);
-      }
-      return filtered;
-    })();
-
-    // Group by user and aggregate organizations
-    const usersMap = new Map<string, UserWithOrganizations>();
-
-    results.forEach((row) => {
-      if (!usersMap.has(row.user_id)) {
-        usersMap.set(row.user_id, {
-          user_id: row.user_id,
-          email: row.email,
-          first_name: row.first_name,
-          last_name: row.last_name,
-          email_verified: row.email_verified ?? false,
-          is_active: row.is_active ?? true,
-          provider_uid: row.provider_uid || undefined, // Analytics security field
-          created_at: row.created_at ?? new Date(),
-          updated_at: row.updated_at ?? new Date(),
-          organizations: [],
-        });
-      }
-
-      const user = usersMap.get(row.user_id);
-      if (!user) {
-        throw new Error(`User unexpectedly not found in map: ${row.user_id}`);
-      }
-
-      // Add organization if present and not already added
+      // If organization scope and no accessible orgs, return empty
       if (
-        row.organization_id &&
-        row.org_name &&
-        row.org_slug &&
-        !user.organizations.some((org) => org.organization_id === row.organization_id)
+        this.getRBACScope() === 'organization' &&
+        this.accessibleOrganizationIds.length === 0
       ) {
-        user.organizations.push({
-          organization_id: row.organization_id,
-          name: row.org_name,
-          slug: row.org_slug,
-          is_active: row.org_is_active ?? true,
-        });
+        return [];
       }
-    });
 
-    // Fetch roles for all users
-    const userIds = Array.from(usersMap.keys());
-    if (userIds.length > 0) {
-      const rolesQuery = await db
-        .select({
-          user_id: user_roles.user_id,
-          role_id: roles.role_id,
-          role_name: roles.name,
-        })
-        .from(user_roles)
-        .innerJoin(roles, eq(roles.role_id, user_roles.role_id))
-        .where(
-          and(
-            inArray(user_roles.user_id, userIds),
-            eq(user_roles.is_active, true),
-            eq(roles.is_active, true)
-          )
+      // Apply additional filters
+      if (options.organizationId) {
+        this.requireOrganizationAccess(options.organizationId);
+        whereConditions.push(eq(user_organizations.organization_id, options.organizationId));
+      }
+
+      if (options.is_active !== undefined) {
+        whereConditions.push(eq(users.is_active, options.is_active));
+      }
+
+      if (options.email_verified !== undefined) {
+        whereConditions.push(eq(users.email_verified, options.email_verified));
+      }
+
+      if (options.search) {
+        const searchCondition = or(
+          like(users.first_name, `%${options.search}%`),
+          like(users.last_name, `%${options.search}%`),
+          like(users.email, `%${options.search}%`)
         );
+        if (searchCondition) {
+          whereConditions.push(searchCondition);
+        }
+      }
 
-      // Add roles to users
-      rolesQuery.forEach((roleRow) => {
-        const user = usersMap.get(roleRow.user_id);
-        if (user) {
-          if (!user.roles) {
-            user.roles = [];
-          }
-          user.roles.push({
-            id: roleRow.role_id,
-            name: roleRow.role_name,
+      // Build complete query with all conditions
+      const queryStart = Date.now();
+      const baseQuery = db
+        .select({
+          user_id: users.user_id,
+          email: users.email,
+          first_name: users.first_name,
+          last_name: users.last_name,
+          email_verified: users.email_verified,
+          is_active: users.is_active,
+          provider_uid: users.provider_uid,
+          created_at: users.created_at,
+          updated_at: users.updated_at,
+          // Organization info
+          organization_id: organizations.organization_id,
+          org_name: organizations.name,
+          org_slug: organizations.slug,
+          org_is_active: organizations.is_active,
+        })
+        .from(users)
+        .leftJoin(user_organizations, eq(users.user_id, user_organizations.user_id))
+        .leftJoin(
+          organizations,
+          eq(user_organizations.organization_id, organizations.organization_id)
+        )
+        .where(and(...whereConditions));
+
+      // Execute base query
+      const baseResults = await baseQuery;
+      const queryDuration = Date.now() - queryStart;
+
+      // Apply pagination manually if needed
+      const results = (() => {
+        let filtered = baseResults;
+        if (options.offset) {
+          filtered = filtered.slice(options.offset);
+        }
+        if (options.limit) {
+          filtered = filtered.slice(0, options.limit);
+        }
+        return filtered;
+      })();
+
+      // Group by user and aggregate organizations
+      const usersMap = new Map<string, UserWithOrganizations>();
+
+      results.forEach((row) => {
+        if (!usersMap.has(row.user_id)) {
+          usersMap.set(row.user_id, {
+            user_id: row.user_id,
+            email: row.email,
+            first_name: row.first_name,
+            last_name: row.last_name,
+            email_verified: row.email_verified ?? false,
+            is_active: row.is_active ?? true,
+            provider_uid: row.provider_uid || undefined,
+            created_at: row.created_at ?? new Date(),
+            updated_at: row.updated_at ?? new Date(),
+            organizations: [],
+          });
+        }
+
+        const user = usersMap.get(row.user_id);
+        if (!user) {
+          throw new Error(`User unexpectedly not found in map: ${row.user_id}`);
+        }
+
+        // Add organization if present and not already added
+        if (
+          row.organization_id &&
+          row.org_name &&
+          row.org_slug &&
+          !user.organizations.some((org) => org.organization_id === row.organization_id)
+        ) {
+          user.organizations.push({
+            organization_id: row.organization_id,
+            name: row.org_name,
+            slug: row.org_slug,
+            is_active: row.org_is_active ?? true,
           });
         }
       });
-    }
 
-    return Array.from(usersMap.values());
+      const duration = Date.now() - startTime;
+
+      const template = logTemplates.crud.list('users', {
+        userId: this.userContext.user_id,
+        ...(this.userContext.current_organization_id && {
+          organizationId: this.userContext.current_organization_id,
+        }),
+        filters: {
+          organizationId: options.organizationId,
+          search: options.search,
+          is_active: options.is_active,
+          email_verified: options.email_verified,
+        },
+        results: {
+          returned: usersMap.size,
+          total: usersMap.size,
+          page: options.offset ? Math.floor(options.offset / (options.limit || 50)) + 1 : 1,
+        },
+        duration,
+        metadata: {
+          usersQuery: { duration: queryDuration, slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY },
+          rbacScope: this.getRBACScope(),
+          component: 'service',
+        },
+      });
+
+      log.info(template.message, template.context);
+
+      return Array.from(usersMap.values());
+    } catch (error) {
+      log.error('get users failed', error, {
+        operation: 'get_users',
+        userId: this.userContext.user_id,
+        filters: options,
+        component: 'service',
+      });
+      throw error;
+    }
   }
 
   /**
    * Get a specific user by ID with permission checking
    */
   async getUserById(userId: string): Promise<UserWithOrganizations | null> {
-    // Check if user can access this specific user
-    const canReadOwn = this.checker.hasPermission('users:read:own', userId);
-    const canReadOrg = this.checker.hasPermission('users:read:organization');
-    const canReadAll = this.checker.hasPermission('users:read:all');
+    const startTime = Date.now();
 
-    if (!canReadOwn && !canReadOrg && !canReadAll) {
-      throw new PermissionDeniedError('users:read:*', userId);
-    }
+    try {
+      // Check if user can access this specific user
+      if (!this.canReadOwn && !this.canReadOrganization && !this.canReadAll) {
+        throw new PermissionDeniedError('users:read:*', userId);
+      }
 
-    // Get user with organizations
-    const query = db
-      .select({
-        user_id: users.user_id,
-        email: users.email,
-        first_name: users.first_name,
-        last_name: users.last_name,
-        email_verified: users.email_verified,
-        is_active: users.is_active,
-        provider_uid: users.provider_uid, // Analytics security field
-        created_at: users.created_at,
-        updated_at: users.updated_at,
-        organization_id: user_organizations.organization_id,
-        org_name: organizations.name,
-        org_slug: organizations.slug,
-        org_is_active: organizations.is_active,
-      })
-      .from(users)
-      .leftJoin(
-        user_organizations,
-        and(eq(user_organizations.user_id, users.user_id), eq(user_organizations.is_active, true))
-      )
-      .leftJoin(
-        organizations,
-        and(
-          eq(organizations.organization_id, user_organizations.organization_id),
-          isNull(organizations.deleted_at)
+      // Get user with organizations
+      const queryStart = Date.now();
+      const query = db
+        .select({
+          user_id: users.user_id,
+          email: users.email,
+          first_name: users.first_name,
+          last_name: users.last_name,
+          email_verified: users.email_verified,
+          is_active: users.is_active,
+          provider_uid: users.provider_uid,
+          created_at: users.created_at,
+          updated_at: users.updated_at,
+          organization_id: user_organizations.organization_id,
+          org_name: organizations.name,
+          org_slug: organizations.slug,
+          org_is_active: organizations.is_active,
+        })
+        .from(users)
+        .leftJoin(
+          user_organizations,
+          and(eq(user_organizations.user_id, users.user_id), eq(user_organizations.is_active, true))
         )
-      )
-      .where(and(eq(users.user_id, userId), isNull(users.deleted_at)));
+        .leftJoin(
+          organizations,
+          and(
+            eq(organizations.organization_id, user_organizations.organization_id),
+            isNull(organizations.deleted_at)
+          )
+        )
+        .where(and(eq(users.user_id, userId), isNull(users.deleted_at)));
 
-    const results = await query;
+      const results = await query;
+      const queryDuration = Date.now() - queryStart;
 
-    if (results.length === 0) {
-      return null;
-    }
+      if (results.length === 0) {
+        return null;
+      }
 
-    // Build user object with organizations
-    const firstResult = results[0];
-    if (!firstResult) {
-      // Extra safety: should not happen after length check
-      log.warn('User result had length > 0 but first item was null', { userId });
-      return null;
-    }
+      // Build user object with organizations
+      const firstResult = results[0];
+      if (!firstResult) {
+        log.warn('User result had length > 0 but first item was null', { userId });
+        return null;
+      }
 
-    if (
-      !firstResult.user_id ||
-      !firstResult.email ||
-      !firstResult.first_name ||
-      !firstResult.last_name
-    ) {
-      log.error('User result missing required fields', {
-        userId,
-        hasUserId: !!firstResult.user_id,
-        hasEmail: !!firstResult.email,
-        hasFirstName: !!firstResult.first_name,
-        hasLastName: !!firstResult.last_name,
-      });
-      return null;
-    }
-
-    const userObj: UserWithOrganizations = {
-      user_id: firstResult.user_id,
-      email: firstResult.email,
-      first_name: firstResult.first_name,
-      last_name: firstResult.last_name,
-      email_verified: firstResult.email_verified ?? false,
-      is_active: firstResult.is_active ?? true,
-      provider_uid: firstResult.provider_uid || undefined, // Analytics security field
-      created_at: firstResult.created_at ?? new Date(),
-      updated_at: firstResult.updated_at ?? new Date(),
-      organizations: [],
-    };
-
-    // Add organizations
-    results.forEach((row) => {
       if (
-        row.organization_id &&
-        row.org_name &&
-        row.org_slug &&
-        !userObj.organizations.some((org) => org.organization_id === row.organization_id)
+        !firstResult.user_id ||
+        !firstResult.email ||
+        !firstResult.first_name ||
+        !firstResult.last_name
       ) {
-        userObj.organizations.push({
-          organization_id: row.organization_id,
-          name: row.org_name,
-          slug: row.org_slug,
-          is_active: row.org_is_active ?? true,
+        log.error('User result missing required fields', {
+          userId,
+          hasUserId: !!firstResult.user_id,
+          hasEmail: !!firstResult.email,
+          hasFirstName: !!firstResult.first_name,
+          hasLastName: !!firstResult.last_name,
         });
+        return null;
       }
-    });
 
-    // For organization scope, verify user is in accessible organization
-    if (canReadOrg && !canReadAll && !canReadOwn) {
-      const hasSharedOrg = userObj.organizations.some((org) =>
-        this.canAccessOrganization(org.organization_id)
-      );
+      const userObj: UserWithOrganizations = {
+        user_id: firstResult.user_id,
+        email: firstResult.email,
+        first_name: firstResult.first_name,
+        last_name: firstResult.last_name,
+        email_verified: firstResult.email_verified ?? false,
+        is_active: firstResult.is_active ?? true,
+        provider_uid: firstResult.provider_uid || undefined,
+        created_at: firstResult.created_at ?? new Date(),
+        updated_at: firstResult.updated_at ?? new Date(),
+        organizations: [],
+      };
 
-      if (!hasSharedOrg) {
-        throw new PermissionDeniedError('users:read:organization', userId);
+      // Add organizations
+      results.forEach((row) => {
+        if (
+          row.organization_id &&
+          row.org_name &&
+          row.org_slug &&
+          !userObj.organizations.some((org) => org.organization_id === row.organization_id)
+        ) {
+          userObj.organizations.push({
+            organization_id: row.organization_id,
+            name: row.org_name,
+            slug: row.org_slug,
+            is_active: row.org_is_active ?? true,
+          });
+        }
+      });
+
+      // For organization scope, verify user is in accessible organization
+      if (this.canReadOrganization && !this.canReadAll && !this.canReadOwn) {
+        const hasSharedOrg = userObj.organizations.some((org) =>
+          this.canAccessOrganization(org.organization_id)
+        );
+
+        if (!hasSharedOrg) {
+          throw new PermissionDeniedError('users:read:organization', userId);
+        }
       }
+
+      const duration = Date.now() - startTime;
+
+      const template = logTemplates.crud.read('user', {
+        resourceId: userId,
+        resourceName: userObj.email,
+        userId: this.userContext.user_id,
+        duration,
+        found: true,
+        metadata: {
+          userQuery: { duration: queryDuration, slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY },
+          organizationCount: userObj.organizations.length,
+          rbacScope: this.getRBACScope(),
+          component: 'service',
+        },
+      });
+
+      log.info(template.message, template.context);
+
+      return userObj;
+    } catch (error) {
+      log.error('get user by id failed', error, {
+        operation: 'get_user_by_id',
+        userId: this.userContext.user_id,
+        targetUserId: userId,
+        component: 'service',
+      });
+      throw error;
     }
-
-    // Fetch user roles
-    const rolesQuery = await db
-      .select({
-        role_id: roles.role_id,
-        role_name: roles.name,
-      })
-      .from(user_roles)
-      .innerJoin(roles, eq(roles.role_id, user_roles.role_id))
-      .where(
-        and(
-          eq(user_roles.user_id, userId),
-          eq(user_roles.is_active, true),
-          eq(roles.is_active, true)
-        )
-      );
-
-    userObj.roles = rolesQuery.map((role) => ({
-      id: role.role_id,
-      name: role.role_name,
-    }));
-
-    return userObj;
   }
 
   /**
@@ -393,347 +561,280 @@ export class RBACUsersService extends BaseRBACService {
   async createUser(userData: CreateUserData): Promise<UserWithOrganizations> {
     const startTime = Date.now();
 
-    // Enhanced user creation logging
-    log.info('User creation initiated', {
-      requestingUserId: this.userContext.user_id,
-      targetOrganizationId: userData.organization_id,
-      operation: 'create_user',
-      securityLevel: 'high',
-    });
+    try {
+      this.requirePermission('users:create:organization', undefined);
+      this.requireOrganizationAccess(userData.organization_id);
 
-    this.requirePermission('users:create:organization', undefined, userData.organization_id);
+      // Hash password
+      const hashedPassword = await hashPassword(userData.password);
 
-    // Verify user can create in this organization
-    this.requireOrganizationAccess(userData.organization_id);
+      // Create user
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          email: userData.email,
+          password_hash: hashedPassword,
+          first_name: userData.first_name,
+          last_name: userData.last_name,
+          email_verified: userData.email_verified ?? false,
+          is_active: userData.is_active ?? true,
+        })
+        .returning();
 
-    // Enhanced permission validation success logging
-    log.security('user_creation_authorized', 'low', {
-      action: 'permission_check_passed',
-      userId: this.userContext.user_id,
-      targetOrganization: userData.organization_id,
-      requiredPermission: 'users:create:organization',
-    });
+      if (!newUser) {
+        throw new Error('Failed to create user');
+      }
 
-    // Hash password
-    const hashedPassword = await hashPassword(userData.password);
+      // Proactively create account_security record for defense-in-depth
+      await ensureSecurityRecord(newUser.user_id);
 
-    // Create user
-    const [newUser] = await db
-      .insert(users)
-      .values({
-        email: userData.email,
-        password_hash: hashedPassword,
-        first_name: userData.first_name,
-        last_name: userData.last_name,
-        email_verified: userData.email_verified ?? false,
-        is_active: userData.is_active ?? true,
-      })
-      .returning();
+      // Add user to organization
+      await db.insert(user_organizations).values({
+        user_id: newUser.user_id,
+        organization_id: userData.organization_id,
+        is_active: true,
+      });
 
-    if (!newUser) {
-      throw new Error('Failed to create user');
+      // Return user with organization info
+      const userWithOrgs = await this.getUserById(newUser.user_id);
+      if (!userWithOrgs) {
+        throw new Error('Failed to retrieve created user');
+      }
+
+      const duration = Date.now() - startTime;
+
+      const template = logTemplates.crud.create('user', {
+        resourceId: newUser.user_id,
+        resourceName: newUser.email,
+        userId: this.userContext.user_id,
+        organizationId: userData.organization_id,
+        duration,
+        metadata: {
+          emailVerified: userData.email_verified ?? false,
+          securityRecordCreated: true,
+          passwordHashed: true,
+          rbacScope: this.getRBACScope(),
+          component: 'service',
+        },
+      });
+
+      log.info(template.message, template.context);
+
+      return userWithOrgs;
+    } catch (error) {
+      log.error('create user failed', error, {
+        operation: 'create_user',
+        userId: this.userContext.user_id,
+        targetOrganizationId: userData.organization_id,
+        component: 'service',
+      });
+      throw error;
     }
-
-    // Proactively create account_security record for defense-in-depth
-    // This ensures the record exists even before first login attempt
-    await ensureSecurityRecord(newUser.user_id);
-
-    log.info('Account security record initialized for new user', {
-      userId: newUser.user_id,
-      operation: 'user_creation',
-      securityDefaults: {
-        max_concurrent_sessions: 3,
-        require_fresh_auth_minutes: 5,
-      },
-    });
-
-    // Add user to organization
-    await db.insert(user_organizations).values({
-      user_id: newUser.user_id,
-      organization_id: userData.organization_id,
-      is_active: true,
-    });
-
-    // Return user with organization info
-    const userWithOrgs = await this.getUserById(newUser.user_id);
-    if (!userWithOrgs) {
-      throw new Error('Failed to retrieve created user');
-    }
-
-    // Enhanced user creation completion logging
-    const duration = Date.now() - startTime;
-
-    // Business intelligence for user creation
-    log.info('User creation analytics', {
-      operation: 'user_created',
-      newUserId: newUser.user_id,
-      organizationId: userData.organization_id,
-      createdByUserId: this.userContext.user_id,
-      userSegment: 'new_user',
-      emailVerified: userData.email_verified ?? false,
-      duration,
-    });
-
-    // Security event for user creation
-    log.security('user_account_created', 'medium', {
-      action: 'account_creation_success',
-      userId: this.userContext.user_id,
-      newAccountId: newUser.user_id,
-      organizationId: userData.organization_id,
-      complianceValidated: true,
-    });
-
-    // Performance monitoring
-    log.timing('User creation completed', startTime, {
-      passwordHashingIncluded: true,
-      rbacValidationIncluded: true,
-      databaseOperations: 3, // user insert + org assignment + retrieval
-    });
-
-    await this.logPermissionCheck(
-      'users:create:organization',
-      newUser.user_id,
-      userData.organization_id
-    );
-
-    return userWithOrgs;
   }
 
   /**
    * Update a user with permission checking
    */
   async updateUser(userId: string, updateData: UpdateUserData): Promise<UserWithOrganizations> {
-    // Check permissions: can update own profile OR can update organization users
-    const canUpdateOwn = this.checker.hasPermission('users:update:own', userId);
-    const canUpdateOrg = this.checker.hasPermission('users:update:organization');
-    const canUpdateAll = this.checker.hasPermission('users:update:all');
+    const startTime = Date.now();
 
-    if (!canUpdateOwn && !canUpdateOrg && !canUpdateAll) {
-      throw new PermissionDeniedError('users:update:*', userId);
-    }
-
-    // For organization scope, verify user is in accessible organization
-    if (canUpdateOrg && !canUpdateAll && userId !== this.userContext.user_id) {
-      const targetUser = await this.getUserById(userId);
-      if (!targetUser) {
-        throw new Error('User not found');
+    try {
+      // Check permissions: can update own profile OR can update organization users
+      if (
+        !this.canUpdateOwn &&
+        !this.canUpdateOrganization &&
+        !this.canUpdate &&
+        !this.isSuperAdmin
+      ) {
+        throw new PermissionDeniedError('users:update:*', userId);
       }
 
-      const hasSharedOrg = targetUser.organizations.some((org) =>
-        this.canAccessOrganization(org.organization_id)
-      );
+      // For organization scope, verify user is in accessible organization
+      if (
+        this.canUpdateOrganization &&
+        !this.canUpdate &&
+        userId !== this.userContext.user_id &&
+        !this.isSuperAdmin
+      ) {
+        const targetUser = await this.getUserById(userId);
+        if (!targetUser) {
+          throw new Error('User not found');
+        }
 
-      if (!hasSharedOrg) {
-        throw new PermissionDeniedError('users:update:organization', userId);
-      }
-    }
+        const hasSharedOrg = targetUser.organizations.some((org) =>
+          this.canAccessOrganization(org.organization_id)
+        );
 
-    // Execute user update and role assignment as atomic transaction
-    const _updatedUser = await db.transaction(async (tx) => {
-      // Prepare update data
-      const updateFields: Partial<{
-        first_name: string;
-        last_name: string;
-        email: string;
-        password?: string;
-        password_hash: string;
-        role_ids?: string[];
-        email_verified: boolean;
-        is_active: boolean;
-        provider_uid: number | null | undefined; // Analytics security field
-        updated_at: Date;
-      }> = {
-        ...updateData,
-        updated_at: new Date(),
-      };
-
-      // Hash password if provided and track password change
-      let passwordWasChanged = false;
-      if (updateData.password) {
-        updateFields.password_hash = await hashPassword(updateData.password);
-        delete updateFields.password; // Remove plain password from update
-        passwordWasChanged = true;
-      }
-
-      // Update user
-      const [user] = await tx
-        .update(users)
-        .set(updateFields)
-        .where(eq(users.user_id, userId))
-        .returning();
-
-      if (!user) {
-        throw new Error('Failed to update user');
-      }
-
-      // Track password change in account_security table
-      if (passwordWasChanged) {
-        // Ensure security record exists
-        await ensureSecurityRecord(userId);
-
-        // Update password_changed_at timestamp
-        await tx
-          .update(account_security)
-          .set({
-            password_changed_at: new Date(),
-          })
-          .where(eq(account_security.user_id, userId));
-
-        log.info('Password changed for user', {
-          userId,
-          operation: 'password_change',
-          securityTracking: true,
-        });
-      }
-
-      // Update user roles if provided
-      if (updateData.role_ids) {
-        // First, deactivate all current roles for this user
-        await tx.update(user_roles).set({ is_active: false }).where(eq(user_roles.user_id, userId));
-
-        // Then add the new roles
-        if (updateData.role_ids.length > 0) {
-          const roleAssignments = updateData.role_ids.map((roleId) => ({
-            user_id: userId,
-            role_id: roleId,
-            organization_id: this.userContext.current_organization_id,
-            granted_by: this.userContext.user_id,
-            is_active: true,
-          }));
-
-          await tx.insert(user_roles).values(roleAssignments);
+        if (!hasSharedOrg) {
+          throw new PermissionDeniedError('users:update:organization', userId);
         }
       }
 
-      return user;
-    });
+      // Get existing user for change tracking
+      const existingUser = await this.getUserById(userId);
+      if (!existingUser) {
+        throw new Error('User not found');
+      }
 
-    await this.logPermissionCheck('users:update', userId);
+      // Execute user update and role assignment as atomic transaction
+      await db.transaction(async (tx) => {
+        // Prepare update data
+        const updateFields: Partial<{
+          first_name: string;
+          last_name: string;
+          email: string;
+          password?: string;
+          password_hash: string;
+          role_ids?: string[];
+          email_verified: boolean;
+          is_active: boolean;
+          provider_uid: number | null | undefined;
+          updated_at: Date;
+        }> = {
+          ...updateData,
+          updated_at: new Date(),
+        };
 
-    // Return updated user with organization info
-    const userWithOrgs = await this.getUserById(userId);
-    if (!userWithOrgs) {
-      throw new Error('Failed to retrieve updated user');
+        // Hash password if provided and track password change
+        let passwordWasChanged = false;
+        if (updateData.password) {
+          updateFields.password_hash = await hashPassword(updateData.password);
+          delete updateFields.password; // Remove plain password from update
+          passwordWasChanged = true;
+        }
+
+        // Update user
+        const [user] = await tx
+          .update(users)
+          .set(updateFields)
+          .where(eq(users.user_id, userId))
+          .returning();
+
+        if (!user) {
+          throw new Error('Failed to update user');
+        }
+
+        // Track password change in account_security table
+        if (passwordWasChanged) {
+          // Ensure security record exists
+          await ensureSecurityRecord(userId);
+
+          // Update password_changed_at timestamp
+          await tx
+            .update(account_security)
+            .set({
+              password_changed_at: new Date(),
+            })
+            .where(eq(account_security.user_id, userId));
+        }
+
+        return user;
+      });
+
+      // Return updated user with organization info
+      const userWithOrgs = await this.getUserById(userId);
+      if (!userWithOrgs) {
+        throw new Error('Failed to retrieve updated user');
+      }
+
+      const duration = Date.now() - startTime;
+
+      // Calculate changes for audit trail
+      const changes = calculateChanges(
+        existingUser as unknown as Record<string, unknown>,
+        updateData as unknown as Record<string, unknown>,
+        Object.keys(updateData)
+      );
+
+      const template = logTemplates.crud.update('user', {
+        resourceId: userId,
+        resourceName: userWithOrgs.email,
+        userId: this.userContext.user_id,
+        changes,
+        duration,
+        metadata: {
+          passwordChanged: !!updateData.password,
+          rbacScope: this.getRBACScope(),
+          component: 'service',
+        },
+      });
+
+      log.info(template.message, template.context);
+
+      return userWithOrgs;
+    } catch (error) {
+      log.error('update user failed', error, {
+        operation: 'update_user',
+        userId: this.userContext.user_id,
+        targetUserId: userId,
+        component: 'service',
+      });
+      throw error;
     }
-
-    return userWithOrgs;
   }
 
   /**
    * Delete a user with permission checking
    */
   async deleteUser(userId: string): Promise<void> {
-    this.requirePermission('users:delete:organization', userId);
+    const startTime = Date.now();
 
-    // Prevent self-deletion
-    if (userId === this.userContext.user_id) {
-      throw new Error('Cannot delete your own account');
-    }
+    try {
+      this.requirePermission('users:delete:organization', userId);
 
-    // Verify user is in accessible organization
-    const targetUser = await this.getUserById(userId);
-    if (!targetUser) {
-      throw new Error('User not found');
-    }
-
-    // Soft delete user
-    await db
-      .update(users)
-      .set({
-        deleted_at: new Date(),
-        is_active: false,
-      })
-      .where(eq(users.user_id, userId));
-
-    // Deactivate user organizations
-    await db
-      .update(user_organizations)
-      .set({
-        is_active: false,
-      })
-      .where(eq(user_organizations.user_id, userId));
-
-    await this.logPermissionCheck('users:delete:organization', userId);
-  }
-
-  /**
-   * Add user to organization
-   */
-  async addUserToOrganization(userId: string, organizationId: string): Promise<void> {
-    this.requirePermission('users:create:organization', userId, organizationId);
-    this.requireOrganizationAccess(organizationId);
-
-    // Check if user already belongs to organization
-    const [existing] = await db
-      .select()
-      .from(user_organizations)
-      .where(
-        and(
-          eq(user_organizations.user_id, userId),
-          eq(user_organizations.organization_id, organizationId)
-        )
-      )
-      .limit(1);
-
-    if (existing) {
-      if (!existing.is_active) {
-        // Reactivate existing membership
-        await db
-          .update(user_organizations)
-          .set({
-            is_active: true,
-            joined_at: new Date(),
-          })
-          .where(eq(user_organizations.user_organization_id, existing.user_organization_id));
+      // Prevent self-deletion
+      if (userId === this.userContext.user_id) {
+        throw new Error('Cannot delete your own account');
       }
-      return;
+
+      // Verify user is in accessible organization
+      const targetUser = await this.getUserById(userId);
+      if (!targetUser) {
+        throw new Error('User not found');
+      }
+
+      // Soft delete user
+      await db
+        .update(users)
+        .set({
+          deleted_at: new Date(),
+          is_active: false,
+        })
+        .where(eq(users.user_id, userId));
+
+      // Deactivate user organizations
+      await db
+        .update(user_organizations)
+        .set({
+          is_active: false,
+        })
+        .where(eq(user_organizations.user_id, userId));
+
+      const duration = Date.now() - startTime;
+
+      const template = logTemplates.crud.delete('user', {
+        resourceId: userId,
+        resourceName: targetUser.email,
+        userId: this.userContext.user_id,
+        soft: true,
+        duration,
+        metadata: {
+          organizationMembershipsDeactivated: targetUser.organizations.length,
+          rbacScope: this.getRBACScope(),
+          component: 'service',
+        },
+      });
+
+      log.info(template.message, template.context);
+    } catch (error) {
+      log.error('delete user failed', error, {
+        operation: 'delete_user',
+        userId: this.userContext.user_id,
+        targetUserId: userId,
+        component: 'service',
+      });
+      throw error;
     }
-
-    // Create new organization membership
-    await db.insert(user_organizations).values({
-      user_id: userId,
-      organization_id: organizationId,
-      is_active: true,
-    });
-
-    await this.logPermissionCheck('users:create:organization', userId, organizationId);
-  }
-
-  /**
-   * Remove user from organization
-   */
-  async removeUserFromOrganization(userId: string, organizationId: string): Promise<void> {
-    this.requirePermission('users:delete:organization', userId, organizationId);
-    this.requireOrganizationAccess(organizationId);
-
-    // Prevent removing self from organization
-    if (userId === this.userContext.user_id) {
-      throw new Error('Cannot remove yourself from organization');
-    }
-
-    // Deactivate organization membership
-    await db
-      .update(user_organizations)
-      .set({
-        is_active: false,
-      })
-      .where(
-        and(
-          eq(user_organizations.user_id, userId),
-          eq(user_organizations.organization_id, organizationId)
-        )
-      );
-
-    await this.logPermissionCheck('users:delete:organization', userId, organizationId);
-  }
-
-  /**
-   * Get users in a specific organization
-   */
-  async getUsersInOrganization(organizationId: string): Promise<UserWithOrganizations[]> {
-    this.requireOrganizationAccess(organizationId);
-
-    return await this.getUsers({ organizationId });
   }
 
   /**
@@ -741,7 +842,6 @@ export class RBACUsersService extends BaseRBACService {
    */
   async searchUsers(searchTerm: string, organizationId?: string): Promise<UserWithOrganizations[]> {
     this.requireAnyPermission(['users:read:own', 'users:read:organization', 'users:read:all']);
-
     return await this.getUsers({
       search: searchTerm,
       organizationId,
@@ -752,278 +852,78 @@ export class RBACUsersService extends BaseRBACService {
    * Get user count for accessible scope
    */
   async getUserCount(organizationId?: string): Promise<number> {
-    const accessScope = this.getAccessScope('users', 'read');
+    const startTime = Date.now();
 
-    // Build where conditions
-    const whereConditions = [isNull(users.deleted_at), eq(users.is_active, true)];
+    try {
+      // Build where conditions
+      const whereConditions = this.buildRBACWhereConditions();
 
-    // Apply scope-based filtering
-    switch (accessScope.scope) {
-      case 'own':
-        if (!accessScope.userId) {
-          throw new Error('User ID required for own scope');
-        }
-        whereConditions.push(eq(users.user_id, accessScope.userId));
-        break;
-
-      case 'organization': {
-        const accessibleOrgIds = accessScope.organizationIds || [];
-        if (accessibleOrgIds.length === 0) {
-          return 0;
-        }
-        whereConditions.push(
-          inArray(user_organizations.organization_id, accessibleOrgIds),
-          eq(user_organizations.is_active, true)
-        );
-        break;
+      // If organization scope and no accessible orgs, return 0
+      if (
+        this.getRBACScope() === 'organization' &&
+        this.accessibleOrganizationIds.length === 0
+      ) {
+        return 0;
       }
 
-      case 'all':
-        // No additional filtering
-        break;
-    }
-
-    if (organizationId) {
-      this.requireOrganizationAccess(organizationId);
-      whereConditions.push(eq(user_organizations.organization_id, organizationId));
-    }
-
-    // Build query based on whether we need organization joins
-    const needsOrgJoin = accessScope.scope === 'organization' || organizationId;
-
-    const query = needsOrgJoin
-      ? db
-          .select({ count: count() })
-          .from(users)
-          .innerJoin(user_organizations, eq(users.user_id, user_organizations.user_id))
-          .where(and(...whereConditions))
-      : db
-          .select({ count: count() })
-          .from(users)
-          .where(and(...whereConditions));
-
-    const [result] = await query;
-    return result?.count || 0;
-  }
-
-  /**
-   * Check if user can be managed by current user
-   */
-  async canManageUser(targetUserId: string): Promise<boolean> {
-    // Super admin can manage anyone
-    if (this.isSuperAdmin()) {
-      return true;
-    }
-
-    // Users can always manage themselves
-    if (targetUserId === this.userContext.user_id) {
-      return this.checker.hasPermission('users:update:own', targetUserId);
-    }
-
-    // Check organization-level management permissions
-    if (!this.checker.hasPermission('users:update:organization')) {
-      return false;
-    }
-
-    // Verify shared organization
-    const targetUser = await this.getUserById(targetUserId);
-    if (!targetUser) {
-      return false;
-    }
-
-    return targetUser.organizations.some((org) => this.canAccessOrganization(org.organization_id));
-  }
-
-  /**
-   * Get users that current user can manage
-   */
-  async getManageableUsers(): Promise<UserWithOrganizations[]> {
-    this.requireAnyPermission(['users:update:own', 'users:update:organization']);
-
-    const allUsers = await this.getUsers();
-
-    if (this.isSuperAdmin()) {
-      return allUsers;
-    }
-
-    // Filter to only users that can be managed
-    const manageableUsers: UserWithOrganizations[]= [];
-
-    for (const user of allUsers) {
-      if (await this.canManageUser(user.user_id)) {
-        manageableUsers.push(user);
+      if (organizationId) {
+        this.requireOrganizationAccess(organizationId);
+        whereConditions.push(eq(user_organizations.organization_id, organizationId));
       }
-    }
 
-    return manageableUsers;
-  }
+      // Build query based on whether we need organization joins
+      const needsOrgJoin = this.getRBACScope() === 'organization' || organizationId;
 
-  /**
-   * Get user analytics for admin dashboard
-   */
-  async getUserAnalytics(timeframe: string = '30d') {
-    this.requirePermission('analytics:read:all', undefined);
+      const queryStart = Date.now();
+      const query = needsOrgJoin
+        ? db
+            .select({ count: count() })
+            .from(users)
+            .innerJoin(user_organizations, eq(users.user_id, user_organizations.user_id))
+            .where(and(...whereConditions))
+        : db
+            .select({ count: count() })
+            .from(users)
+            .where(and(...whereConditions));
 
-    const startDate = this.getStartDateFromTimeframe(timeframe);
+      const [result] = await query;
+      const queryDuration = Date.now() - queryStart;
+      const duration = Date.now() - startTime;
 
-    // Get user statistics
-    const [userStats] = await db
-      .select({
-        totalUsers: sql<number>`count(*)`,
-        activeUsers: sql<number>`count(case when is_active = true then 1 end)`,
-        verifiedUsers: sql<number>`count(case when email_verified = true then 1 end)`,
-        newUsersThisPeriod: sql<number>`count(case when created_at >= ${startDate} then 1 end)`,
-      })
-      .from(users)
-      .where(isNull(users.deleted_at));
+      log.info('user count retrieved', {
+        operation: 'get_user_count',
+        userId: this.userContext.user_id,
+        organizationId,
+        duration,
+        metadata: {
+          count: result?.count || 0,
+          countQuery: { duration: queryDuration, slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY },
+          rbacScope: this.getRBACScope(),
+          component: 'service',
+        },
+      });
 
-    // Get user-practice relationship stats
-    const userPracticesStats = await db
-      .select({
-        totalPractices: sql<number>`count(distinct ${practices.practice_id})`,
-        practicesWithOwners: sql<number>`count(distinct case when ${practices.owner_user_id} is not null then ${practices.practice_id} end)`,
-        averagePracticesPerUser: sql<number>`round(count(distinct ${practices.practice_id})::decimal / nullif(count(distinct ${users.user_id}), 0), 2)`,
-      })
-      .from(practices)
-      .leftJoin(users, eq(practices.owner_user_id, users.user_id))
-      .where(and(isNull(practices.deleted_at), isNull(users.deleted_at)));
-
-    return {
-      overview: {
-        totalUsers: userStats?.totalUsers || 0,
-        activeUsers: userStats?.activeUsers || 0,
-        verifiedUsers: userStats?.verifiedUsers || 0,
-        newUsersThisPeriod: userStats?.newUsersThisPeriod || 0,
-        verificationRate:
-          (userStats?.totalUsers || 0) > 0
-            ? Math.round(((userStats?.verifiedUsers || 0) / (userStats?.totalUsers || 1)) * 100)
-            : 0,
-        activationRate:
-          (userStats?.totalUsers || 0) > 0
-            ? Math.round(((userStats?.activeUsers || 0) / (userStats?.totalUsers || 1)) * 100)
-            : 0,
-      },
-      practices: userPracticesStats[0] || {
-        totalPractices: 0,
-        practicesWithOwners: 0,
-        averagePracticesPerUser: 0,
-      },
-    };
-  }
-
-  /**
-   * Get user registration trends
-   */
-  async getRegistrationTrends(timeframe: string = '30d') {
-    this.requirePermission('analytics:read:all', undefined);
-
-    const startDate = this.getStartDateFromTimeframe(timeframe);
-
-    const registrationTrend = await db
-      .select({
-        date: sql<string>`date(created_at)`,
-        count: sql<number>`count(*)`,
-      })
-      .from(users)
-      .where(and(isNull(users.deleted_at), gte(users.created_at, startDate)))
-      .groupBy(sql`date(created_at)`)
-      .orderBy(sql`date(created_at)`);
-
-    return registrationTrend;
-  }
-
-  /**
-   * Get user activity from audit logs
-   */
-  async getUserActivity(timeframe: string = '30d') {
-    this.requirePermission('analytics:read:all', undefined);
-
-    const startDate = this.getStartDateFromTimeframe(timeframe);
-
-    const userActivity = await db
-      .select({
-        date: sql<string>`date(created_at)`,
-        uniqueUsers: sql<number>`count(distinct user_id)`,
-        totalActions: sql<number>`count(*)`,
-      })
-      .from(audit_logs)
-      .where(and(gte(audit_logs.created_at, startDate), sql`user_id is not null`))
-      .groupBy(sql`date(created_at)`)
-      .orderBy(sql`date(created_at)`);
-
-    return userActivity;
-  }
-
-  /**
-   * Get top user actions from audit logs
-   */
-  async getTopUserActions(timeframe: string = '30d', limit: number = 10) {
-    this.requirePermission('analytics:read:all', undefined);
-
-    const startDate = this.getStartDateFromTimeframe(timeframe);
-
-    const topActions = await db
-      .select({
-        action: audit_logs.action,
-        count: sql<number>`count(*)`,
-      })
-      .from(audit_logs)
-      .where(and(gte(audit_logs.created_at, startDate), sql`user_id is not null`))
-      .groupBy(audit_logs.action)
-      .orderBy(desc(sql`count(*)`))
-      .limit(limit);
-
-    return topActions;
-  }
-
-  /**
-   * Get recent user registrations
-   */
-  async getRecentRegistrations(limit: number = 10) {
-    this.requirePermission('analytics:read:all', undefined);
-
-    const recentRegistrations = await db
-      .select({
-        userId: users.user_id,
-        email: users.email,
-        firstName: users.first_name,
-        lastName: users.last_name,
-        createdAt: users.created_at,
-        isActive: users.is_active,
-        emailVerified: users.email_verified,
-      })
-      .from(users)
-      .where(isNull(users.deleted_at))
-      .orderBy(desc(users.created_at))
-      .limit(limit);
-
-    return recentRegistrations;
-  }
-
-  /**
-   * Helper to get start date from timeframe string
-   */
-  private getStartDateFromTimeframe(timeframe: string): Date {
-    const now = new Date();
-
-    switch (timeframe) {
-      case '7d':
-        return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      case '30d':
-        return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      case '90d':
-        return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-      case '1y':
-        return new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-      default:
-        return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      return result?.count || 0;
+    } catch (error) {
+      log.error('get user count failed', error, {
+        operation: 'get_user_count',
+        userId: this.userContext.user_id,
+        organizationId,
+        component: 'service',
+      });
+      throw error;
     }
   }
+
 }
+
+// ============================================================================
+// Factory Function
+// ============================================================================
 
 /**
  * Factory function to create RBAC Users Service
  */
-export function createRBACUsersService(userContext: UserContext): RBACUsersService {
+export function createRBACUsersService(userContext: UserContext): UsersServiceInterface {
   return new RBACUsersService(userContext);
 }

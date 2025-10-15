@@ -295,7 +295,7 @@ export interface SecurityEvent {
   event: string;
   severity: 'critical' | 'high' | 'medium' | 'low';
   action: string;
-  threat?: string;
+  threat?: string | undefined;
   blocked: boolean;
   details: Record<string, unknown>;
   message: string;

@@ -20,24 +20,22 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/rbac-route-handler';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
-import { log } from '@/lib/logger';
 import { db, account_security, users } from '@/lib/db';
 import { eq } from 'drizzle-orm';
-import { AuditLogger } from '@/lib/api/services/audit';
-import type { UserContext } from '@/lib/types/rbac';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { validateRequest } from '@/lib/api/middleware/validation';
 import { extractRouteParams } from '@/lib/api/utils/params';
+import { clearAttemptsSchema } from '@/lib/validations/monitoring';
+import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import type { UserContext } from '@/lib/types/rbac';
+import { log } from '@/lib/logger';
+import { AuditLogger } from '@/lib/api/services/audit';
 import { z } from 'zod';
 
 const userIdParamsSchema = z.object({
   userId: z.string().uuid(),
 });
-
-interface ClearAttemptsRequest {
-  reason: string;
-}
 
 const clearAttemptsHandler = async (
   request: NextRequest,
@@ -48,12 +46,8 @@ const clearAttemptsHandler = async (
   const { userId } = await extractRouteParams(args[0], userIdParamsSchema);
 
   try {
-    // Parse request body
-    const body = (await request.json()) as ClearAttemptsRequest;
-
-    if (!body.reason || body.reason.trim().length === 0) {
-      return createErrorResponse('Reason is required for clearing failed attempts', 400, request);
-    }
+    // Validate request body with Zod
+    const body = await validateRequest(request, clearAttemptsSchema);
 
     log.info('Clear failed attempts initiated', {
       operation: 'clear_failed_attempts',

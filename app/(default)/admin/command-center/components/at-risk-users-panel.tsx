@@ -37,6 +37,12 @@ export default function AtRiskUsersPanel({
   const [data, setData] = useState<AtRiskUsersResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'locked' | 'suspicious' | 'monitoring'>('all');
+  const [sortBy, setSortBy] = useState<'riskScore' | 'failedAttempts' | 'lastFailedAttempt'>('riskScore');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   const handleExport = () => {
     if (!data || data.users.length === 0) {
@@ -80,14 +86,57 @@ export default function AtRiskUsersPanel({
 
   const fetchUsers = async () => {
     try {
-      const response = await apiClient.get('/api/admin/monitoring/at-risk-users?limit=10');
+      const response = await apiClient.get('/api/admin/monitoring/at-risk-users?limit=100');
       setData(response as AtRiskUsersResponse);
       setError(null);
     } catch (err) {
-      console.error('Failed to fetch at-risk users:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch at-risk users');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Filter and sort users
+  const filteredAndSortedUsers = data ? data.users
+    .filter(user => {
+      if (searchTerm && !user.email.toLowerCase().includes(searchTerm.toLowerCase())) {
+        return false;
+      }
+      
+      const now = new Date();
+      const isLocked = user.lockedUntil && new Date(user.lockedUntil) > now;
+      
+      if (statusFilter === 'locked' && !isLocked) return false;
+      if (statusFilter === 'suspicious' && !user.suspiciousActivity) return false;
+      if (statusFilter === 'monitoring' && (isLocked || user.suspiciousActivity)) return false;
+      
+      return true;
+    })
+    .sort((a, b) => {
+      let aVal: number;
+      let bVal: number;
+      
+      if (sortBy === 'lastFailedAttempt') {
+        aVal = a.lastFailedAttempt ? new Date(a.lastFailedAttempt).getTime() : 0;
+        bVal = b.lastFailedAttempt ? new Date(b.lastFailedAttempt).getTime() : 0;
+      } else {
+        aVal = a[sortBy] || 0;
+        bVal = b[sortBy] || 0;
+      }
+      
+      const multiplier = sortOrder === 'asc' ? 1 : -1;
+      return aVal > bVal ? multiplier : -multiplier;
+    }) : [];
+
+  const totalPages = Math.ceil(filteredAndSortedUsers.length / pageSize);
+  const paginatedUsers = filteredAndSortedUsers.slice((page - 1) * pageSize, page * pageSize);
+
+  const handleSort = (field: typeof sortBy) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('desc');
     }
   };
 
@@ -110,6 +159,26 @@ export default function AtRiskUsersPanel({
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">At-Risk Users</h3>
         <div className="flex items-center gap-2">
+          {/* Search */}
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+            placeholder="Search email..."
+            className="text-sm px-3 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800"
+          />
+          
+          {/* Status Filter */}
+          <select
+            value={statusFilter}
+            onChange={(e) => { setStatusFilter(e.target.value as typeof statusFilter); setPage(1); }}
+            className="text-sm px-3 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800"
+          >
+            <option value="all">All</option>
+            <option value="locked">Locked</option>
+            <option value="suspicious">Suspicious</option>
+            <option value="monitoring">Monitoring</option>
+          </select>
           {/* Export Button */}
           <button
             onClick={handleExport}
@@ -212,14 +281,32 @@ export default function AtRiskUsersPanel({
             </div>
           )}
 
-          {/* Footer */}
+          {/* Footer with Pagination */}
           <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
             <div className="text-sm text-gray-600 dark:text-gray-400">
-              {data.totalCount} at-risk {data.totalCount === 1 ? 'user' : 'users'}
+              Showing {paginatedUsers.length} of {filteredAndSortedUsers.length} users
             </div>
-            <div className="text-sm text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium cursor-pointer">
-              View all →
-            </div>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded disabled:opacity-50"
+                >
+                  ← Prev
+                </button>
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  Page {page} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded disabled:opacity-50"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
           </div>
         </>
       )}

@@ -25,10 +25,12 @@ import AnalyticsPerformanceKPI from './components/analytics-performance-kpi';
 import SecurityEventsFeed from './components/security-events-feed';
 import AtRiskUsersPanel from './components/at-risk-users-panel';
 import UserDetailModal from './components/user-detail-modal';
-import RedisCacheStats from './components/redis-cache-stats';
+import RedisAdminTabs from './components/redis-admin-tabs';
 import PerformanceChart from './components/performance-chart';
 import ErrorRateChart from './components/error-rate-chart';
 import SlowQueriesPanel from './components/slow-queries-panel';
+import ErrorLogPanel from './components/error-log-panel';
+import EndpointPerformanceTable from './components/endpoint-performance-table';
 import { ToastProvider } from './components/toast';
 import { KPISkeleton, PanelSkeleton } from './components/skeleton';
 import type { AtRiskUser } from '@/lib/monitoring/types';
@@ -51,6 +53,7 @@ export default function CommandCenterPage() {
   const [selectedUser, setSelectedUser] = useState<AtRiskUser | null>(null);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [globalTimeRange, setGlobalTimeRange] = useState('1h');
 
   const handleViewUser = (user: AtRiskUser) => {
     setSelectedUser(user);
@@ -75,7 +78,6 @@ export default function CommandCenterPage() {
       setLastUpdate(new Date());
       setError(null);
     } catch (err) {
-      console.error('Failed to fetch metrics:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch metrics');
     } finally {
       setLoading(false);
@@ -120,6 +122,19 @@ export default function CommandCenterPage() {
 
         {/* Right: Controls */}
         <div className="flex items-center gap-4">
+          {/* Time Range Selector */}
+          <select
+            value={globalTimeRange}
+            onChange={(e) => setGlobalTimeRange(e.target.value)}
+            className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-violet-500"
+            aria-label="Select time range"
+          >
+            <option value="1h">Last Hour</option>
+            <option value="6h">Last 6 Hours</option>
+            <option value="24h">Last 24 Hours</option>
+            <option value="7d">Last 7 Days</option>
+          </select>
+
           {/* Last Update */}
           {lastUpdate && (
             <div className="text-sm text-gray-600 dark:text-gray-400">
@@ -248,16 +263,26 @@ export default function CommandCenterPage() {
 
           {/* Row 2: Performance Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <PerformanceChart category="standard" timeRange="1h" height={350} />
-            <ErrorRateChart category="standard" timeRange="1h" height={350} />
+            <PerformanceChart category="standard" timeRange={globalTimeRange} height={350} />
+            <ErrorRateChart category="standard" timeRange={globalTimeRange} height={350} />
+          </div>
+          
+          {/* Row 2.5: Performance Tables */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <EndpointPerformanceTable metrics={metrics} />
+            <ErrorLogPanel autoRefresh={autoRefresh} refreshInterval={refreshInterval} timeRange={globalTimeRange} />
           </div>
 
           {/* Row 3: Cache & Database */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <RedisCacheStats
+          <div className="grid grid-cols-1 gap-6">
+            <RedisAdminTabs
               autoRefresh={autoRefresh}
               refreshInterval={refreshInterval}
             />
+          </div>
+          
+          {/* Row 3.5: Slow Queries */}
+          <div className="grid grid-cols-1 gap-6">
             <SlowQueriesPanel
               autoRefresh={autoRefresh}
               refreshInterval={refreshInterval}

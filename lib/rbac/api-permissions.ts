@@ -35,7 +35,6 @@ export const API_PERMISSIONS: Record<string, PermissionName | PermissionName[]> 
   'DELETE /api/practices/[id]/staff/[staffId]': 'practices:staff:manage:own',
 
   // Analytics API
-  'GET /api/admin/analytics/users': ['analytics:read:all'],
   'GET /api/admin/analytics/practices': ['analytics:read:all'],
   'GET /api/admin/analytics/system': ['analytics:read:all'],
 
@@ -258,7 +257,6 @@ export const ENDPOINT_CATEGORIES = {
 
   // Analytics endpoints
   analytics: [
-    '/api/admin/analytics/users',
     '/api/admin/analytics/practices',
     '/api/admin/analytics/system',
   ],

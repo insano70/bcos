@@ -25,6 +25,7 @@ import {
 } from '@/tests/helpers/rbac-helper'
 import { assignUserToOrganization } from '@/tests/helpers/committed-rbac-helper'
 import { createRBACUsersService } from '@/lib/services/rbac-users-service'
+import { createUserOrganizationService } from '@/lib/services/user-organization-service'
 import { PermissionDeniedError } from '@/lib/types/rbac'
 import type { PermissionName } from '@/lib/types/rbac'
 import { createTestScope, type ScopedFactoryCollection } from '@/tests/factories/base'
@@ -388,8 +389,8 @@ describe('RBAC Users Service - Basic Committed Tests', () => {
       await assignUserToOrganization(orgUser, mapDatabaseOrgToOrg(org))
 
       const userContext = await buildUserContext(adminUser, org.organization_id)
-      const usersService = createRBACUsersService(userContext)
-      const result = await usersService.getUsersInOrganization(org.organization_id)
+      const userOrgService = createUserOrganizationService(userContext)
+      const result = await userOrgService.getUsersInOrganization(org.organization_id)
 
       const userIds = result.map(u => u.user_id)
       expect(userIds).toContain(orgUser.user_id)
@@ -420,12 +421,12 @@ describe('RBAC Users Service - Basic Committed Tests', () => {
       await assignUserToOrganization(orgUser, mapDatabaseOrgToOrg(org))
 
       const userContext = await buildUserContext(adminUser, org.organization_id)
-      const usersService = createRBACUsersService(userContext)
+      const userOrgService = createUserOrganizationService(userContext)
 
-      await usersService.removeUserFromOrganization(orgUser.user_id, org.organization_id)
+      await userOrgService.removeUserFromOrganization(orgUser.user_id, org.organization_id)
 
       // Verify removal
-      const result = await usersService.getUsersInOrganization(org.organization_id)
+      const result = await userOrgService.getUsersInOrganization(org.organization_id)
       const userIds = result.map(u => u.user_id)
       expect(userIds).not.toContain(orgUser.user_id)
     })

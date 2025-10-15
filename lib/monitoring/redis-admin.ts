@@ -21,6 +21,13 @@ import { getRedisClient } from '@/lib/redis';
 import { log } from '@/lib/logger';
 
 /**
+ * Configuration constants for Redis operations
+ */
+const SCAN_COUNT = 100; // Items per SCAN iteration
+const PREVIEW_KEY_LIMIT = 100; // Maximum keys to return in preview mode
+const DELETE_BATCH_SIZE = 1000; // Keys to delete per batch to avoid blocking
+
+/**
  * Redis key information
  */
 export interface RedisKeyInfo {
@@ -187,7 +194,7 @@ export class RedisAdminService {
       // Use SCAN for safe iteration (doesn't block Redis)
       const stream = redis.scanStream({
         match: fullPattern,
-        count: 100,
+        count: SCAN_COUNT,
       });
 
       for await (const batch of stream) {
@@ -311,7 +318,7 @@ export class RedisAdminService {
       // Find matching keys using SCAN
       const stream = redis.scanStream({
         match: fullPattern,
-        count: 100,
+        count: SCAN_COUNT,
       });
 
       for await (const batch of stream) {
@@ -323,17 +330,16 @@ export class RedisAdminService {
         return {
           keysDeleted: 0,
           pattern,
-          keys: keys.slice(0, 100), // Limit preview to 100 keys
+          keys: keys.slice(0, PREVIEW_KEY_LIMIT),
         };
       }
 
       // Delete keys in batches
       let deleted = 0;
       if (keys.length > 0) {
-        // Delete in batches of 1000 to avoid blocking
-        const batchSize = 1000;
-        for (let i = 0; i < keys.length; i += batchSize) {
-          const batch = keys.slice(i, i + batchSize);
+        // Delete in batches to avoid blocking Redis
+        for (let i = 0; i < keys.length; i += DELETE_BATCH_SIZE) {
+          const batch = keys.slice(i, i + DELETE_BATCH_SIZE);
           deleted += await redis.del(...batch);
         }
       }
@@ -384,7 +390,7 @@ export class RedisAdminService {
       // Find matching keys
       const stream = redis.scanStream({
         match: fullPattern,
-        count: 100,
+        count: SCAN_COUNT,
       });
 
       for await (const batch of stream) {
@@ -442,7 +448,7 @@ export class RedisAdminService {
       let count = 0;
       const stream = redis.scanStream({
         match: pattern,
-        count: 100,
+        count: SCAN_COUNT,
       });
 
       for await (const batch of stream) {

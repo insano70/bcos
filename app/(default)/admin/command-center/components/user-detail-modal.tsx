@@ -52,8 +52,8 @@ export default function UserDetailModal({ user, isOpen, onClose, onUserUpdated }
         .then((response) => {
           setLoginHistory(response as LoginHistoryResponse);
         })
-        .catch((error) => {
-          console.error('Failed to fetch login history:', error);
+        .catch(() => {
+          // Error handled via empty state display
         })
         .finally(() => {
           setLoading(false);
@@ -142,8 +142,6 @@ export default function UserDetailModal({ user, isOpen, onClose, onUserUpdated }
       setConfirmAction(null);
       onClose();
     } catch (error) {
-      console.error('Action failed:', error);
-
       showToast({
         type: 'error',
         message: error instanceof Error ? error.message : 'Action failed. Please try again.',

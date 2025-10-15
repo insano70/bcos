@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, isNull, like, or } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNull, like, or, sql, type SQL } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   chart_categories,
@@ -7,16 +7,57 @@ import {
   dashboards,
   users,
 } from '@/lib/db/schema';
-import { log } from '@/lib/logger';
-import { BaseRBACService } from '@/lib/rbac/base-service';
+import { log, logTemplates, calculateChanges, sanitizeFilters, SLOW_THRESHOLDS } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
+import { PermissionDeniedError } from '@/lib/types/rbac';
 
 /**
- * Enhanced Dashboards Service with RBAC
- * Provides dashboard management with automatic permission checking and data filtering
+ * RBAC Dashboards Service
+ *
+ * Manages dashboard CRUD operations with comprehensive RBAC filtering and
+ * multi-tenancy support. Provides full lifecycle management for dashboards
+ * including organization scoping and default dashboard handling.
+ *
+ * ## Key Features
+ * - Full CRUD operations with RBAC filtering
+ * - Organization scoping (universal, org-specific, or user-owned)
+ * - Default dashboard management
+ * - Category and creator metadata
+ * - Batch-optimized queries with chart counts
+ * - Performance tracking with SLOW_THRESHOLDS
+ *
+ * ## RBAC Scopes
+ * - `all`: Super admins and users with `dashboards:*:all` permissions
+ * - `organization`: Users with `dashboards:*:organization` (filtered by accessible_organizations)
+ * - `own`: Users with `dashboards:*:own` (only their created dashboards)
+ * - `none`: No access (throws AuthorizationError)
+ *
+ * ## Organization Scoping
+ * - `null`: Universal dashboard (visible to all organizations)
+ * - `UUID`: Organization-specific dashboard (visible only to that org + users with access)
+ * - Filtering logic: (universal OR user's accessible orgs) based on RBAC scope
+ *
+ * @example
+ * // Create service instance
+ * const dashboardService = createRBACDashboardsService(userContext);
+ *
+ * // List all accessible dashboards
+ * const dashboards = await dashboardService.getDashboards({ is_active: true });
+ *
+ * // Create new dashboard
+ * const newDashboard = await dashboardService.createDashboard({
+ *   dashboard_name: 'Q1 Sales Dashboard',
+ *   organization_id: 'org-123',
+ *   is_published: true,
+ * });
+ *
+ * // Update dashboard
+ * const updated = await dashboardService.updateDashboard('dash-123', {
+ *   dashboard_name: 'Q1 Sales Dashboard (Updated)',
+ *   is_active: true,
+ * });
  */
 
-// Universal logger for RBAC dashboard service operations
 export interface CreateDashboardData {
   dashboard_name: string;
   dashboard_description?: string | undefined;
@@ -72,17 +113,11 @@ export interface DashboardQueryOptions {
 }
 
 export interface DashboardWithCharts {
-  // Export for frontend use
   dashboard_id: string;
   dashboard_name: string;
   dashboard_description: string | undefined;
   layout_config: Record<string, unknown>;
   dashboard_category_id: number | undefined;
-  /**
-   * Organization ID for dashboard scoping
-   * - undefined: universal dashboard (visible to all orgs)
-   * - UUID: org-specific dashboard (visible only to that org)
-   */
   organization_id: string | undefined;
   created_by: string;
   created_at: string;
@@ -115,24 +150,101 @@ export interface DashboardWithCharts {
   }[];
 }
 
-export class RBACDashboardsService extends BaseRBACService {
+export interface DashboardsServiceInterface {
+  getDashboards(options?: DashboardQueryOptions): Promise<DashboardWithCharts[]>;
+  getDashboardById(dashboardId: string): Promise<DashboardWithCharts | null>;
+  getDashboardCount(options?: DashboardQueryOptions): Promise<number>;
+  createDashboard(data: CreateDashboardData): Promise<DashboardWithCharts>;
+  updateDashboard(dashboardId: string, data: UpdateDashboardData): Promise<DashboardWithCharts>;
+  deleteDashboard(dashboardId: string): Promise<void>;
+}
+
+/**
+ * Internal implementation of RBAC Dashboards Service
+ */
+class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
+  // Permission flags cached in constructor
+  private readonly canReadAll: boolean;
+  private readonly canReadOrganization: boolean;
+  private readonly canReadOwn: boolean;
+  private readonly canCreate: boolean;
+  private readonly canManage: boolean;
+  private readonly accessibleOrgIds: string[];
+
+  constructor(private readonly userContext: UserContext) {
+    // Cache permission checks
+    this.canReadAll =
+      userContext.is_super_admin ||
+      userContext.all_permissions?.some((p) => p.name === 'dashboards:read:all') ||
+      false;
+    this.canReadOrganization =
+      userContext.all_permissions?.some((p) => p.name === 'dashboards:read:organization') || false;
+    this.canReadOwn =
+      userContext.all_permissions?.some((p) => p.name === 'dashboards:read:own') || false;
+    this.canCreate =
+      userContext.all_permissions?.some((p) => p.name === 'dashboards:create:organization') ||
+      false;
+    this.canManage =
+      userContext.all_permissions?.some((p) => p.name === 'dashboards:manage:all') || false;
+
+    // Cache accessible organization IDs
+    this.accessibleOrgIds =
+      userContext.accessible_organizations?.map((org) => org.organization_id) || [];
+  }
+
   /**
-   * Get dashboards with automatic permission-based filtering
-   * Implements organization scoping: NULL organization_id = universal (all orgs can see)
+   * Build WHERE conditions based on RBAC scope
    */
-  async getDashboards(options: DashboardQueryOptions = {}): Promise<DashboardWithCharts[]> {
-    this.requireAnyPermission([
-      'dashboards:read:own',
-      'dashboards:read:organization',
-      'dashboards:read:all',
-    ]);
+  private buildRBACWhereConditions(options: DashboardQueryOptions = {}): SQL[] {
+    const conditions: SQL[] = [];
 
-    // Get user's access scope for organization-based filtering
-    const accessScope = this.getAccessScope('dashboards', 'read');
+    // Apply RBAC-based organization filtering
+    const scope = this.getRBACScope();
+    switch (scope) {
+      case 'own':
+        // Own scope: user's dashboards only
+        conditions.push(eq(dashboards.created_by, this.userContext.user_id));
 
-    // Build query conditions
-    const conditions = [];
+        // Also apply org filter (universal OR user's orgs)
+        if (this.accessibleOrgIds.length > 0) {
+          conditions.push(
+            or(
+              isNull(dashboards.organization_id), // Universal dashboards
+              inArray(dashboards.organization_id, this.accessibleOrgIds)
+            )!
+          );
+        } else {
+          // No orgs - only universal dashboards
+          conditions.push(isNull(dashboards.organization_id));
+        }
+        break;
 
+      case 'organization':
+        // Organization scope: universal OR user's accessible orgs
+        if (this.accessibleOrgIds.length > 0) {
+          conditions.push(
+            or(
+              isNull(dashboards.organization_id), // Universal dashboards
+              inArray(dashboards.organization_id, this.accessibleOrgIds)
+            )!
+          );
+        } else {
+          // No accessible orgs - only universal dashboards
+          conditions.push(isNull(dashboards.organization_id));
+        }
+        break;
+
+      case 'all':
+        // Super admin - no organization filter (see everything)
+        break;
+
+      case 'none':
+        // No access - return no results
+        conditions.push(sql`1=0`);
+        break;
+    }
+
+    // Apply additional filters
     if (options.is_active !== undefined) {
       conditions.push(eq(dashboards.is_active, options.is_active));
     }
@@ -153,51 +265,63 @@ export class RBACDashboardsService extends BaseRBACService {
         or(
           like(dashboards.dashboard_name, `%${options.search}%`),
           like(dashboards.dashboard_description, `%${options.search}%`)
-        )
+        )!
       );
     }
 
-    // Apply organization-based filtering based on access scope
-    switch (accessScope.scope) {
-      case 'own':
-        // Own scope: user's dashboards only
-        conditions.push(eq(dashboards.created_by, this.userContext.user_id));
+    return conditions;
+  }
 
-        // Also apply org filter (universal OR user's orgs)
-        if (accessScope.organizationIds && accessScope.organizationIds.length > 0) {
-          conditions.push(
-            or(
-              isNull(dashboards.organization_id), // Universal dashboards
-              inArray(dashboards.organization_id, accessScope.organizationIds)
-            )
-          );
-        } else {
-          // No orgs - only universal dashboards
-          conditions.push(isNull(dashboards.organization_id));
-        }
-        break;
+  /**
+   * Check if user can access specific organization
+   */
+  private canAccessOrganization(organizationId: string | null): boolean {
+    if (organizationId === null) return true; // Universal dashboards
+    if (this.canReadAll || this.canManage) return true;
+    if (this.canReadOrganization || this.canCreate) {
+      return this.accessibleOrgIds.includes(organizationId);
+    }
+    return false;
+  }
 
-      case 'organization':
-        // Organization scope: universal OR user's accessible orgs
-        if (accessScope.organizationIds && accessScope.organizationIds.length > 0) {
-          conditions.push(
-            or(
-              isNull(dashboards.organization_id), // Universal dashboards
-              inArray(dashboards.organization_id, accessScope.organizationIds)
-            )
-          );
-        } else {
-          // No accessible orgs - only universal dashboards
-          conditions.push(isNull(dashboards.organization_id));
-        }
-        break;
+  /**
+   * Get RBAC scope for logging
+   */
+  private getRBACScope(): 'all' | 'organization' | 'own' | 'none' {
+    if (this.canReadAll || this.canManage) return 'all';
+    if (this.canReadOrganization || this.canCreate) return 'organization';
+    if (this.canReadOwn) return 'own';
+    return 'none';
+  }
 
-      case 'all':
-        // Super admin - no organization filter (see everything)
-        break;
+  /**
+   * Get all dashboards with RBAC filtering and batch-optimized chart counts
+   *
+   * Performs single query with LEFT JOIN for chart count aggregation.
+   * Organization scoping: NULL organization_id = universal (all orgs can see).
+   *
+   * @param options - Optional filters (category, active, published, search, limit, offset)
+   * @returns Array of dashboards with chart counts and metadata
+   * @throws {AuthorizationError} If user lacks required permissions
+   * @example
+   * const dashboards = await service.getDashboards({ is_active: true, limit: 50 });
+   */
+  async getDashboards(options: DashboardQueryOptions = {}): Promise<DashboardWithCharts[]> {
+    const startTime = Date.now();
+
+    // Check permissions
+    if (!this.canReadAll && !this.canReadOrganization && !this.canReadOwn) {
+      throw new PermissionDeniedError(
+        'Insufficient permissions to read dashboards',
+        this.userContext.user_id
+      );
     }
 
-    // Fetch dashboards with creator, category info, and chart counts in single query
+    // Build query conditions
+    const conditions = this.buildRBACWhereConditions(options);
+
+    // Execute query with timing
+    const queryStart = Date.now();
     const dashboardList = await db
       .select({
         // Dashboard fields
@@ -206,7 +330,7 @@ export class RBACDashboardsService extends BaseRBACService {
         dashboard_description: dashboards.dashboard_description,
         layout_config: dashboards.layout_config,
         dashboard_category_id: dashboards.dashboard_category_id,
-        organization_id: dashboards.organization_id, // Added for org filtering
+        organization_id: dashboards.organization_id,
         created_by: dashboards.created_by,
         created_at: dashboards.created_at,
         updated_at: dashboards.updated_at,
@@ -239,7 +363,7 @@ export class RBACDashboardsService extends BaseRBACService {
         dashboards.dashboard_description,
         dashboards.layout_config,
         dashboards.dashboard_category_id,
-        dashboards.organization_id, // Added for org filtering
+        dashboards.organization_id,
         dashboards.created_by,
         dashboards.created_at,
         dashboards.updated_at,
@@ -257,15 +381,16 @@ export class RBACDashboardsService extends BaseRBACService {
       .orderBy(desc(dashboards.created_at))
       .limit(options.limit ?? 1000000)
       .offset(options.offset ?? 0);
+    const queryDuration = Date.now() - queryStart;
 
     // Transform to DashboardWithCharts format
-    const dashboardsWithChartCount: DashboardWithCharts[] = dashboardList.map((dashboard) => ({
+    const results: DashboardWithCharts[] = dashboardList.map((dashboard) => ({
       dashboard_id: dashboard.dashboard_id,
       dashboard_name: dashboard.dashboard_name,
       dashboard_description: dashboard.dashboard_description || undefined,
       layout_config: (dashboard.layout_config as Record<string, unknown>) || {},
       dashboard_category_id: dashboard.dashboard_category_id || undefined,
-      organization_id: dashboard.organization_id || undefined, // Added for org filtering
+      organization_id: dashboard.organization_id || undefined,
       created_by: dashboard.created_by,
       created_at: (dashboard.created_at || new Date()).toISOString(),
       updated_at: (dashboard.updated_at || new Date()).toISOString(),
@@ -288,23 +413,63 @@ export class RBACDashboardsService extends BaseRBACService {
             email: dashboard.email || '',
           }
         : undefined,
-      charts: [], // Charts are loaded separately in getDashboardById for individual dashboards
+      charts: [], // Charts are loaded separately in getDashboardById
     }));
 
-    return dashboardsWithChartCount;
+    const duration = Date.now() - startTime;
+
+    // Log with logTemplates
+    const template = logTemplates.crud.list('dashboards', {
+      userId: this.userContext.user_id,
+      ...(this.userContext.current_organization_id && {
+        organizationId: this.userContext.current_organization_id,
+      }),
+      filters: sanitizeFilters(options as Record<string, unknown>),
+      results: {
+        returned: results.length,
+        total: results.length,
+        page: options.offset ? Math.floor(options.offset / (options.limit || 50)) + 1 : 1,
+      },
+      duration,
+      metadata: {
+        query: {
+          duration: queryDuration,
+          slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+        },
+        rbacScope: this.getRBACScope(),
+        component: 'service',
+      },
+    });
+    log.info(template.message, template.context);
+
+    return results;
   }
 
   /**
    * Get a specific dashboard by ID with permission checking
+   *
+   * Loads full dashboard details including category, creator, and associated charts.
+   * Performs 3 separate queries for optimal performance.
+   *
+   * @param dashboardId - Dashboard ID to retrieve
+   * @returns Dashboard with full details or null if not found
+   * @throws {AuthorizationError} If user lacks required permissions
+   * @example
+   * const dashboard = await service.getDashboardById('dash-123');
    */
   async getDashboardById(dashboardId: string): Promise<DashboardWithCharts | null> {
-    this.requireAnyPermission([
-      'dashboards:read:own',
-      'dashboards:read:organization',
-      'dashboards:read:all',
-    ]);
+    const startTime = Date.now();
+
+    // Check permissions
+    if (!this.canReadAll && !this.canReadOrganization && !this.canReadOwn) {
+      throw new PermissionDeniedError(
+        'Insufficient permissions to read dashboard',
+        this.userContext.user_id
+      );
+    }
 
     // Get dashboard with creator and category info
+    const queryStart = Date.now();
     const dashboardResult = await db
       .select()
       .from(dashboards)
@@ -315,27 +480,44 @@ export class RBACDashboardsService extends BaseRBACService {
       .leftJoin(users, eq(dashboards.created_by, users.user_id))
       .where(eq(dashboards.dashboard_id, dashboardId))
       .limit(1);
+    const queryDuration = Date.now() - queryStart;
 
     if (dashboardResult.length === 0) {
+      const duration = Date.now() - startTime;
+      const template = logTemplates.crud.read('dashboard', {
+        resourceId: dashboardId,
+        userId: this.userContext.user_id,
+        found: false,
+        duration,
+        metadata: {
+          query: {
+            duration: queryDuration,
+            slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+          },
+          rbacScope: this.getRBACScope(),
+          component: 'service',
+        },
+      });
+      log.info(template.message, template.context);
       return null;
     }
 
     const dashboard = dashboardResult[0];
     if (!dashboard) {
-      // Extra safety: should not happen after length check, but handle gracefully
-      log.warn('Dashboard result had length > 0 but first item was null', {
-        dashboardId,
-      });
+      log.warn('Dashboard result had length > 0 but first item was null', { dashboardId });
       return null;
     }
 
     // Get chart count
+    const chartCountStart = Date.now();
     const [chartCount] = await db
       .select({ count: count() })
       .from(dashboard_charts)
       .where(eq(dashboard_charts.dashboard_id, dashboardId));
+    const chartCountDuration = Date.now() - chartCountStart;
 
     // Get chart details
+    const chartsStart = Date.now();
     const chartDetails = await db
       .select({
         chart_definition_id: chart_definitions.chart_definition_id,
@@ -351,6 +533,7 @@ export class RBACDashboardsService extends BaseRBACService {
       )
       .where(eq(dashboard_charts.dashboard_id, dashboardId))
       .orderBy(dashboard_charts.added_at);
+    const chartsDuration = Date.now() - chartsStart;
 
     const dashboardWithCharts: DashboardWithCharts = {
       dashboard_id: dashboard.dashboards.dashboard_id,
@@ -365,7 +548,7 @@ export class RBACDashboardsService extends BaseRBACService {
       is_active: dashboard.dashboards.is_active ?? true,
       is_published: dashboard.dashboards.is_published ?? false,
       is_default: dashboard.dashboards.is_default ?? false,
-      chart_count: chartCount?.count || 0,
+      chart_count: Number(chartCount?.count) || 0,
       category: dashboard.chart_categories
         ? {
             chart_category_id: dashboard.chart_categories.chart_category_id,
@@ -390,118 +573,134 @@ export class RBACDashboardsService extends BaseRBACService {
       })),
     };
 
+    const duration = Date.now() - startTime;
+
+    // Log with logTemplates
+    const template = logTemplates.crud.read('dashboard', {
+      resourceId: dashboardId,
+      resourceName: dashboardWithCharts.dashboard_name,
+      userId: this.userContext.user_id,
+      found: true,
+      duration,
+      metadata: {
+        query: {
+          duration: queryDuration,
+          slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+        },
+        chartCountQuery: {
+          duration: chartCountDuration,
+          slow: chartCountDuration > SLOW_THRESHOLDS.DB_QUERY,
+        },
+        chartsQuery: {
+          duration: chartsDuration,
+          slow: chartsDuration > SLOW_THRESHOLDS.DB_QUERY,
+        },
+        chartCount: dashboardWithCharts.chart_count,
+        rbacScope: this.getRBACScope(),
+        component: 'service',
+      },
+    });
+    log.info(template.message, template.context);
+
     return dashboardWithCharts;
   }
 
   /**
    * Get dashboard count for pagination
+   *
+   * Counts dashboards based on RBAC filtering and optional filters.
+   *
+   * @param options - Optional filters (category, active, published, search)
+   * @returns Total count of accessible dashboards
+   * @throws {AuthorizationError} If user lacks required permissions
+   * @example
+   * const total = await service.getDashboardCount({ is_active: true });
    */
   async getDashboardCount(options: DashboardQueryOptions = {}): Promise<number> {
-    this.requireAnyPermission([
-      'dashboards:read:own',
-      'dashboards:read:organization',
-      'dashboards:read:all',
-    ]);
+    const startTime = Date.now();
 
-    // Build query conditions
-    const conditions = [];
-
-    // Apply organization-based filtering
-    const accessScope = this.getAccessScope('dashboards', 'read');
-
-    switch (accessScope.scope) {
-      case 'own':
-        conditions.push(eq(dashboards.created_by, this.userContext.user_id));
-        if (accessScope.organizationIds && accessScope.organizationIds.length > 0) {
-          conditions.push(
-            or(
-              isNull(dashboards.organization_id), // Universal dashboards
-              inArray(dashboards.organization_id, accessScope.organizationIds)
-            )
-          );
-        } else {
-          conditions.push(isNull(dashboards.organization_id));
-        }
-        break;
-      case 'organization':
-        if (accessScope.organizationIds && accessScope.organizationIds.length > 0) {
-          conditions.push(
-            or(
-              isNull(dashboards.organization_id), // Universal dashboards
-              inArray(dashboards.organization_id, accessScope.organizationIds)
-            )
-          );
-        } else {
-          conditions.push(isNull(dashboards.organization_id));
-        }
-        break;
-      case 'all':
-        // Super admin - no organization filter
-        break;
-    }
-
-    if (options.is_active !== undefined) {
-      conditions.push(eq(dashboards.is_active, options.is_active));
-    }
-
-    if (options.is_published !== undefined) {
-      conditions.push(eq(dashboards.is_published, options.is_published));
-    }
-
-    if (options.category_id) {
-      const categoryId = parseInt(options.category_id, 10);
-      if (!Number.isNaN(categoryId) && categoryId > 0) {
-        conditions.push(eq(dashboards.dashboard_category_id, categoryId));
-      }
-    }
-
-    if (options.search) {
-      conditions.push(
-        or(
-          like(dashboards.dashboard_name, `%${options.search}%`),
-          like(dashboards.dashboard_description, `%${options.search}%`)
-        )
+    // Check permissions
+    if (!this.canReadAll && !this.canReadOrganization && !this.canReadOwn) {
+      throw new PermissionDeniedError(
+        'Insufficient permissions to count dashboards',
+        this.userContext.user_id
       );
     }
 
+    // Build query conditions
+    const conditions = this.buildRBACWhereConditions(options);
+
+    // Execute count query
+    const queryStart = Date.now();
     const [result] = await db
       .select({ count: count() })
       .from(dashboards)
       .where(conditions.length > 0 ? and(...conditions) : undefined);
+    const queryDuration = Date.now() - queryStart;
 
-    return result?.count || 0;
+    const total = Number(result?.count) || 0;
+    const duration = Date.now() - startTime;
+
+    // Log count operation
+    log.info('dashboards counted', {
+      operation: 'count_dashboards',
+      userId: this.userContext.user_id,
+      ...(this.userContext.current_organization_id && {
+        organizationId: this.userContext.current_organization_id,
+      }),
+      filters: sanitizeFilters(options as Record<string, unknown>),
+      count: total,
+      duration,
+      metadata: {
+        query: {
+          duration: queryDuration,
+          slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+        },
+        rbacScope: this.getRBACScope(),
+        component: 'service',
+      },
+    });
+
+    return total;
   }
 
   /**
    * Create a new dashboard with permission checking
+   *
+   * Creates dashboard with optional chart associations. Handles default dashboard
+   * logic (clears existing default if this is set as default). Uses transaction
+   * for chart associations.
+   *
+   * @param data - Dashboard creation data
+   * @returns Created dashboard with full details
+   * @throws {AuthorizationError} If user lacks required permissions
+   * @throws {Error} If organization access validation fails
+   * @example
+   * const dashboard = await service.createDashboard({
+   *   dashboard_name: 'Q1 Sales',
+   *   organization_id: 'org-123',
+   *   chart_ids: ['chart-1', 'chart-2'],
+   * });
    */
-  async createDashboard(dashboardData: CreateDashboardData): Promise<DashboardWithCharts> {
+  async createDashboard(data: CreateDashboardData): Promise<DashboardWithCharts> {
     const startTime = Date.now();
 
-    // Enhanced dashboard creation logging
-    log.info('Dashboard creation initiated', {
-      requestingUserId: this.userContext.user_id,
-      dashboardName: dashboardData.dashboard_name,
-      operation: 'create_dashboard',
-      securityLevel: 'medium',
-    });
-
-    this.requireAnyPermission([
-      'dashboards:create:organization',
-      'dashboards:manage:all',
-    ]);
+    // Check permissions
+    if (!this.canCreate && !this.canManage) {
+      throw new PermissionDeniedError(
+        'Insufficient permissions to create dashboard',
+        this.userContext.user_id
+      );
+    }
 
     // Determine organization_id for dashboard
-    // undefined = use user's current org (or null if none)
-    // null = universal dashboard
-    // UUID = specific organization
     let organizationId: string | null;
-    if (dashboardData.organization_id === undefined) {
+    if (data.organization_id === undefined) {
       // Default to user's current organization, or null if none
       organizationId = this.userContext.current_organization_id || null;
     } else {
       // Explicitly set (null for universal, or specific UUID)
-      organizationId = dashboardData.organization_id;
+      organizationId = data.organization_id;
     }
 
     // If setting specific organization, validate user has access
@@ -512,36 +711,39 @@ export class RBACDashboardsService extends BaseRBACService {
     }
 
     // If setting this as default, clear any existing default dashboard
-    if (dashboardData.is_default === true) {
-      await db.update(dashboards).set({ is_default: false }).where(eq(dashboards.is_default, true));
+    if (data.is_default === true) {
+      await db
+        .update(dashboards)
+        .set({ is_default: false })
+        .where(eq(dashboards.is_default, true));
     }
 
     // Create new dashboard
+    const insertStart = Date.now();
     const [newDashboard] = await db
       .insert(dashboards)
       .values({
-        dashboard_name: dashboardData.dashboard_name,
-        dashboard_description: dashboardData.dashboard_description,
-        layout_config: dashboardData.layout_config || {},
-        dashboard_category_id: dashboardData.dashboard_category_id,
-        organization_id: organizationId, // Added for org scoping
+        dashboard_name: data.dashboard_name,
+        dashboard_description: data.dashboard_description,
+        layout_config: data.layout_config || {},
+        dashboard_category_id: data.dashboard_category_id,
+        organization_id: organizationId,
         created_by: this.userContext.user_id,
-        is_active: dashboardData.is_active ?? true,
-        is_published: dashboardData.is_published ?? false,
-        is_default: dashboardData.is_default ?? false,
+        is_active: data.is_active ?? true,
+        is_published: data.is_published ?? false,
+        is_default: data.is_default ?? false,
       })
       .returning();
+    const insertDuration = Date.now() - insertStart;
 
     if (!newDashboard) {
       throw new Error('Failed to create dashboard');
     }
 
     // Add charts to dashboard if provided
-    if (dashboardData.chart_ids && dashboardData.chart_ids.length > 0) {
-      const chartAssociations = dashboardData.chart_ids.map((chartId: string, index: number) => {
-        // Use provided positions or fall back to defaults
-        const position = dashboardData.chart_positions?.[index] || { x: 0, y: index, w: 6, h: 4 };
-
+    if (data.chart_ids && data.chart_ids.length > 0) {
+      const chartAssociations = data.chart_ids.map((chartId: string, index: number) => {
+        const position = data.chart_positions?.[index] || { x: 0, y: index, w: 6, h: 4 };
         return {
           dashboard_id: newDashboard.dashboard_id,
           chart_definition_id: chartId,
@@ -552,163 +754,111 @@ export class RBACDashboardsService extends BaseRBACService {
       await db.insert(dashboard_charts).values(chartAssociations);
     }
 
-    // Return dashboard with full details (more efficient single query)
-    const createdDashboards = await db
-      .select()
-      .from(dashboards)
-      .leftJoin(
-        chart_categories,
-        eq(dashboards.dashboard_category_id, chart_categories.chart_category_id)
-      )
-      .leftJoin(users, eq(dashboards.created_by, users.user_id))
-      .where(eq(dashboards.dashboard_id, newDashboard.dashboard_id))
-      .limit(1);
-
-    if (createdDashboards.length === 0) {
+    // Fetch created dashboard with full details
+    const createdDashboard = await this.getDashboardById(newDashboard.dashboard_id);
+    if (!createdDashboard) {
       throw new Error('Failed to retrieve created dashboard');
     }
 
-    const createdDashboardData = createdDashboards[0];
-    if (!createdDashboardData) {
-      // Extra safety: should not happen after length check
-      log.error('Created dashboard result had length > 0 but first item was null');
-      throw new Error('Failed to retrieve created dashboard data');
-    }
-
-    // Get chart details for the created dashboard
-    const chartDetails = await db
-      .select({
-        chart_definition_id: chart_definitions.chart_definition_id,
-        chart_name: chart_definitions.chart_name,
-        chart_description: chart_definitions.chart_description,
-        chart_type: chart_definitions.chart_type,
-        position_config: dashboard_charts.position_config,
-      })
-      .from(dashboard_charts)
-      .innerJoin(
-        chart_definitions,
-        eq(dashboard_charts.chart_definition_id, chart_definitions.chart_definition_id)
-      )
-      .where(eq(dashboard_charts.dashboard_id, newDashboard.dashboard_id))
-      .orderBy(dashboard_charts.added_at);
-
-    // Get chart count
-    const [chartCount] = await db
-      .select({ count: count() })
-      .from(dashboard_charts)
-      .where(eq(dashboard_charts.dashboard_id, newDashboard.dashboard_id));
-
-    const createdDashboard: DashboardWithCharts = {
-      dashboard_id: createdDashboardData.dashboards.dashboard_id,
-      dashboard_name: createdDashboardData.dashboards.dashboard_name,
-      dashboard_description: createdDashboardData.dashboards.dashboard_description || undefined,
-      layout_config:
-        (createdDashboardData.dashboards.layout_config as Record<string, unknown>) || {},
-      dashboard_category_id: createdDashboardData.dashboards.dashboard_category_id || undefined,
-      organization_id: createdDashboardData.dashboards.organization_id || undefined,
-      created_by: createdDashboardData.dashboards.created_by,
-      created_at:
-        createdDashboardData.dashboards.created_at?.toISOString() || new Date().toISOString(),
-      updated_at:
-        createdDashboardData.dashboards.updated_at?.toISOString() || new Date().toISOString(),
-      is_active: createdDashboardData.dashboards.is_active ?? true,
-      is_published: createdDashboardData.dashboards.is_published ?? false,
-      is_default: createdDashboardData.dashboards.is_default ?? false,
-      chart_count: chartCount?.count || 0,
-      category: createdDashboardData.chart_categories
-        ? {
-            chart_category_id: createdDashboardData.chart_categories.chart_category_id,
-            category_name: createdDashboardData.chart_categories.category_name,
-            category_description:
-              createdDashboardData.chart_categories.category_description || undefined,
-          }
-        : undefined,
-      creator: createdDashboardData.users
-        ? {
-            user_id: createdDashboardData.users.user_id,
-            first_name: createdDashboardData.users.first_name,
-            last_name: createdDashboardData.users.last_name,
-            email: createdDashboardData.users.email,
-          }
-        : undefined,
-      charts: chartDetails.map((chart) => ({
-        chart_definition_id: chart.chart_definition_id,
-        chart_name: chart.chart_name,
-        chart_description: chart.chart_description || undefined,
-        chart_type: chart.chart_type,
-        position_config: (chart.position_config as Record<string, unknown>) || undefined,
-      })),
-    };
-
-    // Enhanced dashboard creation completion logging
     const duration = Date.now() - startTime;
 
-    // Business intelligence for dashboard creation
-    log.info('Dashboard creation analytics', {
-      operation: 'dashboard_created',
-      newDashboardId: newDashboard.dashboard_id,
-      dashboardName: dashboardData.dashboard_name,
-      createdByUserId: this.userContext.user_id,
-      chartCount: dashboardData.chart_ids?.length || 0,
-      categoryId: dashboardData.dashboard_category_id,
-      isPublished: dashboardData.is_published ?? false,
-      duration,
-    });
-
-    // Security event for dashboard creation
-    log.security('dashboard_created', 'low', {
-      action: 'dashboard_creation_success',
+    // Log with logTemplates - SINGLE LOG STATEMENT (fixed excessive logging anti-pattern)
+    const template = logTemplates.crud.create('dashboard', {
+      resourceId: newDashboard.dashboard_id,
+      resourceName: data.dashboard_name,
       userId: this.userContext.user_id,
-      newDashboardId: newDashboard.dashboard_id,
-      dashboardName: dashboardData.dashboard_name,
-      chartCount: dashboardData.chart_ids?.length || 0,
-      complianceValidated: true,
+      ...(organizationId && { organizationId }),
+      duration,
+      metadata: {
+        insertQuery: {
+          duration: insertDuration,
+          slow: insertDuration > SLOW_THRESHOLDS.DB_QUERY,
+        },
+        chartCount: data.chart_ids?.length || 0,
+        categoryId: data.dashboard_category_id,
+        isPublished: data.is_published ?? false,
+        isDefault: data.is_default ?? false,
+        organizationScope: organizationId ? 'organization-specific' : 'universal',
+        rbacScope: this.getRBACScope(),
+        component: 'service',
+      },
     });
-
-    // Performance monitoring
-    log.timing('Dashboard creation completed', startTime, {
-      chartAssociationsIncluded: (dashboardData.chart_ids?.length || 0) > 0,
-      databaseOperations: dashboardData.chart_ids?.length ? 2 : 1, // dashboard insert + chart associations
-    });
+    log.info(template.message, template.context);
 
     return createdDashboard;
   }
 
   /**
    * Update a dashboard with permission checking
+   *
+   * Updates dashboard and optionally chart associations. Uses transaction for
+   * chart updates. Supports changing organization scope and default status.
+   *
+   * @param dashboardId - Dashboard ID to update
+   * @param data - Dashboard update data
+   * @returns Updated dashboard with full details
+   * @throws {AuthorizationError} If user lacks required permissions
+   * @throws {Error} If dashboard not found or organization access validation fails
+   * @example
+   * const updated = await service.updateDashboard('dash-123', {
+   *   dashboard_name: 'Updated Name',
+   *   is_published: true,
+   * });
    */
   async updateDashboard(
     dashboardId: string,
-    updateData: UpdateDashboardData
+    data: UpdateDashboardData
   ): Promise<DashboardWithCharts> {
-    this.requireAnyPermission([
-      'dashboards:create:organization',
-      'dashboards:manage:all',
-    ]);
+    const startTime = Date.now();
+
+    // Check permissions
+    if (!this.canCreate && !this.canManage) {
+      throw new PermissionDeniedError(
+        'Insufficient permissions to update dashboard',
+        this.userContext.user_id
+      );
+    }
 
     // Check if dashboard exists
-    const existingDashboard = await this.getDashboardById(dashboardId);
-    if (!existingDashboard) {
+    const existing = await this.getDashboardById(dashboardId);
+    if (!existing) {
       throw new Error('Dashboard not found');
     }
 
     // If changing organization_id, validate access
-    if (updateData.organization_id !== undefined) {
-      if (updateData.organization_id !== null) {
+    if (data.organization_id !== undefined) {
+      if (data.organization_id !== null) {
         // Changing to specific org - validate user has access
-        if (!this.canAccessOrganization(updateData.organization_id)) {
+        if (!this.canAccessOrganization(data.organization_id)) {
           throw new Error(
-            `Cannot assign dashboard to organization ${updateData.organization_id}: Access denied`
+            `Cannot assign dashboard to organization ${data.organization_id}: Access denied`
           );
         }
       }
       // null is allowed (making it universal)
     }
 
+    // Calculate changes for audit trail
+    const changes = calculateChanges(
+      existing as unknown as Record<string, unknown>,
+      data as unknown as Record<string, unknown>,
+      [
+        'dashboard_name',
+        'dashboard_description',
+        'dashboard_category_id',
+        'organization_id',
+        'is_active',
+        'is_published',
+        'is_default',
+        'layout_config',
+      ]
+    );
+
     // Execute dashboard update and chart management as atomic transaction
-    const _updatedDashboard = await db.transaction(async (tx) => {
+    const updateStart = Date.now();
+    await db.transaction(async (tx) => {
       // If setting this as default, clear any existing default dashboard
-      if (updateData.is_default === true) {
+      if (data.is_default === true) {
         await tx
           .update(dashboards)
           .set({ is_default: false })
@@ -721,13 +871,13 @@ export class RBACDashboardsService extends BaseRBACService {
         dashboard_description: string;
         layout_config: Record<string, unknown>;
         dashboard_category_id: number;
-        organization_id: string | null; // Added for org scoping
+        organization_id: string | null;
         is_active: boolean;
         is_published: boolean;
         is_default: boolean;
         updated_at: Date;
       }> = {
-        ...updateData,
+        ...data,
         updated_at: new Date(),
       };
 
@@ -743,16 +893,14 @@ export class RBACDashboardsService extends BaseRBACService {
       }
 
       // Update chart associations if provided
-      if (updateData.chart_ids !== undefined) {
+      if (data.chart_ids !== undefined) {
         // First, remove all current chart associations
         await tx.delete(dashboard_charts).where(eq(dashboard_charts.dashboard_id, dashboardId));
 
         // Then add the new chart associations if provided
-        if (updateData.chart_ids.length > 0) {
-          const chartAssociations = updateData.chart_ids.map((chartId: string, index: number) => {
-            // Use provided positions or fall back to defaults
-            const position = updateData.chart_positions?.[index] || { x: 0, y: index, w: 6, h: 4 };
-
+        if (data.chart_ids.length > 0) {
+          const chartAssociations = data.chart_ids.map((chartId: string, index: number) => {
+            const position = data.chart_positions?.[index] || { x: 0, y: index, w: 6, h: 4 };
             return {
               dashboard_id: dashboardId,
               chart_definition_id: chartId,
@@ -763,117 +911,71 @@ export class RBACDashboardsService extends BaseRBACService {
           await tx.insert(dashboard_charts).values(chartAssociations);
         }
       }
-
-      return dashboard;
     });
+    const updateDuration = Date.now() - updateStart;
 
-    // Return updated dashboard with full details (more efficient single query)
-    const updatedDashboards = await db
-      .select()
-      .from(dashboards)
-      .leftJoin(
-        chart_categories,
-        eq(dashboards.dashboard_category_id, chart_categories.chart_category_id)
-      )
-      .leftJoin(users, eq(dashboards.created_by, users.user_id))
-      .where(eq(dashboards.dashboard_id, dashboardId))
-      .limit(1);
-
-    if (updatedDashboards.length === 0) {
+    // Fetch updated dashboard with full details
+    const updatedDashboard = await this.getDashboardById(dashboardId);
+    if (!updatedDashboard) {
       throw new Error('Failed to retrieve updated dashboard');
     }
 
-    const updatedDashboardData = updatedDashboards[0];
-    if (!updatedDashboardData) {
-      // Extra safety: should not happen after length check
-      log.error('Updated dashboard result had length > 0 but first item was null');
-      throw new Error('Failed to retrieve updated dashboard data');
-    }
+    const duration = Date.now() - startTime;
 
-    // Get chart details for the updated dashboard
-    const chartDetails = await db
-      .select({
-        chart_definition_id: chart_definitions.chart_definition_id,
-        chart_name: chart_definitions.chart_name,
-        chart_description: chart_definitions.chart_description,
-        chart_type: chart_definitions.chart_type,
-        position_config: dashboard_charts.position_config,
-      })
-      .from(dashboard_charts)
-      .innerJoin(
-        chart_definitions,
-        eq(dashboard_charts.chart_definition_id, chart_definitions.chart_definition_id)
-      )
-      .where(eq(dashboard_charts.dashboard_id, dashboardId))
-      .orderBy(dashboard_charts.added_at);
+    // Log with logTemplates including calculateChanges
+    const template = logTemplates.crud.update('dashboard', {
+      resourceId: dashboardId,
+      resourceName: existing.dashboard_name,
+      userId: this.userContext.user_id,
+      changes,
+      duration,
+      metadata: {
+        updateTransaction: {
+          duration: updateDuration,
+          slow: updateDuration > SLOW_THRESHOLDS.DB_QUERY,
+        },
+        fieldsChanged: Object.keys(changes).length,
+        chartAssociationsUpdated: data.chart_ids !== undefined,
+        rbacScope: this.getRBACScope(),
+        component: 'service',
+      },
+    });
+    log.info(template.message, template.context);
 
-    // Get chart count
-    const [chartCount] = await db
-      .select({ count: count() })
-      .from(dashboard_charts)
-      .where(eq(dashboard_charts.dashboard_id, dashboardId));
-
-    const dashboardWithCharts: DashboardWithCharts = {
-      dashboard_id: updatedDashboardData.dashboards.dashboard_id,
-      dashboard_name: updatedDashboardData.dashboards.dashboard_name,
-      dashboard_description: updatedDashboardData.dashboards.dashboard_description || undefined,
-      layout_config:
-        (updatedDashboardData.dashboards.layout_config as Record<string, unknown>) || {},
-      dashboard_category_id: updatedDashboardData.dashboards.dashboard_category_id || undefined,
-      organization_id: updatedDashboardData.dashboards.organization_id || undefined,
-      created_by: updatedDashboardData.dashboards.created_by,
-      created_at:
-        updatedDashboardData.dashboards.created_at?.toISOString() || new Date().toISOString(),
-      updated_at:
-        updatedDashboardData.dashboards.updated_at?.toISOString() || new Date().toISOString(),
-      is_active: updatedDashboardData.dashboards.is_active ?? true,
-      is_published: updatedDashboardData.dashboards.is_published ?? false,
-      is_default: updatedDashboardData.dashboards.is_default ?? false,
-      chart_count: chartCount?.count || 0,
-      category: updatedDashboardData.chart_categories
-        ? {
-            chart_category_id: updatedDashboardData.chart_categories.chart_category_id,
-            category_name: updatedDashboardData.chart_categories.category_name,
-            category_description:
-              updatedDashboardData.chart_categories.category_description || undefined,
-          }
-        : undefined,
-      creator: updatedDashboardData.users
-        ? {
-            user_id: updatedDashboardData.users.user_id,
-            first_name: updatedDashboardData.users.first_name,
-            last_name: updatedDashboardData.users.last_name,
-            email: updatedDashboardData.users.email,
-          }
-        : undefined,
-      charts: chartDetails.map((chart) => ({
-        chart_definition_id: chart.chart_definition_id,
-        chart_name: chart.chart_name,
-        chart_description: chart.chart_description || undefined,
-        chart_type: chart.chart_type,
-        position_config: (chart.position_config as Record<string, unknown>) || undefined,
-      })),
-    };
-
-    return dashboardWithCharts;
+    return updatedDashboard;
   }
 
   /**
    * Delete a dashboard with permission checking
+   *
+   * Permanently deletes dashboard and all chart associations. Uses transaction
+   * for atomic deletion.
+   *
+   * @param dashboardId - Dashboard ID to delete
+   * @throws {AuthorizationError} If user lacks required permissions
+   * @throws {Error} If dashboard not found or deletion fails
+   * @example
+   * await service.deleteDashboard('dash-123');
    */
   async deleteDashboard(dashboardId: string): Promise<void> {
-    this.requireAnyPermission([
-      'dashboards:create:organization',
-      'dashboards:manage:all',
-    ]);
+    const startTime = Date.now();
+
+    // Check permissions
+    if (!this.canCreate && !this.canManage) {
+      throw new PermissionDeniedError(
+        'Insufficient permissions to delete dashboard',
+        this.userContext.user_id
+      );
+    }
 
     // Check if dashboard exists
-    const existingDashboard = await this.getDashboardById(dashboardId);
-    if (!existingDashboard) {
+    const existing = await this.getDashboardById(dashboardId);
+    if (!existing) {
       throw new Error('Dashboard not found');
     }
 
     // Execute dashboard deletion and chart cleanup as atomic transaction
+    const deleteStart = Date.now();
     await db.transaction(async (tx) => {
       // First, remove all chart associations
       await tx.delete(dashboard_charts).where(eq(dashboard_charts.dashboard_id, dashboardId));
@@ -888,124 +990,49 @@ export class RBACDashboardsService extends BaseRBACService {
         throw new Error('Failed to delete dashboard');
       }
     });
-  }
+    const deleteDuration = Date.now() - deleteStart;
 
-  /**
-   * Add a chart to a dashboard
-   */
-  async addChartToDashboard(
-    dashboardId: string,
-    chartId: string,
-    positionConfig?: Record<string, unknown>
-  ): Promise<void> {
-    this.requireAnyPermission([
-      'dashboards:create:organization',
-      'dashboards:manage:all',
-    ]);
+    const duration = Date.now() - startTime;
 
-    // Check if dashboard exists
-    const existingDashboard = await this.getDashboardById(dashboardId);
-    if (!existingDashboard) {
-      throw new Error('Dashboard not found');
-    }
-
-    // Check if chart association already exists
-    const [existingAssociation] = await db
-      .select()
-      .from(dashboard_charts)
-      .where(
-        and(
-          eq(dashboard_charts.dashboard_id, dashboardId),
-          eq(dashboard_charts.chart_definition_id, chartId)
-        )
-      )
-      .limit(1);
-
-    if (existingAssociation) {
-      throw new Error('Chart is already associated with this dashboard');
-    }
-
-    // Add chart association
-    await db.insert(dashboard_charts).values({
-      dashboard_id: dashboardId,
-      chart_definition_id: chartId,
-      position_config: positionConfig || { x: 0, y: 0, w: 6, h: 4 },
+    // Log with logTemplates
+    const template = logTemplates.crud.delete('dashboard', {
+      resourceId: dashboardId,
+      resourceName: existing.dashboard_name,
+      userId: this.userContext.user_id,
+      soft: false, // Hard delete
+      duration,
+      metadata: {
+        deleteTransaction: {
+          duration: deleteDuration,
+          slow: deleteDuration > SLOW_THRESHOLDS.DB_QUERY,
+        },
+        chartCount: existing.chart_count,
+        rbacScope: this.getRBACScope(),
+        component: 'service',
+      },
     });
-  }
-
-  /**
-   * Remove a chart from a dashboard
-   */
-  async removeChartFromDashboard(dashboardId: string, chartId: string): Promise<void> {
-    this.requireAnyPermission([
-      'dashboards:create:organization',
-      'dashboards:manage:all',
-    ]);
-
-    // Check if dashboard exists
-    const existingDashboard = await this.getDashboardById(dashboardId);
-    if (!existingDashboard) {
-      throw new Error('Dashboard not found');
-    }
-
-    // Remove chart association
-    const [deletedAssociation] = await db
-      .delete(dashboard_charts)
-      .where(
-        and(
-          eq(dashboard_charts.dashboard_id, dashboardId),
-          eq(dashboard_charts.chart_definition_id, chartId)
-        )
-      )
-      .returning();
-
-    if (!deletedAssociation) {
-      throw new Error('Chart association not found');
-    }
-  }
-
-  /**
-   * Update chart position in dashboard
-   */
-  async updateChartPosition(
-    dashboardId: string,
-    chartId: string,
-    positionConfig: Record<string, unknown>
-  ): Promise<void> {
-    this.requireAnyPermission([
-      'dashboards:create:organization',
-      'dashboards:manage:all',
-    ]);
-
-    // Check if dashboard exists
-    const existingDashboard = await this.getDashboardById(dashboardId);
-    if (!existingDashboard) {
-      throw new Error('Dashboard not found');
-    }
-
-    // Update chart position
-    const [updatedAssociation] = await db
-      .update(dashboard_charts)
-      .set({
-        position_config: positionConfig,
-      })
-      .where(
-        and(
-          eq(dashboard_charts.dashboard_id, dashboardId),
-          eq(dashboard_charts.chart_definition_id, chartId)
-        )
-      )
-      .returning();
-
-    if (!updatedAssociation) {
-      throw new Error('Chart association not found');
-    }
+    log.info(template.message, template.context);
   }
 }
 
 /**
  * Factory function to create RBAC Dashboards Service
+ *
+ * @param userContext - User context with permissions and organization access
+ * @returns Dashboard service instance
+ * @example
+ * const service = createRBACDashboardsService(userContext);
+ * const dashboards = await service.getDashboards();
  */
-export function createRBACDashboardsService(userContext: UserContext): RBACDashboardsService {
-  return new RBACDashboardsService(userContext);
+export const createRBACDashboardsService = (
+  userContext: UserContext
+): DashboardsServiceInterface => {
+  return new RBACDashboardsServiceImpl(userContext);
+};
+
+// Re-export the class for backwards compatibility during migration
+export class RBACDashboardsService extends RBACDashboardsServiceImpl {
+  constructor(userContext: UserContext) {
+    super(userContext);
+  }
 }

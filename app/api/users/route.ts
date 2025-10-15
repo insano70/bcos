@@ -5,10 +5,9 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createPaginatedResponse, createSuccessResponse } from '@/lib/api/responses/success';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { getPagination, getSortParams } from '@/lib/api/utils/request';
-import { db } from '@/lib/db';
-import { user_roles } from '@/lib/db/rbac-schema';
 import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
 import { createRBACUsersService } from '@/lib/services/rbac-users-service';
+import { createUserRolesService } from '@/lib/services/user-roles-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { userCreateSchema, userQuerySchema } from '@/lib/validations/user';
 
@@ -21,8 +20,9 @@ const getUsersHandler = async (request: NextRequest, userContext: UserContext) =
     const sort = getSortParams(searchParams, ['first_name', 'last_name', 'email', 'created_at']);
     const query = validateQuery(searchParams, userQuerySchema);
 
-    // Create RBAC users service
+    // Create services
     const usersService = createRBACUsersService(userContext);
+    const rolesService = createUserRolesService(userContext);
 
     // Get users with automatic permission-based filtering
     const users = await usersService.getUsers({
@@ -36,6 +36,10 @@ const getUsersHandler = async (request: NextRequest, userContext: UserContext) =
     // Get total count
     const totalCount = await usersService.getUserCount();
 
+    // Batch fetch roles for all users (prevents N+1)
+    const userIds = users.map((u) => u.user_id);
+    const rolesMap = await rolesService.batchGetUserRoles(userIds);
+
     const responseData = users.map((user) => ({
       id: user.user_id,
       first_name: user.first_name,
@@ -45,7 +49,7 @@ const getUsersHandler = async (request: NextRequest, userContext: UserContext) =
       is_active: user.is_active,
       created_at: user.created_at,
       organizations: user.organizations,
-      roles: user.roles || [],
+      roles: rolesMap.get(user.user_id) || [],
     }));
 
     // Prepare sanitized filter context
@@ -129,8 +133,9 @@ const createUserHandler = async (request: NextRequest, userContext: UserContext)
     const { email, password, first_name, last_name, email_verified, is_active, role_ids } =
       validatedData;
 
-    // Create RBAC users service
+    // Create services
     const usersService = createRBACUsersService(userContext);
+    const rolesService = createUserRolesService(userContext);
 
     // Create user with automatic permission checking
     const newUser = await usersService.createUser({
@@ -145,16 +150,7 @@ const createUserHandler = async (request: NextRequest, userContext: UserContext)
 
     // Assign roles to the user if provided
     if (role_ids && role_ids.length > 0) {
-      // Verify that the user has permission to assign these roles
-      // This is a simplified check - in a real app you'd want more sophisticated validation
-      const roleAssignments = role_ids.map((roleId) => ({
-        user_id: newUser.user_id,
-        role_id: roleId,
-        organization_id: userContext.current_organization_id,
-        granted_by: userContext.user_id,
-      }));
-
-      await db.insert(user_roles).values(roleAssignments);
+      await rolesService.assignRolesToUser(newUser.user_id, role_ids);
     }
 
     // Enriched creation success log - consolidates 8+ separate logs into 1 comprehensive log

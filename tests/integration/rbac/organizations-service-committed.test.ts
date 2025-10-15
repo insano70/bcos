@@ -25,15 +25,11 @@ import {
   buildUserContext
 } from '@/tests/helpers/rbac-helper'
 import { assignUserToOrganization } from '@/tests/helpers/committed-rbac-helper'
-import { RBACOrganizationsService } from '@/lib/services/rbac-organizations-service'
+import { createRBACOrganizationsService } from '@/lib/services/organizations'
 import { PermissionDeniedError } from '@/lib/types/rbac'
 import type { PermissionName } from '@/lib/types/rbac'
 import { createTestScope, type ScopedFactoryCollection } from '@/tests/factories/base'
 import { nanoid } from 'nanoid'
-
-function createRBACOrganizationsService(userContext: any): RBACOrganizationsService {
-  return new RBACOrganizationsService(userContext)
-}
 
 describe('RBAC Organizations Service - Basic Committed Tests', () => {
   let scope: ScopedFactoryCollection
@@ -70,7 +66,7 @@ describe('RBAC Organizations Service - Basic Committed Tests', () => {
       const result = await orgsService.getOrganizations()
 
       expect(result.length).toBeGreaterThanOrEqual(3)
-      const orgIds = result.map(o => o.organization_id)
+      const orgIds = result.map((o: { organization_id: string }) => o.organization_id)
       expect(orgIds).toContain(org1.organization_id)
       expect(orgIds).toContain(org2.organization_id)
       expect(orgIds).toContain(org3.organization_id)
@@ -97,7 +93,7 @@ describe('RBAC Organizations Service - Basic Committed Tests', () => {
       const result = await orgsService.getOrganizations({ search: uniquePrefix })
 
       expect(result.length).toBeGreaterThan(0)
-      expect(result.some(o => o.name.includes(uniquePrefix))).toBe(true)
+      expect(result.some((o: { name: string }) => o.name.includes(uniquePrefix))).toBe(true)
     })
 
     it('should deny organization retrieval without permissions', async () => {
@@ -318,7 +314,7 @@ describe('RBAC Organizations Service - Basic Committed Tests', () => {
 
       expect(Array.isArray(result)).toBe(true)
       // User should see at least their own organization in hierarchy
-      expect(result.some(o => o.organization_id === org.organization_id)).toBe(true)
+      expect(result.some((o: { organization_id: string }) => o.organization_id === org.organization_id)).toBe(true)
     })
   })
 })

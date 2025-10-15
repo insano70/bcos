@@ -19,6 +19,7 @@ import type { NextRequest } from 'next/server';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { log } from '@/lib/logger';
+import { querySlowQueries } from '@/lib/monitoring/cloudwatch-queries';
 import type { SlowQueriesResponse, SlowQuery } from '@/lib/monitoring/types';
 
 const slowQueriesHandler = async (request: NextRequest) => {
@@ -29,7 +30,6 @@ const slowQueriesHandler = async (request: NextRequest) => {
     const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 500);
     const timeRange = searchParams.get('timeRange') || '1h';
     const threshold = parseInt(searchParams.get('threshold') || '500', 10);
-    // const tableFilter = searchParams.get('table');
 
     log.info('Slow queries request initiated', {
       operation: 'query_slow_queries',
@@ -39,9 +39,19 @@ const slowQueriesHandler = async (request: NextRequest) => {
       component: 'monitoring',
     });
 
-    // TODO: Query CloudWatch Logs for slow queries
-    // For now, return mock/empty data until CloudWatch SDK is configured
-    const queries: SlowQuery[] = [];
+    // Query CloudWatch Logs for slow database queries
+    const cloudwatchResults = await querySlowQueries(timeRange, threshold, limit);
+    
+    // Transform CloudWatch results to SlowQuery objects
+    const queries: SlowQuery[] = cloudwatchResults.map((result) => ({
+      timestamp: result['@timestamp'] || new Date().toISOString(),
+      operation: result.operation || 'SELECT',
+      table: result.table || 'unknown',
+      duration: parseInt(result.duration || '0', 10),
+      recordCount: parseInt(result.recordCount || '0', 10),
+      correlationId: result.correlationId,
+      userId: result.userId,
+    }));
 
     // Calculate summary
     const byTable: Record<string, { count: number; avgDuration: number }> = {};

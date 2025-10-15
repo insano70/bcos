@@ -6,7 +6,7 @@ import { createSuccessResponse } from '@/lib/api/responses/success';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
-import { createRBACOrganizationsService } from '@/lib/services/rbac-organizations-service';
+import { createRBACOrganizationsService } from '@/lib/services/organizations';
 import type { UserContext } from '@/lib/types/rbac';
 import {
   organizationParamsSchema,
