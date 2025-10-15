@@ -2,89 +2,21 @@
 
 import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { apiClient } from '@/lib/api/client';
-import { type UserContext } from '@/lib/types/rbac';
 import { clientDebugLog as debugLog, clientErrorLog as errorLog } from '@/lib/utils/debug-client';
-import { shouldRefreshToken, validateTokenStructure } from '@/lib/security/csrf-client';
+import { shouldRefreshToken, validateTokenStructure, getCSRFTokenFromCookie } from '@/lib/security/csrf-client';
+import { transformApiUserToContext, validateApiUserResponse } from './utils/user-context-transformer';
+import type {
+  User,
+  RBACAuthState,
+  RBACAuthContextType,
+  MFASessionData,
+  APIUserResponse,
+} from './types';
 
 /**
  * Enhanced Authentication Provider with RBAC Integration
  * Extends existing auth system with full RBAC user context
  */
-
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  firstName: string;
-  lastName: string;
-  role: string;
-  emailVerified: boolean;
-}
-
-export interface RBACAuthState {
-  // Basic auth state (accessToken removed - now handled server-side only)
-  user: User | null;
-  sessionId: string | null;
-  isLoading: boolean;
-  isAuthenticated: boolean;
-  csrfToken?: string | null | undefined;
-
-  // RBAC state
-  userContext: UserContext | null;
-  rbacLoading: boolean;
-  rbacError: string | null;
-
-  // MFA state
-  mfaRequired: boolean;
-  mfaSetupRequired: boolean;
-  mfaSetupEnforced: boolean;
-  mfaSkipsRemaining: number;
-  mfaTempToken: string | null;
-  mfaChallenge: unknown | null;
-  mfaChallengeId: string | null;
-  mfaUser: { id: string; email: string; name: string } | null;
-}
-
-export interface RBACAuthContextType extends RBACAuthState {
-  login: (email: string, password: string, remember?: boolean) => Promise<void>;
-  logout: () => Promise<void>;
-  refreshToken: () => Promise<void>;
-  refreshUserContext: () => Promise<void>;
-  ensureCsrfToken: (forceRefresh?: boolean) => Promise<string | null>;
-  completeMFASetup: (sessionData: {
-    user: {
-      id: string;
-      email: string;
-      name: string;
-      firstName: string;
-      lastName: string;
-      role: string;
-      emailVerified: boolean;
-      roles?: string[];
-      permissions?: string[];
-    };
-    sessionId: string;
-    csrfToken?: string;
-    accessToken?: string;
-  }) => void;
-  completeMFAVerification: (sessionData: {
-    user: {
-      id: string;
-      email: string;
-      name: string;
-      firstName: string;
-      lastName: string;
-      role: string;
-      emailVerified: boolean;
-      roles?: string[];
-      permissions?: string[];
-    };
-    sessionId: string;
-    csrfToken?: string;
-    accessToken?: string;
-  }) => void;
-  clearMFAState: () => void;
-}
 
 const RBACAuthContext = createContext<RBACAuthContextType | undefined>(undefined);
 
@@ -114,6 +46,9 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
 
   // Track token fetch time to prevent unnecessary refreshes
   const [lastTokenFetchTime, setLastTokenFetchTime] = useState<number | null>(null);
+
+  // Track in-flight token fetch to prevent duplicate requests (OPTIMIZATION)
+  const tokenFetchInProgress = useRef<Promise<string | null> | null>(null);
 
   // Initialize authentication state
   useEffect(() => {
@@ -192,72 +127,12 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
         const data = await checkResponse.json();
         if (data.success && data.data?.user) {
           debugLog.auth('Found existing valid session, skipping token refresh');
-          
+
           // Extract user context from the response to avoid duplicate loading
-          const apiUser = data.data.user;
-          const userContext: UserContext = {
-            user_id: apiUser.id,
-            email: apiUser.email,
-            first_name: apiUser.firstName,
-            last_name: apiUser.lastName,
-            is_active: true,
-            email_verified: apiUser.emailVerified,
+          const apiUser = data.data.user as APIUserResponse;
+          validateApiUserResponse(apiUser);
+          const userContext = transformApiUserToContext(apiUser);
 
-            // RBAC data from API
-            roles: apiUser.roles.map((role: any) => ({
-              role_id: role.id,
-              name: role.name,
-              description: role.description || '',
-              organization_id: undefined,
-              is_system_role: role.isSystemRole,
-              is_active: true,
-              created_at: new Date(),
-              updated_at: new Date(),
-              deleted_at: undefined,
-              permissions: [] // Will be populated from all_permissions
-            })),
-
-            organizations: apiUser.organizations.map((org: any) => ({
-              organization_id: org.id,
-              name: org.name,
-              slug: org.slug,
-              parent_organization_id: undefined,
-              is_active: true,
-              created_at: new Date(),
-              updated_at: new Date(),
-              deleted_at: undefined
-            })),
-
-            accessible_organizations: apiUser.organizations.map((org: any) => ({
-              organization_id: org.id,
-              name: org.name,
-              slug: org.slug,
-              parent_organization_id: undefined,
-              is_active: true,
-              created_at: new Date(),
-              updated_at: new Date(),
-              deleted_at: undefined
-            })),
-
-            user_roles: [], // Not provided by API
-            user_organizations: [], // Not provided by API
-            all_permissions: apiUser.permissions.map((perm: any) => ({
-              permission_id: perm.id || `perm_${perm.name}`,
-              name: perm.name,
-              description: perm.description || '',
-              resource: perm.resource || 'unknown',
-              action: perm.action || 'unknown',
-              scope: perm.scope || 'own',
-              is_active: true,
-              created_at: new Date(),
-              updated_at: new Date()
-            })),
-
-            current_organization_id: apiUser.practiceId,
-            is_super_admin: apiUser.isSuperAdmin,
-            organization_admin_for: apiUser.organizationAdminFor
-          };
-          
           // Update auth state with existing session and user context
           setState(prev => ({
             ...prev,
@@ -290,66 +165,105 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
 
   const ensureCsrfToken = async (forceRefresh = false): Promise<string | null> => {
     try {
-      // Check if we have a cached token and validate it (unless force refresh is requested)
+      // OPTIMIZATION: If fetch already in progress, return same promise (deduplication)
+      if (tokenFetchInProgress.current && !forceRefresh) {
+        debugLog.auth('CSRF token fetch already in progress, waiting for completion');
+        return tokenFetchInProgress.current;
+      }
+
+      // OPTIMIZATION: Step 1 - Check cookie first (already set by server)
+      if (!forceRefresh && !state.csrfToken) {
+        const cookieToken = getCSRFTokenFromCookie();
+
+        if (cookieToken) {
+          // Validate token structure before using
+          const validation = validateTokenStructure(cookieToken);
+
+          if (validation.isValid) {
+            debugLog.auth('Using existing CSRF token from cookie (no fetch needed)');
+            setState(prev => ({ ...prev, csrfToken: cookieToken }));
+            setLastTokenFetchTime(Date.now());
+            return cookieToken;
+          }
+
+          debugLog.auth('Cookie token invalid, will fetch fresh token');
+        }
+      }
+
+      // Step 2 - Check if cached token in state is still valid
       if (state.csrfToken && !forceRefresh) {
         const shouldRefresh = shouldRefreshToken(state.csrfToken, lastTokenFetchTime);
 
         if (!shouldRefresh) {
           // Token is still valid, return it
+          debugLog.auth('Using cached CSRF token from state');
           return state.csrfToken;
         }
 
-        // Token validation failed or needs refresh
-        debugLog.auth('CSRF token validation failed or expired, fetching new token');
+        // Token needs refresh
+        debugLog.auth('Cached token needs refresh (approaching expiration)');
       }
 
       if (forceRefresh) {
         debugLog.auth('Force refreshing CSRF token...');
       }
 
-      // Fetch new token from server
-      debugLog.auth('Fetching new CSRF token...');
-      // Use current domain instead of hardcoded NEXT_PUBLIC_APP_URL to avoid CORS issues
-      const baseUrl = typeof window !== 'undefined'
-        ? window.location.origin
-        : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001');
-      const resp = await fetch(`${baseUrl}/api/csrf`, {
-        method: 'GET',
-        credentials: 'include'
-      });
+      // Step 3 - Fetch new token from server (deduplicated)
+      debugLog.auth('Fetching new CSRF token from server...');
 
-      if (!resp.ok) {
-        errorLog(`CSRF token fetch failed: ${resp.status} ${resp.statusText}`);
-        return null;
-      }
+      // Store promise to deduplicate concurrent calls
+      tokenFetchInProgress.current = (async () => {
+        try {
+          // Use current domain instead of hardcoded NEXT_PUBLIC_APP_URL to avoid CORS issues
+          const baseUrl = typeof window !== 'undefined'
+            ? window.location.origin
+            : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001');
 
-      const json = await resp.json();
-      const token = json?.data?.csrfToken || null;
+          const resp = await fetch(`${baseUrl}/api/csrf`, {
+            method: 'GET',
+            credentials: 'include'
+          });
 
-      if (!token) {
-        errorLog('CSRF token not found in response');
-        return null;
-      }
+          if (!resp.ok) {
+            errorLog(`CSRF token fetch failed: ${resp.status} ${resp.statusText}`);
+            return null;
+          }
 
-      // Validate the new token structure
-      const validation = validateTokenStructure(token);
-      if (!validation.isValid) {
-        errorLog(`New CSRF token validation failed: ${validation.reason}`);
-        return null;
-      }
+          const json = await resp.json();
+          const token = json?.data?.csrfToken || null;
 
-      // Update state with new token and record fetch time
-      const now = Date.now();
-      setState(prev => ({ ...prev, csrfToken: token }));
-      setLastTokenFetchTime(now);
+          if (!token) {
+            errorLog('CSRF token not found in response');
+            return null;
+          }
 
-      debugLog.auth('CSRF token successfully fetched and validated');
-      return token;
+          // Validate the new token structure
+          const validation = validateTokenStructure(token);
+          if (!validation.isValid) {
+            errorLog(`New CSRF token validation failed: ${validation.reason}`);
+            return null;
+          }
+
+          // Update state with new token and record fetch time
+          const now = Date.now();
+          setState(prev => ({ ...prev, csrfToken: token }));
+          setLastTokenFetchTime(now);
+
+          debugLog.auth('CSRF token successfully fetched and validated');
+          return token;
+        } finally {
+          // Clear in-flight promise
+          tokenFetchInProgress.current = null;
+        }
+      })();
+
+      return tokenFetchInProgress.current;
 
     } catch (error) {
       errorLog('CSRF token fetch error:', error);
       // Clear invalid token from state
       setState(prev => ({ ...prev, csrfToken: null }));
+      tokenFetchInProgress.current = null;
       return null;
     }
   };
@@ -406,81 +320,16 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
       }
 
       const data = await response.json();
-      
+
       if (!data.success || !data.data?.user) {
         throw new Error('Invalid user context response');
       }
 
-      const apiUser = data.data.user;
-
       // Transform API response to UserContext format
-      const userContext: UserContext = {
-        user_id: apiUser.id,
-        email: apiUser.email,
-        first_name: apiUser.firstName,
-        last_name: apiUser.lastName,
-        is_active: true,
-        email_verified: apiUser.emailVerified,
+      const apiUser = data.data.user as APIUserResponse;
+      validateApiUserResponse(apiUser);
+      const userContext = transformApiUserToContext(apiUser);
 
-        // RBAC data from API
-        roles: apiUser.roles.map((role: any) => ({
-          role_id: role.id,
-          name: role.name,
-          description: role.description || '',
-          organization_id: undefined,
-          is_system_role: role.isSystemRole,
-          is_active: true,
-          created_at: new Date(),
-          updated_at: new Date(),
-          deleted_at: undefined,
-          permissions: [] // Will be populated from all_permissions
-        })),
-
-        organizations: apiUser.organizations.map((org: any) => ({
-          organization_id: org.id,
-          name: org.name,
-          slug: org.slug,
-          parent_organization_id: undefined,
-          is_active: true,
-          created_at: new Date(),
-          updated_at: new Date(),
-          deleted_at: undefined
-        })),
-
-        accessible_organizations: apiUser.accessibleOrganizations.map((org: any) => ({
-          organization_id: org.id,
-          name: org.name,
-          slug: org.slug,
-          parent_organization_id: undefined,
-          is_active: true,
-          created_at: new Date(),
-          updated_at: new Date(),
-          deleted_at: undefined
-        })),
-
-        user_roles: [], // Could be populated if needed
-        user_organizations: [], // Could be populated if needed
-
-        // Current context
-        current_organization_id: apiUser.currentOrganizationId,
-
-        // Computed properties from API
-        all_permissions: apiUser.permissions.map((perm: any) => ({
-          permission_id: perm.id,
-          name: perm.name,
-          description: undefined,
-          resource: perm.resource,
-          action: perm.action,
-          scope: perm.scope,
-          is_active: true,
-          created_at: new Date(),
-          updated_at: new Date()
-        })),
-
-        is_super_admin: apiUser.isSuperAdmin,
-        organization_admin_for: apiUser.organizationAdminFor || []
-      };
-      
       setState(prev => ({
         ...prev,
         userContext,

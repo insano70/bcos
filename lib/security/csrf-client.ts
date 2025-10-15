@@ -235,7 +235,10 @@ export function shouldRefreshToken(token: string | null, lastFetchTime: number |
     if (payload.type === 'authenticated' && payload.timestamp) {
       const tokenAge = Date.now() - payload.timestamp;
       const maxAge = 24 * 60 * 60 * 1000; // 24 hours
-      const refreshThreshold = maxAge * 0.8; // Refresh when 80% expired
+      // OPTIMIZATION: Refresh at 95% expiration (22.8 hours) instead of 80% (19.2 hours)
+      // This leaves 1.2hr buffer before actual expiration while reducing API calls
+      // Server-side middleware still validates token age, so expired tokens are rejected
+      const refreshThreshold = maxAge * 0.95; // Refresh when 95% expired
 
       return tokenAge > refreshThreshold;
     }
@@ -246,7 +249,8 @@ export function shouldRefreshToken(token: string | null, lastFetchTime: number |
       const currentTimeWindow = Math.floor(Date.now() / windowSize);
       const windowDiff = Math.abs(currentTimeWindow - payload.timeWindow);
 
-      // Refresh if we're in the next time window (proactive refresh)
+      // Refresh only when we're in the next time window (already expired)
+      // Keep current window valid until it actually expires
       return windowDiff >= 1;
     }
   } catch (_error) {

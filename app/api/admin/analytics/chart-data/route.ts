@@ -5,7 +5,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { rbacRoute } from '@/lib/api/rbac-route-handler';
 import type { UserContext } from '@/lib/types/rbac';
-import type { ChartData, AnalyticsQueryParams, ChartRenderContext } from '@/lib/types/analytics';
+import type { ChartData, AnalyticsQueryParams } from '@/lib/types/analytics';
 import { chartDataRequestSchema } from '@/lib/validations/analytics';
 import { SimplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
 import { loadColumnMetadata } from '@/lib/utils/chart-metadata-loader.server';
@@ -13,6 +13,7 @@ import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import { analyticsQueryBuilder } from '@/lib/services/analytics-query-builder';
 import { calculatedFieldsService } from '@/lib/services/calculated-fields';
 import { getDateRange } from '@/lib/utils/date-presets';
+import { buildChartRenderContext } from '@/lib/utils/chart-context';
 
 /**
  * Transform Chart Data Handler
@@ -61,12 +62,8 @@ const transformChartDataHandler = async (
     };
 
     // Build chart render context from user context with proper RBAC
-    const chartContext: ChartRenderContext = {
-      user_id: userContext.user_id,
-      accessible_practices: [],
-      accessible_providers: [],
-      roles: userContext.roles?.map((role) => role.name) || [],
-    };
+    // SECURITY: Uses buildChartRenderContext() to populate accessible_practices from organizations
+    const chartContext = await buildChartRenderContext(userContext);
 
     // Fetch measures
     const result = await analyticsQueryBuilder.queryMeasures(queryParams, chartContext);
