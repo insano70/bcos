@@ -1,5 +1,5 @@
 /**
- * Analytics Cache V2 with Secondary Index Sets
+ * Indexed Analytics Cache with Secondary Index Sets
  * 
  * Implements Redis secondary indexes for efficient cache lookups without scanning.
  * 
@@ -72,15 +72,14 @@ export interface CacheStats {
   estimatedMemoryMB: number;
   lastWarmed: string | null;
   isWarm: boolean;
-  version: string;
 }
 
 /**
- * Analytics Cache V2 Service
+ * Indexed Analytics Cache Service
  * 
  * Implements secondary index sets for efficient cache lookups.
  */
-export class AnalyticsCacheV2 {
+export class IndexedAnalyticsCache {
   private redis: Redis;
   private readonly TTL = 4 * 60 * 60; // 4 hours
   private readonly BATCH_SIZE = 5000;
@@ -89,7 +88,7 @@ export class AnalyticsCacheV2 {
   constructor() {
     const client = getRedisClient();
     if (!client) {
-      throw new Error('Redis client not available. Cache V2 requires Redis.');
+      throw new Error('Redis client not available. Indexed cache requires Redis.');
     }
     this.redis = client;
   }
@@ -141,7 +140,7 @@ export class AnalyticsCacheV2 {
   async warmCache(datasourceId: number): Promise<WarmResult> {
     const startTime = Date.now();
     
-    log.info('Starting cache warming V2', { datasourceId, version: 'v2' });
+    log.info('Starting cache warming', { datasourceId });
     
     // Acquire distributed lock
     const lockKey = `lock:cache:warm:${datasourceId}`;
@@ -178,7 +177,7 @@ export class AnalyticsCacheV2 {
         FROM ${schemaName}.${tableName}
       `;
       
-      log.debug('Executing cache warming query V2', {
+      log.debug('Executing cache warming query', {
         datasourceId,
         schema: schemaName,
         table: tableName,
@@ -190,7 +189,6 @@ export class AnalyticsCacheV2 {
       log.info('Cache warming query completed', {
         datasourceId,
         totalRows: allRows.length,
-        version: 'v2',
       });
       
       // Group by unique combination (use column mappings for dynamic columns)
@@ -228,7 +226,6 @@ export class AnalyticsCacheV2 {
         uniqueCombinations: grouped.size,
         skippedRows,
         validRows: allRows.length - skippedRows,
-        version: 'v2',
       });
       
       // Write in batches
@@ -328,12 +325,11 @@ export class AnalyticsCacheV2 {
       
       const duration = Date.now() - startTime;
       
-      log.info('Cache warming completed V2', {
+      log.info('Cache warming completed', {
         datasourceId,
         entriesCached,
         totalRows: allRows.length,
         duration,
-        version: 'v2',
       });
       
       return {
@@ -427,7 +423,7 @@ export class AnalyticsCacheV2 {
     
     const indexLookupDuration = Date.now() - startTime;
     
-    log.info('Index lookup completed V2', {
+    log.info('Index lookup completed', {
       datasourceId,
       measure,
       frequency,
@@ -435,7 +431,6 @@ export class AnalyticsCacheV2 {
       providerCount: providerUids?.length || 0,
       matchingKeys: matchingKeys.length,
       indexLookupDuration,
-      version: 'v2',
     });
     
     if (matchingKeys.length === 0) {
@@ -468,7 +463,7 @@ export class AnalyticsCacheV2 {
     const totalDuration = Date.now() - startTime;
     const fetchDuration = Date.now() - fetchStart;
     
-    log.info('Cache query completed V2', {
+    log.info('Cache query completed', {
       datasourceId,
       measure,
       frequency,
@@ -477,7 +472,6 @@ export class AnalyticsCacheV2 {
       indexLookupDuration,
       fetchDuration,
       totalDuration,
-      version: 'v2',
     });
     
     // Cleanup temp keys (fire and forget)
@@ -503,7 +497,7 @@ export class AnalyticsCacheV2 {
    * Uses master index for efficient cleanup
    */
   async invalidate(datasourceId: number): Promise<void> {
-    log.info('Starting cache invalidation V2', { datasourceId, version: 'v2' });
+    log.info('Starting cache invalidation', { datasourceId });
     const startTime = Date.now();
     
     // Use master index to find all keys
@@ -515,10 +509,9 @@ export class AnalyticsCacheV2 {
       return;
     }
     
-    log.info('Invalidating cache entries V2', {
+    log.info('Invalidating cache entries', {
       datasourceId,
       keysToDelete: allCacheKeys.length,
-      version: 'v2',
     });
     
     // Delete all cache keys in batches
@@ -554,12 +547,11 @@ export class AnalyticsCacheV2 {
     
     const duration = Date.now() - startTime;
     
-    log.info('Cache invalidation completed V2', {
+    log.info('Cache invalidation completed', {
       datasourceId,
       cacheKeysDeleted: allCacheKeys.length,
       indexKeysDeleted: indexKeys.length,
       duration,
-      version: 'v2',
     });
   }
 
@@ -611,11 +603,10 @@ export class AnalyticsCacheV2 {
       estimatedMemoryMB: Math.round(estimatedMemoryMB * 100) / 100,
       lastWarmed: lastWarm || null,
       isWarm: lastWarm !== null,
-      version: 'v2',
     };
   }
 }
 
 // Export singleton instance
-export const analyticsCacheV2 = new AnalyticsCacheV2();
+export const indexedAnalyticsCache = new IndexedAnalyticsCache();
 

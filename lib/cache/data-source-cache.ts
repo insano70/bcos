@@ -1,8 +1,8 @@
 /**
- * Data Source Cache Service (V2 with Secondary Index Sets)
+ * Data Source Cache Service (with Secondary Index Sets)
  * 
  * Redis-backed cache for analytics data source query results with in-memory RBAC filtering.
- * Delegates to AnalyticsCacheV2 for efficient index-based cache operations.
+ * Delegates to IndexedAnalyticsCache for efficient index-based cache operations.
  * 
  * KEY FEATURES:
  * - Secondary index sets for O(1) cache lookups (no hierarchy fallback or SCAN)
@@ -29,10 +29,10 @@ import { chartConfigService } from '@/lib/services/chart-config-service';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 import { PermissionChecker } from '@/lib/rbac/permission-checker';
 import { buildChartRenderContext } from '@/lib/utils/chart-context';
-import { analyticsCacheV2 } from './analytics-cache-v2';
+import { indexedAnalyticsCache } from './indexed-analytics-cache';
 import type { ChartRenderContext, ChartFilter } from '@/lib/types/analytics';
 import type { UserContext } from '@/lib/types/rbac';
-import type { CacheQueryFilters } from './analytics-cache-v2';
+import type { CacheQueryFilters } from './indexed-analytics-cache';
 
 /**
  * Cache key components (dimensions used in cache key building)
@@ -122,10 +122,10 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
   }
   
   /**
-   * Get cached data (V2 with secondary index sets)
-   * Tries V2 cache first with O(1) index lookup
+   * Get cached data (with secondary index sets)
+   * Tries indexed cache first with O(1) index lookup
    * 
-   * V2 caches data at granular level (measure + practice + provider + frequency)
+   * Caches data at granular level (measure + practice + provider + frequency)
    * and uses secondary indexes for efficient selective fetching
    */
   async getCached(components: CacheKeyComponents): Promise<{
@@ -133,12 +133,12 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
     cacheKey: string;
     cacheLevel: number;
   } | null> {
-    // Check if V2 cache is warm for this datasource
-    const isWarm = await analyticsCacheV2.isCacheWarm(components.dataSourceId);
+    // Check if indexed cache is warm for this datasource
+    const isWarm = await indexedAnalyticsCache.isCacheWarm(components.dataSourceId);
     
     if (isWarm && components.measure && components.frequency) {
-      // Try V2 cache with index lookup
-      const v2Filters: CacheQueryFilters = {
+      // Try indexed cache with index lookup
+      const filters: CacheQueryFilters = {
         datasourceId: components.dataSourceId,
         measure: components.measure,
         frequency: components.frequency,
@@ -147,32 +147,30 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
       };
       
       try {
-        const rows = await analyticsCacheV2.query(v2Filters);
+        const rows = await indexedAnalyticsCache.query(filters);
         
         if (rows.length > 0) {
-          log.info('Data source cache hit V2', {
-            cacheKey: `v2:ds:${components.dataSourceId}:m:${components.measure}:freq:${components.frequency}`,
+          log.info('Data source cache hit', {
+            cacheKey: `ds:${components.dataSourceId}:m:${components.measure}:freq:${components.frequency}`,
             cacheLevel: 0,
             rowCount: rows.length,
-            version: 'v2',
           });
           
           return {
             rows,
-            cacheKey: `v2:ds:${components.dataSourceId}:m:${components.measure}`,
+            cacheKey: `ds:${components.dataSourceId}:m:${components.measure}`,
             cacheLevel: 0,
           };
         }
       } catch (error) {
-        log.warn('V2 cache query failed, will try database', { error, components });
+        log.warn('Cache query failed, will try database', { error, components });
       }
     }
     
-    log.info('Data source cache miss V2', {
+    log.info('Data source cache miss', {
       dataSourceId: components.dataSourceId,
       measure: components.measure,
       isWarm,
-      version: 'v2',
     });
     
     return null;
@@ -1091,10 +1089,10 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
   }
   
   /**
-   * Warm cache for a specific data source (delegates to V2)
+   * Warm cache for a specific data source (delegates to indexed cache)
    * Fetches all data and caches it with secondary index sets
    * 
-   * SECURITY: V2 uses distributed locking to prevent concurrent warming
+   * SECURITY: Uses distributed locking to prevent concurrent warming
    * Called by scheduled job every 4 hours (matches data update schedule)
    */
   async warmDataSource(dataSourceId: number): Promise<{
@@ -1103,10 +1101,10 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
     duration: number;
     skipped?: boolean;
   }> {
-    log.info('Warming data source cache V2', { dataSourceId, version: 'v2' });
+    log.info('Warming data source cache', { dataSourceId });
     
-    // Delegate to V2 cache which handles locking, grouping, and index creation
-    return await analyticsCacheV2.warmCache(dataSourceId);
+    // Delegate to indexed cache which handles locking, grouping, and index creation
+    return await indexedAnalyticsCache.warmCache(dataSourceId);
   }
   
   /**

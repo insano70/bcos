@@ -1,12 +1,12 @@
 #!/usr/bin/env tsx
 /**
- * Warm V2 Cache for All Data Sources
+ * Warm Analytics Cache for All Data Sources
  * 
- * This script warms the Redis V2 cache by fetching all data from each
+ * This script warms the Redis cache by fetching all data from each
  * analytics data source and populating the cache with secondary index sets.
  * 
  * Usage:
- *   pnpm tsx scripts/warm-cache-v2.ts
+ *   pnpm tsx scripts/warm-analytics-cache.ts
  */
 
 // Load environment variables from .env.local
@@ -19,7 +19,7 @@ import { dataSourceCache } from '@/lib/cache/data-source-cache';
 import { chartConfigService } from '@/lib/services/chart-config-service';
 
 async function warmAllCaches() {
-  console.log('🔥 Starting V2 cache warming for all data sources...\n');
+  console.log('🔥 Starting cache warming for all data sources...\n');
   
   const startTime = Date.now();
   

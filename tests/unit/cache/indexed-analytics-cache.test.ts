@@ -53,10 +53,10 @@ vi.mock('@/lib/services/chart-config-service', () => ({
   },
 }));
 
-import { AnalyticsCacheV2, type CacheEntry, type CacheQueryFilters } from '@/lib/cache/analytics-cache-v2';
+import { IndexedAnalyticsCache, type CacheEntry, type CacheQueryFilters } from '@/lib/cache/indexed-analytics-cache';
 
-describe('AnalyticsCacheV2', () => {
-  let cache: AnalyticsCacheV2;
+describe('IndexedAnalyticsCache', () => {
+  let cache: IndexedAnalyticsCache;
   let mockRedis: Partial<Redis>;
   const datasourceId = 1;
 
@@ -90,17 +90,17 @@ describe('AnalyticsCacheV2', () => {
     mockGetRedisClient.mockReturnValue(mockRedis);
 
     // Create cache instance
-    cache = new AnalyticsCacheV2();
+    cache = new IndexedAnalyticsCache();
   });
 
   describe('Constructor', () => {
     it('should throw error if Redis client is not available', () => {
       mockGetRedisClient.mockReturnValue(null);
-      expect(() => new AnalyticsCacheV2()).toThrow('Redis client not available');
+      expect(() => new IndexedAnalyticsCache()).toThrow('Redis client not available');
     });
 
     it('should initialize successfully with valid Redis client', () => {
-      expect(cache).toBeInstanceOf(AnalyticsCacheV2);
+      expect(cache).toBeInstanceOf(IndexedAnalyticsCache);
     });
   });
 
