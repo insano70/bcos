@@ -757,6 +757,69 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
   }
   
   /**
+   * Apply advanced filters in-memory
+   * Used when serving from cache (where SQL filters cannot be applied)
+   * 
+   * @param rows - Data rows to filter
+   * @param filters - Advanced filter definitions (e.g., practice_uid IN [114])
+   * @returns Filtered rows
+   */
+  private applyAdvancedFiltersInMemory(
+    rows: Record<string, unknown>[],
+    filters: ChartFilter[]
+  ): Record<string, unknown>[] {
+    return rows.filter((row) => {
+      // All filters must pass (AND logic)
+      for (const filter of filters) {
+        const fieldValue = row[filter.field];
+        const filterValue = filter.value;
+        const operator = filter.operator || 'eq';
+        
+        switch (operator) {
+          case 'eq':
+            if (fieldValue !== filterValue) return false;
+            break;
+          case 'neq':
+            if (fieldValue === filterValue) return false;
+            break;
+          case 'gt':
+            if (!(typeof fieldValue === 'number' && typeof filterValue === 'number' && fieldValue > filterValue)) return false;
+            break;
+          case 'gte':
+            if (!(typeof fieldValue === 'number' && typeof filterValue === 'number' && fieldValue >= filterValue)) return false;
+            break;
+          case 'lt':
+            if (!(typeof fieldValue === 'number' && typeof filterValue === 'number' && fieldValue < filterValue)) return false;
+            break;
+          case 'lte':
+            if (!(typeof fieldValue === 'number' && typeof filterValue === 'number' && fieldValue <= filterValue)) return false;
+            break;
+          case 'in':
+            if (!Array.isArray(filterValue)) return false;
+            // Type guard: fieldValue could be any type, check if it's in the array
+            if (!(filterValue as unknown[]).includes(fieldValue)) return false;
+            break;
+          case 'not_in':
+            if (!Array.isArray(filterValue)) return true; // If not array, pass
+            // Type guard: fieldValue could be any type, check if it's NOT in the array
+            if ((filterValue as unknown[]).includes(fieldValue)) return false;
+            break;
+          case 'like':
+            if (typeof fieldValue !== 'string' || typeof filterValue !== 'string') return false;
+            if (!fieldValue.toLowerCase().includes(filterValue.toLowerCase())) return false;
+            break;
+          default:
+            log.warn('Unsupported in-memory filter operator', { operator, field: filter.field });
+            return false;
+        }
+      }
+      
+      // All filters passed
+      return true;
+    });
+  }
+  
+  /**
    * Fetch data source with caching
    * Main entry point - handles cache lookup, database fallback, and in-memory filtering
    * 
@@ -807,7 +870,21 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
           );
         }
         
-        // Note: Advanced filters already applied in SQL query (Task 1.5)
+        // 3. CRITICAL FIX: Apply advanced filters (dashboard/organization filters) in-memory
+        // These are NOT applied during cache population, so must be applied when serving from cache
+        if (params.advancedFilters && params.advancedFilters.length > 0) {
+          const rowCountBeforeAdvanced = filteredRows.length;
+          filteredRows = this.applyAdvancedFiltersInMemory(filteredRows, params.advancedFilters);
+          
+          log.info('Advanced filters applied in-memory (cache hit path)', {
+            userId: context.user_id,
+            filterCount: params.advancedFilters.length,
+            filters: params.advancedFilters,
+            beforeFilter: rowCountBeforeAdvanced,
+            afterFilter: filteredRows.length,
+            rowsFiltered: rowCountBeforeAdvanced - filteredRows.length,
+          });
+        }
         
         const duration = Date.now() - startTime;
         
@@ -859,7 +936,27 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
       );
     }
     
-    // Note: Advanced filters already applied in SQL query (Task 1.5)
+    // 3. CRITICAL FIX: Apply advanced filters if NOT applied in SQL
+    // Note: Advanced filters ARE applied in SQL query (Task 1.5), but as a safety measure,
+    // we verify and log if they would have filtered additional rows (indicates SQL issue)
+    if (params.advancedFilters && params.advancedFilters.length > 0) {
+      const rowCountBefore = filteredRows.length;
+      const testFiltered = this.applyAdvancedFiltersInMemory(filteredRows, params.advancedFilters);
+      
+      if (testFiltered.length !== rowCountBefore) {
+        log.error('Advanced filters NOT applied in SQL - applying in-memory as fallback', {
+          userId: context.user_id,
+          filterCount: params.advancedFilters.length,
+          filters: params.advancedFilters,
+          beforeFilter: rowCountBefore,
+          afterFilter: testFiltered.length,
+          rowsFiltered: rowCountBefore - testFiltered.length,
+          source: 'cache_miss_path',
+          action: 'fallback_applied',
+        });
+        filteredRows = testFiltered;
+      }
+    }
     
     const duration = Date.now() - startTime;
     

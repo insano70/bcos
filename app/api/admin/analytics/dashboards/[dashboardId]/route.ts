@@ -19,11 +19,12 @@ const getDashboardHandler = async (
   userContext: UserContext,
   ...args: unknown[]
 ) => {
-  const { params } = args[0] as { params: { dashboardId: string } };
+  const { params } = args[0] as { params: Promise<{ dashboardId: string }> };
+  const { dashboardId } = await params;
   const startTime = Date.now();
 
   log.info('Dashboard get request initiated', {
-    dashboardId: params.dashboardId,
+    dashboardId,
     requestingUserId: userContext.user_id,
   });
 
@@ -32,7 +33,7 @@ const getDashboardHandler = async (
     const dashboardsService = createRBACDashboardsService(userContext);
 
     // Get dashboard with automatic permission checking
-    const dashboard = await dashboardsService.getDashboardById(params.dashboardId);
+    const dashboard = await dashboardsService.getDashboardById(dashboardId);
 
     if (!dashboard) {
       return createErrorResponse('Dashboard not found', 404);
@@ -52,7 +53,7 @@ const getDashboardHandler = async (
     );
   } catch (error) {
     log.error('Dashboard get error', error, {
-      dashboardId: params.dashboardId,
+      dashboardId,
       requestingUserId: userContext.user_id,
     });
 
@@ -73,11 +74,12 @@ const updateDashboardHandler = async (
   userContext: UserContext,
   ...args: unknown[]
 ) => {
-  const { params } = args[0] as { params: { dashboardId: string } };
+  const { params } = args[0] as { params: Promise<{ dashboardId: string }> };
+  const { dashboardId } = await params;
   const startTime = Date.now();
 
   log.info('Dashboard update request initiated', {
-    dashboardId: params.dashboardId,
+    dashboardId,
     requestingUserId: userContext.user_id,
   });
 
@@ -91,14 +93,14 @@ const updateDashboardHandler = async (
     // Update dashboard through service with automatic permission checking
     // Cast is safe because validated data matches UpdateDashboardData structure
     const updatedDashboard = await dashboardsService.updateDashboard(
-      params.dashboardId,
+      dashboardId,
       validatedData as Parameters<typeof dashboardsService.updateDashboard>[1]
     );
 
     log.db('UPDATE', 'dashboards', Date.now() - startTime, { rowCount: 1 });
 
     log.info('Dashboard updated successfully', {
-      dashboardId: params.dashboardId,
+      dashboardId,
       dashboardName: updatedDashboard.dashboard_name,
       updatedBy: userContext.user_id,
     });
@@ -106,7 +108,7 @@ const updateDashboardHandler = async (
     return createSuccessResponse({ dashboard: updatedDashboard }, 'Dashboard updated successfully');
   } catch (error) {
     log.error('Dashboard update error', error, {
-      dashboardId: params.dashboardId,
+      dashboardId,
       requestingUserId: userContext.user_id,
     });
 
@@ -127,11 +129,12 @@ const deleteDashboardHandler = async (
   userContext: UserContext,
   ...args: unknown[]
 ) => {
-  const { params } = args[0] as { params: { dashboardId: string } };
+  const { params } = args[0] as { params: Promise<{ dashboardId: string }> };
+  const { dashboardId } = await params;
   const startTime = Date.now();
 
   log.info('Dashboard delete request initiated', {
-    dashboardId: params.dashboardId,
+    dashboardId,
     requestingUserId: userContext.user_id,
   });
 
@@ -140,19 +143,19 @@ const deleteDashboardHandler = async (
     const dashboardsService = createRBACDashboardsService(userContext);
 
     // Get dashboard before deletion for logging
-    const dashboard = await dashboardsService.getDashboardById(params.dashboardId);
+    const dashboard = await dashboardsService.getDashboardById(dashboardId);
 
     if (!dashboard) {
       return createErrorResponse('Dashboard not found', 404);
     }
 
     // Delete dashboard through service with automatic permission checking
-    await dashboardsService.deleteDashboard(params.dashboardId);
+    await dashboardsService.deleteDashboard(dashboardId);
 
     log.db('DELETE', 'dashboards', Date.now() - startTime, { rowCount: 1 });
 
     log.info('Dashboard deleted successfully', {
-      dashboardId: params.dashboardId,
+      dashboardId,
       dashboardName: dashboard.dashboard_name,
       deletedBy: userContext.user_id,
     });
@@ -165,7 +168,7 @@ const deleteDashboardHandler = async (
     );
   } catch (error) {
     log.error('Dashboard delete error', error, {
-      dashboardId: params.dashboardId,
+      dashboardId,
       requestingUserId: userContext.user_id,
     });
 
