@@ -18,20 +18,19 @@
  */
 
 import { log } from '@/lib/logger';
-import type { UserContext } from '@/lib/types/rbac';
 import type { ChartData } from '@/lib/types/analytics';
+import type { UserContext } from '@/lib/types/rbac';
 import { chartDataOrchestrator } from './chart-data-orchestrator';
-import { createRBACDashboardsService } from './rbac-dashboards-service';
-import { createRBACChartsService } from './rbac-charts-service';
+import { DashboardQueryCache, generateQueryHash } from './dashboard-query-cache';
 import { createOrganizationAccessService } from './organization-access-service';
 import { organizationHierarchyService } from './organization-hierarchy-service';
-import { generateQueryHash, DashboardQueryCache } from './dashboard-query-cache';
-import { chartTypeRegistry } from './chart-type-registry';
+import { createRBACChartsService } from './rbac-charts-service';
+import { createRBACDashboardsService } from './rbac-dashboards-service';
 
 /**
  * Dashboard-level universal filters
  * These apply to ALL charts in the dashboard
- * 
+ *
  * Security Note:
  * - practiceUids is auto-populated from organizationId (includes hierarchy)
  * - Not directly user-editable (security critical)
@@ -42,7 +41,7 @@ export interface DashboardUniversalFilters {
   dateRangePreset?: string;
   organizationId?: string;
   providerName?: string;
-  
+
   // Auto-populated from organizationId (not directly user-editable)
   // Includes hierarchy: if org has children, their practice_uids are included
   practiceUids?: number[];
@@ -90,13 +89,13 @@ export interface DashboardRenderResponse {
     chartsRendered: number;
     dashboardFiltersApplied: string[];
     parallelExecution: boolean;
-    
+
     // Phase 7: Query deduplication metrics
     deduplication: {
       enabled: boolean;
-      queriesDeduped: number;        // How many charts reused queries
-      uniqueQueries: number;          // How many unique queries executed
-      deduplicationRate: number;      // Percentage of queries saved
+      queriesDeduped: number; // How many charts reused queries
+      uniqueQueries: number; // How many unique queries executed
+      deduplicationRate: number; // Percentage of queries saved
     };
   };
 }
@@ -122,7 +121,7 @@ export class DashboardRenderer {
     userContext: UserContext
   ): Promise<DashboardRenderResponse> {
     const startTime = Date.now();
-    
+
     // Phase 7: Query deduplication cache (per-render scope)
     const queryCache = new DashboardQueryCache();
 
@@ -153,12 +152,12 @@ export class DashboardRenderer {
           universalFilters.organizationId
         );
 
-      log.info('Dashboard organization filter processed', {
-        dashboardId,
-        organizationId: universalFilters.organizationId || null,
-        practiceUidCount: universalFilters.practiceUids?.length || 0,
-        practiceUids: universalFilters.practiceUids || [],
-      });
+        log.info('Dashboard organization filter processed', {
+          dashboardId,
+          organizationId: universalFilters.organizationId || null,
+          practiceUidCount: universalFilters.practiceUids?.length || 0,
+          practiceUids: universalFilters.practiceUids || [],
+        });
       }
 
       // 2. Load chart definitions for THIS dashboard only
@@ -189,12 +188,12 @@ export class DashboardRenderer {
 
       // FIX #2: Load full chart definitions (dashboard.charts has minimal info)
       const chartsService = createRBACChartsService(userContext);
-      const fullChartDefsPromises = dashboardCharts.map(dashboardChart =>
+      const fullChartDefsPromises = dashboardCharts.map((dashboardChart) =>
         chartsService.getChartById(dashboardChart.chart_definition_id)
       );
 
       const fullChartDefs = await Promise.all(fullChartDefsPromises);
-      
+
       // Filter out nulls and inactive charts
       const validCharts = fullChartDefs.filter((chart) => chart?.is_active);
 
@@ -224,7 +223,7 @@ export class DashboardRenderer {
         dashboardId,
         totalCharts: dashboardCharts.length,
         validCharts: validCharts.length,
-        chartTypes: validCharts.map(c => c?.chart_type || 'unknown'),
+        chartTypes: validCharts.map((c) => c?.chart_type || 'unknown'),
       });
 
       // 4. Render all charts in parallel with universal filters
@@ -251,19 +250,27 @@ export class DashboardRenderer {
             operator?: string;
             value?: unknown;
           }
-          
-          const dataSource = chartDef.data_source as { filters?: DataSourceFilter[]; advancedFilters?: unknown[] } || {};
+
+          const dataSource =
+            (chartDef.data_source as {
+              filters?: DataSourceFilter[];
+              advancedFilters?: unknown[];
+            }) || {};
           const dataSourceFilters = dataSource.filters || [];
 
-          const measureFilter = dataSourceFilters.find(f => f.field === 'measure');
-          const frequencyFilter = dataSourceFilters.find(f => f.field === 'frequency');
-          const practiceFilter = dataSourceFilters.find(f => f.field === 'practice_uid');
-          const startDateFilter = dataSourceFilters.find(f => f.field === 'date_index' && f.operator === 'gte');
-          const endDateFilter = dataSourceFilters.find(f => f.field === 'date_index' && f.operator === 'lte');
+          const measureFilter = dataSourceFilters.find((f) => f.field === 'measure');
+          const frequencyFilter = dataSourceFilters.find((f) => f.field === 'frequency');
+          const practiceFilter = dataSourceFilters.find((f) => f.field === 'practice_uid');
+          const startDateFilter = dataSourceFilters.find(
+            (f) => f.field === 'date_index' && f.operator === 'gte'
+          );
+          const endDateFilter = dataSourceFilters.find(
+            (f) => f.field === 'date_index' && f.operator === 'lte'
+          );
 
           // FIX #4: Build runtimeFilters from data_source filters
           const runtimeFilters: Record<string, unknown> = {};
-          
+
           // Extract from data_source.filters
           if (measureFilter?.value) runtimeFilters.measure = measureFilter.value;
           if (frequencyFilter?.value) runtimeFilters.frequency = frequencyFilter.value;
@@ -291,7 +298,7 @@ export class DashboardRenderer {
           );
 
           // FIX: Flatten nested series.* fields (handlers expect top-level)
-          const chartConfigTyped = chartDef.chart_config as { 
+          const chartConfigTyped = chartDef.chart_config as {
             series?: { groupBy?: string; colorPalette?: string };
             groupBy?: string;
             colorPalette?: string;
@@ -326,8 +333,10 @@ export class DashboardRenderer {
           }
 
           if (chartDef.chart_type === 'progress-bar') {
-            if (chartConfigTyped.aggregation) finalChartConfig.aggregation = chartConfigTyped.aggregation;
-            if (chartConfigTyped.target !== undefined) finalChartConfig.target = chartConfigTyped.target;
+            if (chartConfigTyped.aggregation)
+              finalChartConfig.aggregation = chartConfigTyped.aggregation;
+            if (chartConfigTyped.target !== undefined)
+              finalChartConfig.target = chartConfigTyped.target;
           }
 
           if (chartConfigTyped.stackingMode) {
@@ -335,7 +344,8 @@ export class DashboardRenderer {
           }
 
           // CRITICAL: Multi-series support - field stored as 'seriesConfigs' but passed as 'multipleSeries'
-          const seriesConfigs = (chartDef.chart_config as { seriesConfigs?: unknown[] })?.seriesConfigs;
+          const seriesConfigs = (chartDef.chart_config as { seriesConfigs?: unknown[] })
+            ?.seriesConfigs;
           if (seriesConfigs && Array.isArray(seriesConfigs) && seriesConfigs.length > 0) {
             finalChartConfig.multipleSeries = seriesConfigs;
           }
@@ -361,7 +371,10 @@ export class DashboardRenderer {
             // Execute chart via orchestrator - returns full OrchestrationResult
             return await chartDataOrchestrator.orchestrate(
               {
-                chartConfig: finalChartConfig as typeof finalChartConfig & { chartType: string; dataSourceId: number },
+                chartConfig: finalChartConfig as typeof finalChartConfig & {
+                  chartType: string;
+                  dataSourceId: number;
+                },
                 runtimeFilters, // FIX #4: Pass extracted filters to orchestrator
               },
               userContext
@@ -369,8 +382,10 @@ export class DashboardRenderer {
           });
 
           // FIX #6: Include measure/frequency/groupBy in metadata
-          const groupByValue = (chartDef.chart_config as { groupBy?: string; series?: { groupBy?: string } })?.groupBy || 
-                              (chartDef.chart_config as { series?: { groupBy?: string } })?.series?.groupBy;
+          const groupByValue =
+            (chartDef.chart_config as { groupBy?: string; series?: { groupBy?: string } })
+              ?.groupBy ||
+            (chartDef.chart_config as { series?: { groupBy?: string } })?.series?.groupBy;
 
           const chartResult: ChartRenderResult = {
             chartData: result.chartData,
@@ -389,7 +404,7 @@ export class DashboardRenderer {
           // FIX #6: Add optional fields only if they exist (exactOptionalPropertyTypes)
           const measureValue = measureFilter?.value?.toString();
           const frequencyValue = frequencyFilter?.value?.toString();
-          
+
           if (measureValue) chartResult.metadata.measure = measureValue;
           if (frequencyValue) chartResult.metadata.frequency = frequencyValue;
           if (groupByValue) chartResult.metadata.groupBy = groupByValue;
@@ -440,7 +455,7 @@ export class DashboardRenderer {
       }
 
       const duration = Date.now() - startTime;
-      
+
       // Phase 7: Get deduplication statistics
       const dedupStats = queryCache.getStats();
 
@@ -472,7 +487,7 @@ export class DashboardRenderer {
           chartsRendered: Object.keys(charts).length,
           dashboardFiltersApplied: this.getAppliedFilterNames(universalFilters),
           parallelExecution: true,
-          
+
           // Phase 7: Query deduplication metrics
           deduplication: {
             enabled: true,
@@ -568,12 +583,16 @@ export class DashboardRenderer {
 
     // No analytics permission
     if (accessInfo.scope === 'none') {
-      log.security('User without analytics permission attempted to use organization filter - denied', 'medium', {
-        userId: userContext.user_id,
-        requestedOrganizationId: organizationId,
-        blocked: true,
-        reason: 'no_analytics_permission',
-      });
+      log.security(
+        'User without analytics permission attempted to use organization filter - denied',
+        'medium',
+        {
+          userId: userContext.user_id,
+          requestedOrganizationId: organizationId,
+          blocked: true,
+          reason: 'no_analytics_permission',
+        }
+      );
 
       throw new Error('Access denied: You do not have analytics permissions.');
     }
@@ -630,7 +649,10 @@ export class DashboardRenderer {
       merged.endDate = universalFilters.endDate;
     }
 
-    if (universalFilters.dateRangePreset !== null && universalFilters.dateRangePreset !== undefined) {
+    if (
+      universalFilters.dateRangePreset !== null &&
+      universalFilters.dateRangePreset !== undefined
+    ) {
       merged.dateRangePreset = universalFilters.dateRangePreset;
     }
 
@@ -665,9 +687,7 @@ export class DashboardRenderer {
 
     return applied;
   }
-
 }
 
 // Export singleton instance
 export const dashboardRenderer = new DashboardRenderer();
-

@@ -42,8 +42,8 @@ const errorsHandler = async (request: NextRequest) => {
       operation: result.operation || 'unknown',
       endpoint: result.endpoint || 'unknown',
       statusCode: parseInt(result.statusCode || '500', 10),
-      correlationId: result.correlationId,
-      userId: result.userId,
+      ...(result.correlationId && { correlationId: result.correlationId }),
+      ...(result.userId && { userId: result.userId }),
     }));
 
     // Calculate summary

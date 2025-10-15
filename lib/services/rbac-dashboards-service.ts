@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, isNull, like, or, sql, type SQL } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNull, like, or, type SQL, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   chart_categories,
@@ -7,7 +7,13 @@ import {
   dashboards,
   users,
 } from '@/lib/db/schema';
-import { log, logTemplates, calculateChanges, sanitizeFilters, SLOW_THRESHOLDS } from '@/lib/logger';
+import {
+  calculateChanges,
+  log,
+  logTemplates,
+  SLOW_THRESHOLDS,
+  sanitizeFilters,
+} from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
 import { PermissionDeniedError } from '@/lib/types/rbac';
 
@@ -207,12 +213,13 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
 
         // Also apply org filter (universal OR user's orgs)
         if (this.accessibleOrgIds.length > 0) {
-          conditions.push(
-            or(
-              isNull(dashboards.organization_id), // Universal dashboards
-              inArray(dashboards.organization_id, this.accessibleOrgIds)
-            )!
+          const orgCondition = or(
+            isNull(dashboards.organization_id), // Universal dashboards
+            inArray(dashboards.organization_id, this.accessibleOrgIds)
           );
+          if (orgCondition) {
+            conditions.push(orgCondition);
+          }
         } else {
           // No orgs - only universal dashboards
           conditions.push(isNull(dashboards.organization_id));
@@ -222,12 +229,13 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
       case 'organization':
         // Organization scope: universal OR user's accessible orgs
         if (this.accessibleOrgIds.length > 0) {
-          conditions.push(
-            or(
-              isNull(dashboards.organization_id), // Universal dashboards
-              inArray(dashboards.organization_id, this.accessibleOrgIds)
-            )!
+          const orgCondition = or(
+            isNull(dashboards.organization_id), // Universal dashboards
+            inArray(dashboards.organization_id, this.accessibleOrgIds)
           );
+          if (orgCondition) {
+            conditions.push(orgCondition);
+          }
         } else {
           // No accessible orgs - only universal dashboards
           conditions.push(isNull(dashboards.organization_id));
@@ -261,12 +269,13 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
     }
 
     if (options.search) {
-      conditions.push(
-        or(
-          like(dashboards.dashboard_name, `%${options.search}%`),
-          like(dashboards.dashboard_description, `%${options.search}%`)
-        )!
+      const searchCondition = or(
+        like(dashboards.dashboard_name, `%${options.search}%`),
+        like(dashboards.dashboard_description, `%${options.search}%`)
       );
+      if (searchCondition) {
+        conditions.push(searchCondition);
+      }
     }
 
     return conditions;
@@ -705,17 +714,12 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
 
     // If setting specific organization, validate user has access
     if (organizationId && !this.canAccessOrganization(organizationId)) {
-      throw new Error(
-        `Cannot create dashboard for organization ${organizationId}: Access denied`
-      );
+      throw new Error(`Cannot create dashboard for organization ${organizationId}: Access denied`);
     }
 
     // If setting this as default, clear any existing default dashboard
     if (data.is_default === true) {
-      await db
-        .update(dashboards)
-        .set({ is_default: false })
-        .where(eq(dashboards.is_default, true));
+      await db.update(dashboards).set({ is_default: false }).where(eq(dashboards.is_default, true));
     }
 
     // Create new dashboard
@@ -1031,8 +1035,4 @@ export const createRBACDashboardsService = (
 };
 
 // Re-export the class for backwards compatibility during migration
-export class RBACDashboardsService extends RBACDashboardsServiceImpl {
-  constructor(userContext: UserContext) {
-    super(userContext);
-  }
-}
+export class RBACDashboardsService extends RBACDashboardsServiceImpl {}

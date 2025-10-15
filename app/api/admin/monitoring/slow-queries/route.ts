@@ -41,7 +41,7 @@ const slowQueriesHandler = async (request: NextRequest) => {
 
     // Query CloudWatch Logs for slow database queries
     const cloudwatchResults = await querySlowQueries(timeRange, threshold, limit);
-    
+
     // Transform CloudWatch results to SlowQuery objects
     const queries: SlowQuery[] = cloudwatchResults.map((result) => ({
       timestamp: result['@timestamp'] || new Date().toISOString(),
@@ -49,8 +49,8 @@ const slowQueriesHandler = async (request: NextRequest) => {
       table: result.table || 'unknown',
       duration: parseInt(result.duration || '0', 10),
       recordCount: parseInt(result.recordCount || '0', 10),
-      correlationId: result.correlationId,
-      userId: result.userId,
+      ...(result.correlationId && { correlationId: result.correlationId }),
+      ...(result.userId && { userId: result.userId }),
     }));
 
     // Calculate summary

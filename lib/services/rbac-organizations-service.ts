@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, isNotNull, isNull, like, sql } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNotNull, isNull, like, sql, type SQL } from 'drizzle-orm';
 import {
   AuthorizationError,
   NotFoundError,
@@ -205,8 +205,8 @@ class OrganizationsService implements OrganizationsServiceInterface {
    * Build RBAC WHERE conditions based on user permissions
    * Filters at database level for performance
    */
-  private buildRBACWhereConditions(): any[] {
-    const conditions = [eq(organizations.is_active, true), isNull(organizations.deleted_at)];
+  private buildRBACWhereConditions(): SQL<unknown>[] {
+    const conditions: SQL<unknown>[] = [eq(organizations.is_active, true), isNull(organizations.deleted_at)];
 
     if (!this.canReadAll) {
       if (this.canReadOrganization && this.accessibleOrgIds.length > 0) {
