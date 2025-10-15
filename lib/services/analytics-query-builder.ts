@@ -482,31 +482,32 @@ export class AnalyticsQueryBuilder {
         };
 
         // Fetch with caching (passing UserContext - ChartRenderContext built internally)
-        const rows = await dataSourceCache.fetchDataSource(
+        const fetchResult = await dataSourceCache.fetchDataSource(
           cacheParams,
           userContext, // Pass UserContext (fetchDataSource builds ChartRenderContext internally)
           params.nocache || false
         );
 
         // Calculate total using MeasureAccessor for dynamic column access
-        const totalCount = await this.calculateTotal(rows as AggAppMeasure[], params.data_source_id);
+        const totalCount = await this.calculateTotal(fetchResult.rows as AggAppMeasure[], params.data_source_id);
 
         const duration = Date.now() - startTime;
 
         const result: AnalyticsQueryResult = {
-          data: rows as AggAppMeasure[],
+          data: fetchResult.rows as AggAppMeasure[],
           total_count: totalCount,
           query_time_ms: duration,
-          cache_hit: !params.nocache, // Approximate
+          cache_hit: fetchResult.cacheHit, // Now accurate!
         };
 
         this.log.info('Analytics query completed (with caching)', {
           dataSourceId: params.data_source_id,
           measure: params.measure,
           practiceUid: params.practice_uid,
-          rowCount: rows.length,
+          rowCount: fetchResult.rows.length,
           totalCount,
           duration,
+          cacheHit: fetchResult.cacheHit,
           userId: userContext.user_id,
         });
 

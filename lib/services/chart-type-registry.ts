@@ -46,12 +46,16 @@ export interface ChartTypeHandler {
    *
    * @param config - Merged chart configuration with runtime filters
    * @param userContext - User context for RBAC
-   * @returns Array of raw data records
+   * @returns Object with data array, cache hit status, and query time
    */
   fetchData(
     config: Record<string, unknown>,
     userContext: UserContext
-  ): Promise<Record<string, unknown>[]>;
+  ): Promise<{
+    data: Record<string, unknown>[];
+    cacheHit: boolean;
+    queryTimeMs: number;
+  }>;
 
   /**
    * Transform raw data into Chart.js format

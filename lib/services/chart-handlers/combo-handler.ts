@@ -28,7 +28,11 @@ export class ComboChartHandler extends BaseChartHandler {
    * @param userContext - User context for RBAC
    * @returns Combined data from both measures tagged with series_id
    */
-  async fetchData(config: Record<string, unknown>, userContext: UserContext): Promise<Record<string, unknown>[]> {
+  async fetchData(config: Record<string, unknown>, userContext: UserContext): Promise<{
+    data: Record<string, unknown>[];
+    cacheHit: boolean;
+    queryTimeMs: number;
+  }> {
     const startTime = Date.now();
 
     // Dual-axis charts require two separate data fetches for primary and secondary measures
@@ -58,18 +62,18 @@ export class ComboChartHandler extends BaseChartHandler {
       });
 
       // Fetch both datasets in parallel for performance
-      const [primaryData, secondaryData] = await Promise.all([
+      const [primaryResult, secondaryResult] = await Promise.all([
         super.fetchData(primaryConfig, userContext),
         super.fetchData(secondaryConfig, userContext),
       ]);
 
       // Tag data with series_id for transformation
-      const taggedPrimaryData = primaryData.map((record: Record<string, unknown>) => ({
+      const taggedPrimaryData = primaryResult.data.map((record: Record<string, unknown>) => ({
         ...record,
         series_id: 'primary',
       }));
 
-      const taggedSecondaryData = secondaryData.map((record: Record<string, unknown>) => ({
+      const taggedSecondaryData = secondaryResult.data.map((record: Record<string, unknown>) => ({
         ...record,
         series_id: 'secondary',
       }));
@@ -77,15 +81,23 @@ export class ComboChartHandler extends BaseChartHandler {
       const duration = Date.now() - startTime;
 
       log.info('Dual-axis data fetched successfully', {
-        primaryCount: primaryData.length,
-        secondaryCount: secondaryData.length,
+        primaryCount: primaryResult.data.length,
+        secondaryCount: secondaryResult.data.length,
         totalCount: taggedPrimaryData.length + taggedSecondaryData.length,
         duration,
         parallelFetch: true,
+        cacheHits: {
+          primary: primaryResult.cacheHit,
+          secondary: secondaryResult.cacheHit,
+        },
       });
 
       // Combine both datasets
-      return [...taggedPrimaryData, ...taggedSecondaryData];
+      return {
+        data: [...taggedPrimaryData, ...taggedSecondaryData],
+        cacheHit: primaryResult.cacheHit && secondaryResult.cacheHit, // Both must be cached for overall cache hit
+        queryTimeMs: Math.max(primaryResult.queryTimeMs, secondaryResult.queryTimeMs), // Use max of both queries
+      };
     } catch (error) {
       log.error('Failed to fetch dual-axis chart data', error, {
         chartType: 'dual-axis',

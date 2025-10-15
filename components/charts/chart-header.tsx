@@ -23,8 +23,8 @@ import { Download, RefreshCcw, Maximize2 } from 'lucide-react';
  * Chart header props
  */
 interface ChartHeaderProps {
-  /** Chart title */
-  title?: string;
+  /** Chart title (can be string or React element for custom formatting) */
+  title?: React.ReactNode;
 
   /** Export callback - called when export is requested */
   onExport?: (format: 'png' | 'pdf' | 'csv') => void;

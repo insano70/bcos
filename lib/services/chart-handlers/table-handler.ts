@@ -60,7 +60,11 @@ export class TableChartHandler extends BaseChartHandler {
    * @param userContext - User context for RBAC
    * @returns Row data (columns available via config.columns)
    */
-  async fetchData(config: Record<string, unknown>, userContext: UserContext): Promise<Record<string, unknown>[]> {
+  async fetchData(config: Record<string, unknown>, userContext: UserContext): Promise<{
+    data: Record<string, unknown>[];
+    cacheHit: boolean;
+    queryTimeMs: number;
+  }> {
     const dataSourceId = config.dataSourceId as number;
 
     // Get column metadata from data source with RBAC enforcement

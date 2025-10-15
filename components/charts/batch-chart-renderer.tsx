@@ -234,7 +234,14 @@ export default function BatchChartRenderer({
     <GlassCard className={`flex flex-col ${className}`}>
       {/* Chart Header */}
       <ChartHeader
-        title={chartDefinition.chart_name}
+        title={
+          <>
+            {chartDefinition.chart_name}
+            {process.env.NODE_ENV === 'development' && chartData.metadata.cacheHit && (
+              <span className="text-[0.65rem] ml-1 opacity-40">⚡</span>
+            )}
+          </>
+        }
         onExport={handleExport}
         onRefresh={onRetry || (() => {})}
         {...((chartDefinition.chart_type === 'bar' ||
@@ -308,13 +315,6 @@ export default function BatchChartRenderer({
           />
         )}
       </div>
-
-      {/* Performance Badge (dev mode only) */}
-      {process.env.NODE_ENV === 'development' && chartData.metadata.cacheHit && (
-        <div className="absolute top-2 right-2 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 text-xs px-2 py-1 rounded border border-green-300 dark:border-green-700">
-          ⚡ Cached
-        </div>
-      )}
 
       {/* Fullscreen Modal for Bar Charts */}
       {isFullscreen && (chartDefinition.chart_type === 'bar' || chartDefinition.chart_type === 'stacked-bar' || chartDefinition.chart_type === 'horizontal-bar') && (

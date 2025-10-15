@@ -1,11 +1,12 @@
 /**
- * Data Source Cache Service
+ * Data Source Cache Service (V2 with Secondary Index Sets)
  * 
  * Redis-backed cache for analytics data source query results with in-memory RBAC filtering.
- * Extends CacheService base class for consistency with other cache services.
+ * Delegates to AnalyticsCacheV2 for efficient index-based cache operations.
  * 
  * KEY FEATURES:
- * - Hierarchical cache keys with fallback (5 levels: full → measure+practice+freq → measure+practice → measure → data source)
+ * - Secondary index sets for O(1) cache lookups (no hierarchy fallback or SCAN)
+ * - Granular cache keys: one entry per (datasource, measure, practice_uid, provider_uid, frequency)
  * - In-memory RBAC filtering (maximum cache reuse across users)
  * - Date range and advanced filtering
  * - Graceful degradation (inherited from base)
@@ -28,8 +29,10 @@ import { chartConfigService } from '@/lib/services/chart-config-service';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 import { PermissionChecker } from '@/lib/rbac/permission-checker';
 import { buildChartRenderContext } from '@/lib/utils/chart-context';
+import { analyticsCacheV2 } from './analytics-cache-v2';
 import type { ChartRenderContext, ChartFilter } from '@/lib/types/analytics';
 import type { UserContext } from '@/lib/types/rbac';
+import type { CacheQueryFilters } from './analytics-cache-v2';
 
 /**
  * Cache key components (dimensions used in cache key building)
@@ -60,6 +63,14 @@ export interface CacheQueryParams {
 }
 
 /**
+ * Result from fetchDataSource including cache metadata
+ */
+export interface DataSourceFetchResult {
+  rows: Record<string, unknown>[];
+  cacheHit: boolean;
+}
+
+/**
  * Cached data entry structure
  */
 interface CachedDataEntry {
@@ -83,10 +94,6 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
   
   private readonly MAX_CACHE_SIZE = 50 * 1024 * 1024; // 50MB
   private readonly WILDCARD = '*';
-  
-  // Constants for cache warming
-  private readonly WARMING_LOCK_PREFIX = 'datasource:warming:lock';
-  private readonly WARMING_LOCK_TTL = 300; // 5 minutes
   
   // Standard columns that always exist across all data sources
   private readonly STANDARD_COLUMNS = new Set([
@@ -115,141 +122,60 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
   }
   
   /**
-   * Generate cache key fallback hierarchy
-   * Returns keys from most specific to least specific
+   * Get cached data (V2 with secondary index sets)
+   * Tries V2 cache first with O(1) index lookup
    * 
-   * CRITICAL "ALL OR NOTHING" STRATEGY:
-   * - If frequency is specified → ALL cache keys MUST include that frequency
-   * - If frequency is NOT specified → NO cache keys include frequency
-   * 
-   * This prevents Monthly charts from getting Daily/Weekly/Quarterly data mixed in
-   */
-  private generateKeyHierarchy(components: CacheKeyComponents): string[] {
-    const keys: string[] = [];
-    
-    // PATH A: Frequency IS specified - all keys must include it
-    if (components.frequency) {
-      // Level A4: measure + practice + provider + frequency (most specific)
-      if (components.measure && components.practiceUid && components.providerUid) {
-        keys.push(this.buildDataSourceKey({
-          dataSourceId: components.dataSourceId,
-          measure: components.measure,
-          practiceUid: components.practiceUid,
-          providerUid: components.providerUid,
-          frequency: components.frequency,
-        }));
-      }
-      
-      // Level A3: measure + practice + frequency (all providers for this practice)
-      if (components.measure && components.practiceUid) {
-        keys.push(this.buildDataSourceKey({
-          dataSourceId: components.dataSourceId,
-          measure: components.measure,
-          practiceUid: components.practiceUid,
-          frequency: components.frequency,
-        }));
-      }
-      
-      // Level A2: measure + frequency (all practices, all providers for this measure)
-      if (components.measure) {
-        keys.push(this.buildDataSourceKey({
-          dataSourceId: components.dataSourceId,
-          measure: components.measure,
-          frequency: components.frequency,
-        }));
-      }
-      
-      // Level A1: frequency only (widest cache for this specific frequency)
-      keys.push(this.buildDataSourceKey({
-        dataSourceId: components.dataSourceId,
-        frequency: components.frequency,
-      }));
-    } 
-    // PATH B: Frequency NOT specified - no keys include frequency
-    else {
-      // Level B4: measure + practice + provider (most specific, no frequency)
-      if (components.measure && components.practiceUid && components.providerUid) {
-        keys.push(this.buildDataSourceKey({
-          dataSourceId: components.dataSourceId,
-          measure: components.measure,
-          practiceUid: components.practiceUid,
-          providerUid: components.providerUid,
-        }));
-      }
-      
-      // Level B3: measure + practice (all providers)
-      if (components.measure && components.practiceUid) {
-        keys.push(this.buildDataSourceKey({
-          dataSourceId: components.dataSourceId,
-          measure: components.measure,
-          practiceUid: components.practiceUid,
-        }));
-      }
-      
-      // Level B2: measure only (all practices, all providers)
-      if (components.measure) {
-        keys.push(this.buildDataSourceKey({
-          dataSourceId: components.dataSourceId,
-          measure: components.measure,
-        }));
-      }
-      
-      // Level B1: Full data source (widest cache, all frequencies mixed)
-      keys.push(this.buildDataSourceKey({
-        dataSourceId: components.dataSourceId,
-      }));
-    }
-    
-    return keys;
-  }
-  
-  /**
-   * Get cached data with fallback hierarchy
-   * Tries keys from most specific to least specific
-   * 
-   * Uses inherited get() method from CacheService base class
+   * V2 caches data at granular level (measure + practice + provider + frequency)
+   * and uses secondary indexes for efficient selective fetching
    */
   async getCached(components: CacheKeyComponents): Promise<{
     rows: Record<string, unknown>[];
     cacheKey: string;
     cacheLevel: number;
   } | null> {
-    const keyHierarchy = this.generateKeyHierarchy(components);
+    // Check if V2 cache is warm for this datasource
+    const isWarm = await analyticsCacheV2.isCacheWarm(components.dataSourceId);
     
-    // Try each key in hierarchy (uses base class get())
-    for (let i = 0; i < keyHierarchy.length; i++) {
-      const key = keyHierarchy[i];
-      if (!key) continue; // Skip if key is undefined (shouldn't happen)
+    if (isWarm && components.measure && components.frequency) {
+      // Try V2 cache with index lookup
+      const v2Filters: CacheQueryFilters = {
+        datasourceId: components.dataSourceId,
+        measure: components.measure,
+        frequency: components.frequency,
+        ...(components.practiceUid && { practiceUids: [components.practiceUid] }),
+        ...(components.providerUid && { providerUids: [components.providerUid] }),
+      };
       
-      // Base class get() handles Redis unavailable, JSON parsing, error handling
-      const cached = await this.get<CachedDataEntry>(key);
-      
-      if (cached) {
-        log.info('Data source cache hit', {
-          cacheKey: key,
-          cacheLevel: i,
-          rowCount: cached.rowCount,
-          sizeKB: Math.round(cached.sizeBytes / 1024),
-          cachedAt: cached.cachedAt,
-        });
+      try {
+        const rows = await analyticsCacheV2.query(v2Filters);
         
-        return {
-          rows: cached.rows,
-          cacheKey: key,
-          cacheLevel: i,
-        };
+        if (rows.length > 0) {
+          log.info('Data source cache hit V2', {
+            cacheKey: `v2:ds:${components.dataSourceId}:m:${components.measure}:freq:${components.frequency}`,
+            cacheLevel: 0,
+            rowCount: rows.length,
+            version: 'v2',
+          });
+          
+          return {
+            rows,
+            cacheKey: `v2:ds:${components.dataSourceId}:m:${components.measure}`,
+            cacheLevel: 0,
+          };
+        }
+      } catch (error) {
+        log.warn('V2 cache query failed, will try database', { error, components });
       }
     }
     
-    log.info('Data source cache miss (all levels)', {
+    log.info('Data source cache miss V2', {
       dataSourceId: components.dataSourceId,
       measure: components.measure,
-      practiceUid: components.practiceUid,
-      keysChecked: keyHierarchy.length,
+      isWarm,
+      version: 'v2',
     });
     
     return null;
-    // Note: Error handling is automatic via base class get()
   }
   
   /**
@@ -833,7 +759,7 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
     params: CacheQueryParams,
     userContext: UserContext,
     nocache: boolean = false
-  ): Promise<Record<string, unknown>[]> {
+  ): Promise<DataSourceFetchResult> {
     const startTime = Date.now();
     
     // Build ChartRenderContext from UserContext with proper RBAC
@@ -900,7 +826,10 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
           security: 'filtered_before_client_send',
         });
         
-        return filteredRows;
+        return {
+          rows: filteredRows,
+          cacheHit: true,
+        };
       }
     }
     
@@ -970,7 +899,10 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
       security: 'filtered_before_client_send',
     });
     
-    return filteredRows;
+    return {
+      rows: filteredRows,
+      cacheHit: false,
+    };
   }
   
   /**
@@ -1159,10 +1091,10 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
   }
   
   /**
-   * Warm cache for a specific data source with distributed locking
-   * Fetches all data from data source table and populates cache with measure-level entries
+   * Warm cache for a specific data source (delegates to V2)
+   * Fetches all data and caches it with secondary index sets
    * 
-   * SECURITY: Uses Redis lock to prevent concurrent warming operations
+   * SECURITY: V2 uses distributed locking to prevent concurrent warming
    * Called by scheduled job every 4 hours (matches data update schedule)
    */
   async warmDataSource(dataSourceId: number): Promise<{
@@ -1171,119 +1103,10 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
     duration: number;
     skipped?: boolean;
   }> {
-    const startTime = Date.now();
-    const lockKey = `${this.WARMING_LOCK_PREFIX}:${dataSourceId}`;
+    log.info('Warming data source cache V2', { dataSourceId, version: 'v2' });
     
-    // Try to acquire distributed lock (NX = only if not exists)
-    const client = this.getClient();
-    if (!client) {
-      throw new Error('Redis client not available for cache warming');
-    }
-    
-    const acquired = await client.set(
-      lockKey,
-      Date.now().toString(),
-      'EX',
-      this.WARMING_LOCK_TTL,
-      'NX'
-    );
-    
-    if (!acquired) {
-      log.info('Data source warming already in progress, skipping', {
-        dataSourceId,
-        lockKey,
-      });
-      return {
-        entriesCached: 0,
-        totalRows: 0,
-        duration: Date.now() - startTime,
-        skipped: true,
-      };
-    }
-    
-    try {
-      log.info('Starting data source cache warming (lock acquired)', {
-        dataSourceId,
-        lockKey,
-      });
-      
-      // Get data source config
-      const dataSource = await chartConfigService.getDataSourceConfigById(dataSourceId);
-      if (!dataSource) {
-        throw new Error(`Data source not found: ${dataSourceId}`);
-      }
-      
-      const { tableName, schemaName } = dataSource;
-      
-      // Fetch ALL data from table (simple SELECT *)
-      const query = `
-        SELECT * 
-        FROM ${schemaName}.${tableName}
-        ORDER BY measure, practice_uid, provider_uid, frequency
-      `;
-      
-      log.debug('Executing cache warming query', { dataSourceId, schema: schemaName, table: tableName });
-      
-      const allRows = await executeAnalyticsQuery(query, []);
-      
-      log.info('Cache warming query completed', {
-        dataSourceId,
-        totalRows: allRows.length,
-      });
-      
-      // Group by cache key components (measure + frequency)
-      // This matches how cache keys are built in buildDataSourceKey()
-      const grouped = new Map<string, Record<string, unknown>[]>();
-      
-      for (const row of allRows) {
-        const measure = row.measure as string;
-        const frequency = (row.frequency || row.time_period) as string;
-        const key = `${measure}|${frequency || '*'}`;
-        
-        if (!grouped.has(key)) {
-          grouped.set(key, []);
-        }
-        const group = grouped.get(key);
-        if (group) {
-          group.push(row);
-        }
-      }
-      
-      // Cache each group
-      let entriesCached = 0;
-      for (const [key, rows] of Array.from(grouped.entries())) {
-        const [measure, frequency] = key.split('|');
-        
-        const keyComponents: CacheKeyComponents = {
-          dataSourceId,
-          ...(measure && { measure }),
-          ...(frequency !== '*' && { frequency }),
-          // Note: Not including practice_uid or provider_uid for maximum cache reuse
-        };
-        
-        await this.setCached(keyComponents, rows);
-        entriesCached++;
-      }
-      
-      const duration = Date.now() - startTime;
-      
-      log.info('Data source cache warming completed', {
-        dataSourceId,
-        entriesCached,
-        totalRows: allRows.length,
-        duration,
-      });
-      
-      return {
-        entriesCached,
-        totalRows: allRows.length,
-        duration,
-      };
-    } finally {
-      // Always release lock
-      await client.del(lockKey);
-      log.debug('Cache warming lock released', { dataSourceId, lockKey });
-    }
+    // Delegate to V2 cache which handles locking, grouping, and index creation
+    return await analyticsCacheV2.warmCache(dataSourceId);
   }
   
   /**

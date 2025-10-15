@@ -483,7 +483,7 @@ export class DashboardRenderer {
           totalQueryTime,
           cacheHits,
           cacheMisses,
-          queriesExecuted: cacheMisses, // Only cache misses hit DB
+          queriesExecuted: cacheHits + cacheMisses, // Total queries (hits + misses)
           chartsRendered: Object.keys(charts).length,
           dashboardFiltersApplied: this.getAppliedFilterNames(universalFilters),
           parallelExecution: true,

@@ -166,20 +166,21 @@ class ChartDataOrchestrator {
       // 5. Fetch data via handler
       const fetchStartTime = Date.now();
 
-      const rawData = await handler.fetchData(mergedConfig, userContext);
+      const fetchResult = await handler.fetchData(mergedConfig, userContext);
 
       const fetchDuration = Date.now() - fetchStartTime;
 
       log.info('Chart data fetched', {
         chartType: chartConfig.chartType,
-        recordCount: rawData.length,
+        recordCount: fetchResult.data.length,
         fetchDuration,
+        cacheHit: fetchResult.cacheHit,
       });
 
       // 6. Transform data via handler (may be async for data source config lookups)
       const transformStartTime = Date.now();
 
-      const chartData = await handler.transform(rawData, mergedConfig);
+      const chartData = await handler.transform(fetchResult.data, mergedConfig);
 
       const transformDuration = Date.now() - transformStartTime;
 
@@ -211,15 +212,15 @@ class ChartDataOrchestrator {
 
       const result: OrchestrationResult = {
         chartData,
-        rawData,
+        rawData: fetchResult.data,
         ...(columns && { columns }), // Only include columns if present
         ...(formattedData && { formattedData }), // Only include formatted data if present (Phase 3.2)
         metadata: {
           chartType,
           dataSourceId,
-          queryTimeMs: fetchDuration,
-          cacheHit: false, // TODO: Implement caching in Phase 6
-          recordCount: rawData.length,
+          queryTimeMs: fetchResult.queryTimeMs,
+          cacheHit: fetchResult.cacheHit,
+          recordCount: fetchResult.data.length,
         },
       };
 
@@ -230,7 +231,8 @@ class ChartDataOrchestrator {
         totalDuration,
         fetchDuration,
         transformDuration,
-        recordCount: rawData.length,
+        recordCount: fetchResult.data.length,
+        cacheHit: fetchResult.cacheHit,
         hasColumns: Boolean(columns),
         columnCount: columns?.length ?? 0,
         hasFormattedData: Boolean(formattedData),

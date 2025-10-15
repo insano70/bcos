@@ -41,7 +41,11 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
   async fetchData(
     config: Record<string, unknown>,
     userContext: UserContext
-  ): Promise<Record<string, unknown>[]> {
+  ): Promise<{
+    data: Record<string, unknown>[];
+    cacheHit: boolean;
+    queryTimeMs: number;
+  }> {
     const startTime = Date.now();
 
     try {
@@ -72,7 +76,11 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
         userId: userContext.user_id,
       });
 
-      return result.data as Record<string, unknown>[];
+      return {
+        data: result.data as Record<string, unknown>[],
+        cacheHit: result.cache_hit || false,
+        queryTimeMs: result.query_time_ms,
+      };
     } catch (error) {
       log.error('Failed to fetch chart data', error, {
         chartType: this.type,

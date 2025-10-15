@@ -49,28 +49,47 @@ async function main() {
     console.log('✅ Connected to Redis');
     
     // Use SCAN instead of KEYS (required for AWS ElastiCache Serverless)
-    const keys = [];
-    let cursor = '0';
+    // Flush all V2 cache keys (both old format and new with hash tags)
+    const patterns = [
+      '*cache:ds:*',      // Old format
+      '*cache:{ds:*',     // New format with hash tags
+      '*idx:ds:*',        // Old format
+      '*idx:{ds:*',       // New format with hash tags
+      '*cache:meta:ds:*', // Old format
+      '*cache:meta:{ds:*',// New format with hash tags
+      '*temp:*',          // Temp keys (all formats)
+    ];
+    const allKeys = new Set();
     
-    console.log('\n🔍 Scanning for datasource:* keys...');
-    do {
-      const result = await client.scan(cursor, 'MATCH', 'datasource:*', 'COUNT', 100);
-      cursor = result[0];
-      keys.push(...result[1]);
-    } while (cursor !== '0');
+    for (const pattern of patterns) {
+      console.log(`\n🔍 Scanning for ${pattern} keys...`);
+      let cursor = '0';
+      let count = 0;
+      
+      do {
+        const result = await client.scan(cursor, 'MATCH', pattern, 'COUNT', 1000);
+        cursor = result[0];
+        result[1].forEach(k => allKeys.add(k));
+        count += result[1].length;
+      } while (cursor !== '0');
+      
+      console.log(`   Found ${count} keys`);
+    }
     
-    console.log(`📊 Found ${keys.length} cache keys to delete`);
+    const keys = Array.from(allKeys);
+    console.log(`\n📊 Total cache keys to delete: ${keys.length}`);
     
     if (keys.length > 0) {
-      // Delete all datasource keys (in batches to avoid command too large)
-      const batchSize = 100;
-      let deleted = 0;
+      // Delete all keys using pipeline (Redis cluster compatible)
+      console.log('\n🗑️  Deleting keys...');
+      const pipeline = client.pipeline();
       
-      for (let i = 0; i < keys.length; i += batchSize) {
-        const batch = keys.slice(i, i + batchSize);
-        const result = await client.del(...batch);
-        deleted += result;
-      }
+      keys.forEach(key => {
+        pipeline.del(key);
+      });
+      
+      const results = await pipeline.exec();
+      const deleted = results.filter(([err, result]) => err === null && result === 1).length;
       
       console.log(`✅ Deleted ${deleted} cache keys`);
     } else {
@@ -78,15 +97,18 @@ async function main() {
     }
     
     // Verify deletion
-    cursor = '0';
+    console.log('\n🔍 Verifying deletion...');
     const remainingKeys = [];
-    do {
-      const result = await client.scan(cursor, 'MATCH', 'datasource:*', 'COUNT', 100);
-      cursor = result[0];
-      remainingKeys.push(...result[1]);
-    } while (cursor !== '0');
+    for (const pattern of patterns) {
+      let cursor = '0';
+      do {
+        const result = await client.scan(cursor, 'MATCH', pattern, 'COUNT', 1000);
+        cursor = result[0];
+        remainingKeys.push(...result[1]);
+      } while (cursor !== '0');
+    }
     
-    console.log(`\n✅ Cache cleared! Remaining keys: ${remainingKeys.length}`);
+    console.log(`✅ Cache cleared! Remaining keys: ${remainingKeys.length}`);
     
     client.disconnect();
     process.exit(0);
