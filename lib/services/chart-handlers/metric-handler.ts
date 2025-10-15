@@ -1,6 +1,7 @@
 import type { ChartData } from '@/lib/types/analytics';
 import { log } from '@/lib/logger';
 import { BaseChartHandler } from './base-handler';
+import { getColumnName } from './column-resolver';
 
 /**
  * Aggregation type for metric charts
@@ -96,20 +97,23 @@ export class MetricChartHandler extends BaseChartHandler {
     return result;
   }
 
-  transform(data: Record<string, unknown>[], config: Record<string, unknown>): ChartData {
+  async transform(data: Record<string, unknown>[], config: Record<string, unknown>): Promise<ChartData> {
     const startTime = Date.now();
 
     try {
       const chartType = config.chartType as 'number';
       const aggregationType = (config.aggregation as AggregationType) || 'sum';
-      // Determine which column contains the value to aggregate
-      const valueColumn = (config.valueColumn as string) || 'measure_value';
+      
+      // Use data source configuration to determine the value column (not auto-detection!)
+      const valueColumn = config.valueColumn as string | undefined
+        || await getColumnName(config.dataSourceId as number | undefined, 'measure');
 
       log.info('Transforming metric chart data', {
         chartType,
         recordCount: data.length,
         aggregationType,
         valueColumn,
+        dataSourceId: config.dataSourceId,
       });
 
       // Defensive check: handle empty data array

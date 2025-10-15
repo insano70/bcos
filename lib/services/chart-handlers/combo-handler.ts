@@ -1,9 +1,10 @@
-import type { AggAppMeasure, ChartData, ChartDataset, DualAxisConfig } from '@/lib/types/analytics';
+import type { ChartData, ChartDataset, DualAxisConfig } from '@/lib/types/analytics';
 import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
 import { getPaletteColors } from '@/lib/services/color-palettes';
 import { getCssVariable } from '@/components/utils/utils';
 import { BaseChartHandler } from './base-handler';
+import { getResolvedColumns } from './column-resolver';
 
 /**
  * Combo Chart Handler
@@ -105,15 +106,26 @@ export class ComboChartHandler extends BaseChartHandler {
    * @param config - Chart configuration with dualAxisConfig
    * @returns ChartData ready for Chart.js rendering
    */
-  transform(data: Record<string, unknown>[], config: Record<string, unknown>): ChartData {
+  async transform(data: Record<string, unknown>[], config: Record<string, unknown>): Promise<ChartData> {
     const startTime = Date.now();
 
     const dualAxisConfig = config.dualAxisConfig as DualAxisConfig;
     const colorPalette = (config.colorPalette as string) || 'default';
 
+    // Use data source configuration to get column names
+    const columns = await getResolvedColumns(config.dataSourceId as number | undefined);
+    const dateColumn = columns.dateColumn;
+    const measureColumn = columns.measureColumn;
+
+    log.debug('Resolved columns for dual-axis chart', {
+      dataSourceId: config.dataSourceId,
+      dateColumn,
+      measureColumn,
+    });
+
     // Split data by series
-    const primaryData = data.filter((record) => record.series_id === 'primary') as AggAppMeasure[];
-    const secondaryData = data.filter((record) => record.series_id === 'secondary') as AggAppMeasure[];
+    const primaryData = data.filter((record) => record.series_id === 'primary');
+    const secondaryData = data.filter((record) => record.series_id === 'secondary');
 
     if (primaryData.length === 0 && secondaryData.length === 0) {
       log.warn('No data available for dual-axis chart transformation');
@@ -123,10 +135,16 @@ export class ComboChartHandler extends BaseChartHandler {
     // Collect all unique dates from both measure sets
     const allDatesSet = new Set<string>();
     for (const measure of primaryData) {
-      allDatesSet.add(measure.date_index);
+      const dateValue = measure[dateColumn];
+      if (dateValue) {
+        allDatesSet.add(String(dateValue));
+      }
     }
     for (const measure of secondaryData) {
-      allDatesSet.add(measure.date_index);
+      const dateValue = measure[dateColumn];
+      if (dateValue) {
+        allDatesSet.add(String(dateValue));
+      }
     }
 
     // Sort dates chronologically
@@ -149,28 +167,36 @@ export class ComboChartHandler extends BaseChartHandler {
     // Build data map for primary measure
     const primaryDataMap = new Map<string, number>();
     for (const measure of primaryData) {
-      const value = typeof measure.measure_value === 'string'
-        ? Number.parseFloat(measure.measure_value)
-        : measure.measure_value;
-      primaryDataMap.set(measure.date_index, value);
+      const dateValue = measure[dateColumn];
+      const measureValue = measure[measureColumn];
+      const value = typeof measureValue === 'string'
+        ? Number.parseFloat(measureValue)
+        : (measureValue as number || 0);
+      if (dateValue) {
+        primaryDataMap.set(String(dateValue), value);
+      }
     }
 
     // Build data map for secondary measure
     const secondaryDataMap = new Map<string, number>();
     for (const measure of secondaryData) {
-      const value = typeof measure.measure_value === 'string'
-        ? Number.parseFloat(measure.measure_value)
-        : measure.measure_value;
-      secondaryDataMap.set(measure.date_index, value);
+      const dateValue = measure[dateColumn];
+      const measureValue = measure[measureColumn];
+      const value = typeof measureValue === 'string'
+        ? Number.parseFloat(measureValue)
+        : (measureValue as number || 0);
+      if (dateValue) {
+        secondaryDataMap.set(String(dateValue), value);
+      }
     }
 
     // Extract measure types (assumes all records of same measure have same type)
     const primaryMeasureType = primaryData.length > 0 && primaryData[0]
-      ? (primaryData[0].measure_type || 'number')
+      ? String(primaryData[0].measure_type || 'number')
       : 'number';
 
     const secondaryMeasureType = secondaryData.length > 0 && secondaryData[0]
-      ? (secondaryData[0].measure_type || 'number')
+      ? String(secondaryData[0].measure_type || 'number')
       : 'number';
 
     // Get labels for axes

@@ -48,23 +48,18 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
       // Build analytics query parameters from config
       const queryParams = this.buildQueryParams(config);
 
-      // Build chart render context with RBAC and security filtering
-      // UPDATED: Now async to integrate with OrganizationAccessService
-      const chartContext = await this.buildChartContext(userContext);
-
-      log.info('Fetching chart data with security context', {
+      log.info('Fetching chart data with Redis cache integration', {
         chartType: this.type,
         dataSourceId: config.dataSourceId,
         userId: userContext.user_id,
-        // Security context for audit
-        permissionScope: chartContext.permission_scope,
-        practiceUidCount: chartContext.accessible_practices.length,
-        providerUidCount: chartContext.accessible_providers.length,
-        includesHierarchy: chartContext.includes_hierarchy,
+        hasDataSourceId: Boolean(config.dataSourceId),
+        note: 'Passing UserContext to enable Redis cache path',
       });
 
-      // Execute query via analytics query builder (applies security filters)
-      const result = await analyticsQueryBuilder.queryMeasures(queryParams, chartContext);
+      // Pass userContext directly to enable Redis cache integration
+      // SECURITY: queryMeasures() will build ChartRenderContext internally with proper RBAC
+      // Passing UserContext (not ChartRenderContext) enables the Redis cache path
+      const result = await analyticsQueryBuilder.queryMeasures(queryParams, userContext);
 
       const duration = Date.now() - startTime;
 
@@ -72,9 +67,9 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
         chartType: this.type,
         recordCount: result.data.length,
         queryTimeMs: result.query_time_ms,
+        cacheHit: result.cache_hit || false,
         fetchDuration: duration,
-        securityFiltersApplied:
-          chartContext.accessible_practices.length > 0 || chartContext.accessible_providers.length > 0,
+        userId: userContext.user_id,
       });
 
       return result.data as Record<string, unknown>[];
@@ -91,8 +86,9 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
   /**
    * Transform raw data into Chart.js format
    * Subclasses MUST implement this method
+   * May be async for handlers that need to load data source configuration
    */
-  abstract transform(data: Record<string, unknown>[], config: Record<string, unknown>): ChartData;
+  abstract transform(data: Record<string, unknown>[], config: Record<string, unknown>): ChartData | Promise<ChartData>;
 
   /**
    * Validate chart configuration

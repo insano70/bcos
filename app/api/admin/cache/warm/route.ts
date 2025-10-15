@@ -31,7 +31,14 @@ const warmCacheHandler = async (request: NextRequest, userContext: UserContext) 
     const body = await request.json().catch(() => ({}));
     const { dataSourceId } = body;
 
-    let result: { entriesCached: number; totalRows: number; duration: number; skipped?: boolean; dataSourcesWarmed?: number };
+    let result: {
+      entriesCached?: number;
+      totalRows: number;
+      duration: number;
+      skipped?: boolean;
+      dataSourcesWarmed?: number;
+      totalEntriesCached?: number;
+    };
     if (dataSourceId) {
       // Warm specific data source
       result = await dataSourceCache.warmDataSource(parseInt(dataSourceId, 10));

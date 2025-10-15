@@ -206,9 +206,9 @@ export async function middleware(request: NextRequest) {
   if (requiresCSRFProtection(request.method) && !isCSRFExempt(pathname)) {
     const isValidCSRF = await verifyCSRFToken(request)
     if (!isValidCSRF) {
-      debugLog.middleware(`CSRF validation failed for ${pathname}`)
+      debugLog.middleware(`❌ CSRF validation FAILED for ${request.method} ${pathname}`)
       return new NextResponse(
-        JSON.stringify({ error: 'CSRF token validation failed' }), 
+        JSON.stringify({ error: 'CSRF token validation failed' }),
         {
           status: 403,
           headers: {
@@ -218,6 +218,8 @@ export async function middleware(request: NextRequest) {
         }
       )
     }
+    // Log successful CSRF validation for monitoring
+    debugLog.middleware(`✓ CSRF validated for ${request.method} ${pathname}`)
   }
 
   // Handle API routes

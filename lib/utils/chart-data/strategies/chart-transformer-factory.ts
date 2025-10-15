@@ -13,6 +13,7 @@ import { HorizontalBarStrategy } from './horizontal-bar-strategy';
 import { ProgressBarStrategy } from './progress-bar-strategy';
 import { MultiSeriesStrategy } from './multi-series-strategy';
 import { DualAxisStrategy } from './dual-axis-strategy';
+import { PeriodComparisonStrategy } from './period-comparison-strategy';
 
 /**
  * Chart Transformer Factory
@@ -38,6 +39,7 @@ export class ChartTransformerFactory {
     this.register(new ProgressBarStrategy());
     this.register(new MultiSeriesStrategy());
     this.register(new DualAxisStrategy());
+    this.register(new PeriodComparisonStrategy());
   }
 
   /**

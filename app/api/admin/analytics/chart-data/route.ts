@@ -13,7 +13,6 @@ import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import { analyticsQueryBuilder } from '@/lib/services/analytics-query-builder';
 import { calculatedFieldsService } from '@/lib/services/calculated-fields';
 import { getDateRange } from '@/lib/utils/date-presets';
-import { buildChartRenderContext } from '@/lib/utils/chart-context';
 
 /**
  * Transform Chart Data Handler
@@ -61,12 +60,10 @@ const transformChartDataHandler = async (
       ...(validatedData.periodComparison && { period_comparison: validatedData.periodComparison as import('@/lib/types/analytics').PeriodComparisonConfig }),
     };
 
-    // Build chart render context from user context with proper RBAC
-    // SECURITY: Uses buildChartRenderContext() to populate accessible_practices from organizations
-    const chartContext = await buildChartRenderContext(userContext);
-
-    // Fetch measures
-    const result = await analyticsQueryBuilder.queryMeasures(queryParams, chartContext);
+    // Pass userContext directly to enable cache integration
+    // SECURITY: queryMeasures() will build ChartRenderContext internally with proper RBAC
+    // Passing UserContext (not ChartRenderContext) enables the Redis cache path
+    const result = await analyticsQueryBuilder.queryMeasures(queryParams, userContext);
     let measures = result.data;
 
     // 3. Apply calculated fields if specified

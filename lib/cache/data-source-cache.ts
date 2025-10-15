@@ -117,42 +117,88 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
   /**
    * Generate cache key fallback hierarchy
    * Returns keys from most specific to least specific
+   * 
+   * CRITICAL "ALL OR NOTHING" STRATEGY:
+   * - If frequency is specified → ALL cache keys MUST include that frequency
+   * - If frequency is NOT specified → NO cache keys include frequency
+   * 
+   * This prevents Monthly charts from getting Daily/Weekly/Quarterly data mixed in
    */
   private generateKeyHierarchy(components: CacheKeyComponents): string[] {
     const keys: string[] = [];
     
-    // Level 4: measure + practice + provider + frequency
-    if (components.measure && components.practiceUid && components.providerUid && components.frequency) {
-      keys.push(this.buildDataSourceKey(components));
-    }
-    
-    // Level 3: measure + practice + frequency (all providers)
-    if (components.measure && components.practiceUid && components.frequency) {
-      const { providerUid: _providerUid, ...restComponents } = components;
-      keys.push(this.buildDataSourceKey(restComponents));
-    }
-    
-    // Level 2: measure + practice (all providers, all frequencies)
-    if (components.measure && components.practiceUid) {
+    // PATH A: Frequency IS specified - all keys must include it
+    if (components.frequency) {
+      // Level A4: measure + practice + provider + frequency (most specific)
+      if (components.measure && components.practiceUid && components.providerUid) {
+        keys.push(this.buildDataSourceKey({
+          dataSourceId: components.dataSourceId,
+          measure: components.measure,
+          practiceUid: components.practiceUid,
+          providerUid: components.providerUid,
+          frequency: components.frequency,
+        }));
+      }
+      
+      // Level A3: measure + practice + frequency (all providers for this practice)
+      if (components.measure && components.practiceUid) {
+        keys.push(this.buildDataSourceKey({
+          dataSourceId: components.dataSourceId,
+          measure: components.measure,
+          practiceUid: components.practiceUid,
+          frequency: components.frequency,
+        }));
+      }
+      
+      // Level A2: measure + frequency (all practices, all providers for this measure)
+      if (components.measure) {
+        keys.push(this.buildDataSourceKey({
+          dataSourceId: components.dataSourceId,
+          measure: components.measure,
+          frequency: components.frequency,
+        }));
+      }
+      
+      // Level A1: frequency only (widest cache for this specific frequency)
       keys.push(this.buildDataSourceKey({
         dataSourceId: components.dataSourceId,
-        measure: components.measure,
-        practiceUid: components.practiceUid,
+        frequency: components.frequency,
       }));
-    }
-    
-    // Level 1: measure only
-    if (components.measure) {
+    } 
+    // PATH B: Frequency NOT specified - no keys include frequency
+    else {
+      // Level B4: measure + practice + provider (most specific, no frequency)
+      if (components.measure && components.practiceUid && components.providerUid) {
+        keys.push(this.buildDataSourceKey({
+          dataSourceId: components.dataSourceId,
+          measure: components.measure,
+          practiceUid: components.practiceUid,
+          providerUid: components.providerUid,
+        }));
+      }
+      
+      // Level B3: measure + practice (all providers)
+      if (components.measure && components.practiceUid) {
+        keys.push(this.buildDataSourceKey({
+          dataSourceId: components.dataSourceId,
+          measure: components.measure,
+          practiceUid: components.practiceUid,
+        }));
+      }
+      
+      // Level B2: measure only (all practices, all providers)
+      if (components.measure) {
+        keys.push(this.buildDataSourceKey({
+          dataSourceId: components.dataSourceId,
+          measure: components.measure,
+        }));
+      }
+      
+      // Level B1: Full data source (widest cache, all frequencies mixed)
       keys.push(this.buildDataSourceKey({
         dataSourceId: components.dataSourceId,
-        measure: components.measure,
       }));
     }
-    
-    // Level 0: Full data source
-    keys.push(this.buildDataSourceKey({
-      dataSourceId: components.dataSourceId,
-    }));
     
     return keys;
   }
@@ -406,6 +452,24 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
   ): Promise<Record<string, unknown>[]> {
     const { schema, table, measure, practiceUid, providerUid, frequency, advancedFilters, dataSourceId } = params;
     
+    // Get data source config to determine correct column names
+    const dataSourceConfig = await chartConfigService.getDataSourceConfigById(dataSourceId);
+    if (!dataSourceConfig) {
+      throw new Error(`Data source not found: ${dataSourceId}`);
+    }
+    
+    // Determine the time period column name (could be 'frequency', 'time_period', or custom)
+    const timePeriodColumn = dataSourceConfig.columns.find(col => col.isTimePeriod);
+    const timePeriodField = timePeriodColumn?.columnName || 'frequency';
+    
+    // Determine the date field column name (could be 'date_index', 'date_value', or custom)
+    const dateColumn = dataSourceConfig.columns.find(col => 
+      col.isDateField && 
+      col.columnName !== timePeriodField &&
+      (col.columnName === 'date_value' || col.columnName === 'date_index' || col.dataType === 'date')
+    ) || dataSourceConfig.columns.find(col => col.isDateField && col.columnName !== timePeriodField);
+    const dateField = dateColumn?.columnName || 'date_index';
+    
     // Build WHERE clause (explicit chart filters only, NOT RBAC)
     const whereClauses: string[] = [];
     const queryParams: unknown[] = [];
@@ -428,10 +492,9 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
     }
     
     if (frequency) {
-      // Try both 'frequency' and 'time_period' columns
-      whereClauses.push(`(frequency = $${paramIndex} OR time_period = $${paramIndex})`);
+      // Use the correct column name from data source config
+      whereClauses.push(`${timePeriodField} = $${paramIndex++}`);
       queryParams.push(frequency);
-      paramIndex++;
     }
     
     // CRITICAL: Validate and apply advanced filters (dashboard universal filters)
@@ -459,7 +522,7 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
       SELECT * 
       FROM ${schema}.${table}
       ${whereClause}
-      ORDER BY date_index ASC, date_value ASC
+      ORDER BY ${dateField} ASC
     `;
     
     log.debug('Executing data source query', {

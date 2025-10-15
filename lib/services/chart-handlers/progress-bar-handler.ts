@@ -2,6 +2,7 @@ import type { ChartData } from '@/lib/types/analytics';
 import { log } from '@/lib/logger';
 import { BaseChartHandler } from './base-handler';
 import { getPaletteColors } from '@/lib/services/color-palettes';
+import { getColumnName } from './column-resolver';
 
 type AggregationType = 'sum' | 'avg' | 'count' | 'min' | 'max';
 
@@ -74,7 +75,7 @@ export class ProgressBarChartHandler extends BaseChartHandler {
   /**
    * Transform raw data into format for progress bar chart
    */
-  transform(data: Record<string, unknown>[], config: Record<string, unknown>): ChartData {
+  async transform(data: Record<string, unknown>[], config: Record<string, unknown>): Promise<ChartData> {
     const startTime = Date.now();
 
     try {
@@ -82,7 +83,10 @@ export class ProgressBarChartHandler extends BaseChartHandler {
       const groupBy = this.getGroupBy(config);
       const target = config.target as number | undefined;
       const colorPalette = this.getColorPalette(config);
-      const valueColumn = (config.valueColumn as string) || 'measure_value';
+      
+      // Use data source configuration to determine the value column
+      const valueColumn = config.valueColumn as string | undefined
+        || await getColumnName(config.dataSourceId as number | undefined, 'measure');
 
       log.info('Transforming progress bar chart data', {
         recordCount: data.length,
@@ -90,6 +94,7 @@ export class ProgressBarChartHandler extends BaseChartHandler {
         groupBy,
         hasTarget: Boolean(target),
         valueColumn,
+        dataSourceId: config.dataSourceId,
       });
 
       // Defensive check: handle empty data array

@@ -238,6 +238,7 @@ export interface AnalyticsQueryParams {
   practice?: string | undefined;
   practice_primary?: string | undefined;
   practice_uid?: number | undefined;
+  provider_uid?: number | undefined; // Added for cache integration
   provider_name?: string | undefined;
   start_date?: string | undefined;
   end_date?: string | undefined;
@@ -248,6 +249,7 @@ export interface AnalyticsQueryParams {
   multiple_series?: MultipleSeriesConfig[] | undefined;
   data_source_id?: number | undefined;
   period_comparison?: PeriodComparisonConfig | undefined;
+  nocache?: boolean | undefined; // Added for cache bypass
 }
 
 /**

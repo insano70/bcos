@@ -7,6 +7,9 @@ import type {
   ChartFilterValue,
   ChartRenderContext,
 } from '@/lib/types/analytics';
+import type { UserContext } from '@/lib/types/rbac';
+// Redis cache integration for data source query results
+import { dataSourceCache, type CacheQueryParams } from '@/lib/cache';
 // Note: Query result caching removed - was in-memory only and not effective across serverless instances
 // Metadata caching (columns, dashboards, charts) handled by @/lib/cache/analytics-cache
 import { executeAnalyticsQuery } from './analytics-db';
@@ -339,52 +342,196 @@ export class AnalyticsQueryBuilder {
   }
 
   /**
+   * Extract provider_uid from params
+   * Checks params.provider_uid and advanced_filters
+   */
+  private extractProviderUid(params: AnalyticsQueryParams): number | undefined {
+    // Direct provider_uid param
+    if (params.provider_uid) {
+      return typeof params.provider_uid === 'number'
+        ? params.provider_uid
+        : parseInt(String(params.provider_uid), 10);
+    }
+
+    // Check advanced filters for provider_uid
+    if (params.advanced_filters) {
+      const providerFilter = params.advanced_filters.find(
+        (f) => f.field === 'provider_uid' && f.operator === 'eq'
+      );
+      
+      if (providerFilter && typeof providerFilter.value === 'number') {
+        return providerFilter.value;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Calculate total count from filtered rows
+   * For currency: sum measure_value, for others: count rows
+   * 
+   * @param rows - The data rows
+   * @param measureValueField - The field name for measure values (from data source config)
+   */
+  private calculateTotal(rows: Record<string, unknown>[], measureValueField?: string): number {
+    if (rows.length === 0) {
+      return 0;
+    }
+
+    const firstRow = rows[0];
+    if (!firstRow) {
+      return 0;
+    }
+
+    const measureType = firstRow.measure_type;
+
+    // Dynamically determine the value field from data source config or fallback to common names
+    const valueField = measureValueField || 
+                       ('measure_value' in firstRow ? 'measure_value' : 
+                       ('numeric_value' in firstRow ? 'numeric_value' : 'value'));
+
+    if (measureType === 'currency') {
+      // Sum all value fields
+      return rows.reduce((sum, row) => {
+        const value = row[valueField] as number;
+        return sum + (typeof value === 'number' ? value : 0);
+      }, 0);
+    }
+
+    // For count, just return row count
+    return rows.length;
+  }
+
+  /**
    * Query measures data with security and validation
+   * Now integrates with Redis cache for data source query results
    */
   async queryMeasures(
     params: AnalyticsQueryParams,
-    context: ChartRenderContext
+    contextOrUserContext: ChartRenderContext | UserContext
   ): Promise<AnalyticsQueryResult> {
     const startTime = Date.now();
 
+    // Determine if we received UserContext or ChartRenderContext
+    // UserContext has more fields (email, first_name, etc.)
+    const isUserContext = 'email' in contextOrUserContext;
+    const userContext = isUserContext ? (contextOrUserContext as UserContext) : undefined;
+    const context = isUserContext ? undefined : (contextOrUserContext as ChartRenderContext);
+    const userId = isUserContext ? userContext?.user_id : context?.user_id;
+
     try {
+
       // If multiple series are requested, handle them separately
       if (params.multiple_series && params.multiple_series.length > 0) {
-        return await this.queryMultipleSeries(params, context);
+        return await this.queryMultipleSeries(params, contextOrUserContext);
       }
 
       // If period comparison is requested, handle it separately
       if (params.period_comparison?.enabled) {
-        return await this.queryWithPeriodComparison(params, context);
+        return await this.queryWithPeriodComparison(params, contextOrUserContext);
       }
 
-      this.log.info('Building analytics query', {
+      this.log.info('Building analytics query with caching', {
         params: { ...params, limit: params.limit || 1000 },
-        userId: context.user_id,
-        contextPractices: context.accessible_practices,
-        contextProviders: context.accessible_providers,
+        userId,
       });
 
       // Get data source configuration if data_source_id is provided
-      let _dataSourceConfig = null;
+      let dataSourceConfig = null;
       let tableName = 'agg_app_measures'; // Default fallback for backwards compatibility
       let schemaName = 'ih';
 
       if (params.data_source_id) {
         // Use data_source_id directly to get config from cache
-        _dataSourceConfig = await chartConfigService.getDataSourceConfigById(params.data_source_id);
+        dataSourceConfig = await chartConfigService.getDataSourceConfigById(params.data_source_id);
 
-        if (_dataSourceConfig) {
-          tableName = _dataSourceConfig.tableName;
-          schemaName = _dataSourceConfig.schemaName;
+        if (dataSourceConfig) {
+          tableName = dataSourceConfig.tableName;
+          schemaName = dataSourceConfig.schemaName;
         }
       }
 
       // Validate table access - pass config to avoid redundant lookup
-      await this.validateTable(tableName, schemaName, _dataSourceConfig);
+      await this.validateTable(tableName, schemaName, dataSourceConfig);
 
+      // ===== NEW: CACHE INTEGRATION =====
+      
+      // If we have UserContext, use cache (preferred path)
+      if (isUserContext && userContext && params.data_source_id) {
+        // Extract provider_uid from params
+        const providerUid = this.extractProviderUid(params);
+
+        // Build cache query params
+        const cacheParams: CacheQueryParams = {
+          dataSourceId: params.data_source_id,
+          schema: schemaName,
+          table: tableName,
+          
+          // Cache key components (only include if defined)
+          ...(params.measure && { measure: params.measure }),
+          ...(params.practice_uid && { practiceUid: params.practice_uid }),
+          ...(providerUid && { providerUid: providerUid }),
+          ...(params.frequency && { frequency: params.frequency }),
+          
+          // In-memory filters (NOT in cache key)
+          ...(params.start_date && { startDate: params.start_date }),
+          ...(params.end_date && { endDate: params.end_date }),
+          ...(params.advanced_filters && { advancedFilters: params.advanced_filters }),
+        };
+
+        // Get the measure value field name from data source config
+        const measureValueColumn = dataSourceConfig?.columns.find(col => col.isMeasure);
+        const measureValueField = measureValueColumn?.columnName;
+
+        // Fetch with caching (passing UserContext - ChartRenderContext built internally)
+        const rows = await dataSourceCache.fetchDataSource(
+          cacheParams,
+          userContext, // Pass UserContext (fetchDataSource builds ChartRenderContext internally)
+          params.nocache || false
+        );
+
+        // Calculate total using the correct field name from config
+        const totalCount = this.calculateTotal(rows, measureValueField);
+
+        const duration = Date.now() - startTime;
+
+        const result: AnalyticsQueryResult = {
+          data: rows as AggAppMeasure[],
+          total_count: totalCount,
+          query_time_ms: duration,
+          cache_hit: !params.nocache, // Approximate
+        };
+
+        this.log.info('Analytics query completed (with caching)', {
+          dataSourceId: params.data_source_id,
+          measure: params.measure,
+          practiceUid: params.practice_uid,
+          rowCount: rows.length,
+          totalCount,
+          duration,
+          userId: userContext.user_id,
+        });
+
+        return result;
+      }
+
+      // ===== FALLBACK: LEGACY PATH (for ChartRenderContext or missing data_source_id) =====
+      
+      // If we have UserContext but no data_source_id, build ChartRenderContext for legacy path
+      let legacyContext = context;
+      if (isUserContext && userContext && !context) {
+        const { buildChartRenderContext } = await import('@/lib/utils/chart-context');
+        legacyContext = await buildChartRenderContext(userContext);
+        this.log.info('Built ChartRenderContext for legacy path', {
+          userId: userContext.user_id,
+          permissionScope: legacyContext.permission_scope,
+          reason: 'missing_data_source_id',
+        });
+      }
+      
       // Get dynamic column mappings from metadata - pass config to avoid redundant lookup
-      const columnMappings = await this.getColumnMappings(tableName, schemaName, _dataSourceConfig);
+      const columnMappings = await this.getColumnMappings(tableName, schemaName, dataSourceConfig);
 
       // Build filters from params - use dynamic column mappings
       const filters: ChartFilter[] = [];
@@ -428,12 +575,13 @@ export class AnalyticsQueryBuilder {
       }
 
       // Build WHERE clause with security context - pass config to avoid redundant lookups
+      // Note: legacyContext is now guaranteed to be defined (built from UserContext if needed)
       const { clause: whereClause, params: queryParams } = await this.buildWhereClause(
         filters,
-        context,
+        legacyContext as ChartRenderContext,
         tableName,
         schemaName,
-        _dataSourceConfig
+        dataSourceConfig
       );
 
       // Build dynamic SELECT column list using metadata
@@ -494,11 +642,11 @@ export class AnalyticsQueryBuilder {
         cache_hit: false,
       };
 
-      this.log.info('Analytics query completed', {
+      this.log.info('Analytics query completed (legacy path)', {
         queryTime,
         resultCount: data.length,
         totalCount,
-        userId: context.user_id,
+        userId: userId,
       });
 
       return result;
@@ -507,7 +655,7 @@ export class AnalyticsQueryBuilder {
       this.log.error('Analytics query failed', {
         error: errorMessage,
         params,
-        userId: context.user_id,
+        userId: userId,
       });
 
       throw new Error(`Query execution failed: ${errorMessage}`);
@@ -520,15 +668,16 @@ export class AnalyticsQueryBuilder {
    */
   private async executeBaseQuery(
     params: AnalyticsQueryParams,
-    context: ChartRenderContext
+    contextOrUserContext: ChartRenderContext | UserContext
   ): Promise<AnalyticsQueryResult> {
+    const isUserContext = 'email' in contextOrUserContext;
+    const context = isUserContext ? undefined : (contextOrUserContext as ChartRenderContext);
+    const userId = isUserContext ? (contextOrUserContext as UserContext).user_id : context?.user_id;
     const startTime = Date.now();
 
-    this.log.info('Building analytics query', {
+    this.log.info('Building analytics query (legacy path)', {
       params: { ...params, limit: params.limit || 1000 },
-      userId: context.user_id,
-      contextPractices: context.accessible_practices,
-      contextProviders: context.accessible_providers,
+      userId,
     });
 
     // Get data source configuration if data_source_id is provided
@@ -594,9 +743,10 @@ export class AnalyticsQueryBuilder {
     }
 
     // Build WHERE clause with security context - pass config to avoid redundant lookups
+    // Note: context is guaranteed to be defined if not UserContext
     const { clause: whereClause, params: queryParams } = await this.buildWhereClause(
       filters,
-      context,
+      context as ChartRenderContext,
       tableName,
       schemaName,
       _dataSourceConfig
@@ -658,11 +808,11 @@ export class AnalyticsQueryBuilder {
       cache_hit: false,
     };
 
-    this.log.info('Analytics query completed', {
+    this.log.info('Analytics query completed (legacy path)', {
       queryTime,
       resultCount: data.length,
       totalCount,
-      userId: context.user_id,
+      userId,
     });
 
     return result;
@@ -673,7 +823,7 @@ export class AnalyticsQueryBuilder {
    */
   private async queryMultipleSeries(
     params: AnalyticsQueryParams,
-    context: ChartRenderContext
+    contextOrUserContext: ChartRenderContext | UserContext
   ): Promise<AnalyticsQueryResult> {
     const startTime = Date.now();
 
@@ -681,143 +831,53 @@ export class AnalyticsQueryBuilder {
       throw new Error('Multiple series configuration is required');
     }
 
-    this.log.info('Building efficient multiple series analytics query', {
+    const isUserContext = 'email' in contextOrUserContext;
+    const userId = isUserContext ? (contextOrUserContext as UserContext).user_id : (contextOrUserContext as ChartRenderContext).user_id;
+
+    this.log.info('Building multiple series query with caching', {
       seriesCount: params.multiple_series.length,
       measures: params.multiple_series.map((s) => s.measure),
-      userId: context.user_id,
+      userId,
     });
 
-    // Get data source configuration if data_source_id is provided
-    let tableName = 'agg_app_measures'; // Default fallback for backwards compatibility
-    let schemaName = 'ih';
-    let _dataSourceConfig: import('@/lib/services/chart-config-service').DataSourceConfig | null = null;
-
-    if (params.data_source_id) {
-      // Use data_source_id directly to get config from cache
-      _dataSourceConfig = await chartConfigService.getDataSourceConfigById(params.data_source_id);
-
-      if (_dataSourceConfig) {
-        tableName = _dataSourceConfig.tableName;
-        schemaName = _dataSourceConfig.schemaName;
-      }
-    }
-
-    // Validate table access - pass config to avoid redundant lookup
-    await this.validateTable(tableName, schemaName, _dataSourceConfig);
-
-    // Get dynamic column mappings from metadata - pass config to avoid redundant lookup
-    const columnMappings = await this.getColumnMappings(tableName, schemaName, _dataSourceConfig);
-
-    // Build filters from params (excluding measure - we'll handle that separately)
-    const filters: ChartFilter[] = [];
-
-    // Add multiple measures using IN operator for efficiency
-    const measures = params.multiple_series.map((s) => s.measure);
-    filters.push({ field: 'measure', operator: 'in', value: measures });
-
-    if (params.frequency) {
-      filters.push({ field: columnMappings.timePeriodField, operator: 'eq', value: params.frequency });
-    }
-
-    if (params.practice) {
-      filters.push({ field: 'practice', operator: 'eq', value: params.practice });
-    }
-
-    if (params.practice_primary) {
-      filters.push({ field: 'practice_primary', operator: 'eq', value: params.practice_primary });
-    }
-
-    if (params.practice_uid) {
-      filters.push({ field: 'practice_uid', operator: 'eq', value: params.practice_uid });
-    }
-
-    if (params.provider_name) {
-      filters.push({ field: 'provider_name', operator: 'eq', value: params.provider_name });
-    }
-
-    if (params.start_date) {
-      filters.push({ field: columnMappings.dateField, operator: 'gte', value: params.start_date });
-    }
-
-    if (params.end_date) {
-      filters.push({ field: columnMappings.dateField, operator: 'lte', value: params.end_date });
-    }
-
-    // Process advanced filters if provided
-    if (params.advanced_filters) {
-      const advancedFilters = this.processAdvancedFilters(params.advanced_filters);
-      filters.push(...advancedFilters);
-    }
-
-    // Build WHERE clause with security context - pass config to avoid redundant lookups
-    const { clause: whereClause, params: queryParams } = await this.buildWhereClause(
-      filters,
-      context,
-      tableName,
-      schemaName,
-      _dataSourceConfig
-    );
-
-    // Build dynamic SELECT column list using metadata
-    const selectColumns = columnMappings.allColumns
-      .map(col => {
-        // Alias special columns for consistent interface
-        if (col === columnMappings.dateField) return `${col} as date_index`;
-        if (col === columnMappings.timePeriodField) return `${col} as frequency`;
-        if (col === columnMappings.measureValueField) return `${col} as measure_value`;
-        if (col === columnMappings.measureTypeField) return `${col} as measure_type`;
-        return col;
-      });
-
-    const query = `
-      SELECT ${selectColumns.join(', ')}
-      FROM ${schemaName}.${tableName}
-      ${whereClause}
-      ORDER BY measure, ${columnMappings.dateField} ASC
-    `;
-
-    // Execute query
-    const data = await executeAnalyticsQuery<AggAppMeasure>(query, queryParams);
-
-    // Add series metadata to each data point
-    const enhancedData = data.map((item) => {
-      const seriesConfig = params.multiple_series?.find((s) => s.measure === item.measure);
-      // Ensure series_id and series_label are always defined strings
-      const seriesId = seriesConfig?.id ?? item.measure ?? 'default';
-      const seriesLabel = seriesConfig?.label ?? item.measure ?? 'Unknown';
-
-      return {
-        ...item,
-        series_id: seriesId,
-        series_label: seriesLabel,
-        series_aggregation: seriesConfig?.aggregation || 'sum',
-        ...(seriesConfig?.color && { series_color: seriesConfig.color }),
+    // Fetch each series separately (can hit cache per measure)
+    const seriesPromises = params.multiple_series.map(async (series) => {
+      const seriesParams: AnalyticsQueryParams = {
+        ...params,
+        measure: series.measure,
+        multiple_series: undefined, // Clear to avoid recursion
       };
+
+      // Recursive call - will hit cache per measure
+      const result = await this.queryMeasures(seriesParams, contextOrUserContext);
+
+      // Tag with series metadata
+      return result.data.map((item) => ({
+        ...item,
+        series_id: series.id,
+        series_label: series.label,
+        series_aggregation: series.aggregation,
+        ...(series.color && { series_color: series.color }),
+      }));
     });
 
-    // Get total count
-    const countQuery = `
-      SELECT COUNT(*) as count
-      FROM ${schemaName}.${tableName}
-      ${whereClause}
-    `;
+    const allSeriesData = await Promise.all(seriesPromises);
+    const combinedData = allSeriesData.flat();
 
-    const countResult = await executeAnalyticsQuery<{ count: number }>(countQuery, queryParams);
-    const totalCount = countResult[0]?.count || 0;
+    const duration = Date.now() - startTime;
 
     const result: AnalyticsQueryResult = {
-      data: enhancedData,
-      total_count: totalCount,
-      query_time_ms: Date.now() - startTime,
-      cache_hit: false, // Multiple series queries are not cached yet
+      data: combinedData,
+      total_count: combinedData.length,
+      query_time_ms: duration,
+      cache_hit: true, // Each series fetched from cache (potentially)
     };
 
-    this.log.info('Efficient multiple series query completed', {
+    this.log.info('Multiple series query completed (with caching)', {
       seriesCount: params.multiple_series.length,
-      totalRecords: enhancedData.length,
-      queryTime: result.query_time_ms,
-      userId: context.user_id,
-      measuresQueried: measures,
+      totalRecords: combinedData.length,
+      queryTime: duration,
+      userId,
     });
 
     return result;
@@ -828,8 +888,10 @@ export class AnalyticsQueryBuilder {
    */
   private async queryWithPeriodComparison(
     params: AnalyticsQueryParams,
-    context: ChartRenderContext
+    contextOrUserContext: ChartRenderContext | UserContext
   ): Promise<AnalyticsQueryResult> {
+    // Already works with cache because it calls executeBaseQuery() which calls queryMeasures()
+    // queryMeasures() now uses cache when UserContext is provided
     const startTime = Date.now();
 
     if (!params.period_comparison?.enabled) {
@@ -853,11 +915,14 @@ export class AnalyticsQueryBuilder {
       throw new Error('Custom period offset must be at least 1');
     }
 
+    const isUserContext = 'email' in contextOrUserContext;
+    const userId = isUserContext ? (contextOrUserContext as UserContext).user_id : (contextOrUserContext as ChartRenderContext).user_id;
+
     this.log.info('Building period comparison analytics query', {
       comparisonType: params.period_comparison.comparisonType,
       frequency: params.frequency,
       currentRange: { start: params.start_date, end: params.end_date },
-      userId: context.user_id,
+      userId,
     });
 
     // Import period comparison utilities
@@ -899,8 +964,8 @@ export class AnalyticsQueryBuilder {
     let currentResult: AnalyticsQueryResult, comparisonResult: AnalyticsQueryResult;
     try {
       [currentResult, comparisonResult] = await Promise.all([
-        this.executeBaseQuery(params, context),
-        this.executeBaseQuery(comparisonParams, context),
+        this.executeBaseQuery(params, contextOrUserContext),
+        this.executeBaseQuery(comparisonParams, contextOrUserContext),
       ]);
     } catch (error) {
       this.log.error('Failed to execute period comparison queries', {
@@ -962,7 +1027,7 @@ export class AnalyticsQueryBuilder {
       comparisonRecords: enhancedComparisonData.length,
       totalRecords: combinedData.length,
       queryTime: result.query_time_ms,
-      userId: context.user_id,
+      userId,
       comparisonRange,
     });
 

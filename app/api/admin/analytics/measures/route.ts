@@ -6,7 +6,6 @@ import { log } from '@/lib/logger';
 import { checkAnalyticsDbHealth } from '@/lib/services/analytics-db';
 import { analyticsQueryBuilder } from '@/lib/services/analytics-query-builder';
 import { getDateRange } from '@/lib/utils/date-presets';
-import { buildChartRenderContext } from '@/lib/utils/chart-context';
 import type {
   AnalyticsQueryParams,
   ChartFilter,
@@ -150,20 +149,11 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
 
     log.info('Analytics query parameters parsed', queryParams as Record<string, unknown>);
 
-    // Build chart render context from user context with proper RBAC
-    // SECURITY: Uses buildChartRenderContext() to populate accessible_practices from organizations
-    const chartContext = await buildChartRenderContext(userContext);
-
-    log.info('Chart context built with RBAC', {
-      userId: userContext.user_id,
-      permissionScope: chartContext.permission_scope,
-      practiceCount: chartContext.accessible_practices.length,
-      rolesCount: chartContext.roles.length,
-    });
-
-    // Execute analytics query
+    // Pass userContext directly to enable cache integration
+    // SECURITY: queryMeasures() will build ChartRenderContext internally with proper RBAC
+    // Passing UserContext (not ChartRenderContext) enables the Redis cache path
     const queryStart = Date.now();
-    const result = await analyticsQueryBuilder.queryMeasures(queryParams, chartContext);
+    const result = await analyticsQueryBuilder.queryMeasures(queryParams, userContext);
     log.info('Analytics query execution completed', { duration: Date.now() - queryStart });
 
     // Log successful operation

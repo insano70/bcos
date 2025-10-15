@@ -176,10 +176,10 @@ class ChartDataOrchestrator {
         fetchDuration,
       });
 
-      // 6. Transform data via handler
+      // 6. Transform data via handler (may be async for data source config lookups)
       const transformStartTime = Date.now();
 
-      const chartData = handler.transform(rawData, mergedConfig);
+      const chartData = await handler.transform(rawData, mergedConfig);
 
       const transformDuration = Date.now() - transformStartTime;
 

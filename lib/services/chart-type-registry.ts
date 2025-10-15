@@ -58,9 +58,9 @@ export interface ChartTypeHandler {
    *
    * @param data - Raw data from fetchData()
    * @param config - Chart configuration
-   * @returns Transformed ChartData for Chart.js
+   * @returns Transformed ChartData for Chart.js (may be async for handlers that need data source config)
    */
-  transform(data: Record<string, unknown>[], config: Record<string, unknown>): ChartData;
+  transform(data: Record<string, unknown>[], config: Record<string, unknown>): ChartData | Promise<ChartData>;
 
   /**
    * Validate chart configuration
