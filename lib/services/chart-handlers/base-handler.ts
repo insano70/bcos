@@ -2,7 +2,7 @@ import type { UserContext } from '@/lib/types/rbac';
 import type { ChartData, ChartRenderContext, AnalyticsQueryParams } from '@/lib/types/analytics';
 import type { ChartTypeHandler, ValidationResult } from '../chart-type-registry';
 import { log } from '@/lib/logger';
-import { analyticsQueryBuilder } from '../analytics-query-builder';
+import { analyticsQueryBuilder } from '../analytics';
 import { getDateRange } from '@/lib/utils/date-presets';
 import { QUERY_LIMITS } from '@/lib/constants/analytics';
 import { createOrganizationAccessService } from '../organization-access-service';

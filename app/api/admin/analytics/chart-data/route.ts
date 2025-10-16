@@ -10,7 +10,7 @@ import { chartDataRequestSchema } from '@/lib/validations/analytics';
 import { SimplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
 import { loadColumnMetadata } from '@/lib/utils/chart-metadata-loader.server';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
-import { analyticsQueryBuilder } from '@/lib/services/analytics-query-builder';
+import { analyticsQueryBuilder } from '@/lib/services/analytics';
 import { calculatedFieldsService } from '@/lib/services/calculated-fields';
 import { getDateRange } from '@/lib/utils/date-presets';
 

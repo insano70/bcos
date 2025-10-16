@@ -4,7 +4,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { log } from '@/lib/logger';
 import { checkAnalyticsDbHealth } from '@/lib/services/analytics-db';
-import { analyticsQueryBuilder } from '@/lib/services/analytics-query-builder';
+import { analyticsQueryBuilder } from '@/lib/services/analytics';
 import { getDateRange } from '@/lib/utils/date-presets';
 import type {
   AnalyticsQueryParams,

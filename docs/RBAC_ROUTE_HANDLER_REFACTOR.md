@@ -16,7 +16,12 @@ Refactoring [lib/api/rbac-route-handler.ts](../lib/api/rbac-route-handler.ts) fr
 - **Lines:** 652 (after removing unused webhook code)
 - **API Routes:** 106 files
 - **Usages:** 254 instances across codebase
-- **Route Types:** rbacRoute, publicRoute, legacySecureRoute
+- **Route Types:**
+  - `rbacRoute` - RBAC permission-based routes (most routes)
+  - `publicRoute` - No authentication required (health checks, etc.)
+  - `authRoute` - Authentication without RBAC (MFA/auth system routes)
+
+**Note:** Previously called `legacySecureRoute`, renamed to `authRoute` to better reflect its purpose as authentication-based (non-RBAC) route handler. Used by 3 MFA/auth system routes that don't fit RBAC model.
 
 ### Code Duplication (70% across 2 wrappers)
 - **Correlation setup:** Lines 44-64, 439-458 **(2x duplicate)**
@@ -59,7 +64,7 @@ lib/api/route-handlers/
 └── builders/
     ├── rbac-route-builder.ts      (100 lines)
     ├── public-route-builder.ts    (60 lines)
-    └── legacy-route-builder.ts    (80 lines)
+    └── auth-route-builder.ts    (80 lines)
 
 Total: ~920 lines across 13 focused files
 ```
@@ -174,7 +179,7 @@ export interface MiddlewareResult {
 }
 
 export interface RouteContext {
-  routeType: 'rbac' | 'public' | 'legacy';
+  routeType: 'rbac' | 'public' | 'auth';
   timingTracker: TimingTracker;
   startTime: number;
   totalDuration?: number;
@@ -384,9 +389,9 @@ export class RBACMiddleware implements Middleware {
    - Pipeline: Correlation → RateLimit
    - Maintains exact same behavior as current `publicRoute()`
 
-3. Create `lib/api/route-handlers/builders/legacy-route-builder.ts`
+3. Create `lib/api/route-handlers/builders/auth-route-builder.ts`
    - Pipeline: Correlation → RateLimit → Auth (optional)
-   - Maintains exact same behavior as current `legacySecureRoute()`
+   - Maintains exact same behavior as current `authRoute()`
 
 #### Deliverables
 
@@ -584,9 +589,9 @@ export class PublicRouteBuilder {
 }
 ```
 
-**LegacyRouteBuilder:**
+**AuthRouteBuilder:**
 ```typescript
-export class LegacyRouteBuilder {
+export class AuthRouteBuilder {
   static build(
     handler: (
       request: NextRequest,
@@ -619,7 +624,7 @@ export class LegacyRouteBuilder {
         async () => {
           try {
             const result = await pipeline.execute(request, {
-              routeType: 'legacy',
+              routeType: 'auth',
               timingTracker,
               startTime: Date.now(),
               url,
@@ -654,7 +659,7 @@ export class LegacyRouteBuilder {
             return response;
           } catch (error) {
             return RouteErrorHandler.handleError(error, request, {
-              routeType: 'legacy',
+              routeType: 'auth',
               timingTracker,
               totalDuration: timingTracker.getTotalDuration(),
             });
@@ -731,7 +736,7 @@ export function publicRoute(
 /**
  * Backward compatibility wrapper
  */
-export function legacySecureRoute(
+export function authRoute(
   handler: (
     request: NextRequest,
     session?: AuthSession,
@@ -743,7 +748,7 @@ export function legacySecureRoute(
     publicReason?: string
   } = {}
 ) {
-  return LegacyRouteBuilder.build(handler, options);
+  return AuthRouteBuilder.build(handler, options);
 }
 
 // Export types
@@ -863,7 +868,7 @@ The refactoring is complete when:
 ### Week 3: Builders ✅
 - [ ] Create `lib/api/route-handlers/builders/rbac-route-builder.ts`
 - [ ] Create `lib/api/route-handlers/builders/public-route-builder.ts`
-- [ ] Create `lib/api/route-handlers/builders/legacy-route-builder.ts`
+- [ ] Create `lib/api/route-handlers/builders/auth-route-builder.ts`
 
 ### Week 4: Integration ✅
 - [ ] Create `lib/api/route-handlers/index.ts` (public API)

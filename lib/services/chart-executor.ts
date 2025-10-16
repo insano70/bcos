@@ -4,7 +4,7 @@ import type {
   ChartDefinition,
   ChartRenderContext,
 } from '@/lib/types/analytics';
-import { analyticsQueryBuilder } from './analytics-query-builder';
+import { analyticsQueryBuilder } from './analytics';
 import type { ValidationResult } from './chart-validation';
 import { chartValidator } from './chart-validation';
 

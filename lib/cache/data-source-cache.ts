@@ -26,10 +26,11 @@ import { CacheService } from './base';
 import { log } from '@/lib/logger';
 import { executeAnalyticsQuery } from '@/lib/services/analytics-db';
 import { chartConfigService } from '@/lib/services/chart-config-service';
-import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 import { PermissionChecker } from '@/lib/rbac/permission-checker';
 import { buildChartRenderContext } from '@/lib/utils/chart-context';
 import { indexedAnalyticsCache } from './indexed-analytics-cache';
+import { queryValidator } from '@/lib/services/analytics/query-validator';
+import { queryBuilder } from '@/lib/services/analytics/query-builder';
 import type { ChartRenderContext, ChartFilter } from '@/lib/types/analytics';
 import type { UserContext } from '@/lib/types/rbac';
 import type { CacheQueryFilters } from './indexed-analytics-cache';
@@ -94,16 +95,7 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
   
   private readonly MAX_CACHE_SIZE = 50 * 1024 * 1024; // 50MB
   private readonly WILDCARD = '*';
-  
-  // Standard columns that always exist across all data sources
-  private readonly STANDARD_COLUMNS = new Set([
-    'practice_uid',
-    'provider_uid',
-    'measure',
-    'frequency',
-    'time_period', // Alternative to frequency
-  ]);
-  
+
   /**
    * Build cache key from components using base class buildKey()
    * Format: datasource:{ds_id}:m:{measure}:p:{practice_uid}:prov:{provider_uid}:freq:{frequency}
@@ -230,61 +222,23 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
   /**
    * Validate advanced filter fields against data source column configuration
    * SECURITY: Prevents SQL injection via custom column names
-   * 
-   * Only allows filtering on:
-   * 1. Standard columns (practice_uid, provider_uid, measure, frequency, time_period)
-   * 2. Columns defined in data source configuration marked as filterable
+   *
+   * Delegates to shared QueryValidator (used by both cache and legacy paths)
    */
   private async validateFilterFields(
     filters: ChartFilter[],
     dataSourceId: number,
     userContext: UserContext
   ): Promise<void> {
-    if (!filters || filters.length === 0) {
-      return;
-    }
-    
-    // Get data source column configuration
-    const dataSourcesService = createRBACDataSourcesService(userContext);
-    const columns = await dataSourcesService.getDataSourceColumns({
-      data_source_id: dataSourceId,
-      is_active: true,
-    });
-    
-    // Build allowed column names set
-    const allowedColumns = new Set([
-      ...Array.from(this.STANDARD_COLUMNS),
-      ...columns
-        .filter(col => col.is_filterable !== false) // Only filterable columns
-        .map(col => col.column_name),
-    ]);
-    
-    // Validate each filter field
-    for (const filter of filters) {
-      if (!allowedColumns.has(filter.field)) {
-        log.security('Attempted to filter on invalid column', 'high', {
-          field: filter.field,
-          dataSourceId,
-          userId: userContext.user_id,
-          allowedColumns: Array.from(allowedColumns),
-        });
-        throw new Error(`Invalid filter field: ${filter.field}. Field not defined or not filterable in data source configuration.`);
-      }
-    }
-    
-    log.debug('Filter fields validated', {
-      filterCount: filters.length,
-      fields: filters.map(f => f.field),
-      dataSourceId,
-    });
+    // Delegate to shared validator
+    await queryValidator.validateFilterFields(filters, dataSourceId, userContext);
   }
   
   /**
    * Build SQL WHERE clause from advanced filters
    * Handles all filter operators: eq, neq, gt, gte, lt, lte, in, not_in, like
-   * 
-   * SECURITY: Field names are validated by validateFilterFields() before this is called
-   * This method assumes field names are safe to use in SQL
+   *
+   * Delegates to shared QueryBuilder (used by both cache and legacy paths)
    */
   private async buildAdvancedFilterClause(
     filters: ChartFilter[],
@@ -292,70 +246,8 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
     _userContext: UserContext,
     startIndex: number
   ): Promise<{ clause: string; params: unknown[]; nextIndex: number }> {
-    const clauses: string[] = [];
-    const params: unknown[] = [];
-    let paramIndex = startIndex;
-    
-    for (const filter of filters) {
-      const field = filter.field;
-      const operator = filter.operator || 'eq';
-      const value = filter.value;
-      
-      switch (operator) {
-        case 'eq':
-          clauses.push(`${field} = $${paramIndex++}`);
-          params.push(value);
-          break;
-        case 'neq':
-          clauses.push(`${field} != $${paramIndex++}`);
-          params.push(value);
-          break;
-        case 'gt':
-          clauses.push(`${field} > $${paramIndex++}`);
-          params.push(value);
-          break;
-        case 'gte':
-          clauses.push(`${field} >= $${paramIndex++}`);
-          params.push(value);
-          break;
-        case 'lt':
-          clauses.push(`${field} < $${paramIndex++}`);
-          params.push(value);
-          break;
-        case 'lte':
-          clauses.push(`${field} <= $${paramIndex++}`);
-          params.push(value);
-          break;
-        case 'in':
-          if (Array.isArray(value) && value.length > 0) {
-            clauses.push(`${field} = ANY($${paramIndex++})`);
-            params.push(value);
-          } else {
-            // Empty array = no results (fail-closed security)
-            clauses.push(`${field} = $${paramIndex++}`);
-            params.push(-1); // Impossible value
-          }
-          break;
-        case 'not_in':
-          if (Array.isArray(value) && value.length > 0) {
-            clauses.push(`${field} != ALL($${paramIndex++})`);
-            params.push(value);
-          }
-          break;
-        case 'like':
-          clauses.push(`${field} ILIKE $${paramIndex++}`);
-          params.push(`%${value}%`);
-          break;
-        default:
-          log.warn('Unsupported filter operator', { operator, field });
-      }
-    }
-    
-    return {
-      clause: clauses.length > 0 ? `(${clauses.join(' AND ')})` : '',
-      params,
-      nextIndex: paramIndex,
-    };
+    // Delegate to shared query builder
+    return await queryBuilder.buildAdvancedFilterClause(filters, startIndex);
   }
   
   /**

@@ -629,49 +629,46 @@ export class IndexedAnalyticsCache {
       // Parse keys to extract unique values
       for (const key of keys) {
         // Parse pattern: idx:{ds:ID}:m:MEASURE:p:PRACTICE:freq:FREQUENCY
-        // or variations like: idx:{ds:ID}:m:MEASURE:freq:FREQUENCY
-        const parts = key.split(':');
+        // Example: idx:{ds:3}:m:Charges:p:114:freq:Monthly
         
-        // Extract measure (after 'm:')
-        const mIndex = parts.indexOf('m');
-        if (mIndex !== -1 && mIndex + 1 < parts.length) {
-          const measure = parts[mIndex + 1];
-          if (measure && measure !== '*') {
-            measures.add(measure);
+        // Skip the master index key
+        if (key.endsWith(':master')) continue;
+        
+        // Remove the prefix "idx:{ds:N}:" to get the rest
+        const prefixMatch = key.match(/^idx:\{ds:\d+\}:(.+)$/);
+        if (!prefixMatch || !prefixMatch[1]) continue;
+        
+        const keyParts = prefixMatch[1]; // Everything after "idx:{ds:N}:"
+        
+        // Now we can safely parse by looking for patterns
+        // Extract measure (between "m:" and next ":")
+        const measureMatch = keyParts.match(/m:([^:]+)/);
+        if (measureMatch?.[1] && measureMatch[1] !== '*' && measureMatch[1] !== 'master') {
+          measures.add(measureMatch[1]);
+        }
+        
+        // Extract practice (between "p:" and next ":")
+        const practiceMatch = keyParts.match(/p:(\d+)/);
+        if (practiceMatch?.[1]) {
+          const practiceUid = Number.parseInt(practiceMatch[1], 10);
+          if (!Number.isNaN(practiceUid)) {
+            practices.add(practiceUid);
           }
         }
         
-        // Extract practice (after 'p:')
-        const pIndex = parts.indexOf('p');
-        if (pIndex !== -1 && pIndex + 1 < parts.length) {
-          const practice = parts[pIndex + 1];
-          if (practice && practice !== '*') {
-            const practiceUid = Number.parseInt(practice, 10);
-            if (!Number.isNaN(practiceUid)) {
-              practices.add(practiceUid);
-            }
+        // Extract provider (between "prov:" and next ":")
+        const providerMatch = keyParts.match(/prov:(\d+)/);
+        if (providerMatch?.[1]) {
+          const providerUid = Number.parseInt(providerMatch[1], 10);
+          if (!Number.isNaN(providerUid)) {
+            providers.add(providerUid);
           }
         }
         
-        // Extract provider (after 'prov:')
-        const provIndex = parts.indexOf('prov');
-        if (provIndex !== -1 && provIndex + 1 < parts.length) {
-          const provider = parts[provIndex + 1];
-          if (provider && provider !== '*' && provider !== 'null') {
-            const providerUid = Number.parseInt(provider, 10);
-            if (!Number.isNaN(providerUid)) {
-              providers.add(providerUid);
-            }
-          }
-        }
-        
-        // Extract frequency (after 'freq:')
-        const freqIndex = parts.indexOf('freq');
-        if (freqIndex !== -1 && freqIndex + 1 < parts.length) {
-          const frequency = parts[freqIndex + 1];
-          if (frequency && frequency !== '*') {
-            frequencies.add(frequency);
-          }
+        // Extract frequency (between "freq:" and end or next ":")
+        const frequencyMatch = keyParts.match(/freq:([^:]+)/);
+        if (frequencyMatch?.[1] && frequencyMatch[1] !== '*') {
+          frequencies.add(frequencyMatch[1]);
         }
       }
     } while (cursor !== '0');
