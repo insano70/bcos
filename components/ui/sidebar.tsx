@@ -3,12 +3,10 @@
 import Logo from './logo';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import { usePermissions } from '@/lib/hooks/use-permissions';
-import { env } from '@/lib/env';
 import { useSidebarState } from './sidebar/use-sidebar-state';
 import { DashboardMenuSection } from './sidebar/dashboard-menu-section';
 import { WorkMenuSection } from './sidebar/work-menu-section';
 import { AdminMenuSection } from './sidebar/admin-menu-section';
-import { ExperimentalMenuSections } from './sidebar/experimental-menu-sections';
 
 /**
  * Main Sidebar Component
@@ -17,21 +15,18 @@ import { ExperimentalMenuSections } from './sidebar/experimental-menu-sections';
  * - Extracted section components for better organization
  * - Separated state management into custom hook
  * - Permission checks determine which sections to render
- * - Experimental sections clearly marked as UI reference only
  *
  * Component Structure:
  * - Header (logo and close button)
  * - Dashboard Section (always visible when authenticated)
  * - Work Section (permission-gated)
  * - Admin Section (permission-gated, contains Configure and Monitor dropdowns)
- * - Experimental Sections (only in experimental mode, UI reference only)
  * - Expand Button (desktop sidebar expansion control)
  */
 export default function Sidebar({ variant = 'default' }: { variant?: 'default' | 'v2' }) {
   const { rbacLoading } = useAuth();
   const { hasAnyPermission } = usePermissions();
   const { sidebar, sidebarOpen, setSidebarOpen, sidebarExpanded, setSidebarExpanded } = useSidebarState();
-  const isExperimentalMode = env.NEXT_PUBLIC_EXPERIMENTAL_MODE;
 
   // Check if user has any permissions to see Admin section items (Configure + Monitor)
   const hasAdminAccess = hasAnyPermission([
@@ -115,9 +110,6 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
 
           {/* Admin Section - Permission gated, contains Configure and Monitor */}
           {hasAdminAccess && <AdminMenuSection />}
-
-          {/* Experimental Sections - UI reference only, non-functional */}
-          {isExperimentalMode && <ExperimentalMenuSections />}
         </div>
 
         {/* Expand / collapse button */}
