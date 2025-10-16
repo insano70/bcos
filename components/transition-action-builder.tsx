@@ -15,29 +15,29 @@ import { X, Plus, ChevronDown, ChevronRight, HelpCircle } from 'lucide-react';
 import { useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
 import { useUsers } from '@/lib/hooks/use-users';
 
-interface NotificationAction {
+export interface NotificationAction {
   type: 'notification';
   recipients: string[]; // 'assigned_to', 'creator', 'watchers', or user IDs
   template?: string;
   subject?: string;
 }
 
-interface FieldUpdateAction {
+export interface FieldUpdateAction {
   type: 'field_update';
   field_id: string;
   value: string; // supports template tokens
   condition?: string;
 }
 
-interface AssignmentAction {
+export interface AssignmentAction {
   type: 'assignment';
   assign_to: string; // user ID or template token like '{creator}'
   condition?: string;
 }
 
-type Action = NotificationAction | FieldUpdateAction | AssignmentAction;
+export type Action = NotificationAction | FieldUpdateAction | AssignmentAction;
 
-interface ActionConfig {
+export interface ActionConfig {
   notifications: NotificationAction[];
   field_updates: FieldUpdateAction[];
   assignments: AssignmentAction[];

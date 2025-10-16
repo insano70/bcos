@@ -2,6 +2,7 @@
 
 import AnalyticsChart from './analytics-chart';
 import { ChartConfig } from './chart-builder-core';
+import type { MeasureType, FrequencyType } from '@/lib/types/analytics';
 
 interface ChartBuilderPreviewProps {
   chartConfig: ChartConfig;
@@ -45,8 +46,8 @@ export default function ChartBuilderPreview({
           <AnalyticsChart
             key={previewKey}
             chartType={chartConfig.chartType}
-            measure={chartConfig.measure as any}
-            frequency={chartConfig.frequency as any}
+            measure={chartConfig.measure as MeasureType}
+            frequency={chartConfig.frequency as FrequencyType}
             startDate={chartConfig.startDate || undefined}
             endDate={chartConfig.endDate || undefined}
             dateRangePreset={dateRangePreset}

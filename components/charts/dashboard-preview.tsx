@@ -65,10 +65,10 @@ export default function DashboardPreview({
   const loadChartDefinitions = async () => {
     try {
       const result = await apiClient.get<{
-        charts: ChartDefinition[];
+        charts: ChartDefinition[] | Array<{ chart_definitions: ChartDefinition }>;
       }>('/api/admin/analytics/charts?is_active=true');
-      const charts = (result.charts || []).map((item: ChartDefinition) => {
-        return (item as any).chart_definitions || item;
+      const charts = (result.charts || []).map((item: ChartDefinition | { chart_definitions: ChartDefinition }) => {
+        return 'chart_definitions' in item ? item.chart_definitions : item;
       }).filter((chart: ChartDefinition) => chart.is_active !== false);
       
       setAvailableCharts(charts);
@@ -256,7 +256,7 @@ export default function DashboardPreview({
               }}
             >
               <AnalyticsChart
-                chartType={chartDef.chart_type as any}
+                chartType={chartDef.chart_type}
                 {...(measureFilter?.value && { measure: measureFilter.value as MeasureType })}
                 {...(frequencyFilter?.value && { frequency: frequencyFilter.value as FrequencyType })}
                 practice={practiceFilter?.value?.toString()}
@@ -264,13 +264,13 @@ export default function DashboardPreview({
                 endDate={endDateFilter?.value?.toString()}
                 groupBy={chartConfig.series?.groupBy || 'provider_name'}
                 title={chartDef.chart_name}
-                calculatedField={(chartConfig as any).calculatedField}
-                advancedFilters={(dataSource as any).advancedFilters || []}
-                dataSourceId={(chartConfig as any).dataSourceId}
-                stackingMode={(chartConfig as any).stackingMode}
-                colorPalette={(chartConfig as any).colorPalette}
-                {...((chartConfig as any).seriesConfigs && (chartConfig as any).seriesConfigs.length > 0 ? { multipleSeries: (chartConfig as any).seriesConfigs } : {})}
-                {...((chartConfig as any).dualAxisConfig ? { dualAxisConfig: (chartConfig as any).dualAxisConfig } : {})}
+                calculatedField={chartConfig.calculatedField}
+                advancedFilters={dataSource.advancedFilters || []}
+                dataSourceId={chartConfig.dataSourceId}
+                stackingMode={chartConfig.stackingMode}
+                colorPalette={chartConfig.colorPalette}
+                {...(chartConfig.seriesConfigs && chartConfig.seriesConfigs.length > 0 ? { multipleSeries: chartConfig.seriesConfigs } : {})}
+                {...(chartConfig.dualAxisConfig ? { dualAxisConfig: chartConfig.dualAxisConfig } : {})}
                 className="w-full h-full flex-1"
                 responsive={true}
                 minHeight={200}

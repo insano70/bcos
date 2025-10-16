@@ -115,9 +115,7 @@ export default function ResponsiveChartContainer({
   }, [minHeight, maxHeight, aspectRatio]);
 
   // Clone the child element - let CSS handle sizing
-  const chartElement = cloneElement(children, {
-    ...(children.props as any)
-  });
+  const chartElement = cloneElement(children);
 
   return (
     <div

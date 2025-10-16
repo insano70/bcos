@@ -16,7 +16,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '@/lib/api/client';
-import type { ChartData, ChartFilter } from '@/lib/types/analytics';
+import type { ChartData, ChartFilter, DualAxisConfig } from '@/lib/types/analytics';
 
 /**
  * Formatted cell structure for table charts (Phase 3.2)
@@ -154,11 +154,11 @@ export function useChartData(request: UniversalChartDataRequest): UseChartDataRe
    */
   const fetchData = useCallback(async () => {
     // Debug logging for dual-axis only
-    if (request.chartConfig?.chartType === 'dual-axis' && request.chartConfig?.dualAxisConfig) {
+    const dualAxisConfig = request.chartConfig?.dualAxisConfig as DualAxisConfig | undefined;
+    if (request.chartConfig?.chartType === 'dual-axis' && dualAxisConfig) {
       const time = new Date().toISOString().split('T')[1]?.substring(0, 12) || 'unknown';
-      const config = request.chartConfig.dualAxisConfig as any;
-      const primary = config?.primary?.measure || 'unknown';
-      const secondary = config?.secondary?.measure || 'unknown';
+      const primary = dualAxisConfig.primary?.measure || 'unknown';
+      const secondary = dualAxisConfig.secondary?.measure || 'unknown';
       console.log(`[DUAL-AXIS-FETCH ${time}] ${primary} + ${secondary}`);
     }
 

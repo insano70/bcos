@@ -1,6 +1,6 @@
 'use client';
 
-import type { ScriptableContext } from 'chart.js';
+import type { TooltipItem } from 'chart.js';
 
 import { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { useTheme } from 'next-themes';
@@ -15,13 +15,15 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
-import type { ChartData } from 'chart.js';
+import type { ChartData as ChartJSData } from 'chart.js';
 import 'chartjs-adapter-moment';
 import moment from 'moment';
 import { formatValue } from '@/components/utils/utils';
 import { simplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
+import { formatValue as formatChartValue, formatValueCompact as formatChartValueCompact } from '@/lib/utils/chart-data/formatters/value-formatter';
 import { createPeriodComparisonTooltipCallbacks } from '@/lib/utils/period-comparison-tooltips';
 import { createPeriodComparisonLegendLabels, createPeriodComparisonHtmlLegend } from '@/lib/utils/period-comparison-legend';
+import type { ChartData } from '@/lib/types/analytics';
 
 Chart.register(BarController, BarElement, LinearScale, CategoryScale, TimeScale, Tooltip, Legend);
 
@@ -108,9 +110,9 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
               maxTicksLimit: 5,
               callback: (value) => {
                 // Get measure type from chart data, fallback to 'number'
-                const measureType = (data as any)?.measureType || 'number';
+                const measureType = data.measureType || 'number';
                 // Use compact format for Y-axis to save space (e.g., $2.5M instead of $2,500,000)
-                return simplifiedChartTransformer.formatValueCompact(+value, measureType);
+                return formatChartValueCompact(+value, measureType);
               },
               color: darkMode ? textColor.dark : textColor.light,
             },
@@ -150,10 +152,10 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
 
               // Default tooltip callbacks
               return {
-                title: (context: ScriptableContext<'bar'> | ScriptableContext<'line'>) => {
+                title: (tooltipItems: TooltipItem<'bar' | 'line'>[]) => {
                   // Format tooltip title based on frequency
                   // Use moment.js for Safari/iOS compatibility - new Date() parsing is unreliable
-                  const labelValue = context[0]?.label || '';
+                  const labelValue = tooltipItems[0]?.label || '';
                   const parsedDate = moment(labelValue, ['YYYY-MM-DD', 'MMM YYYY', 'DD-MMM-YY', moment.ISO_8601], true);
 
                   if (!parsedDate.isValid()) {
@@ -170,13 +172,13 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
                     return parsedDate.format('MMM YYYY');
                   }
                 },
-                label: (context: ScriptableContext<'bar'> | ScriptableContext<'line'>) => {
+                label: (tooltipItem: TooltipItem<'bar' | 'line'>) => {
                   // Get measure type from dataset metadata, fallback to chart data, then to 'number'
-                  const measureType = (context.dataset as any)?.measureType || 
-                                    (context.chart.data as any)?.measureType || 
+                  const measureType = (tooltipItem.dataset as { measureType?: string })?.measureType ||
+                                    (tooltipItem.chart.data as { measureType?: string })?.measureType ||
                                     'number';
-                  const formattedValue = simplifiedChartTransformer.formatValue(context.parsed.y, measureType);
-                  return `${context.dataset.label}: ${formattedValue}`;
+                  const formattedValue = formatChartValue(tooltipItem.parsed.y, measureType);
+                  return `${tooltipItem.dataset.label}: ${formattedValue}`;
                 },
               };
             })(),
@@ -273,8 +275,8 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
 
               // theValue already calculated during sorting step
               // Get measure type from chart data, fallback to 'number'
-              const measureType = (data as any)?.measureType || 'number';
-              const valueText = document.createTextNode(simplifiedChartTransformer.formatValue(theValue, measureType));
+              const measureType = data.measureType || 'number';
+              const valueText = document.createTextNode(formatChartValue(theValue, measureType));
               const labelText = document.createTextNode(item.text);
               value.appendChild(valueText);
               label.appendChild(labelText);

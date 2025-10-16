@@ -353,7 +353,7 @@ export default function DashboardRowBuilder({
                               }}
                             >
                               <AnalyticsChart
-                                chartType={chart.chartDefinition.chart_type as any}
+                                chartType={chart.chartDefinition.chart_type}
                                 {...(measureFilter?.value && { measure: measureFilter.value as MeasureType })}
                                 {...(frequencyFilter?.value && { frequency: frequencyFilter.value as FrequencyType })}
                                 practice={practiceFilter?.value?.toString()}
@@ -361,13 +361,13 @@ export default function DashboardRowBuilder({
                                 endDate={endDateFilter?.value?.toString()}
                                 groupBy={chartConfig.series?.groupBy || 'provider_name'}
                                 title={chart.chartDefinition.chart_name}
-                                calculatedField={(chartConfig as any).calculatedField}
-                                advancedFilters={(dataSource as any).advancedFilters || []}
-                                dataSourceId={(chartConfig as any).dataSourceId}
-                                stackingMode={(chartConfig as any).stackingMode}
-                                colorPalette={(chartConfig as any).colorPalette}
-                                {...((chartConfig as any).seriesConfigs && (chartConfig as any).seriesConfigs.length > 0 ? { multipleSeries: (chartConfig as any).seriesConfigs } : {})}
-                                {...((chartConfig as any).dualAxisConfig ? { dualAxisConfig: (chartConfig as any).dualAxisConfig } : {})}
+                                calculatedField={chartConfig.calculatedField}
+                                advancedFilters={dataSource.advancedFilters || []}
+                                dataSourceId={chartConfig.dataSourceId}
+                                stackingMode={chartConfig.stackingMode}
+                                colorPalette={chartConfig.colorPalette}
+                                {...(chartConfig.seriesConfigs && chartConfig.seriesConfigs.length > 0 ? { multipleSeries: chartConfig.seriesConfigs } : {})}
+                                {...(chartConfig.dualAxisConfig ? { dualAxisConfig: chartConfig.dualAxisConfig } : {})}
                                 className="w-full h-full flex-1"
                                 responsive={true}
                                 minHeight={minHeight}

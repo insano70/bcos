@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { TransitionValidationBuilder } from './transition-validation-builder';
-import { TransitionActionBuilder } from './transition-action-builder';
+import { TransitionValidationBuilder, type ValidationConfig } from './transition-validation-builder';
+import { TransitionActionBuilder, type ActionConfig } from './transition-action-builder';
 import { useUpdateWorkItemTransition, type WorkItemStatusTransition } from '@/lib/hooks/use-work-item-transitions';
 import { toast } from 'sonner';
 
@@ -25,16 +25,16 @@ export default function EditTransitionConfigModal({
   workItemTypeId,
 }: EditTransitionConfigModalProps) {
   const [activeTab, setActiveTab] = useState<'validation' | 'actions'>('validation');
-  const [validationConfig, setValidationConfig] = useState<unknown>(transition.validation_config);
-  const [actionConfig, setActionConfig] = useState<unknown>(transition.action_config);
+  const [validationConfig, setValidationConfig] = useState<ValidationConfig | null>(transition.validation_config as ValidationConfig | null);
+  const [actionConfig, setActionConfig] = useState<ActionConfig | null>(transition.action_config as ActionConfig | null);
   const [hasChanges, setHasChanges] = useState(false);
 
   const updateTransition = useUpdateWorkItemTransition();
 
   // Reset state when transition changes
   useEffect(() => {
-    setValidationConfig(transition.validation_config);
-    setActionConfig(transition.action_config);
+    setValidationConfig(transition.validation_config as ValidationConfig | null);
+    setActionConfig(transition.action_config as ActionConfig | null);
     setHasChanges(false);
   }, [transition]);
 
@@ -61,18 +61,18 @@ export default function EditTransitionConfigModal({
     if (hasChanges && !confirm('You have unsaved changes. Are you sure you want to close?')) {
       return;
     }
-    setValidationConfig(transition.validation_config);
-    setActionConfig(transition.action_config);
+    setValidationConfig(transition.validation_config as ValidationConfig | null);
+    setActionConfig(transition.action_config as ActionConfig | null);
     setHasChanges(false);
     onClose();
   };
 
-  const handleValidationChange = (config: unknown) => {
+  const handleValidationChange = (config: ValidationConfig) => {
     setValidationConfig(config);
     setHasChanges(true);
   };
 
-  const handleActionChange = (config: unknown) => {
+  const handleActionChange = (config: ActionConfig) => {
     setActionConfig(config);
     setHasChanges(true);
   };
@@ -156,13 +156,13 @@ export default function EditTransitionConfigModal({
                 {activeTab === 'validation' ? (
                   <TransitionValidationBuilder
                     workItemTypeId={workItemTypeId}
-                    initialConfig={validationConfig as any}
+                    initialConfig={validationConfig}
                     onChange={handleValidationChange}
                   />
                 ) : (
                   <TransitionActionBuilder
                     workItemTypeId={workItemTypeId}
-                    initialConfig={actionConfig as any}
+                    initialConfig={actionConfig}
                     onChange={handleActionChange}
                   />
                 )}

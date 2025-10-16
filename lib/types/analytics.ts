@@ -241,6 +241,7 @@ export interface ChartDataSourceConfig {
   filters: ChartFilter[];
   orderBy: ChartOrderBy[];
   limit?: number;
+  advancedFilters?: ChartFilter[]; // Advanced filtering support
 }
 
 export interface ChartFilter {
@@ -285,6 +286,15 @@ export interface ChartConfig {
   options: ChartDisplayOptions;
   colorPalette?: string;
   periodComparison?: PeriodComparisonConfig;
+  // Extended configuration properties
+  calculatedField?: string;
+  dataSourceId?: number;
+  stackingMode?: 'normal' | 'percentage';
+  seriesConfigs?: MultipleSeriesConfig[];
+  dualAxisConfig?: DualAxisConfig;
+  aggregation?: 'sum' | 'avg' | 'count' | 'min' | 'max'; // For number charts
+  target?: number; // For progress-bar and number charts
+  [key: string]: unknown; // Allow additional properties for extensibility
 }
 
 export interface ChartAccessControl {
@@ -309,7 +319,9 @@ export interface ChartDefinition {
     | 'pie'
     | 'doughnut'
     | 'area'
-    | 'table';
+    | 'table'
+    | 'dual-axis'
+    | 'number';
   chart_category_id?: number;
   created_by: string;
   created_at: Date;
@@ -517,10 +529,25 @@ export interface Dashboard {
   is_default?: boolean;
 }
 
+export interface DashboardFilterConfig {
+  enabled?: boolean;          // Show filter bar (default: true)
+  showDateRange?: boolean;    // Show date range filter (default: true)
+  showOrganization?: boolean; // Show organization filter (default: true)
+  showPractice?: boolean;     // Show practice filter (default: false)
+  showProvider?: boolean;     // Show provider filter (default: false)
+  defaultFilters?: {          // Default filter values
+    dateRangePreset?: string;
+    organizationId?: string;
+  };
+}
+
 export interface DashboardLayoutConfig {
   columns: number;
   rowHeight: number;
   margin: number;
+  filterConfig?: DashboardFilterConfig; // Phase 7: Universal filter configuration
+  useBatchRendering?: boolean; // Phase 7: Enable batch rendering (default: true)
+  [key: string]: unknown; // Allow additional properties for extensibility
 }
 
 export interface DashboardChart {

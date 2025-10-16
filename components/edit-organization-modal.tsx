@@ -122,7 +122,7 @@ export default function EditOrganizationModal({
       setValue('slug', organization.slug);
       setValue('parent_organization_id', organization.parent_organization_id ?? null);
       // Convert practice_uids array to comma-separated string for input
-      const practiceUidsStr = (organization as any).practice_uids?.join(', ') || '';
+      const practiceUidsStr = organization.practice_uids?.join(', ') || '';
       setValue('practice_uids_input', practiceUidsStr);
       setValue('is_active', organization.is_active !== false);
     }

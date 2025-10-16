@@ -19,7 +19,7 @@ import type { Chart as ChartType, ChartConfiguration } from 'chart.js';
 import type { ChartData } from '@/lib/types/analytics';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { chartColors } from '@/components/charts/chartjs-config';
-import { simplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
+import { formatValue, formatValueCompact } from '@/lib/utils/chart-data/formatters/value-formatter';
 
 // Register zoom plugin
 let pluginsRegistered = false;
@@ -172,7 +172,7 @@ export default function DualAxisFullscreenModal({
               callback: (tickValue: string | number) => {
                 const value = Number(tickValue);
                 const primaryMeasureType = chartData.datasets[0]?.measureType;
-                return simplifiedChartTransformer.formatValueCompact(value, primaryMeasureType || 'number');
+                return formatValueCompact(value, primaryMeasureType || 'number');
               },
             },
           },
@@ -205,7 +205,7 @@ export default function DualAxisFullscreenModal({
               callback: (tickValue: string | number) => {
                 const value = Number(tickValue);
                 const secondaryMeasureType = chartData.datasets[1]?.measureType;
-                return simplifiedChartTransformer.formatValueCompact(value, secondaryMeasureType || 'number');
+                return formatValueCompact(value, secondaryMeasureType || 'number');
               },
             },
           },
@@ -237,7 +237,7 @@ export default function DualAxisFullscreenModal({
                 const value = context.parsed.y;
                 const dataset = context.dataset as unknown as { measureType?: string };
                 const measureType = dataset.measureType || 'number';
-                const formattedValue = simplifiedChartTransformer.formatValue(value, measureType);
+                const formattedValue = formatValue(value, measureType);
                 return `${label}: ${formattedValue}`;
               },
             },
@@ -318,7 +318,7 @@ export default function DualAxisFullscreenModal({
         valueSpan.className = 'text-[15px] font-semibold text-gray-800 dark:text-gray-100 ml-3';
         const dataset = newChart.data.datasets[item.datasetIndex!];
         const measureType = (dataset as { measureType?: string }).measureType || 'number';
-        valueSpan.textContent = simplifiedChartTransformer.formatValue(total, measureType);
+        valueSpan.textContent = formatValue(total, measureType);
 
         li.appendChild(labelContainer);
         li.appendChild(valueSpan);

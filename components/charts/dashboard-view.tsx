@@ -7,7 +7,7 @@ import BatchChartRenderer, { type BatchChartData } from './batch-chart-renderer'
 import DashboardFilterDropdown from './dashboard-filter-dropdown';
 import { type DashboardUniversalFilters } from './dashboard-filter-bar';
 import { useDashboardData } from '@/hooks/use-dashboard-data';
-import type { Dashboard, DashboardChart, ChartDefinition, MeasureType, FrequencyType, ChartFilter } from '@/lib/types/analytics';
+import type { Dashboard, DashboardChart, ChartDefinition, MeasureType, FrequencyType, ChartFilter, ChartDataSourceConfig, ChartConfig } from '@/lib/types/analytics';
 import { apiClient } from '@/lib/api/client';
 
 interface DashboardViewProps {
@@ -26,7 +26,7 @@ export default function DashboardView({
   const [error, setError] = useState<string | null>(null);
   
   // Phase 7: Check dashboard configuration
-  const layoutConfig = dashboard.layout_config as any;
+  const layoutConfig = dashboard.layout_config;
   const filterConfig = layoutConfig?.filterConfig;
   const showFilterBar = filterConfig?.enabled !== false; // Default to true if not specified
   
@@ -76,10 +76,10 @@ export default function DashboardView({
   const loadChartDefinitions = async () => {
     try {
       const result = await apiClient.get<{
-        charts: ChartDefinition[];
+        charts: ChartDefinition[] | Array<{ chart_definitions: ChartDefinition }>;
       }>('/api/admin/analytics/charts?is_active=true');
-      const charts = (result.charts || []).map((item: ChartDefinition) => {
-        return (item as any).chart_definitions || item;
+      const charts = (result.charts || []).map((item: ChartDefinition | { chart_definitions: ChartDefinition }) => {
+        return 'chart_definitions' in item ? item.chart_definitions : item;
       }).filter((chart: ChartDefinition) => chart.is_active !== false);
       
       setAvailableCharts(charts);
@@ -125,8 +125,12 @@ export default function DashboardView({
       );
       
       // Extract and stabilize config objects to prevent duplicate renders
-      const dataSource = chartDefinition?.data_source || {};
-      const chartConfig = chartDefinition?.chart_config || {};
+      const dataSource: ChartDataSourceConfig = chartDefinition?.data_source || { table: '', filters: [], orderBy: [] };
+      const chartConfig: ChartConfig = chartDefinition?.chart_config || {
+        x_axis: { field: '', label: '', format: 'string' },
+        y_axis: { field: '', label: '', format: 'number' },
+        options: { responsive: true, showLegend: true, showTooltips: true, animation: true }
+      };
       
       return {
         id: `dashboard-chart-${index}`,
@@ -274,8 +278,8 @@ export default function DashboardView({
 
           // Use pre-extracted configs from memoized dashboardConfig
           const chartDef = dashboardChart.chartDefinition;
-          const dataSource = dashboardChart.dataSource as any;
-          const chartConfig = dashboardChart.chartConfig as any;
+          const dataSource = dashboardChart.dataSource;
+          const chartConfig = dashboardChart.chartConfig;
           
           // Extract filters to get chart parameters
           const measureFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'measure');
@@ -334,7 +338,7 @@ export default function DashboardView({
                 />
               ) : (
                 <AnalyticsChart
-                  chartType={chartDef.chart_type as any}
+                  chartType={chartDef.chart_type}
                   {...(measureFilter?.value && { measure: measureFilter.value as MeasureType })}
                   {...(frequencyFilter?.value && { frequency: frequencyFilter.value as FrequencyType })}
                   practice={practiceFilter?.value?.toString()}

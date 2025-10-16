@@ -6,6 +6,7 @@ export interface Organization {
   name: string;
   slug: string;
   parent_organization_id?: string;
+  practice_uids?: number[] | null;
   is_active: boolean;
   created_at: Date;
   updated_at: Date;

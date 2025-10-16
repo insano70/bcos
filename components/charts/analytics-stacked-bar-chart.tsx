@@ -16,8 +16,8 @@ import {
 import type { ChartData } from 'chart.js';
 import 'chartjs-adapter-moment';
 import moment from 'moment';
-import { formatValue } from '@/components/utils/utils';
-import { simplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
+import { formatValue as formatValueUtil } from '@/components/utils/utils';
+import { formatValue, formatValueCompact } from '@/lib/utils/chart-data/formatters/value-formatter';
 
 Chart.register(BarController, BarElement, LinearScale, CategoryScale, TimeScale, Tooltip, Legend);
 
@@ -113,7 +113,7 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
                   return `${value}%`;
                 }
                 // Use compact format for Y-axis to save space (e.g., $2.5M instead of $2,500,000)
-                return simplifiedChartTransformer.formatValueCompact(+value, measureType as string);
+                return formatValueCompact(+value, measureType as string);
               },
               color: darkMode ? textColor.dark : textColor.light,
             },
@@ -174,7 +174,7 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
                   return `${context.dataset.label}: ${percentage}%`;
                 }
                 
-                const formattedValue = simplifiedChartTransformer.formatValue(context.parsed.y, measureType as string);
+                const formattedValue = formatValue(context.parsed.y, measureType as string);
                 return `${context.dataset.label}: ${formattedValue}`;
               },
               footer: (tooltipItems) => {
@@ -185,7 +185,7 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
                 
                 const total = tooltipItems.reduce((sum, item) => sum + item.parsed.y, 0);
                 const measureType = ((tooltipItems[0]?.chart.data as unknown as Record<string, unknown>)?.measureType || 'number') as string;
-                return `Total: ${simplifiedChartTransformer.formatValue(total, measureType)}`;
+                return `Total: ${formatValue(total, measureType)}`;
               },
             },
             titleColor: darkMode ? tooltipTitleColor.dark : tooltipTitleColor.light,
@@ -284,7 +284,7 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
               // theValue already calculated during sorting step
               // Get measure type from chart data, fallback to 'number'
               const measureType = ((data as unknown as Record<string, unknown>)?.measureType || 'number') as string;
-              const valueText = document.createTextNode(simplifiedChartTransformer.formatValue(theValue, measureType));
+              const valueText = document.createTextNode(formatValue(theValue, measureType));
               const labelText = document.createTextNode(item.text);
               value.appendChild(valueText);
               label.appendChild(labelText);

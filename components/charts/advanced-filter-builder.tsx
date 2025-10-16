@@ -8,6 +8,8 @@ import { ChartFilter } from '@/lib/types/analytics';
  * Supports multiple conditions, AND/OR logic, and nested filter groups
  */
 
+type FilterOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'not_in' | 'like' | 'between';
+
 interface FilterGroup {
   id: string;
   logic: 'AND' | 'OR';
@@ -165,7 +167,7 @@ export default function AdvancedFilterBuilder({
             {/* Operator Selector */}
             <select
               value={filter.operator}
-              onChange={(e) => updateFilter(group.id, index, { operator: e.target.value as any })}
+              onChange={(e) => updateFilter(group.id, index, { operator: e.target.value as FilterOperator })}
               className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
             >
               {OPERATORS.map(op => (

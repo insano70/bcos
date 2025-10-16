@@ -87,7 +87,7 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
       setValue('email_verified', user.email_verified || false);
       setValue('is_active', user.is_active !== false); // Handle null as true
       // Convert provider_uid to string for input (empty string if null/undefined)
-      const providerUidStr = (user as any).provider_uid?.toString() || '';
+      const providerUidStr = user.provider_uid?.toString() || '';
       setValue('provider_uid_input', providerUidStr);
     }
   }, [user, isOpen, setValue]);
@@ -107,14 +107,23 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
         }
       }
 
-      const updateData: any = {
+      const updateData: {
+        first_name: string;
+        last_name: string;
+        email: string;
+        role_ids: string[];
+        email_verified?: boolean | undefined;
+        is_active?: boolean | undefined;
+        provider_uid?: number | null | undefined;
+        password?: string | undefined;
+      } = {
         first_name: data.first_name,
         last_name: data.last_name,
         email: data.email,
         role_ids: data.role_ids,
         email_verified: data.email_verified,
         is_active: data.is_active,
-        provider_uid,
+        ...(provider_uid !== null && { provider_uid }), // Only include if not null
       };
 
       // Only include password if it was provided

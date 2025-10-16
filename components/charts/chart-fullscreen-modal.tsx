@@ -19,7 +19,7 @@ import 'chartjs-adapter-moment';
 import moment from 'moment';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { chartColors } from '@/components/charts/chartjs-config';
-import { simplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
+import { formatValue, formatValueCompact } from '@/lib/utils/chart-data/formatters/value-formatter';
 import { createPeriodComparisonTooltipCallbacks } from '@/lib/utils/period-comparison-tooltips';
 import { createPeriodComparisonLegendLabels, createPeriodComparisonHtmlLegend } from '@/lib/utils/period-comparison-legend';
 
@@ -184,7 +184,7 @@ export default function ChartFullscreenModal({
               callback: (value: string | number) => {
                 const numValue = typeof value === 'string' ? parseFloat(value) : value;
                 const measureType = chartData.measureType || 'number';
-                return simplifiedChartTransformer.formatValueCompact(numValue, measureType);
+                return formatValueCompact(numValue, measureType);
               },
             },
           },
@@ -247,7 +247,7 @@ export default function ChartFullscreenModal({
                 }
 
                 const measureType = chartData.measureType || 'number';
-                return simplifiedChartTransformer.formatValueCompact(numValue, measureType);
+                return formatValueCompact(numValue, measureType);
               },
             },
           },
@@ -296,7 +296,7 @@ export default function ChartFullscreenModal({
                   const label = context.dataset.label || '';
                   const value = context.parsed.y;
                   const measureType = chartData.measureType || 'number';
-                  const formattedValue = simplifiedChartTransformer.formatValue(value, measureType);
+                  const formattedValue = formatValue(value, measureType);
 
                   if (chartType === 'stacked-bar' && stackingMode === 'percentage') {
                     return `${label}: ${value.toFixed(1)}%`;
@@ -384,7 +384,7 @@ export default function ChartFullscreenModal({
           const valueSpan = document.createElement('span');
           valueSpan.className = 'text-[15px] font-semibold text-gray-800 dark:text-gray-100 ml-3';
           const measureType = chartData.measureType || 'number';
-          valueSpan.textContent = simplifiedChartTransformer.formatValue(total, measureType);
+          valueSpan.textContent = formatValue(total, measureType);
 
           li.appendChild(labelContainer);
           li.appendChild(valueSpan);

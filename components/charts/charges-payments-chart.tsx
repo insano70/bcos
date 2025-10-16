@@ -39,7 +39,14 @@ export default function ChargesPaymentsChart({
 }: ChargesPaymentsChartProps) {
   const [chartData, setChartData] = useState<{
     labels: string[];
-    datasets: any[];
+    datasets: Array<{
+      label: string;
+      data: number[];
+      backgroundColor?: string;
+      borderColor?: string;
+      borderWidth?: number;
+      [key: string]: unknown;
+    }>;
   }>({
     labels: [],
     datasets: []

@@ -7,6 +7,7 @@ export interface User {
   email: string;
   email_verified: boolean | null;
   is_active: boolean | null;
+  provider_uid?: number | null;
   created_at: string;
   deleted_at: string | null;
   roles?: Array<{
@@ -26,13 +27,14 @@ export interface CreateUserData {
 }
 
 export interface UpdateUserData {
-  first_name?: string;
-  last_name?: string;
-  email?: string;
-  password?: string;
-  role_ids?: string[];
-  email_verified?: boolean;
-  is_active?: boolean;
+  first_name?: string | undefined;
+  last_name?: string | undefined;
+  email?: string | undefined;
+  password?: string | undefined;
+  role_ids?: string[] | undefined;
+  email_verified?: boolean | undefined;
+  is_active?: boolean | undefined;
+  provider_uid?: number | null | undefined;
 }
 
 /**

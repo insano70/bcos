@@ -202,20 +202,26 @@ export function SettingsOnly({
 /**
  * Own Resource Only Component (for profile pages, etc.)
  */
-export function OwnResourceOnly({ 
-  children, 
+export function OwnResourceOnly({
+  children,
   fallback,
   resourceId,
   resourceType = 'users'
-}: { 
-  children: React.ReactNode; 
+}: {
+  children: React.ReactNode;
   fallback?: React.ReactNode;
   resourceId?: string;
   resourceType?: 'users' | 'practices';
 }) {
+  // Map resource type to specific permission string
+  const permissionMap = {
+    users: 'users:read:own' as const,
+    practices: 'practices:read:own' as const,
+  };
+
   return (
-    <ProtectedComponent 
-      permission={`${resourceType}:read:own` as any}
+    <ProtectedComponent
+      permission={permissionMap[resourceType]}
       resourceId={resourceId}
       fallback={fallback}
     >
@@ -248,16 +254,37 @@ export function PermissionLevelComponent({
     return null;
   }
 
+  // Map resource type to specific permission strings
+  const permissionMap = {
+    users: {
+      all: 'users:read:all' as const,
+      organization: 'users:read:organization' as const,
+      own: 'users:read:own' as const,
+    },
+    practices: {
+      all: 'practices:read:all' as const,
+      organization: 'practices:read:organization' as const,
+      own: 'practices:read:own' as const,
+    },
+    analytics: {
+      all: 'analytics:read:all' as const,
+      organization: 'analytics:read:organization' as const,
+      own: 'analytics:read:own' as const,
+    },
+  };
+
+  const permissions = permissionMap[resourceType];
+
   // Check permissions in order of increasing scope
-  if (allContent && hasPermission(`${resourceType}:read:all` as any, resourceId, organizationId)) {
+  if (allContent && hasPermission(permissions.all, resourceId, organizationId)) {
     return <>{allContent}</>;
   }
 
-  if (orgContent && hasPermission(`${resourceType}:read:organization` as any, resourceId, organizationId)) {
+  if (orgContent && hasPermission(permissions.organization, resourceId, organizationId)) {
     return <>{orgContent}</>;
   }
 
-  if (ownContent && hasPermission(`${resourceType}:read:own` as any, resourceId, organizationId)) {
+  if (ownContent && hasPermission(permissions.own, resourceId, organizationId)) {
     return <>{ownContent}</>;
   }
 

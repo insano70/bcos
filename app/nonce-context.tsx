@@ -2,6 +2,13 @@
 
 import { createContext, useContext } from 'react'
 
+// Extend Window interface to include CSP nonce
+declare global {
+  interface Window {
+    __CSP_NONCE__?: string;
+  }
+}
+
 const NonceContext = createContext<string>('')
 
 export function NonceProvider({ 
@@ -27,7 +34,7 @@ export const useNonce = () => {
   
   // Fallback for client-side access when context isn't available
   if (!nonce && typeof window !== 'undefined') {
-    return (window as any).__CSP_NONCE__ || ''
+    return window.__CSP_NONCE__ || ''
   }
   
   return nonce

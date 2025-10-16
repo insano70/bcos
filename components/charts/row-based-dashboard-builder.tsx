@@ -8,8 +8,28 @@ import Toast from '@/components/toast';
 import { apiClient } from '@/lib/api/client';
 import type { DashboardFilterConfig } from './dashboard-filter-bar';
 
+interface DashboardChartAssoc {
+  dashboard_chart_id: string;
+  chart_definition_id: string;
+  position_config?: {
+    x?: number;
+    y?: number;
+    w?: number;
+    h?: number;
+  };
+}
+
+interface EditingDashboard {
+  dashboard_id?: string | undefined;
+  dashboard_name?: string | undefined;
+  dashboard_description?: string | undefined;
+  is_published?: boolean | undefined;
+  charts?: DashboardChartAssoc[] | undefined;
+  layout_config?: Record<string, unknown> | undefined;
+}
+
 interface RowBasedDashboardBuilderProps {
-  editingDashboard?: any;
+  editingDashboard?: EditingDashboard;
   onCancel?: () => void;
   onSaveSuccess?: () => void;
 }
@@ -60,7 +80,7 @@ export default function RowBasedDashboardBuilder({
       if (editingDashboard.charts && Array.isArray(editingDashboard.charts)) {
         const rowsMap = new Map<number, DashboardChartSlot[]>();
         
-        editingDashboard.charts.forEach((chartAssoc: any, index: number) => {
+        editingDashboard.charts.forEach((chartAssoc, index: number) => {
           const y = chartAssoc.position_config?.y || 0;
           const chartDefinition = availableCharts.find(chart => 
             chart.chart_definition_id === chartAssoc.chart_definition_id
@@ -86,7 +106,7 @@ export default function RowBasedDashboardBuilder({
           .sort(([a], [b]) => a - b) // Sort by Y position
           .map(([y, charts], index) => ({
             id: `row-${y}-${index}`,
-            heightPx: (editingDashboard.layout_config?.rowHeight || 150) * Math.max(1, Math.max(...charts.map((c: any) => editingDashboard.charts.find((ec: any) => ec.chart_definition_id === c.chartDefinitionId)?.position_config?.h || 2))),
+            heightPx: (typeof editingDashboard.layout_config?.rowHeight === 'number' ? editingDashboard.layout_config.rowHeight : 150) * Math.max(1, Math.max(...charts.map((c) => editingDashboard.charts?.find((ec) => ec.chart_definition_id === c.chartDefinitionId)?.position_config?.h || 2))),
             charts
           }));
         console.log('🔄 Converted to row-based layout:', { originalCharts: editingDashboard.charts.length, rows: rows.length });
@@ -100,14 +120,15 @@ export default function RowBasedDashboardBuilder({
       });
 
       // Phase 7: Load filter config if exists
-      if (editingDashboard.layout_config?.filterConfig) {
+      const layoutFilterConfig = editingDashboard.layout_config?.filterConfig as DashboardFilterConfig | undefined;
+      if (layoutFilterConfig) {
         setFilterConfig({
-          enabled: editingDashboard.layout_config.filterConfig.enabled !== false,
-          showDateRange: editingDashboard.layout_config.filterConfig.showDateRange !== false,
-          showOrganization: editingDashboard.layout_config.filterConfig.showOrganization !== false,
-          showPractice: editingDashboard.layout_config.filterConfig.showPractice === true,
-          showProvider: editingDashboard.layout_config.filterConfig.showProvider === true,
-          defaultFilters: editingDashboard.layout_config.filterConfig.defaultFilters || {
+          enabled: layoutFilterConfig.enabled !== false,
+          showDateRange: layoutFilterConfig.showDateRange !== false,
+          showOrganization: layoutFilterConfig.showOrganization !== false,
+          showPractice: layoutFilterConfig.showPractice === true,
+          showProvider: layoutFilterConfig.showProvider === true,
+          defaultFilters: layoutFilterConfig.defaultFilters || {
             dateRangePreset: 'last_30_days',
           },
         });
@@ -123,8 +144,8 @@ export default function RowBasedDashboardBuilder({
       const result = await apiClient.get<{
         charts: ChartDefinition[];
       }>('/api/admin/analytics/charts?is_active=true');
-      const charts = (result.charts || []).map((item: ChartDefinition) => {
-        return (item as any).chart_definitions || item;
+      const charts = (result.charts || []).map((item: ChartDefinition | { chart_definitions: ChartDefinition }) => {
+        return 'chart_definitions' in item ? item.chart_definitions : item;
       }).filter((chart: ChartDefinition) => chart.is_active !== false);
         
       setAvailableCharts(charts);
@@ -214,7 +235,30 @@ export default function RowBasedDashboardBuilder({
 
     try {
       // Convert row-based config to API format
-      const dashboardDefinition: any = {
+      const dashboardDefinition: {
+        dashboard_name: string;
+        dashboard_description: string;
+        layout_config: {
+          type: string;
+          rows: Array<{
+            heightPx: number;
+            charts: Array<{
+              chartDefinitionId: string | undefined;
+              widthPercentage: number;
+            }>;
+          }>;
+          filterConfig: DashboardFilterConfig;
+        };
+        chart_ids?: string[];
+        chart_positions?: Array<{
+          x: number;
+          y: number;
+          w: number;
+          h: number;
+        }>;
+        dashboard_id?: string;
+        is_published?: boolean | undefined;
+      } = {
         dashboard_name: dashboardConfig.dashboardName,
         dashboard_description: dashboardConfig.dashboardDescription,
         layout_config: {
@@ -250,8 +294,8 @@ export default function RowBasedDashboardBuilder({
 
       console.log(`💾 ${isEditMode ? 'Updating' : 'Creating'} row-based dashboard:`, dashboardDefinition);
 
-      const url = isEditMode 
-        ? `/api/admin/analytics/dashboards/${editingDashboard.dashboard_id}`
+      const url = isEditMode
+        ? `/api/admin/analytics/dashboards/${editingDashboard?.dashboard_id}`
         : '/api/admin/analytics/dashboards';
       
       const method = isEditMode ? 'PATCH' : 'POST';

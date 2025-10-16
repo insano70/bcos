@@ -13,14 +13,14 @@ import { useState } from 'react';
 import { X, Plus, ChevronDown, ChevronRight } from 'lucide-react';
 import { useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
 
-interface ValidationRule {
+export interface ValidationRule {
   field: string;
   operator: 'equals' | 'not_equals' | 'greater_than' | 'less_than' | 'contains';
   value: string;
   message: string;
 }
 
-interface ValidationConfig {
+export interface ValidationConfig {
   required_fields: string[];
   custom_rules: ValidationRule[];
 }

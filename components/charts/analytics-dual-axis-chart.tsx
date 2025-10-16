@@ -7,7 +7,7 @@ import type { ChartData as ChartJSData, ChartConfiguration } from 'chart.js';
 import { ChartData, type DualAxisConfig } from '@/lib/types/analytics';
 import type { ResponsiveChartProps } from '@/lib/types/responsive-charts';
 import { chartColors } from '@/components/charts/chartjs-config';
-import { simplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
+import { formatValue, formatValueCompact } from '@/lib/utils/chart-data/formatters/value-formatter';
 
 // Register Chart.js components
 Chart.register(
@@ -116,7 +116,7 @@ export default function AnalyticsDualAxisChart({
               callback: function(tickValue: string | number) {
                 const value = Number(tickValue);
                 const primaryMeasureType = chartData.datasets[0]?.measureType;
-                return simplifiedChartTransformer.formatValueCompact(value, primaryMeasureType || 'number');
+                return formatValueCompact(value, primaryMeasureType || 'number');
               },
             },
           },
@@ -144,7 +144,7 @@ export default function AnalyticsDualAxisChart({
               callback: function(tickValue: string | number) {
                 const value = Number(tickValue);
                 const secondaryMeasureType = chartData.datasets[1]?.measureType;
-                return simplifiedChartTransformer.formatValueCompact(value, secondaryMeasureType || 'number');
+                return formatValueCompact(value, secondaryMeasureType || 'number');
               },
             },
           },
@@ -188,7 +188,7 @@ export default function AnalyticsDualAxisChart({
                 const label = context.dataset.label || '';
                 const value = context.parsed.y;
                 const measureType = (context.dataset as unknown as { measureType?: string }).measureType;
-                const formattedValue = simplifiedChartTransformer.formatValue(value, measureType || 'number');
+                const formattedValue = formatValue(value, measureType || 'number');
                 return `${label}: ${formattedValue}`;
               },
             },

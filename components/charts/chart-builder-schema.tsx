@@ -4,7 +4,7 @@ interface FieldDefinition {
   name: string;
   type: string;
   description: string;
-  example: any;
+  example: string | number | boolean | null;
   groupable: boolean;
   filterable: boolean;
   aggregatable?: boolean;

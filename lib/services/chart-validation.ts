@@ -43,6 +43,8 @@ const ALLOWED_CHART_TYPES = [
   'doughnut',
   'area',
   'table',
+  'dual-axis',
+  'number',
 ] as const;
 
 // Allowed operators for filters

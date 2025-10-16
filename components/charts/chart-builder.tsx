@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Toast from '@/components/toast';
-import { ChartDefinition, ChartFilter, MeasureType, MultipleSeriesConfig, PeriodComparisonConfig, DualAxisConfig } from '@/lib/types/analytics';
+import { ChartDefinition, ChartFilter, MeasureType, FrequencyType, MultipleSeriesConfig, PeriodComparisonConfig, DualAxisConfig } from '@/lib/types/analytics';
 import { calculatedFieldsService } from '@/lib/services/calculated-fields';
 import { FormSkeleton, Skeleton } from '@/components/ui/loading-skeleton';
 import { apiClient } from '@/lib/api/client';
@@ -18,7 +18,7 @@ interface FieldDefinition {
   name: string;
   type: string;
   description: string;
-  example: unknown;
+  example: string | number | boolean | null;
   groupable: boolean;
   filterable: boolean;
   aggregatable?: boolean;
@@ -244,8 +244,8 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
       if (!isEditMode && (result.availableMeasures?.length > 0 || result.availableFrequencies?.length > 0)) {
         setChartConfig(prev => ({
           ...prev,
-          ...(result.availableMeasures?.length > 0 && { measure: result.availableMeasures[0] as any }),
-          ...(result.availableFrequencies?.length > 0 && { frequency: result.availableFrequencies[0] as any })
+          ...(result.availableMeasures?.[0] && { measure: result.availableMeasures[0].measure as MeasureType }),
+          ...(result.availableFrequencies?.[0] && { frequency: result.availableFrequencies[0].frequency as FrequencyType })
         }));
       }
 
@@ -550,12 +550,12 @@ export default function FunctionalChartBuilder({ editingChart, onCancel, onSaveS
       <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-700">
         <div className="flex space-x-6">
           {[
-            { key: 'configure', label: 'Configure' },
-            { key: 'preview', label: 'Preview' }
+            { key: 'configure' as const, label: 'Configure' },
+            { key: 'preview' as const, label: 'Preview' }
           ].map(({ key, label }) => (
             <button
               key={key}
-              onClick={() => setCurrentStep(key as any)}
+              onClick={() => setCurrentStep(key)}
               className={`pb-2 border-b-2 font-medium text-sm ${
                 currentStep === key
                   ? 'border-violet-500 text-violet-600 dark:text-violet-400'

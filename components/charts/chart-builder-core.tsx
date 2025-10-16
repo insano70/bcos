@@ -1,6 +1,6 @@
 'use client';
 
-import { ChartFilter, MeasureType, MultipleSeriesConfig, PeriodComparisonConfig, DualAxisConfig } from '@/lib/types/analytics';
+import { ChartFilter, MeasureType, FrequencyType, MultipleSeriesConfig, PeriodComparisonConfig, DualAxisConfig } from '@/lib/types/analytics';
 import DateRangePresets from './date-range-presets';
 import DataSourceSelector from './data-source-selector';
 import ColorPaletteSelector from './color-palette-selector';
@@ -34,8 +34,8 @@ export interface DataSource {
 export interface ChartConfig {
   chartName: string;
   chartType: 'line' | 'area' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'progress-bar' | 'pie' | 'doughnut' | 'table' | 'dual-axis' | 'number';
-  measure: string;
-  frequency: string;
+  measure: MeasureType | string;
+  frequency: FrequencyType | string;
   startDate: string;
   endDate: string;
   groupBy: string;

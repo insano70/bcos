@@ -4,7 +4,7 @@
  */
 
 import type { TooltipItem, TooltipModel } from 'chart.js';
-import { simplifiedChartTransformer } from './simplified-chart-transformer';
+import { formatValue } from './chart-data/formatters/value-formatter';
 
 // Extended dataset type with custom properties
 interface ExtendedDataset {
@@ -37,7 +37,7 @@ export function createPeriodComparisonTooltipCallbacks(
       const chartData = this.chart.data as { measureType?: string };
       const measureType = dataset?.measureType || chartData?.measureType || 'number';
       const parsed = tooltipItem.parsed as { x: number; y: number };
-      const formattedValue = simplifiedChartTransformer.formatValue(parsed.y, measureType);
+      const formattedValue = formatValue(parsed.y, measureType);
 
       // Check if this is a comparison dataset
       const isComparison =
@@ -79,7 +79,7 @@ export function createPeriodComparisonTooltipCallbacks(
 
         const currentDataset = currentData.dataset as ExtendedDataset;
         const measureType = currentDataset?.measureType || 'number';
-        const formattedDifference = simplifiedChartTransformer.formatValue(
+        const formattedDifference = formatValue(
           Math.abs(difference),
           measureType
         );
@@ -114,7 +114,7 @@ export function createPeriodComparisonHorizontalTooltipCallbacks(_darkMode: bool
       const chartData = this.chart.data as { measureType?: string };
       const measureType = dataset?.measureType || chartData?.measureType || 'number';
       const parsed = tooltipItem.parsed as { x: number; y: number };
-      const formattedValue = simplifiedChartTransformer.formatValue(parsed.x, measureType);
+      const formattedValue = formatValue(parsed.x, measureType);
 
       // Check if this is a comparison dataset
       const isComparison =
@@ -156,7 +156,7 @@ export function createPeriodComparisonHorizontalTooltipCallbacks(_darkMode: bool
 
         const currentDataset = currentData.dataset as ExtendedDataset;
         const measureType = currentDataset?.measureType || 'number';
-        const formattedDifference = simplifiedChartTransformer.formatValue(
+        const formattedDifference = formatValue(
           Math.abs(difference),
           measureType
         );
@@ -188,7 +188,7 @@ export function createPeriodComparisonStackedTooltipCallbacks(_darkMode: boolean
       const chartData = this.chart.data as { measureType?: string };
       const measureType = dataset?.measureType || chartData?.measureType || 'number';
       const parsed = tooltipItem.parsed as { x: number; y: number };
-      const formattedValue = simplifiedChartTransformer.formatValue(parsed.y, measureType);
+      const formattedValue = formatValue(parsed.y, measureType);
 
       // Check if this is a comparison dataset
       const isComparison =
@@ -234,7 +234,7 @@ export function createPeriodComparisonStackedTooltipCallbacks(_darkMode: boolean
 
       const firstDataset = tooltipItems[0]?.dataset as ExtendedDataset;
       const measureType = firstDataset?.measureType || 'number';
-      const formattedCurrentTotal = simplifiedChartTransformer.formatValue(
+      const formattedCurrentTotal = formatValue(
         currentTotal,
         measureType
       );
@@ -244,11 +244,11 @@ export function createPeriodComparisonStackedTooltipCallbacks(_darkMode: boolean
       if (comparisonTotal > 0) {
         const difference = currentTotal - comparisonTotal;
         const percentageChange = (difference / comparisonTotal) * 100;
-        const formattedComparisonTotal = simplifiedChartTransformer.formatValue(
+        const formattedComparisonTotal = formatValue(
           comparisonTotal,
           measureType
         );
-        const formattedDifference = simplifiedChartTransformer.formatValue(
+        const formattedDifference = formatValue(
           Math.abs(difference),
           measureType
         );

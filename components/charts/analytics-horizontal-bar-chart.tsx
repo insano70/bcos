@@ -1,6 +1,6 @@
 'use client';
 
-import type { ScriptableContext } from 'chart.js';
+import type { TooltipItem } from 'chart.js';
 
 import { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { useTheme } from 'next-themes';
@@ -14,9 +14,10 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
-import type { ChartData } from 'chart.js';
-import { simplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
+import type { ChartData as ChartJSData } from 'chart.js';
+import { formatValue } from '@/lib/utils/chart-data/formatters/value-formatter';
 import { createPeriodComparisonHorizontalTooltipCallbacks } from '@/lib/utils/period-comparison-tooltips';
+import type { ChartData } from '@/lib/types/analytics';
 
 Chart.register(BarController, BarElement, LinearScale, CategoryScale, Tooltip, Legend);
 
@@ -65,8 +66,8 @@ const AnalyticsHorizontalBarChart = forwardRef<HTMLCanvasElement, AnalyticsHoriz
               maxTicksLimit: 5,
               callback: (value) => {
                 // Get measure type from chart data, fallback to 'number'
-                const measureType = (data as any)?.measureType || 'number';
-                return simplifiedChartTransformer.formatValue(+value, measureType);
+                const measureType = data.measureType || 'number';
+                return formatValue(+value, measureType);
               },
               color: darkMode ? textColor.dark : textColor.light,
             },
@@ -107,17 +108,17 @@ const AnalyticsHorizontalBarChart = forwardRef<HTMLCanvasElement, AnalyticsHoriz
 
               // Default tooltip callbacks
               return {
-                title: (context: ScriptableContext<'bar'> | ScriptableContext<'line'>) => {
+                title: (tooltipItems: TooltipItem<'bar'>[]) => {
                   // Show the category label as title
-                  return context[0]?.label || '';
+                  return tooltipItems[0]?.label || '';
                 },
-                label: (context: ScriptableContext<'bar'> | ScriptableContext<'line'>) => {
+                label: (tooltipItem: TooltipItem<'bar'>) => {
                   // Get measure type from dataset metadata, fallback to chart data, then to 'number'
-                  const measureType = (context.dataset as any)?.measureType || 
-                                    (context.chart.data as any)?.measureType || 
+                  const measureType = (tooltipItem.dataset as { measureType?: string })?.measureType ||
+                                    (tooltipItem.chart.data as { measureType?: string })?.measureType ||
                                     'number';
-                  const formattedValue = simplifiedChartTransformer.formatValue(context.parsed.x, measureType);
-                  return `${context.dataset.label}: ${formattedValue}`;
+                  const formattedValue = formatValue(tooltipItem.parsed.x, measureType);
+                  return `${tooltipItem.dataset.label}: ${formattedValue}`;
                 },
               };
             })(),
@@ -211,8 +212,8 @@ const AnalyticsHorizontalBarChart = forwardRef<HTMLCanvasElement, AnalyticsHoriz
               ) as number;
               
               // Get measure type from chart data, fallback to 'number'
-              const measureType = (data as any)?.measureType || 'number';
-              const valueText = document.createTextNode(simplifiedChartTransformer.formatValue(theValue, measureType));
+              const measureType = data.measureType || 'number';
+              const valueText = document.createTextNode(formatValue(theValue, measureType));
               const labelText = document.createTextNode(item.text);
               value.appendChild(valueText);
               label.appendChild(labelText);

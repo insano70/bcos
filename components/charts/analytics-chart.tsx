@@ -43,10 +43,10 @@ interface AnalyticsChartProps extends ResponsiveChartProps {
   advancedFilters?: ChartFilter[];
   multipleSeries?: MultipleSeriesConfig[];
   dataSourceId?: number | undefined;
-  stackingMode?: 'normal' | 'percentage';
-  colorPalette?: string;
-  periodComparison?: PeriodComparisonConfig;
-  dualAxisConfig?: DualAxisConfig;
+  stackingMode?: 'normal' | 'percentage' | undefined;
+  colorPalette?: string | undefined;
+  periodComparison?: PeriodComparisonConfig | undefined;
+  dualAxisConfig?: DualAxisConfig | undefined;
   aggregation?: 'sum' | 'avg' | 'count' | 'min' | 'max';
   target?: number;
 }
