@@ -58,7 +58,8 @@ function analyzeAnyTypes(): TypeIssue[] {
 
     const [, filePath, lineNum, content] = match;
 
-    // Skip third-party code
+    // Skip if any captured group is undefined or third-party code
+    if (!filePath || !lineNum || !content) continue;
     if (filePath.includes('node_modules') || filePath.endsWith('.d.ts')) continue;
 
     const category = categorizeAnyType(filePath, content);
@@ -90,7 +91,8 @@ function analyzeTypeAssertions(): TypeIssue[] {
 
     const [, filePath, lineNum, content] = match;
 
-    // Skip third-party code and imports
+    // Skip if any captured group is undefined or third-party code
+    if (!filePath || !lineNum || !content) continue;
     if (filePath.includes('node_modules') || filePath.endsWith('.d.ts')) continue;
     if (content.includes('import ') && content.includes(' as ')) continue;
 
