@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
 import { registerPasskey, isWebAuthnSupported, getWebAuthnErrorMessage } from '@/lib/utils/webauthn-client';
 import type { PublicKeyCredentialCreationOptionsJSON } from '@simplewebauthn/browser';
+import { log } from '@/lib/logger';
+import { getBaseUrl } from './utils/get-base-url';
 
 interface MFASetupDialogProps {
   isOpen: boolean;
@@ -102,9 +104,7 @@ export default function MFASetupDialog({
     setError(null);
 
     try {
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-
-      const response = await fetch(`${baseUrl}/api/auth/mfa/skip`, {
+      const response = await fetch(`${getBaseUrl()}/api/auth/mfa/skip`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -150,17 +150,13 @@ export default function MFASetupDialog({
 
     try {
       // Step 1: Begin registration (get challenge from server)
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      log.debug('MFA Setup - Begin Registration', {
+        hasTempToken: !!tempToken,
+        hasCsrfToken: !!csrfToken,
+        csrfTokenLength: csrfToken?.length,
+      });
 
-      if (process.env.NODE_ENV === 'development') {
-        console.log('MFA Setup - Begin Registration:', {
-          hasTempToken: !!tempToken,
-          hasCsrfToken: !!csrfToken,
-          csrfTokenLength: csrfToken?.length,
-        });
-      }
-
-      const beginResponse = await fetch(`${baseUrl}/api/auth/mfa/register/begin`, {
+      const beginResponse = await fetch(`${getBaseUrl()}/api/auth/mfa/register/begin`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -185,7 +181,7 @@ export default function MFASetupDialog({
       // Step 3: Complete registration (verify with server)
       const passkeyName = generatePasskeyName();
 
-      const completeResponse = await fetch(`${baseUrl}/api/auth/mfa/register/complete`, {
+      const completeResponse = await fetch(`${getBaseUrl()}/api/auth/mfa/register/complete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

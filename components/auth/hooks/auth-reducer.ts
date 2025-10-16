@@ -41,20 +41,6 @@ export interface AuthState {
 
   // Note: MFA state managed by useMFAFlow hook
   // Note: CSRF token managed by useCSRFManagement hook
-
-  // Legacy MFA state fields (kept for backward compatibility with context interface)
-  // These will be overridden by MFA hook values in context
-  mfaRequired: boolean;
-  mfaSetupRequired: boolean;
-  mfaSetupEnforced: boolean;
-  mfaSkipsRemaining: number;
-  mfaTempToken: string | null;
-  mfaChallenge: unknown | null;
-  mfaChallengeId: string | null;
-  mfaUser: { id: string; email: string; name: string } | null;
-
-  // Legacy CSRF state (kept for backward compatibility)
-  csrfToken: string | null;
 }
 
 /**
@@ -68,16 +54,6 @@ export const initialAuthState: AuthState = {
   userContext: null,
   rbacLoading: false,
   rbacError: null,
-  // Legacy fields (overridden by hooks)
-  mfaRequired: false,
-  mfaSetupRequired: false,
-  mfaSetupEnforced: false,
-  mfaSkipsRemaining: 0,
-  mfaTempToken: null,
-  mfaChallenge: null,
-  mfaChallengeId: null,
-  mfaUser: null,
-  csrfToken: null,
 };
 
 /**

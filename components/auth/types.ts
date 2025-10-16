@@ -94,24 +94,6 @@ export interface RBACAuthContextType extends RBACAuthState {
 }
 
 /**
- * Auth Action Types for useReducer
- * Defines all possible state mutations in the authentication system
- */
-export type AuthAction =
-  | { type: 'LOGIN_SUCCESS'; payload: { user: User; sessionId: string; csrfToken?: string } }
-  | { type: 'LOGOUT' }
-  | { type: 'SET_USER_CONTEXT'; payload: UserContext }
-  | { type: 'MFA_SETUP_REQUIRED'; payload: { user: MFAUser; skipsRemaining: number; tempToken: string; csrfToken?: string } }
-  | { type: 'MFA_VERIFICATION_REQUIRED'; payload: { tempToken: string; challenge: unknown; challengeId: string; csrfToken?: string } }
-  | { type: 'MFA_COMPLETED'; payload: { user: User; sessionId: string; csrfToken?: string } }
-  | { type: 'CLEAR_MFA_STATE' }
-  | { type: 'SET_LOADING'; payload: boolean }
-  | { type: 'SET_RBAC_LOADING'; payload: boolean }
-  | { type: 'SET_RBAC_ERROR'; payload: string | null }
-  | { type: 'SET_CSRF_TOKEN'; payload: string | null }
-  | { type: 'SESSION_EXPIRED' };
-
-/**
  * API User Response
  * User data structure returned from API endpoints
  */

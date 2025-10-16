@@ -7,6 +7,7 @@ import { transformApiUserToContext, validateApiUserResponse } from './utils/user
 import { useCSRFManagement } from './hooks/use-csrf-management';
 import { useMFAFlow } from './hooks/use-mfa-flow';
 import { useAuthState } from './hooks/use-auth-state';
+import { authHTTPService } from './services/auth-http-service';
 import type {
   User,
   RBACAuthState,
@@ -107,37 +108,37 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
 
       // First, check if we already have a valid authentication state from cookies
       // Try to validate existing session without forcing a refresh
-      // Use current domain instead of hardcoded NEXT_PUBLIC_APP_URL to avoid CORS issues
-      const baseUrl = typeof window !== 'undefined'
-        ? window.location.origin
-        : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001');
-      const checkResponse = await fetch(`${baseUrl}/api/auth/me`, {
-        method: 'GET',
-        credentials: 'include' // Include httpOnly cookies
-      });
+      const data = await authHTTPService.checkSession();
 
-      if (checkResponse.ok) {
-        // We have a valid session, no need to refresh
-        const data = await checkResponse.json();
-        if (data.success && data.data?.user) {
-          debugLog.auth('Found existing valid session, skipping token refresh');
+      if (data.success && data.data?.user) {
+        debugLog.auth('Found existing valid session, skipping token refresh');
 
-          // Extract user context from the response to avoid duplicate loading
-          const apiUser = data.data.user as APIUserResponse;
-          validateApiUserResponse(apiUser);
-          const userContext = transformApiUserToContext(apiUser);
+        // Extract user context from the response to avoid duplicate loading
+        const apiUser = data.data.user;
+        validateApiUserResponse(apiUser);
+        const userContext = transformApiUserToContext(apiUser);
 
-          // Update auth state with existing session and user context
-          actions.initSuccess({
-            user: data.data.user,
-            sessionId: data.data.sessionId,
-            userContext: userContext,
-          });
+        // Convert API user to User format
+        const user: User = {
+          id: apiUser.id,
+          email: apiUser.email,
+          name: `${apiUser.firstName} ${apiUser.lastName}`,
+          firstName: apiUser.firstName,
+          lastName: apiUser.lastName,
+          role: apiUser.roles[0]?.name || 'user',
+          emailVerified: apiUser.emailVerified,
+        };
 
-          // Ensure we have a CSRF token for future requests
-          await ensureCsrfToken();
-          return;
-        }
+        // Update auth state with existing session and user context
+        actions.initSuccess({
+          user,
+          sessionId: data.data.sessionId,
+          userContext: userContext,
+        });
+
+        // Ensure we have a CSRF token for future requests
+        await ensureCsrfToken();
+        return;
       }
 
       // No valid session found, try token refresh as fallback
@@ -166,39 +167,27 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
 
       debugLog.auth('Loading user context for:', state.user.id);
 
-      // Fetch user context via API (server-side database access)
-      // Use current domain instead of hardcoded NEXT_PUBLIC_APP_URL to avoid CORS issues
-      const baseUrl = typeof window !== 'undefined'
-        ? window.location.origin
-        : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001');
-      const response = await fetch(`${baseUrl}/api/auth/me`, {
-        method: 'GET',
-        credentials: 'include' // Include httpOnly cookies
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          // Session expired, clear auth state
-          debugLog.auth('Session expired during user context loading');
-          actions.sessionExpired();
-          return;
-        }
-        throw new Error(`Failed to fetch user context: ${response.status}`);
-      }
-
-      const data = await response.json();
+      // Fetch user context via HTTP service
+      const data = await authHTTPService.fetchUserContext();
 
       if (!data.success || !data.data?.user) {
         throw new Error('Invalid user context response');
       }
 
       // Transform API response to UserContext format
-      const apiUser = data.data.user as APIUserResponse;
+      const apiUser = data.data.user;
       validateApiUserResponse(apiUser);
       const userContext = transformApiUserToContext(apiUser);
 
       actions.rbacLoadSuccess({ userContext });
     } catch (error) {
+      // Check if this is a session expired error (401)
+      if (error instanceof Error && error.message.includes('401')) {
+        debugLog.auth('Session expired during user context loading');
+        actions.sessionExpired();
+        return;
+      }
+
       errorLog('Failed to load RBAC user context:', error);
       actions.rbacLoadFailure({
         error: error instanceof Error ? error.message : 'Unknown RBAC error'
@@ -207,137 +196,91 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
   };
 
   const login = async (email: string, password: string, remember = false) => {
-    const maxRetries = 2;
-    let attempt = 0;
+    try {
+      actions.loginStart();
 
-    while (attempt < maxRetries) {
-      try {
-        actions.loginStart();
+      // Use HTTP service with automatic CSRF retry logic
+      const result = await authHTTPService.loginWithRetry(
+        email,
+        password,
+        remember,
+        ensureCsrfToken,
+        () => setCsrfToken(null) // Clear CSRF token on retry
+      );
 
-        const csrfToken = await ensureCsrfToken();
-        if (!csrfToken) {
-          throw new Error('Failed to obtain CSRF token');
-        }
+      // Check response status for MFA flows
+      if (!result.data) {
+        throw new Error('Invalid login response: missing data');
+      }
 
-        debugLog.auth(`Login attempt ${attempt + 1}/${maxRetries} with CSRF token`);
+      const status = result.data.status;
 
-        // Use current domain instead of hardcoded NEXT_PUBLIC_APP_URL to avoid CORS issues
-      const baseUrl = typeof window !== 'undefined' 
-        ? window.location.origin 
-        : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001');
-        const response = await fetch(`${baseUrl}/api/auth/login`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-csrf-token': csrfToken,
-          },
-          body: JSON.stringify({ email, password, remember }),
-          credentials: 'include' // Include cookies
-        });
+      if (status === 'mfa_setup_optional' || status === 'mfa_setup_enforced') {
+        // MFA setup required (optional or enforced)
+        const user = result.data.user as { email: string; id: string; name: string };
+        debugLog.auth(`MFA setup ${status === 'mfa_setup_enforced' ? 'enforced' : 'optional'} for: ${user.email}`);
+        debugLog.auth(`Skips remaining: ${result.data.skipsRemaining || 0}`);
 
-        const result = await response.json();
-
-        // Check for CSRF-related errors that warrant a retry
-        const isCSRFError = response.status === 403 && 
-                           result.error && 
-                           result.error.toLowerCase().includes('csrf');
-
-        if (isCSRFError && attempt < maxRetries - 1) {
-          debugLog.auth(`CSRF validation failed on attempt ${attempt + 1}, clearing cached token and retrying`);
-
-          // Clear cached CSRF token to force refresh
-          setCsrfToken(null);
-
-          attempt++;
-          continue; // Retry with fresh token
-        }
-
-        if (!response.ok) {
-          // If it's not a retryable CSRF error, throw immediately
-          throw new Error(result.error || 'Login failed');
-        }
-
-        // Check response status for MFA flows
-        const status = result.data?.status;
-
-        if (status === 'mfa_setup_optional' || status === 'mfa_setup_enforced') {
-          // MFA setup required (optional or enforced)
-          debugLog.auth(`MFA setup ${status === 'mfa_setup_enforced' ? 'enforced' : 'optional'} for: ${result.data.user.email}`);
-          debugLog.auth(`Skips remaining: ${result.data.skipsRemaining || 0}`);
-
-          // Update CSRF token if provided
-          if (result.data.csrfToken) {
-            setCsrfToken(result.data.csrfToken);
-          }
-
-          // Use MFA hook to set setup required state
-          setMFASetupRequired({
-            user: result.data.user,
-            skipsRemaining: result.data.skipsRemaining || 0,
-            tempToken: result.data.tempToken,
-            csrfToken: result.data.csrfToken,
-          });
-
-          // Update loading state - stop loading spinner
-          actions.setLoading(false);
-          return; // Exit - MFA setup dialog will be shown
-        }
-
-        if (status === 'mfa_required') {
-          // MFA verification required - show verification dialog
-          debugLog.auth('MFA verification required');
-
-          // Update CSRF token if provided
-          if (result.data.csrfToken) {
-            setCsrfToken(result.data.csrfToken);
-          }
-
-          // Use MFA hook to set verification required state
-          setMFAVerificationRequired({
-            tempToken: result.data.tempToken,
-            challenge: result.data.challenge,
-            challengeId: result.data.challengeId,
-            csrfToken: result.data.csrfToken,
-          });
-
-          // Update loading state - stop loading spinner
-          actions.setLoading(false);
-          return; // Exit - MFA verification dialog will be shown
-        }
-
-        // Standard login successful - update state
         // Update CSRF token if provided
         if (result.data.csrfToken) {
           setCsrfToken(result.data.csrfToken);
         }
 
-        actions.loginSuccess({
-          user: result.data.user,
-          sessionId: result.data.sessionId,
+        // Use MFA hook to set setup required state
+        setMFASetupRequired({
+          user: result.data.user as { id: string; email: string; name: string },
+          skipsRemaining: result.data.skipsRemaining || 0,
+          tempToken: result.data.tempToken || '',
+          csrfToken: result.data.csrfToken || '',
         });
 
-        debugLog.auth('Login successful for:', result.data.user.email);
-        return; // Success - exit retry loop
-
-      } catch (error) {
-        // If this was our last attempt, re-throw the error
-        if (attempt >= maxRetries - 1) {
-          actions.loginFailure();
-          throw error;
-        }
-
-        // For non-CSRF errors, don't retry
-        const errorMessage = error instanceof Error ? error.message : '';
-        if (!errorMessage.toLowerCase().includes('csrf')) {
-          actions.loginFailure();
-          throw error;
-        }
-
-        // CSRF-related error - clear token and retry
-        debugLog.auth(`Login error on attempt ${attempt + 1}: ${errorMessage}, retrying...`);
-        setCsrfToken(null); // Clear cached CSRF token
-        attempt++;
+        // Update loading state - stop loading spinner
+        actions.setLoading(false);
+        return; // Exit - MFA setup dialog will be shown
       }
+
+      if (status === 'mfa_required') {
+        // MFA verification required - show verification dialog
+        debugLog.auth('MFA verification required');
+
+        // Update CSRF token if provided
+        if (result.data.csrfToken) {
+          setCsrfToken(result.data.csrfToken);
+        }
+
+        // Use MFA hook to set verification required state
+        setMFAVerificationRequired({
+          tempToken: result.data.tempToken || '',
+          challenge: result.data.challenge,
+          challengeId: result.data.challengeId || '',
+          csrfToken: result.data.csrfToken || '',
+        });
+
+        // Update loading state - stop loading spinner
+        actions.setLoading(false);
+        return; // Exit - MFA verification dialog will be shown
+      }
+
+      // Standard login successful - update state
+      // Update CSRF token if provided
+      if (result.data.csrfToken) {
+        setCsrfToken(result.data.csrfToken);
+      }
+
+      if (!result.data.user || !result.data.sessionId) {
+        throw new Error('Invalid login response: missing user or sessionId');
+      }
+
+      actions.loginSuccess({
+        user: result.data.user as User,
+        sessionId: result.data.sessionId,
+      });
+
+      const user = result.data.user as { email: string };
+      debugLog.auth('Login successful for:', user.email);
+    } catch (error) {
+      actions.loginFailure();
+      throw error;
     }
   };
 
@@ -345,20 +288,9 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     try {
       actions.setLoading(true);
 
-      // Call logout endpoint
+      // Call logout endpoint via HTTP service
       const csrfToken = (await ensureCsrfToken()) || '';
-      // Use current domain instead of hardcoded NEXT_PUBLIC_APP_URL to avoid CORS issues
-      const baseUrl = typeof window !== 'undefined'
-        ? window.location.origin
-        : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001');
-      await fetch(`${baseUrl}/api/auth/logout`, {
-        method: 'POST',
-        headers: {
-          'x-csrf-token': csrfToken
-          // Authorization header automatically added by middleware from httpOnly cookie
-        },
-        credentials: 'include'
-      });
+      await authHTTPService.performLogout(csrfToken);
 
       // Clear CSRF token so next login gets fresh anonymous token
       setCsrfToken(null);
@@ -398,32 +330,12 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
 
       const token = csrfToken || (await ensureCsrfToken()) || '';
 
-      // Use current domain instead of hardcoded NEXT_PUBLIC_APP_URL to avoid CORS issues
-      const baseUrl = typeof window !== 'undefined'
-        ? window.location.origin
-        : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001');
-      const response = await fetch(`${baseUrl}/api/auth/refresh`, {
-        method: 'POST',
-        headers: {
-          'x-csrf-token': token
-        },
-        credentials: 'include'
-      });
+      // Use HTTP service to refresh token
+      const result = await authHTTPService.refreshAuthToken(token);
 
-      if (!response.ok) {
-        // Handle rate limiting gracefully
-        if (response.status === 429) {
-          debugLog.auth('Token refresh rate limited, will retry later');
-          // Don't clear auth state on rate limit - tokens might still be valid
-          return;
-        }
-
-        debugLog.auth('No active session to refresh');
-        actions.refreshFailure();
-        return;
+      if (!result.data) {
+        throw new Error('Invalid refresh response: missing data');
       }
-
-      const result = await response.json();
 
       // Update CSRF token if provided
       if (result.data.csrfToken) {
@@ -432,12 +344,19 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
 
       // Update state with refreshed user data (accessToken updated server-side in httpOnly cookie)
       actions.refreshSuccess({
-        user: result.data.user,
+        user: result.data.user as User,
         sessionId: result.data.sessionId,
       });
 
       debugLog.auth('Token refreshed successfully');
     } catch (error) {
+      // Check if this is a rate limit error
+      if (error instanceof Error && error.message.includes('429')) {
+        debugLog.auth('Token refresh rate limited, will retry later');
+        // Don't clear auth state on rate limit - tokens might still be valid
+        return;
+      }
+
       // This is normal if no session exists
       debugLog.auth('No session to refresh (normal on first visit)');
       actions.refreshFailure();

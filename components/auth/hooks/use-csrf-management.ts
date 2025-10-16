@@ -22,6 +22,7 @@ import {
   validateTokenStructure,
 } from '@/lib/security/csrf-client';
 import { clientDebugLog as debugLog, clientErrorLog as errorLog } from '@/lib/utils/debug-client';
+import { getBaseUrl } from '../utils/get-base-url';
 
 /**
  * CSRF token management state and operations
@@ -114,13 +115,7 @@ export function useCSRFManagement(): CSRFManagement {
         // Store promise to deduplicate concurrent calls
         fetchInProgress.current = (async () => {
           try {
-            // Use current domain instead of hardcoded NEXT_PUBLIC_APP_URL to avoid CORS issues
-            const baseUrl =
-              typeof window !== 'undefined'
-                ? window.location.origin
-                : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001';
-
-            const resp = await fetch(`${baseUrl}/api/csrf`, {
+            const resp = await fetch(`${getBaseUrl()}/api/csrf`, {
               method: 'GET',
               credentials: 'include',
             });
