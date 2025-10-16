@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { createRBACWorkItemFieldsService } from '@/lib/services/rbac-work-item-fields-service';
 import { workItemFieldCreateSchema, workItemFieldsQuerySchema } from '@/lib/validations/work-item-fields';

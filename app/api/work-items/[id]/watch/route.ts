@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { createRBACWorkItemWatchersService } from '@/lib/services/rbac-work-item-watchers-service';
 import type { UserContext } from '@/lib/types/rbac';

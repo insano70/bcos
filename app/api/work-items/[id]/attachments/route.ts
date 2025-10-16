@@ -8,7 +8,7 @@ import {
   workItemAttachmentQuerySchema,
   workItemParamsSchema,
 } from '@/lib/validations/work-items';
-import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { createRBACWorkItemAttachmentsService } from '@/lib/services/rbac-work-item-attachments-service';
 import type { UserContext } from '@/lib/types/rbac';

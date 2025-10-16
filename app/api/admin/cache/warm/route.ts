@@ -16,7 +16,7 @@
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { dataSourceCache } from '@/lib/cache';
 import { log } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';

@@ -8,7 +8,7 @@ import {
   workItemCommentQuerySchema,
   workItemParamsSchema,
 } from '@/lib/validations/work-items';
-import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { createRBACWorkItemCommentsService } from '@/lib/services/rbac-work-item-comments-service';
 import type { UserContext } from '@/lib/types/rbac';

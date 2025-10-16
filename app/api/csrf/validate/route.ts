@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { publicRoute } from '@/lib/api/rbac-route-handler';
+import { publicRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { log } from '@/lib/logger';

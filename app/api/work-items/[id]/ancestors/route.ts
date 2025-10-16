@@ -3,7 +3,7 @@ import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { workItemParamsSchema } from '@/lib/validations/work-items';
-import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { createRBACWorkItemsService } from '@/lib/services/rbac-work-items-service';
 import type { UserContext } from '@/lib/types/rbac';

@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import type { PermissionName, UserContext } from '@/lib/types/rbac';
 import { createRBACMiddleware } from './middleware';
 

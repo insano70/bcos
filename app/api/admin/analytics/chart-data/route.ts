@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import type { UserContext } from '@/lib/types/rbac';
 import type { ChartData, AnalyticsQueryParams } from '@/lib/types/analytics';
 import { chartDataRequestSchema } from '@/lib/validations/analytics';

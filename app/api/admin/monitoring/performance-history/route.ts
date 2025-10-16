@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { log } from '@/lib/logger';
 import { performanceHistory } from '@/lib/monitoring/performance-history';

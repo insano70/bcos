@@ -26,7 +26,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { flagUserSchema } from '@/lib/validations/monitoring';
-import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
 import { AuditLogger } from '@/lib/api/services/audit';

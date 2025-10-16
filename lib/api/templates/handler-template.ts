@@ -42,7 +42,7 @@
 
 import type { NextRequest } from 'next/server';
 import { validateQuery } from '@/lib/api/middleware/validation';
-import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createPaginatedResponse } from '@/lib/api/responses/success';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
@@ -515,7 +515,7 @@ export const DELETE = rbacRoute(
  * - Rate limiting still applies
  */
 
-import { publicRoute } from '@/lib/api/rbac-route-handler';
+import { publicRoute } from '@/lib/api/route-handlers';
 
 /**
  * Public endpoint example

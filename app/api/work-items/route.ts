@@ -3,7 +3,7 @@ import { createSuccessResponse, createPaginatedResponse } from '@/lib/api/respon
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { validateRequest, validateQuery } from '@/lib/api/middleware/validation';
 import { workItemCreateSchema, workItemQuerySchema } from '@/lib/validations/work-items';
-import { rbacRoute } from '@/lib/api/rbac-route-handler';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { createRBACWorkItemsService } from '@/lib/services/rbac-work-items-service';
 import { createRBACWorkItemFieldValuesService } from '@/lib/services/rbac-work-item-field-values-service';
