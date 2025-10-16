@@ -1,5 +1,7 @@
 'use client';
 
+import type { ScriptableContext } from 'chart.js';
+
 import LineChart07 from '@/components/charts/line-chart-07';
 import { chartAreaGradient } from '@/components/charts/chartjs-config';
 
@@ -16,7 +18,7 @@ export default function FintechCard08() {
         data: [0, 3500000],
         borderColor: getCssVariable('--color-green-500'),
         fill: true,
-        backgroundColor: function (context: any) {
+        backgroundColor: function (context: ScriptableContext<'bar'> | ScriptableContext<'line'>) {
           const chart = context.chart;
           const { ctx, chartArea } = chart;
           const gradientOrColor = chartAreaGradient(ctx, chartArea, [

@@ -182,7 +182,12 @@ export const dashboardCreateSchema = z
     organization_id: z.string().uuid().nullable().optional(), // undefined = user's current org, null = universal, UUID = specific org
     chart_ids: z.array(uuidSchema).max(50, 'Too many charts').optional(),
     chart_positions: z.array(chartPositionSchema).max(50, 'Too many chart positions').optional(),
-    layout_config: z.record(z.string(), z.any()).optional(), // JSON layout configuration
+    layout_config: z
+      .record(
+        z.string(),
+        z.union([z.string(), z.number(), z.boolean(), z.null(), z.record(z.string(), z.unknown()), z.array(z.unknown())])
+      )
+      .optional(), // JSON layout configuration (strongly typed as Record<string, unknown>)
     is_active: z.boolean().default(true),
     is_published: z.boolean().default(false),
     is_default: z.boolean().default(false),
@@ -244,7 +249,7 @@ export const bulkOperationSchema = z.object({
     .min(1, 'At least one chart ID required')
     .max(100, 'Too many charts'),
   dashboard_ids: z.array(uuidSchema).max(50, 'Too many dashboards').optional(),
-  updates: z.record(z.string(), z.any()).optional(), // For bulk update operations
+  updates: z.record(z.string(), z.unknown()).optional(), // For bulk update operations
   export_format: z.enum(['json', 'csv', 'xlsx']).optional(),
 });
 
@@ -307,7 +312,7 @@ export const dashboardUniversalFiltersSchema = z.object({
 // Dashboard Batch Rendering Request Schema (Phase 7)
 export const dashboardRenderRequestSchema = z.object({
   universalFilters: dashboardUniversalFiltersSchema.optional(),
-  chartOverrides: z.record(z.string(), z.any()).optional(), // Chart-specific overrides by chart ID
+  chartOverrides: z.record(z.string(), z.unknown()).optional(), // Chart-specific overrides by chart ID
   nocache: z.boolean().optional().default(false),
 });
 

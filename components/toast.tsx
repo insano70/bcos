@@ -9,7 +9,7 @@ interface ToastProps {
 }
 
 export default function Toast({ children, className = '', type = '', open, setOpen }: ToastProps) {
-  const typeIcon = (type: string): ReactElement<any> => {
+  const typeIcon = (type: string): ReactElement => {
     switch (type) {
       case 'warning':
         return (

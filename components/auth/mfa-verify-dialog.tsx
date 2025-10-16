@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
 import { authenticatePasskey, isWebAuthnSupported, getWebAuthnErrorMessage } from '@/lib/utils/webauthn-client';
 import type { PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/browser';
+import { getBaseUrl } from './utils/get-base-url';
 
 interface MFAVerifyDialogProps {
   isOpen: boolean;
@@ -59,8 +60,7 @@ export default function MFAVerifyDialog({
       const authenticationResponse = await authenticatePasskey(challenge);
 
       // Step 2: Verify with server
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-      const verifyResponse = await fetch(`${baseUrl}/api/auth/mfa/verify`, {
+      const verifyResponse = await fetch(`${getBaseUrl()}/api/auth/mfa/verify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

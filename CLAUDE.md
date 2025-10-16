@@ -37,6 +37,9 @@ This document contains the rules, guidelines, and context for AI assistants work
 
 ## Logging Standards
 
+### Node Only
+Logging is Node-only. Do not import logging into the client. This will cause build failures and is forbidden. 
+
 ### Core Principles
 - Use native `console.log/error/warn/debug` through the logger wrapper in `lib/logger/index.ts`
 - **NEVER** use external logging libraries (Pino, Winston, etc.)

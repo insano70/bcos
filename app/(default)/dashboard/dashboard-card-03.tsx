@@ -1,5 +1,7 @@
 'use client';
 
+import type { ScriptableContext } from 'chart.js';
+
 import EditMenu from '@/components/edit-menu';
 import LineChart01 from '@/components/charts/line-chart-01';
 import { chartAreaGradient } from '@/components/charts/chartjs-config';
@@ -45,7 +47,7 @@ export default function DashboardCard03() {
           289, 270, 134, 270, 829, 344, 388, 364,
         ],
         fill: true,
-        backgroundColor: function (context: any) {
+        backgroundColor: function (context: ScriptableContext<'bar'> | ScriptableContext<'line'>) {
           const chart = context.chart;
           const { ctx, chartArea } = chart;
           const gradientOrColor = chartAreaGradient(ctx, chartArea, [

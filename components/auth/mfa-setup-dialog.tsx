@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
 import { registerPasskey, isWebAuthnSupported, getWebAuthnErrorMessage } from '@/lib/utils/webauthn-client';
 import type { PublicKeyCredentialCreationOptionsJSON } from '@simplewebauthn/browser';
-import { log } from '@/lib/logger';
 import { getBaseUrl } from './utils/get-base-url';
 
 interface MFASetupDialogProps {
@@ -150,7 +149,7 @@ export default function MFASetupDialog({
 
     try {
       // Step 1: Begin registration (get challenge from server)
-      log.debug('MFA Setup - Begin Registration', {
+      console.log('MFA Setup - Begin Registration', {
         hasTempToken: !!tempToken,
         hasCsrfToken: !!csrfToken,
         csrfTokenLength: csrfToken?.length,

@@ -1,5 +1,7 @@
 'use client';
 
+import type { ScriptableContext } from 'chart.js';
+
 import { useState, useEffect } from 'react';
 import Tooltip from '@/components/tooltip';
 import RealtimeChart from '@/components/charts/realtime-chart';
@@ -81,7 +83,7 @@ export default function DashboardCard05() {
       {
         data: slicedData,
         fill: true,
-        backgroundColor: function (context: any) {
+        backgroundColor: function (context: ScriptableContext<'bar'> | ScriptableContext<'line'>) {
           const chart = context.chart;
           const { ctx, chartArea } = chart;
           const gradientOrColor = chartAreaGradient(ctx, chartArea, [

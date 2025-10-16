@@ -1,6 +1,9 @@
 /**
  * Work Items Type Definitions
  * Shared across work items services
+ *
+ * Note: Field-related types (FieldConfig, FieldOption, ValidationRules, etc.)
+ * are defined in lib/types/work-item-fields.ts
  */
 
 export interface CreateWorkItemData {

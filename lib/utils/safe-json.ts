@@ -38,7 +38,12 @@ export function safeJsonParseArray<T>(
   jsonString: string | null | undefined,
   itemSchema?: z.ZodSchema<T>
 ): T[] {
-  const parsed = safeJsonParse(jsonString, z.array(itemSchema || z.any()));
+  if (!itemSchema) {
+    // If no schema provided, return unknown[] cast to T[]
+    const parsed = safeJsonParse(jsonString, z.array(z.unknown()));
+    return (Array.isArray(parsed) ? parsed : []) as T[];
+  }
+  const parsed = safeJsonParse(jsonString, z.array(itemSchema));
   return Array.isArray(parsed) ? parsed : [];
 }
 

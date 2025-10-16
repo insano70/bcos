@@ -235,8 +235,8 @@ export async function middleware(request: NextRequest) {
         const body = await clonedRequest.json().catch(() => null)
 
         if (body) {
-          // Pass null for logger since it's not used (_logger parameter)
-          const sanitizationResult = await sanitizeRequestBody(body, null as any)
+          // Logger parameter is optional and unused
+          const sanitizationResult = await sanitizeRequestBody(body)
 
           if (!sanitizationResult.isValid) {
             debugLog.middleware(`Request sanitization failed for ${pathname}: ${sanitizationResult.errors.join(', ')}`)

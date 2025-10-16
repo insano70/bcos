@@ -15,7 +15,7 @@ export default function Notification({
   open,
   setOpen,
 }: NotificationProps) {
-  const typeIcon = (type: string): ReactElement<any> => {
+  const typeIcon = (type: string): ReactElement => {
     switch (type) {
       case 'warning':
         return (

@@ -1,10 +1,16 @@
 import { relations } from 'drizzle-orm';
 import { boolean, index, integer, jsonb, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 import { work_item_types, work_items, users } from './schema';
+import type { FieldConfig, FieldOption, ValidationRules } from '@/lib/types/work-item-fields';
 
 /**
  * Work Item Fields Schema
  * Defines custom field configurations for work item types
+ *
+ * Type Safety:
+ * - field_options: FieldOption[] (dropdown/select options)
+ * - field_config: FieldConfig (conditional visibility, display settings)
+ * - validation_rules: ValidationRules (min/max/pattern constraints)
  */
 export const work_item_fields = pgTable(
   'work_item_fields',
@@ -24,14 +30,14 @@ export const work_item_fields = pgTable(
     field_description: text('field_description'),
 
     // Field Options (for dropdown, multi_select)
-    field_options: jsonb('field_options'), // Array of options: [{value: string, label: string}]
+    field_options: jsonb('field_options').$type<FieldOption[]>(), // Typed as FieldOption[]
 
     // Field Configuration (for conditional visibility, etc.)
-    field_config: jsonb('field_config'), // {conditional_visibility: {field_id: string, operator: string, value: any}[]}
+    field_config: jsonb('field_config').$type<FieldConfig>(), // Typed as FieldConfig
 
     // Validation Rules
     is_required: boolean('is_required').default(false),
-    validation_rules: jsonb('validation_rules'), // {min, max, pattern, etc}
+    validation_rules: jsonb('validation_rules').$type<ValidationRules>(), // Typed as ValidationRules
     default_value: text('default_value'),
 
     // Display Configuration

@@ -232,7 +232,7 @@ interface SanitizationLogger {
 
 export async function sanitizeRequestBody(
   body: unknown,
-  _logger: SanitizationLogger
+  _logger?: SanitizationLogger
 ): Promise<SanitizationResult> {
   const startTime = Date.now();
   const errors: string[] = [];

@@ -8,12 +8,17 @@
   "files": {
     "ignoreUnknown": false,
     "includes": [
-      "app/(default)/configure/**/*.ts",
-      "app/(default)/configure/**/*.tsx",
-      "app/api/**/*.ts",
-      "app/api/**/*.tsx",
+      "app/**/*.ts",
+      "app/**/*.tsx",
+      "components/**/*.ts",
+      "components/**/*.tsx",
+      "hooks/**/*.ts",
+      "hooks/**/*.tsx",
       "lib/**/*.ts",
-      "lib/**/*.tsx"
+      "lib/**/*.tsx",
+      "scripts/**/*.ts",
+      "tests/**/*.ts",
+      "tests/**/*.tsx"
     ]
   },
   "overrides": [
@@ -21,6 +26,26 @@
       "includes": ["lib/api/templates/**", "lib/api/testing/**"],
       "linter": {
         "enabled": false
+      }
+    },
+    {
+      "includes": ["templates/**/*.ts", "templates/**/*.tsx"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "warn"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["tests/**/*.ts", "tests/**/*.tsx"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "warn"
+          }
+        }
       }
     }
   ],

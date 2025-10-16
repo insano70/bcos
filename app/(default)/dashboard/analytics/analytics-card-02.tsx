@@ -1,5 +1,7 @@
 'use client';
 
+import type { ScriptableContext } from 'chart.js';
+
 import Link from 'next/link';
 import LineChart04 from '@/components/charts/line-chart-04';
 import { chartAreaGradient } from '@/components/charts/chartjs-config';
@@ -45,7 +47,7 @@ export default function AnalyticsCard02() {
           126, 263, 349, 252, 423, 622, 470, 532,
         ],
         fill: true,
-        backgroundColor: function (context: any) {
+        backgroundColor: function (context: ScriptableContext<'bar'> | ScriptableContext<'line'>) {
           const chart = context.chart;
           const { ctx, chartArea } = chart;
           const gradientOrColor = chartAreaGradient(ctx, chartArea, [

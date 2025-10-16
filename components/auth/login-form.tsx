@@ -12,7 +12,6 @@ import type { z } from 'zod'
 import MFASetupDialog from './mfa-setup-dialog'
 import MFAVerifyDialog from './mfa-verify-dialog'
 import type { PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/browser'
-import { log } from '@/lib/logger'
 
 type LoginFormData = {
   email: string;
@@ -62,14 +61,14 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
 
         if (data.data?.defaultDashboard?.dashboard_id) {
           setDefaultDashboardId(data.data.defaultDashboard.dashboard_id)
-          log.debug('Default dashboard found', {
+          console.log('Default dashboard found', {
             dashboardName: data.data.defaultDashboard.dashboard_name,
             dashboardId: data.data.defaultDashboard.dashboard_id
           })
         }
       } catch (error) {
         // Silently fail - just use /dashboard as fallback
-        log.debug('No default dashboard configured or error fetching', { error })
+        console.log('No default dashboard configured or error fetching', { error })
       }
     }
 
@@ -78,7 +77,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
 
   // Debug MFA state changes
   useEffect(() => {
-    log.debug('MFA State', {
+    console.log('MFA State', {
       mfaRequired,
       mfaSetupRequired,
       hasTempToken: !!mfaTempToken,
@@ -121,7 +120,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   // Redirect authenticated users away from login page
   useEffect(() => {
     if (isAuthenticated && !isSubmitting) {
-      log.debug('User already authenticated, redirecting', { callbackUrl })
+      console.log('User already authenticated, redirecting', { callbackUrl })
       router.push(callbackUrl)
     }
   }, [isAuthenticated, isSubmitting, callbackUrl, router])
@@ -134,7 +133,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     // 3. Form was submitting (prevents redirect on page load)
     // 4. Not currently in the middle of MFA flow (check if we ever were in MFA state)
     if (isAuthenticated && !mfaRequired && !mfaSetupRequired && isSubmitting) {
-      log.debug('Login completed without MFA, redirecting', { callbackUrl })
+      console.log('Login completed without MFA, redirecting', { callbackUrl })
 
       onSuccess?.()
 
@@ -211,7 +210,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
     try {
       setError(null)
       setIsSubmitting(true)
-      log.debug('Login form submitting', { email: data.email })
+      console.log('Login form submitting', { email: data.email })
 
       await login(data.email, data.password, data.remember)
 
@@ -225,7 +224,7 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
       // useEffect below will detect successful login and redirect
 
     } catch (error) {
-      log.error('Login error', error, { email: data.email })
+      console.error('Login error', error, { email: data.email })
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred. Please try again.'
       setError(errorMessage)
       setIsSubmitting(false)

@@ -1,5 +1,7 @@
 'use client';
 
+import type { ScriptableContext } from 'chart.js';
+
 import { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { useTheme } from 'next-themes';
 import { chartColors } from '@/components/charts/chartjs-config';
@@ -148,7 +150,7 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
 
               // Default tooltip callbacks
               return {
-                title: (context: any) => {
+                title: (context: ScriptableContext<'bar'> | ScriptableContext<'line'>) => {
                   // Format tooltip title based on frequency
                   // Use moment.js for Safari/iOS compatibility - new Date() parsing is unreliable
                   const labelValue = context[0]?.label || '';
@@ -168,7 +170,7 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
                     return parsedDate.format('MMM YYYY');
                   }
                 },
-                label: (context: any) => {
+                label: (context: ScriptableContext<'bar'> | ScriptableContext<'line'>) => {
                   // Get measure type from dataset metadata, fallback to chart data, then to 'number'
                   const measureType = (context.dataset as any)?.measureType || 
                                     (context.chart.data as any)?.measureType || 
