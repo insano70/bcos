@@ -54,14 +54,18 @@ async function diagnoseCache() {
     console.log('💾 Checking Sample Cache Keys:');
     if (idx1Practice.length > 0) {
       const sampleKey = idx1Practice[0];
-      console.log(`   Sample key: ${sampleKey}`);
-      const data = await redis.get(sampleKey);
-      if (data) {
-        const parsed = JSON.parse(data);
-        console.log(`   ✅ Key exists, contains ${parsed.length} rows`);
-        console.log(`   Sample data:`, JSON.stringify(parsed[0], null, 2).substring(0, 200) + '...');
+      if (!sampleKey) {
+        console.log('   ⚠️  Sample key is undefined');
       } else {
-        console.log(`   ❌ Key not found (might have expired)`);
+        console.log(`   Sample key: ${sampleKey}`);
+        const data = await redis.get(sampleKey);
+        if (data) {
+          const parsed = JSON.parse(data);
+          console.log(`   ✅ Key exists, contains ${parsed.length} rows`);
+          console.log(`   Sample data:`, JSON.stringify(parsed[0], null, 2).substring(0, 200) + '...');
+        } else {
+          console.log(`   ❌ Key not found (might have expired)`);
+        }
       }
     } else {
       console.log('   ⚠️  No index keys found to sample');
@@ -79,7 +83,7 @@ async function diagnoseCache() {
     const frequencies = new Set<string>();
     for (const key of keys) {
       const match = key.match(/:freq:([^:]+)$/);
-      if (match) {
+      if (match && match[1]) {
         frequencies.add(match[1]);
       }
     }

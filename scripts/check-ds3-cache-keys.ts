@@ -89,7 +89,7 @@ async function checkDS3CacheKeys() {
       
       for (const key of sampleKeys) {
         const match = key.match(/cache:ds:3:m:([^:]+):/);
-        if (match) {
+        if (match && match[1]) {
           measures.add(match[1]);
         }
       }

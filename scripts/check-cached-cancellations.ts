@@ -64,7 +64,7 @@ async function checkCachedCancellations() {
       const measures = new Set<string>();
       for (const idx of indexes.slice(0, 20)) {
         const match = idx.match(/idx:ds:3:m:([^:]+):/);
-        if (match) {
+        if (match && match[1]) {
           measures.add(match[1]);
         }
       }
