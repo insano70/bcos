@@ -5,6 +5,7 @@ import RedisCacheStats from './redis-cache-stats';
 import RedisKeyBrowser from './redis-key-browser';
 import RedisPurgeTools from './redis-purge-tools';
 import RedisKeyInspector from './redis-key-inspector';
+import AnalyticsCacheDashboard from './analytics-cache-dashboard';
 
 interface RedisAdminTabsProps {
   autoRefresh?: boolean;
@@ -12,11 +13,12 @@ interface RedisAdminTabsProps {
 }
 
 export default function RedisAdminTabs({ autoRefresh = true, refreshInterval = 30000 }: RedisAdminTabsProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'keys' | 'admin'>('overview');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'overview' | 'keys' | 'admin'>('analytics');
   const [inspectingKey, setInspectingKey] = useState<string | null>(null);
 
   const tabs = [
-    { id: 'overview' as const, label: 'Overview', icon: '📊' },
+    { id: 'analytics' as const, label: 'Analytics Cache', icon: '⚡' },
+    { id: 'overview' as const, label: 'Redis Overview', icon: '📊' },
     { id: 'keys' as const, label: 'Key Browser', icon: '🔍' },
     { id: 'admin' as const, label: 'Admin Tools', icon: '⚙️' },
   ];
@@ -46,6 +48,9 @@ export default function RedisAdminTabs({ autoRefresh = true, refreshInterval = 3
       </div>
 
       <div>
+        {activeTab === 'analytics' && (
+          <AnalyticsCacheDashboard autoRefresh={autoRefresh} refreshInterval={refreshInterval} />
+        )}
         {activeTab === 'overview' && (
           <RedisCacheStats autoRefresh={autoRefresh} refreshInterval={refreshInterval} />
         )}

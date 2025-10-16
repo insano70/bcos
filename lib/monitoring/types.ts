@@ -449,3 +449,77 @@ export interface ErrorsResponse {
   timeRange: string;
 }
 
+/**
+ * Analytics Cache Health Status
+ */
+export type CacheHealthStatus = 'excellent' | 'good' | 'degraded' | 'stale' | 'cold';
+
+/**
+ * Per-Datasource Cache Metrics
+ * 
+ * Provides detailed cache statistics for individual data sources
+ */
+export interface DatasourceCacheMetrics {
+  datasourceId: number;
+  datasourceName: string;
+  
+  // Cache Status
+  isWarm: boolean;
+  lastWarmed: string | null; // ISO timestamp
+  ageMinutes: number;
+  
+  // Size Metrics
+  totalEntries: number;       // Cache keys (granular entries)
+  indexCount: number;         // Secondary indexes
+  estimatedMemoryMB: number;
+  
+  // Coverage Metrics
+  uniqueMeasures: number;
+  uniquePractices: number;
+  uniqueProviders: number;
+  uniqueFrequencies: string[];
+  
+  // Performance Metrics
+  avgQueryTimeMs: number;     // Average query time against this cache
+  cacheHitRate: number;       // Hit rate for this datasource
+  totalQueries: number;       // Total queries since last warm
+  
+  // Health Indicators
+  health: CacheHealthStatus;
+  healthScore: number;        // 0-100
+  warnings: string[];
+}
+
+/**
+ * Analytics Cache Summary
+ * 
+ * Aggregated statistics across all data sources
+ */
+export interface AnalyticsCacheSummary {
+  totalDatasources: number;
+  warmDatasources: number;
+  coldDatasources: number;
+  totalCacheEntries: number;
+  totalIndexes: number;
+  totalMemoryMB: number;
+  overallCacheHitRate: number;
+  avgCacheAge: number;        // Average age in minutes
+  oldestCache: number | null; // Datasource ID of oldest cache
+  healthDistribution: {
+    excellent: number;
+    good: number;
+    degraded: number;
+    stale: number;
+    cold: number;
+  };
+}
+
+/**
+ * Analytics Cache Stats API Response
+ */
+export interface AnalyticsCacheStatsResponse {
+  summary: AnalyticsCacheSummary;
+  datasources: DatasourceCacheMetrics[];
+  timestamp: string;
+}
+

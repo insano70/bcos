@@ -7,7 +7,7 @@ import { env } from '@/lib/env';
 import { useSidebarState } from './sidebar/use-sidebar-state';
 import { DashboardMenuSection } from './sidebar/dashboard-menu-section';
 import { WorkMenuSection } from './sidebar/work-menu-section';
-import { ConfigureMenuSection } from './sidebar/configure-menu-section';
+import { AdminMenuSection } from './sidebar/admin-menu-section';
 import { ExperimentalMenuSections } from './sidebar/experimental-menu-sections';
 
 /**
@@ -23,7 +23,7 @@ import { ExperimentalMenuSections } from './sidebar/experimental-menu-sections';
  * - Header (logo and close button)
  * - Dashboard Section (always visible when authenticated)
  * - Work Section (permission-gated)
- * - Configure Section (permission-gated)
+ * - Admin Section (permission-gated, contains Configure and Monitor dropdowns)
  * - Experimental Sections (only in experimental mode, UI reference only)
  * - Expand Button (desktop sidebar expansion control)
  */
@@ -33,8 +33,8 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
   const { sidebar, sidebarOpen, setSidebarOpen, sidebarExpanded, setSidebarExpanded } = useSidebarState();
   const isExperimentalMode = env.NEXT_PUBLIC_EXPERIMENTAL_MODE;
 
-  // Check if user has any permissions to see Configure section items
-  const hasConfigureAccess = hasAnyPermission([
+  // Check if user has any permissions to see Admin section items (Configure + Monitor)
+  const hasAdminAccess = hasAnyPermission([
     'users:read:organization',
     'practices:read:own',
     'organizations:manage:all',
@@ -113,8 +113,8 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
           {/* Work Section - Permission gated */}
           {hasWorkAccess && <WorkMenuSection />}
 
-          {/* Configure Section - Permission gated */}
-          {hasConfigureAccess && <ConfigureMenuSection />}
+          {/* Admin Section - Permission gated, contains Configure and Monitor */}
+          {hasAdminAccess && <AdminMenuSection />}
 
           {/* Experimental Sections - UI reference only, non-functional */}
           {isExperimentalMode && <ExperimentalMenuSections />}
