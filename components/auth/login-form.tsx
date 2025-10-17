@@ -26,6 +26,11 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMicrosoftLoading, setIsMicrosoftLoading] = useState(false);
   const [defaultDashboardId, setDefaultDashboardId] = useState<string | null>(null);
+
+  const emailId = useId();
+  const passwordId = useId();
+  const rememberId = useId();
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const paramCallbackUrl = searchParams.get('callbackUrl') || searchParams.get('returnUrl');
@@ -367,11 +372,11 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
 
           {/* Email field */}
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="email">
+            <label className="block text-sm font-medium mb-1" htmlFor={emailId}>
               Email Address
             </label>
             <input
-              id="email"
+              id={emailId}
               type="email"
               autoComplete="email"
               className="form-input w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:border-violet-500 focus:ring-violet-500"
@@ -390,11 +395,11 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
 
           {/* Password field */}
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="password">
+            <label className="block text-sm font-medium mb-1" htmlFor={passwordId}>
               Password
             </label>
             <input
-              id="password"
+              id={passwordId}
               type="password"
               autoComplete="current-password"
               className="form-input w-full bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100 focus:border-violet-500 focus:ring-violet-500"
@@ -416,12 +421,12 @@ export default function LoginForm({ onSuccess }: LoginFormProps) {
           {/* Remember me checkbox */}
           <div className="flex items-center">
             <input
-              id="remember"
+              id={rememberId}
               type="checkbox"
               className="form-checkbox text-violet-500 focus:ring-violet-500"
               {...register('remember')}
             />
-            <label htmlFor="remember" className="ml-2 text-sm text-gray-600 dark:text-gray-400">
+            <label htmlFor={rememberId} className="ml-2 text-sm text-gray-600 dark:text-gray-400">
               <span className="font-medium">Remember me</span>
               <span className="block text-xs text-gray-500 dark:text-gray-500 mt-0.5">
                 Stay signed in for 30 days (vs 7 days standard)
