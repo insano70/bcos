@@ -53,10 +53,9 @@ export function TableSkeleton({ rows = 5, columns = 4 }: { rows?: number; column
           className="grid gap-4 skeleton-grid"
           style={{ '--grid-columns': `repeat(${columns}, 1fr)` } as React.CSSProperties}
         >
-          {[...Array(columns)].map((_, i) => {
-            // biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton array, never reordered
-            return <Skeleton key={`header-col-${i}`} className="h-4 w-24" />;
-          })}
+          {[...Array(columns)].map((_, i) => (
+            <Skeleton key={`header-col-${i}`} className="h-4 w-24" />
+          ))}
         </div>
       </div>
 
@@ -68,10 +67,9 @@ export function TableSkeleton({ rows = 5, columns = 4 }: { rows?: number; column
             className="grid gap-4 skeleton-grid"
             style={{ '--grid-columns': `repeat(${columns}, 1fr)` } as React.CSSProperties}
           >
-            {[...Array(columns)].map((_, colIndex) => {
-              // biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton array, never reordered
-              return <Skeleton key={`row-${rowIndex}-col-${colIndex}`} className="h-4 w-full" />;
-            })}
+            {[...Array(columns)].map((_, colIndex) => (
+              <Skeleton key={`row-${rowIndex}-col-${colIndex}`} className="h-4 w-full" />
+            ))}
           </div>
         </div>
       ))}
@@ -119,10 +117,9 @@ export function FormSkeleton({ fields = 6 }: { fields?: number }) {
 export function DashboardSkeleton() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {[...Array(6)].map((_, i) => {
-        // biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton array, never reordered
-        return <CardSkeleton key={`dashboard-card-${i}`} />;
-      })}
+      {[...Array(6)].map((_, i) => (
+        <CardSkeleton key={`dashboard-card-${i}`} />
+      ))}
     </div>
   );
 }

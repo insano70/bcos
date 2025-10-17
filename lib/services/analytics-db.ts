@@ -137,6 +137,10 @@ export const executeAnalyticsQuery = async <T = Record<string, unknown>>(
       component: 'analytics-db',
     });
 
+    // Type Safety Note: This double assertion is necessary because raw SQL queries
+    // return untyped results from the database. The generic type T is validated
+    // by the caller and typically comes from chart definitions or query builders.
+    // This is an acceptable use case for type assertion in database query utilities.
     return result as unknown as T[];
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';

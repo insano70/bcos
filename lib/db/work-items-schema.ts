@@ -433,7 +433,11 @@ export const work_item_type_relationships = pgTable(
     min_count: integer('min_count'),
     max_count: integer('max_count'),
     auto_create: boolean('auto_create').default(false).notNull(),
-    auto_create_config: jsonb('auto_create_config'),
+    auto_create_config: jsonb('auto_create_config').$type<{
+      subject_template?: string | undefined;
+      field_values?: Record<string, string> | undefined;
+      inherit_fields?: string[] | undefined;
+    }>(),
     display_order: integer('display_order').default(0).notNull(),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

@@ -69,4 +69,6 @@ export interface WorkItemWithDetails {
   created_at: Date;
   updated_at: Date;
   custom_fields?: Record<string, unknown> | undefined;
+  // Allow additional fields for template interpolation compatibility
+  [key: string]: string | number | Date | boolean | Record<string, unknown> | null | undefined;
 }

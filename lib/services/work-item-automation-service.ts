@@ -24,7 +24,6 @@ import {
   extractInheritFields,
   interpolateFieldValues,
   interpolateTemplate,
-  type WorkItemForInterpolation,
 } from '@/lib/utils/template-interpolation';
 import { createRBACWorkItemsService } from './work-items';
 
@@ -145,7 +144,7 @@ class WorkItemAutomationService implements WorkItemAutomationServiceInterface {
           const subject = config.subject_template
             ? interpolateTemplate(
                 config.subject_template,
-                parentWorkItem as unknown as WorkItemForInterpolation,
+                parentWorkItem,
                 parentWorkItem.custom_fields
               )
             : `Child of ${parentWorkItem.subject}`;
@@ -154,7 +153,7 @@ class WorkItemAutomationService implements WorkItemAutomationServiceInterface {
           const interpolatedFieldValues = config.field_values
             ? interpolateFieldValues(
                 config.field_values,
-                parentWorkItem as unknown as WorkItemForInterpolation,
+                parentWorkItem,
                 parentWorkItem.custom_fields
               )
             : {};
@@ -163,7 +162,7 @@ class WorkItemAutomationService implements WorkItemAutomationServiceInterface {
           const inheritedFields = config.inherit_fields
             ? extractInheritFields(
                 config.inherit_fields,
-                parentWorkItem as unknown as WorkItemForInterpolation,
+                parentWorkItem,
                 parentWorkItem.custom_fields
               )
             : {};

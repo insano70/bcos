@@ -373,9 +373,7 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
           min_count: data.min_count || null,
           max_count: data.max_count || null,
           auto_create: data.auto_create ?? false,
-          auto_create_config: data.auto_create_config
-            ? (data.auto_create_config as unknown as Record<string, unknown>)
-            : null,
+          auto_create_config: data.auto_create_config ?? null,
           display_order: data.display_order ?? 0,
         })
         .returning();
@@ -457,9 +455,7 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
         .update(work_item_type_relationships)
         .set({
           ...data,
-          auto_create_config: data.auto_create_config
-            ? (data.auto_create_config as unknown as Record<string, unknown>)
-            : undefined,
+          auto_create_config: data.auto_create_config,
           updated_at: new Date(),
         })
         .where(eq(work_item_type_relationships.work_item_type_relationship_id, relationshipId));

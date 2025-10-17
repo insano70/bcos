@@ -61,6 +61,16 @@
           }
         }
       }
+    },
+    {
+      "includes": ["components/ui/loading-skeleton.tsx"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noArrayIndexKey": "off"
+          }
+        }
+      }
     }
   ],
   "formatter": {

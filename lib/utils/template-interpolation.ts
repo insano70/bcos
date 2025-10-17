@@ -8,6 +8,11 @@
  * - {parent.custom.field_name} - Custom field values
  */
 
+/**
+ * Base interface for work items used in template interpolation.
+ * Includes core work item fields and allows additional properties.
+ * Compatible with WorkItemWithDetails from work items service.
+ */
 export interface WorkItemForInterpolation {
   work_item_id: string;
   work_item_type_id: string;
@@ -27,8 +32,10 @@ export interface WorkItemForInterpolation {
   created_by: string;
   created_at: Date;
   updated_at: Date;
-  // Allow additional fields for type safety
-  [key: string]: string | number | Date | boolean | null | undefined;
+  custom_fields?: Record<string, unknown> | undefined;
+  // Allow additional fields (like work_item_type_name, organization_name, etc.)
+  // This makes the interface compatible with WorkItemWithDetails
+  [key: string]: string | number | Date | boolean | Record<string, unknown> | null | undefined;
 }
 
 /**

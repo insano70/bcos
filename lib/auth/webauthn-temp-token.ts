@@ -93,6 +93,10 @@ export async function validateMFATempToken(token: string): Promise<MFATempTokenP
       return null;
     }
 
+    // Type Safety Note: This double assertion is necessary because JWT decode returns
+    // a generic payload object. We've validated the structure above with runtime checks,
+    // so this assertion is safe. This is an acceptable use case for JWT token validation
+    // where runtime validation precedes type assertion.
     return payload as unknown as MFATempTokenPayload;
   } catch (error) {
     log.debug('MFA temp token validation failed', {

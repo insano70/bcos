@@ -234,6 +234,10 @@ function serializeError(error: unknown, seen = new WeakSet<object>()): Record<st
     const customProps = Object.getOwnPropertyNames(error).reduce(
       (acc, key) => {
         if (!['name', 'message', 'stack', 'cause'].includes(key)) {
+          // Type Safety Note: This double assertion is necessary to access dynamic
+          // properties on Error objects. Errors can have custom properties attached
+          // that are not in the standard Error type. This is an acceptable use case
+          // for error serialization utilities.
           const value = (error as unknown as Record<string, unknown>)[key];
 
           // Handle different value types safely
