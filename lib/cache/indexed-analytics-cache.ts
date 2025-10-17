@@ -84,17 +84,35 @@ export interface CacheStats {
  * Implements secondary index sets for efficient cache lookups.
  */
 export class IndexedAnalyticsCache {
-  private redis: Redis;
+  private redis: Redis | null;
   private readonly TTL = 4 * 60 * 60; // 4 hours
   private readonly BATCH_SIZE = 5000;
   private readonly QUERY_BATCH_SIZE = 10000; // Max keys for MGET
 
   constructor() {
-    const client = getRedisClient();
-    if (!client) {
-      throw new Error('Redis client not available. Indexed cache requires Redis.');
+    // During build time, Redis may not be available - defer initialization
+    this.redis = getRedisClient();
+    if (!this.redis) {
+      log.warn('Redis not available during IndexedAnalyticsCache initialization', {
+        component: 'indexed-analytics-cache',
+        phase: 'constructor',
+      });
     }
-    this.redis = client;
+  }
+
+  /**
+   * Ensure Redis client is available before operations
+   * Throws error at runtime if Redis is required but unavailable
+   */
+  private ensureRedis(): Redis {
+    if (!this.redis) {
+      // Try to get client again (may be available at runtime)
+      this.redis = getRedisClient();
+      if (!this.redis) {
+        throw new Error('Redis client not available. Indexed cache requires Redis.');
+      }
+    }
+    return this.redis;
   }
 
   /**
@@ -143,12 +161,13 @@ export class IndexedAnalyticsCache {
    */
   async warmCache(datasourceId: number): Promise<WarmResult> {
     const startTime = Date.now();
-    
+    const redis = this.ensureRedis();
+
     log.info('Starting cache warming', { datasourceId });
-    
+
     // Acquire distributed lock
     const lockKey = `lock:cache:warm:${datasourceId}`;
-    const acquired = await this.redis.set(lockKey, '1', 'EX', 300, 'NX'); // 5 min lock
+    const acquired = await redis.set(lockKey, '1', 'EX', 300, 'NX'); // 5 min lock
     
     if (!acquired) {
       log.info('Cache warming already in progress, skipping', {
@@ -234,7 +253,7 @@ export class IndexedAnalyticsCache {
       
       // Write in batches
       let entriesCached = 0;
-      let pipeline = this.redis.pipeline();
+      let pipeline = redis.pipeline();
       
       for (const [key, rows] of Array.from(grouped.entries())) {
         const parts = key.split('|');
@@ -290,7 +309,7 @@ export class IndexedAnalyticsCache {
             }
           }
           
-          pipeline = this.redis.pipeline(); // Create new pipeline
+          pipeline = redis.pipeline(); // Create new pipeline
           
           log.debug('Cache warming progress', {
             datasourceId,
@@ -320,7 +339,7 @@ export class IndexedAnalyticsCache {
       }
       
       // Set metadata (use hash tag for same slot)
-      await this.redis.set(
+      await redis.set(
         `cache:meta:{ds:${datasourceId}}:last_warm`,
         new Date().toISOString(),
         'EX',
@@ -343,7 +362,7 @@ export class IndexedAnalyticsCache {
       };
     } finally {
       // Always release lock
-      await this.redis.del(lockKey);
+      await redis.del(lockKey);
       log.debug('Cache warming lock released', { datasourceId, lockKey });
     }
   }
@@ -375,8 +394,9 @@ export class IndexedAnalyticsCache {
    */
   async query(filters: CacheQueryFilters): Promise<CacheEntry[]> {
     const { datasourceId, measure, frequency, practiceUids, providerUids } = filters;
+    const redis = this.ensureRedis();
     const startTime = Date.now();
-    
+
     // Build list of index sets to intersect
     const indexSets: string[] = [];
     const tempKeys: string[] = []; // Track temp keys for cleanup
@@ -399,11 +419,11 @@ export class IndexedAnalyticsCache {
           puid => `idx:{ds:${datasourceId}}:m:${measure}:p:${puid}:freq:${frequency}`
         );
         
-        await this.redis.sunionstore(tempUnionKey, ...practiceIndexes);
+        await redis.sunionstore(tempUnionKey, ...practiceIndexes);
         indexSets.push(tempUnionKey);
         
         // Auto-cleanup after 10 seconds
-        await this.redis.expire(tempUnionKey, 10);
+        await redis.expire(tempUnionKey, 10);
       }
     }
     
@@ -420,9 +440,9 @@ export class IndexedAnalyticsCache {
           provuid => `idx:{ds:${datasourceId}}:m:${measure}:freq:${frequency}:prov:${provuid}`
         );
         
-        await this.redis.sunionstore(tempUnionKey, ...providerIndexes);
+        await redis.sunionstore(tempUnionKey, ...providerIndexes);
         indexSets.push(tempUnionKey);
-        await this.redis.expire(tempUnionKey, 10);
+        await redis.expire(tempUnionKey, 10);
       }
     }
     
@@ -434,16 +454,16 @@ export class IndexedAnalyticsCache {
       if (!firstIndex) {
         throw new Error('Index set should not be empty');
       }
-      matchingKeys = await this.redis.smembers(firstIndex);
+      matchingKeys = await redis.smembers(firstIndex);
     } else {
       // Intersect all filter sets
       // Use hash tag in temp key to ensure same slot as indexes
       const tempResultKey = `temp:{ds:${datasourceId}}:result:${Date.now()}:${Math.random()}`;
       tempKeys.push(tempResultKey);
       
-      await this.redis.sinterstore(tempResultKey, ...indexSets);
-      matchingKeys = await this.redis.smembers(tempResultKey);
-      await this.redis.del(tempResultKey);
+      await redis.sinterstore(tempResultKey, ...indexSets);
+      matchingKeys = await redis.smembers(tempResultKey);
+      await redis.del(tempResultKey);
     }
     
     const indexLookupDuration = Date.now() - startTime;
@@ -468,7 +488,7 @@ export class IndexedAnalyticsCache {
     
     for (let i = 0; i < matchingKeys.length; i += this.QUERY_BATCH_SIZE) {
       const batch = matchingKeys.slice(i, i + this.QUERY_BATCH_SIZE);
-      const values = await this.redis.mget(...batch);
+      const values = await redis.mget(...batch);
       
       for (const value of values) {
         if (value) {
@@ -501,7 +521,7 @@ export class IndexedAnalyticsCache {
     
     // Cleanup temp keys (fire and forget)
     if (tempKeys.length > 0) {
-      this.redis.del(...tempKeys).catch(err => {
+      redis.del(...tempKeys).catch(err => {
         log.warn('Failed to cleanup temp keys', { tempKeys, error: err });
       });
     }
@@ -513,7 +533,8 @@ export class IndexedAnalyticsCache {
    * Check if cache is warm for a datasource
    */
   async isCacheWarm(datasourceId: number): Promise<boolean> {
-    const lastWarm = await this.redis.get(`cache:meta:{ds:${datasourceId}}:last_warm`);
+    const redis = this.ensureRedis();
+    const lastWarm = await redis.get(`cache:meta:{ds:${datasourceId}}:last_warm`);
     return lastWarm !== null;
   }
 
@@ -522,12 +543,13 @@ export class IndexedAnalyticsCache {
    * Uses master index for efficient cleanup
    */
   async invalidate(datasourceId: number): Promise<void> {
+    const redis = this.ensureRedis();
     log.info('Starting cache invalidation', { datasourceId });
     const startTime = Date.now();
-    
+
     // Use master index to find all keys
     const masterIndex = `idx:{ds:${datasourceId}}:master`;
-    const allCacheKeys = await this.redis.smembers(masterIndex);
+    const allCacheKeys = await redis.smembers(masterIndex);
     
     if (allCacheKeys.length === 0) {
       log.info('No cache keys to invalidate', { datasourceId });
@@ -543,7 +565,7 @@ export class IndexedAnalyticsCache {
     const BATCH_SIZE = 1000;
     for (let i = 0; i < allCacheKeys.length; i += BATCH_SIZE) {
       const batch = allCacheKeys.slice(i, i + BATCH_SIZE);
-      await this.redis.del(...batch);
+      await redis.del(...batch);
     }
     
     // Delete all index keys
@@ -552,7 +574,7 @@ export class IndexedAnalyticsCache {
     const indexKeys: string[] = [];
     
     do {
-      const [nextCursor, keys] = await this.redis.scan(
+      const [nextCursor, keys] = await redis.scan(
         cursor,
         'MATCH',
         indexPattern,
@@ -564,11 +586,11 @@ export class IndexedAnalyticsCache {
     } while (cursor !== '0');
     
     if (indexKeys.length > 0) {
-      await this.redis.del(...indexKeys);
+      await redis.del(...indexKeys);
     }
     
     // Delete metadata
-    await this.redis.del(`cache:meta:{ds:${datasourceId}}:last_warm`);
+    await redis.del(`cache:meta:{ds:${datasourceId}}:last_warm`);
     
     const duration = Date.now() - startTime;
     
@@ -584,17 +606,18 @@ export class IndexedAnalyticsCache {
    * Get cache statistics for a datasource
    */
   async getCacheStats(datasourceId: number): Promise<CacheStats> {
+    const redis = this.ensureRedis();
     const masterIndex = `idx:{ds:${datasourceId}}:master`;
-    const totalKeys = await this.redis.scard(masterIndex);
-    const lastWarm = await this.redis.get(`cache:meta:{ds:${datasourceId}}:last_warm`);
+    const totalKeys = await redis.scard(masterIndex);
+    const lastWarm = await redis.get(`cache:meta:{ds:${datasourceId}}:last_warm`);
     
     // Sample memory usage
     let estimatedMemoryMB = 0;
     if (totalKeys > 0) {
-      const sampleKey = await this.redis.srandmember(masterIndex);
+      const sampleKey = await redis.srandmember(masterIndex);
       if (sampleKey && typeof sampleKey === 'string') {
         try {
-          const sampleSize = await this.redis.memory('USAGE', sampleKey);
+          const sampleSize = await redis.memory('USAGE', sampleKey);
           if (sampleSize && typeof sampleSize === 'number') {
             estimatedMemoryMB = (totalKeys * sampleSize) / (1024 * 1024);
           }
@@ -616,7 +639,7 @@ export class IndexedAnalyticsCache {
     let cursor = '0';
     
     do {
-      const [nextCursor, keys] = await this.redis.scan(
+      const [nextCursor, keys] = await redis.scan(
         cursor,
         'MATCH',
         indexPattern,
