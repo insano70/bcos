@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
+import { log, logTemplates } from '@/lib/logger';
 import { createRBACWorkItemWatchersService } from '@/lib/services/rbac-work-item-watchers-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log, logTemplates } from '@/lib/logger';
 
 /**
  * POST /api/work-items/[id]/watch
@@ -65,10 +65,7 @@ const postWatchHandler = async (
         return NextResponse.json({ error: error.message }, { status: 409 });
       }
 
-      if (
-        error.message.includes('Permission denied') ||
-        error.message.includes('permission')
-      ) {
+      if (error.message.includes('Permission denied') || error.message.includes('permission')) {
         return NextResponse.json({ error: error.message }, { status: 403 });
       }
     }
@@ -128,10 +125,7 @@ const deleteWatchHandler = async (
         return NextResponse.json({ error: error.message }, { status: 404 });
       }
 
-      if (
-        error.message.includes('Permission denied') ||
-        error.message.includes('permission')
-      ) {
+      if (error.message.includes('Permission denied') || error.message.includes('permission')) {
         return NextResponse.json({ error: error.message }, { status: 403 });
       }
     }

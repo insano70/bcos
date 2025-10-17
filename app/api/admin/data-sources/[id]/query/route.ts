@@ -1,16 +1,16 @@
 import { type SQL, sql } from 'drizzle-orm';
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { log } from '@/lib/logger';
 import { getAnalyticsDb } from '@/lib/services/analytics-db';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { dataSourceParamsSchema } from '@/lib/validations/data-sources';
 import { getDateRange } from '@/lib/utils/date-presets';
+import { dataSourceParamsSchema } from '@/lib/validations/data-sources';
 
 /**
  * Admin Data Sources Query API
@@ -35,7 +35,12 @@ const advancedFilterSchema = z.array(
       'is_null',
       'is_not_null',
     ]),
-    value: z.union([z.string(), z.number(), z.boolean(), z.array(z.union([z.string(), z.number()]))]),
+    value: z.union([
+      z.string(),
+      z.number(),
+      z.boolean(),
+      z.array(z.union([z.string(), z.number()])),
+    ]),
   })
 );
 
@@ -59,7 +64,11 @@ const queryDataSourceHandler = async (
     const providedEndDate = searchParams.get('end_date') || undefined;
 
     // Calculate dates: prefer preset calculation over provided dates
-    const { startDate, endDate } = getDateRange(dateRangePreset, providedStartDate, providedEndDate);
+    const { startDate, endDate } = getDateRange(
+      dateRangePreset,
+      providedStartDate,
+      providedEndDate
+    );
 
     const practiceUid = searchParams.get('practice_uid');
     const advancedFiltersParam = searchParams.get('advanced_filters');
@@ -283,8 +292,9 @@ const queryDataSourceHandler = async (
     });
 
     // Execute query
+    // Drizzle execute() with sql.raw() returns untyped rows - safe to cast to Record array
     const result = await analyticsDb.execute(query);
-    const rows = result as unknown as Record<string, unknown>[];
+    const rows = result as Record<string, unknown>[];
 
     log.info('Data source query completed', {
       dataSourceId,

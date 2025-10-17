@@ -8,7 +8,10 @@ interface WorkItemBreadcrumbsProps {
   currentSubject: string;
 }
 
-export default function WorkItemBreadcrumbs({ workItemId, currentSubject }: WorkItemBreadcrumbsProps) {
+export default function WorkItemBreadcrumbs({
+  workItemId,
+  currentSubject,
+}: WorkItemBreadcrumbsProps) {
   const router = useRouter();
   const { data: ancestors, isLoading } = useWorkItemAncestors(workItemId);
 
@@ -42,10 +45,18 @@ export default function WorkItemBreadcrumbs({ workItemId, currentSubject }: Work
       </button>
 
       {/* Ancestor Items */}
-      {ancestors.map((ancestor, index) => (
+      {ancestors.map((ancestor, _index) => (
         <div key={ancestor.id} className="flex items-center gap-2 flex-shrink-0">
-          <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+          <svg
+            className="w-4 h-4 text-gray-400 flex-shrink-0"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              fillRule="evenodd"
+              d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+              clipRule="evenodd"
+            />
           </svg>
           <button
             type="button"
@@ -60,10 +71,21 @@ export default function WorkItemBreadcrumbs({ workItemId, currentSubject }: Work
 
       {/* Current Item */}
       <div className="flex items-center gap-2 flex-shrink-0">
-        <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+        <svg
+          className="w-4 h-4 text-gray-400 flex-shrink-0"
+          fill="currentColor"
+          viewBox="0 0 20 20"
+        >
+          <path
+            fillRule="evenodd"
+            d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+            clipRule="evenodd"
+          />
         </svg>
-        <span className="text-gray-900 dark:text-gray-100 font-medium truncate max-w-[200px]" title={currentSubject}>
+        <span
+          className="text-gray-900 dark:text-gray-100 font-medium truncate max-w-[200px]"
+          title={currentSubject}
+        >
           {currentSubject}
         </span>
       </div>

@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
 import { generateCorrelationTraceURL } from '@/lib/monitoring/cloudwatch-client-utils';
-import type { ErrorsResponse, ErrorLogEntry } from '@/lib/monitoring/types';
+import type { ErrorLogEntry, ErrorsResponse } from '@/lib/monitoring/types';
 
 interface ErrorLogPanelProps {
   autoRefresh?: boolean;
@@ -20,26 +20,28 @@ export default function ErrorLogPanel({
   const [loading, setLoading] = useState(true);
   const [expandedErrors, setExpandedErrors] = useState<Set<number>>(new Set());
 
-  const fetchErrors = async () => {
+  const fetchErrors = useCallback(async () => {
     try {
-      const response = await apiClient.get(`/api/admin/monitoring/errors?timeRange=${timeRange}&limit=20`);
+      const response = await apiClient.get(
+        `/api/admin/monitoring/errors?timeRange=${timeRange}&limit=20`
+      );
       setData(response as ErrorsResponse);
-    } catch (err) {
+    } catch (_err) {
       setData(null);
     } finally {
       setLoading(false);
     }
-  };
+  }, [timeRange]);
 
   useEffect(() => {
     fetchErrors();
-  }, [timeRange]);
+  }, [fetchErrors]);
 
   useEffect(() => {
     if (!autoRefresh || refreshInterval === 0) return;
     const interval = setInterval(fetchErrors, refreshInterval);
     return () => clearInterval(interval);
-  }, [autoRefresh, refreshInterval, timeRange]);
+  }, [autoRefresh, refreshInterval, fetchErrors]);
 
   const toggleExpand = (index: number) => {
     const newExpanded = new Set(expandedErrors);
@@ -53,7 +55,7 @@ export default function ErrorLogPanel({
 
   const groupErrors = (errors: ErrorLogEntry[]): Array<{ error: ErrorLogEntry; count: number }> => {
     const grouped = new Map<string, { error: ErrorLogEntry; count: number }>();
-    
+
     for (const error of errors) {
       const key = `${error.endpoint}:${error.error?.name || 'Unknown'}`;
       if (grouped.has(key)) {
@@ -62,7 +64,7 @@ export default function ErrorLogPanel({
         grouped.set(key, { error, count: 1 });
       }
     }
-    
+
     return Array.from(grouped.values()).sort((a, b) => b.count - a.count);
   };
 
@@ -81,7 +83,7 @@ export default function ErrorLogPanel({
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
       <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Recent Errors</h3>
-      
+
       {groupedErrors.length > 0 ? (
         <div className="space-y-2">
           {groupedErrors.map((group, idx) => (
@@ -111,13 +113,19 @@ export default function ErrorLogPanel({
                   </div>
                 </div>
               </div>
-              
+
               {expandedErrors.has(idx) && (
                 <div className="p-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
                   <div className="text-xs space-y-2">
-                    <div><strong>Message:</strong> {group.error.message}</div>
-                    <div><strong>Status:</strong> {group.error.statusCode}</div>
-                    <div><strong>Time:</strong> {new Date(group.error.timestamp).toLocaleString()}</div>
+                    <div>
+                      <strong>Message:</strong> {group.error.message}
+                    </div>
+                    <div>
+                      <strong>Status:</strong> {group.error.statusCode}
+                    </div>
+                    <div>
+                      <strong>Time:</strong> {new Date(group.error.timestamp).toLocaleString()}
+                    </div>
                     {group.error.correlationId && (
                       <div>
                         <strong>Correlation ID:</strong>{' '}
@@ -140,10 +148,11 @@ export default function ErrorLogPanel({
       ) : (
         <div className="text-center py-8">
           <div className="text-4xl mb-2">✓</div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">No errors in the last {timeRange}</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            No errors in the last {timeRange}
+          </div>
         </div>
       )}
     </div>
   );
 }
-

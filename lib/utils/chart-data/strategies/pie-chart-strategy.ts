@@ -1,12 +1,12 @@
 /**
  * Pie Chart Strategy
- * 
+ *
  * Handles transformation for pie and doughnut charts.
  */
 
 import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
+import { adjustColorOpacity, getColorPalette } from '../services/chart-color-service';
 import { BaseChartTransformStrategy, type TransformConfig } from './base-strategy';
-import { getColorPalette, adjustColorOpacity } from '../services/chart-color-service';
 
 /**
  * Pie Chart Transformation Strategy
@@ -35,7 +35,9 @@ export class PieChartStrategy extends BaseChartTransformStrategy {
       const groupKey = this.getGroupKey(measure, groupField, config);
       const currentValue = groupedData.get(groupKey) || 0;
       const value = measure.measure_value ?? measure.numeric_value ?? 0;
-      const measureValue = this.parseValue(typeof value === 'string' || typeof value === 'number' ? value : 0);
+      const measureValue = this.parseValue(
+        typeof value === 'string' || typeof value === 'number' ? value : 0
+      );
       groupedData.set(groupKey, currentValue + measureValue);
     });
 
@@ -63,4 +65,3 @@ export class PieChartStrategy extends BaseChartTransformStrategy {
 
   // getGroupKey now provided by base class
 }
-

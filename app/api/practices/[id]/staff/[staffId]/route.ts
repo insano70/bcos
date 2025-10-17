@@ -1,12 +1,12 @@
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
-import { log, logTemplates, calculateChanges, SLOW_THRESHOLDS } from '@/lib/logger';
+import { calculateChanges, log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACStaffMembersService } from '@/lib/services/rbac-staff-members-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { staffUpdateSchema } from '@/lib/validations/staff';

@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
 import { createPracticeAnalyticsService } from '@/lib/services/practice-analytics-service';
 import type { UserContext } from '@/lib/types/rbac';
@@ -66,9 +66,8 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
       staff: {
         totalStaff: (staffStats as { totalStaff: number; averageStaffPerPractice: number })
           .totalStaff,
-        averagePerPractice: (
-          staffStats as { totalStaff: number; averageStaffPerPractice: number }
-        ).averageStaffPerPractice,
+        averagePerPractice: (staffStats as { totalStaff: number; averageStaffPerPractice: number })
+          .averageStaffPerPractice,
         topPractices,
       },
       completion: {

@@ -1,9 +1,9 @@
-import type { ChartData } from '@/lib/types/analytics';
-import { MeasureAccessor } from '@/lib/types/analytics';
 import { log } from '@/lib/logger';
+import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
+import { MeasureAccessor } from '@/lib/types/analytics';
+import { columnMappingService } from '../column-mapping-service';
 import { BaseChartHandler } from './base-handler';
 import { getColumnName } from './column-resolver';
-import { columnMappingService } from '../column-mapping-service';
 
 /**
  * Aggregation type for metric charts
@@ -43,14 +43,19 @@ export class MetricChartHandler extends BaseChartHandler {
    * @param valueColumn - Column name containing the numeric value (defaults to 'measure_value')
    * @returns Aggregated single value
    */
-  private aggregateData(data: Record<string, unknown>[], aggregationType: AggregationType = 'sum', valueColumn: string = 'measure_value'): number {
+  private aggregateData(
+    data: Record<string, unknown>[],
+    aggregationType: AggregationType = 'sum',
+    valueColumn: string = 'measure_value'
+  ): number {
     const startTime = Date.now();
 
     // Extract and parse all values
-    const values = data.map(record => {
-      const value = typeof record[valueColumn] === 'string'
-        ? parseFloat(record[valueColumn] as string)
-        : (record[valueColumn] as number || 0);
+    const values = data.map((record) => {
+      const value =
+        typeof record[valueColumn] === 'string'
+          ? parseFloat(record[valueColumn] as string)
+          : (record[valueColumn] as number) || 0;
       return Number.isNaN(value) ? 0 : value;
     });
 
@@ -62,9 +67,7 @@ export class MetricChartHandler extends BaseChartHandler {
         break;
 
       case 'avg':
-        result = values.length > 0
-          ? values.reduce((sum, val) => sum + val, 0) / values.length
-          : 0;
+        result = values.length > 0 ? values.reduce((sum, val) => sum + val, 0) / values.length : 0;
         break;
 
       case 'count':
@@ -99,16 +102,20 @@ export class MetricChartHandler extends BaseChartHandler {
     return result;
   }
 
-  async transform(data: Record<string, unknown>[], config: Record<string, unknown>): Promise<ChartData> {
+  async transform(
+    data: Record<string, unknown>[],
+    config: Record<string, unknown>
+  ): Promise<ChartData> {
     const startTime = Date.now();
 
     try {
       const chartType = config.chartType as 'number';
       const aggregationType = (config.aggregation as AggregationType) || 'sum';
-      
+
       // Use data source configuration to determine the value column (not auto-detection!)
-      const valueColumn = config.valueColumn as string | undefined
-        || await getColumnName(config.dataSourceId as number | undefined, 'measure');
+      const valueColumn =
+        (config.valueColumn as string | undefined) ||
+        (await getColumnName(config.dataSourceId as number | undefined, 'measure'));
 
       log.info('Transforming metric chart data', {
         chartType,
@@ -128,11 +135,13 @@ export class MetricChartHandler extends BaseChartHandler {
         // Return zero value for empty data
         return {
           labels: [],
-          datasets: [{
-            label: config.title as string || 'Total',
-            data: [0],
-            measureType: 'number',
-          }],
+          datasets: [
+            {
+              label: (config.title as string) || 'Total',
+              data: [0],
+              measureType: 'number',
+            },
+          ],
           measureType: 'number',
         };
       }
@@ -142,31 +151,34 @@ export class MetricChartHandler extends BaseChartHandler {
 
       // Determine the measure type for formatting (currency, percentage, number)
       // Use config override, or fall back to data column using MeasureAccessor, or default to 'number'
-      let measureType = (config.measureType as string);
-      
+      let measureType = config.measureType as string;
+
       if (!measureType && data[0] && config.dataSourceId) {
         try {
           const mapping = await columnMappingService.getMapping(config.dataSourceId as number);
-          const accessor = new MeasureAccessor(data[0] as unknown as import('@/lib/types/analytics').AggAppMeasure, mapping);
+          // Record<string, unknown> from database matches AggAppMeasure dynamic schema
+          const accessor = new MeasureAccessor(data[0] as AggAppMeasure, mapping);
           measureType = accessor.getMeasureType();
         } catch (error) {
           log.warn('Failed to get measure type from accessor, using default', { error });
           measureType = 'number';
         }
       }
-      
+
       measureType = measureType || 'number';
 
       // Number chart: return single aggregated value in a dataset
       // Phase 3: Server-side aggregation complete
       const chartData: ChartData = {
         labels: [],
-        datasets: [{
-          label: config.title as string || 'Total',
-          data: [aggregatedValue],
-          measureType,
-          aggregationType, // Include aggregation type for frontend reference
-        }],
+        datasets: [
+          {
+            label: (config.title as string) || 'Total',
+            data: [aggregatedValue],
+            measureType,
+            aggregationType, // Include aggregation type for frontend reference
+          },
+        ],
         measureType,
       };
 
@@ -201,7 +213,11 @@ export class MetricChartHandler extends BaseChartHandler {
     }
 
     // Metric charts don't support multiple series
-    if (config.multipleSeries && Array.isArray(config.multipleSeries) && config.multipleSeries.length > 0) {
+    if (
+      config.multipleSeries &&
+      Array.isArray(config.multipleSeries) &&
+      config.multipleSeries.length > 0
+    ) {
       errors.push('Metric number charts do not support multiple series');
     }
 

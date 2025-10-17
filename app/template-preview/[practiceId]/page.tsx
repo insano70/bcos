@@ -1,11 +1,15 @@
-import { db, practices, practice_attributes, staff_members, templates } from '@/lib/db';
 import { eq } from 'drizzle-orm';
-import { getTemplateComponent } from '@/lib/template-loader';
-import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
 import { notFound } from 'next/navigation';
-import { transformPractice, transformPracticeAttributes, transformStaffMember } from '@/lib/types/transformers';
-import type { PracticeAttributes } from '@/lib/types/practice';
 import TemplatePreviewToolbar from '@/components/template-preview-toolbar';
+import { db, practice_attributes, practices, staff_members, templates } from '@/lib/db';
+import { getTemplateComponent } from '@/lib/template-loader';
+import type { PracticeAttributes } from '@/lib/types/practice';
+import {
+  transformPractice,
+  transformPracticeAttributes,
+  transformStaffMember,
+} from '@/lib/types/transformers';
+import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
 import TemplateSwitcher from './template-switcher';
 
 async function getPracticeData(practiceId: string) {
@@ -47,19 +51,21 @@ async function getPracticeData(practiceId: string) {
   return {
     practice: transformPractice(practice),
     template: template || { slug: 'classic-professional' },
-    attributes: attributes ? transformPracticeAttributes(attributes) : {
-      practice_attribute_id: '',
-      practice_id: practiceId,
-      updated_at: new Date().toISOString()
-    } as PracticeAttributes,
+    attributes: attributes
+      ? transformPracticeAttributes(attributes)
+      : ({
+          practice_attribute_id: '',
+          practice_id: practiceId,
+          updated_at: new Date().toISOString(),
+        } as PracticeAttributes),
     staff: staff.map(transformStaffMember),
   };
 }
 
 export default async function TemplatePreview({
-  params
+  params,
 }: {
-  params: Promise<{ practiceId: string }>
+  params: Promise<{ practiceId: string }>;
 }) {
   const { practiceId } = await params;
   const data = await getPracticeData(practiceId);
@@ -80,15 +86,12 @@ export default async function TemplatePreview({
   const colorStyles = getColorStyles(brandColors);
 
   // Dynamically load the template component based on the slug
-  const TemplateComponent = getTemplateComponent(template.slug);
+  const _TemplateComponent = getTemplateComponent(template.slug);
 
   return (
     <div className="min-h-screen">
       {/* Server-rendered toolbar - client component will enhance it */}
-      <TemplatePreviewToolbar
-        currentTemplate={template.slug}
-        isLoading={false}
-      />
+      <TemplatePreviewToolbar currentTemplate={template.slug} isLoading={false} />
 
       {/* Template Content with client-side switching capability */}
       <TemplateSwitcher

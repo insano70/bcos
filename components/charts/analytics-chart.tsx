@@ -1,18 +1,25 @@
 'use client';
 
-import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
-import type { MeasureType, FrequencyType, ChartFilter, MultipleSeriesConfig, PeriodComparisonConfig, DualAxisConfig } from '@/lib/types/analytics';
-import type { ResponsiveChartProps } from '@/lib/types/responsive-charts';
-import { useChartData } from '@/hooks/use-chart-data';
-import { chartExportService } from '@/lib/services/chart-export';
-import { apiClient } from '@/lib/api/client';
-import { ChartSkeleton } from '@/components/ui/loading-skeleton';
-import { GlassCard } from '@/components/ui/glass-card';
-import ChartRenderer from './chart-renderer';
-import ChartHeader from './chart-header';
-import ChartError from './chart-error';
-import ResponsiveChartContainer from './responsive-chart-container';
 import dynamic from 'next/dynamic';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { GlassCard } from '@/components/ui/glass-card';
+import { ChartSkeleton } from '@/components/ui/loading-skeleton';
+import { useChartData } from '@/hooks/use-chart-data';
+import { apiClient } from '@/lib/api/client';
+import { chartExportService } from '@/lib/services/chart-export';
+import type {
+  ChartFilter,
+  DualAxisConfig,
+  FrequencyType,
+  MeasureType,
+  MultipleSeriesConfig,
+  PeriodComparisonConfig,
+} from '@/lib/types/analytics';
+import type { ResponsiveChartProps } from '@/lib/types/responsive-charts';
+import ChartError from './chart-error';
+import ChartHeader from './chart-header';
+import ChartRenderer from './chart-renderer';
+import ResponsiveChartContainer from './responsive-chart-container';
 
 // Lazy load fullscreen modals
 const ChartFullscreenModal = dynamic(() => import('./chart-fullscreen-modal'), {
@@ -24,7 +31,18 @@ const DualAxisFullscreenModal = dynamic(() => import('./dual-axis-fullscreen-mod
 });
 
 interface AnalyticsChartProps extends ResponsiveChartProps {
-  chartType: 'line' | 'bar' | 'stacked-bar' | 'horizontal-bar' | 'progress-bar' | 'doughnut' | 'pie' | 'area' | 'table' | 'dual-axis' | 'number';
+  chartType:
+    | 'line'
+    | 'bar'
+    | 'stacked-bar'
+    | 'horizontal-bar'
+    | 'progress-bar'
+    | 'doughnut'
+    | 'pie'
+    | 'area'
+    | 'table'
+    | 'dual-axis'
+    | 'number';
   measure?: MeasureType;
   frequency?: FrequencyType;
   practice?: string | undefined;
@@ -112,7 +130,9 @@ export default function AnalyticsChart(props: AnalyticsChartProps) {
   // Debug logging for dual-axis charts only
   if (chartType === 'dual-axis' && dualAxisConfig) {
     const time = new Date().toISOString().split('T')[1]?.substring(0, 12) || 'unknown';
-    console.log(`[DUAL-AXIS-RENDER ${time}] ${title || 'Untitled'} | ${dualAxisConfig.primary?.measure} + ${dualAxisConfig.secondary?.measure}`);
+    console.log(
+      `[DUAL-AXIS-RENDER ${time}] ${title || 'Untitled'} | ${dualAxisConfig.primary?.measure} + ${dualAxisConfig.secondary?.measure}`
+    );
   }
 
   // Table charts use a completely different flow - render early
@@ -209,7 +229,7 @@ function TableChartComponent(props: AnalyticsChartProps) {
 
       setTableData({
         data: response.data,
-        columns: response.columns.map(col => ({
+        columns: response.columns.map((col) => ({
           column_name: col.name,
           display_name: col.display_name,
           data_type: col.data_type,
@@ -227,7 +247,16 @@ function TableChartComponent(props: AnalyticsChartProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [dataSourceId, startDate, endDate, dateRangePreset, practice, practiceUid, providerName, JSON.stringify(advancedFilters)]);
+  }, [
+    dataSourceId,
+    startDate,
+    endDate,
+    dateRangePreset,
+    practice,
+    practiceUid,
+    providerName,
+    JSON.stringify(advancedFilters),
+  ]);
 
   useEffect(() => {
     fetchTableData();
@@ -270,7 +299,11 @@ function TableChartComponent(props: AnalyticsChartProps) {
   if (!tableData) {
     return (
       <GlassCard className={`flex flex-col ${className}`}>
-        <ChartError error="No table data available" onRetry={fetchTableData} {...(title && { chartTitle: title })} />
+        <ChartError
+          error="No table data available"
+          onRetry={fetchTableData}
+          {...(title && { chartTitle: title })}
+        />
       </GlassCard>
     );
   }
@@ -294,7 +327,7 @@ function TableChartComponent(props: AnalyticsChartProps) {
               chartType="table"
               data={{ labels: [], datasets: [] }}
               rawData={tableData.data}
-              columns={tableData.columns.map(col => ({
+              columns={tableData.columns.map((col) => ({
                 columnName: col.column_name,
                 displayName: col.display_name,
                 dataType: col.data_type,
@@ -320,7 +353,7 @@ function TableChartComponent(props: AnalyticsChartProps) {
             chartType="table"
             data={{ labels: [], datasets: [] }}
             rawData={tableData.data}
-            columns={tableData.columns.map(col => ({
+            columns={tableData.columns.map((col) => ({
               columnName: col.column_name,
               displayName: col.display_name,
               dataType: col.data_type,
@@ -410,8 +443,10 @@ function UniversalChartComponent(props: AnalyticsChartProps) {
       if (groupBy) request.chartConfig.groupBy = groupBy;
       if (target !== undefined) request.chartConfig.target = target;
     }
-    if (chartType === 'dual-axis' && dualAxisConfig) request.chartConfig.dualAxisConfig = dualAxisConfig;
-    if (multipleSeries && multipleSeries.length > 0) request.chartConfig.multipleSeries = multipleSeries;
+    if (chartType === 'dual-axis' && dualAxisConfig)
+      request.chartConfig.dualAxisConfig = dualAxisConfig;
+    if (multipleSeries && multipleSeries.length > 0)
+      request.chartConfig.multipleSeries = multipleSeries;
     if (periodComparison) request.chartConfig.periodComparison = periodComparison;
     if (title) request.chartConfig.title = title;
 
@@ -458,12 +493,14 @@ function UniversalChartComponent(props: AnalyticsChartProps) {
   ]);
 
   // Fetch chart data using unified hook
-  const { data, isLoading, error, refetch } = useChartData(chartDataRequest as Parameters<typeof useChartData>[0]);
+  const { data, isLoading, error, refetch } = useChartData(
+    chartDataRequest as Parameters<typeof useChartData>[0]
+  );
 
   // Export functionality
   const handleExport = async (format: 'png' | 'csv' | 'pdf') => {
     try {
-      let result;
+      let result: Awaited<ReturnType<typeof chartExportService.exportChartAsImage>>;
 
       if (format === 'csv') {
         result = chartExportService.exportChartDataAsCSV(
@@ -505,11 +542,7 @@ function UniversalChartComponent(props: AnalyticsChartProps) {
   if (error) {
     return (
       <GlassCard className={`flex flex-col ${className}`}>
-        <ChartError 
-          error={error} 
-          onRetry={refetch} 
-          {...(title && { chartTitle: title })}
-        />
+        <ChartError error={error} onRetry={refetch} {...(title && { chartTitle: title })} />
       </GlassCard>
     );
   }
@@ -518,9 +551,9 @@ function UniversalChartComponent(props: AnalyticsChartProps) {
   if (!data) {
     return (
       <GlassCard className={`flex flex-col ${className}`}>
-        <ChartError 
-          error="No data available" 
-          onRetry={refetch} 
+        <ChartError
+          error="No data available"
+          onRetry={refetch}
           {...(title && { chartTitle: title })}
         />
       </GlassCard>
@@ -538,10 +571,10 @@ function UniversalChartComponent(props: AnalyticsChartProps) {
         {...((chartType === 'bar' ||
           chartType === 'stacked-bar' ||
           chartType === 'horizontal-bar') && {
-            onFullscreen: () => setIsFullscreen(true)
-          })}
+          onFullscreen: () => setIsFullscreen(true),
+        })}
         {...(chartType === 'dual-axis' && {
-          onFullscreen: () => setIsDualAxisFullscreen(true)
+          onFullscreen: () => setIsDualAxisFullscreen(true),
         })}
       />
 
@@ -596,17 +629,18 @@ function UniversalChartComponent(props: AnalyticsChartProps) {
       </div>
 
       {/* Fullscreen Modal for Bar Charts */}
-      {isFullscreen && (chartType === 'bar' || chartType === 'stacked-bar' || chartType === 'horizontal-bar') && (
-        <ChartFullscreenModal
-          isOpen={isFullscreen}
-          onClose={() => setIsFullscreen(false)}
-          chartTitle={title || `${measure} - ${actualFrequency}`}
-          chartData={data.chartData}
-          chartType={chartType}
-          frequency={actualFrequency}
-          stackingMode={stackingMode}
-        />
-      )}
+      {isFullscreen &&
+        (chartType === 'bar' || chartType === 'stacked-bar' || chartType === 'horizontal-bar') && (
+          <ChartFullscreenModal
+            isOpen={isFullscreen}
+            onClose={() => setIsFullscreen(false)}
+            chartTitle={title || `${measure} - ${actualFrequency}`}
+            chartData={data.chartData}
+            chartType={chartType}
+            frequency={actualFrequency}
+            stackingMode={stackingMode}
+          />
+        )}
 
       {/* Dual-Axis Fullscreen Modal */}
       {isDualAxisFullscreen && chartType === 'dual-axis' && data.chartData && dualAxisConfig && (

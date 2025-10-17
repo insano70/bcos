@@ -1,11 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { TransitionValidationBuilder, type ValidationConfig } from './transition-validation-builder';
-import { TransitionActionBuilder, type ActionConfig } from './transition-action-builder';
-import { useUpdateWorkItemTransition, type WorkItemStatusTransition } from '@/lib/hooks/use-work-item-transitions';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import {
+  useUpdateWorkItemTransition,
+  type WorkItemStatusTransition,
+} from '@/lib/hooks/use-work-item-transitions';
+import {
+  type ActionConfig,
+  parseActionConfigSafe,
+  parseValidationConfigSafe,
+  type ValidationConfig,
+} from '@/lib/validations/workflow-transitions';
+import { TransitionActionBuilder } from './transition-action-builder';
+import { TransitionValidationBuilder } from './transition-validation-builder';
 
 interface EditTransitionConfigModalProps {
   isOpen: boolean;
@@ -25,16 +34,20 @@ export default function EditTransitionConfigModal({
   workItemTypeId,
 }: EditTransitionConfigModalProps) {
   const [activeTab, setActiveTab] = useState<'validation' | 'actions'>('validation');
-  const [validationConfig, setValidationConfig] = useState<ValidationConfig | null>(transition.validation_config as ValidationConfig | null);
-  const [actionConfig, setActionConfig] = useState<ActionConfig | null>(transition.action_config as ActionConfig | null);
+  const [validationConfig, setValidationConfig] = useState<ValidationConfig>(
+    parseValidationConfigSafe(transition.validation_config)
+  );
+  const [actionConfig, setActionConfig] = useState<ActionConfig>(
+    parseActionConfigSafe(transition.action_config)
+  );
   const [hasChanges, setHasChanges] = useState(false);
 
   const updateTransition = useUpdateWorkItemTransition();
 
   // Reset state when transition changes
   useEffect(() => {
-    setValidationConfig(transition.validation_config as ValidationConfig | null);
-    setActionConfig(transition.action_config as ActionConfig | null);
+    setValidationConfig(parseValidationConfigSafe(transition.validation_config));
+    setActionConfig(parseActionConfigSafe(transition.action_config));
     setHasChanges(false);
   }, [transition]);
 
@@ -51,9 +64,9 @@ export default function EditTransitionConfigModal({
       toast.success('Transition configuration saved successfully');
       setHasChanges(false);
       onClose();
-    } catch (error) {
+    } catch {
+      // Error is already logged by the mutation hook
       toast.error('Failed to save transition configuration');
-      console.error('Failed to save transition configuration:', error);
     }
   };
 
@@ -61,8 +74,8 @@ export default function EditTransitionConfigModal({
     if (hasChanges && !confirm('You have unsaved changes. Are you sure you want to close?')) {
       return;
     }
-    setValidationConfig(transition.validation_config as ValidationConfig | null);
-    setActionConfig(transition.action_config as ActionConfig | null);
+    setValidationConfig(parseValidationConfigSafe(transition.validation_config));
+    setActionConfig(parseActionConfigSafe(transition.action_config));
     setHasChanges(false);
     onClose();
   };
@@ -172,7 +185,9 @@ export default function EditTransitionConfigModal({
               <div className="px-5 py-4 border-t border-gray-200 dark:border-gray-700/60 flex-shrink-0">
                 <div className="flex justify-between items-center">
                   <div className="text-sm text-gray-600 dark:text-gray-400">
-                    {hasChanges && <span className="text-amber-600 dark:text-amber-400">• Unsaved changes</span>}
+                    {hasChanges && (
+                      <span className="text-amber-600 dark:text-amber-400">• Unsaved changes</span>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     <button

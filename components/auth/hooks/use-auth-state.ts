@@ -18,11 +18,11 @@
  * actions.rbacLoadSuccess({ userContext });
  */
 
-import { useReducer, useCallback } from 'react';
-import { authReducer, initialAuthState } from './auth-reducer';
-import type { AuthState } from './auth-reducer';
-import type { User } from '../types';
+import { useCallback, useReducer } from 'react';
 import type { UserContext } from '@/lib/types/rbac';
+import type { User } from '../types';
+import type { AuthState } from './auth-reducer';
+import { authReducer, initialAuthState } from './auth-reducer';
 
 /**
  * Action creators interface
@@ -85,9 +85,12 @@ export function useAuthState(): UseAuthStateReturn {
       dispatch({ type: 'INIT_START' });
     }, []),
 
-    initSuccess: useCallback((payload: { user: User; sessionId: string; userContext?: UserContext }) => {
-      dispatch({ type: 'INIT_SUCCESS', payload });
-    }, []),
+    initSuccess: useCallback(
+      (payload: { user: User; sessionId: string; userContext?: UserContext }) => {
+        dispatch({ type: 'INIT_SUCCESS', payload });
+      },
+      []
+    ),
 
     initFailure: useCallback(() => {
       dispatch({ type: 'INIT_FAILURE' });

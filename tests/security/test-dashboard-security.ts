@@ -1,19 +1,18 @@
 #!/usr/bin/env tsx
 /**
  * Dashboard Organization Filter Security Testing
- * 
+ *
  * Tests dashboard-level organization filtering with security validation:
  * 1. Super admin can filter by any organization
  * 2. Org users can only filter by their own organizations
  * 3. Provider users cannot use organization filter
  * 4. Organization filter converts to practice_uids with hierarchy
- * 
+ *
  * Phase 3 Task 3.4: Dashboard organization filtering verification
  */
 
 import { dashboardRenderer } from '@/lib/services/dashboard-renderer';
-import type { UserContext } from '@/lib/types/rbac';
-import type { Permission, Role, Organization } from '@/lib/types/rbac';
+import type { Organization, Permission, Role, UserContext } from '@/lib/types/rbac';
 
 async function runDashboardSecurityTests() {
   console.log('🔒 Dashboard Organization Filter Security Testing\n');
@@ -145,7 +144,9 @@ async function runDashboardSecurityTests() {
     if (error instanceof Error && error.message.includes('Access denied')) {
       console.log('✅ Status: PASS ✓ (Correctly blocked access to other organization)');
     } else {
-      console.log(`❌ Status: FAIL ✗ (Wrong error: ${error instanceof Error ? error.message : 'Unknown'})`);
+      console.log(
+        `❌ Status: FAIL ✗ (Wrong error: ${error instanceof Error ? error.message : 'Unknown'})`
+      );
     }
   }
 
@@ -176,10 +177,15 @@ async function runDashboardSecurityTests() {
     await testRenderer.validateOrganizationFilterAccess(testOrg1.organization_id, providerUser);
     console.log('❌ Status: FAIL ✗ (Should have thrown access denied error)');
   } catch (error) {
-    if (error instanceof Error && error.message.includes('Provider-level users cannot filter by organization')) {
+    if (
+      error instanceof Error &&
+      error.message.includes('Provider-level users cannot filter by organization')
+    ) {
       console.log('✅ Status: PASS ✓ (Correctly blocked provider from using org filter)');
     } else {
-      console.log(`❌ Status: FAIL ✗ (Wrong error: ${error instanceof Error ? error.message : 'Unknown'})`);
+      console.log(
+        `❌ Status: FAIL ✗ (Wrong error: ${error instanceof Error ? error.message : 'Unknown'})`
+      );
     }
   }
 
@@ -212,12 +218,14 @@ async function runDashboardSecurityTests() {
     merged.frequency === 'Monthly';
 
   console.log(`✅ Dashboard filters override chart filters: ${merged.startDate === '2024-06-01'}`);
-  console.log(`✅ practice_uids passed through: ${JSON.stringify(merged.practiceUids) === JSON.stringify([100, 101, 102])}`);
+  console.log(
+    `✅ practice_uids passed through: ${JSON.stringify(merged.practiceUids) === JSON.stringify([100, 101, 102])}`
+  );
   console.log(`✅ Chart config preserved: ${merged.measure === 'Charges by Provider'}`);
   console.log(`✅ Status: ${mergeCorrect ? 'PASS ✓' : 'FAIL ✗'}`);
 
   // Summary
-  console.log('\n' + '='.repeat(80));
+  console.log(`\n${'='.repeat(80)}`);
   console.log('📊 Test Summary');
   console.log('='.repeat(80));
   console.log('✅ Dashboard organization filter security verified');
@@ -234,4 +242,3 @@ async function runDashboardSecurityTests() {
 
 // Run the tests
 runDashboardSecurityTests();
-

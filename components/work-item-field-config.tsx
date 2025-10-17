@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
-import { useWorkItemFields, useDeleteWorkItemField } from '@/lib/hooks/use-work-item-fields';
+import { useCallback, useMemo, useState } from 'react';
+import AddWorkItemFieldModal from '@/components/add-work-item-field-modal';
 import DataTable, {
   type DataTableColumn,
   type DataTableDropdownAction,
 } from '@/components/data-table-standard';
-import AddWorkItemFieldModal from '@/components/add-work-item-field-modal';
 import EditWorkItemFieldModal from '@/components/edit-work-item-field-modal';
+import { useDeleteWorkItemField, useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
 import type { WorkItemField } from '@/lib/types/work-item-fields';
 
 interface WorkItemFieldConfigProps {
@@ -48,7 +48,9 @@ export default function WorkItemFieldConfig({
         header: 'Field Name',
         sortable: true,
         render: (item) => (
-          <div className="font-mono text-sm text-gray-600 dark:text-gray-400">{item.field_name}</div>
+          <div className="font-mono text-sm text-gray-600 dark:text-gray-400">
+            {item.field_name}
+          </div>
         ),
       },
       {
@@ -147,11 +149,14 @@ export default function WorkItemFieldConfig({
 
   // Dropdown actions
   const getDropdownActions = useCallback(
-    (field: WorkItemField): DataTableDropdownAction<WorkItemField>[] => [
+    (_field: WorkItemField): DataTableDropdownAction<WorkItemField>[] => [
       {
         label: 'Edit',
         icon: (
-          <svg className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0" viewBox="0 0 16 16">
+          <svg
+            className="w-4 h-4 fill-current text-gray-400 dark:text-gray-500 shrink-0"
+            viewBox="0 0 16 16"
+          >
             <path d="m13.7 2.3-1-1c-.4-.4-1-.4-1.4 0l-10 10c-.2.2-.3.4-.3.7v4c0 .6.4 1 1 1h4c.3 0 .5-.1.7-.3l10-10c.4-.4.4-1 0-1.4zM10.5 6.5L9 5l.5-.5L11 6l-.5.5zM2 14v-3l6-6 3 3-6 6H2z" />
           </svg>
         ),
@@ -182,7 +187,9 @@ export default function WorkItemFieldConfig({
   if (error) {
     return (
       <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6">
-        <p className="text-red-600 dark:text-red-400">Error loading custom fields: {error.message}</p>
+        <p className="text-red-600 dark:text-red-400">
+          Error loading custom fields: {error.message}
+        </p>
       </div>
     );
   }
@@ -214,7 +221,7 @@ export default function WorkItemFieldConfig({
       {/* Data Table */}
       <DataTable
         title="Custom Fields"
-        data={(fields || []).map(f => ({ ...f, id: f.work_item_field_id }))}
+        data={(fields || []).map((f) => ({ ...f, id: f.work_item_field_id }))}
         columns={columns}
         dropdownActions={getDropdownActions}
         pagination={{ itemsPerPage: 10 }}

@@ -1,9 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useUpdateDataSourceColumn, type DataSourceColumn, type DataSourceColumnUpdateInput } from '@/lib/hooks/use-data-sources';
+import {
+  type DataSourceColumn,
+  type DataSourceColumnUpdateInput,
+  useUpdateDataSourceColumn,
+} from '@/lib/hooks/use-data-sources';
 import Toast from './toast';
 
 interface EditDataSourceColumnModalProps {
@@ -21,12 +25,12 @@ export default function EditDataSourceColumnModal({
   onClose,
   onSuccess,
   column,
-  dataSourceId
+  dataSourceId,
 }: EditDataSourceColumnModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const [_toastMessage, setToastMessage] = useState('');
+  const [_toastType, setToastType] = useState<'success' | 'error'>('success');
 
   // Always call the hook - hooks must be called in the same order every render
   const updateColumnMutation = useUpdateDataSourceColumn(dataSourceId, column?.column_id || 0);
@@ -61,8 +65,14 @@ export default function EditDataSourceColumnModal({
       setValue('example_value', column.example_value || undefined);
       setValue('is_active', column.is_active ?? true);
       setValue('display_icon', column.display_icon ?? false);
-      setValue('icon_type', (column.icon_type as 'initials' | 'first_letter' | 'emoji' | undefined) ?? undefined);
-      setValue('icon_color_mode', (column.icon_color_mode as 'auto' | 'fixed' | 'mapped' | undefined) ?? 'auto');
+      setValue(
+        'icon_type',
+        (column.icon_type as 'initials' | 'first_letter' | 'emoji' | undefined) ?? undefined
+      );
+      setValue(
+        'icon_color_mode',
+        (column.icon_color_mode as 'auto' | 'fixed' | 'mapped' | undefined) ?? 'auto'
+      );
       setValue('icon_color', column.icon_color ?? undefined);
     }
   }, [column, isOpen, setValue]);
@@ -95,7 +105,6 @@ export default function EditDataSourceColumnModal({
         onSuccess?.();
         setShowToast(false);
       }, 2000);
-
     } catch (error) {
       // Log client-side column update errors for debugging
       if (process.env.NODE_ENV === 'development') {
@@ -146,8 +155,18 @@ export default function EditDataSourceColumnModal({
                         className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                       >
                         <span className="sr-only">Close</span>
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        <svg
+                          className="w-6 h-6"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
                         </svg>
                       </button>
                     </div>
@@ -216,7 +235,10 @@ export default function EditDataSourceColumnModal({
                               {...register('is_filterable')}
                               className="form-checkbox"
                             />
-                            <label htmlFor="edit_is_filterable" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            <label
+                              htmlFor="edit_is_filterable"
+                              className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                            >
                               Filterable - Can be used in filters
                             </label>
                           </div>
@@ -228,7 +250,10 @@ export default function EditDataSourceColumnModal({
                               {...register('is_groupable')}
                               className="form-checkbox"
                             />
-                            <label htmlFor="edit_is_groupable" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            <label
+                              htmlFor="edit_is_groupable"
+                              className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                            >
                               Groupable - Can be used for grouping
                             </label>
                           </div>
@@ -240,7 +265,10 @@ export default function EditDataSourceColumnModal({
                               {...register('is_measure')}
                               className="form-checkbox"
                             />
-                            <label htmlFor="edit_is_measure" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            <label
+                              htmlFor="edit_is_measure"
+                              className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                            >
                               Measure - Numeric value for calculations
                             </label>
                           </div>
@@ -252,7 +280,10 @@ export default function EditDataSourceColumnModal({
                               {...register('is_dimension')}
                               className="form-checkbox"
                             />
-                            <label htmlFor="edit_is_dimension" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            <label
+                              htmlFor="edit_is_dimension"
+                              className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                            >
                               Dimension - Category for grouping
                             </label>
                           </div>
@@ -264,7 +295,10 @@ export default function EditDataSourceColumnModal({
                               {...register('is_date_field')}
                               className="form-checkbox"
                             />
-                            <label htmlFor="edit_is_date_field" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            <label
+                              htmlFor="edit_is_date_field"
+                              className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                            >
                               Date Field - Contains date/time values
                             </label>
                           </div>
@@ -276,7 +310,10 @@ export default function EditDataSourceColumnModal({
                               {...register('is_measure_type')}
                               className="form-checkbox"
                             />
-                            <label htmlFor="edit_is_measure_type" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            <label
+                              htmlFor="edit_is_measure_type"
+                              className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                            >
                               Measure Type - Contains formatting information (currency, count, etc.)
                             </label>
                           </div>
@@ -288,7 +325,10 @@ export default function EditDataSourceColumnModal({
                               {...register('is_time_period')}
                               className="form-checkbox"
                             />
-                            <label htmlFor="edit_is_time_period" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            <label
+                              htmlFor="edit_is_time_period"
+                              className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                            >
                               Time Period - Contains frequency/period values (Monthly, Weekly, etc.)
                             </label>
                           </div>
@@ -308,7 +348,10 @@ export default function EditDataSourceColumnModal({
                               {...register('display_icon')}
                               className="form-checkbox"
                             />
-                            <label htmlFor="edit_display_icon" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            <label
+                              htmlFor="edit_display_icon"
+                              className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                            >
                               Display Icon - Show colored icon in first column of table charts
                             </label>
                           </div>
@@ -322,9 +365,15 @@ export default function EditDataSourceColumnModal({
                               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:border-blue-500"
                             >
                               <option value="">None</option>
-                              <option value="initials">Initials (e.g., "MCF" for "Missing Consent Forms")</option>
-                              <option value="first_letter">First Letter (e.g., "M" for "Missing Consent Forms")</option>
-                              <option value="emoji">Emoji (requires icon mapping configuration)</option>
+                              <option value="initials">
+                                Initials (e.g., "MCF" for "Missing Consent Forms")
+                              </option>
+                              <option value="first_letter">
+                                First Letter (e.g., "M" for "Missing Consent Forms")
+                              </option>
+                              <option value="emoji">
+                                Emoji (requires icon mapping configuration)
+                              </option>
                             </select>
                           </div>
 
@@ -338,7 +387,9 @@ export default function EditDataSourceColumnModal({
                             >
                               <option value="auto">Auto - Generate color from text</option>
                               <option value="fixed">Fixed - Use same color for all values</option>
-                              <option value="mapped">Mapped - Per-value color mapping (requires icon mapping)</option>
+                              <option value="mapped">
+                                Mapped - Per-value color mapping (requires icon mapping)
+                              </option>
                             </select>
                           </div>
 
@@ -353,7 +404,8 @@ export default function EditDataSourceColumnModal({
                               placeholder="e.g., #8b5cf6, #ef4444, #22c55e"
                             />
                             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                              HTML hex color codes: #8b5cf6 (violet), #0ea5e9 (sky), #22c55e (green), #ef4444 (red), etc.
+                              HTML hex color codes: #8b5cf6 (violet), #0ea5e9 (sky), #22c55e
+                              (green), #ef4444 (red), etc.
                             </p>
                           </div>
                         </div>
@@ -372,7 +424,10 @@ export default function EditDataSourceColumnModal({
                               {...register('is_sensitive')}
                               className="form-checkbox"
                             />
-                            <label htmlFor="edit_is_sensitive" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            <label
+                              htmlFor="edit_is_sensitive"
+                              className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                            >
                               Sensitive Data - Requires additional permissions
                             </label>
                           </div>
@@ -384,7 +439,10 @@ export default function EditDataSourceColumnModal({
                               {...register('is_active')}
                               className="form-checkbox"
                             />
-                            <label htmlFor="edit_is_active" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            <label
+                              htmlFor="edit_is_active"
+                              className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                            >
                               Active - Column is available for use
                             </label>
                           </div>

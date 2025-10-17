@@ -1,11 +1,11 @@
 /**
  * Analytics Cache Health Scoring
- * 
+ *
  * Calculates health scores and status for analytics cache datasources
  */
 
-import type { CacheHealthStatus, DatasourceCacheMetrics } from './types';
 import type { CacheStats } from '@/lib/cache/indexed-analytics-cache';
+import type { CacheHealthStatus, DatasourceCacheMetrics } from './types';
 
 interface HealthScore {
   health: CacheHealthStatus;
@@ -15,12 +15,12 @@ interface HealthScore {
 
 /**
  * Calculate cache health score and status for a datasource
- * 
+ *
  * Scoring Algorithm (0-100):
  * - Age Score (0-40): How recently the cache was warmed
  * - Hit Rate Score (0-40): Cache effectiveness
  * - Coverage Score (0-20): Data availability
- * 
+ *
  * Health Status Thresholds:
  * - Excellent: ≥90 (green)
  * - Good: ≥75 (blue)
@@ -35,7 +35,7 @@ export function calculateCacheHealth(
   totalEntries: number
 ): HealthScore {
   const warnings: string[] = [];
-  
+
   // If cache is not warm, automatic cold status
   if (!isWarm) {
     return {
@@ -44,7 +44,7 @@ export function calculateCacheHealth(
       warnings: ['Cache has never been warmed'],
     };
   }
-  
+
   // Age scoring (0-40 points)
   // Target: < 1 hour = excellent, < 2 hours = good, < 4 hours = ok, > 6 hours = stale
   let ageScore = 0;
@@ -65,7 +65,7 @@ export function calculateCacheHealth(
     ageScore = 0;
     warnings.push('Cache is critically stale (>12 hours old)');
   }
-  
+
   // Hit rate scoring (0-40 points)
   let hitRateScore = 0;
   if (cacheHitRate >= 95) {
@@ -84,15 +84,15 @@ export function calculateCacheHealth(
     hitRateScore = 0;
     warnings.push('Cache hit rate critically low');
   }
-  
+
   // Coverage scoring (0-20 points)
   const hasCoverage = totalEntries > 0 ? 20 : 0;
   if (totalEntries === 0) {
     warnings.push('Cache has no entries');
   }
-  
+
   const totalScore = ageScore + hitRateScore + hasCoverage;
-  
+
   let health: CacheHealthStatus;
   if (totalScore >= 90) {
     health = 'excellent';
@@ -105,7 +105,7 @@ export function calculateCacheHealth(
   } else {
     health = 'cold';
   }
-  
+
   return {
     health,
     score: totalScore,
@@ -132,10 +132,10 @@ export function enrichWithHealthMetrics(
   }
 ): DatasourceCacheMetrics {
   // Calculate age
-  const ageMinutes = cacheStats.lastWarmed 
+  const ageMinutes = cacheStats.lastWarmed
     ? Math.floor((Date.now() - new Date(cacheStats.lastWarmed).getTime()) / 60000)
     : Infinity;
-  
+
   // Calculate health
   const healthResult = calculateCacheHealth(
     ageMinutes,
@@ -143,7 +143,7 @@ export function enrichWithHealthMetrics(
     cacheStats.isWarm,
     cacheStats.totalEntries
   );
-  
+
   return {
     datasourceId: cacheStats.datasourceId,
     datasourceName,
@@ -255,4 +255,3 @@ export function getHealthEmoji(health: CacheHealthStatus): string {
       return '🔴';
   }
 }
-

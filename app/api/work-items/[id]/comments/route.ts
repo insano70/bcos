@@ -1,18 +1,18 @@
 import type { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
+import { validateQuery, validateRequest } from '@/lib/api/middleware/validation';
 import { createErrorResponse } from '@/lib/api/responses/error';
-import { validateRequest, validateQuery } from '@/lib/api/middleware/validation';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
+import { extractors } from '@/lib/api/utils/rbac-extractors';
+import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
+import { createRBACWorkItemCommentsService } from '@/lib/services/rbac-work-item-comments-service';
+import type { UserContext } from '@/lib/types/rbac';
 import {
   workItemCommentCreateSchema,
   workItemCommentQuerySchema,
   workItemParamsSchema,
 } from '@/lib/validations/work-items';
-import { rbacRoute } from '@/lib/api/route-handlers';
-import { extractors } from '@/lib/api/utils/rbac-extractors';
-import { createRBACWorkItemCommentsService } from '@/lib/services/rbac-work-item-comments-service';
-import type { UserContext } from '@/lib/types/rbac';
-import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
 
 /**
  * GET /api/work-items/[id]/comments
@@ -113,14 +113,14 @@ const createWorkItemCommentHandler = async (
 
     // Add commenter as watcher (auto-watcher logic)
     let watcherAdded = false;
-    const { createRBACWorkItemWatchersService } = await import('@/lib/services/rbac-work-item-watchers-service');
+    const { createRBACWorkItemWatchersService } = await import(
+      '@/lib/services/rbac-work-item-watchers-service'
+    );
     const watchersService = createRBACWorkItemWatchersService(userContext);
 
     try {
       const existingWatchers = await watchersService.getWatchersForWorkItem(validatedParams.id);
-      const isAlreadyWatcher = existingWatchers.some(
-        (w) => w.user_id === userContext.user_id
-      );
+      const isAlreadyWatcher = existingWatchers.some((w) => w.user_id === userContext.user_id);
 
       if (!isAlreadyWatcher) {
         await watchersService.addWatcher({

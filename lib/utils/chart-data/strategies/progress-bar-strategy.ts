@@ -1,14 +1,14 @@
 /**
  * Progress Bar Chart Strategy
- * 
+ *
  * Handles transformation for progress bar charts.
  * Similar to horizontal bar but with percentage calculations.
  */
 
 import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
-import { BaseChartTransformStrategy, type TransformConfig } from './base-strategy';
 import { getColorPalette } from '../services/chart-color-service';
 import { aggregateAcrossDates } from '../services/data-aggregator';
+import { BaseChartTransformStrategy, type TransformConfig } from './base-strategy';
 
 /**
  * Progress Bar Chart Transformation Strategy
@@ -81,4 +81,3 @@ export class ProgressBarStrategy extends BaseChartTransformStrategy {
     return this.attachMeasureType(chartData, this.extractMeasureType(measures));
   }
 }
-

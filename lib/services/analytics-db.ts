@@ -110,10 +110,12 @@ export const executeAnalyticsQuery = async <T = Record<string, unknown>>(
     }
 
     // Log the full SQL query with parameters for debugging
-    console.log('🔍 EXECUTING SQL:', {
+    log.debug('Executing analytics SQL query', {
+      operation: 'execute_query',
       sql: query,
       parameters: params,
       paramCount: params.length,
+      component: 'analytics-db',
     });
 
     const startTime = Date.now();
@@ -126,10 +128,13 @@ export const executeAnalyticsQuery = async <T = Record<string, unknown>>(
 
     const duration = Date.now() - startTime;
 
-    console.log('✅ QUERY RESULT:', {
-      duration: `${duration}ms`,
+    log.debug('Analytics query completed', {
+      operation: 'execute_query',
+      duration,
       rowCount: result.length,
+      slow: duration > 500,
       sampleData: result.length > 0 ? result[0] : null,
+      component: 'analytics-db',
     });
 
     return result as unknown as T[];

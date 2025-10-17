@@ -4,9 +4,8 @@
  * Analyzes `any` types and `as` assertions in the codebase
  */
 
-import { execSync } from 'child_process';
-import * as fs from 'fs';
-import * as path from 'path';
+import { execSync } from 'node:child_process';
+import * as fs from 'node:fs';
 
 interface TypeIssue {
   file: string;
@@ -26,7 +25,7 @@ const EXCLUDE_PATTERNS = [
   '*.d.ts',
 ];
 
-const ANY_TYPE_PATTERNS = [
+const _ANY_TYPE_PATTERNS = [
   /:\s*any\b/,
   /<any>/,
   /any\[\]/,
@@ -37,10 +36,10 @@ const ANY_TYPE_PATTERNS = [
 
 function runGrepCommand(pattern: string): string {
   try {
-    const excludeArgs = EXCLUDE_PATTERNS.map(p => `--glob '!${p}'`).join(' ');
+    const excludeArgs = EXCLUDE_PATTERNS.map((p) => `--glob '!${p}'`).join(' ');
     const cmd = `rg "${pattern}" ${excludeArgs} --type ts --type tsx -n`;
     return execSync(cmd, { encoding: 'utf-8', maxBuffer: 10 * 1024 * 1024 });
-  } catch (error) {
+  } catch (_error) {
     return '';
   }
 }
@@ -67,7 +66,7 @@ function analyzeAnyTypes(): TypeIssue[] {
 
     issues.push({
       file: filePath,
-      line: parseInt(lineNum),
+      line: parseInt(lineNum, 10),
       content: content.trim(),
       type: 'any-type',
       severity,
@@ -101,7 +100,7 @@ function analyzeTypeAssertions(): TypeIssue[] {
 
     issues.push({
       file: filePath,
-      line: parseInt(lineNum),
+      line: parseInt(lineNum, 10),
       content: content.trim(),
       type: 'type-assertion',
       severity,
@@ -133,7 +132,10 @@ function categorizeAssertion(filePath: string, content: string): string {
   return 'type-coercion';
 }
 
-function categorizeSeverity(filePath: string, content: string): 'critical' | 'high' | 'medium' | 'low' {
+function categorizeSeverity(
+  filePath: string,
+  content: string
+): 'critical' | 'high' | 'medium' | 'low' {
   // Critical: any in production API or database layer
   if (filePath.includes('/api/') && content.includes(': any')) return 'critical';
   if (filePath.includes('/lib/db/') && content.includes(': any')) return 'critical';
@@ -155,9 +157,9 @@ function categorizeSeverity(filePath: string, content: string): 'critical' | 'hi
 function generateReport(anyIssues: TypeIssue[], assertionIssues: TypeIssue[]) {
   const allIssues = [...anyIssues, ...assertionIssues];
 
-  console.log('\n' + '='.repeat(80));
+  console.log(`\n${'='.repeat(80)}`);
   console.log('TYPE SAFETY ANALYSIS REPORT');
-  console.log('='.repeat(80) + '\n');
+  console.log(`${'='.repeat(80)}\n`);
 
   // Summary
   console.log('## SUMMARY\n');
@@ -168,10 +170,10 @@ function generateReport(anyIssues: TypeIssue[], assertionIssues: TypeIssue[]) {
   // Severity breakdown
   console.log('## SEVERITY BREAKDOWN\n');
   const severityCounts = {
-    critical: allIssues.filter(i => i.severity === 'critical').length,
-    high: allIssues.filter(i => i.severity === 'high').length,
-    medium: allIssues.filter(i => i.severity === 'medium').length,
-    low: allIssues.filter(i => i.severity === 'low').length,
+    critical: allIssues.filter((i) => i.severity === 'critical').length,
+    high: allIssues.filter((i) => i.severity === 'high').length,
+    medium: allIssues.filter((i) => i.severity === 'medium').length,
+    low: allIssues.filter((i) => i.severity === 'low').length,
   };
   console.log(`Critical: ${severityCounts.critical}`);
   console.log(`High:     ${severityCounts.high}`);
@@ -180,22 +182,26 @@ function generateReport(anyIssues: TypeIssue[], assertionIssues: TypeIssue[]) {
 
   // Any types by category
   console.log('## ANY TYPES BY CATEGORY\n');
-  const anyCategories = groupBy(anyIssues, i => i.category);
-  for (const [category, issues] of Object.entries(anyCategories).sort((a, b) => b[1].length - a[1].length)) {
+  const anyCategories = groupBy(anyIssues, (i) => i.category);
+  for (const [category, issues] of Object.entries(anyCategories).sort(
+    (a, b) => b[1].length - a[1].length
+  )) {
     console.log(`${category}: ${issues.length}`);
   }
   console.log('');
 
   // Type assertions by category
   console.log('## TYPE ASSERTIONS BY CATEGORY\n');
-  const assertionCategories = groupBy(assertionIssues, i => i.category);
-  for (const [category, issues] of Object.entries(assertionCategories).sort((a, b) => b[1].length - a[1].length)) {
+  const assertionCategories = groupBy(assertionIssues, (i) => i.category);
+  for (const [category, issues] of Object.entries(assertionCategories).sort(
+    (a, b) => b[1].length - a[1].length
+  )) {
     console.log(`${category}: ${issues.length}`);
   }
   console.log('');
 
   // Critical issues
-  const criticalIssues = allIssues.filter(i => i.severity === 'critical');
+  const criticalIssues = allIssues.filter((i) => i.severity === 'critical');
   if (criticalIssues.length > 0) {
     console.log('## CRITICAL ISSUES (Must Fix)\n');
     for (const issue of criticalIssues.slice(0, 20)) {
@@ -207,7 +213,7 @@ function generateReport(anyIssues: TypeIssue[], assertionIssues: TypeIssue[]) {
   }
 
   // High priority issues
-  const highIssues = allIssues.filter(i => i.severity === 'high');
+  const highIssues = allIssues.filter((i) => i.severity === 'high');
   if (highIssues.length > 0) {
     console.log(`## HIGH PRIORITY ISSUES (${highIssues.length} total, showing first 20)\n`);
     for (const issue of highIssues.slice(0, 20)) {
@@ -219,7 +225,7 @@ function generateReport(anyIssues: TypeIssue[], assertionIssues: TypeIssue[]) {
 
   // Files with most issues
   console.log('## FILES WITH MOST ISSUES\n');
-  const fileGroups = groupBy(allIssues, i => i.file);
+  const fileGroups = groupBy(allIssues, (i) => i.file);
   const sortedFiles = Object.entries(fileGroups)
     .sort((a, b) => b[1].length - a[1].length)
     .slice(0, 20);
@@ -259,14 +265,14 @@ const results = {
     totalAnyTypes: anyIssues.length,
     totalAssertions: assertionIssues.length,
     byCategory: {
-      anyTypes: groupBy(anyIssues, i => i.category),
-      assertions: groupBy(assertionIssues, i => i.category),
+      anyTypes: groupBy(anyIssues, (i) => i.category),
+      assertions: groupBy(assertionIssues, (i) => i.category),
     },
     bySeverity: {
-      critical: [...anyIssues, ...assertionIssues].filter(i => i.severity === 'critical').length,
-      high: [...anyIssues, ...assertionIssues].filter(i => i.severity === 'high').length,
-      medium: [...anyIssues, ...assertionIssues].filter(i => i.severity === 'medium').length,
-      low: [...anyIssues, ...assertionIssues].filter(i => i.severity === 'low').length,
+      critical: [...anyIssues, ...assertionIssues].filter((i) => i.severity === 'critical').length,
+      high: [...anyIssues, ...assertionIssues].filter((i) => i.severity === 'high').length,
+      medium: [...anyIssues, ...assertionIssues].filter((i) => i.severity === 'medium').length,
+      low: [...anyIssues, ...assertionIssues].filter((i) => i.severity === 'low').length,
     },
   },
   issues: {
@@ -275,9 +281,6 @@ const results = {
   },
 };
 
-fs.writeFileSync(
-  'type-safety-analysis.json',
-  JSON.stringify(results, null, 2)
-);
+fs.writeFileSync('type-safety-analysis.json', JSON.stringify(results, null, 2));
 
 console.log('\nDetailed results written to: type-safety-analysis.json');

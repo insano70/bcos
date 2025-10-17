@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { getAllTemplateOptions } from '@/lib/template-loader';
 
 interface TemplatePreviewToolbarProps {
@@ -12,7 +12,7 @@ interface TemplatePreviewToolbarProps {
 export default function TemplatePreviewToolbar({
   currentTemplate: serverTemplate,
   onTemplateChange,
-  isLoading: serverLoading = false
+  isLoading: serverLoading = false,
 }: TemplatePreviewToolbarProps) {
   const [currentTemplate, setCurrentTemplate] = useState(serverTemplate);
   const [isLoading, setIsLoading] = useState(serverLoading);
@@ -39,7 +39,7 @@ export default function TemplatePreviewToolbar({
 
     // Dispatch custom event for the template switcher
     const event = new CustomEvent('template-change', {
-      detail: { templateSlug, isLoading: true }
+      detail: { templateSlug, isLoading: true },
     });
     window.dispatchEvent(event);
 

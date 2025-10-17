@@ -1,12 +1,12 @@
 import './css/style.css';
 
 import { Inter } from 'next/font/google';
-import Theme from './theme-provider';
-import AppProvider from './app-provider';
-import QueryProvider from './query-provider';
 import { RBACAuthProvider } from '@/components/auth/rbac-auth-provider';
 import { NonceProvider } from '@/lib/security/nonce-context';
 import { getServerNonces } from '@/lib/security/nonce-server';
+import AppProvider from './app-provider';
+import QueryProvider from './query-provider';
+import Theme from './theme-provider';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -21,8 +21,8 @@ export const metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Extract CSP nonces from middleware headers
-  const nonces = await getServerNonces()
-  
+  const nonces = await getServerNonces();
+
   return (
     <html lang="en" className={`${inter.variable}`} suppressHydrationWarning>
       <head>

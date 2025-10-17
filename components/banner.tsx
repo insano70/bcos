@@ -1,4 +1,4 @@
-import { ReactElement } from 'react';
+import type { ReactElement } from 'react';
 
 interface BannerProps {
   children: React.ReactNode;
@@ -15,7 +15,7 @@ export default function Banner({
   open,
   setOpen,
 }: BannerProps) {
-  const typeIcon = (type: string): ReactElement<any> => {
+  const typeIcon = (type: string): ReactElement => {
     switch (type) {
       case 'warning':
         return (

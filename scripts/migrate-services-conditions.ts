@@ -2,13 +2,13 @@
 
 /**
  * Migration Script: Populate Services and Conditions
- * 
+ *
  * This script populates existing practice_attributes records with default
  * services and conditions_treated data that were previously hardcoded.
  */
 
+import { eq } from 'drizzle-orm';
 import { db, practice_attributes } from '@/lib/db';
-import { eq, isNull } from 'drizzle-orm';
 
 // Default services from templates
 const DEFAULT_SERVICES = [
@@ -17,7 +17,7 @@ const DEFAULT_SERVICES = [
   'Infusion Therapy',
   'Joint Injections',
   'Osteoporosis Treatment',
-  'Clinical Research'
+  'Clinical Research',
 ];
 
 // Default conditions from templates
@@ -27,12 +27,12 @@ const DEFAULT_CONDITIONS = [
   'Lupus',
   'Gout',
   'Osteoporosis',
-  'Osteoarthritis'
+  'Osteoarthritis',
 ];
 
 async function migrateServicesAndConditions() {
   console.log('🚀 Starting services and conditions migration...');
-  
+
   try {
     // Get all practice_attributes records
     const allAttributes = await db
@@ -40,7 +40,7 @@ async function migrateServicesAndConditions() {
         practice_attribute_id: practice_attributes.practice_attribute_id,
         practice_id: practice_attributes.practice_id,
         services: practice_attributes.services,
-        conditions_treated: practice_attributes.conditions_treated
+        conditions_treated: practice_attributes.conditions_treated,
       })
       .from(practice_attributes);
 
@@ -49,7 +49,8 @@ async function migrateServicesAndConditions() {
     let updatedCount = 0;
 
     for (const attributes of allAttributes) {
-      const updates: any = {};
+      const updates: Partial<{ services: string; conditions_treated: string; updated_at: Date }> =
+        {};
       let needsUpdate = false;
 
       // Check if services need to be populated
@@ -99,12 +100,12 @@ async function migrateServicesAndConditions() {
       // Update if needed
       if (needsUpdate) {
         updates.updated_at = new Date();
-        
+
         await db
           .update(practice_attributes)
           .set(updates)
           .where(eq(practice_attributes.practice_attribute_id, attributes.practice_attribute_id));
-        
+
         updatedCount++;
         console.log(`✅ Updated practice ${attributes.practice_id}`);
       } else {
@@ -112,15 +113,17 @@ async function migrateServicesAndConditions() {
       }
     }
 
-    console.log(`🎉 Migration completed! Updated ${updatedCount} out of ${allAttributes.length} practices`);
-    
+    console.log(
+      `🎉 Migration completed! Updated ${updatedCount} out of ${allAttributes.length} practices`
+    );
+
     // Verify the migration
     console.log('\n🔍 Verification: Checking updated records...');
     const verificationRecords = await db
       .select({
         practice_id: practice_attributes.practice_id,
         services: practice_attributes.services,
-        conditions_treated: practice_attributes.conditions_treated
+        conditions_treated: practice_attributes.conditions_treated,
       })
       .from(practice_attributes)
       .limit(3);
@@ -130,7 +133,7 @@ async function migrateServicesAndConditions() {
       console.log(`Practice ID: ${record.practice_id}`);
       console.log(`Services: ${record.services ? 'Populated' : 'NULL'}`);
       console.log(`Conditions: ${record.conditions_treated ? 'Populated' : 'NULL'}`);
-      
+
       if (record.services) {
         try {
           const services = JSON.parse(record.services);
@@ -139,7 +142,7 @@ async function migrateServicesAndConditions() {
           console.log('  - Invalid services JSON');
         }
       }
-      
+
       if (record.conditions_treated) {
         try {
           const conditions = JSON.parse(record.conditions_treated);
@@ -149,7 +152,6 @@ async function migrateServicesAndConditions() {
         }
       }
     });
-
   } catch (error) {
     console.error('❌ Migration failed:', error);
     process.exit(1);

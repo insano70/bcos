@@ -1,6 +1,6 @@
 /**
  * Data Aggregator Service
- * 
+ *
  * Centralized data grouping and aggregation logic for chart transformations.
  * Extracted from SimplifiedChartTransformer to eliminate duplication.
  */
@@ -25,7 +25,7 @@ export type AggregationType = 'sum' | 'avg' | 'count' | 'min' | 'max';
 
 /**
  * Group data by a field and date, storing values in arrays for aggregation
- * 
+ *
  * @param measures - Array of measure records
  * @param groupByField - Field to group by (e.g., 'provider_name', 'practice')
  * @returns Map of group keys to date maps with value arrays
@@ -35,24 +35,24 @@ export function groupByFieldAndDate(
   groupByField: string
 ): Map<string, Map<string, number[]>> {
   const groupedData = new Map<string, Map<string, number[]>>();
-  
+
   measures.forEach((measure) => {
     const groupKey = getGroupValue(measure, groupByField);
     const dateKey = getDate(measure);
-    
+
     if (!groupedData.has(groupKey)) {
       groupedData.set(groupKey, new Map());
     }
-    
+
     const dateMap = groupedData.get(groupKey);
     if (!dateMap) {
       throw new Error(`Date map not found for group key: ${groupKey}`);
     }
-    
+
     if (!dateMap.has(dateKey)) {
       dateMap.set(dateKey, []);
     }
-    
+
     const measureValue = parseNumericValue(getMeasureValue(measure));
     const dateValues = dateMap.get(dateKey);
     if (!dateValues) {
@@ -60,13 +60,13 @@ export function groupByFieldAndDate(
     }
     dateValues.push(measureValue);
   });
-  
+
   return groupedData;
 }
 
 /**
  * Group data by series label and date (for multi-series charts)
- * 
+ *
  * @param measures - Array of measure records with series_label
  * @returns Map of series labels to date maps with value arrays
  */
@@ -74,24 +74,24 @@ export function groupBySeriesAndDate(
   measures: AggAppMeasure[]
 ): Map<string, Map<string, number[]>> {
   const groupedBySeries = new Map<string, Map<string, number[]>>();
-  
+
   measures.forEach((measure) => {
     const seriesLabel = (measure.series_label ?? measure.measure ?? 'Unknown') as string;
     const dateKey = getDate(measure);
-    
+
     if (!groupedBySeries.has(seriesLabel)) {
       groupedBySeries.set(seriesLabel, new Map());
     }
-    
+
     const dateMap = groupedBySeries.get(seriesLabel);
     if (!dateMap) {
       throw new Error(`Date map not found for series: ${seriesLabel}`);
     }
-    
+
     if (!dateMap.has(dateKey)) {
       dateMap.set(dateKey, []);
     }
-    
+
     const measureValue = parseNumericValue(getMeasureValue(measure));
     const dateValues = dateMap.get(dateKey);
     if (!dateValues) {
@@ -99,14 +99,14 @@ export function groupBySeriesAndDate(
     }
     dateValues.push(measureValue);
   });
-  
+
   return groupedBySeries;
 }
 
 /**
  * Aggregate values across all dates for a single group
  * (Used for horizontal bar charts, pie charts, etc.)
- * 
+ *
  * @param measures - Array of measure records
  * @param groupByField - Field to group by
  * @param aggregationType - Type of aggregation to apply
@@ -118,13 +118,13 @@ export function aggregateAcrossDates(
   aggregationType: AggregationType = 'sum'
 ): Map<string, number> {
   const aggregatedData = new Map<string, number>();
-  
+
   measures.forEach((measure) => {
     const groupKey = getGroupValue(measure, groupByField);
     const measureValue = parseNumericValue(getMeasureValue(measure));
-    
+
     const currentValue = aggregatedData.get(groupKey) || 0;
-    
+
     switch (aggregationType) {
       case 'sum':
         aggregatedData.set(groupKey, currentValue + measureValue);
@@ -148,13 +148,13 @@ export function aggregateAcrossDates(
         break;
     }
   });
-  
+
   return aggregatedData;
 }
 
 /**
  * Apply aggregation to an array of values
- * 
+ *
  * @param values - Array of numeric values
  * @param aggregationType - Type of aggregation to apply
  * @returns Aggregated value
@@ -164,7 +164,7 @@ export function applyAggregation(
   aggregationType: AggregationType = 'sum'
 ): number {
   if (values.length === 0) return 0;
-  
+
   switch (aggregationType) {
     case 'sum':
       return values.reduce((sum, val) => sum + val, 0);
@@ -183,17 +183,17 @@ export function applyAggregation(
 
 /**
  * Extract unique dates from measures and sort chronologically
- * 
+ *
  * @param measures - Array of measure records
  * @returns Sorted array of date strings
  */
 export function extractAndSortDates(measures: AggAppMeasure[]): string[] {
   const allDates = new Set<string>();
-  
+
   measures.forEach((measure) => {
     allDates.add(getDate(measure));
   });
-  
+
   return Array.from(allDates).sort(
     (a, b) => new Date(`${a}T00:00:00`).getTime() - new Date(`${b}T00:00:00`).getTime()
   );
@@ -201,7 +201,7 @@ export function extractAndSortDates(measures: AggAppMeasure[]): string[] {
 
 /**
  * Filter dates to only include those with non-zero data
- * 
+ *
  * @param sortedDates - Array of sorted date strings
  * @param groupedData - Grouped data map
  * @returns Array of date strings that have data
@@ -221,7 +221,7 @@ export function filterDatesWithData(
 /**
  * Get value for grouping from measure object
  * Handles dynamic field access with proper fallbacks
- * 
+ *
  * @param measure - Measure record
  * @param groupBy - Field name to group by
  * @returns String value for grouping
@@ -229,7 +229,7 @@ export function filterDatesWithData(
 export function getGroupValue(measure: AggAppMeasure, groupBy: string): string {
   // Direct property access - works for ANY field in the measure object
   const value = (measure as Record<string, unknown>)[groupBy];
-  
+
   // Handle null, undefined, or empty values
   if (value == null || value === '') {
     // Generate fallback label
@@ -239,8 +239,7 @@ export function getGroupValue(measure: AggAppMeasure, groupBy: string): string {
       .join(' ');
     return `Unknown ${formattedFieldName}`;
   }
-  
+
   // Return string value or convert to string
   return typeof value === 'string' ? value : String(value);
 }
-

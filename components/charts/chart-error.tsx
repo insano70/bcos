@@ -102,9 +102,7 @@ export default function ChartError({
         </h3>
 
         {/* Error message */}
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-          {friendlyMessage}
-        </p>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">{friendlyMessage}</p>
 
         {/* Retry button */}
         {onRetry && (

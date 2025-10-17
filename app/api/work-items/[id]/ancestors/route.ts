@@ -1,13 +1,13 @@
 import type { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
-import { extractRouteParams } from '@/lib/api/utils/params';
-import { workItemParamsSchema } from '@/lib/validations/work-items';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
+import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
-import { createRBACWorkItemsService } from '@/lib/services/rbac-work-items-service';
-import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
+import { createRBACWorkItemsService } from '@/lib/services/work-items';
+import type { UserContext } from '@/lib/types/rbac';
+import { workItemParamsSchema } from '@/lib/validations/work-items';
 
 /**
  * GET /api/work-items/[id]/ancestors
@@ -38,7 +38,9 @@ const getWorkItemAncestorsHandler = async (
     // Get ancestors with automatic permission checking
     const ancestorsStart = Date.now();
     const ancestors = await workItemsService.getWorkItemAncestors(validatedParams.id);
-    log.db('SELECT', 'work_items_ancestors', Date.now() - ancestorsStart, { rowCount: ancestors.length });
+    log.db('SELECT', 'work_items_ancestors', Date.now() - ancestorsStart, {
+      rowCount: ancestors.length,
+    });
 
     const totalDuration = Date.now() - startTime;
     log.info('Work item ancestors retrieved successfully', {

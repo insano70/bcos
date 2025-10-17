@@ -12,9 +12,9 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
-import type { SecurityEventsResponse, SecurityEvent } from '@/lib/monitoring/types';
+import type { SecurityEvent, SecurityEventsResponse } from '@/lib/monitoring/types';
 import { exportToCSV, formatDateForCSV } from '@/lib/utils/csv-export';
 
 interface SecurityEventsFeedProps {
@@ -66,10 +66,10 @@ export default function SecurityEventsFeed({
     );
   };
 
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     try {
       let url = `/api/admin/monitoring/security-events?timeRange=${timeRange}`;
-      
+
       if (severityFilter !== 'all') {
         url += `&severity=${severityFilter}`;
       }
@@ -83,12 +83,12 @@ export default function SecurityEventsFeed({
     } finally {
       setLoading(false);
     }
-  };
+  }, [timeRange, severityFilter]);
 
   // Initial fetch
   useEffect(() => {
     fetchEvents();
-  }, [timeRange, severityFilter]);
+  }, [fetchEvents]);
 
   // Auto-refresh
   useEffect(() => {
@@ -96,10 +96,14 @@ export default function SecurityEventsFeed({
 
     const interval = setInterval(fetchEvents, refreshInterval);
     return () => clearInterval(interval);
-  }, [autoRefresh, refreshInterval, timeRange, severityFilter]);
+  }, [autoRefresh, refreshInterval, fetchEvents]);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6" role="region" aria-label="Security events">
+    <div
+      className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6"
+      role="region"
+      aria-label="Security events"
+    >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Security Events</h3>
@@ -136,8 +140,18 @@ export default function SecurityEventsFeed({
             className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             title="Export to CSV"
           >
-            <svg className="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            <svg
+              className="w-4 h-4 inline-block"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
             </svg>
           </button>
 
@@ -284,7 +298,7 @@ function SecurityEventItem({ event }: SecurityEventItemProps) {
           {expanded && (
             <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded text-xs space-y-1">
               <div className="font-medium text-gray-700 dark:text-gray-300">Event Details:</div>
-                      {Object.entries(event.details).map(([key, value]) => (
+              {Object.entries(event.details).map(([key, value]) => (
                 <div key={key} className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">{key}:</span>
                   <span className="text-gray-800 dark:text-gray-200 font-mono">
@@ -307,4 +321,3 @@ function SecurityEventItem({ event }: SecurityEventItemProps) {
     </div>
   );
 }
-

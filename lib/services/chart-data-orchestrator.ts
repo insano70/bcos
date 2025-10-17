@@ -1,9 +1,9 @@
-import type { UserContext } from '@/lib/types/rbac';
-import type { ChartData } from '@/lib/types/analytics';
 import { log } from '@/lib/logger';
+import type { ChartData } from '@/lib/types/analytics';
+import type { UserContext } from '@/lib/types/rbac';
 import { chartTypeRegistry } from './chart-type-registry';
-import { createRBACDataSourcesService } from './rbac-data-sources-service';
 import { createRBACChartDefinitionsService } from './rbac-chart-definitions-service';
+import { createRBACDataSourcesService } from './rbac-data-sources-service';
 
 // Import chart handlers to ensure they're registered
 import './chart-handlers';
@@ -27,21 +27,25 @@ import './chart-handlers';
  */
 interface UniversalChartDataRequest {
   chartDefinitionId?: string | undefined;
-  chartConfig?: {
-    chartType: string;
-    dataSourceId: number;
-    [key: string]: unknown;
-  } | undefined;
-  runtimeFilters?: {
-    startDate?: string | undefined;
-    endDate?: string | undefined;
-    dateRangePreset?: string | undefined;
-    practice?: string | undefined;
-    practiceUid?: string | undefined;
-    providerName?: string | undefined;
-    measure?: string | undefined;
-    frequency?: string | undefined;
-  } | undefined;
+  chartConfig?:
+    | {
+        chartType: string;
+        dataSourceId: number;
+        [key: string]: unknown;
+      }
+    | undefined;
+  runtimeFilters?:
+    | {
+        startDate?: string | undefined;
+        endDate?: string | undefined;
+        dateRangePreset?: string | undefined;
+        practice?: string | undefined;
+        practiceUid?: string | undefined;
+        providerName?: string | undefined;
+        measure?: string | undefined;
+        frequency?: string | undefined;
+      }
+    | undefined;
 }
 
 /**
@@ -141,7 +145,7 @@ class ChartDataOrchestrator {
         const availableTypes = chartTypeRegistry.getAllTypes();
         throw new Error(
           `No handler registered for chart type: ${requestedChartType}. ` +
-          `Available types: ${availableTypes.join(', ')}`
+            `Available types: ${availableTypes.join(', ')}`
         );
       }
 
@@ -192,13 +196,11 @@ class ChartDataOrchestrator {
       });
 
       // 7. Build result (defensive type checking)
-      const chartType = typeof chartConfig.chartType === 'string'
-        ? chartConfig.chartType
-        : 'unknown';
+      const chartType =
+        typeof chartConfig.chartType === 'string' ? chartConfig.chartType : 'unknown';
 
-      const dataSourceId = typeof chartConfig.dataSourceId === 'number'
-        ? chartConfig.dataSourceId
-        : 0;
+      const dataSourceId =
+        typeof chartConfig.dataSourceId === 'number' ? chartConfig.dataSourceId : 0;
 
       // Extract column metadata if present (for table charts)
       const columns = Array.isArray(mergedConfig.columns)
@@ -367,9 +369,7 @@ class ChartDataOrchestrator {
         userId: userContext.user_id,
       });
 
-      throw new Error(
-        `Insufficient permissions to access data source ${dataSourceId}`
-      );
+      throw new Error(`Insufficient permissions to access data source ${dataSourceId}`);
     }
   }
 }

@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
 import { chartConfigService } from '@/lib/services/chart-config-service';
 import type { UserContext } from '@/lib/types/rbac';

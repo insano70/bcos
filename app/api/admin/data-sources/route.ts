@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 import type { UserContext } from '@/lib/types/rbac';
@@ -59,11 +59,14 @@ const getDataSourcesHandler = async (request: NextRequest, userContext: UserCont
       schema_name: validatedQuery.schema_name,
     });
 
-    const dbTypeCounts = dataSources.reduce((acc, ds) => {
-      const type = ds.database_type || 'unknown';
-      acc[type] = (acc[type] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const dbTypeCounts = dataSources.reduce(
+      (acc, ds) => {
+        const type = ds.database_type || 'unknown';
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
     const activeCount = dataSources.filter((ds) => ds.is_active).length;
     const inactiveCount = dataSources.length - activeCount;
@@ -169,11 +172,14 @@ const getTableColumnsHandler = async (request: NextRequest, userContext: UserCon
     };
 
     const duration = Date.now() - startTime;
-    const dataTypeCounts = columns.reduce((acc, col) => {
-      const type = col.data_type || 'unknown';
-      acc[type] = (acc[type] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const dataTypeCounts = columns.reduce(
+      (acc, col) => {
+        const type = col.data_type || 'unknown';
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
     log.info(`table columns introspection completed - returned ${columns.length} columns`, {
       operation: 'introspect_table_columns',

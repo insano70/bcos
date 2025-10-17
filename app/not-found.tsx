@@ -1,5 +1,5 @@
-import Link from 'next/link';
 import Image from 'next/image';
+import Link from 'next/link';
 import NotFoundImage from '@/public/images/404-illustration.svg';
 import NotFoundImageDark from '@/public/images/404-illustration-dark.svg';
 

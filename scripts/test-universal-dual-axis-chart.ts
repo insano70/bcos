@@ -64,16 +64,18 @@ const testUserContext: UserContext = {
       updated_at: new Date(),
     },
   ],
-  organizations: [{
-    organization_id: '00000000-0000-0000-0000-000000000000',
-    name: 'Test Organization',
-    slug: 'test-org',
-    parent_organization_id: null,
-    is_active: true,
-    created_at: new Date(),
-    updated_at: new Date(),
-    deleted_at: undefined,
-  }],
+  organizations: [
+    {
+      organization_id: '00000000-0000-0000-0000-000000000000',
+      name: 'Test Organization',
+      slug: 'test-org',
+      parent_organization_id: null,
+      is_active: true,
+      created_at: new Date(),
+      updated_at: new Date(),
+      deleted_at: undefined,
+    },
+  ],
 };
 
 async function testDualAxisChart() {
@@ -217,7 +219,7 @@ async function testDualAxisChart() {
     console.log(`   🏷️  Labels: ${result2.chartData.labels?.length ?? 0}`);
 
     if (result2.chartData.datasets && result2.chartData.datasets.length === 2) {
-      const bothBars = result2.chartData.datasets.every(ds => ds.type === 'bar');
+      const bothBars = result2.chartData.datasets.every((ds) => ds.type === 'bar');
       console.log(`   ✓ Both are bars: ${bothBars ? 'PASS' : 'FAIL'}`);
     }
 
@@ -297,7 +299,6 @@ async function testDualAxisChart() {
     console.log(`   ✓ Server-side transformation successful`);
     console.log(`   ✓ Chart.js compatible output structure`);
     console.log(`   ✓ Error handling robust`);
-
   } catch (error) {
     console.error('\n❌ TEST FAILED:', error);
     console.error('\nStack trace:', error instanceof Error ? error.stack : 'No stack trace');

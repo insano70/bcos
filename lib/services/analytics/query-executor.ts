@@ -22,6 +22,9 @@
  */
 
 import { log } from '@/lib/logger';
+import { executeAnalyticsQuery } from '@/lib/services/analytics-db';
+import { chartConfigService } from '@/lib/services/chart-config-service';
+import { columnMappingService } from '@/lib/services/column-mapping-service';
 import type {
   AggAppMeasure,
   AnalyticsQueryParams,
@@ -31,12 +34,9 @@ import type {
 } from '@/lib/types/analytics';
 import { MeasureAccessor } from '@/lib/types/analytics';
 import type { UserContext } from '@/lib/types/rbac';
-import { executeAnalyticsQuery } from '@/lib/services/analytics-db';
-import { chartConfigService } from '@/lib/services/chart-config-service';
-import { columnMappingService } from '@/lib/services/column-mapping-service';
-import { queryValidator } from './query-validator';
 import { queryBuilder } from './query-builder';
 import type { ColumnMappings } from './query-types';
+import { queryValidator } from './query-validator';
 
 /**
  * Query executor for legacy path (direct database queries)
@@ -52,7 +52,8 @@ export class QueryExecutor {
     schemaName: string,
     dataSourceConfig?: import('@/lib/services/chart-config-service').DataSourceConfig | null
   ): Promise<ColumnMappings> {
-    const config = dataSourceConfig || (await chartConfigService.getDataSourceConfig(tableName, schemaName));
+    const config =
+      dataSourceConfig || (await chartConfigService.getDataSourceConfig(tableName, schemaName));
 
     if (!config) {
       throw new Error(`Data source configuration not found for ${schemaName}.${tableName}`);
@@ -68,7 +69,9 @@ export class QueryExecutor {
         (col) =>
           col.isDateField &&
           col.columnName !== timePeriodField &&
-          (col.columnName === 'date_value' || col.columnName === 'date_index' || col.dataType === 'date')
+          (col.columnName === 'date_value' ||
+            col.columnName === 'date_index' ||
+            col.dataType === 'date')
       ) || config.columns.find((col) => col.isDateField && col.columnName !== timePeriodField);
     const dateField = dateColumn?.columnName || 'date_index';
 
@@ -151,7 +154,11 @@ export class QueryExecutor {
     }
 
     if (params.frequency) {
-      filters.push({ field: columnMappings.timePeriodField, operator: 'eq', value: params.frequency });
+      filters.push({
+        field: columnMappings.timePeriodField,
+        operator: 'eq',
+        value: params.frequency,
+      });
     }
 
     if (params.practice) {
@@ -185,7 +192,10 @@ export class QueryExecutor {
     }
 
     // Build WHERE clause with security context - pass config to avoid redundant lookups
-    const { clause: whereClause, params: queryParams } = await queryBuilder.buildWhereClause(filters, context);
+    const { clause: whereClause, params: queryParams } = await queryBuilder.buildWhereClause(
+      filters,
+      context
+    );
 
     // Build dynamic SELECT column list using metadata
     // NO aliasing - use actual column names from data source
@@ -215,7 +225,10 @@ export class QueryExecutor {
       GROUP BY ${columnMappings.measureTypeField}
     `;
 
-    const totalResult = await executeAnalyticsQuery<{ total: string; measure_type: string }>(totalQuery, queryParams);
+    const totalResult = await executeAnalyticsQuery<{ total: string; measure_type: string }>(
+      totalQuery,
+      queryParams
+    );
 
     const queryTime = Date.now() - startTime;
 
@@ -354,7 +367,8 @@ export class QueryExecutor {
 
     if (
       params.period_comparison.comparisonType === 'custom_period' &&
-      (!params.period_comparison.customPeriodOffset || params.period_comparison.customPeriodOffset < 1)
+      (!params.period_comparison.customPeriodOffset ||
+        params.period_comparison.customPeriodOffset < 1)
     ) {
       throw new Error('Custom period offset must be at least 1');
     }
@@ -372,7 +386,9 @@ export class QueryExecutor {
     });
 
     // Import period comparison utilities
-    const { calculateComparisonDateRange, generateComparisonLabel } = await import('@/lib/utils/period-comparison');
+    const { calculateComparisonDateRange, generateComparisonLabel } = await import(
+      '@/lib/utils/period-comparison'
+    );
 
     // Calculate comparison date range
     let comparisonRange: { start: string; end: string };

@@ -1,15 +1,15 @@
 /**
  * Dual-Axis Strategy
- * 
+ *
  * Handles transformation for dual-axis combo charts (bar + line).
  * Primary measure on left y-axis, secondary measure on right y-axis.
  */
 
-import type { AggAppMeasure, ChartData, ChartDataset } from '@/lib/types/analytics';
-import { BaseChartTransformStrategy, type TransformConfig } from './base-strategy';
 import { getCssVariable } from '@/components/utils/utils';
+import type { AggAppMeasure, ChartData, ChartDataset } from '@/lib/types/analytics';
 import { toMMDDYYYY } from '../formatters/date-formatter';
 import { getColorPalette } from '../services/chart-color-service';
+import { BaseChartTransformStrategy, type TransformConfig } from './base-strategy';
 
 /**
  * Configuration for dual-axis charts
@@ -70,7 +70,9 @@ export class DualAxisStrategy extends BaseChartTransformStrategy {
     const primaryDataMap = new Map<string, number>();
     primaryMeasures.forEach((m) => {
       const rawValue = m.measure_value ?? m.numeric_value ?? 0;
-      const value = this.parseValue(typeof rawValue === 'string' || typeof rawValue === 'number' ? rawValue : 0);
+      const value = this.parseValue(
+        typeof rawValue === 'string' || typeof rawValue === 'number' ? rawValue : 0
+      );
       primaryDataMap.set((m.date_index ?? m.date_value ?? '') as string, value);
     });
 
@@ -78,7 +80,9 @@ export class DualAxisStrategy extends BaseChartTransformStrategy {
     const secondaryDataMap = new Map<string, number>();
     secondaryMeasures.forEach((m) => {
       const rawValue = m.measure_value ?? m.numeric_value ?? 0;
-      const value = this.parseValue(typeof rawValue === 'string' || typeof rawValue === 'number' ? rawValue : 0);
+      const value = this.parseValue(
+        typeof rawValue === 'string' || typeof rawValue === 'number' ? rawValue : 0
+      );
       secondaryDataMap.set((m.date_index ?? m.date_value ?? '') as string, value);
     });
 
@@ -143,4 +147,3 @@ export class DualAxisStrategy extends BaseChartTransformStrategy {
     return chartData;
   }
 }
-

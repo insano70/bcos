@@ -1,7 +1,7 @@
 export default function PaginationNumeric02() {
   return (
     <div>
-      <nav className="flex justify-between" role="navigation" aria-label="Navigation">
+      <nav className="flex justify-between" aria-label="Navigation">
         <div className="flex-1 mr-2">
           <span className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 text-gray-300 dark:text-gray-600">
             &lt;-<span className="hidden sm:inline">&nbsp;Previous</span>

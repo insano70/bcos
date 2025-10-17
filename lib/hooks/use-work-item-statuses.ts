@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 
 export interface WorkItemStatus {
@@ -76,7 +76,9 @@ export function useCreateWorkItemStatus() {
       );
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['work-item-statuses', variables.work_item_type_id] });
+      queryClient.invalidateQueries({
+        queryKey: ['work-item-statuses', variables.work_item_type_id],
+      });
     },
   });
 }

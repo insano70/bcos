@@ -1,5 +1,5 @@
-import { type JWTPayload, jwtVerify } from 'jose';
 import { eq } from 'drizzle-orm';
+import { type JWTPayload, jwtVerify } from 'jose';
 import { db, token_blacklist } from '@/lib/db';
 import { getJWTConfig } from '@/lib/env';
 import { log } from '@/lib/logger';

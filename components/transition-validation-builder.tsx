@@ -9,25 +9,17 @@
  * - Custom validation rules with operators
  */
 
+import { ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
 import { useState } from 'react';
-import { X, Plus, ChevronDown, ChevronRight } from 'lucide-react';
 import { useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
+import type { ValidationConfig, ValidationRule } from '@/lib/validations/workflow-transitions';
 
-export interface ValidationRule {
-  field: string;
-  operator: 'equals' | 'not_equals' | 'greater_than' | 'less_than' | 'contains';
-  value: string;
-  message: string;
-}
-
-export interface ValidationConfig {
-  required_fields: string[];
-  custom_rules: ValidationRule[];
-}
+// Re-export for backward compatibility
+export type { ValidationConfig, ValidationRule };
 
 interface TransitionValidationBuilderProps {
   workItemTypeId: string;
-  initialConfig?: ValidationConfig | null;
+  initialConfig: ValidationConfig;
   onChange: (config: ValidationConfig) => void;
 }
 
@@ -49,13 +41,9 @@ export function TransitionValidationBuilder({
   });
   const [showPreview, setShowPreview] = useState(false);
 
-  const [requiredFields, setRequiredFields] = useState<string[]>(
-    initialConfig?.required_fields || []
-  );
+  const [requiredFields, setRequiredFields] = useState<string[]>(initialConfig.required_fields);
 
-  const [customRules, setCustomRules] = useState<ValidationRule[]>(
-    initialConfig?.custom_rules || []
-  );
+  const [customRules, setCustomRules] = useState<ValidationRule[]>(initialConfig.custom_rules);
 
   const handleRequiredFieldToggle = (fieldId: string) => {
     const newRequired = requiredFields.includes(fieldId)
@@ -93,11 +81,7 @@ export function TransitionValidationBuilder({
     });
   };
 
-  const handleCustomRuleChange = (
-    index: number,
-    field: keyof ValidationRule,
-    value: string
-  ) => {
+  const handleCustomRuleChange = (index: number, field: keyof ValidationRule, value: string) => {
     const newRules = customRules.map((rule, i) =>
       i === index ? { ...rule, [field]: value } : rule
     );
@@ -213,9 +197,7 @@ export function TransitionValidationBuilder({
                     </label>
                     <select
                       value={rule.field}
-                      onChange={(e) =>
-                        handleCustomRuleChange(index, 'field', e.target.value)
-                      }
+                      onChange={(e) => handleCustomRuleChange(index, 'field', e.target.value)}
                       className="form-select w-full text-sm"
                     >
                       <option value="">Select field...</option>
@@ -233,13 +215,7 @@ export function TransitionValidationBuilder({
                     </label>
                     <select
                       value={rule.operator}
-                      onChange={(e) =>
-                        handleCustomRuleChange(
-                          index,
-                          'operator',
-                          e.target.value
-                        )
-                      }
+                      onChange={(e) => handleCustomRuleChange(index, 'operator', e.target.value)}
                       className="form-select w-full text-sm"
                     >
                       {OPERATORS.map((op) => (
@@ -258,9 +234,7 @@ export function TransitionValidationBuilder({
                   <input
                     type="text"
                     value={rule.value}
-                    onChange={(e) =>
-                      handleCustomRuleChange(index, 'value', e.target.value)
-                    }
+                    onChange={(e) => handleCustomRuleChange(index, 'value', e.target.value)}
                     placeholder="Enter comparison value..."
                     className="form-input w-full text-sm"
                   />
@@ -273,9 +247,7 @@ export function TransitionValidationBuilder({
                   <input
                     type="text"
                     value={rule.message}
-                    onChange={(e) =>
-                      handleCustomRuleChange(index, 'message', e.target.value)
-                    }
+                    onChange={(e) => handleCustomRuleChange(index, 'message', e.target.value)}
                     placeholder="Message to show if validation fails..."
                     className="form-input w-full text-sm"
                   />
@@ -293,11 +265,7 @@ export function TransitionValidationBuilder({
           onClick={() => setShowPreview(!showPreview)}
           className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
         >
-          {showPreview ? (
-            <ChevronDown className="h-4 w-4" />
-          ) : (
-            <ChevronRight className="h-4 w-4" />
-          )}
+          {showPreview ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           {showPreview ? 'Hide' : 'Show'} Configuration Preview
         </button>
 

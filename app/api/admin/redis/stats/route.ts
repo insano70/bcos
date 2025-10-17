@@ -10,9 +10,9 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/route-handlers';
-import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
 import { redisAdminService } from '@/lib/monitoring/redis-admin';
 import { isRedisAvailable } from '@/lib/redis';
@@ -76,4 +76,3 @@ export const GET = rbacRoute(redisStatsHandler, {
   permission: 'settings:read:all',
   rateLimit: 'api',
 });
-

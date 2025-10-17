@@ -74,11 +74,7 @@ export function generateCacheKey(config: Record<string, unknown>): string {
 
     // Generate hash from sorted config
     const configString = JSON.stringify(sortedConfig);
-    const hash = crypto
-      .createHash('sha256')
-      .update(configString)
-      .digest('hex')
-      .substring(0, 12); // First 12 chars sufficient for uniqueness
+    const hash = crypto.createHash('sha256').update(configString).digest('hex').substring(0, 12); // First 12 chars sufficient for uniqueness
 
     const cacheKey = `${chartType}:${dataSourceId}:${hash}`;
 
@@ -126,10 +122,7 @@ export function generateCacheKey(config: Record<string, unknown>): string {
  * // Returns: "bar:42:*"
  * ```
  */
-export function generateCacheKeyPattern(
-  chartType: string = '*',
-  dataSourceId?: number
-): string {
+export function generateCacheKeyPattern(chartType: string = '*', dataSourceId?: number): string {
   const typePattern = chartType || '*';
   const sourcePattern = dataSourceId !== undefined ? dataSourceId.toString() : '*';
 
@@ -159,4 +152,3 @@ export function isValidCacheKey(key: string): boolean {
 
   return true;
 }
-

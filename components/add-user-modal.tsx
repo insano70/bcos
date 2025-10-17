@@ -1,31 +1,33 @@
 'use client';
 
-import { useState } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useState } from 'react';
 // Inline SVG for X mark icon
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useCreateUser } from '@/lib/hooks/use-users';
-import RoleSelector from './role-selector';
 import { passwordSchema } from '@/lib/config/password-policy';
-import { safeEmailSchema, createNameSchema } from '@/lib/validations/sanitization';
+import { useCreateUser } from '@/lib/hooks/use-users';
+import { createNameSchema, safeEmailSchema } from '@/lib/validations/sanitization';
+import RoleSelector from './role-selector';
 import Toast from './toast';
 
 // Form validation schema
-const createUserSchema = z.object({
-  first_name: createNameSchema('First name'),
-  last_name: createNameSchema('Last name'),
-  email: safeEmailSchema,
-  password: passwordSchema, // ✅ CENTRALIZED: Uses 12-char policy from single source
-  confirm_password: z.string(),
-  role_ids: z.array(z.string()).min(1, 'Please select at least one role'),
-  email_verified: z.boolean().optional(),
-  is_active: z.boolean().optional(),
-}).refine((data) => data.password === data.confirm_password, {
-  message: "Passwords don't match",
-  path: ["confirm_password"],
-});
+const createUserSchema = z
+  .object({
+    first_name: createNameSchema('First name'),
+    last_name: createNameSchema('Last name'),
+    email: safeEmailSchema,
+    password: passwordSchema, // ✅ CENTRALIZED: Uses 12-char policy from single source
+    confirm_password: z.string(),
+    role_ids: z.array(z.string()).min(1, 'Please select at least one role'),
+    email_verified: z.boolean().optional(),
+    is_active: z.boolean().optional(),
+  })
+  .refine((data) => data.password === data.confirm_password, {
+    message: "Passwords don't match",
+    path: ['confirm_password'],
+  });
 
 type CreateUserForm = z.infer<typeof createUserSchema>;
 
@@ -46,14 +48,14 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
     formState: { errors },
     reset,
     setValue,
-    watch
+    watch,
   } = useForm<CreateUserForm>({
     resolver: zodResolver(createUserSchema),
     defaultValues: {
       email_verified: false,
       is_active: true,
-      role_ids: []
-    }
+      role_ids: [],
+    },
   });
 
   const selectedRoleIds = watch('role_ids');
@@ -73,7 +75,7 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
         last_name: data.last_name,
         email_verified: data.email_verified || false,
         is_active: data.is_active || true,
-        role_ids: data.role_ids
+        role_ids: data.role_ids,
       };
 
       await createUser.mutateAsync(userData);
@@ -88,7 +90,6 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
         onSuccess?.();
         setShowToast(false);
       }, 2000);
-
     } catch (error) {
       // Log client-side user creation errors for debugging
       if (process.env.NODE_ENV === 'development') {
@@ -157,7 +158,10 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 {/* First Name */}
                 <div>
-                  <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="first_name"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     First Name *
                   </label>
                   <input
@@ -165,21 +169,26 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
                     id="first_name"
                     {...register('first_name')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
-                      errors.first_name 
-                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600' 
+                      errors.first_name
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600'
                         : 'border-gray-300 dark:border-gray-600'
                     }`}
                     placeholder="Enter first name"
                     disabled={isSubmitting}
                   />
                   {errors.first_name && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.first_name.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.first_name.message}
+                    </p>
                   )}
                 </div>
 
                 {/* Last Name */}
                 <div>
-                  <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="last_name"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Last Name *
                   </label>
                   <input
@@ -187,21 +196,26 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
                     id="last_name"
                     {...register('last_name')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
-                      errors.last_name 
-                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600' 
+                      errors.last_name
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600'
                         : 'border-gray-300 dark:border-gray-600'
                     }`}
                     placeholder="Enter last name"
                     disabled={isSubmitting}
                   />
                   {errors.last_name && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.last_name.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.last_name.message}
+                    </p>
                   )}
                 </div>
 
                 {/* Email */}
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="email"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Email Address *
                   </label>
                   <input
@@ -209,21 +223,26 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
                     id="email"
                     {...register('email')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
-                      errors.email 
-                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600' 
+                      errors.email
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600'
                         : 'border-gray-300 dark:border-gray-600'
                     }`}
                     placeholder="Enter email address"
                     disabled={isSubmitting}
                   />
                   {errors.email && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.email.message}
+                    </p>
                   )}
                 </div>
 
                 {/* Password */}
                 <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="password"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Password *
                   </label>
                   <input
@@ -231,21 +250,26 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
                     id="password"
                     {...register('password')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
-                      errors.password 
-                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600' 
+                      errors.password
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600'
                         : 'border-gray-300 dark:border-gray-600'
                     }`}
                     placeholder="Enter password"
                     disabled={isSubmitting}
                   />
                   {errors.password && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.password.message}
+                    </p>
                   )}
                 </div>
 
                 {/* Confirm Password */}
                 <div>
-                  <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="confirm_password"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Confirm Password *
                   </label>
                   <input
@@ -253,15 +277,17 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
                     id="confirm_password"
                     {...register('confirm_password')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
-                      errors.confirm_password 
-                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600' 
+                      errors.confirm_password
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600'
                         : 'border-gray-300 dark:border-gray-600'
                     }`}
                     placeholder="Confirm password"
                     disabled={isSubmitting}
                   />
                   {errors.confirm_password && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.confirm_password.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.confirm_password.message}
+                    </p>
                   )}
                 </div>
 
@@ -283,7 +309,10 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     disabled={isSubmitting}
                   />
-                  <label htmlFor="email_verified" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                  <label
+                    htmlFor="email_verified"
+                    className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
+                  >
                     Email Verified
                   </label>
                 </div>
@@ -297,7 +326,10 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     disabled={isSubmitting}
                   />
-                  <label htmlFor="is_active" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                  <label
+                    htmlFor="is_active"
+                    className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
+                  >
                     Active User
                   </label>
                 </div>
@@ -306,7 +338,9 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
                 {createUser.error && (
                   <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
                     <p className="text-sm text-red-600 dark:text-red-400">
-                      {createUser.error instanceof Error ? createUser.error.message : 'An error occurred while creating the user'}
+                      {createUser.error instanceof Error
+                        ? createUser.error.message
+                        : 'An error occurred while creating the user'}
                     </p>
                   </div>
                 )}

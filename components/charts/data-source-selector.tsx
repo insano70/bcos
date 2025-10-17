@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Menu, MenuButton, MenuItems, MenuItem, Transition } from '@headlessui/react';
+import { Menu, MenuButton, MenuItem, MenuItems, Transition } from '@headlessui/react';
+import { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
 
 interface DataSource {
@@ -21,7 +21,7 @@ interface DataSourceSelectorProps {
 export default function DataSourceSelector({
   selectedDataSource,
   onDataSourceChange,
-  className = ''
+  className = '',
 }: DataSourceSelectorProps) {
   const [dataSources, setDataSources] = useState<DataSource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,10 +35,12 @@ export default function DataSourceSelector({
     try {
       setIsLoading(true);
       setError(null);
-      
-      const response = await apiClient.get<{ dataSources: DataSource[] }>('/api/admin/analytics/data-sources');
+
+      const response = await apiClient.get<{ dataSources: DataSource[] }>(
+        '/api/admin/analytics/data-sources'
+      );
       setDataSources(response.dataSources || []);
-      
+
       // Auto-select first data source if none is selected
       if (!selectedDataSource && response.dataSources.length > 0 && response.dataSources[0]) {
         onDataSourceChange(response.dataSources[0]);

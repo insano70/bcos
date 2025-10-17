@@ -275,7 +275,8 @@ class ChartConfigCacheService extends CacheService {
         isDefault: palette.is_default ?? false,
         cachedAt: Date.now(),
       };
-      if (palette.palette_description !== null) cachedPalette.description = palette.palette_description;
+      if (palette.palette_description !== null)
+        cachedPalette.description = palette.palette_description;
       if (palette.max_colors !== null) cachedPalette.maxColors = palette.max_colors;
 
       // Cache for 24 hours (fire and forget)
@@ -358,9 +359,7 @@ class ChartConfigCacheService extends CacheService {
   /**
    * Load data source configuration from database
    */
-  private async loadDataSourceFromDB(
-    dataSourceId: number
-  ): Promise<CachedDataSourceConfig | null> {
+  private async loadDataSourceFromDB(dataSourceId: number): Promise<CachedDataSourceConfig | null> {
     try {
       // Get data source
       const [dataSource] = await db
@@ -411,14 +410,17 @@ class ChartConfigCacheService extends CacheService {
           };
           if (col.column_description !== null) cachedCol.description = col.column_description;
           if (col.format_type !== null) cachedCol.formatType = col.format_type;
-          if (col.default_aggregation !== null) cachedCol.defaultAggregation = col.default_aggregation;
+          if (col.default_aggregation !== null)
+            cachedCol.defaultAggregation = col.default_aggregation;
           if (col.example_value !== null) cachedCol.exampleValue = col.example_value;
-          if (col.allowed_values !== null) cachedCol.allowedValues = col.allowed_values as unknown[];
+          if (col.allowed_values !== null)
+            cachedCol.allowedValues = col.allowed_values as unknown[];
           return cachedCol;
         }),
         cachedAt: Date.now(),
       };
-      if (dataSource.data_source_description !== null) config.description = dataSource.data_source_description;
+      if (dataSource.data_source_description !== null)
+        config.description = dataSource.data_source_description;
 
       return config;
     } catch (error) {
@@ -471,9 +473,12 @@ class ChartConfigCacheService extends CacheService {
       if (config.x_axis_config !== null) displayConfig.xAxisConfig = config.x_axis_config;
       if (config.y_axis_config !== null) displayConfig.yAxisConfig = config.y_axis_config;
       if (config.time_unit !== null) displayConfig.timeUnit = config.time_unit;
-      if (config.time_display_format !== null) displayConfig.timeDisplayFormat = config.time_display_format;
-      if (config.time_tooltip_format !== null) displayConfig.timeTooltipFormat = config.time_tooltip_format;
-      if (config.default_color_palette_id !== null) displayConfig.defaultColorPaletteId = config.default_color_palette_id;
+      if (config.time_display_format !== null)
+        displayConfig.timeDisplayFormat = config.time_display_format;
+      if (config.time_tooltip_format !== null)
+        displayConfig.timeTooltipFormat = config.time_tooltip_format;
+      if (config.default_color_palette_id !== null)
+        displayConfig.defaultColorPaletteId = config.default_color_palette_id;
 
       return displayConfig;
     } catch (error) {
@@ -513,7 +518,8 @@ class ChartConfigCacheService extends CacheService {
         isDefault: palette.is_default ?? false,
         cachedAt: Date.now(),
       };
-      if (palette.palette_description !== null) cachedPalette.description = palette.palette_description;
+      if (palette.palette_description !== null)
+        cachedPalette.description = palette.palette_description;
       if (palette.max_colors !== null) cachedPalette.maxColors = palette.max_colors;
 
       return cachedPalette;

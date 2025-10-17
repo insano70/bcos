@@ -9,16 +9,16 @@
  * 5. User's provider_uid (for analytics:read:own)
  *
  * Security Model - Three Permission Levels:
- * 
+ *
  * 1. analytics:read:all (Super Admin)
  *    - See ALL data, no filtering
  *    - Returns empty arrays (means "no filtering needed")
- *    
+ *
  * 2. analytics:read:organization (Organization User)
  *    - Filter by organization's practice_uids (+ hierarchy)
  *    - Returns array of practice_uid values
  *    - Empty practice_uids = FAIL-CLOSED (no data)
- *    
+ *
  * 3. analytics:read:own (Provider User)
  *    - Filter by user's provider_uid only
  *    - Returns user's provider_uid
@@ -31,60 +31,60 @@
  */
 
 import { log } from '@/lib/logger';
-import type { UserContext } from '@/lib/types/rbac';
 import { PermissionChecker } from '@/lib/rbac/permission-checker';
+import type { UserContext } from '@/lib/types/rbac';
 import { organizationHierarchyService } from './organization-hierarchy-service';
 
 /**
  * Practice UID access result
- * 
+ *
  * Contains all practice_uid values a user can access based on their permissions.
  * Used for organization-level analytics data filtering.
- * 
+ *
  * @example
  * // Super Admin
  * { practiceUids: [], scope: 'all' }  // Empty = no filtering
- * 
+ *
  * // Organization User
  * { practiceUids: [100, 101, 102], scope: 'organization', includesHierarchy: true }
- * 
+ *
  * // Provider User or No Permission
  * { practiceUids: [], scope: 'own' | 'none' }  // Fail-closed
  */
 export interface PracticeAccessResult {
   /** Array of practice_uid values user can access (empty for super admin or provider user) */
   practiceUids: number[];
-  
+
   /** Permission scope that determined access level */
   scope: 'all' | 'organization' | 'own' | 'none';
-  
+
   /** Organization IDs providing access (including child organizations from hierarchy) */
   organizationIds: string[];
-  
+
   /** True if parent organization includes child organization data */
   includesHierarchy: boolean;
 }
 
 /**
  * Provider UID access result
- * 
+ *
  * Contains user's provider_uid for provider-level analytics data filtering.
  * Used for analytics:read:own permission.
- * 
+ *
  * @example
  * // Provider User
  * { providerUid: 42, scope: 'own' }
- * 
+ *
  * // Super Admin or Organization User
  * { providerUid: null, scope: 'all' | 'organization' }
- * 
+ *
  * // No provider_uid configured
  * { providerUid: null, scope: 'own' }  // Fail-closed
  */
 export interface ProviderAccessResult {
   /** User's provider_uid (null if not applicable or fail-closed) */
   providerUid: number | null;
-  
+
   /** Permission scope that determined access level */
   scope: 'all' | 'organization' | 'own' | 'none';
 }
@@ -131,7 +131,7 @@ export class OrganizationAccessService {
 
     // Priority 2: Check for organization-level permission
     const hasOrgPermission = this.checker.hasPermission('analytics:read:organization');
-    
+
     log.debug('Checking organization-level permission', {
       userId: this.userContext.user_id,
       hasOrgPermission,
@@ -139,7 +139,7 @@ export class OrganizationAccessService {
       rolesCount: this.userContext.roles.length,
       rolesActive: this.userContext.roles.filter((r) => r.is_active).length,
     });
-    
+
     if (hasOrgPermission) {
       const practiceUids = new Set<number>();
       const organizationIds: string[] = [];
@@ -193,13 +193,16 @@ export class OrganizationAccessService {
 
       // FAIL-CLOSED SECURITY: If no practice_uids found, return empty array (no data)
       if (practiceUidsArray.length === 0) {
-        log.warn('User has analytics:read:organization but no practice_uids found - returning empty results', {
-          userId: this.userContext.user_id,
-          email: this.userContext.email,
-          organizationCount: this.userContext.organizations.length,
-          organizationIds: this.userContext.organizations.map((o) => o.organization_id),
-          failedClosed: true,
-        });
+        log.warn(
+          'User has analytics:read:organization but no practice_uids found - returning empty results',
+          {
+            userId: this.userContext.user_id,
+            email: this.userContext.email,
+            organizationCount: this.userContext.organizations.length,
+            organizationIds: this.userContext.organizations.map((o) => o.organization_id),
+            failedClosed: true,
+          }
+        );
       }
 
       return {
@@ -371,9 +374,7 @@ export class OrganizationAccessService {
 
     // Organization users can only access their own organizations
     if (this.checker.hasPermission('analytics:read:organization')) {
-      return this.userContext.organizations.some(
-        (org) => org.organization_id === organizationId
-      );
+      return this.userContext.organizations.some((org) => org.organization_id === organizationId);
     }
 
     // Provider users cannot use organization filter
@@ -392,4 +393,3 @@ export function createOrganizationAccessService(
 ): OrganizationAccessService {
   return new OrganizationAccessService(userContext);
 }
-

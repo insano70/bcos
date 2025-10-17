@@ -4,9 +4,9 @@ export const metadata = {
 };
 
 import { Suspense } from 'react';
-import AuthImage from '../auth-image';
 import LoginForm from '@/components/auth/login-form';
 import SplitText from '@/components/SplitText';
+import AuthImage from '../auth-image';
 
 function LoginFormWrapper() {
   return <LoginForm />;

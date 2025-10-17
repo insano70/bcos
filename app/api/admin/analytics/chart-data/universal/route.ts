@@ -1,14 +1,14 @@
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
-import type { UserContext } from '@/lib/types/rbac';
-import type { ChartData } from '@/lib/types/analytics';
+import { chartDataCache } from '@/lib/cache/chart-data-cache';
+import { buildCacheControlHeader } from '@/lib/constants/analytics';
 import { log } from '@/lib/logger';
 import { chartDataOrchestrator } from '@/lib/services/chart-data-orchestrator';
-import { buildCacheControlHeader } from '@/lib/constants/analytics';
-import { chartDataCache } from '@/lib/cache/chart-data-cache';
+import type { ChartData } from '@/lib/types/analytics';
+import type { UserContext } from '@/lib/types/rbac';
 import { generateCacheKey } from '@/lib/utils/cache-key-generator';
 
 /**
@@ -197,7 +197,7 @@ const universalChartDataHandler = async (
     // 2. Check cache before fetching (Phase 6)
     const { searchParams } = new URL(request.url);
     const bypassCache = searchParams.get('nocache') === 'true';
-    
+
     let cacheKey: string | null = null;
     let cachedData: Awaited<ReturnType<typeof chartDataCache.get>> = null;
 
@@ -207,10 +207,10 @@ const universalChartDataHandler = async (
         ...validatedData.chartConfig,
         ...validatedData.runtimeFilters,
       };
-      
+
       cacheKey = generateCacheKey(configForCache);
       cachedData = await chartDataCache.get(cacheKey);
-      
+
       if (cachedData) {
         log.info('Chart data served from cache', {
           requestingUserId: userContext.user_id,
@@ -218,7 +218,7 @@ const universalChartDataHandler = async (
           cacheKey,
           cachedAt: cachedData.metadata.cachedAt,
         });
-        
+
         // Return cached data immediately
         const cachedResponse = {
           ...cachedData,
@@ -229,12 +229,15 @@ const universalChartDataHandler = async (
             transformDuration: 0, // Cached, no transformation time
           },
         };
-        
-        const successResponse = createSuccessResponse(cachedResponse, 'Chart data fetched from cache');
+
+        const successResponse = createSuccessResponse(
+          cachedResponse,
+          'Chart data fetched from cache'
+        );
         successResponse.headers.set('Cache-Control', buildCacheControlHeader());
         successResponse.headers.set('X-Cache-Hit', 'true');
         successResponse.headers.set('X-Chart-Type', cachedData.metadata.chartType);
-        
+
         return successResponse;
       }
     }
@@ -245,7 +248,7 @@ const universalChartDataHandler = async (
     const result = await chartDataOrchestrator.orchestrate(validatedData, userContext);
 
     const orchestratorDuration = Date.now() - orchestratorStartTime;
-    
+
     // 4. Set cache after successful orchestration (Phase 6)
     if (cacheKey && result) {
       await chartDataCache.set(cacheKey, {

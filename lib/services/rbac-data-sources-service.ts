@@ -1,4 +1,5 @@
 import { and, count, desc, eq, like, or, sql } from 'drizzle-orm';
+import { z } from 'zod';
 import { db } from '@/lib/db';
 import { chart_data_source_columns, chart_data_sources } from '@/lib/db/chart-config-schema';
 import { log } from '@/lib/logger';
@@ -631,16 +632,29 @@ export class RBACDataSourcesService extends BaseRBACService {
         ORDER BY ordinal_position
       `);
 
-      // Transform the result to match our expected format
-      interface InformationSchemaColumn {
-        column_name: string;
-        data_type: string;
-        is_nullable: boolean;
-        column_default: string | null;
-        ordinal_position: number;
+      // Zod schema for PostgreSQL information_schema.columns query result
+      const informationSchemaColumnSchema = z.object({
+        column_name: z.string(),
+        data_type: z.string(),
+        is_nullable: z.boolean(),
+        column_default: z.string().nullable(),
+        ordinal_position: z.number(),
+      });
+
+      // Validate and transform the database result
+      const columnsSchema = z.array(informationSchemaColumnSchema);
+      const validationResult = columnsSchema.safeParse(columns);
+
+      if (!validationResult.success) {
+        log.error('Invalid information_schema.columns query result', {
+          error: validationResult.error,
+          schema: query.schema_name,
+          table: query.table_name,
+        });
+        throw new Error('Database query returned unexpected column structure');
       }
 
-      const formattedColumns = (columns as unknown as InformationSchemaColumn[]).map((col) => ({
+      const formattedColumns = validationResult.data.map((col) => ({
         column_name: col.column_name,
         data_type: col.data_type,
         is_nullable: col.is_nullable,

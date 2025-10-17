@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  type Organization,
+  type OrganizationUser,
   useOrganizationUsers,
   useUpdateOrganizationUsers,
-  type OrganizationUser,
-  type Organization,
 } from '@/lib/hooks/use-organizations';
 import DataTable, { type DataTableColumn } from './data-table-standard';
 import Toast from './toast';
@@ -79,7 +79,9 @@ export default function OrganizationUsersModal({
       const originalMemberIds = new Set(users.filter((u) => u.is_member).map((u) => u.user_id));
       const currentSelectedIds = selectedUserIds;
 
-      const add_user_ids = Array.from(currentSelectedIds).filter((id) => !originalMemberIds.has(id));
+      const add_user_ids = Array.from(currentSelectedIds).filter(
+        (id) => !originalMemberIds.has(id)
+      );
       const remove_user_ids = Array.from(originalMemberIds).filter(
         (id) => !currentSelectedIds.has(id)
       );
@@ -134,68 +136,71 @@ export default function OrganizationUsersModal({
   };
 
   // Define table columns
-  const columns: DataTableColumn<OrganizationUser & { id: string; isSelected: boolean }>[] = useMemo(
-    () => [
-      {
-        key: 'checkbox',
-        header: '',
-        align: 'center',
-        render: (user) => (
-          <input
-            type="checkbox"
-            checked={user.isSelected}
-            onChange={() => handleToggleUser(user.user_id)}
-            disabled={isSubmitting}
-            className="form-checkbox h-4 w-4 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 rounded disabled:opacity-50"
-          />
-        ),
-      },
-      {
-        key: 'first_name',
-        header: 'Name',
-        sortable: true,
-        render: (user) => (
-          <div className="flex items-center">
-            <div className="w-8 h-8 shrink-0 mr-2">
-              <div className="w-8 h-8 rounded-full bg-violet-500 flex items-center justify-center text-white text-xs font-medium">
-                {user.first_name.charAt(0)}
-                {user.last_name.charAt(0)}
+  const columns: DataTableColumn<OrganizationUser & { id: string; isSelected: boolean }>[] =
+    useMemo(
+      () => [
+        {
+          key: 'checkbox',
+          header: '',
+          align: 'center',
+          render: (user) => (
+            <input
+              type="checkbox"
+              checked={user.isSelected}
+              onChange={() => handleToggleUser(user.user_id)}
+              disabled={isSubmitting}
+              className="form-checkbox h-4 w-4 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 rounded disabled:opacity-50"
+            />
+          ),
+        },
+        {
+          key: 'first_name',
+          header: 'Name',
+          sortable: true,
+          render: (user) => (
+            <div className="flex items-center">
+              <div className="w-8 h-8 shrink-0 mr-2">
+                <div className="w-8 h-8 rounded-full bg-violet-500 flex items-center justify-center text-white text-xs font-medium">
+                  {user.first_name.charAt(0)}
+                  {user.last_name.charAt(0)}
+                </div>
+              </div>
+              <div className="font-medium text-gray-800 dark:text-gray-100 text-sm">
+                {user.first_name} {user.last_name}
               </div>
             </div>
-            <div className="font-medium text-gray-800 dark:text-gray-100 text-sm">
-              {user.first_name} {user.last_name}
+          ),
+        },
+        {
+          key: 'email',
+          header: 'Email',
+          sortable: true,
+          render: (user) => (
+            <div className="text-left text-sm text-gray-600 dark:text-gray-400">{user.email}</div>
+          ),
+        },
+        {
+          key: 'is_member',
+          header: 'Status',
+          sortable: true,
+          align: 'center',
+          render: (user) => (
+            <div className="text-center">
+              {user.is_member ? (
+                <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 rounded-full">
+                  Current Member
+                </span>
+              ) : (
+                <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium text-gray-500 bg-gray-100 dark:bg-gray-900/30 dark:text-gray-400 rounded-full">
+                  Not a Member
+                </span>
+              )}
             </div>
-          </div>
-        ),
-      },
-      {
-        key: 'email',
-        header: 'Email',
-        sortable: true,
-        render: (user) => <div className="text-left text-sm text-gray-600 dark:text-gray-400">{user.email}</div>,
-      },
-      {
-        key: 'is_member',
-        header: 'Status',
-        sortable: true,
-        align: 'center',
-        render: (user) => (
-          <div className="text-center">
-            {user.is_member ? (
-              <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 rounded-full">
-                Current Member
-              </span>
-            ) : (
-              <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium text-gray-500 bg-gray-100 dark:bg-gray-900/30 dark:text-gray-400 rounded-full">
-                Not a Member
-              </span>
-            )}
-          </div>
-        ),
-      },
-    ],
-    [handleToggleUser, isSubmitting]
-  );
+          ),
+        },
+      ],
+      [handleToggleUser, isSubmitting]
+    );
 
   return (
     <Transition appear show={isOpen}>
@@ -253,7 +258,9 @@ export default function OrganizationUsersModal({
                 {error ? (
                   <div className="py-6">
                     <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                      <p className="text-red-600 dark:text-red-400">Error loading users: {error.message}</p>
+                      <p className="text-red-600 dark:text-red-400">
+                        Error loading users: {error.message}
+                      </p>
                     </div>
                   </div>
                 ) : (

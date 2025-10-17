@@ -1,11 +1,14 @@
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { uploadFiles } from '@/lib/api/services/upload';
 import { log } from '@/lib/logger';
-import { createRBACPracticeImagesService, type UpdateImageResult } from '@/lib/services/rbac-practices-images-service';
+import {
+  createRBACPracticeImagesService,
+  type UpdateImageResult,
+} from '@/lib/services/rbac-practices-images-service';
 import type { UserContext } from '@/lib/types/rbac';
 
 const uploadFilesHandler = async (request: NextRequest, userContext: UserContext) => {

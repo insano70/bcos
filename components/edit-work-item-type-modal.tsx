@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useUpdateWorkItemType, type WorkItemType } from '@/lib/hooks/use-work-item-types';
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
@@ -179,7 +179,9 @@ export default function EditWorkItemTypeModal({
                           placeholder="Describe this work item type..."
                         />
                         {errors.description && (
-                          <div className="text-xs mt-1 text-red-500">{errors.description.message}</div>
+                          <div className="text-xs mt-1 text-red-500">
+                            {errors.description.message}
+                          </div>
                         )}
                       </div>
 
@@ -234,7 +236,11 @@ export default function EditWorkItemTypeModal({
                       {/* Active Status */}
                       <div>
                         <label className="flex items-center">
-                          <input type="checkbox" className="form-checkbox" {...register('is_active')} />
+                          <input
+                            type="checkbox"
+                            className="form-checkbox"
+                            {...register('is_active')}
+                          />
                           <span className="text-sm ml-2">Active</span>
                         </label>
                       </div>

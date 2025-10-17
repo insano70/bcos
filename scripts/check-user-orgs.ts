@@ -1,6 +1,6 @@
-import { db, users } from '@/lib/db';
-import { user_organizations, organizations } from '@/lib/db/rbac-schema';
 import { eq } from 'drizzle-orm';
+import { db, users } from '@/lib/db';
+import { organizations, user_organizations } from '@/lib/db/rbac-schema';
 
 async function checkUserOrgs() {
   const userOrgs = await db
@@ -11,10 +11,13 @@ async function checkUserOrgs() {
     })
     .from(user_organizations)
     .innerJoin(users, eq(user_organizations.user_id, users.user_id))
-    .innerJoin(organizations, eq(user_organizations.organization_id, organizations.organization_id));
+    .innerJoin(
+      organizations,
+      eq(user_organizations.organization_id, organizations.organization_id)
+    );
 
   console.log('\n✅ User Organizations:');
-  userOrgs.forEach(uo => {
+  userOrgs.forEach((uo) => {
     console.log(`  - ${uo.email} → ${uo.org_name} (${uo.org_slug})`);
   });
 

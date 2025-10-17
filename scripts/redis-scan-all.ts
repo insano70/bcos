@@ -1,11 +1,12 @@
 #!/usr/bin/env tsx
+
 /**
  * Scan ALL Redis Keys to See What Exists
  */
 
+import path from 'node:path';
 // Load environment variables from .env.local
 import dotenv from 'dotenv';
-import path from 'path';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
@@ -13,14 +14,14 @@ import { getRedisClient } from '@/lib/redis';
 
 async function scanAllKeys() {
   console.log('🔍 Scanning ALL Redis Keys...\n');
-  
+
   const redis = getRedisClient();
-  
+
   if (!redis) {
     console.log('❌ Redis client not available');
     return;
   }
-  
+
   try {
     // Count keys by pattern (with hash tags)
     const patterns = [
@@ -30,26 +31,26 @@ async function scanAllKeys() {
       '*idx:{ds:3}:*',
       '*cache:meta:*',
     ];
-    
+
     for (const pattern of patterns) {
       console.log(`📦 Scanning for "${pattern}"...`);
       let cursor = '0';
       let count = 0;
       const samples: string[] = [];
-      
+
       do {
         const result = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 1000);
         cursor = result[0];
         const keys = result[1];
         count += keys.length;
-        
+
         if (samples.length < 3) {
           samples.push(...keys.slice(0, 3 - samples.length));
         }
-        
+
         if (cursor === '0') break;
       } while (cursor !== '0');
-      
+
       console.log(`   Found ${count} keys`);
       if (samples.length > 0) {
         console.log(`   Samples:`);
@@ -59,7 +60,6 @@ async function scanAllKeys() {
       }
       console.log('');
     }
-    
   } catch (error) {
     console.error('❌ Error:', error);
   }
@@ -71,4 +71,3 @@ scanAllKeys()
     console.error('Unhandled error:', error);
     process.exit(1);
   });
-

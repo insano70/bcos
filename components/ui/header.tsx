@@ -1,11 +1,10 @@
 'use client';
 
 import { useAppProvider } from '@/app/app-provider';
-
-import Notifications from '@/components/dropdown-notifications';
 import DropdownHelp from '@/components/dropdown-help';
-import ThemeToggle from '@/components/theme-toggle';
+import Notifications from '@/components/dropdown-notifications';
 import DropdownProfile from '@/components/dropdown-profile';
+import ThemeToggle from '@/components/theme-toggle';
 
 export default function Header({ variant = 'default' }: { variant?: 'default' | 'v2' | 'v3' }) {
   const { sidebarOpen, setSidebarOpen } = useAppProvider();

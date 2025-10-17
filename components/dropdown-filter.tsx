@@ -123,9 +123,11 @@ export default function DropdownFilter({
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <PopoverPanel className={`origin-top-right z-50 absolute top-full left-0 right-auto min-w-[14rem] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 pt-1.5 rounded-lg shadow-lg overflow-hidden mt-1 ${
-            align === 'right' ? 'md:left-auto md:right-0' : 'md:left-0 md:right-auto'
-          }`}>
+          <PopoverPanel
+            className={`origin-top-right z-50 absolute top-full left-0 right-auto min-w-[14rem] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 pt-1.5 rounded-lg shadow-lg overflow-hidden mt-1 ${
+              align === 'right' ? 'md:left-auto md:right-0' : 'md:left-0 md:right-auto'
+            }`}
+          >
             <div className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
               No filters available
             </div>
@@ -157,9 +159,11 @@ export default function DropdownFilter({
         leaveFrom="opacity-100"
         leaveTo="opacity-0"
       >
-        <PopoverPanel className={`origin-top-right z-50 absolute top-full left-0 right-auto min-w-[14rem] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 pt-1.5 rounded-lg shadow-lg overflow-hidden mt-1 ${
-          align === 'right' ? 'md:left-auto md:right-0' : 'md:left-0 md:right-auto'
-        }`}>
+        <PopoverPanel
+          className={`origin-top-right z-50 absolute top-full left-0 right-auto min-w-[14rem] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 pt-1.5 rounded-lg shadow-lg overflow-hidden mt-1 ${
+            align === 'right' ? 'md:left-auto md:right-0' : 'md:left-0 md:right-auto'
+          }`}
+        >
           {({ close }) => (
             <>
               <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase pt-1.5 pb-2 px-3 bg-white dark:bg-gray-800">
@@ -181,7 +185,9 @@ export default function DropdownFilter({
                             checked={selectedFilters.has(option.value)}
                             onChange={() => handleCheckboxChange(option)}
                           />
-                          <span className="text-sm font-medium ml-2 text-gray-800 dark:text-gray-100">{option.label}</span>
+                          <span className="text-sm font-medium ml-2 text-gray-800 dark:text-gray-100">
+                            {option.label}
+                          </span>
                         </label>
                       </li>
                     ))}

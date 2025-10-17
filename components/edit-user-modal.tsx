@@ -1,42 +1,47 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { useUpdateUser, type User } from '@/lib/hooks/use-users';
 import { passwordSchema } from '@/lib/config/password-policy';
-import { safeEmailSchema, createNameSchema } from '@/lib/validations/sanitization';
+import { type User, useUpdateUser } from '@/lib/hooks/use-users';
+import { createNameSchema, safeEmailSchema } from '@/lib/validations/sanitization';
 import RoleSelector from './role-selector';
 import Toast from './toast';
 
 // Form validation schema with optional password reset
-const editUserSchema = z.object({
-  first_name: createNameSchema('First name'),
-  last_name: createNameSchema('Last name'),
-  email: safeEmailSchema,
-  password: z.string().optional(),
-  confirm_password: z.string().optional(),
-  role_ids: z.array(z.string()).min(1, 'Please select at least one role'),
-  email_verified: z.boolean().optional(),
-  is_active: z.boolean().optional(),
-  provider_uid_input: z.string().optional(), // String input for provider_uid
-}).refine((data) => {
-  // If password is provided, it must meet requirements and match confirmation
-  if (data.password && data.password.length > 0) {
-    const passwordValidation = passwordSchema.safeParse(data.password);
-    if (!passwordValidation.success) {
-      return false;
+const editUserSchema = z
+  .object({
+    first_name: createNameSchema('First name'),
+    last_name: createNameSchema('Last name'),
+    email: safeEmailSchema,
+    password: z.string().optional(),
+    confirm_password: z.string().optional(),
+    role_ids: z.array(z.string()).min(1, 'Please select at least one role'),
+    email_verified: z.boolean().optional(),
+    is_active: z.boolean().optional(),
+    provider_uid_input: z.string().optional(), // String input for provider_uid
+  })
+  .refine(
+    (data) => {
+      // If password is provided, it must meet requirements and match confirmation
+      if (data.password && data.password.length > 0) {
+        const passwordValidation = passwordSchema.safeParse(data.password);
+        if (!passwordValidation.success) {
+          return false;
+        }
+        return data.password === data.confirm_password;
+      }
+      // If no password provided, that's fine (no password change)
+      return true;
+    },
+    {
+      message: 'Password must meet requirements and passwords must match',
+      path: ['confirm_password'],
     }
-    return data.password === data.confirm_password;
-  }
-  // If no password provided, that's fine (no password change)
-  return true;
-}, {
-  message: "Password must meet requirements and passwords must match",
-  path: ["confirm_password"],
-});
+  );
 
 type EditUserForm = z.infer<typeof editUserSchema>;
 
@@ -58,7 +63,7 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
     formState: { errors },
     reset,
     setValue,
-    watch
+    watch,
   } = useForm<EditUserForm>({
     resolver: zodResolver(editUserSchema),
     defaultValues: {
@@ -68,7 +73,7 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
       role_ids: [],
       email_verified: false,
       is_active: true,
-    }
+    },
   });
 
   const selectedRoleIds = watch('role_ids');
@@ -83,7 +88,7 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
       setValue('first_name', user.first_name);
       setValue('last_name', user.last_name);
       setValue('email', user.email);
-      setValue('role_ids', user.roles?.map(role => role.id) || []);
+      setValue('role_ids', user.roles?.map((role) => role.id) || []);
       setValue('email_verified', user.email_verified || false);
       setValue('is_active', user.is_active !== false); // Handle null as true
       // Convert provider_uid to string for input (empty string if null/undefined)
@@ -94,13 +99,13 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
 
   const onSubmit = async (data: EditUserForm) => {
     if (!user) return;
-    
+
     setIsSubmitting(true);
 
     try {
       // Parse provider_uid from string input to integer or null
       let provider_uid: number | null = null;
-      if (data.provider_uid_input && data.provider_uid_input.trim()) {
+      if (data.provider_uid_input?.trim()) {
         const parsed = parseInt(data.provider_uid_input.trim(), 10);
         if (!Number.isNaN(parsed) && parsed > 0) {
           provider_uid = parsed;
@@ -133,7 +138,7 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
 
       await updateUser.mutateAsync({
         id: user.id,
-        data: updateData
+        data: updateData,
       });
 
       // Show success toast
@@ -146,7 +151,6 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
         onSuccess?.();
         setShowToast(false);
       }, 2000);
-
     } catch (error) {
       console.error('Error updating user:', error);
       // Error handling is done by the mutation
@@ -212,7 +216,10 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 {/* First Name */}
                 <div>
-                  <label htmlFor="edit_first_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="edit_first_name"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     First Name *
                   </label>
                   <input
@@ -220,21 +227,26 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                     id="edit_first_name"
                     {...register('first_name')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
-                      errors.first_name 
-                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600' 
+                      errors.first_name
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600'
                         : 'border-gray-300 dark:border-gray-600'
                     }`}
                     placeholder="Enter first name"
                     disabled={isSubmitting}
                   />
                   {errors.first_name && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.first_name.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.first_name.message}
+                    </p>
                   )}
                 </div>
 
                 {/* Last Name */}
                 <div>
-                  <label htmlFor="edit_last_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="edit_last_name"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Last Name *
                   </label>
                   <input
@@ -242,21 +254,26 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                     id="edit_last_name"
                     {...register('last_name')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
-                      errors.last_name 
-                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600' 
+                      errors.last_name
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600'
                         : 'border-gray-300 dark:border-gray-600'
                     }`}
                     placeholder="Enter last name"
                     disabled={isSubmitting}
                   />
                   {errors.last_name && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.last_name.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.last_name.message}
+                    </p>
                   )}
                 </div>
 
                 {/* Email */}
                 <div>
-                  <label htmlFor="edit_email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="edit_email"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Email Address *
                   </label>
                   <input
@@ -264,21 +281,26 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                     id="edit_email"
                     {...register('email')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
-                      errors.email 
-                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600' 
+                      errors.email
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600'
                         : 'border-gray-300 dark:border-gray-600'
                     }`}
                     placeholder="Enter email address"
                     disabled={isSubmitting}
                   />
                   {errors.email && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.email.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.email.message}
+                    </p>
                   )}
                 </div>
 
                 {/* Password Reset */}
                 <div>
-                  <label htmlFor="edit_password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="edit_password"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     New Password (leave blank to keep current)
                   </label>
                   <input
@@ -286,21 +308,26 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                     id="edit_password"
                     {...register('password')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
-                      errors.password 
-                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600' 
+                      errors.password
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600'
                         : 'border-gray-300 dark:border-gray-600'
                     }`}
                     placeholder="Enter new password (optional)"
                     disabled={isSubmitting}
                   />
                   {errors.password && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.password.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.password.message}
+                    </p>
                   )}
                 </div>
 
                 {/* Confirm Password */}
                 <div>
-                  <label htmlFor="edit_confirm_password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="edit_confirm_password"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Confirm New Password
                   </label>
                   <input
@@ -308,15 +335,17 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                     id="edit_confirm_password"
                     {...register('confirm_password')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
-                      errors.confirm_password 
-                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600' 
+                      errors.confirm_password
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600'
                         : 'border-gray-300 dark:border-gray-600'
                     }`}
                     placeholder="Confirm new password"
                     disabled={isSubmitting}
                   />
                   {errors.confirm_password && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.confirm_password.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.confirm_password.message}
+                    </p>
                   )}
                 </div>
 
@@ -331,7 +360,10 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
 
                 {/* Provider UID - Analytics Security */}
                 <div>
-                  <label htmlFor="edit_provider_uid" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="edit_provider_uid"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Provider UID
                     <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
                       (For Analytics Data Filtering)
@@ -346,9 +378,9 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                     disabled={isSubmitting}
                   />
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Optional. Only required for users with analytics:read:own permission.
-                    Must match provider_uid from ih.agg_app_measures table in analytics database.
-                    Leave empty if user does not need provider-level analytics access.
+                    Optional. Only required for users with analytics:read:own permission. Must match
+                    provider_uid from ih.agg_app_measures table in analytics database. Leave empty
+                    if user does not need provider-level analytics access.
                   </p>
                   <details className="mt-2">
                     <summary className="text-xs text-violet-600 dark:text-violet-400 cursor-pointer hover:text-violet-700 dark:hover:text-violet-300">
@@ -356,15 +388,20 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                     </summary>
                     <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded text-xs font-mono">
                       <code className="text-gray-700 dark:text-gray-300">
-                        SELECT DISTINCT provider_uid, provider_name<br />
-                        FROM ih.agg_app_measures<br />
-                        WHERE provider_uid IS NOT NULL<br />
+                        SELECT DISTINCT provider_uid, provider_name
+                        <br />
+                        FROM ih.agg_app_measures
+                        <br />
+                        WHERE provider_uid IS NOT NULL
+                        <br />
                         ORDER BY provider_uid;
                       </code>
                     </div>
                   </details>
                   {errors.provider_uid_input && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.provider_uid_input.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.provider_uid_input.message}
+                    </p>
                   )}
                 </div>
 
@@ -377,7 +414,10 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     disabled={isSubmitting}
                   />
-                  <label htmlFor="edit_email_verified" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                  <label
+                    htmlFor="edit_email_verified"
+                    className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
+                  >
                     Email Verified
                   </label>
                 </div>
@@ -391,7 +431,10 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     disabled={isSubmitting}
                   />
-                  <label htmlFor="edit_is_active" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                  <label
+                    htmlFor="edit_is_active"
+                    className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
+                  >
                     Active User
                   </label>
                 </div>
@@ -400,7 +443,9 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                 {updateUser.error && (
                   <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
                     <p className="text-sm text-red-600 dark:text-red-400">
-                      {updateUser.error instanceof Error ? updateUser.error.message : 'An error occurred while updating the user'}
+                      {updateUser.error instanceof Error
+                        ? updateUser.error.message
+                        : 'An error occurred while updating the user'}
                     </p>
                   </div>
                 )}

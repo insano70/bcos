@@ -1,6 +1,6 @@
+import { like } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { permissions } from '@/lib/db/schema';
-import { like } from 'drizzle-orm';
 
 async function checkPermissions() {
   const workItemsPermissions = await db
@@ -10,7 +10,7 @@ async function checkPermissions() {
     .orderBy(permissions.name);
 
   console.log('\n✅ Work Items Permissions:');
-  workItemsPermissions.forEach(p => {
+  workItemsPermissions.forEach((p) => {
     console.log(`  - ${p.name}: ${p.description}`);
   });
 

@@ -33,7 +33,7 @@ export default function ChartBuilderSchema({ schemaInfo }: ChartBuilderSchemaPro
         <summary className="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300 group-open:text-violet-600 dark:group-open:text-violet-400">
           📊 Available Data Fields ({Object.keys(schemaInfo.fields).length})
         </summary>
-        
+
         <div className="mt-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
           {Object.entries(schemaInfo.fields).map(([key, field]) => (
             <div key={key} className="bg-gray-50 dark:bg-gray-700 p-3 rounded">

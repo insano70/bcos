@@ -152,7 +152,9 @@ export class RBACWorkItemFieldValuesService extends BaseRBACService {
             field_value: value,
             updated_at: new Date(),
           })
-          .where(eq(work_item_field_values.work_item_field_value_id, existingMap.get(fieldId) ?? ''));
+          .where(
+            eq(work_item_field_values.work_item_field_value_id, existingMap.get(fieldId) ?? '')
+          );
 
         log.info('Work item field value updated', {
           workItemId,

@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
 export default function DashboardRedirect() {
   const router = useRouter();
@@ -58,20 +58,15 @@ export default function DashboardRedirect() {
               Welcome!
             </h1>
             <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">
-              No default dashboard has been configured yet. Please contact your administrator to
-              set up a home dashboard, or explore the available options below.
+              No default dashboard has been configured yet. Please contact your administrator to set
+              up a home dashboard, or explore the available options below.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 href="/dashboard/analytics"
                 className="btn bg-violet-500 hover:bg-violet-600 text-white"
               >
-                <svg
-                  className="w-4 h-4 mr-2"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
+                <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -85,12 +80,7 @@ export default function DashboardRedirect() {
                 href="/configure/dashboards"
                 className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-100"
               >
-                <svg
-                  className="w-4 h-4 mr-2"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
+                <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"

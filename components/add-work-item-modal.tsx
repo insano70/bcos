@@ -1,19 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { useCreateWorkItem } from '@/lib/hooks/use-work-items';
-import { useActiveWorkItemTypes } from '@/lib/hooks/use-work-item-types';
-import { useWorkItemStatuses } from '@/lib/hooks/use-work-item-statuses';
+import DynamicFieldRenderer from '@/components/dynamic-field-renderer';
+import UserPicker from '@/components/user-picker';
 import { useOrganizations } from '@/lib/hooks/use-organizations';
 import { useUsers } from '@/lib/hooks/use-users';
 import { useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
+import { useWorkItemStatuses } from '@/lib/hooks/use-work-item-statuses';
+import { useActiveWorkItemTypes } from '@/lib/hooks/use-work-item-types';
+import { useCreateWorkItem } from '@/lib/hooks/use-work-items';
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
-import DynamicFieldRenderer from '@/components/dynamic-field-renderer';
-import UserPicker from '@/components/user-picker';
 import Toast from './toast';
 
 const createWorkItemSchema = z.object({
@@ -91,7 +91,10 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess }: AddWork
         description: data.description,
         priority: data.priority,
         assigned_to: data.assigned_to,
-        due_date: data.due_date && data.due_date.trim() !== '' ? new Date(data.due_date).toISOString() : undefined,
+        due_date:
+          data.due_date && data.due_date.trim() !== ''
+            ? new Date(data.due_date).toISOString()
+            : undefined,
         parent_work_item_id: data.parent_work_item_id,
         custom_fields: Object.keys(customFieldValues).length > 0 ? customFieldValues : undefined,
       };
@@ -197,9 +200,7 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess }: AddWork
                     disabled={isSubmitting || typesLoading}
                     className="form-select w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
                   >
-                    <option value="">
-                      {typesLoading ? 'Loading types...' : 'Select a type'}
-                    </option>
+                    <option value="">{typesLoading ? 'Loading types...' : 'Select a type'}</option>
                     {workItemTypes?.map((type) => (
                       <option key={type.id} value={type.id}>
                         {type.icon ? `${type.icon} ` : ''}

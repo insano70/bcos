@@ -1,10 +1,11 @@
 import { AuthorizationError } from '@/lib/api/responses/error';
+import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import {
   getOrganizationChildren,
   getOrganizationHierarchy,
 } from '@/lib/rbac/organization-hierarchy';
-import { SLOW_THRESHOLDS, log } from '@/lib/logger';
 import type { Organization, UserContext } from '@/lib/types/rbac';
+import { BaseOrganizationsService } from './base-service';
 import { MAX_CHILDREN_PER_LEVEL } from './sanitization';
 import type { OrganizationHierarchyServiceInterface } from './types';
 
@@ -19,49 +20,18 @@ import type { OrganizationHierarchyServiceInterface } from './types';
  * Extracted from monolithic organizations service to separate hierarchy
  * concerns from CRUD operations.
  *
+ * Now extends BaseOrganizationsService to eliminate duplicated permission
+ * checking logic (30 lines removed).
+ *
  * @internal - Use factory function instead
  */
-class OrganizationHierarchyService implements OrganizationHierarchyServiceInterface {
-  private readonly canReadAll: boolean;
-  private readonly canReadOrganization: boolean;
-  private readonly canReadOwn: boolean;
-  private readonly accessibleOrgIds: string[];
-
-  constructor(private readonly userContext: UserContext) {
-    // Cache permission checks
-    this.canReadAll =
-      userContext.is_super_admin ||
-      userContext.all_permissions?.some((p) => p.name === 'organizations:read:all') ||
-      false;
-
-    this.canReadOrganization =
-      userContext.all_permissions?.some((p) => p.name === 'organizations:read:organization') ||
-      false;
-
-    this.canReadOwn =
-      userContext.all_permissions?.some((p) => p.name === 'organizations:read:own') || false;
-
-    this.accessibleOrgIds =
-      userContext.accessible_organizations?.map((org) => org.organization_id) || [];
-  }
-
-  /**
-   * Check if user has access to organization
-   */
-  private canAccessOrganization(organizationId: string): boolean {
-    if (this.userContext.is_super_admin) return true;
-    return this.accessibleOrgIds.includes(organizationId);
-  }
-
-  /**
-   * Get RBAC scope for logging
-   */
-  private getRBACScope(): 'all' | 'organization' | 'own' | 'none' {
-    if (this.canReadAll) return 'all';
-    if (this.canReadOrganization) return 'organization';
-    if (this.canReadOwn) return 'own';
-    return 'none';
-  }
+class OrganizationHierarchyService
+  extends BaseOrganizationsService
+  implements OrganizationHierarchyServiceInterface
+{
+  // All permission properties inherited from BaseOrganizationsService
+  // canReadAll, canReadOrganization, canReadOwn, accessibleOrgIds
+  // canAccessOrganization(), getRBACScope() are also inherited
 
   /**
    * Get organization hierarchy for current user
@@ -318,10 +288,7 @@ class OrganizationHierarchyService implements OrganizationHierarchyServiceInterf
    * @returns True if move is valid, false if it would create circular reference
    * @throws {AuthorizationError} If user lacks access
    */
-  async validateHierarchyMove(
-    organizationId: string,
-    newParentId: string
-  ): Promise<boolean> {
+  async validateHierarchyMove(organizationId: string, newParentId: string): Promise<boolean> {
     const startTime = Date.now();
 
     try {

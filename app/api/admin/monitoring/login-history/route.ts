@@ -9,14 +9,14 @@
  * RBAC: settings:read:all (Super Admin only)
  */
 
+import { desc, eq, sql } from 'drizzle-orm';
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/route-handlers';
-import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
-import { log } from '@/lib/logger';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { db, login_attempts } from '@/lib/db';
-import { eq, desc, sql } from 'drizzle-orm';
-import type { LoginHistoryResponse, LoginAttempt } from '@/lib/monitoring/types';
+import { log } from '@/lib/logger';
+import type { LoginAttempt, LoginHistoryResponse } from '@/lib/monitoring/types';
 
 const loginHistoryHandler = async (request: NextRequest) => {
   const startTime = Date.now();
@@ -43,7 +43,7 @@ const loginHistoryHandler = async (request: NextRequest) => {
 
     // Build where clause
     const whereConditions = [eq(login_attempts.user_id, userId)];
-    
+
     if (successOnly) {
       whereConditions.push(eq(login_attempts.success, true));
     } else if (failureOnly) {
@@ -124,7 +124,11 @@ const loginHistoryHandler = async (request: NextRequest) => {
       }
     );
 
-    return createErrorResponse(error instanceof Error ? error : new Error(String(error)), 500, request);
+    return createErrorResponse(
+      error instanceof Error ? error : new Error(String(error)),
+      500,
+      request
+    );
   }
 };
 
@@ -133,4 +137,3 @@ export const GET = rbacRoute(loginHistoryHandler, {
   permission: 'settings:read:all',
   rateLimit: 'api',
 });
-

@@ -5,26 +5,25 @@
  * Ensures consistent mocking across all OIDC tests.
  */
 
-import { vi } from 'vitest'
+import { vi } from 'vitest';
 import {
   createMockIDTokenClaims,
-  createMockTokenResponse,
   createMockOIDCConfiguration,
-  createMockServerMetadata
-} from '@/tests/factories/oidc-factory'
+  createMockTokenResponse,
+} from '@/tests/factories/oidc-factory';
 
 /**
  * OIDC Client Mocks
  * Mocks for openid-client module functions
  */
 export interface OIDCClientMocks {
-  discovery: ReturnType<typeof vi.fn>
-  randomPKCECodeVerifier: ReturnType<typeof vi.fn>
-  calculatePKCECodeChallenge: ReturnType<typeof vi.fn>
-  randomState: ReturnType<typeof vi.fn>
-  randomNonce: ReturnType<typeof vi.fn>
-  authorizationCodeGrant: ReturnType<typeof vi.fn>
-  getValidatedIdTokenClaims: ReturnType<typeof vi.fn>
+  discovery: ReturnType<typeof vi.fn>;
+  randomPKCECodeVerifier: ReturnType<typeof vi.fn>;
+  calculatePKCECodeChallenge: ReturnType<typeof vi.fn>;
+  randomState: ReturnType<typeof vi.fn>;
+  randomNonce: ReturnType<typeof vi.fn>;
+  authorizationCodeGrant: ReturnType<typeof vi.fn>;
+  getValidatedIdTokenClaims: ReturnType<typeof vi.fn>;
 }
 
 /**
@@ -32,8 +31,8 @@ export interface OIDCClientMocks {
  * Mocks for iron-session encryption functions
  */
 export interface IronSessionMocks {
-  sealData: ReturnType<typeof vi.fn>
-  unsealData: ReturnType<typeof vi.fn>
+  sealData: ReturnType<typeof vi.fn>;
+  unsealData: ReturnType<typeof vi.fn>;
 }
 
 /**
@@ -41,25 +40,25 @@ export interface IronSessionMocks {
  * Mocks for @/lib/oidc modules
  */
 export interface OIDCModuleMocks {
-  buildOIDCConfig: ReturnType<typeof vi.fn>
-  checkOIDCEnabled: ReturnType<typeof vi.fn>
-  isOIDCEnabled: ReturnType<typeof vi.fn>
-  getOIDCClient: ReturnType<typeof vi.fn>
-  resetOIDCClient: ReturnType<typeof vi.fn>
+  buildOIDCConfig: ReturnType<typeof vi.fn>;
+  checkOIDCEnabled: ReturnType<typeof vi.fn>;
+  isOIDCEnabled: ReturnType<typeof vi.fn>;
+  getOIDCClient: ReturnType<typeof vi.fn>;
+  resetOIDCClient: ReturnType<typeof vi.fn>;
 }
 
 /**
  * Complete OIDC Mock Suite
  */
 export interface OIDCMockSuite {
-  client: OIDCClientMocks
-  session: IronSessionMocks
-  modules: OIDCModuleMocks
+  client: OIDCClientMocks;
+  session: IronSessionMocks;
+  modules: OIDCModuleMocks;
   _helpers: {
-    resetAllMocks: () => void
-    setDefaultTokenResponse: (response: ReturnType<typeof createMockTokenResponse>) => void
-    setDefaultClaims: (claims: ReturnType<typeof createMockIDTokenClaims>) => void
-  }
+    resetAllMocks: () => void;
+    setDefaultTokenResponse: (response: ReturnType<typeof createMockTokenResponse>) => void;
+    setDefaultClaims: (claims: ReturnType<typeof createMockIDTokenClaims>) => void;
+  };
 }
 
 /**
@@ -67,18 +66,20 @@ export interface OIDCMockSuite {
  * Mocks openid-client module
  */
 export function createOIDCClientMocks(): OIDCClientMocks {
-  const mockConfiguration = createMockOIDCConfiguration()
-  const mockTokenResponse = createMockTokenResponse()
+  const mockConfiguration = createMockOIDCConfiguration();
+  const mockTokenResponse = createMockTokenResponse();
 
   return {
     discovery: vi.fn().mockResolvedValue(mockConfiguration),
-    randomPKCECodeVerifier: vi.fn().mockReturnValue('test-code-verifier-43-chars-base64url-encoded'),
+    randomPKCECodeVerifier: vi
+      .fn()
+      .mockReturnValue('test-code-verifier-43-chars-base64url-encoded'),
     calculatePKCECodeChallenge: vi.fn().mockResolvedValue('test-code-challenge-base64url'),
     randomState: vi.fn().mockReturnValue('test-state-token-32-characters'),
     randomNonce: vi.fn().mockReturnValue('test-nonce-token-32-characters'),
     authorizationCodeGrant: vi.fn().mockResolvedValue(mockTokenResponse),
     getValidatedIdTokenClaims: vi.fn().mockReturnValue(createMockIDTokenClaims()),
-  }
+  };
 }
 
 /**
@@ -88,7 +89,7 @@ export function createOIDCClientMocks(): OIDCClientMocks {
 export function createIronSessionMocks(): IronSessionMocks {
   return {
     sealData: vi.fn().mockResolvedValue('encrypted-session-data-sealed-with-aes256gcm'),
-    unsealData: vi.fn().mockImplementation(async (sealed: string) => {
+    unsealData: vi.fn().mockImplementation(async (_sealed: string) => {
       // Return mock session data by default
       return {
         state: 'test-state-token',
@@ -97,9 +98,9 @@ export function createIronSessionMocks(): IronSessionMocks {
         returnUrl: '/dashboard',
         fingerprint: 'test-fingerprint-hash',
         timestamp: Date.now(),
-      }
+      };
     }),
-  }
+  };
 }
 
 /**
@@ -137,7 +138,7 @@ export function createOIDCModuleMocks(): OIDCModuleMocks {
       }),
     }),
     resetOIDCClient: vi.fn(),
-  }
+  };
 }
 
 /**
@@ -145,44 +146,44 @@ export function createOIDCModuleMocks(): OIDCModuleMocks {
  * Standardized mock set for OIDC tests
  */
 export function createOIDCMockSuite(): OIDCMockSuite {
-  const client = createOIDCClientMocks()
-  const session = createIronSessionMocks()
-  const modules = createOIDCModuleMocks()
+  const client = createOIDCClientMocks();
+  const session = createIronSessionMocks();
+  const modules = createOIDCModuleMocks();
 
-  let defaultTokenResponse = createMockTokenResponse()
-  let defaultClaims = createMockIDTokenClaims()
+  let defaultTokenResponse = createMockTokenResponse();
+  let defaultClaims = createMockIDTokenClaims();
 
   const helpers = {
     resetAllMocks: () => {
-      vi.clearAllMocks()
+      vi.clearAllMocks();
 
       // Reset to defaults
-      client.authorizationCodeGrant.mockResolvedValue(defaultTokenResponse)
-      client.getValidatedIdTokenClaims.mockReturnValue(defaultClaims)
+      client.authorizationCodeGrant.mockResolvedValue(defaultTokenResponse);
+      client.getValidatedIdTokenClaims.mockReturnValue(defaultClaims);
     },
     setDefaultTokenResponse: (response: ReturnType<typeof createMockTokenResponse>) => {
-      defaultTokenResponse = response
-      client.authorizationCodeGrant.mockResolvedValue(response)
+      defaultTokenResponse = response;
+      client.authorizationCodeGrant.mockResolvedValue(response);
     },
     setDefaultClaims: (claims: ReturnType<typeof createMockIDTokenClaims>) => {
-      defaultClaims = claims
-      client.getValidatedIdTokenClaims.mockReturnValue(claims)
+      defaultClaims = claims;
+      client.getValidatedIdTokenClaims.mockReturnValue(claims);
     },
-  }
+  };
 
   return {
     client,
     session,
     modules,
     _helpers: helpers,
-  }
+  };
 }
 
 /**
  * Vi.mock factory for openid-client module
  */
 export function createOpenIDClientModuleMock() {
-  const mocks = createOIDCClientMocks()
+  const mocks = createOIDCClientMocks();
 
   return () => ({
     discovery: mocks.discovery,
@@ -192,29 +193,29 @@ export function createOpenIDClientModuleMock() {
     randomNonce: mocks.randomNonce,
     authorizationCodeGrant: mocks.authorizationCodeGrant,
     getValidatedIdTokenClaims: mocks.getValidatedIdTokenClaims,
-  })
+  });
 }
 
 /**
  * Vi.mock factory for iron-session module
  */
 export function createIronSessionModuleMock() {
-  const mocks = createIronSessionMocks()
+  const mocks = createIronSessionMocks();
 
   return () => ({
     sealData: mocks.sealData,
     unsealData: mocks.unsealData,
-  })
+  });
 }
 
 /**
  * Vi.mock factory for OIDC config module
  */
 export function createOIDCConfigModuleMock() {
-  const mocks = createOIDCModuleMocks()
+  const mocks = createOIDCModuleMocks();
 
   return () => ({
     buildOIDCConfig: mocks.buildOIDCConfig,
     checkOIDCEnabled: mocks.checkOIDCEnabled,
-  })
+  });
 }

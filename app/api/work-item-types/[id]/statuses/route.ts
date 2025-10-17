@@ -1,13 +1,13 @@
 import type { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
-import { rbacRoute } from '@/lib/api/route-handlers';
-import { extractors } from '@/lib/api/utils/rbac-extractors';
-import { extractRouteParams } from '@/lib/api/utils/params';
 import { validateRequest } from '@/lib/api/middleware/validation';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
+import { extractRouteParams } from '@/lib/api/utils/params';
+import { extractors } from '@/lib/api/utils/rbac-extractors';
+import { log } from '@/lib/logger';
 import { createRBACWorkItemStatusesService } from '@/lib/services/rbac-work-item-statuses-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
 
 /**
  * GET /api/work-item-types/[id]/statuses
@@ -112,7 +112,9 @@ const createStatusHandler = async (
       ...(validatedData.is_initial !== undefined && { is_initial: validatedData.is_initial }),
       ...(validatedData.is_final !== undefined && { is_final: validatedData.is_final }),
       ...(validatedData.color !== undefined && { color: validatedData.color }),
-      ...(validatedData.display_order !== undefined && { display_order: validatedData.display_order }),
+      ...(validatedData.display_order !== undefined && {
+        display_order: validatedData.display_order,
+      }),
     });
     log.db('INSERT', 'work_item_statuses', Date.now() - createStart, { rowCount: 1 });
 

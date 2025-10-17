@@ -1,6 +1,6 @@
+import { like } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { permissions } from '@/lib/db/rbac-schema';
-import { like } from 'drizzle-orm';
 
 async function deleteDuplicates() {
   console.log('🗑️  Deleting duplicate work-items permissions with double colon...\n');
@@ -12,7 +12,7 @@ async function deleteDuplicates() {
     .returning();
 
   console.log(`✅ Deleted ${result.length} duplicate permissions:\n`);
-  result.forEach(p => {
+  result.forEach((p) => {
     console.log(`  - ${p.name}`);
   });
 

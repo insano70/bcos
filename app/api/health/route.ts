@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
-import { publicRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { publicRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
 
 // Force dynamic rendering for this API route

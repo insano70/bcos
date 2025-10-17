@@ -1,25 +1,26 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useTheme } from 'next-themes';
-import { createPortal } from 'react-dom';
+import type { ChartConfiguration, Chart as ChartType } from 'chart.js';
 import {
-  Chart,
   BarController,
-  LineController,
   BarElement,
+  CategoryScale,
+  Chart,
+  Legend,
+  LinearScale,
+  LineController,
   LineElement,
   PointElement,
-  LinearScale,
-  CategoryScale,
   Tooltip,
-  Legend,
 } from 'chart.js';
-import type { Chart as ChartType, ChartConfiguration } from 'chart.js';
-import type { ChartData } from '@/lib/types/analytics';
 import zoomPlugin from 'chartjs-plugin-zoom';
+import { useTheme } from 'next-themes';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { chartColors } from '@/components/charts/chartjs-config';
+import type { ChartData } from '@/lib/types/analytics';
 import { formatValue, formatValueCompact } from '@/lib/utils/chart-data/formatters/value-formatter';
+import { getMeasureTypeFromChart } from '@/lib/utils/type-guards';
 
 // Register zoom plugin
 let pluginsRegistered = false;
@@ -105,7 +106,8 @@ export default function DualAxisFullscreenModal({
     const ctx = canvasRef.current;
 
     // Get fresh color values inside useEffect to ensure they're read after theme is loaded
-    const { textColor, gridColor, tooltipBodyColor, tooltipBgColor, tooltipBorderColor } = chartColors;
+    const { textColor, gridColor, tooltipBodyColor, tooltipBgColor, tooltipBorderColor } =
+      chartColors;
 
     // Convert our ChartData to Chart.js ChartData format
     const chartjsData = {
@@ -235,8 +237,7 @@ export default function DualAxisFullscreenModal({
               label: (context) => {
                 const label = context.dataset.label || '';
                 const value = context.parsed.y;
-                const dataset = context.dataset as unknown as { measureType?: string };
-                const measureType = dataset.measureType || 'number';
+                const measureType = getMeasureTypeFromChart(context.dataset, 'number');
                 const formattedValue = formatValue(value, measureType);
                 return `${label}: ${formattedValue}`;
               },
@@ -280,24 +281,26 @@ export default function DualAxisFullscreenModal({
       const items = newChart.options.plugins?.legend?.labels?.generateLabels?.(newChart);
 
       // Calculate totals for each dataset
-      const itemsWithTotals = items?.map((item) => {
-        const dataset = newChart.data.datasets[item.datasetIndex!];
-        const dataArray = dataset?.data || [];
-        const total = dataArray.reduce((sum: number, value: unknown) => {
-          if (typeof value === 'number') {
-            return sum + value;
-          } else if (value && typeof value === 'object' && 'y' in value) {
-            const yValue = (value as { y: unknown }).y;
-            return sum + (typeof yValue === 'number' ? yValue : 0);
-          }
-          return sum;
-        }, 0) as number;
-        return { item, total };
-      }) || [];
+      const itemsWithTotals =
+        items?.map((item) => {
+          const dataset = newChart.data.datasets[item.datasetIndex!];
+          const dataArray = dataset?.data || [];
+          const total = dataArray.reduce((sum: number, value: unknown) => {
+            if (typeof value === 'number') {
+              return sum + value;
+            } else if (value && typeof value === 'object' && 'y' in value) {
+              const yValue = (value as { y: unknown }).y;
+              return sum + (typeof yValue === 'number' ? yValue : 0);
+            }
+            return sum;
+          }, 0) as number;
+          return { item, total };
+        }) || [];
 
       itemsWithTotals.forEach(({ item, total }) => {
         const li = document.createElement('li');
-        li.className = 'flex items-center justify-between px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded transition-colors';
+        li.className =
+          'flex items-center justify-between px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded transition-colors';
 
         const colorBox = document.createElement('span');
         colorBox.className = 'block w-3 h-3 rounded-sm mr-2 flex-shrink-0';
@@ -389,12 +392,7 @@ export default function DualAxisFullscreenModal({
               className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               aria-label="Close fullscreen view"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"

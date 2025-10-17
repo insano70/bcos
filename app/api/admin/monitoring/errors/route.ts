@@ -10,11 +10,11 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
 import { queryErrors } from '@/lib/monitoring/cloudwatch-queries';
-import type { ErrorsResponse, ErrorLogEntry } from '@/lib/monitoring/types';
+import type { ErrorLogEntry, ErrorsResponse } from '@/lib/monitoring/types';
 
 const errorsHandler = async (request: NextRequest) => {
   const startTime = Date.now();
@@ -33,7 +33,7 @@ const errorsHandler = async (request: NextRequest) => {
 
     // Query CloudWatch Logs for errors
     const cloudwatchResults = await queryErrors(timeRange, limit);
-    
+
     // Transform CloudWatch results to ErrorLogEntry objects
     const errors: ErrorLogEntry[] = cloudwatchResults.map((result) => ({
       timestamp: result['@timestamp'] || new Date().toISOString(),
@@ -81,15 +81,11 @@ const errorsHandler = async (request: NextRequest) => {
   } catch (error) {
     const duration = Date.now() - startTime;
 
-    log.error(
-      'Failed to get errors',
-      error instanceof Error ? error : new Error(String(error)),
-      {
-        operation: 'query_errors',
-        duration,
-        component: 'monitoring',
-      }
-    );
+    log.error('Failed to get errors', error instanceof Error ? error : new Error(String(error)), {
+      operation: 'query_errors',
+      duration,
+      component: 'monitoring',
+    });
 
     const fallback: ErrorsResponse = {
       errors: [],
@@ -106,4 +102,3 @@ export const GET = rbacRoute(errorsHandler, {
   permission: 'settings:read:all',
   rateLimit: 'api',
 });
-

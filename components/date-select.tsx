@@ -1,7 +1,7 @@
 'use client';
 
+import { Menu, MenuButton, MenuItem, MenuItems, Transition } from '@headlessui/react';
 import { useState } from 'react';
-import { Menu, MenuButton, MenuItems, MenuItem, Transition } from '@headlessui/react';
 
 export interface DateRange {
   startDate: Date | null;
@@ -105,7 +105,7 @@ export default function DateSelect({ onDateChange }: DateSelectProps) {
                 <path d="M5 4a1 1 0 0 0 0 2h6a1 1 0 1 0 0-2H5Z" />
                 <path d="M4 0a4 4 0 0 0-4 4v8a4 4 0 0 0 4 4h8a4 4 0 0 0 4-4V4a4 4 0 0 0-4-4H4ZM2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4Z" />
               </svg>
-               <span>{options[selected]?.period}</span>
+              <span>{options[selected]?.period}</span>
             </span>
             <svg
               className="shrink-0 ml-1 fill-current text-gray-400 dark:text-gray-500"

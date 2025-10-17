@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 
 export interface WorkItemStatusTransition {
@@ -34,10 +34,7 @@ export interface TransitionFilters {
 /**
  * Hook to fetch transitions for a work item type
  */
-export function useWorkItemTransitions(
-  typeId: string | undefined,
-  filters?: TransitionFilters
-) {
+export function useWorkItemTransitions(typeId: string | undefined, filters?: TransitionFilters) {
   return useQuery<WorkItemStatusTransition[], Error>({
     queryKey: ['work-item-transitions', typeId, filters],
     queryFn: async () => {
@@ -67,7 +64,9 @@ export function useWorkItemTransition(transitionId: string | undefined) {
   return useQuery<WorkItemStatusTransition, Error>({
     queryKey: ['work-item-transition', transitionId],
     queryFn: async () =>
-      await apiClient.get<WorkItemStatusTransition>(`/api/work-item-status-transitions/${transitionId}`),
+      await apiClient.get<WorkItemStatusTransition>(
+        `/api/work-item-status-transitions/${transitionId}`
+      ),
     enabled: !!transitionId,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
@@ -87,7 +86,9 @@ export function useCreateWorkItemTransition() {
       );
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['work-item-transitions', variables.work_item_type_id] });
+      queryClient.invalidateQueries({
+        queryKey: ['work-item-transitions', variables.work_item_type_id],
+      });
     },
   });
 }

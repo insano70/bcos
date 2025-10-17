@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 /**
  * Date Range Presets Component
@@ -30,9 +30,9 @@ const DATE_PRESETS: DateRangePreset[] = [
       const today = new Date();
       return {
         startDate: today.toISOString().split('T')[0]!,
-        endDate: today.toISOString().split('T')[0]!
+        endDate: today.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'yesterday',
@@ -43,9 +43,9 @@ const DATE_PRESETS: DateRangePreset[] = [
       yesterday.setDate(yesterday.getDate() - 1);
       return {
         startDate: yesterday.toISOString().split('T')[0]!,
-        endDate: yesterday.toISOString().split('T')[0]!
+        endDate: yesterday.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_7_days',
@@ -57,9 +57,9 @@ const DATE_PRESETS: DateRangePreset[] = [
       start.setDate(start.getDate() - 7);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_14_days',
@@ -71,9 +71,9 @@ const DATE_PRESETS: DateRangePreset[] = [
       start.setDate(start.getDate() - 14);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_30_days',
@@ -85,9 +85,9 @@ const DATE_PRESETS: DateRangePreset[] = [
       start.setDate(start.getDate() - 30);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_90_days',
@@ -99,9 +99,9 @@ const DATE_PRESETS: DateRangePreset[] = [
       start.setDate(start.getDate() - 90);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_180_days',
@@ -113,9 +113,9 @@ const DATE_PRESETS: DateRangePreset[] = [
       start.setDate(start.getDate() - 180);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_365_days',
@@ -127,9 +127,9 @@ const DATE_PRESETS: DateRangePreset[] = [
       start.setDate(start.getDate() - 365);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'this_month',
@@ -141,9 +141,9 @@ const DATE_PRESETS: DateRangePreset[] = [
       const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_month',
@@ -155,9 +155,9 @@ const DATE_PRESETS: DateRangePreset[] = [
       const end = new Date(now.getFullYear(), now.getMonth(), 0);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_3_full_months',
@@ -169,9 +169,9 @@ const DATE_PRESETS: DateRangePreset[] = [
       const start = new Date(now.getFullYear(), now.getMonth() - 3, 1);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_6_full_months',
@@ -183,9 +183,9 @@ const DATE_PRESETS: DateRangePreset[] = [
       const start = new Date(now.getFullYear(), now.getMonth() - 6, 1);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_12_full_months',
@@ -197,9 +197,9 @@ const DATE_PRESETS: DateRangePreset[] = [
       const start = new Date(now.getFullYear(), now.getMonth() - 12, 1);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'this_quarter',
@@ -212,9 +212,9 @@ const DATE_PRESETS: DateRangePreset[] = [
       const end = new Date(now.getFullYear(), quarter * 3 + 3, 0);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_quarter',
@@ -229,9 +229,9 @@ const DATE_PRESETS: DateRangePreset[] = [
       const end = new Date(year, adjustedQuarter * 3 + 3, 0);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'ytd',
@@ -242,9 +242,9 @@ const DATE_PRESETS: DateRangePreset[] = [
       const start = new Date(now.getFullYear(), 0, 1);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: now.toISOString().split('T')[0]!
+        endDate: now.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'this_year',
@@ -256,9 +256,9 @@ const DATE_PRESETS: DateRangePreset[] = [
       const end = new Date(now.getFullYear(), 11, 31);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_year',
@@ -270,27 +270,27 @@ const DATE_PRESETS: DateRangePreset[] = [
       const end = new Date(now.getFullYear() - 1, 11, 31);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
-  }
+    },
+  },
 ];
 
 export default function DateRangePresets({
   onDateRangeChange,
   currentStartDate,
   currentEndDate,
-  selectedPreset: initialSelectedPreset = 'custom'
+  selectedPreset: initialSelectedPreset = 'custom',
 }: DateRangePresetsProps) {
   const [selectedPreset, setSelectedPreset] = useState<string>(initialSelectedPreset);
   const [customStartDate, setCustomStartDate] = useState(currentStartDate || '');
   const [customEndDate, setCustomEndDate] = useState(currentEndDate || '');
-  
+
   // Update selectedPreset when prop changes (for editing existing charts)
   useEffect(() => {
     setSelectedPreset(initialSelectedPreset);
   }, [initialSelectedPreset]);
-  
+
   // Update custom dates when props change
   useEffect(() => {
     setCustomStartDate(currentStartDate || '');
@@ -299,11 +299,11 @@ export default function DateRangePresets({
 
   const handlePresetSelect = (presetId: string) => {
     setSelectedPreset(presetId);
-    
+
     if (presetId === 'custom') {
       onDateRangeChange(presetId, customStartDate, customEndDate);
     } else {
-      const preset = DATE_PRESETS.find(p => p.id === presetId);
+      const preset = DATE_PRESETS.find((p) => p.id === presetId);
       if (preset) {
         const { startDate, endDate } = preset.getDateRange();
         onDateRangeChange(presetId, startDate, endDate);
@@ -320,13 +320,11 @@ export default function DateRangePresets({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-        Date Range
-      </h3>
+      <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Date Range</h3>
 
       {/* Preset Buttons */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        {DATE_PRESETS.map(preset => (
+        {DATE_PRESETS.map((preset) => (
           <button
             key={preset.id}
             onClick={() => handlePresetSelect(preset.id)}
@@ -388,7 +386,7 @@ export default function DateRangePresets({
         {selectedPreset !== 'custom' && (
           <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
             Current range: {(() => {
-              const preset = DATE_PRESETS.find(p => p.id === selectedPreset);
+              const preset = DATE_PRESETS.find((p) => p.id === selectedPreset);
               if (preset) {
                 const { startDate, endDate } = preset.getDateRange();
                 return `${startDate} to ${endDate}`;

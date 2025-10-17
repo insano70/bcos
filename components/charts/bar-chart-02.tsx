@@ -1,19 +1,18 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
-import { useTheme } from 'next-themes';
-
-import { chartColors } from '@/components/charts/chartjs-config';
+import type { ChartData } from 'chart.js';
 import {
-  Chart,
   BarController,
   BarElement,
+  Chart,
+  Legend,
   LinearScale,
   TimeScale,
   Tooltip,
-  Legend,
 } from 'chart.js';
-import type { ChartData } from 'chart.js';
+import { useTheme } from 'next-themes';
+import { useEffect, useRef, useState } from 'react';
+import { chartColors } from '@/components/charts/chartjs-config';
 import 'chartjs-adapter-moment';
 
 // Import utilities

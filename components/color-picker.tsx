@@ -10,42 +10,58 @@ interface ColorPickerProps {
   description?: string;
 }
 
-export default function ColorPicker({ 
-  label, 
-  value, 
-  onChange, 
-  defaultColor, 
-  description 
+export default function ColorPicker({
+  label,
+  value,
+  onChange,
+  defaultColor,
+  description,
 }: ColorPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const displayColor = value || defaultColor;
 
   const presetColors = [
     // Brand defaults
-    '#00AEEF', '#FFFFFF', '#44C0AE',
+    '#00AEEF',
+    '#FFFFFF',
+    '#44C0AE',
     // Blues
-    '#2563eb', '#3b82f6', '#1d4ed8', '#1e40af',
-    // Greens  
-    '#059669', '#10b981', '#047857', '#065f46',
+    '#2563eb',
+    '#3b82f6',
+    '#1d4ed8',
+    '#1e40af',
+    // Greens
+    '#059669',
+    '#10b981',
+    '#047857',
+    '#065f46',
     // Purples
-    '#7c3aed', '#8b5cf6', '#6d28d9', '#5b21b6',
+    '#7c3aed',
+    '#8b5cf6',
+    '#6d28d9',
+    '#5b21b6',
     // Reds
-    '#dc2626', '#ef4444', '#b91c1c', '#991b1b',
+    '#dc2626',
+    '#ef4444',
+    '#b91c1c',
+    '#991b1b',
     // Oranges/Ambers
-    '#ea580c', '#f97316', '#d97706', '#92400e',
+    '#ea580c',
+    '#f97316',
+    '#d97706',
+    '#92400e',
     // Grays
-    '#374151', '#4b5563', '#6b7280', '#001620',
+    '#374151',
+    '#4b5563',
+    '#6b7280',
+    '#001620',
   ];
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-        {label}
-      </label>
-      {description && (
-        <p className="text-xs text-gray-500 dark:text-gray-400">{description}</p>
-      )}
-      
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
+      {description && <p className="text-xs text-gray-500 dark:text-gray-400">{description}</p>}
+
       <div className="relative">
         <button
           type="button"
@@ -59,7 +75,12 @@ export default function ColorPicker({
           <span className="text-gray-900 dark:text-gray-100 font-mono text-sm">
             {displayColor.toUpperCase()}
           </span>
-          <svg className="w-4 h-4 text-gray-400 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg
+            className="w-4 h-4 text-gray-400 ml-auto"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </button>
@@ -79,7 +100,7 @@ export default function ColorPicker({
                   className="w-full h-8 border border-gray-300 dark:border-gray-600 rounded cursor-pointer"
                 />
               </div>
-              
+
               {/* Preset colors */}
               <div>
                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
@@ -101,7 +122,7 @@ export default function ColorPicker({
                   ))}
                 </div>
               </div>
-              
+
               {/* Reset to default */}
               <button
                 type="button"

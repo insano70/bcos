@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useParams, notFound } from 'next/navigation';
-import { apiClient } from '@/lib/api/client';
+import { notFound, useParams } from 'next/navigation';
+import React, { useCallback, useEffect, useState } from 'react';
 import DashboardView from '@/components/charts/dashboard-view';
+import { apiClient } from '@/lib/api/client';
 import type { Dashboard, DashboardChart } from '@/lib/types/analytics';
 
 interface DashboardViewData {
@@ -14,7 +14,7 @@ interface DashboardViewData {
 export default function DashboardViewPage() {
   const params = useParams();
   const dashboardId = params.dashboardId as string;
-  
+
   const [dashboardData, setDashboardData] = useState<DashboardViewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -22,14 +22,7 @@ export default function DashboardViewPage() {
   // Ref to track if we've loaded this dashboard ID to prevent double execution
   const loadedDashboardIdRef = React.useRef<string | null>(null);
 
-  useEffect(() => {
-    if (dashboardId && loadedDashboardIdRef.current !== dashboardId) {
-      loadedDashboardIdRef.current = dashboardId;
-      loadDashboard();
-    }
-  }, [dashboardId]);
-
-  const loadDashboard = async () => {
+  const loadDashboard = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -41,9 +34,8 @@ export default function DashboardViewPage() {
       }>(`/api/admin/analytics/dashboards/${dashboardId}`);
 
       // Extract dashboard data
-      const dashboard = 'dashboards' in result.dashboard
-        ? result.dashboard.dashboards
-        : result.dashboard;
+      const dashboard =
+        'dashboards' in result.dashboard ? result.dashboard.dashboards : result.dashboard;
 
       if (!dashboard) {
         throw new Error('Dashboard data not found');
@@ -63,9 +55,8 @@ export default function DashboardViewPage() {
 
       setDashboardData({
         dashboard: dashboardData,
-        charts
+        charts,
       });
-
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load dashboard';
 
@@ -74,8 +65,14 @@ export default function DashboardViewPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [dashboardId]);
 
+  useEffect(() => {
+    if (dashboardId && loadedDashboardIdRef.current !== dashboardId) {
+      loadedDashboardIdRef.current = dashboardId;
+      loadDashboard();
+    }
+  }, [dashboardId, loadDashboard]);
 
   if (loading) {
     return (
@@ -109,7 +106,9 @@ export default function DashboardViewPage() {
               />
             </svg>
             <div>
-              <h3 className="text-red-800 dark:text-red-200 font-medium">Error loading dashboard</h3>
+              <h3 className="text-red-800 dark:text-red-200 font-medium">
+                Error loading dashboard
+              </h3>
               <p className="text-red-600 dark:text-red-400 text-sm mt-1">
                 {error || 'Dashboard not found'}
               </p>
@@ -132,10 +131,7 @@ export default function DashboardViewPage() {
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-4 w-full max-w-9xl mx-auto">
       {/* Dashboard Content - DashboardView includes its own title */}
-      <DashboardView
-        dashboard={dashboard}
-        dashboardCharts={charts}
-      />
+      <DashboardView dashboard={dashboard} dashboardCharts={charts} />
     </div>
   );
 }

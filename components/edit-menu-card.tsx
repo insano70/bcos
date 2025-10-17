@@ -1,6 +1,6 @@
 'use client';
 
-import { Menu, MenuButton, MenuItems, MenuItem, Transition } from '@headlessui/react';
+import { Menu, MenuButton, MenuItem, MenuItems, Transition } from '@headlessui/react';
 import Link from 'next/link';
 
 export default function EditMenuCard({

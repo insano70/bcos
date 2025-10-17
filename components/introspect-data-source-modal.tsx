@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { useIntrospectDataSource, type DataSource } from '@/lib/hooks/use-data-sources';
+import { useState } from 'react';
+import { type DataSource, useIntrospectDataSource } from '@/lib/hooks/use-data-sources';
 import Toast from './toast';
 
 interface IntrospectDataSourceModalProps {
@@ -16,12 +16,12 @@ export default function IntrospectDataSourceModal({
   isOpen,
   onClose,
   onSuccess,
-  dataSource
+  dataSource,
 }: IntrospectDataSourceModalProps) {
   const [isIntrospecting, setIsIntrospecting] = useState(false);
   const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const [_toastMessage, setToastMessage] = useState('');
+  const [_toastType, setToastType] = useState<'success' | 'error'>('success');
 
   const introspectMutation = useIntrospectDataSource(dataSource?.data_source_id || 0);
 
@@ -42,7 +42,7 @@ export default function IntrospectDataSourceModal({
     setIsIntrospecting(true);
 
     try {
-      const result = await introspectMutation.mutateAsync({});
+      const _result = await introspectMutation.mutateAsync({});
 
       // Show success toast
       setShowToast(true);
@@ -53,7 +53,6 @@ export default function IntrospectDataSourceModal({
         onSuccess?.();
         setShowToast(false);
       }, 2000);
-
     } catch (error) {
       // Log client-side introspection errors for debugging
       if (process.env.NODE_ENV === 'development') {
@@ -96,8 +95,18 @@ export default function IntrospectDataSourceModal({
                   <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex items-center">
                       <div className="flex-shrink-0">
-                        <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        <svg
+                          className="w-6 h-6 text-blue-600"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                          />
                         </svg>
                       </div>
                       <div className="ml-3">
@@ -111,7 +120,8 @@ export default function IntrospectDataSourceModal({
                   {/* Modal body */}
                   <div className="px-6 py-4">
                     <div className="text-sm text-gray-500 dark:text-gray-400">
-                      This will automatically create column definitions by analyzing the table structure in the analytics database.
+                      This will automatically create column definitions by analyzing the table
+                      structure in the analytics database.
                     </div>
 
                     {/* Data source details */}
@@ -140,8 +150,16 @@ export default function IntrospectDataSourceModal({
                     <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
                       <div className="flex">
                         <div className="flex-shrink-0">
-                          <svg className="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                          <svg
+                            className="w-5 h-5 text-blue-400"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                              clipRule="evenodd"
+                            />
                           </svg>
                         </div>
                         <div className="ml-3">
@@ -153,7 +171,9 @@ export default function IntrospectDataSourceModal({
                               <li>Connect to the analytics database</li>
                               <li>Analyze the table structure</li>
                               <li>Create column definitions with intelligent defaults</li>
-                              <li>Set appropriate flags for measures, dimensions, and date fields</li>
+                              <li>
+                                Set appropriate flags for measures, dimensions, and date fields
+                              </li>
                             </ul>
                           </div>
                         </div>
@@ -178,9 +198,24 @@ export default function IntrospectDataSourceModal({
                     >
                       {isIntrospecting ? (
                         <>
-                          <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          <svg
+                            className="animate-spin -ml-1 mr-3 h-4 w-4 text-white"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            />
                           </svg>
                           Introspecting...
                         </>
@@ -208,4 +243,3 @@ export default function IntrospectDataSourceModal({
     </>
   );
 }
-

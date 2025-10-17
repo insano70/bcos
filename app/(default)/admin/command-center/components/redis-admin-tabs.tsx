@@ -1,19 +1,24 @@
 'use client';
 
 import { useState } from 'react';
+import AnalyticsCacheDashboard from './analytics-cache-dashboard';
 import RedisCacheStats from './redis-cache-stats';
 import RedisKeyBrowser from './redis-key-browser';
-import RedisPurgeTools from './redis-purge-tools';
 import RedisKeyInspector from './redis-key-inspector';
-import AnalyticsCacheDashboard from './analytics-cache-dashboard';
+import RedisPurgeTools from './redis-purge-tools';
 
 interface RedisAdminTabsProps {
   autoRefresh?: boolean;
   refreshInterval?: number;
 }
 
-export default function RedisAdminTabs({ autoRefresh = true, refreshInterval = 30000 }: RedisAdminTabsProps) {
-  const [activeTab, setActiveTab] = useState<'analytics' | 'overview' | 'keys' | 'admin'>('analytics');
+export default function RedisAdminTabs({
+  autoRefresh = true,
+  refreshInterval = 30000,
+}: RedisAdminTabsProps) {
+  const [activeTab, setActiveTab] = useState<'analytics' | 'overview' | 'keys' | 'admin'>(
+    'analytics'
+  );
   const [inspectingKey, setInspectingKey] = useState<string | null>(null);
 
   const tabs = [
@@ -26,7 +31,9 @@ export default function RedisAdminTabs({ autoRefresh = true, refreshInterval = 3
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Redis Cache Management</h3>
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+          Redis Cache Management
+        </h3>
       </div>
 
       <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
@@ -54,12 +61,8 @@ export default function RedisAdminTabs({ autoRefresh = true, refreshInterval = 3
         {activeTab === 'overview' && (
           <RedisCacheStats autoRefresh={autoRefresh} refreshInterval={refreshInterval} />
         )}
-        {activeTab === 'keys' && (
-          <RedisKeyBrowser onInspectKey={setInspectingKey} />
-        )}
-        {activeTab === 'admin' && (
-          <RedisPurgeTools />
-        )}
+        {activeTab === 'keys' && <RedisKeyBrowser onInspectKey={setInspectingKey} />}
+        {activeTab === 'admin' && <RedisPurgeTools />}
       </div>
 
       <RedisKeyInspector
@@ -76,4 +79,3 @@ export default function RedisAdminTabs({ autoRefresh = true, refreshInterval = 3
     </div>
   );
 }
-

@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors, rbacConfigs } from '@/lib/api/utils/rbac-extractors';
 import { calculateChanges, log, logTemplates } from '@/lib/logger';

@@ -1,11 +1,11 @@
 'use client';
 
 import { usePermissions } from '@/lib/hooks/use-permissions';
-import { type ProtectedComponentProps } from '@/lib/types/rbac';
+import type { ProtectedComponentProps } from '@/lib/types/rbac';
 
 /**
  * ProtectedComponent - Conditional rendering based on permissions
- * 
+ *
  * Hides/shows UI elements based on user's RBAC permissions
  * This is the UX layer of security - not a security boundary
  */
@@ -17,7 +17,7 @@ export function ProtectedComponent({
   organizationId,
   children,
   fallback = null,
-  showFallback = true
+  showFallback = true,
 }: ProtectedComponentProps) {
   const { hasPermission, hasAnyPermission, hasAllPermissions, isLoading } = usePermissions();
 
@@ -38,7 +38,7 @@ export function ProtectedComponent({
   }
 
   if (!hasAccess) {
-    return showFallback ? <>{fallback}</> : null;
+    return showFallback ? fallback : null;
   }
 
   return <>{children}</>;
@@ -53,7 +53,7 @@ export function ProtectedComponent({
  */
 export function SuperAdminOnly({
   children,
-  fallback
+  fallback,
 }: {
   children: React.ReactNode;
   fallback?: React.ReactNode;
@@ -65,7 +65,7 @@ export function SuperAdminOnly({
   }
 
   if (!isSuperAdmin) {
-    return fallback ? <>{fallback}</> : null;
+    return fallback ? fallback : null;
   }
 
   return <>{children}</>;
@@ -77,7 +77,7 @@ export function SuperAdminOnly({
 export function OrgAdminOnly({
   children,
   fallback,
-  organizationId
+  organizationId,
 }: {
   children: React.ReactNode;
   fallback?: React.ReactNode;
@@ -91,12 +91,12 @@ export function OrgAdminOnly({
 
   const isAdmin = organizationId
     ? permissions.isOrganizationAdmin(organizationId)
-    : permissions.accessibleOrganizations.some(org =>
+    : permissions.accessibleOrganizations.some((org) =>
         permissions.isOrganizationAdmin(org.organization_id)
       );
 
   if (!isAdmin) {
-    return fallback ? <>{fallback}</> : null;
+    return fallback ? fallback : null;
   }
 
   return <>{children}</>;
@@ -105,20 +105,20 @@ export function OrgAdminOnly({
 /**
  * User Management Component
  */
-export function UserManagementOnly({ 
-  children, 
-  fallback 
-}: { 
-  children: React.ReactNode; 
-  fallback?: React.ReactNode; 
+export function UserManagementOnly({
+  children,
+  fallback,
+}: {
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
 }) {
   return (
-    <ProtectedComponent 
+    <ProtectedComponent
       permissions={[
         'users:read:organization',
         'users:create:organization',
         'users:update:organization',
-        'users:delete:organization'
+        'users:delete:organization',
       ]}
       fallback={fallback}
     >
@@ -130,20 +130,16 @@ export function UserManagementOnly({
 /**
  * Practice Management Component
  */
-export function PracticeManagementOnly({ 
-  children, 
-  fallback 
-}: { 
-  children: React.ReactNode; 
-  fallback?: React.ReactNode; 
+export function PracticeManagementOnly({
+  children,
+  fallback,
+}: {
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
 }) {
   return (
-    <ProtectedComponent 
-      permissions={[
-        'practices:update:own',
-        'practices:staff:manage:own',
-        'practices:manage:all'
-      ]}
+    <ProtectedComponent
+      permissions={['practices:update:own', 'practices:staff:manage:own', 'practices:manage:all']}
       fallback={fallback}
     >
       {children}
@@ -154,19 +150,16 @@ export function PracticeManagementOnly({
 /**
  * Analytics Access Component
  */
-export function AnalyticsOnly({ 
-  children, 
-  fallback 
-}: { 
-  children: React.ReactNode; 
-  fallback?: React.ReactNode; 
+export function AnalyticsOnly({
+  children,
+  fallback,
+}: {
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
 }) {
   return (
-    <ProtectedComponent 
-      permissions={[
-        'analytics:read:organization',
-        'analytics:read:all'
-      ]}
+    <ProtectedComponent
+      permissions={['analytics:read:organization', 'analytics:read:all']}
       fallback={fallback}
     >
       {children}
@@ -177,20 +170,20 @@ export function AnalyticsOnly({
 /**
  * Settings Access Component
  */
-export function SettingsOnly({ 
-  children, 
-  fallback 
-}: { 
-  children: React.ReactNode; 
-  fallback?: React.ReactNode; 
+export function SettingsOnly({
+  children,
+  fallback,
+}: {
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
 }) {
   return (
-    <ProtectedComponent 
+    <ProtectedComponent
       permissions={[
         'settings:read:organization',
         'settings:update:organization',
         'settings:read:all',
-        'settings:update:all'
+        'settings:update:all',
       ]}
       fallback={fallback}
     >
@@ -206,7 +199,7 @@ export function OwnResourceOnly({
   children,
   fallback,
   resourceId,
-  resourceType = 'users'
+  resourceType = 'users',
 }: {
   children: React.ReactNode;
   fallback?: React.ReactNode;
@@ -239,7 +232,7 @@ export function PermissionLevelComponent({
   allContent,
   resourceType,
   resourceId,
-  organizationId
+  organizationId,
 }: {
   ownContent?: React.ReactNode;
   orgContent?: React.ReactNode;

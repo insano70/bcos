@@ -1,43 +1,45 @@
 /**
  * Analytics Cache V2 Unit Tests
- * 
+ *
  * Tests the Redis secondary index set implementation for efficient cache lookups.
  */
 
-import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
 import type { Redis } from 'ioredis';
+import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 
 // Hoist mocks using vi.hoisted() to ensure they're available in vi.mock()
 // Provide default mock Redis client to prevent singleton initialization failure
-const { mockGetRedisClient, mockExecuteAnalyticsQuery, mockGetDataSourceConfigById } = vi.hoisted(() => {
-  const defaultMockRedis = {
-    pipeline: vi.fn(() => ({
-      set: vi.fn().mockReturnThis(),
-      sadd: vi.fn().mockReturnThis(),
-      expire: vi.fn().mockReturnThis(),
-      exec: vi.fn().mockResolvedValue([]),
-      length: 0,
-    })),
-    set: vi.fn().mockResolvedValue('OK'),
-    get: vi.fn().mockResolvedValue(null),
-    del: vi.fn().mockResolvedValue(1),
-    expire: vi.fn().mockResolvedValue(1),
-    smembers: vi.fn().mockResolvedValue([]),
-    scard: vi.fn().mockResolvedValue(0),
-    srandmember: vi.fn().mockResolvedValue(null),
-    sunionstore: vi.fn().mockResolvedValue(1),
-    sinterstore: vi.fn().mockResolvedValue(1),
-    mget: vi.fn().mockResolvedValue([]),
-    scan: vi.fn().mockResolvedValue(['0', []]),
-    memory: vi.fn().mockResolvedValue(1024),
-  };
-  
-  return {
-    mockGetRedisClient: vi.fn().mockReturnValue(defaultMockRedis),
-    mockExecuteAnalyticsQuery: vi.fn(),
-    mockGetDataSourceConfigById: vi.fn(),
-  };
-});
+const { mockGetRedisClient, mockExecuteAnalyticsQuery, mockGetDataSourceConfigById } = vi.hoisted(
+  () => {
+    const defaultMockRedis = {
+      pipeline: vi.fn(() => ({
+        set: vi.fn().mockReturnThis(),
+        sadd: vi.fn().mockReturnThis(),
+        expire: vi.fn().mockReturnThis(),
+        exec: vi.fn().mockResolvedValue([]),
+        length: 0,
+      })),
+      set: vi.fn().mockResolvedValue('OK'),
+      get: vi.fn().mockResolvedValue(null),
+      del: vi.fn().mockResolvedValue(1),
+      expire: vi.fn().mockResolvedValue(1),
+      smembers: vi.fn().mockResolvedValue([]),
+      scard: vi.fn().mockResolvedValue(0),
+      srandmember: vi.fn().mockResolvedValue(null),
+      sunionstore: vi.fn().mockResolvedValue(1),
+      sinterstore: vi.fn().mockResolvedValue(1),
+      mget: vi.fn().mockResolvedValue([]),
+      scan: vi.fn().mockResolvedValue(['0', []]),
+      memory: vi.fn().mockResolvedValue(1024),
+    };
+
+    return {
+      mockGetRedisClient: vi.fn().mockReturnValue(defaultMockRedis),
+      mockExecuteAnalyticsQuery: vi.fn(),
+      mockGetDataSourceConfigById: vi.fn(),
+    };
+  }
+);
 
 vi.mock('@/lib/redis', () => ({
   getRedisClient: mockGetRedisClient,
@@ -53,7 +55,7 @@ vi.mock('@/lib/services/chart-config-service', () => ({
   },
 }));
 
-import { IndexedAnalyticsCache, type CacheEntry, type CacheQueryFilters } from '@/lib/cache/indexed-analytics-cache';
+import { type CacheQueryFilters, IndexedAnalyticsCache } from '@/lib/cache/indexed-analytics-cache';
 
 describe('IndexedAnalyticsCache', () => {
   let cache: IndexedAnalyticsCache;
@@ -107,7 +109,7 @@ describe('IndexedAnalyticsCache', () => {
   describe('Cache Key Generation', () => {
     it('should generate correct cache key format', () => {
       // Access private method through instance - this is implementation testing
-      const entry = {
+      const _entry = {
         datasourceId: 1,
         measure: 'Charges',
         practiceUid: 114,
@@ -206,7 +208,7 @@ describe('IndexedAnalyticsCache', () => {
 
       const pipeline = mockRedis.pipeline as Mock;
       const pipelineInstance = pipeline.mock.results[0]?.value;
-      
+
       // Should set TTL of 4 hours (14400 seconds)
       expect(pipelineInstance.set).toHaveBeenCalledWith(
         expect.any(String),
@@ -214,11 +216,8 @@ describe('IndexedAnalyticsCache', () => {
         'EX',
         14400 // 4 hours
       );
-      
-      expect(pipelineInstance.expire).toHaveBeenCalledWith(
-        expect.any(String),
-        14400
-      );
+
+      expect(pipelineInstance.expire).toHaveBeenCalledWith(expect.any(String), 14400);
     });
 
     it('should set metadata after warming', async () => {
@@ -236,13 +235,7 @@ describe('IndexedAnalyticsCache', () => {
       await cache.warmCache(datasourceId);
 
       // Should acquire lock
-      expect(mockRedis.set).toHaveBeenCalledWith(
-        'lock:cache:warm:1',
-        '1',
-        'EX',
-        300,
-        'NX'
-      );
+      expect(mockRedis.set).toHaveBeenCalledWith('lock:cache:warm:1', '1', 'EX', 300, 'NX');
 
       // Should release lock
       expect(mockRedis.del).toHaveBeenCalledWith('lock:cache:warm:1');
@@ -273,9 +266,7 @@ describe('IndexedAnalyticsCache', () => {
     it('should handle data source not found', async () => {
       mockGetDataSourceConfigById.mockResolvedValue(null);
 
-      await expect(cache.warmCache(datasourceId)).rejects.toThrow(
-        'Data source not found: 1'
-      );
+      await expect(cache.warmCache(datasourceId)).rejects.toThrow('Data source not found: 1');
     });
 
     it('should batch pipeline operations', async () => {
@@ -457,8 +448,9 @@ describe('IndexedAnalyticsCache', () => {
 
     it('should handle large result sets with batching', async () => {
       // Create 15000 cache keys (exceeds QUERY_BATCH_SIZE of 10000)
-      const largeCacheKeys = Array.from({ length: 15000 }, (_, i) => 
-        `cache:ds:1:m:Charges:p:114:prov:${i}:freq:Monthly`
+      const largeCacheKeys = Array.from(
+        { length: 15000 },
+        (_, i) => `cache:ds:1:m:Charges:p:114:prov:${i}:freq:Monthly`
       );
 
       (mockRedis.smembers as Mock).mockResolvedValue(largeCacheKeys);
@@ -542,10 +534,10 @@ describe('IndexedAnalyticsCache', () => {
         'cache:ds:1:m:Charges:p:114:prov:5:freq:Monthly',
         'cache:ds:1:m:Charges:p:114:prov:6:freq:Monthly',
       ]);
-      (mockRedis.scan as Mock).mockResolvedValue(['0', [
-        'idx:ds:1:master',
-        'idx:ds:1:m:Charges:freq:Monthly',
-      ]]);
+      (mockRedis.scan as Mock).mockResolvedValue([
+        '0',
+        ['idx:ds:1:master', 'idx:ds:1:m:Charges:freq:Monthly'],
+      ]);
     });
 
     it('should use master index to find all cache keys', async () => {
@@ -566,13 +558,7 @@ describe('IndexedAnalyticsCache', () => {
     it('should delete all index keys using SCAN', async () => {
       await cache.invalidate(datasourceId);
 
-      expect(mockRedis.scan).toHaveBeenCalledWith(
-        '0',
-        'MATCH',
-        'idx:ds:1:*',
-        'COUNT',
-        1000
-      );
+      expect(mockRedis.scan).toHaveBeenCalledWith('0', 'MATCH', 'idx:ds:1:*', 'COUNT', 1000);
 
       expect(mockRedis.del).toHaveBeenCalledWith(
         'idx:ds:1:master',
@@ -592,14 +578,13 @@ describe('IndexedAnalyticsCache', () => {
       await cache.invalidate(datasourceId);
 
       // Should not attempt to delete cache keys
-      expect(mockRedis.del).not.toHaveBeenCalledWith(
-        expect.stringContaining('cache:ds')
-      );
+      expect(mockRedis.del).not.toHaveBeenCalledWith(expect.stringContaining('cache:ds'));
     });
 
     it('should batch delete for large key sets', async () => {
-      const largeCacheKeys = Array.from({ length: 2500 }, (_, i) =>
-        `cache:ds:1:m:Charges:p:114:prov:${i}:freq:Monthly`
+      const largeCacheKeys = Array.from(
+        { length: 2500 },
+        (_, i) => `cache:ds:1:m:Charges:p:114:prov:${i}:freq:Monthly`
       );
 
       (mockRedis.smembers as Mock).mockResolvedValue(largeCacheKeys);
@@ -632,7 +617,9 @@ describe('IndexedAnalyticsCache', () => {
     beforeEach(() => {
       (mockRedis.scard as Mock).mockResolvedValue(100);
       (mockRedis.get as Mock).mockResolvedValue('2024-01-15T10:00:00.000Z');
-      (mockRedis.srandmember as Mock).mockResolvedValue('cache:ds:1:m:Charges:p:114:prov:5:freq:Monthly');
+      (mockRedis.srandmember as Mock).mockResolvedValue(
+        'cache:ds:1:m:Charges:p:114:prov:5:freq:Monthly'
+      );
       (mockRedis.memory as Mock).mockResolvedValue(2048);
       (mockRedis.scan as Mock).mockResolvedValue(['0', ['idx1', 'idx2', 'idx3', 'idx4', 'idx5']]);
     });
@@ -662,13 +649,7 @@ describe('IndexedAnalyticsCache', () => {
     it('should count index keys using SCAN', async () => {
       const stats = await cache.getCacheStats(datasourceId);
 
-      expect(mockRedis.scan).toHaveBeenCalledWith(
-        '0',
-        'MATCH',
-        'idx:ds:1:*',
-        'COUNT',
-        1000
-      );
+      expect(mockRedis.scan).toHaveBeenCalledWith('0', 'MATCH', 'idx:ds:1:*', 'COUNT', 1000);
       expect(stats.indexCount).toBe(5);
     });
 
@@ -718,4 +699,3 @@ describe('IndexedAnalyticsCache', () => {
     });
   });
 });
-

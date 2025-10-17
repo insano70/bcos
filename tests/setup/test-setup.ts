@@ -1,16 +1,23 @@
-import { beforeEach, afterEach, afterAll, beforeAll } from 'vitest'
-import { initializeMainTransaction, getTestTransaction, rollbackTransaction, cleanupTestDb } from '@/tests/helpers/db-helper'
-import { emergencyCleanup } from './cleanup'
-import { log } from '@/lib/logger'
-import '@testing-library/jest-dom'
+import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest';
+import { log } from '@/lib/logger';
+import {
+  cleanupTestDb,
+  getTestTransaction,
+  initializeMainTransaction,
+  rollbackTransaction,
+} from '@/tests/helpers/db-helper';
+import { emergencyCleanup } from './cleanup';
+import '@testing-library/jest-dom';
 
 // Ensure environment variables are set for tests
 // Only set DATABASE_URL if it's not already set (to avoid overriding existing config)
 if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = 'postgresql://bcos_d:oRMgpg2micRfQVXz7Bfbr@localhost:5432/bcos_d';
 }
-process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-that-is-at-least-32-characters-long-for-security';
-process.env.JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'test-refresh-secret-that-is-at-least-32-characters-long';
+process.env.JWT_SECRET =
+  process.env.JWT_SECRET || 'test-secret-that-is-at-least-32-characters-long-for-security';
+process.env.JWT_REFRESH_SECRET =
+  process.env.JWT_REFRESH_SECRET || 'test-refresh-secret-that-is-at-least-32-characters-long';
 
 /**
  * Initialize main transaction for the entire test session
@@ -20,16 +27,20 @@ beforeAll(async () => {
   try {
     log.info('Initializing main test transaction', {
       operation: 'testSetup',
-      phase: 'transaction'
-    })
-    await initializeMainTransaction()
+      phase: 'transaction',
+    });
+    await initializeMainTransaction();
   } catch (error) {
-    log.error('Failed to initialize main transaction', error instanceof Error ? error : new Error(String(error)), {
-      operation: 'testSetup'
-    })
-    throw error
+    log.error(
+      'Failed to initialize main transaction',
+      error instanceof Error ? error : new Error(String(error)),
+      {
+        operation: 'testSetup',
+      }
+    );
+    throw error;
   }
-})
+});
 
 /**
  * Per-test setup - runs before each test
@@ -38,14 +49,14 @@ beforeAll(async () => {
 beforeEach(async () => {
   try {
     // Create a savepoint for this test
-    await getTestTransaction()
+    await getTestTransaction();
   } catch (error) {
     log.error('Test setup failed', error instanceof Error ? error : new Error(String(error)), {
-      operation: 'testSetup'
-    })
-    throw error
+      operation: 'testSetup',
+    });
+    throw error;
   }
-})
+});
 
 /**
  * Per-test teardown - runs after each test
@@ -54,23 +65,27 @@ beforeEach(async () => {
 afterEach(async () => {
   try {
     // Rollback to the savepoint (undoes all test changes)
-    await rollbackTransaction()
+    await rollbackTransaction();
   } catch (error) {
     log.warn('Test cleanup failed', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      operation: 'testCleanup'
-    })
-    
+      operation: 'testCleanup',
+    });
+
     // Try emergency cleanup if normal cleanup fails
     try {
-      await emergencyCleanup()
+      await emergencyCleanup();
     } catch (emergencyError) {
-      log.error('Emergency cleanup failed', emergencyError instanceof Error ? emergencyError : new Error(String(emergencyError)), {
-        operation: 'emergencyCleanup'
-      })
+      log.error(
+        'Emergency cleanup failed',
+        emergencyError instanceof Error ? emergencyError : new Error(String(emergencyError)),
+        {
+          operation: 'emergencyCleanup',
+        }
+      );
     }
   }
-})
+});
 
 /**
  * Global cleanup - runs after all tests complete
@@ -80,21 +95,20 @@ afterAll(async () => {
   try {
     // TEST: log.info('🧹 Starting process cleanup...')
     log.info('Starting process cleanup', {
-      operation: 'processCleanup'
-    })
-    
+      operation: 'processCleanup',
+    });
+
     // This will rollback the main transaction and clean up connections
-    await cleanupTestDb()
-    
+    await cleanupTestDb();
+
     // TEST: log.info('✅ Process cleanup completed')
     log.info('Process cleanup completed', {
-      operation: 'processCleanup'
-    })
-    
+      operation: 'processCleanup',
+    });
   } catch (error) {
     log.error('Process cleanup failed', error instanceof Error ? error : new Error(String(error)), {
-      operation: 'processCleanup'
-    })
+      operation: 'processCleanup',
+    });
     // Don't throw - we want tests to complete even if cleanup fails
   }
-})
+});

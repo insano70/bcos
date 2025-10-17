@@ -12,14 +12,14 @@
  * ```
  */
 
-import { log } from '@/lib/logger';
-import type { SecurityEvent } from './types';
 import type {
   CloudWatchLogsClient as CWLClient,
-  StartQueryCommand as SQCommand,
   GetQueryResultsCommand as GQRCommand,
   ResultField,
+  StartQueryCommand as SQCommand,
 } from '@aws-sdk/client-cloudwatch-logs';
+import { log } from '@/lib/logger';
+import type { SecurityEvent } from './types';
 
 /**
  * Query security events from CloudWatch Logs
@@ -237,15 +237,15 @@ export function generateCorrelationTraceURL(correlationId: string, region?: stri
   const awsRegion = region || process.env.AWS_REGION || 'us-east-1';
   const logGroupName = getLogGroupName();
   const encodedLogGroup = encodeURIComponent(logGroupName);
-  
+
   // Build the query
   const query = `fields @timestamp, level, message, operation, duration\n| filter correlationId = "${correlationId}"\n| sort @timestamp asc`;
   const encodedQuery = encodeURIComponent(query);
-  
+
   // CloudWatch Logs Insights URL format
   const baseURL = `https://${awsRegion}.console.aws.amazon.com/cloudwatch/home`;
   const queryParams = `?region=${awsRegion}#logsV2:logs-insights$3FqueryDetail$3D~(end~0~start~-3600~timeType~'RELATIVE~unit~'seconds~editorString~'${encodedQuery}~source~(~'${encodedLogGroup}))`;
-  
+
   return baseURL + queryParams;
 }
 
@@ -329,18 +329,22 @@ export async function querySlowQueries(
     const client = new CloudWatchLogsClient({ region: process.env.AWS_REGION || 'us-east-1' });
     const { startTime, endTime } = parseTimeRange(timeRange);
 
-    const startResult = await client.send(new StartQueryCommand({
-      logGroupName: getLogGroupName(),
-      startTime,
-      endTime,
-      queryString: query,
-    }));
+    const startResult = await client.send(
+      new StartQueryCommand({
+        logGroupName: getLogGroupName(),
+        startTime,
+        endTime,
+        queryString: query,
+      })
+    );
 
     if (!startResult.queryId) return [];
 
     let attempts = 0;
     while (attempts < 30) {
-      const result = await client.send(new GetQueryResultsCommand({ queryId: startResult.queryId }));
+      const result = await client.send(
+        new GetQueryResultsCommand({ queryId: startResult.queryId })
+      );
 
       if (result.status === 'Complete') {
         return (result.results || []).map((r: ResultField[]) => {
@@ -356,7 +360,7 @@ export async function querySlowQueries(
 
       if (result.status === 'Failed' || result.status === 'Cancelled') return [];
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       attempts++;
     }
 
@@ -405,18 +409,22 @@ export async function queryErrors(
     const client = new CloudWatchLogsClient({ region: process.env.AWS_REGION || 'us-east-1' });
     const { startTime, endTime } = parseTimeRange(timeRange);
 
-    const startResult = await client.send(new StartQueryCommand({
-      logGroupName: getLogGroupName(),
-      startTime,
-      endTime,
-      queryString: query,
-    }));
+    const startResult = await client.send(
+      new StartQueryCommand({
+        logGroupName: getLogGroupName(),
+        startTime,
+        endTime,
+        queryString: query,
+      })
+    );
 
     if (!startResult.queryId) return [];
 
     let attempts = 0;
     while (attempts < 30) {
-      const result = await client.send(new GetQueryResultsCommand({ queryId: startResult.queryId }));
+      const result = await client.send(
+        new GetQueryResultsCommand({ queryId: startResult.queryId })
+      );
 
       if (result.status === 'Complete') {
         return (result.results || []).map((r: ResultField[]) => {
@@ -432,7 +440,7 @@ export async function queryErrors(
 
       if (result.status === 'Failed' || result.status === 'Cancelled') return [];
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       attempts++;
     }
 
@@ -441,4 +449,3 @@ export async function queryErrors(
     return [];
   }
 }
-

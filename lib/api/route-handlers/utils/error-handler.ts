@@ -72,18 +72,10 @@ export class RouteErrorHandler {
     });
 
     // Record metrics for error
-    await RouteErrorHandler.recordErrorMetrics(
-      endpoint,
-      totalDuration,
-      context.userId
-    );
+    await RouteErrorHandler.recordErrorMetrics(endpoint, totalDuration, context.userId);
 
     // Return standardized error response
-    return createErrorResponse(
-      RouteErrorHandler.getErrorMessage(error),
-      500,
-      request
-    ) as Response;
+    return createErrorResponse(RouteErrorHandler.getErrorMessage(error), 500, request) as Response;
   }
 
   /**

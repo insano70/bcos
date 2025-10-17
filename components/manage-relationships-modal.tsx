@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
-import ModalBlank from '@/components/modal-blank';
-import {
-  useTypeRelationshipsForParent,
-  useDeleteTypeRelationship,
-  type WorkItemTypeRelationship,
-} from '@/lib/hooks/use-work-item-type-relationships';
+import { useCallback, useMemo, useState } from 'react';
 import AddRelationshipModal from '@/components/add-relationship-modal';
 import EditRelationshipModal from '@/components/edit-relationship-modal';
+import ModalBlank from '@/components/modal-blank';
+import {
+  useDeleteTypeRelationship,
+  useTypeRelationshipsForParent,
+  type WorkItemTypeRelationship,
+} from '@/lib/hooks/use-work-item-type-relationships';
 
 interface ManageRelationshipsModalProps {
   isOpen: boolean;
@@ -24,9 +24,16 @@ export default function ManageRelationshipsModal({
   workItemTypeName,
 }: ManageRelationshipsModalProps) {
   const [isAddRelationshipOpen, setIsAddRelationshipOpen] = useState(false);
-  const [editingRelationship, setEditingRelationship] = useState<WorkItemTypeRelationship | null>(null);
+  const [editingRelationship, setEditingRelationship] = useState<WorkItemTypeRelationship | null>(
+    null
+  );
 
-  const { data: relationships, isLoading, error, refetch } = useTypeRelationshipsForParent(workItemTypeId);
+  const {
+    data: relationships,
+    isLoading,
+    error,
+    refetch,
+  } = useTypeRelationshipsForParent(workItemTypeId);
   const deleteRelationship = useDeleteTypeRelationship();
 
   const handleDeleteRelationship = useCallback(
@@ -93,7 +100,9 @@ export default function ManageRelationshipsModal({
           {isLoading && (
             <div className="text-center py-8">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100"></div>
-              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Loading relationships...</p>
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                Loading relationships...
+              </p>
             </div>
           )}
 

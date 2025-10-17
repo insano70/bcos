@@ -1,4 +1,5 @@
 import { headers } from 'next/headers';
+import { log } from '@/lib/logger';
 import type { CSPNonces } from './headers';
 
 /**
@@ -28,9 +29,11 @@ export async function getServerNonces(): Promise<CSPNonces> {
     const isDevelopment = process.env.NODE_ENV === 'development';
 
     if (isDevelopment) {
-      console.warn(
-        '⚠️ CSP nonces not found in request headers - generating fallback nonces (this may indicate static generation or edge case)'
-      );
+      log.warn('CSP nonces not found in request headers - generating fallback nonces', {
+        operation: 'get_nonces',
+        reason: 'missing_headers',
+        component: 'security',
+      });
     }
 
     return {
@@ -89,7 +92,10 @@ export async function getServerNoncesSafe(): Promise<CSPNonces | null> {
   try {
     return await getServerNonces();
   } catch (error) {
-    console.error('❌ Failed to retrieve server nonces:', error);
+    log.error('Failed to retrieve server nonces', error, {
+      operation: 'get_nonces_safe',
+      component: 'security',
+    });
     return null;
   }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface TableColumn {
   columnName: string;
@@ -39,13 +39,13 @@ export default function AnalyticsTableChart({
   columns,
   colorPalette = 'default',
   title,
-  height = 400
+  height = 400,
 }: AnalyticsTableChartProps) {
   // Phase 3.2: Use server-formatted data if available, otherwise fall back to raw data
   const useFormattedData = formattedData && formattedData.length > 0;
   const displayData = useFormattedData ? formattedData : data;
   const [mounted, setMounted] = useState(false);
-  const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
+  const [_hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   const [showScrollIndicator, setShowScrollIndicator] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -56,7 +56,7 @@ export default function AnalyticsTableChart({
       formattedDataRows: formattedData?.length,
       useFormattedData,
       columns: columns?.length,
-      columnsData: columns
+      columnsData: columns,
     });
   }, [data, formattedData, useFormattedData, columns]);
 
@@ -87,7 +87,7 @@ export default function AnalyticsTableChart({
           scrollTop,
           isScrollable,
           isAtBottom,
-          willShowIndicator: isScrollable && !isAtBottom
+          willShowIndicator: isScrollable && !isAtBottom,
         });
 
         setShowScrollIndicator(isScrollable && !isAtBottom);
@@ -141,15 +141,23 @@ export default function AnalyticsTableChart({
     dataLength: data?.length,
     formattedDataLength: formattedData?.length,
     useFormattedData,
-    columnsLength: columns?.length
+    columnsLength: columns?.length,
   });
 
   if (!displayData || displayData.length === 0) {
     console.log('⚠️ No data to display');
     return (
-      <div style={{ height: `${height}px` }} className="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
+      <div
+        style={{ height: `${height}px` }}
+        className="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400"
+      >
         <svg className="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 0v10" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 0v10"
+          />
         </svg>
         <p className="text-sm font-medium">No Data Available</p>
       </div>
@@ -159,7 +167,10 @@ export default function AnalyticsTableChart({
   if (!columns || columns.length === 0) {
     console.log('⚠️ No columns configured');
     return (
-      <div style={{ height: `${height}px` }} className="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
+      <div
+        style={{ height: `${height}px` }}
+        className="flex flex-col items-center justify-center text-gray-500 dark:text-gray-400"
+      >
         <p className="text-sm font-medium">No columns configured</p>
       </div>
     );
@@ -172,15 +183,23 @@ export default function AnalyticsTableChart({
   const getCellValue = (
     row: Record<string, unknown> | Record<string, FormattedCell>,
     columnName: string
-  ): { displayValue: string; rawValue: unknown; icon?: { name: string; color?: string; type?: string } } => {
+  ): {
+    displayValue: string;
+    rawValue: unknown;
+    icon?: { name: string; color?: string; type?: string };
+  } => {
     const cellData = row[columnName];
 
     // Phase 3.2: Check if this is formatted data from server
     if (cellData && typeof cellData === 'object' && 'formatted' in cellData) {
       const formattedCell = cellData as FormattedCell;
-      const result: { displayValue: string; rawValue: unknown; icon?: { name: string; color?: string; type?: string } } = {
+      const result: {
+        displayValue: string;
+        rawValue: unknown;
+        icon?: { name: string; color?: string; type?: string };
+      } = {
         displayValue: formattedCell.formatted,
-        rawValue: formattedCell.raw
+        rawValue: formattedCell.raw,
       };
       if (formattedCell.icon) {
         result.icon = formattedCell.icon;
@@ -190,8 +209,8 @@ export default function AnalyticsTableChart({
 
     // Legacy: Client-side formatting for backward compatibility
     return {
-      displayValue: formatValueLegacy(cellData, columns.find(c => c.columnName === columnName)!),
-      rawValue: cellData
+      displayValue: formatValueLegacy(cellData, columns.find((c) => c.columnName === columnName)!),
+      rawValue: cellData,
     };
   };
 
@@ -213,13 +232,13 @@ export default function AnalyticsTableChart({
           style: 'currency',
           currency: 'USD',
           minimumFractionDigits: 2,
-          maximumFractionDigits: 2
+          maximumFractionDigits: 2,
         }).format(numValue);
       }
 
       return new Intl.NumberFormat('en-US', {
         minimumFractionDigits: 2,
-        maximumFractionDigits: 2
+        maximumFractionDigits: 2,
       }).format(numValue);
     }
 
@@ -229,7 +248,7 @@ export default function AnalyticsTableChart({
         return date.toLocaleDateString('en-US', {
           year: 'numeric',
           month: '2-digit',
-          day: '2-digit'
+          day: '2-digit',
         });
       } catch {
         return String(value);
@@ -237,7 +256,7 @@ export default function AnalyticsTableChart({
     }
 
     if (formatType === 'integer' || column.dataType === 'integer') {
-      const numValue = typeof value === 'string' ? Number.parseInt(value) : Number(value);
+      const numValue = typeof value === 'string' ? Number.parseInt(value, 10) : Number(value);
       if (Number.isNaN(numValue)) return String(value);
       return new Intl.NumberFormat('en-US').format(numValue);
     }
@@ -267,7 +286,7 @@ export default function AnalyticsTableChart({
     }
 
     // Extract initials from words
-    const words = cleaned.split(/\s+/).filter(word => word.length > 0);
+    const words = cleaned.split(/\s+/).filter((word) => word.length > 0);
     if (words.length === 0) return '?';
 
     if (words.length === 1) {
@@ -278,7 +297,7 @@ export default function AnalyticsTableChart({
     // Multiple words: take first letter of first 3 words
     return words
       .slice(0, 3)
-      .map(word => word.charAt(0).toUpperCase())
+      .map((word) => word.charAt(0).toUpperCase())
       .join('');
   };
 
@@ -320,7 +339,12 @@ export default function AnalyticsTableChart({
       return column.iconColor || '#6b7280';
     }
 
-    if (column.iconColorMode === 'mapped' && column.iconMapping && typeof column.iconMapping === 'object' && column.iconMapping !== null) {
+    if (
+      column.iconColorMode === 'mapped' &&
+      column.iconMapping &&
+      typeof column.iconMapping === 'object' &&
+      column.iconMapping !== null
+    ) {
       const mappingObj = column.iconMapping as Record<string, unknown>;
       const mapping = mappingObj[stringValue];
       if (mapping && typeof mapping === 'object' && 'color' in mapping) {
@@ -340,7 +364,11 @@ export default function AnalyticsTableChart({
     const stringValue = String(value || '');
 
     // Check for emoji mapping first
-    if (column.iconMapping && typeof column.iconMapping === 'object' && column.iconMapping !== null) {
+    if (
+      column.iconMapping &&
+      typeof column.iconMapping === 'object' &&
+      column.iconMapping !== null
+    ) {
       const mappingObj = column.iconMapping as Record<string, unknown>;
       const mapping = mappingObj[stringValue];
       if (mapping && typeof mapping === 'object' && 'icon' in mapping) {
@@ -363,7 +391,7 @@ export default function AnalyticsTableChart({
   // Calculate the available height for the scrollable content
   const titleHeight = title ? 50 : 0; // Title + border height
   const padding = 24; // 12px top + 12px bottom
-  const availableHeight = height - titleHeight - padding;
+  const _availableHeight = height - titleHeight - padding;
 
   return (
     <div className="w-full relative" style={{ height: `${height}px` }}>
@@ -399,40 +427,45 @@ export default function AnalyticsTableChart({
               {displayData.map((row, rowIndex) => {
                 console.log(`🔍 Rendering row ${rowIndex}:`, row);
                 return (
-                <tr key={rowIndex}>
-                  {columns.map((column, colIndex) => {
-                    const { displayValue, rawValue, icon } = getCellValue(row, column.columnName);
-                    const showIcon = column.displayIcon && colIndex === 0;
+                  <tr key={rowIndex}>
+                    {columns.map((column, colIndex) => {
+                      const { displayValue, rawValue, icon } = getCellValue(row, column.columnName);
+                      const showIcon = column.displayIcon && colIndex === 0;
 
-                    // Phase 3.2: Use server-provided icon if available, otherwise fall back to client generation
-                    const iconColor = icon?.color || getIconColor(rawValue, column);
-                    const iconContent = icon?.name || getIconContent(rawValue, column);
+                      // Phase 3.2: Use server-provided icon if available, otherwise fall back to client generation
+                      const iconColor = icon?.color || getIconColor(rawValue, column);
+                      const iconContent = icon?.name || getIconContent(rawValue, column);
 
-                    return (
-                      <td key={`${rowIndex}-${column.columnName}`} className="p-2 whitespace-nowrap">
-                        {showIcon ? (
-                          <div className="flex items-center">
-                            <div
-                              className="shrink-0 rounded-full mr-2 sm:mr-3 flex items-center justify-center w-9 h-9"
-                              style={{ backgroundColor: iconColor }}
-                            >
-                              <span className="text-white font-semibold text-sm">
-                                {iconContent}
-                              </span>
+                      return (
+                        <td
+                          key={`${rowIndex}-${column.columnName}`}
+                          className="p-2 whitespace-nowrap"
+                        >
+                          {showIcon ? (
+                            <div className="flex items-center">
+                              <div
+                                className="shrink-0 rounded-full mr-2 sm:mr-3 flex items-center justify-center w-9 h-9"
+                                style={{ backgroundColor: iconColor }}
+                              >
+                                <span className="text-white font-semibold text-sm">
+                                  {iconContent}
+                                </span>
+                              </div>
+                              <div className="font-medium text-gray-800 dark:text-gray-100">
+                                {displayValue}
+                              </div>
                             </div>
-                            <div className="font-medium text-gray-800 dark:text-gray-100">
+                          ) : (
+                            <div
+                              className={`${colIndex === 0 ? 'font-medium text-gray-800 dark:text-gray-100' : ''} ${getAlignment(column)}`}
+                            >
                               {displayValue}
                             </div>
-                          </div>
-                        ) : (
-                          <div className={`${colIndex === 0 ? 'font-medium text-gray-800 dark:text-gray-100' : ''} ${getAlignment(column)}`}>
-                            {displayValue}
-                          </div>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
                 );
               })}
             </tbody>
@@ -446,7 +479,7 @@ export default function AnalyticsTableChart({
           className="absolute left-0 right-0 flex justify-center pointer-events-none"
           style={{
             bottom: '20px',
-            zIndex: 10
+            zIndex: 10,
           }}
         >
           <div
@@ -457,7 +490,7 @@ export default function AnalyticsTableChart({
               borderRadius: '50%',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center'
+              justifyContent: 'center',
             }}
           >
             <svg

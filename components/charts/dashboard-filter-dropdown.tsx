@@ -1,16 +1,16 @@
 'use client';
 
 import { Popover, PopoverButton, PopoverPanel, Transition } from '@headlessui/react';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
 import type { DashboardUniversalFilters } from './dashboard-filter-bar';
 
 /**
  * Dashboard Filter Dropdown - Compact Version
- * 
+ *
  * Replaces the full-width DashboardFilterBar with a compact dropdown
  * in the top-right corner of the dashboard.
- * 
+ *
  * Features:
  * - Small filter icon button with active filter badge
  * - Compact popout panel (~320px wide)
@@ -20,7 +20,7 @@ import type { DashboardUniversalFilters } from './dashboard-filter-bar';
  */
 
 interface Organization {
-  id?: string;              // API returns 'id' field
+  id?: string; // API returns 'id' field
   organization_id?: string; // Legacy field name
   name: string;
   slug: string;
@@ -41,9 +41,9 @@ const DATE_PRESETS: DatePreset[] = [
       const today = new Date();
       return {
         startDate: today.toISOString().split('T')[0]!,
-        endDate: today.toISOString().split('T')[0]!
+        endDate: today.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'yesterday',
@@ -53,9 +53,9 @@ const DATE_PRESETS: DatePreset[] = [
       yesterday.setDate(yesterday.getDate() - 1);
       return {
         startDate: yesterday.toISOString().split('T')[0]!,
-        endDate: yesterday.toISOString().split('T')[0]!
+        endDate: yesterday.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_7_days',
@@ -66,9 +66,9 @@ const DATE_PRESETS: DatePreset[] = [
       start.setDate(start.getDate() - 7);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_14_days',
@@ -79,9 +79,9 @@ const DATE_PRESETS: DatePreset[] = [
       start.setDate(start.getDate() - 14);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_30_days',
@@ -92,9 +92,9 @@ const DATE_PRESETS: DatePreset[] = [
       start.setDate(start.getDate() - 30);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_90_days',
@@ -105,9 +105,9 @@ const DATE_PRESETS: DatePreset[] = [
       start.setDate(start.getDate() - 90);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_180_days',
@@ -118,9 +118,9 @@ const DATE_PRESETS: DatePreset[] = [
       start.setDate(start.getDate() - 180);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_365_days',
@@ -131,9 +131,9 @@ const DATE_PRESETS: DatePreset[] = [
       start.setDate(start.getDate() - 365);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   // Month-based periods
   {
@@ -145,9 +145,9 @@ const DATE_PRESETS: DatePreset[] = [
       const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_month',
@@ -158,9 +158,9 @@ const DATE_PRESETS: DatePreset[] = [
       const end = new Date(now.getFullYear(), now.getMonth(), 0);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_3_full_months',
@@ -171,9 +171,9 @@ const DATE_PRESETS: DatePreset[] = [
       const start = new Date(now.getFullYear(), now.getMonth() - 3, 1);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_6_full_months',
@@ -184,9 +184,9 @@ const DATE_PRESETS: DatePreset[] = [
       const start = new Date(now.getFullYear(), now.getMonth() - 6, 1);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_12_full_months',
@@ -197,9 +197,9 @@ const DATE_PRESETS: DatePreset[] = [
       const start = new Date(now.getFullYear(), now.getMonth() - 12, 1);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   // Quarter-based periods
   {
@@ -212,9 +212,9 @@ const DATE_PRESETS: DatePreset[] = [
       const end = new Date(now.getFullYear(), quarter * 3 + 3, 0);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_quarter',
@@ -226,9 +226,9 @@ const DATE_PRESETS: DatePreset[] = [
       const end = new Date(now.getFullYear(), quarter * 3, 0);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   // Year-based periods
   {
@@ -239,9 +239,9 @@ const DATE_PRESETS: DatePreset[] = [
       const start = new Date(now.getFullYear(), 0, 1);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: now.toISOString().split('T')[0]!
+        endDate: now.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'this_year',
@@ -252,9 +252,9 @@ const DATE_PRESETS: DatePreset[] = [
       const end = new Date(now.getFullYear(), 11, 31);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
   {
     id: 'last_year',
@@ -265,9 +265,9 @@ const DATE_PRESETS: DatePreset[] = [
       const end = new Date(now.getFullYear() - 1, 11, 31);
       return {
         startDate: start.toISOString().split('T')[0]!,
-        endDate: end.toISOString().split('T')[0]!
+        endDate: end.toISOString().split('T')[0]!,
       };
-    }
+    },
   },
 ];
 
@@ -298,10 +298,8 @@ export default function DashboardFilterDropdown({
     try {
       setLoadingOrganizations(true);
       // apiClient automatically unwraps { success: true, data: [...] } to just [...]
-      const orgList = await apiClient.get<Organization[]>(
-        '/api/organizations?is_active=true'
-      );
-      
+      const orgList = await apiClient.get<Organization[]>('/api/organizations?is_active=true');
+
       console.log('[DashboardFilterDropdown] Loaded organizations:', orgList.length);
       setOrganizations(orgList || []);
     } catch (error) {
@@ -326,7 +324,7 @@ export default function DashboardFilterDropdown({
   const handleDatePresetChange = (presetId: string) => {
     if (presetId === 'default') {
       // Clear date range override - use chart defaults
-      setPendingFilters(prev => {
+      setPendingFilters((prev) => {
         const newFilters = { ...prev };
         delete newFilters.dateRangePreset;
         delete newFilters.startDate;
@@ -334,12 +332,12 @@ export default function DashboardFilterDropdown({
         return newFilters;
       });
     } else if (presetId === 'custom') {
-      setPendingFilters(prev => ({ ...prev, dateRangePreset: presetId }));
+      setPendingFilters((prev) => ({ ...prev, dateRangePreset: presetId }));
     } else {
-      const preset = DATE_PRESETS.find(p => p.id === presetId);
+      const preset = DATE_PRESETS.find((p) => p.id === presetId);
       if (preset) {
         const { startDate, endDate } = preset.getDateRange();
-        setPendingFilters(prev => ({
+        setPendingFilters((prev) => ({
           ...prev,
           dateRangePreset: presetId,
           startDate,
@@ -350,10 +348,13 @@ export default function DashboardFilterDropdown({
   };
 
   const handleOrganizationChange = (organizationId: string) => {
-    setPendingFilters(prev => ({
-      ...prev,
-      organizationId: organizationId || undefined,
-    } as DashboardUniversalFilters));
+    setPendingFilters(
+      (prev) =>
+        ({
+          ...prev,
+          organizationId: organizationId || undefined,
+        }) as DashboardUniversalFilters
+    );
   };
 
   const handleClear = () => {
@@ -379,7 +380,7 @@ export default function DashboardFilterDropdown({
           </span>
         )}
       </PopoverButton>
-      
+
       <Transition
         enter="transition ease-out duration-200 transform"
         enterFrom="opacity-0 -translate-y-2"
@@ -388,9 +389,11 @@ export default function DashboardFilterDropdown({
         leaveFrom="opacity-100"
         leaveTo="opacity-0"
       >
-        <PopoverPanel className={`origin-top-right z-50 absolute top-full min-w-[20rem] max-w-[24rem] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden mt-1 ${
-          align === 'right' ? 'right-0' : 'left-0'
-        }`}>
+        <PopoverPanel
+          className={`origin-top-right z-50 absolute top-full min-w-[20rem] max-w-[24rem] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden mt-1 ${
+            align === 'right' ? 'right-0' : 'left-0'
+          }`}
+        >
           {({ close }) => (
             <div className="max-h-[32rem] overflow-y-auto">
               {/* Header */}
@@ -431,10 +434,9 @@ export default function DashboardFilterDropdown({
                     )}
                   </select>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {loadingOrganizations 
-                      ? 'Loading...' 
-                      : `${organizations.length} organizations available`
-                    }
+                    {loadingOrganizations
+                      ? 'Loading...'
+                      : `${organizations.length} organizations available`}
                   </p>
                 </div>
 
@@ -449,7 +451,7 @@ export default function DashboardFilterDropdown({
                     className="w-full px-2.5 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   >
                     <option value="default">Default Date Range</option>
-                    {DATE_PRESETS.map(preset => (
+                    {DATE_PRESETS.map((preset) => (
                       <option key={preset.id} value={preset.id}>
                         {preset.label}
                       </option>
@@ -486,4 +488,3 @@ export default function DashboardFilterDropdown({
     </Popover>
   );
 }
-

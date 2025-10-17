@@ -1,11 +1,11 @@
 'use client';
 
 import { useSelectedLayoutSegments } from 'next/navigation';
-import { useWindowWidth } from '@/components/utils/use-window-width';
 import { useAppProvider } from '@/app/app-provider';
-import SidebarLinkGroup from '../sidebar-link-group';
-import SidebarLink from '../sidebar-link';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
+import { useWindowWidth } from '@/components/utils/use-window-width';
+import SidebarLink from '../sidebar-link';
+import SidebarLinkGroup from '../sidebar-link-group';
 
 /**
  * Configure Menu Section
@@ -106,7 +106,7 @@ export function ConfigureMenuSection() {
                         'organizations:manage:all',
                         'organizations:create:all',
                         'organizations:update:organization',
-                        'organizations:delete:organization'
+                        'organizations:delete:organization',
                       ]}
                       requireAll={false}
                     >

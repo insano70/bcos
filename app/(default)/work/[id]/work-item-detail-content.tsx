@@ -1,20 +1,25 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useWorkItem, useUpdateWorkItem, useDeleteWorkItem, useWorkItemChildren } from '@/lib/hooks/use-work-items';
-import WorkItemHierarchySection from '@/components/work-items/work-item-hierarchy-section';
-import WorkItemCommentsSection from '@/components/work-items/work-item-comments-section';
-import WorkItemActivitySection from '@/components/work-items/work-item-activity-section';
-import WorkItemAttachmentsSection from '@/components/work-items/work-item-attachments-section';
-import WorkItemBreadcrumbs from '@/components/work-items/work-item-breadcrumbs';
-import EditWorkItemModal from '@/components/edit-work-item-modal';
+import { useState } from 'react';
+import { useAuth } from '@/components/auth/rbac-auth-provider';
 import DeleteWorkItemModal from '@/components/delete-work-item-modal';
+import EditWorkItemModal from '@/components/edit-work-item-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
 import { WorkItemWatchButton } from '@/components/work-item-watch-button';
 import { WorkItemWatchersList } from '@/components/work-item-watchers-list';
+import WorkItemActivitySection from '@/components/work-items/work-item-activity-section';
+import WorkItemAttachmentsSection from '@/components/work-items/work-item-attachments-section';
+import WorkItemBreadcrumbs from '@/components/work-items/work-item-breadcrumbs';
+import WorkItemCommentsSection from '@/components/work-items/work-item-comments-section';
+import WorkItemHierarchySection from '@/components/work-items/work-item-hierarchy-section';
 import { useWorkItemWatchers } from '@/lib/hooks/use-work-item-watchers';
-import { useAuth } from '@/components/auth/rbac-auth-provider';
+import {
+  useDeleteWorkItem,
+  useUpdateWorkItem,
+  useWorkItem,
+  useWorkItemChildren,
+} from '@/lib/hooks/use-work-items';
 
 interface WorkItemDetailContentProps {
   workItemId: string;
@@ -26,24 +31,20 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
   const { data: watchers } = useWorkItemWatchers(workItemId);
   const { data: children } = useWorkItemChildren(workItemId);
   const { user } = useAuth();
-  const updateWorkItem = useUpdateWorkItem();
+  const _updateWorkItem = useUpdateWorkItem();
   const deleteWorkItem = useDeleteWorkItem();
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'details' | 'comments' | 'activity' | 'history' | 'watchers' | 'subItems'>('details');
+  const [activeTab, setActiveTab] = useState<
+    'details' | 'comments' | 'activity' | 'history' | 'watchers' | 'subItems'
+  >('details');
 
   // Check if current user is watching
-  const isWatching = watchers?.some(w => w.user_id === user?.id) || false;
+  const isWatching = watchers?.some((w) => w.user_id === user?.id) || false;
 
   const handleDelete = async (id: string) => {
-    try {
-      await deleteWorkItem.mutateAsync(id);
-      router.push('/work');
-    } catch (error) {
-      // Re-throw to let modal handle the error state
-      // Server-side API will handle logging
-      throw error;
-    }
+    await deleteWorkItem.mutateAsync(id);
+    router.push('/work');
   };
 
   if (isLoading) {
@@ -124,13 +125,14 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
 
           <div className="flex gap-2">
             {/* Phase 7: Watch/Unwatch Button */}
-            <WorkItemWatchButton
-              workItemId={workItemId}
-              isWatching={isWatching}
-            />
+            <WorkItemWatchButton workItemId={workItemId} isWatching={isWatching} />
 
             <ProtectedComponent
-              permissions={['work-items:update:own', 'work-items:update:organization', 'work-items:update:all']}
+              permissions={[
+                'work-items:update:own',
+                'work-items:update:organization',
+                'work-items:update:all',
+              ]}
               requireAll={false}
             >
               <button
@@ -169,7 +171,9 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
               <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
                 {workItem.subject}
               </h1>
-              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(workItem.priority)}`}>
+              <span
+                className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(workItem.priority)}`}
+              >
                 {workItem.priority.charAt(0).toUpperCase() + workItem.priority.slice(1)}
               </span>
             </div>
@@ -278,23 +282,16 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
             </div>
           )}
 
-          {activeTab === 'comments' && (
-            <WorkItemCommentsSection workItemId={workItemId} />
-          )}
+          {activeTab === 'comments' && <WorkItemCommentsSection workItemId={workItemId} />}
 
-          {activeTab === 'activity' && (
-            <WorkItemActivitySection workItemId={workItemId} />
-          )}
+          {activeTab === 'activity' && <WorkItemActivitySection workItemId={workItemId} />}
 
           {activeTab === 'watchers' && (
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
                 Watchers
               </h2>
-              <WorkItemWatchersList
-                workItemId={workItemId}
-                currentUserId={user?.id || ''}
-              />
+              <WorkItemWatchersList workItemId={workItemId} currentUserId={user?.id || ''} />
             </div>
           )}
 
@@ -325,12 +322,17 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
                             <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                               {child.subject}
                             </span>
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                              child.priority === 'critical' ? 'text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400' :
-                              child.priority === 'high' ? 'text-orange-700 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400' :
-                              child.priority === 'medium' ? 'text-yellow-700 bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                              'text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400'
-                            }`}>
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                child.priority === 'critical'
+                                  ? 'text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400'
+                                  : child.priority === 'high'
+                                    ? 'text-orange-700 bg-orange-100 dark:bg-orange-900/30 dark:text-orange-400'
+                                    : child.priority === 'medium'
+                                      ? 'text-yellow-700 bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                      : 'text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400'
+                              }`}
+                            >
                               {child.priority}
                             </span>
                           </div>
@@ -344,8 +346,18 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
                             )}
                           </div>
                         </div>
-                        <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 20 20" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        <svg
+                          className="w-5 h-5 text-gray-400 flex-shrink-0"
+                          fill="none"
+                          viewBox="0 0 20 20"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5l7 7-7 7"
+                          />
                         </svg>
                       </div>
                     </div>
@@ -353,12 +365,20 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <svg className="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  <svg
+                    className="w-12 h-12 mx-auto text-gray-400 mb-3"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                    />
                   </svg>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    No child work items
-                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">No child work items</p>
                   <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
                     Create a new work item and set this item as its parent
                   </p>
@@ -374,9 +394,7 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
 
           {/* Details Card */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mt-6">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">
-              Details
-            </h3>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-4">Details</h3>
             <dl className="space-y-3">
               <div>
                 <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">Created by</dt>
@@ -391,13 +409,17 @@ export default function WorkItemDetailContent({ workItemId }: WorkItemDetailCont
                 </dd>
               </div>
               <div>
-                <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">Last updated</dt>
+                <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                  Last updated
+                </dt>
                 <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
                   {formatDate(workItem.updated_at)}
                 </dd>
               </div>
               <div>
-                <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">Organization</dt>
+                <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                  Organization
+                </dt>
                 <dd className="mt-1 text-sm text-gray-900 dark:text-gray-100">
                   {workItem.organization_name}
                 </dd>

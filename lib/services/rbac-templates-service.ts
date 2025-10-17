@@ -91,7 +91,11 @@ export class RBACTemplatesService extends BaseRBACService {
     const sortOrder = options.sortOrder || 'asc';
 
     const sortColumn =
-      sortField === 'slug' ? templates.slug : sortField === 'created_at' ? templates.created_at : templates.name;
+      sortField === 'slug'
+        ? templates.slug
+        : sortField === 'created_at'
+          ? templates.created_at
+          : templates.name;
 
     // Get paginated data
     const templatesData = await db

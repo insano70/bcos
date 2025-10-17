@@ -1,10 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
-import { createRBACWorkItemWatchersService } from '@/lib/services/rbac-work-item-watchers-service';
-import { watcherUpdateSchema } from '@/lib/validations/work-item-watchers';
-import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
+import { createRBACWorkItemWatchersService } from '@/lib/services/rbac-work-item-watchers-service';
+import type { UserContext } from '@/lib/types/rbac';
+import { watcherUpdateSchema } from '@/lib/validations/work-item-watchers';
 
 /**
  * PATCH /api/work-items/[id]/watchers/[watcherId]
@@ -71,18 +71,12 @@ const patchWatcherHandler = async (
         return NextResponse.json({ error: error.message }, { status: 404 });
       }
 
-      if (
-        error.message.includes('Permission denied') ||
-        error.message.includes('permission')
-      ) {
+      if (error.message.includes('Permission denied') || error.message.includes('permission')) {
         return NextResponse.json({ error: error.message }, { status: 403 });
       }
     }
 
-    return NextResponse.json(
-      { error: 'Failed to update watcher preferences' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to update watcher preferences' }, { status: 500 });
   }
 };
 

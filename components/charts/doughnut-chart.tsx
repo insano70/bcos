@@ -1,15 +1,11 @@
 'use client';
 
-import { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { useTheme } from 'next-themes';
-
-import { chartColors } from '@/components/charts/chartjs-config';
-import { Chart, DoughnutController, ArcElement, TimeScale, Tooltip } from 'chart.js';
 import type { ChartData } from 'chart.js';
+import { ArcElement, Chart, DoughnutController, TimeScale, Tooltip } from 'chart.js';
+import { useTheme } from 'next-themes';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { chartColors } from '@/components/charts/chartjs-config';
 import 'chartjs-adapter-moment';
-
-// Import utilities
-import { getCssVariable } from '@/components/utils/utils';
 
 Chart.register(DoughnutController, ArcElement, TimeScale, Tooltip);
 Chart.overrides.doughnut.cutout = '80%';
@@ -20,11 +16,14 @@ interface DoughnutProps {
   height: number;
 }
 
-const DoughnutChart = forwardRef<HTMLCanvasElement, DoughnutProps>(function DoughnutChart({ data, width, height }, ref) {
+const DoughnutChart = forwardRef<HTMLCanvasElement, DoughnutProps>(function DoughnutChart(
+  { data, width, height },
+  ref
+) {
   const [chart, setChart] = useState<Chart | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const legend = useRef<HTMLUListElement>(null);
-  
+
   // Expose canvas element to parent via ref
   useImperativeHandle(ref, () => canvas.current!, []);
   const { theme } = useTheme();
@@ -67,7 +66,7 @@ const DoughnutChart = forwardRef<HTMLCanvasElement, DoughnutProps>(function Doug
       plugins: [
         {
           id: 'htmlLegend',
-          afterUpdate(c, args, options) {
+          afterUpdate(c, _args, _options) {
             const ul = legend.current;
             if (!ul) return;
             // Remove old legend items
@@ -146,11 +145,11 @@ const DoughnutChart = forwardRef<HTMLCanvasElement, DoughnutProps>(function Doug
     if (!chart || !canvas.current) return;
 
     const canvasElement = canvas.current;
-    
+
     // Update canvas dimensions
     canvasElement.width = width;
     canvasElement.height = height;
-    
+
     // Resize the chart
     chart.resize();
   }, [chart, width, height]);
@@ -158,24 +157,24 @@ const DoughnutChart = forwardRef<HTMLCanvasElement, DoughnutProps>(function Doug
   return (
     <div className="w-full h-full flex flex-col">
       <div className="flex-1 min-h-0 flex items-center justify-center">
-        <canvas 
+        <canvas
           ref={canvas}
-          style={{ 
-            width: '100%', 
+          style={{
+            width: '100%',
             height: '100%',
             display: 'block',
-            maxHeight: '100%'
+            maxHeight: '100%',
           }}
         />
       </div>
       <div className="px-3 pt-2 pb-4 flex-shrink-0 overflow-hidden">
-        <ul 
-          ref={legend} 
+        <ul
+          ref={legend}
           className="flex flex-wrap justify-center gap-x-2 gap-y-1"
           style={{
             maxHeight: '80px', // Limit legend height
             overflowY: 'auto',
-            overflowX: 'hidden'
+            overflowX: 'hidden',
           }}
         ></ul>
       </div>

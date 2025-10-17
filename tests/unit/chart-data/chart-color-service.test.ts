@@ -2,13 +2,13 @@
  * Unit tests for ChartColorService
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
-  getColorPalette,
   adjustColorOpacity,
-  getColorByIndex,
-  generateColorArray,
   applyColorsWithHover,
+  generateColorArray,
+  getColorByIndex,
+  getColorPalette,
 } from '@/lib/utils/chart-data/services/chart-color-service';
 
 // Mock the color palette service
@@ -107,14 +107,14 @@ describe('ChartColorService', () => {
   describe('applyColorsWithHover', () => {
     it('should return background and hover colors', () => {
       const result = applyColorsWithHover('default', 2);
-      
+
       expect(result.backgroundColor).toHaveLength(2);
       expect(result.hoverBackgroundColor).toHaveLength(2);
     });
 
     it('should apply opacity to hover colors', () => {
       const result = applyColorsWithHover('default', 1);
-      
+
       expect(result.backgroundColor[0]).toBe('#FF0000');
       expect(result.hoverBackgroundColor[0]).toContain('rgba');
       expect(result.hoverBackgroundColor[0]).toContain('0.8');
@@ -122,15 +122,14 @@ describe('ChartColorService', () => {
 
     it('should handle multiple colors', () => {
       const result = applyColorsWithHover('default', 4);
-      
+
       expect(result.backgroundColor).toHaveLength(4);
       expect(result.hoverBackgroundColor).toHaveLength(4);
-      
+
       // Check each hover color has opacity
-      result.hoverBackgroundColor.forEach(color => {
+      result.hoverBackgroundColor.forEach((color) => {
         expect(color).toContain('rgba');
       });
     });
   });
 });
-

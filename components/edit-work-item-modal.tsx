@@ -1,17 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { useUpdateWorkItem, type WorkItem } from '@/lib/hooks/use-work-items';
-import { useWorkItemStatuses } from '@/lib/hooks/use-work-item-statuses';
-import { useUsers } from '@/lib/hooks/use-users';
-import { useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
-import { createSafeTextSchema } from '@/lib/validations/sanitization';
 import DynamicFieldRenderer from '@/components/dynamic-field-renderer';
 import UserPicker from '@/components/user-picker';
+import { useUsers } from '@/lib/hooks/use-users';
+import { useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
+import { useWorkItemStatuses } from '@/lib/hooks/use-work-item-statuses';
+import { useUpdateWorkItem, type WorkItem } from '@/lib/hooks/use-work-items';
+import { createSafeTextSchema } from '@/lib/validations/sanitization';
 import Toast from './toast';
 
 const updateWorkItemSchema = z.object({
@@ -95,7 +95,10 @@ export default function EditWorkItemModal({
           status_id: data.status_id,
           priority: data.priority,
           assigned_to: data.assigned_to,
-          due_date: data.due_date && data.due_date.trim() !== '' ? new Date(data.due_date).toISOString() : undefined,
+          due_date:
+            data.due_date && data.due_date.trim() !== ''
+              ? new Date(data.due_date).toISOString()
+              : undefined,
           custom_fields: Object.keys(customFieldValues).length > 0 ? customFieldValues : undefined,
         },
       });

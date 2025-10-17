@@ -1,9 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 import type {
-  WorkItemField,
   CreateWorkItemFieldData,
   UpdateWorkItemFieldData,
+  WorkItemField,
 } from '@/lib/types/work-item-fields';
 
 interface WorkItemFieldsQueryParams {
@@ -89,13 +89,7 @@ export function useUpdateWorkItemField() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({
-      fieldId,
-      data,
-    }: {
-      fieldId: string;
-      data: UpdateWorkItemFieldData;
-    }) => {
+    mutationFn: async ({ fieldId, data }: { fieldId: string; data: UpdateWorkItemFieldData }) => {
       const result = await apiClient.put<WorkItemField>(`/api/work-item-fields/${fieldId}`, data);
       return result;
     },

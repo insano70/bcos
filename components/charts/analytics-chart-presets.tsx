@@ -12,8 +12,8 @@
  * ```
  */
 
+import type { FrequencyType, MeasureType } from '@/lib/types/analytics';
 import AnalyticsChart from './analytics-chart';
-import type { MeasureType, FrequencyType } from '@/lib/types/analytics';
 
 /**
  * Partial props type for presets
@@ -31,8 +31,8 @@ export const AnalyticsChartPresets = {
   PracticeRevenueTrend: (props: AnalyticsChartPresetProps) => (
     <AnalyticsChart
       chartType="line"
-      measure={"Charges by Provider" as MeasureType}
-      frequency={"Monthly" as FrequencyType}
+      measure={'Charges by Provider' as MeasureType}
+      frequency={'Monthly' as FrequencyType}
       groupBy="practice_uid"
       title="Practice Revenue Trend"
       {...props}
@@ -46,8 +46,8 @@ export const AnalyticsChartPresets = {
   ProviderPerformance: (props: AnalyticsChartPresetProps) => (
     <AnalyticsChart
       chartType="bar"
-      measure={"Charges by Provider" as MeasureType}
-      frequency={"Monthly" as FrequencyType}
+      measure={'Charges by Provider' as MeasureType}
+      frequency={'Monthly' as FrequencyType}
       groupBy="provider_uid"
       title="Provider Performance"
       {...props}
@@ -61,12 +61,11 @@ export const AnalyticsChartPresets = {
   RevenueDistribution: (props: AnalyticsChartPresetProps) => (
     <AnalyticsChart
       chartType="doughnut"
-      measure={"Charges by Provider" as MeasureType}
-      frequency={"Monthly" as FrequencyType}
+      measure={'Charges by Provider' as MeasureType}
+      frequency={'Monthly' as FrequencyType}
       groupBy="practice_uid"
       title="Revenue Distribution"
       {...props}
     />
   ),
 };
-

@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import BarChart01 from './bar-chart-01';
+import { useEffect, useState } from 'react';
 import { getCssVariable } from '@/components/utils/utils';
-import ResponsiveChartContainer from './responsive-chart-container';
 import { apiClient } from '@/lib/api/client';
+import BarChart01 from './bar-chart-01';
+import ResponsiveChartContainer from './responsive-chart-container';
 
 interface ChargesPaymentsData {
   practice: string;
@@ -28,14 +28,14 @@ interface ChargesPaymentsChartProps {
   aspectRatio?: number; // Fixed aspect ratio for responsive mode
 }
 
-export default function ChargesPaymentsChart({ 
-  practiceUid = '114', 
-  width = 595, 
+export default function ChargesPaymentsChart({
+  practiceUid = '114',
+  width = 595,
   height = 248,
   responsive = false,
   minHeight = 200,
   maxHeight = 600,
-  aspectRatio
+  aspectRatio,
 }: ChargesPaymentsChartProps) {
   const [chartData, setChartData] = useState<{
     labels: string[];
@@ -49,7 +49,7 @@ export default function ChargesPaymentsChart({
     }>;
   }>({
     labels: [],
-    datasets: []
+    datasets: [],
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +64,7 @@ export default function ChargesPaymentsChart({
 
     try {
       console.log('🔍 Fetching Charges & Payments data for practice:', practiceUid);
-      
+
       const result = await apiClient.get<{
         data: ChargesPaymentsData[];
       }>(`/api/admin/analytics/charges-payments?practice_uid=${practiceUid}`);
@@ -72,24 +72,28 @@ export default function ChargesPaymentsChart({
 
       console.log('✅ Received Charges & Payments data:', {
         rowCount: data.length,
-        sampleData: data.slice(0, 2)
+        sampleData: data.slice(0, 2),
       });
 
       // Use simplified pre-aggregated data structure
-      const uniqueDates = Array.from(new Set(data.map(row => row.display_date))).sort((a, b) => {
-        const dateA = data.find(row => row.display_date === a)?.date_index;
-        const dateB = data.find(row => row.display_date === b)?.date_index;
+      const uniqueDates = Array.from(new Set(data.map((row) => row.display_date))).sort((a, b) => {
+        const dateA = data.find((row) => row.display_date === a)?.date_index;
+        const dateB = data.find((row) => row.display_date === b)?.date_index;
         return new Date(dateA || 0).getTime() - new Date(dateB || 0).getTime();
       });
-      
+
       // Separate charges and payments data - values are already numeric
-      const chargesData = uniqueDates.map(displayDate => {
-        const chargesRow = data.find(row => row.display_date === displayDate && row.measure === 'Charges');
+      const chargesData = uniqueDates.map((displayDate) => {
+        const chargesRow = data.find(
+          (row) => row.display_date === displayDate && row.measure === 'Charges'
+        );
         return chargesRow ? chargesRow.measure_value : 0;
       });
 
-      const paymentsData = uniqueDates.map(displayDate => {
-        const paymentsRow = data.find(row => row.display_date === displayDate && row.measure === 'Payments');
+      const paymentsData = uniqueDates.map((displayDate) => {
+        const paymentsRow = data.find(
+          (row) => row.display_date === displayDate && row.measure === 'Payments'
+        );
         return paymentsRow ? paymentsRow.measure_value : 0;
       });
 
@@ -126,13 +130,13 @@ export default function ChargesPaymentsChart({
         chargesValues: chargesData,
         paymentsValues: paymentsData,
         sampleChargesValue: chargesData[0],
-        samplePaymentsValue: paymentsData[0]
+        samplePaymentsValue: paymentsData[0],
       });
 
       setChartData(transformedData);
-
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch charges and payments data';
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to fetch charges and payments data';
       setError(errorMessage);
       console.error('Charges & Payments chart error:', err);
     } finally {
@@ -162,10 +166,8 @@ export default function ChargesPaymentsChart({
         </header>
         <div className="flex flex-col items-center justify-center h-64">
           <div className="text-red-500 mb-2">⚠️ Chart Error</div>
-          <div className="text-sm text-gray-600 dark:text-gray-400 text-center px-4">
-            {error}
-          </div>
-          <button 
+          <div className="text-sm text-gray-600 dark:text-gray-400 text-center px-4">{error}</div>
+          <button
             onClick={fetchChargesPaymentsData}
             className="mt-3 px-4 py-2 bg-violet-500 text-white rounded-md text-sm hover:bg-violet-600 transition-colors"
           >
@@ -186,7 +188,7 @@ export default function ChargesPaymentsChart({
       </header>
       {/* Chart built with Chart.js 3 */}
       {/* Chart with responsive or fixed sizing */}
-      <div className={responsive ? "flex-1 w-full" : ""}>
+      <div className={responsive ? 'flex-1 w-full' : ''}>
         {responsive ? (
           <ResponsiveChartContainer
             minHeight={minHeight}

@@ -1,9 +1,9 @@
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { publicRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { publicRoute } from '@/lib/api/route-handlers';
 import { emailService } from '@/lib/api/services/email-service-instance';
 import { log } from '@/lib/logger';
 

@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import { log } from '@/lib/logger';
 
 /**
  * Hash a password using bcrypt
@@ -15,7 +16,10 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
   try {
     return await bcrypt.compare(password, hash);
   } catch (error) {
-    console.error('Password verification error:', error);
+    log.error('Password verification error', error, {
+      operation: 'verify_password',
+      component: 'auth',
+    });
     return false;
   }
 }

@@ -1,35 +1,41 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useDashboardData } from '@/hooks/use-dashboard-data';
+import { apiClient } from '@/lib/api/client';
+import type {
+  ChartConfig,
+  ChartDataSourceConfig,
+  ChartDefinition,
+  ChartFilter,
+  Dashboard,
+  DashboardChart,
+  FrequencyType,
+  MeasureType,
+} from '@/lib/types/analytics';
 import AnalyticsChart from './analytics-chart';
 import BatchChartRenderer, { type BatchChartData } from './batch-chart-renderer';
+import type { DashboardUniversalFilters } from './dashboard-filter-bar';
 import DashboardFilterDropdown from './dashboard-filter-dropdown';
-import { type DashboardUniversalFilters } from './dashboard-filter-bar';
-import { useDashboardData } from '@/hooks/use-dashboard-data';
-import type { Dashboard, DashboardChart, ChartDefinition, MeasureType, FrequencyType, ChartFilter, ChartDataSourceConfig, ChartConfig } from '@/lib/types/analytics';
-import { apiClient } from '@/lib/api/client';
 
 interface DashboardViewProps {
   dashboard: Dashboard;
   dashboardCharts: DashboardChart[];
 }
 
-export default function DashboardView({
-  dashboard,
-  dashboardCharts
-}: DashboardViewProps) {
+export default function DashboardView({ dashboard, dashboardCharts }: DashboardViewProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [availableCharts, setAvailableCharts] = useState<ChartDefinition[]>([]);
   const [isLoadingCharts, setIsLoadingCharts] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Phase 7: Check dashboard configuration
   const layoutConfig = dashboard.layout_config;
   const filterConfig = layoutConfig?.filterConfig;
   const showFilterBar = filterConfig?.enabled !== false; // Default to true if not specified
-  
+
   // Phase 7: Batch rendering feature flag (default: true - Phase 7 complete)
   const useBatchRendering = layoutConfig?.useBatchRendering !== false;
 
@@ -41,7 +47,8 @@ export default function DashboardView({
 
     return {
       // URL params take highest priority, then default config, then system defaults
-      dateRangePreset: searchParams.get('datePreset') || defaultFilters.dateRangePreset || undefined,
+      dateRangePreset:
+        searchParams.get('datePreset') || defaultFilters.dateRangePreset || undefined,
       startDate: searchParams.get('startDate') || undefined,
       endDate: searchParams.get('endDate') || undefined,
       organizationId: searchParams.get('org') || defaultFilters.organizationId || undefined,
@@ -51,37 +58,49 @@ export default function DashboardView({
   });
 
   // Phase 7: URL param management
-  const updateUrlParams = useCallback((filters: DashboardUniversalFilters) => {
-    const params = new URLSearchParams();
-    
-    if (filters.dateRangePreset) params.set('datePreset', filters.dateRangePreset);
-    if (filters.startDate) params.set('startDate', filters.startDate);
-    if (filters.endDate) params.set('endDate', filters.endDate);
-    if (filters.organizationId) params.set('org', filters.organizationId);
-    if (filters.practiceUids && filters.practiceUids.length > 0 && filters.practiceUids[0] !== undefined) {
-      params.set('practice', filters.practiceUids[0].toString());
-    }
-    if (filters.providerName) params.set('provider', filters.providerName);
-    
-    // Update URL without scroll, preserving history
-    router.push(`?${params.toString()}`, { scroll: false });
-  }, [router]);
+  const updateUrlParams = useCallback(
+    (filters: DashboardUniversalFilters) => {
+      const params = new URLSearchParams();
+
+      if (filters.dateRangePreset) params.set('datePreset', filters.dateRangePreset);
+      if (filters.startDate) params.set('startDate', filters.startDate);
+      if (filters.endDate) params.set('endDate', filters.endDate);
+      if (filters.organizationId) params.set('org', filters.organizationId);
+      if (
+        filters.practiceUids &&
+        filters.practiceUids.length > 0 &&
+        filters.practiceUids[0] !== undefined
+      ) {
+        params.set('practice', filters.practiceUids[0].toString());
+      }
+      if (filters.providerName) params.set('provider', filters.providerName);
+
+      // Update URL without scroll, preserving history
+      router.push(`?${params.toString()}`, { scroll: false });
+    },
+    [router]
+  );
 
   // Phase 7: Handle filter changes
-  const handleFilterChange = useCallback((newFilters: DashboardUniversalFilters) => {
-    setUniversalFilters(newFilters);
-    updateUrlParams(newFilters);
-  }, [updateUrlParams]);
+  const handleFilterChange = useCallback(
+    (newFilters: DashboardUniversalFilters) => {
+      setUniversalFilters(newFilters);
+      updateUrlParams(newFilters);
+    },
+    [updateUrlParams]
+  );
 
   const loadChartDefinitions = async () => {
     try {
       const result = await apiClient.get<{
         charts: ChartDefinition[] | Array<{ chart_definitions: ChartDefinition }>;
       }>('/api/admin/analytics/charts?is_active=true');
-      const charts = (result.charts || []).map((item: ChartDefinition | { chart_definitions: ChartDefinition }) => {
-        return 'chart_definitions' in item ? item.chart_definitions : item;
-      }).filter((chart: ChartDefinition) => chart.is_active !== false);
-      
+      const charts = (result.charts || [])
+        .map((item: ChartDefinition | { chart_definitions: ChartDefinition }) => {
+          return 'chart_definitions' in item ? item.chart_definitions : item;
+        })
+        .filter((chart: ChartDefinition) => chart.is_active !== false);
+
       setAvailableCharts(charts);
     } catch (error) {
       console.error('Failed to load chart definitions:', error);
@@ -93,7 +112,7 @@ export default function DashboardView({
 
   // Load available chart definitions for rendering - use ref to prevent double execution
   const hasLoadedRef = React.useRef(false);
-  
+
   useEffect(() => {
     if (!hasLoadedRef.current) {
       hasLoadedRef.current = true;
@@ -102,12 +121,12 @@ export default function DashboardView({
   }, []);
 
   // Phase 7: Batch rendering data (only if batch mode enabled)
-  const { 
-    data: batchData, 
-    isLoading: isBatchLoading, 
+  const {
+    data: batchData,
+    isLoading: isBatchLoading,
     error: batchError,
     refetch: refetchBatch,
-    metrics: batchMetrics
+    metrics: batchMetrics,
   } = useDashboardData({
     dashboardId: dashboard.dashboard_id,
     universalFilters,
@@ -116,38 +135,48 @@ export default function DashboardView({
 
   // Create dashboard configuration from saved dashboard data
   // Memoized to prevent unnecessary re-renders and duplicate chart loads
-  const dashboardConfig = useMemo(() => ({
-    dashboardName: dashboard.dashboard_name || 'Unnamed Dashboard',
-    dashboardDescription: dashboard.dashboard_description || '',
-    charts: dashboardCharts?.map((chartAssoc, index) => {
-      const chartDefinition = availableCharts.find(chart => 
-        chart.chart_definition_id === chartAssoc.chart_definition_id
-      );
-      
-      // Extract and stabilize config objects to prevent duplicate renders
-      const dataSource: ChartDataSourceConfig = chartDefinition?.data_source || { table: '', filters: [], orderBy: [] };
-      const chartConfig: ChartConfig = chartDefinition?.chart_config || {
-        x_axis: { field: '', label: '', format: 'string' },
-        y_axis: { field: '', label: '', format: 'number' },
-        options: { responsive: true, showLegend: true, showTooltips: true, animation: true }
-      };
-      
-      return {
-        id: `dashboard-chart-${index}`,
-        chartDefinitionId: chartAssoc.chart_definition_id,
-        position: chartAssoc.position_config,
-        chartDefinition,
-        // Pre-extract configs to stabilize object references
-        dataSource,
-        chartConfig,
-      };
-    }).filter(chart => chart.chartDefinition) || [],
-    layout: {
-      columns: layoutConfig?.columns || 12,
-      rowHeight: layoutConfig?.rowHeight || 150,
-      margin: layoutConfig?.margin || 10
-    }
-  }), [dashboard, dashboardCharts, availableCharts, layoutConfig]);
+  const dashboardConfig = useMemo(
+    () => ({
+      dashboardName: dashboard.dashboard_name || 'Unnamed Dashboard',
+      dashboardDescription: dashboard.dashboard_description || '',
+      charts:
+        dashboardCharts
+          ?.map((chartAssoc, index) => {
+            const chartDefinition = availableCharts.find(
+              (chart) => chart.chart_definition_id === chartAssoc.chart_definition_id
+            );
+
+            // Extract and stabilize config objects to prevent duplicate renders
+            const dataSource: ChartDataSourceConfig = chartDefinition?.data_source || {
+              table: '',
+              filters: [],
+              orderBy: [],
+            };
+            const chartConfig: ChartConfig = chartDefinition?.chart_config || {
+              x_axis: { field: '', label: '', format: 'string' },
+              y_axis: { field: '', label: '', format: 'number' },
+              options: { responsive: true, showLegend: true, showTooltips: true, animation: true },
+            };
+
+            return {
+              id: `dashboard-chart-${index}`,
+              chartDefinitionId: chartAssoc.chart_definition_id,
+              position: chartAssoc.position_config,
+              chartDefinition,
+              // Pre-extract configs to stabilize object references
+              dataSource,
+              chartConfig,
+            };
+          })
+          .filter((chart) => chart.chartDefinition) || [],
+      layout: {
+        columns: layoutConfig?.columns || 12,
+        rowHeight: layoutConfig?.rowHeight || 150,
+        margin: layoutConfig?.margin || 10,
+      },
+    }),
+    [dashboard, dashboardCharts, availableCharts, layoutConfig]
+  );
 
   // Phase 7: Combined loading state (chart definitions + batch data)
   const isLoading = isLoadingCharts || (useBatchRendering && isBatchLoading);
@@ -175,8 +204,18 @@ export default function DashboardView({
     return (
       <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6">
         <div className="flex items-center">
-          <svg className="w-6 h-6 text-red-600 dark:text-red-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          <svg
+            className="w-6 h-6 text-red-600 dark:text-red-400 mr-3"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+            />
           </svg>
           <div>
             <h3 className="text-red-800 dark:text-red-200 font-medium">Dashboard Error</h3>
@@ -221,12 +260,8 @@ export default function DashboardView({
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mx-4">
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-3">
-              <span className="font-medium text-blue-900 dark:text-blue-100">
-                ⚡ Batch
-              </span>
-              <span className="text-blue-700 dark:text-blue-300">
-                {batchMetrics.totalTime}ms
-              </span>
+              <span className="font-medium text-blue-900 dark:text-blue-100">⚡ Batch</span>
+              <span className="text-blue-700 dark:text-blue-300">{batchMetrics.totalTime}ms</span>
               <span className="text-blue-700 dark:text-blue-300">
                 {batchMetrics.cacheHitRate}% cache
               </span>
@@ -280,18 +315,26 @@ export default function DashboardView({
           const chartDef = dashboardChart.chartDefinition;
           const dataSource = dashboardChart.dataSource;
           const chartConfig = dashboardChart.chartConfig;
-          
+
           // Extract filters to get chart parameters
           const measureFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'measure');
-          const frequencyFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'frequency');
-          const practiceFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'practice_uid');
-          const startDateFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'date_index' && f.operator === 'gte');
-          const endDateFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'date_index' && f.operator === 'lte');
+          const frequencyFilter = dataSource.filters?.find(
+            (f: ChartFilter) => f.field === 'frequency'
+          );
+          const practiceFilter = dataSource.filters?.find(
+            (f: ChartFilter) => f.field === 'practice_uid'
+          );
+          const startDateFilter = dataSource.filters?.find(
+            (f: ChartFilter) => f.field === 'date_index' && f.operator === 'gte'
+          );
+          const endDateFilter = dataSource.filters?.find(
+            (f: ChartFilter) => f.field === 'date_index' && f.operator === 'lte'
+          );
 
           // Use responsive sizing that respects dashboard configuration
           const baseHeight = dashboardChart.position.h * 150; // Height from dashboard configuration
           const containerHeight = Math.max(baseHeight, 250); // Minimum reasonable height
-          
+
           // Determine responsive column span classes like dashboard cards
           let colSpanClass = 'col-span-full';
           if (dashboardChart.position.w <= 4) {
@@ -305,19 +348,20 @@ export default function DashboardView({
           }
 
           // Phase 7: Check if we have batch data for this chart
-          const batchChartData = useBatchRendering && batchData && !batchError
-            ? batchData.charts[dashboardChart.chartDefinitionId]
-            : null;
+          const batchChartData =
+            useBatchRendering && batchData && !batchError
+              ? batchData.charts[dashboardChart.chartDefinitionId]
+              : null;
 
           return (
             <div
               key={dashboardChart.id}
               className={`${colSpanClass} flex flex-col`}
-              style={{ 
+              style={{
                 marginBottom: `${dashboardConfig.layout.margin}px`,
                 height: `${containerHeight}px`,
                 maxHeight: `${containerHeight}px`,
-                overflow: 'hidden'
+                overflow: 'hidden',
               }}
             >
               {/* Phase 7: Render with batch data if available, otherwise fallback to individual fetching */}
@@ -340,7 +384,9 @@ export default function DashboardView({
                 <AnalyticsChart
                   chartType={chartDef.chart_type}
                   {...(measureFilter?.value && { measure: measureFilter.value as MeasureType })}
-                  {...(frequencyFilter?.value && { frequency: frequencyFilter.value as FrequencyType })}
+                  {...(frequencyFilter?.value && {
+                    frequency: frequencyFilter.value as FrequencyType,
+                  })}
                   practice={practiceFilter?.value?.toString()}
                   // Phase 7: Dashboard filters override chart filters
                   startDate={universalFilters.startDate || startDateFilter?.value?.toString()}
@@ -352,8 +398,12 @@ export default function DashboardView({
                   dataSourceId={chartConfig.dataSourceId}
                   stackingMode={chartConfig.stackingMode}
                   colorPalette={chartConfig.colorPalette}
-                  {...(chartConfig.seriesConfigs && chartConfig.seriesConfigs.length > 0 ? { multipleSeries: chartConfig.seriesConfigs } : {})}
-                  {...(chartConfig.dualAxisConfig ? { dualAxisConfig: chartConfig.dualAxisConfig } : {})}
+                  {...(chartConfig.seriesConfigs && chartConfig.seriesConfigs.length > 0
+                    ? { multipleSeries: chartConfig.seriesConfigs }
+                    : {})}
+                  {...(chartConfig.dualAxisConfig
+                    ? { dualAxisConfig: chartConfig.dualAxisConfig }
+                    : {})}
                   {...(chartConfig.target && { target: chartConfig.target })}
                   {...(chartConfig.aggregation && { aggregation: chartConfig.aggregation })}
                   className="w-full h-full flex-1"

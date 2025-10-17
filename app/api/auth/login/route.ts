@@ -101,7 +101,6 @@ const loginHandler = async (request: NextRequest) => {
     }
 
     if (!user.is_active) {
-
       await AuditLogger.logAuth({
         action: 'login_failed',
         userId: user.user_id,
@@ -120,7 +119,6 @@ const loginHandler = async (request: NextRequest) => {
 
     // Check if user is SSO-only (no password set)
     if (!user.password_hash) {
-
       log.security('sso_only_user_password_attempt', 'medium', {
         action: 'password_login_blocked',
         userId: user.user_id,

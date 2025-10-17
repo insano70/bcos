@@ -1,8 +1,8 @@
 import { validateAccessToken } from '@/lib/auth/token-manager';
-import { getUserContextSafe } from '@/lib/rbac/user-context';
-import { AuthenticationError, AuthorizationError } from '../responses/error';
 import { authCache } from '@/lib/cache';
 import { log } from '@/lib/logger';
+import { getUserContextSafe } from '@/lib/rbac/user-context';
+import { AuthenticationError, AuthorizationError } from '../responses/error';
 
 export async function requireAuth(request: Request) {
   // Extract access token from Authorization header OR httpOnly cookie

@@ -2,12 +2,12 @@
  * Unit tests for DateFormatter
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
+  createCategoryLabel,
   formatDateLabel,
   toChartJsDate,
   toMMDDYYYY,
-  createCategoryLabel,
 } from '@/lib/utils/chart-data/formatters/date-formatter';
 
 describe('DateFormatter', () => {
@@ -110,4 +110,3 @@ describe('DateFormatter', () => {
     });
   });
 });
-

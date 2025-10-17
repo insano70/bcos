@@ -1,8 +1,8 @@
 'use client';
 
+import type { FrequencyType, MeasureType } from '@/lib/types/analytics';
 import AnalyticsChart from './analytics-chart';
-import { ChartConfig } from './chart-builder-core';
-import type { MeasureType, FrequencyType } from '@/lib/types/analytics';
+import type { ChartConfig } from './chart-builder-core';
 
 interface ChartBuilderPreviewProps {
   chartConfig: ChartConfig;
@@ -19,7 +19,7 @@ export default function ChartBuilderPreview({
   previewKey,
   onBackToConfigure,
   onSave,
-  isSaving
+  isSaving,
 }: ChartBuilderPreviewProps) {
   return (
     <div className="space-y-6">
@@ -37,7 +37,7 @@ export default function ChartBuilderPreview({
             </div>
           )}
         </div>
-        
+
         {/* Live Chart Preview */}
         <div
           className="bg-white dark:bg-gray-700 rounded-lg p-4 flex flex-col"
@@ -62,8 +62,12 @@ export default function ChartBuilderPreview({
             responsive={true}
             minHeight={200}
             maxHeight={400}
-            {...(chartConfig.useMultipleSeries && chartConfig.seriesConfigs.length > 0 ? { multipleSeries: chartConfig.seriesConfigs } : {})}
-            {...(chartConfig.periodComparison?.enabled ? { periodComparison: chartConfig.periodComparison } : {})}
+            {...(chartConfig.useMultipleSeries && chartConfig.seriesConfigs.length > 0
+              ? { multipleSeries: chartConfig.seriesConfigs }
+              : {})}
+            {...(chartConfig.periodComparison?.enabled
+              ? { periodComparison: chartConfig.periodComparison }
+              : {})}
             {...(chartConfig.dualAxisConfig ? { dualAxisConfig: chartConfig.dualAxisConfig } : {})}
           />
         </div>
@@ -76,7 +80,7 @@ export default function ChartBuilderPreview({
         >
           Back to Configure
         </button>
-        
+
         <button
           onClick={onSave}
           disabled={isSaving}

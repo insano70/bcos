@@ -1,5 +1,5 @@
-import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
 import { log } from '@/lib/logger';
+import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
 import { SimplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
 import { BaseChartHandler } from './base-handler';
 
@@ -57,11 +57,20 @@ export class TimeSeriesChartHandler extends BaseChartHandler {
       let chartData: ChartData;
 
       // Check for multiple series configuration
-      if (config.multipleSeries && Array.isArray(config.multipleSeries) && config.multipleSeries.length > 0) {
+      if (
+        config.multipleSeries &&
+        Array.isArray(config.multipleSeries) &&
+        config.multipleSeries.length > 0
+      ) {
         const aggregations: Record<string, 'sum' | 'avg' | 'count' | 'min' | 'max'> = {};
         config.multipleSeries.forEach((series: Record<string, unknown>) => {
           if (series.label && series.aggregation) {
-            aggregations[series.label as string] = series.aggregation as 'sum' | 'avg' | 'count' | 'min' | 'max';
+            aggregations[series.label as string] = series.aggregation as
+              | 'sum'
+              | 'avg'
+              | 'count'
+              | 'min'
+              | 'max';
           }
         });
 
@@ -73,7 +82,9 @@ export class TimeSeriesChartHandler extends BaseChartHandler {
         );
       }
       // Check for period comparison
-      else if (data.some(record => record.series_id === 'current' || record.series_id === 'comparison')) {
+      else if (
+        data.some((record) => record.series_id === 'current' || record.series_id === 'comparison')
+      ) {
         chartData = transformer.transformDataWithPeriodComparison(
           data as AggAppMeasure[],
           'line',

@@ -1,12 +1,12 @@
 import type { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
-import { extractRouteParams } from '@/lib/api/utils/params';
-import { workItemAttachmentParamsSchema } from '@/lib/validations/work-item-attachments';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
+import { extractRouteParams } from '@/lib/api/utils/params';
+import { log } from '@/lib/logger';
 import { createRBACWorkItemAttachmentsService } from '@/lib/services/rbac-work-item-attachments-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
+import { workItemAttachmentParamsSchema } from '@/lib/validations/work-item-attachments';
 
 /**
  * GET /api/work-item-attachments/[id]/download

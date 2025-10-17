@@ -1,6 +1,6 @@
 /**
  * Cache Warming Job Tracker
- * 
+ *
  * Tracks active and recent cache warming operations for monitoring
  * Stores job status, progress, and history in memory
  */
@@ -32,7 +32,7 @@ class CacheWarmingTracker {
    */
   createJob(datasourceId: number, datasourceName: string): WarmingJob {
     const jobId = `warm-${datasourceId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
+
     const job: WarmingJob = {
       jobId,
       datasourceId,
@@ -49,7 +49,7 @@ class CacheWarmingTracker {
     };
 
     this.activeJobs.set(jobId, job);
-    
+
     log.info('Warming job created', {
       jobId,
       datasourceId,
@@ -63,7 +63,10 @@ class CacheWarmingTracker {
   /**
    * Update job progress
    */
-  updateProgress(jobId: string, progress: Partial<Pick<WarmingJob, 'progress' | 'rowsProcessed' | 'rowsTotal'>>): void {
+  updateProgress(
+    jobId: string,
+    progress: Partial<Pick<WarmingJob, 'progress' | 'rowsProcessed' | 'rowsTotal'>>
+  ): void {
     const job = this.activeJobs.get(jobId);
     if (!job) return;
 
@@ -87,7 +90,7 @@ class CacheWarmingTracker {
     if (!job) return;
 
     job.status = 'warming';
-    
+
     log.info('Warming job started', {
       jobId,
       datasourceId: job.datasourceId,
@@ -113,7 +116,7 @@ class CacheWarmingTracker {
     // Move to recent jobs
     this.activeJobs.delete(jobId);
     this.recentJobs.unshift(job);
-    
+
     // Keep only last N jobs
     if (this.recentJobs.length > this.MAX_RECENT_JOBS) {
       this.recentJobs = this.recentJobs.slice(0, this.MAX_RECENT_JOBS);
@@ -145,7 +148,7 @@ class CacheWarmingTracker {
     // Move to recent jobs
     this.activeJobs.delete(jobId);
     this.recentJobs.unshift(job);
-    
+
     // Keep only last N jobs
     if (this.recentJobs.length > this.MAX_RECENT_JOBS) {
       this.recentJobs = this.recentJobs.slice(0, this.MAX_RECENT_JOBS);
@@ -163,7 +166,7 @@ class CacheWarmingTracker {
    * Get job by ID
    */
   getJob(jobId: string): WarmingJob | null {
-    return this.activeJobs.get(jobId) || this.recentJobs.find(j => j.jobId === jobId) || null;
+    return this.activeJobs.get(jobId) || this.recentJobs.find((j) => j.jobId === jobId) || null;
   }
 
   /**
@@ -185,7 +188,7 @@ class CacheWarmingTracker {
    */
   isWarming(datasourceId: number): boolean {
     return Array.from(this.activeJobs.values()).some(
-      job => job.datasourceId === datasourceId && job.status === 'warming'
+      (job) => job.datasourceId === datasourceId && job.status === 'warming'
     );
   }
 
@@ -211,25 +214,24 @@ class CacheWarmingTracker {
     const active = this.getActiveJobs();
     const recent = this.recentJobs.slice(0, 20);
 
-    const successCount = recent.filter(j => j.status === 'completed').length;
-    const successRate = recent.length > 0 
-      ? Math.round((successCount / recent.length) * 100) 
-      : 0;
+    const successCount = recent.filter((j) => j.status === 'completed').length;
+    const successRate = recent.length > 0 ? Math.round((successCount / recent.length) * 100) : 0;
 
-    const avgDuration = recent.length > 0
-      ? Math.round(
-          recent
-            .filter(j => j.duration !== null)
-            .reduce((sum, j) => sum + (j.duration || 0), 0) / recent.length
-        )
-      : 0;
+    const avgDuration =
+      recent.length > 0
+        ? Math.round(
+            recent
+              .filter((j) => j.duration !== null)
+              .reduce((sum, j) => sum + (j.duration || 0), 0) / recent.length
+          )
+        : 0;
 
     return {
       activeJobs: active.length,
       recentJobs: recent.length,
       successRate,
       avgDuration,
-      currentlyWarming: active.filter(j => j.status === 'warming').map(j => j.datasourceId),
+      currentlyWarming: active.filter((j) => j.status === 'warming').map((j) => j.datasourceId),
     };
   }
 
@@ -246,4 +248,3 @@ class CacheWarmingTracker {
 
 // Export singleton instance
 export const cacheWarmingTracker = new CacheWarmingTracker();
-

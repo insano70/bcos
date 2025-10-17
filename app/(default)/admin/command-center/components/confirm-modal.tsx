@@ -12,7 +12,7 @@
 
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -59,6 +59,14 @@ export default function ConfirmModal({
     }
   }, [isOpen, requireReason]);
 
+  const handleConfirm = useCallback(() => {
+    if (requireReason && reason.trim().length === 0) {
+      return; // Don't confirm if reason is required but empty
+    }
+
+    onConfirm(requireReason ? reason : undefined);
+  }, [requireReason, reason, onConfirm]);
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -77,25 +85,17 @@ export default function ConfirmModal({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, reason, requireReason]);
-
-  const handleConfirm = () => {
-    if (requireReason && reason.trim().length === 0) {
-      return; // Don't confirm if reason is required but empty
-    }
-
-    onConfirm(requireReason ? reason : undefined);
-  };
+  }, [isOpen, reason, requireReason, onCancel, handleConfirm]);
 
   const getConfirmButtonClasses = () => {
-    const baseClasses = 'px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
+    const baseClasses =
+      'px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
 
     switch (confirmVariant) {
       case 'danger':
         return `${baseClasses} bg-red-600 text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800`;
       case 'warning':
         return `${baseClasses} bg-amber-600 text-white hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-800`;
-      case 'primary':
       default:
         return `${baseClasses} bg-violet-600 text-white hover:bg-violet-700 dark:bg-violet-700 dark:hover:bg-violet-800`;
     }
@@ -174,7 +174,8 @@ export default function ConfirmModal({
             {!requireReason || reason.trim().length > 0 ? (
               <>
                 {' or '}
-                <kbd className="px-1 bg-gray-200 dark:bg-gray-700 rounded">Ctrl+Enter</kbd> to confirm
+                <kbd className="px-1 bg-gray-200 dark:bg-gray-700 rounded">Ctrl+Enter</kbd> to
+                confirm
               </>
             ) : null}
           </div>
@@ -183,4 +184,3 @@ export default function ConfirmModal({
     </div>
   );
 }
-

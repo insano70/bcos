@@ -1,9 +1,9 @@
 import { and, asc, count, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { work_item_statuses, work_item_types } from '@/lib/db/schema';
+import { log } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
 
 /**
  * Work Item Statuses Service with RBAC
@@ -125,7 +125,11 @@ export class RBACWorkItemStatusesService extends BaseRBACService {
 
     // Check permission - only for organization-owned types
     if (workItemType.organization_id) {
-      this.requirePermission('work-items:manage:organization', undefined, workItemType.organization_id);
+      this.requirePermission(
+        'work-items:manage:organization',
+        undefined,
+        workItemType.organization_id
+      );
       this.requireOrganizationAccess(workItemType.organization_id);
     } else {
       // Global types cannot be modified
@@ -218,7 +222,11 @@ export class RBACWorkItemStatusesService extends BaseRBACService {
     }
 
     if (workItemType.organization_id) {
-      this.requirePermission('work-items:manage:organization', undefined, workItemType.organization_id);
+      this.requirePermission(
+        'work-items:manage:organization',
+        undefined,
+        workItemType.organization_id
+      );
       this.requireOrganizationAccess(workItemType.organization_id);
     } else {
       throw new Error('Cannot update statuses of global work item types');
@@ -283,7 +291,11 @@ export class RBACWorkItemStatusesService extends BaseRBACService {
     }
 
     if (workItemType.organization_id) {
-      this.requirePermission('work-items:manage:organization', undefined, workItemType.organization_id);
+      this.requirePermission(
+        'work-items:manage:organization',
+        undefined,
+        workItemType.organization_id
+      );
       this.requireOrganizationAccess(workItemType.organization_id);
     } else {
       throw new Error('Cannot delete statuses from global work item types');
@@ -295,10 +307,7 @@ export class RBACWorkItemStatusesService extends BaseRBACService {
       .select({ count: count() })
       .from(work_items)
       .where(
-        and(
-          eq(work_items.status_id, statusId),
-          eq(work_items.deleted_at, null as unknown as Date)
-        )
+        and(eq(work_items.status_id, statusId), eq(work_items.deleted_at, null as unknown as Date))
       );
 
     if (!workItemCount) {

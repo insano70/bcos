@@ -1,12 +1,9 @@
 import { and, count, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
-import {
-  AuthorizationError,
-  NotFoundError,
-  ValidationError,
-} from '@/lib/api/responses/error';
+import { AuthorizationError, NotFoundError, ValidationError } from '@/lib/api/responses/error';
 import { db, organizations, user_organizations, users } from '@/lib/db';
-import { SLOW_THRESHOLDS, log } from '@/lib/logger';
+import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
+import { BaseOrganizationsService } from './base-service';
 import { getBatchMemberCounts } from './query-builder';
 import type {
   OrganizationMember,
@@ -25,37 +22,30 @@ import type {
  *
  * Extracted from monolithic organizations service for better separation of concerns.
  *
+ * Now extends BaseOrganizationsService to eliminate duplicated permission
+ * checking logic (25 lines removed).
+ *
  * @internal - Use factory function instead
  */
-class OrganizationMembersService implements OrganizationMembersServiceInterface {
-  private readonly canManage: boolean;
+class OrganizationMembersService
+  extends BaseOrganizationsService
+  implements OrganizationMembersServiceInterface
+{
+  // All base permission properties inherited from BaseOrganizationsService
+  // canAccessOrganization() is also inherited
+
   private readonly canReadUsers: boolean;
-  private readonly accessibleOrgIds: string[];
 
-  constructor(private readonly userContext: UserContext) {
-    // Cache permission checks
-    this.canManage =
-      userContext.is_super_admin ||
-      userContext.all_permissions?.some((p) => p.name === 'organizations:manage:all') ||
-      false;
+  constructor(userContext: UserContext) {
+    super(userContext);
 
+    // Additional permission check specific to members service
     this.canReadUsers =
       userContext.is_super_admin ||
       userContext.all_permissions?.some(
         (p) => p.name === 'users:read:organization' || p.name === 'users:read:all'
       ) ||
       false;
-
-    this.accessibleOrgIds =
-      userContext.accessible_organizations?.map((org) => org.organization_id) || [];
-  }
-
-  /**
-   * Check if user has access to organization
-   */
-  private canAccessOrganization(organizationId: string): boolean {
-    if (this.userContext.is_super_admin) return true;
-    return this.accessibleOrgIds.includes(organizationId);
   }
 
   /**
@@ -284,9 +274,7 @@ class OrganizationMembersService implements OrganizationMembersServiceInterface 
       const [user] = await db
         .select()
         .from(users)
-        .where(
-          and(eq(users.user_id, userId), eq(users.is_active, true), isNull(users.deleted_at))
-        )
+        .where(and(eq(users.user_id, userId), eq(users.is_active, true), isNull(users.deleted_at)))
         .limit(1);
 
       if (!user) {

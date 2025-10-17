@@ -1,15 +1,11 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
-import { useTheme } from 'next-themes';
-
-import { chartColors } from '@/components/charts/chartjs-config';
-import { Chart, PieController, ArcElement, TimeScale, Tooltip } from 'chart.js';
 import type { ChartData } from 'chart.js';
+import { ArcElement, Chart, PieController, TimeScale, Tooltip } from 'chart.js';
+import { useTheme } from 'next-themes';
+import { useEffect, useRef, useState } from 'react';
+import { chartColors } from '@/components/charts/chartjs-config';
 import 'chartjs-adapter-moment';
-
-// Import utilities
-import { getCssVariable } from '@/components/utils/utils';
 
 Chart.register(PieController, ArcElement, TimeScale, Tooltip);
 Chart.overrides.doughnut.cutout = '80%';
@@ -67,7 +63,7 @@ export default function DoughnutChart({ data, width, height }: DoughnutProps) {
       plugins: [
         {
           id: 'htmlLegend',
-          afterUpdate(c, args, options) {
+          afterUpdate(c, _args, _options) {
             const ul = legend.current;
             if (!ul) return;
             // Remove old legend items

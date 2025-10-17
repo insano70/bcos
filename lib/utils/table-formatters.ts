@@ -76,10 +76,7 @@ interface NumberOptions {
  * @param options - Currency formatting options
  * @returns Formatted currency string (e.g., "$1,234.56")
  */
-export function formatCurrency(
-  value: unknown,
-  options: CurrencyOptions = {}
-): string {
+export function formatCurrency(value: unknown, options: CurrencyOptions = {}): string {
   const {
     locale = 'en-US',
     currency = 'USD',
@@ -209,10 +206,7 @@ export function formatTime(value: unknown, options: DateOptions = {}): string {
  * @param options - Number formatting options
  * @returns Formatted integer string (e.g., "1,234,567")
  */
-export function formatInteger(
-  value: unknown,
-  options: NumberOptions = {}
-): string {
+export function formatInteger(value: unknown, options: NumberOptions = {}): string {
   const { locale = 'en-US', useGrouping = true } = options;
 
   // Handle null/undefined
@@ -249,10 +243,7 @@ export function formatInteger(
  * @param options - Number formatting options
  * @returns Formatted decimal string (e.g., "1,234.57")
  */
-export function formatDecimal(
-  value: unknown,
-  options: NumberOptions = {}
-): string {
+export function formatDecimal(value: unknown, options: NumberOptions = {}): string {
   const {
     locale = 'en-US',
     minimumFractionDigits = 2,
@@ -382,11 +373,7 @@ export function formatEmail(value: unknown): string {
  * @param falseLabel - Label for false (default: "No")
  * @returns Formatted boolean string
  */
-export function formatBoolean(
-  value: unknown,
-  trueLabel = 'Yes',
-  falseLabel = 'No'
-): string {
+export function formatBoolean(value: unknown, trueLabel = 'Yes', falseLabel = 'No'): string {
   if (value === null || value === undefined) {
     return falseLabel;
   }

@@ -213,8 +213,10 @@ const refreshHandler = async (request: NextRequest) => {
     });
 
     // Enriched auth log - successful refresh
-    const sessionAge = tokenPayload.iat ? Date.now() - (tokenPayload.iat * 1000) : undefined;
-    const lastActivity = tokenPayload.iat ? new Date(tokenPayload.iat * 1000).toISOString() : undefined;
+    const sessionAge = tokenPayload.iat ? Date.now() - tokenPayload.iat * 1000 : undefined;
+    const lastActivity = tokenPayload.iat
+      ? new Date(tokenPayload.iat * 1000).toISOString()
+      : undefined;
 
     log.info('Token refresh successful', {
       operation: 'token_refresh',

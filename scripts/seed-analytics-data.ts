@@ -1,9 +1,9 @@
 #!/usr/bin/env tsx
 
+import * as dotenv from 'dotenv';
+import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { sql } from 'drizzle-orm';
-import * as dotenv from 'dotenv';
 
 // Load environment variables from .env.local
 dotenv.config({ path: '.env.local' });
@@ -15,12 +15,12 @@ dotenv.config({ path: '.env.local' });
 
 // Simple console logger for script execution
 const logger = {
-  info: (message: string, data?: any) => {
+  info: (message: string, data?: unknown) => {
     console.log(`ℹ️  ${message}`, data ? JSON.stringify(data, null, 2) : '');
   },
-  error: (message: string, data?: any) => {
+  error: (message: string, data?: unknown) => {
     console.error(`❌ ${message}`, data ? JSON.stringify(data, null, 2) : '');
-  }
+  },
 };
 
 // Configuration constants
@@ -29,22 +29,22 @@ const PRACTICE_NAME = 'Family Arthritis Center';
 const PRACTICE_PRIMARY = 'Busch, Howard';
 
 const PROVIDERS = [
-  { uid: 69, name: "Busch, Howard" },
-  { uid: 420, name: "Ray, Madina" },
-  { uid: 145, name: "Busch-Feuer, Rachael" },
-  { uid: 306, name: "Simakova, Ekaterina" },
-  { uid: 211, name: "Savage, Christine" },
-  { uid: 190, name: "Andrade, Roslyn" },
+  { uid: 69, name: 'Busch, Howard' },
+  { uid: 420, name: 'Ray, Madina' },
+  { uid: 145, name: 'Busch-Feuer, Rachael' },
+  { uid: 306, name: 'Simakova, Ekaterina' },
+  { uid: 211, name: 'Savage, Christine' },
+  { uid: 190, name: 'Andrade, Roslyn' },
 ];
 
 const MEASURES = {
-  'Cancellations': { type: 'count', min: 0, max: 15 },
+  Cancellations: { type: 'count', min: 0, max: 15 },
   'Unbilled Encounters': { type: 'count', min: 0, max: 25 },
-  'Encounters': { type: 'count', min: 50, max: 300 },
+  Encounters: { type: 'count', min: 50, max: 300 },
   'New Patients': { type: 'count', min: 15, max: 30 },
   'Follow Up': { type: 'count', min: 60, max: 120 },
-  'Tasks': { type: 'count', min: 0, max: 5 },
-  'Denials': { type: 'count', min: 2, max: 14 },
+  Tasks: { type: 'count', min: 0, max: 5 },
+  Denials: { type: 'count', min: 2, max: 14 },
   'Unbilled Claims': { type: 'count', min: 0, max: 6 },
   'Unsigned Encounters': { type: 'count', min: 2, max: 13 },
   'New Infusions': { type: 'count', min: 1, max: 11 },
@@ -52,7 +52,7 @@ const MEASURES = {
   'CPO Invoices': { type: 'currency', min: 2000, max: 75000 },
 };
 
-const TIME_PERIODS = ['Daily', 'Weekly', 'Monthly', 'Quarterly'];
+const _TIME_PERIODS = ['Daily', 'Weekly', 'Monthly', 'Quarterly'];
 
 /**
  * Generate random number within range
@@ -71,7 +71,7 @@ function randomCurrency(min: number, max: number): number {
 /**
  * Get random provider
  */
-function getRandomProvider() {
+function _getRandomProvider() {
   return PROVIDERS[Math.floor(Math.random() * PROVIDERS.length)];
 }
 
@@ -90,15 +90,15 @@ function generateDateRanges() {
 
   // Weekly periods (every Friday of the year up to current date)
   for (let week = 1; week <= 52; week++) {
-    const weekEndDate = new Date(currentYear, 0, 1 + (week * 7) - 1);
+    const weekEndDate = new Date(currentYear, 0, 1 + week * 7 - 1);
     // Adjust to Friday
     weekEndDate.setDate(weekEndDate.getDate() + (5 - weekEndDate.getDay()));
-    
+
     if (weekEndDate <= currentDate) {
       ranges.push({
         period: 'Weekly',
         endDate: weekEndDate,
-        displayDate: `Week ${week}, ${currentYear}`
+        displayDate: `Week ${week}, ${currentYear}`,
       });
     }
   }
@@ -122,13 +122,13 @@ function generateDateRanges() {
   for (let month = 0; month < 12; month++) {
     const monthData = months[month];
     if (!monthData) continue;
-    
+
     const monthEndDate = new Date(currentYear, month, monthData.days);
     if (monthEndDate <= currentDate) {
       ranges.push({
         period: 'Monthly',
         endDate: monthEndDate,
-        displayDate: `${monthData.name} ${currentYear}`
+        displayDate: `${monthData.name} ${currentYear}`,
       });
     }
   }
@@ -147,7 +147,7 @@ function generateDateRanges() {
       ranges.push({
         period: 'Quarterly',
         endDate: quarterEndDate,
-        displayDate: `${quarter.name} ${currentYear}`
+        displayDate: `${quarter.name} ${currentYear}`,
       });
     }
   }
@@ -155,16 +155,29 @@ function generateDateRanges() {
   // Daily periods (every day from Jan 1 to current date)
   const startDate = new Date(currentYear, 0, 1); // Jan 1, 2025
   const dayInMs = 24 * 60 * 60 * 1000;
-  
+
   for (let d = new Date(startDate); d <= currentDate; d = new Date(d.getTime() + dayInMs)) {
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthNames = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     const month = monthNames[d.getMonth()];
     const day = d.getDate();
-    
+
     ranges.push({
       period: 'Daily',
       endDate: new Date(d),
-      displayDate: `${month} ${day}, ${currentYear}`
+      displayDate: `${month} ${day}, ${currentYear}`,
     });
   }
 
@@ -179,7 +192,7 @@ function generateNumericValue(measure: string, timePeriod: string): number {
   if (!measureConfig) {
     throw new Error(`Unknown measure: ${measure}`);
   }
-  
+
   let baseMin = measureConfig.min;
   let baseMax = measureConfig.max;
 
@@ -227,12 +240,12 @@ async function generateAnalyticsData() {
     practiceUid: PRACTICE_UID,
     practiceName: PRACTICE_NAME,
     providerCount: PROVIDERS.length,
-    measureCount: Object.keys(MEASURES).length
+    measureCount: Object.keys(MEASURES).length,
   });
 
   try {
     const analyticsDb = getAnalyticsConnection();
-    
+
     // Clear existing data for this practice (optional - remove if you want to keep existing data)
     logger.info('Clearing existing data for practice', { practiceUid: PRACTICE_UID });
     await analyticsDb.execute(sql`
@@ -264,15 +277,16 @@ async function generateAnalyticsData() {
     for (const provider of PROVIDERS) {
       for (const measureName of Object.keys(MEASURES)) {
         const measureConfig = MEASURES[measureName as keyof typeof MEASURES];
-        
+
         for (const dateRange of dateRanges) {
           // Skip daily data for measures other than 'Cash Transfer'
           if (dateRange.period === 'Daily' && measureName !== 'Cash Transfer') {
             continue;
           }
-          
+
           // Add some randomness - not every provider has data for every period/measure
-          if (Math.random() < 0.85) { // 85% chance of having data
+          if (Math.random() < 0.85) {
+            // 85% chance of having data
             records.push({
               practice_uid: PRACTICE_UID,
               practice: PRACTICE_NAME,
@@ -296,9 +310,9 @@ async function generateAnalyticsData() {
       }
     }
 
-    logger.info('Generated records for insertion', { 
+    logger.info('Generated records for insertion', {
       recordCount: records.length,
-      dateRangeCount: dateRanges.length 
+      dateRangeCount: dateRanges.length,
     });
 
     // Insert data in batches to avoid memory issues
@@ -307,24 +321,29 @@ async function generateAnalyticsData() {
 
     for (let i = 0; i < records.length; i += batchSize) {
       const batch = records.slice(i, i + batchSize);
-      
-      // Build the VALUES clause for batch insert
-      const values = batch.map(record => 
-        `(${record.practice_uid}, '${record.practice}', '${record.practice_primary}', ${record.provider_uid}, '${record.provider_name}', '${record.entity_type}', '${record.entity_id}', '${record.entity_name}', '${record.measure}', '${record.measure_type}', '${record.time_period}', '${record.date_value}', '${record.display_date}', ${record.numeric_value}, ${record.text_value}, ${record.metadata})`
-      ).join(',');
 
-      await analyticsDb.execute(sql.raw(`
+      // Build the VALUES clause for batch insert
+      const values = batch
+        .map(
+          (record) =>
+            `(${record.practice_uid}, '${record.practice}', '${record.practice_primary}', ${record.provider_uid}, '${record.provider_name}', '${record.entity_type}', '${record.entity_id}', '${record.entity_name}', '${record.measure}', '${record.measure_type}', '${record.time_period}', '${record.date_value}', '${record.display_date}', ${record.numeric_value}, ${record.text_value}, ${record.metadata})`
+        )
+        .join(',');
+
+      await analyticsDb.execute(
+        sql.raw(`
         INSERT INTO ih.agg_chart_data 
         (practice_uid, practice, practice_primary, provider_uid, provider_name, entity_type, entity_id, entity_name, measure, measure_type, time_period, date_value, display_date, numeric_value, text_value, metadata)
         VALUES ${values}
-      `));
+      `)
+      );
 
       insertedCount += batch.length;
-      logger.info('Inserted batch', { 
+      logger.info('Inserted batch', {
         batchNumber: Math.floor(i / batchSize) + 1,
         batchSize: batch.length,
         totalInserted: insertedCount,
-        remaining: records.length - insertedCount
+        remaining: records.length - insertedCount,
       });
     }
 
@@ -344,21 +363,22 @@ async function generateAnalyticsData() {
     logger.info('Analytics data generation completed successfully', {
       practiceUid: PRACTICE_UID,
       totalRecords: insertedCount,
-      statistics: stats[0]
+      statistics: stats[0],
     });
 
     console.log('\n🎉 Analytics Data Generation Complete!');
     console.log(`📊 Generated ${insertedCount} records for ${PRACTICE_NAME}`);
     console.log(`👥 ${PROVIDERS.length} providers across ${Object.keys(MEASURES).length} measures`);
-    console.log(`📅 ${dateRanges.length} time periods (Daily for Cash Transfer, Weekly, Monthly, Quarterly for all)`);
+    console.log(
+      `📅 ${dateRanges.length} time periods (Daily for Cash Transfer, Weekly, Monthly, Quarterly for all)`
+    );
     console.log(`📈 Statistics:`, stats[0]);
-
   } catch (error) {
     logger.error('Analytics data generation failed', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      practiceUid: PRACTICE_UID
+      practiceUid: PRACTICE_UID,
     });
-    
+
     console.error('\n❌ Data generation failed:', error);
     throw error;
   }

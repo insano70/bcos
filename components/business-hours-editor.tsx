@@ -13,8 +13,8 @@ interface BusinessHoursEditorProps {
 export default function BusinessHoursEditor({
   businessHours,
   onChange,
-  label = "Business Hours",
-  className = ''
+  label = 'Business Hours',
+  className = '',
 }: BusinessHoursEditorProps) {
   const uid = useId();
 
@@ -26,7 +26,7 @@ export default function BusinessHoursEditor({
     { key: 'wednesday', label: 'Wednesday' },
     { key: 'thursday', label: 'Thursday' },
     { key: 'friday', label: 'Friday' },
-    { key: 'saturday', label: 'Saturday' }
+    { key: 'saturday', label: 'Saturday' },
   ] as const;
 
   const updateDay = (day: keyof BusinessHours, schedule: Partial<DaySchedule>) => {
@@ -34,18 +34,18 @@ export default function BusinessHoursEditor({
       ...businessHours,
       [day]: {
         ...businessHours[day],
-        ...schedule
-      }
+        ...schedule,
+      },
     };
     onChange(updatedHours);
   };
 
   const toggleClosed = (day: keyof BusinessHours) => {
     const currentDay = businessHours[day];
-    updateDay(day, { 
+    updateDay(day, {
       closed: !currentDay.closed,
       // If reopening, provide default hours
-      ...(currentDay.closed ? { open: '09:00', close: '17:00' } : {})
+      ...(currentDay.closed ? { open: '09:00', close: '17:00' } : {}),
     });
   };
 
@@ -54,20 +54,23 @@ export default function BusinessHoursEditor({
       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
         {label}
       </label>
-      
+
       <div className="space-y-4">
         {daysOfWeek.map(({ key, label: dayLabel }) => {
           const daySchedule = businessHours[key] || { closed: true };
-          
+
           return (
-            <div key={key} className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <div
+              key={key}
+              className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
+            >
               {/* Day name */}
               <div className="w-24 flex-shrink-0">
                 <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                   {dayLabel}
                 </span>
               </div>
-              
+
               {/* Closed checkbox */}
               <div className="flex items-center">
                 <input
@@ -77,16 +80,22 @@ export default function BusinessHoursEditor({
                   onChange={() => toggleClosed(key)}
                   className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                 />
-                <label htmlFor={`${uid}-${key}-closed`} className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                <label
+                  htmlFor={`${uid}-${key}-closed`}
+                  className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                >
                   Closed
                 </label>
               </div>
-              
+
               {/* Time inputs (only show if not closed) */}
               {!daySchedule.closed && (
                 <div className="flex items-center gap-2 flex-1">
                   <div className="flex items-center gap-2">
-                    <label htmlFor={`${uid}-${key}-open`} className="text-sm text-gray-600 dark:text-gray-400">
+                    <label
+                      htmlFor={`${uid}-${key}-open`}
+                      className="text-sm text-gray-600 dark:text-gray-400"
+                    >
                       Open:
                     </label>
                     <input
@@ -97,11 +106,14 @@ export default function BusinessHoursEditor({
                       className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
-                  
+
                   <span className="text-gray-500">to</span>
-                  
+
                   <div className="flex items-center gap-2">
-                    <label htmlFor={`${uid}-${key}-close`} className="text-sm text-gray-600 dark:text-gray-400">
+                    <label
+                      htmlFor={`${uid}-${key}-close`}
+                      className="text-sm text-gray-600 dark:text-gray-400"
+                    >
                       Close:
                     </label>
                     <input
@@ -114,7 +126,7 @@ export default function BusinessHoursEditor({
                   </div>
                 </div>
               )}
-              
+
               {/* Show "Closed" text when closed */}
               {daySchedule.closed && (
                 <div className="flex-1">
@@ -125,7 +137,7 @@ export default function BusinessHoursEditor({
           );
         })}
       </div>
-      
+
       {/* Quick actions */}
       <div className="mt-4 flex gap-2">
         <button
@@ -139,7 +151,7 @@ export default function BusinessHoursEditor({
               wednesday: standardHours,
               thursday: standardHours,
               friday: standardHours,
-              saturday: { closed: true }
+              saturday: { closed: true },
             };
             onChange(weekdayHours);
           }}
@@ -147,14 +159,17 @@ export default function BusinessHoursEditor({
         >
           Standard Hours (M-F 9am-5pm)
         </button>
-        
+
         <button
           type="button"
           onClick={() => {
-            const allClosed = daysOfWeek.reduce((acc, { key }) => ({
-              ...acc,
-              [key]: { closed: true }
-            }), {} as BusinessHours);
+            const allClosed = daysOfWeek.reduce(
+              (acc, { key }) => ({
+                ...acc,
+                [key]: { closed: true },
+              }),
+              {} as BusinessHours
+            );
             onChange(allClosed);
           }}
           className="px-3 py-1.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"

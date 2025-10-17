@@ -10,42 +10,23 @@
  * - Assignments (assign to specific users with conditions)
  */
 
+import { ChevronDown, ChevronRight, HelpCircle, Plus, X } from 'lucide-react';
 import { useState } from 'react';
-import { X, Plus, ChevronDown, ChevronRight, HelpCircle } from 'lucide-react';
-import { useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
 import { useUsers } from '@/lib/hooks/use-users';
+import { useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
+import type {
+  ActionConfig,
+  AssignmentAction,
+  FieldUpdateAction,
+  NotificationAction,
+} from '@/lib/validations/workflow-transitions';
 
-export interface NotificationAction {
-  type: 'notification';
-  recipients: string[]; // 'assigned_to', 'creator', 'watchers', or user IDs
-  template?: string;
-  subject?: string;
-}
-
-export interface FieldUpdateAction {
-  type: 'field_update';
-  field_id: string;
-  value: string; // supports template tokens
-  condition?: string;
-}
-
-export interface AssignmentAction {
-  type: 'assignment';
-  assign_to: string; // user ID or template token like '{creator}'
-  condition?: string;
-}
-
-export type Action = NotificationAction | FieldUpdateAction | AssignmentAction;
-
-export interface ActionConfig {
-  notifications: NotificationAction[];
-  field_updates: FieldUpdateAction[];
-  assignments: AssignmentAction[];
-}
+// Re-export for backward compatibility
+export type { ActionConfig, NotificationAction, FieldUpdateAction, AssignmentAction };
 
 interface TransitionActionBuilderProps {
   workItemTypeId: string;
-  initialConfig?: ActionConfig | null;
+  initialConfig: ActionConfig;
   onChange: (config: ActionConfig) => void;
 }
 
@@ -83,16 +64,14 @@ export function TransitionActionBuilder({
   const [showHelp, setShowHelp] = useState(false);
 
   const [notifications, setNotifications] = useState<NotificationAction[]>(
-    initialConfig?.notifications || []
+    initialConfig.notifications
   );
 
   const [fieldUpdates, setFieldUpdates] = useState<FieldUpdateAction[]>(
-    initialConfig?.field_updates || []
+    initialConfig.field_updates
   );
 
-  const [assignments, setAssignments] = useState<AssignmentAction[]>(
-    initialConfig?.assignments || []
-  );
+  const [assignments, setAssignments] = useState<AssignmentAction[]>(initialConfig.assignments);
 
   const emitChange = (
     newNotifications: NotificationAction[],
@@ -197,11 +176,7 @@ export function TransitionActionBuilder({
     emitChange(notifications, fieldUpdates, updated);
   };
 
-  const handleAssignmentChange = (
-    index: number,
-    field: keyof AssignmentAction,
-    value: string
-  ) => {
+  const handleAssignmentChange = (index: number, field: keyof AssignmentAction, value: string) => {
     const updated = assignments.map((assignment, i) =>
       i === index ? { ...assignment, [field]: value } : assignment
     );
@@ -265,12 +240,8 @@ export function TransitionActionBuilder({
                   key={item.token}
                   className="text-xs bg-white dark:bg-gray-800 p-2 rounded border border-blue-200 dark:border-blue-800/30"
                 >
-                  <code className="text-blue-600 dark:text-blue-400 font-mono">
-                    {item.token}
-                  </code>
-                  <div className="text-gray-600 dark:text-gray-400 mt-0.5">
-                    {item.description}
-                  </div>
+                  <code className="text-blue-600 dark:text-blue-400 font-mono">{item.token}</code>
+                  <div className="text-gray-600 dark:text-gray-400 mt-0.5">{item.description}</div>
                 </div>
               ))}
             </div>
@@ -329,23 +300,14 @@ export function TransitionActionBuilder({
                   </label>
                   <div className="space-y-1.5">
                     {RECIPIENT_TYPES.map((recipient) => (
-                      <label
-                        key={recipient.value}
-                        className="flex items-center gap-2 text-sm"
-                      >
+                      <label key={recipient.value} className="flex items-center gap-2 text-sm">
                         <input
                           type="checkbox"
-                          checked={notification.recipients.includes(
-                            recipient.value
-                          )}
-                          onChange={() =>
-                            handleRecipientToggle(index, recipient.value)
-                          }
+                          checked={notification.recipients.includes(recipient.value)}
+                          onChange={() => handleRecipientToggle(index, recipient.value)}
                           className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                         />
-                        <span className="text-gray-700 dark:text-gray-300">
-                          {recipient.label}
-                        </span>
+                        <span className="text-gray-700 dark:text-gray-300">{recipient.label}</span>
                       </label>
                     ))}
                   </div>
@@ -358,9 +320,7 @@ export function TransitionActionBuilder({
                   <input
                     type="text"
                     value={notification.subject || ''}
-                    onChange={(e) =>
-                      handleNotificationChange(index, 'subject', e.target.value)
-                    }
+                    onChange={(e) => handleNotificationChange(index, 'subject', e.target.value)}
                     placeholder="Work item {work_item.subject} updated"
                     className="form-input w-full text-sm"
                   />
@@ -423,9 +383,7 @@ export function TransitionActionBuilder({
                     </label>
                     <select
                       value={update.field_id}
-                      onChange={(e) =>
-                        handleFieldUpdateChange(index, 'field_id', e.target.value)
-                      }
+                      onChange={(e) => handleFieldUpdateChange(index, 'field_id', e.target.value)}
                       className="form-select w-full text-sm"
                     >
                       <option value="">Select field...</option>
@@ -443,9 +401,7 @@ export function TransitionActionBuilder({
                     </label>
                     <select
                       value={update.condition || ''}
-                      onChange={(e) =>
-                        handleFieldUpdateChange(index, 'condition', e.target.value)
-                      }
+                      onChange={(e) => handleFieldUpdateChange(index, 'condition', e.target.value)}
                       className="form-select w-full text-sm"
                     >
                       <option value="">Always apply</option>
@@ -465,9 +421,7 @@ export function TransitionActionBuilder({
                   <textarea
                     id={`field-value-${index}`}
                     value={update.value}
-                    onChange={(e) =>
-                      handleFieldUpdateChange(index, 'value', e.target.value)
-                    }
+                    onChange={(e) => handleFieldUpdateChange(index, 'value', e.target.value)}
                     placeholder="Enter value or use template tokens like {now}"
                     rows={2}
                     className="form-textarea w-full text-sm"
@@ -477,9 +431,7 @@ export function TransitionActionBuilder({
                       <button
                         key={item.token}
                         type="button"
-                        onClick={() =>
-                          insertToken(item.token, `field-value-${index}`)
-                        }
+                        onClick={() => insertToken(item.token, `field-value-${index}`)}
                         className="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
                       >
                         {item.token}
@@ -545,9 +497,7 @@ export function TransitionActionBuilder({
                     </label>
                     <select
                       value={assignment.assign_to}
-                      onChange={(e) =>
-                        handleAssignmentChange(index, 'assign_to', e.target.value)
-                      }
+                      onChange={(e) => handleAssignmentChange(index, 'assign_to', e.target.value)}
                       className="form-select w-full text-sm"
                     >
                       <option value="">Select user...</option>
@@ -569,9 +519,7 @@ export function TransitionActionBuilder({
                     </label>
                     <select
                       value={assignment.condition || ''}
-                      onChange={(e) =>
-                        handleAssignmentChange(index, 'condition', e.target.value)
-                      }
+                      onChange={(e) => handleAssignmentChange(index, 'condition', e.target.value)}
                       className="form-select w-full text-sm"
                     >
                       <option value="">Always assign</option>
@@ -596,11 +544,7 @@ export function TransitionActionBuilder({
           onClick={() => setShowPreview(!showPreview)}
           className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
         >
-          {showPreview ? (
-            <ChevronDown className="h-4 w-4" />
-          ) : (
-            <ChevronRight className="h-4 w-4" />
-          )}
+          {showPreview ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           {showPreview ? 'Hide' : 'Show'} Configuration Preview
         </button>
 

@@ -1,4 +1,4 @@
-import { randomBytes } from 'crypto'
+import { randomBytes } from 'node:crypto';
 
 /**
  * Generate a cryptographically secure unique identifier
@@ -6,10 +6,10 @@ import { randomBytes } from 'crypto'
  */
 export function generateCryptoUniqueId(prefix = 'test'): string {
   // Generate 8 random bytes (64 bits) for high collision resistance
-  const randomPart = randomBytes(8).toString('hex')
+  const randomPart = randomBytes(8).toString('hex');
   // Add timestamp for additional uniqueness and debugging
-  const timestamp = Date.now()
-  return `${prefix}_${timestamp}_${randomPart}`
+  const timestamp = Date.now();
+  return `${prefix}_${timestamp}_${randomPart}`;
 }
 
 /**
@@ -17,7 +17,7 @@ export function generateCryptoUniqueId(prefix = 'test'): string {
  * Uses crypto random bytes to prevent collisions in parallel test runs
  */
 export function generateUniqueEmail(prefix = 'test'): string {
-  return `${generateCryptoUniqueId(prefix)}@test.local`
+  return `${generateCryptoUniqueId(prefix)}@test.local`;
 }
 
 /**
@@ -25,7 +25,7 @@ export function generateUniqueEmail(prefix = 'test'): string {
  * Uses crypto random bytes to prevent collisions in parallel test runs
  */
 export function generateUniqueUsername(prefix = 'user'): string {
-  return generateCryptoUniqueId(prefix)
+  return generateCryptoUniqueId(prefix);
 }
 
 /**
@@ -33,7 +33,7 @@ export function generateUniqueUsername(prefix = 'user'): string {
  * Uses crypto random bytes to prevent collisions in parallel test runs
  */
 export function generateUniqueOrgName(prefix = 'org'): string {
-  return generateCryptoUniqueId(prefix)
+  return generateCryptoUniqueId(prefix);
 }
 
 /**
@@ -41,7 +41,7 @@ export function generateUniqueOrgName(prefix = 'org'): string {
  * Uses crypto random bytes to prevent collisions in parallel test runs
  */
 export function generateUniquePracticeName(prefix = 'practice'): string {
-  return generateCryptoUniqueId(prefix)
+  return generateCryptoUniqueId(prefix);
 }
 
 /**
@@ -49,7 +49,7 @@ export function generateUniquePracticeName(prefix = 'practice'): string {
  * Uses crypto random bytes to prevent collisions in parallel test runs
  */
 export function generateUniqueDomain(prefix = 'testpractice'): string {
-  return `${generateCryptoUniqueId(prefix)}.local`
+  return `${generateCryptoUniqueId(prefix)}.local`;
 }
 
 /**
@@ -57,7 +57,7 @@ export function generateUniqueDomain(prefix = 'testpractice'): string {
  * Uses crypto random bytes to prevent collisions in parallel test runs
  */
 export function generateUniqueStaffName(prefix = 'staff'): string {
-  return generateCryptoUniqueId(prefix)
+  return generateCryptoUniqueId(prefix);
 }
 
 /**
@@ -65,5 +65,5 @@ export function generateUniqueStaffName(prefix = 'staff'): string {
  * Uses crypto random bytes to prevent collisions in parallel test runs
  */
 export function generateUniqueRoleName(prefix = 'role'): string {
-  return generateCryptoUniqueId(prefix)
+  return generateCryptoUniqueId(prefix);
 }

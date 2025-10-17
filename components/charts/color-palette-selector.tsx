@@ -1,6 +1,6 @@
 'use client';
 
-import { getAllPalettes, getColorPalette, type ColorPalette } from '@/lib/services/color-palettes';
+import { getAllPalettes, getColorPalette } from '@/lib/services/color-palettes';
 
 interface ColorPaletteSelectorProps {
   value: string;
@@ -8,7 +8,11 @@ interface ColorPaletteSelectorProps {
   className?: string;
 }
 
-export default function ColorPaletteSelector({ value, onChange, className = '' }: ColorPaletteSelectorProps) {
+export default function ColorPaletteSelector({
+  value,
+  onChange,
+  className = '',
+}: ColorPaletteSelectorProps) {
   const palettes = getAllPalettes();
   const selectedPalette = getColorPalette(value);
 
@@ -17,7 +21,7 @@ export default function ColorPaletteSelector({ value, onChange, className = '' }
       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
         Color Palette
       </label>
-      
+
       {/* Dropdown Select */}
       <select
         value={value}
@@ -44,16 +48,17 @@ export default function ColorPaletteSelector({ value, onChange, className = '' }
             />
           ))}
         </div>
-        
+
         {/* Description */}
         <p className="text-xs text-gray-600 dark:text-gray-300 mb-1">
           {selectedPalette.description}
         </p>
-        
+
         {/* Recommended for */}
         {selectedPalette.recommendedFor.length > 0 && (
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            <span className="font-medium">Best for:</span> {selectedPalette.recommendedFor.join(', ')}
+            <span className="font-medium">Best for:</span>{' '}
+            {selectedPalette.recommendedFor.join(', ')}
           </p>
         )}
       </div>

@@ -5,9 +5,8 @@
  * Processes ONE file at a time with proper backups and validation
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
-import { join, dirname, basename } from 'path';
-import { debugLog } from '@/lib/utils/debug';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 
 interface ConsoleReplacement {
   pattern: RegExp;
@@ -56,7 +55,7 @@ class SafeConsoleReplacer {
       // Error patterns - highest priority, most careful
       {
         pattern: /console\.error\(\s*(['"`])([^'"`]+)\1\s*,\s*([^)]+)\s*\)/g,
-        replacement: (match, quote, message, data) => {
+        replacement: (match, _quote, message, data) => {
           // Only replace if the data looks like a simple object literal
           if (data.trim().startsWith('{') && !data.includes(' as ')) {
             return `logger.error('${message}', ${data})`;
@@ -66,22 +65,22 @@ class SafeConsoleReplacer {
         category: 'error',
         description: 'Error logging with simple object data',
         requiresImport: true,
-        importStatement: 'import { logger } from \'@/lib/logger\';'
+        importStatement: "import { logger } from '@/lib/logger';",
       },
 
       {
         pattern: /console\.error\(\s*(['"`])([^'"`]+)\1\s*\)/g,
-        replacement: 'logger.error(\'$2\')',
+        replacement: "logger.error('$2')",
         category: 'error',
         description: 'Simple error logging',
         requiresImport: true,
-        importStatement: 'import { logger } from \'@/lib/logger\';'
+        importStatement: "import { logger } from '@/lib/logger';",
       },
 
       // Warning patterns
       {
         pattern: /console\.warn\(\s*(['"`])([^'"`]+)\1\s*,\s*([^)]+)\s*\)/g,
-        replacement: (match, quote, message, data) => {
+        replacement: (match, _quote, message, data) => {
           if (data.trim().startsWith('{') && !data.includes(' as ')) {
             return `logger.warn('${message}', ${data})`;
           }
@@ -90,47 +89,47 @@ class SafeConsoleReplacer {
         category: 'warn',
         description: 'Warning logging with simple object data',
         requiresImport: true,
-        importStatement: 'import { logger } from \'@/lib/logger\';'
+        importStatement: "import { logger } from '@/lib/logger';",
       },
 
       {
         pattern: /console\.warn\(\s*(['"`])([^'"`]+)\1\s*\)/g,
-        replacement: 'logger.warn(\'$2\')',
+        replacement: "logger.warn('$2')",
         category: 'warn',
         description: 'Simple warning logging',
         requiresImport: true,
-        importStatement: 'import { logger } from \'@/lib/logger\';'
+        importStatement: "import { logger } from '@/lib/logger';",
       },
 
       // Info patterns
       {
         pattern: /console\.info\(\s*(['"`])([^'"`]+)\1\s*\)/g,
-        replacement: 'logger.info(\'$2\')',
+        replacement: "logger.info('$2')",
         category: 'info',
         description: 'Simple info logging',
         requiresImport: true,
-        importStatement: 'import { logger } from \'@/lib/logger\';'
+        importStatement: "import { logger } from '@/lib/logger';",
       },
 
       // Log patterns (convert to info)
       {
         pattern: /console\.log\(\s*(['"`])([^'"`]+)\1\s*\)/g,
-        replacement: 'logger.info(\'$2\')',
+        replacement: "logger.info('$2')",
         category: 'log',
         description: 'Simple log to info conversion',
         requiresImport: true,
-        importStatement: 'import { logger } from \'@/lib/logger\';'
+        importStatement: "import { logger } from '@/lib/logger';",
       },
 
       // Debug patterns
       {
         pattern: /console\.debug\(\s*(['"`])([^'"`]+)\1\s*\)/g,
-        replacement: 'logger.debug(\'$2\')',
+        replacement: "logger.debug('$2')",
         category: 'debug',
         description: 'Simple debug logging',
         requiresImport: true,
-        importStatement: 'import { logger } from \'@/lib/logger\';'
-      }
+        importStatement: "import { logger } from '@/lib/logger';",
+      },
     ];
   }
 
@@ -145,7 +144,7 @@ class SafeConsoleReplacer {
       replacements: 0,
       errors: [],
       requiresImport: false,
-      importAdded: false
+      importAdded: false,
     };
 
     try {
@@ -158,29 +157,31 @@ class SafeConsoleReplacer {
       let totalReplacements = 0;
 
       // Check for existing logger import
-      const hasLoggerImport = /import.*logger.*from.*['"`]@\/lib\/logger['"`]/.test(originalContent);
+      const hasLoggerImport = /import.*logger.*from.*['"`]@\/lib\/logger['"`]/.test(
+        originalContent
+      );
 
       console.log(`📦 Existing logger import: ${hasLoggerImport ? 'YES' : 'NO'}`);
 
       // Apply replacements
       for (const replacement of this.replacements) {
         const matches = Array.from(modifiedContent.matchAll(replacement.pattern));
-        
+
         if (matches.length > 0) {
           console.log(`  🔄 Found ${matches.length} ${replacement.category} patterns`);
-          
+
           let replacementContent = modifiedContent;
-          
+
           for (const match of matches) {
             const originalText = match[0];
-            
+
             let replacementText: string;
             if (typeof replacement.replacement === 'function') {
               replacementText = replacement.replacement(match[0], ...match.slice(1));
             } else {
               replacementText = originalText.replace(replacement.pattern, replacement.replacement);
             }
-            
+
             // Only replace if something actually changed
             if (replacementText !== originalText) {
               replacementContent = replacementContent.replace(originalText, replacementText);
@@ -190,9 +191,9 @@ class SafeConsoleReplacer {
               console.log(`    ⏭️  Skipped complex pattern: ${originalText.trim()}`);
             }
           }
-          
+
           modifiedContent = replacementContent;
-          
+
           if (replacement.requiresImport && !hasLoggerImport && totalReplacements > 0) {
             result.requiresImport = true;
           }
@@ -228,11 +229,10 @@ class SafeConsoleReplacer {
 
       // Write modified file
       writeFileSync(filePath, modifiedContent, 'utf-8');
-      
+
       console.log(`✅ File processed successfully`);
       console.log(`💾 Backup created: ${backupPath}`);
       result.success = true;
-
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       result.errors.push(errorMessage);
@@ -247,14 +247,14 @@ class SafeConsoleReplacer {
    */
   private createBackup(filePath: string, content: string): string {
     const timestamp = Date.now();
-    const fileName = basename(filePath);
-    const relativePath = filePath.replace(process.cwd() + '/', '').replace(/\//g, '_');
+    const _fileName = basename(filePath);
+    const relativePath = filePath.replace(`${process.cwd()}/`, '').replace(/\//g, '_');
     const backupFileName = `${relativePath}.${timestamp}.backup`;
     const backupPath = join(this.backupDir, backupFileName);
 
     // Ensure backup subdirectories exist
     mkdirSync(dirname(backupPath), { recursive: true });
-    
+
     writeFileSync(backupPath, content, 'utf-8');
     return backupPath;
   }
@@ -264,21 +264,26 @@ class SafeConsoleReplacer {
    */
   private addLoggerImport(content: string): string {
     const lines = content.split('\n');
-    
+
     // Find the best place to insert the import
     let insertIndex = 0;
-    
+
     // Look for existing imports
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]?.trim();
       if (line?.startsWith('import ')) {
         insertIndex = i + 1;
-      } else if (line && !line.startsWith('//') && !line.startsWith('/*') && !line.startsWith('*')) {
+      } else if (
+        line &&
+        !line.startsWith('//') &&
+        !line.startsWith('/*') &&
+        !line.startsWith('*')
+      ) {
         break;
       }
     }
 
-    lines.splice(insertIndex, 0, 'import { logger } from \'@/lib/logger\';');
+    lines.splice(insertIndex, 0, "import { logger } from '@/lib/logger';");
     return lines.join('\n');
   }
 
@@ -294,7 +299,7 @@ class SafeConsoleReplacer {
 
       const backupContent = readFileSync(backupPath, 'utf-8');
       writeFileSync(targetFile, backupContent, 'utf-8');
-      
+
       console.log(`✅ Restored ${targetFile} from backup`);
       return true;
     } catch (error) {
@@ -308,14 +313,14 @@ class SafeConsoleReplacer {
    */
   listBackupsForFile(filePath: string): string[] {
     try {
-      const relativePath = filePath.replace(process.cwd() + '/', '').replace(/\//g, '_');
+      const relativePath = filePath.replace(`${process.cwd()}/`, '').replace(/\//g, '_');
       const backupPattern = relativePath;
-      
+
       if (!existsSync(this.backupDir)) {
         return [];
       }
 
-      const files = require('fs').readdirSync(this.backupDir);
+      const files = require('node:fs').readdirSync(this.backupDir);
       return files
         .filter((file: string) => file.startsWith(backupPattern) && file.endsWith('.backup'))
         .sort()
@@ -332,7 +337,7 @@ class SafeConsoleReplacer {
  */
 async function main() {
   const args = process.argv.slice(2);
-  
+
   if (args.length === 0) {
     console.log(`
 🔧 Safe Console Replacer - Single File Processing
@@ -370,16 +375,17 @@ SAFETY FEATURES:
   }
 
   const targetFile = args[0];
-  
+
   if (!targetFile) {
     console.log('❌ Target file required');
     process.exit(1);
   }
-  
+
   const execute = args.includes('--execute');
   const listBackups = args.includes('--list-backups');
   const restoreIndex = args.indexOf('--restore');
-  const backupFile = restoreIndex >= 0 && restoreIndex + 1 < args.length ? args[restoreIndex + 1] : null;
+  const backupFile =
+    restoreIndex >= 0 && restoreIndex + 1 < args.length ? args[restoreIndex + 1] : null;
 
   const replacer = new SafeConsoleReplacer();
 
@@ -413,7 +419,7 @@ SAFETY FEATURES:
     }
 
     const result = await replacer.processFile(targetFile, !execute);
-    
+
     if (!result.success) {
       console.log(`❌ Processing failed:`, result.errors);
       process.exit(1);
@@ -424,9 +430,10 @@ SAFETY FEATURES:
       console.log(`   Replacements: ${result.replacements}`);
       console.log(`   Backup: ${result.backupFile}`);
       console.log(`\n💡 To restore if needed:`);
-      console.log(`   npx tsx scripts/safe-console-replacer.ts ${targetFile} --restore ${result.backupFile}`);
+      console.log(
+        `   npx tsx scripts/safe-console-replacer.ts ${targetFile} --restore ${result.backupFile}`
+      );
     }
-
   } catch (error) {
     console.log(`💥 Fatal error: ${error}`);
     process.exit(1);

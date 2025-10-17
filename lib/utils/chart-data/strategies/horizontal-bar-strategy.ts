@@ -1,14 +1,14 @@
 /**
  * Horizontal Bar Chart Strategy
- * 
+ *
  * Handles transformation for horizontal bar charts.
  * Aggregates across dates by groupBy field.
  */
 
 import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
-import { BaseChartTransformStrategy, type TransformConfig } from './base-strategy';
-import { getColorPalette, adjustColorOpacity } from '../services/chart-color-service';
+import { adjustColorOpacity, getColorPalette } from '../services/chart-color-service';
 import { aggregateAcrossDates } from '../services/data-aggregator';
+import { BaseChartTransformStrategy, type TransformConfig } from './base-strategy';
 
 /**
  * Horizontal Bar Chart Transformation Strategy
@@ -73,4 +73,3 @@ export class HorizontalBarStrategy extends BaseChartTransformStrategy {
     return this.attachMeasureType(chartData, this.extractMeasureType(measures));
   }
 }
-

@@ -1,12 +1,12 @@
 /**
  * Base Chart Transform Strategy
- * 
+ *
  * Defines the interface for chart-specific transformation strategies.
  * Each chart type implements this interface with its own transformation logic.
  */
 
-import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
 import type { ColumnConfig } from '@/lib/services/chart-config-service';
+import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
 
 /**
  * Configuration for chart transformation
@@ -23,7 +23,7 @@ export interface TransformConfig {
 
 /**
  * Chart Transform Strategy Interface
- * 
+ *
  * All chart type strategies must implement this interface.
  */
 export interface ChartTransformStrategy {
@@ -34,7 +34,7 @@ export interface ChartTransformStrategy {
 
   /**
    * Transform pre-aggregated data to Chart.js format
-   * 
+   *
    * @param measures - Array of pre-aggregated measure records
    * @param config - Transformation configuration
    * @returns Chart.js compatible data structure
@@ -43,7 +43,7 @@ export interface ChartTransformStrategy {
 
   /**
    * Check if this strategy can handle the given chart type
-   * 
+   *
    * @param chartType - Chart type identifier
    * @returns True if this strategy handles the chart type
    */
@@ -51,7 +51,7 @@ export interface ChartTransformStrategy {
 
   /**
    * Validate configuration for this chart type
-   * 
+   *
    * @param config - Configuration to validate
    * @returns Validation result with errors if invalid
    */
@@ -93,7 +93,7 @@ export abstract class BaseChartTransformStrategy implements ChartTransformStrate
   protected extractMeasureType(measures: AggAppMeasure[]): string {
     if (measures.length === 0) return 'number';
     const measureType = measures[0]?.measure_type;
-    return (typeof measureType === 'string' ? measureType : 'number');
+    return typeof measureType === 'string' ? measureType : 'number';
   }
 
   /**
@@ -142,11 +142,7 @@ export abstract class BaseChartTransformStrategy implements ChartTransformStrate
   /**
    * Get group key for a measure with column metadata validation
    */
-  protected getGroupKey(
-    measure: AggAppMeasure,
-    groupBy: string,
-    config: TransformConfig
-  ): string {
+  protected getGroupKey(measure: AggAppMeasure, groupBy: string, config: TransformConfig): string {
     // Use column metadata if available for validation
     if (config.columnMetadata) {
       const columnConfig = config.columnMetadata.get(groupBy);
@@ -160,7 +156,7 @@ export abstract class BaseChartTransformStrategy implements ChartTransformStrate
     // Import and use the utility function
     // Note: getGroupValue is imported from data-aggregator
     const value = (measure as Record<string, unknown>)[groupBy];
-    
+
     if (value == null || value === '') {
       const formattedFieldName = groupBy
         .split('_')
@@ -168,7 +164,7 @@ export abstract class BaseChartTransformStrategy implements ChartTransformStrate
         .join(' ');
       return `Unknown ${formattedFieldName}`;
     }
-    
+
     return typeof value === 'string' ? value : String(value);
   }
 
@@ -185,4 +181,3 @@ export abstract class BaseChartTransformStrategy implements ChartTransformStrate
     );
   }
 }
-

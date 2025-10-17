@@ -1,6 +1,6 @@
-'use client'
+'use client';
 
-import { createContext, useContext } from 'react'
+import { createContext, useContext } from 'react';
 
 // Extend Window interface to include CSP nonce
 declare global {
@@ -9,20 +9,10 @@ declare global {
   }
 }
 
-const NonceContext = createContext<string>('')
+const NonceContext = createContext<string>('');
 
-export function NonceProvider({ 
-  children, 
-  nonce 
-}: { 
-  children: React.ReactNode
-  nonce: string 
-}) {
-  return (
-    <NonceContext.Provider value={nonce}>
-      {children}
-    </NonceContext.Provider>
-  )
+export function NonceProvider({ children, nonce }: { children: React.ReactNode; nonce: string }) {
+  return <NonceContext.Provider value={nonce}>{children}</NonceContext.Provider>;
 }
 
 /**
@@ -30,15 +20,15 @@ export function NonceProvider({
  * @returns The CSP nonce string for use in inline styles and scripts
  */
 export const useNonce = () => {
-  const nonce = useContext(NonceContext)
-  
+  const nonce = useContext(NonceContext);
+
   // Fallback for client-side access when context isn't available
   if (!nonce && typeof window !== 'undefined') {
-    return window.__CSP_NONCE__ || ''
+    return window.__CSP_NONCE__ || '';
   }
-  
-  return nonce
-}
+
+  return nonce;
+};
 
 /**
  * Higher-order component to automatically add nonce to style props
@@ -48,14 +38,14 @@ export function withNonce<P extends { style?: React.CSSProperties }>(
   Component: React.ComponentType<P>
 ) {
   return function NonceWrappedComponent(props: P) {
-    const nonce = useNonce()
-    
+    const nonce = useNonce();
+
     // Add nonce to any element that has inline styles
     const enhancedProps = {
       ...props,
-      ...(props.style && nonce ? { nonce } : {})
-    } as P & { nonce?: string }
-    
-    return <Component {...enhancedProps} />
-  }
+      ...(props.style && nonce ? { nonce } : {}),
+    } as P & { nonce?: string };
+
+    return <Component {...enhancedProps} />;
+  };
 }

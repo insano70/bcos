@@ -14,7 +14,6 @@ import DeleteDashboardModal from '@/components/delete-dashboard-modal';
 import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
 import Toast from '@/components/toast';
 import { apiClient } from '@/lib/api/client';
-import type { DashboardWithCharts } from '@/lib/services/rbac-dashboards-service';
 import type { Dashboard, DashboardChart, DashboardListItem } from '@/lib/types/analytics';
 
 export default function DashboardsPage() {
@@ -160,45 +159,28 @@ export default function DashboardsPage() {
         sampleDashboard: dashboards[0],
       });
 
-      // Transform flattened API data to DashboardListItem structure
-      const transformedDashboards: DashboardListItem[] = dashboards
+      // API returns DashboardListItem[], no transformation needed
+      // Just validate and filter out any malformed items
+      const validDashboards: DashboardListItem[] = dashboards
         .map((item, index: number): DashboardListItem | null => {
-          const dashboard = item as unknown as DashboardWithCharts;
-          // Handle flattened data structure from new API service
-          console.log(`🔄 Transforming dashboard ${index}:`, item);
+          console.log(`🔄 Validating dashboard ${index}:`, item);
 
           // Validate required fields
-          if (!dashboard.dashboard_id || !dashboard.dashboard_name) {
+          if (!item.dashboard_id || !item.dashboard_name) {
             console.warn(`⚠️ Skipping dashboard ${index}: missing required fields`);
             return null;
           }
 
-          return {
-            id: dashboard.dashboard_id,
-            dashboard_id: dashboard.dashboard_id,
-            dashboard_name: dashboard.dashboard_name,
-            dashboard_description: dashboard.dashboard_description,
-            dashboard_category_id: dashboard.dashboard_category_id,
-            category_name: dashboard.category?.category_name,
-            chart_count: dashboard.chart_count || 0,
-            created_by: dashboard.created_by,
-            creator_name: dashboard.creator?.first_name,
-            creator_last_name: dashboard.creator?.last_name,
-            created_at: dashboard.created_at,
-            updated_at: dashboard.updated_at,
-            is_active: dashboard.is_active,
-            is_published: dashboard.is_published,
-            is_default: dashboard.is_default,
-          };
+          return item;
         })
         .filter((item): item is DashboardListItem => item !== null);
 
-      console.log('✅ Transformed dashboards:', {
-        count: transformedDashboards.length,
-        sampleTransformed: transformedDashboards[0],
+      console.log('✅ Validated dashboards:', {
+        count: validDashboards.length,
+        sample: validDashboards[0],
       });
 
-      setSavedDashboards(transformedDashboards);
+      setSavedDashboards(validDashboards);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load dashboards';
       console.error('❌ Failed to load dashboards:', error);

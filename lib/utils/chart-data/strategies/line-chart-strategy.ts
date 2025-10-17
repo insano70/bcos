@@ -1,14 +1,14 @@
 /**
  * Line Chart Strategy
- * 
+ *
  * Handles transformation for line and area charts.
  */
 
-import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
-import { BaseChartTransformStrategy, type TransformConfig } from './base-strategy';
 import { getCssVariable } from '@/components/utils/utils';
+import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
 import { toChartJsDate } from '../formatters/date-formatter';
-import { getColorPalette, adjustColorOpacity } from '../services/chart-color-service';
+import { adjustColorOpacity, getColorPalette } from '../services/chart-color-service';
+import { BaseChartTransformStrategy, type TransformConfig } from './base-strategy';
 
 /**
  * Line Chart Transformation Strategy
@@ -57,7 +57,10 @@ export class LineChartStrategy extends BaseChartTransformStrategy {
 
     // Handle dates based on frequency
     const dateObjects = sortedMeasures.map((m) => {
-      return toChartJsDate((m.date_index ?? m.date_value ?? '') as string, (m.frequency ?? 'Monthly') as string);
+      return toChartJsDate(
+        (m.date_index ?? m.date_value ?? '') as string,
+        (m.frequency ?? 'Monthly') as string
+      );
     });
 
     const chartData: ChartData = {
@@ -67,7 +70,9 @@ export class LineChartStrategy extends BaseChartTransformStrategy {
           label: (sortedMeasures[0]?.measure ?? 'Value') as string,
           data: sortedMeasures.map((m) => {
             const value = m.measure_value ?? m.numeric_value ?? 0;
-            return this.parseValue(typeof value === 'string' || typeof value === 'number' ? value : 0);
+            return this.parseValue(
+              typeof value === 'string' || typeof value === 'number' ? value : 0
+            );
           }),
           borderColor: getCssVariable('--color-violet-500'),
           backgroundColor: filled
@@ -111,7 +116,9 @@ export class LineChartStrategy extends BaseChartTransformStrategy {
       }
 
       const value = measure.measure_value ?? measure.numeric_value ?? 0;
-      const measureValue = this.parseValue(typeof value === 'string' || typeof value === 'number' ? value : 0);
+      const measureValue = this.parseValue(
+        typeof value === 'string' || typeof value === 'number' ? value : 0
+      );
       dateMap.set(dateKey, measureValue);
     });
 
@@ -164,4 +171,3 @@ export class LineChartStrategy extends BaseChartTransformStrategy {
 
   // getGroupKey now provided by base class
 }
-

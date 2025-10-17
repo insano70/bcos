@@ -1,15 +1,20 @@
 'use client';
 
-import { ChartFilter, MeasureType, MultipleSeriesConfig, PeriodComparisonConfig } from '@/lib/types/analytics';
-import AdvancedFilterBuilder from './advanced-filter-builder';
 import { calculatedFieldsService } from '@/lib/services/calculated-fields';
-import { ChartConfig } from './chart-builder-core';
+import type {
+  ChartFilter,
+  MeasureType,
+  MultipleSeriesConfig,
+  PeriodComparisonConfig,
+} from '@/lib/types/analytics';
+import AdvancedFilterBuilder from './advanced-filter-builder';
+import type { ChartConfig } from './chart-builder-core';
 
 interface FieldDefinition {
   name: string;
   type: string;
   description: string;
-  example: any;
+  example: unknown;
   groupable: boolean;
   filterable: boolean;
   aggregatable?: boolean;
@@ -26,7 +31,10 @@ interface SchemaInfo {
 interface ChartBuilderAdvancedProps {
   schemaInfo: SchemaInfo;
   chartConfig: ChartConfig;
-  updateConfig: (key: keyof ChartConfig, value: string | boolean | ChartFilter[] | PeriodComparisonConfig | undefined) => void;
+  updateConfig: (
+    key: keyof ChartConfig,
+    value: string | boolean | ChartFilter[] | PeriodComparisonConfig | undefined
+  ) => void;
   handleAdvancedFiltersChange: (filters: ChartFilter[]) => void;
   addSeries: () => void;
   updateSeries: (seriesId: string, updates: Partial<MultipleSeriesConfig>) => void;
@@ -40,7 +48,7 @@ export default function ChartBuilderAdvanced({
   handleAdvancedFiltersChange,
   addSeries,
   updateSeries,
-  removeSeries
+  removeSeries,
 }: ChartBuilderAdvancedProps) {
   const availableCalculatedFields = calculatedFieldsService.getAvailableCalculatedFields();
 
@@ -73,7 +81,7 @@ export default function ChartBuilderAdvanced({
                   const fieldDef = {
                     name: key,
                     displayName: field.name,
-                    type: field.type
+                    type: field.type,
                   };
                   if (field.allowedValues) {
                     (fieldDef as Record<string, unknown>).allowedValues = field.allowedValues;
@@ -137,7 +145,7 @@ export default function ChartBuilderAdvanced({
                 const fieldDef = {
                   name: key,
                   displayName: field.name,
-                  type: field.type
+                  type: field.type,
                 };
                 if (field.allowedValues) {
                   (fieldDef as Record<string, unknown>).allowedValues = field.allowedValues;
@@ -166,7 +174,8 @@ export default function ChartBuilderAdvanced({
             <option value="percentage">100% Stacked (Percentage)</option>
           </select>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Normal: Show actual values stacked. Percentage: Normalize to 100% to compare proportions.
+            Normal: Show actual values stacked. Percentage: Normalize to 100% to compare
+            proportions.
           </p>
         </div>
       )}
@@ -201,7 +210,10 @@ export default function ChartBuilderAdvanced({
               </div>
 
               {chartConfig.seriesConfigs.map((series, index) => (
-                <div key={series.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <div
+                  key={series.id}
+                  className="border border-gray-200 dark:border-gray-700 rounded-lg p-4"
+                >
                   <div className="flex justify-between items-center mb-3">
                     <h5 className="font-medium text-gray-700 dark:text-gray-300">
                       Series {index + 1}
@@ -221,7 +233,9 @@ export default function ChartBuilderAdvanced({
                       </label>
                       <select
                         value={series.measure}
-                        onChange={(e) => updateSeries(series.id, { measure: e.target.value as MeasureType })}
+                        onChange={(e) =>
+                          updateSeries(series.id, { measure: e.target.value as MeasureType })
+                        }
                         className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                       >
                         {schemaInfo.availableMeasures.map((measure) => (
@@ -238,7 +252,11 @@ export default function ChartBuilderAdvanced({
                       </label>
                       <select
                         value={series.aggregation}
-                        onChange={(e) => updateSeries(series.id, { aggregation: e.target.value as 'sum' | 'avg' | 'count' | 'min' | 'max' })}
+                        onChange={(e) =>
+                          updateSeries(series.id, {
+                            aggregation: e.target.value as 'sum' | 'avg' | 'count' | 'min' | 'max',
+                          })
+                        }
                         className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                       >
                         <option value="sum">Sum</option>

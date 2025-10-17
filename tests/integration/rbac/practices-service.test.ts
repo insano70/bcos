@@ -9,16 +9,12 @@
  * which is a future architecture improvement.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import '@/tests/setup/integration-setup';
-import {
-  createTestUser,
-  createTestRole,
-  assignRoleToUser
-} from '@/tests/factories';
-import { mapDatabaseRoleToRole, buildUserContext } from '@/tests/helpers/rbac-helper';
 import { createRBACPracticesService } from '@/lib/services/rbac-practices-service';
 import type { PermissionName } from '@/lib/types/rbac';
+import { assignRoleToUser, createTestRole, createTestUser } from '@/tests/factories';
+import { buildUserContext, mapDatabaseRoleToRole } from '@/tests/helpers/rbac-helper';
 
 describe('RBAC Practices Service - Permission Enforcement', () => {
   describe('getPractices', () => {
@@ -26,7 +22,7 @@ describe('RBAC Practices Service - Permission Enforcement', () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'practice_admin',
-        permissions: ['practices:read:all' as PermissionName]
+        permissions: ['practices:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -42,7 +38,7 @@ describe('RBAC Practices Service - Permission Enforcement', () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'practice_owner',
-        permissions: ['practices:read:own' as PermissionName]
+        permissions: ['practices:read:own' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -58,7 +54,7 @@ describe('RBAC Practices Service - Permission Enforcement', () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'no_practice_access',
-        permissions: []
+        permissions: [],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -73,7 +69,7 @@ describe('RBAC Practices Service - Permission Enforcement', () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'practice_admin',
-        permissions: ['practices:read:all' as PermissionName]
+        permissions: ['practices:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -89,7 +85,7 @@ describe('RBAC Practices Service - Permission Enforcement', () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'practice_admin',
-        permissions: ['practices:read:all' as PermissionName]
+        permissions: ['practices:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -107,7 +103,7 @@ describe('RBAC Practices Service - Permission Enforcement', () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'no_practice_access',
-        permissions: []
+        permissions: [],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -115,7 +111,9 @@ describe('RBAC Practices Service - Permission Enforcement', () => {
       const practicesService = createRBACPracticesService(userContext);
 
       // Should return null since user has no read permission (empty array from getPractices logic)
-      const practice = await practicesService.getPracticeById('00000000-0000-0000-0000-000000000000');
+      const practice = await practicesService.getPracticeById(
+        '00000000-0000-0000-0000-000000000000'
+      );
       expect(practice).toBeNull();
     });
   });
@@ -125,7 +123,7 @@ describe('RBAC Practices Service - Permission Enforcement', () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'practice_admin',
-        permissions: ['practices:read:all' as PermissionName]
+        permissions: ['practices:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -141,7 +139,7 @@ describe('RBAC Practices Service - Permission Enforcement', () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'practice_owner',
-        permissions: ['practices:read:own' as PermissionName]
+        permissions: ['practices:read:own' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -157,7 +155,7 @@ describe('RBAC Practices Service - Permission Enforcement', () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'no_practice_access',
-        permissions: []
+        permissions: [],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -172,7 +170,7 @@ describe('RBAC Practices Service - Permission Enforcement', () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'practice_admin',
-        permissions: ['practices:read:all' as PermissionName]
+        permissions: ['practices:read:all' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -191,7 +189,7 @@ describe('RBAC Practices Service - Permission Enforcement', () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'practice_reader',
-        permissions: ['practices:read:own' as PermissionName]
+        permissions: ['practices:read:own' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -201,7 +199,7 @@ describe('RBAC Practices Service - Permission Enforcement', () => {
       const practiceData = {
         name: 'Test Practice',
         domain: `test-${Date.now()}.local`,
-        template_id: '00000000-0000-0000-0000-000000000000'
+        template_id: '00000000-0000-0000-0000-000000000000',
       };
 
       await expect(practicesService.createPractice(practiceData)).rejects.toThrow('Access denied');
@@ -213,7 +211,7 @@ describe('RBAC Practices Service - Permission Enforcement', () => {
       const user = await createTestUser();
       const role = await createTestRole({
         name: 'practice_reader',
-        permissions: ['practices:read:own' as PermissionName]
+        permissions: ['practices:read:own' as PermissionName],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 
@@ -235,8 +233,8 @@ describe('RBAC Practices Service - Permission Enforcement', () => {
         name: 'practice_owner',
         permissions: [
           'practices:read:own' as PermissionName,
-          'practices:update:own' as PermissionName
-        ]
+          'practices:update:own' as PermissionName,
+        ],
       });
       await assignRoleToUser(user, mapDatabaseRoleToRole(role));
 

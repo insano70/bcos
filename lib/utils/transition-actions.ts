@@ -1,6 +1,6 @@
+import type { WorkItemStatus } from '@/lib/hooks/use-work-item-statuses';
 import { log } from '@/lib/logger';
 import { createNotificationService } from '@/lib/services/notification-service';
-import type { WorkItemStatus } from '@/lib/hooks/use-work-item-statuses';
 
 /**
  * Notification action interface
@@ -124,11 +124,7 @@ export async function executeTransitionActions(
 
     // Execute field updates
     if (actionConfig.field_updates && actionConfig.field_updates.length > 0) {
-      const fieldUpdates = executeFieldUpdates(
-        workItem,
-        actionConfig.field_updates,
-        newStatus
-      );
+      const fieldUpdates = executeFieldUpdates(workItem, actionConfig.field_updates, newStatus);
       if (Object.keys(fieldUpdates).length > 0) {
         result.field_updates = fieldUpdates;
       }
@@ -136,11 +132,7 @@ export async function executeTransitionActions(
 
     // Execute assignments
     if (actionConfig.assignments && actionConfig.assignments.length > 0) {
-      const assignment = executeAssignments(
-        workItem,
-        actionConfig.assignments,
-        newStatus
-      );
+      const assignment = executeAssignments(workItem, actionConfig.assignments, newStatus);
       if (assignment) {
         result.assignments = assignment;
       }
@@ -149,12 +141,7 @@ export async function executeTransitionActions(
     // Execute notifications (async, don't wait)
     if (actionConfig.notifications && actionConfig.notifications.length > 0) {
       // Fire and forget - notifications shouldn't block the transition
-      void executeNotifications(
-        workItem,
-        actionConfig.notifications,
-        oldStatus,
-        newStatus
-      );
+      void executeNotifications(workItem, actionConfig.notifications, oldStatus, newStatus);
     }
 
     const duration = Date.now() - startTime;
@@ -281,11 +268,7 @@ async function executeNotifications(
       if (action.type === 'email') {
         // For now, we only support status change notifications
         // The NotificationService will handle recipient resolution via watchers
-        await notificationService.sendStatusChangeNotification(
-          workItem,
-          oldStatus,
-          newStatus
-        );
+        await notificationService.sendStatusChangeNotification(workItem, oldStatus, newStatus);
 
         log.info('Notification action executed', {
           work_item_id: workItem.work_item_id,
@@ -333,13 +316,51 @@ function evaluateCondition(
 }
 
 /**
+ * Get field value from work item context
+ *
+ * Provides type-safe access to WorkItemContext fields
+ *
+ * @param workItem - The work item context
+ * @param fieldName - The field name to retrieve
+ * @returns The field value as a string, or empty string if not found
+ */
+function getWorkItemContextFieldValue(workItem: WorkItemContext, fieldName: string): string {
+  // Create typed mapping of all WorkItemContext fields
+  const fields: Record<keyof WorkItemContext, unknown> = {
+    work_item_id: workItem.work_item_id,
+    subject: workItem.subject,
+    description: workItem.description,
+    priority: workItem.priority,
+    organization_id: workItem.organization_id,
+    organization_name: workItem.organization_name,
+    assigned_to: workItem.assigned_to,
+    created_by: workItem.created_by,
+    due_date: workItem.due_date,
+  };
+
+  // Check if field exists in standard fields
+  if (fieldName in fields) {
+    const value = fields[fieldName as keyof WorkItemContext];
+    return value !== null && value !== undefined ? String(value) : '';
+  }
+
+  return '';
+}
+
+/**
+ * Maximum allowed length for field names in template tokens
+ * Prevents ReDoS attacks from extremely long field name patterns
+ */
+const MAX_FIELD_NAME_LENGTH = 100;
+
+/**
  * Interpolate template tokens in a string
  *
  * Supported tokens:
  * - {now} - Current ISO timestamp
  * - {creator} - Work item creator user ID
  * - {assigned_to} - Work item assigned_to user ID
- * - {work_item.field} - Any work item field
+ * - {work_item.field} - Any work item field (max 100 chars)
  *
  * @param template - The template string
  * @param workItem - The work item context
@@ -359,11 +380,14 @@ function interpolateTokens(template: string, workItem: WorkItemContext): string 
     result = result.replace(/{assigned_to}/g, workItem.assigned_to);
   }
 
-  // Replace {work_item.field} with work item field values
-  result = result.replace(/{work_item\.(\w+)}/g, (_match, fieldName) => {
-    const value = (workItem as unknown as Record<string, unknown>)[fieldName];
-    return value !== null && value !== undefined ? String(value) : '';
-  });
+  // Replace {work_item.field} with work item field values using type-safe accessor
+  // Limit field name length to prevent ReDoS attacks
+  result = result.replace(
+    new RegExp(`{work_item\\.(\\w{1,${MAX_FIELD_NAME_LENGTH}})}`, 'g'),
+    (_match, fieldName) => {
+      return getWorkItemContextFieldValue(workItem, fieldName);
+    }
+  );
 
   return result;
 }

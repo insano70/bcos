@@ -19,8 +19,8 @@
  * - Chart definitions: 1 hour (rarely changes)
  */
 
-import { CacheService } from './base';
 import { log } from '@/lib/logger';
+import { CacheService } from './base';
 
 /**
  * Chart data source column
@@ -120,10 +120,7 @@ class AnalyticsCacheService extends CacheService {
    * @param columns - Array of columns
    * @returns true if successful
    */
-  async setDataSourceColumns(
-    dataSourceId: number,
-    columns: DataSourceColumn[]
-  ): Promise<boolean> {
+  async setDataSourceColumns(dataSourceId: number, columns: DataSourceColumn[]): Promise<boolean> {
     // Key: analytics:datasource:{dataSourceId}:columns
     const key = this.buildKey('datasource', dataSourceId, 'columns');
     return await this.set(key, columns, { ttl: this.DATASOURCE_COLUMNS_TTL });

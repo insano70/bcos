@@ -16,8 +16,8 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
 import { querySlowQueries } from '@/lib/monitoring/cloudwatch-queries';
 import type { SlowQueriesResponse, SlowQuery } from '@/lib/monitoring/types';
@@ -66,8 +66,7 @@ const slowQueriesHandler = async (request: NextRequest) => {
       if (tableStats) {
         tableStats.count++;
         tableStats.avgDuration =
-          (tableStats.avgDuration * (tableStats.count - 1) + query.duration) /
-          tableStats.count;
+          (tableStats.avgDuration * (tableStats.count - 1) + query.duration) / tableStats.count;
       }
 
       // By operation
@@ -75,9 +74,7 @@ const slowQueriesHandler = async (request: NextRequest) => {
     }
 
     const avgDuration =
-      queries.length > 0
-        ? queries.reduce((sum, q) => sum + q.duration, 0) / queries.length
-        : 0;
+      queries.length > 0 ? queries.reduce((sum, q) => sum + q.duration, 0) / queries.length : 0;
 
     const response: SlowQueriesResponse = {
       queries,
@@ -132,4 +129,3 @@ export const GET = rbacRoute(slowQueriesHandler, {
   permission: 'settings:read:all',
   rateLimit: 'api',
 });
-

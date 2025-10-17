@@ -1,14 +1,14 @@
 /**
  * Bar Chart Strategy
- * 
+ *
  * Handles transformation for vertical bar charts.
  */
 
-import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
-import { BaseChartTransformStrategy, type TransformConfig } from './base-strategy';
 import { getCssVariable } from '@/components/utils/utils';
-import { toMMDDYYYY, createCategoryLabel } from '../formatters/date-formatter';
-import { getColorPalette, adjustColorOpacity } from '../services/chart-color-service';
+import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
+import { createCategoryLabel, toMMDDYYYY } from '../formatters/date-formatter';
+import { adjustColorOpacity, getColorPalette } from '../services/chart-color-service';
+import { BaseChartTransformStrategy, type TransformConfig } from './base-strategy';
 
 /**
  * Bar Chart Transformation Strategy
@@ -48,7 +48,9 @@ export class BarChartStrategy extends BaseChartTransformStrategy {
           label: (sortedMeasures[0]?.measure ?? 'Value') as string,
           data: sortedMeasures.map((m) => {
             const value = m.measure_value ?? m.numeric_value ?? 0;
-            return this.parseValue(typeof value === 'string' || typeof value === 'number' ? value : 0);
+            return this.parseValue(
+              typeof value === 'string' || typeof value === 'number' ? value : 0
+            );
           }),
           backgroundColor: getCssVariable('--color-violet-500'),
           hoverBackgroundColor: getCssVariable('--color-violet-600'),
@@ -88,7 +90,9 @@ export class BarChartStrategy extends BaseChartTransformStrategy {
       }
 
       const value = measure.measure_value ?? measure.numeric_value ?? 0;
-      const measureValue = this.parseValue(typeof value === 'string' || typeof value === 'number' ? value : 0);
+      const measureValue = this.parseValue(
+        typeof value === 'string' || typeof value === 'number' ? value : 0
+      );
       dateMap.set(dateKey, measureValue);
     });
 
@@ -140,4 +144,3 @@ export class BarChartStrategy extends BaseChartTransformStrategy {
 
   // getGroupKey now provided by base class
 }
-

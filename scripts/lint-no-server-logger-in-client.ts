@@ -15,7 +15,7 @@
  *   pnpm lint:logger
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 interface Violation {
@@ -48,7 +48,12 @@ function isClientFile(content: string): boolean {
     const line = lines[i];
     if (!line) continue;
     const trimmed = line.trim();
-    if (trimmed === "'use client';" || trimmed === '"use client";' || trimmed === "'use client'" || trimmed === '"use client"') {
+    if (
+      trimmed === "'use client';" ||
+      trimmed === '"use client";' ||
+      trimmed === "'use client'" ||
+      trimmed === '"use client"'
+    ) {
       return true;
     }
     // Skip empty lines and comments
@@ -145,14 +150,13 @@ function main(): void {
       if (statSync(fullPath).isDirectory()) {
         scanDirectory(fullPath);
       }
-    } catch {
-      // Directory doesn't exist, skip
-      continue;
-    }
+    } catch {}
   }
 
   if (violations.length === 0) {
-    console.log('✅ No violations found. All client files are using appropriate logging methods.\n');
+    console.log(
+      '✅ No violations found. All client files are using appropriate logging methods.\n'
+    );
     process.exit(0);
   }
 
@@ -165,9 +169,9 @@ function main(): void {
     console.error(`   ${violation.importStatement}`);
   }
 
-  console.error('\n' + '━'.repeat(80));
+  console.error(`\n${'━'.repeat(80)}`);
   console.error(`\n❌ Total violations: ${violations.length}\n`);
-  console.error('💡 Client-side files (with \'use client\') cannot import @/lib/logger');
+  console.error("💡 Client-side files (with 'use client') cannot import @/lib/logger");
   console.error('   Use console.* for client-side logging or create a client-safe logger.\n');
   console.error('   See CLAUDE.md for logging standards.\n');
 

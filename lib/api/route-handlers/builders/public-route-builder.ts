@@ -24,12 +24,12 @@
 
 import type { NextRequest } from 'next/server';
 import { correlation, log } from '@/lib/logger';
-import type { PublicRouteOptions } from '../types';
-import { MiddlewarePipeline } from '../middleware/pipeline';
 import { CorrelationMiddleware } from '../middleware/correlation-middleware';
+import { MiddlewarePipeline } from '../middleware/pipeline';
 import { RateLimitMiddleware } from '../middleware/rate-limit-middleware';
-import { MetricsRecorder } from '../utils/metrics-recorder';
+import type { PublicRouteOptions } from '../types';
 import { RouteErrorHandler } from '../utils/error-handler';
+import { MetricsRecorder } from '../utils/metrics-recorder';
 import { TimingTracker } from '../utils/timing-tracker';
 
 export class PublicRouteBuilder {
@@ -88,7 +88,8 @@ export class PublicRouteBuilder {
 
             // If middleware failed, record metrics and return error
             if (!result.success || !result.context) {
-              const errorResponse = result.response || new Response('Internal Server Error', { status: 500 });
+              const errorResponse =
+                result.response || new Response('Internal Server Error', { status: 500 });
               await MetricsRecorder.recordRequest(
                 request,
                 {

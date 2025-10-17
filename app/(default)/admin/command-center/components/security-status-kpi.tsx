@@ -61,20 +61,22 @@ export default function SecurityStatusKPI({ security }: SecurityStatusKPIProps) 
       {/* Threat Count Display */}
       <div className="flex items-center gap-3 mb-3">
         {totalThreats === 0 ? (
-          <div className="text-4xl font-bold text-green-600 dark:text-green-400">{getStatusText()}</div>
+          <div className="text-4xl font-bold text-green-600 dark:text-green-400">
+            {getStatusText()}
+          </div>
         ) : (
           <div className={`text-4xl font-bold ${getStatusColor()}`}>{totalThreats}</div>
         )}
-        <div
-          className={`h-12 w-12 rounded-full ${getBgColor()} flex items-center justify-center`}
-        >
+        <div className={`h-12 w-12 rounded-full ${getBgColor()} flex items-center justify-center`}>
           <span className={`text-2xl ${getStatusColor()}`}>{getStatusIcon()}</span>
         </div>
       </div>
 
       {/* Status Text */}
       <div className={`text-sm font-medium ${getStatusColor()} mb-3`}>
-        {totalThreats === 0 ? 'No threats detected' : `${totalThreats} ${totalThreats === 1 ? 'threat' : 'threats'} detected`}
+        {totalThreats === 0
+          ? 'No threats detected'
+          : `${totalThreats} ${totalThreats === 1 ? 'threat' : 'threats'} detected`}
       </div>
 
       {/* Expandable Breakdown */}
@@ -120,4 +122,3 @@ export default function SecurityStatusKPI({ security }: SecurityStatusKPIProps) 
     </div>
   );
 }
-

@@ -1,33 +1,33 @@
-'use client'
+'use client';
 
-import { useSearchParams } from 'next/navigation'
-import { Suspense } from 'react'
-import Link from 'next/link'
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
 function SamlErrorContent() {
-  const searchParams = useSearchParams()
-  const error = searchParams.get('error')
-  const email = searchParams.get('email')
+  const searchParams = useSearchParams();
+  const error = searchParams.get('error');
+  const email = searchParams.get('email');
 
   const handleSwitchAccount = () => {
-    window.location.href = '/api/auth/saml/login?force_account_selection=true'
-  }
+    window.location.href = '/api/auth/saml/login?force_account_selection=true';
+  };
 
   const handleRetry = () => {
-    window.location.href = '/api/auth/saml/login'
-  }
+    window.location.href = '/api/auth/saml/login';
+  };
 
   // Mask email to prevent enumeration attacks
   // Shows first 2 chars + *** + @domain (e.g., em***@company.com)
   const maskEmail = (email: string): string => {
-    const [local, domain] = email.split('@')
-    if (!local || !domain) return 'unknown'
+    const [local, domain] = email.split('@');
+    if (!local || !domain) return 'unknown';
 
-    const visibleChars = Math.min(2, local.length)
-    return `${local.substring(0, visibleChars)}***@${domain}`
-  }
+    const visibleChars = Math.min(2, local.length);
+    return `${local.substring(0, visibleChars)}***@${domain}`;
+  };
 
-  const maskedEmail = email ? maskEmail(email) : 'unknown'
+  const maskedEmail = email ? maskEmail(email) : 'unknown';
 
   if (error === 'user_not_provisioned') {
     return (
@@ -61,9 +61,7 @@ function SamlErrorContent() {
           <div className="space-y-3 text-gray-600 dark:text-gray-400">
             <p>
               The Microsoft account{' '}
-              <span className="font-semibold text-gray-900 dark:text-gray-100">
-                {maskedEmail}
-              </span>{' '}
+              <span className="font-semibold text-gray-900 dark:text-gray-100">{maskedEmail}</span>{' '}
               is not authorized to access this application.
             </p>
             <p>
@@ -77,12 +75,7 @@ function SamlErrorContent() {
               onClick={handleSwitchAccount}
               className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-medium rounded-lg hover:bg-gray-800 dark:hover:bg-white transition-colors"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -112,17 +105,14 @@ function SamlErrorContent() {
           {/* Help text */}
           <p className="text-sm text-gray-500 dark:text-gray-500">
             Need help?{' '}
-            <Link
-              href="/contact"
-              className="text-violet-500 hover:text-violet-600 underline"
-            >
+            <Link href="/contact" className="text-violet-500 hover:text-violet-600 underline">
               Contact your administrator
             </Link>{' '}
             to request access.
           </p>
         </div>
       </div>
-    )
+    );
   }
 
   if (error === 'saml_validation_failed') {
@@ -172,7 +162,7 @@ function SamlErrorContent() {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   // Default error state
@@ -222,17 +212,19 @@ function SamlErrorContent() {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 export default function SamlErrorPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-gray-600 dark:text-gray-400">Loading...</div>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center">
+          <div className="text-gray-600 dark:text-gray-400">Loading...</div>
+        </div>
+      }
+    >
       <SamlErrorContent />
     </Suspense>
-  )
+  );
 }

@@ -1,5 +1,5 @@
-import Link from 'next/link';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
+import Link from 'next/link';
 
 interface SearchModalProps {
   isOpen: boolean;

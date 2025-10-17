@@ -1,8 +1,8 @@
 /**
  * Dashboard Batch Rendering API Integration Tests
- * 
+ *
  * Phase 7: Tests for POST /api/admin/analytics/dashboard/[dashboardId]/render
- * 
+ *
  * Tests:
  * - Batch rendering endpoint functionality
  * - Dashboard filter application
@@ -11,28 +11,31 @@
  * - Error handling
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import '@/tests/setup/integration-setup';
-import {
-  createCommittedUser,
-  createCommittedDashboard,
-  createCommittedChart,
-  createCommittedOrganization,
-  type CommittedUser,
-  type CommittedDashboard,
-  type CommittedChart,
-} from '@/tests/factories/committed';
-import { createTestRole, assignRoleToUser } from '@/tests/factories';
-import { mapDatabaseRoleToRole, buildUserContext } from '@/tests/helpers/rbac-helper';
-import { db } from '@/lib/db';
-import { dashboards } from '@/lib/db/schema';
-import { dashboard_charts } from '@/lib/db/analytics-schema';
-import { DashboardRenderer, type DashboardUniversalFilters } from '@/lib/services/dashboard-renderer';
-import type { UserContext, PermissionName } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
-import { createTestScope, type ScopedFactoryCollection } from '@/tests/factories/base';
-import { nanoid } from 'nanoid';
 import { inArray } from 'drizzle-orm';
+import { nanoid } from 'nanoid';
+import { db } from '@/lib/db';
+import { dashboard_charts } from '@/lib/db/analytics-schema';
+import { dashboards } from '@/lib/db/schema';
+import { log } from '@/lib/logger';
+import {
+  DashboardRenderer,
+  type DashboardUniversalFilters,
+} from '@/lib/services/dashboard-renderer';
+import type { PermissionName, UserContext } from '@/lib/types/rbac';
+import { assignRoleToUser, createTestRole } from '@/tests/factories';
+import { createTestScope, type ScopedFactoryCollection } from '@/tests/factories/base';
+import {
+  type CommittedChart,
+  type CommittedDashboard,
+  type CommittedUser,
+  createCommittedChart,
+  createCommittedDashboard,
+  createCommittedOrganization,
+  createCommittedUser,
+} from '@/tests/factories/committed';
+import { buildUserContext, mapDatabaseRoleToRole } from '@/tests/helpers/rbac-helper';
 
 describe('Dashboard Batch Rendering API', () => {
   let scope: ScopedFactoryCollection;
@@ -85,7 +88,7 @@ describe('Dashboard Batch Rendering API', () => {
 
     // Create test charts
     testCharts = [];
-    
+
     // Chart 1: Number chart
     const numberChart = await createCommittedChart({
       chart_name: 'Total Revenue',
@@ -135,10 +138,7 @@ describe('Dashboard Batch Rendering API', () => {
     ]);
 
     // Build proper user context with RBAC
-    userContext = await buildUserContext(
-      testUser,
-      testOrganization.organization_id
-    );
+    userContext = await buildUserContext(testUser, testOrganization.organization_id);
 
     log.info('Test setup complete', {
       dashboardId: testDashboard.dashboard_id,
@@ -150,13 +150,14 @@ describe('Dashboard Batch Rendering API', () => {
   afterEach(async () => {
     // CRITICAL: Clean up service-created dashboards FIRST
     if (serviceCreatedDashboardIds.length > 0) {
-      await db.delete(dashboards)
+      await db
+        .delete(dashboards)
         .where(inArray(dashboards.dashboard_id, serviceCreatedDashboardIds));
     }
 
     // Then cleanup factory-created data
     await scope.cleanup();
-    
+
     log.info('Test cleanup complete', { scope: scopeId });
   });
 
@@ -207,10 +208,11 @@ describe('Dashboard Batch Rendering API', () => {
       expect(result.metadata.queriesExecuted).toBeGreaterThanOrEqual(0);
 
       // Verify cache hit rate calculation
-      const cacheHitRate = result.metadata.queriesExecuted > 0
-        ? (result.metadata.cacheHits / result.metadata.queriesExecuted) * 100
-        : 0;
-      
+      const cacheHitRate =
+        result.metadata.queriesExecuted > 0
+          ? (result.metadata.cacheHits / result.metadata.queriesExecuted) * 100
+          : 0;
+
       expect(cacheHitRate).toBeGreaterThanOrEqual(0);
       expect(cacheHitRate).toBeLessThanOrEqual(100);
 
@@ -678,11 +680,11 @@ describe('Dashboard Batch Rendering API', () => {
       // Phase 7: Verify table chart was rendered
       expect(result).toBeDefined();
       expect(result.metadata.chartsRendered).toBeGreaterThan(0);
-      
+
       // Check that table chart is included in results
       const chartResults = Object.values(result.charts);
       expect(chartResults.length).toBeGreaterThan(0);
-      
+
       // Table charts should have columns and formattedData
       const tableResult = chartResults[0];
       if (tableResult) {
@@ -741,7 +743,7 @@ describe('Dashboard Batch Rendering API', () => {
         // Table charts should have these properties
         expect(tableResult.rawData).toBeDefined();
         expect(tableResult.metadata).toBeDefined();
-        
+
         // Columns metadata may be present for table charts
         if (tableResult.columns) {
           expect(Array.isArray(tableResult.columns)).toBe(true);
@@ -829,7 +831,7 @@ describe('Dashboard Batch Rendering API', () => {
       // All charts should have results
       const chartResults = Object.values(result.charts);
       expect(chartResults.length).toBe(3);
-      
+
       chartResults.forEach((chartResult) => {
         expect(chartResult).toBeDefined();
         if (chartResult) {
@@ -914,4 +916,3 @@ describe('Dashboard Batch Rendering API', () => {
     });
   });
 });
-

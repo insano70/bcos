@@ -25,43 +25,39 @@
  * - Graceful degradation when Redis unavailable
  */
 
-// Cache service instances
-export { authCache } from './auth-cache';
-export { rbacCache } from './rbac-cache';
-export { analyticsCache } from './analytics-cache';
-export { rateLimitCache } from './rate-limit-cache';
-export { chartConfigCache } from './chart-config-cache';
-export { dataSourceCache } from './data-source-cache';
-
-// Base class (for extending with custom cache services)
-export { CacheService } from './base';
-
 // Utilities
 export { buildChartRenderContext } from '@/lib/utils/chart-context';
-
-// Types
 export type {
-  CacheOptions,
-  CacheStats,
-  CacheKey,
-  InvalidateOptions,
-} from './types';
-
-// Re-export specific types from cache services
-export type { CachedRolePermissions } from './rbac-cache';
-export type {
-  DataSourceColumn,
-  Dashboard,
   ChartDefinition,
+  Dashboard,
+  DataSourceColumn,
 } from './analytics-cache';
-export type { RateLimitResult } from './rate-limit-cache';
+export { analyticsCache } from './analytics-cache';
+// Cache service instances
+export { authCache } from './auth-cache';
+// Base class (for extending with custom cache services)
+export { CacheService } from './base';
 export type {
-  CachedDataSourceConfig,
-  CachedColumnConfig,
-  CachedDisplayConfig,
   CachedColorPalette,
+  CachedColumnConfig,
+  CachedDataSourceConfig,
+  CachedDisplayConfig,
 } from './chart-config-cache';
+export { chartConfigCache } from './chart-config-cache';
 export type {
   CacheKeyComponents,
   CacheQueryParams,
 } from './data-source-cache';
+export { dataSourceCache } from './data-source-cache';
+export type { RateLimitResult } from './rate-limit-cache';
+export { rateLimitCache } from './rate-limit-cache';
+// Re-export specific types from cache services
+export type { CachedRolePermissions } from './rbac-cache';
+export { rbacCache } from './rbac-cache';
+// Types
+export type {
+  CacheKey,
+  CacheOptions,
+  CacheStats,
+  InvalidateOptions,
+} from './types';

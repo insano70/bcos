@@ -1,8 +1,8 @@
 'use client';
 
-import DashboardPreview from './charts/dashboard-preview';
-import type { Dashboard, DashboardChart, ChartDefinition } from '@/lib/types/analytics';
+import type { ChartDefinition, Dashboard, DashboardChart } from '@/lib/types/analytics';
 import type { DashboardFilterConfig } from './charts/dashboard-filter-bar';
+import DashboardPreview from './charts/dashboard-preview';
 
 interface DashboardConfig {
   dashboardName: string;
@@ -23,17 +23,17 @@ interface DashboardConfig {
 interface DashboardPreviewModalProps {
   isOpen: boolean;
   setIsOpen: (value: boolean) => void;
-  
+
   // For previewing saved dashboards (from list)
   dashboard?: Dashboard;
   dashboardCharts?: DashboardChart[];
-  
+
   // For previewing unsaved configurations (from builder)
   dashboardConfig?: DashboardConfig;
-  
+
   // Phase 7: Filter configuration preview
   filterConfig?: DashboardFilterConfig;
-  
+
   title?: string;
 }
 
@@ -44,7 +44,7 @@ export default function DashboardPreviewModal({
   dashboardCharts,
   dashboardConfig,
   filterConfig,
-  title
+  title,
 }: DashboardPreviewModalProps) {
   const handleClose = () => {
     setIsOpen(false);
@@ -53,11 +53,8 @@ export default function DashboardPreviewModal({
   return (
     <div className={`fixed inset-0 z-50 ${isOpen ? 'block' : 'hidden'}`}>
       {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-gray-900 transition-opacity"
-        onClick={handleClose}
-      />
-      
+      <div className="fixed inset-0 bg-gray-900 transition-opacity" onClick={handleClose} />
+
       {/* Full Screen Modal */}
       <div className="fixed inset-0 overflow-auto">
         <div className="w-full h-full min-h-screen bg-white dark:bg-gray-900">
@@ -72,7 +69,12 @@ export default function DashboardPreviewModal({
               className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center"
             >
               <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
               Close Preview
             </button>

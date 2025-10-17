@@ -44,7 +44,16 @@ export const validationRulesSchema = z
 // Conditional visibility rule schema
 export const conditionalVisibilityRuleSchema = z.object({
   field_id: z.string().uuid('Invalid field ID'),
-  operator: z.enum(['equals', 'not_equals', 'contains', 'not_contains', 'greater_than', 'less_than', 'is_empty', 'is_not_empty']),
+  operator: z.enum([
+    'equals',
+    'not_equals',
+    'contains',
+    'not_contains',
+    'greater_than',
+    'less_than',
+    'is_empty',
+    'is_not_empty',
+  ]),
   value: z.unknown().optional(), // Value to compare against (not needed for is_empty/is_not_empty)
 });
 
@@ -62,8 +71,14 @@ export const workItemFieldCreateSchema = z.object({
     .string()
     .min(1, 'Field name is required')
     .max(100, 'Field name must be 100 characters or less')
-    .regex(/^[a-z][a-z0-9_]*$/, 'Field name must start with lowercase letter and contain only lowercase letters, numbers, and underscores'),
-  field_label: z.string().min(1, 'Field label is required').max(255, 'Field label must not exceed 255 characters'),
+    .regex(
+      /^[a-z][a-z0-9_]*$/,
+      'Field name must start with lowercase letter and contain only lowercase letters, numbers, and underscores'
+    ),
+  field_label: z
+    .string()
+    .min(1, 'Field label is required')
+    .max(255, 'Field label must not exceed 255 characters'),
   field_type: fieldTypeSchema,
   field_description: z.string().max(1000).optional(),
   field_options: z.array(fieldOptionSchema).optional(),
@@ -77,7 +92,11 @@ export const workItemFieldCreateSchema = z.object({
 
 // Update work item field schema
 export const workItemFieldUpdateSchema = z.object({
-  field_label: z.string().min(1, 'Field label is required').max(255, 'Field label must not exceed 255 characters').optional(),
+  field_label: z
+    .string()
+    .min(1, 'Field label is required')
+    .max(255, 'Field label must not exceed 255 characters')
+    .optional(),
   field_description: z.string().max(1000).optional(),
   field_options: z.array(fieldOptionSchema).optional(),
   field_config: fieldConfigSchema,
@@ -105,17 +124,8 @@ export const workItemFieldsQuerySchema = z.object({
     .enum(['true', 'false'])
     .transform((val) => val === 'true')
     .optional(),
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(100)
-    .optional(),
-  offset: z
-    .number()
-    .int()
-    .min(0)
-    .optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+  offset: z.number().int().min(0).optional(),
 });
 
 // Export types inferred from schemas

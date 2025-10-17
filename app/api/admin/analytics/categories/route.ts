@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { getErrorStatusCode } from '@/lib/errors/api-errors';
 import { log } from '@/lib/logger';
 import { createRBACCategoriesService } from '@/lib/services/rbac-categories-service';
@@ -67,8 +67,12 @@ const createCategoryHandler = async (request: NextRequest, userContext: UserCont
     const categoriesService = createRBACCategoriesService(userContext);
     const newCategory = await categoriesService.createCategory({
       category_name: validatedData.category_name,
-      ...(validatedData.category_description && { category_description: validatedData.category_description }),
-      ...(validatedData.parent_category_id && { parent_category_id: validatedData.parent_category_id }),
+      ...(validatedData.category_description && {
+        category_description: validatedData.category_description,
+      }),
+      ...(validatedData.parent_category_id && {
+        parent_category_id: validatedData.parent_category_id,
+      }),
     });
 
     return createSuccessResponse(

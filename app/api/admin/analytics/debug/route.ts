@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { getAnalyticsDatabaseConfig } from '@/lib/env';
 import { log } from '@/lib/logger';
 import { checkAnalyticsDbHealth } from '@/lib/services/analytics-db';

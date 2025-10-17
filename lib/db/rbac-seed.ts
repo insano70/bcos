@@ -1,8 +1,8 @@
 import { count, eq, inArray } from 'drizzle-orm';
 import { log } from '@/lib/logger';
 import { db } from './index';
-import { organizations, permissions, role_permissions, roles } from './schema';
 import { getAllPermissions, getAllRoles, SAMPLE_ORGANIZATIONS } from './rbac-seed-data';
+import { organizations, permissions, role_permissions, roles } from './schema';
 
 /**
  * RBAC Seed Data for Healthcare Practice Management System
@@ -104,7 +104,7 @@ export async function seedRBACData() {
         )
         .limit(1);
 
-      let role: typeof existingRole[0] | undefined;
+      let role: (typeof existingRole)[0] | undefined;
       if (existingRole.length > 0 && existingRole[0]) {
         // Update existing role
         [role] = await db

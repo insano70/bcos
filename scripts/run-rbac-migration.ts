@@ -1,8 +1,9 @@
 // Create a standalone database connection for seeding
+
+import { eq, inArray } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { eq, inArray } from 'drizzle-orm';
-import { permissions, roles, role_permissions, organizations } from '../lib/db/rbac-schema.js';
+import { organizations, permissions, role_permissions, roles } from '../lib/db/rbac-schema.js';
 import { getAllPermissions, getAllRoles, SAMPLE_ORGANIZATIONS } from '../lib/db/rbac-seed-data.js';
 
 /**
@@ -83,7 +84,7 @@ async function runRBACMigration() {
         .where(eq(roles.name, roleInfo.name))
         .limit(1);
 
-      let role;
+      let role: typeof roles.$inferSelect | undefined;
       if (existingRole.length > 0) {
         // Update existing role
         [role] = await db
@@ -94,7 +95,7 @@ async function runRBACMigration() {
             is_active: true,
             updated_at: new Date(),
           })
-          .where(eq(roles.role_id, existingRole[0]!.role_id))
+          .where(eq(roles.role_id, existingRole[0]?.role_id))
           .returning();
       } else {
         // Insert new role
@@ -106,7 +107,7 @@ async function runRBACMigration() {
       processedRoles.push(role);
 
       // Get ALL permission IDs if role is super_admin
-      let permissionIds;
+      let permissionIds: Array<{ permission_id: string }>;
       if (rolePermissions === 'ALL') {
         console.log('   • Granting ALL permissions to super_admin');
         permissionIds = await db

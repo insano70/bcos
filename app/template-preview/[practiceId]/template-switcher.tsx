@@ -1,9 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import type { ComponentType } from 'react';
-import type { Practice, PracticeAttributes, StaffMember, ColorStyles, PracticeComment } from '@/lib/types/practice';
-import { getTemplateDefaultColors, getColorStyles } from '@/lib/utils/color-utils';
+import { useEffect, useState, useCallback } from 'react';
+import type {
+  ColorStyles,
+  Practice,
+  PracticeAttributes,
+  PracticeComment,
+  StaffMember,
+} from '@/lib/types/practice';
+import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
 
 interface TemplateSwitcherProps {
   practice: Practice;
@@ -14,25 +20,34 @@ interface TemplateSwitcherProps {
   initialColorStyles: ColorStyles;
 }
 
+interface TemplateComponentProps {
+  practice: Practice;
+  attributes: PracticeAttributes;
+  staff: StaffMember[];
+  comments: PracticeComment[];
+  colorStyles: ColorStyles;
+}
+
 export default function TemplateSwitcher({
   practice,
   attributes,
   staff,
   comments,
   initialTemplate,
-  initialColorStyles
+  initialColorStyles,
 }: TemplateSwitcherProps) {
   const [currentTemplate, setCurrentTemplate] = useState(initialTemplate);
-  const [TemplateComponent, setTemplateComponent] = useState<ComponentType<any> | null>(null);
+  const [TemplateComponent, setTemplateComponent] =
+    useState<ComponentType<TemplateComponentProps> | null>(null);
   const [colorStyles, setColorStyles] = useState<ColorStyles>(initialColorStyles);
   const [isLoading, setIsLoading] = useState(false);
 
   // Load template component dynamically
-  const loadTemplate = async (templateSlug: string) => {
+  const loadTemplate = useCallback(async (templateSlug: string) => {
     setIsLoading(true);
 
     try {
-      let templateModule;
+      let templateModule: { default: ComponentType<TemplateComponentProps> };
 
       // Dynamic import based on template slug
       switch (templateSlug) {
@@ -79,12 +94,12 @@ export default function TemplateSwitcher({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [attributes]);
 
   // Load initial template on mount
   useEffect(() => {
     loadTemplate(initialTemplate);
-  }, [initialTemplate]);
+  }, [initialTemplate, loadTemplate]);
 
   // Handle template switching from the toolbar
   useEffect(() => {
@@ -101,14 +116,14 @@ export default function TemplateSwitcher({
     return () => {
       window.removeEventListener('template-change', handleTemplateChange as EventListener);
     };
-  }, [currentTemplate]); // Remove dependency to avoid re-creating listener
+  }, [currentTemplate, loadTemplate]); // Remove dependency to avoid re-creating listener
 
   // Update loading state when template loading completes
   useEffect(() => {
     if (!isLoading) {
       // Notify toolbar that loading is complete
       const event = new CustomEvent('template-change', {
-        detail: { templateSlug: currentTemplate, isLoading: false }
+        detail: { templateSlug: currentTemplate, isLoading: false },
       });
       window.dispatchEvent(event);
     }
@@ -133,7 +148,7 @@ export default function TemplateSwitcher({
 
   return (
     <div className={`transition-opacity duration-300 ${isLoading ? 'opacity-50' : 'opacity-100'}`}>
-      <TemplateComponent 
+      <TemplateComponent
         practice={practice}
         attributes={attributes}
         staff={staff}

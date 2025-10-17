@@ -10,8 +10,8 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
 import { querySecurityEvents } from '@/lib/monitoring/cloudwatch-queries';
 import type { SecurityEventsResponse } from '@/lib/monitoring/types';
@@ -94,4 +94,3 @@ export const GET = rbacRoute(securityEventsHandler, {
   permission: 'settings:read:all',
   rateLimit: 'api',
 });
-

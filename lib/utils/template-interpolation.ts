@@ -88,27 +88,30 @@ export function interpolateTemplate(
 
   // Replace {parent.custom.field_name} tokens with custom fields
   if (customFields) {
-    result = result.replace(/\{parent\.custom\.(\w+)\}/g, (match: string, fieldName: string): string => {
-      if (fieldName in customFields) {
-        const value = customFields[fieldName];
+    result = result.replace(
+      /\{parent\.custom\.(\w+)\}/g,
+      (match: string, fieldName: string): string => {
+        if (fieldName in customFields) {
+          const value = customFields[fieldName];
 
-        // Handle null/undefined
-        if (value === null || value === undefined) {
-          return '';
+          // Handle null/undefined
+          if (value === null || value === undefined) {
+            return '';
+          }
+
+          // Handle objects/arrays (stringify them)
+          if (typeof value === 'object') {
+            return JSON.stringify(value);
+          }
+
+          // Convert to string
+          return String(value);
         }
 
-        // Handle objects/arrays (stringify them)
-        if (typeof value === 'object') {
-          return JSON.stringify(value);
-        }
-
-        // Convert to string
-        return String(value);
+        // If field not found, return original token
+        return match;
       }
-
-      // If field not found, return original token
-      return match;
-    });
+    );
   }
 
   return result;

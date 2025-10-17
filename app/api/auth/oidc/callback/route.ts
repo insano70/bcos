@@ -163,21 +163,25 @@ const oidcCallbackHandler = async (request: NextRequest) => {
     // Database-backed validation for horizontal scaling
     const isValid = await databaseStateManager.validateAndMarkUsed(state);
     if (!isValid) {
-      log.error('OIDC callback blocked - state token replay detected', new Error('State replay attack'), {
-        operation: 'oidc_callback',
-        success: false,
-        reason: 'state_replay',
-        statePrefix: state.substring(0, 8),
-        duration: Date.now() - startTime,
-        component: 'auth',
-        severity: 'high',
-        securityContext: {
-          threat: 'replay_attack',
-          blocked: true,
-          alert: 'CRITICAL_SECURITY_EVENT',
-          description: 'State token was already used or expired - possible replay attack',
-        },
-      });
+      log.error(
+        'OIDC callback blocked - state token replay detected',
+        new Error('State replay attack'),
+        {
+          operation: 'oidc_callback',
+          success: false,
+          reason: 'state_replay',
+          statePrefix: state.substring(0, 8),
+          duration: Date.now() - startTime,
+          component: 'auth',
+          severity: 'high',
+          securityContext: {
+            threat: 'replay_attack',
+            blocked: true,
+            alert: 'CRITICAL_SECURITY_EVENT',
+            description: 'State token was already used or expired - possible replay attack',
+          },
+        }
+      );
 
       await AuditLogger.logAuth({
         action: 'login_failed',
@@ -202,24 +206,28 @@ const oidcCallbackHandler = async (request: NextRequest) => {
     if (sessionData.fingerprint !== currentFingerprint) {
       if (strictMode) {
         // Reject in strict mode
-        log.error('OIDC callback blocked - session hijack detected', new Error('Session hijack attempt'), {
-          operation: 'oidc_callback',
-          success: false,
-          reason: 'session_hijack',
-          expectedFingerprint: sessionData.fingerprint.substring(0, 16),
-          receivedFingerprint: currentFingerprint.substring(0, 16),
-          ...(currentMetadata.ipAddress && { ipAddress: currentMetadata.ipAddress }),
-          duration: Date.now() - startTime,
-          component: 'auth',
-          severity: 'critical',
-          securityContext: {
-            threat: 'session_hijacking',
-            blocked: true,
-            alert: 'CRITICAL_SECURITY_EVENT',
-            description: 'Device fingerprint mismatch indicates session hijack attempt',
-            strictMode: true,
-          },
-        });
+        log.error(
+          'OIDC callback blocked - session hijack detected',
+          new Error('Session hijack attempt'),
+          {
+            operation: 'oidc_callback',
+            success: false,
+            reason: 'session_hijack',
+            expectedFingerprint: sessionData.fingerprint.substring(0, 16),
+            receivedFingerprint: currentFingerprint.substring(0, 16),
+            ...(currentMetadata.ipAddress && { ipAddress: currentMetadata.ipAddress }),
+            duration: Date.now() - startTime,
+            component: 'auth',
+            severity: 'critical',
+            securityContext: {
+              threat: 'session_hijacking',
+              blocked: true,
+              alert: 'CRITICAL_SECURITY_EVENT',
+              description: 'Device fingerprint mismatch indicates session hijack attempt',
+              strictMode: true,
+            },
+          }
+        );
 
         await AuditLogger.logAuth({
           action: 'login_failed',
@@ -416,7 +424,8 @@ const oidcCallbackHandler = async (request: NextRequest) => {
         sessionDecryption: 'passed',
         stateCsrfProtection: 'passed',
         stateReplayPrevention: 'passed',
-        deviceFingerprintCheck: sessionData.fingerprint === currentFingerprint ? 'passed' : 'warning',
+        deviceFingerprintCheck:
+          sessionData.fingerprint === currentFingerprint ? 'passed' : 'warning',
         pkceValidation: 'passed',
         emailVerification: userInfo.emailVerified ? 'verified' : 'unverified',
         emailDomain: allowedDomains.length > 0 ? 'validated' : 'unrestricted',

@@ -1,5 +1,5 @@
-import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
 import { log } from '@/lib/logger';
+import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
 import { SimplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
 import { BaseChartHandler } from './base-handler';
 
@@ -74,7 +74,11 @@ export class DistributionChartHandler extends BaseChartHandler {
     }
 
     // Distribution charts don't support multiple series
-    if (config.multipleSeries && Array.isArray(config.multipleSeries) && config.multipleSeries.length > 0) {
+    if (
+      config.multipleSeries &&
+      Array.isArray(config.multipleSeries) &&
+      config.multipleSeries.length > 0
+    ) {
       errors.push('Distribution charts (pie/doughnut) do not support multiple series');
     }
 

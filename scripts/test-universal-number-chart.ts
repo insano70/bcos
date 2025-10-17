@@ -9,7 +9,6 @@
 
 import { chartDataOrchestrator } from '@/lib/services/chart-data-orchestrator';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
 
 // Mock user context with super admin permissions
 const mockUserContext: UserContext = {
@@ -50,16 +49,18 @@ const mockUserContext: UserContext = {
       updated_at: new Date(),
     },
   ],
-  organizations: [{
-    organization_id: '00000000-0000-0000-0000-000000000000',
-    name: 'Test Organization',
-    slug: 'test-org',
-    parent_organization_id: null,
-    is_active: true,
-    created_at: new Date(),
-    updated_at: new Date(),
-    deleted_at: undefined,
-  }],
+  organizations: [
+    {
+      organization_id: '00000000-0000-0000-0000-000000000000',
+      name: 'Test Organization',
+      slug: 'test-org',
+      parent_organization_id: null,
+      is_active: true,
+      created_at: new Date(),
+      updated_at: new Date(),
+      deleted_at: undefined,
+    },
+  ],
 };
 
 async function testNumberChart() {
@@ -146,7 +147,6 @@ async function testNumberChart() {
     console.log('');
 
     console.log('✅ All Number Chart Tests Passed!\n');
-
   } catch (error) {
     console.error('❌ Test Failed:', error);
     if (error instanceof Error) {
@@ -207,7 +207,6 @@ async function testProgressBarChart() {
     }
 
     console.log('✅ Progress Bar Chart Test Passed!\n');
-
   } catch (error) {
     console.error('❌ Test Failed:', error);
     if (error instanceof Error) {

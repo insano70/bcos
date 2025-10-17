@@ -5,12 +5,12 @@
  * Tests individual operations to identify performance bottlenecks
  */
 
+import path from 'node:path';
 import dotenv from 'dotenv';
-import path from 'path';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
-import { getRedisClient, disconnectRedis } from '@/lib/redis';
+import { disconnectRedis, getRedisClient } from '@/lib/redis';
 
 async function testLatency() {
   console.log('🔍 Redis Latency Analysis\n');
@@ -26,7 +26,15 @@ async function testLatency() {
     client.on('ready', resolve);
   });
 
-  const results: { operation: string; min: number; max: number; avg: number; p50: number; p95: number; p99: number }[] = [];
+  const results: {
+    operation: string;
+    min: number;
+    max: number;
+    avg: number;
+    p50: number;
+    p95: number;
+    p99: number;
+  }[] = [];
 
   // Test 1: PING latency
   console.log('Test 1: PING Latency (100 operations)');
@@ -38,7 +46,9 @@ async function testLatency() {
   }
   console.log(`  Min: ${Math.min(...pingLatencies)}ms`);
   console.log(`  Max: ${Math.max(...pingLatencies)}ms`);
-  console.log(`  Avg: ${(pingLatencies.reduce((a, b) => a + b, 0) / pingLatencies.length).toFixed(2)}ms`);
+  console.log(
+    `  Avg: ${(pingLatencies.reduce((a, b) => a + b, 0) / pingLatencies.length).toFixed(2)}ms`
+  );
   console.log(`  P95: ${percentile(pingLatencies, 95)}ms`);
   console.log(`  P99: ${percentile(pingLatencies, 99)}ms\n`);
 
@@ -63,7 +73,9 @@ async function testLatency() {
   }
   console.log(`  Min: ${Math.min(...getSmallLatencies)}ms`);
   console.log(`  Max: ${Math.max(...getSmallLatencies)}ms`);
-  console.log(`  Avg: ${(getSmallLatencies.reduce((a, b) => a + b, 0) / getSmallLatencies.length).toFixed(2)}ms`);
+  console.log(
+    `  Avg: ${(getSmallLatencies.reduce((a, b) => a + b, 0) / getSmallLatencies.length).toFixed(2)}ms`
+  );
   console.log(`  P95: ${percentile(getSmallLatencies, 95)}ms`);
   console.log(`  P99: ${percentile(getSmallLatencies, 99)}ms\n`);
 
@@ -105,7 +117,9 @@ async function testLatency() {
   console.log(`  Value size: ${largeValue.length} bytes`);
   console.log(`  Min: ${Math.min(...getLargeLatencies)}ms`);
   console.log(`  Max: ${Math.max(...getLargeLatencies)}ms`);
-  console.log(`  Avg: ${(getLargeLatencies.reduce((a, b) => a + b, 0) / getLargeLatencies.length).toFixed(2)}ms`);
+  console.log(
+    `  Avg: ${(getLargeLatencies.reduce((a, b) => a + b, 0) / getLargeLatencies.length).toFixed(2)}ms`
+  );
   console.log(`  P95: ${percentile(getLargeLatencies, 95)}ms`);
   console.log(`  P99: ${percentile(getLargeLatencies, 99)}ms\n`);
 
@@ -129,7 +143,9 @@ async function testLatency() {
   }
   console.log(`  Min: ${Math.min(...setLatencies)}ms`);
   console.log(`  Max: ${Math.max(...setLatencies)}ms`);
-  console.log(`  Avg: ${(setLatencies.reduce((a, b) => a + b, 0) / setLatencies.length).toFixed(2)}ms`);
+  console.log(
+    `  Avg: ${(setLatencies.reduce((a, b) => a + b, 0) / setLatencies.length).toFixed(2)}ms`
+  );
   console.log(`  P95: ${percentile(setLatencies, 95)}ms`);
   console.log(`  P99: ${percentile(setLatencies, 99)}ms\n`);
 
@@ -157,8 +173,12 @@ async function testLatency() {
   }
   console.log(`  Min: ${Math.min(...pipelineLatencies)}ms`);
   console.log(`  Max: ${Math.max(...pipelineLatencies)}ms`);
-  console.log(`  Avg: ${(pipelineLatencies.reduce((a, b) => a + b, 0) / pipelineLatencies.length).toFixed(2)}ms`);
-  console.log(`  Avg per command: ${(pipelineLatencies.reduce((a, b) => a + b, 0) / pipelineLatencies.length / 10).toFixed(2)}ms\n`);
+  console.log(
+    `  Avg: ${(pipelineLatencies.reduce((a, b) => a + b, 0) / pipelineLatencies.length).toFixed(2)}ms`
+  );
+  console.log(
+    `  Avg per command: ${(pipelineLatencies.reduce((a, b) => a + b, 0) / pipelineLatencies.length / 10).toFixed(2)}ms\n`
+  );
 
   // Cleanup
   await client.del('latency:test:small', 'latency:test:large');
@@ -167,27 +187,35 @@ async function testLatency() {
   }
 
   // Summary
-  console.log('=' .repeat(80));
+  console.log('='.repeat(80));
   console.log('SUMMARY');
   console.log('='.repeat(80));
-  console.log('Operation'.padEnd(20) + 'Min'.padStart(8) + 'Avg'.padStart(8) + 'P50'.padStart(8) + 'P95'.padStart(8) + 'P99'.padStart(8) + 'Max'.padStart(8));
+  console.log(
+    'Operation'.padEnd(20) +
+      'Min'.padStart(8) +
+      'Avg'.padStart(8) +
+      'P50'.padStart(8) +
+      'P95'.padStart(8) +
+      'P99'.padStart(8) +
+      'Max'.padStart(8)
+  );
   console.log('-'.repeat(80));
   for (const result of results) {
     console.log(
       result.operation.padEnd(20) +
-      `${result.min}ms`.padStart(8) +
-      `${result.avg.toFixed(1)}ms`.padStart(8) +
-      `${result.p50}ms`.padStart(8) +
-      `${result.p95}ms`.padStart(8) +
-      `${result.p99}ms`.padStart(8) +
-      `${result.max}ms`.padStart(8)
+        `${result.min}ms`.padStart(8) +
+        `${result.avg.toFixed(1)}ms`.padStart(8) +
+        `${result.p50}ms`.padStart(8) +
+        `${result.p95}ms`.padStart(8) +
+        `${result.p99}ms`.padStart(8) +
+        `${result.max}ms`.padStart(8)
     );
   }
   console.log('='.repeat(80));
 
   // Analysis
   console.log('\n📊 Analysis:');
-  const avgPing = results.find(r => r.operation === 'PING')!.avg;
+  const avgPing = results.find((r) => r.operation === 'PING')?.avg;
   if (avgPing < 5) {
     console.log('✅ Excellent latency (<5ms) - typical for same-region direct connection');
   } else if (avgPing < 20) {

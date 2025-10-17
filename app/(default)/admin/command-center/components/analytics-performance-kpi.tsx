@@ -67,12 +67,8 @@ export default function AnalyticsPerformanceKPI({
 
       {/* Response Time Display */}
       <div className="flex items-center gap-3 mb-3">
-        <div className={`text-4xl font-bold ${getStatusColor()}`}>
-          {formatDuration(p95)}
-        </div>
-        <div
-          className={`h-12 w-12 rounded-full ${getBgColor()} flex items-center justify-center`}
-        >
+        <div className={`text-4xl font-bold ${getStatusColor()}`}>{formatDuration(p95)}</div>
+        <div className={`h-12 w-12 rounded-full ${getBgColor()} flex items-center justify-center`}>
           <span className="text-2xl">{getStatusIcon()}</span>
         </div>
       </div>
@@ -132,4 +128,3 @@ export default function AnalyticsPerformanceKPI({
     </div>
   );
 }
-

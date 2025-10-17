@@ -60,7 +60,9 @@ export default function AnalyticsCacheDatasourceCard({
         {metrics.ageMinutes !== Infinity && metrics.ageMinutes > 0 && (
           <div className="flex items-center justify-between text-xs mt-1">
             <span className="text-gray-600 dark:text-gray-400">Age:</span>
-            <span className="text-gray-700 dark:text-gray-300">{Math.round(metrics.ageMinutes)} min</span>
+            <span className="text-gray-700 dark:text-gray-300">
+              {Math.round(metrics.ageMinutes)} min
+            </span>
           </div>
         )}
       </div>
@@ -102,20 +104,28 @@ export default function AnalyticsCacheDatasourceCard({
           <div className="mt-2 space-y-1 text-xs text-gray-600 dark:text-gray-400">
             <div className="flex justify-between">
               <span>Measures:</span>
-              <span className="font-medium text-gray-900 dark:text-gray-100">{metrics.uniqueMeasures}</span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">
+                {metrics.uniqueMeasures}
+              </span>
             </div>
             <div className="flex justify-between">
               <span>Practices:</span>
-              <span className="font-medium text-gray-900 dark:text-gray-100">{metrics.uniquePractices}</span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">
+                {metrics.uniquePractices}
+              </span>
             </div>
             <div className="flex justify-between">
               <span>Providers:</span>
-              <span className="font-medium text-gray-900 dark:text-gray-100">{metrics.uniqueProviders}</span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">
+                {metrics.uniqueProviders}
+              </span>
             </div>
             <div className="flex justify-between">
               <span>Frequencies:</span>
               <span className="font-medium text-gray-900 dark:text-gray-100">
-                {metrics.uniqueFrequencies.length > 0 ? metrics.uniqueFrequencies.join(', ') : 'N/A'}
+                {metrics.uniqueFrequencies.length > 0
+                  ? metrics.uniqueFrequencies.join(', ')
+                  : 'N/A'}
               </span>
             </div>
           </div>
@@ -167,4 +177,3 @@ export default function AnalyticsCacheDatasourceCard({
     </div>
   );
 }
-

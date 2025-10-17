@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import ModalAction from '@/components/modal-action';
 import { apiClient } from '@/lib/api/client';
 import type { RedisKeyDetails } from '@/lib/monitoring/types';
 import { useToast } from './toast';
-import ModalAction from '@/components/modal-action';
 
 interface RedisKeyInspectorProps {
   keyName: string | null;
@@ -13,7 +13,12 @@ interface RedisKeyInspectorProps {
   onKeyDeleted?: () => void;
 }
 
-export default function RedisKeyInspector({ keyName, isOpen, onClose, onKeyDeleted }: RedisKeyInspectorProps) {
+export default function RedisKeyInspector({
+  keyName,
+  isOpen,
+  onClose,
+  onKeyDeleted,
+}: RedisKeyInspectorProps) {
   const [details, setDetails] = useState<RedisKeyDetails | null>(null);
   const [loading, setLoading] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -31,7 +36,7 @@ export default function RedisKeyInspector({ keyName, isOpen, onClose, onKeyDelet
         })
         .finally(() => setLoading(false));
     }
-  }, [isOpen, keyName]);
+  }, [isOpen, keyName, showToast]);
 
   const handleDeleteClick = () => {
     if (!keyName) return;
@@ -40,9 +45,9 @@ export default function RedisKeyInspector({ keyName, isOpen, onClose, onKeyDelet
 
   const handleDeleteConfirm = async () => {
     if (!keyName) return;
-    
+
     setDeleteModalOpen(false);
-    
+
     try {
       await apiClient.post('/api/admin/redis/purge', {
         pattern: keyName,
@@ -70,7 +75,9 @@ export default function RedisKeyInspector({ keyName, isOpen, onClose, onKeyDelet
       <div className="flex min-h-full items-center justify-center p-4">
         <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-4xl w-full">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Redis Key Inspector</h2>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+              Redis Key Inspector
+            </h2>
           </div>
 
           <div className="px-6 py-4 max-h-[70vh] overflow-y-auto">
@@ -82,7 +89,9 @@ export default function RedisKeyInspector({ keyName, isOpen, onClose, onKeyDelet
               <div className="space-y-4">
                 <div>
                   <div className="text-sm text-gray-500 dark:text-gray-400">Key</div>
-                  <div className="text-sm font-mono text-gray-900 dark:text-gray-100 break-all">{details.key}</div>
+                  <div className="text-sm font-mono text-gray-900 dark:text-gray-100 break-all">
+                    {details.key}
+                  </div>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div>
@@ -91,7 +100,9 @@ export default function RedisKeyInspector({ keyName, isOpen, onClose, onKeyDelet
                   </div>
                   <div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">TTL</div>
-                    <div className="text-sm font-medium">{details.ttl === -1 ? 'No expiry' : `${details.ttl}s`}</div>
+                    <div className="text-sm font-medium">
+                      {details.ttl === -1 ? 'No expiry' : `${details.ttl}s`}
+                    </div>
                   </div>
                   <div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">Size</div>
@@ -111,10 +122,16 @@ export default function RedisKeyInspector({ keyName, isOpen, onClose, onKeyDelet
           </div>
 
           <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
-            <button onClick={handleDeleteClick} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+            <button
+              onClick={handleDeleteClick}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            >
               Delete Key
             </button>
-            <button onClick={onClose} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
+            >
               Close
             </button>
           </div>
@@ -131,7 +148,9 @@ export default function RedisKeyInspector({ keyName, isOpen, onClose, onKeyDelet
             Are you sure you want to delete this key? This action cannot be undone.
           </p>
           <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700">
-            <p className="text-xs font-mono text-gray-700 dark:text-gray-300 break-all">{keyName}</p>
+            <p className="text-xs font-mono text-gray-700 dark:text-gray-300 break-all">
+              {keyName}
+            </p>
           </div>
           <div className="flex justify-end gap-3 mt-6">
             <button
@@ -154,4 +173,3 @@ export default function RedisKeyInspector({ keyName, isOpen, onClose, onKeyDelet
     </div>
   );
 }
-

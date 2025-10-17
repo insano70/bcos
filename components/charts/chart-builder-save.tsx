@@ -1,6 +1,6 @@
 'use client';
 
-import { ChartConfig } from './chart-builder-core';
+import type { ChartConfig } from './chart-builder-core';
 
 interface ChartBuilderSaveProps {
   chartConfig: ChartConfig;
@@ -13,7 +13,7 @@ export default function ChartBuilderSave({
   chartConfig,
   isSaving,
   onBackToPreview,
-  onSave
+  onSave,
 }: ChartBuilderSaveProps) {
   return (
     <div className="space-y-6">
@@ -21,15 +21,36 @@ export default function ChartBuilderSave({
         <h3 className="text-lg font-medium text-green-800 dark:text-green-200 mb-4">
           Ready to Save: {chartConfig.chartName}
         </h3>
-        
+
         <div className="space-y-2 text-sm text-green-700 dark:text-green-300">
-          <div><strong>Type:</strong> {chartConfig.chartType}</div>
-          <div><strong>Measure:</strong> {chartConfig.measure}</div>
-          <div><strong>Frequency:</strong> {chartConfig.frequency}</div>
-          <div><strong>Group By:</strong> {chartConfig.groupBy}</div>
-          {chartConfig.calculatedField && <div><strong>Calculated Field:</strong> {chartConfig.calculatedField}</div>}
-          {chartConfig.useAdvancedFiltering && <div><strong>Advanced Filters:</strong> Enabled ({chartConfig.advancedFilters.length} filters)</div>}
-          {chartConfig.useMultipleSeries && <div><strong>Multiple Series:</strong> Enabled ({chartConfig.seriesConfigs.length} series)</div>}
+          <div>
+            <strong>Type:</strong> {chartConfig.chartType}
+          </div>
+          <div>
+            <strong>Measure:</strong> {chartConfig.measure}
+          </div>
+          <div>
+            <strong>Frequency:</strong> {chartConfig.frequency}
+          </div>
+          <div>
+            <strong>Group By:</strong> {chartConfig.groupBy}
+          </div>
+          {chartConfig.calculatedField && (
+            <div>
+              <strong>Calculated Field:</strong> {chartConfig.calculatedField}
+            </div>
+          )}
+          {chartConfig.useAdvancedFiltering && (
+            <div>
+              <strong>Advanced Filters:</strong> Enabled ({chartConfig.advancedFilters.length}{' '}
+              filters)
+            </div>
+          )}
+          {chartConfig.useMultipleSeries && (
+            <div>
+              <strong>Multiple Series:</strong> Enabled ({chartConfig.seriesConfigs.length} series)
+            </div>
+          )}
         </div>
       </div>
 
@@ -40,7 +61,7 @@ export default function ChartBuilderSave({
         >
           Back to Preview
         </button>
-        
+
         <button
           onClick={onSave}
           disabled={isSaving}

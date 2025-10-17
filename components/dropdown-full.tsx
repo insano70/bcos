@@ -1,7 +1,7 @@
 'use client';
 
+import { Menu, MenuButton, MenuItem, MenuItems, Transition } from '@headlessui/react';
 import { useState } from 'react';
-import { Menu, MenuButton, MenuItems, MenuItem, Transition } from '@headlessui/react';
 
 export default function DropdownFull() {
   const options = [
@@ -34,7 +34,7 @@ export default function DropdownFull() {
             aria-label="Select option"
           >
             <span className="flex items-center">
-               <span>{options[selected]?.value}</span>
+              <span>{options[selected]?.value}</span>
             </span>
             <svg
               className="shrink-0 ml-1 fill-current text-gray-400 dark:text-gray-500"

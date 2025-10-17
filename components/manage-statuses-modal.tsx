@@ -1,15 +1,15 @@
 'use client';
 
-import { useState } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import {
-  useWorkItemStatuses,
   useCreateWorkItemStatus,
-  useUpdateWorkItemStatus,
   useDeleteWorkItemStatus,
+  useUpdateWorkItemStatus,
+  useWorkItemStatuses,
   type WorkItemStatus,
 } from '@/lib/hooks/use-work-item-statuses';
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
@@ -83,7 +83,10 @@ export default function ManageStatusesModal({
     setEditingStatusId(status.work_item_status_id);
     setIsAddingStatus(false);
     setValue('status_name', status.status_name);
-    setValue('status_category', status.status_category as 'backlog' | 'in_progress' | 'done' | 'cancelled');
+    setValue(
+      'status_category',
+      status.status_category as 'backlog' | 'in_progress' | 'done' | 'cancelled'
+    );
     setValue('color', status.color || '#3b82f6');
     setValue('is_initial', status.is_initial);
     setValue('is_final', status.is_final);
@@ -215,7 +218,10 @@ export default function ManageStatusesModal({
 
                   {/* Add/Edit Form */}
                   {(isAddingStatus || editingStatusId) && (
-                    <form onSubmit={handleSubmit(onSubmit)} className="mb-6 p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <form
+                      onSubmit={handleSubmit(onSubmit)}
+                      className="mb-6 p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
+                    >
                       <h3 className="text-lg font-semibold mb-4">
                         {isAddingStatus ? 'Add New Status' : 'Edit Status'}
                       </h3>
@@ -233,13 +239,18 @@ export default function ManageStatusesModal({
                             placeholder="e.g., In Review"
                           />
                           {errors.status_name && (
-                            <div className="text-xs mt-1 text-red-500">{errors.status_name.message}</div>
+                            <div className="text-xs mt-1 text-red-500">
+                              {errors.status_name.message}
+                            </div>
                           )}
                         </div>
 
                         {/* Category */}
                         <div>
-                          <label className="block text-sm font-medium mb-1" htmlFor="status_category">
+                          <label
+                            className="block text-sm font-medium mb-1"
+                            htmlFor="status_category"
+                          >
                             Category <span className="text-red-500">*</span>
                           </label>
                           <select
@@ -253,7 +264,9 @@ export default function ManageStatusesModal({
                             <option value="cancelled">Cancelled</option>
                           </select>
                           {errors.status_category && (
-                            <div className="text-xs mt-1 text-red-500">{errors.status_category.message}</div>
+                            <div className="text-xs mt-1 text-red-500">
+                              {errors.status_category.message}
+                            </div>
                           )}
                         </div>
 
@@ -286,18 +299,28 @@ export default function ManageStatusesModal({
                             {...register('display_order', { valueAsNumber: true })}
                           />
                           {errors.display_order && (
-                            <div className="text-xs mt-1 text-red-500">{errors.display_order.message}</div>
+                            <div className="text-xs mt-1 text-red-500">
+                              {errors.display_order.message}
+                            </div>
                           )}
                         </div>
 
                         {/* Flags */}
                         <div className="md:col-span-2 flex gap-4">
                           <label className="flex items-center">
-                            <input type="checkbox" className="form-checkbox" {...register('is_initial')} />
+                            <input
+                              type="checkbox"
+                              className="form-checkbox"
+                              {...register('is_initial')}
+                            />
                             <span className="text-sm ml-2">Initial Status</span>
                           </label>
                           <label className="flex items-center">
-                            <input type="checkbox" className="form-checkbox" {...register('is_final')} />
+                            <input
+                              type="checkbox"
+                              className="form-checkbox"
+                              {...register('is_final')}
+                            />
                             <span className="text-sm ml-2">Final Status</span>
                           </label>
                         </div>
@@ -350,7 +373,9 @@ export default function ManageStatusesModal({
                               </div>
 
                               {/* Category badge */}
-                              <span className={`px-2 py-1 text-xs rounded-full ${categoryColors[status.status_category as keyof typeof categoryColors]}`}>
+                              <span
+                                className={`px-2 py-1 text-xs rounded-full ${categoryColors[status.status_category as keyof typeof categoryColors]}`}
+                              >
                                 {status.status_category}
                               </span>
 

@@ -1,38 +1,38 @@
-'use client'
+'use client';
 
-import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useAuth } from '@/components/auth/rbac-auth-provider'
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/components/auth/rbac-auth-provider';
 
 export default function AuthenticatingPage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const { isAuthenticated, isLoading } = useAuth()
-  const [timeoutError, setTimeoutError] = useState(false)
-  const returnUrl = searchParams.get('returnUrl') || '/dashboard'
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { isAuthenticated, isLoading } = useAuth();
+  const [timeoutError, setTimeoutError] = useState(false);
+  const returnUrl = searchParams.get('returnUrl') || '/dashboard';
 
   useEffect(() => {
     // Set timeout for authentication check (5 seconds)
     const timeout = setTimeout(() => {
       if (!isAuthenticated) {
-        setTimeoutError(true)
+        setTimeoutError(true);
       }
-    }, 5000)
+    }, 5000);
 
-    return () => clearTimeout(timeout)
-  }, [isAuthenticated])
+    return () => clearTimeout(timeout);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     // Once authenticated and not loading, redirect to destination
     if (isAuthenticated && !isLoading) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('Authentication confirmed, redirecting to:', returnUrl)
+        console.log('Authentication confirmed, redirecting to:', returnUrl);
       }
 
       // Use router.push for client-side navigation (middleware will have seen cookies by now)
-      router.push(returnUrl)
+      router.push(returnUrl);
     }
-  }, [isAuthenticated, isLoading, returnUrl, router])
+  }, [isAuthenticated, isLoading, returnUrl, router]);
 
   if (timeoutError) {
     return (
@@ -69,7 +69,7 @@ export default function AuthenticatingPage() {
           </div>
         </div>
       </main>
-    )
+    );
   }
 
   return (
@@ -106,5 +106,5 @@ export default function AuthenticatingPage() {
         </div>
       </div>
     </main>
-  )
+  );
 }

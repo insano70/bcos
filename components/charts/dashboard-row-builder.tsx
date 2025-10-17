@@ -1,7 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import type { ChartDefinition, MeasureType, FrequencyType, ChartFilter } from '@/lib/types/analytics';
+import type {
+  ChartDefinition,
+  ChartFilter,
+  FrequencyType,
+  MeasureType,
+} from '@/lib/types/analytics';
 import AnalyticsChart from './analytics-chart';
 
 // New row-based data structures
@@ -43,7 +48,7 @@ export default function DashboardRowBuilder({
   onMoveRowUp,
   onMoveRowDown,
   canMoveUp,
-  canMoveDown
+  canMoveDown,
 }: DashboardRowBuilderProps) {
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -54,31 +59,31 @@ export default function DashboardRowBuilder({
   const addChartToRow = () => {
     const newChart: DashboardChartSlot = {
       id: `chart-${row.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Ensure unique ID
-      widthPercentage: Math.floor(100 / (row.charts.length + 1)) // Auto-distribute width
+      widthPercentage: Math.floor(100 / (row.charts.length + 1)), // Auto-distribute width
     };
 
     // Rebalance existing charts to make room
-    const rebalancedCharts = row.charts.map(chart => ({
+    const rebalancedCharts = row.charts.map((chart) => ({
       ...chart,
-      widthPercentage: Math.floor(100 / (row.charts.length + 1))
+      widthPercentage: Math.floor(100 / (row.charts.length + 1)),
     }));
 
-    onUpdateRow(row.id, { 
-      charts: [...rebalancedCharts, newChart]
+    onUpdateRow(row.id, {
+      charts: [...rebalancedCharts, newChart],
     });
   };
 
   const removeChartFromRow = (chartId: string) => {
-    const remainingCharts = row.charts.filter(chart => chart.id !== chartId);
-    
+    const remainingCharts = row.charts.filter((chart) => chart.id !== chartId);
+
     // Redistribute width among remaining charts
     if (remainingCharts.length > 0) {
       const widthPerChart = Math.floor(100 / remainingCharts.length);
-      const rebalancedCharts = remainingCharts.map(chart => ({
+      const rebalancedCharts = remainingCharts.map((chart) => ({
         ...chart,
-        widthPercentage: widthPerChart
+        widthPercentage: widthPerChart,
       }));
-      
+
       onUpdateRow(row.id, { charts: rebalancedCharts });
     } else {
       onUpdateRow(row.id, { charts: [] });
@@ -86,20 +91,22 @@ export default function DashboardRowBuilder({
   };
 
   const updateChartWidth = (chartId: string, widthPercentage: number) => {
-    const updatedCharts = row.charts.map(chart =>
+    const updatedCharts = row.charts.map((chart) =>
       chart.id === chartId ? { ...chart, widthPercentage } : chart
     );
     onUpdateRow(row.id, { charts: updatedCharts });
   };
 
   const updateChartDefinition = (chartId: string, chartDefinitionId: string) => {
-    const chartDefinition = availableCharts.find(chart => chart.chart_definition_id === chartDefinitionId);
-    const updatedCharts: DashboardChartSlot[] = row.charts.map(chart =>
-      chart.id === chartId 
-        ? { 
-            ...chart, 
-            chartDefinitionId, 
-            chartDefinition: chartDefinition as ChartDefinition | undefined 
+    const chartDefinition = availableCharts.find(
+      (chart) => chart.chart_definition_id === chartDefinitionId
+    );
+    const updatedCharts: DashboardChartSlot[] = row.charts.map((chart) =>
+      chart.id === chartId
+        ? {
+            ...chart,
+            chartDefinitionId,
+            chartDefinition: chartDefinition as ChartDefinition | undefined,
           }
         : chart
     );
@@ -108,13 +115,13 @@ export default function DashboardRowBuilder({
 
   const autoBalanceWidths = () => {
     if (row.charts.length === 0) return;
-    
+
     const widthPerChart = Math.floor(100 / row.charts.length);
-    const balancedCharts = row.charts.map(chart => ({
+    const balancedCharts = row.charts.map((chart) => ({
       ...chart,
-      widthPercentage: widthPerChart
+      widthPercentage: widthPerChart,
     }));
-    
+
     onUpdateRow(row.id, { charts: balancedCharts });
   };
 
@@ -131,30 +138,35 @@ export default function DashboardRowBuilder({
               onClick={() => setIsExpanded(!isExpanded)}
               className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
             >
-              <svg 
-                className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`} 
-                fill="none" 
-                viewBox="0 0 24 24" 
+              <svg
+                className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                fill="none"
+                viewBox="0 0 24 24"
                 stroke="currentColor"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
               </svg>
             </button>
-            
+
             <h3 className="font-medium text-gray-900 dark:text-gray-100">
               Row {row.charts.length} chart{row.charts.length !== 1 ? 's' : ''}
             </h3>
-            
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              Height: {row.heightPx}px
-            </div>
-            
+
+            <div className="text-sm text-gray-500 dark:text-gray-400">Height: {row.heightPx}px</div>
+
             {totalWidth !== 100 && (
-              <div className={`text-xs px-2 py-1 rounded ${
-                totalWidth > 100 
-                  ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300'
-                  : 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300'
-              }`}>
+              <div
+                className={`text-xs px-2 py-1 rounded ${
+                  totalWidth > 100
+                    ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300'
+                    : 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300'
+                }`}
+              >
                 Width: {totalWidth}%
               </div>
             )}
@@ -170,7 +182,7 @@ export default function DashboardRowBuilder({
                 max="600"
                 step="50"
                 value={row.heightPx}
-                onChange={(e) => updateRowHeight(parseInt(e.target.value))}
+                onChange={(e) => updateRowHeight(parseInt(e.target.value, 10))}
                 className="w-20"
               />
               <span className="text-xs text-gray-600 dark:text-gray-400 w-8">{row.heightPx}px</span>
@@ -186,10 +198,15 @@ export default function DashboardRowBuilder({
                 title="Move row up"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 15l7-7 7 7"
+                  />
                 </svg>
               </button>
-              
+
               <button
                 type="button"
                 onClick={() => onMoveRowDown(row.id)}
@@ -198,10 +215,15 @@ export default function DashboardRowBuilder({
                 title="Move row down"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
                 </svg>
               </button>
-              
+
               <button
                 type="button"
                 onClick={addChartToRow}
@@ -209,10 +231,15 @@ export default function DashboardRowBuilder({
                 title="Add chart to row"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4v16m8-8H4"
+                  />
                 </svg>
               </button>
-              
+
               <button
                 type="button"
                 onClick={autoBalanceWidths}
@@ -221,10 +248,15 @@ export default function DashboardRowBuilder({
                 title="Auto-balance chart widths"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                  />
                 </svg>
               </button>
-              
+
               <button
                 type="button"
                 onClick={() => onDeleteRow(row.id)}
@@ -232,7 +264,12 @@ export default function DashboardRowBuilder({
                 title="Delete row"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
                 </svg>
               </button>
             </div>
@@ -250,23 +287,23 @@ export default function DashboardRowBuilder({
               <p className="text-sm">Click the + button above to add charts</p>
             </div>
           ) : (
-            <div 
+            <div
               className="flex gap-2 overflow-hidden"
-              style={{ 
+              style={{
                 height: `${row.heightPx}px`,
-                maxHeight: `${row.heightPx}px`
+                maxHeight: `${row.heightPx}px`,
               }}
             >
               {row.charts.map((chart) => (
                 <div
                   key={chart.id}
                   className="flex flex-col border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-700 overflow-hidden"
-                  style={{ 
+                  style={{
                     width: `${chart.widthPercentage}%`,
                     maxWidth: `${chart.widthPercentage}%`,
                     minWidth: '200px', // Ensure minimum usable width
                     height: `${row.heightPx}px`,
-                    maxHeight: `${row.heightPx}px`
+                    maxHeight: `${row.heightPx}px`,
                   }}
                 >
                   {/* Chart Controls */}
@@ -280,24 +317,36 @@ export default function DashboardRowBuilder({
                           max="100"
                           step="5"
                           value={chart.widthPercentage}
-                          onChange={(e) => updateChartWidth(chart.id, parseInt(e.target.value))}
+                          onChange={(e) => updateChartWidth(chart.id, parseInt(e.target.value, 10))}
                           className="w-16"
                         />
-                        <span className="text-gray-600 dark:text-gray-400 w-8">{chart.widthPercentage}%</span>
+                        <span className="text-gray-600 dark:text-gray-400 w-8">
+                          {chart.widthPercentage}%
+                        </span>
                       </div>
-                      
+
                       <button
                         type="button"
                         onClick={() => removeChartFromRow(chart.id)}
                         className="text-red-500 hover:text-red-600 p-1"
                         title="Remove chart"
                       >
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        <svg
+                          className="w-3 h-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
                         </svg>
                       </button>
                     </div>
-                    
+
                     {/* Chart Selector */}
                     <div className="mt-1">
                       <select
@@ -307,7 +356,10 @@ export default function DashboardRowBuilder({
                       >
                         <option value="">Select a chart...</option>
                         {availableCharts.map((chartDef) => (
-                          <option key={chartDef.chart_definition_id} value={chartDef.chart_definition_id}>
+                          <option
+                            key={chartDef.chart_definition_id}
+                            value={chartDef.chart_definition_id}
+                          >
                             {chartDef.chart_name}
                           </option>
                         ))}
@@ -316,11 +368,11 @@ export default function DashboardRowBuilder({
                   </div>
 
                   {/* Chart Content */}
-                  <div 
+                  <div
                     className="overflow-hidden p-1"
-                    style={{ 
+                    style={{
                       height: `${row.heightPx - 60}px`, // Exact height minus controls
-                      maxHeight: `${row.heightPx - 60}px`
+                      maxHeight: `${row.heightPx - 60}px`,
                     }}
                   >
                     {chart.chartDefinition ? (
@@ -329,33 +381,47 @@ export default function DashboardRowBuilder({
                           // Extract chart configuration
                           const dataSource = chart.chartDefinition.data_source || {};
                           const chartConfig = chart.chartDefinition.chart_config || {};
-                          
+
                           // Extract filters to get chart parameters
-                          const measureFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'measure');
-                          const frequencyFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'frequency');
-                          const practiceFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'practice_uid');
-                          const startDateFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'date_index' && f.operator === 'gte');
-                          const endDateFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'date_index' && f.operator === 'lte');
+                          const measureFilter = dataSource.filters?.find(
+                            (f: ChartFilter) => f.field === 'measure'
+                          );
+                          const frequencyFilter = dataSource.filters?.find(
+                            (f: ChartFilter) => f.field === 'frequency'
+                          );
+                          const practiceFilter = dataSource.filters?.find(
+                            (f: ChartFilter) => f.field === 'practice_uid'
+                          );
+                          const startDateFilter = dataSource.filters?.find(
+                            (f: ChartFilter) => f.field === 'date_index' && f.operator === 'gte'
+                          );
+                          const endDateFilter = dataSource.filters?.find(
+                            (f: ChartFilter) => f.field === 'date_index' && f.operator === 'lte'
+                          );
 
                           // Use responsive sizing based on container - respect configured dimensions
-                          const controlsHeight = 60; // Height of chart controls section  
+                          const controlsHeight = 60; // Height of chart controls section
                           const availableHeight = row.heightPx - controlsHeight; // Remaining height for chart
                           const minHeight = Math.max(150, Math.min(availableHeight * 0.6, 200));
                           const maxHeight = availableHeight; // Respect dashboard configuration
 
                           return (
-                            <div 
+                            <div
                               className="w-full flex flex-col"
-                              style={{ 
+                              style={{
                                 height: `${availableHeight}px`,
                                 maxHeight: `${availableHeight}px`,
-                                overflow: 'hidden'
+                                overflow: 'hidden',
                               }}
                             >
                               <AnalyticsChart
                                 chartType={chart.chartDefinition.chart_type}
-                                {...(measureFilter?.value && { measure: measureFilter.value as MeasureType })}
-                                {...(frequencyFilter?.value && { frequency: frequencyFilter.value as FrequencyType })}
+                                {...(measureFilter?.value && {
+                                  measure: measureFilter.value as MeasureType,
+                                })}
+                                {...(frequencyFilter?.value && {
+                                  frequency: frequencyFilter.value as FrequencyType,
+                                })}
                                 practice={practiceFilter?.value?.toString()}
                                 startDate={startDateFilter?.value?.toString()}
                                 endDate={endDateFilter?.value?.toString()}
@@ -366,8 +432,13 @@ export default function DashboardRowBuilder({
                                 dataSourceId={chartConfig.dataSourceId}
                                 stackingMode={chartConfig.stackingMode}
                                 colorPalette={chartConfig.colorPalette}
-                                {...(chartConfig.seriesConfigs && chartConfig.seriesConfigs.length > 0 ? { multipleSeries: chartConfig.seriesConfigs } : {})}
-                                {...(chartConfig.dualAxisConfig ? { dualAxisConfig: chartConfig.dualAxisConfig } : {})}
+                                {...(chartConfig.seriesConfigs &&
+                                chartConfig.seriesConfigs.length > 0
+                                  ? { multipleSeries: chartConfig.seriesConfigs }
+                                  : {})}
+                                {...(chartConfig.dualAxisConfig
+                                  ? { dualAxisConfig: chartConfig.dualAxisConfig }
+                                  : {})}
                                 className="w-full h-full flex-1"
                                 responsive={true}
                                 minHeight={minHeight}

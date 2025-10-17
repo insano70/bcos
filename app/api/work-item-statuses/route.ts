@@ -1,13 +1,13 @@
+import { asc, eq } from 'drizzle-orm';
 import type { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
-import type { UserContext } from '@/lib/types/rbac';
-import { log, sanitizeFilters } from '@/lib/logger';
 import { db } from '@/lib/db';
 import { work_item_statuses } from '@/lib/db/schema';
-import { asc, eq } from 'drizzle-orm';
+import { log, sanitizeFilters } from '@/lib/logger';
+import type { UserContext } from '@/lib/types/rbac';
 
 /**
  * GET /api/work-item-statuses?work_item_type_id=<uuid>
@@ -45,11 +45,14 @@ const getWorkItemStatusesHandler = async (request: NextRequest, userContext: Use
     const duration = Date.now() - startTime;
     const filters = sanitizeFilters({ work_item_type_id });
 
-    const categoryCounts = statuses.reduce((acc, status) => {
-      const category = status.status_category || 'unknown';
-      acc[category] = (acc[category] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const categoryCounts = statuses.reduce(
+      (acc, status) => {
+        const category = status.status_category || 'unknown';
+        acc[category] = (acc[category] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
     const initialCount = statuses.filter((s) => s.is_initial).length;
     const finalCount = statuses.filter((s) => s.is_final).length;

@@ -8,20 +8,20 @@
  * and prevent privilege escalation with stale tokens.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import '@/tests/setup/integration-setup';
-import { db, token_blacklist, refresh_tokens } from '@/lib/db';
+import { and, eq } from 'drizzle-orm';
+import { nanoid } from 'nanoid';
 import { createTokenPair, type DeviceInfo } from '@/lib/auth/token-manager';
+import { db, refresh_tokens, token_blacklist } from '@/lib/db';
 import { invalidateUserTokensWithRole } from '@/lib/rbac/cache-invalidation';
 import {
-  createCommittedUser,
-  createCommittedRole,
   assignCommittedRoleToUser,
-  committedUserFactory,
   committedRoleFactory,
+  committedUserFactory,
+  createCommittedRole,
+  createCommittedUser,
 } from '@/tests/factories/committed';
-import { nanoid } from 'nanoid';
-import { eq, and } from 'drizzle-orm';
 
 describe('Token Revocation on Role Change', () => {
   const scopeId = `token-revoke-${nanoid(8)}`;
@@ -69,10 +69,7 @@ describe('Token Revocation on Role Change', () => {
     expect(activeTokensBefore.length).toBeGreaterThanOrEqual(3);
 
     // Execute: Simulate role permission change by invalidating tokens
-    const revokedCount = await invalidateUserTokensWithRole(
-      role.role_id,
-      'permissions_updated'
-    );
+    const revokedCount = await invalidateUserTokensWithRole(role.role_id, 'permissions_updated');
 
     // Verify: Should have revoked 3 tokens (one per user)
     expect(revokedCount).toBe(3);
@@ -81,12 +78,7 @@ describe('Token Revocation on Role Change', () => {
     const activeTokensAfter = await db
       .select()
       .from(refresh_tokens)
-      .where(
-        and(
-          eq(refresh_tokens.is_active, true),
-          eq(refresh_tokens.user_id, user1.user_id)
-        )
-      );
+      .where(and(eq(refresh_tokens.is_active, true), eq(refresh_tokens.user_id, user1.user_id)));
 
     expect(activeTokensAfter.length).toBe(0);
 
@@ -108,10 +100,7 @@ describe('Token Revocation on Role Change', () => {
     });
 
     // Execute: Try to invalidate tokens for role with no users
-    const revokedCount = await invalidateUserTokensWithRole(
-      role.role_id,
-      'permissions_updated'
-    );
+    const revokedCount = await invalidateUserTokensWithRole(role.role_id, 'permissions_updated');
 
     // Verify: Should return 0 (no tokens to revoke)
     expect(revokedCount).toBe(0);
@@ -142,10 +131,7 @@ describe('Token Revocation on Role Change', () => {
     await createTokenPair(user2.user_id, deviceInfo, false, user2.email);
 
     // Execute: Should handle user1 (no tokens) and still revoke user2's tokens
-    const revokedCount = await invalidateUserTokensWithRole(
-      role.role_id,
-      'permissions_updated'
-    );
+    const revokedCount = await invalidateUserTokensWithRole(role.role_id, 'permissions_updated');
 
     // Verify: Should have revoked at least user2's token
     // (user1 had 0 tokens, so total could be 1)

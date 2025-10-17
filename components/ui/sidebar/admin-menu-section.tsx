@@ -1,11 +1,11 @@
 'use client';
 
 import { useSelectedLayoutSegments } from 'next/navigation';
-import { useWindowWidth } from '@/components/utils/use-window-width';
 import { useAppProvider } from '@/app/app-provider';
-import SidebarLinkGroup from '../sidebar-link-group';
-import SidebarLink from '../sidebar-link';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
+import { useWindowWidth } from '@/components/utils/use-window-width';
+import SidebarLink from '../sidebar-link';
+import SidebarLinkGroup from '../sidebar-link-group';
 
 /**
  * Admin Menu Section
@@ -106,7 +106,7 @@ export function AdminMenuSection() {
                         'organizations:manage:all',
                         'organizations:create:all',
                         'organizations:update:organization',
-                        'organizations:delete:organization'
+                        'organizations:delete:organization',
                       ]}
                       requireAll={false}
                     >
@@ -177,9 +177,7 @@ export function AdminMenuSection() {
                 <a
                   href="#0"
                   className={`block text-gray-800 dark:text-gray-100 truncate transition ${
-                    segments.includes('admin')
-                      ? ''
-                      : 'hover:text-gray-900 dark:hover:text-white'
+                    segments.includes('admin') ? '' : 'hover:text-gray-900 dark:hover:text-white'
                   }`}
                   onClick={(e) => {
                     e.preventDefault();
@@ -195,9 +193,7 @@ export function AdminMenuSection() {
                         height="16"
                         viewBox="0 0 16 16"
                       >
-                        <path
-                          d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm0 12c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm1-3H7V4h2v5z"
-                        />
+                        <path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm0 12c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm1-3H7V4h2v5z" />
                       </svg>
                       <span className="text-sm font-medium ml-4 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
                         Monitor

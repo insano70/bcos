@@ -1,10 +1,10 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { users, work_item_activity, work_items } from '@/lib/db/schema';
-import { BaseRBACService } from '@/lib/rbac/base-service';
-import { PermissionDeniedError } from '@/lib/types/rbac';
-import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
+import { BaseRBACService } from '@/lib/rbac/base-service';
+import type { UserContext } from '@/lib/types/rbac';
+import { PermissionDeniedError } from '@/lib/types/rbac';
 
 /**
  * Work Item Activity Service with RBAC
@@ -115,7 +115,9 @@ export class RBACWorkItemActivityService extends BaseRBACService {
    * Create new activity log entry
    * This is typically called internally by other services, not directly via API
    */
-  async createActivity(activityData: CreateWorkItemActivityData): Promise<WorkItemActivityWithDetails> {
+  async createActivity(
+    activityData: CreateWorkItemActivityData
+  ): Promise<WorkItemActivityWithDetails> {
     const startTime = Date.now();
 
     log.info('Work item activity creation initiated', {
@@ -188,11 +190,7 @@ export class RBACWorkItemActivityService extends BaseRBACService {
   /**
    * Helper: Log a work item status change
    */
-  async logStatusChange(
-    workItemId: string,
-    oldStatus: string,
-    newStatus: string
-  ): Promise<void> {
+  async logStatusChange(workItemId: string, oldStatus: string, newStatus: string): Promise<void> {
     await this.createActivity({
       work_item_id: workItemId,
       activity_type: 'status_changed',
@@ -217,9 +215,7 @@ export class RBACWorkItemActivityService extends BaseRBACService {
       field_name: 'assigned_to',
       old_value: oldAssignee,
       new_value: newAssignee,
-      description: newAssignee
-        ? `Assigned to ${newAssignee}`
-        : 'Unassigned',
+      description: newAssignee ? `Assigned to ${newAssignee}` : 'Unassigned',
     });
   }
 

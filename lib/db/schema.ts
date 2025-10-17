@@ -62,6 +62,13 @@ export {
   webauthn_challenges,
   webauthn_credentials,
 } from './webauthn-schema';
+// Import Work Item Fields tables
+export {
+  work_item_field_values,
+  work_item_fields,
+  workItemFieldsRelations,
+  workItemFieldValuesRelations,
+} from './work-item-fields-schema';
 // Import Work Items tables
 export {
   work_item_activity,
@@ -76,20 +83,13 @@ export {
   workItemActivityRelations,
   workItemAttachmentsRelations,
   workItemCommentsRelations,
-  workItemsRelations,
   workItemStatusesRelations,
   workItemStatusTransitionsRelations,
+  workItemsRelations,
   workItemTypeRelationshipsRelations,
   workItemTypesRelations,
   workItemWatchersRelations,
 } from './work-items-schema';
-// Import Work Item Fields tables
-export {
-  work_item_fields,
-  work_item_field_values,
-  workItemFieldsRelations,
-  workItemFieldValuesRelations,
-} from './work-item-fields-schema';
 
 // System users (admins who manage the platform)
 export const users = pgTable(
@@ -105,12 +105,12 @@ export const users = pgTable(
     password_hash: varchar('password_hash', { length: 255 }),
     email_verified: boolean('email_verified').default(false),
     is_active: boolean('is_active').default(true),
-    
+
     // Analytics security - provider-level filtering
     // Users with analytics:read:own permission can only see data where provider_uid = this value
     // If NULL, user with analytics:read:own sees NO data (fail-closed security)
     provider_uid: integer('provider_uid'),
-    
+
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
     deleted_at: timestamp('deleted_at', { withTimezone: true }),
@@ -119,7 +119,7 @@ export const users = pgTable(
     emailIdx: index('idx_users_email').on(table.email),
     createdAtIdx: index('idx_users_created_at').on(table.created_at),
     deletedAtIdx: index('idx_users_deleted_at').on(table.deleted_at),
-    
+
     // Partial index for provider_uid (only non-null values)
     providerUidIdx: index('idx_users_provider_uid')
       .on(table.provider_uid)

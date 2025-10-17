@@ -18,19 +18,19 @@
  * - Includes reason provided by admin
  */
 
-import type { NextRequest } from 'next/server';
-import { db, account_security, users } from '@/lib/db';
 import { eq } from 'drizzle-orm';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
-import { validateRequest } from '@/lib/api/middleware/validation';
-import { extractRouteParams } from '@/lib/api/utils/params';
-import { flagUserSchema } from '@/lib/validations/monitoring';
-import { rbacRoute } from '@/lib/api/route-handlers';
-import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
-import { AuditLogger } from '@/lib/api/services/audit';
+import type { NextRequest } from 'next/server';
 import { z } from 'zod';
+import { validateRequest } from '@/lib/api/middleware/validation';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
+import { AuditLogger } from '@/lib/api/services/audit';
+import { extractRouteParams } from '@/lib/api/utils/params';
+import { account_security, db, users } from '@/lib/db';
+import { log } from '@/lib/logger';
+import type { UserContext } from '@/lib/types/rbac';
+import { flagUserSchema } from '@/lib/validations/monitoring';
 
 const userIdParamsSchema = z.object({
   userId: z.string().uuid(),
@@ -185,4 +185,3 @@ export const POST = rbacRoute(flagUserHandler, {
   permission: 'settings:update:all',
   rateLimit: 'api',
 });
-

@@ -1,9 +1,9 @@
 import { and, asc, count, eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { work_item_type_relationships, work_item_types } from '@/lib/db/schema';
+import { log } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
 import type { AutoCreateConfig } from '@/lib/validations/work-item-type-relationships';
 
 /**
@@ -151,9 +151,7 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
   /**
    * Get total count of relationships
    */
-  async getRelationshipCount(
-    options: WorkItemTypeRelationshipQueryOptions = {}
-  ): Promise<number> {
+  async getRelationshipCount(options: WorkItemTypeRelationshipQueryOptions = {}): Promise<number> {
     const { parent_type_id, child_type_id, is_required, auto_create } = options;
 
     try {
@@ -228,10 +226,7 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
         )
         .where(
           and(
-            eq(
-              work_item_type_relationships.work_item_type_relationship_id,
-              relationshipId
-            ),
+            eq(work_item_type_relationships.work_item_type_relationship_id, relationshipId),
             isNull(work_item_type_relationships.deleted_at)
           )
         )
@@ -332,9 +327,7 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
 
     // Both types must belong to the same organization (or both be global)
     if (parentType.organization_id !== childType.organization_id) {
-      throw new Error(
-        'Parent and child types must belong to the same organization'
-      );
+      throw new Error('Parent and child types must belong to the same organization');
     }
 
     // Check permission - require manage permission for the organization
@@ -353,8 +346,7 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
     // Check for existing relationship (prevent duplicates)
     const existingRelationships = await db
       .select({
-        work_item_type_relationship_id:
-          work_item_type_relationships.work_item_type_relationship_id,
+        work_item_type_relationship_id: work_item_type_relationships.work_item_type_relationship_id,
       })
       .from(work_item_type_relationships)
       .where(
@@ -367,9 +359,7 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
       .limit(1);
 
     if (existingRelationships.length > 0) {
-      throw new Error(
-        'A relationship already exists between these parent and child types'
-      );
+      throw new Error('A relationship already exists between these parent and child types');
     }
 
     try {
@@ -456,9 +446,7 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
         undefined,
         existingRelationship.parent_type_organization_id
       );
-      this.requireOrganizationAccess(
-        existingRelationship.parent_type_organization_id
-      );
+      this.requireOrganizationAccess(existingRelationship.parent_type_organization_id);
     } else {
       // Global types - require admin
       this.requirePermission('work-items:manage:all');
@@ -474,12 +462,7 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
             : undefined,
           updated_at: new Date(),
         })
-        .where(
-          eq(
-            work_item_type_relationships.work_item_type_relationship_id,
-            relationshipId
-          )
-        );
+        .where(eq(work_item_type_relationships.work_item_type_relationship_id, relationshipId));
 
       log.info('Work item type relationship updated successfully', {
         relationshipId,
@@ -529,9 +512,7 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
         undefined,
         existingRelationship.parent_type_organization_id
       );
-      this.requireOrganizationAccess(
-        existingRelationship.parent_type_organization_id
-      );
+      this.requireOrganizationAccess(existingRelationship.parent_type_organization_id);
     } else {
       // Global types - require admin
       this.requirePermission('work-items:manage:all');
@@ -544,12 +525,7 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
         .set({
           deleted_at: new Date(),
         })
-        .where(
-          eq(
-            work_item_type_relationships.work_item_type_relationship_id,
-            relationshipId
-          )
-        );
+        .where(eq(work_item_type_relationships.work_item_type_relationship_id, relationshipId));
 
       log.info('Work item type relationship deleted successfully', {
         relationshipId,
@@ -628,10 +604,7 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
     }
 
     // Check max_count constraint
-    if (
-      relationship.max_count !== null &&
-      currentChildCount >= relationship.max_count
-    ) {
+    if (relationship.max_count !== null && currentChildCount >= relationship.max_count) {
       return {
         allowed: false,
         reason: `Maximum number of ${relationship.child_type_name} items (${relationship.max_count}) reached`,
@@ -649,8 +622,6 @@ export class RBACWorkItemTypeRelationshipsService extends BaseRBACService {
 /**
  * Factory function to create service instance
  */
-export function createRBACWorkItemTypeRelationshipsService(
-  userContext: UserContext
-) {
+export function createRBACWorkItemTypeRelationshipsService(userContext: UserContext) {
   return new RBACWorkItemTypeRelationshipsService(userContext);
 }

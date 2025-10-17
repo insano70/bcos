@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 
 export interface WorkItem {
@@ -195,7 +195,13 @@ export function useMoveWorkItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ workItemId, newParentId }: { workItemId: string; newParentId: string | null }) => {
+    mutationFn: async ({
+      workItemId,
+      newParentId,
+    }: {
+      workItemId: string;
+      newParentId: string | null;
+    }) => {
       const result = await apiClient.post<WorkItem>(`/api/work-items/${workItemId}/move`, {
         parent_work_item_id: newParentId,
       });
@@ -206,7 +212,9 @@ export function useMoveWorkItem() {
       queryClient.invalidateQueries({ queryKey: ['work-items'] });
       queryClient.invalidateQueries({ queryKey: ['work-items', variables.workItemId] });
       if (variables.newParentId) {
-        queryClient.invalidateQueries({ queryKey: ['work-items', variables.newParentId, 'children'] });
+        queryClient.invalidateQueries({
+          queryKey: ['work-items', variables.newParentId, 'children'],
+        });
       }
     },
   });
@@ -263,12 +271,21 @@ export function useCreateWorkItemComment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { work_item_id: string; parent_comment_id?: string | null; comment_text: string }) => {
-      const result = await apiClient.post<WorkItemComment>(`/api/work-items/${data.work_item_id}/comments`, data);
+    mutationFn: async (data: {
+      work_item_id: string;
+      parent_comment_id?: string | null;
+      comment_text: string;
+    }) => {
+      const result = await apiClient.post<WorkItemComment>(
+        `/api/work-items/${data.work_item_id}/comments`,
+        data
+      );
       return result;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['work-item-comments', { work_item_id: variables.work_item_id }] });
+      queryClient.invalidateQueries({
+        queryKey: ['work-item-comments', { work_item_id: variables.work_item_id }],
+      });
     },
   });
 }
@@ -280,7 +297,15 @@ export function useUpdateWorkItemComment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ workItemId, commentId, comment_text }: { workItemId: string; commentId: string; comment_text: string }) => {
+    mutationFn: async ({
+      workItemId,
+      commentId,
+      comment_text,
+    }: {
+      workItemId: string;
+      commentId: string;
+      comment_text: string;
+    }) => {
       const result = await apiClient.put<WorkItemComment>(
         `/api/work-items/${workItemId}/comments/${commentId}`,
         { comment_text }
@@ -288,7 +313,9 @@ export function useUpdateWorkItemComment() {
       return result;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['work-item-comments', { work_item_id: variables.workItemId }] });
+      queryClient.invalidateQueries({
+        queryKey: ['work-item-comments', { work_item_id: variables.workItemId }],
+      });
     },
   });
 }
@@ -304,7 +331,9 @@ export function useDeleteWorkItemComment() {
       await apiClient.delete(`/api/work-items/${workItemId}/comments/${commentId}`);
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['work-item-comments', { work_item_id: variables.workItemId }] });
+      queryClient.invalidateQueries({
+        queryKey: ['work-item-comments', { work_item_id: variables.workItemId }],
+      });
     },
   });
 }
@@ -422,7 +451,9 @@ export function useUploadWorkItemAttachment() {
       return result;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['work-item-attachments', { work_item_id: variables.work_item_id }] });
+      queryClient.invalidateQueries({
+        queryKey: ['work-item-attachments', { work_item_id: variables.work_item_id }],
+      });
     },
   });
 }
@@ -434,11 +465,19 @@ export function useDeleteWorkItemAttachment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ workItemId, attachmentId }: { workItemId: string; attachmentId: string }) => {
+    mutationFn: async ({
+      workItemId,
+      attachmentId,
+    }: {
+      workItemId: string;
+      attachmentId: string;
+    }) => {
       await apiClient.delete(`/api/work-items/${workItemId}/attachments/${attachmentId}`);
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['work-item-attachments', { work_item_id: variables.workItemId }] });
+      queryClient.invalidateQueries({
+        queryKey: ['work-item-attachments', { work_item_id: variables.workItemId }],
+      });
     },
   });
 }

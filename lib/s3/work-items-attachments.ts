@@ -1,9 +1,9 @@
 import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
   HeadObjectCommand,
+  PutObjectCommand,
+  S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { log } from '@/lib/logger';
@@ -38,11 +38,7 @@ const URL_EXPIRATION_SECONDS = 3600;
  * @param fileName - Original filename
  * @returns S3 object key
  */
-export function generateS3Key(
-  workItemId: string,
-  attachmentId: string,
-  fileName: string
-): string {
+export function generateS3Key(workItemId: string, attachmentId: string, fileName: string): string {
   // Sanitize filename to prevent path traversal
   const sanitizedFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
   return `work-items/${workItemId}/attachments/${attachmentId}/${sanitizedFileName}`;
@@ -110,10 +106,7 @@ export async function generateUploadUrl(
  * @param fileName - Optional filename for Content-Disposition header
  * @returns Download URL
  */
-export async function generateDownloadUrl(
-  s3Key: string,
-  fileName?: string
-): Promise<string> {
+export async function generateDownloadUrl(s3Key: string, fileName?: string): Promise<string> {
   const startTime = Date.now();
 
   try {

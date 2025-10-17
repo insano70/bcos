@@ -1,10 +1,10 @@
 #!/usr/bin/env tsx
 
+import * as dotenv from 'dotenv';
+import { isNull } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { users, account_security } from '@/lib/db/schema';
-import { eq, isNull } from 'drizzle-orm';
-import * as dotenv from 'dotenv';
+import { account_security, users } from '@/lib/db/schema';
 
 // Load environment variables from .env.local
 dotenv.config({ path: '.env.local' });
@@ -28,7 +28,7 @@ const logger = {
   },
   warn: (message: string, data?: Record<string, unknown>) => {
     console.warn(`⚠️  ${message}`, data ? JSON.stringify(data, null, 2) : '');
-  }
+  },
 };
 
 interface BackfillStats {
@@ -45,7 +45,7 @@ async function backfillAccountSecurity() {
     existingRecords: 0,
     recordsCreated: 0,
     errors: 0,
-    errorDetails: []
+    errorDetails: [],
   };
 
   let client: postgres.Sql | null = null;
@@ -60,11 +60,11 @@ async function backfillAccountSecurity() {
     }
 
     logger.info('Connecting to database...');
-    
+
     // Create database connection
     client = postgres(databaseUrl, {
       max: 1, // Single connection for migration script
-      prepare: false
+      prepare: false,
     });
 
     const db = drizzle(client);
@@ -74,7 +74,7 @@ async function backfillAccountSecurity() {
     const allUsers = await db
       .select({
         user_id: users.user_id,
-        email: users.email
+        email: users.email,
       })
       .from(users)
       .where(isNull(users.deleted_at));
@@ -91,18 +91,18 @@ async function backfillAccountSecurity() {
     logger.info('Checking existing account_security records...');
     const existingSecurityRecords = await db
       .select({
-        user_id: account_security.user_id
+        user_id: account_security.user_id,
       })
       .from(account_security);
 
-    const existingUserIds = new Set(existingSecurityRecords.map(r => r.user_id));
+    const existingUserIds = new Set(existingSecurityRecords.map((r) => r.user_id));
     stats.existingRecords = existingUserIds.size;
     logger.info(`Found ${stats.existingRecords} existing security records`);
 
     // Process users in batches to avoid overwhelming the database
     const batchSize = 100;
-    const usersToProcess = allUsers.filter(u => !existingUserIds.has(u.user_id));
-    
+    const usersToProcess = allUsers.filter((u) => !existingUserIds.has(u.user_id));
+
     logger.info(`${usersToProcess.length} users need security records created`);
 
     if (usersToProcess.length === 0) {
@@ -131,28 +131,32 @@ async function backfillAccountSecurity() {
             require_fresh_auth_minutes: 5, // Step-up authentication requirement
             password_changed_at: null,
             last_password_reset: null,
-            suspicious_activity_detected: false
+            suspicious_activity_detected: false,
           });
 
           stats.recordsCreated++;
 
           // Log progress every 50 records
           if (stats.recordsCreated % 50 === 0) {
-            logger.info(`Progress: ${stats.recordsCreated}/${usersToProcess.length} records created`);
+            logger.info(
+              `Progress: ${stats.recordsCreated}/${usersToProcess.length} records created`
+            );
           }
         } catch (error) {
           stats.errors++;
           const errorMessage = error instanceof Error ? error.message : String(error);
-          
+
           // Check if it's a unique constraint violation (race condition)
           if (errorMessage.includes('unique') || errorMessage.includes('duplicate')) {
             logger.warn(`Skipping user ${user.user_id} - record already exists (race condition)`);
             stats.existingRecords++;
           } else {
-            logger.error(`Failed to create record for user ${user.user_id}:`, { error: errorMessage });
+            logger.error(`Failed to create record for user ${user.user_id}:`, {
+              error: errorMessage,
+            });
             stats.errorDetails.push({
               userId: user.user_id,
-              error: errorMessage
+              error: errorMessage,
             });
           }
         }
@@ -168,7 +172,7 @@ async function backfillAccountSecurity() {
       existingRecords: stats.existingRecords,
       recordsCreated: stats.recordsCreated,
       errors: stats.errors,
-      successRate: `${((stats.recordsCreated / Math.max(usersToProcess.length, 1)) * 100).toFixed(2)}%`
+      successRate: `${((stats.recordsCreated / Math.max(usersToProcess.length, 1)) * 100).toFixed(2)}%`,
     });
 
     if (stats.errors > 0) {
@@ -179,11 +183,10 @@ async function backfillAccountSecurity() {
     }
 
     return stats;
-
   } catch (error) {
     logger.error('Fatal error during backfill:', {
       error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
     });
     throw error;
   } finally {
@@ -198,13 +201,13 @@ async function backfillAccountSecurity() {
 // Run the backfill if this script is executed directly
 if (require.main === module) {
   backfillAccountSecurity()
-    .then((stats) => {
+    .then((_stats) => {
       logger.success('Backfill script finished successfully');
       process.exit(0);
     })
     .catch((error) => {
       logger.error('Backfill script failed:', {
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
       process.exit(1);
     });

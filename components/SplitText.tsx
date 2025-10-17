@@ -1,6 +1,6 @@
-'use client'
+'use client';
 
-import React from 'react';
+import type React from 'react';
 
 /**
  * CSP-compliant SplitText component using pure CSS animations
@@ -23,7 +23,11 @@ const SplitText: React.FC<SplitTextProps> = ({
   const splitChars = text.split('').map((char, index) => {
     // Preserve spaces with proper spacing
     if (char === ' ') {
-      return <span key={index} className="split-space" aria-hidden="true">&nbsp;</span>;
+      return (
+        <span key={index} className="split-space" aria-hidden="true">
+          &nbsp;
+        </span>
+      );
     }
 
     return (
@@ -34,7 +38,8 @@ const SplitText: React.FC<SplitTextProps> = ({
   });
 
   // Build class names based on text alignment
-  const alignmentClass = textAlign === 'left' ? 'text-left' : textAlign === 'right' ? 'text-right' : 'text-center';
+  const alignmentClass =
+    textAlign === 'left' ? 'text-left' : textAlign === 'right' ? 'text-right' : 'text-center';
   const classes = `${alignmentClass} ${className}`;
 
   // Render the appropriate tag with split characters

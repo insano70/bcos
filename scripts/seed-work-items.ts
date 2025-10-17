@@ -1,6 +1,6 @@
+import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { work_item_types, work_item_statuses } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { work_item_statuses, work_item_types } from '@/lib/db/schema';
 
 /**
  * Seed Work Item Types and Statuses
@@ -66,10 +66,7 @@ async function seedWorkItems() {
           name: existingType.name,
         });
       } else {
-        const [newType] = await db
-          .insert(work_item_types)
-          .values(typeData)
-          .returning();
+        const [newType] = await db.insert(work_item_types).values(typeData).returning();
 
         if (!newType) {
           throw new Error(`Failed to create work item type: ${typeData.name}`);

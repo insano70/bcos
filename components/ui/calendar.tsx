@@ -1,11 +1,32 @@
 'use client';
 
-import * as React from 'react';
+import type * as React from 'react';
 import { DayPicker } from 'react-day-picker';
 
 import { cn } from '@/lib/utils';
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
+
+// Custom Chevron component extracted to avoid nested component definition
+function ChevronIcon(props: {
+  className?: string;
+  size?: number;
+  disabled?: boolean;
+  orientation?: 'left' | 'right' | 'up' | 'down';
+}) {
+  if (props.orientation === 'left') {
+    return (
+      <svg className="fill-current" width="7" height="11" viewBox="0 0 7 11">
+        <path d="M5.4 10.8l1.4-1.4-4-4 4-4L5.4 0 0 5.4z" />
+      </svg>
+    );
+  }
+  return (
+    <svg className="fill-current" width="7" height="11" viewBox="0 0 7 11">
+      <path d="M1.4 10.8L0 9.4l4-4-4-4L1.4 0l5.4 5.4z" />
+    </svg>
+  );
+}
 
 function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
   return (
@@ -41,20 +62,7 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
         ...classNames,
       }}
       components={{
-        Chevron: (props) => {
-          if (props.orientation === 'left') {
-            return (
-              <svg className="fill-current" width="7" height="11" viewBox="0 0 7 11">
-                <path d="M5.4 10.8l1.4-1.4-4-4 4-4L5.4 0 0 5.4z" />
-              </svg>
-            );
-          }
-          return (
-            <svg className="fill-current" width="7" height="11" viewBox="0 0 7 11">
-              <path d="M1.4 10.8L0 9.4l4-4-4-4L1.4 0l5.4 5.4z" />
-            </svg>
-          );
-        },
+        Chevron: ChevronIcon,
       }}
       {...props}
     />

@@ -15,7 +15,7 @@
  * const token = await ensureCsrfToken(); // Get or refresh token
  */
 
-import { useState, useRef, useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   getCSRFTokenFromCookie,
   shouldRefreshToken,

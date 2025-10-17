@@ -6,9 +6,9 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
-import { apiClient } from '@/lib/api/client';
 import { formatDistanceToNow } from 'date-fns';
+import { useCallback, useEffect, useState } from 'react';
+import { apiClient } from '@/lib/api/client';
 
 interface WarmingJob {
   jobId: string;
@@ -52,7 +52,7 @@ export default function WarmingJobList({
   const [status, setStatus] = useState<WarmingStatusResponse | null>(null);
   const [previousActiveCount, setPreviousActiveCount] = useState<number>(0);
 
-  const fetchStatus = async () => {
+  const fetchStatus = useCallback(async () => {
     try {
       const response = await apiClient.get('/api/admin/analytics/cache/warming/status');
       setStatus(response as WarmingStatusResponse);
@@ -66,12 +66,12 @@ export default function WarmingJobList({
     } catch (err) {
       console.error('Failed to fetch warming status:', err);
     }
-  };
+  }, [previousActiveCount, onJobComplete]);
 
   // Initial fetch
   useEffect(() => {
     fetchStatus();
-  }, []);
+  }, [fetchStatus]);
 
   // Auto-refresh
   useEffect(() => {
@@ -79,7 +79,7 @@ export default function WarmingJobList({
 
     const interval = setInterval(fetchStatus, refreshInterval);
     return () => clearInterval(interval);
-  }, [autoRefresh, refreshInterval, previousActiveCount, onJobComplete]);
+  }, [autoRefresh, refreshInterval, fetchStatus]);
 
   if (!status) return null;
 
@@ -241,10 +241,11 @@ export default function WarmingJobList({
       {activeJobs.length === 0 && recentJobs.length === 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 text-center">
           <div className="text-3xl mb-2">💤</div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">No warming jobs in progress</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            No warming jobs in progress
+          </div>
         </div>
       )}
     </div>
   );
 }
-

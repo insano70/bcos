@@ -1,4 +1,4 @@
-import { rateLimitCache, type RateLimitResult } from '@/lib/cache';
+import { type RateLimitResult, rateLimitCache } from '@/lib/cache';
 import { log } from '@/lib/logger';
 import { RateLimitError } from '../responses/error';
 
@@ -71,10 +71,14 @@ export async function applyRateLimit(
   // Get rate limit config
   const config = RATE_LIMIT_CONFIGS[type];
   if (!config) {
-    log.error('Unknown rate limit type, falling back to api', new Error('Unknown rate limit type'), {
-      type,
-      fallbackType: 'api',
-    });
+    log.error(
+      'Unknown rate limit type, falling back to api',
+      new Error('Unknown rate limit type'),
+      {
+        type,
+        fallbackType: 'api',
+      }
+    );
     return applyRateLimit(request, 'api');
   }
 

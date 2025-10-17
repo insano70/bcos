@@ -7,16 +7,24 @@
  */
 
 import type { AggAppMeasure, ChartData, ChartDataset } from '@/lib/types/analytics';
-import { BaseChartTransformStrategy, type TransformConfig } from './base-strategy';
-import { chartTransformerFactory } from './chart-transformer-factory';
 import { applyPeriodComparisonColors, getColorScheme } from '../../period-comparison-colors';
 import { adjustColorOpacity } from '../services/chart-color-service';
+import { BaseChartTransformStrategy, type TransformConfig } from './base-strategy';
+import { chartTransformerFactory } from './chart-transformer-factory';
 
 /**
  * Configuration for period comparison charts
  */
 interface PeriodComparisonConfig extends TransformConfig {
-  chartType: 'line' | 'bar' | 'horizontal-bar' | 'progress-bar' | 'pie' | 'doughnut' | 'area' | 'table';
+  chartType:
+    | 'line'
+    | 'bar'
+    | 'horizontal-bar'
+    | 'progress-bar'
+    | 'pie'
+    | 'doughnut'
+    | 'area'
+    | 'table';
 }
 
 /**
@@ -115,10 +123,7 @@ export class PeriodComparisonStrategy extends BaseChartTransformStrategy {
   /**
    * Apply period comparison styling to comparison datasets
    */
-  private applyPeriodComparisonStyling(
-    chartData: ChartData,
-    chartType: string
-  ): ChartData {
+  private applyPeriodComparisonStyling(chartData: ChartData, chartType: string): ChartData {
     const styledDatasets = chartData.datasets.map((dataset) => {
       const styledDataset = { ...dataset };
 

@@ -1,22 +1,22 @@
-import { db } from '@/lib/db'
-import { users } from '@/lib/db/schema'
-import { generateUniqueEmail } from '@/tests/helpers/unique-generator'
-import { hashPassword } from '@/lib/auth/password'
-import { inArray } from 'drizzle-orm'
-import type { InferSelectModel } from 'drizzle-orm'
+import type { InferSelectModel } from 'drizzle-orm';
+import { inArray } from 'drizzle-orm';
+import { hashPassword } from '@/lib/auth/password';
+import { db } from '@/lib/db';
+import { users } from '@/lib/db/schema';
+import { generateUniqueEmail } from '@/tests/helpers/unique-generator';
 
-export type CommittedUser = InferSelectModel<typeof users>
+export type CommittedUser = InferSelectModel<typeof users>;
 
 /**
  * Configuration options for creating committed test users
  */
 export interface CreateCommittedUserOptions {
-  email?: string
-  password?: string
-  firstName?: string
-  lastName?: string
-  emailVerified?: boolean
-  isActive?: boolean
+  email?: string;
+  password?: string;
+  firstName?: string;
+  lastName?: string;
+  emailVerified?: boolean;
+  isActive?: boolean;
 }
 
 /**
@@ -28,21 +28,23 @@ export interface CreateCommittedUserOptions {
  *
  * Use this factory when testing services that need to see users (e.g., foreign key constraints).
  */
-export async function createCommittedUser(options: CreateCommittedUserOptions = {}): Promise<CommittedUser> {
+export async function createCommittedUser(
+  options: CreateCommittedUserOptions = {}
+): Promise<CommittedUser> {
   const userData = {
     email: options.email || generateUniqueEmail(),
     password_hash: await hashPassword(options.password || 'TestPassword123!'),
     first_name: options.firstName || 'Test',
     last_name: options.lastName || 'User',
     email_verified: options.emailVerified ?? false,
-    is_active: options.isActive ?? true
-  }
+    is_active: options.isActive ?? true,
+  };
 
-  const [user] = await db.insert(users).values(userData).returning()
+  const [user] = await db.insert(users).values(userData).returning();
   if (!user) {
-    throw new Error('Failed to create committed test user')
+    throw new Error('Failed to create committed test user');
   }
-  return user
+  return user;
 }
 
 /**
@@ -50,9 +52,7 @@ export async function createCommittedUser(options: CreateCommittedUserOptions = 
  * Call this in test cleanup to ensure no test data persists
  */
 export async function deleteCommittedUsers(userIds: string[]): Promise<void> {
-  if (userIds.length === 0) return
+  if (userIds.length === 0) return;
 
-  await db
-    .delete(users)
-    .where(inArray(users.user_id, userIds))
+  await db.delete(users).where(inArray(users.user_id, userIds));
 }

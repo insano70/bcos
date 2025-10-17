@@ -14,8 +14,8 @@
  * - Uses atomic INCR operation for thread-safe counting
  */
 
-import { getRedisClient } from '@/lib/redis';
 import { log } from '@/lib/logger';
+import { getRedisClient } from '@/lib/redis';
 
 /**
  * Rate limit result
@@ -191,10 +191,7 @@ class RateLimitCacheService {
    * @param limit - Maximum requests allowed in window
    * @param windowSeconds - Time window in seconds
    */
-  async checkGlobalRateLimit(
-    limit: number,
-    windowSeconds: number
-  ): Promise<RateLimitResult> {
+  async checkGlobalRateLimit(limit: number, windowSeconds: number): Promise<RateLimitResult> {
     return this.checkRateLimit('global', 'api', limit, windowSeconds);
   }
 

@@ -1,37 +1,36 @@
 'use client';
 
+import { Menu, MenuButton, MenuItem, MenuItems, Transition } from '@headlessui/react';
 import Link from 'next/link';
-import { Menu, MenuButton, MenuItems, MenuItem, Transition } from '@headlessui/react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from './auth/rbac-auth-provider';
 
 export default function DropdownProfile({ align }: { align?: 'left' | 'right' }) {
-  const router = useRouter()
-  const { logout } = useAuth()
+  const router = useRouter();
+  const { logout } = useAuth();
 
   const handleSignOut = async () => {
     try {
       // Logout initiated (client-side debug)
       if (process.env.NODE_ENV === 'development') {
-        console.log('Initiating logout from dropdown...')
+        console.log('Initiating logout from dropdown...');
       }
-      
+
       // Use our custom logout
-      await logout()
-      
+      await logout();
+
       // Redirect to signin
-      router.push('/signin')
-      router.refresh()
-      
+      router.push('/signin');
+      router.refresh();
     } catch (error) {
       // Log client-side logout errors for debugging
       if (process.env.NODE_ENV === 'development') {
-        console.error('Logout error:', error)
+        console.error('Logout error:', error);
       }
       // Force redirect even if logout fails
-      router.push('/signin')
+      router.push('/signin');
     }
-  }
+  };
 
   return (
     <Menu as="div" className="relative inline-flex">

@@ -12,17 +12,17 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/route-handlers';
-import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
-import { log } from '@/lib/logger';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { indexedAnalyticsCache } from '@/lib/cache/indexed-analytics-cache';
-import { chartConfigService } from '@/lib/services/chart-config-service';
+import { log } from '@/lib/logger';
 import { cacheWarmingTracker } from '@/lib/monitoring/cache-warming-tracker';
+import { chartConfigService } from '@/lib/services/chart-config-service';
 
 interface WarmCacheRequest {
   datasourceId?: number; // Omit to warm all datasources
-  force?: boolean;       // Force rewarm even if recently warmed
+  force?: boolean; // Force rewarm even if recently warmed
 }
 
 interface WarmCacheResponse {
@@ -37,7 +37,7 @@ const warmCacheHandler = async (request: NextRequest) => {
   const startTime = Date.now();
 
   try {
-    const body = await request.json() as WarmCacheRequest;
+    const body = (await request.json()) as WarmCacheRequest;
     const { datasourceId, force = false } = body;
 
     log.info('Cache warming request initiated', {
@@ -72,11 +72,15 @@ const warmCacheHandler = async (request: NextRequest) => {
       const job = cacheWarmingTracker.createJob(datasourceId, datasource.name);
 
       // Start warming in background (don't await)
-      warmDatasourceBackground(job.jobId, datasourceId).catch(error => {
-        log.error('Background cache warming failed', error instanceof Error ? error : new Error(String(error)), {
-          jobId: job.jobId,
-          datasourceId,
-        });
+      warmDatasourceBackground(job.jobId, datasourceId).catch((error) => {
+        log.error(
+          'Background cache warming failed',
+          error instanceof Error ? error : new Error(String(error)),
+          {
+            jobId: job.jobId,
+            datasourceId,
+          }
+        );
       });
 
       const response: WarmCacheResponse = {
@@ -128,11 +132,15 @@ const warmCacheHandler = async (request: NextRequest) => {
       datasourcesQueued.push(ds.id);
 
       // Start warming in background (don't await)
-      warmDatasourceBackground(job.jobId, ds.id).catch(error => {
-        log.error('Background cache warming failed', error instanceof Error ? error : new Error(String(error)), {
-          jobId: job.jobId,
-          datasourceId: ds.id,
-        });
+      warmDatasourceBackground(job.jobId, ds.id).catch((error) => {
+        log.error(
+          'Background cache warming failed',
+          error instanceof Error ? error : new Error(String(error)),
+          {
+            jobId: job.jobId,
+            datasourceId: ds.id,
+          }
+        );
       });
     }
 
@@ -182,16 +190,13 @@ async function warmDatasourceBackground(jobId: string, datasourceId: number): Pr
     cacheWarmingTracker.startJob(jobId);
 
     // Perform warming with progress callback
-    const result = await indexedAnalyticsCache.warmCacheConcurrent(
-      datasourceId,
-      (progress) => {
-        cacheWarmingTracker.updateProgress(jobId, {
-          progress: progress.percent,
-          rowsProcessed: progress.rowsProcessed,
-          rowsTotal: progress.totalRows,
-        });
-      }
-    );
+    const result = await indexedAnalyticsCache.warmCacheConcurrent(datasourceId, (progress) => {
+      cacheWarmingTracker.updateProgress(jobId, {
+        progress: progress.percent,
+        rowsProcessed: progress.rowsProcessed,
+        rowsTotal: progress.totalRows,
+      });
+    });
 
     // Mark as completed
     if (!result.skipped) {
@@ -211,4 +216,3 @@ export const POST = rbacRoute(warmCacheHandler, {
   permission: 'settings:update:all',
   rateLimit: 'api',
 });
-

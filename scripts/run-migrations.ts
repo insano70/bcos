@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
  * Database Migration Runner
- * 
+ *
  * Runs Drizzle migrations against the database specified by DATABASE_URL.
  * Designed to be executed as a one-off ECS task during deployment.
- * 
+ *
  * Exit codes:
  * - 0: Migrations completed successfully
  * - 1: Migration failed or error occurred
@@ -16,7 +16,7 @@ import postgres from 'postgres';
 
 async function runMigrations(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL;
-  
+
   if (!databaseUrl) {
     console.error('❌ DATABASE_URL environment variable is not set');
     process.exit(1);
@@ -36,15 +36,15 @@ async function runMigrations(): Promise<void> {
 
   try {
     // Run migrations from the migrations folder
-    await migrate(db, { 
-      migrationsFolder: './lib/db/migrations' 
+    await migrate(db, {
+      migrationsFolder: './lib/db/migrations',
     });
-    
+
     console.log('✅ Migrations completed successfully');
-    
+
     // Close the connection
     await client.end();
-    
+
     process.exit(0);
   } catch (error) {
     console.error('❌ Migration failed:');
@@ -54,14 +54,14 @@ async function runMigrations(): Promise<void> {
     } else {
       console.error(`   ${String(error)}`);
     }
-    
+
     // Attempt to close connection
     try {
       await client.end();
-    } catch (closeError) {
+    } catch (_closeError) {
       console.error('⚠️  Failed to close database connection');
     }
-    
+
     process.exit(1);
   }
 }

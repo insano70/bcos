@@ -1,10 +1,10 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { users, work_item_comments, work_items } from '@/lib/db/schema';
-import { BaseRBACService } from '@/lib/rbac/base-service';
-import { PermissionDeniedError } from '@/lib/types/rbac';
-import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
+import { BaseRBACService } from '@/lib/rbac/base-service';
+import type { UserContext } from '@/lib/types/rbac';
+import { PermissionDeniedError } from '@/lib/types/rbac';
 
 /**
  * Work Item Comments Service with RBAC
@@ -122,7 +122,10 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
       .from(work_item_comments)
       .leftJoin(users, eq(work_item_comments.created_by, users.user_id))
       .where(
-        and(eq(work_item_comments.work_item_comment_id, commentId), isNull(work_item_comments.deleted_at))
+        and(
+          eq(work_item_comments.work_item_comment_id, commentId),
+          isNull(work_item_comments.deleted_at)
+        )
       )
       .limit(1);
 
@@ -187,7 +190,9 @@ export class RBACWorkItemCommentsService extends BaseRBACService {
 
     // Phase 7: Auto-add commenter as watcher
     try {
-      const { createRBACWorkItemWatchersService } = await import('./rbac-work-item-watchers-service');
+      const { createRBACWorkItemWatchersService } = await import(
+        './rbac-work-item-watchers-service'
+      );
       const watchersService = createRBACWorkItemWatchersService(this.userContext);
       await watchersService.autoAddWatcher(
         commentData.work_item_id,

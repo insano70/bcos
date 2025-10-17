@@ -15,25 +15,29 @@ const testUserContext: UserContext = {
   user_roles: [],
   user_organizations: [],
   accessible_organizations: [],
-  all_permissions: [{
-    permission_id: '00000000-0000-0000-0000-000000000000',
-    name: '*:*:*',
-    description: 'Super admin permission',
-    resource: '*',
-    action: '*',
-    scope: 'all',
-    is_active: true,
-    created_at: new Date(),
-    updated_at: new Date(),
-  }],
-  organizations: [{
-    organization_id: '00000000-0000-0000-0000-000000000000',
-    name: 'Test Organization',
-    slug: 'test-org',
-    is_active: true,
-    created_at: new Date(),
-    updated_at: new Date(),
-  }],
+  all_permissions: [
+    {
+      permission_id: '00000000-0000-0000-0000-000000000000',
+      name: '*:*:*',
+      description: 'Super admin permission',
+      resource: '*',
+      action: '*',
+      scope: 'all',
+      is_active: true,
+      created_at: new Date(),
+      updated_at: new Date(),
+    },
+  ],
+  organizations: [
+    {
+      organization_id: '00000000-0000-0000-0000-000000000000',
+      name: 'Test Organization',
+      slug: 'test-org',
+      is_active: true,
+      created_at: new Date(),
+      updated_at: new Date(),
+    },
+  ],
   organization_admin_for: [],
 };
 
@@ -84,9 +88,15 @@ async function testProgressBarChart() {
         console.log('    Data (percentages):', dataset.data);
         console.log('    Raw Values:', (dataset as unknown as Record<string, unknown>).rawValues);
         console.log('    Target:', (dataset as unknown as Record<string, unknown>).target);
-        console.log('    Aggregation:', (dataset as unknown as Record<string, unknown>).aggregationType);
+        console.log(
+          '    Aggregation:',
+          (dataset as unknown as Record<string, unknown>).aggregationType
+        );
         console.log('    Measure Type:', dataset.measureType);
-        console.log('    Original Measure Type:', (dataset as unknown as Record<string, unknown>).originalMeasureType);
+        console.log(
+          '    Original Measure Type:',
+          (dataset as unknown as Record<string, unknown>).originalMeasureType
+        );
       }
     }
 
@@ -112,11 +122,16 @@ async function testProgressBarChart() {
       },
       {
         name: 'Has raw values',
-        pass: Boolean((result.chartData.datasets[0] as unknown as Record<string, unknown> | undefined)?.rawValues),
+        pass: Boolean(
+          (result.chartData.datasets[0] as unknown as Record<string, unknown> | undefined)
+            ?.rawValues
+        ),
       },
       {
         name: 'Has target',
-        pass: (result.chartData.datasets[0] as unknown as Record<string, unknown> | undefined)?.target === 10000000,
+        pass:
+          (result.chartData.datasets[0] as unknown as Record<string, unknown> | undefined)
+            ?.target === 10000000,
       },
       {
         name: 'Labels match data length',
@@ -124,15 +139,15 @@ async function testProgressBarChart() {
       },
     ];
 
-    validations.forEach(v => {
+    validations.forEach((v) => {
       const icon = v.pass ? '✅' : '❌';
       console.log(`  ${icon} ${v.name}`);
     });
 
-    const allPassed = validations.every(v => v.pass);
-    console.log('\n' + '='.repeat(80));
+    const allPassed = validations.every((v) => v.pass);
+    console.log(`\n${'='.repeat(80)}`);
     console.log(allPassed ? '✅ ALL VALIDATIONS PASSED' : '❌ SOME VALIDATIONS FAILED');
-    console.log('='.repeat(80) + '\n');
+    console.log(`${'='.repeat(80)}\n`);
 
     // Display sample data for manual verification
     if (result.chartData.labels.length > 0) {
@@ -141,7 +156,9 @@ async function testProgressBarChart() {
       if (!dataset) {
         console.log('  ⚠️  No dataset available');
       } else {
-        const rawValues = (dataset as unknown as Record<string, unknown>).rawValues as number[] | undefined;
+        const rawValues = (dataset as unknown as Record<string, unknown>).rawValues as
+          | number[]
+          | undefined;
         const target = (dataset as unknown as Record<string, unknown>).target as number;
 
         for (let i = 0; i < Math.min(5, result.chartData.labels.length); i++) {
@@ -153,11 +170,12 @@ async function testProgressBarChart() {
           console.log(`     Raw Value: $${rawValue.toLocaleString()}`);
           console.log(`     Target: $${target.toLocaleString()}`);
           console.log(`     Percentage: ${percentage.toFixed(2)}%`);
-          console.log(`     Progress: ${'█'.repeat(Math.min(50, Math.floor(percentage / 2)))} ${percentage.toFixed(1)}%`);
+          console.log(
+            `     Progress: ${'█'.repeat(Math.min(50, Math.floor(percentage / 2)))} ${percentage.toFixed(1)}%`
+          );
         }
       }
     }
-
   } catch (error) {
     console.error('\n❌ ERROR:', error);
     if (error instanceof Error) {

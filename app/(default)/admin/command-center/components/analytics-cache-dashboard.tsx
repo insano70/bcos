@@ -9,13 +9,13 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import ModalAction from '@/components/modal-action';
+import Toast from '@/components/toast';
 import { apiClient } from '@/lib/api/client';
 import type { AnalyticsCacheStatsResponse } from '@/lib/monitoring/types';
 import AnalyticsCacheDatasourceCard from './analytics-cache-datasource-card';
 import WarmingJobList from './warming-job-list';
-import Toast from '@/components/toast';
-import ModalAction from '@/components/modal-action';
 
 interface AnalyticsCacheDashboardProps {
   autoRefresh?: boolean;
@@ -30,7 +30,7 @@ export default function AnalyticsCacheDashboard({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshingDs, setRefreshingDs] = useState<Set<number>>(new Set());
-  
+
   // Toast notification state
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -59,7 +59,8 @@ export default function AnalyticsCacheDashboard({
     setConfirmModalOpen(true);
   };
 
-  const fetchStats = async () => {
+  // Shared fetch stats function (memoized to prevent infinite loops)
+  const fetchStats = useCallback(async () => {
     try {
       setLoading(true);
       const response = await apiClient.get('/api/admin/analytics/cache/stats');
@@ -71,12 +72,12 @@ export default function AnalyticsCacheDashboard({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Initial fetch
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [fetchStats]);
 
   // Auto-refresh
   useEffect(() => {
@@ -84,21 +85,21 @@ export default function AnalyticsCacheDashboard({
 
     const interval = setInterval(fetchStats, refreshInterval);
     return () => clearInterval(interval);
-  }, [autoRefresh, refreshInterval]);
+  }, [autoRefresh, refreshInterval, fetchStats]);
 
   const handleRefreshDatasource = async (datasourceId: number) => {
-    setRefreshingDs(prev => new Set(prev).add(datasourceId));
+    setRefreshingDs((prev) => new Set(prev).add(datasourceId));
     try {
       await apiClient.post('/api/admin/analytics/cache/warm', { datasourceId });
       showToast('Cache warming started successfully', 'success');
       // Poll for completion (or wait a reasonable time)
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       await fetchStats();
     } catch (err) {
       console.error('Failed to refresh datasource cache:', err);
       showToast('Failed to start cache warming. Please try again.', 'error');
     } finally {
-      setRefreshingDs(prev => {
+      setRefreshingDs((prev) => {
         const next = new Set(prev);
         next.delete(datasourceId);
         return next;
@@ -112,9 +113,9 @@ export default function AnalyticsCacheDashboard({
       'Are you sure you want to invalidate this cache? This will clear all cached data.',
       async () => {
         try {
-          await apiClient.post('/api/admin/analytics/cache/invalidate', { 
+          await apiClient.post('/api/admin/analytics/cache/invalidate', {
             datasourceId,
-            reason: 'User-initiated invalidation from command center'
+            reason: 'User-initiated invalidation from command center',
           });
           showToast('Cache invalidated successfully', 'success');
           await fetchStats();
@@ -136,7 +137,7 @@ export default function AnalyticsCacheDashboard({
           await apiClient.post('/api/admin/analytics/cache/warm', {});
           showToast('Cache warming started for all datasources', 'success');
           // Wait a bit, then refresh stats
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          await new Promise((resolve) => setTimeout(resolve, 3000));
           await fetchStats();
         } catch (err) {
           console.error('Failed to warm all caches:', err);
@@ -182,6 +183,7 @@ export default function AnalyticsCacheDashboard({
         </h3>
         <div className="flex items-center gap-3">
           <button
+            type="button"
             onClick={handleWarmAll}
             disabled={loading}
             className="px-3 py-1.5 bg-violet-600 text-white text-sm font-medium rounded hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5"
@@ -192,6 +194,7 @@ export default function AnalyticsCacheDashboard({
             Warm All
           </button>
           <button
+            type="button"
             onClick={() => {
               setLoading(true);
               fetchStats();
@@ -266,31 +269,41 @@ export default function AnalyticsCacheDashboard({
             {summary.healthDistribution.excellent > 0 && (
               <div className="flex items-center gap-1">
                 <span className="text-green-600 dark:text-green-400">🟢</span>
-                <span className="text-gray-600 dark:text-gray-400">{summary.healthDistribution.excellent} Excellent</span>
+                <span className="text-gray-600 dark:text-gray-400">
+                  {summary.healthDistribution.excellent} Excellent
+                </span>
               </div>
             )}
             {summary.healthDistribution.good > 0 && (
               <div className="flex items-center gap-1">
                 <span className="text-blue-600 dark:text-blue-400">🔵</span>
-                <span className="text-gray-600 dark:text-gray-400">{summary.healthDistribution.good} Good</span>
+                <span className="text-gray-600 dark:text-gray-400">
+                  {summary.healthDistribution.good} Good
+                </span>
               </div>
             )}
             {summary.healthDistribution.degraded > 0 && (
               <div className="flex items-center gap-1">
                 <span className="text-yellow-600 dark:text-yellow-400">🟡</span>
-                <span className="text-gray-600 dark:text-gray-400">{summary.healthDistribution.degraded} Degraded</span>
+                <span className="text-gray-600 dark:text-gray-400">
+                  {summary.healthDistribution.degraded} Degraded
+                </span>
               </div>
             )}
             {summary.healthDistribution.stale > 0 && (
               <div className="flex items-center gap-1">
                 <span className="text-orange-600 dark:text-orange-400">🟠</span>
-                <span className="text-gray-600 dark:text-gray-400">{summary.healthDistribution.stale} Stale</span>
+                <span className="text-gray-600 dark:text-gray-400">
+                  {summary.healthDistribution.stale} Stale
+                </span>
               </div>
             )}
             {summary.healthDistribution.cold > 0 && (
               <div className="flex items-center gap-1">
                 <span className="text-red-600 dark:text-red-400">🔴</span>
-                <span className="text-gray-600 dark:text-gray-400">{summary.healthDistribution.cold} Cold</span>
+                <span className="text-gray-600 dark:text-gray-400">
+                  {summary.healthDistribution.cold} Cold
+                </span>
               </div>
             )}
           </div>
@@ -298,27 +311,19 @@ export default function AnalyticsCacheDashboard({
       )}
 
       {/* Warming Jobs */}
-      <WarmingJobList
-        autoRefresh={autoRefresh}
-        refreshInterval={2000}
-        onJobComplete={fetchStats}
-      />
+      <WarmingJobList autoRefresh={autoRefresh} refreshInterval={2000} onJobComplete={fetchStats} />
 
       {/* Data Sources Grid */}
       <div>
-        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-          Data Sources
-        </h4>
+        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Data Sources</h4>
         {datasources.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
             <div className="text-4xl mb-2">📊</div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              No data sources found
-            </div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">No data sources found</div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {datasources.map(ds => (
+            {datasources.map((ds) => (
               <AnalyticsCacheDatasourceCard
                 key={ds.datasourceId}
                 metrics={ds}
@@ -347,9 +352,7 @@ export default function AnalyticsCacheDashboard({
           <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {confirmTitle}
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            {confirmMessage}
-          </p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">{confirmMessage}</p>
           <div className="flex justify-end gap-3 mt-6">
             <button
               type="button"
@@ -376,4 +379,3 @@ export default function AnalyticsCacheDashboard({
     </div>
   );
 }
-

@@ -6,21 +6,19 @@
  */
 
 import 'server-only';
+import { and, eq } from 'drizzle-orm';
+import { analyticsCache, type DataSourceColumn } from '@/lib/cache';
 import { db } from '@/lib/db';
 import { chart_data_source_columns } from '@/lib/db/chart-config-schema';
-import { eq, and } from 'drizzle-orm';
-import type { ColumnConfig } from '@/lib/services/chart-config-service';
-import { analyticsCache } from '@/lib/cache';
 import { log } from '@/lib/logger';
+import type { ColumnConfig } from '@/lib/services/chart-config-service';
 
 /**
  * Load column metadata for a data source
  * Uses Redis cache with 1-hour TTL to eliminate duplicate queries
  * SERVER-SIDE ONLY - This file should never be imported by client components
  */
-export async function loadColumnMetadata(
-  dataSourceId: number
-): Promise<Map<string, ColumnConfig>> {
+export async function loadColumnMetadata(dataSourceId: number): Promise<Map<string, ColumnConfig>> {
   try {
     // Check cache first
     const cachedColumns = await analyticsCache.getDataSourceColumns(dataSourceId);
@@ -75,12 +73,15 @@ export async function loadColumnMetadata(
       );
 
     // Cache the result (fire and forget)
-    analyticsCache.setDataSourceColumns(dataSourceId, columns as unknown as import('@/lib/cache').DataSourceColumn[]).catch((error) => {
-      log.error('Failed to cache column metadata', error, {
-        dataSourceId,
-        component: 'chart-metadata-loader',
+    // Type assertion is safe here: database schema matches DataSourceColumn interface
+    analyticsCache
+      .setDataSourceColumns(dataSourceId, columns as DataSourceColumn[])
+      .catch((error) => {
+        log.error('Failed to cache column metadata', error, {
+          dataSourceId,
+          component: 'chart-metadata-loader',
+        });
       });
-    });
 
     return new Map<string, ColumnConfig>(
       columns.map((col) => [

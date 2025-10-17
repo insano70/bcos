@@ -196,4 +196,3 @@ export function getRiskIndicator(category: RiskCategory): string {
       return '⚪';
   }
 }
-

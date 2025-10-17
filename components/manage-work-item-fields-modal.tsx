@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
-import ModalBlank from '@/components/modal-blank';
-import { useWorkItemFields, useDeleteWorkItemField } from '@/lib/hooks/use-work-item-fields';
-import type { WorkItemField } from '@/lib/types/work-item-fields';
+import { useCallback, useMemo, useState } from 'react';
 import AddWorkItemFieldModal from '@/components/add-work-item-field-modal';
 import EditWorkItemFieldModal from '@/components/edit-work-item-field-modal';
+import ModalBlank from '@/components/modal-blank';
+import { useDeleteWorkItemField, useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
+import type { WorkItemField } from '@/lib/types/work-item-fields';
 
 interface ManageWorkItemFieldsModalProps {
   isOpen: boolean;
@@ -23,7 +23,12 @@ export default function ManageWorkItemFieldsModal({
   const [isAddFieldOpen, setIsAddFieldOpen] = useState(false);
   const [editingField, setEditingField] = useState<WorkItemField | null>(null);
 
-  const { data: fields, isLoading, error, refetch } = useWorkItemFields({
+  const {
+    data: fields,
+    isLoading,
+    error,
+    refetch,
+  } = useWorkItemFields({
     work_item_type_id: workItemTypeId,
   });
 
@@ -47,21 +52,15 @@ export default function ManageWorkItemFieldsModal({
     setEditingField(field);
   }, []);
 
-  const handleMoveUp = useCallback(
-    async (field: WorkItemField) => {
-      // TODO: Implement reordering
-      console.log('Move up:', field);
-    },
-    []
-  );
+  const handleMoveUp = useCallback(async (field: WorkItemField) => {
+    // TODO: Implement reordering
+    console.log('Move up:', field);
+  }, []);
 
-  const handleMoveDown = useCallback(
-    async (field: WorkItemField) => {
-      // TODO: Implement reordering
-      console.log('Move down:', field);
-    },
-    []
-  );
+  const handleMoveDown = useCallback(async (field: WorkItemField) => {
+    // TODO: Implement reordering
+    console.log('Move down:', field);
+  }, []);
 
   const sortedFields = useMemo(() => {
     if (!fields) return [];
@@ -197,10 +196,7 @@ export default function ManageWorkItemFieldsModal({
                       className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed"
                       title="Move up"
                     >
-                      <svg
-                        className="w-4 h-4 fill-current"
-                        viewBox="0 0 16 16"
-                      >
+                      <svg className="w-4 h-4 fill-current" viewBox="0 0 16 16">
                         <path d="M8 2l6 6h-4v6H6V8H2z" />
                       </svg>
                     </button>
@@ -213,10 +209,7 @@ export default function ManageWorkItemFieldsModal({
                       className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed"
                       title="Move down"
                     >
-                      <svg
-                        className="w-4 h-4 fill-current"
-                        viewBox="0 0 16 16"
-                      >
+                      <svg className="w-4 h-4 fill-current" viewBox="0 0 16 16">
                         <path d="M8 14l-6-6h4V2h4v6h4z" />
                       </svg>
                     </button>

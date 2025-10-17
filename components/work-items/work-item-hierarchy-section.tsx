@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { apiClient } from '@/lib/api/client';
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { apiClient } from '@/lib/api/client';
 
 interface HierarchyItem {
   work_item_id: string;
@@ -71,9 +71,7 @@ export default function WorkItemHierarchySection({ workItemId }: WorkItemHierarc
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
       >
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-          Hierarchy
-        </h3>
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Hierarchy</h3>
         <svg
           className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
           fill="none"
@@ -109,7 +107,9 @@ export default function WorkItemHierarchySection({ workItemId }: WorkItemHierarc
                           <span className="text-xs text-gray-500 dark:text-gray-400">
                             {item.status_name}
                           </span>
-                          <span className={`text-xs font-medium ${getPriorityColor(item.priority)}`}>
+                          <span
+                            className={`text-xs font-medium ${getPriorityColor(item.priority)}`}
+                          >
                             {item.priority}
                           </span>
                         </div>
@@ -120,7 +120,12 @@ export default function WorkItemHierarchySection({ workItemId }: WorkItemHierarc
                         viewBox="0 0 24 24"
                         stroke="currentColor"
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
                       </svg>
                     </div>
                   </button>
@@ -164,7 +169,9 @@ export default function WorkItemHierarchySection({ workItemId }: WorkItemHierarc
                           <span className="text-xs text-gray-500 dark:text-gray-400">
                             {item.status_name}
                           </span>
-                          <span className={`text-xs font-medium ${getPriorityColor(item.priority)}`}>
+                          <span
+                            className={`text-xs font-medium ${getPriorityColor(item.priority)}`}
+                          >
                             {item.priority}
                           </span>
                         </div>
@@ -175,7 +182,12 @@ export default function WorkItemHierarchySection({ workItemId }: WorkItemHierarc
                         viewBox="0 0 24 24"
                         stroke="currentColor"
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
                       </svg>
                     </div>
                   </button>

@@ -5,12 +5,12 @@
  * that use the committed factories.
  */
 
-import { FactoryRegistry } from '../base'
-import { committedUserFactory } from './user-factory'
-import { committedDashboardFactory } from './dashboard-factory'
-import { committedChartFactory } from './chart-factory'
+import { FactoryRegistry } from '../base';
+import { committedChartFactory } from './chart-factory';
+import { committedDashboardFactory } from './dashboard-factory';
+import { committedUserFactory } from './user-factory';
 
 // Register all factories
-FactoryRegistry.registerFactory('user', committedUserFactory)
-FactoryRegistry.registerFactory('dashboard', committedDashboardFactory)
-FactoryRegistry.registerFactory('chart', committedChartFactory)
+FactoryRegistry.registerFactory('user', committedUserFactory);
+FactoryRegistry.registerFactory('dashboard', committedDashboardFactory);
+FactoryRegistry.registerFactory('chart', committedChartFactory);

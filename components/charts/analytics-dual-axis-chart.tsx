@@ -1,13 +1,24 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import type { ChartConfiguration, ChartData as ChartJSData } from 'chart.js';
+import {
+  BarElement,
+  CategoryScale,
+  Chart,
+  Legend,
+  LinearScale,
+  LineElement,
+  PointElement,
+  Title,
+  Tooltip,
+} from 'chart.js';
 import { useTheme } from 'next-themes';
-import { Chart, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend } from 'chart.js';
-import type { ChartData as ChartJSData, ChartConfiguration } from 'chart.js';
-import { ChartData, type DualAxisConfig } from '@/lib/types/analytics';
-import type { ResponsiveChartProps } from '@/lib/types/responsive-charts';
+import { useEffect, useRef, useState } from 'react';
 import { chartColors } from '@/components/charts/chartjs-config';
+import type { ChartData, DualAxisConfig } from '@/lib/types/analytics';
+import type { ResponsiveChartProps } from '@/lib/types/responsive-charts';
 import { formatValue, formatValueCompact } from '@/lib/utils/chart-data/formatters/value-formatter';
+import { getMeasureTypeFromChart } from '@/lib/utils/type-guards';
 
 // Register Chart.js components
 Chart.register(
@@ -39,14 +50,14 @@ export default function AnalyticsDualAxisChart({
   responsive = false,
   minHeight = 200,
   maxHeight = 800,
-  aspectRatio
+  aspectRatio,
 }: AnalyticsDualAxisChartProps) {
   const [chart, setChart] = useState<Chart | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const { theme } = useTheme();
   const darkMode = theme === 'dark';
-  const { textColor, gridColor, tooltipBodyColor, tooltipBgColor, tooltipBorderColor } = chartColors;
-
+  const { textColor, gridColor, tooltipBodyColor, tooltipBgColor, tooltipBorderColor } =
+    chartColors;
 
   // Create and update chart with Chart.js
   useEffect(() => {
@@ -113,7 +124,7 @@ export default function AnalyticsDualAxisChart({
               font: {
                 size: 11,
               },
-              callback: function(tickValue: string | number) {
+              callback: (tickValue: string | number) => {
                 const value = Number(tickValue);
                 const primaryMeasureType = chartData.datasets[0]?.measureType;
                 return formatValueCompact(value, primaryMeasureType || 'number');
@@ -141,7 +152,7 @@ export default function AnalyticsDualAxisChart({
               font: {
                 size: 11,
               },
-              callback: function(tickValue: string | number) {
+              callback: (tickValue: string | number) => {
                 const value = Number(tickValue);
                 const secondaryMeasureType = chartData.datasets[1]?.measureType;
                 return formatValueCompact(value, secondaryMeasureType || 'number');
@@ -184,11 +195,11 @@ export default function AnalyticsDualAxisChart({
             padding: 12,
             displayColors: true,
             callbacks: {
-              label: function(context) {
+              label: (context) => {
                 const label = context.dataset.label || '';
                 const value = context.parsed.y;
-                const measureType = (context.dataset as unknown as { measureType?: string }).measureType;
-                const formattedValue = formatValue(value, measureType || 'number');
+                const measureType = getMeasureTypeFromChart(context.dataset, 'number');
+                const formattedValue = formatValue(value, measureType);
                 return `${label}: ${formattedValue}`;
               },
             },
@@ -232,7 +243,7 @@ export default function AnalyticsDualAxisChart({
         style={{
           width: '100%',
           height: '100%',
-          display: 'block'
+          display: 'block',
         }}
       ></canvas>
     </div>

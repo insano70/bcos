@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import { Transition } from '@headlessui/react';
+import { useState } from 'react';
 
 interface TooltipProps {
   children: React.ReactNode;

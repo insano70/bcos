@@ -2,25 +2,40 @@
  * Unit tests for DataAggregator
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { AggAppMeasure } from '@/lib/types/analytics';
 import {
-  groupByFieldAndDate,
-  groupBySeriesAndDate,
   aggregateAcrossDates,
   applyAggregation,
   extractAndSortDates,
   filterDatesWithData,
   getGroupValue,
+  groupByFieldAndDate,
+  groupBySeriesAndDate,
 } from '@/lib/utils/chart-data/services/data-aggregator';
 
 describe('DataAggregator', () => {
   describe('groupByFieldAndDate', () => {
     it('should group measures by field and date', () => {
       const measures: AggAppMeasure[] = [
-        { date_index: '2024-01-01', measure_value: 100, measure_type: 'currency', provider_name: 'Dr. Smith' },
-        { date_index: '2024-01-01', measure_value: 200, measure_type: 'currency', provider_name: 'Dr. Jones' },
-        { date_index: '2024-01-02', measure_value: 150, measure_type: 'currency', provider_name: 'Dr. Smith' },
+        {
+          date_index: '2024-01-01',
+          measure_value: 100,
+          measure_type: 'currency',
+          provider_name: 'Dr. Smith',
+        },
+        {
+          date_index: '2024-01-01',
+          measure_value: 200,
+          measure_type: 'currency',
+          provider_name: 'Dr. Jones',
+        },
+        {
+          date_index: '2024-01-02',
+          measure_value: 150,
+          measure_type: 'currency',
+          provider_name: 'Dr. Smith',
+        },
       ];
 
       const result = groupByFieldAndDate(measures, 'provider_name');
@@ -34,7 +49,12 @@ describe('DataAggregator', () => {
 
     it('should handle string measure values', () => {
       const measures: AggAppMeasure[] = [
-        { date_index: '2024-01-01', measure_value: '100' as unknown as number, measure_type: 'currency', provider_name: 'Dr. Smith' },
+        {
+          date_index: '2024-01-01',
+          measure_value: '100' as unknown as number,
+          measure_type: 'currency',
+          provider_name: 'Dr. Smith',
+        },
       ];
 
       const result = groupByFieldAndDate(measures, 'provider_name');
@@ -46,9 +66,24 @@ describe('DataAggregator', () => {
   describe('groupBySeriesAndDate', () => {
     it('should group measures by series label', () => {
       const measures: AggAppMeasure[] = [
-        { date_index: '2024-01-01', measure_value: 100, measure_type: 'currency', series_label: 'Current' },
-        { date_index: '2024-01-01', measure_value: 90, measure_type: 'currency', series_label: 'Previous' },
-        { date_index: '2024-01-02', measure_value: 110, measure_type: 'currency', series_label: 'Current' },
+        {
+          date_index: '2024-01-01',
+          measure_value: 100,
+          measure_type: 'currency',
+          series_label: 'Current',
+        },
+        {
+          date_index: '2024-01-01',
+          measure_value: 90,
+          measure_type: 'currency',
+          series_label: 'Previous',
+        },
+        {
+          date_index: '2024-01-02',
+          measure_value: 110,
+          measure_type: 'currency',
+          series_label: 'Current',
+        },
       ];
 
       const result = groupBySeriesAndDate(measures);
@@ -60,7 +95,12 @@ describe('DataAggregator', () => {
 
     it('should use measure as fallback for series label', () => {
       const measures: AggAppMeasure[] = [
-        { date_index: '2024-01-01', measure_value: 100, measure_type: 'currency', measure: 'Charges' },
+        {
+          date_index: '2024-01-01',
+          measure_value: 100,
+          measure_type: 'currency',
+          measure: 'Charges',
+        },
       ];
 
       const result = groupBySeriesAndDate(measures);
@@ -72,9 +112,24 @@ describe('DataAggregator', () => {
   describe('aggregateAcrossDates', () => {
     it('should sum values across dates', () => {
       const measures: AggAppMeasure[] = [
-        { date_index: '2024-01-01', measure_value: 100, measure_type: 'currency', provider_name: 'Dr. Smith' },
-        { date_index: '2024-01-02', measure_value: 150, measure_type: 'currency', provider_name: 'Dr. Smith' },
-        { date_index: '2024-01-01', measure_value: 200, measure_type: 'currency', provider_name: 'Dr. Jones' },
+        {
+          date_index: '2024-01-01',
+          measure_value: 100,
+          measure_type: 'currency',
+          provider_name: 'Dr. Smith',
+        },
+        {
+          date_index: '2024-01-02',
+          measure_value: 150,
+          measure_type: 'currency',
+          provider_name: 'Dr. Smith',
+        },
+        {
+          date_index: '2024-01-01',
+          measure_value: 200,
+          measure_type: 'currency',
+          provider_name: 'Dr. Jones',
+        },
       ];
 
       const result = aggregateAcrossDates(measures, 'provider_name', 'sum');
@@ -85,9 +140,24 @@ describe('DataAggregator', () => {
 
     it('should count occurrences', () => {
       const measures: AggAppMeasure[] = [
-        { date_index: '2024-01-01', measure_value: 100, measure_type: 'currency', provider_name: 'Dr. Smith' },
-        { date_index: '2024-01-02', measure_value: 150, measure_type: 'currency', provider_name: 'Dr. Smith' },
-        { date_index: '2024-01-01', measure_value: 200, measure_type: 'currency', provider_name: 'Dr. Jones' },
+        {
+          date_index: '2024-01-01',
+          measure_value: 100,
+          measure_type: 'currency',
+          provider_name: 'Dr. Smith',
+        },
+        {
+          date_index: '2024-01-02',
+          measure_value: 150,
+          measure_type: 'currency',
+          provider_name: 'Dr. Smith',
+        },
+        {
+          date_index: '2024-01-01',
+          measure_value: 200,
+          measure_type: 'currency',
+          provider_name: 'Dr. Jones',
+        },
       ];
 
       const result = aggregateAcrossDates(measures, 'provider_name', 'count');
@@ -142,11 +212,14 @@ describe('DataAggregator', () => {
     it('should filter out dates with no data', () => {
       const dates = ['2024-01-01', '2024-01-02', '2024-01-03'];
       const groupedData = new Map([
-        ['Provider A', new Map([
-          ['2024-01-01', [100]],
-          ['2024-01-02', [0]],
-          ['2024-01-03', [150]],
-        ])],
+        [
+          'Provider A',
+          new Map([
+            ['2024-01-01', [100]],
+            ['2024-01-02', [0]],
+            ['2024-01-03', [150]],
+          ]),
+        ],
       ]);
 
       const result = filterDatesWithData(dates, groupedData);
@@ -214,4 +287,3 @@ describe('DataAggregator', () => {
     });
   });
 });
-

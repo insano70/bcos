@@ -6,7 +6,21 @@
 /**
  * Supported field types for custom fields
  */
-export type FieldType = 'text' | 'number' | 'date' | 'datetime' | 'dropdown' | 'checkbox' | 'user_picker' | 'multi_select' | 'rich_text' | 'url' | 'email' | 'phone' | 'currency' | 'percentage';
+export type FieldType =
+  | 'text'
+  | 'number'
+  | 'date'
+  | 'datetime'
+  | 'dropdown'
+  | 'checkbox'
+  | 'user_picker'
+  | 'multi_select'
+  | 'rich_text'
+  | 'url'
+  | 'email'
+  | 'phone'
+  | 'currency'
+  | 'percentage';
 
 /**
  * Field option for dropdown/multi_select fields
@@ -21,7 +35,15 @@ export interface FieldOption {
  */
 export interface ConditionalVisibilityRule {
   field_id: string;
-  operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'greater_than' | 'less_than' | 'is_empty' | 'is_not_empty';
+  operator:
+    | 'equals'
+    | 'not_equals'
+    | 'contains'
+    | 'not_contains'
+    | 'greater_than'
+    | 'less_than'
+    | 'is_empty'
+    | 'is_not_empty';
   value?: unknown;
 }
 

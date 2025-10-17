@@ -10,7 +10,7 @@
  * pnpm run db:validate
  */
 
-import { readFileSync, readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 interface JournalEntry {
@@ -80,7 +80,13 @@ function validateMigrations(): void {
   for (let i = 0; i < numbers.length - 1; i++) {
     const currentNum = numbers[i];
     const nextNum = numbers[i + 1];
-    if (currentNum !== undefined && nextNum !== undefined && currentNum >= 0 && nextNum >= 0 && nextNum !== currentNum + 1) {
+    if (
+      currentNum !== undefined &&
+      nextNum !== undefined &&
+      currentNum >= 0 &&
+      nextNum >= 0 &&
+      nextNum !== currentNum + 1
+    ) {
       warnings.push(
         `⚠️  Non-sequential migration numbers: ${String(currentNum).padStart(4, '0')} -> ${String(nextNum).padStart(4, '0')}`
       );

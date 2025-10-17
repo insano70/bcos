@@ -1,20 +1,19 @@
 'use client';
 
-import { useRef, useState, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { useTheme } from 'next-themes';
-
-import { chartColors } from '@/components/charts/chartjs-config';
+import type { ChartData } from 'chart.js';
 import {
   Chart,
+  Filler,
+  LinearScale,
   LineController,
   LineElement,
-  Filler,
   PointElement,
-  LinearScale,
   TimeScale,
   Tooltip,
 } from 'chart.js';
-import type { ChartData } from 'chart.js';
+import { useTheme } from 'next-themes';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { chartColors } from '@/components/charts/chartjs-config';
 import 'chartjs-adapter-moment';
 
 // Import utilities
@@ -28,10 +27,13 @@ interface LineChart01Props {
   height: number;
 }
 
-const LineChart01 = forwardRef<HTMLCanvasElement, LineChart01Props>(function LineChart01({ data, width, height }, ref) {
+const LineChart01 = forwardRef<HTMLCanvasElement, LineChart01Props>(function LineChart01(
+  { data, width, height },
+  ref
+) {
   const [chart, setChart] = useState<Chart | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
-  
+
   // Expose canvas element to parent via ref
   useImperativeHandle(ref, () => canvas.current!, []);
   const { theme } = useTheme();
@@ -82,21 +84,22 @@ const LineChart01 = forwardRef<HTMLCanvasElement, LineChart01Props>(function Lin
               autoSkip: false, // Don't skip any labels
               includeBounds: true, // Include first and last ticks
               source: 'data', // Use data points as tick sources
-              callback: function(value, index, ticks) {
+              callback: function (value, _index, _ticks) {
                 // Custom formatting for quarterly data
                 const date = new Date(this.getLabelForValue(Number(value)));
                 const quarter = Math.floor(date.getMonth() / 3) + 1;
                 const year = date.getFullYear();
-                
+
                 // Check if this looks like quarterly data (March, June, September, December)
                 const month = date.getMonth();
-                if (month === 2 || month === 5 || month === 8 || month === 11) { // Mar, Jun, Sep, Dec
+                if (month === 2 || month === 5 || month === 8 || month === 11) {
+                  // Mar, Jun, Sep, Dec
                   return `Q${quarter} ${year}`;
                 }
-                
+
                 // For other data, use default formatting
                 return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-              }
+              },
             },
           },
         },
@@ -157,12 +160,7 @@ const LineChart01 = forwardRef<HTMLCanvasElement, LineChart01Props>(function Lin
     chart.resize();
   }, [chart, width, height]);
 
-  return (
-    <canvas 
-      ref={canvas} 
-      className="chart-canvas"
-    />
-  );
+  return <canvas ref={canvas} className="chart-canvas" />;
 });
 
 export default LineChart01;

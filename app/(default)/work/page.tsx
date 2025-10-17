@@ -1,4 +1,4 @@
-import { Metadata } from 'next';
+import type { Metadata } from 'next';
 import { SelectedItemsProvider } from '@/app/selected-items-context';
 import WorkItemsContent from './work-items-content';
 

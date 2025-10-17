@@ -1,10 +1,10 @@
-import { and, asc, desc, eq, isNull, like, sql, type SQL } from 'drizzle-orm';
-import { db, staff_members } from '@/lib/db';
-import { log, logTemplates, calculateChanges, SLOW_THRESHOLDS } from '@/lib/logger';
+import { and, asc, desc, eq, isNull, like, type SQL, sql } from 'drizzle-orm';
 import { AuthorizationError, NotFoundError } from '@/lib/api/responses/error';
+import { db, staff_members } from '@/lib/db';
+import { calculateChanges, log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
+import type { UserContext } from '@/lib/types/rbac';
 import { parseEducation, parseSpecialties } from '@/lib/utils/safe-json';
 import { verifyPracticeAccess } from './rbac-practice-utils';
-import type { UserContext } from '@/lib/types/rbac';
 
 /**
  * RBAC Staff Members Service
@@ -198,7 +198,11 @@ class StaffMembersService implements StaffMembersServiceInterface {
           limit: filters.limit,
           offset: filters.offset,
         },
-        results: { returned: staff.length, total, page: Math.floor((filters.offset || 0) / (filters.limit || 100)) + 1 },
+        results: {
+          returned: staff.length,
+          total,
+          page: Math.floor((filters.offset || 0) / (filters.limit || 100)) + 1,
+        },
         duration,
         metadata: {
           practiceId,
@@ -415,9 +419,7 @@ class StaffMembersService implements StaffMembersServiceInterface {
       const [updated] = await db
         .update(staff_members)
         .set(updateData)
-        .where(
-          and(eq(staff_members.staff_id, staffId), eq(staff_members.practice_id, practiceId))
-        )
+        .where(and(eq(staff_members.staff_id, staffId), eq(staff_members.practice_id, practiceId)))
         .returning();
       const updateDuration = Date.now() - updateStart;
 
@@ -496,9 +498,7 @@ class StaffMembersService implements StaffMembersServiceInterface {
           deleted_at: new Date(),
           updated_at: new Date(),
         })
-        .where(
-          and(eq(staff_members.staff_id, staffId), eq(staff_members.practice_id, practiceId))
-        );
+        .where(and(eq(staff_members.staff_id, staffId), eq(staff_members.practice_id, practiceId)));
       const deleteDuration = Date.now() - deleteStart;
 
       const duration = Date.now() - startTime;

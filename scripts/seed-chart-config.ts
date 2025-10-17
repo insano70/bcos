@@ -1,5 +1,11 @@
-import { db, chart_data_sources, chart_data_source_columns, chart_display_configurations, color_palettes } from '@/lib/db';
-import { eq, and } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
+import {
+  chart_data_source_columns,
+  chart_data_sources,
+  chart_display_configurations,
+  color_palettes,
+  db,
+} from '@/lib/db';
 
 /**
  * Seed Chart Configuration Data
@@ -25,38 +31,143 @@ async function seedChartConfiguration() {
       .onConflictDoNothing()
       .returning();
 
+    let dsId: number;
+
     if (!dataSource) {
       console.log('Data source already exists, getting existing...');
       const [existing] = await db
         .select()
         .from(chart_data_sources)
-        .where(and(
-          eq(chart_data_sources.table_name, 'agg_app_measures'),
-          eq(chart_data_sources.schema_name, 'ih')
-        ));
-      
+        .where(
+          and(
+            eq(chart_data_sources.table_name, 'agg_app_measures'),
+            eq(chart_data_sources.schema_name, 'ih')
+          )
+        );
+
       if (!existing) {
         throw new Error('Failed to create or find data source');
       }
-      
+
       console.log('✅ Using existing data source:', existing.data_source_id);
-      var dsId = existing.data_source_id;
+      dsId = existing.data_source_id;
     } else {
       console.log('✅ Created new data source:', dataSource.data_source_id);
-      var dsId = dataSource.data_source_id;
+      dsId = dataSource.data_source_id;
     }
 
     // 2. Insert column configurations
     const columns = [
-      { name: 'practice', display: 'Practice Name', type: 'string', filterable: true, groupable: true, measure: false, dimension: true, format: 'string', order: 1, example: 'Family Arthritis Center' },
-      { name: 'practice_primary', display: 'Practice Primary', type: 'string', filterable: true, groupable: true, measure: false, dimension: true, format: 'string', order: 2, example: 'Busch, Howard' },
-      { name: 'practice_uid', display: 'Practice UID', type: 'number', filterable: true, groupable: true, measure: false, dimension: true, format: 'number', order: 3, example: '114' },
-      { name: 'provider_name', display: 'Provider Name', type: 'string', filterable: true, groupable: true, measure: false, dimension: true, format: 'string', order: 4, example: 'Busch, Howard' },
-      { name: 'measure', display: 'Measure Type', type: 'string', filterable: true, groupable: true, measure: false, dimension: true, format: 'string', order: 5, example: 'Charges by Provider' },
-      { name: 'frequency', display: 'Frequency', type: 'string', filterable: true, groupable: true, measure: false, dimension: true, format: 'string', order: 6, example: 'Monthly' },
-      { name: 'date_index', display: 'Date', type: 'date', filterable: true, groupable: false, measure: false, dimension: true, format: 'date', order: 7, example: '2025-03-31', isDate: true },
-      { name: 'measure_value', display: 'Value', type: 'number', filterable: true, groupable: false, measure: true, dimension: false, format: 'currency', order: 8, example: '506992', aggregation: 'sum' },
-      { name: 'measure_type', display: 'Measure Type', type: 'string', filterable: true, groupable: true, measure: false, dimension: true, format: 'string', order: 9, example: 'currency' }
+      {
+        name: 'practice',
+        display: 'Practice Name',
+        type: 'string',
+        filterable: true,
+        groupable: true,
+        measure: false,
+        dimension: true,
+        format: 'string',
+        order: 1,
+        example: 'Family Arthritis Center',
+      },
+      {
+        name: 'practice_primary',
+        display: 'Practice Primary',
+        type: 'string',
+        filterable: true,
+        groupable: true,
+        measure: false,
+        dimension: true,
+        format: 'string',
+        order: 2,
+        example: 'Busch, Howard',
+      },
+      {
+        name: 'practice_uid',
+        display: 'Practice UID',
+        type: 'number',
+        filterable: true,
+        groupable: true,
+        measure: false,
+        dimension: true,
+        format: 'number',
+        order: 3,
+        example: '114',
+      },
+      {
+        name: 'provider_name',
+        display: 'Provider Name',
+        type: 'string',
+        filterable: true,
+        groupable: true,
+        measure: false,
+        dimension: true,
+        format: 'string',
+        order: 4,
+        example: 'Busch, Howard',
+      },
+      {
+        name: 'measure',
+        display: 'Measure Type',
+        type: 'string',
+        filterable: true,
+        groupable: true,
+        measure: false,
+        dimension: true,
+        format: 'string',
+        order: 5,
+        example: 'Charges by Provider',
+      },
+      {
+        name: 'frequency',
+        display: 'Frequency',
+        type: 'string',
+        filterable: true,
+        groupable: true,
+        measure: false,
+        dimension: true,
+        format: 'string',
+        order: 6,
+        example: 'Monthly',
+      },
+      {
+        name: 'date_index',
+        display: 'Date',
+        type: 'date',
+        filterable: true,
+        groupable: false,
+        measure: false,
+        dimension: true,
+        format: 'date',
+        order: 7,
+        example: '2025-03-31',
+        isDate: true,
+      },
+      {
+        name: 'measure_value',
+        display: 'Value',
+        type: 'number',
+        filterable: true,
+        groupable: false,
+        measure: true,
+        dimension: false,
+        format: 'currency',
+        order: 8,
+        example: '506992',
+        aggregation: 'sum',
+      },
+      {
+        name: 'measure_type',
+        display: 'Measure Type',
+        type: 'string',
+        filterable: true,
+        groupable: true,
+        measure: false,
+        dimension: true,
+        format: 'string',
+        order: 9,
+        example: 'currency',
+      },
     ];
 
     for (const col of columns) {
@@ -91,7 +202,16 @@ async function seedChartConfiguration() {
         {
           palette_name: 'Default Analytics',
           palette_description: 'Default color palette for analytics charts',
-          colors: ["#00AEEF", "#67bfff", "#3ec972", "#f0bb33", "#ff5656", "oklch(65.6% 0.241 354.308)", "oklch(58.5% 0.233 277.117)", "oklch(70.5% 0.213 47.604)"],
+          colors: [
+            '#00AEEF',
+            '#67bfff',
+            '#3ec972',
+            '#f0bb33',
+            '#ff5656',
+            'oklch(65.6% 0.241 354.308)',
+            'oklch(58.5% 0.233 277.117)',
+            'oklch(70.5% 0.213 47.604)',
+          ],
           palette_type: 'categorical',
           max_colors: 8,
           is_colorblind_safe: false,
@@ -101,13 +221,13 @@ async function seedChartConfiguration() {
         {
           palette_name: 'Accessible Blues',
           palette_description: 'Colorblind-safe blue palette',
-          colors: ["#08519c", "#3182bd", "#6baed6", "#9ecae1", "#c6dbef", "#deebf7"],
+          colors: ['#08519c', '#3182bd', '#6baed6', '#9ecae1', '#c6dbef', '#deebf7'],
           palette_type: 'sequential',
           max_colors: 6,
           is_colorblind_safe: true,
           is_default: false,
           is_system: true,
-        }
+        },
       ])
       .onConflictDoNothing();
 
@@ -116,18 +236,98 @@ async function seedChartConfiguration() {
     // 4. Insert chart display configurations
     const displayConfigs = [
       // Bar chart configurations
-      { type: 'bar', freq: 'Monthly', xAxis: {type: 'category'}, yAxis: {beginAtZero: true}, unit: 'month', display: 'MMM YYYY', tooltip: 'MMM YYYY', legend: true, default: true },
-      { type: 'bar', freq: 'Weekly', xAxis: {type: 'category'}, yAxis: {beginAtZero: true}, unit: 'week', display: 'DD-MMM-YY', tooltip: 'DD-MMM-YYYY', legend: true, default: false },
-      { type: 'bar', freq: 'Quarterly', xAxis: {type: 'category'}, yAxis: {beginAtZero: true}, unit: 'quarter', display: '[Q]Q YYYY', tooltip: '[Q]Q YYYY', legend: true, default: false },
-      
+      {
+        type: 'bar',
+        freq: 'Monthly',
+        xAxis: { type: 'category' },
+        yAxis: { beginAtZero: true },
+        unit: 'month',
+        display: 'MMM YYYY',
+        tooltip: 'MMM YYYY',
+        legend: true,
+        default: true,
+      },
+      {
+        type: 'bar',
+        freq: 'Weekly',
+        xAxis: { type: 'category' },
+        yAxis: { beginAtZero: true },
+        unit: 'week',
+        display: 'DD-MMM-YY',
+        tooltip: 'DD-MMM-YYYY',
+        legend: true,
+        default: false,
+      },
+      {
+        type: 'bar',
+        freq: 'Quarterly',
+        xAxis: { type: 'category' },
+        yAxis: { beginAtZero: true },
+        unit: 'quarter',
+        display: '[Q]Q YYYY',
+        tooltip: '[Q]Q YYYY',
+        legend: true,
+        default: false,
+      },
+
       // Line chart configurations
-      { type: 'line', freq: 'Monthly', xAxis: {type: 'time', time: {unit: 'month'}}, yAxis: {beginAtZero: true}, unit: 'month', display: 'MMM YY', tooltip: 'MMM YYYY', legend: false, default: true },
-      { type: 'line', freq: 'Weekly', xAxis: {type: 'time', time: {unit: 'week'}}, yAxis: {beginAtZero: true}, unit: 'week', display: 'DD-MMM', tooltip: 'DD-MMM-YYYY', legend: false, default: false },
-      { type: 'line', freq: 'Quarterly', xAxis: {type: 'time', time: {unit: 'quarter'}}, yAxis: {beginAtZero: true}, unit: 'quarter', display: '[Q]Q YY', tooltip: '[Q]Q YYYY', legend: false, default: false },
-      
+      {
+        type: 'line',
+        freq: 'Monthly',
+        xAxis: { type: 'time', time: { unit: 'month' } },
+        yAxis: { beginAtZero: true },
+        unit: 'month',
+        display: 'MMM YY',
+        tooltip: 'MMM YYYY',
+        legend: false,
+        default: true,
+      },
+      {
+        type: 'line',
+        freq: 'Weekly',
+        xAxis: { type: 'time', time: { unit: 'week' } },
+        yAxis: { beginAtZero: true },
+        unit: 'week',
+        display: 'DD-MMM',
+        tooltip: 'DD-MMM-YYYY',
+        legend: false,
+        default: false,
+      },
+      {
+        type: 'line',
+        freq: 'Quarterly',
+        xAxis: { type: 'time', time: { unit: 'quarter' } },
+        yAxis: { beginAtZero: true },
+        unit: 'quarter',
+        display: '[Q]Q YY',
+        tooltip: '[Q]Q YYYY',
+        legend: false,
+        default: false,
+      },
+
       // Pie/Doughnut configurations
-      { type: 'pie', freq: null, xAxis: null, yAxis: null, unit: null, display: null, tooltip: null, legend: true, default: true },
-      { type: 'doughnut', freq: null, xAxis: null, yAxis: null, unit: null, display: null, tooltip: null, legend: true, default: true }
+      {
+        type: 'pie',
+        freq: null,
+        xAxis: null,
+        yAxis: null,
+        unit: null,
+        display: null,
+        tooltip: null,
+        legend: true,
+        default: true,
+      },
+      {
+        type: 'doughnut',
+        freq: null,
+        xAxis: null,
+        yAxis: null,
+        unit: null,
+        display: null,
+        tooltip: null,
+        legend: true,
+        default: true,
+      },
     ];
 
     for (const config of displayConfigs) {
@@ -154,7 +354,6 @@ async function seedChartConfiguration() {
 
     // Component configurations removed - not used in application
     console.log('🎉 Chart configuration system seeded successfully!');
-
   } catch (error) {
     console.error('❌ Failed to seed chart configuration:', error);
     throw error;

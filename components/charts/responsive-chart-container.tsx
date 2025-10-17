@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useRef, useEffect, useState, ReactElement, cloneElement } from 'react';
+import type React from 'react';
+import { cloneElement, type ReactElement, useEffect, useRef, useState } from 'react';
 
 interface ResponsiveChartContainerProps {
   children: ReactElement;
@@ -17,10 +18,10 @@ interface ChartDimensions {
 
 /**
  * ResponsiveChartContainer
- * 
+ *
  * A container component that observes its size and passes responsive dimensions
  * to child chart components. Uses ResizeObserver for optimal performance.
- * 
+ *
  * Features:
  * - Automatic resize detection
  * - Configurable min/max height constraints
@@ -33,12 +34,12 @@ export default function ResponsiveChartContainer({
   className = '',
   minHeight = 200,
   maxHeight = 800,
-  aspectRatio
+  aspectRatio,
 }: ResponsiveChartContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState<ChartDimensions>({
+  const [_dimensions, setDimensions] = useState<ChartDimensions>({
     width: 800, // Fallback width for SSR
-    height: 400  // Fallback height for SSR
+    height: 400, // Fallback height for SSR
   });
   const resizeTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
@@ -75,7 +76,7 @@ export default function ResponsiveChartContainer({
       height = Math.min(height, maxHeight);
 
       // Only update if dimensions actually changed (prevent unnecessary re-renders)
-      setDimensions(prev => {
+      setDimensions((prev) => {
         if (prev.width !== width || prev.height !== height) {
           return { width, height };
         }
@@ -88,7 +89,7 @@ export default function ResponsiveChartContainer({
       if (resizeTimeoutRef.current) {
         clearTimeout(resizeTimeoutRef.current);
       }
-      
+
       resizeTimeoutRef.current = setTimeout(() => {
         updateDimensions();
       }, 150); // 150ms debounce for smooth resizing
@@ -96,7 +97,7 @@ export default function ResponsiveChartContainer({
 
     // Set up ResizeObserver for container size changes
     if (typeof ResizeObserver !== 'undefined') {
-      const resizeObserver = new ResizeObserver((entries) => {
+      const resizeObserver = new ResizeObserver((_entries) => {
         handleResize();
       });
       resizeObserver.observe(container);
@@ -125,7 +126,7 @@ export default function ResponsiveChartContainer({
         minHeight: `${minHeight}px`,
         maxHeight: `${maxHeight}px`,
         overflowY: 'auto',
-        overflowX: 'auto'
+        overflowX: 'auto',
       }}
     >
       {chartElement}
@@ -149,7 +150,7 @@ export function useResponsiveChartDimensions(
   const { minHeight = 200, maxHeight = 800, aspectRatio, debounceMs = 150 } = options;
   const [dimensions, setDimensions] = useState<ChartDimensions>({
     width: 800,
-    height: 400
+    height: 400,
   });
   const resizeTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
@@ -177,7 +178,7 @@ export function useResponsiveChartDimensions(
 
       height = Math.min(height, maxHeight);
 
-      setDimensions(prev => {
+      setDimensions((prev) => {
         if (prev.width !== width || prev.height !== height) {
           return { width, height };
         }
@@ -189,12 +190,12 @@ export function useResponsiveChartDimensions(
       if (resizeTimeoutRef.current) {
         clearTimeout(resizeTimeoutRef.current);
       }
-      
+
       resizeTimeoutRef.current = setTimeout(updateDimensions, debounceMs);
     };
 
     if (typeof ResizeObserver !== 'undefined') {
-      const resizeObserver = new ResizeObserver((entries) => {
+      const resizeObserver = new ResizeObserver((_entries) => {
         handleResize();
       });
       resizeObserver.observe(container);
@@ -208,7 +209,6 @@ export function useResponsiveChartDimensions(
         }
       };
     }
-
   }, [minHeight, maxHeight, aspectRatio, debounceMs]);
 
   return dimensions;

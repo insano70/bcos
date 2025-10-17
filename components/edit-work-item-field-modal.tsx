@@ -1,10 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import ModalBasic from '@/components/modal-basic';
+import { useEffect, useState } from 'react';
 import ConditionalVisibilityBuilder from '@/components/conditional-visibility-builder';
+import ModalBasic from '@/components/modal-basic';
 import { useUpdateWorkItemField } from '@/lib/hooks/use-work-item-fields';
-import type { WorkItemField, FieldOption, ConditionalVisibilityRule } from '@/lib/types/work-item-fields';
+import type {
+  ConditionalVisibilityRule,
+  FieldOption,
+  WorkItemField,
+} from '@/lib/types/work-item-fields';
 
 interface EditWorkItemFieldModalProps {
   isOpen: boolean;
@@ -29,7 +33,9 @@ export default function EditWorkItemFieldModal({
   const [options, setOptions] = useState<FieldOption[]>([]);
   const [newOptionValue, setNewOptionValue] = useState('');
   const [newOptionLabel, setNewOptionLabel] = useState('');
-  const [conditionalVisibilityRules, setConditionalVisibilityRules] = useState<ConditionalVisibilityRule[]>([]);
+  const [conditionalVisibilityRules, setConditionalVisibilityRules] = useState<
+    ConditionalVisibilityRule[]
+  >([]);
 
   const updateFieldMutation = useUpdateWorkItemField();
 
@@ -60,7 +66,10 @@ export default function EditWorkItemFieldModal({
           is_visible: isVisible,
           display_order: displayOrder,
           field_options: field.field_type === 'dropdown' ? options : undefined,
-          field_config: conditionalVisibilityRules.length > 0 ? { conditional_visibility: conditionalVisibilityRules } : undefined,
+          field_config:
+            conditionalVisibilityRules.length > 0
+              ? { conditional_visibility: conditionalVisibilityRules }
+              : undefined,
         } as never,
       });
 
@@ -86,11 +95,7 @@ export default function EditWorkItemFieldModal({
   if (!field) return null;
 
   return (
-    <ModalBasic
-      isOpen={isOpen}
-      setIsOpen={onClose}
-      title="Edit Custom Field"
-    >
+    <ModalBasic isOpen={isOpen} setIsOpen={onClose} title="Edit Custom Field">
       <form onSubmit={handleSubmit}>
         <div className="px-5 py-4 space-y-4">
           {/* Field Name (read-only) */}
@@ -217,7 +222,7 @@ export default function EditWorkItemFieldModal({
               type="number"
               min="0"
               value={displayOrder}
-              onChange={(e) => setDisplayOrder(parseInt(e.target.value))}
+              onChange={(e) => setDisplayOrder(parseInt(e.target.value, 10))}
             />
           </div>
 

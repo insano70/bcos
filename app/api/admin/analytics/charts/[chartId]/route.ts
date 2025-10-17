@@ -1,13 +1,13 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
+import { chartDataCache } from '@/lib/cache/chart-data-cache';
 import { log } from '@/lib/logger';
 import { createRBACChartsService } from '@/lib/services/rbac-charts-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { chartDefinitionUpdateSchema } from '@/lib/validations/analytics';
-import { chartDataCache } from '@/lib/cache/chart-data-cache';
 
 /**
  * Admin Analytics - Individual Chart Definition CRUD
@@ -94,10 +94,10 @@ const updateChartHandler = async (
     // Phase 6: Invalidate cache for this chart's data source
     // Extract data source ID from updated chart config
     const dataSourceId = (updatedChart.chart_config as { dataSourceId?: number })?.dataSourceId;
-    
+
     if (dataSourceId) {
       await chartDataCache.invalidateByDataSource(dataSourceId);
-      
+
       log.info('Cache invalidated after chart update', {
         chartId: params.chartId,
         dataSourceId,
@@ -153,7 +153,7 @@ const deleteChartHandler = async (
     // Phase 6: Invalidate cache for this chart's data source
     if (dataSourceId) {
       await chartDataCache.invalidateByDataSource(dataSourceId);
-      
+
       log.info('Cache invalidated after chart deletion', {
         chartId: params.chartId,
         dataSourceId,

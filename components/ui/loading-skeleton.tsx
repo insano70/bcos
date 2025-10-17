@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import type React from 'react';
 
 interface SkeletonProps {
   className?: string;
@@ -10,9 +10,13 @@ interface SkeletonProps {
 // Basic skeleton component with shimmer effect
 export function Skeleton({ className = '', style }: SkeletonProps) {
   // Use CSS custom properties for dynamic styling (CSP-compliant)
-  const dynamicStyle = style && Object.keys(style).length > 0
-    ? { ...Object.fromEntries(Object.entries(style).map(([key, value]) => [`--${key}`, value])), ...style }
-    : undefined;
+  const dynamicStyle =
+    style && Object.keys(style).length > 0
+      ? {
+          ...Object.fromEntries(Object.entries(style).map(([key, value]) => [`--${key}`, value])),
+          ...style,
+        }
+      : undefined;
 
   return (
     <div
@@ -26,7 +30,10 @@ export function Skeleton({ className = '', style }: SkeletonProps) {
 export function ChartSkeleton({ width, height }: { width?: number; height?: number }) {
   // If width/height not specified, fill container with w-full h-full
   const sizeClasses = !width && !height ? 'w-full h-full' : '';
-  const inlineStyles = width || height ? { width: width ? `${width}px` : undefined, height: height ? `${height}px` : undefined } : undefined;
+  const inlineStyles =
+    width || height
+      ? { width: width ? `${width}px` : undefined, height: height ? `${height}px` : undefined }
+      : undefined;
 
   return (
     <div
@@ -42,8 +49,8 @@ export function TableSkeleton({ rows = 5, columns = 4 }: { rows?: number; column
     <div className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden">
       {/* Header */}
       <div className="border-b border-gray-200 dark:border-gray-700 p-4">
-        <div 
-          className="grid gap-4 skeleton-grid" 
+        <div
+          className="grid gap-4 skeleton-grid"
           style={{ '--grid-columns': `repeat(${columns}, 1fr)` } as React.CSSProperties}
         >
           {[...Array(columns)].map((_, i) => (
@@ -51,14 +58,14 @@ export function TableSkeleton({ rows = 5, columns = 4 }: { rows?: number; column
           ))}
         </div>
       </div>
-      
+
       {/* Rows */}
       {[...Array(rows)].map((_, rowIndex) => (
         <div key={rowIndex} className="border-b border-gray-200 dark:border-gray-700 p-4">
-          <div 
-          className="grid gap-4 skeleton-grid" 
-          style={{ '--grid-columns': `repeat(${columns}, 1fr)` } as React.CSSProperties}
-        >
+          <div
+            className="grid gap-4 skeleton-grid"
+            style={{ '--grid-columns': `repeat(${columns}, 1fr)` } as React.CSSProperties}
+          >
             {[...Array(columns)].map((_, colIndex) => (
               <Skeleton key={colIndex} className="h-4 w-full" />
             ))}
@@ -116,31 +123,39 @@ export function DashboardSkeleton() {
 }
 
 // Loading spinner with text
-export function LoadingSpinner({ 
-  text = 'Loading...', 
+export function LoadingSpinner({
+  text = 'Loading...',
   size = 'md',
-  className = '' 
-}: { 
-  text?: string; 
+  className = '',
+}: {
+  text?: string;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }) {
   const sizeClasses = {
     sm: 'h-4 w-4',
     md: 'h-8 w-8',
-    lg: 'h-12 w-12'
+    lg: 'h-12 w-12',
   };
 
   return (
     <div className={`flex items-center justify-center ${className}`}>
-      <div className={`animate-spin rounded-full border-b-2 border-violet-500 ${sizeClasses[size]}`}></div>
+      <div
+        className={`animate-spin rounded-full border-b-2 border-violet-500 ${sizeClasses[size]}`}
+      ></div>
       <span className="ml-3 text-gray-600 dark:text-gray-400">{text}</span>
     </div>
   );
 }
 
 // Full page loading overlay
-export function LoadingOverlay({ text = 'Loading...', isVisible = true }: { text?: string; isVisible?: boolean }) {
+export function LoadingOverlay({
+  text = 'Loading...',
+  isVisible = true,
+}: {
+  text?: string;
+  isVisible?: boolean;
+}) {
   if (!isVisible) return null;
 
   return (

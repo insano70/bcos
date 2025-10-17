@@ -1,15 +1,15 @@
 import type { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { workItemUpdateSchema, workItemParamsSchema } from '@/lib/validations/work-items';
+import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
-import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { extractRouteParams } from '@/lib/api/utils/params';
-import { createRBACWorkItemsService } from '@/lib/services/rbac-work-items-service';
+import { extractors } from '@/lib/api/utils/rbac-extractors';
+import { calculateChanges, log, logTemplates } from '@/lib/logger';
 import { createRBACWorkItemFieldValuesService } from '@/lib/services/rbac-work-item-field-values-service';
+import { createRBACWorkItemsService } from '@/lib/services/work-items';
 import type { UserContext } from '@/lib/types/rbac';
-import { log, logTemplates, calculateChanges } from '@/lib/logger';
+import { workItemParamsSchema, workItemUpdateSchema } from '@/lib/validations/work-items';
 
 /**
  * GET /api/work-items/[id]
@@ -125,7 +125,10 @@ const updateWorkItemHandler = async (
     }
 
     // Update work item with automatic permission checking
-    const updatedWorkItem = await workItemsService.updateWorkItem(validatedParams.id, validatedData);
+    const updatedWorkItem = await workItemsService.updateWorkItem(
+      validatedParams.id,
+      validatedData
+    );
 
     // Handle custom field values if provided
     if (validatedData.custom_fields && Object.keys(validatedData.custom_fields).length > 0) {
@@ -196,7 +199,9 @@ const updateWorkItemHandler = async (
     // Add assignee as watcher when assignment changes
     let watcherAdded = false;
     if (validatedData.assigned_to && updatedWorkItem.assigned_to) {
-      const { createRBACWorkItemWatchersService } = await import('@/lib/services/rbac-work-item-watchers-service');
+      const { createRBACWorkItemWatchersService } = await import(
+        '@/lib/services/rbac-work-item-watchers-service'
+      );
       const watchersService = createRBACWorkItemWatchersService(userContext);
 
       try {

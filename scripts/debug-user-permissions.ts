@@ -1,7 +1,7 @@
-import { getUserContext } from '@/lib/rbac/user-context';
+import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { getUserContext } from '@/lib/rbac/user-context';
 
 async function debugPermissions() {
   // Get super_admin user
@@ -29,7 +29,10 @@ async function debugPermissions() {
 
   // Filter work-items permissions
   const workItemsPermissions = context.all_permissions.filter(
-    (p) => p.resource === 'work-items' || p.name.startsWith('work-items:') || p.name.startsWith('work_items:')
+    (p) =>
+      p.resource === 'work-items' ||
+      p.name.startsWith('work-items:') ||
+      p.name.startsWith('work_items:')
   );
 
   console.log(`🔧 Work Items Permissions (${workItemsPermissions.length}):`);

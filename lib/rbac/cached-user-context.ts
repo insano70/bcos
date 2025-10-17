@@ -257,7 +257,7 @@ export async function getCachedUserContext(userId: string): Promise<UserContext>
     last_name: user.last_name,
     is_active: user.is_active,
     email_verified: user.email_verified ?? false,
-    
+
     // Analytics security - provider-level filtering
     provider_uid: user.provider_uid || undefined,
 

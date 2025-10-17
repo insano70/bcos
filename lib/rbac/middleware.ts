@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { createErrorResponse } from '@/lib/api/responses/error';
+import { log } from '@/lib/logger';
 import { type PermissionName, RBACError, type UserContext } from '@/lib/types/rbac';
 import type { AuthResult } from '../api/middleware/global-auth';
 import { PermissionChecker } from './permission-checker';
@@ -117,7 +118,10 @@ export function createRBACMiddleware(
       // Permission granted - return success with user context
       return { success: true, userContext: resolvedUserContext };
     } catch (error) {
-      console.error('RBAC Middleware Error:', error);
+      log.error('RBAC middleware error', error, {
+        operation: 'rbac_check',
+        component: 'middleware',
+      });
 
       if (error instanceof RBACError) {
         return NextResponse.json(
@@ -322,7 +326,10 @@ export async function enhanceSessionWithRBAC(
       userContext,
     };
   } catch (error) {
-    console.error('Failed to enhance session with RBAC:', error);
+    log.error('Failed to enhance session with RBAC', error, {
+      operation: 'enhance_session',
+      component: 'middleware',
+    });
     return null;
   }
 }
@@ -369,7 +376,10 @@ export function withRBAC<T extends unknown[]>(
           return middlewareResult as Response;
         }
       } catch (error) {
-        console.error('RBAC wrapper error:', error);
+        log.error('RBAC wrapper error', error, {
+          operation: 'rbac_wrapper',
+          component: 'middleware',
+        });
         return createErrorResponse(
           error instanceof Error ? error.message : 'Unknown error',
           500,

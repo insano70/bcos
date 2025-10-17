@@ -6,7 +6,7 @@ import {
   ValidationError,
 } from '@/lib/api/responses/error';
 import { db, practice_attributes, practices, templates, users } from '@/lib/db';
-import { SLOW_THRESHOLDS, log } from '@/lib/logger';
+import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import { calculateChanges, logTemplates, sanitizeFilters } from '@/lib/logger/message-templates';
 import { getPracticeQueryBuilder } from '@/lib/services/practices/query-builder';
 import type { UserContext } from '@/lib/types/rbac';
@@ -253,9 +253,7 @@ class PracticesService implements PracticesServiceInterface {
           duration: Date.now() - startTime,
           component: 'business-logic',
         });
-        throw AuthorizationError(
-          'Access denied: You do not have permission to view this practice'
-        );
+        throw AuthorizationError('Access denied: You do not have permission to view this practice');
       }
 
       const logTemplate = logTemplates.crud.read('practice', {
@@ -513,9 +511,7 @@ class PracticesService implements PracticesServiceInterface {
 
       // Check RBAC access - only super admin or owner can update
       if (!this.canReadAll && existing.owner_user_id !== this.userContext.user_id) {
-        throw AuthorizationError(
-          'Access denied: You do not have permission to view this practice'
-        );
+        throw AuthorizationError('Access denied: You do not have permission to view this practice');
       }
 
       // Check ownership for non-super-admins

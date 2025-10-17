@@ -1,8 +1,7 @@
 import { apiClient } from '@/lib/api/client';
 import type { SuccessResponse } from '@/lib/api/responses/success';
 import type { ChartDefinition, ChartFilter } from '@/lib/types/analytics';
-// Note: Using console for client-side logging to avoid winston fs dependency
-// import { logger } from '@/lib/logger';
+import { log } from '@/lib/logger';
 
 /**
  * Bulk Chart Operations Service
@@ -218,7 +217,11 @@ export class BulkChartOperationsService {
 
     this.operations.set(operationId, operation);
 
-    console.info('Bulk operation cancelled', { operationId });
+    log.info('Bulk operation cancelled', {
+      operation: 'cancel_bulk_operation',
+      operationId,
+      component: 'bulk-operations',
+    });
     return true;
   }
 
@@ -263,10 +266,12 @@ export class BulkChartOperationsService {
       operation.completedAt = new Date();
       this.operations.set(operationId, operation);
 
-      console.info('Bulk update completed', {
+      log.info('Bulk update completed', {
+        operation: 'bulk_update',
         operationId,
         totalCharts: operation.chartIds.length,
         successCount: operation.results.filter((r) => r.success).length,
+        component: 'bulk-operations',
       });
     } catch (error) {
       operation.status = 'failed';
@@ -274,7 +279,11 @@ export class BulkChartOperationsService {
       operation.completedAt = new Date();
       this.operations.set(operationId, operation);
 
-      console.error('Bulk update failed', { operationId, error });
+      log.error('Bulk update failed', error, {
+        operation: 'bulk_update',
+        operationId,
+        component: 'bulk-operations',
+      });
     }
   }
 
@@ -314,14 +323,22 @@ export class BulkChartOperationsService {
       operation.completedAt = new Date();
       this.operations.set(operationId, operation);
 
-      console.info('Bulk delete completed', { operationId });
+      log.info('Bulk delete completed', {
+        operation: 'bulk_delete',
+        operationId,
+        component: 'bulk-operations',
+      });
     } catch (error) {
       operation.status = 'failed';
       operation.error = error instanceof Error ? error.message : 'Unknown error';
       operation.completedAt = new Date();
       this.operations.set(operationId, operation);
 
-      console.error('Bulk delete failed', { operationId, error });
+      log.error('Bulk delete failed', error, {
+        operation: 'bulk_delete',
+        operationId,
+        component: 'bulk-operations',
+      });
     }
   }
 
@@ -360,14 +377,23 @@ export class BulkChartOperationsService {
       operation.completedAt = new Date();
       this.operations.set(operationId, operation);
 
-      console.info('Bulk export completed', { operationId, exportFormat });
+      log.info('Bulk export completed', {
+        operation: 'bulk_export',
+        operationId,
+        exportFormat,
+        component: 'bulk-operations',
+      });
     } catch (error) {
       operation.status = 'failed';
       operation.error = error instanceof Error ? error.message : 'Unknown error';
       operation.completedAt = new Date();
       this.operations.set(operationId, operation);
 
-      console.error('Bulk export failed', { operationId, error });
+      log.error('Bulk export failed', error, {
+        operation: 'bulk_export',
+        operationId,
+        component: 'bulk-operations',
+      });
     }
   }
 
@@ -415,14 +441,22 @@ export class BulkChartOperationsService {
       operation.completedAt = new Date();
       this.operations.set(operationId, operation);
 
-      console.info('Bulk organize completed', { operationId });
+      log.info('Bulk organize completed', {
+        operation: 'bulk_organize',
+        operationId,
+        component: 'bulk-operations',
+      });
     } catch (error) {
       operation.status = 'failed';
       operation.error = error instanceof Error ? error.message : 'Unknown error';
       operation.completedAt = new Date();
       this.operations.set(operationId, operation);
 
-      console.error('Bulk organize failed', { operationId, error });
+      log.error('Bulk organize failed', error, {
+        operation: 'bulk_organize',
+        operationId,
+        component: 'bulk-operations',
+      });
     }
   }
 
@@ -489,14 +523,22 @@ export class BulkChartOperationsService {
       operation.completedAt = new Date();
       this.operations.set(operationId, operation);
 
-      console.info('Bulk clone completed', { operationId });
+      log.info('Bulk clone completed', {
+        operation: 'bulk_clone',
+        operationId,
+        component: 'bulk-operations',
+      });
     } catch (error) {
       operation.status = 'failed';
       operation.error = error instanceof Error ? error.message : 'Unknown error';
       operation.completedAt = new Date();
       this.operations.set(operationId, operation);
 
-      console.error('Bulk clone failed', { operationId, error });
+      log.error('Bulk clone failed', error, {
+        operation: 'bulk_clone',
+        operationId,
+        component: 'bulk-operations',
+      });
     }
   }
 
@@ -579,9 +621,11 @@ export class BulkChartOperationsService {
       }
     }
 
-    console.info('Old bulk operations cleaned up', {
+    log.info('Old bulk operations cleaned up', {
+      operation: 'cleanup_operations',
       retentionDays,
       remainingOperations: this.operations.size,
+      component: 'bulk-operations',
     });
   }
 }

@@ -1,17 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import {
   useUpdateTypeRelationship,
   type WorkItemTypeRelationship,
 } from '@/lib/hooks/use-work-item-type-relationships';
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
-import Toast from './toast';
 import AutoCreateConfigBuilder, { type AutoCreateConfig } from './auto-create-config-builder';
+import Toast from './toast';
 
 const editRelationshipSchema = z
   .object({
@@ -176,12 +176,17 @@ export default function EditRelationshipModal({
                         <div className="form-input w-full bg-gray-50 dark:bg-gray-900/50 text-gray-600 dark:text-gray-400 cursor-not-allowed">
                           {relationship.child_type_name}
                         </div>
-                        <div className="text-xs mt-1 text-gray-500">Child type cannot be changed</div>
+                        <div className="text-xs mt-1 text-gray-500">
+                          Child type cannot be changed
+                        </div>
                       </div>
 
                       {/* Relationship Name */}
                       <div>
-                        <label className="block text-sm font-medium mb-1" htmlFor="relationship_name">
+                        <label
+                          className="block text-sm font-medium mb-1"
+                          htmlFor="relationship_name"
+                        >
                           Relationship Name <span className="text-red-500">*</span>
                         </label>
                         <input
@@ -213,7 +218,9 @@ export default function EditRelationshipModal({
                             placeholder="0"
                           />
                           {errors.min_count && (
-                            <div className="text-xs mt-1 text-red-500">{errors.min_count.message}</div>
+                            <div className="text-xs mt-1 text-red-500">
+                              {errors.min_count.message}
+                            </div>
                           )}
                         </div>
 
@@ -230,7 +237,9 @@ export default function EditRelationshipModal({
                             placeholder="No limit"
                           />
                           {errors.max_count && (
-                            <div className="text-xs mt-1 text-red-500">{errors.max_count.message}</div>
+                            <div className="text-xs mt-1 text-red-500">
+                              {errors.max_count.message}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -248,14 +257,20 @@ export default function EditRelationshipModal({
                           {...register('display_order')}
                         />
                         {errors.display_order && (
-                          <div className="text-xs mt-1 text-red-500">{errors.display_order.message}</div>
+                          <div className="text-xs mt-1 text-red-500">
+                            {errors.display_order.message}
+                          </div>
                         )}
                       </div>
 
                       {/* Flags */}
                       <div className="space-y-2">
                         <label className="flex items-center">
-                          <input type="checkbox" className="form-checkbox" {...register('is_required')} />
+                          <input
+                            type="checkbox"
+                            className="form-checkbox"
+                            {...register('is_required')}
+                          />
                           <span className="text-sm ml-2 font-medium">Required</span>
                           <span className="text-xs ml-2 text-gray-500">
                             (Child items of this type must exist)
@@ -263,7 +278,11 @@ export default function EditRelationshipModal({
                         </label>
 
                         <label className="flex items-center">
-                          <input type="checkbox" className="form-checkbox" {...register('auto_create')} />
+                          <input
+                            type="checkbox"
+                            className="form-checkbox"
+                            {...register('auto_create')}
+                          />
                           <span className="text-sm ml-2 font-medium">Auto-create</span>
                           <span className="text-xs ml-2 text-gray-500">
                             (Automatically create child items when parent is created)
@@ -315,7 +334,11 @@ export default function EditRelationshipModal({
         </Dialog>
       </Transition>
 
-      <Toast type={toastMessage.includes('Failed') ? 'error' : 'success'} open={showToast} setOpen={setShowToast}>
+      <Toast
+        type={toastMessage.includes('Failed') ? 'error' : 'success'}
+        open={showToast}
+        setOpen={setShowToast}
+      >
         {toastMessage}
       </Toast>
     </>

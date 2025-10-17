@@ -1,13 +1,13 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
+import { log } from '@/lib/logger';
 import { createRBACWorkItemTypeRelationshipsService } from '@/lib/services/rbac-work-item-type-relationships-service';
+import type { UserContext } from '@/lib/types/rbac';
 import {
   workItemTypeRelationshipCreateSchema,
   workItemTypeRelationshipsQuerySchema,
 } from '@/lib/validations/work-item-type-relationships';
-import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
 
 /**
  * POST /api/work-item-types/[id]/relationships
@@ -77,10 +77,7 @@ const postRelationshipHandler = async (
         return NextResponse.json({ error: error.message }, { status: 409 });
       }
 
-      if (
-        error.message.includes('Permission denied') ||
-        error.message.includes('permission')
-      ) {
+      if (error.message.includes('Permission denied') || error.message.includes('permission')) {
         return NextResponse.json({ error: error.message }, { status: 403 });
       }
     }
@@ -148,9 +145,7 @@ const getRelationshipsHandler = async (
 
     // Get relationships
     const relationshipsService = createRBACWorkItemTypeRelationshipsService(userContext);
-    const relationships = await relationshipsService.getRelationships(
-      validatedParams as never
-    );
+    const relationships = await relationshipsService.getRelationships(validatedParams as never);
 
     const duration = Date.now() - startTime;
 
@@ -178,10 +173,7 @@ const getRelationshipsHandler = async (
         );
       }
 
-      if (
-        error.message.includes('Permission denied') ||
-        error.message.includes('permission')
-      ) {
+      if (error.message.includes('Permission denied') || error.message.includes('permission')) {
         return NextResponse.json({ error: error.message }, { status: 403 });
       }
     }

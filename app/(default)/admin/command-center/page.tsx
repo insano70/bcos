@@ -13,27 +13,25 @@
  * RBAC: settings:read:all (Super Admin only)
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
-import type { MonitoringMetrics } from '@/lib/monitoring/types';
-import SystemHealthKPI from './components/system-health-kpi';
+import type { AtRiskUser, MonitoringMetrics } from '@/lib/monitoring/types';
 import ActiveUsersKPI from './components/active-users-kpi';
-import ErrorRateKPI from './components/error-rate-kpi';
-import ResponseTimeKPI from './components/response-time-kpi';
-import SecurityStatusKPI from './components/security-status-kpi';
-import AnalyticsPerformanceKPI from './components/analytics-performance-kpi';
-import SecurityEventsFeed from './components/security-events-feed';
 import AtRiskUsersPanel from './components/at-risk-users-panel';
-import UserDetailModal from './components/user-detail-modal';
-import RedisAdminTabs from './components/redis-admin-tabs';
-import PerformanceChart from './components/performance-chart';
-import ErrorRateChart from './components/error-rate-chart';
-import SlowQueriesPanel from './components/slow-queries-panel';
-import ErrorLogPanel from './components/error-log-panel';
 import EndpointPerformanceTable from './components/endpoint-performance-table';
-import { ToastProvider } from './components/toast';
+import ErrorLogPanel from './components/error-log-panel';
+import ErrorRateChart from './components/error-rate-chart';
+import ErrorRateKPI from './components/error-rate-kpi';
+import PerformanceChart from './components/performance-chart';
+import RedisAdminTabs from './components/redis-admin-tabs';
+import ResponseTimeKPI from './components/response-time-kpi';
+import SecurityEventsFeed from './components/security-events-feed';
+import SecurityStatusKPI from './components/security-status-kpi';
 import { KPISkeleton, PanelSkeleton } from './components/skeleton';
-import type { AtRiskUser } from '@/lib/monitoring/types';
+import SlowQueriesPanel from './components/slow-queries-panel';
+import SystemHealthKPI from './components/system-health-kpi';
+import { ToastProvider } from './components/toast';
+import UserDetailModal from './components/user-detail-modal';
 
 // Auto-refresh intervals
 const REFRESH_INTERVALS = [
@@ -71,7 +69,7 @@ export default function CommandCenterPage() {
   };
 
   // Fetch metrics from API
-  const fetchMetrics = async () => {
+  const fetchMetrics = useCallback(async () => {
     try {
       const response = await apiClient.get('/api/admin/monitoring/metrics');
       setMetrics(response as MonitoringMetrics);
@@ -82,12 +80,12 @@ export default function CommandCenterPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Initial fetch
   useEffect(() => {
     fetchMetrics();
-  }, []);
+  }, [fetchMetrics]);
 
   // Auto-refresh setup
   useEffect(() => {
@@ -97,7 +95,7 @@ export default function CommandCenterPage() {
 
     const interval = setInterval(fetchMetrics, refreshInterval);
     return () => clearInterval(interval);
-  }, [autoRefresh, refreshInterval]);
+  }, [autoRefresh, refreshInterval, fetchMetrics]);
 
   // Manual refresh handler
   const handleManualRefresh = () => {
@@ -108,221 +106,221 @@ export default function CommandCenterPage() {
   return (
     <ToastProvider>
       <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-[96rem] mx-auto">
-      {/* Page Header */}
-      <div className="sm:flex sm:justify-between sm:items-center mb-8">
-        {/* Left: Title */}
-        <div className="mb-4 sm:mb-0">
-          <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
-            Admin Command Center
-          </h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Real-time application monitoring and management
-          </p>
-        </div>
+        {/* Page Header */}
+        <div className="sm:flex sm:justify-between sm:items-center mb-8">
+          {/* Left: Title */}
+          <div className="mb-4 sm:mb-0">
+            <h1 className="text-2xl md:text-3xl text-gray-800 dark:text-gray-100 font-bold">
+              Admin Command Center
+            </h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Real-time application monitoring and management
+            </p>
+          </div>
 
-        {/* Right: Controls */}
-        <div className="flex items-center gap-4">
-          {/* Time Range Selector */}
-          <select
-            value={globalTimeRange}
-            onChange={(e) => setGlobalTimeRange(e.target.value)}
-            className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-violet-500"
-            aria-label="Select time range"
-          >
-            <option value="1h">Last Hour</option>
-            <option value="6h">Last 6 Hours</option>
-            <option value="24h">Last 24 Hours</option>
-            <option value="7d">Last 7 Days</option>
-          </select>
-
-          {/* Last Update */}
-          {lastUpdate && (
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              Updated: {lastUpdate.toLocaleTimeString()}
-            </div>
-          )}
-
-          {/* Auto-refresh Toggle */}
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={autoRefresh}
-              onChange={(e) => setAutoRefresh(e.target.checked)}
-              className="w-4 h-4 text-violet-500 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded focus:ring-violet-500"
-              aria-label="Enable auto-refresh"
-            />
-            <span className="text-sm text-gray-700 dark:text-gray-300">Auto-refresh</span>
-          </label>
-
-          {/* Refresh Interval Selector */}
-          {autoRefresh && (
+          {/* Right: Controls */}
+          <div className="flex items-center gap-4">
+            {/* Time Range Selector */}
             <select
-              value={refreshInterval}
-              onChange={(e) => setRefreshInterval(Number(e.target.value))}
+              value={globalTimeRange}
+              onChange={(e) => setGlobalTimeRange(e.target.value)}
               className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-violet-500"
-              aria-label="Select refresh interval"
+              aria-label="Select time range"
             >
-              {REFRESH_INTERVALS.filter((interval) => interval.value > 0).map((interval) => (
-                <option key={interval.value} value={interval.value}>
-                  {interval.label}
-                </option>
-              ))}
+              <option value="1h">Last Hour</option>
+              <option value="6h">Last 6 Hours</option>
+              <option value="24h">Last 24 Hours</option>
+              <option value="7d">Last 7 Days</option>
             </select>
-          )}
 
-          {/* Manual Refresh Button */}
-          <button
-            onClick={handleManualRefresh}
-            disabled={loading}
-            className="px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600 disabled:bg-gray-400 transition-colors flex items-center gap-2"
-            aria-label="Refresh dashboard metrics"
-          >
-            <svg
-              className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            {/* Last Update */}
+            {lastUpdate && (
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Updated: {lastUpdate.toLocaleTimeString()}
+              </div>
+            )}
+
+            {/* Auto-refresh Toggle */}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+                className="w-4 h-4 text-violet-500 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded focus:ring-violet-500"
+                aria-label="Enable auto-refresh"
               />
-            </svg>
-            Refresh
-          </button>
-        </div>
-      </div>
+              <span className="text-sm text-gray-700 dark:text-gray-300">Auto-refresh</span>
+            </label>
 
-      {/* Error Message */}
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-          <div className="flex items-center gap-2 text-red-800 dark:text-red-200">
-            <svg
-              className="w-5 h-5"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-              xmlns="http://www.w3.org/2000/svg"
+            {/* Refresh Interval Selector */}
+            {autoRefresh && (
+              <select
+                value={refreshInterval}
+                onChange={(e) => setRefreshInterval(Number(e.target.value))}
+                className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-violet-500"
+                aria-label="Select refresh interval"
+              >
+                {REFRESH_INTERVALS.filter((interval) => interval.value > 0).map((interval) => (
+                  <option key={interval.value} value={interval.value}>
+                    {interval.label}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {/* Manual Refresh Button */}
+            <button
+              onClick={handleManualRefresh}
+              disabled={loading}
+              className="px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600 disabled:bg-gray-400 transition-colors flex items-center gap-2"
+              aria-label="Refresh dashboard metrics"
             >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clipRule="evenodd"
+              <svg
+                className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="flex items-center gap-2 text-red-800 dark:text-red-200">
+              <svg
+                className="w-5 h-5"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <span className="font-medium">Error loading metrics: {error}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Loading State with Skeletons */}
+        {loading && !metrics && (
+          <div className="space-y-6">
+            {/* Row 1: KPI Skeletons */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+              <KPISkeleton />
+              <KPISkeleton />
+              <KPISkeleton />
+              <KPISkeleton />
+              <KPISkeleton />
+            </div>
+
+            {/* Row 2: Performance Skeletons */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <PanelSkeleton />
+              <PanelSkeleton />
+            </div>
+
+            {/* Row 3: Cache & DB Skeletons */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <PanelSkeleton />
+              <PanelSkeleton />
+            </div>
+
+            {/* Row 4: Security Skeletons */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <PanelSkeleton />
+              <PanelSkeleton />
+            </div>
+          </div>
+        )}
+
+        {/* Dashboard Content */}
+        {metrics && (
+          <div className="space-y-6">
+            {/* Row 1: KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+              <SystemHealthKPI systemHealth={metrics.systemHealth} />
+              <ActiveUsersKPI activeUsers={metrics.activeUsers} />
+              <ErrorRateKPI
+                errorRate={metrics.performance.errors.rate}
+                total={metrics.performance.errors.total}
               />
-            </svg>
-            <span className="font-medium">Error loading metrics: {error}</span>
-          </div>
-        </div>
-      )}
+              <ResponseTimeKPI p95={metrics.performance.responseTime.p95} />
+              <SecurityStatusKPI security={metrics.security} />
+            </div>
 
-      {/* Loading State with Skeletons */}
-      {loading && !metrics && (
-        <div className="space-y-6">
-          {/* Row 1: KPI Skeletons */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-            <KPISkeleton />
-            <KPISkeleton />
-            <KPISkeleton />
-            <KPISkeleton />
-            <KPISkeleton />
-          </div>
+            {/* Row 2: Performance Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <PerformanceChart category="standard" timeRange={globalTimeRange} height={350} />
+              <ErrorRateChart category="standard" timeRange={globalTimeRange} height={350} />
+            </div>
 
-          {/* Row 2: Performance Skeletons */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <PanelSkeleton />
-            <PanelSkeleton />
-          </div>
+            {/* Row 2.5: Performance Tables */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <EndpointPerformanceTable metrics={metrics} />
+              <ErrorLogPanel
+                autoRefresh={autoRefresh}
+                refreshInterval={refreshInterval}
+                timeRange={globalTimeRange}
+              />
+            </div>
 
-          {/* Row 3: Cache & DB Skeletons */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <PanelSkeleton />
-            <PanelSkeleton />
-          </div>
+            {/* Row 3: Cache & Database */}
+            <div className="grid grid-cols-1 gap-6">
+              <RedisAdminTabs autoRefresh={autoRefresh} refreshInterval={refreshInterval} />
+            </div>
 
-          {/* Row 4: Security Skeletons */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <PanelSkeleton />
-            <PanelSkeleton />
-          </div>
-        </div>
-      )}
+            {/* Row 3.5: Slow Queries */}
+            <div className="grid grid-cols-1 gap-6">
+              <SlowQueriesPanel autoRefresh={autoRefresh} refreshInterval={refreshInterval} />
+            </div>
 
-      {/* Dashboard Content */}
-      {metrics && (
-        <div className="space-y-6">
-          {/* Row 1: KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-            <SystemHealthKPI systemHealth={metrics.systemHealth} />
-            <ActiveUsersKPI activeUsers={metrics.activeUsers} />
-            <ErrorRateKPI errorRate={metrics.performance.errors.rate} total={metrics.performance.errors.total} />
-            <ResponseTimeKPI p95={metrics.performance.responseTime.p95} />
-            <SecurityStatusKPI security={metrics.security} />
-          </div>
+            {/* Row 4: Security Monitoring */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <SecurityEventsFeed autoRefresh={autoRefresh} refreshInterval={refreshInterval} />
+              <AtRiskUsersPanel
+                autoRefresh={autoRefresh}
+                refreshInterval={refreshInterval}
+                onViewUser={handleViewUser}
+                key={refreshTrigger}
+              />
+            </div>
 
-          {/* Row 2: Performance Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <PerformanceChart category="standard" timeRange={globalTimeRange} height={350} />
-            <ErrorRateChart category="standard" timeRange={globalTimeRange} height={350} />
-          </div>
-          
-          {/* Row 2.5: Performance Tables */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <EndpointPerformanceTable metrics={metrics} />
-            <ErrorLogPanel autoRefresh={autoRefresh} refreshInterval={refreshInterval} timeRange={globalTimeRange} />
-          </div>
-
-          {/* Row 3: Cache & Database */}
-          <div className="grid grid-cols-1 gap-6">
-            <RedisAdminTabs
-              autoRefresh={autoRefresh}
-              refreshInterval={refreshInterval}
+            {/* User Detail Modal */}
+            <UserDetailModal
+              user={selectedUser}
+              isOpen={isUserModalOpen}
+              onClose={handleCloseUserModal}
+              onUserUpdated={handleUserUpdated}
             />
-          </div>
-          
-          {/* Row 3.5: Slow Queries */}
-          <div className="grid grid-cols-1 gap-6">
-            <SlowQueriesPanel
-              autoRefresh={autoRefresh}
-              refreshInterval={refreshInterval}
-            />
-          </div>
 
-          {/* Row 4: Security Monitoring */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <SecurityEventsFeed autoRefresh={autoRefresh} refreshInterval={refreshInterval} />
-            <AtRiskUsersPanel
-              autoRefresh={autoRefresh}
-              refreshInterval={refreshInterval}
-              onViewUser={handleViewUser}
-              key={refreshTrigger}
-            />
+            {/* Debug Info (Development Only) */}
+            {process.env.NODE_ENV === 'development' && (
+              <details className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+                <summary className="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Debug: Raw Metrics Data
+                </summary>
+                <pre className="mt-2 text-xs text-gray-600 dark:text-gray-400 overflow-x-auto">
+                  {JSON.stringify(metrics, null, 2)}
+                </pre>
+              </details>
+            )}
           </div>
-
-          {/* User Detail Modal */}
-          <UserDetailModal
-            user={selectedUser}
-            isOpen={isUserModalOpen}
-            onClose={handleCloseUserModal}
-            onUserUpdated={handleUserUpdated}
-          />
-
-          {/* Debug Info (Development Only) */}
-          {process.env.NODE_ENV === 'development' && (
-            <details className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
-              <summary className="cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-300">
-                Debug: Raw Metrics Data
-              </summary>
-              <pre className="mt-2 text-xs text-gray-600 dark:text-gray-400 overflow-x-auto">
-                {JSON.stringify(metrics, null, 2)}
-              </pre>
-            </details>
-          )}
-        </div>
-      )}
+        )}
       </div>
     </ToastProvider>
   );
 }
-

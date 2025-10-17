@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
 
 export interface AutoCreateConfig {
@@ -108,9 +108,7 @@ export default function AutoCreateConfigBuilder({
 
   if (isLoading) {
     return (
-      <div className="text-sm text-gray-500 dark:text-gray-400">
-        Loading field configuration...
-      </div>
+      <div className="text-sm text-gray-500 dark:text-gray-400">Loading field configuration...</div>
     );
   }
 
@@ -148,9 +146,7 @@ export default function AutoCreateConfigBuilder({
                 - Custom field from parent
               </li>
             </ul>
-            <p className="mt-2">
-              Example: "Patient Record for {'{parent.custom.patient_name}'}"
-            </p>
+            <p className="mt-2">Example: "Patient Record for {'{parent.custom.patient_name}'}"</p>
           </div>
         )}
 
@@ -178,7 +174,7 @@ export default function AutoCreateConfigBuilder({
               disabled={disabled}
               className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50"
             >
-              {'{parent.' + field.name + '}'}
+              {`{parent.${field.name}}`}
             </button>
           ))}
         </div>
@@ -247,7 +243,7 @@ export default function AutoCreateConfigBuilder({
                           disabled={disabled}
                           className="text-xs px-1.5 py-0.5 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
                         >
-                          {'{parent.' + stdField.name + '}'}
+                          {`{parent.${stdField.name}}`}
                         </button>
                       ))}
                     </div>
@@ -307,7 +303,9 @@ export default function AutoCreateConfigBuilder({
             {inheritFields.length > 0 && (
               <div>
                 <span className="font-medium">Inherited:</span>{' '}
-                {inheritFields.map((f) => STANDARD_FIELDS.find((sf) => sf.name === f)?.label || f).join(', ')}
+                {inheritFields
+                  .map((f) => STANDARD_FIELDS.find((sf) => sf.name === f)?.label || f)
+                  .join(', ')}
               </div>
             )}
           </div>

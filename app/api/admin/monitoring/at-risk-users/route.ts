@@ -9,14 +9,14 @@
  * RBAC: settings:read:all (Super Admin only)
  */
 
+import { eq, gt, or, sql } from 'drizzle-orm';
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
+import { account_security, db, login_attempts, users } from '@/lib/db';
 import { log } from '@/lib/logger';
-import { db, users, account_security, login_attempts } from '@/lib/db';
-import { eq, sql, or, gt } from 'drizzle-orm';
 import { calculateRiskScore, getRiskFactors } from '@/lib/monitoring/risk-score';
-import type { AtRiskUsersResponse, AtRiskUser } from '@/lib/monitoring/types';
+import type { AtRiskUser, AtRiskUsersResponse } from '@/lib/monitoring/types';
 
 const atRiskUsersHandler = async (request: NextRequest) => {
   const startTime = Date.now();
@@ -59,22 +59,27 @@ const atRiskUsersHandler = async (request: NextRequest) => {
           eq(account_security.suspicious_activity_detected, true)
         )
       )
-      .orderBy(sql`${account_security.failed_login_attempts} DESC, ${account_security.last_failed_attempt} DESC NULLS LAST`)
+      .orderBy(
+        sql`${account_security.failed_login_attempts} DESC, ${account_security.last_failed_attempt} DESC NULLS LAST`
+      )
       .limit(limit);
 
     // Get all user IDs for batch query
     const userIds = atRiskUsersData.map((u) => u.userId);
 
     // Batch query for recent activity stats (fixes N+1 query problem)
-    const recentStatsArray = userIds.length > 0 ? await db
-      .select({
-        userId: login_attempts.user_id,
-        attempts24h: sql<string>`COUNT(*) FILTER (WHERE ${login_attempts.attempted_at} > ${twentyFourHoursAgo})`,
-        uniqueIPs7d: sql<string>`COUNT(DISTINCT ${login_attempts.ip_address}) FILTER (WHERE ${login_attempts.attempted_at} > ${sevenDaysAgo})`,
-      })
-      .from(login_attempts)
-      .where(sql`${login_attempts.user_id} = ANY(${userIds})`)
-      .groupBy(login_attempts.user_id) : [];
+    const recentStatsArray =
+      userIds.length > 0
+        ? await db
+            .select({
+              userId: login_attempts.user_id,
+              attempts24h: sql<string>`COUNT(*) FILTER (WHERE ${login_attempts.attempted_at} > ${twentyFourHoursAgo})`,
+              uniqueIPs7d: sql<string>`COUNT(DISTINCT ${login_attempts.ip_address}) FILTER (WHERE ${login_attempts.attempted_at} > ${sevenDaysAgo})`,
+            })
+            .from(login_attempts)
+            .where(sql`${login_attempts.user_id} = ANY(${userIds})`)
+            .groupBy(login_attempts.user_id)
+        : [];
 
     // Create lookup map for O(1) access
     const statsLookup = new Map(
@@ -89,54 +94,52 @@ const atRiskUsersHandler = async (request: NextRequest) => {
 
     // Enrich with recent activity stats and calculate risk scores
     const enrichedUsers: AtRiskUser[] = atRiskUsersData.map((user) => {
-        // Lookup stats from map (O(1) operation)
-        const stats = statsLookup.get(user.userId);
-        const recentAttempts24h = stats?.attempts24h || 0;
-        const uniqueIPs7d = stats?.uniqueIPs7d || 0;
+      // Lookup stats from map (O(1) operation)
+      const stats = statsLookup.get(user.userId);
+      const recentAttempts24h = stats?.attempts24h || 0;
+      const uniqueIPs7d = stats?.uniqueIPs7d || 0;
 
-        // Calculate risk score
-        const riskScore = calculateRiskScore({
-          failedAttempts: user.failedAttempts || 0,
-          lockedUntil: user.lockedUntil?.toISOString() || null,
-          suspiciousActivity: user.suspiciousActivity || false,
-          recentAttempts24h,
-          uniqueIPs7d,
-        });
-
-        // Get risk factors
-        const riskFactors = getRiskFactors({
-          failedAttempts: user.failedAttempts || 0,
-          lockedUntil: user.lockedUntil?.toISOString() || null,
-          suspiciousActivity: user.suspiciousActivity || false,
-          recentAttempts24h,
-          uniqueIPs7d,
-        });
-
-        return {
-          userId: user.userId,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          failedAttempts: user.failedAttempts || 0,
-          lastFailedAttempt: user.lastFailedAttempt?.toISOString() || null,
-          lockedUntil: user.lockedUntil?.toISOString() || null,
-          suspiciousActivity: user.suspiciousActivity || false,
-          lockoutReason: user.lockoutReason || null,
-          riskScore,
-          riskFactors,
-          recentAttempts24h,
-          uniqueIPs7d,
-        };
+      // Calculate risk score
+      const riskScore = calculateRiskScore({
+        failedAttempts: user.failedAttempts || 0,
+        lockedUntil: user.lockedUntil?.toISOString() || null,
+        suspiciousActivity: user.suspiciousActivity || false,
+        recentAttempts24h,
+        uniqueIPs7d,
       });
+
+      // Get risk factors
+      const riskFactors = getRiskFactors({
+        failedAttempts: user.failedAttempts || 0,
+        lockedUntil: user.lockedUntil?.toISOString() || null,
+        suspiciousActivity: user.suspiciousActivity || false,
+        recentAttempts24h,
+        uniqueIPs7d,
+      });
+
+      return {
+        userId: user.userId,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        failedAttempts: user.failedAttempts || 0,
+        lastFailedAttempt: user.lastFailedAttempt?.toISOString() || null,
+        lockedUntil: user.lockedUntil?.toISOString() || null,
+        suspiciousActivity: user.suspiciousActivity || false,
+        lockoutReason: user.lockoutReason || null,
+        riskScore,
+        riskFactors,
+        recentAttempts24h,
+        uniqueIPs7d,
+      };
+    });
 
     // Filter by minimum risk score if specified
     const filteredUsers = enrichedUsers.filter((user) => user.riskScore >= minRiskScore);
 
     // Calculate summary
     const summary = {
-      locked: filteredUsers.filter(
-        (u) => u.lockedUntil && new Date(u.lockedUntil) > now
-      ).length,
+      locked: filteredUsers.filter((u) => u.lockedUntil && new Date(u.lockedUntil) > now).length,
       suspicious: filteredUsers.filter((u) => u.suspiciousActivity).length,
       monitoring: filteredUsers.filter(
         (u) =>
@@ -193,4 +196,3 @@ export const GET = rbacRoute(atRiskUsersHandler, {
   permission: 'settings:read:all',
   rateLimit: 'api',
 });
-

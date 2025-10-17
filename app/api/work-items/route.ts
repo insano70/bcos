@@ -1,14 +1,14 @@
 import type { NextRequest } from 'next/server';
-import { createSuccessResponse, createPaginatedResponse } from '@/lib/api/responses/success';
+import { validateQuery, validateRequest } from '@/lib/api/middleware/validation';
 import { createErrorResponse } from '@/lib/api/responses/error';
-import { validateRequest, validateQuery } from '@/lib/api/middleware/validation';
-import { workItemCreateSchema, workItemQuerySchema } from '@/lib/validations/work-items';
+import { createPaginatedResponse, createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
-import { createRBACWorkItemsService } from '@/lib/services/rbac-work-items-service';
-import { createRBACWorkItemFieldValuesService } from '@/lib/services/rbac-work-item-field-values-service';
-import type { UserContext } from '@/lib/types/rbac';
 import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
+import { createRBACWorkItemFieldValuesService } from '@/lib/services/rbac-work-item-field-values-service';
+import { createRBACWorkItemsService } from '@/lib/services/work-items';
+import type { UserContext } from '@/lib/types/rbac';
+import { workItemCreateSchema, workItemQuerySchema } from '@/lib/validations/work-items';
 
 /**
  * GET /api/work-items
@@ -187,7 +187,9 @@ const createWorkItemHandler = async (request: NextRequest, userContext: UserCont
     }
 
     // Auto-create child work items based on type relationships using automation service
-    const { createWorkItemAutomationService } = await import('@/lib/services/work-item-automation-service');
+    const { createWorkItemAutomationService } = await import(
+      '@/lib/services/work-item-automation-service'
+    );
     const automationService = createWorkItemAutomationService(userContext);
 
     const autoCreatedCount = await automationService.autoCreateChildItems(
@@ -196,7 +198,9 @@ const createWorkItemHandler = async (request: NextRequest, userContext: UserCont
     );
 
     // Add creator as watcher (auto-watcher logic)
-    const { createRBACWorkItemWatchersService } = await import('@/lib/services/rbac-work-item-watchers-service');
+    const { createRBACWorkItemWatchersService } = await import(
+      '@/lib/services/rbac-work-item-watchers-service'
+    );
     const watchersService = createRBACWorkItemWatchersService(userContext);
 
     let watcherAdded = false;

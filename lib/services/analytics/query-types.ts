@@ -5,8 +5,8 @@
  * query validation, sanitization, building, and execution modules.
  */
 
-import type { ChartFilter, ChartRenderContext } from '@/lib/types/analytics';
 import type { DataSourceConfig } from '@/lib/services/chart-config-service';
+import type { ChartFilter, ChartRenderContext } from '@/lib/types/analytics';
 
 /**
  * Allowed operators for filters - prevents injection attacks

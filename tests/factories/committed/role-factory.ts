@@ -5,15 +5,15 @@
  * that are visible to services using the global db connection.
  */
 
-import { roles, role_permissions, permissions, user_roles } from '@/lib/db/schema';
-import { inArray, eq } from 'drizzle-orm';
+import type { InferSelectModel } from 'drizzle-orm';
+import { inArray } from 'drizzle-orm';
+import { permissions, role_permissions, roles, user_roles } from '@/lib/db/schema';
 import {
   BaseFactory,
-  defaultIDGenerator,
-  defaultCleanupTracker,
   type BaseFactoryOptions,
+  defaultCleanupTracker,
+  defaultIDGenerator,
 } from '../base';
-import type { InferSelectModel } from 'drizzle-orm';
 
 export type CommittedRole = InferSelectModel<typeof roles>;
 
@@ -94,9 +94,7 @@ export const committedRoleFactory = new CommittedRoleFactory(
 /**
  * Convenience function to create a role
  */
-export async function createCommittedRole(
-  options: CreateRoleOptions = {}
-): Promise<CommittedRole> {
+export async function createCommittedRole(options: CreateRoleOptions = {}): Promise<CommittedRole> {
   const result = await committedRoleFactory.create(options);
   return result.data;
 }

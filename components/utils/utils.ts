@@ -39,7 +39,7 @@ const adjustHSLOpacity = (hslColor: string, opacity: number): string => {
 
 const adjustOKLCHOpacity = (oklchColor: string, opacity: number): string => {
   // Add alpha value to OKLCH color
-  return oklchColor.replace(/oklch\((.*?)\)/, (match, p1) => `oklch(${p1} / ${opacity})`);
+  return oklchColor.replace(/oklch\((.*?)\)/, (_match, p1) => `oklch(${p1} / ${opacity})`);
 };
 
 export const adjustColorOpacity = (color: string, opacity: number): string => {

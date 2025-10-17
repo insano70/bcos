@@ -34,11 +34,11 @@
 
 // ===== Module Exports =====
 
-export { QueryOrchestrator } from './query-orchestrator';
-export { QueryExecutor } from './query-executor';
-export { QueryValidator } from './query-validator';
-export { QuerySanitizer } from './query-sanitizer';
 export { QueryBuilder } from './query-builder';
+export { QueryExecutor } from './query-executor';
+export { QueryOrchestrator } from './query-orchestrator';
+export { QuerySanitizer } from './query-sanitizer';
+export { QueryValidator } from './query-validator';
 
 // ===== Type Exports =====
 
@@ -47,11 +47,11 @@ export { ALLOWED_OPERATORS } from './query-types';
 
 // ===== Singleton Exports (for backward compatibility) =====
 
-import { queryValidator } from './query-validator';
-import { querySanitizer } from './query-sanitizer';
 import { queryBuilder } from './query-builder';
 import { queryExecutor } from './query-executor';
 import { queryOrchestrator } from './query-orchestrator';
+import { querySanitizer } from './query-sanitizer';
+import { queryValidator } from './query-validator';
 
 // Export individual singletons
 export { queryValidator, querySanitizer, queryBuilder, queryExecutor, queryOrchestrator };

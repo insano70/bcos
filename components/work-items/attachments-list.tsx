@@ -1,14 +1,14 @@
 'use client';
 
+import { format } from 'date-fns';
 import { useState } from 'react';
 import {
-  useWorkItemAttachments,
-  useDeleteAttachment,
-  useDownloadAttachment,
   formatFileSize,
   getFileIcon,
+  useDeleteAttachment,
+  useDownloadAttachment,
+  useWorkItemAttachments,
 } from '@/lib/hooks/use-work-item-attachments';
-import { format } from 'date-fns';
 
 interface AttachmentsListProps {
   workItemId: string;
@@ -107,13 +107,9 @@ export default function AttachmentsList({ workItemId }: AttachmentsListProps) {
                 <div className="mt-1 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                   <span>{formatFileSize(attachment.file_size)}</span>
                   <span>•</span>
-                  <span>
-                    Uploaded by {attachment.uploaded_by_name || 'Unknown'}
-                  </span>
+                  <span>Uploaded by {attachment.uploaded_by_name || 'Unknown'}</span>
                   <span>•</span>
-                  <span>
-                    {format(new Date(attachment.uploaded_at), 'MMM d, yyyy h:mm a')}
-                  </span>
+                  <span>{format(new Date(attachment.uploaded_at), 'MMM d, yyyy h:mm a')}</span>
                 </div>
               </div>
 
@@ -142,7 +138,9 @@ export default function AttachmentsList({ workItemId }: AttachmentsListProps) {
                 </button>
 
                 <button
-                  onClick={() => handleDelete(attachment.work_item_attachment_id, attachment.file_name)}
+                  onClick={() =>
+                    handleDelete(attachment.work_item_attachment_id, attachment.file_name)
+                  }
                   disabled={isDeleting}
                   className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
                   title="Delete"

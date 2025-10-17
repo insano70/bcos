@@ -1,14 +1,14 @@
 import type { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
 import { validateQuery } from '@/lib/api/middleware/validation';
-import { extractRouteParams } from '@/lib/api/utils/params';
-import { workItemActivityQuerySchema, workItemParamsSchema } from '@/lib/validations/work-items';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
+import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
+import { log } from '@/lib/logger';
 import { createRBACWorkItemActivityService } from '@/lib/services/rbac-work-item-activity-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
+import { workItemActivityQuerySchema, workItemParamsSchema } from '@/lib/validations/work-items';
 
 /**
  * GET /api/work-items/[id]/activity
@@ -46,7 +46,9 @@ const getWorkItemActivityHandler = async (
       limit: query.limit,
       offset: query.offset,
     });
-    log.db('SELECT', 'work_item_activity', Date.now() - activityStart, { rowCount: activity.length });
+    log.db('SELECT', 'work_item_activity', Date.now() - activityStart, {
+      rowCount: activity.length,
+    });
 
     const totalDuration = Date.now() - startTime;
     log.info('Work item activity retrieved successfully', {

@@ -2,6 +2,7 @@ import { desc, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { practice_comments } from '@/lib/db/schema';
 import type { PracticeComment } from '@/lib/types/practice';
+import { log } from '@/lib/logger';
 
 /**
  * Fetch featured comments for a practice (for carousel display)
@@ -26,7 +27,11 @@ export async function getFeaturedComments(practiceId: string): Promise<PracticeC
       created_at: comment.created_at,
     }));
   } catch (error) {
-    console.error('Error fetching featured comments:', error);
+    log.error('Error fetching featured comments', error, {
+      operation: 'get_featured_comments',
+      practiceId,
+      component: 'practice-comments',
+    });
     return [];
   }
 }
@@ -53,7 +58,11 @@ export async function getAllComments(practiceId: string): Promise<PracticeCommen
       created_at: comment.created_at,
     }));
   } catch (error) {
-    console.error('Error fetching all comments:', error);
+    log.error('Error fetching all comments', error, {
+      operation: 'get_all_comments',
+      practiceId,
+      component: 'practice-comments',
+    });
     return [];
   }
 }
@@ -84,7 +93,11 @@ export async function addComment(data: {
 
     return result[0]?.commentId || null;
   } catch (error) {
-    console.error('Error adding comment:', error);
+    log.error('Error adding comment', error, {
+      operation: 'add_comment',
+      practiceId: data.practiceId,
+      component: 'practice-comments',
+    });
     return null;
   }
 }

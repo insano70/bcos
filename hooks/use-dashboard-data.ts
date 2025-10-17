@@ -1,23 +1,23 @@
 /**
  * useDashboardData Hook (Phase 7)
- * 
+ *
  * Unified data fetching hook for dashboard batch rendering.
  * Replaces individual chart fetches with a single batch API call.
- * 
+ *
  * Features:
  * - Single API call for all dashboard charts
  * - Dashboard-level universal filter support
  * - Loading/error state management
  * - Cache bypass capability (nocache)
  * - Automatic refetch on filter changes
- * 
+ *
  * Benefits:
  * - 60% faster dashboard loads (batch vs sequential)
  * - 90% reduction in API calls (1 vs N)
  * - Dashboard-level filtering UX
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
 
 /**
@@ -142,13 +142,13 @@ interface UseDashboardDataReturn {
 
 /**
  * useDashboardData Hook
- * 
+ *
  * Fetches all charts in a dashboard with a single batch API call.
  * Supports dashboard-level universal filters that override chart filters.
- * 
+ *
  * @param options - Hook configuration options
  * @returns Dashboard data, loading state, error, and refetch function
- * 
+ *
  * @example
  * ```tsx
  * const { data, isLoading, error, refetch } = useDashboardData({
@@ -159,10 +159,10 @@ interface UseDashboardDataReturn {
  *     organizationId: 'org-456'
  *   }
  * });
- * 
+ *
  * if (isLoading) return <LoadingSkeleton />;
  * if (error) return <ErrorDisplay error={error} />;
- * 
+ *
  * return (
  *   <div>
  *     {Object.entries(data.charts).map(([chartId, chartData]) => (
@@ -240,9 +240,10 @@ export function useDashboardData(options: UseDashboardDataOptions): UseDashboard
 
         // Calculate metrics
         const totalTime = Date.now() - startTime;
-        const cacheHitRate = response.metadata.queriesExecuted > 0
-          ? Math.round((response.metadata.cacheHits / response.metadata.queriesExecuted) * 100)
-          : 0;
+        const cacheHitRate =
+          response.metadata.queriesExecuted > 0
+            ? Math.round((response.metadata.cacheHits / response.metadata.queriesExecuted) * 100)
+            : 0;
 
         setMetrics({
           totalTime,
@@ -265,9 +266,7 @@ export function useDashboardData(options: UseDashboardDataOptions): UseDashboard
           return;
         }
 
-        const errorMessage = err instanceof Error
-          ? err.message
-          : 'Failed to load dashboard data';
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load dashboard data';
 
         setError(errorMessage);
 
@@ -281,7 +280,7 @@ export function useDashboardData(options: UseDashboardDataOptions): UseDashboard
         abortControllerRef.current = null;
       }
     },
-    [dashboardId, JSON.stringify(universalFilters), JSON.stringify(chartOverrides), nocache, enabled]
+    [dashboardId, nocache, enabled, chartOverrides, universalFilters]
   );
 
   /**
@@ -316,4 +315,3 @@ export function useDashboardData(options: UseDashboardDataOptions): UseDashboard
     metrics,
   };
 }
-

@@ -11,8 +11,8 @@
  * - Scope isolation
  */
 
-export * from './user-factory'
-export * from './organization-factory'
-export * from './dashboard-factory'
-export * from './chart-factory'
-export * from './role-factory'
+export * from './chart-factory';
+export * from './dashboard-factory';
+export * from './organization-factory';
+export * from './role-factory';
+export * from './user-factory';

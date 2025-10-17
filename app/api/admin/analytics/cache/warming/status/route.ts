@@ -12,9 +12,9 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/route-handlers';
-import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
 import { cacheWarmingTracker, type WarmingJob } from '@/lib/monitoring/cache-warming-tracker';
 
@@ -45,7 +45,7 @@ const warmingStatusHandler = async (request: NextRequest) => {
 
     // Get active jobs with ETA calculation
     const activeJobs = cacheWarmingTracker.getActiveJobs();
-    const activeJobsWithETA: ActiveJobWithETA[] = activeJobs.map(job => ({
+    const activeJobsWithETA: ActiveJobWithETA[] = activeJobs.map((job) => ({
       ...job,
       etaSeconds: cacheWarmingTracker.calculateETA(job.jobId),
     }));
@@ -105,4 +105,3 @@ export const GET = rbacRoute(warmingStatusHandler, {
   permission: 'settings:read:all',
   rateLimit: 'api',
 });
-

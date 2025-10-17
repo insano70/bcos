@@ -1,13 +1,13 @@
 import type { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
-import { extractRouteParams } from '@/lib/api/utils/params';
-import { workItemAttachmentParamsSchema } from '@/lib/validations/work-items';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
+import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
+import { log } from '@/lib/logger';
 import { createRBACWorkItemAttachmentsService } from '@/lib/services/rbac-work-item-attachments-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
+import { workItemAttachmentParamsSchema } from '@/lib/validations/work-items';
 
 /**
  * DELETE /api/work-items/[id]/attachments/[attachmentId]

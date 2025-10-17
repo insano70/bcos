@@ -1,6 +1,6 @@
+import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { organizations } from '@/lib/db/schema';
-import { isNull, eq, and } from 'drizzle-orm';
 
 async function checkForCycles() {
   console.log('🔍 Checking for circular organization references...\n');
@@ -46,9 +46,7 @@ async function checkForCycles() {
 
         // Check if we already found this cycle
         const cycleKey = cycle.sort().join(',');
-        const alreadyFound = cycles.some(
-          (c) => c.sort().join(',') === cycleKey
-        );
+        const alreadyFound = cycles.some((c) => c.sort().join(',') === cycleKey);
 
         if (!alreadyFound) {
           cycles.push(cycle);

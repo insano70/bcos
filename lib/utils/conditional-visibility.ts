@@ -5,7 +5,15 @@
 
 export interface ConditionalVisibilityRule {
   field_id: string;
-  operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'greater_than' | 'less_than' | 'is_empty' | 'is_not_empty';
+  operator:
+    | 'equals'
+    | 'not_equals'
+    | 'contains'
+    | 'not_contains'
+    | 'greater_than'
+    | 'less_than'
+    | 'is_empty'
+    | 'is_not_empty';
   value?: unknown;
 }
 
@@ -110,10 +118,9 @@ export function evaluateFieldVisibility(
 /**
  * Get all visible fields from a list of fields based on current field values
  */
-export function getVisibleFields<T extends { work_item_field_id: string; field_config?: FieldConfig | null }>(
-  fields: T[],
-  fieldValues: FieldValueMap
-): T[] {
+export function getVisibleFields<
+  T extends { work_item_field_id: string; field_config?: FieldConfig | null },
+>(fields: T[], fieldValues: FieldValueMap): T[] {
   return fields.filter((field) => evaluateFieldVisibility(field.field_config, fieldValues));
 }
 
@@ -121,10 +128,9 @@ export function getVisibleFields<T extends { work_item_field_id: string; field_c
  * Check if changing a field value affects visibility of other fields
  * Returns array of field IDs whose visibility may have changed
  */
-export function getAffectedFields<T extends { work_item_field_id: string; field_config?: FieldConfig | null }>(
-  changedFieldId: string,
-  fields: T[]
-): string[] {
+export function getAffectedFields<
+  T extends { work_item_field_id: string; field_config?: FieldConfig | null },
+>(changedFieldId: string, fields: T[]): string[] {
   const affectedFieldIds: string[] = [];
 
   for (const field of fields) {

@@ -1,11 +1,15 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect, useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { useUpdateOrganization, useOrganizations, type Organization } from '@/lib/hooks/use-organizations';
+import {
+  type Organization,
+  useOrganizations,
+  useUpdateOrganization,
+} from '@/lib/hooks/use-organizations';
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
 import Toast from './toast';
 
@@ -42,7 +46,7 @@ export default function EditOrganizationModal({
   isOpen,
   onClose,
   onSuccess,
-  organization
+  organization,
 }: EditOrganizationModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
@@ -69,7 +73,7 @@ export default function EditOrganizationModal({
   // Build hierarchical organization list
   const hierarchicalOrgs = useMemo(() => {
     // Filter active organizations and exclude current org being edited
-    const activeOrgs = organizations.filter(org => {
+    const activeOrgs = organizations.filter((org) => {
       if (!org.is_active) return false;
       if (organization && org.id === organization.id) return false;
       return true;
@@ -78,7 +82,7 @@ export default function EditOrganizationModal({
     // Check if an org is a descendant of the current org being edited
     const isDescendantOfCurrent = (orgId: string): boolean => {
       if (!organization) return false;
-      const org = activeOrgs.find(o => o.id === orgId);
+      const org = activeOrgs.find((o) => o.id === orgId);
       if (!org) return false;
       if (!org.parent_organization_id) return false;
       if (org.parent_organization_id === organization.id) return true;
@@ -93,9 +97,10 @@ export default function EditOrganizationModal({
     ): HierarchicalOrg[] => {
       const children = orgs.filter((org) => {
         // Match parent - handle null/undefined comparison properly
-        const matchesParent = parentId === null || parentId === undefined
-          ? (org.parent_organization_id === null || org.parent_organization_id === undefined)
-          : org.parent_organization_id === parentId;
+        const matchesParent =
+          parentId === null || parentId === undefined
+            ? org.parent_organization_id === null || org.parent_organization_id === undefined
+            : org.parent_organization_id === parentId;
         const notDescendant = !isDescendantOfCurrent(org.id);
         return matchesParent && notDescendant;
       });
@@ -136,13 +141,13 @@ export default function EditOrganizationModal({
     try {
       // Parse practice_uids from comma-separated string to integer array
       let practice_uids: number[] = [];
-      if (data.practice_uids_input && data.practice_uids_input.trim()) {
+      if (data.practice_uids_input?.trim()) {
         practice_uids = data.practice_uids_input
           .split(',')
-          .map(s => s.trim())
-          .filter(s => s.length > 0)
-          .map(s => parseInt(s, 10))
-          .filter(n => !Number.isNaN(n) && n > 0);
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0)
+          .map((s) => parseInt(s, 10))
+          .filter((n) => !Number.isNaN(n) && n > 0);
       }
 
       await updateOrganization.mutateAsync({
@@ -227,7 +232,10 @@ export default function EditOrganizationModal({
             <form onSubmit={handleSubmit(onSubmit)}>
               <div className="px-6 py-4 space-y-4">
                 <div>
-                  <label htmlFor="edit-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="edit-name"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Organization Name <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -238,12 +246,17 @@ export default function EditOrganizationModal({
                     className="form-input w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
                   />
                   {errors.name && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.name.message}
+                    </p>
                   )}
                 </div>
 
                 <div>
-                  <label htmlFor="edit-slug" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="edit-slug"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Slug <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -257,12 +270,17 @@ export default function EditOrganizationModal({
                     URL-friendly identifier (lowercase, numbers, hyphens only)
                   </p>
                   {errors.slug && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.slug.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.slug.message}
+                    </p>
                   )}
                 </div>
 
                 <div>
-                  <label htmlFor="edit-parent_organization_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="edit-parent_organization_id"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Parent Organization
                   </label>
                   <select
@@ -274,7 +292,8 @@ export default function EditOrganizationModal({
                     <option value="">None (Root Organization)</option>
                     {hierarchicalOrgs.map((org) => (
                       <option key={org.id} value={org.id}>
-                        {'\u00A0'.repeat(org.level * 4)}{org.name}
+                        {'\u00A0'.repeat(org.level * 4)}
+                        {org.name}
                       </option>
                     ))}
                   </select>
@@ -282,12 +301,17 @@ export default function EditOrganizationModal({
                     Optional: Select a parent organization to create a hierarchy
                   </p>
                   {errors.parent_organization_id && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.parent_organization_id.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.parent_organization_id.message}
+                    </p>
                   )}
                 </div>
 
                 <div>
-                  <label htmlFor="edit-practice_uids" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="edit-practice_uids"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Practice UIDs
                     <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
                       (For Analytics Data Filtering)
@@ -302,9 +326,10 @@ export default function EditOrganizationModal({
                     className="form-input w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
                   />
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Comma-separated list of practice_uid values from analytics database (ih.agg_app_measures).
-                    Users in this organization can only see data where practice_uid matches these values.
-                    Leave empty to restrict all analytics access (fail-closed security).
+                    Comma-separated list of practice_uid values from analytics database
+                    (ih.agg_app_measures). Users in this organization can only see data where
+                    practice_uid matches these values. Leave empty to restrict all analytics access
+                    (fail-closed security).
                   </p>
                   <details className="mt-2">
                     <summary className="text-xs text-violet-600 dark:text-violet-400 cursor-pointer hover:text-violet-700 dark:hover:text-violet-300">
@@ -312,14 +337,18 @@ export default function EditOrganizationModal({
                     </summary>
                     <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded text-xs font-mono">
                       <code className="text-gray-700 dark:text-gray-300">
-                        SELECT DISTINCT practice_uid, practice<br />
-                        FROM ih.agg_app_measures<br />
+                        SELECT DISTINCT practice_uid, practice
+                        <br />
+                        FROM ih.agg_app_measures
+                        <br />
                         ORDER BY practice_uid;
                       </code>
                     </div>
                   </details>
                   {errors.practice_uids_input && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.practice_uids_input.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.practice_uids_input.message}
+                    </p>
                   )}
                 </div>
 
@@ -331,7 +360,10 @@ export default function EditOrganizationModal({
                     disabled={isSubmitting}
                     className="form-checkbox h-4 w-4 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 rounded disabled:opacity-50"
                   />
-                  <label htmlFor="edit-is_active" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                  <label
+                    htmlFor="edit-is_active"
+                    className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                  >
                     Active
                   </label>
                 </div>
@@ -359,11 +391,7 @@ export default function EditOrganizationModal({
         </TransitionChild>
       </Dialog>
 
-      <Toast
-        type="success"
-        open={showToast}
-        setOpen={setShowToast}
-      >
+      <Toast type="success" open={showToast} setOpen={setShowToast}>
         Organization updated successfully!
       </Toast>
     </Transition>

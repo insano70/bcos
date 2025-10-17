@@ -1,10 +1,10 @@
-import type { ChartData } from '@/lib/types/analytics';
-import { MeasureAccessor } from '@/lib/types/analytics';
 import { log } from '@/lib/logger';
-import { BaseChartHandler } from './base-handler';
 import { getPaletteColors } from '@/lib/services/color-palettes';
-import { getColumnName } from './column-resolver';
+import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
+import { MeasureAccessor } from '@/lib/types/analytics';
 import { columnMappingService } from '../column-mapping-service';
+import { BaseChartHandler } from './base-handler';
+import { getColumnName } from './column-resolver';
 
 type AggregationType = 'sum' | 'avg' | 'count' | 'min' | 'max';
 
@@ -33,10 +33,7 @@ export class ProgressBarChartHandler extends BaseChartHandler {
   /**
    * Aggregate data values based on aggregation type
    */
-  private aggregateData(
-    values: number[],
-    aggregationType: AggregationType = 'sum'
-  ): number {
+  private aggregateData(values: number[], aggregationType: AggregationType = 'sum'): number {
     if (values.length === 0) return 0;
 
     let result = 0;
@@ -77,7 +74,10 @@ export class ProgressBarChartHandler extends BaseChartHandler {
   /**
    * Transform raw data into format for progress bar chart
    */
-  async transform(data: Record<string, unknown>[], config: Record<string, unknown>): Promise<ChartData> {
+  async transform(
+    data: Record<string, unknown>[],
+    config: Record<string, unknown>
+  ): Promise<ChartData> {
     const startTime = Date.now();
 
     try {
@@ -85,10 +85,11 @@ export class ProgressBarChartHandler extends BaseChartHandler {
       const groupBy = this.getGroupBy(config);
       const target = config.target as number | undefined;
       const colorPalette = this.getColorPalette(config);
-      
+
       // Use data source configuration to determine the value column
-      const valueColumn = config.valueColumn as string | undefined
-        || await getColumnName(config.dataSourceId as number | undefined, 'measure');
+      const valueColumn =
+        (config.valueColumn as string | undefined) ||
+        (await getColumnName(config.dataSourceId as number | undefined, 'measure'));
 
       log.info('Transforming progress bar chart data', {
         recordCount: data.length,
@@ -105,11 +106,13 @@ export class ProgressBarChartHandler extends BaseChartHandler {
 
         return {
           labels: [],
-          datasets: [{
-            label: config.title as string || 'Progress',
-            data: [],
-            measureType: 'percentage',
-          }],
+          datasets: [
+            {
+              label: (config.title as string) || 'Progress',
+              data: [],
+              measureType: 'percentage',
+            },
+          ],
           measureType: 'percentage',
         };
       }
@@ -121,7 +124,7 @@ export class ProgressBarChartHandler extends BaseChartHandler {
       if (data.length > 0) {
         log.debug('Sample raw data records', {
           sampleCount: Math.min(3, data.length),
-          samples: data.slice(0, 3).map(r => ({
+          samples: data.slice(0, 3).map((r) => ({
             groupBy: r[groupBy || 'none'],
             valueColumn: r[valueColumn],
             valueType: typeof r[valueColumn],
@@ -130,13 +133,13 @@ export class ProgressBarChartHandler extends BaseChartHandler {
       }
 
       for (const record of data) {
-        const groupKey = groupBy && groupBy !== 'none'
-          ? String(record[groupBy] || 'Unknown')
-          : 'Total';
+        const groupKey =
+          groupBy && groupBy !== 'none' ? String(record[groupBy] || 'Unknown') : 'Total';
 
-        const value = typeof record[valueColumn] === 'string'
-          ? parseFloat(record[valueColumn] as string)
-          : (record[valueColumn] as number || 0);
+        const value =
+          typeof record[valueColumn] === 'string'
+            ? parseFloat(record[valueColumn] as string)
+            : (record[valueColumn] as number) || 0;
 
         const numValue = Number.isNaN(value) ? 0 : value;
 
@@ -182,7 +185,7 @@ export class ProgressBarChartHandler extends BaseChartHandler {
       });
 
       // Calculate percentages based on dynamic target
-      const groupedDataWithPercentages = groupedData.map(group => ({
+      const groupedDataWithPercentages = groupedData.map((group) => ({
         ...group,
         percentage: dynamicTarget > 0 ? (group.value / dynamicTarget) * 100 : 0,
       }));
@@ -191,12 +194,12 @@ export class ProgressBarChartHandler extends BaseChartHandler {
       groupedDataWithPercentages.sort((a, b) => b.value - a.value);
 
       // Extract sorted arrays
-      const labels = groupedDataWithPercentages.map(d => d.label);
-      const rawValues = groupedDataWithPercentages.map(d => d.value);
-      const percentages = groupedDataWithPercentages.map(d => d.percentage);
+      const labels = groupedDataWithPercentages.map((d) => d.label);
+      const rawValues = groupedDataWithPercentages.map((d) => d.value);
+      const percentages = groupedDataWithPercentages.map((d) => d.percentage);
 
       log.debug('Progress bar groups calculated', {
-        sampleGroups: groupedDataWithPercentages.slice(0, 3).map(g => ({
+        sampleGroups: groupedDataWithPercentages.slice(0, 3).map((g) => ({
           label: g.label,
           value: g.value,
           percentage: `${g.percentage.toFixed(2)}%`,
@@ -204,35 +207,38 @@ export class ProgressBarChartHandler extends BaseChartHandler {
       });
 
       // Determine measure type from data using MeasureAccessor
-      let measureType = (config.measureType as string);
-      
+      let measureType = config.measureType as string;
+
       if (!measureType && data[0] && config.dataSourceId) {
         try {
           const mapping = await columnMappingService.getMapping(config.dataSourceId as number);
-          const accessor = new MeasureAccessor(data[0] as unknown as import('@/lib/types/analytics').AggAppMeasure, mapping);
+          // Record<string, unknown> from database matches AggAppMeasure dynamic schema
+          const accessor = new MeasureAccessor(data[0] as AggAppMeasure, mapping);
           measureType = accessor.getMeasureType();
         } catch (error) {
           log.warn('Failed to get measure type from accessor, using default', { error });
           measureType = 'number';
         }
       }
-      
+
       measureType = measureType || 'number';
 
       const chartData: ChartData = {
         labels,
-        datasets: [{
-          label: config.title as string || 'Progress',
-          data: percentages,
-          measureType: 'percentage',
-          // Store raw values for display alongside percentages
-          rawValues,
-          // Store dynamic target (sum of all values)
-          target: dynamicTarget,
-          aggregationType,
-          // Store original measure type for formatting raw values
-          originalMeasureType: measureType,
-        }],
+        datasets: [
+          {
+            label: (config.title as string) || 'Progress',
+            data: percentages,
+            measureType: 'percentage',
+            // Store raw values for display alongside percentages
+            rawValues,
+            // Store dynamic target (sum of all values)
+            target: dynamicTarget,
+            aggregationType,
+            // Store original measure type for formatting raw values
+            originalMeasureType: measureType,
+          },
+        ],
         measureType: 'percentage',
         // Store colors for frontend reference
         colors: getPaletteColors(colorPalette),

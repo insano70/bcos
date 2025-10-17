@@ -1,11 +1,15 @@
 'use client';
 
-import { useState, useMemo } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { useCreateOrganization, useOrganizations, type Organization } from '@/lib/hooks/use-organizations';
+import {
+  type Organization,
+  useCreateOrganization,
+  useOrganizations,
+} from '@/lib/hooks/use-organizations';
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
 import Toast from './toast';
 
@@ -36,7 +40,11 @@ interface HierarchicalOrg {
   level: number;
 }
 
-export default function AddOrganizationModal({ isOpen, onClose, onSuccess }: AddOrganizationModalProps) {
+export default function AddOrganizationModal({
+  isOpen,
+  onClose,
+  onSuccess,
+}: AddOrganizationModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const createOrganization = useCreateOrganization();
@@ -57,12 +65,12 @@ export default function AddOrganizationModal({ isOpen, onClose, onSuccess }: Add
     },
   });
 
-  const name = watch('name');
+  const _name = watch('name');
 
   // Build hierarchical organization list
   const hierarchicalOrgs = useMemo(() => {
     // Filter active organizations only
-    const activeOrgs = organizations.filter(org => org.is_active);
+    const activeOrgs = organizations.filter((org) => org.is_active);
 
     // Build hierarchy recursively
     const buildHierarchy = (
@@ -109,13 +117,13 @@ export default function AddOrganizationModal({ isOpen, onClose, onSuccess }: Add
     try {
       // Parse practice_uids from comma-separated string to integer array
       let practice_uids: number[] = [];
-      if (data.practice_uids_input && data.practice_uids_input.trim()) {
+      if (data.practice_uids_input?.trim()) {
         practice_uids = data.practice_uids_input
           .split(',')
-          .map(s => s.trim())
-          .filter(s => s.length > 0)
-          .map(s => parseInt(s, 10))
-          .filter(n => !Number.isNaN(n) && n > 0);
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0)
+          .map((s) => parseInt(s, 10))
+          .filter((n) => !Number.isNaN(n) && n > 0);
       }
 
       await createOrganization.mutateAsync({
@@ -197,7 +205,10 @@ export default function AddOrganizationModal({ isOpen, onClose, onSuccess }: Add
             <form onSubmit={handleSubmit(onSubmit)}>
               <div className="px-6 py-4 space-y-4">
                 <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="name"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Organization Name <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -210,12 +221,17 @@ export default function AddOrganizationModal({ isOpen, onClose, onSuccess }: Add
                     placeholder="Enter organization name"
                   />
                   {errors.name && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.name.message}
+                    </p>
                   )}
                 </div>
 
                 <div>
-                  <label htmlFor="slug" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="slug"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Slug <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -230,12 +246,17 @@ export default function AddOrganizationModal({ isOpen, onClose, onSuccess }: Add
                     URL-friendly identifier (lowercase, numbers, hyphens only)
                   </p>
                   {errors.slug && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.slug.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.slug.message}
+                    </p>
                   )}
                 </div>
 
                 <div>
-                  <label htmlFor="parent_organization_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="parent_organization_id"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Parent Organization
                   </label>
                   <select
@@ -247,7 +268,8 @@ export default function AddOrganizationModal({ isOpen, onClose, onSuccess }: Add
                     <option value="">None (Root Organization)</option>
                     {hierarchicalOrgs.map((org) => (
                       <option key={org.id} value={org.id}>
-                        {'\u00A0'.repeat(org.level * 4)}{org.name}
+                        {'\u00A0'.repeat(org.level * 4)}
+                        {org.name}
                       </option>
                     ))}
                   </select>
@@ -255,12 +277,17 @@ export default function AddOrganizationModal({ isOpen, onClose, onSuccess }: Add
                     Optional: Select a parent organization to create a hierarchy
                   </p>
                   {errors.parent_organization_id && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.parent_organization_id.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.parent_organization_id.message}
+                    </p>
                   )}
                 </div>
 
                 <div>
-                  <label htmlFor="practice_uids" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="practice_uids"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Practice UIDs
                     <span className="ml-2 text-xs font-normal text-gray-500 dark:text-gray-400">
                       (For Analytics Data Filtering)
@@ -275,9 +302,10 @@ export default function AddOrganizationModal({ isOpen, onClose, onSuccess }: Add
                     className="form-input w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
                   />
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Comma-separated list of practice_uid values from analytics database (ih.agg_app_measures).
-                    Users in this organization can only see data where practice_uid matches these values.
-                    Leave empty to restrict all analytics access (fail-closed security).
+                    Comma-separated list of practice_uid values from analytics database
+                    (ih.agg_app_measures). Users in this organization can only see data where
+                    practice_uid matches these values. Leave empty to restrict all analytics access
+                    (fail-closed security).
                   </p>
                   <details className="mt-2">
                     <summary className="text-xs text-violet-600 dark:text-violet-400 cursor-pointer hover:text-violet-700 dark:hover:text-violet-300">
@@ -285,14 +313,18 @@ export default function AddOrganizationModal({ isOpen, onClose, onSuccess }: Add
                     </summary>
                     <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded text-xs font-mono">
                       <code className="text-gray-700 dark:text-gray-300">
-                        SELECT DISTINCT practice_uid, practice<br />
-                        FROM ih.agg_app_measures<br />
+                        SELECT DISTINCT practice_uid, practice
+                        <br />
+                        FROM ih.agg_app_measures
+                        <br />
                         ORDER BY practice_uid;
                       </code>
                     </div>
                   </details>
                   {errors.practice_uids_input && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.practice_uids_input.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.practice_uids_input.message}
+                    </p>
                   )}
                 </div>
 
@@ -304,7 +336,10 @@ export default function AddOrganizationModal({ isOpen, onClose, onSuccess }: Add
                     disabled={isSubmitting}
                     className="form-checkbox h-4 w-4 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 rounded disabled:opacity-50"
                   />
-                  <label htmlFor="is_active" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                  <label
+                    htmlFor="is_active"
+                    className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                  >
                     Active
                   </label>
                 </div>
@@ -332,11 +367,7 @@ export default function AddOrganizationModal({ isOpen, onClose, onSuccess }: Add
         </TransitionChild>
       </Dialog>
 
-      <Toast
-        type="success"
-        open={showToast}
-        setOpen={setShowToast}
-      >
+      <Toast type="success" open={showToast} setOpen={setShowToast}>
         Organization created successfully!
       </Toast>
     </Transition>

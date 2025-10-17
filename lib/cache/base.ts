@@ -35,10 +35,10 @@
  * ```
  */
 
-import { getRedisClient } from '@/lib/redis';
-import { log } from '@/lib/logger';
-import type { CacheOptions } from './types';
 import type Redis from 'ioredis';
+import { log } from '@/lib/logger';
+import { getRedisClient } from '@/lib/redis';
+import type { CacheOptions } from './types';
 
 export abstract class CacheService<T = unknown> {
   /**
@@ -200,12 +200,16 @@ export abstract class CacheService<T = unknown> {
       }
       return deleted;
     } catch (error) {
-      log.error('Redis DEL many failed', error instanceof Error ? error : new Error(String(error)), {
-        component: 'cache',
-        namespace: this.namespace,
-        keyCount: keys.length,
-        operation: 'DEL_MANY',
-      });
+      log.error(
+        'Redis DEL many failed',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          component: 'cache',
+          namespace: this.namespace,
+          keyCount: keys.length,
+          operation: 'DEL_MANY',
+        }
+      );
       return 0;
     }
   }
@@ -250,12 +254,16 @@ export abstract class CacheService<T = unknown> {
 
       return deletedCount;
     } catch (error) {
-      log.error('Redis DEL pattern failed', error instanceof Error ? error : new Error(String(error)), {
-        component: 'cache',
-        namespace: this.namespace,
-        pattern,
-        operation: 'DEL_PATTERN',
-      });
+      log.error(
+        'Redis DEL pattern failed',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          component: 'cache',
+          namespace: this.namespace,
+          pattern,
+          operation: 'DEL_PATTERN',
+        }
+      );
       return 0;
     }
   }

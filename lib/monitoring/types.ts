@@ -456,43 +456,43 @@ export type CacheHealthStatus = 'excellent' | 'good' | 'degraded' | 'stale' | 'c
 
 /**
  * Per-Datasource Cache Metrics
- * 
+ *
  * Provides detailed cache statistics for individual data sources
  */
 export interface DatasourceCacheMetrics {
   datasourceId: number;
   datasourceName: string;
-  
+
   // Cache Status
   isWarm: boolean;
   lastWarmed: string | null; // ISO timestamp
   ageMinutes: number;
-  
+
   // Size Metrics
-  totalEntries: number;       // Cache keys (granular entries)
-  indexCount: number;         // Secondary indexes
+  totalEntries: number; // Cache keys (granular entries)
+  indexCount: number; // Secondary indexes
   estimatedMemoryMB: number;
-  
+
   // Coverage Metrics
   uniqueMeasures: number;
   uniquePractices: number;
   uniqueProviders: number;
   uniqueFrequencies: string[];
-  
+
   // Performance Metrics
-  avgQueryTimeMs: number;     // Average query time against this cache
-  cacheHitRate: number;       // Hit rate for this datasource
-  totalQueries: number;       // Total queries since last warm
-  
+  avgQueryTimeMs: number; // Average query time against this cache
+  cacheHitRate: number; // Hit rate for this datasource
+  totalQueries: number; // Total queries since last warm
+
   // Health Indicators
   health: CacheHealthStatus;
-  healthScore: number;        // 0-100
+  healthScore: number; // 0-100
   warnings: string[];
 }
 
 /**
  * Analytics Cache Summary
- * 
+ *
  * Aggregated statistics across all data sources
  */
 export interface AnalyticsCacheSummary {
@@ -503,7 +503,7 @@ export interface AnalyticsCacheSummary {
   totalIndexes: number;
   totalMemoryMB: number;
   overallCacheHitRate: number;
-  avgCacheAge: number;        // Average age in minutes
+  avgCacheAge: number; // Average age in minutes
   oldestCache: number | null; // Datasource ID of oldest cache
   healthDistribution: {
     excellent: number;
@@ -522,4 +522,3 @@ export interface AnalyticsCacheStatsResponse {
   datasources: DatasourceCacheMetrics[];
   timestamp: string;
 }
-

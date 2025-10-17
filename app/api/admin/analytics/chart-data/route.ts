@@ -1,18 +1,17 @@
 import type { NextRequest } from 'next/server';
-
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
 import { validateRequest } from '@/lib/api/middleware/validation';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
-import type { UserContext } from '@/lib/types/rbac';
-import type { ChartData, AnalyticsQueryParams } from '@/lib/types/analytics';
-import { chartDataRequestSchema } from '@/lib/validations/analytics';
-import { SimplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
-import { loadColumnMetadata } from '@/lib/utils/chart-metadata-loader.server';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import { analyticsQueryBuilder } from '@/lib/services/analytics';
 import { calculatedFieldsService } from '@/lib/services/calculated-fields';
+import type { AnalyticsQueryParams, ChartData } from '@/lib/types/analytics';
+import type { UserContext } from '@/lib/types/rbac';
+import { loadColumnMetadata } from '@/lib/utils/chart-metadata-loader.server';
 import { getDateRange } from '@/lib/utils/date-presets';
+import { SimplifiedChartTransformer } from '@/lib/utils/simplified-chart-transformer';
+import { chartDataRequestSchema } from '@/lib/validations/analytics';
 
 /**
  * Transform Chart Data Handler
@@ -26,10 +25,7 @@ import { getDateRange } from '@/lib/utils/date-presets';
  * @param userContext - Authenticated user context
  * @returns Transformed chart data in Chart.js format
  */
-const transformChartDataHandler = async (
-  request: NextRequest,
-  userContext: UserContext
-) => {
+const transformChartDataHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
 
   try {
@@ -45,19 +41,32 @@ const transformChartDataHandler = async (
 
     // Build query parameters for analytics query builder
     const queryParams: AnalyticsQueryParams = {
-      ...(validatedData.measure && { measure: validatedData.measure as import('@/lib/types/analytics').MeasureType }),
-      ...(validatedData.frequency && { frequency: validatedData.frequency as import('@/lib/types/analytics').FrequencyType }),
+      ...(validatedData.measure && {
+        measure: validatedData.measure as import('@/lib/types/analytics').MeasureType,
+      }),
+      ...(validatedData.frequency && {
+        frequency: validatedData.frequency as import('@/lib/types/analytics').FrequencyType,
+      }),
       ...(validatedData.practice && { practice: validatedData.practice }),
       ...(validatedData.practiceUid && { practice_uid: parseInt(validatedData.practiceUid, 10) }),
       ...(validatedData.providerName && { provider_name: validatedData.providerName }),
       ...(startDate && { start_date: startDate }),
       ...(endDate && { end_date: endDate }),
-      ...(validatedData.advancedFilters && { advanced_filters: validatedData.advancedFilters as import('@/lib/types/analytics').ChartFilter[] }),
+      ...(validatedData.advancedFilters && {
+        advanced_filters:
+          validatedData.advancedFilters as import('@/lib/types/analytics').ChartFilter[],
+      }),
       ...(validatedData.calculatedField && { calculated_field: validatedData.calculatedField }),
       ...(validatedData.dataSourceId && { data_source_id: validatedData.dataSourceId }),
       limit: 1000,
-      ...(validatedData.multipleSeries && { multiple_series: validatedData.multipleSeries as import('@/lib/types/analytics').MultipleSeriesConfig[] }),
-      ...(validatedData.periodComparison && { period_comparison: validatedData.periodComparison as import('@/lib/types/analytics').PeriodComparisonConfig }),
+      ...(validatedData.multipleSeries && {
+        multiple_series:
+          validatedData.multipleSeries as import('@/lib/types/analytics').MultipleSeriesConfig[],
+      }),
+      ...(validatedData.periodComparison && {
+        period_comparison:
+          validatedData.periodComparison as import('@/lib/types/analytics').PeriodComparisonConfig,
+      }),
     };
 
     // Pass userContext directly to enable cache integration
@@ -68,7 +77,10 @@ const transformChartDataHandler = async (
 
     // 3. Apply calculated fields if specified
     if (validatedData.calculatedField && measures.length > 0) {
-      measures = calculatedFieldsService.applyCalculatedField(validatedData.calculatedField, measures);
+      measures = calculatedFieldsService.applyCalculatedField(
+        validatedData.calculatedField,
+        measures
+      );
     }
 
     // 4. Load column metadata (server-side only)
@@ -83,7 +95,15 @@ const transformChartDataHandler = async (
 
     // Map stacked-bar to bar for transformation (stacking is handled by Chart.js config)
     // Filter out chart types not supported by transformer
-    let transformChartType: 'line' | 'bar' | 'horizontal-bar' | 'progress-bar' | 'pie' | 'doughnut' | 'area' | 'table';
+    let transformChartType:
+      | 'line'
+      | 'bar'
+      | 'horizontal-bar'
+      | 'progress-bar'
+      | 'pie'
+      | 'doughnut'
+      | 'area'
+      | 'table';
 
     if (validatedData.chartType === 'stacked-bar') {
       transformChartType = 'bar';
@@ -99,7 +119,7 @@ const transformChartDataHandler = async (
     // Handle multiple series charts
     if (validatedData.multipleSeries && validatedData.multipleSeries.length > 0) {
       const aggregations: Record<string, 'sum' | 'avg' | 'count' | 'min' | 'max'> = {};
-      validatedData.multipleSeries.forEach(series => {
+      validatedData.multipleSeries.forEach((series) => {
         if (series.label) {
           aggregations[series.label] = series.aggregation;
         }
@@ -113,7 +133,7 @@ const transformChartDataHandler = async (
       );
     }
     // Handle period comparison charts
-    else if (measures.some(m => m.series_id === 'current' || m.series_id === 'comparison')) {
+    else if (measures.some((m) => m.series_id === 'current' || m.series_id === 'comparison')) {
       chartData = transformer.transformDataWithPeriodComparison(
         measures,
         transformChartType,

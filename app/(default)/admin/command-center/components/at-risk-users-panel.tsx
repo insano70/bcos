@@ -12,15 +12,15 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
-import type { AtRiskUsersResponse, AtRiskUser } from '@/lib/monitoring/types';
 import {
   getRiskCategory,
   getRiskIndicator,
-  getRiskScoreColor,
   getRiskScoreBgColor,
+  getRiskScoreColor,
 } from '@/lib/monitoring/risk-score';
+import type { AtRiskUser, AtRiskUsersResponse } from '@/lib/monitoring/types';
 import { exportToCSV, formatDateForCSV } from '@/lib/utils/csv-export';
 
 interface AtRiskUsersPanelProps {
@@ -38,8 +38,12 @@ export default function AtRiskUsersPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'locked' | 'suspicious' | 'monitoring'>('all');
-  const [sortBy, setSortBy] = useState<'riskScore' | 'failedAttempts' | 'lastFailedAttempt'>('riskScore');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'locked' | 'suspicious' | 'monitoring'>(
+    'all'
+  );
+  const [sortBy, setSortBy] = useState<'riskScore' | 'failedAttempts' | 'lastFailedAttempt'>(
+    'riskScore'
+  );
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
   const pageSize = 10;
@@ -84,7 +88,7 @@ export default function AtRiskUsersPanel({
     );
   };
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const response = await apiClient.get('/api/admin/monitoring/at-risk-users?limit=100');
       setData(response as AtRiskUsersResponse);
@@ -94,44 +98,46 @@ export default function AtRiskUsersPanel({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Filter and sort users
-  const filteredAndSortedUsers = data ? data.users
-    .filter(user => {
-      if (searchTerm && !user.email.toLowerCase().includes(searchTerm.toLowerCase())) {
-        return false;
-      }
-      
-      const now = new Date();
-      const isLocked = user.lockedUntil && new Date(user.lockedUntil) > now;
-      
-      if (statusFilter === 'locked' && !isLocked) return false;
-      if (statusFilter === 'suspicious' && !user.suspiciousActivity) return false;
-      if (statusFilter === 'monitoring' && (isLocked || user.suspiciousActivity)) return false;
-      
-      return true;
-    })
-    .sort((a, b) => {
-      let aVal: number;
-      let bVal: number;
-      
-      if (sortBy === 'lastFailedAttempt') {
-        aVal = a.lastFailedAttempt ? new Date(a.lastFailedAttempt).getTime() : 0;
-        bVal = b.lastFailedAttempt ? new Date(b.lastFailedAttempt).getTime() : 0;
-      } else {
-        aVal = a[sortBy] || 0;
-        bVal = b[sortBy] || 0;
-      }
-      
-      const multiplier = sortOrder === 'asc' ? 1 : -1;
-      return aVal > bVal ? multiplier : -multiplier;
-    }) : [];
+  const filteredAndSortedUsers = data
+    ? data.users
+        .filter((user) => {
+          if (searchTerm && !user.email.toLowerCase().includes(searchTerm.toLowerCase())) {
+            return false;
+          }
+
+          const now = new Date();
+          const isLocked = user.lockedUntil && new Date(user.lockedUntil) > now;
+
+          if (statusFilter === 'locked' && !isLocked) return false;
+          if (statusFilter === 'suspicious' && !user.suspiciousActivity) return false;
+          if (statusFilter === 'monitoring' && (isLocked || user.suspiciousActivity)) return false;
+
+          return true;
+        })
+        .sort((a, b) => {
+          let aVal: number;
+          let bVal: number;
+
+          if (sortBy === 'lastFailedAttempt') {
+            aVal = a.lastFailedAttempt ? new Date(a.lastFailedAttempt).getTime() : 0;
+            bVal = b.lastFailedAttempt ? new Date(b.lastFailedAttempt).getTime() : 0;
+          } else {
+            aVal = a[sortBy] || 0;
+            bVal = b[sortBy] || 0;
+          }
+
+          const multiplier = sortOrder === 'asc' ? 1 : -1;
+          return aVal > bVal ? multiplier : -multiplier;
+        })
+    : [];
 
   const totalPages = Math.ceil(filteredAndSortedUsers.length / pageSize);
   const paginatedUsers = filteredAndSortedUsers.slice((page - 1) * pageSize, page * pageSize);
 
-  const handleSort = (field: typeof sortBy) => {
+  const _handleSort = (field: typeof sortBy) => {
     if (sortBy === field) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
     } else {
@@ -143,7 +149,7 @@ export default function AtRiskUsersPanel({
   // Initial fetch
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   // Auto-refresh
   useEffect(() => {
@@ -151,10 +157,14 @@ export default function AtRiskUsersPanel({
 
     const interval = setInterval(fetchUsers, refreshInterval);
     return () => clearInterval(interval);
-  }, [autoRefresh, refreshInterval]);
+  }, [autoRefresh, refreshInterval, fetchUsers]);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6" role="region" aria-label="At-risk users">
+    <div
+      className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6"
+      role="region"
+      aria-label="At-risk users"
+    >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">At-Risk Users</h3>
@@ -163,15 +173,21 @@ export default function AtRiskUsersPanel({
           <input
             type="text"
             value={searchTerm}
-            onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setSearchTerm(e.target.value);
+              setPage(1);
+            }}
             placeholder="Search email..."
             className="text-sm px-3 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800"
           />
-          
+
           {/* Status Filter */}
           <select
             value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value as typeof statusFilter); setPage(1); }}
+            onChange={(e) => {
+              setStatusFilter(e.target.value as typeof statusFilter);
+              setPage(1);
+            }}
             className="text-sm px-3 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800"
           >
             <option value="all">All</option>
@@ -186,8 +202,18 @@ export default function AtRiskUsersPanel({
             className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             title="Export to CSV"
           >
-            <svg className="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            <svg
+              className="w-4 h-4 inline-block"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
             </svg>
           </button>
 
@@ -289,7 +315,7 @@ export default function AtRiskUsersPanel({
             {totalPages > 1 && (
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
                   className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded disabled:opacity-50"
                 >
@@ -299,7 +325,7 @@ export default function AtRiskUsersPanel({
                   Page {page} of {totalPages}
                 </span>
                 <button
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
                   className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded disabled:opacity-50"
                 >
@@ -355,7 +381,8 @@ function AtRiskUserRow({ user, onView }: AtRiskUserRowProps) {
           </div>
           <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{user.email}</div>
           <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-            {user.failedAttempts} failed • {user.recentAttempts24h} in 24h • {user.uniqueIPs7d} IPs (7d)
+            {user.failedAttempts} failed • {user.recentAttempts24h} in 24h • {user.uniqueIPs7d} IPs
+            (7d)
           </div>
         </div>
 
@@ -371,4 +398,3 @@ function AtRiskUserRow({ user, onView }: AtRiskUserRowProps) {
     </div>
   );
 }
-

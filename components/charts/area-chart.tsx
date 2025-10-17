@@ -1,19 +1,19 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
-import { useTheme } from 'next-themes';
-import { chartColors } from '@/components/charts/chartjs-config';
+import type { ChartData } from 'chart.js';
 import {
   Chart,
+  Filler,
+  LinearScale,
   LineController,
   LineElement,
-  Filler,
   PointElement,
-  LinearScale,
   TimeScale,
   Tooltip,
 } from 'chart.js';
-import type { ChartData } from 'chart.js';
+import { useTheme } from 'next-themes';
+import { useEffect, useRef, useState } from 'react';
+import { chartColors } from '@/components/charts/chartjs-config';
 import 'chartjs-adapter-moment';
 import { formatValue } from '@/components/utils/utils';
 
@@ -30,7 +30,8 @@ export default function AreaChart({ data, width, height }: AreaChartProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const { theme } = useTheme();
   const darkMode = theme === 'dark';
-  const { textColor, gridColor, tooltipBodyColor, tooltipBgColor, tooltipBorderColor } = chartColors;
+  const { textColor, gridColor, tooltipBodyColor, tooltipBgColor, tooltipBorderColor } =
+    chartColors;
 
   useEffect(() => {
     const ctx = canvas.current;
@@ -40,11 +41,11 @@ export default function AreaChart({ data, width, height }: AreaChartProps) {
       type: 'line',
       data: {
         ...data,
-        datasets: data.datasets.map(dataset => ({
+        datasets: data.datasets.map((dataset) => ({
           ...dataset,
           fill: true, // Enable area fill
           tension: 0.4, // Smooth curves
-        }))
+        })),
       },
       options: {
         layout: {

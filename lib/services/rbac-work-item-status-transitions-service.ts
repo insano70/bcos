@@ -1,10 +1,10 @@
 import { and, eq } from 'drizzle-orm';
+import { AuthorizationError, NotFoundError, ValidationError } from '@/lib/api/responses/error';
 import { db } from '@/lib/db';
 import { work_item_status_transitions, work_item_statuses, work_item_types } from '@/lib/db/schema';
+import { log } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
-import { AuthorizationError, NotFoundError, ValidationError } from '@/lib/api/responses/error';
 
 /**
  * Work Item Status Transitions Service with RBAC
@@ -47,7 +47,8 @@ export class RBACWorkItemStatusTransitionsService extends BaseRBACService {
 
       const results = await db
         .select({
-          work_item_status_transition_id: work_item_status_transitions.work_item_status_transition_id,
+          work_item_status_transition_id:
+            work_item_status_transitions.work_item_status_transition_id,
           work_item_type_id: work_item_status_transitions.work_item_type_id,
           from_status_id: work_item_status_transitions.from_status_id,
           to_status_id: work_item_status_transitions.to_status_id,
@@ -84,13 +85,16 @@ export class RBACWorkItemStatusTransitionsService extends BaseRBACService {
   /**
    * Get a single transition by ID
    */
-  async getTransitionById(transitionId: string): Promise<WorkItemStatusTransitionWithDetails | null> {
+  async getTransitionById(
+    transitionId: string
+  ): Promise<WorkItemStatusTransitionWithDetails | null> {
     const queryStart = Date.now();
 
     try {
       const results = await db
         .select({
-          work_item_status_transition_id: work_item_status_transitions.work_item_status_transition_id,
+          work_item_status_transition_id:
+            work_item_status_transitions.work_item_status_transition_id,
           work_item_type_id: work_item_status_transitions.work_item_type_id,
           from_status_id: work_item_status_transitions.from_status_id,
           to_status_id: work_item_status_transitions.to_status_id,
@@ -181,7 +185,10 @@ export class RBACWorkItemStatusTransitionsService extends BaseRBACService {
         .limit(1);
 
       if (fromStatusResults.length === 0) {
-        throw ValidationError('From status does not belong to this work item type', data.from_status_id);
+        throw ValidationError(
+          'From status does not belong to this work item type',
+          data.from_status_id
+        );
       }
 
       const toStatusResults = await db
@@ -196,7 +203,10 @@ export class RBACWorkItemStatusTransitionsService extends BaseRBACService {
         .limit(1);
 
       if (toStatusResults.length === 0) {
-        throw ValidationError('To status does not belong to this work item type', data.to_status_id);
+        throw ValidationError(
+          'To status does not belong to this work item type',
+          data.to_status_id
+        );
       }
 
       // Create the transition

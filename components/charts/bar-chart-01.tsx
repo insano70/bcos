@@ -1,19 +1,18 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
-import { useTheme } from 'next-themes';
-
-import { chartColors } from '@/components/charts/chartjs-config';
+import type { ChartData } from 'chart.js';
 import {
-  Chart,
   BarController,
   BarElement,
+  Chart,
+  Legend,
   LinearScale,
   TimeScale,
   Tooltip,
-  Legend,
 } from 'chart.js';
-import type { ChartData } from 'chart.js';
+import { useTheme } from 'next-themes';
+import { useEffect, useRef, useState } from 'react';
+import { chartColors } from '@/components/charts/chartjs-config';
 import 'chartjs-adapter-moment';
 
 // Import utilities
@@ -114,7 +113,7 @@ export default function BarChart01({ data, width, height }: BarChartProps) {
       plugins: [
         {
           id: 'htmlLegend',
-          afterUpdate(c, args, options) {
+          afterUpdate(c, _args, _options) {
             const ul = legend.current;
             if (!ul) return;
             // Remove old legend items
@@ -166,7 +165,7 @@ export default function BarChart01({ data, width, height }: BarChartProps) {
               label.style.overflow = 'hidden';
               label.style.textOverflow = 'ellipsis';
               label.style.maxWidth = '120px'; // Limit label width
-              // @ts-ignore
+              // @ts-expect-error
               const theValue: number = c.data.datasets[item.datasetIndex!].data.reduce(
                 (a, b) => (typeof a === 'number' ? a : 0) + (typeof b === 'number' ? b : 0),
                 0
@@ -222,23 +221,23 @@ export default function BarChart01({ data, width, height }: BarChartProps) {
   return (
     <div className="w-full h-full flex flex-col">
       <div className="px-3 py-2 flex-shrink-0 overflow-hidden">
-        <ul 
-          ref={legend} 
+        <ul
+          ref={legend}
           className="flex flex-wrap gap-x-2 gap-y-1"
           style={{
             maxHeight: '80px', // Limit legend height
             overflowY: 'auto',
-            overflowX: 'hidden'
+            overflowX: 'hidden',
           }}
         ></ul>
       </div>
       <div className="flex-1 min-h-0">
-        <canvas 
-          ref={canvas} 
-          style={{ 
-            width: '100%', 
+        <canvas
+          ref={canvas}
+          style={{
+            width: '100%',
             height: '100%',
-            display: 'block'
+            display: 'block',
           }}
         />
       </div>

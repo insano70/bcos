@@ -1,15 +1,15 @@
 'use client';
 
-import { useState } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { useCreateWorkItemType } from '@/lib/hooks/use-work-item-types';
+import { useAuth } from '@/components/auth/rbac-auth-provider';
 import { useOrganizations } from '@/lib/hooks/use-organizations';
+import { useCreateWorkItemType } from '@/lib/hooks/use-work-item-types';
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
 import Toast from './toast';
-import { useAuth } from '@/components/auth/rbac-auth-provider';
 
 const createWorkItemTypeSchema = z.object({
   name: createSafeTextSchema(1, 255, 'Type name'),
@@ -28,7 +28,11 @@ interface AddWorkItemTypeModalProps {
   onSuccess?: () => void;
 }
 
-export default function AddWorkItemTypeModal({ isOpen, onClose, onSuccess }: AddWorkItemTypeModalProps) {
+export default function AddWorkItemTypeModal({
+  isOpen,
+  onClose,
+  onSuccess,
+}: AddWorkItemTypeModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const createWorkItemType = useCreateWorkItemType();
@@ -116,7 +120,9 @@ export default function AddWorkItemTypeModal({ isOpen, onClose, onSuccess }: Add
                   {/* Modal header */}
                   <div className="px-5 py-3 border-b border-gray-200 dark:border-gray-700/60">
                     <div className="flex justify-between items-center">
-                      <h2 className="font-semibold text-gray-800 dark:text-gray-100">Add Work Item Type</h2>
+                      <h2 className="font-semibold text-gray-800 dark:text-gray-100">
+                        Add Work Item Type
+                      </h2>
                       <button
                         type="button"
                         className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400"
@@ -163,7 +169,9 @@ export default function AddWorkItemTypeModal({ isOpen, onClose, onSuccess }: Add
                           placeholder="Describe this work item type..."
                         />
                         {errors.description && (
-                          <div className="text-xs mt-1 text-red-500">{errors.description.message}</div>
+                          <div className="text-xs mt-1 text-red-500">
+                            {errors.description.message}
+                          </div>
                         )}
                       </div>
 
@@ -235,14 +243,20 @@ export default function AddWorkItemTypeModal({ isOpen, onClose, onSuccess }: Add
                             ))}
                         </select>
                         {errors.organization_id && (
-                          <div className="text-xs mt-1 text-red-500">{errors.organization_id.message}</div>
+                          <div className="text-xs mt-1 text-red-500">
+                            {errors.organization_id.message}
+                          </div>
                         )}
                       </div>
 
                       {/* Active Status */}
                       <div>
                         <label className="flex items-center">
-                          <input type="checkbox" className="form-checkbox" {...register('is_active')} />
+                          <input
+                            type="checkbox"
+                            className="form-checkbox"
+                            {...register('is_active')}
+                          />
                           <span className="text-sm ml-2">Active</span>
                         </label>
                       </div>

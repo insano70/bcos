@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { 
-  historicalComparisonService, 
-  COMPARISON_PERIODS, 
-  ComparisonResult, 
-  ComparisonPeriod 
-} from '@/lib/services/historical-comparison';
-import { AggAppMeasure, MeasureType, FrequencyType } from '@/lib/types/analytics';
-import { apiClient } from '@/lib/api/client';
+import { useEffect, useState } from 'react';
 import { LoadingSpinner, Skeleton } from '@/components/ui/loading-skeleton';
+import { apiClient } from '@/lib/api/client';
+import {
+  COMPARISON_PERIODS,
+  type ComparisonPeriod,
+  type ComparisonResult,
+  historicalComparisonService,
+} from '@/lib/services/historical-comparison';
+import type { AggAppMeasure, FrequencyType, MeasureType } from '@/lib/types/analytics';
 import AnalyticsChart from './analytics-chart';
 
 interface HistoricalComparisonProps {
@@ -25,9 +25,11 @@ export default function HistoricalComparisonWidget({
   frequency,
   practiceUid,
   providerName,
-  className = ''
+  className = '',
 }: HistoricalComparisonProps) {
-  const [selectedComparison, setSelectedComparison] = useState<ComparisonPeriod>(COMPARISON_PERIODS[0]!);
+  const [selectedComparison, setSelectedComparison] = useState<ComparisonPeriod>(
+    COMPARISON_PERIODS[0]!
+  );
   const [comparisonResult, setComparisonResult] = useState<ComparisonResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +41,7 @@ export default function HistoricalComparisonWidget({
       practiceUid,
       providerName,
       hasValidMeasure: measure && measure.length > 0,
-      hasValidFrequency: frequency && frequency.length > 0
+      hasValidFrequency: frequency && frequency.length > 0,
     });
 
     if (measure && frequency && measure.length > 0 && frequency.length > 0) {
@@ -59,23 +61,23 @@ export default function HistoricalComparisonWidget({
         frequency,
         practiceUid,
         providerName,
-        comparisonType: selectedComparison.id
+        comparisonType: selectedComparison.id,
       });
 
       // Get period dates
       const periods = selectedComparison.getPeriods(new Date());
-      
+
       console.log('📅 Period calculation:', {
         current: {
           start: periods.current.start.toISOString().split('T')[0],
-          end: periods.current.end.toISOString().split('T')[0]
+          end: periods.current.end.toISOString().split('T')[0],
         },
         comparison: {
           start: periods.comparison.start.toISOString().split('T')[0],
-          end: periods.comparison.end.toISOString().split('T')[0]
-        }
+          end: periods.comparison.end.toISOString().split('T')[0],
+        },
       });
-      
+
       // Fetch current period data
       const currentParams = new URLSearchParams();
       currentParams.append('measure', measure);
@@ -83,7 +85,7 @@ export default function HistoricalComparisonWidget({
       currentParams.append('start_date', periods.current.start.toISOString().split('T')[0]!);
       currentParams.append('end_date', periods.current.end.toISOString().split('T')[0]!);
       currentParams.append('limit', '1000');
-      
+
       if (practiceUid) currentParams.append('practice_uid', practiceUid);
       if (providerName) currentParams.append('provider_name', providerName);
 
@@ -94,30 +96,34 @@ export default function HistoricalComparisonWidget({
       comparisonParams.append('start_date', periods.comparison.start.toISOString().split('T')[0]!);
       comparisonParams.append('end_date', periods.comparison.end.toISOString().split('T')[0]!);
       comparisonParams.append('limit', '1000');
-      
+
       if (practiceUid) comparisonParams.append('practice_uid', practiceUid);
       if (providerName) comparisonParams.append('provider_name', providerName);
 
       console.log('🌐 API Requests:', {
         currentUrl: `/api/admin/analytics/measures?${currentParams.toString()}`,
-        comparisonUrl: `/api/admin/analytics/measures?${comparisonParams.toString()}`
+        comparisonUrl: `/api/admin/analytics/measures?${comparisonParams.toString()}`,
       });
 
       // Execute both requests in parallel
       const [currentData, comparisonData] = await Promise.all([
-        apiClient.get<any>(`/api/admin/analytics/measures?${currentParams.toString()}`),
-        apiClient.get<any>(`/api/admin/analytics/measures?${comparisonParams.toString()}`)
+        apiClient.get<{ measures: AggAppMeasure[] }>(
+          `/api/admin/analytics/measures?${currentParams.toString()}`
+        ),
+        apiClient.get<{ measures: AggAppMeasure[] }>(
+          `/api/admin/analytics/measures?${comparisonParams.toString()}`
+        ),
       ]);
 
       console.log('📊 Raw API Data:', {
         currentData: {
           measureCount: currentData.measures?.length || 0,
-          sampleMeasure: currentData.measures?.[0]
+          sampleMeasure: currentData.measures?.[0],
         },
         comparisonData: {
           measureCount: comparisonData.measures?.length || 0,
-          sampleMeasure: comparisonData.measures?.[0]
-        }
+          sampleMeasure: comparisonData.measures?.[0],
+        },
       });
 
       // Perform comparison analysis
@@ -130,7 +136,6 @@ export default function HistoricalComparisonWidget({
       console.log('📈 Comparison Result:', result);
 
       setComparisonResult(result);
-
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to perform comparison';
       setError(errorMessage);
@@ -145,7 +150,7 @@ export default function HistoricalComparisonWidget({
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
     }).format(value);
   };
 
@@ -155,24 +160,34 @@ export default function HistoricalComparisonWidget({
 
   const getTrendIcon = (trend: 'up' | 'down' | 'flat') => {
     switch (trend) {
-      case 'up': return '📈';
-      case 'down': return '📉';
-      case 'flat': return '➡️';
-      default: return '📊';
+      case 'up':
+        return '📈';
+      case 'down':
+        return '📉';
+      case 'flat':
+        return '➡️';
+      default:
+        return '📊';
     }
   };
 
   const getTrendColor = (trend: 'up' | 'down' | 'flat') => {
     switch (trend) {
-      case 'up': return 'text-green-600 dark:text-green-400';
-      case 'down': return 'text-red-600 dark:text-red-400';
-      case 'flat': return 'text-gray-600 dark:text-gray-400';
-      default: return 'text-gray-600 dark:text-gray-400';
+      case 'up':
+        return 'text-green-600 dark:text-green-400';
+      case 'down':
+        return 'text-red-600 dark:text-red-400';
+      case 'flat':
+        return 'text-gray-600 dark:text-gray-400';
+      default:
+        return 'text-gray-600 dark:text-gray-400';
     }
   };
 
   return (
-    <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 ${className}`}>
+    <div
+      className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 ${className}`}
+    >
       {/* Header */}
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 flex items-center">
@@ -208,11 +223,11 @@ export default function HistoricalComparisonWidget({
             )}
           </button>
         </div>
-        
+
         <select
           value={selectedComparison.id}
           onChange={(e) => {
-            const comparison = COMPARISON_PERIODS.find(p => p.id === e.target.value);
+            const comparison = COMPARISON_PERIODS.find((p) => p.id === e.target.value);
             if (comparison) setSelectedComparison(comparison);
           }}
           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
@@ -223,10 +238,11 @@ export default function HistoricalComparisonWidget({
             </option>
           ))}
         </select>
-        
+
         {/* Debug Info */}
         <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          Current config: {measure || 'No measure'} | {frequency || 'No frequency'} | Practice: {practiceUid || 'All'}
+          Current config: {measure || 'No measure'} | {frequency || 'No frequency'} | Practice:{' '}
+          {practiceUid || 'All'}
         </div>
       </div>
 
@@ -250,18 +266,20 @@ export default function HistoricalComparisonWidget({
           <div className="text-center py-8">
             <div className="text-red-500 mb-2">⚠️ Comparison Error</div>
             <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">{error}</div>
-            
+
             {/* Error Details */}
             <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 mb-4 text-left">
               <div className="text-xs text-red-700 dark:text-red-300">
-                <div><strong>Current Configuration:</strong></div>
+                <div>
+                  <strong>Current Configuration:</strong>
+                </div>
                 <div>• Measure: {measure || 'Not set'}</div>
                 <div>• Frequency: {frequency || 'Not set'}</div>
                 <div>• Practice: {practiceUid || 'All practices'}</div>
                 <div>• Comparison Type: {selectedComparison.label}</div>
               </div>
             </div>
-            
+
             <button
               onClick={performComparison}
               disabled={!measure || !frequency}
@@ -301,23 +319,29 @@ export default function HistoricalComparisonWidget({
               </div>
 
               {/* Change Analysis */}
-              <div className={`rounded-lg p-4 ${
-                comparisonResult.analysis.trend === 'up' 
-                  ? 'bg-green-50 dark:bg-green-900/20' 
-                  : comparisonResult.analysis.trend === 'down'
-                  ? 'bg-red-50 dark:bg-red-900/20'
-                  : 'bg-gray-50 dark:bg-gray-900/20'
-              }`}>
-                <div className={`text-sm font-medium mb-1 ${
-                  comparisonResult.analysis.trend === 'up' 
-                    ? 'text-green-900 dark:text-green-100' 
+              <div
+                className={`rounded-lg p-4 ${
+                  comparisonResult.analysis.trend === 'up'
+                    ? 'bg-green-50 dark:bg-green-900/20'
                     : comparisonResult.analysis.trend === 'down'
-                    ? 'text-red-900 dark:text-red-100'
-                    : 'text-gray-900 dark:text-gray-100'
-                }`}>
+                      ? 'bg-red-50 dark:bg-red-900/20'
+                      : 'bg-gray-50 dark:bg-gray-900/20'
+                }`}
+              >
+                <div
+                  className={`text-sm font-medium mb-1 ${
+                    comparisonResult.analysis.trend === 'up'
+                      ? 'text-green-900 dark:text-green-100'
+                      : comparisonResult.analysis.trend === 'down'
+                        ? 'text-red-900 dark:text-red-100'
+                        : 'text-gray-900 dark:text-gray-100'
+                  }`}
+                >
                   Change Analysis
                 </div>
-                <div className={`text-2xl font-bold flex items-center ${getTrendColor(comparisonResult.analysis.trend)}`}>
+                <div
+                  className={`text-2xl font-bold flex items-center ${getTrendColor(comparisonResult.analysis.trend)}`}
+                >
                   <span className="mr-2">{getTrendIcon(comparisonResult.analysis.trend)}</span>
                   {formatPercentage(comparisonResult.analysis.percentChange)}
                 </div>
@@ -335,7 +359,7 @@ export default function HistoricalComparisonWidget({
               <h4 className="text-md font-medium text-gray-900 dark:text-gray-100 mb-4">
                 Period Comparison Chart
               </h4>
-              
+
               {/* Actual Chart Visualization */}
               <div className="bg-white dark:bg-gray-700 rounded p-4">
                 <AnalyticsChart
@@ -344,8 +368,18 @@ export default function HistoricalComparisonWidget({
                   frequency={frequency}
                   practiceUid={practiceUid}
                   providerName={providerName}
-                  startDate={selectedComparison.getPeriods(new Date()).comparison.start.toISOString().split('T')[0]}
-                  endDate={selectedComparison.getPeriods(new Date()).current.end.toISOString().split('T')[0]}
+                  startDate={
+                    selectedComparison
+                      .getPeriods(new Date())
+                      .comparison.start.toISOString()
+                      .split('T')[0]
+                  }
+                  endDate={
+                    selectedComparison
+                      .getPeriods(new Date())
+                      .current.end.toISOString()
+                      .split('T')[0]
+                  }
                   width={400}
                   height={200}
                   title={`${selectedComparison.label} Comparison`}
@@ -361,36 +395,41 @@ export default function HistoricalComparisonWidget({
                 <span className="mr-2">💡</span>
                 Key Insights
               </h4>
-              
+
               <div className="space-y-2 text-sm">
                 <div className="flex items-center text-violet-800 dark:text-violet-200">
                   <span className="mr-2">•</span>
                   <span>
-                    {comparisonResult.analysis.trend === 'up' ? 'Performance improved' : 
-                     comparisonResult.analysis.trend === 'down' ? 'Performance declined' : 
-                     'Performance remained stable'} compared to {selectedComparison.label.toLowerCase()}
-                  </span>
-                </div>
-                
-                <div className="flex items-center text-violet-800 dark:text-violet-200">
-                  <span className="mr-2">•</span>
-                  <span>
-                    Change magnitude is {comparisonResult.analysis.significance} 
-                    ({Math.abs(comparisonResult.analysis.percentChange).toFixed(1)}% change)
+                    {comparisonResult.analysis.trend === 'up'
+                      ? 'Performance improved'
+                      : comparisonResult.analysis.trend === 'down'
+                        ? 'Performance declined'
+                        : 'Performance remained stable'}{' '}
+                    compared to {selectedComparison.label.toLowerCase()}
                   </span>
                 </div>
 
                 <div className="flex items-center text-violet-800 dark:text-violet-200">
                   <span className="mr-2">•</span>
                   <span>
-                    Current period average: {formatCurrency(comparisonResult.current.average)} per record
+                    Change magnitude is {comparisonResult.analysis.significance}(
+                    {Math.abs(comparisonResult.analysis.percentChange).toFixed(1)}% change)
                   </span>
                 </div>
 
                 <div className="flex items-center text-violet-800 dark:text-violet-200">
                   <span className="mr-2">•</span>
                   <span>
-                    Comparison period average: {formatCurrency(comparisonResult.comparison.average)} per record
+                    Current period average: {formatCurrency(comparisonResult.current.average)} per
+                    record
+                  </span>
+                </div>
+
+                <div className="flex items-center text-violet-800 dark:text-violet-200">
+                  <span className="mr-2">•</span>
+                  <span>
+                    Comparison period average: {formatCurrency(comparisonResult.comparison.average)}{' '}
+                    per record
                   </span>
                 </div>
               </div>
@@ -408,5 +447,4 @@ export default function HistoricalComparisonWidget({
       </div>
     </div>
   );
-
 }

@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
 import { createRBACDashboardsService } from '@/lib/services/rbac-dashboards-service';
 import type { UserContext } from '@/lib/types/rbac';

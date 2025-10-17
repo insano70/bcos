@@ -1,8 +1,8 @@
 'use client';
 
-import { useContext, useRef, createContext, type ReactNode } from 'react';
-import { usePathname } from 'next/navigation';
 import { LayoutRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
+import { usePathname } from 'next/navigation';
+import { type ReactNode, useContext, useRef } from 'react';
 
 /**
  * FrozenRouter Component
@@ -37,11 +37,7 @@ export default function FrozenRouter({ children }: FrozenRouterProps) {
     return <>{children}</>;
   }
 
-  return (
-    <LayoutRouterContext.Provider value={frozen}>
-      {children}
-    </LayoutRouterContext.Provider>
-  );
+  return <LayoutRouterContext.Provider value={frozen}>{children}</LayoutRouterContext.Provider>;
 }
 
 /**

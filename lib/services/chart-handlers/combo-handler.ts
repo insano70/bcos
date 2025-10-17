@@ -1,12 +1,12 @@
-import type { ChartData, ChartDataset, DualAxisConfig } from '@/lib/types/analytics';
-import { MeasureAccessor } from '@/lib/types/analytics';
-import type { UserContext } from '@/lib/types/rbac';
+import { getCssVariable } from '@/components/utils/utils';
 import { log } from '@/lib/logger';
 import { getPaletteColors } from '@/lib/services/color-palettes';
-import { getCssVariable } from '@/components/utils/utils';
+import type { AggAppMeasure, ChartData, ChartDataset, DualAxisConfig } from '@/lib/types/analytics';
+import { MeasureAccessor } from '@/lib/types/analytics';
+import type { UserContext } from '@/lib/types/rbac';
+import { columnMappingService } from '../column-mapping-service';
 import { BaseChartHandler } from './base-handler';
 import { getResolvedColumns } from './column-resolver';
-import { columnMappingService } from '../column-mapping-service';
 
 /**
  * Combo Chart Handler
@@ -28,7 +28,10 @@ export class ComboChartHandler extends BaseChartHandler {
    * @param userContext - User context for RBAC
    * @returns Combined data from both measures tagged with series_id
    */
-  async fetchData(config: Record<string, unknown>, userContext: UserContext): Promise<{
+  async fetchData(
+    config: Record<string, unknown>,
+    userContext: UserContext
+  ): Promise<{
     data: Record<string, unknown>[];
     cacheHit: boolean;
     queryTimeMs: number;
@@ -120,7 +123,10 @@ export class ComboChartHandler extends BaseChartHandler {
    * @param config - Chart configuration with dualAxisConfig
    * @returns ChartData ready for Chart.js rendering
    */
-  async transform(data: Record<string, unknown>[], config: Record<string, unknown>): Promise<ChartData> {
+  async transform(
+    data: Record<string, unknown>[],
+    config: Record<string, unknown>
+  ): Promise<ChartData> {
     const startTime = Date.now();
 
     const dualAxisConfig = config.dualAxisConfig as DualAxisConfig;
@@ -183,9 +189,10 @@ export class ComboChartHandler extends BaseChartHandler {
     for (const measure of primaryData) {
       const dateValue = measure[dateColumn];
       const measureValue = measure[measureColumn];
-      const value = typeof measureValue === 'string'
-        ? Number.parseFloat(measureValue)
-        : (measureValue as number || 0);
+      const value =
+        typeof measureValue === 'string'
+          ? Number.parseFloat(measureValue)
+          : (measureValue as number) || 0;
       if (dateValue) {
         primaryDataMap.set(String(dateValue), value);
       }
@@ -196,9 +203,10 @@ export class ComboChartHandler extends BaseChartHandler {
     for (const measure of secondaryData) {
       const dateValue = measure[dateColumn];
       const measureValue = measure[measureColumn];
-      const value = typeof measureValue === 'string'
-        ? Number.parseFloat(measureValue)
-        : (measureValue as number || 0);
+      const value =
+        typeof measureValue === 'string'
+          ? Number.parseFloat(measureValue)
+          : (measureValue as number) || 0;
       if (dateValue) {
         secondaryDataMap.set(String(dateValue), value);
       }
@@ -207,18 +215,19 @@ export class ComboChartHandler extends BaseChartHandler {
     // Extract measure types using MeasureAccessor
     let primaryMeasureType = 'number';
     let secondaryMeasureType = 'number';
-    
+
     if (config.dataSourceId) {
       try {
         const mapping = await columnMappingService.getMapping(config.dataSourceId as number);
-        
+
+        // Record<string, unknown> from database matches AggAppMeasure dynamic schema
         if (primaryData.length > 0 && primaryData[0]) {
-          const primaryAccessor = new MeasureAccessor(primaryData[0] as unknown as import('@/lib/types/analytics').AggAppMeasure, mapping);
+          const primaryAccessor = new MeasureAccessor(primaryData[0] as AggAppMeasure, mapping);
           primaryMeasureType = primaryAccessor.getMeasureType();
         }
-        
+
         if (secondaryData.length > 0 && secondaryData[0]) {
-          const secondaryAccessor = new MeasureAccessor(secondaryData[0] as unknown as import('@/lib/types/analytics').AggAppMeasure, mapping);
+          const secondaryAccessor = new MeasureAccessor(secondaryData[0] as AggAppMeasure, mapping);
           secondaryMeasureType = secondaryAccessor.getMeasureType();
         }
       } catch (error) {
@@ -253,9 +262,10 @@ export class ComboChartHandler extends BaseChartHandler {
         label: secondaryLabel,
         type: secondaryChartType,
         data: sortedDates.map((date) => secondaryDataMap.get(date) ?? 0),
-        backgroundColor: secondaryChartType === 'line'
-          ? 'transparent'
-          : (colors[1] || getCssVariable('--color-cyan-500')),
+        backgroundColor:
+          secondaryChartType === 'line'
+            ? 'transparent'
+            : colors[1] || getCssVariable('--color-cyan-500'),
         borderColor: colors[1] || getCssVariable('--color-cyan-500'),
         borderWidth: 2,
         ...(secondaryChartType === 'line'
@@ -301,7 +311,9 @@ export class ComboChartHandler extends BaseChartHandler {
 
     // Dual-axis charts require dualAxisConfig
     if (!config.dualAxisConfig) {
-      errors.push('Dual-axis charts require dualAxisConfig with primary and secondary axis configuration');
+      errors.push(
+        'Dual-axis charts require dualAxisConfig with primary and secondary axis configuration'
+      );
       return errors; // Return early if no config
     }
 
@@ -329,7 +341,10 @@ export class ComboChartHandler extends BaseChartHandler {
       if (!dualAxisConfig.secondary.measure) {
         errors.push('dualAxisConfig.secondary.measure is required');
       }
-      if (dualAxisConfig.secondary.chartType !== 'line' && dualAxisConfig.secondary.chartType !== 'bar') {
+      if (
+        dualAxisConfig.secondary.chartType !== 'line' &&
+        dualAxisConfig.secondary.chartType !== 'bar'
+      ) {
         errors.push('dualAxisConfig.secondary.chartType must be "line" or "bar"');
       }
       if (dualAxisConfig.secondary.axisPosition !== 'right') {
@@ -338,8 +353,14 @@ export class ComboChartHandler extends BaseChartHandler {
     }
 
     // Dual-axis charts don't support multiple series (they already have two series)
-    if (config.multipleSeries && Array.isArray(config.multipleSeries) && config.multipleSeries.length > 0) {
-      errors.push('Dual-axis charts do not support multipleSeries (they already have primary and secondary series)');
+    if (
+      config.multipleSeries &&
+      Array.isArray(config.multipleSeries) &&
+      config.multipleSeries.length > 0
+    ) {
+      errors.push(
+        'Dual-axis charts do not support multipleSeries (they already have primary and secondary series)'
+      );
     }
 
     // Dual-axis charts don't support period comparison

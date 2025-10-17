@@ -1,11 +1,10 @@
-import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
-import { sql } from 'drizzle-orm'
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
 
-let testClient: ReturnType<typeof postgres> | null = null
-let testDb: ReturnType<typeof drizzle> | null = null
-let mainTransactionActive: boolean = false
-let testSavepointName: string | null = null
+let testClient: ReturnType<typeof postgres> | null = null;
+let testDb: ReturnType<typeof drizzle> | null = null;
+let mainTransactionActive: boolean = false;
+let testSavepointName: string | null = null;
 
 /**
  * Get the test database instance
@@ -14,12 +13,12 @@ let testSavepointName: string | null = null
 export function getTestDb() {
   if (!testClient) {
     if (!process.env.DATABASE_URL) {
-      throw new Error('DATABASE_URL environment variable is required for tests')
+      throw new Error('DATABASE_URL environment variable is required for tests');
     }
-    testClient = postgres(process.env.DATABASE_URL, { max: 1 })
-    testDb = drizzle(testClient)
+    testClient = postgres(process.env.DATABASE_URL, { max: 1 });
+    testDb = drizzle(testClient);
   }
-  return testDb!
+  return testDb!;
 }
 
 /**
@@ -28,22 +27,15 @@ export function getTestDb() {
  */
 export async function initializeMainTransaction(): Promise<void> {
   if (mainTransactionActive) {
-    return // Already initialized
+    return; // Already initialized
   }
 
   // Initialize the database connection first
-  const db = getTestDb()
-  const client = getTestClient()
-  
-  try {
-    // Start a main transaction for the entire test session
-    await client.unsafe('BEGIN')
-    mainTransactionActive = true
-    // TEST: console.log('🚀 Main test transaction started')
-  } catch (error) {
-    // TEST: console.error('❌ Failed to start main transaction:', error)
-    throw error
-  }
+  const _db = getTestDb();
+  const client = getTestClient();
+  // Start a main transaction for the entire test session
+  await client.unsafe('BEGIN');
+  mainTransactionActive = true;
 }
 
 /**
@@ -52,23 +44,23 @@ export async function initializeMainTransaction(): Promise<void> {
 export async function getTestTransaction() {
   // Ensure main transaction is active
   if (!mainTransactionActive) {
-    await initializeMainTransaction()
+    await initializeMainTransaction();
   }
-  
-  const client = getTestClient()
-  
+
+  const client = getTestClient();
+
   // Create a unique savepoint name for this test
-  const savepointName = `test_savepoint_${Date.now()}_${Math.random().toString(36).slice(2)}`
-  testSavepointName = savepointName
-  
+  const savepointName = `test_savepoint_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  testSavepointName = savepointName;
+
   // Create the savepoint within the main transaction
-  await client.unsafe(`SAVEPOINT ${savepointName}`)
-  
+  await client.unsafe(`SAVEPOINT ${savepointName}`);
+
   // TEST: console.log(`🔄 Created savepoint: ${savepointName}`)
-  
+
   // Return the regular database instance
   // All operations will happen within the savepoint
-  return getTestDb()
+  return getTestDb();
 }
 
 /**
@@ -78,16 +70,16 @@ export async function getTestTransaction() {
 export async function rollbackTransaction(): Promise<void> {
   if (testSavepointName) {
     try {
-      const client = getTestClient()
-      await client.unsafe(`ROLLBACK TO SAVEPOINT ${testSavepointName}`)
-      await client.unsafe(`RELEASE SAVEPOINT ${testSavepointName}`)
-      
+      const client = getTestClient();
+      await client.unsafe(`ROLLBACK TO SAVEPOINT ${testSavepointName}`);
+      await client.unsafe(`RELEASE SAVEPOINT ${testSavepointName}`);
+
       // TEST: console.log(`🔄 Rolled back to savepoint: ${testSavepointName}`)
-      testSavepointName = null
+      testSavepointName = null;
     } catch (error) {
       // TEST: console.error('❌ Error during savepoint rollback:', error)
-      testSavepointName = null
-      throw error
+      testSavepointName = null;
+      throw error;
     }
   }
 }
@@ -97,9 +89,9 @@ export async function rollbackTransaction(): Promise<void> {
  */
 export function getCurrentTransaction() {
   if (!testSavepointName) {
-    throw new Error('No active savepoint. Make sure getTestTransaction() is called in test setup.')
+    throw new Error('No active savepoint. Make sure getTestTransaction() is called in test setup.');
   }
-  return getTestDb()
+  return getTestDb();
 }
 
 /**
@@ -107,9 +99,9 @@ export function getCurrentTransaction() {
  */
 function getTestClient() {
   if (!testClient) {
-    throw new Error('Test client not initialized. Call getTestDb() first.')
+    throw new Error('Test client not initialized. Call getTestDb() first.');
   }
-  return testClient
+  return testClient;
 }
 
 /**
@@ -119,13 +111,13 @@ function getTestClient() {
 export async function rollbackMainTransaction(): Promise<void> {
   if (mainTransactionActive) {
     try {
-      const client = getTestClient()
-      await client.unsafe('ROLLBACK')
-      mainTransactionActive = false
+      const client = getTestClient();
+      await client.unsafe('ROLLBACK');
+      mainTransactionActive = false;
       // TEST: console.log('🔄 Main test transaction rolled back')
-    } catch (error) {
+    } catch (_error) {
       // TEST: console.error('❌ Error rolling back main transaction:', error)
-      mainTransactionActive = false
+      mainTransactionActive = false;
     }
   }
 }
@@ -134,15 +126,13 @@ export async function rollbackMainTransaction(): Promise<void> {
  * Execute a function within a test transaction
  * Automatically handles rollback on completion or error
  */
-export async function withTestTransaction<T>(
-  fn: (tx: any) => Promise<T>
-): Promise<T> {
-  const tx = await getTestTransaction()
+export async function withTestTransaction<T>(fn: (tx: any) => Promise<T>): Promise<T> {
+  const tx = await getTestTransaction();
   try {
-    const result = await fn(tx)
-    return result
+    const result = await fn(tx);
+    return result;
   } finally {
-    await rollbackTransaction()
+    await rollbackTransaction();
   }
 }
 
@@ -153,18 +143,18 @@ export async function withTestTransaction<T>(
 export async function cleanupTestDb(): Promise<void> {
   // Rollback any active savepoint first
   if (testSavepointName) {
-    await rollbackTransaction()
+    await rollbackTransaction();
   }
 
   // Rollback the main transaction
-  await rollbackMainTransaction()
+  await rollbackMainTransaction();
 
   // Close the database connection
   if (testClient) {
-    await testClient.end()
-    testClient = null
-    testDb = null
-    mainTransactionActive = false
-    testSavepointName = null
+    await testClient.end();
+    testClient = null;
+    testDb = null;
+    mainTransactionActive = false;
+    testSavepointName = null;
   }
 }

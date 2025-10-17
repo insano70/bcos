@@ -1,13 +1,13 @@
 import type { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
-import { rbacRoute } from '@/lib/api/route-handlers';
-import { extractors } from '@/lib/api/utils/rbac-extractors';
-import { extractRouteParams } from '@/lib/api/utils/params';
 import { validateRequest } from '@/lib/api/middleware/validation';
+import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
+import { extractRouteParams } from '@/lib/api/utils/params';
+import { extractors } from '@/lib/api/utils/rbac-extractors';
+import { calculateChanges, log, logTemplates } from '@/lib/logger';
 import { createRBACWorkItemTypesService } from '@/lib/services/rbac-work-item-types-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log, logTemplates, calculateChanges } from '@/lib/logger';
 
 /**
  * GET /api/work-item-types/[id]
@@ -124,7 +124,8 @@ const updateWorkItemTypeHandler = async (
       is_active?: boolean;
     } = {};
     if (validatedData.name !== undefined) filteredData.name = validatedData.name;
-    if (validatedData.description !== undefined) filteredData.description = validatedData.description;
+    if (validatedData.description !== undefined)
+      filteredData.description = validatedData.description;
     if (validatedData.icon !== undefined) filteredData.icon = validatedData.icon;
     if (validatedData.color !== undefined) filteredData.color = validatedData.color;
     if (validatedData.is_active !== undefined) filteredData.is_active = validatedData.is_active;

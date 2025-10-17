@@ -61,9 +61,7 @@ export function useWatchWorkItem() {
 
   return useMutation({
     mutationFn: async (workItemId: string) => {
-      const data = await apiClient.post<WatcherWithDetails>(
-        `/api/work-items/${workItemId}/watch`
-      );
+      const data = await apiClient.post<WatcherWithDetails>(`/api/work-items/${workItemId}/watch`);
       return data;
     },
     onSuccess: (_data, workItemId) => {

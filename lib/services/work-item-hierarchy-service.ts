@@ -10,13 +10,13 @@
  */
 
 import { eq, like } from 'drizzle-orm';
+import { AuthorizationError, NotFoundError, ValidationError } from '@/lib/api/responses/error';
 import { db } from '@/lib/db';
 import { work_items } from '@/lib/db/schema';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
-import { NotFoundError, AuthorizationError, ValidationError } from '@/lib/api/responses/error';
 import type { UserContext } from '@/lib/types/rbac';
 import type { WorkItemWithDetails } from '@/lib/types/work-items';
-import { createRBACWorkItemsService } from './rbac-work-items-service';
+import { createRBACWorkItemsService } from './work-items';
 
 /**
  * Work Item Hierarchy Service Interface
@@ -71,10 +71,7 @@ class WorkItemHierarchyService implements WorkItemHierarchyServiceInterface {
    * @throws ValidationError if circular reference or max depth exceeded
    * @throws NotFoundError if work item or parent not found
    */
-  async moveWorkItem(
-    workItemId: string,
-    newParentId: string | null
-  ): Promise<WorkItemWithDetails> {
+  async moveWorkItem(workItemId: string, newParentId: string | null): Promise<WorkItemWithDetails> {
     const startTime = Date.now();
 
     try {

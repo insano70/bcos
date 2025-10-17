@@ -1,202 +1,56 @@
-/**
- * RBAC Work Items Service (Phase 1 - Core CRUD)
- *
- * Manages work items CRUD operations with automatic permission checking.
- * Following hybrid pattern with comprehensive observability.
- *
- * **Phase 1 Status**: 2/6 methods migrated (getWorkItemById, getWorkItemCount)
- * **Next Phase**: Migrate remaining CRUD methods (getWorkItems, createWorkItem, updateWorkItem, deleteWorkItem)
- */
+// 1. Drizzle ORM
+import { and, asc, count, desc, eq } from 'drizzle-orm';
 
-import { and, asc, count, desc, eq, inArray, isNull, like, or, type SQL } from 'drizzle-orm';
+// 2. Database
 import { db } from '@/lib/db';
-import {
-  work_items,
-  work_item_statuses,
-  work_item_field_values,
-  work_item_status_transitions,
-} from '@/lib/db/schema';
-import { log, logTemplates, SLOW_THRESHOLDS, calculateChanges } from '@/lib/logger';
-import { NotFoundError, AuthorizationError, ValidationError } from '@/lib/api/responses/error';
+import { work_item_status_transitions, work_item_statuses, work_items } from '@/lib/db/schema';
+
+// 3. Logging
+import { calculateChanges, log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
+
+// 4. Errors
+import { AuthorizationError, NotFoundError, ValidationError } from '@/lib/api/responses/error';
+
+// 5. Types
 import type { UserContext } from '@/lib/types/rbac';
 import type {
-  WorkItemWithDetails,
-  WorkItemQueryOptions,
   CreateWorkItemData,
   UpdateWorkItemData,
+  WorkItemQueryOptions,
+  WorkItemWithDetails,
 } from '@/lib/types/work-items';
-import { getWorkItemQueryBuilder, type WorkItemQueryResult } from './work-items/query-builder';
+
+// 6. Internal services and utilities
+import { BaseWorkItemsService } from './base-service';
+import { getWorkItemQueryBuilder } from './query-builder';
 
 /**
- * Work Items Service Interface (Phase 2 - Complete)
+ * Work Items Core Service
  *
- * Implements all core CRUD operations:
- * - getWorkItemById (read single)
+ * Handles core CRUD operations for work items:
+ * - getWorkItemById (single read with RBAC)
  * - getWorkItemCount (count with filters)
- * - getWorkItems (list with filters)
- * - createWorkItem (create new work item)
- * - updateWorkItem (update existing work item)
- * - deleteWorkItem (soft delete work item)
- */
-export interface WorkItemsServiceInterface {
-  getWorkItemById(workItemId: string): Promise<WorkItemWithDetails | null>;
-  getWorkItemCount(options?: WorkItemQueryOptions): Promise<number>;
-  getWorkItems(options?: WorkItemQueryOptions): Promise<WorkItemWithDetails[]>;
-  createWorkItem(workItemData: CreateWorkItemData): Promise<WorkItemWithDetails>;
-  updateWorkItem(workItemId: string, updateData: UpdateWorkItemData): Promise<WorkItemWithDetails>;
-  deleteWorkItem(workItemId: string): Promise<void>;
-  getWorkItemChildren(workItemId: string): Promise<WorkItemWithDetails[]>;
-  getWorkItemAncestors(workItemId: string): Promise<WorkItemWithDetails[]>;
-}
-
-/**
- * Internal Work Items Service Implementation
+ * - getWorkItems (list with pagination)
+ * - createWorkItem (create with hierarchy support)
+ * - updateWorkItem (update with change tracking)
+ * - deleteWorkItem (soft delete with validation)
  *
- * Uses hybrid pattern: internal class with factory function.
- * Provides CRUD operations for work items with automatic RBAC enforcement.
+ * Extracted from monolithic rbac-work-items-service.ts (1,219 lines)
+ * to separate CRUD concerns from hierarchy operations.
+ *
+ * Uses helper methods from BaseWorkItemsService for:
+ * - RBAC filtering
+ * - Result mapping
+ * - Custom field retrieval
+ *
+ * @internal - Use factory function instead
  */
-class WorkItemsService implements WorkItemsServiceInterface {
-  private readonly canReadAll: boolean;
-  private readonly canReadOwn: boolean;
-  private readonly canReadOrg: boolean;
-  private readonly canManageAll: boolean;
-  private readonly canManageOwn: boolean;
-  private readonly canManageOrg: boolean;
-  private readonly accessibleOrgIds: string[];
-
-  constructor(private readonly userContext: UserContext) {
-    // Cache permission checks once in constructor
-    this.canReadAll =
-      userContext.is_super_admin ||
-      userContext.all_permissions?.some((p) => p.name === 'work-items:read:all') ||
-      false;
-
-    this.canReadOwn =
-      userContext.all_permissions?.some((p) => p.name === 'work-items:read:own') || false;
-
-    this.canReadOrg =
-      userContext.all_permissions?.some((p) => p.name === 'work-items:read:organization') || false;
-
-    this.canManageAll =
-      userContext.is_super_admin ||
-      userContext.all_permissions?.some((p) => p.name === 'work-items:manage:all') ||
-      false;
-
-    this.canManageOwn =
-      userContext.all_permissions?.some((p) => p.name === 'work-items:manage:own') || false;
-
-    this.canManageOrg =
-      userContext.all_permissions?.some((p) => p.name === 'work-items:manage:organization') ||
-      false;
-
-    // Cache accessible organization IDs
-    this.accessibleOrgIds = userContext.organizations?.map((org) => org.organization_id) || [];
-  }
-
-  /**
-   * Build where conditions for work item queries
-   * Applies RBAC filtering based on user permissions
-   *
-   * @param options - Query filter options
-   * @returns Array of SQL where conditions
-   */
-  private buildWorkItemWhereConditions(options: WorkItemQueryOptions = {}): SQL[] {
-    const conditions: SQL[] = [isNull(work_items.deleted_at)];
-
-    // Apply RBAC filtering
-    if (!this.canReadAll) {
-      if (this.canReadOrg) {
-        if (this.accessibleOrgIds.length > 0) {
-          conditions.push(inArray(work_items.organization_id, this.accessibleOrgIds));
-        } else {
-          // No organizations accessible - return impossible condition
-          conditions.push(eq(work_items.work_item_id, 'impossible-id'));
-        }
-      } else if (this.canReadOwn) {
-        conditions.push(eq(work_items.created_by, this.userContext.user_id));
-      } else {
-        // No read permission - return impossible condition
-        conditions.push(eq(work_items.work_item_id, 'impossible-id'));
-      }
-    }
-
-    // Apply filters
-    if (options.work_item_type_id) {
-      conditions.push(eq(work_items.work_item_type_id, options.work_item_type_id));
-    }
-
-    if (options.organization_id) {
-      conditions.push(eq(work_items.organization_id, options.organization_id));
-    }
-
-    if (options.status_id) {
-      conditions.push(eq(work_items.status_id, options.status_id));
-    }
-
-    if (options.priority) {
-      conditions.push(eq(work_items.priority, options.priority));
-    }
-
-    if (options.assigned_to) {
-      conditions.push(eq(work_items.assigned_to, options.assigned_to));
-    }
-
-    if (options.created_by) {
-      conditions.push(eq(work_items.created_by, options.created_by));
-    }
-
-    return conditions;
-  }
-
-  /**
-   * Map database query result to WorkItemWithDetails
-   * Handles name concatenation and default values
-   *
-   * @param result - Raw database result
-   * @param customFields - Optional custom field values
-   * @returns Mapped work item with details
-   */
-  private mapWorkItemResult(
-    result: WorkItemQueryResult,
-    customFields?: Record<string, unknown>
-  ): WorkItemWithDetails {
-    return {
-      work_item_id: result.work_item_id,
-      work_item_type_id: result.work_item_type_id,
-      work_item_type_name: result.work_item_type_name || '',
-      organization_id: result.organization_id,
-      organization_name: result.organization_name || '',
-      subject: result.subject,
-      description: result.description,
-      status_id: result.status_id,
-      status_name: result.status_name || '',
-      status_category: result.status_category || '',
-      priority: result.priority || 'medium',
-      assigned_to: result.assigned_to,
-      assigned_to_name:
-        result.assigned_to_first_name && result.assigned_to_last_name
-          ? `${result.assigned_to_first_name} ${result.assigned_to_last_name}`
-          : null,
-      due_date: result.due_date,
-      started_at: result.started_at,
-      completed_at: result.completed_at,
-      parent_work_item_id: result.parent_work_item_id,
-      root_work_item_id: result.root_work_item_id,
-      depth: result.depth,
-      path: result.path,
-      created_by: result.created_by,
-      created_by_name:
-        result.created_by_first_name && result.created_by_last_name
-          ? `${result.created_by_first_name} ${result.created_by_last_name}`
-          : '',
-      created_at: result.created_at,
-      updated_at: result.updated_at,
-      custom_fields: customFields,
-    };
-  }
-
+class WorkItemCoreService extends BaseWorkItemsService {
   /**
    * Get work item by ID with RBAC enforcement
+   *
+   * Verifies user has access to the work item based on permissions.
+   * Returns null if work item not found or user lacks access.
    *
    * @param workItemId - UUID of work item
    * @returns Work item with details or null if not found/no access
@@ -214,7 +68,7 @@ class WorkItemsService implements WorkItemsServiceInterface {
       // Execute query with performance tracking
       const queryStart = Date.now();
       const [result] = await getWorkItemQueryBuilder()
-        .where(and(eq(work_items.work_item_id, workItemId), isNull(work_items.deleted_at)))
+        .where(and(eq(work_items.work_item_id, workItemId), ...this.buildBaseRBACWhereConditions()))
         .limit(1);
       const queryDuration = Date.now() - queryStart;
 
@@ -228,6 +82,7 @@ class WorkItemsService implements WorkItemsServiceInterface {
           metadata: {
             queryDuration,
             slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+            component: 'core_service',
           },
         });
 
@@ -267,7 +122,8 @@ class WorkItemsService implements WorkItemsServiceInterface {
           organizationId: workItem.organization_id,
           queryDuration,
           slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
-          rbacScope: this.canReadAll ? 'all' : this.canReadOrg ? 'organization' : 'own',
+          rbacScope: this.getRBACScope(),
+          component: 'core_service',
         },
       });
 
@@ -280,7 +136,7 @@ class WorkItemsService implements WorkItemsServiceInterface {
         workItemId,
         userId: this.userContext.user_id,
         duration: Date.now() - startTime,
-        component: 'service',
+        component: 'core_service',
       });
 
       throw error;
@@ -289,6 +145,9 @@ class WorkItemsService implements WorkItemsServiceInterface {
 
   /**
    * Get count of work items with optional filters
+   *
+   * Applies RBAC filtering automatically based on user permissions.
+   * Returns 0 if user has no read permission.
    *
    * @param options - Query filter options
    * @returns Count of work items user has access to
@@ -303,7 +162,7 @@ class WorkItemsService implements WorkItemsServiceInterface {
           operation: 'count_work_items',
           userId: this.userContext.user_id,
           duration: Date.now() - startTime,
-          component: 'service',
+          component: 'core_service',
           metadata: { noPermission: true, count: 0 },
         });
         return 0;
@@ -334,11 +193,11 @@ class WorkItemsService implements WorkItemsServiceInterface {
         },
         count: totalCount,
         duration,
-        component: 'service',
+        component: 'core_service',
         metadata: {
           queryDuration,
           slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
-          rbacScope: this.canReadAll ? 'all' : this.canReadOrg ? 'organization' : 'own',
+          rbacScope: this.getRBACScope(),
         },
       });
 
@@ -348,7 +207,7 @@ class WorkItemsService implements WorkItemsServiceInterface {
         operation: 'count_work_items',
         userId: this.userContext.user_id,
         duration: Date.now() - startTime,
-        component: 'service',
+        component: 'core_service',
       });
 
       throw error;
@@ -357,6 +216,14 @@ class WorkItemsService implements WorkItemsServiceInterface {
 
   /**
    * Get work items list with optional filters and pagination
+   *
+   * Supports:
+   * - RBAC filtering (automatic)
+   * - Pagination (limit/offset)
+   * - Sorting (any field, asc/desc)
+   * - Search (subject/description)
+   * - Custom field loading
+   * - 3-way timing tracking (count + query + custom fields)
    *
    * @param options - Query filter and pagination options
    * @returns Array of work items user has access to
@@ -376,7 +243,7 @@ class WorkItemsService implements WorkItemsServiceInterface {
           },
           results: { returned: 0, total: 0, page: 1 },
           duration: Date.now() - startTime,
-          metadata: { noPermission: true },
+          metadata: { noPermission: true, component: 'core_service' },
         });
 
         log.info(template.message, template.context);
@@ -386,28 +253,11 @@ class WorkItemsService implements WorkItemsServiceInterface {
       // Build where conditions with RBAC filtering
       const whereConditions = this.buildWorkItemWhereConditions(options);
 
-      // Add status_category filter if provided
-      if (options.status_category) {
-        whereConditions.push(eq(work_item_statuses.status_category, options.status_category));
-      }
-
-      // Add search filter if provided
-      if (options.search) {
-        const searchCondition = or(
-          like(work_items.subject, `%${options.search}%`),
-          like(work_items.description, `%${options.search}%`)
-        );
-        if (searchCondition) {
-          whereConditions.push(searchCondition);
-        }
-      }
-
       // Execute count query first
       const countStart = Date.now();
       const [countResult] = await db
         .select({ count: count() })
         .from(work_items)
-        .leftJoin(work_item_statuses, eq(work_items.status_id, work_item_statuses.work_item_status_id))
         .where(and(...whereConditions));
       const countDuration = Date.now() - countStart;
       const totalCount = countResult?.count || 0;
@@ -438,7 +288,6 @@ class WorkItemsService implements WorkItemsServiceInterface {
       // Execute list query with joins
       const queryStart = Date.now();
       const results = await getWorkItemQueryBuilder()
-        .leftJoin(work_item_statuses, eq(work_items.status_id, work_item_statuses.work_item_status_id))
         .where(and(...whereConditions))
         .orderBy(orderByClause)
         .limit(options.limit || 50)
@@ -484,11 +333,12 @@ class WorkItemsService implements WorkItemsServiceInterface {
           slowCount: countDuration > SLOW_THRESHOLDS.DB_QUERY,
           slowQuery: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
           slowCustomFields: customFieldsDuration > SLOW_THRESHOLDS.DB_QUERY,
-          rbacScope: this.canReadAll ? 'all' : this.canReadOrg ? 'organization' : 'own',
+          rbacScope: this.getRBACScope(),
           limit: options.limit || 50,
           offset: options.offset || 0,
           sortBy,
           sortOrder,
+          component: 'core_service',
         },
       });
 
@@ -500,7 +350,7 @@ class WorkItemsService implements WorkItemsServiceInterface {
         operation: 'list_work_items',
         userId: this.userContext.user_id,
         duration: Date.now() - startTime,
-        component: 'service',
+        component: 'core_service',
       });
 
       throw error;
@@ -508,45 +358,20 @@ class WorkItemsService implements WorkItemsServiceInterface {
   }
 
   /**
-   * Get custom field values for multiple work items
-   * Helper method to fetch and organize custom field values
-   *
-   * @param workItemIds - Array of work item IDs
-   * @returns Map of work item ID to custom field values
-   */
-  private async getCustomFieldValues(
-    workItemIds: string[]
-  ): Promise<Map<string, Record<string, unknown>>> {
-    if (workItemIds.length === 0) {
-      return new Map();
-    }
-
-    const fieldValues = await db
-      .select()
-      .from(work_item_field_values)
-      .where(inArray(work_item_field_values.work_item_id, workItemIds));
-
-    const customFieldsMap = new Map<string, Record<string, unknown>>();
-
-    for (const fieldValue of fieldValues) {
-      if (!customFieldsMap.has(fieldValue.work_item_id)) {
-        customFieldsMap.set(fieldValue.work_item_id, {});
-      }
-      const workItemFields = customFieldsMap.get(fieldValue.work_item_id);
-      if (workItemFields) {
-        workItemFields[fieldValue.work_item_field_id] = fieldValue.field_value;
-      }
-    }
-
-    return customFieldsMap;
-  }
-
-  /**
    * Create new work item with RBAC enforcement
+   *
+   * Features:
+   * - Organization access verification
+   * - Automatic initial status assignment
+   * - Hierarchy support (parent/child relationships)
+   * - Depth tracking (max 10 levels)
+   * - Path calculation for tree queries
    *
    * @param workItemData - Work item creation data
    * @returns Created work item with full details
    * @throws AuthorizationError if no create permission in target organization
+   * @throws NotFoundError if parent work item not found
+   * @throws ValidationError if max depth exceeded
    */
   async createWorkItem(workItemData: CreateWorkItemData): Promise<WorkItemWithDetails> {
     const startTime = Date.now();
@@ -607,7 +432,7 @@ class WorkItemsService implements WorkItemsServiceInterface {
 
         depth = (parentInfo.depth || 0) + 1;
         if (depth > 10) {
-          throw AuthorizationError('Maximum nesting depth of 10 levels exceeded');
+          throw ValidationError(null, 'Maximum nesting depth of 10 levels exceeded');
         }
 
         rootId = parentInfo.root_work_item_id || workItemData.parent_work_item_id;
@@ -689,7 +514,8 @@ class WorkItemsService implements WorkItemsServiceInterface {
           slowStatus: statusDuration > SLOW_THRESHOLDS.DB_QUERY,
           slowInsert: insertDuration > SLOW_THRESHOLDS.DB_QUERY,
           slowUpdate: updateDuration > SLOW_THRESHOLDS.DB_QUERY,
-          rbacScope: this.canManageAll ? 'all' : 'organization',
+          rbacScope: this.getManagementRBACScope(),
+          component: 'core_service',
         },
       });
 
@@ -702,7 +528,7 @@ class WorkItemsService implements WorkItemsServiceInterface {
         organizationId: workItemData.organization_id,
         userId: this.userContext.user_id,
         duration: Date.now() - startTime,
-        component: 'service',
+        component: 'core_service',
       });
 
       throw error;
@@ -712,10 +538,17 @@ class WorkItemsService implements WorkItemsServiceInterface {
   /**
    * Update work item with RBAC enforcement
    *
+   * Features:
+   * - Organization/ownership verification
+   * - Status transition validation
+   * - Change tracking for audit trail
+   * - Comprehensive performance logging
+   *
    * @param workItemId - Work item ID to update
    * @param updateData - Fields to update
    * @returns Updated work item with full details
    * @throws AuthorizationError if no update permission
+   * @throws NotFoundError if work item not found
    * @throws ValidationError if status transition is not allowed
    */
   async updateWorkItem(
@@ -800,7 +633,8 @@ class WorkItemsService implements WorkItemsServiceInterface {
           assigneeChanged: !!updateData.assigned_to,
           updateDuration,
           slowUpdate: updateDuration > SLOW_THRESHOLDS.DB_QUERY,
-          rbacScope: this.canManageAll ? 'all' : this.canManageOrg ? 'organization' : 'own',
+          rbacScope: this.getManagementRBACScope(),
+          component: 'core_service',
         },
       });
 
@@ -813,7 +647,7 @@ class WorkItemsService implements WorkItemsServiceInterface {
         workItemId,
         userId: this.userContext.user_id,
         duration: Date.now() - startTime,
-        component: 'service',
+        component: 'core_service',
       });
 
       throw error;
@@ -823,8 +657,12 @@ class WorkItemsService implements WorkItemsServiceInterface {
   /**
    * Delete work item (soft delete) with RBAC enforcement
    *
+   * Performs soft delete by setting deleted_at timestamp.
+   * Verifies organization/ownership access before deletion.
+   *
    * @param workItemId - Work item ID to delete
    * @throws AuthorizationError if no delete permission
+   * @throws NotFoundError if work item not found
    */
   async deleteWorkItem(workItemId: string): Promise<void> {
     const startTime = Date.now();
@@ -877,7 +715,8 @@ class WorkItemsService implements WorkItemsServiceInterface {
         metadata: {
           deleteDuration,
           slowDelete: deleteDuration > SLOW_THRESHOLDS.DB_QUERY,
-          rbacScope: this.canManageAll ? 'all' : this.canManageOrg ? 'organization' : 'own',
+          rbacScope: this.getManagementRBACScope(),
+          component: 'core_service',
         },
       });
 
@@ -888,205 +727,7 @@ class WorkItemsService implements WorkItemsServiceInterface {
         workItemId,
         userId: this.userContext.user_id,
         duration: Date.now() - startTime,
-        component: 'service',
-      });
-
-      throw error;
-    }
-  }
-
-  /**
-   * Get child work items for a parent
-   *
-   * @param workItemId - Parent work item ID
-   * @returns Array of child work items with full details
-   */
-  async getWorkItemChildren(workItemId: string): Promise<WorkItemWithDetails[]> {
-    const startTime = Date.now();
-
-    try {
-      // Check permission
-      if (!this.canReadAll && !this.canReadOrg && !this.canReadOwn) {
-        log.info('work item children list - no permission', {
-          operation: 'list_work_item_children',
-          parentWorkItemId: workItemId,
-          userId: this.userContext.user_id,
-          duration: Date.now() - startTime,
-          component: 'service',
-        });
-        return [];
-      }
-
-      // Verify parent exists and user has access to it
-      const parent = await this.getWorkItemById(workItemId);
-      if (!parent) {
-        throw NotFoundError('Parent work item not found');
-      }
-
-      // Build where conditions for children
-      const whereConditions: SQL[] = [
-        isNull(work_items.deleted_at),
-        eq(work_items.parent_work_item_id, workItemId),
-      ];
-
-      // Apply RBAC filtering
-      if (!this.canReadAll) {
-        if (this.canReadOrg) {
-          if (this.accessibleOrgIds.length > 0) {
-            whereConditions.push(inArray(work_items.organization_id, this.accessibleOrgIds));
-          } else {
-            whereConditions.push(eq(work_items.work_item_id, 'impossible-id'));
-          }
-        } else if (this.canReadOwn) {
-          whereConditions.push(eq(work_items.created_by, this.userContext.user_id));
-        }
-      }
-
-      // Execute query
-      const queryStart = Date.now();
-      const results = await getWorkItemQueryBuilder()
-        .where(and(...whereConditions))
-        .orderBy(asc(work_items.created_at));
-      const queryDuration = Date.now() - queryStart;
-
-      // Map results to WorkItemWithDetails
-      const children = results.map((result) => this.mapWorkItemResult(result));
-
-      const duration = Date.now() - startTime;
-
-      // Log using custom format
-      log.info('work item children listed', {
-        operation: 'list_work_item_children',
-        parentWorkItemId: workItemId,
-        userId: this.userContext.user_id,
-        count: children.length,
-        duration,
-        component: 'service',
-        metadata: {
-          queryDuration,
-          slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
-          rbacScope: this.canReadAll ? 'all' : this.canReadOrg ? 'organization' : 'own',
-        },
-      });
-
-      return children;
-    } catch (error) {
-      log.error('work item children list failed', error, {
-        operation: 'list_work_item_children',
-        parentWorkItemId: workItemId,
-        userId: this.userContext.user_id,
-        duration: Date.now() - startTime,
-        component: 'service',
-      });
-
-      throw error;
-    }
-  }
-
-  /**
-   * Get ancestor work items (breadcrumb trail from root to this item)
-   *
-   * @param workItemId - Work item ID to get ancestors for
-   * @returns Array of ancestor work items ordered from root to parent
-   */
-  async getWorkItemAncestors(workItemId: string): Promise<WorkItemWithDetails[]> {
-    const startTime = Date.now();
-
-    try {
-      // Check permission
-      if (!this.canReadAll && !this.canReadOrg && !this.canReadOwn) {
-        log.info('work item ancestors list - no permission', {
-          operation: 'list_work_item_ancestors',
-          workItemId,
-          userId: this.userContext.user_id,
-          duration: Date.now() - startTime,
-          component: 'service',
-        });
-        return [];
-      }
-
-      // Get the work item to extract its path
-      const workItem = await this.getWorkItemById(workItemId);
-      if (!workItem) {
-        throw NotFoundError('Work item not found');
-      }
-
-      // If no path or no parent, return empty array
-      if (!workItem.path || !workItem.parent_work_item_id) {
-        log.info('work item ancestors listed - no ancestors', {
-          operation: 'list_work_item_ancestors',
-          workItemId,
-          userId: this.userContext.user_id,
-          count: 0,
-          duration: Date.now() - startTime,
-          component: 'service',
-        });
-        return [];
-      }
-
-      // Extract ancestor IDs from path (excluding the work item itself)
-      // Path format: /root-id/parent-id/work-item-id
-      const pathSegments = workItem.path.split('/').filter((id) => id && id !== workItemId);
-
-      if (pathSegments.length === 0) {
-        return [];
-      }
-
-      // Build where conditions for ancestors
-      const whereConditions: SQL[] = [
-        isNull(work_items.deleted_at),
-        inArray(work_items.work_item_id, pathSegments),
-      ];
-
-      // Apply RBAC filtering
-      if (!this.canReadAll) {
-        if (this.canReadOrg) {
-          if (this.accessibleOrgIds.length > 0) {
-            whereConditions.push(inArray(work_items.organization_id, this.accessibleOrgIds));
-          } else {
-            whereConditions.push(eq(work_items.work_item_id, 'impossible-id'));
-          }
-        } else if (this.canReadOwn) {
-          whereConditions.push(eq(work_items.created_by, this.userContext.user_id));
-        }
-      }
-
-      // Execute query
-      const queryStart = Date.now();
-      const results = await getWorkItemQueryBuilder()
-        .where(and(...whereConditions))
-        .orderBy(asc(work_items.depth));
-      const queryDuration = Date.now() - queryStart;
-
-      // Map results to WorkItemWithDetails
-      const ancestors = results.map((result) => this.mapWorkItemResult(result));
-
-      const duration = Date.now() - startTime;
-
-      // Log using custom format
-      log.info('work item ancestors listed', {
-        operation: 'list_work_item_ancestors',
-        workItemId,
-        userId: this.userContext.user_id,
-        count: ancestors.length,
-        duration,
-        component: 'service',
-        metadata: {
-          queryDuration,
-          slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
-          rbacScope: this.canReadAll ? 'all' : this.canReadOrg ? 'organization' : 'own',
-          depth: workItem.depth,
-        },
-      });
-
-      return ancestors;
-    } catch (error) {
-      log.error('work item ancestors list failed', error, {
-        operation: 'list_work_item_ancestors',
-        workItemId,
-        userId: this.userContext.user_id,
-        duration: Date.now() - startTime,
-        component: 'service',
+        component: 'core_service',
       });
 
       throw error;
@@ -1095,7 +736,12 @@ class WorkItemsService implements WorkItemsServiceInterface {
 
   /**
    * Validate status transition is allowed
-   * Helper method to check if status transition is permitted
+   *
+   * Checks if transition from current status to desired status is permitted
+   * based on work_item_status_transitions configuration.
+   *
+   * Permissive by default: allows transition if no rule exists.
+   * Blocks only if explicit rule exists with is_allowed=false.
    *
    * @param typeId - Work item type ID
    * @param fromStatusId - Current status ID
@@ -1151,8 +797,8 @@ class WorkItemsService implements WorkItemsServiceInterface {
         });
 
         throw ValidationError(
-          'Status transition from current status to selected status is not allowed',
-          `Cannot transition from status ${fromStatusId} to ${toStatusId}`
+          null,
+          'Status transition from current status to selected status is not allowed'
         );
       }
 
@@ -1177,43 +823,45 @@ class WorkItemsService implements WorkItemsServiceInterface {
   }
 }
 
+// ============================================================
+// FACTORY
+// ============================================================
+
 /**
- * Factory function to create RBAC Work Items Service
+ * Create Work Item Core Service
  *
- * **Phase 1 Implementation**: Core read operations only
- * - getWorkItemById: Fetch single work item by ID
- * - getWorkItemCount: Count work items with filters
+ * Factory function to create a new work item core service instance
+ * with automatic RBAC enforcement.
  *
- * **Phase 2 TODO**: Add remaining CRUD operations
- * - getWorkItems: List work items with pagination/filtering
- * - createWorkItem: Create new work item
- * - updateWorkItem: Update existing work item
- * - deleteWorkItem: Soft delete work item
+ * Provides all CRUD operations:
+ * - Read: getWorkItemById, getWorkItems, getWorkItemCount
+ * - Create: createWorkItem
+ * - Update: updateWorkItem
+ * - Delete: deleteWorkItem (soft delete)
  *
  * @param userContext - User context with RBAC permissions
- * @returns Work items service with RBAC enforcement
+ * @returns Core service instance
  *
  * @example
  * ```typescript
- * const workItemsService = createRBACWorkItemsService(userContext);
+ * const service = createWorkItemCoreService(userContext);
  *
- * // Get single work item
- * const workItem = await workItemsService.getWorkItemById('work-item-uuid');
+ * // Create work item
+ * const workItem = await service.createWorkItem({
+ *   work_item_type_id: 'type-uuid',
+ *   organization_id: 'org-uuid',
+ *   subject: 'New task',
+ *   priority: 'high'
+ * });
  *
- * // Count work items
- * const count = await workItemsService.getWorkItemCount({ status_id: 'in-progress' });
+ * // List with filters
+ * const items = await service.getWorkItems({
+ *   status_id: 'in-progress',
+ *   limit: 50
+ * });
  * ```
- *
- * **Permissions Required**:
- * - Read: work-items:read:all OR work-items:read:organization OR work-items:read:own
- *
- * **RBAC Scopes**:
- * - `all`: Super admins can see all work items
- * - `organization`: Users can see work items in their organizations
- * - `own`: Users can only see work items they created
  */
-export function createRBACWorkItemsService(
-  userContext: UserContext
-): WorkItemsServiceInterface {
-  return new WorkItemsService(userContext);
+export function createWorkItemCoreService(userContext: UserContext): WorkItemCoreService {
+  return new WorkItemCoreService(userContext);
 }
+

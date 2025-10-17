@@ -1,30 +1,30 @@
 /**
  * Indexed Analytics Cache with Secondary Index Sets
- * 
+ *
  * Implements Redis secondary indexes for efficient cache lookups without scanning.
- * 
+ *
  * Architecture:
  * - Primary Data: cache:ds:{id}:m:{measure}:p:{practice}:prov:{provider}:freq:{frequency}
  * - Index Sets: idx:ds:{id}:m:{measure}:p:{practice}:freq:{frequency} → Set[cache keys]
- * 
+ *
  * Benefits:
  * - O(1) index lookups (no SCAN operations)
  * - 100% cache hit rate when warm
  * - Selective fetching (only load needed data)
  * - Sub-10ms query times
- * 
+ *
  * Security:
  * - Organization filters applied at Redis level
  * - RBAC filtering applied in-memory after fetch
  * - Fail-closed on empty results
  */
 
+import type { Redis } from 'ioredis';
 import { log } from '@/lib/logger';
 import { getRedisClient } from '@/lib/redis';
 import { executeAnalyticsQuery } from '@/lib/services/analytics-db';
 import { chartConfigService } from '@/lib/services/chart-config-service';
 import { columnMappingService } from '@/lib/services/column-mapping-service';
-import type { Redis } from 'ioredis';
 
 /**
  * Cache entry structure
@@ -80,7 +80,7 @@ export interface CacheStats {
 
 /**
  * Indexed Analytics Cache Service
- * 
+ *
  * Implements secondary index sets for efficient cache lookups.
  */
 export class IndexedAnalyticsCache {
@@ -118,7 +118,7 @@ export class IndexedAnalyticsCache {
   /**
    * Generate cache key for data storage
    * Format: cache:{ds:id}:m:{measure}:p:{practice}:prov:{provider}:freq:{frequency}
-   * 
+   *
    * Uses Redis hash tags {ds:id} to ensure all keys for a datasource hash to the same slot
    * in Redis Cluster. This enables SINTERSTORE/SUNIONSTORE operations across indexes.
    */
@@ -130,26 +130,32 @@ export class IndexedAnalyticsCache {
   /**
    * Generate all index keys for this entry
    * Creates indexes at multiple granularities for flexible querying
-   * 
+   *
    * Uses Redis hash tags {ds:id} to ensure all indexes for a datasource hash to the same slot
    * in Redis Cluster. This enables SINTERSTORE/SUNIONSTORE operations.
    */
   private getIndexKeys(entry: Partial<CacheEntry>): string[] {
-    const { datasourceId: ds, measure: m, practiceUid: p, providerUid: prov, frequency: freq } = entry;
-    
+    const {
+      datasourceId: ds,
+      measure: m,
+      practiceUid: p,
+      providerUid: prov,
+      frequency: freq,
+    } = entry;
+
     return [
       // Master index for invalidation
       `idx:{ds:${ds}}:master`,
-      
+
       // Base query index (measure + frequency)
       `idx:{ds:${ds}}:m:${m}:freq:${freq}`,
-      
+
       // With practice filter
       `idx:{ds:${ds}}:m:${m}:p:${p}:freq:${freq}`,
-      
+
       // With provider filter
       `idx:{ds:${ds}}:m:${m}:freq:${freq}:prov:${prov || '*'}`,
-      
+
       // Full combination
       `idx:{ds:${ds}}:m:${m}:p:${p}:prov:${prov || '*'}:freq:${freq}`,
     ];
@@ -168,7 +174,7 @@ export class IndexedAnalyticsCache {
     // Acquire distributed lock
     const lockKey = `lock:cache:warm:${datasourceId}`;
     const acquired = await redis.set(lockKey, '1', 'EX', 300, 'NX'); // 5 min lock
-    
+
     if (!acquired) {
       log.info('Cache warming already in progress, skipping', {
         datasourceId,
@@ -181,43 +187,43 @@ export class IndexedAnalyticsCache {
         skipped: true,
       };
     }
-    
+
     try {
       // Get data source config
       const config = await chartConfigService.getDataSourceConfigById(datasourceId);
       if (!config) {
         throw new Error(`Data source not found: ${datasourceId}`);
       }
-      
+
       const { tableName, schemaName } = config;
-      
+
       // Get column mappings for dynamic column access
       const columnMapping = await columnMappingService.getMapping(datasourceId);
-      
+
       // Query ALL data (no WHERE clause, no ORDER BY to support all schemas)
       const query = `
         SELECT *
         FROM ${schemaName}.${tableName}
       `;
-      
+
       log.debug('Executing cache warming query', {
         datasourceId,
         schema: schemaName,
         table: tableName,
         columnMapping,
       });
-      
+
       const allRows = await executeAnalyticsQuery(query, []);
-      
+
       log.info('Cache warming query completed', {
         datasourceId,
         totalRows: allRows.length,
       });
-      
+
       // Group by unique combination (use column mappings for dynamic columns)
       const grouped = new Map<string, Record<string, unknown>[]>();
       let skippedRows = 0;
-      
+
       for (const row of allRows) {
         // Use column mappings to find the correct column names
         // NOTE: For measure NAME (dimension), always use 'measure' column
@@ -226,15 +232,15 @@ export class IndexedAnalyticsCache {
         const practiceUid = row.practice_uid as number | undefined;
         const providerUid = (row.provider_uid as number | null | undefined) || null;
         const frequency = row[columnMapping.timePeriodField] as string | undefined;
-        
+
         // Skip rows missing required fields
         if (!measure || !practiceUid || !frequency) {
           skippedRows++;
           continue;
         }
-        
+
         const key = `${measure}|${practiceUid}|${providerUid}|${frequency}`;
-        
+
         if (!grouped.has(key)) {
           grouped.set(key, []);
         }
@@ -243,25 +249,25 @@ export class IndexedAnalyticsCache {
           group.push(row);
         }
       }
-      
+
       log.info('Data grouped for caching', {
         datasourceId,
         uniqueCombinations: grouped.size,
         skippedRows,
         validRows: allRows.length - skippedRows,
       });
-      
+
       // Write in batches
       let entriesCached = 0;
       let pipeline = redis.pipeline();
-      
+
       for (const [key, rows] of Array.from(grouped.entries())) {
         const parts = key.split('|');
         const measure = parts[0];
         const practiceUid = parts[1];
         const providerUid = parts[2];
         const frequency = parts[3];
-        
+
         if (!measure || !practiceUid || !frequency) {
           log.warn('Skipping invalid cache entry - missing required fields', {
             datasourceId,
@@ -269,33 +275,34 @@ export class IndexedAnalyticsCache {
           });
           continue;
         }
-        
+
         const entry: Partial<CacheEntry> = {
           datasourceId,
           measure,
           practiceUid: Number.parseInt(practiceUid, 10),
-          providerUid: (providerUid && providerUid !== 'null') ? Number.parseInt(providerUid, 10) : null,
+          providerUid:
+            providerUid && providerUid !== 'null' ? Number.parseInt(providerUid, 10) : null,
           frequency,
         };
-        
+
         const cacheKey = this.getCacheKey(entry);
         const indexKeys = this.getIndexKeys(entry);
-        
+
         // Store data with TTL
         pipeline.set(cacheKey, JSON.stringify(rows), 'EX', this.TTL);
-        
+
         // Add to all indexes with TTL
         for (const indexKey of indexKeys) {
           pipeline.sadd(indexKey, cacheKey);
           pipeline.expire(indexKey, this.TTL);
         }
-        
+
         entriesCached++;
-        
+
         // Execute pipeline in batches
         if (entriesCached % this.BATCH_SIZE === 0) {
           const results = await pipeline.exec();
-          
+
           // Check for errors
           if (results) {
             const errors = results.filter(([err]) => err !== null);
@@ -308,9 +315,9 @@ export class IndexedAnalyticsCache {
               throw new Error(`Redis pipeline failed with ${errors.length} errors`);
             }
           }
-          
+
           pipeline = redis.pipeline(); // Create new pipeline
-          
+
           log.debug('Cache warming progress', {
             datasourceId,
             cached: entriesCached,
@@ -319,11 +326,11 @@ export class IndexedAnalyticsCache {
           });
         }
       }
-      
+
       // Execute remaining pipeline
       if (pipeline.length > 0) {
         const results = await pipeline.exec();
-        
+
         // Check for errors
         if (results) {
           const errors = results.filter(([err]) => err !== null);
@@ -337,7 +344,7 @@ export class IndexedAnalyticsCache {
           }
         }
       }
-      
+
       // Set metadata (use hash tag for same slot)
       await redis.set(
         `cache:meta:{ds:${datasourceId}}:last_warm`,
@@ -345,16 +352,16 @@ export class IndexedAnalyticsCache {
         'EX',
         this.TTL
       );
-      
+
       const duration = Date.now() - startTime;
-      
+
       log.info('Cache warming completed', {
         datasourceId,
         entriesCached,
         totalRows: allRows.length,
         duration,
       });
-      
+
       return {
         entriesCached,
         totalRows: allRows.length,
@@ -369,13 +376,13 @@ export class IndexedAnalyticsCache {
 
   /**
    * Warm cache concurrently using shadow keys (zero-downtime)
-   * 
+   *
    * Strategy:
    * 1. Write to shadow keys (cache:shadow:... and idx:shadow:...)
    * 2. Old cache continues serving requests (zero downtime)
    * 3. Atomically rename shadow keys to production keys
    * 4. New cache is active, old cache discarded
-   * 
+   *
    * This allows cache refresh without any service interruption
    */
   async warmCacheConcurrent(
@@ -400,55 +407,59 @@ export class IndexedAnalyticsCache {
     // Build list of index sets to intersect
     const indexSets: string[] = [];
     const tempKeys: string[] = []; // Track temp keys for cleanup
-    
+
     // Base index (required) - uses hash tag for Redis Cluster compatibility
     indexSets.push(`idx:{ds:${datasourceId}}:m:${measure}:freq:${frequency}`);
-    
+
     // Handle practice filter (organization/RBAC)
     if (practiceUids && practiceUids.length > 0) {
       if (practiceUids.length === 1) {
         // Single practice - direct index
-        indexSets.push(`idx:{ds:${datasourceId}}:m:${measure}:p:${practiceUids[0]}:freq:${frequency}`);
+        indexSets.push(
+          `idx:{ds:${datasourceId}}:m:${measure}:p:${practiceUids[0]}:freq:${frequency}`
+        );
       } else {
         // Multiple practices - union them first
         // Use hash tag in temp key to ensure same slot
         const tempUnionKey = `temp:{ds:${datasourceId}}:union:${Date.now()}:${Math.random()}`;
         tempKeys.push(tempUnionKey);
-        
+
         const practiceIndexes = practiceUids.map(
-          puid => `idx:{ds:${datasourceId}}:m:${measure}:p:${puid}:freq:${frequency}`
+          (puid) => `idx:{ds:${datasourceId}}:m:${measure}:p:${puid}:freq:${frequency}`
         );
-        
+
         await redis.sunionstore(tempUnionKey, ...practiceIndexes);
         indexSets.push(tempUnionKey);
-        
+
         // Auto-cleanup after 10 seconds
         await redis.expire(tempUnionKey, 10);
       }
     }
-    
+
     // Handle provider filter
     if (providerUids && providerUids.length > 0) {
       if (providerUids.length === 1) {
-        indexSets.push(`idx:{ds:${datasourceId}}:m:${measure}:freq:${frequency}:prov:${providerUids[0]}`);
+        indexSets.push(
+          `idx:{ds:${datasourceId}}:m:${measure}:freq:${frequency}:prov:${providerUids[0]}`
+        );
       } else {
         // Use hash tag in temp key to ensure same slot
         const tempUnionKey = `temp:{ds:${datasourceId}}:union:${Date.now()}:${Math.random()}`;
         tempKeys.push(tempUnionKey);
-        
+
         const providerIndexes = providerUids.map(
-          provuid => `idx:{ds:${datasourceId}}:m:${measure}:freq:${frequency}:prov:${provuid}`
+          (provuid) => `idx:{ds:${datasourceId}}:m:${measure}:freq:${frequency}:prov:${provuid}`
         );
-        
+
         await redis.sunionstore(tempUnionKey, ...providerIndexes);
         indexSets.push(tempUnionKey);
         await redis.expire(tempUnionKey, 10);
       }
     }
-    
+
     // Get matching keys
     let matchingKeys: string[];
-    
+
     if (indexSets.length === 1) {
       const firstIndex = indexSets[0];
       if (!firstIndex) {
@@ -460,14 +471,14 @@ export class IndexedAnalyticsCache {
       // Use hash tag in temp key to ensure same slot as indexes
       const tempResultKey = `temp:{ds:${datasourceId}}:result:${Date.now()}:${Math.random()}`;
       tempKeys.push(tempResultKey);
-      
+
       await redis.sinterstore(tempResultKey, ...indexSets);
       matchingKeys = await redis.smembers(tempResultKey);
       await redis.del(tempResultKey);
     }
-    
+
     const indexLookupDuration = Date.now() - startTime;
-    
+
     log.info('Index lookup completed', {
       datasourceId,
       measure,
@@ -477,19 +488,19 @@ export class IndexedAnalyticsCache {
       matchingKeys: matchingKeys.length,
       indexLookupDuration,
     });
-    
+
     if (matchingKeys.length === 0) {
       return [];
     }
-    
+
     // Batch fetch data (handle large result sets)
     const results: CacheEntry[] = [];
     const fetchStart = Date.now();
-    
+
     for (let i = 0; i < matchingKeys.length; i += this.QUERY_BATCH_SIZE) {
       const batch = matchingKeys.slice(i, i + this.QUERY_BATCH_SIZE);
       const values = await redis.mget(...batch);
-      
+
       for (const value of values) {
         if (value) {
           try {
@@ -504,10 +515,10 @@ export class IndexedAnalyticsCache {
         }
       }
     }
-    
+
     const totalDuration = Date.now() - startTime;
     const fetchDuration = Date.now() - fetchStart;
-    
+
     log.info('Cache query completed', {
       datasourceId,
       measure,
@@ -518,14 +529,14 @@ export class IndexedAnalyticsCache {
       fetchDuration,
       totalDuration,
     });
-    
+
     // Cleanup temp keys (fire and forget)
     if (tempKeys.length > 0) {
-      redis.del(...tempKeys).catch(err => {
+      redis.del(...tempKeys).catch((err) => {
         log.warn('Failed to cleanup temp keys', { tempKeys, error: err });
       });
     }
-    
+
     return results;
   }
 
@@ -550,50 +561,44 @@ export class IndexedAnalyticsCache {
     // Use master index to find all keys
     const masterIndex = `idx:{ds:${datasourceId}}:master`;
     const allCacheKeys = await redis.smembers(masterIndex);
-    
+
     if (allCacheKeys.length === 0) {
       log.info('No cache keys to invalidate', { datasourceId });
       return;
     }
-    
+
     log.info('Invalidating cache entries', {
       datasourceId,
       keysToDelete: allCacheKeys.length,
     });
-    
+
     // Delete all cache keys in batches
     const BATCH_SIZE = 1000;
     for (let i = 0; i < allCacheKeys.length; i += BATCH_SIZE) {
       const batch = allCacheKeys.slice(i, i + BATCH_SIZE);
       await redis.del(...batch);
     }
-    
+
     // Delete all index keys
     const indexPattern = `idx:{ds:${datasourceId}}:*`;
     let cursor = '0';
     const indexKeys: string[] = [];
-    
+
     do {
-      const [nextCursor, keys] = await redis.scan(
-        cursor,
-        'MATCH',
-        indexPattern,
-        'COUNT',
-        1000
-      );
+      const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', indexPattern, 'COUNT', 1000);
       cursor = nextCursor;
       indexKeys.push(...keys);
     } while (cursor !== '0');
-    
+
     if (indexKeys.length > 0) {
       await redis.del(...indexKeys);
     }
-    
+
     // Delete metadata
     await redis.del(`cache:meta:{ds:${datasourceId}}:last_warm`);
-    
+
     const duration = Date.now() - startTime;
-    
+
     log.info('Cache invalidation completed', {
       datasourceId,
       cacheKeysDeleted: allCacheKeys.length,
@@ -610,7 +615,7 @@ export class IndexedAnalyticsCache {
     const masterIndex = `idx:{ds:${datasourceId}}:master`;
     const totalKeys = await redis.scard(masterIndex);
     const lastWarm = await redis.get(`cache:meta:{ds:${datasourceId}}:last_warm`);
-    
+
     // Sample memory usage
     let estimatedMemoryMB = 0;
     if (totalKeys > 0) {
@@ -626,50 +631,44 @@ export class IndexedAnalyticsCache {
         }
       }
     }
-    
+
     // Collect unique values from index keys
     const measures = new Set<string>();
     const practices = new Set<number>();
     const providers = new Set<number>();
     const frequencies = new Set<string>();
-    
+
     // Scan index keys and parse patterns
     const indexPattern = `idx:{ds:${datasourceId}}:*`;
     let indexCount = 0;
     let cursor = '0';
-    
+
     do {
-      const [nextCursor, keys] = await redis.scan(
-        cursor,
-        'MATCH',
-        indexPattern,
-        'COUNT',
-        1000
-      );
+      const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', indexPattern, 'COUNT', 1000);
       cursor = nextCursor;
       indexCount += keys.length;
-      
+
       // Parse keys to extract unique values
       for (const key of keys) {
         // Parse pattern: idx:{ds:ID}:m:MEASURE:p:PRACTICE:freq:FREQUENCY
         // Example: idx:{ds:3}:m:Charges:p:114:freq:Monthly
-        
+
         // Skip the master index key
         if (key.endsWith(':master')) continue;
-        
+
         // Remove the prefix "idx:{ds:N}:" to get the rest
         const prefixMatch = key.match(/^idx:\{ds:\d+\}:(.+)$/);
         if (!prefixMatch || !prefixMatch[1]) continue;
-        
+
         const keyParts = prefixMatch[1]; // Everything after "idx:{ds:N}:"
-        
+
         // Now we can safely parse by looking for patterns
         // Extract measure (between "m:" and next ":")
         const measureMatch = keyParts.match(/m:([^:]+)/);
         if (measureMatch?.[1] && measureMatch[1] !== '*' && measureMatch[1] !== 'master') {
           measures.add(measureMatch[1]);
         }
-        
+
         // Extract practice (between "p:" and next ":")
         const practiceMatch = keyParts.match(/p:(\d+)/);
         if (practiceMatch?.[1]) {
@@ -678,7 +677,7 @@ export class IndexedAnalyticsCache {
             practices.add(practiceUid);
           }
         }
-        
+
         // Extract provider (between "prov:" and next ":")
         const providerMatch = keyParts.match(/prov:(\d+)/);
         if (providerMatch?.[1]) {
@@ -687,7 +686,7 @@ export class IndexedAnalyticsCache {
             providers.add(providerUid);
           }
         }
-        
+
         // Extract frequency (between "freq:" and end or next ":")
         const frequencyMatch = keyParts.match(/freq:([^:]+)/);
         if (frequencyMatch?.[1] && frequencyMatch[1] !== '*') {
@@ -695,7 +694,7 @@ export class IndexedAnalyticsCache {
         }
       }
     } while (cursor !== '0');
-    
+
     return {
       datasourceId,
       totalEntries: totalKeys,
@@ -713,4 +712,3 @@ export class IndexedAnalyticsCache {
 
 // Export singleton instance
 export const indexedAnalyticsCache = new IndexedAnalyticsCache();
-

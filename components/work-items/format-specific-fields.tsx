@@ -243,9 +243,7 @@ export function PercentageField({
       </div>
       {error && <p className="text-sm text-red-500">{error}</p>}
       {!error && value !== 0 && (
-        <p className="text-xs text-gray-500 dark:text-gray-400">
-          Value: {value}% (0-100)
-        </p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">Value: {value}% (0-100)</p>
       )}
     </div>
   );

@@ -1,6 +1,6 @@
-import type { UserContext } from '@/lib/types/rbac';
-import type { ChartData } from '@/lib/types/analytics';
 import { log } from '@/lib/logger';
+import type { ChartData } from '@/lib/types/analytics';
+import type { UserContext } from '@/lib/types/rbac';
 
 /**
  * Chart Type Registry
@@ -64,7 +64,10 @@ export interface ChartTypeHandler {
    * @param config - Chart configuration
    * @returns Transformed ChartData for Chart.js (may be async for handlers that need data source config)
    */
-  transform(data: Record<string, unknown>[], config: Record<string, unknown>): ChartData | Promise<ChartData>;
+  transform(
+    data: Record<string, unknown>[],
+    config: Record<string, unknown>
+  ): ChartData | Promise<ChartData>;
 
   /**
    * Validate chart configuration

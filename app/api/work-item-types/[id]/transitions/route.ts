@@ -1,16 +1,16 @@
 import type { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
+import { validateRequest } from '@/lib/api/middleware/validation';
 import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
-import { validateRequest } from '@/lib/api/middleware/validation';
-import { createRBACWorkItemStatusTransitionsService } from '@/lib/services/rbac-work-item-status-transitions-service';
-import {
-  workItemTypeParamsSchema,
-  workItemStatusTransitionCreateSchema,
-} from '@/lib/validations/work-items';
-import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
+import { createRBACWorkItemStatusTransitionsService } from '@/lib/services/rbac-work-item-status-transitions-service';
+import type { UserContext } from '@/lib/types/rbac';
+import {
+  workItemStatusTransitionCreateSchema,
+  workItemTypeParamsSchema,
+} from '@/lib/validations/work-items';
 
 /**
  * GET /api/work-item-types/[id]/transitions
@@ -59,7 +59,11 @@ const getTransitionsHandler = async (
       duration,
       userId: userContext.user_id,
     });
-    return createErrorResponse(error instanceof Error ? error : new Error(String(error)), 500, request);
+    return createErrorResponse(
+      error instanceof Error ? error : new Error(String(error)),
+      500,
+      request
+    );
   }
 };
 
@@ -108,7 +112,11 @@ const createTransitionHandler = async (
       duration,
       userId: userContext.user_id,
     });
-    return createErrorResponse(error instanceof Error ? error : new Error(String(error)), 500, request);
+    return createErrorResponse(
+      error instanceof Error ? error : new Error(String(error)),
+      500,
+      request
+    );
   }
 };
 

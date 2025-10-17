@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import ModalBasic from '@/components/modal-basic';
 import { useCreateWorkItemField } from '@/lib/hooks/use-work-item-fields';
-import type { FieldType, FieldOption } from '@/lib/types/work-item-fields';
+import type { FieldOption, FieldType } from '@/lib/types/work-item-fields';
 
 interface AddWorkItemFieldModalProps {
   isOpen: boolean;
@@ -77,11 +77,7 @@ export default function AddWorkItemFieldModal({
   };
 
   return (
-    <ModalBasic
-      isOpen={isOpen}
-      setIsOpen={onClose}
-      title="Add Custom Field"
-    >
+    <ModalBasic isOpen={isOpen} setIsOpen={onClose} title="Add Custom Field">
       <form onSubmit={handleSubmit}>
         <div className="px-5 py-4 space-y-4">
           {/* Field Label */}
@@ -126,7 +122,8 @@ export default function AddWorkItemFieldModal({
               required
             />
             <p className="text-xs text-gray-500 mt-1">
-              Must start with a lowercase letter, use only lowercase letters, numbers, and underscores
+              Must start with a lowercase letter, use only lowercase letters, numbers, and
+              underscores
             </p>
           </div>
 
@@ -229,7 +226,7 @@ export default function AddWorkItemFieldModal({
               type="number"
               min="0"
               value={displayOrder}
-              onChange={(e) => setDisplayOrder(parseInt(e.target.value))}
+              onChange={(e) => setDisplayOrder(parseInt(e.target.value, 10))}
             />
           </div>
 

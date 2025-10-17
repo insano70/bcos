@@ -124,7 +124,9 @@ class ApiClient {
         if (errorMessage.toLowerCase().includes('csrf')) {
           // CSRF error logging (client-side debug)
           if (process.env.NODE_ENV === 'development') {
-            console.log('API request returned 403 - CSRF token validation failed, fetching fresh token...');
+            console.log(
+              'API request returned 403 - CSRF token validation failed, fetching fresh token...'
+            );
           }
 
           // Try to get a fresh CSRF token

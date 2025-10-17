@@ -1,13 +1,13 @@
 /**
  * Date Formatter for Chart Labels
- * 
+ *
  * Handles date formatting for different chart types and frequencies.
  * Extracted from SimplifiedChartTransformer for reusability.
  */
 
 /**
  * Format date label based on frequency
- * 
+ *
  * @param dateIndex - Date string in ISO format (YYYY-MM-DD)
  * @param frequency - Time unit ('Weekly', 'Monthly', 'Quarterly')
  * @returns Formatted date string suitable for chart labels
@@ -39,7 +39,7 @@ export function formatDateLabel(dateIndex: string, frequency: string): string {
 
 /**
  * Convert date index to Chart.js compatible Date object
- * 
+ *
  * @param dateIndex - Date string in ISO format (YYYY-MM-DD)
  * @param frequency - Time unit ('Weekly', 'Monthly', 'Quarterly')
  * @returns Date object suitable for Chart.js time axis
@@ -59,7 +59,7 @@ export function toChartJsDate(dateIndex: string, frequency: string): Date {
 
 /**
  * Convert date index to MM-DD-YYYY format string
- * 
+ *
  * @param dateIndex - Date string in ISO format (YYYY-MM-DD)
  * @returns Date string in MM-DD-YYYY format
  */
@@ -73,7 +73,7 @@ export function toMMDDYYYY(dateIndex: string): string {
 
 /**
  * Create category labels for bar charts based on frequency
- * 
+ *
  * @param dateIndex - Date string in ISO format (YYYY-MM-DD)
  * @param frequency - Time unit ('Weekly', 'Monthly', 'Quarterly')
  * @returns Formatted category label
@@ -100,4 +100,3 @@ export function createCategoryLabel(dateIndex: string, frequency: string): strin
 
   return dateIndex;
 }
-

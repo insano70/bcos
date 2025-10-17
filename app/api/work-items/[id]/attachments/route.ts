@@ -1,18 +1,18 @@
 import type { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
+import { validateQuery, validateRequest } from '@/lib/api/middleware/validation';
 import { createErrorResponse } from '@/lib/api/responses/error';
-import { validateRequest, validateQuery } from '@/lib/api/middleware/validation';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
+import { extractors } from '@/lib/api/utils/rbac-extractors';
+import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
+import { createRBACWorkItemAttachmentsService } from '@/lib/services/rbac-work-item-attachments-service';
+import type { UserContext } from '@/lib/types/rbac';
 import {
   workItemAttachmentCreateSchema,
   workItemAttachmentQuerySchema,
   workItemParamsSchema,
 } from '@/lib/validations/work-items';
-import { rbacRoute } from '@/lib/api/route-handlers';
-import { extractors } from '@/lib/api/utils/rbac-extractors';
-import { createRBACWorkItemAttachmentsService } from '@/lib/services/rbac-work-item-attachments-service';
-import type { UserContext } from '@/lib/types/rbac';
-import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
 
 /**
  * GET /api/work-items/[id]/attachments
@@ -45,11 +45,14 @@ const getWorkItemAttachmentsHandler = async (
     });
 
     const totalSize = attachments.reduce((sum, a) => sum + a.file_size, 0);
-    const fileTypeCounts = attachments.reduce((acc, a) => {
-      const type = a.file_type || 'unknown';
-      acc[type] = (acc[type] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const fileTypeCounts = attachments.reduce(
+      (acc, a) => {
+        const type = a.file_type || 'unknown';
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
     log.info(`work item attachments list completed - returned ${attachments.length} attachments`, {
       operation: 'list_work_item_attachments',

@@ -1,10 +1,15 @@
-import type { UserContext } from '@/lib/types/rbac';
-import type { ChartData, ChartRenderContext, AnalyticsQueryParams } from '@/lib/types/analytics';
-import type { ChartTypeHandler, ValidationResult } from '../chart-type-registry';
-import { log } from '@/lib/logger';
-import { analyticsQueryBuilder } from '../analytics';
-import { getDateRange } from '@/lib/utils/date-presets';
 import { QUERY_LIMITS } from '@/lib/constants/analytics';
+import { log } from '@/lib/logger';
+import type {
+  AnalyticsQueryParams,
+  ChartData,
+  ChartFilter,
+  ChartRenderContext,
+} from '@/lib/types/analytics';
+import type { UserContext } from '@/lib/types/rbac';
+import { getDateRange } from '@/lib/utils/date-presets';
+import { analyticsQueryBuilder } from '../analytics';
+import type { ChartTypeHandler, ValidationResult } from '../chart-type-registry';
 import { createOrganizationAccessService } from '../organization-access-service';
 
 /**
@@ -96,7 +101,10 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
    * Subclasses MUST implement this method
    * May be async for handlers that need to load data source configuration
    */
-  abstract transform(data: Record<string, unknown>[], config: Record<string, unknown>): ChartData | Promise<ChartData>;
+  abstract transform(
+    data: Record<string, unknown>[],
+    config: Record<string, unknown>
+  ): ChartData | Promise<ChartData>;
 
   /**
    * Validate chart configuration
@@ -171,9 +179,10 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
     }
 
     if (config.practiceUid) {
-      const practiceUid = typeof config.practiceUid === 'string'
-        ? parseInt(config.practiceUid, 10)
-        : (config.practiceUid as number);
+      const practiceUid =
+        typeof config.practiceUid === 'string'
+          ? parseInt(config.practiceUid, 10)
+          : (config.practiceUid as number);
       if (!Number.isNaN(practiceUid)) {
         queryParams.practice_uid = practiceUid;
       }
@@ -185,10 +194,10 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
       if (config.practiceUids.length === 0) {
         // FAIL-CLOSED SECURITY: Empty array means organization has no practices
         // Use impossible value to ensure query returns no results
-        const practiceUidFilter: import('@/lib/types/analytics').ChartFilter = {
+        const practiceUidFilter: ChartFilter = {
           field: 'practice_uid',
           operator: 'in',
-          value: [-1] as unknown as import('@/lib/types/analytics').ChartFilterValue, // Impossible practice_uid value
+          value: [-1], // Impossible practice_uid value - number[] is now valid ChartFilterValue
         };
 
         if (!queryParams.advanced_filters) {
@@ -196,21 +205,25 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
         }
         queryParams.advanced_filters.push(practiceUidFilter);
 
-        log.security('dashboard organization filter applied - empty organization (fail-closed)', 'high', {
-          operation: 'build_query_params',
-          practiceUidCount: 0,
-          result: 'no_data_returned',
-          reason: 'organization_has_no_practices',
-          source: 'dashboard_universal_filter',
-          component: 'chart-handler',
-          failedClosed: true,
-        });
+        log.security(
+          'dashboard organization filter applied - empty organization (fail-closed)',
+          'high',
+          {
+            operation: 'build_query_params',
+            practiceUidCount: 0,
+            result: 'no_data_returned',
+            reason: 'organization_has_no_practices',
+            source: 'dashboard_universal_filter',
+            component: 'chart-handler',
+            failedClosed: true,
+          }
+        );
       } else {
         // Normal case: organization has practices
-        const practiceUidFilter: import('@/lib/types/analytics').ChartFilter = {
+        const practiceUidFilter: ChartFilter = {
           field: 'practice_uid',
           operator: 'in',
-          value: config.practiceUids as unknown as import('@/lib/types/analytics').ChartFilterValue,
+          value: config.practiceUids, // number[] is now valid ChartFilterValue
         };
 
         if (!queryParams.advanced_filters) {
@@ -248,11 +261,13 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
     }
 
     if (config.multipleSeries) {
-      queryParams.multiple_series = config.multipleSeries as import('@/lib/types/analytics').MultipleSeriesConfig[];
+      queryParams.multiple_series =
+        config.multipleSeries as import('@/lib/types/analytics').MultipleSeriesConfig[];
     }
 
     if (config.periodComparison) {
-      queryParams.period_comparison = config.periodComparison as import('@/lib/types/analytics').PeriodComparisonConfig;
+      queryParams.period_comparison =
+        config.periodComparison as import('@/lib/types/analytics').PeriodComparisonConfig;
     }
 
     return queryParams;
@@ -260,15 +275,15 @@ export abstract class BaseChartHandler implements ChartTypeHandler {
 
   /**
    * Build chart render context from user context
-   * 
+   *
    * SECURITY-CRITICAL: This method populates security filters based on user permissions
-   * 
+   *
    * Permission Model:
    * - analytics:read:all → No filtering (super admin sees all data)
    * - analytics:read:organization → Filter by org's practice_uids (+ hierarchy)
    * - analytics:read:own → Filter by user's provider_uid
    * - No permission → Fail-closed (no data)
-   * 
+   *
    * UPDATED: Now async to integrate with OrganizationAccessService
    * All chart handlers must await this method
    */

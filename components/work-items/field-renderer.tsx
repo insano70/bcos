@@ -1,14 +1,14 @@
 'use client';
 
-import { RichTextEditor } from './rich-text-editor';
-import { MultiSelectField, type MultiSelectOption } from './multi-select-field';
 import {
-  URLField,
-  EmailField,
-  PhoneField,
   CurrencyField,
+  EmailField,
   PercentageField,
+  PhoneField,
+  URLField,
 } from './format-specific-fields';
+import { MultiSelectField, type MultiSelectOption } from './multi-select-field';
+import { RichTextEditor } from './rich-text-editor';
 
 /**
  * Field Renderer Component
@@ -102,7 +102,9 @@ export function FieldRenderer({
         <input
           type="number"
           value={(value as number) || ''}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(parseFloat(e.target.value))}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+            onChange(parseFloat(e.target.value))
+          }
           disabled={disabled}
           required={isRequired}
           min={field.validation_rules?.min}
@@ -175,10 +177,7 @@ export function FieldRenderer({
             disabled={disabled}
             className="form-checkbox"
           />
-          <label
-            htmlFor={field.work_item_field_id}
-            className="text-sm font-medium ml-2"
-          >
+          <label htmlFor={field.work_item_field_id} className="text-sm font-medium ml-2">
             {field.field_label}
             {isRequired && <span className="text-red-500 ml-1">*</span>}
           </label>
@@ -271,7 +270,7 @@ export function FieldRenderer({
   if (field.field_type === 'url') {
     return (
       <URLField
-        value={value as string || ''}
+        value={(value as string) || ''}
         onChange={onChange}
         label={field.field_label}
         disabled={disabled}
@@ -285,7 +284,7 @@ export function FieldRenderer({
   if (field.field_type === 'email') {
     return (
       <EmailField
-        value={value as string || ''}
+        value={(value as string) || ''}
         onChange={onChange}
         label={field.field_label}
         disabled={disabled}
@@ -299,7 +298,7 @@ export function FieldRenderer({
   if (field.field_type === 'phone') {
     return (
       <PhoneField
-        value={value as string || ''}
+        value={(value as string) || ''}
         onChange={onChange}
         label={field.field_label}
         disabled={disabled}
@@ -313,7 +312,7 @@ export function FieldRenderer({
   if (field.field_type === 'currency') {
     return (
       <CurrencyField
-        value={value as number || 0}
+        value={(value as number) || 0}
         onChange={onChange}
         label={field.field_label}
         disabled={disabled}
@@ -327,7 +326,7 @@ export function FieldRenderer({
   if (field.field_type === 'percentage') {
     return (
       <PercentageField
-        value={value as number || 0}
+        value={(value as number) || 0}
         onChange={onChange}
         label={field.field_label}
         disabled={disabled}

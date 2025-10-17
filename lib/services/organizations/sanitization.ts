@@ -68,8 +68,8 @@ export function sanitizeLikePattern(input: string): string {
   // Order matters: backslash must be escaped first
   return truncated
     .replace(/\\/g, '\\\\') // Escape backslash
-    .replace(/%/g, '\\%')   // Escape percent wildcard
-    .replace(/_/g, '\\_');  // Escape underscore wildcard
+    .replace(/%/g, '\\%') // Escape percent wildcard
+    .replace(/_/g, '\\_'); // Escape underscore wildcard
 }
 
 /**

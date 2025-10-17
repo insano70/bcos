@@ -92,10 +92,12 @@ export function getEnhancedContentSecurityPolicy(nonces?: CSPNonces): string {
       // In development, we use 'unsafe-inline' instead to avoid nonce conflicts
       ...(!isDevelopment && nonces ? [`'nonce-${nonces.scriptNonce}'`] : []),
       // ✅ HYBRID APPROACH: SHA256 hashes for Next.js core scripts (production only)
-      ...(!isDevelopment ? [
-        "'sha256-n46vPwSWuMC0W703pBofImv82Z26xo4LXymv0E9caPk='", // Next.js hydration
-        "'sha256-skqujXORqzxt1aE0NNXxujEanPTX6raoqSscTV/Ww/Y='", // Next.js runtime
-      ] : []),
+      ...(!isDevelopment
+        ? [
+            "'sha256-n46vPwSWuMC0W703pBofImv82Z26xo4LXymv0E9caPk='", // Next.js hydration
+            "'sha256-skqujXORqzxt1aE0NNXxujEanPTX6raoqSscTV/Ww/Y='", // Next.js runtime
+          ]
+        : []),
       // Allow unsafe-eval and unsafe-inline in development for Next.js hot reload and dev tools
       ...(isDevelopment ? ["'unsafe-eval'", "'unsafe-inline'"] : []),
       // Trusted CDNs for charts and UI libraries
@@ -107,13 +109,15 @@ export function getEnhancedContentSecurityPolicy(nonces?: CSPNonces): string {
       // ✅ SECURITY: Nonce for custom inline styles (production only)
       ...(!isDevelopment && nonces ? [`'nonce-${nonces.styleNonce}'`] : []),
       // ✅ HYBRID APPROACH: SHA256 hashes for Next.js core styles (production only)
-      ...(!isDevelopment ? [
-        "'sha256-zlqnbDt84zf1iSefLU/ImC54isoprH/MRiVZGskwexk='", // Next.js inline styles
-        "'sha256-skqujXORqzxt1aE0NNXxujEanPTX6raoqSscTV/Ww/Y='", // Next.js runtime styles
-        // ✅ CHARTS: Allow hashed inline style attributes for Chart.js and React inline styles
-        // More secure than 'unsafe-inline' - only allows style="" attributes, not <style> tags
-        "'unsafe-hashes'",
-      ] : []),
+      ...(!isDevelopment
+        ? [
+            "'sha256-zlqnbDt84zf1iSefLU/ImC54isoprH/MRiVZGskwexk='", // Next.js inline styles
+            "'sha256-skqujXORqzxt1aE0NNXxujEanPTX6raoqSscTV/Ww/Y='", // Next.js runtime styles
+            // ✅ CHARTS: Allow hashed inline style attributes for Chart.js and React inline styles
+            // More secure than 'unsafe-inline' - only allows style="" attributes, not <style> tags
+            "'unsafe-hashes'",
+          ]
+        : []),
       // Allow unsafe-inline in development for CSS-in-JS and hot reload
       ...(isDevelopment ? ["'unsafe-inline'"] : []),
       // Google Fonts domain for CSS loading

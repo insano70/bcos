@@ -1,20 +1,25 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { apiClient } from '@/lib/api/client';
-import { transformApiUserToContext, validateApiUserResponse } from './utils/user-context-transformer';
-import { handleLoginResponse } from './utils/handle-login-response';
+import { useAuthState } from './hooks/use-auth-state';
 import { useCSRFManagement } from './hooks/use-csrf-management';
 import { useMFAFlow } from './hooks/use-mfa-flow';
-import { useAuthState } from './hooks/use-auth-state';
 import { authHTTPService } from './services/auth-http-service';
-import type {
-  User,
-  RBACAuthState,
-  RBACAuthContextType,
-  MFASessionData,
-  APIUserResponse,
-} from './types';
+import type { MFASessionData, RBACAuthContextType, User } from './types';
+import { handleLoginResponse } from './utils/handle-login-response';
+import {
+  transformApiUserToContext,
+  validateApiUserResponse,
+} from './utils/user-context-transformer';
 
 /**
  * Enhanced Authentication Provider with RBAC Integration
@@ -44,59 +49,137 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     clearMFAState,
   } = useMFAFlow();
 
-  // Initialize authentication state
-  useEffect(() => {
-    initializeAuth();
-  }, []);
-
   // Track if we've already initialized to prevent redundant calls
   const [hasInitialized, setHasInitialized] = useState(false);
 
   // RACE CONDITION PROTECTION: Mutex to prevent concurrent auth operations
   const authOperationInProgress = useRef(false);
 
-  // Set up API client with auth context (accessToken removed - handled by middleware)
-  useEffect(() => {
-    apiClient.setAuthContext({
-      csrfToken: csrfToken,
-      refreshToken,
-      logout,
-      ensureCsrfToken
-    });
-  }, [csrfToken, ensureCsrfToken]);
-
-  // Set up token refresh interval (based on authentication state, not client-side token)
-  useEffect(() => {
-    if (state.isAuthenticated) {
-      // Refresh token every 10 minutes (access tokens last 15 minutes)
-      // 5-minute safety margin (33%) prevents expiration during network delays or clock skew
-      const refreshInterval = setInterval(() => {
-        // Only refresh if we're still authenticated and not already refreshing
-        if (state.isAuthenticated && !state.isLoading) {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('[Auth] Periodic token refresh triggered');
-          }
-          refreshToken();
-        }
-      }, 10 * 60 * 1000); // 10 minutes (33% safety margin)
-
-      return () => clearInterval(refreshInterval);
+  const refreshToken = useCallback(async () => {
+    // RACE CONDITION PROTECTION: Prevent concurrent refresh operations
+    if (authOperationInProgress.current) {
+      console.log('Auth operation already in progress, skipping refresh');
+      return;
     }
-  }, [state.isAuthenticated]);
 
-  // Load RBAC user context when user changes (with debouncing to prevent race conditions)
-  useEffect(() => {
-    if (state.user && state.isAuthenticated && !state.userContext && !state.rbacLoading) {
-      // Minimal debounce to batch React updates while loading context quickly
-      const timeoutId = setTimeout(() => {
-        loadUserContext();
-      }, 10); // 10ms debounce - just enough to batch updates, fast UX
+    authOperationInProgress.current = true;
 
-      return () => clearTimeout(timeoutId);
+    try {
+      actions.refreshStart();
+
+      const token = csrfToken || (await ensureCsrfToken()) || '';
+
+      // Use HTTP service to refresh token
+      const result = await authHTTPService.refreshAuthToken(token);
+
+      if (!result.data) {
+        throw new Error('Invalid refresh response: missing data');
+      }
+
+      // Update CSRF token if provided
+      if (result.data.csrfToken) {
+        setCsrfToken(result.data.csrfToken);
+      }
+
+      // Update state with refreshed user data (accessToken updated server-side in httpOnly cookie)
+      actions.refreshSuccess({
+        user: result.data.user as User,
+        sessionId: result.data.sessionId,
+      });
+
+      console.log('Token refreshed successfully');
+    } catch (error) {
+      // Check if this is a rate limit error
+      if (error instanceof Error && error.message.includes('429')) {
+        console.log('Token refresh rate limited, will retry later');
+        // Don't clear auth state on rate limit - tokens might still be valid
+        return;
+      }
+
+      // This is normal if no session exists
+      console.log('No session to refresh (normal on first visit)');
+      actions.refreshFailure();
+    } finally {
+      // Always release mutex
+      authOperationInProgress.current = false;
     }
-  }, [state.user, state.isAuthenticated]);
+  }, [csrfToken, ensureCsrfToken, setCsrfToken, actions]);
 
-  const initializeAuth = async () => {
+  const logout = useCallback(async () => {
+    try {
+      actions.setLoading(true);
+
+      // Call logout endpoint via HTTP service
+      const token = (await ensureCsrfToken()) || '';
+      await authHTTPService.performLogout(token);
+
+      // Clear CSRF token so next login gets fresh anonymous token
+      setCsrfToken(null);
+
+      // Clear MFA state
+      clearMFAState();
+
+      // Clear auth state
+      actions.logout();
+
+      console.log('Logout successful');
+    } catch (error) {
+      console.error('Logout error:', error);
+
+      // Clear CSRF token even on logout failure
+      setCsrfToken(null);
+
+      // Clear MFA state
+      clearMFAState();
+
+      // Clear state even if logout fails (accessToken cleared server-side)
+      actions.logout();
+    }
+  }, [actions, ensureCsrfToken, setCsrfToken, clearMFAState]);
+
+  const loadUserContext = useCallback(async () => {
+    if (!state.user) return;
+
+    // Prevent overlapping user context loading requests
+    if (state.rbacLoading) {
+      console.log('User context already loading, skipping duplicate request');
+      return;
+    }
+
+    try {
+      actions.rbacLoadStart();
+
+      console.log('Loading user context for:', state.user.id);
+
+      // Fetch user context via HTTP service
+      const data = await authHTTPService.fetchUserContext();
+
+      if (!data.success || !data.data?.user) {
+        throw new Error('Invalid user context response');
+      }
+
+      // Transform API response to UserContext format
+      const apiUser = data.data.user;
+      validateApiUserResponse(apiUser);
+      const userContext = transformApiUserToContext(apiUser);
+
+      actions.rbacLoadSuccess({ userContext });
+    } catch (error) {
+      // Check if this is a session expired error (401)
+      if (error instanceof Error && error.message.includes('401')) {
+        console.log('Session expired during user context loading');
+        actions.sessionExpired();
+        return;
+      }
+
+      console.error('Failed to load RBAC user context:', error);
+      actions.rbacLoadFailure({
+        error: error instanceof Error ? error.message : 'Unknown RBAC error',
+      });
+    }
+  }, [state.user, state.rbacLoading, actions]);
+
+  const initializeAuth = useCallback(async () => {
     // Prevent redundant initialization calls (React StrictMode calls useEffect twice)
     if (hasInitialized) {
       console.log('Auth already initialized, skipping...');
@@ -147,55 +230,61 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
       console.log('No valid session found, attempting token refresh...');
       await ensureCsrfToken();
       await refreshToken();
-
     } catch (error) {
       console.log('No active session found:', error);
       actions.initFailure();
       setHasInitialized(false); // Allow retry on error
     }
-  };
+  }, [hasInitialized, actions, ensureCsrfToken, refreshToken]);
 
-  const loadUserContext = async () => {
-    if (!state.user) return;
+  // Initialize authentication state
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
 
-    // Prevent overlapping user context loading requests
-    if (state.rbacLoading) {
-      console.log('User context already loading, skipping duplicate request');
-      return;
+  // Set up API client with auth context
+  useEffect(() => {
+    apiClient.setAuthContext({
+      csrfToken: csrfToken,
+      refreshToken,
+      logout,
+      ensureCsrfToken,
+    });
+  }, [csrfToken, ensureCsrfToken, logout, refreshToken]);
+
+  // Set up token refresh interval (based on authentication state, not client-side token)
+  useEffect(() => {
+    if (state.isAuthenticated) {
+      // Refresh token every 10 minutes (access tokens last 15 minutes)
+      // 5-minute safety margin (33%) prevents expiration during network delays or clock skew
+      const refreshInterval = setInterval(
+        () => {
+          // Only refresh if we're still authenticated and not already refreshing
+          if (state.isAuthenticated && !state.isLoading) {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('[Auth] Periodic token refresh triggered');
+            }
+            refreshToken();
+          }
+        },
+        10 * 60 * 1000
+      ); // 10 minutes (33% safety margin)
+
+      return () => clearInterval(refreshInterval);
     }
+  }, [state.isAuthenticated, refreshToken, state.isLoading]);
 
-    try {
-      actions.rbacLoadStart();
+  // Load RBAC user context when user changes (with debouncing to prevent race conditions)
+  useEffect(() => {
+    if (state.user && state.isAuthenticated && !state.userContext && !state.rbacLoading) {
+      // Minimal debounce to batch React updates while loading context quickly
+      const timeoutId = setTimeout(() => {
+        loadUserContext();
+      }, 10); // 10ms debounce - just enough to batch updates, fast UX
 
-      console.log('Loading user context for:', state.user.id);
-
-      // Fetch user context via HTTP service
-      const data = await authHTTPService.fetchUserContext();
-
-      if (!data.success || !data.data?.user) {
-        throw new Error('Invalid user context response');
-      }
-
-      // Transform API response to UserContext format
-      const apiUser = data.data.user;
-      validateApiUserResponse(apiUser);
-      const userContext = transformApiUserToContext(apiUser);
-
-      actions.rbacLoadSuccess({ userContext });
-    } catch (error) {
-      // Check if this is a session expired error (401)
-      if (error instanceof Error && error.message.includes('401')) {
-        console.log('Session expired during user context loading');
-        actions.sessionExpired();
-        return;
-      }
-
-      console.error('Failed to load RBAC user context:', error);
-      actions.rbacLoadFailure({
-        error: error instanceof Error ? error.message : 'Unknown RBAC error'
-      });
+      return () => clearTimeout(timeoutId);
     }
-  };
+  }, [state.user, state.isAuthenticated, loadUserContext, state.rbacLoading, state.userContext]);
 
   const login = async (email: string, password: string, remember = false) => {
     try {
@@ -224,88 +313,6 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     }
   };
 
-  const logout = async () => {
-    try {
-      actions.setLoading(true);
-
-      // Call logout endpoint via HTTP service
-      const csrfToken = (await ensureCsrfToken()) || '';
-      await authHTTPService.performLogout(csrfToken);
-
-      // Clear CSRF token so next login gets fresh anonymous token
-      setCsrfToken(null);
-
-      // Clear MFA state
-      clearMFAState();
-
-      // Clear auth state
-      actions.logout();
-
-      console.log('Logout successful');
-    } catch (error) {
-      console.error('Logout error:', error);
-
-      // Clear CSRF token even on logout failure
-      setCsrfToken(null);
-
-      // Clear MFA state
-      clearMFAState();
-
-      // Clear state even if logout fails (accessToken cleared server-side)
-      actions.logout();
-    }
-  };
-
-  const refreshToken = async () => {
-    // RACE CONDITION PROTECTION: Prevent concurrent refresh operations
-    if (authOperationInProgress.current) {
-      console.log('Auth operation already in progress, skipping refresh');
-      return;
-    }
-
-    authOperationInProgress.current = true;
-
-    try {
-      actions.refreshStart();
-
-      const token = csrfToken || (await ensureCsrfToken()) || '';
-
-      // Use HTTP service to refresh token
-      const result = await authHTTPService.refreshAuthToken(token);
-
-      if (!result.data) {
-        throw new Error('Invalid refresh response: missing data');
-      }
-
-      // Update CSRF token if provided
-      if (result.data.csrfToken) {
-        setCsrfToken(result.data.csrfToken);
-      }
-
-      // Update state with refreshed user data (accessToken updated server-side in httpOnly cookie)
-      actions.refreshSuccess({
-        user: result.data.user as User,
-        sessionId: result.data.sessionId,
-      });
-
-      console.log('Token refreshed successfully');
-    } catch (error) {
-      // Check if this is a rate limit error
-      if (error instanceof Error && error.message.includes('429')) {
-        console.log('Token refresh rate limited, will retry later');
-        // Don't clear auth state on rate limit - tokens might still be valid
-        return;
-      }
-
-      // This is normal if no session exists
-      console.log('No session to refresh (normal on first visit)');
-      actions.refreshFailure();
-    } finally {
-      // Always release mutex
-      authOperationInProgress.current = false;
-    }
-  };
-
   const refreshUserContext = async () => {
     if (state.user) {
       await loadUserContext();
@@ -314,26 +321,18 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
 
   // MFA completion handler - called after MFA setup succeeds
   const completeMFASetup = (sessionData: MFASessionData) => {
-    completeMFASetupHook(
-      sessionData,
-      setCsrfToken,
-      (user, sessionId) => {
-        // Update auth state with authenticated user
-        actions.loginSuccess({ user, sessionId });
-      }
-    );
+    completeMFASetupHook(sessionData, setCsrfToken, (user, sessionId) => {
+      // Update auth state with authenticated user
+      actions.loginSuccess({ user, sessionId });
+    });
   };
 
   // MFA completion handler - called after MFA verification succeeds
   const completeMFAVerification = (sessionData: MFASessionData) => {
-    completeMFAVerificationHook(
-      sessionData,
-      setCsrfToken,
-      (user, sessionId) => {
-        // Update auth state with authenticated user
-        actions.loginSuccess({ user, sessionId });
-      }
-    );
+    completeMFAVerificationHook(sessionData, setCsrfToken, (user, sessionId) => {
+      // Update auth state with authenticated user
+      actions.loginSuccess({ user, sessionId });
+    });
   };
 
   const contextValue: RBACAuthContextType = {
@@ -358,11 +357,7 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     clearMFAState,
   };
 
-  return (
-    <RBACAuthContext.Provider value={contextValue}>
-      {children}
-    </RBACAuthContext.Provider>
-  );
+  return <RBACAuthContext.Provider value={contextValue}>{children}</RBACAuthContext.Provider>;
 }
 
 export function useRBACAuth(): RBACAuthContextType {

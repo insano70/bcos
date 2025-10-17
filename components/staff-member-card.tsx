@@ -1,8 +1,8 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useDeleteStaff } from '@/lib/hooks/use-staff';
-import { useQueryClient } from '@tanstack/react-query';
 import type { StaffMember } from '@/lib/types/practice';
 
 interface StaffMemberCardProps {
@@ -20,7 +20,7 @@ export default function StaffMemberCard({
   onEdit,
   onReorder,
   canMoveUp = false,
-  canMoveDown = false
+  canMoveDown = false,
 }: StaffMemberCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -32,9 +32,9 @@ export default function StaffMemberCard({
     try {
       await deleteStaff.mutateAsync({
         practiceId,
-        staffId: staffMember.staff_id
+        staffId: staffMember.staff_id,
       });
-      
+
       // Refresh staff list
       queryClient.invalidateQueries({ queryKey: ['staff', practiceId] });
       setShowDeleteConfirm(false);
@@ -58,8 +58,18 @@ export default function StaffMemberCard({
             />
           ) : (
             <div className="w-16 h-16 bg-gray-200 dark:bg-gray-600 rounded-full flex items-center justify-center">
-              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              <svg
+                className="w-8 h-8 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                />
               </svg>
             </div>
           )}
@@ -73,9 +83,7 @@ export default function StaffMemberCard({
                 {staffMember.name}
               </h3>
               {staffMember.title && (
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {staffMember.title}
-                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{staffMember.title}</p>
               )}
               {staffMember.credentials && (
                 <p className="text-sm text-blue-600 dark:text-blue-400">
@@ -85,11 +93,13 @@ export default function StaffMemberCard({
             </div>
 
             {/* Status badge */}
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-              staffMember.is_active
-                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
-            }`}>
+            <span
+              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                staffMember.is_active
+                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                  : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+              }`}
+            >
               {staffMember.is_active ? 'Active' : 'Inactive'}
             </span>
           </div>
@@ -138,7 +148,12 @@ export default function StaffMemberCard({
                 title="Move up"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 15l7-7 7 7"
+                  />
                 </svg>
               </button>
               <button
@@ -149,7 +164,12 @@ export default function StaffMemberCard({
                 title="Move down"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
                 </svg>
               </button>
             </>
@@ -165,7 +185,7 @@ export default function StaffMemberCard({
           >
             Edit
           </button>
-          
+
           {!showDeleteConfirm ? (
             <button
               type="button"

@@ -1,5 +1,14 @@
 import { relations, sql } from 'drizzle-orm';
-import { boolean, index, integer, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  varchar,
+} from 'drizzle-orm/pg-core';
 
 /**
  * RBAC Database Schema for Enterprise Role-Based Access Control
@@ -15,13 +24,13 @@ export const organizations = pgTable(
     name: varchar('name', { length: 255 }).notNull(),
     slug: varchar('slug', { length: 100 }).notNull().unique(),
     parent_organization_id: uuid('parent_organization_id'),
-    
+
     // Analytics data security - practice_uid filtering
     // Array of practice_uid values from analytics database (ih.agg_app_measures, etc.)
     // Users with analytics:read:organization can only see data where practice_uid IN practice_uids
     // Empty array = no data visible (fail-closed security)
     practice_uids: integer('practice_uids').array().default(sql`'{}'`),
-    
+
     is_active: boolean('is_active').default(true),
     created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
@@ -31,11 +40,10 @@ export const organizations = pgTable(
     slugIdx: index('idx_organizations_slug').on(table.slug),
     parentIdx: index('idx_organizations_parent').on(table.parent_organization_id),
     activeIdx: index('idx_organizations_active').on(table.is_active),
-    
+
     // GIN index for efficient array lookups (ANY operator)
-    practiceUidsIdx: index('idx_organizations_practice_uids')
-      .using('gin', table.practice_uids),
-    
+    practiceUidsIdx: index('idx_organizations_practice_uids').using('gin', table.practice_uids),
+
     createdAtIdx: index('idx_organizations_created_at').on(table.created_at),
     deletedAtIdx: index('idx_organizations_deleted_at').on(table.deleted_at),
   })

@@ -1,21 +1,22 @@
 #!/usr/bin/env tsx
+
 /**
  * Seed Drizzle Migrations Table
- * 
+ *
  * This script populates the __drizzle_migrations table to mark existing
  * migrations as already applied. Use this when migrations were run manually
  * before Drizzle tracking was implemented.
- * 
+ *
  * ⚠️ CRITICAL: Only run this ONCE on staging and production databases
- * 
+ *
  * Usage:
  *   tsx scripts/seed-drizzle-migrations.ts
  */
 
-import postgres from 'postgres';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { createHash } from 'node:crypto';
+import postgres from 'postgres';
 
 interface MigrationEntry {
   idx: number;
@@ -33,7 +34,7 @@ interface MigrationJournal {
 
 async function seedMigrationsTable(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL;
-  
+
   if (!databaseUrl) {
     console.error('❌ DATABASE_URL environment variable is not set');
     process.exit(1);
@@ -66,10 +67,10 @@ async function seedMigrationsTable(): Promise<void> {
 
     if (!tableExists[0]?.exists) {
       console.log('📦 Creating __drizzle_migrations table...');
-      
+
       // Create the drizzle schema if it doesn't exist
       await client`CREATE SCHEMA IF NOT EXISTS drizzle`;
-      
+
       // Create the migrations table (matching Drizzle's structure)
       await client`
         CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
@@ -78,7 +79,7 @@ async function seedMigrationsTable(): Promise<void> {
           created_at bigint
         )
       `;
-      
+
       console.log('✅ Created __drizzle_migrations table');
       console.log('');
     } else {
@@ -90,7 +91,7 @@ async function seedMigrationsTable(): Promise<void> {
     const existingMigrations = await client`
       SELECT hash FROM drizzle.__drizzle_migrations
     `;
-    const existingHashes = new Set(existingMigrations.map(m => m.hash));
+    const existingHashes = new Set(existingMigrations.map((m) => m.hash));
 
     console.log(`📊 Found ${existingHashes.size} already applied migrations`);
     console.log('');
@@ -101,14 +102,14 @@ async function seedMigrationsTable(): Promise<void> {
 
     for (const entry of journal.entries) {
       const migrationPath = join(process.cwd(), `lib/db/migrations/${entry.tag}.sql`);
-      
+
       try {
         // Read the SQL file
         const sql = readFileSync(migrationPath, 'utf-8');
-        
+
         // Generate hash (matching Drizzle's hash generation)
         const hash = createHash('sha256').update(sql).digest('hex');
-        
+
         // Check if already seeded
         if (existingHashes.has(hash)) {
           console.log(`⏭️  Skipping ${entry.tag} (already applied)`);
@@ -121,10 +122,9 @@ async function seedMigrationsTable(): Promise<void> {
           INSERT INTO drizzle.__drizzle_migrations (hash, created_at)
           VALUES (${hash}, ${entry.when})
         `;
-        
+
         console.log(`✅ Seeded ${entry.tag} (${entry.when})`);
         seeded++;
-        
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
           console.log(`⚠️  Warning: Migration file not found: ${entry.tag}.sql`);
@@ -150,7 +150,6 @@ async function seedMigrationsTable(): Promise<void> {
 
     await client.end();
     process.exit(0);
-
   } catch (error) {
     console.error('');
     console.error('❌ Failed to seed migrations table:');
@@ -163,7 +162,7 @@ async function seedMigrationsTable(): Promise<void> {
 
     try {
       await client.end();
-    } catch (closeError) {
+    } catch (_closeError) {
       console.error('⚠️  Failed to close database connection');
     }
 

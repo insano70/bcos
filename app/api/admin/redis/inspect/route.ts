@@ -14,13 +14,13 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/route-handlers';
-import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
+import { AuditLogger } from '@/lib/api/services/audit';
 import { log } from '@/lib/logger';
 import { redisAdminService } from '@/lib/monitoring/redis-admin';
 import { isRedisAvailable } from '@/lib/redis';
-import { AuditLogger } from '@/lib/api/services/audit';
 import type { UserContext } from '@/lib/types/rbac';
 
 const redisInspectHandler = async (request: NextRequest, userContext: UserContext) => {
@@ -106,4 +106,3 @@ export const GET = rbacRoute(redisInspectHandler, {
   permission: 'settings:read:all',
   rateLimit: 'api',
 });
-

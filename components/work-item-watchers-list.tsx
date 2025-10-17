@@ -5,24 +5,21 @@
  * Phase 7: Watchers and notifications
  */
 
+import { Loader2, Settings, User } from 'lucide-react';
 import { useState } from 'react';
-import { Settings, User, Loader2, X } from 'lucide-react';
+import { toast } from 'sonner';
 import {
-  useWorkItemWatchers,
   useUpdateWatcherPreferences,
+  useWorkItemWatchers,
   type WatcherWithDetails,
 } from '@/lib/hooks/use-work-item-watchers';
-import { toast } from 'sonner';
 
 interface WorkItemWatchersListProps {
   workItemId: string;
   currentUserId: string;
 }
 
-export function WorkItemWatchersList({
-  workItemId,
-  currentUserId,
-}: WorkItemWatchersListProps) {
+export function WorkItemWatchersList({ workItemId, currentUserId }: WorkItemWatchersListProps) {
   const { data: watchers, isLoading } = useWorkItemWatchers(workItemId);
   const [editingWatcherId, setEditingWatcherId] = useState<string | null>(null);
 
@@ -35,11 +32,7 @@ export function WorkItemWatchersList({
   }
 
   if (!watchers || watchers.length === 0) {
-    return (
-      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-        No watchers yet
-      </div>
-    );
+    return <div className="text-center py-8 text-gray-500 dark:text-gray-400">No watchers yet</div>;
   }
 
   return (
@@ -99,7 +92,7 @@ function WatcherItem({
       });
       toast.success('Notification preferences updated');
       onEditToggle();
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to update preferences');
     }
   };
@@ -114,9 +107,7 @@ function WatcherItem({
 
       <div className="flex-grow min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <span className="font-medium text-gray-900 dark:text-gray-100">
-            {watcher.user_name}
-          </span>
+          <span className="font-medium text-gray-900 dark:text-gray-100">{watcher.user_name}</span>
           {isCurrentUser && (
             <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
               You
@@ -129,9 +120,7 @@ function WatcherItem({
           )}
         </div>
 
-        <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-          {watcher.user_email}
-        </div>
+        <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">{watcher.user_email}</div>
 
         {isEditing ? (
           <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700/60">
@@ -151,9 +140,7 @@ function WatcherItem({
                 }
                 className="rounded border-gray-300 dark:border-gray-600"
               />
-              <span className="text-gray-700 dark:text-gray-300">
-                Status changes
-              </span>
+              <span className="text-gray-700 dark:text-gray-300">Status changes</span>
             </label>
 
             <label className="flex items-center gap-2 text-sm">
@@ -168,9 +155,7 @@ function WatcherItem({
                 }
                 className="rounded border-gray-300 dark:border-gray-600"
               />
-              <span className="text-gray-700 dark:text-gray-300">
-                New comments
-              </span>
+              <span className="text-gray-700 dark:text-gray-300">New comments</span>
             </label>
 
             <label className="flex items-center gap-2 text-sm">
@@ -185,9 +170,7 @@ function WatcherItem({
                 }
                 className="rounded border-gray-300 dark:border-gray-600"
               />
-              <span className="text-gray-700 dark:text-gray-300">
-                Assignment changes
-              </span>
+              <span className="text-gray-700 dark:text-gray-300">Assignment changes</span>
             </label>
 
             <label className="flex items-center gap-2 text-sm">
@@ -202,9 +185,7 @@ function WatcherItem({
                 }
                 className="rounded border-gray-300 dark:border-gray-600"
               />
-              <span className="text-gray-700 dark:text-gray-300">
-                Due date reminders
-              </span>
+              <span className="text-gray-700 dark:text-gray-300">Due date reminders</span>
             </label>
 
             <div className="flex gap-2 mt-3">

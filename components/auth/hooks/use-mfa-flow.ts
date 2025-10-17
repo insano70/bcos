@@ -25,9 +25,9 @@
  * completeMFASetup(sessionData, setCsrfToken, onAuthenticated);
  */
 
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { clientDebugLog as debugLog } from '@/lib/utils/debug-client';
-import type { MFAUser, MFASessionData } from '../types';
+import type { MFASessionData, MFAUser } from '../types';
 
 /**
  * MFA State Interface

@@ -25,14 +25,14 @@
 import type { NextRequest } from 'next/server';
 import { correlation, log } from '@/lib/logger';
 import type { PermissionName, UserContext } from '@/lib/types/rbac';
-import type { RBACRouteOptions } from '../types';
-import { MiddlewarePipeline } from '../middleware/pipeline';
-import { CorrelationMiddleware } from '../middleware/correlation-middleware';
-import { RateLimitMiddleware } from '../middleware/rate-limit-middleware';
 import { AuthMiddleware } from '../middleware/auth-middleware';
+import { CorrelationMiddleware } from '../middleware/correlation-middleware';
+import { MiddlewarePipeline } from '../middleware/pipeline';
+import { RateLimitMiddleware } from '../middleware/rate-limit-middleware';
 import { RBACMiddleware } from '../middleware/rbac-middleware';
-import { MetricsRecorder } from '../utils/metrics-recorder';
+import type { RBACRouteOptions } from '../types';
 import { RouteErrorHandler } from '../utils/error-handler';
+import { MetricsRecorder } from '../utils/metrics-recorder';
 import { TimingTracker } from '../utils/timing-tracker';
 
 export class RBACRouteBuilder {
@@ -105,7 +105,8 @@ export class RBACRouteBuilder {
 
             // If middleware failed, record metrics and return error
             if (!result.success || !result.context) {
-              const errorResponse = result.response || new Response('Internal Server Error', { status: 500 });
+              const errorResponse =
+                result.response || new Response('Internal Server Error', { status: 500 });
               await MetricsRecorder.recordRequest(
                 request,
                 {

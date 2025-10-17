@@ -1,5 +1,5 @@
-import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
 import type { ColumnConfig } from '@/lib/services/chart-config-service';
+import type { AggAppMeasure, ChartData } from '@/lib/types/analytics';
 import { chartTransformerFactory } from './chart-data/strategies/chart-transformer-factory';
 
 /**
@@ -65,7 +65,7 @@ export class SimplifiedChartTransformer {
 
     // Get measure type from first record (all should be the same for a single chart)
     const measureType = measures[0]?.measure_type;
-    return (typeof measureType === 'string' ? measureType : 'number'); // Default fallback
+    return typeof measureType === 'string' ? measureType : 'number'; // Default fallback
   }
 
   /**
@@ -127,9 +127,7 @@ export class SimplifiedChartTransformer {
     // Validate configuration
     const validation = strategy.validate(config);
     if (!validation.isValid) {
-      throw new Error(
-        `Invalid configuration for ${chartType}: ${validation.errors.join(', ')}`
-      );
+      throw new Error(`Invalid configuration for ${chartType}: ${validation.errors.join(', ')}`);
     }
 
     // Transform data with strategy
@@ -190,9 +188,7 @@ export class SimplifiedChartTransformer {
 
     const validation = strategy.validate(config);
     if (!validation.isValid) {
-      throw new Error(
-        `Invalid configuration for multi-series: ${validation.errors.join(', ')}`
-      );
+      throw new Error(`Invalid configuration for multi-series: ${validation.errors.join(', ')}`);
     }
 
     const chartData = strategy.transform(measures, config);
@@ -333,8 +329,11 @@ export class SimplifiedChartTransformer {
     }
 
     // Tag measures with series_id for strategy
-    const taggedPrimary = primaryMeasures.map(m => ({ ...m, series_id: 'primary' as const }));
-    const taggedSecondary = secondaryMeasures.map(m => ({ ...m, series_id: 'secondary' as const }));
+    const taggedPrimary = primaryMeasures.map((m) => ({ ...m, series_id: 'primary' as const }));
+    const taggedSecondary = secondaryMeasures.map((m) => ({
+      ...m,
+      series_id: 'secondary' as const,
+    }));
     const combinedMeasures = [...taggedPrimary, ...taggedSecondary];
 
     const config = {
@@ -347,9 +346,7 @@ export class SimplifiedChartTransformer {
 
     const validation = strategy.validate(config);
     if (!validation.isValid) {
-      throw new Error(
-        `Invalid configuration for dual-axis: ${validation.errors.join(', ')}`
-      );
+      throw new Error(`Invalid configuration for dual-axis: ${validation.errors.join(', ')}`);
     }
 
     return strategy.transform(combinedMeasures, config);

@@ -4,7 +4,6 @@
  * This bypasses the full app environment validation
  */
 
-import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { seedRBACData } from '../lib/db/rbac-seed';
 

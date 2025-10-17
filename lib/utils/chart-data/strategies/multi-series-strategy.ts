@@ -1,19 +1,19 @@
 /**
  * Multi-Series Strategy
- * 
+ *
  * Handles transformation for charts with multiple series/measures.
  * Supports series-tagged data with custom aggregations.
  */
 
 import type { AggAppMeasure, ChartData, ChartDataset } from '@/lib/types/analytics';
-import { BaseChartTransformStrategy, type TransformConfig } from './base-strategy';
 import { formatDateLabel } from '../formatters/date-formatter';
-import { 
-  groupByFieldAndDate, 
-  groupBySeriesAndDate, 
-  applyAggregation 
-} from '../services/data-aggregator';
 import { getColorPalette } from '../services/chart-color-service';
+import {
+  applyAggregation,
+  groupByFieldAndDate,
+  groupBySeriesAndDate,
+} from '../services/data-aggregator';
+import { BaseChartTransformStrategy, type TransformConfig } from './base-strategy';
 
 /**
  * Configuration for multi-series charts
@@ -194,4 +194,3 @@ export class MultiSeriesStrategy extends BaseChartTransformStrategy {
     return this.attachMeasureType(chartData, this.extractMeasureType(measures));
   }
 }
-

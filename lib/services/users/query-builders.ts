@@ -1,5 +1,5 @@
-import { and, eq, inArray, isNull, like, or } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
+import { and, eq, inArray, isNull, like, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { organizations, user_organizations, users } from '@/lib/db/schema';
 import type { UserWithOrganizations } from '../rbac-users-service';
@@ -45,10 +45,7 @@ export function getUsersBaseQuery() {
     })
     .from(users)
     .leftJoin(user_organizations, eq(users.user_id, user_organizations.user_id))
-    .leftJoin(
-      organizations,
-      eq(user_organizations.organization_id, organizations.organization_id)
-    );
+    .leftJoin(organizations, eq(user_organizations.organization_id, organizations.organization_id));
 }
 
 /**

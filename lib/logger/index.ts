@@ -28,16 +28,14 @@
  * Do not import from client components - use React error boundaries instead
  */
 
+// Logging constants (slow thresholds, etc.)
+export { SLOW_THRESHOLDS } from './constants';
 // Simplified logger - automatic stack traces, file:line:function capture, correlation tracking
 // Backward compatibility alias
 // Default export
 export { correlation, log, log as logger, log as default } from './logger';
-
 // Message templates for rich, consistent logging
-export { logTemplates, calculateChanges, sanitizeFilters } from './message-templates';
-
-// Logging constants (slow thresholds, etc.)
-export { SLOW_THRESHOLDS } from './constants';
+export { calculateChanges, logTemplates, sanitizeFilters } from './message-templates';
 
 /**
  * Extract error message from unknown error type

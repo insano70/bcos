@@ -21,8 +21,8 @@
 
 import { log } from '@/lib/logger';
 import type { ChartFilter, ChartRenderContext } from '@/lib/types/analytics';
-import { ALLOWED_OPERATORS } from './query-types';
 import { querySanitizer } from './query-sanitizer';
+import { ALLOWED_OPERATORS } from './query-types';
 
 /**
  * Query builder for SQL WHERE clauses
@@ -111,12 +111,16 @@ export class QueryBuilder {
       paramIndex++;
     } else if (context.permission_scope === 'own') {
       // FAIL-CLOSED SECURITY: Provider user with no provider_uid
-      log.security('Provider user has no provider_uid - query will return empty results', 'medium', {
-        userId: context.user_id,
-        providerUid: context.provider_uid,
-        failedClosed: true,
-        reason: 'empty_provider_uid',
-      });
+      log.security(
+        'Provider user has no provider_uid - query will return empty results',
+        'medium',
+        {
+          userId: context.user_id,
+          providerUid: context.provider_uid,
+          failedClosed: true,
+          reason: 'empty_provider_uid',
+        }
+      );
     }
 
     // Add user-specified filters

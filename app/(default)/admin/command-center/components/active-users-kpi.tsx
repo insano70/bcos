@@ -25,7 +25,8 @@ export default function ActiveUsersKPI({ activeUsers }: ActiveUsersKPIProps) {
 
     trendIndicator = (
       <div className={`text-sm font-medium ${isPositive ? 'text-green-600' : 'text-gray-500'}`}>
-        {isPositive ? '▲' : '▼'} {isPositive ? '+' : ''}{difference} ({percentChange}%)
+        {isPositive ? '▲' : '▼'} {isPositive ? '+' : ''}
+        {difference} ({percentChange}%)
       </div>
     );
   }
@@ -70,4 +71,3 @@ export default function ActiveUsersKPI({ activeUsers }: ActiveUsersKPIProps) {
     </div>
   );
 }
-

@@ -1,24 +1,23 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
-import { useTheme } from 'next-themes';
-
-import { chartColors } from '@/components/charts/chartjs-config';
+import type { ChartData } from 'chart.js';
 import {
   Chart,
+  Filler,
+  LinearScale,
   LineController,
   LineElement,
-  Filler,
   PointElement,
-  LinearScale,
   TimeScale,
   Tooltip,
 } from 'chart.js';
-import type { ChartData } from 'chart.js';
+import { useTheme } from 'next-themes';
+import { useEffect, useRef, useState } from 'react';
+import { chartColors } from '@/components/charts/chartjs-config';
 import 'chartjs-adapter-moment';
 
 // Import utilities
-import { adjustColorOpacity, getCssVariable, formatValue } from '@/components/utils/utils';
+import { adjustColorOpacity, formatValue, getCssVariable } from '@/components/utils/utils';
 
 Chart.register(LineController, LineElement, Filler, PointElement, LinearScale, TimeScale, Tooltip);
 

@@ -39,11 +39,14 @@ const handler = async (request: NextRequest) => {
 
     const duration = Date.now() - startTime;
 
-    const deviceTypes = credentials.reduce((acc, cred) => {
-      const type = cred.credential_device_type || 'unknown';
-      acc[type] = (acc[type] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const deviceTypes = credentials.reduce(
+      (acc, cred) => {
+        const type = cred.credential_device_type || 'unknown';
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
     const backedUpCount = credentials.filter((c) => c.backed_up).length;
     const recentlyUsed = credentials.filter((c) => {

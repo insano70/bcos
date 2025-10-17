@@ -4,9 +4,12 @@
  * Extracted from RBACAuthProvider to improve separation of concerns
  */
 
+import type {
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+} from '@simplewebauthn/browser';
 import type { UserContext } from '@/lib/types/rbac';
-import type { PublicKeyCredentialCreationOptionsJSON, PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/browser';
-import type { ApiUser, ApiRole, ApiOrganization, ApiPermission } from './types/auth-api-types';
+import type { ApiOrganization, ApiPermission, ApiRole, ApiUser } from './types/auth-api-types';
 
 // User interface (extracted from rbac-auth-provider for decoupling)
 export interface User {
@@ -114,9 +117,10 @@ export class AuthApiService {
 
   constructor() {
     // Use current domain instead of hardcoded NEXT_PUBLIC_APP_URL to avoid CORS issues
-    this.baseUrl = typeof window !== 'undefined'
-      ? window.location.origin
-      : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001');
+    this.baseUrl =
+      typeof window !== 'undefined'
+        ? window.location.origin
+        : process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:4001';
   }
 
   /**
@@ -125,7 +129,7 @@ export class AuthApiService {
   async getUserContext(): Promise<UserContext> {
     const response = await fetch(`${this.baseUrl}/api/auth/me`, {
       method: 'GET',
-      credentials: 'include'
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -150,7 +154,7 @@ export class AuthApiService {
     try {
       const response = await fetch(`${this.baseUrl}/api/auth/me`, {
         method: 'GET',
-        credentials: 'include'
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -164,7 +168,7 @@ export class AuthApiService {
 
       return {
         user: data.data.user,
-        sessionId: data.data.sessionId
+        sessionId: data.data.sessionId,
       };
     } catch (_error) {
       return null;
@@ -177,7 +181,7 @@ export class AuthApiService {
   async getCSRFToken(): Promise<string> {
     const response = await fetch(`${this.baseUrl}/api/csrf`, {
       method: 'GET',
-      credentials: 'include'
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -205,7 +209,7 @@ export class AuthApiService {
         'x-csrf-token': csrfToken,
       },
       body: JSON.stringify(credentials),
-      credentials: 'include'
+      credentials: 'include',
     });
 
     const result = await response.json();
@@ -221,14 +225,14 @@ export class AuthApiService {
    * Logout current user
    */
   async logout(csrfToken?: string): Promise<void> {
-    const token = csrfToken || await this.getCSRFToken();
+    const token = csrfToken || (await this.getCSRFToken());
 
     await fetch(`${this.baseUrl}/api/auth/logout`, {
       method: 'POST',
       headers: {
-        'x-csrf-token': token
+        'x-csrf-token': token,
       },
-      credentials: 'include'
+      credentials: 'include',
     });
 
     // Logout is fire-and-forget - don't throw on failure
@@ -238,14 +242,14 @@ export class AuthApiService {
    * Refresh authentication token
    */
   async refreshToken(csrfToken?: string): Promise<RefreshResponse> {
-    const token = csrfToken || await this.getCSRFToken();
+    const token = csrfToken || (await this.getCSRFToken());
 
     const response = await fetch(`${this.baseUrl}/api/auth/refresh`, {
       method: 'POST',
       headers: {
-        'x-csrf-token': token
+        'x-csrf-token': token,
       },
-      credentials: 'include'
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -267,7 +271,7 @@ export class AuthApiService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${request.tempToken}`,
+        Authorization: `Bearer ${request.tempToken}`,
         'x-csrf-token': request.csrfToken,
       },
       credentials: 'include',
@@ -290,7 +294,7 @@ export class AuthApiService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${request.tempToken}`,
+        Authorization: `Bearer ${request.tempToken}`,
         'x-csrf-token': request.csrfToken,
       },
       credentials: 'include',
@@ -313,7 +317,7 @@ export class AuthApiService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${request.tempToken}`,
+        Authorization: `Bearer ${request.tempToken}`,
         'x-csrf-token': request.csrfToken,
       },
       credentials: 'include',
@@ -341,7 +345,7 @@ export class AuthApiService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${request.tempToken}`,
+        Authorization: `Bearer ${request.tempToken}`,
         'x-csrf-token': request.csrfToken,
       },
       credentials: 'include',
@@ -372,72 +376,74 @@ export class AuthApiService {
       is_active: true,
       email_verified: apiUser.emailVerified,
 
-    // RBAC data from API
-    roles: apiUser.roles.map((role: ApiRole) => ({
-      role_id: String(role.id),
-      name: role.name,
-      description: role.description || '',
-      organization_id: undefined,
-      is_system_role: role.isSystemRole,
-      is_active: true,
-      created_at: new Date(),
-      updated_at: new Date(),
-      deleted_at: undefined,
-      permissions: [] // Will be populated from all_permissions
-    })),
+      // RBAC data from API
+      roles: apiUser.roles.map((role: ApiRole) => ({
+        role_id: String(role.id),
+        name: role.name,
+        description: role.description || '',
+        organization_id: undefined,
+        is_system_role: role.isSystemRole,
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date(),
+        deleted_at: undefined,
+        permissions: [], // Will be populated from all_permissions
+      })),
 
-    organizations: apiUser.organizations.map((org: ApiOrganization) => ({
-      organization_id: org.id,
-      name: org.name,
-      slug: org.slug,
-      parent_organization_id: undefined,
-      is_active: true,
-      created_at: new Date(),
-      updated_at: new Date(),
-      deleted_at: undefined
-    })),
+      organizations: apiUser.organizations.map((org: ApiOrganization) => ({
+        organization_id: org.id,
+        name: org.name,
+        slug: org.slug,
+        parent_organization_id: undefined,
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date(),
+        deleted_at: undefined,
+      })),
 
-    accessible_organizations: apiUser.accessibleOrganizations?.map((org: ApiOrganization) => ({
-      organization_id: org.id,
-      name: org.name,
-      slug: org.slug,
-      parent_organization_id: undefined,
-      is_active: true,
-      created_at: new Date(),
-      updated_at: new Date(),
-      deleted_at: undefined
-    })) || apiUser.organizations.map((org: ApiOrganization) => ({
-      organization_id: org.id,
-      name: org.name,
-      slug: org.slug,
-      parent_organization_id: undefined,
-      is_active: true,
-      created_at: new Date(),
-      updated_at: new Date(),
-      deleted_at: undefined
-    })),
+      accessible_organizations:
+        apiUser.accessibleOrganizations?.map((org: ApiOrganization) => ({
+          organization_id: org.id,
+          name: org.name,
+          slug: org.slug,
+          parent_organization_id: undefined,
+          is_active: true,
+          created_at: new Date(),
+          updated_at: new Date(),
+          deleted_at: undefined,
+        })) ||
+        apiUser.organizations.map((org: ApiOrganization) => ({
+          organization_id: org.id,
+          name: org.name,
+          slug: org.slug,
+          parent_organization_id: undefined,
+          is_active: true,
+          created_at: new Date(),
+          updated_at: new Date(),
+          deleted_at: undefined,
+        })),
 
-    user_roles: [], // Could be populated if needed
-    user_organizations: [], // Could be populated if needed
+      user_roles: [], // Could be populated if needed
+      user_organizations: [], // Could be populated if needed
 
-    // Current context
-    current_organization_id: apiUser.currentOrganizationId,
+      // Current context
+      current_organization_id: apiUser.currentOrganizationId,
 
-    // Computed properties from API
-    all_permissions: apiUser.permissions.map((perm: ApiPermission) => ({
-      permission_id: String(perm.id),
-      name: perm.name,
-      description: undefined,
-      resource: perm.resource,
-      action: perm.action,
-      scope: perm.scope as 'own' | 'organization' | 'all',
-      is_active: true,
-      created_at: new Date(),
-      updated_at: new Date()
-    })),
+      // Computed properties from API
+      all_permissions: apiUser.permissions.map((perm: ApiPermission) => ({
+        permission_id: String(perm.id),
+        name: perm.name,
+        description: undefined,
+        resource: perm.resource,
+        action: perm.action,
+        scope: perm.scope as 'own' | 'organization' | 'all',
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date(),
+      })),
 
       is_super_admin: apiUser.isSuperAdmin,
-      organization_admin_for: apiUser.organizationAdminFor || []
+      organization_admin_for: apiUser.organizationAdminFor || [],
     };
   }
 }

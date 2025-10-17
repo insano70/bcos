@@ -1,7 +1,6 @@
 'use client';
 
-import Link from 'next/link';
-import { Menu, MenuButton, MenuItems, MenuItem, Transition } from '@headlessui/react';
+import { Menu, MenuButton, MenuItem, MenuItems, Transition } from '@headlessui/react';
 
 export default function DropdownHelp({ align }: { align?: 'left' | 'right' }) {
   return (

@@ -9,15 +9,15 @@
  * import '@/lib/services/chart-handlers';
  */
 
+import { log } from '@/lib/logger';
 import { chartTypeRegistry } from '../chart-type-registry';
-import { TimeSeriesChartHandler } from './time-series-handler';
 import { BarChartHandler } from './bar-chart-handler';
+import { ComboChartHandler } from './combo-handler';
 import { DistributionChartHandler } from './distribution-handler';
-import { TableChartHandler } from './table-handler';
 import { MetricChartHandler } from './metric-handler';
 import { ProgressBarChartHandler } from './progress-bar-handler';
-import { ComboChartHandler } from './combo-handler';
-import { log } from '@/lib/logger';
+import { TableChartHandler } from './table-handler';
+import { TimeSeriesChartHandler } from './time-series-handler';
 
 /**
  * Register all chart type handlers

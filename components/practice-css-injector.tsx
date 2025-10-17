@@ -1,5 +1,5 @@
 import { useStyleNonce } from '@/lib/security/nonce-context';
-import { getPracticeCSS, type BrandColors } from '@/lib/utils/color-utils';
+import { type BrandColors, getPracticeCSS } from '@/lib/utils/color-utils';
 
 /**
  * Practice CSS Injector Component
@@ -17,7 +17,7 @@ export function PracticeCSSInjector({ colors, practiceId }: PracticeCSSInjectorP
   const practiceCSS = getPracticeCSS(colors);
 
   return (
-    <style 
+    <style
       nonce={styleNonce}
       data-practice-id={practiceId}
       dangerouslySetInnerHTML={{ __html: practiceCSS }}
@@ -29,11 +29,15 @@ export function PracticeCSSInjector({ colors, practiceId }: PracticeCSSInjectorP
  * Server-side CSS injection for practice theming
  * For use in SSR contexts where nonce context might not be available
  */
-export function ServerPracticeCSSInjector({ colors, practiceId, nonce }: PracticeCSSInjectorProps & { nonce: string }) {
+export function ServerPracticeCSSInjector({
+  colors,
+  practiceId,
+  nonce,
+}: PracticeCSSInjectorProps & { nonce: string }) {
   const practiceCSS = getPracticeCSS(colors);
 
   return (
-    <style 
+    <style
       nonce={nonce}
       data-practice-id={practiceId}
       dangerouslySetInnerHTML={{ __html: practiceCSS }}

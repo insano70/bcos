@@ -26,8 +26,8 @@
  * ```
  */
 
-import type { MetricsSnapshot, PercentileStats } from './types';
 import type { EndpointCategory } from './endpoint-categorizer';
+import type { MetricsSnapshot, PercentileStats } from './types';
 
 /**
  * Maximum samples to keep per endpoint for response time calculation
@@ -160,11 +160,7 @@ class MetricsCollector {
   /**
    * Record an analytics API request (dashboards, charts)
    */
-  private recordAnalyticsRequest(
-    endpoint: string,
-    duration: number,
-    statusCode: number
-  ): void {
+  private recordAnalyticsRequest(endpoint: string, duration: number, statusCode: number): void {
     // Increment analytics request count
     this.analyticsRequests.set(endpoint, (this.analyticsRequests.get(endpoint) || 0) + 1);
 
@@ -369,22 +365,22 @@ class MetricsCollector {
     this.errorsByType.clear();
     this.durations.clear();
     this.slowRequests.clear();
-    
+
     // Reset analytics metrics
     this.analyticsRequests.clear();
     this.analyticsDurations.clear();
     this.analyticsErrors.clear();
     this.analyticsSlowRequests.clear();
-    
+
     // Reset cache metrics
     this.cacheHits = 0;
     this.cacheMisses = 0;
-    
+
     // Reset security metrics
     this.securityEvents.clear();
     this.rateLimitBlocks = 0;
     this.failedLogins = 0;
-    
+
     // Don't reset activeUserIds - it has its own 5-minute window
     this.collectionStartTime = Date.now();
     this.lastSnapshotTime = Date.now();
@@ -409,13 +405,11 @@ class MetricsCollector {
 
   /**
    * Calculate response time percentiles for a duration map
-   * 
+   *
    * @param durationsMap - Map of endpoint to duration arrays
    * @returns Percentile statistics
    */
-  private calculateResponseTimePercentiles(
-    durationsMap: Map<string, number[]>
-  ): PercentileStats {
+  private calculateResponseTimePercentiles(durationsMap: Map<string, number[]>): PercentileStats {
     // Collect all durations from all endpoints
     const allDurations: number[] = [];
     for (const durations of Array.from(durationsMap.values())) {
@@ -534,4 +528,3 @@ if (process.env.NODE_ENV !== 'production') {
  * Use this for all metrics collection throughout the application
  */
 export { metricsCollector };
-

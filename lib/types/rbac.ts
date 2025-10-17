@@ -37,13 +37,13 @@ export interface Organization {
   name: string;
   slug: string;
   parent_organization_id?: string | null | undefined;
-  
+
   // Analytics data security - practice_uid filtering
   // Array of practice_uid values from analytics database (ih.agg_app_measures, etc.)
   // Users with analytics:read:organization can only see data where practice_uid IN practice_uids
   // Empty array = no data visible (fail-closed security)
   practice_uids?: number[] | null | undefined;
-  
+
   is_active: boolean;
   created_at: Date;
   updated_at: Date;
@@ -253,7 +253,7 @@ export interface UserContext {
   last_name: string;
   is_active: boolean;
   email_verified: boolean;
-  
+
   // Analytics security - provider-level filtering
   // Users with analytics:read:own permission can only see data where provider_uid = this value
   // If null/undefined, user with analytics:read:own sees NO data (fail-closed security)

@@ -40,8 +40,8 @@ export const chartAreaGradient = (
   }
   const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
   colorStops.forEach(({ stop, color }) => {
-    const safeColor = typeof color === 'string' && color.trim() !== '' ? color : 'rgba(0, 0, 0, 0)'
-    const safeStop = Number.isFinite(stop) ? Math.min(1, Math.max(0, stop)) : 0
+    const safeColor = typeof color === 'string' && color.trim() !== '' ? color : 'rgba(0, 0, 0, 0)';
+    const safeStop = Number.isFinite(stop) ? Math.min(1, Math.max(0, stop)) : 0;
     gradient.addColorStop(safeStop, safeColor);
   });
   return gradient;

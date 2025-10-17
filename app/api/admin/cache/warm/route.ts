@@ -1,13 +1,13 @@
 /**
  * Cache Warming API Endpoint
  * POST /api/admin/cache/warm
- * 
+ *
  * Manually trigger cache warming for data sources
  * Requires super admin permissions
- * 
+ *
  * Body Parameters (optional):
  * - dataSourceId: number - Warm specific data source, or omit to warm all
- * 
+ *
  * Features:
  * - Distributed locking (prevents concurrent warming)
  * - Returns warming statistics
@@ -74,4 +74,3 @@ export const POST = rbacRoute(warmCacheHandler, {
   permission: 'settings:update:all',
   rateLimit: 'api',
 });
-

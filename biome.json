@@ -10,6 +10,7 @@
     "includes": [
       "app/**/*.ts",
       "app/**/*.tsx",
+      "!app/(alternative)",
       "components/**/*.ts",
       "components/**/*.tsx",
       "hooks/**/*.ts",
@@ -26,6 +27,19 @@
       "includes": ["lib/api/templates/**", "lib/api/testing/**"],
       "linter": {
         "enabled": false
+      }
+    },
+    {
+      "includes": ["components/charts/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noNonNullAssertion": "off"
+          },
+          "correctness": {
+            "useExhaustiveDependencies": "off"
+          }
+        }
       }
     },
     {
@@ -60,10 +74,14 @@
     "rules": {
       "recommended": true,
       "suspicious": {
-        "noExplicitAny": "error"
+        "noExplicitAny": "error",
+        "noArrayIndexKey": "warn"
       },
       "style": {
         "useImportType": "warn"
+      },
+      "correctness": {
+        "useUniqueElementIds": "warn"
       },
       "a11y": {
         "noSvgWithoutTitle": "off",

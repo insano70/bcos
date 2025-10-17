@@ -1,27 +1,27 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useTheme } from 'next-themes';
-import { createPortal } from 'react-dom';
+import type { Chart as ChartType } from 'chart.js';
 import {
-  Chart,
   BarController,
   BarElement,
-  LinearScale,
   CategoryScale,
+  Chart,
+  Legend,
+  LinearScale,
   TimeScale,
   Tooltip,
-  Legend,
 } from 'chart.js';
-import type { Chart as ChartType } from 'chart.js';
+import { useTheme } from 'next-themes';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { ChartData } from '@/lib/types/analytics';
 import 'chartjs-adapter-moment';
-import moment from 'moment';
 import zoomPlugin from 'chartjs-plugin-zoom';
+import moment from 'moment';
 import { chartColors } from '@/components/charts/chartjs-config';
 import { formatValue, formatValueCompact } from '@/lib/utils/chart-data/formatters/value-formatter';
+import { createPeriodComparisonHtmlLegend } from '@/lib/utils/period-comparison-legend';
 import { createPeriodComparisonTooltipCallbacks } from '@/lib/utils/period-comparison-tooltips';
-import { createPeriodComparisonLegendLabels, createPeriodComparisonHtmlLegend } from '@/lib/utils/period-comparison-legend';
 
 // Register zoom plugin (moved inside component to avoid affecting global Chart.js state at module load time)
 let pluginsRegistered = false;
@@ -61,7 +61,16 @@ export default function ChartFullscreenModal({
   // Handle client-side mounting for portal and register plugins
   useEffect(() => {
     if (!pluginsRegistered) {
-      Chart.register(BarController, BarElement, LinearScale, CategoryScale, TimeScale, Tooltip, Legend, zoomPlugin);
+      Chart.register(
+        BarController,
+        BarElement,
+        LinearScale,
+        CategoryScale,
+        TimeScale,
+        Tooltip,
+        Legend,
+        zoomPlugin
+      );
       pluginsRegistered = true;
     }
     setMounted(true);
@@ -100,7 +109,7 @@ export default function ChartFullscreenModal({
           displayFormats: {
             week: 'DD-MMM-YY',
           },
-          tooltipFormat: 'DD-MMM-YYYY'
+          tooltipFormat: 'DD-MMM-YYYY',
         };
       case 'Monthly':
         return {
@@ -108,7 +117,7 @@ export default function ChartFullscreenModal({
           displayFormats: {
             month: 'MMM YYYY',
           },
-          tooltipFormat: 'MMM YYYY'
+          tooltipFormat: 'MMM YYYY',
         };
       case 'Quarterly':
         return {
@@ -116,7 +125,7 @@ export default function ChartFullscreenModal({
           displayFormats: {
             quarter: '[Q]Q YYYY',
           },
-          tooltipFormat: '[Q]Q YYYY'
+          tooltipFormat: '[Q]Q YYYY',
         };
       default:
         return {
@@ -124,7 +133,7 @@ export default function ChartFullscreenModal({
           displayFormats: {
             month: 'MMM YYYY',
           },
-          tooltipFormat: 'MMM YYYY'
+          tooltipFormat: 'MMM YYYY',
         };
     }
   };
@@ -134,14 +143,15 @@ export default function ChartFullscreenModal({
     if (!isOpen || !canvasRef.current || !chartData) return;
 
     const ctx = canvasRef.current;
-    const timeConfig = getTimeConfig();
+    const _timeConfig = getTimeConfig();
 
     // Get fresh color values inside useEffect to ensure they're read after theme is loaded
-    const { textColor, gridColor, tooltipBodyColor, tooltipBgColor, tooltipBorderColor } = chartColors;
+    const { textColor, gridColor, tooltipBodyColor, tooltipBgColor, tooltipBorderColor } =
+      chartColors;
 
     // Check if this is period comparison data
-    const hasPeriodComparison = chartData.datasets.some(ds =>
-      ds.label?.includes('Current Period') || ds.label?.includes('Previous Period')
+    const hasPeriodComparison = chartData.datasets.some(
+      (ds) => ds.label?.includes('Current Period') || ds.label?.includes('Previous Period')
     );
 
     // Convert our ChartData to Chart.js ChartData format
@@ -165,93 +175,95 @@ export default function ChartFullscreenModal({
             right: 12,
           },
         },
-        scales: isHorizontal ? {
-          // For horizontal bars: X is value, Y is category
-          x: {
-            border: {
-              display: false,
-            },
-            grid: {
-              color: darkMode ? gridColor.dark : gridColor.light,
-            },
-            beginAtZero: true,
-            ticks: {
-              maxTicksLimit: 5,
-              color: darkMode ? textColor.dark : textColor.light,
-              font: {
-                size: 14,
+        scales: isHorizontal
+          ? {
+              // For horizontal bars: X is value, Y is category
+              x: {
+                border: {
+                  display: false,
+                },
+                grid: {
+                  color: darkMode ? gridColor.dark : gridColor.light,
+                },
+                beginAtZero: true,
+                ticks: {
+                  maxTicksLimit: 5,
+                  color: darkMode ? textColor.dark : textColor.light,
+                  font: {
+                    size: 14,
+                  },
+                  callback: (value: string | number) => {
+                    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+                    const measureType = chartData.measureType || 'number';
+                    return formatValueCompact(numValue, measureType);
+                  },
+                },
               },
-              callback: (value: string | number) => {
-                const numValue = typeof value === 'string' ? parseFloat(value) : value;
-                const measureType = chartData.measureType || 'number';
-                return formatValueCompact(numValue, measureType);
+              y: {
+                type: 'category',
+                border: {
+                  display: false,
+                },
+                grid: {
+                  display: false,
+                },
+                ticks: {
+                  color: darkMode ? textColor.dark : textColor.light,
+                  font: {
+                    size: 14,
+                  },
+                },
               },
-            },
-          },
-          y: {
-            type: 'category',
-            border: {
-              display: false,
-            },
-            grid: {
-              display: false,
-            },
-            ticks: {
-              color: darkMode ? textColor.dark : textColor.light,
-              font: {
-                size: 14,
+            }
+          : {
+              // For vertical bars: X is category, Y is value
+              x: {
+                type: 'category',
+                stacked: chartType === 'stacked-bar',
+                border: {
+                  display: false,
+                },
+                grid: {
+                  display: false,
+                },
+                ticks: {
+                  color: darkMode ? textColor.dark : textColor.light,
+                  maxRotation: 0,
+                  autoSkipPadding: 48,
+                  font: {
+                    size: 14,
+                  },
+                },
               },
-            },
-          },
-        } : {
-          // For vertical bars: X is category, Y is value
-          x: {
-            type: 'category',
-            stacked: chartType === 'stacked-bar',
-            border: {
-              display: false,
-            },
-            grid: {
-              display: false,
-            },
-            ticks: {
-              color: darkMode ? textColor.dark : textColor.light,
-              maxRotation: 0,
-              autoSkipPadding: 48,
-              font: {
-                size: 14,
-              },
-            },
-          },
-          y: {
-            stacked: chartType === 'stacked-bar',
-            border: {
-              display: false,
-            },
-            grid: {
-              color: darkMode ? gridColor.dark : gridColor.light,
-            },
-            beginAtZero: true,
-            max: chartType === 'stacked-bar' && stackingMode === 'percentage' ? 100 : undefined,
-            ticks: {
-              maxTicksLimit: 5,
-              color: darkMode ? textColor.dark : textColor.light,
-              font: {
-                size: 14, // Larger font for fullscreen
-              },
-              callback: (value: string | number) => {
-                const numValue = typeof value === 'string' ? parseFloat(value) : value;
+              y: {
+                stacked: chartType === 'stacked-bar',
+                border: {
+                  display: false,
+                },
+                grid: {
+                  color: darkMode ? gridColor.dark : gridColor.light,
+                },
+                beginAtZero: true,
+                max: chartType === 'stacked-bar' && stackingMode === 'percentage' ? 100 : undefined,
+                ticks: {
+                  maxTicksLimit: 5,
+                  color: darkMode ? textColor.dark : textColor.light,
+                  font: {
+                    size: 14, // Larger font for fullscreen
+                  },
+                  callback: (value: string | number) => {
+                    const numValue = typeof value === 'string' ? parseFloat(value) : value;
 
-                if (chartType === 'stacked-bar' && stackingMode === 'percentage') {
-                  return `${numValue}%`;
-                }
+                    if (chartType === 'stacked-bar' && stackingMode === 'percentage') {
+                      return `${numValue}%`;
+                    }
 
-                const measureType = chartData.measureType || 'number';
-                return formatValueCompact(numValue, measureType);
+                    const measureType = chartData.measureType || 'number';
+                    return formatValueCompact(numValue, measureType);
+                  },
+                },
               },
             },
-          },
-        },
         interaction: {
           mode: 'nearest',
           intersect: true,
@@ -263,49 +275,53 @@ export default function ChartFullscreenModal({
           tooltip: (hasPeriodComparison
             ? createPeriodComparisonTooltipCallbacks(frequency, darkMode)
             : {
-              enabled: true,
-              mode: 'nearest',
-              intersect: true,
-              backgroundColor: darkMode ? tooltipBgColor.dark : tooltipBgColor.light,
-              borderColor: darkMode ? tooltipBorderColor.dark : tooltipBorderColor.light,
-              borderWidth: 1,
-              titleColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
-              bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
-              bodySpacing: 8,
-              padding: 12,
-              boxPadding: 6,
-              usePointStyle: true,
-              callbacks: {
-                title: (context: { label?: string }[]) => {
-                  const labelValue = context[0]?.label || '';
-                  const parsedDate = moment(labelValue, ['YYYY-MM-DD', 'MMM YYYY', 'DD-MMM-YY', moment.ISO_8601], true);
+                enabled: true,
+                mode: 'nearest',
+                intersect: true,
+                backgroundColor: darkMode ? tooltipBgColor.dark : tooltipBgColor.light,
+                borderColor: darkMode ? tooltipBorderColor.dark : tooltipBorderColor.light,
+                borderWidth: 1,
+                titleColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
+                bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
+                bodySpacing: 8,
+                padding: 12,
+                boxPadding: 6,
+                usePointStyle: true,
+                callbacks: {
+                  title: (context: { label?: string }[]) => {
+                    const labelValue = context[0]?.label || '';
+                    const parsedDate = moment(
+                      labelValue,
+                      ['YYYY-MM-DD', 'MMM YYYY', 'DD-MMM-YY', moment.ISO_8601],
+                      true
+                    );
 
-                  if (!parsedDate.isValid()) {
-                    return labelValue;
-                  }
+                    if (!parsedDate.isValid()) {
+                      return labelValue;
+                    }
 
-                  if (frequency === 'Weekly') {
-                    return parsedDate.format('MMM D, YYYY');
-                  } else if (frequency === 'Quarterly') {
-                    return parsedDate.format('[Q]Q YYYY');
-                  } else {
-                    return parsedDate.format('MMM YYYY');
-                  }
+                    if (frequency === 'Weekly') {
+                      return parsedDate.format('MMM D, YYYY');
+                    } else if (frequency === 'Quarterly') {
+                      return parsedDate.format('[Q]Q YYYY');
+                    } else {
+                      return parsedDate.format('MMM YYYY');
+                    }
+                  },
+                  label: (context: { dataset: { label?: string }; parsed: { y: number } }) => {
+                    const label = context.dataset.label || '';
+                    const value = context.parsed.y;
+                    const measureType = chartData.measureType || 'number';
+                    const formattedValue = formatValue(value, measureType);
+
+                    if (chartType === 'stacked-bar' && stackingMode === 'percentage') {
+                      return `${label}: ${value.toFixed(1)}%`;
+                    }
+
+                    return `${label}: ${formattedValue}`;
+                  },
                 },
-                label: (context: { dataset: { label?: string }; parsed: { y: number } }) => {
-                  const label = context.dataset.label || '';
-                  const value = context.parsed.y;
-                  const measureType = chartData.measureType || 'number';
-                  const formattedValue = formatValue(value, measureType);
-
-                  if (chartType === 'stacked-bar' && stackingMode === 'percentage') {
-                    return `${label}: ${value.toFixed(1)}%`;
-                  }
-
-                  return `${label}: ${formattedValue}`;
-                },
-              },
-            }) as never,
+              }) as never,
           zoom: {
             pan: {
               enabled: true,
@@ -345,26 +361,28 @@ export default function ChartFullscreenModal({
         const items = newChart.options.plugins?.legend?.labels?.generateLabels?.(newChart);
 
         // Calculate totals and sort by value
-        const itemsWithTotals = items?.map((item) => {
-          const dataset = newChart.data.datasets[item.datasetIndex!];
-          const dataArray = dataset?.data || [];
-          const total = dataArray.reduce((sum: number, value: unknown) => {
-            if (typeof value === 'number') {
-              return sum + value;
-            } else if (value && typeof value === 'object' && 'y' in value) {
-              const yValue = (value as { y: unknown }).y;
-              return sum + (typeof yValue === 'number' ? yValue : 0);
-            }
-            return sum;
-          }, 0) as number;
-          return { item, total };
-        }) || [];
+        const itemsWithTotals =
+          items?.map((item) => {
+            const dataset = newChart.data.datasets[item.datasetIndex!];
+            const dataArray = dataset?.data || [];
+            const total = dataArray.reduce((sum: number, value: unknown) => {
+              if (typeof value === 'number') {
+                return sum + value;
+              } else if (value && typeof value === 'object' && 'y' in value) {
+                const yValue = (value as { y: unknown }).y;
+                return sum + (typeof yValue === 'number' ? yValue : 0);
+              }
+              return sum;
+            }, 0) as number;
+            return { item, total };
+          }) || [];
 
         itemsWithTotals.sort((a, b) => b.total - a.total);
 
         itemsWithTotals.forEach(({ item, total }) => {
           const li = document.createElement('li');
-          li.className = 'flex items-center justify-between px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded transition-colors';
+          li.className =
+            'flex items-center justify-between px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded transition-colors';
 
           const colorBox = document.createElement('span');
           colorBox.className = 'block w-3 h-3 rounded-sm mr-2 flex-shrink-0';
@@ -456,12 +474,7 @@ export default function ChartFullscreenModal({
               className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               aria-label="Close fullscreen view"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"

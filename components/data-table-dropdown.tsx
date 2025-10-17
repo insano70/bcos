@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, ReactNode } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 interface DataTableDropdownAction<T> {
   label: string | ((item: T) => string);
@@ -16,10 +16,7 @@ interface DataTableDropdownProps<T> {
   actions: DataTableDropdownAction<T>[];
 }
 
-export default function DataTableDropdown<T>({
-  item,
-  actions,
-}: DataTableDropdownProps<T>) {
+export default function DataTableDropdown<T>({ item, actions }: DataTableDropdownProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -39,9 +36,8 @@ export default function DataTableDropdown<T>({
   }, []);
 
   const handleAction = async (action: DataTableDropdownAction<T>) => {
-    const confirmMessage = typeof action.confirm === 'function'
-      ? action.confirm(item)
-      : action.confirm;
+    const confirmMessage =
+      typeof action.confirm === 'function' ? action.confirm(item) : action.confirm;
 
     if (confirmMessage && !confirm(confirmMessage)) {
       return;
@@ -59,9 +55,7 @@ export default function DataTableDropdown<T>({
   };
 
   // Filter visible actions
-  const visibleActions = actions.filter((action) =>
-    action.show === undefined || action.show(item)
-  );
+  const visibleActions = actions.filter((action) => action.show === undefined || action.show(item));
 
   if (visibleActions.length === 0) {
     return null;
@@ -91,12 +85,8 @@ export default function DataTableDropdown<T>({
         <div
           className="origin-top-right z-50 fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 py-1.5 rounded-lg shadow-lg overflow-hidden min-w-44"
           style={{
-            top: dropdownRef.current
-              ? dropdownRef.current.getBoundingClientRect().bottom + 4
-              : 0,
-            left: dropdownRef.current
-              ? dropdownRef.current.getBoundingClientRect().right - 176
-              : 0,
+            top: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().bottom + 4 : 0,
+            left: dropdownRef.current ? dropdownRef.current.getBoundingClientRect().right - 176 : 0,
           }}
         >
           <ul>
@@ -117,7 +107,9 @@ export default function DataTableDropdown<T>({
                     disabled={isProcessing}
                   >
                     {action.icon && (
-                      <span className={`shrink-0 mr-2 ${isDanger ? 'text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                      <span
+                        className={`shrink-0 mr-2 ${isDanger ? 'text-red-400' : 'text-gray-400 dark:text-gray-500'}`}
+                      >
                         {action.icon}
                       </span>
                     )}

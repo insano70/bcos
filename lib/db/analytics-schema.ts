@@ -9,8 +9,8 @@ import {
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
-import { users, organizations } from './schema';
 import { chart_data_sources } from './chart-config-schema';
+import { organizations, users } from './schema';
 
 /**
  * Analytics Configuration Schema
@@ -47,10 +47,9 @@ export const chart_definitions = pgTable(
     data_source: jsonb('data_source').notNull(), // DataSourceConfig as JSON
     chart_config: jsonb('chart_config').notNull(), // ChartConfig as JSON
     access_control: jsonb('access_control'), // ChartAccessControl as JSON
-    data_source_id: integer('data_source_id').references(
-      () => chart_data_sources.data_source_id,
-      { onDelete: 'set null' }
-    ), // Denormalized from chart_config for performance
+    data_source_id: integer('data_source_id').references(() => chart_data_sources.data_source_id, {
+      onDelete: 'set null',
+    }), // Denormalized from chart_config for performance
     chart_category_id: integer('chart_category_id').references(
       () => chart_categories.chart_category_id
     ),
@@ -122,13 +121,13 @@ export const dashboards = pgTable(
     dashboard_description: text('dashboard_description'),
     /**
      * Dashboard layout configuration (JSONB)
-     * 
+     *
      * Structure:
      * {
      *   columns: number;           // Grid columns (default: 12)
      *   rowHeight: number;         // Row height in pixels (default: 150)
      *   margin: number;            // Margin between cards (default: 10)
-     *   
+     *
      *   // Phase 7: Dashboard-level universal filters
      *   filterConfig?: {
      *     enabled: boolean;        // Show filter bar (default: true)
@@ -158,10 +157,9 @@ export const dashboards = pgTable(
      * dashboard configs is secure. This provides additive organization-level
      * access control for dashboard visibility.
      */
-    organization_id: uuid('organization_id').references(
-      () => organizations.organization_id,
-      { onDelete: 'set null' }
-    ),
+    organization_id: uuid('organization_id').references(() => organizations.organization_id, {
+      onDelete: 'set null',
+    }),
     created_by: uuid('created_by')
       .references(() => users.user_id)
       .notNull(),
@@ -176,7 +174,10 @@ export const dashboards = pgTable(
     createdByIdx: index('idx_dashboards_created_by').on(table.created_by),
     categoryIdx: index('idx_dashboards_category').on(table.dashboard_category_id),
     organizationIdx: index('idx_dashboards_organization_id').on(table.organization_id),
-    publishedOrgIdx: index('idx_dashboards_published_org').on(table.is_published, table.organization_id),
+    publishedOrgIdx: index('idx_dashboards_published_org').on(
+      table.is_published,
+      table.organization_id
+    ),
     activeIdx: index('idx_dashboards_active').on(table.is_active),
     publishedIdx: index('idx_dashboards_published').on(table.is_published),
     defaultIdx: index('idx_dashboards_default').on(table.is_default),

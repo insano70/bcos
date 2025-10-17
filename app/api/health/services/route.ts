@@ -1,9 +1,9 @@
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import type { UserContext } from '@/lib/types/rbac';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
+import type { UserContext } from '@/lib/types/rbac';
 
 /**
  * External services health check endpoint

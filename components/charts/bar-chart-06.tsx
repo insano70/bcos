@@ -1,28 +1,27 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
+import type { ChartData } from 'chart.js';
+import {
+  BarController,
+  BarElement,
+  CategoryScale,
+  Chart,
+  Legend,
+  LinearScale,
+  Tooltip,
+} from 'chart.js';
 import { useTheme } from 'next-themes';
-import coinbaseIcon from '@/public/images/company-icon-06.svg';
+import { useEffect, useRef, useState } from 'react';
+import { chartColors } from '@/components/charts/chartjs-config';
 import hsbcIcon from '@/public/images/company-icon-02.svg';
 import qontoIcon from '@/public/images/company-icon-03.svg';
 import n26Icon from '@/public/images/company-icon-04.svg';
-
-import { chartColors } from '@/components/charts/chartjs-config';
-import {
-  Chart,
-  BarController,
-  BarElement,
-  LinearScale,
-  CategoryScale,
-  Tooltip,
-  Legend,
-} from 'chart.js';
-import type { ChartData } from 'chart.js';
+import coinbaseIcon from '@/public/images/company-icon-06.svg';
 import 'chartjs-adapter-moment';
 
+import type { StaticImageData } from 'next/image';
 // Import utilities
 import { formatValue } from '@/components/utils/utils';
-import { StaticImageData } from 'next/image';
 
 Chart.register(BarController, BarElement, LinearScale, CategoryScale, Tooltip, Legend);
 
@@ -116,7 +115,7 @@ export default function BarChart06({ data, width, height }: BarChart06Props) {
       plugins: [
         {
           id: 'htmlLegend',
-          afterUpdate(c, args, options) {
+          afterUpdate(c, _args, _options) {
             const ul = legend.current;
             if (!ul) return;
             // Remove old legend items
@@ -169,7 +168,7 @@ export default function BarChart06({ data, width, height }: BarChart06Props) {
           beforeDraw(c) {
             const xAxis = c.scales.x;
             const yAxis = c.scales.y;
-            yAxis?.ticks.forEach((value, index) => {
+            yAxis?.ticks.forEach((_value, index) => {
               const y = yAxis?.getPixelForTick(index) || 0;
               if (imageEls[index] && xAxis) {
                 c.ctx.drawImage(imageEls[index], xAxis.left - 52, y - 18);

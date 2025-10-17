@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useId } from 'react';
+import { useId, useState } from 'react';
 
 interface SpecialtiesInputProps {
   value: string[];
@@ -15,7 +15,7 @@ export default function SpecialtiesInput({
   onChange,
   label = 'Specialties',
   placeholder = 'Enter specialty (e.g., Lupus, Arthritis)',
-  maxItems = 10
+  maxItems = 10,
 }: SpecialtiesInputProps) {
   const [newSpecialty, setNewSpecialty] = useState('');
   const uid = useId();
@@ -41,10 +41,13 @@ export default function SpecialtiesInput({
 
   return (
     <div>
-      <label htmlFor={`${uid}-specialties`} className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+      <label
+        htmlFor={`${uid}-specialties`}
+        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+      >
         {label}
       </label>
-      
+
       {/* Current specialties */}
       {value.length > 0 && (
         <div className="mb-3 flex flex-wrap gap-2">
@@ -60,14 +63,19 @@ export default function SpecialtiesInput({
                 className="ml-2 inline-flex items-center justify-center w-4 h-4 rounded-full text-blue-600 hover:bg-blue-200 hover:text-blue-800 dark:text-blue-300 dark:hover:bg-blue-800"
               >
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </span>
           ))}
         </div>
       )}
-      
+
       {/* Add new specialty */}
       <div className="flex gap-2">
         <input
@@ -83,19 +91,21 @@ export default function SpecialtiesInput({
         <button
           type="button"
           onClick={addSpecialty}
-          disabled={!newSpecialty.trim() || value.includes(newSpecialty.trim()) || value.length >= maxItems}
+          disabled={
+            !newSpecialty.trim() || value.includes(newSpecialty.trim()) || value.length >= maxItems
+          }
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Add
         </button>
       </div>
-      
+
       {value.length >= maxItems && (
         <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">
           Maximum {maxItems} specialties allowed
         </p>
       )}
-      
+
       <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
         Press Enter or click Add to include a specialty
       </p>

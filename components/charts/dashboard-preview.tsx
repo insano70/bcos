@@ -1,11 +1,18 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import AnalyticsChart from './analytics-chart';
-import DashboardFilterDropdown from './dashboard-filter-dropdown';
-import { type DashboardUniversalFilters, type DashboardFilterConfig } from './dashboard-filter-bar';
-import type { Dashboard, DashboardChart, ChartDefinition, MeasureType, FrequencyType, ChartFilter } from '@/lib/types/analytics';
+import { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
+import type {
+  ChartDefinition,
+  ChartFilter,
+  Dashboard,
+  DashboardChart,
+  FrequencyType,
+  MeasureType,
+} from '@/lib/types/analytics';
+import AnalyticsChart from './analytics-chart';
+import type { DashboardFilterConfig, DashboardUniversalFilters } from './dashboard-filter-bar';
+import DashboardFilterDropdown from './dashboard-filter-dropdown';
 
 interface DashboardConfig {
   dashboardName: string;
@@ -27,13 +34,13 @@ interface DashboardPreviewProps {
   // For previewing saved dashboards (from list)
   dashboard?: Dashboard;
   dashboardCharts?: DashboardChart[];
-  
+
   // For previewing unsaved configurations (from builder)
   dashboardConfig?: DashboardConfig;
-  
+
   // Phase 7: Filter configuration preview
   filterConfig?: DashboardFilterConfig;
-  
+
   // Navigation
   onClose: () => void;
   title?: string;
@@ -45,17 +52,20 @@ export default function DashboardPreview({
   dashboardConfig,
   filterConfig,
   onClose,
-  title
+  title,
 }: DashboardPreviewProps) {
   const [availableCharts, setAvailableCharts] = useState<ChartDefinition[]>([]);
   const [isLoadingCharts, setIsLoadingCharts] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Phase 7: Preview filter state (non-functional, just visual)
-  const [previewFilters, setPreviewFilters] = useState<DashboardUniversalFilters>(() => ({
-    dateRangePreset: filterConfig?.defaultFilters?.dateRangePreset || 'last_30_days',
-    organizationId: filterConfig?.defaultFilters?.organizationId,
-  } as DashboardUniversalFilters));
+  const [previewFilters, setPreviewFilters] = useState<DashboardUniversalFilters>(
+    () =>
+      ({
+        dateRangePreset: filterConfig?.defaultFilters?.dateRangePreset || 'last_30_days',
+        organizationId: filterConfig?.defaultFilters?.organizationId,
+      }) as DashboardUniversalFilters
+  );
 
   // Load available chart definitions for rendering
   useEffect(() => {
@@ -67,10 +77,12 @@ export default function DashboardPreview({
       const result = await apiClient.get<{
         charts: ChartDefinition[] | Array<{ chart_definitions: ChartDefinition }>;
       }>('/api/admin/analytics/charts?is_active=true');
-      const charts = (result.charts || []).map((item: ChartDefinition | { chart_definitions: ChartDefinition }) => {
-        return 'chart_definitions' in item ? item.chart_definitions : item;
-      }).filter((chart: ChartDefinition) => chart.is_active !== false);
-      
+      const charts = (result.charts || [])
+        .map((item: ChartDefinition | { chart_definitions: ChartDefinition }) => {
+          return 'chart_definitions' in item ? item.chart_definitions : item;
+        })
+        .filter((chart: ChartDefinition) => chart.is_active !== false);
+
       setAvailableCharts(charts);
     } catch (error) {
       console.error('Failed to load chart definitions:', error);
@@ -84,23 +96,26 @@ export default function DashboardPreview({
   const previewConfig = dashboardConfig || {
     dashboardName: dashboard?.dashboard_name || 'Unnamed Dashboard',
     dashboardDescription: dashboard?.dashboard_description || '',
-    charts: dashboardCharts?.map((chartAssoc, index) => {
-      const chartDefinition = availableCharts.find(chart => 
-        chart.chart_definition_id === chartAssoc.chart_definition_id
-      );
-      
-      return {
-        id: `preview-chart-${index}`,
-        chartDefinitionId: chartAssoc.chart_definition_id,
-        position: chartAssoc.position_config,
-        chartDefinition
-      };
-    }).filter(chart => chart.chartDefinition) || [],
+    charts:
+      dashboardCharts
+        ?.map((chartAssoc, index) => {
+          const chartDefinition = availableCharts.find(
+            (chart) => chart.chart_definition_id === chartAssoc.chart_definition_id
+          );
+
+          return {
+            id: `preview-chart-${index}`,
+            chartDefinitionId: chartAssoc.chart_definition_id,
+            position: chartAssoc.position_config,
+            chartDefinition,
+          };
+        })
+        .filter((chart) => chart.chartDefinition) || [],
     layout: {
       columns: dashboard?.layout_config?.columns || 12,
       rowHeight: dashboard?.layout_config?.rowHeight || 150,
-      margin: dashboard?.layout_config?.margin || 10
-    }
+      margin: dashboard?.layout_config?.margin || 10,
+    },
   };
 
   if (isLoadingCharts) {
@@ -116,8 +131,18 @@ export default function DashboardPreview({
     return (
       <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6">
         <div className="flex items-center">
-          <svg className="w-6 h-6 text-red-600 dark:text-red-400 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          <svg
+            className="w-6 h-6 text-red-600 dark:text-red-400 mr-3"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+            />
           </svg>
           <div>
             <h3 className="text-red-800 dark:text-red-200 font-medium">Preview Error</h3>
@@ -176,9 +201,9 @@ export default function DashboardPreview({
               </p>
             )}
             <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-              {previewConfig.charts.length} chart{previewConfig.charts.length !== 1 ? 's' : ''} • 
-              {previewConfig.layout.columns} column grid • 
-              {previewConfig.layout.rowHeight}px row height
+              {previewConfig.charts.length} chart{previewConfig.charts.length !== 1 ? 's' : ''} •
+              {previewConfig.layout.columns} column grid •{previewConfig.layout.rowHeight}px row
+              height
             </div>
           </div>
         </div>
@@ -220,18 +245,26 @@ export default function DashboardPreview({
           const chartDef = dashboardChart.chartDefinition;
           const dataSource = chartDef.data_source || {};
           const chartConfig = chartDef.chart_config || {};
-          
+
           // Extract filters to get chart parameters
           const measureFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'measure');
-          const frequencyFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'frequency');
-          const practiceFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'practice_uid');
-          const startDateFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'date_index' && f.operator === 'gte');
-          const endDateFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'date_index' && f.operator === 'lte');
+          const frequencyFilter = dataSource.filters?.find(
+            (f: ChartFilter) => f.field === 'frequency'
+          );
+          const practiceFilter = dataSource.filters?.find(
+            (f: ChartFilter) => f.field === 'practice_uid'
+          );
+          const startDateFilter = dataSource.filters?.find(
+            (f: ChartFilter) => f.field === 'date_index' && f.operator === 'gte'
+          );
+          const endDateFilter = dataSource.filters?.find(
+            (f: ChartFilter) => f.field === 'date_index' && f.operator === 'lte'
+          );
 
           // Use responsive sizing that respects dashboard configuration
           const baseHeight = dashboardChart.position.h * 150; // Height from dashboard configuration
           const containerHeight = Math.max(baseHeight, 250); // Minimum reasonable height
-          
+
           // Determine responsive column span classes like dashboard cards
           let colSpanClass = 'col-span-full';
           if (dashboardChart.position.w <= 4) {
@@ -248,17 +281,19 @@ export default function DashboardPreview({
             <div
               key={dashboardChart.id}
               className={`${colSpanClass} flex flex-col`}
-              style={{ 
+              style={{
                 marginBottom: `${previewConfig.layout.margin}px`,
                 height: `${containerHeight}px`,
                 maxHeight: `${containerHeight}px`,
-                overflow: 'hidden'
+                overflow: 'hidden',
               }}
             >
               <AnalyticsChart
                 chartType={chartDef.chart_type}
                 {...(measureFilter?.value && { measure: measureFilter.value as MeasureType })}
-                {...(frequencyFilter?.value && { frequency: frequencyFilter.value as FrequencyType })}
+                {...(frequencyFilter?.value && {
+                  frequency: frequencyFilter.value as FrequencyType,
+                })}
                 practice={practiceFilter?.value?.toString()}
                 startDate={startDateFilter?.value?.toString()}
                 endDate={endDateFilter?.value?.toString()}
@@ -269,8 +304,12 @@ export default function DashboardPreview({
                 dataSourceId={chartConfig.dataSourceId}
                 stackingMode={chartConfig.stackingMode}
                 colorPalette={chartConfig.colorPalette}
-                {...(chartConfig.seriesConfigs && chartConfig.seriesConfigs.length > 0 ? { multipleSeries: chartConfig.seriesConfigs } : {})}
-                {...(chartConfig.dualAxisConfig ? { dualAxisConfig: chartConfig.dualAxisConfig } : {})}
+                {...(chartConfig.seriesConfigs && chartConfig.seriesConfigs.length > 0
+                  ? { multipleSeries: chartConfig.seriesConfigs }
+                  : {})}
+                {...(chartConfig.dualAxisConfig
+                  ? { dualAxisConfig: chartConfig.dualAxisConfig }
+                  : {})}
                 className="w-full h-full flex-1"
                 responsive={true}
                 minHeight={200}

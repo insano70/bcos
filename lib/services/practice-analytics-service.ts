@@ -1,6 +1,6 @@
 import { and, desc, gte, isNull, sql } from 'drizzle-orm';
 import { db, practice_attributes, practices, staff_members, templates } from '@/lib/db';
-import { SLOW_THRESHOLDS, log } from '@/lib/logger';
+import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
 
 /**
@@ -251,10 +251,12 @@ class PracticeAnalyticsService implements PracticeAnalyticsServiceInterface {
         component: 'analytics',
       });
 
-      return staffStats || {
-        totalStaff: 0,
-        averageStaffPerPractice: 0,
-      };
+      return (
+        staffStats || {
+          totalStaff: 0,
+          averageStaffPerPractice: 0,
+        }
+      );
     } catch (error) {
       log.error('staff statistics query failed', error, {
         operation: 'get_staff_statistics',
@@ -281,10 +283,7 @@ class PracticeAnalyticsService implements PracticeAnalyticsServiceInterface {
           staffCount: sql<number>`count(${staff_members.staff_id})`,
         })
         .from(practices)
-        .leftJoin(
-          staff_members,
-          sql`${practices.practice_id} = ${staff_members.practice_id}`
-        )
+        .leftJoin(staff_members, sql`${practices.practice_id} = ${staff_members.practice_id}`)
         .where(and(isNull(practices.deleted_at), isNull(staff_members.deleted_at)))
         .groupBy(practices.practice_id, practices.name, practices.domain)
         .orderBy(desc(sql`count(${staff_members.staff_id})`))
@@ -390,14 +389,16 @@ class PracticeAnalyticsService implements PracticeAnalyticsServiceInterface {
         component: 'analytics',
       });
 
-      return attributesCompletion || {
-        totalWithAttributes: 0,
-        withBusinessHours: 0,
-        withServices: 0,
-        withInsurance: 0,
-        withConditions: 0,
-        withColors: 0,
-      };
+      return (
+        attributesCompletion || {
+          totalWithAttributes: 0,
+          withBusinessHours: 0,
+          withServices: 0,
+          withInsurance: 0,
+          withConditions: 0,
+          withColors: 0,
+        }
+      );
     } catch (error) {
       log.error('attributes completion query failed', error, {
         operation: 'get_attributes_completion',

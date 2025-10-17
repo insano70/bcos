@@ -79,10 +79,7 @@ export function createPeriodComparisonTooltipCallbacks(
 
         const currentDataset = currentData.dataset as ExtendedDataset;
         const measureType = currentDataset?.measureType || 'number';
-        const formattedDifference = formatValue(
-          Math.abs(difference),
-          measureType
-        );
+        const formattedDifference = formatValue(Math.abs(difference), measureType);
 
         const changeIcon = difference >= 0 ? '📈' : '📉';
         const changeText = difference >= 0 ? 'increase' : 'decrease';
@@ -156,10 +153,7 @@ export function createPeriodComparisonHorizontalTooltipCallbacks(_darkMode: bool
 
         const currentDataset = currentData.dataset as ExtendedDataset;
         const measureType = currentDataset?.measureType || 'number';
-        const formattedDifference = formatValue(
-          Math.abs(difference),
-          measureType
-        );
+        const formattedDifference = formatValue(Math.abs(difference), measureType);
 
         const changeIcon = difference >= 0 ? '📈' : '📉';
         const changeText = difference >= 0 ? 'increase' : 'decrease';
@@ -234,24 +228,15 @@ export function createPeriodComparisonStackedTooltipCallbacks(_darkMode: boolean
 
       const firstDataset = tooltipItems[0]?.dataset as ExtendedDataset;
       const measureType = firstDataset?.measureType || 'number';
-      const formattedCurrentTotal = formatValue(
-        currentTotal,
-        measureType
-      );
+      const formattedCurrentTotal = formatValue(currentTotal, measureType);
 
       const results = [`Current Total: ${formattedCurrentTotal}`];
 
       if (comparisonTotal > 0) {
         const difference = currentTotal - comparisonTotal;
         const percentageChange = (difference / comparisonTotal) * 100;
-        const formattedComparisonTotal = formatValue(
-          comparisonTotal,
-          measureType
-        );
-        const formattedDifference = formatValue(
-          Math.abs(difference),
-          measureType
-        );
+        const formattedComparisonTotal = formatValue(comparisonTotal, measureType);
+        const formattedDifference = formatValue(Math.abs(difference), measureType);
 
         const changeIcon = difference >= 0 ? '📈' : '📉';
         const changeText = difference >= 0 ? 'increase' : 'decrease';

@@ -1,23 +1,23 @@
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
-import { checkAnalyticsDbHealth } from '@/lib/services/analytics-db';
 import { analyticsQueryBuilder } from '@/lib/services/analytics';
-import { getDateRange } from '@/lib/utils/date-presets';
+import { checkAnalyticsDbHealth } from '@/lib/services/analytics-db';
+import { columnMappingService } from '@/lib/services/column-mapping-service';
 import type {
+  AggAppMeasure,
   AnalyticsQueryParams,
   ChartFilter,
   FrequencyType,
   MeasureType,
   MultipleSeriesConfig,
   PeriodComparisonConfig,
-  AggAppMeasure,
 } from '@/lib/types/analytics';
 import { MeasureAccessor } from '@/lib/types/analytics';
-import { columnMappingService } from '@/lib/services/column-mapping-service';
 import type { UserContext } from '@/lib/types/rbac';
+import { getDateRange } from '@/lib/utils/date-presets';
 
 /**
  * Admin Analytics - Measures Data
@@ -78,7 +78,9 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     let multipleSeries: MultipleSeriesConfig[] | undefined;
     if (multipleSeriesParam) {
       try {
-        multipleSeries = JSON.parse(decodeURIComponent(multipleSeriesParam)) as MultipleSeriesConfig[];
+        multipleSeries = JSON.parse(
+          decodeURIComponent(multipleSeriesParam)
+        ) as MultipleSeriesConfig[];
       } catch (_error) {
         return createErrorResponse('Invalid multiple_series parameter format', 400);
       }
@@ -89,7 +91,9 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     const periodComparisonParam = searchParams.get('period_comparison');
     if (periodComparisonParam) {
       try {
-        periodComparison = JSON.parse(decodeURIComponent(periodComparisonParam)) as PeriodComparisonConfig;
+        periodComparison = JSON.parse(
+          decodeURIComponent(periodComparisonParam)
+        ) as PeriodComparisonConfig;
       } catch (_error) {
         return createErrorResponse('Invalid period_comparison parameter format', 400);
       }
@@ -104,7 +108,11 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     const providedEndDate = searchParams.get('end_date') || undefined;
 
     // Calculate dates: prefer preset calculation over provided dates
-    const { startDate, endDate } = getDateRange(dateRangePreset, providedStartDate, providedEndDate);
+    const { startDate, endDate } = getDateRange(
+      dateRangePreset,
+      providedStartDate,
+      providedEndDate
+    );
 
     const queryParams: AnalyticsQueryParams = {
       measure: (searchParams.get('measure') as MeasureType) || undefined,
@@ -176,32 +184,35 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
     if (chartType === 'number' && result.data.length > 0) {
       // Use MeasureAccessor for dynamic column access
       let total = 0;
-      
+
       if (queryParams.data_source_id && result.data.length > 0) {
         try {
           const mapping = await columnMappingService.getMapping(queryParams.data_source_id);
-          
+
           // Sum all measure values using accessor
+          // Record<string, unknown> from database matches AggAppMeasure dynamic schema
           total = result.data.reduce((sum, measure) => {
-            const accessor = new MeasureAccessor(measure as unknown as AggAppMeasure, mapping);
+            const accessor = new MeasureAccessor(measure as AggAppMeasure, mapping);
             return sum + accessor.getMeasureValue();
           }, 0);
         } catch (error) {
           log.warn('Failed to use MeasureAccessor for aggregation, using default', { error });
           // Fallback to default behavior
           total = result.data.reduce((sum, measure) => {
-            const value = typeof measure.measure_value === 'string'
-              ? parseFloat(measure.measure_value as string)
-              : (measure.measure_value as number || 0);
+            const value =
+              typeof measure.measure_value === 'string'
+                ? parseFloat(measure.measure_value as string)
+                : (measure.measure_value as number) || 0;
             return sum + (Number.isNaN(value) ? 0 : value);
           }, 0);
         }
       } else {
         // No data source ID, use default behavior
         total = result.data.reduce((sum, measure) => {
-          const value = typeof measure.measure_value === 'string'
-            ? parseFloat(measure.measure_value as string)
-            : (measure.measure_value as number || 0);
+          const value =
+            typeof measure.measure_value === 'string'
+              ? parseFloat(measure.measure_value as string)
+              : (measure.measure_value as number) || 0;
           return sum + (Number.isNaN(value) ? 0 : value);
         }, 0);
       }
@@ -211,7 +222,8 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
       if (queryParams.data_source_id && result.data[0]) {
         try {
           const mapping = await columnMappingService.getMapping(queryParams.data_source_id);
-          const accessor = new MeasureAccessor(result.data[0] as unknown as AggAppMeasure, mapping);
+          // Record<string, unknown> from database matches AggAppMeasure dynamic schema
+          const accessor = new MeasureAccessor(result.data[0] as AggAppMeasure, mapping);
           measureType = accessor.getMeasureType();
         } catch {
           measureType = (result.data[0]?.measure_type as string) || 'number';
@@ -221,21 +233,23 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
       }
 
       // Return a single measure with the aggregated total
-      measuresData = [{
-        measure_value: total,
-        measure_type: measureType,
-        date_index: new Date().toISOString().split('T')[0] || '',
-        measure: queryParams.measure || 'Total',
-        aggregation_type: 'sum'
-      }];
+      measuresData = [
+        {
+          measure_value: total,
+          measure_type: measureType,
+          date_index: new Date().toISOString().split('T')[0] || '',
+          measure: queryParams.measure || 'Total',
+          aggregation_type: 'sum',
+        },
+      ];
 
       log.info('Number chart aggregation completed', {
         originalCount: result.data.length,
         total,
-        sampleValues: result.data.slice(0, 3).map(m => ({
+        sampleValues: result.data.slice(0, 3).map((m) => ({
           value: m.measure_value,
-          type: typeof m.measure_value
-        }))
+          type: typeof m.measure_value,
+        })),
       });
     }
 

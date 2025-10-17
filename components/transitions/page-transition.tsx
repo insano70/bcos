@@ -1,6 +1,6 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
@@ -34,7 +34,7 @@ export default function PageTransition({
   variant = 'fade',
   className = '',
 }: PageTransitionProps) {
-  const pathname = usePathname();
+  const _pathname = usePathname();
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
   // Detect prefers-reduced-motion preference
@@ -51,17 +51,10 @@ export default function PageTransition({
   }, []);
 
   // Use reduced motion variants if user prefers
-  const variants = prefersReducedMotion
-    ? reducedMotionVariants
-    : getTransitionVariants(variant);
+  const variants = prefersReducedMotion ? reducedMotionVariants : getTransitionVariants(variant);
 
   return (
-    <motion.div
-      initial="initial"
-      animate="animate"
-      variants={variants}
-      className={className}
-    >
+    <motion.div initial="initial" animate="animate" variants={variants} className={className}>
       {children}
     </motion.div>
   );

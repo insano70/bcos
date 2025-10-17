@@ -15,9 +15,9 @@
  * - Role permissions: 24 hours (rarely changes, heavily read)
  */
 
+import { log } from '@/lib/logger';
 import type { Permission, UserContext } from '@/lib/types/rbac';
 import { CacheService } from './base';
-import { log } from '@/lib/logger';
 
 /**
  * Cached role permissions structure
@@ -205,10 +205,10 @@ class RbacCacheService extends CacheService {
 
   /**
    * Get organization hierarchy from cache
-   * 
+   *
    * Caches all active organizations for 24 hours since org structure changes infrequently.
    * Used by OrganizationHierarchyService.
-   * 
+   *
    * @returns Array of organizations or null if not cached
    */
   async getOrganizationHierarchy(): Promise<import('@/lib/types/rbac').Organization[] | null> {
@@ -219,7 +219,7 @@ class RbacCacheService extends CacheService {
 
   /**
    * Cache organization hierarchy
-   * 
+   *
    * @param organizations - Array of all active organizations
    * @returns true if successful
    */
@@ -233,7 +233,7 @@ class RbacCacheService extends CacheService {
 
   /**
    * Invalidate organization hierarchy cache
-   * 
+   *
    * Should be called when:
    * - Organization created
    * - Organization updated (name, parent_organization_id, practice_uids, etc.)

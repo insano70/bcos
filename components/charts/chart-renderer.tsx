@@ -13,20 +13,18 @@
  * - Type-safe dispatch with TypeScript
  */
 
-import type { ChartData } from '@/lib/types/analytics';
-import type { DualAxisConfig } from '@/lib/types/analytics';
-
+import type { ChartData, DualAxisConfig } from '@/lib/types/analytics';
+import AnalyticsBarChart from './analytics-bar-chart';
+import AnalyticsDualAxisChart from './analytics-dual-axis-chart';
+import AnalyticsHorizontalBarChart from './analytics-horizontal-bar-chart';
+import AnalyticsNumberChart from './analytics-number-chart';
+import AnalyticsProgressBarChart from './analytics-progress-bar-chart';
+import AnalyticsStackedBarChart from './analytics-stacked-bar-chart';
+import AnalyticsTableChart from './analytics-table-chart';
+import AreaChart from './area-chart';
+import DoughnutChart from './doughnut-chart';
 // Chart rendering components
 import LineChart01 from './line-chart-01';
-import AnalyticsBarChart from './analytics-bar-chart';
-import AnalyticsStackedBarChart from './analytics-stacked-bar-chart';
-import AnalyticsHorizontalBarChart from './analytics-horizontal-bar-chart';
-import AnalyticsProgressBarChart from './analytics-progress-bar-chart';
-import AnalyticsDualAxisChart from './analytics-dual-axis-chart';
-import AnalyticsNumberChart from './analytics-number-chart';
-import AnalyticsTableChart from './analytics-table-chart';
-import DoughnutChart from './doughnut-chart';
-import AreaChart from './area-chart';
 
 /**
  * Formatted cell structure for table charts
@@ -100,13 +98,13 @@ interface ChartRendererProps {
  * 1. Import the component above
  * 2. Add an entry to this map
  *
- * Note: Using `any` here because each chart component has different prop interfaces
- * (LineChart01Props, AnalyticsBarChartProps, etc.) and TypeScript doesn't support
- * heterogeneous component maps without a union type of all props. The actual props
- * are validated through TypeScript at the call site.
- *
- * This is an acceptable use of `any` for dynamic component dispatch.
+ * Note: Using `React.ComponentType` here because each chart component has different
+ * prop interfaces (LineChart01Props, AnalyticsBarChartProps, etc.) and TypeScript
+ * doesn't support heterogeneous component maps without a union type of all props.
+ * The actual props are validated through TypeScript at the call site in the render logic.
+ * eslint-disable-next-line is used to suppress the any type warning for this valid use case.
  */
+// biome-ignore lint/suspicious/noExplicitAny: Dynamic component dispatch with heterogeneous prop types
 const CHART_COMPONENTS: Record<string, React.ComponentType<any>> = {
   line: LineChart01,
   bar: AnalyticsBarChart,
@@ -183,7 +181,7 @@ export default function ChartRenderer({
   // Phase 3.4: Transform ChartData to ProgressBarData format
   if (chartType === 'progress-bar') {
     const dataset = data.datasets[0];
-    
+
     // Extract custom fields from dataset (typed in ChartDataset interface)
     const rawValues = dataset?.rawValues;
     const originalMeasureType = dataset?.originalMeasureType;
@@ -210,17 +208,18 @@ export default function ChartRenderer({
   if (chartType === 'table') {
     const tableProps = {
       data: rawData || [],
-      columns: columns?.map(col => ({
-        columnName: col.columnName,
-        displayName: col.displayName,
-        dataType: col.dataType,
-        formatType: col.formatType,
-        displayIcon: col.displayIcon,
-        iconType: col.iconType,
-        iconColorMode: col.iconColorMode,
-        iconColor: col.iconColor,
-        iconMapping: col.iconMapping,
-      })) || [],
+      columns:
+        columns?.map((col) => ({
+          columnName: col.columnName,
+          displayName: col.displayName,
+          dataType: col.dataType,
+          formatType: col.formatType,
+          displayIcon: col.displayIcon,
+          iconType: col.iconType,
+          iconColorMode: col.iconColorMode,
+          iconColor: col.iconColor,
+          iconMapping: col.iconMapping,
+        })) || [],
       colorPalette: colorPalette || 'default',
       height,
       ...(formattedData && { formattedData }),

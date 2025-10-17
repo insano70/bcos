@@ -262,9 +262,10 @@ export class RBACChartsService extends BaseRBACService {
     this.requireAnyPermission(['charts:create:organization', 'charts:manage:all']);
 
     // Extract data_source_id from chart_config if present
-    const dataSourceId = chartData.chart_config && typeof chartData.chart_config === 'object'
-      ? (chartData.chart_config as { dataSourceId?: number }).dataSourceId
-      : undefined;
+    const dataSourceId =
+      chartData.chart_config && typeof chartData.chart_config === 'object'
+        ? (chartData.chart_config as { dataSourceId?: number }).dataSourceId
+        : undefined;
 
     // Create new chart
     const [newChart] = await db
@@ -373,9 +374,10 @@ export class RBACChartsService extends BaseRBACService {
       if (updateData.chart_config !== undefined) {
         updateFields.chart_config = updateData.chart_config;
         // Extract and update data_source_id from chart_config if present
-        const dataSourceId = typeof updateData.chart_config === 'object'
-          ? (updateData.chart_config as { dataSourceId?: number }).dataSourceId
-          : undefined;
+        const dataSourceId =
+          typeof updateData.chart_config === 'object'
+            ? (updateData.chart_config as { dataSourceId?: number }).dataSourceId
+            : undefined;
         if (dataSourceId !== undefined) {
           updateFields.data_source_id = dataSourceId || null;
         }

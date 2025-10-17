@@ -1,3 +1,4 @@
+import { relations } from 'drizzle-orm';
 import {
   boolean,
   index,
@@ -8,7 +9,6 @@ import {
   timestamp,
   uuid,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
 import { organizations } from './rbac-schema';
 import { users } from './schema';
 

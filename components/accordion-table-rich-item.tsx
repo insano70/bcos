@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { StaticImageData } from 'next/image';
-
+import type { StaticImageData } from 'next/image';
 import Image from 'next/image';
+import { useState } from 'react';
 
 interface RichItem {
   id: number;
@@ -74,7 +73,7 @@ export default function AccordionTableRichItem({ item }: RichItemProps) {
       Note that you must set a "colSpan" attribute on the <td> element,
       and it should match the number of columns in your table
       */}
-      <tr id={`description-${item.id}`} role="region" className={`${!open && 'hidden'}`}>
+      <tr id={`description-${item.id}`} className={`${!open && 'hidden'}`}>
         <td colSpan={10} className="px-2 first:pl-5 last:pr-5 py-3">
           <div className="bg-gray-50 dark:bg-gray-950/[0.15] dark:text-gray-400 p-3 -mt-3">
             <div className="text-sm mb-3">

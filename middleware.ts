@@ -7,6 +7,7 @@ import { debugLog } from '@/lib/utils/debug'
 import { sanitizeRequestBody } from '@/lib/api/middleware/request-sanitization'
 import { eq } from 'drizzle-orm'
 import type { JWTPayload } from 'jose'
+import { log } from '@/lib/logger'
 
 // CSRF exempt paths - these endpoints handle their own security or don't need CSRF
 const CSRF_EXEMPT_PATHS = [
@@ -434,13 +435,15 @@ export async function middleware(request: NextRequest) {
   
   // Debug logging for custom domain routing
   if (process.env.NODE_ENV === 'development' || process.env.ENVIRONMENT === 'staging') {
-    console.log('🌐 Custom domain detected:', {
+    log.info('Custom domain detected', {
+      operation: 'domain_routing',
       originalHostname: rawHostname,
       processedHostname: hostname,
       extractedDomain: domain,
       pathname,
-      rewriteTo: `/practice/${domain}${pathname}`
-    })
+      rewriteTo: `/practice/${domain}${pathname}`,
+      component: 'middleware',
+    });
   }
   
   // Rewrite to practice route

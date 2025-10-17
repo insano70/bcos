@@ -1,9 +1,12 @@
 'use client';
 
-import { useState } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useCreateDataSourceColumn, type DataSourceColumnCreateInput } from '@/lib/hooks/use-data-sources';
+import {
+  type DataSourceColumnCreateInput,
+  useCreateDataSourceColumn,
+} from '@/lib/hooks/use-data-sources';
 import Toast from './toast';
 
 interface AddDataSourceColumnModalProps {
@@ -19,12 +22,12 @@ export default function AddDataSourceColumnModal({
   isOpen,
   onClose,
   onSuccess,
-  dataSourceId
+  dataSourceId,
 }: AddDataSourceColumnModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const [_toastMessage, setToastMessage] = useState('');
+  const [_toastType, setToastType] = useState<'success' | 'error'>('success');
 
   const createColumnMutation = useCreateDataSourceColumn(dataSourceId);
 
@@ -69,7 +72,6 @@ export default function AddDataSourceColumnModal({
         onSuccess?.();
         setShowToast(false);
       }, 2000);
-
     } catch (error) {
       // Log client-side column creation errors for debugging
       if (process.env.NODE_ENV === 'development') {
@@ -120,8 +122,18 @@ export default function AddDataSourceColumnModal({
                         className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                       >
                         <span className="sr-only">Close</span>
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        <svg
+                          className="w-6 h-6"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
                         </svg>
                       </button>
                     </div>
@@ -141,8 +153,9 @@ export default function AddDataSourceColumnModal({
                             required: 'Column name is required',
                             pattern: {
                               value: /^[a-zA-Z][a-zA-Z0-9_]*$/,
-                              message: 'Column name must start with a letter and contain only letters, numbers, and underscores'
-                            }
+                              message:
+                                'Column name must start with a letter and contain only letters, numbers, and underscores',
+                            },
                           })}
                           className={`w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
                             errors.column_name
@@ -228,7 +241,10 @@ export default function AddDataSourceColumnModal({
                               {...register('is_filterable')}
                               className="form-checkbox"
                             />
-                            <label htmlFor="add_is_filterable" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            <label
+                              htmlFor="add_is_filterable"
+                              className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                            >
                               Filterable - Can be used in filters
                             </label>
                           </div>
@@ -240,7 +256,10 @@ export default function AddDataSourceColumnModal({
                               {...register('is_groupable')}
                               className="form-checkbox"
                             />
-                            <label htmlFor="add_is_groupable" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            <label
+                              htmlFor="add_is_groupable"
+                              className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                            >
                               Groupable - Can be used for grouping
                             </label>
                           </div>
@@ -252,7 +271,10 @@ export default function AddDataSourceColumnModal({
                               {...register('is_measure')}
                               className="form-checkbox"
                             />
-                            <label htmlFor="add_is_measure" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            <label
+                              htmlFor="add_is_measure"
+                              className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                            >
                               Measure - Numeric value for calculations
                             </label>
                           </div>
@@ -264,7 +286,10 @@ export default function AddDataSourceColumnModal({
                               {...register('is_dimension')}
                               className="form-checkbox"
                             />
-                            <label htmlFor="add_is_dimension" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            <label
+                              htmlFor="add_is_dimension"
+                              className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                            >
                               Dimension - Category for grouping
                             </label>
                           </div>
@@ -276,7 +301,10 @@ export default function AddDataSourceColumnModal({
                               {...register('is_date_field')}
                               className="form-checkbox"
                             />
-                            <label htmlFor="add_is_date_field" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            <label
+                              htmlFor="add_is_date_field"
+                              className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                            >
                               Date Field - Contains date/time values
                             </label>
                           </div>
@@ -288,7 +316,10 @@ export default function AddDataSourceColumnModal({
                               {...register('is_measure_type')}
                               className="form-checkbox"
                             />
-                            <label htmlFor="add_is_measure_type" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            <label
+                              htmlFor="add_is_measure_type"
+                              className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                            >
                               Measure Type - Contains formatting information (currency, count, etc.)
                             </label>
                           </div>
@@ -300,7 +331,10 @@ export default function AddDataSourceColumnModal({
                               {...register('is_time_period')}
                               className="form-checkbox"
                             />
-                            <label htmlFor="add_is_time_period" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            <label
+                              htmlFor="add_is_time_period"
+                              className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                            >
                               Time Period - Contains frequency/period values (Monthly, Weekly, etc.)
                             </label>
                           </div>
@@ -320,7 +354,10 @@ export default function AddDataSourceColumnModal({
                               {...register('is_sensitive')}
                               className="form-checkbox"
                             />
-                            <label htmlFor="add_is_sensitive" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            <label
+                              htmlFor="add_is_sensitive"
+                              className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                            >
                               Sensitive Data - Requires additional permissions
                             </label>
                           </div>
@@ -332,7 +369,10 @@ export default function AddDataSourceColumnModal({
                               {...register('is_active')}
                               className="form-checkbox"
                             />
-                            <label htmlFor="add_is_active" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                            <label
+                              htmlFor="add_is_active"
+                              className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                            >
                               Active - Column is available for use
                             </label>
                           </div>

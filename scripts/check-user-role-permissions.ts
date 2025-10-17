@@ -1,13 +1,9 @@
-import { db } from '@/lib/db';
-import { roles, role_permissions, permissions } from '@/lib/db/rbac-schema';
 import { eq } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import { permissions, role_permissions, roles } from '@/lib/db/rbac-schema';
 
 async function checkUserRolePermissions() {
-  const userRole = await db
-    .select()
-    .from(roles)
-    .where(eq(roles.name, 'user'))
-    .limit(1);
+  const userRole = await db.select().from(roles).where(eq(roles.name, 'user')).limit(1);
 
   if (!userRole.length) {
     console.log('❌ User role not found');
@@ -24,18 +20,18 @@ async function checkUserRolePermissions() {
     })
     .from(role_permissions)
     .innerJoin(permissions, eq(role_permissions.permission_id, permissions.permission_id))
-    .where(eq(role_permissions.role_id, userRole[0]!.role_id))
+    .where(eq(role_permissions.role_id, userRole[0]?.role_id))
     .orderBy(permissions.name);
 
   console.log('\n✅ Permissions for "user" role:');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-  const workItemsPerms = rolePerms.filter(p => p.resource === 'work_items');
-  const otherPerms = rolePerms.filter(p => p.resource !== 'work_items');
+  const workItemsPerms = rolePerms.filter((p) => p.resource === 'work_items');
+  const otherPerms = rolePerms.filter((p) => p.resource !== 'work_items');
 
   if (workItemsPerms.length > 0) {
     console.log('📋 Work Items Permissions:');
-    workItemsPerms.forEach(p => {
+    workItemsPerms.forEach((p) => {
       console.log(`  ✓ ${p.permission_name} (${p.scope})`);
       console.log(`    ${p.permission_description}\n`);
     });
@@ -43,7 +39,7 @@ async function checkUserRolePermissions() {
 
   if (otherPerms.length > 0) {
     console.log('🔧 Other Permissions:');
-    otherPerms.forEach(p => {
+    otherPerms.forEach((p) => {
       console.log(`  ✓ ${p.permission_name} (${p.scope})`);
     });
     console.log();

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useCreatePractice } from '@/lib/hooks/use-practices';
 import { useTemplates } from '@/lib/hooks/use-templates';
@@ -11,16 +11,18 @@ import Toast from './toast';
 
 // Form validation schema
 const createPracticeSchema = z.object({
-  name: z.string()
+  name: z
+    .string()
     .min(1, 'Practice name is required')
     .max(255, 'Practice name must not exceed 255 characters')
     .trim(),
-  domain: z.string()
+  domain: z
+    .string()
     .min(1, 'Domain is required')
     .max(255, 'Domain must not exceed 255 characters')
     .regex(/^[a-zA-Z0-9.-]+$/, 'Domain must contain only letters, numbers, dots, and hyphens')
-    .transform(val => val.toLowerCase()),
-  template_id: z.string().uuid('Invalid template ID')
+    .transform((val) => val.toLowerCase()),
+  template_id: z.string().uuid('Invalid template ID'),
 });
 
 type CreatePracticeForm = z.infer<typeof createPracticeSchema>;
@@ -43,20 +45,22 @@ export default function AddPracticeModal({ isOpen, onClose, onSuccess }: AddPrac
     formState: { errors },
     reset,
     setValue,
-    watch
+    watch,
   } = useForm<CreatePracticeForm>({
     resolver: zodResolver(createPracticeSchema),
     defaultValues: {
       name: '',
       domain: '',
-      template_id: ''
-    }
+      template_id: '',
+    },
   });
 
   // Pre-select Classic Professional template when templates load
   useEffect(() => {
     if (templates && templates.length > 0) {
-      const classicTemplate = templates.find(template => template.slug === 'classic-professional');
+      const classicTemplate = templates.find(
+        (template) => template.slug === 'classic-professional'
+      );
       if (classicTemplate) {
         setValue('template_id', classicTemplate.id);
       }
@@ -72,7 +76,7 @@ export default function AddPracticeModal({ isOpen, onClose, onSuccess }: AddPrac
       const practiceData = {
         name: data.name,
         domain: data.domain,
-        template_id: data.template_id
+        template_id: data.template_id,
       };
 
       await createPractice.mutateAsync(practiceData);
@@ -87,7 +91,6 @@ export default function AddPracticeModal({ isOpen, onClose, onSuccess }: AddPrac
         onSuccess?.();
         setShowToast(false);
       }, 2000);
-
     } catch (error) {
       // Log client-side practice creation errors for debugging
       if (process.env.NODE_ENV === 'development') {
@@ -156,7 +159,10 @@ export default function AddPracticeModal({ isOpen, onClose, onSuccess }: AddPrac
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 {/* Practice Name */}
                 <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="name"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Practice Name *
                   </label>
                   <input
@@ -164,21 +170,26 @@ export default function AddPracticeModal({ isOpen, onClose, onSuccess }: AddPrac
                     id="name"
                     {...register('name')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
-                      errors.name 
-                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600' 
+                      errors.name
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600'
                         : 'border-gray-300 dark:border-gray-600'
                     }`}
                     placeholder="Enter practice name"
                     disabled={isSubmitting}
                   />
                   {errors.name && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.name.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.name.message}
+                    </p>
                   )}
                 </div>
 
                 {/* Domain */}
                 <div>
-                  <label htmlFor="domain" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="domain"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Domain *
                   </label>
                   <input
@@ -186,15 +197,17 @@ export default function AddPracticeModal({ isOpen, onClose, onSuccess }: AddPrac
                     id="domain"
                     {...register('domain')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
-                      errors.domain 
-                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600' 
+                      errors.domain
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600'
                         : 'border-gray-300 dark:border-gray-600'
                     }`}
                     placeholder="Enter domain (e.g. my-practice-name)"
                     disabled={isSubmitting}
                   />
                   {errors.domain && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.domain.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.domain.message}
+                    </p>
                   )}
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                     This will be used for your practice website URL
@@ -203,7 +216,10 @@ export default function AddPracticeModal({ isOpen, onClose, onSuccess }: AddPrac
 
                 {/* Template Selection */}
                 <div>
-                  <label htmlFor="template_id" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label
+                    htmlFor="template_id"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  >
                     Template *
                   </label>
                   <select
@@ -211,26 +227,28 @@ export default function AddPracticeModal({ isOpen, onClose, onSuccess }: AddPrac
                     {...register('template_id')}
                     disabled={isSubmitting || templatesLoading}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
-                      errors.template_id 
-                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600' 
+                      errors.template_id
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500 dark:border-red-600'
                         : 'border-gray-300 dark:border-gray-600'
                     }`}
                   >
                     <option value="">
                       {templatesLoading ? 'Loading templates...' : 'Select a template'}
                     </option>
-                    {templates?.map(template => (
+                    {templates?.map((template) => (
                       <option key={template.id} value={template.id}>
                         {template.name}
                       </option>
                     ))}
                   </select>
                   {errors.template_id && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.template_id.message}</p>
+                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                      {errors.template_id.message}
+                    </p>
                   )}
                   {selectedTemplateId && templates && (
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      {templates.find(t => t.id === selectedTemplateId)?.description}
+                      {templates.find((t) => t.id === selectedTemplateId)?.description}
                     </p>
                   )}
                 </div>
@@ -239,7 +257,9 @@ export default function AddPracticeModal({ isOpen, onClose, onSuccess }: AddPrac
                 {createPractice.error && (
                   <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
                     <p className="text-sm text-red-600 dark:text-red-400">
-                      {createPractice.error instanceof Error ? createPractice.error.message : 'An error occurred while creating the practice'}
+                      {createPractice.error instanceof Error
+                        ? createPractice.error.message
+                        : 'An error occurred while creating the practice'}
                     </p>
                   </div>
                 )}
@@ -283,4 +303,3 @@ export default function AddPracticeModal({ isOpen, onClose, onSuccess }: AddPrac
     </Transition>
   );
 }
-

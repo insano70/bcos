@@ -1,6 +1,6 @@
+import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { permissions } from '@/lib/db/rbac-schema';
-import { eq } from 'drizzle-orm';
 
 async function deleteOldFormat() {
   console.log('🗑️  Deleting old format work_items permissions...\n');
@@ -12,7 +12,7 @@ async function deleteOldFormat() {
     .returning();
 
   console.log(`✅ Deleted ${result.length} old format permissions:\n`);
-  result.forEach(p => {
+  result.forEach((p) => {
     console.log(`  - ${p.name}`);
   });
 

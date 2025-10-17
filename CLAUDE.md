@@ -38,7 +38,9 @@ This document contains the rules, guidelines, and context for AI assistants work
 ## Logging Standards
 
 ### Node Only
-Logging is Node-only. Do not import logging into the client. This will cause build failures and is forbidden. 
+Logging is Node-only. Do not import logging into the client. This will cause build failures and is forbidden.
+
+**IMPORTANT**: A custom lint rule enforces this. Client-side files with `'use client'` directive cannot import `@/lib/logger`. The linter will fail the build if this rule is violated. See [docs/linting/NO_SERVER_LOGGER_IN_CLIENT.md](docs/linting/NO_SERVER_LOGGER_IN_CLIENT.md) for details. 
 
 ### Core Principles
 - Use native `console.log/error/warn/debug` through the logger wrapper in `lib/logger/index.ts`

@@ -3,7 +3,8 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { permissions } from '../lib/db/rbac-schema.js';
 
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://bcos_d:oRMgpg2micRfQVXz7Bfbr@localhost:5432/bcos_d';
+const DATABASE_URL =
+  process.env.DATABASE_URL || 'postgresql://bcos_d:oRMgpg2micRfQVXz7Bfbr@localhost:5432/bcos_d';
 const client = postgres(DATABASE_URL);
 const db = drizzle(client, { schema: { permissions } });
 
@@ -19,7 +20,7 @@ async function verifyPermissions() {
 
   console.log('\n📊 By Resource:');
   for (const [k, v] of Object.entries(byResource).sort()) {
-    console.log('  ', k + ':', v);
+    console.log('  ', `${k}:`, v);
   }
 
   console.log('\n🔍 Looking for duplicates...');

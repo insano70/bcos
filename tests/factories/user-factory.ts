@@ -1,22 +1,22 @@
-import { getCurrentTransaction } from '@/tests/helpers/db-helper'
-import { users } from '@/lib/db/schema'
-import { generateUniqueEmail, generateUniqueUsername } from '@/tests/helpers/unique-generator'
-import { hashPassword } from '@/lib/auth/password'
-import type { InferSelectModel } from 'drizzle-orm'
+import type { InferSelectModel } from 'drizzle-orm';
+import { hashPassword } from '@/lib/auth/password';
+import { users } from '@/lib/db/schema';
+import { getCurrentTransaction } from '@/tests/helpers/db-helper';
+import { generateUniqueEmail, generateUniqueUsername } from '@/tests/helpers/unique-generator';
 
-export type User = InferSelectModel<typeof users>
+export type User = InferSelectModel<typeof users>;
 
 /**
  * Configuration options for creating test users
  */
 export interface CreateUserOptions {
-  email?: string
-  username?: string
-  password?: string
-  firstName?: string
-  lastName?: string
-  emailVerified?: boolean
-  isActive?: boolean
+  email?: string;
+  username?: string;
+  password?: string;
+  firstName?: string;
+  lastName?: string;
+  emailVerified?: boolean;
+  isActive?: boolean;
 }
 
 /**
@@ -24,7 +24,7 @@ export interface CreateUserOptions {
  * Uses cryptographically unique identifiers for collision-free parallel testing
  */
 export async function createTestUser(options: CreateUserOptions = {}): Promise<User> {
-  const tx = getCurrentTransaction()
+  const tx = getCurrentTransaction();
 
   const userData = {
     email: options.email || generateUniqueEmail(),
@@ -34,38 +34,41 @@ export async function createTestUser(options: CreateUserOptions = {}): Promise<U
     last_name: options.lastName || 'User',
     email_verified: options.emailVerified ?? false,
     is_active: options.isActive ?? true,
-  }
+  };
 
-  const [user] = await tx.insert(users).values(userData).returning()
+  const [user] = await tx.insert(users).values(userData).returning();
   if (!user) {
-    throw new Error('Failed to create test user')
+    throw new Error('Failed to create test user');
   }
-  return user
+  return user;
 }
 
 /**
  * Create multiple test users in a batch
  * Useful for testing bulk operations or setting up test scenarios
  */
-export async function createTestUsers(count: number, baseOptions: CreateUserOptions = {}): Promise<User[]> {
-  const users: User[] = []
+export async function createTestUsers(
+  count: number,
+  baseOptions: CreateUserOptions = {}
+): Promise<User[]> {
+  const users: User[] = [];
 
   for (let i = 0; i < count; i++) {
     const userOptions: CreateUserOptions = {
       ...baseOptions,
-    }
+    };
     // Ensure each user gets unique identifiers even with base options
     if (baseOptions.email) {
-      userOptions.email = `${baseOptions.email.split('@')[0]}_${i}@test.local`
+      userOptions.email = `${baseOptions.email.split('@')[0]}_${i}@test.local`;
     }
     if (baseOptions.username) {
-      userOptions.username = `${baseOptions.username}_${i}`
+      userOptions.username = `${baseOptions.username}_${i}`;
     }
-    const user = await createTestUser(userOptions)
-    users.push(user)
+    const user = await createTestUser(userOptions);
+    users.push(user);
   }
 
-  return users
+  return users;
 }
 
 /**
@@ -79,7 +82,7 @@ export async function createTestAdminUser(options: CreateUserOptions = {}): Prom
     lastName: 'User',
     emailVerified: true,
     isActive: true,
-  })
+  });
 }
 
 /**
@@ -90,7 +93,7 @@ export async function createInactiveTestUser(options: CreateUserOptions = {}): P
   return createTestUser({
     ...options,
     isActive: false,
-  })
+  });
 }
 
 /**
@@ -101,5 +104,5 @@ export async function createUnverifiedTestUser(options: CreateUserOptions = {}):
   return createTestUser({
     ...options,
     emailVerified: false,
-  })
+  });
 }

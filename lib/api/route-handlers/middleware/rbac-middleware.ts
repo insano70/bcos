@@ -26,10 +26,10 @@
  */
 
 import type { NextRequest } from 'next/server';
+import { log } from '@/lib/logger';
 import { createRBACMiddleware } from '@/lib/rbac/middleware';
 import type { PermissionName } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
-import type { Middleware, MiddlewareResult, RouteContext, RBACMiddlewareOptions } from '../types';
+import type { Middleware, MiddlewareResult, RBACMiddlewareOptions, RouteContext } from '../types';
 
 export class RBACMiddleware implements Middleware {
   name = 'rbac';

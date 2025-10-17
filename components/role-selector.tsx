@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 // Inline SVG icons
-import { useRoles, type Role } from '@/lib/hooks/use-roles';
+import { useRoles } from '@/lib/hooks/use-roles';
 
 interface RoleSelectorProps {
   selectedRoleIds: string[];
@@ -19,7 +19,7 @@ export default function RoleSelector({
   placeholder = 'Select roles...',
   disabled = false,
   error,
-  required = false
+  required = false,
 }: RoleSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -29,13 +29,15 @@ export default function RoleSelector({
   const { data: roles, isLoading, error: rolesError } = useRoles();
 
   // Filter roles based on search term
-  const filteredRoles = roles?.filter(role =>
-    role.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    role.description?.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  const filteredRoles =
+    roles?.filter(
+      (role) =>
+        role.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        role.description?.toLowerCase().includes(searchTerm.toLowerCase())
+    ) || [];
 
   // Get selected roles for display
-  const selectedRoles = roles?.filter(role => selectedRoleIds.includes(role.id)) || [];
+  const selectedRoles = roles?.filter((role) => selectedRoleIds.includes(role.id)) || [];
 
   // Handle clicking outside to close dropdown
   useEffect(() => {
@@ -52,7 +54,7 @@ export default function RoleSelector({
   // Handle role selection
   const handleRoleToggle = (roleId: string) => {
     const newSelectedRoleIds = selectedRoleIds.includes(roleId)
-      ? selectedRoleIds.filter(id => id !== roleId)
+      ? selectedRoleIds.filter((id) => id !== roleId)
       : [...selectedRoleIds, roleId];
 
     onChange(newSelectedRoleIds);
@@ -61,7 +63,7 @@ export default function RoleSelector({
   // Handle removing a role
   const handleRemoveRole = (roleId: string, event: React.MouseEvent) => {
     event.stopPropagation();
-    const newSelectedRoleIds = selectedRoleIds.filter(id => id !== roleId);
+    const newSelectedRoleIds = selectedRoleIds.filter((id) => id !== roleId);
     onChange(newSelectedRoleIds);
   };
 
@@ -104,7 +106,7 @@ export default function RoleSelector({
       >
         {/* Selected roles tags */}
         <div className="flex flex-wrap gap-1">
-          {selectedRoles.map(role => (
+          {selectedRoles.map((role) => (
             <span
               key={role.id}
               className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
@@ -118,8 +120,13 @@ export default function RoleSelector({
                   aria-label={`Remove ${role.name}`}
                 >
                   <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
                 </button>
               )}
             </span>
@@ -127,9 +134,7 @@ export default function RoleSelector({
 
           {/* Placeholder or search input */}
           {selectedRoles.length === 0 ? (
-            <span className="text-gray-500 dark:text-gray-400">
-              {placeholder}
-            </span>
+            <span className="text-gray-500 dark:text-gray-400">{placeholder}</span>
           ) : (
             <input
               ref={inputRef}
@@ -157,8 +162,13 @@ export default function RoleSelector({
               aria-label="Clear all roles"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
             </button>
           )}
           <svg
@@ -175,27 +185,21 @@ export default function RoleSelector({
       </div>
 
       {/* Error message */}
-      {error && (
-        <p className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>
-      )}
+      {error && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
       {/* Dropdown menu */}
       {isOpen && (
         <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none">
           {isLoading ? (
-            <div className="px-3 py-2 text-gray-500 dark:text-gray-400">
-              Loading roles...
-            </div>
+            <div className="px-3 py-2 text-gray-500 dark:text-gray-400">Loading roles...</div>
           ) : rolesError ? (
-            <div className="px-3 py-2 text-red-500 dark:text-red-400">
-              Error loading roles
-            </div>
+            <div className="px-3 py-2 text-red-500 dark:text-red-400">Error loading roles</div>
           ) : filteredRoles.length === 0 ? (
             <div className="px-3 py-2 text-gray-500 dark:text-gray-400">
               {searchTerm ? 'No roles found' : 'No roles available'}
             </div>
           ) : (
-            filteredRoles.map(role => {
+            filteredRoles.map((role) => {
               const isSelected = selectedRoleIds.includes(role.id);
               return (
                 <div
@@ -206,7 +210,9 @@ export default function RoleSelector({
                   onClick={() => handleRoleToggle(role.id)}
                 >
                   <div className="flex items-center">
-                    <span className={`block truncate ${isSelected ? 'font-semibold' : 'font-normal'}`}>
+                    <span
+                      className={`block truncate ${isSelected ? 'font-semibold' : 'font-normal'}`}
+                    >
                       {role.name}
                     </span>
                     {role.is_system_role && (
@@ -222,8 +228,18 @@ export default function RoleSelector({
                   )}
                   {isSelected && (
                     <span className="absolute inset-y-0 right-0 flex items-center pr-4">
-                      <svg className="h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      <svg
+                        className="h-5 w-5 text-blue-600 dark:text-blue-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
                       </svg>
                     </span>
                   )}

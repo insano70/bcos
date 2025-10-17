@@ -1,23 +1,23 @@
 /**
  * Chart Transformer Factory
- * 
+ *
  * Central registry and factory for chart transformation strategies.
  * Implements the Strategy pattern with a registry for dynamic lookup.
  */
 
-import type { ChartTransformStrategy } from './base-strategy';
-import { LineChartStrategy } from './line-chart-strategy';
 import { BarChartStrategy } from './bar-chart-strategy';
-import { PieChartStrategy } from './pie-chart-strategy';
-import { HorizontalBarStrategy } from './horizontal-bar-strategy';
-import { ProgressBarStrategy } from './progress-bar-strategy';
-import { MultiSeriesStrategy } from './multi-series-strategy';
+import type { ChartTransformStrategy } from './base-strategy';
 import { DualAxisStrategy } from './dual-axis-strategy';
+import { HorizontalBarStrategy } from './horizontal-bar-strategy';
+import { LineChartStrategy } from './line-chart-strategy';
+import { MultiSeriesStrategy } from './multi-series-strategy';
 import { PeriodComparisonStrategy } from './period-comparison-strategy';
+import { PieChartStrategy } from './pie-chart-strategy';
+import { ProgressBarStrategy } from './progress-bar-strategy';
 
 /**
  * Chart Transformer Factory
- * 
+ *
  * Manages registration and retrieval of chart transformation strategies.
  */
 export class ChartTransformerFactory {
@@ -44,7 +44,7 @@ export class ChartTransformerFactory {
 
   /**
    * Register a strategy
-   * 
+   *
    * @param strategy - Strategy to register
    */
   register(strategy: ChartTransformStrategy): void {
@@ -53,7 +53,7 @@ export class ChartTransformerFactory {
 
   /**
    * Get strategy for chart type
-   * 
+   *
    * @param chartType - Chart type identifier
    * @returns Strategy instance or undefined if not found
    */
@@ -76,7 +76,7 @@ export class ChartTransformerFactory {
 
   /**
    * Check if a strategy exists for a chart type
-   * 
+   *
    * @param chartType - Chart type identifier
    * @returns True if strategy exists
    */
@@ -86,7 +86,7 @@ export class ChartTransformerFactory {
 
   /**
    * Get all registered chart types
-   * 
+   *
    * @returns Array of chart type identifiers
    */
   getAllTypes(): string[] {
@@ -95,7 +95,7 @@ export class ChartTransformerFactory {
 
   /**
    * Get all registered strategies
-   * 
+   *
    * @returns Array of strategy instances
    */
   getAllStrategies(): ChartTransformStrategy[] {
@@ -105,4 +105,3 @@ export class ChartTransformerFactory {
 
 // Export singleton instance
 export const chartTransformerFactory = new ChartTransformerFactory();
-

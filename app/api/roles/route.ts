@@ -1,13 +1,13 @@
 import type { NextRequest } from 'next/server';
 import { validateQuery } from '@/lib/api/middleware/validation';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createPaginatedResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { getPagination } from '@/lib/api/utils/request';
+import { log, sanitizeFilters } from '@/lib/logger';
 import { createRBACRolesService } from '@/lib/services/rbac-roles-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { roleQuerySchema } from '@/lib/validations/role';
-import { log, sanitizeFilters } from '@/lib/logger';
 
 const getRolesHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();

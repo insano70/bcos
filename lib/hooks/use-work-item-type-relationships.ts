@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 import type {
   WorkItemTypeRelationshipCreate,
@@ -136,13 +136,7 @@ export function useUpdateTypeRelationship() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({
-      id,
-      data,
-    }: {
-      id: string;
-      data: WorkItemTypeRelationshipUpdate;
-    }) => {
+    mutationFn: async ({ id, data }: { id: string; data: WorkItemTypeRelationshipUpdate }) => {
       return await apiClient.patch<WorkItemTypeRelationship>(
         `/api/work-item-type-relationships/${id}`,
         data
@@ -219,10 +213,7 @@ export function useValidateChildType() {
         };
       }
 
-      if (
-        relationship.max_count !== null &&
-        currentChildCount >= relationship.max_count
-      ) {
+      if (relationship.max_count !== null && currentChildCount >= relationship.max_count) {
         return {
           allowed: false,
           reason: `Maximum number of ${relationship.child_type_name} items (${relationship.max_count}) reached`,

@@ -1,10 +1,10 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { users, work_item_watchers, work_items } from '@/lib/db/schema';
-import { BaseRBACService } from '@/lib/rbac/base-service';
-import { PermissionDeniedError } from '@/lib/types/rbac';
-import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
+import { BaseRBACService } from '@/lib/rbac/base-service';
+import type { UserContext } from '@/lib/types/rbac';
+import { PermissionDeniedError } from '@/lib/types/rbac';
 import type { WatchType } from '@/lib/validations/work-item-watchers';
 
 /**
@@ -319,7 +319,10 @@ export class RBACWorkItemWatchersService extends BaseRBACService {
     const watcher = await this.getWatcherById(watcherId);
 
     // Only allow users to update their own preferences
-    if (watcher.user_id !== this.userContext.user_id && !this.checker.hasPermission('work-items:manage:all')) {
+    if (
+      watcher.user_id !== this.userContext.user_id &&
+      !this.checker.hasPermission('work-items:manage:all')
+    ) {
       throw new PermissionDeniedError('work-items:manage:all', watcherId);
     }
 

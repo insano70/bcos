@@ -1,15 +1,15 @@
 /**
  * Enable Batch Rendering for Dashboard
- * 
+ *
  * Phase 7: Testing Script
- * 
+ *
  * Updates a dashboard's layout_config to enable batch rendering mode.
  * This allows testing the batch API integration without affecting all dashboards.
  */
 
+import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { dashboards } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
 import { log } from '@/lib/logger';
 
 const DASHBOARD_ID = process.env.DASHBOARD_ID || 'a0324818-ae41-4bf5-8291-447f30322faa';
@@ -70,8 +70,9 @@ async function enableBatchRendering() {
     console.log('\n📊 To test, visit:');
     console.log(`   http://localhost:4001/dashboard/view/${DASHBOARD_ID}`);
     console.log('\n💡 To disable batch rendering, run:');
-    console.log(`   DASHBOARD_ID=${DASHBOARD_ID} DISABLE=true pnpm tsx scripts/enable-batch-rendering.ts`);
-
+    console.log(
+      `   DASHBOARD_ID=${DASHBOARD_ID} DISABLE=true pnpm tsx scripts/enable-batch-rendering.ts`
+    );
   } catch (error) {
     log.error('Failed to enable batch rendering', error, {
       dashboardId: DASHBOARD_ID,
@@ -125,7 +126,6 @@ async function disableBatchRendering() {
 
     console.log('\n✅ Batch rendering disabled');
     console.log(`   Duration: ${duration}ms`);
-
   } catch (error) {
     log.error('Failed to disable batch rendering', error);
     console.error('\n❌ Error:', error instanceof Error ? error.message : 'Unknown error');
@@ -141,4 +141,3 @@ if (process.env.DISABLE === 'true') {
 } else {
   enableBatchRendering();
 }
-

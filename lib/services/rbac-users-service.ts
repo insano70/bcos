@@ -6,19 +6,19 @@ import { calculateChanges, log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logg
 import type { UserContext } from '@/lib/types/rbac';
 import { PermissionDeniedError } from '@/lib/types/rbac';
 import {
-  getUsersBaseQuery,
-  buildUserRBACConditions,
   applyUserSearchFilters,
-  groupUsersByIdWithOrganizations,
-  getSingleUserQuery,
   buildSingleUserWithOrganizations,
+  buildUserRBACConditions,
+  getSingleUserQuery,
+  getUsersBaseQuery,
+  groupUsersByIdWithOrganizations,
 } from './users/query-builders';
 import {
-  getRBACScope,
   canAccessOrganization,
+  getRBACScope,
+  requireAnyPermission,
   requireOrganizationAccess,
   requirePermission,
-  requireAnyPermission,
 } from './users/rbac-helpers';
 
 /**
@@ -301,7 +301,11 @@ class RBACUsersService implements UsersServiceInterface {
       // For organization scope, verify user is in accessible organization
       if (this.canReadOrganization && !this.canReadAll && !this.canReadOwn) {
         const hasSharedOrg = userObj.organizations.some((org) =>
-          canAccessOrganization(org.organization_id, this.isSuperAdmin, this.accessibleOrganizationIds)
+          canAccessOrganization(
+            org.organization_id,
+            this.isSuperAdmin,
+            this.accessibleOrganizationIds
+          )
         );
 
         if (!hasSharedOrg) {
@@ -455,7 +459,11 @@ class RBACUsersService implements UsersServiceInterface {
         }
 
         const hasSharedOrg = targetUser.organizations.some((org) =>
-          canAccessOrganization(org.organization_id, this.isSuperAdmin, this.accessibleOrganizationIds)
+          canAccessOrganization(
+            org.organization_id,
+            this.isSuperAdmin,
+            this.accessibleOrganizationIds
+          )
         );
 
         if (!hasSharedOrg) {
@@ -578,7 +586,12 @@ class RBACUsersService implements UsersServiceInterface {
       const hasDeletePermission = this.userContext.all_permissions?.some(
         (p) => p.name === 'users:delete:organization'
       );
-      requirePermission('users:delete:organization', !!hasDeletePermission, this.isSuperAdmin, userId);
+      requirePermission(
+        'users:delete:organization',
+        !!hasDeletePermission,
+        this.isSuperAdmin,
+        userId
+      );
 
       // Prevent self-deletion
       if (userId === this.userContext.user_id) {
@@ -728,7 +741,6 @@ class RBACUsersService implements UsersServiceInterface {
       throw error;
     }
   }
-
 }
 
 // ============================================================================

@@ -12,16 +12,16 @@
  * RBAC: settings:read:all (Super Admin only)
  */
 
+import { gte, sql } from 'drizzle-orm';
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
+import { account_security, csrf_failure_events, db } from '@/lib/db';
 import { log } from '@/lib/logger';
-import { metricsCollector } from '@/lib/monitoring/metrics-collector';
 import { calculateHealthScore } from '@/lib/monitoring/health-score';
-import { getRedisClient } from '@/lib/redis';
-import { db, account_security, csrf_failure_events } from '@/lib/db';
-import { sql, gte } from 'drizzle-orm';
+import { metricsCollector } from '@/lib/monitoring/metrics-collector';
 import type { MonitoringMetrics } from '@/lib/monitoring/types';
+import { getRedisClient } from '@/lib/redis';
 
 const metricsHandler = async (_request: NextRequest) => {
   const startTime = Date.now();
@@ -45,7 +45,7 @@ const metricsHandler = async (_request: NextRequest) => {
       securityIncidents: snapshot.security.totalEvents,
     });
 
-      // Build response with separated standard and analytics metrics
+    // Build response with separated standard and analytics metrics
     const metrics: MonitoringMetrics = {
       timestamp: snapshot.timestamp,
       timeRange: '5m', // MetricsCollector tracks last 5 minutes
@@ -325,4 +325,3 @@ export const GET = rbacRoute(metricsHandler, {
   permission: 'settings:read:all',
   rateLimit: 'api',
 });
-

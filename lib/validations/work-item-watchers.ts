@@ -6,7 +6,12 @@ import { z } from 'zod';
  */
 
 // Watch type enum
-export const watchTypeSchema = z.enum(['manual', 'auto_creator', 'auto_assignee', 'auto_commenter']);
+export const watchTypeSchema = z.enum([
+  'manual',
+  'auto_creator',
+  'auto_assignee',
+  'auto_commenter',
+]);
 
 export type WatchType = z.infer<typeof watchTypeSchema>;
 

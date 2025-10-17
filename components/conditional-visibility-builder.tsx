@@ -30,9 +30,7 @@ export default function ConditionalVisibilityBuilder({
   const [isExpanded, setIsExpanded] = useState(rules.length > 0);
 
   // Filter out the current field (can't depend on itself)
-  const selectableFields = availableFields.filter(
-    (f) => f.work_item_field_id !== currentFieldId
-  );
+  const selectableFields = availableFields.filter((f) => f.work_item_field_id !== currentFieldId);
 
   const addRule = () => {
     const newRule: ConditionalVisibilityRule = {
@@ -82,7 +80,11 @@ export default function ConditionalVisibilityBuilder({
             fill="currentColor"
             viewBox="0 0 20 20"
           >
-            <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+            <path
+              fillRule="evenodd"
+              d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+              clipRule="evenodd"
+            />
           </svg>
           <span>Conditional Visibility</span>
           {rules.length > 0 && (
@@ -115,10 +117,15 @@ export default function ConditionalVisibilityBuilder({
                 Show this field when ALL of the following conditions are met:
               </p>
               {rules.map((rule, index) => {
-                const selectedField = selectableFields.find((f) => f.work_item_field_id === rule.field_id);
+                const selectedField = selectableFields.find(
+                  (f) => f.work_item_field_id === rule.field_id
+                );
 
                 return (
-                  <div key={index} className="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded space-y-2">
+                  <div
+                    key={index}
+                    className="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded space-y-2"
+                  >
                     <div className="flex items-start gap-2">
                       {/* Field Selector */}
                       <div className="flex-1">
@@ -145,7 +152,11 @@ export default function ConditionalVisibilityBuilder({
                         </label>
                         <select
                           value={rule.operator}
-                          onChange={(e) => updateRule(index, { operator: e.target.value as ConditionalVisibilityRule['operator'] })}
+                          onChange={(e) =>
+                            updateRule(index, {
+                              operator: e.target.value as ConditionalVisibilityRule['operator'],
+                            })
+                          }
                           className="form-select w-full text-sm px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
                         >
                           {OPERATORS.map((op) => (
@@ -162,7 +173,8 @@ export default function ConditionalVisibilityBuilder({
                           <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
                             Value
                           </label>
-                          {selectedField?.field_type === 'dropdown' && selectedField.field_options ? (
+                          {selectedField?.field_type === 'dropdown' &&
+                          selectedField.field_options ? (
                             <select
                               value={String(rule.value || '')}
                               onChange={(e) => updateRule(index, { value: e.target.value })}
@@ -178,7 +190,9 @@ export default function ConditionalVisibilityBuilder({
                           ) : selectedField?.field_type === 'checkbox' ? (
                             <select
                               value={String(rule.value || 'true')}
-                              onChange={(e) => updateRule(index, { value: e.target.value === 'true' })}
+                              onChange={(e) =>
+                                updateRule(index, { value: e.target.value === 'true' })
+                              }
                               className="form-select w-full text-sm px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
                             >
                               <option value="true">Checked</option>
@@ -205,7 +219,11 @@ export default function ConditionalVisibilityBuilder({
                           title="Remove rule"
                         >
                           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                            <path
+                              fillRule="evenodd"
+                              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                              clipRule="evenodd"
+                            />
                           </svg>
                         </button>
                       </div>

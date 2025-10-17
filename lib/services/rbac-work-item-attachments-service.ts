@@ -1,15 +1,15 @@
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { users, work_item_attachments, work_items } from '@/lib/db/schema';
-import { BaseRBACService } from '@/lib/rbac/base-service';
-import { PermissionDeniedError } from '@/lib/types/rbac';
-import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
+import { BaseRBACService } from '@/lib/rbac/base-service';
 import {
-  generateUploadUrl,
-  generateDownloadUrl,
   deleteFile,
+  generateDownloadUrl,
+  generateUploadUrl,
 } from '@/lib/s3/work-items-attachments';
+import type { UserContext } from '@/lib/types/rbac';
+import { PermissionDeniedError } from '@/lib/types/rbac';
 
 /**
  * Work Item Attachments Service with RBAC
@@ -46,7 +46,9 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
   /**
    * Get attachments for a work item with permission checking
    */
-  async getAttachments(options: WorkItemAttachmentQueryOptions): Promise<WorkItemAttachmentWithDetails[]> {
+  async getAttachments(
+    options: WorkItemAttachmentQueryOptions
+  ): Promise<WorkItemAttachmentWithDetails[]> {
     const startTime = Date.now();
 
     log.info('Work item attachments query initiated', {
@@ -247,7 +249,9 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
     await this.logPermissionCheck('work-items:update:attachment', newAttachment.work_item_id);
 
     // Fetch and return the created attachment with full details
-    const attachmentWithDetails = await this.getAttachmentById(newAttachment.work_item_attachment_id);
+    const attachmentWithDetails = await this.getAttachmentById(
+      newAttachment.work_item_attachment_id
+    );
     if (!attachmentWithDetails) {
       throw new Error('Failed to retrieve created attachment');
     }
@@ -428,6 +432,8 @@ export class RBACWorkItemAttachmentsService extends BaseRBACService {
 /**
  * Factory function to create RBACWorkItemAttachmentsService
  */
-export function createRBACWorkItemAttachmentsService(userContext: UserContext): RBACWorkItemAttachmentsService {
+export function createRBACWorkItemAttachmentsService(
+  userContext: UserContext
+): RBACWorkItemAttachmentsService {
   return new RBACWorkItemAttachmentsService(userContext);
 }

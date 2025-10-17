@@ -1,10 +1,10 @@
 'use client';
 
-import { ReactNode, useState, useMemo, Fragment } from 'react';
-import { useItemSelection } from '@/components/utils/use-item-selection';
-import { useTableSort } from '@/lib/hooks/use-table-sort';
-import { usePagination } from '@/lib/hooks/use-pagination';
+import { Fragment, type ReactNode, useMemo, useState } from 'react';
 import PaginationClassic from '@/components/pagination-classic';
+import { useItemSelection } from '@/components/utils/use-item-selection';
+import { usePagination } from '@/lib/hooks/use-pagination';
+import { useTableSort } from '@/lib/hooks/use-table-sort';
 import DataTableDropdown from './data-table-dropdown';
 
 // Column definition
@@ -103,15 +103,13 @@ export default function DataTable<T extends { id: string | number }>({
   const [density, setDensity] = useState<DensityMode>('normal');
 
   // Column widths state for resizing
-  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  const [_columnWidths, _setColumnWidths] = useState<Record<string, number>>({});
 
   // Expanded rows state
   const [expandedRows, setExpandedRows] = useState<Set<string | number>>(new Set());
 
   // Filter visible columns
-  const visibleColumns = initialColumns.filter(
-    (col) => !hiddenColumns.has(String(col.key))
-  );
+  const visibleColumns = initialColumns.filter((col) => !hiddenColumns.has(String(col.key)));
 
   // Selection hook
   const { selectedItems, isAllSelected, handleCheckboxChange, handleSelectAllChange } =
@@ -123,9 +121,7 @@ export default function DataTable<T extends { id: string | number }>({
 
     return data.filter((item) => {
       const searchLower = searchQuery.toLowerCase();
-      return Object.values(item).some((value) =>
-        String(value).toLowerCase().includes(searchLower)
-      );
+      return Object.values(item).some((value) => String(value).toLowerCase().includes(searchLower));
     });
   }, [data, searchQuery]);
 
@@ -139,11 +135,12 @@ export default function DataTable<T extends { id: string | number }>({
 
   const displayData = paginationConfig ? pagination.currentItems : sortedData;
 
-  const hasCheckbox = selectionMode !== 'none' && visibleColumns.some((col) => col.key === 'checkbox');
-  const hasActions = visibleColumns.some((col) => col.key === 'actions');
+  const _hasCheckbox =
+    selectionMode !== 'none' && visibleColumns.some((col) => col.key === 'checkbox');
+  const _hasActions = visibleColumns.some((col) => col.key === 'actions');
 
   // Column visibility toggle
-  const toggleColumnVisibility = (key: string) => {
+  const _toggleColumnVisibility = (key: string) => {
     setHiddenColumns((prev) => {
       const next = new Set(prev);
       if (next.has(key)) {
@@ -157,9 +154,10 @@ export default function DataTable<T extends { id: string | number }>({
 
   // CSV Export
   const handleExport = () => {
-    const selectedData = selectedItems.length > 0
-      ? data.filter((item) => selectedItems.includes(item.id))
-      : sortedData;
+    const selectedData =
+      selectedItems.length > 0
+        ? data.filter((item) => selectedItems.includes(item.id))
+        : sortedData;
 
     const headers = visibleColumns
       .filter((col) => col.key !== 'checkbox' && col.key !== 'actions' && col.header)
@@ -216,9 +214,7 @@ export default function DataTable<T extends { id: string | number }>({
   };
 
   // Get selected items for bulk actions
-  const selectedItemsData = data.filter((item) =>
-    selectedItems.includes(item.id)
-  );
+  const selectedItemsData = data.filter((item) => selectedItems.includes(item.id));
 
   // Helper function to toggle row expansion
   const toggleRowExpansion = (id: string | number) => {
@@ -241,7 +237,11 @@ export default function DataTable<T extends { id: string | number }>({
   return (
     <>
       {/* Toolbar */}
-      {(searchable || columnVisibility || exportable || densityToggle || (bulkActions && selectedItems.length > 0)) && (
+      {(searchable ||
+        columnVisibility ||
+        exportable ||
+        densityToggle ||
+        (bulkActions && selectedItems.length > 0)) && (
         <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl px-5 py-4 mb-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             {/* Left side - Search */}
@@ -357,7 +357,9 @@ export default function DataTable<T extends { id: string | number }>({
         <div>
           <div className={`overflow-x-auto ${stickyHeader ? 'max-h-[600px] overflow-y-auto' : ''}`}>
             <table className="table-auto w-full dark:text-gray-300">
-              <thead className={`text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20 border-t border-b border-gray-100 dark:border-gray-700/60 ${stickyHeader ? 'sticky top-0 z-10' : ''}`}>
+              <thead
+                className={`text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20 border-t border-b border-gray-100 dark:border-gray-700/60 ${stickyHeader ? 'sticky top-0 z-10' : ''}`}
+              >
                 <tr>
                   {expandable && (
                     <th className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap w-px">
@@ -433,7 +435,7 @@ export default function DataTable<T extends { id: string | number }>({
                           <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
                         </td>
                       )}
-                      {visibleColumns.map((col, colIdx) => (
+                      {visibleColumns.map((_col, colIdx) => (
                         <td key={colIdx} className="px-2 first:pl-5 last:pr-5 py-3">
                           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
                         </td>
@@ -449,9 +451,7 @@ export default function DataTable<T extends { id: string | number }>({
                       {emptyState ? (
                         <>
                           {emptyState.icon && <div className="mb-2">{emptyState.icon}</div>}
-                          <div className="text-gray-500 dark:text-gray-400">
-                            {emptyState.title}
-                          </div>
+                          <div className="text-gray-500 dark:text-gray-400">{emptyState.title}</div>
                           {emptyState.description && (
                             <p className="text-gray-600 dark:text-gray-400 text-sm mt-2">
                               {emptyState.description}
@@ -470,7 +470,9 @@ export default function DataTable<T extends { id: string | number }>({
                       <Fragment key={item.id}>
                         <tr>
                           {expandable && (
-                            <td className={`px-2 first:pl-5 last:pr-5 ${getDensityClasses()} whitespace-nowrap w-px`}>
+                            <td
+                              className={`px-2 first:pl-5 last:pr-5 ${getDensityClasses()} whitespace-nowrap w-px`}
+                            >
                               <button
                                 type="button"
                                 onClick={() => toggleRowExpansion(item.id)}
@@ -491,7 +493,7 @@ export default function DataTable<T extends { id: string | number }>({
                             </td>
                           )}
                           {visibleColumns.map((column, idx) => {
-                            const alignClass = getAlignmentClass(column.align);
+                            const _alignClass = getAlignmentClass(column.align);
                             const isCheckboxCol = column.key === 'checkbox';
                             const isActionsCol = column.key === 'actions';
                             const widthClass = isCheckboxCol || isActionsCol ? 'w-px' : '';
@@ -510,7 +512,10 @@ export default function DataTable<T extends { id: string | number }>({
                         </tr>
                         {expandable && isExpanded && (
                           <tr>
-                            <td colSpan={visibleColumns.length + 1} className="px-2 first:pl-5 last:pr-5 py-4 bg-gray-50 dark:bg-gray-900/10">
+                            <td
+                              colSpan={visibleColumns.length + 1}
+                              className="px-2 first:pl-5 last:pr-5 py-4 bg-gray-50 dark:bg-gray-900/10"
+                            >
                               {expandable.render(item)}
                             </td>
                           </tr>

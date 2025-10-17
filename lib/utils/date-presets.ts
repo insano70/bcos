@@ -32,7 +32,7 @@ export type DatePresetId =
 
 export interface DateRange {
   startDate: string; // ISO date string YYYY-MM-DD
-  endDate: string;   // ISO date string YYYY-MM-DD
+  endDate: string; // ISO date string YYYY-MM-DD
 }
 
 /**
@@ -64,7 +64,7 @@ export function calculateDateRangeFromPreset(
       const today = new Date(referenceDate);
       return {
         startDate: toDateString(today),
-        endDate: toDateString(today)
+        endDate: toDateString(today),
       };
     }
 
@@ -73,7 +73,7 @@ export function calculateDateRangeFromPreset(
       yesterday.setDate(yesterday.getDate() - 1);
       return {
         startDate: toDateString(yesterday),
-        endDate: toDateString(yesterday)
+        endDate: toDateString(yesterday),
       };
     }
 
@@ -83,7 +83,7 @@ export function calculateDateRangeFromPreset(
       start.setDate(start.getDate() - 7);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end)
+        endDate: toDateString(end),
       };
     }
 
@@ -93,7 +93,7 @@ export function calculateDateRangeFromPreset(
       start.setDate(start.getDate() - 14);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end)
+        endDate: toDateString(end),
       };
     }
 
@@ -103,7 +103,7 @@ export function calculateDateRangeFromPreset(
       start.setDate(start.getDate() - 30);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end)
+        endDate: toDateString(end),
       };
     }
 
@@ -113,7 +113,7 @@ export function calculateDateRangeFromPreset(
       start.setDate(start.getDate() - 90);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end)
+        endDate: toDateString(end),
       };
     }
 
@@ -123,7 +123,7 @@ export function calculateDateRangeFromPreset(
       start.setDate(start.getDate() - 180);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end)
+        endDate: toDateString(end),
       };
     }
 
@@ -133,7 +133,7 @@ export function calculateDateRangeFromPreset(
       start.setDate(start.getDate() - 365);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end)
+        endDate: toDateString(end),
       };
     }
 
@@ -142,7 +142,7 @@ export function calculateDateRangeFromPreset(
       const end = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 1, 0);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end)
+        endDate: toDateString(end),
       };
     }
 
@@ -151,7 +151,7 @@ export function calculateDateRangeFromPreset(
       const end = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 0);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end)
+        endDate: toDateString(end),
       };
     }
 
@@ -162,7 +162,7 @@ export function calculateDateRangeFromPreset(
       const start = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - 3, 1);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end)
+        endDate: toDateString(end),
       };
     }
 
@@ -173,7 +173,7 @@ export function calculateDateRangeFromPreset(
       const start = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - 6, 1);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end)
+        endDate: toDateString(end),
       };
     }
 
@@ -184,7 +184,7 @@ export function calculateDateRangeFromPreset(
       const start = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - 12, 1);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end)
+        endDate: toDateString(end),
       };
     }
 
@@ -194,7 +194,7 @@ export function calculateDateRangeFromPreset(
       const end = new Date(referenceDate.getFullYear(), quarter * 3 + 3, 0);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end)
+        endDate: toDateString(end),
       };
     }
 
@@ -206,7 +206,7 @@ export function calculateDateRangeFromPreset(
       const end = new Date(year, adjustedQuarter * 3 + 3, 0);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end)
+        endDate: toDateString(end),
       };
     }
 
@@ -215,7 +215,7 @@ export function calculateDateRangeFromPreset(
       const end = new Date(referenceDate);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end)
+        endDate: toDateString(end),
       };
     }
 
@@ -224,7 +224,7 @@ export function calculateDateRangeFromPreset(
       const end = new Date(referenceDate.getFullYear(), 11, 31);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end)
+        endDate: toDateString(end),
       };
     }
 
@@ -233,7 +233,7 @@ export function calculateDateRangeFromPreset(
       const end = new Date(referenceDate.getFullYear() - 1, 11, 31);
       return {
         startDate: toDateString(start),
-        endDate: toDateString(end)
+        endDate: toDateString(end),
       };
     }
 
@@ -268,7 +268,7 @@ export function isValidPreset(presetId: string): presetId is DatePresetId {
     'ytd',
     'this_year',
     'last_year',
-    'custom'
+    'custom',
   ];
   return validPresets.includes(presetId as DatePresetId);
 }
@@ -293,6 +293,6 @@ export function getDateRange(
   // Otherwise use provided dates or defaults
   return {
     startDate: fallbackStartDate || '',
-    endDate: fallbackEndDate || ''
+    endDate: fallbackEndDate || '',
   };
 }

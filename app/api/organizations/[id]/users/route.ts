@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
@@ -26,9 +26,8 @@ const getOrganizationUsersHandler = async (
     const organizationService = createRBACOrganizationsService(userContext);
 
     // Get all users with membership status
-    const usersWithStatus = await organizationService.getOrganizationUsersWithStatus(
-      organizationId
-    );
+    const usersWithStatus =
+      await organizationService.getOrganizationUsersWithStatus(organizationId);
 
     const duration = Date.now() - startTime;
     const memberCount = usersWithStatus.filter((u) => u.is_member).length;
@@ -113,24 +112,21 @@ const updateOrganizationUsersHandler = async (
     const duration = Date.now() - startTime;
 
     // Log batch update operation
-    log.info(
-      `organization users updated - ${result.added} added, ${result.removed} removed`,
-      {
-        operation: 'update_organization_users',
-        resourceType: 'organization_users',
-        resourceId: organizationId,
-        userId: userContext.user_id,
-        organizationId,
-        addedCount: result.added,
-        removedCount: result.removed,
-        totalChanges: result.added + result.removed,
-        addUserIds: validatedData.add_user_ids,
-        removeUserIds: validatedData.remove_user_ids,
-        duration,
-        slow: duration > 2000,
-        component: 'api',
-      }
-    );
+    log.info(`organization users updated - ${result.added} added, ${result.removed} removed`, {
+      operation: 'update_organization_users',
+      resourceType: 'organization_users',
+      resourceId: organizationId,
+      userId: userContext.user_id,
+      organizationId,
+      addedCount: result.added,
+      removedCount: result.removed,
+      totalChanges: result.added + result.removed,
+      addUserIds: validatedData.add_user_ids,
+      removeUserIds: validatedData.remove_user_ids,
+      duration,
+      slow: duration > 2000,
+      component: 'api',
+    });
 
     return createSuccessResponse(
       {

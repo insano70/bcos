@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { useEffect, useRef, useState } from 'react';
 import 'react-quill/dist/quill.snow.css';
 
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
@@ -80,10 +80,7 @@ export function RichTextEditor({
 
   return (
     <div className="space-y-2">
-      <div
-        ref={quillRef}
-        className={`rich-text-editor ${error ? 'border-destructive' : ''}`}
-      >
+      <div ref={quillRef} className={`rich-text-editor ${error ? 'border-destructive' : ''}`}>
         <ReactQuill
           value={value}
           onChange={handleChange}

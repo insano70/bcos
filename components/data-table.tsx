@@ -1,10 +1,10 @@
 'use client';
 
-import { ReactNode } from 'react';
-import { useItemSelection } from '@/components/utils/use-item-selection';
-import { useTableSort } from '@/lib/hooks/use-table-sort';
-import { usePagination } from '@/lib/hooks/use-pagination';
+import type { ReactNode } from 'react';
 import PaginationClassic from '@/components/pagination-classic';
+import { useItemSelection } from '@/components/utils/use-item-selection';
+import { usePagination } from '@/lib/hooks/use-pagination';
+import { useTableSort } from '@/lib/hooks/use-table-sort';
 
 export interface DataTableColumn<T> {
   key: keyof T | 'checkbox' | 'actions';
@@ -58,8 +58,8 @@ export default function DataTable<T extends { id: string | number }>({
   });
 
   const displayData = paginationConfig ? pagination.currentItems : sortedData;
-  const hasCheckbox = columns.some((col) => col.key === 'checkbox');
-  const hasActions = columns.some((col) => col.key === 'actions');
+  const _hasCheckbox = columns.some((col) => col.key === 'checkbox');
+  const _hasActions = columns.some((col) => col.key === 'actions');
 
   const getAlignmentClass = (align?: 'left' | 'center' | 'right') => {
     if (align === 'center') return 'text-center justify-center';
@@ -94,8 +94,7 @@ export default function DataTable<T extends { id: string | number }>({
               type="button"
               onClick={() => action.onClick(item)}
               className={
-                action.className ||
-                'text-gray-400 hover:text-blue-600 dark:hover:text-blue-400'
+                action.className || 'text-gray-400 hover:text-blue-600 dark:hover:text-blue-400'
               }
               title={action.label}
             >
@@ -196,9 +195,7 @@ export default function DataTable<T extends { id: string | number }>({
                       {emptyState ? (
                         <>
                           {emptyState.icon && <div className="mb-2">{emptyState.icon}</div>}
-                          <div className="text-gray-500 dark:text-gray-400">
-                            {emptyState.title}
-                          </div>
+                          <div className="text-gray-500 dark:text-gray-400">{emptyState.title}</div>
                           {emptyState.description && (
                             <p className="text-gray-600 dark:text-gray-400 text-sm mt-2">
                               {emptyState.description}
@@ -219,17 +216,14 @@ export default function DataTable<T extends { id: string | number }>({
                           const alignClass = getAlignmentClass(column.align);
                           const isCheckboxCol = column.key === 'checkbox';
                           const isActionsCol = column.key === 'actions';
-                          const widthClass =
-                            isCheckboxCol || isActionsCol ? 'w-px' : '';
+                          const widthClass = isCheckboxCol || isActionsCol ? 'w-px' : '';
 
                           return (
                             <td
                               key={idx}
                               className={`px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap ${widthClass} ${column.className || ''}`}
                             >
-                              <div className={alignClass}>
-                                {cellRenderer(column.key, item)}
-                              </div>
+                              <div className={alignClass}>{cellRenderer(column.key, item)}</div>
                             </td>
                           );
                         })}

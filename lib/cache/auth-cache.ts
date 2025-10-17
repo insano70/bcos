@@ -117,7 +117,11 @@ class AuthCacheService extends CacheService {
 
     // Update cache (fire and forget)
     const key = this.buildKey('token', 'blacklist', jti);
-    this.set(key, { blacklisted: true, cachedAt: Date.now() }, { ttl: this.BLACKLIST_CONFIRMED_TTL }).catch(() => {});
+    this.set(
+      key,
+      { blacklisted: true, cachedAt: Date.now() },
+      { ttl: this.BLACKLIST_CONFIRMED_TTL }
+    ).catch(() => {});
 
     log.info('Token added to blacklist', {
       component: 'auth-cache',

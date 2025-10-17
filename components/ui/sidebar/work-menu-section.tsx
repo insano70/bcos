@@ -1,8 +1,8 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import SidebarLink from '../sidebar-link';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
+import SidebarLink from '../sidebar-link';
 
 /**
  * Work Menu Section
@@ -26,10 +26,16 @@ export function WorkMenuSection() {
       <ul className="mt-3">
         {/* Work Items */}
         <ProtectedComponent
-          permissions={['work-items:read:own', 'work-items:read:organization', 'work-items:read:all']}
+          permissions={[
+            'work-items:read:own',
+            'work-items:read:organization',
+            'work-items:read:all',
+          ]}
           requireAll={false}
         >
-          <li className={`pl-4 pr-3 py-2 rounded-lg mb-0.5 last:mb-0 bg-[linear-gradient(135deg,var(--tw-gradient-stops))] ${pathname.includes('work') && 'from-violet-500/[0.12] dark:from-violet-500/[0.24] to-violet-500/[0.04]'}`}>
+          <li
+            className={`pl-4 pr-3 py-2 rounded-lg mb-0.5 last:mb-0 bg-[linear-gradient(135deg,var(--tw-gradient-stops))] ${pathname.includes('work') && 'from-violet-500/[0.12] dark:from-violet-500/[0.24] to-violet-500/[0.04]'}`}
+          >
             <SidebarLink href="/work">
               <div className="flex items-center">
                 <svg

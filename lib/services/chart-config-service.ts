@@ -1,10 +1,7 @@
 import { and, eq } from 'drizzle-orm';
-import {
-  chart_data_sources,
-  db,
-} from '@/lib/db';
-import { log } from '@/lib/logger';
 import { chartConfigCache } from '@/lib/cache/chart-config-cache';
+import { chart_data_sources, db } from '@/lib/db';
+import { log } from '@/lib/logger';
 
 /**
  * Chart Configuration Service
@@ -142,7 +139,8 @@ export class ChartConfigService {
           };
           if (col.description !== undefined) columnConfig.description = col.description;
           if (col.formatType !== undefined) columnConfig.formatType = col.formatType;
-          if (col.defaultAggregation !== undefined) columnConfig.defaultAggregation = col.defaultAggregation;
+          if (col.defaultAggregation !== undefined)
+            columnConfig.defaultAggregation = col.defaultAggregation;
           if (col.exampleValue !== undefined) columnConfig.exampleValue = col.exampleValue;
           if (col.allowedValues !== undefined) columnConfig.allowedValues = col.allowedValues;
           return columnConfig;
@@ -273,7 +271,8 @@ export class ChartConfigService {
       if (cached.timeUnit) displayConfig.timeUnit = cached.timeUnit;
       if (cached.timeDisplayFormat) displayConfig.timeDisplayFormat = cached.timeDisplayFormat;
       if (cached.timeTooltipFormat) displayConfig.timeTooltipFormat = cached.timeTooltipFormat;
-      if (cached.defaultColorPaletteId) displayConfig.defaultColorPaletteId = cached.defaultColorPaletteId;
+      if (cached.defaultColorPaletteId)
+        displayConfig.defaultColorPaletteId = cached.defaultColorPaletteId;
 
       return displayConfig;
     } catch (error) {
@@ -350,7 +349,12 @@ export class ChartConfigService {
 
       return measures.map((row) => (row as { measure: string }).measure).filter(Boolean);
     } catch (error) {
-      console.warn('Failed to load measures from database, using fallback:', error);
+      log.warn('Failed to load measures from database, using fallback', {
+        operation: 'get_measures',
+        tableName,
+        schemaName,
+        component: 'chart-config',
+      });
       return ['Charges by Provider', 'Payments by Provider'];
     }
   }
@@ -365,7 +369,12 @@ export class ChartConfigService {
       const config = await this.getDataSourceConfig(tableName, schemaName);
 
       if (!config) {
-        console.warn('Data source config not found, using fallback frequencies');
+        log.warn('Data source config not found, using fallback frequencies', {
+          operation: 'get_frequencies',
+          tableName,
+          schemaName,
+          component: 'chart-config',
+        });
         return ['Monthly', 'Weekly', 'Quarterly'];
       }
 
@@ -373,7 +382,12 @@ export class ChartConfigService {
       const timePeriodColumn = config.columns.find((col) => col.isTimePeriod === true);
 
       if (!timePeriodColumn) {
-        console.warn('No time period column found in data source, using fallback frequencies');
+        log.warn('No time period column found in data source, using fallback frequencies', {
+          operation: 'get_frequencies',
+          tableName,
+          schemaName,
+          component: 'chart-config',
+        });
         return ['Monthly', 'Weekly', 'Quarterly'];
       }
 
@@ -395,15 +409,24 @@ export class ChartConfigService {
         .filter(Boolean)
         .map((val) => String(val));
 
-      console.log('✅ Loaded frequencies dynamically:', {
+      log.debug('Loaded frequencies dynamically', {
+        operation: 'get_frequencies',
         tableName,
+        schemaName,
         timePeriodColumn: timePeriodColumn.columnName,
         frequenciesFound: values,
+        component: 'chart-config',
       });
 
       return values.length > 0 ? values : ['Monthly', 'Weekly', 'Quarterly'];
     } catch (error) {
-      console.warn('Failed to load frequencies from database, using fallback:', error);
+      log.warn('Failed to load frequencies from database, using fallback', {
+        operation: 'get_frequencies',
+        tableName,
+        schemaName,
+        error: error instanceof Error ? error.message : String(error),
+        component: 'chart-config',
+      });
       return ['Monthly', 'Weekly', 'Quarterly'];
     }
   }

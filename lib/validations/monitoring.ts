@@ -70,4 +70,3 @@ export const redisTTLSchema = z.object({
     .max(86400 * 30, 'TTL cannot exceed 30 days'),
   preview: z.boolean().optional().default(false),
 });
-

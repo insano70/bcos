@@ -256,10 +256,7 @@ export const ENDPOINT_CATEGORIES = {
   ],
 
   // Analytics endpoints
-  analytics: [
-    '/api/admin/analytics/practices',
-    '/api/admin/analytics/system',
-  ],
+  analytics: ['/api/admin/analytics/practices', '/api/admin/analytics/system'],
 
   // System administration endpoints
   admin_only: ['/api/admin/*', '/api/templates', '/api/upload'],

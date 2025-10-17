@@ -75,7 +75,18 @@ const chartConfigSchema = z
 
     // Legacy/internal state fields (for backwards compatibility)
     chartName: z.string().optional(),
-    chartType: z.enum(['line', 'bar', 'stacked-bar', 'horizontal-bar', 'progress-bar', 'doughnut', 'dual-axis', 'number']).optional(),
+    chartType: z
+      .enum([
+        'line',
+        'bar',
+        'stacked-bar',
+        'horizontal-bar',
+        'progress-bar',
+        'doughnut',
+        'dual-axis',
+        'number',
+      ])
+      .optional(),
     measure: z.string().optional(),
     frequency: z.string().optional(),
     practiceUid: z.string().optional(),
@@ -185,7 +196,14 @@ export const dashboardCreateSchema = z
     layout_config: z
       .record(
         z.string(),
-        z.union([z.string(), z.number(), z.boolean(), z.null(), z.record(z.string(), z.unknown()), z.array(z.unknown())])
+        z.union([
+          z.string(),
+          z.number(),
+          z.boolean(),
+          z.null(),
+          z.record(z.string(), z.unknown()),
+          z.array(z.unknown()),
+        ])
       )
       .optional(), // JSON layout configuration (strongly typed as Record<string, unknown>)
     is_active: z.boolean().default(true),

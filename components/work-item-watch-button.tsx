@@ -5,10 +5,10 @@
  * Phase 7: Watchers and notifications
  */
 
-import { useState } from 'react';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
-import { useWatchWorkItem, useUnwatchWorkItem } from '@/lib/hooks/use-work-item-watchers';
+import { useState } from 'react';
 import { toast } from 'sonner';
+import { useUnwatchWorkItem, useWatchWorkItem } from '@/lib/hooks/use-work-item-watchers';
 
 interface WorkItemWatchButtonProps {
   workItemId: string;
@@ -38,12 +38,8 @@ export function WorkItemWatchButton({
         setIsWatching(true);
         toast.success('You are now watching this work item');
       }
-    } catch (error) {
-      toast.error(
-        isWatching
-          ? 'Failed to unwatch work item'
-          : 'Failed to watch work item'
-      );
+    } catch (_error) {
+      toast.error(isWatching ? 'Failed to unwatch work item' : 'Failed to watch work item');
     }
   };
 
@@ -69,9 +65,7 @@ export function WorkItemWatchButton({
       ) : (
         <EyeOff className="h-4 w-4" />
       )}
-      <span className="hidden sm:inline">
-        {isWatching ? 'Watching' : 'Watch'}
-      </span>
+      <span className="hidden sm:inline">{isWatching ? 'Watching' : 'Watch'}</span>
     </button>
   );
 }

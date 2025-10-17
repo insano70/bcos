@@ -1,16 +1,16 @@
 'use client';
 
-import { useState } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { useAuth } from '@/components/auth/rbac-auth-provider';
 import { useCreateTypeRelationship } from '@/lib/hooks/use-work-item-type-relationships';
 import { useWorkItemTypes } from '@/lib/hooks/use-work-item-types';
-import { useAuth } from '@/components/auth/rbac-auth-provider';
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
-import Toast from './toast';
 import AutoCreateConfigBuilder, { type AutoCreateConfig } from './auto-create-config-builder';
+import Toast from './toast';
 
 const addRelationshipSchema = z
   .object({
@@ -122,9 +122,7 @@ export default function AddRelationshipModal({
   const selectedChildType = watch('child_type_id');
 
   // Filter out the parent type from available child types
-  const availableChildTypes = workItemTypes.filter(
-    (type) => type.id !== parentTypeId
-  );
+  const availableChildTypes = workItemTypes.filter((type) => type.id !== parentTypeId);
 
   return (
     <>
@@ -192,13 +190,18 @@ export default function AddRelationshipModal({
                           ))}
                         </select>
                         {errors.child_type_id && (
-                          <div className="text-xs mt-1 text-red-500">{errors.child_type_id.message}</div>
+                          <div className="text-xs mt-1 text-red-500">
+                            {errors.child_type_id.message}
+                          </div>
                         )}
                       </div>
 
                       {/* Relationship Name */}
                       <div>
-                        <label className="block text-sm font-medium mb-1" htmlFor="relationship_name">
+                        <label
+                          className="block text-sm font-medium mb-1"
+                          htmlFor="relationship_name"
+                        >
                           Relationship Name <span className="text-red-500">*</span>
                         </label>
                         <input
@@ -214,7 +217,8 @@ export default function AddRelationshipModal({
                           </div>
                         )}
                         <div className="text-xs mt-1 text-gray-500">
-                          A descriptive name for this relationship (e.g., &quot;patient&quot;, &quot;subtask&quot;)
+                          A descriptive name for this relationship (e.g., &quot;patient&quot;,
+                          &quot;subtask&quot;)
                         </div>
                       </div>
 
@@ -233,7 +237,9 @@ export default function AddRelationshipModal({
                             placeholder="0"
                           />
                           {errors.min_count && (
-                            <div className="text-xs mt-1 text-red-500">{errors.min_count.message}</div>
+                            <div className="text-xs mt-1 text-red-500">
+                              {errors.min_count.message}
+                            </div>
                           )}
                         </div>
 
@@ -250,7 +256,9 @@ export default function AddRelationshipModal({
                             placeholder="No limit"
                           />
                           {errors.max_count && (
-                            <div className="text-xs mt-1 text-red-500">{errors.max_count.message}</div>
+                            <div className="text-xs mt-1 text-red-500">
+                              {errors.max_count.message}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -269,14 +277,20 @@ export default function AddRelationshipModal({
                           placeholder="0"
                         />
                         {errors.display_order && (
-                          <div className="text-xs mt-1 text-red-500">{errors.display_order.message}</div>
+                          <div className="text-xs mt-1 text-red-500">
+                            {errors.display_order.message}
+                          </div>
                         )}
                       </div>
 
                       {/* Flags */}
                       <div className="space-y-2">
                         <label className="flex items-center">
-                          <input type="checkbox" className="form-checkbox" {...register('is_required')} />
+                          <input
+                            type="checkbox"
+                            className="form-checkbox"
+                            {...register('is_required')}
+                          />
                           <span className="text-sm ml-2 font-medium">Required</span>
                           <span className="text-xs ml-2 text-gray-500">
                             (Child items of this type must exist)
@@ -284,7 +298,11 @@ export default function AddRelationshipModal({
                         </label>
 
                         <label className="flex items-center">
-                          <input type="checkbox" className="form-checkbox" {...register('auto_create')} />
+                          <input
+                            type="checkbox"
+                            className="form-checkbox"
+                            {...register('auto_create')}
+                          />
                           <span className="text-sm ml-2 font-medium">Auto-create</span>
                           <span className="text-xs ml-2 text-gray-500">
                             (Automatically create child items when parent is created)
@@ -336,7 +354,11 @@ export default function AddRelationshipModal({
         </Dialog>
       </Transition>
 
-      <Toast type={toastMessage.includes('Failed') ? 'error' : 'success'} open={showToast} setOpen={setShowToast}>
+      <Toast
+        type={toastMessage.includes('Failed') ? 'error' : 'success'}
+        open={showToast}
+        setOpen={setShowToast}
+      >
         {toastMessage}
       </Toast>
     </>

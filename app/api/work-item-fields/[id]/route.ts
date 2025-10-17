@@ -1,16 +1,20 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
-import { createRBACWorkItemFieldsService } from '@/lib/services/rbac-work-item-fields-service';
-import { workItemFieldUpdateSchema } from '@/lib/validations/work-item-fields';
-import type { UserContext } from '@/lib/types/rbac';
 import { log } from '@/lib/logger';
+import { createRBACWorkItemFieldsService } from '@/lib/services/rbac-work-item-fields-service';
+import type { UserContext } from '@/lib/types/rbac';
+import { workItemFieldUpdateSchema } from '@/lib/validations/work-item-fields';
 
 /**
  * GET /api/work-item-fields/[id]
  * Get a specific work item field by ID
  */
-const getFieldHandler = async (_request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+const getFieldHandler = async (
+  _request: NextRequest,
+  userContext: UserContext,
+  ...args: unknown[]
+) => {
   const params = (args[0] as { params: { id: string } }).params;
   const startTime = Date.now();
   const fieldId = params.id as string;
@@ -67,7 +71,11 @@ export const GET = rbacRoute(getFieldHandler, {
  * PATCH /api/work-item-fields/[id]
  * Update a work item field
  */
-const patchFieldHandler = async (request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+const patchFieldHandler = async (
+  request: NextRequest,
+  userContext: UserContext,
+  ...args: unknown[]
+) => {
   const params = (args[0] as { params: { id: string } }).params;
   const startTime = Date.now();
   const fieldId = params.id as string;
@@ -136,7 +144,11 @@ export const PATCH = rbacRoute(patchFieldHandler, {
  * DELETE /api/work-item-fields/[id]
  * Delete a work item field (soft delete)
  */
-const deleteFieldHandler = async (_request: NextRequest, userContext: UserContext, ...args: unknown[]) => {
+const deleteFieldHandler = async (
+  _request: NextRequest,
+  userContext: UserContext,
+  ...args: unknown[]
+) => {
   const params = (args[0] as { params: { id: string } }).params;
   const startTime = Date.now();
   const fieldId = params.id as string;

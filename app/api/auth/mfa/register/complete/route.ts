@@ -105,7 +105,10 @@ const handler = async (request: NextRequest) => {
         throw AuthenticationError('User account is inactive');
       }
 
-      const deviceFingerprint = generateDeviceFingerprint(metadata.ipAddress, metadata.userAgent || 'unknown');
+      const deviceFingerprint = generateDeviceFingerprint(
+        metadata.ipAddress,
+        metadata.userAgent || 'unknown'
+      );
       const deviceName = generateDeviceName(metadata.userAgent || 'unknown');
 
       const deviceInfo = {

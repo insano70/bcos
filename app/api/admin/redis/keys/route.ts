@@ -16,13 +16,13 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/route-handlers';
-import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
 import { redisAdminService } from '@/lib/monitoring/redis-admin';
-import { isRedisAvailable } from '@/lib/redis';
 import type { RedisKeysResponse } from '@/lib/monitoring/types';
+import { isRedisAvailable } from '@/lib/redis';
 
 const redisKeysHandler = async (request: NextRequest) => {
   const startTime = Date.now();
@@ -99,4 +99,3 @@ export const GET = rbacRoute(redisKeysHandler, {
   permission: 'settings:read:all',
   rateLimit: 'api',
 });
-

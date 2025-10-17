@@ -23,6 +23,7 @@
  */
 
 import type { MetricsSnapshot, PerformanceDataPoint } from './types';
+import { log } from '@/lib/logger';
 
 /**
  * Performance History Tracker
@@ -192,7 +193,10 @@ export function initializePerformanceTracking(): void {
       performanceHistory.addDataPoint(snapshot);
     } catch (error) {
       // Silently fail - don't break the app if tracking fails
-      console.error('Performance history tracking failed:', error);
+      log.error('Performance history tracking failed', error, {
+        operation: 'track_performance',
+        component: 'performance-history',
+      });
     }
   }, COLLECTION_INTERVAL);
 }
@@ -201,4 +205,3 @@ export function initializePerformanceTracking(): void {
 if (typeof window === 'undefined') {
   initializePerformanceTracking();
 }
-

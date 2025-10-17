@@ -1,8 +1,8 @@
-import { and, eq, sql, type SQL } from 'drizzle-orm';
+import { and, eq, type SQL, sql } from 'drizzle-orm';
+import { NotFoundError } from '@/lib/api/responses/error';
 import { db } from '@/lib/db';
 import { chart_definitions } from '@/lib/db/analytics-schema';
 import { log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
-import { NotFoundError } from '@/lib/api/responses/error';
 import type { UserContext } from '@/lib/types/rbac';
 
 /**

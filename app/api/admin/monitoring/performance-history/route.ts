@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
 import { performanceHistory } from '@/lib/monitoring/performance-history';
 import type { PerformanceHistoryResponse } from '@/lib/monitoring/types';
@@ -63,4 +63,3 @@ export const GET = rbacRoute(performanceHistoryHandler, {
   permission: 'settings:read:all',
   rateLimit: 'api',
 });
-

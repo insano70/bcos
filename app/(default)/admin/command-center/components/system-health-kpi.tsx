@@ -8,13 +8,13 @@
  * - Red (<70): Unhealthy
  */
 
-import type { SystemHealth } from '@/lib/monitoring/types';
 import {
-  getHealthScoreColor,
-  getHealthScoreBgColor,
-  getFactorIndicator,
   getFactorColor,
+  getFactorIndicator,
+  getHealthScoreBgColor,
+  getHealthScoreColor,
 } from '@/lib/monitoring/health-score';
+import type { SystemHealth } from '@/lib/monitoring/types';
 
 interface SystemHealthKPIProps {
   systemHealth: SystemHealth;
@@ -97,4 +97,3 @@ function HealthFactor({ label, status }: HealthFactorProps) {
     </div>
   );
 }
-

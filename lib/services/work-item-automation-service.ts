@@ -12,21 +12,21 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
-  work_items,
+  work_item_field_values,
+  work_item_fields,
   work_item_statuses,
   work_item_type_relationships,
-  work_item_fields,
-  work_item_field_values,
+  work_items,
 } from '@/lib/db/schema';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
 import {
-  interpolateTemplate,
-  interpolateFieldValues,
   extractInheritFields,
+  interpolateFieldValues,
+  interpolateTemplate,
   type WorkItemForInterpolation,
 } from '@/lib/utils/template-interpolation';
-import { createRBACWorkItemsService } from './rbac-work-items-service';
+import { createRBACWorkItemsService } from './work-items';
 
 /**
  * Work Item Automation Service Interface
@@ -57,10 +57,7 @@ class WorkItemAutomationService implements WorkItemAutomationServiceInterface {
    * @param parentTypeId - Parent work item type ID
    * @returns Number of child items created
    */
-  async autoCreateChildItems(
-    parentWorkItemId: string,
-    parentTypeId: string
-  ): Promise<number> {
+  async autoCreateChildItems(parentWorkItemId: string, parentTypeId: string): Promise<number> {
     const startTime = Date.now();
 
     try {
@@ -181,8 +178,7 @@ class WorkItemAutomationService implements WorkItemAutomationServiceInterface {
               subject,
               description: null,
               status_id: childInitialStatus.work_item_status_id,
-              priority:
-                (inheritedFields.priority as string) || parentWorkItem.priority || 'medium',
+              priority: (inheritedFields.priority as string) || parentWorkItem.priority || 'medium',
               assigned_to:
                 (inheritedFields.assigned_to as string) || parentWorkItem.assigned_to || null,
               due_date: (inheritedFields.due_date as Date) || parentWorkItem.due_date || null,

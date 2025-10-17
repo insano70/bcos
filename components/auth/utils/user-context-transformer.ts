@@ -10,8 +10,8 @@
  * - Session refresh
  */
 
-import { clientDebugLog as debugLog, clientErrorLog as errorLog } from '@/lib/utils/debug-client';
 import type { UserContext } from '@/lib/types/rbac';
+import { clientDebugLog as debugLog, clientErrorLog as errorLog } from '@/lib/utils/debug-client';
 import type { APIUserResponse } from '../types';
 
 /**
@@ -64,16 +64,18 @@ export function transformApiUserToContext(apiUser: APIUserResponse): UserContext
       })),
 
       // Organizations the user can access (may include parent orgs)
-      accessible_organizations: (apiUser.accessibleOrganizations || apiUser.organizations).map((org) => ({
-        organization_id: org.id,
-        name: org.name,
-        slug: org.slug,
-        parent_organization_id: undefined,
-        is_active: true,
-        created_at: new Date(),
-        updated_at: new Date(),
-        deleted_at: undefined,
-      })),
+      accessible_organizations: (apiUser.accessibleOrganizations || apiUser.organizations).map(
+        (org) => ({
+          organization_id: org.id,
+          name: org.name,
+          slug: org.slug,
+          parent_organization_id: undefined,
+          is_active: true,
+          created_at: new Date(),
+          updated_at: new Date(),
+          deleted_at: undefined,
+        })
+      ),
 
       // User role and organization associations
       user_roles: [], // Not provided by API - could be populated if needed

@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { useUploadAttachment, formatFileSize } from '@/lib/hooks/use-work-item-attachments';
+import { formatFileSize, useUploadAttachment } from '@/lib/hooks/use-work-item-attachments';
 import { ALLOWED_FILE_TYPES, MAX_FILE_SIZE } from '@/lib/validations/work-item-attachments';
 
 interface FileUploadProps {
@@ -33,7 +33,7 @@ export default function FileUpload({ workItemId, onUploadComplete }: FileUploadP
       }
 
       // Validate file type
-      if (!ALLOWED_FILE_TYPES.includes(file.type as typeof ALLOWED_FILE_TYPES[number])) {
+      if (!ALLOWED_FILE_TYPES.includes(file.type as (typeof ALLOWED_FILE_TYPES)[number])) {
         setError(`File type ${file.type} is not allowed`);
         return;
       }
@@ -88,9 +88,10 @@ export default function FileUpload({ workItemId, onUploadComplete }: FileUploadP
         className={`
           border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
           transition-colors duration-200
-          ${isDragActive
-            ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20'
-            : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+          ${
+            isDragActive
+              ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20'
+              : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
           }
           ${uploadProgress !== null ? 'pointer-events-none opacity-50' : ''}
         `}
@@ -114,9 +115,7 @@ export default function FileUpload({ workItemId, onUploadComplete }: FileUploadP
           </svg>
 
           {isDragActive ? (
-            <p className="text-blue-600 dark:text-blue-400 font-medium">
-              Drop file here...
-            </p>
+            <p className="text-blue-600 dark:text-blue-400 font-medium">Drop file here...</p>
           ) : (
             <>
               <p className="text-gray-700 dark:text-gray-300 font-medium">
@@ -136,9 +135,7 @@ export default function FileUpload({ workItemId, onUploadComplete }: FileUploadP
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Uploading...
             </span>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              {uploadProgress}%
-            </span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">{uploadProgress}%</span>
           </div>
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
             <div
@@ -157,9 +154,7 @@ export default function FileUpload({ workItemId, onUploadComplete }: FileUploadP
 
       {uploadMutation.isSuccess && !error && (
         <div className="mt-4 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
-          <p className="text-sm text-green-800 dark:text-green-200">
-            File uploaded successfully!
-          </p>
+          <p className="text-sm text-green-800 dark:text-green-200">File uploaded successfully!</p>
         </div>
       )}
     </div>

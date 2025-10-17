@@ -1,9 +1,9 @@
 import { and, asc, count, eq, isNull, or } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { organizations, users, work_item_types } from '@/lib/db/schema';
+import { log } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
 
 /**
  * Work Item Types Service with RBAC
@@ -199,10 +199,7 @@ export class RBACWorkItemTypesService extends BaseRBACService {
         .leftJoin(organizations, eq(work_item_types.organization_id, organizations.organization_id))
         .leftJoin(users, eq(work_item_types.created_by, users.user_id))
         .where(
-          and(
-            eq(work_item_types.work_item_type_id, typeId),
-            isNull(work_item_types.deleted_at)
-          )
+          and(eq(work_item_types.work_item_type_id, typeId), isNull(work_item_types.deleted_at))
         )
         .limit(1);
 
@@ -331,7 +328,11 @@ export class RBACWorkItemTypesService extends BaseRBACService {
     }
 
     // Check permission
-    this.requirePermission('work-items:manage:organization', undefined, existingType.organization_id);
+    this.requirePermission(
+      'work-items:manage:organization',
+      undefined,
+      existingType.organization_id
+    );
     this.requireOrganizationAccess(existingType.organization_id);
 
     try {
@@ -390,7 +391,11 @@ export class RBACWorkItemTypesService extends BaseRBACService {
     }
 
     // Check permission
-    this.requirePermission('work-items:manage:organization', undefined, existingType.organization_id);
+    this.requirePermission(
+      'work-items:manage:organization',
+      undefined,
+      existingType.organization_id
+    );
     this.requireOrganizationAccess(existingType.organization_id);
 
     // Check if any work items exist for this type

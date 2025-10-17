@@ -10,13 +10,13 @@ import DataTable, {
 import DateSelect, { type DateRange } from '@/components/date-select';
 import FilterButton, { type ActiveFilter, type FilterGroup } from '@/components/dropdown-filter';
 import EditWorkItemTypeModal from '@/components/edit-work-item-type-modal';
+import ManageRelationshipsModal from '@/components/manage-relationships-modal';
 import ManageStatusesModal from '@/components/manage-statuses-modal';
 import ManageWorkItemFieldsModal from '@/components/manage-work-item-fields-modal';
-import ManageRelationshipsModal from '@/components/manage-relationships-modal';
-import WorkflowVisualizationModal from '@/components/workflow-visualization-modal';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
+import WorkflowVisualizationModal from '@/components/workflow-visualization-modal';
 import { apiClient } from '@/lib/api/client';
-import { type WorkItemType, useWorkItemTypes } from '@/lib/hooks/use-work-item-types';
+import { useWorkItemTypes, type WorkItemType } from '@/lib/hooks/use-work-item-types';
 
 export default function WorkItemTypesContent() {
   const { data: workItemTypes, isLoading, error, refetch } = useWorkItemTypes();
@@ -159,11 +159,7 @@ export default function WorkItemTypesContent() {
 
   const handleBulkDelete = useCallback(
     async (items: WorkItemType[]) => {
-      await batchPromises(
-        items,
-        (item) => apiClient.delete(`/api/work-item-types/${item.id}`),
-        5
-      );
+      await batchPromises(items, (item) => apiClient.delete(`/api/work-item-types/${item.id}`), 5);
       refetch();
     },
     [batchPromises, refetch]
@@ -227,7 +223,9 @@ export default function WorkItemTypesContent() {
         header: 'Created',
         sortable: true,
         render: (type) => (
-          <div className="text-left text-gray-500 dark:text-gray-400">{formatDate(type.created_at)}</div>
+          <div className="text-left text-gray-500 dark:text-gray-400">
+            {formatDate(type.created_at)}
+          </div>
         ),
       },
       { key: 'actions' },
@@ -355,13 +353,22 @@ export default function WorkItemTypesContent() {
           ),
           onClick: handleDeleteWorkItemType,
           variant: 'danger',
-          confirm: (t) => `Are you sure you want to delete ${t.name}? This action cannot be undone.`,
+          confirm: (t) =>
+            `Are you sure you want to delete ${t.name}? This action cannot be undone.`,
         });
       }
 
       return actions;
     },
-    [handleManageFields, handleManageStatuses, handleManageRelationships, handleViewWorkflow, handleEditWorkItemType, handleToggleActive, handleDeleteWorkItemType]
+    [
+      handleManageFields,
+      handleManageStatuses,
+      handleManageRelationships,
+      handleViewWorkflow,
+      handleEditWorkItemType,
+      handleToggleActive,
+      handleDeleteWorkItemType,
+    ]
   );
 
   // Bulk actions for mass operations (memoized)

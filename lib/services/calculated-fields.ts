@@ -30,7 +30,11 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
       // Helper to safely get measure value
       const getMeasureValue = (m: AggAppMeasure): number => {
         const value = m.measure_value ?? m.numeric_value ?? 0;
-        return typeof value === 'number' ? value : typeof value === 'string' ? parseFloat(value) : 0;
+        return typeof value === 'number'
+          ? value
+          : typeof value === 'string'
+            ? parseFloat(value)
+            : 0;
       };
 
       // Sort by date to calculate period-over-period growth
@@ -77,7 +81,11 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
       // Helper to safely get measure value
       const getMeasureValue = (m: AggAppMeasure): number => {
         const value = m.measure_value ?? m.numeric_value ?? 0;
-        return typeof value === 'number' ? value : typeof value === 'string' ? parseFloat(value) : 0;
+        return typeof value === 'number'
+          ? value
+          : typeof value === 'string'
+            ? parseFloat(value)
+            : 0;
       };
 
       // Group by provider and date to calculate ratios
@@ -145,7 +153,11 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
       // Helper to safely get measure value
       const getMeasureValue = (m: AggAppMeasure): number => {
         const value = m.measure_value ?? m.numeric_value ?? 0;
-        return typeof value === 'number' ? value : typeof value === 'string' ? parseFloat(value) : 0;
+        return typeof value === 'number'
+          ? value
+          : typeof value === 'string'
+            ? parseFloat(value)
+            : 0;
       };
 
       const sorted = measures.sort(
@@ -187,7 +199,11 @@ export const CALCULATED_FIELDS: CalculatedField[] = [
       // Helper to safely get measure value
       const getMeasureValue = (m: AggAppMeasure): number => {
         const value = m.measure_value ?? m.numeric_value ?? 0;
-        return typeof value === 'number' ? value : typeof value === 'string' ? parseFloat(value) : 0;
+        return typeof value === 'number'
+          ? value
+          : typeof value === 'string'
+            ? parseFloat(value)
+            : 0;
       };
 
       const total = measures.reduce((sum, m) => {

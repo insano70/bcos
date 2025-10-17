@@ -1,8 +1,9 @@
 import type { NextRequest } from 'next/server';
+import type { z } from 'zod';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { calculateChanges, log, logTemplates } from '@/lib/logger';
@@ -10,7 +11,6 @@ import { createRBACUsersService } from '@/lib/services/rbac-users-service';
 import { createUserRolesService } from '@/lib/services/user-roles-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { userParamsSchema, userUpdateSchema } from '@/lib/validations/user';
-import type { z } from 'zod';
 
 const getUserHandler = async (
   request: NextRequest,

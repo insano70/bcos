@@ -1,20 +1,19 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
-import { useTheme } from 'next-themes';
-
-import { chartColors } from '@/components/charts/chartjs-config';
+import type { ChartData } from 'chart.js';
 import {
   Chart,
+  Filler,
+  LinearScale,
   LineController,
   LineElement,
-  Filler,
   PointElement,
-  LinearScale,
   TimeScale,
   Tooltip,
 } from 'chart.js';
-import type { ChartData } from 'chart.js';
+import { useTheme } from 'next-themes';
+import { useEffect, useRef, useState } from 'react';
+import { chartColors } from '@/components/charts/chartjs-config';
 import 'chartjs-adapter-moment';
 
 // Import utilities
@@ -109,7 +108,7 @@ export default function LineChart02({ data, width, height }: LineChart02Props) {
       plugins: [
         {
           id: 'htmlLegend',
-          afterUpdate(c, args, options) {
+          afterUpdate(c, _args, _options) {
             const ul = legend.current;
             if (!ul) return;
             // Remove old legend items
@@ -137,7 +136,8 @@ export default function LineChart02({ data, width, height }: LineChart02Props) {
               box.style.borderRadius = 'calc(infinity * 1px)';
               box.style.marginRight = '8px';
               box.style.borderWidth = '3px';
-              box.style.borderColor = (c.data.datasets[item.datasetIndex!]?.borderColor as string) || '#000';
+              box.style.borderColor =
+                (c.data.datasets[item.datasetIndex!]?.borderColor as string) || '#000';
               box.style.pointerEvents = 'none';
               // Label
               const label = document.createElement('span');

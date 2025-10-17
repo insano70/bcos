@@ -3,7 +3,6 @@ export const metadata = {
   description: 'Page description',
 };
 
-import Link from 'next/link';
 import AuthHeader from '../auth-header';
 import AuthImage from '../auth-image';
 

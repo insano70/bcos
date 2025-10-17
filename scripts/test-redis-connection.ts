@@ -11,14 +11,14 @@
  * 4. Cache performance
  */
 
+import path from 'node:path';
 // Load environment variables from .env.local
 import dotenv from 'dotenv';
-import path from 'path';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
-import { getRedisClient, isRedisAvailable, disconnectRedis } from '@/lib/redis';
 import { authCache, rbacCache } from '@/lib/cache';
+import { disconnectRedis, getRedisClient } from '@/lib/redis';
 import type { UserContext } from '@/lib/types/rbac';
 
 async function testRedisConnection() {
@@ -57,7 +57,10 @@ async function testRedisConnection() {
   try {
     await waitForReady;
   } catch (error) {
-    console.error('❌ Redis connection failed:', error instanceof Error ? error.message : String(error));
+    console.error(
+      '❌ Redis connection failed:',
+      error instanceof Error ? error.message : String(error)
+    );
     console.log('\nℹ️  Possible issues:');
     console.log('   1. Check REDIS_USERNAME and REDIS_PASSWORD are correct');
     console.log('   2. Verify security group allows your IP on port 6379');
@@ -121,8 +124,8 @@ async function testRedisConnection() {
           is_active: true,
           created_at: new Date(),
           updated_at: new Date(),
-          permissions: []
-        }
+          permissions: [],
+        },
       ],
       organizations: [],
       accessible_organizations: [],
@@ -157,11 +160,17 @@ async function testRedisConnection() {
         is_active: true,
         created_at: new Date(),
         updated_at: new Date(),
-      }
+      },
     ];
 
-    const rolesCacheSuccess = await rbacCache.setRolePermissions('role-123', 'test_role', mockPermissions);
-    console.log(rolesCacheSuccess ? '✅ Role permissions cached' : '❌ Role permissions cache failed');
+    const rolesCacheSuccess = await rbacCache.setRolePermissions(
+      'role-123',
+      'test_role',
+      mockPermissions
+    );
+    console.log(
+      rolesCacheSuccess ? '✅ Role permissions cached' : '❌ Role permissions cache failed'
+    );
 
     const cachedPerms = await rbacCache.getRolePermissions('role-123');
     if (cachedPerms && cachedPerms.permissions.length === 1) {
@@ -180,7 +189,9 @@ async function testRedisConnection() {
 
     // Test checking token that doesn't exist (should be false)
     const notBlacklisted = await authCache.isTokenBlacklisted(testTokenId);
-    console.log(notBlacklisted === false ? '✅ Token "not blacklisted" status checked' : '❌ Failed');
+    console.log(
+      notBlacklisted === false ? '✅ Token "not blacklisted" status checked' : '❌ Failed'
+    );
 
     // Add token to blacklist
     await authCache.addTokenToBlacklist(
@@ -204,7 +215,9 @@ async function testRedisConnection() {
     }
 
     const writeTime = Date.now() - startTime;
-    console.log(`✅ ${iterations} writes completed in ${writeTime}ms (${(writeTime / iterations).toFixed(2)}ms per write)`);
+    console.log(
+      `✅ ${iterations} writes completed in ${writeTime}ms (${(writeTime / iterations).toFixed(2)}ms per write)`
+    );
 
     const readStartTime = Date.now();
     for (let i = 0; i < iterations; i++) {
@@ -212,7 +225,9 @@ async function testRedisConnection() {
     }
 
     const readTime = Date.now() - readStartTime;
-    console.log(`✅ ${iterations} reads completed in ${readTime}ms (${(readTime / iterations).toFixed(2)}ms per read)`);
+    console.log(
+      `✅ ${iterations} reads completed in ${readTime}ms (${(readTime / iterations).toFixed(2)}ms per read)`
+    );
     console.log();
 
     // Cleanup performance test keys (one at a time to avoid CROSSSLOT errors in cluster mode)
@@ -221,7 +236,7 @@ async function testRedisConnection() {
       try {
         await client.del(`perf:test:${i}`);
         deletedCount++;
-      } catch (error) {
+      } catch (_error) {
         // Ignore deletion errors during cleanup
       }
     }
@@ -251,7 +266,6 @@ async function testRedisConnection() {
 
     console.log('✅ All tests passed!\n');
     console.log('🎉 Redis/Valkey is ready for use\n');
-
   } catch (error) {
     console.error('❌ Test failed:', error);
     console.log('\nℹ️  Troubleshooting:');

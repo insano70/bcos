@@ -12,8 +12,8 @@
  * - Comprehensive logging
  */
 
-import { getRedisClient } from '@/lib/redis';
 import { log } from '@/lib/logger';
+import { getRedisClient } from '@/lib/redis';
 import type { ChartData } from '@/lib/types/analytics';
 
 /**
@@ -262,4 +262,3 @@ export class ChartDataCache {
 
 // Export singleton instance
 export const chartDataCache = new ChartDataCache();
-

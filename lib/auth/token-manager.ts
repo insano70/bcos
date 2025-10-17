@@ -3,10 +3,10 @@ import { and, eq, gte, lte } from 'drizzle-orm';
 import { type JWTPayload, jwtVerify, SignJWT } from 'jose';
 import { nanoid } from 'nanoid';
 import { AuditLogger } from '@/lib/api/services/audit';
+import { authCache } from '@/lib/cache';
 import { db, login_attempts, refresh_tokens, token_blacklist, user_sessions } from '@/lib/db';
 import { getJWTConfig } from '@/lib/env';
 import { log } from '@/lib/logger';
-import { authCache } from '@/lib/cache';
 
 /**
  * Enterprise JWT + Refresh Token Manager - Pure Functions Module
@@ -390,7 +390,13 @@ export async function revokeRefreshToken(
 
     // Add to blacklist (with Redis caching)
     const blacklistExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-    await authCache.addTokenToBlacklist(refreshTokenId, userId, 'refresh', blacklistExpiresAt, reason);
+    await authCache.addTokenToBlacklist(
+      refreshTokenId,
+      userId,
+      'refresh',
+      blacklistExpiresAt,
+      reason
+    );
 
     // End session
     await db
@@ -462,7 +468,13 @@ export async function revokeAllUserTokens(
   const blacklistExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
   for (const token of activeTokens) {
-    await authCache.addTokenToBlacklist(token.tokenId, userId, 'refresh', blacklistExpiresAt, reason);
+    await authCache.addTokenToBlacklist(
+      token.tokenId,
+      userId,
+      'refresh',
+      blacklistExpiresAt,
+      reason
+    );
   }
 
   // Invalidate all tokens from middleware cache (legacy middleware cache)

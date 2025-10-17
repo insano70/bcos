@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { User } from '@/lib/hooks/use-users';
 
 interface UserPickerProps {
@@ -101,7 +101,8 @@ export default function UserPicker({
       'bg-indigo-500',
       'bg-teal-500',
     ];
-    const index = userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length;
+    const index =
+      userId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length;
     return colors[index] || 'bg-gray-500';
   };
 
@@ -123,7 +124,9 @@ export default function UserPicker({
           {selectedUser ? (
             <>
               {/* Avatar */}
-              <div className={`flex-shrink-0 w-6 h-6 rounded-full ${getAvatarColor(selectedUser.id)} flex items-center justify-center text-xs font-medium text-white`}>
+              <div
+                className={`flex-shrink-0 w-6 h-6 rounded-full ${getAvatarColor(selectedUser.id)} flex items-center justify-center text-xs font-medium text-white`}
+              >
                 {getInitials(selectedUser)}
               </div>
               {/* Name */}
@@ -149,8 +152,16 @@ export default function UserPicker({
               }}
               className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded"
             >
-              <svg className="w-3 h-3 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              <svg
+                className="w-3 h-3 text-gray-500 dark:text-gray-400"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
               </svg>
             </button>
           )}
@@ -177,7 +188,12 @@ export default function UserPicker({
                 viewBox="0 0 20 20"
                 stroke="currentColor"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
               </svg>
               <input
                 ref={searchInputRef}
@@ -201,8 +217,18 @@ export default function UserPicker({
                 className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
               >
                 <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 20 20" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg
+                    className="w-4 h-4 text-gray-600 dark:text-gray-300"
+                    fill="none"
+                    viewBox="0 0 20 20"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
                   </svg>
                 </div>
                 <span className="text-gray-600 dark:text-gray-400 text-sm">Unassigned</span>
@@ -222,7 +248,9 @@ export default function UserPicker({
                   `}
                 >
                   {/* Avatar */}
-                  <div className={`flex-shrink-0 w-6 h-6 rounded-full ${getAvatarColor(user.id)} flex items-center justify-center text-xs font-medium text-white`}>
+                  <div
+                    className={`flex-shrink-0 w-6 h-6 rounded-full ${getAvatarColor(user.id)} flex items-center justify-center text-xs font-medium text-white`}
+                  >
                     {getInitials(user)}
                   </div>
                   {/* Name and Email */}
@@ -236,8 +264,16 @@ export default function UserPicker({
                   </div>
                   {/* Selected Checkmark */}
                   {value === user.id && (
-                    <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    <svg
+                      className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   )}
                 </button>
@@ -252,11 +288,7 @@ export default function UserPicker({
       )}
 
       {/* Error Message */}
-      {error && (
-        <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-          {error}
-        </p>
-      )}
+      {error && <p className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>}
     </div>
   );
 }

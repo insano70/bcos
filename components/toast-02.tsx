@@ -1,4 +1,4 @@
-import { ReactElement } from 'react';
+import type { ReactElement } from 'react';
 
 interface Toast02Props {
   children: React.ReactNode;
@@ -15,7 +15,7 @@ export default function Toast02({
   open,
   setOpen,
 }: Toast02Props) {
-  const typeIcon = (type: string): ReactElement<any> => {
+  const typeIcon = (type: string): ReactElement => {
     switch (type) {
       case 'warning':
         return (

@@ -5,9 +5,9 @@
  * Provides consistent, realistic test data for OIDC authentication flows.
  */
 
-import { nanoid } from 'nanoid'
-import type { OIDCSessionData, OIDCUserInfo } from '@/lib/oidc/types'
-import type * as oauth from 'openid-client'
+import { nanoid } from 'nanoid';
+import type * as oauth from 'openid-client';
+import type { OIDCSessionData, OIDCUserInfo } from '@/lib/oidc/types';
 
 /**
  * Create mock OIDC session data
@@ -22,7 +22,7 @@ export function createMockOIDCSession(overrides?: Partial<OIDCSessionData>): OID
     fingerprint: nanoid(64), // SHA-256 hash length
     timestamp: Date.now(),
     ...overrides,
-  }
+  };
 }
 
 /**
@@ -30,7 +30,7 @@ export function createMockOIDCSession(overrides?: Partial<OIDCSessionData>): OID
  * Mimics Microsoft Entra ID token structure with all required claims
  */
 export function createMockIDTokenClaims(overrides?: Partial<oauth.IDToken>): oauth.IDToken {
-  const now = Math.floor(Date.now() / 1000)
+  const now = Math.floor(Date.now() / 1000);
 
   return {
     email: 'test@test.com',
@@ -47,7 +47,7 @@ export function createMockIDTokenClaims(overrides?: Partial<oauth.IDToken>): oau
     family_name: 'User',
     tid: 'test-tenant-id',
     ...overrides,
-  } as oauth.IDToken
+  } as oauth.IDToken;
 }
 
 /**
@@ -55,7 +55,7 @@ export function createMockIDTokenClaims(overrides?: Partial<oauth.IDToken>): oau
  * User information extracted from validated ID token
  */
 export function createMockOIDCUserInfo(overrides?: Partial<OIDCUserInfo>): OIDCUserInfo {
-  const claims = createMockIDTokenClaims()
+  const claims = createMockIDTokenClaims();
 
   return {
     email: 'test@test.com',
@@ -65,7 +65,7 @@ export function createMockOIDCUserInfo(overrides?: Partial<OIDCUserInfo>): OIDCU
     familyName: 'User',
     claims,
     ...overrides,
-  }
+  };
 }
 
 /**
@@ -73,12 +73,12 @@ export function createMockOIDCUserInfo(overrides?: Partial<OIDCUserInfo>): OIDCU
  * Mimics openid-client token response
  */
 export function createMockTokenResponse(overrides?: {
-  accessToken?: string
-  idToken?: string
-  refreshToken?: string
-  claims?: Partial<oauth.IDToken>
+  accessToken?: string;
+  idToken?: string;
+  refreshToken?: string;
+  claims?: Partial<oauth.IDToken>;
 }) {
-  const claims = createMockIDTokenClaims(overrides?.claims)
+  const claims = createMockIDTokenClaims(overrides?.claims);
 
   return {
     access_token: overrides?.accessToken || 'mock-access-token',
@@ -87,7 +87,7 @@ export function createMockTokenResponse(overrides?: {
     token_type: 'Bearer',
     expires_in: 3600,
     claims: () => claims,
-  }
+  };
 }
 
 /**
@@ -95,23 +95,23 @@ export function createMockTokenResponse(overrides?: {
  * Server metadata from discovery endpoint
  */
 export function createMockServerMetadata(overrides?: {
-  tenantId?: string
-  authorizationEndpoint?: string
-  tokenEndpoint?: string
-  issuer?: string
+  tenantId?: string;
+  authorizationEndpoint?: string;
+  tokenEndpoint?: string;
+  issuer?: string;
 }) {
-  const tenantId = overrides?.tenantId || 'test-tenant-id'
+  const tenantId = overrides?.tenantId || 'test-tenant-id';
 
   return {
-    authorization_endpoint: overrides?.authorizationEndpoint ||
+    authorization_endpoint:
+      overrides?.authorizationEndpoint ||
       `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize`,
-    token_endpoint: overrides?.tokenEndpoint ||
-      `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
-    issuer: overrides?.issuer ||
-      `https://login.microsoftonline.com/${tenantId}/v2.0`,
+    token_endpoint:
+      overrides?.tokenEndpoint || `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`,
+    issuer: overrides?.issuer || `https://login.microsoftonline.com/${tenantId}/v2.0`,
     jwks_uri: `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`,
     userinfo_endpoint: `https://graph.microsoft.com/oidc/userinfo`,
-  }
+  };
 }
 
 /**
@@ -119,16 +119,16 @@ export function createMockServerMetadata(overrides?: {
  * Full Configuration object from openid-client
  */
 export function createMockOIDCConfiguration(overrides?: {
-  tenantId?: string
-  clientId?: string
-  clientSecret?: string
+  tenantId?: string;
+  clientId?: string;
+  clientSecret?: string;
 }) {
-  const tenantId = overrides?.tenantId || 'test-tenant-id'
-  const metadata = createMockServerMetadata({ tenantId })
+  const tenantId = overrides?.tenantId || 'test-tenant-id';
+  const metadata = createMockServerMetadata({ tenantId });
 
   return {
     serverMetadata: () => metadata,
     clientId: overrides?.clientId || 'test-client-id',
     clientSecret: overrides?.clientSecret || 'test-client-secret',
-  }
+  };
 }

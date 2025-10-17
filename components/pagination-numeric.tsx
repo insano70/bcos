@@ -1,7 +1,7 @@
 export default function PaginationNumeric() {
   return (
     <div className="flex justify-center">
-      <nav className="flex" role="navigation" aria-label="Navigation">
+      <nav className="flex" aria-label="Navigation">
         <div className="mr-2">
           <span className="inline-flex items-center justify-center rounded-lg leading-5 px-2.5 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 text-gray-300 dark:text-gray-600">
             <span className="sr-only">Previous</span>

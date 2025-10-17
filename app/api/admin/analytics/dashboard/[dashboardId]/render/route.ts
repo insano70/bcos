@@ -1,27 +1,30 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
-import { DashboardRenderer, type DashboardUniversalFilters } from '@/lib/services/dashboard-renderer';
+import {
+  DashboardRenderer,
+  type DashboardUniversalFilters,
+} from '@/lib/services/dashboard-renderer';
 import type { UserContext } from '@/lib/types/rbac';
 import { dashboardRenderRequestSchema } from '@/lib/validations/analytics';
 
 /**
  * Dashboard Batch Rendering API (Phase 7)
- * 
+ *
  * POST /api/admin/analytics/dashboard/[dashboardId]/render
- * 
+ *
  * Renders all charts in a dashboard with a single API call.
- * 
+ *
  * Features:
  * - Parallel chart execution for performance
  * - Dashboard-level universal filters (override chart filters)
  * - Aggregate performance metrics
  * - RBAC enforcement
  * - Cache support
- * 
+ *
  * Benefits:
  * - 60% faster dashboard loads (batch vs sequential)
  * - Single API call vs N calls
@@ -59,7 +62,7 @@ const renderDashboardHandler = async (
     const validatedData = await validateRequest(request, dashboardRenderRequestSchema);
 
     const { universalFilters, nocache = false } = validatedData;
-    
+
     // Ensure universalFilters is defined (default to empty object if not provided)
     const filters = (universalFilters || {}) as DashboardUniversalFilters;
 
@@ -82,11 +85,7 @@ const renderDashboardHandler = async (
     const dashboardRenderer = new DashboardRenderer();
 
     // Render dashboard with universal filters
-    const result = await dashboardRenderer.renderDashboard(
-      dashboardId,
-      filters,
-      userContext
-    );
+    const result = await dashboardRenderer.renderDashboard(dashboardId, filters, userContext);
 
     const duration = Date.now() - startTime;
 
@@ -103,9 +102,10 @@ const renderDashboardHandler = async (
         queriesExecuted: result.metadata.queriesExecuted,
         cacheHits: result.metadata.cacheHits,
         cacheMisses: result.metadata.cacheMisses,
-        cacheHitRate: result.metadata.queriesExecuted > 0
-          ? Math.round((result.metadata.cacheHits / result.metadata.queriesExecuted) * 100)
-          : 0,
+        cacheHitRate:
+          result.metadata.queriesExecuted > 0
+            ? Math.round((result.metadata.cacheHits / result.metadata.queriesExecuted) * 100)
+            : 0,
         totalQueryTime: result.metadata.totalQueryTime,
         parallelExecution: result.metadata.parallelExecution,
         filtersApplied: result.metadata.dashboardFiltersApplied.length,
@@ -119,10 +119,7 @@ const renderDashboardHandler = async (
       },
     });
 
-    return createSuccessResponse(
-      result,
-      'Dashboard rendered successfully'
-    );
+    return createSuccessResponse(result, 'Dashboard rendered successfully');
   } catch (error) {
     const duration = Date.now() - startTime;
 
@@ -137,21 +134,23 @@ const renderDashboardHandler = async (
     });
 
     // Determine appropriate error code
-    const statusCode = error instanceof Error && error.message.includes('not found')
-      ? 404
-      : error instanceof Error && error.message.includes('Access denied')
-        ? 403
-        : 500;
+    const statusCode =
+      error instanceof Error && error.message.includes('not found')
+        ? 404
+        : error instanceof Error && error.message.includes('Access denied')
+          ? 403
+          : 500;
 
-    const errorMessage = process.env.NODE_ENV === 'development'
-      ? error instanceof Error
-        ? error.message
-        : 'Unknown error occurred'
-      : statusCode === 404
-        ? 'Dashboard not found'
-        : statusCode === 403
-          ? 'Access denied'
-          : 'Internal server error';
+    const errorMessage =
+      process.env.NODE_ENV === 'development'
+        ? error instanceof Error
+          ? error.message
+          : 'Unknown error occurred'
+        : statusCode === 404
+          ? 'Dashboard not found'
+          : statusCode === 403
+            ? 'Access denied'
+            : 'Internal server error';
 
     return createErrorResponse(errorMessage, statusCode, request);
   }
@@ -162,4 +161,3 @@ export const POST = rbacRoute(renderDashboardHandler, {
   permission: ['analytics:read:all', 'analytics:read:organization', 'analytics:read:own'],
   rateLimit: 'api',
 });
-

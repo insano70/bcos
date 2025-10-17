@@ -1,11 +1,11 @@
-import { db } from '@/lib/db';
-import { work_item_watchers, users } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
-import { getEmailService } from '@/lib/api/services/email-service-instance';
+import { and, eq } from 'drizzle-orm';
 import type { EmailService } from '@/lib/api/services/email';
-import { log } from '@/lib/logger';
+import { getEmailService } from '@/lib/api/services/email-service-instance';
+import { db } from '@/lib/db';
+import { users, work_item_watchers } from '@/lib/db/schema';
 import type { WorkItemStatus } from '@/lib/hooks/use-work-item-statuses';
 import type { WorkItemComment } from '@/lib/hooks/use-work-items';
+import { log } from '@/lib/logger';
 
 interface NotificationRecipient {
   user_id: string;
@@ -304,7 +304,11 @@ export class NotificationService {
    */
   private async getNotificationRecipients(
     workItemId: string,
-    notificationType: 'notify_status_changes' | 'notify_comments' | 'notify_assignments' | 'notify_due_date'
+    notificationType:
+      | 'notify_status_changes'
+      | 'notify_comments'
+      | 'notify_assignments'
+      | 'notify_due_date'
   ): Promise<NotificationRecipient[]> {
     try {
       const results = await db

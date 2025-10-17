@@ -1,14 +1,14 @@
 import type { NextRequest } from 'next/server';
-import { createSuccessResponse } from '@/lib/api/responses/success';
-import { createErrorResponse } from '@/lib/api/responses/error';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { extractRouteParams } from '@/lib/api/utils/params';
-import { workItemMoveSchema, workItemParamsSchema } from '@/lib/validations/work-items';
+import { createErrorResponse } from '@/lib/api/responses/error';
+import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
+import { extractRouteParams } from '@/lib/api/utils/params';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
+import { log } from '@/lib/logger';
 import { createWorkItemHierarchyService } from '@/lib/services/work-item-hierarchy-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { log } from '@/lib/logger';
+import { workItemMoveSchema, workItemParamsSchema } from '@/lib/validations/work-items';
 
 /**
  * POST /api/work-items/[id]/move

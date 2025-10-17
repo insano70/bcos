@@ -1,11 +1,15 @@
 /**
  * Unit Tests for MeasureAccessor
- * 
+ *
  * Tests dynamic column access for multiple data sources with different schemas
  */
 
-import { describe, it, expect } from 'vitest';
-import { MeasureAccessor, type AggAppMeasure, type DataSourceColumnMapping } from '@/lib/types/analytics';
+import { describe, expect, it } from 'vitest';
+import {
+  type AggAppMeasure,
+  type DataSourceColumnMapping,
+  MeasureAccessor,
+} from '@/lib/types/analytics';
 
 describe('MeasureAccessor', () => {
   describe('Data Source 1 (Original Schema)', () => {
@@ -20,7 +24,7 @@ describe('MeasureAccessor', () => {
 
     const row: AggAppMeasure = {
       date_index: '2025-01-15',
-      measure_value: 12500.50,
+      measure_value: 12500.5,
       measure_type: 'currency',
       frequency: 'Monthly',
       practice_uid: 42,
@@ -34,7 +38,7 @@ describe('MeasureAccessor', () => {
 
     it('should access measure value correctly', () => {
       const accessor = new MeasureAccessor(row, mapping);
-      expect(accessor.getMeasureValue()).toBe(12500.50);
+      expect(accessor.getMeasureValue()).toBe(12500.5);
     });
 
     it('should access measure type correctly', () => {
@@ -119,7 +123,7 @@ describe('MeasureAccessor', () => {
 
       const row: AggAppMeasure = {
         date: '2025-01-01',
-        value: '12345.67',  // String value
+        value: '12345.67', // String value
         type: 'currency',
         period: 'Monthly',
       };
@@ -143,7 +147,7 @@ describe('MeasureAccessor', () => {
         value: 100,
         type: 'currency',
         period: 'Monthly',
-        practice_uid: '42',  // String UID
+        practice_uid: '42', // String UID
       };
 
       const accessor = new MeasureAccessor(row, mapping);
@@ -167,7 +171,7 @@ describe('MeasureAccessor', () => {
       };
 
       const accessor = new MeasureAccessor(row, mapping);
-      expect(accessor.getMeasureType()).toBe('number');  // Default fallback
+      expect(accessor.getMeasureType()).toBe('number'); // Default fallback
     });
   });
 
@@ -224,7 +228,7 @@ describe('MeasureAccessor', () => {
 
     it('should throw error when date field is not a string', () => {
       const row: AggAppMeasure = {
-        date: 12345,  // Number instead of string
+        date: 12345, // Number instead of string
         value: 100,
         type: 'currency',
         period: 'Monthly',
@@ -237,7 +241,7 @@ describe('MeasureAccessor', () => {
     it('should throw error when measure field is invalid', () => {
       const row: AggAppMeasure = {
         date: '2025-01-01',
-        value: 'not a number',  // Invalid measure value
+        value: 'not a number', // Invalid measure value
         type: 'currency',
         period: 'Monthly',
       };
@@ -330,4 +334,3 @@ describe('MeasureAccessor', () => {
     });
   });
 });
-

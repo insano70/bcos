@@ -1,12 +1,11 @@
 'use client';
 
-import * as React from 'react';
 import { addDays, format } from 'date-fns';
-import { DateRange } from 'react-day-picker';
-
-import { cn } from '@/lib/utils';
+import * as React from 'react';
+import type { DateRange } from 'react-day-picker';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 
 export default function DatePickerWithRange({ className }: React.HTMLAttributes<HTMLDivElement>) {
   const [date, setDate] = React.useState<DateRange | undefined>({
@@ -49,7 +48,12 @@ export default function DatePickerWithRange({ className }: React.HTMLAttributes<
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
-          <Calendar mode="range" {...(date?.from && { defaultMonth: date.from })} selected={date} onSelect={setDate} />
+          <Calendar
+            mode="range"
+            {...(date?.from && { defaultMonth: date.from })}
+            selected={date}
+            onSelect={setDate}
+          />
         </PopoverContent>
       </Popover>
     </div>

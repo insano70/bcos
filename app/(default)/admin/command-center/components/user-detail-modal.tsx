@@ -13,13 +13,13 @@
 
 import { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
-import type { AtRiskUser, LoginHistoryResponse } from '@/lib/monitoring/types';
 import {
   getRiskCategory,
   getRiskIndicator,
-  getRiskScoreColor,
   getRiskScoreBgColor,
+  getRiskScoreColor,
 } from '@/lib/monitoring/risk-score';
+import type { AtRiskUser, LoginHistoryResponse } from '@/lib/monitoring/types';
 import ConfirmModal from './confirm-modal';
 import { useToast } from './toast';
 
@@ -36,7 +36,12 @@ type ConfirmAction = {
   userEmail: string;
 } | null;
 
-export default function UserDetailModal({ user, isOpen, onClose, onUserUpdated }: UserDetailModalProps) {
+export default function UserDetailModal({
+  user,
+  isOpen,
+  onClose,
+  onUserUpdated,
+}: UserDetailModalProps) {
   const [loginHistory, setLoginHistory] = useState<LoginHistoryResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -258,7 +263,11 @@ export default function UserDetailModal({ user, isOpen, onClose, onUserUpdated }
               <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded">
                 <div className="text-xs text-gray-500 dark:text-gray-400">Status</div>
                 <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {isLocked ? '🔒 Locked' : user.suspiciousActivity ? '⚠️ Suspicious' : '👁 Monitoring'}
+                  {isLocked
+                    ? '🔒 Locked'
+                    : user.suspiciousActivity
+                      ? '⚠️ Suspicious'
+                      : '👁 Monitoring'}
                 </div>
               </div>
             </div>
@@ -314,9 +323,7 @@ export default function UserDetailModal({ user, isOpen, onClose, onUserUpdated }
           {/* Footer Actions */}
           <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
             <div className="flex justify-between items-center">
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                User ID: {user.userId}
-              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">User ID: {user.userId}</div>
               <div className="flex gap-2">
                 {/* Unlock Account Button */}
                 {isLocked && (
@@ -453,4 +460,3 @@ function getReasonPlaceholder(action: ConfirmAction): string {
       return 'Why are you removing the flag? (e.g., "False positive, verified legitimate")';
   }
 }
-

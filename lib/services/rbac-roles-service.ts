@@ -1,12 +1,9 @@
-import { and, count, eq, ilike, or } from 'drizzle-orm';
 import type { SQL } from 'drizzle-orm';
-
+import { and, count, eq, ilike, or } from 'drizzle-orm';
+import { NotFoundError } from '@/lib/api/responses/error';
 import { db } from '@/lib/db';
 import { permissions, role_permissions, roles } from '@/lib/db/rbac-schema';
-
-import { SLOW_THRESHOLDS, log, logTemplates } from '@/lib/logger';
-
-import { NotFoundError } from '@/lib/api/responses/error';
+import { log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
 
 import type { UserContext } from '@/lib/types/rbac';
 
@@ -162,7 +159,10 @@ class RolesService implements RolesServiceInterface {
   /**
    * Check if user can access a specific role
    */
-  private canAccessRole(role: { organization_id: string | null; is_system_role: boolean }): boolean {
+  private canAccessRole(role: {
+    organization_id: string | null;
+    is_system_role: boolean;
+  }): boolean {
     // Super admins and roles:read:all can access everything
     if (this.canReadAll) return true;
 
@@ -406,10 +406,7 @@ class RolesService implements RolesServiceInterface {
       const whereClause = whereConditions.length > 0 ? and(...whereConditions) : undefined;
 
       const queryStart = Date.now();
-      const [countResult] = await db
-        .select({ count: count() })
-        .from(roles)
-        .where(whereClause);
+      const [countResult] = await db.select({ count: count() }).from(roles).where(whereClause);
 
       const queryDuration = Date.now() - queryStart;
       const duration = Date.now() - startTime;
@@ -511,7 +508,12 @@ class RolesService implements RolesServiceInterface {
       }
 
       // Check RBAC access
-      if (!this.canAccessRole({ organization_id: row.organization_id, is_system_role: row.is_system_role ?? false })) {
+      if (
+        !this.canAccessRole({
+          organization_id: row.organization_id,
+          is_system_role: row.is_system_role ?? false,
+        })
+      ) {
         const duration = Date.now() - startTime;
 
         log.info('role access denied - insufficient permissions', {

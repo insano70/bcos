@@ -22,10 +22,10 @@
  */
 
 import { eq } from 'drizzle-orm';
+import { rbacCache } from '@/lib/cache';
 import { db, organizations } from '@/lib/db';
 import { log } from '@/lib/logger';
 import type { Organization } from '@/lib/types/rbac';
-import { rbacCache } from '@/lib/cache';
 
 /**
  * Maximum depth for organization hierarchy to prevent infinite loops
@@ -40,10 +40,10 @@ const MAX_ORGANIZATION_HIERARCHY_DEPTH = 10;
 export class OrganizationHierarchyService {
   /**
    * Get all organizations from database with Redis caching
-   * 
+   *
    * This loads the complete organization tree for hierarchy traversal.
    * Results cached for 24 hours since organization structure changes infrequently.
-   * 
+   *
    * Cache Strategy:
    * - Check Redis cache first (24-hour TTL)
    * - On cache miss: query database and cache result
@@ -160,10 +160,7 @@ export class OrganizationHierarchyService {
     // Recursive function to find all children
     const findChildren = (parentId: string) => {
       const children = orgs.filter(
-        (org) =>
-          org.parent_organization_id === parentId &&
-          org.is_active &&
-          !org.deleted_at
+        (org) => org.parent_organization_id === parentId && org.is_active && !org.deleted_at
       );
 
       for (const child of children) {
@@ -318,10 +315,7 @@ export class OrganizationHierarchyService {
     const orgs = allOrganizations || (await this.getAllOrganizations());
 
     return orgs.filter(
-      (org) =>
-        org.parent_organization_id === organizationId &&
-        org.is_active &&
-        !org.deleted_at
+      (org) => org.parent_organization_id === organizationId && org.is_active && !org.deleted_at
     );
   }
 
@@ -333,10 +327,7 @@ export class OrganizationHierarchyService {
    * @param allOrganizations - Optional: Full list of organizations (avoids DB query if provided)
    * @returns Depth (0 = root, 1 = child, 2 = grandchild, etc.)
    */
-  async getDepth(
-    organizationId: string,
-    allOrganizations?: Organization[]
-  ): Promise<number> {
+  async getDepth(organizationId: string, allOrganizations?: Organization[]): Promise<number> {
     const orgs = allOrganizations || (await this.getAllOrganizations());
 
     let depth = 0;
@@ -369,12 +360,9 @@ export class OrganizationHierarchyService {
   async getRootOrganizations(allOrganizations?: Organization[]): Promise<Organization[]> {
     const orgs = allOrganizations || (await this.getAllOrganizations());
 
-    return orgs.filter(
-      (org) => !org.parent_organization_id && org.is_active && !org.deleted_at
-    );
+    return orgs.filter((org) => !org.parent_organization_id && org.is_active && !org.deleted_at);
   }
 }
 
 // Export singleton instance
 export const organizationHierarchyService = new OrganizationHierarchyService();
-

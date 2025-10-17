@@ -1,5 +1,5 @@
-import { log } from '@/lib/logger';
 import type { WorkItem } from '@/lib/hooks/use-work-items';
+import { log } from '@/lib/logger';
 
 /**
  * Validation result interface
@@ -162,8 +162,7 @@ function checkCustomRules(workItem: WorkItem, rules: CustomRule[]): string[] {
 
     if (!passed) {
       const errorMessage =
-        rule.message ||
-        `Validation failed: ${rule.field} ${rule.operator} ${rule.value}`;
+        rule.message || `Validation failed: ${rule.field} ${rule.operator} ${rule.value}`;
       errors.push(errorMessage);
     }
   }
@@ -186,16 +185,70 @@ function getWorkItemFieldValue(
   workItem: WorkItem,
   fieldName: string
 ): string | number | boolean | null {
-  // Check standard fields
-  const standardFieldValue = (workItem as unknown as Record<string, unknown>)[fieldName];
-  if (standardFieldValue !== undefined) {
-    return String(standardFieldValue);
+  // Check standard fields with explicit type-safe access
+  // This approach validates against the WorkItem interface at compile time
+  const standardFields: Record<keyof WorkItem, unknown> = {
+    id: workItem.id,
+    work_item_type_id: workItem.work_item_type_id,
+    work_item_type_name: workItem.work_item_type_name,
+    organization_id: workItem.organization_id,
+    organization_name: workItem.organization_name,
+    subject: workItem.subject,
+    description: workItem.description,
+    status_id: workItem.status_id,
+    status_name: workItem.status_name,
+    status_category: workItem.status_category,
+    priority: workItem.priority,
+    assigned_to: workItem.assigned_to,
+    assigned_to_name: workItem.assigned_to_name,
+    due_date: workItem.due_date,
+    started_at: workItem.started_at,
+    completed_at: workItem.completed_at,
+    created_by: workItem.created_by,
+    created_by_name: workItem.created_by_name,
+    created_at: workItem.created_at,
+    updated_at: workItem.updated_at,
+    custom_fields: workItem.custom_fields,
+  };
+
+  // Check if field exists in standard fields
+  if (fieldName in standardFields) {
+    const value = standardFields[fieldName as keyof WorkItem];
+    if (value !== undefined && value !== null) {
+      // Preserve Date objects as ISO strings for consistent comparison
+      if (value instanceof Date) {
+        return value.toISOString();
+      }
+      // Preserve numbers and booleans in their original type for validation
+      if (typeof value === 'number') {
+        return value;
+      }
+      if (typeof value === 'boolean') {
+        return value;
+      }
+      return String(value);
+    }
   }
 
   // Check custom fields
-  if (workItem.custom_fields && typeof workItem.custom_fields === 'object') {
+  // Use Object.hasOwn to prevent prototype pollution attacks
+  if (
+    workItem.custom_fields &&
+    typeof workItem.custom_fields === 'object' &&
+    Object.hasOwn(workItem.custom_fields, fieldName)
+  ) {
     const customFieldValue = workItem.custom_fields[fieldName];
-    if (customFieldValue !== undefined) {
+    if (customFieldValue !== undefined && customFieldValue !== null) {
+      // Apply same type preservation for custom fields
+      if (customFieldValue instanceof Date) {
+        return customFieldValue.toISOString();
+      }
+      if (typeof customFieldValue === 'number') {
+        return customFieldValue;
+      }
+      if (typeof customFieldValue === 'boolean') {
+        return customFieldValue;
+      }
       return String(customFieldValue);
     }
   }

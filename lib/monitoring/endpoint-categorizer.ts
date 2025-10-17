@@ -111,4 +111,3 @@ export function getCategoryDisplayName(category: EndpointCategory): string {
       return 'Health Checks';
   }
 }
-

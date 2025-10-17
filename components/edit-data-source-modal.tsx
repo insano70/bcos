@@ -1,9 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useUpdateDataSource, useTableColumns, type DataSource, type UpdateDataSourceData, type TableColumnsQueryInput } from '@/lib/hooks/use-data-sources';
+import {
+  type DataSource,
+  type TableColumnsQueryInput,
+  type UpdateDataSourceData,
+  useTableColumns,
+  useUpdateDataSource,
+} from '@/lib/hooks/use-data-sources';
 import Toast from './toast';
 
 interface UpdateDataSourceForm {
@@ -23,11 +29,11 @@ interface EditDataSourceModalProps {
   dataSource: DataSource | null;
 }
 
-export default function EditDataSourceModal({ 
-  isOpen, 
-  onClose, 
+export default function EditDataSourceModal({
+  isOpen,
+  onClose,
   onSuccess,
-  dataSource 
+  dataSource,
 }: EditDataSourceModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
@@ -73,7 +79,7 @@ export default function EditDataSourceModal({
     }
 
     setIsSubmitting(true);
-    
+
     try {
       const updateData: UpdateDataSourceData = {
         data_source_name: data.data_source_name,
@@ -86,18 +92,17 @@ export default function EditDataSourceModal({
       };
 
       const result = await updateDataSourceMutation.mutateAsync(updateData);
-      
+
       setToastMessage(`Data source "${result.data_source_name}" updated successfully!`);
       setToastType('success');
       setShowToast(true);
-      
+
       // Wait a moment to show success message before closing
       setTimeout(() => {
         reset();
         onSuccess?.();
         onClose();
       }, 1000);
-      
     } catch (error) {
       setToastMessage(error instanceof Error ? error.message : 'Failed to update data source');
       setToastType('error');
@@ -110,13 +115,17 @@ export default function EditDataSourceModal({
   const formData = watch();
 
   // Table columns query - only fetch when both schema and table are provided
-  const tableColumnsQuery: TableColumnsQueryInput | null = formData.schema_name && formData.table_name ? {
-    schema_name: formData.schema_name,
-    table_name: formData.table_name,
-    database_type: formData.database_type || 'postgresql',
-  } : null;
+  const tableColumnsQuery: TableColumnsQueryInput | null =
+    formData.schema_name && formData.table_name
+      ? {
+          schema_name: formData.schema_name,
+          table_name: formData.table_name,
+          database_type: formData.database_type || 'postgresql',
+        }
+      : null;
 
-  const { data: tableColumnsData, isLoading: isLoadingColumns } = useTableColumns(tableColumnsQuery);
+  const { data: tableColumnsData, isLoading: isLoadingColumns } =
+    useTableColumns(tableColumnsQuery);
 
   return (
     <>
@@ -155,8 +164,18 @@ export default function EditDataSourceModal({
                         className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                       >
                         <span className="sr-only">Close</span>
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        <svg
+                          className="w-6 h-6"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
                         </svg>
                       </button>
                     </div>
@@ -174,14 +193,16 @@ export default function EditDataSourceModal({
                           type="text"
                           {...register('data_source_name')}
                           className={`w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
-                            errors.data_source_name 
-                              ? 'border-red-500 focus:border-red-500' 
+                            errors.data_source_name
+                              ? 'border-red-500 focus:border-red-500'
                               : 'border-gray-300 dark:border-gray-600 focus:border-blue-500'
                           }`}
                           placeholder="Enter a descriptive name for the data source"
                         />
                         {errors.data_source_name && (
-                          <p className="mt-1 text-sm text-red-500">{errors.data_source_name.message}</p>
+                          <p className="mt-1 text-sm text-red-500">
+                            {errors.data_source_name.message}
+                          </p>
                         )}
                       </div>
 
@@ -194,14 +215,16 @@ export default function EditDataSourceModal({
                           {...register('data_source_description')}
                           rows={3}
                           className={`w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
-                            errors.data_source_description 
-                              ? 'border-red-500 focus:border-red-500' 
+                            errors.data_source_description
+                              ? 'border-red-500 focus:border-red-500'
                               : 'border-gray-300 dark:border-gray-600 focus:border-blue-500'
                           }`}
                           placeholder="Optional description of what this data source contains"
                         />
                         {errors.data_source_description && (
-                          <p className="mt-1 text-sm text-red-500">{errors.data_source_description.message}</p>
+                          <p className="mt-1 text-sm text-red-500">
+                            {errors.data_source_description.message}
+                          </p>
                         )}
                       </div>
 
@@ -216,14 +239,16 @@ export default function EditDataSourceModal({
                             type="text"
                             {...register('schema_name')}
                             className={`w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
-                              errors.schema_name 
-                                ? 'border-red-500 focus:border-red-500' 
+                              errors.schema_name
+                                ? 'border-red-500 focus:border-red-500'
                                 : 'border-gray-300 dark:border-gray-600 focus:border-blue-500'
                             }`}
                             placeholder="e.g., ih, public"
                           />
                           {errors.schema_name && (
-                            <p className="mt-1 text-sm text-red-500">{errors.schema_name.message}</p>
+                            <p className="mt-1 text-sm text-red-500">
+                              {errors.schema_name.message}
+                            </p>
                           )}
                         </div>
 
@@ -236,8 +261,8 @@ export default function EditDataSourceModal({
                             type="text"
                             {...register('table_name')}
                             className={`w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
-                              errors.table_name 
-                                ? 'border-red-500 focus:border-red-500' 
+                              errors.table_name
+                                ? 'border-red-500 focus:border-red-500'
                                 : 'border-gray-300 dark:border-gray-600 focus:border-blue-500'
                             }`}
                             placeholder="e.g., agg_app_measures"
@@ -256,8 +281,8 @@ export default function EditDataSourceModal({
                         <select
                           {...register('database_type')}
                           className={`w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
-                            errors.database_type 
-                              ? 'border-red-500 focus:border-red-500' 
+                            errors.database_type
+                              ? 'border-red-500 focus:border-red-500'
                               : 'border-gray-300 dark:border-gray-600 focus:border-blue-500'
                           }`}
                         >
@@ -267,7 +292,9 @@ export default function EditDataSourceModal({
                           <option value="mariadb">MariaDB</option>
                         </select>
                         {errors.database_type && (
-                          <p className="mt-1 text-sm text-red-500">{errors.database_type.message}</p>
+                          <p className="mt-1 text-sm text-red-500">
+                            {errors.database_type.message}
+                          </p>
                         )}
                       </div>
 
@@ -280,7 +307,10 @@ export default function EditDataSourceModal({
                             {...register('is_active')}
                             className="form-checkbox"
                           />
-                          <label htmlFor="edit_is_active" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                          <label
+                            htmlFor="edit_is_active"
+                            className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                          >
                             Active
                           </label>
                         </div>
@@ -292,7 +322,10 @@ export default function EditDataSourceModal({
                             {...register('requires_auth')}
                             className="form-checkbox"
                           />
-                          <label htmlFor="edit_requires_auth" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                          <label
+                            htmlFor="edit_requires_auth"
+                            className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                          >
                             Requires Authentication
                           </label>
                         </div>
@@ -302,8 +335,16 @@ export default function EditDataSourceModal({
                       {formData.schema_name && formData.table_name && (
                         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md p-3">
                           <div className="flex items-start">
-                            <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                            <svg
+                              className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-2 mt-0.5 flex-shrink-0"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                clipRule="evenodd"
+                              />
                             </svg>
                             <div className="flex-1">
                               <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
@@ -319,11 +360,17 @@ export default function EditDataSourceModal({
                                   Columns:
                                 </p>
                                 {isLoadingColumns ? (
-                                  <p className="text-blue-600 dark:text-blue-400 italic">Loading columns...</p>
-                                ) : tableColumnsData?.columns && tableColumnsData.columns.length > 0 ? (
+                                  <p className="text-blue-600 dark:text-blue-400 italic">
+                                    Loading columns...
+                                  </p>
+                                ) : tableColumnsData?.columns &&
+                                  tableColumnsData.columns.length > 0 ? (
                                   <div className="space-y-1 max-h-32 overflow-y-auto">
-                                    {tableColumnsData.columns.slice(0, 10).map((column, index) => (
-                                      <div key={column.column_name} className="flex items-center justify-between text-blue-700 dark:text-blue-300">
+                                    {tableColumnsData.columns.slice(0, 10).map((column, _index) => (
+                                      <div
+                                        key={column.column_name}
+                                        className="flex items-center justify-between text-blue-700 dark:text-blue-300"
+                                      >
                                         <span className="font-mono">{column.column_name}</span>
                                         <span className="text-blue-600 dark:text-blue-400 ml-2">
                                           {column.data_type}

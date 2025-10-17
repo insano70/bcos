@@ -1,4 +1,4 @@
-import { Metadata } from 'next';
+import type { Metadata } from 'next';
 import WorkItemDetailContent from './work-item-detail-content';
 
 export const metadata: Metadata = {

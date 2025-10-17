@@ -12,7 +12,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
 import type { RedisStats } from '@/lib/monitoring/types';
 
@@ -33,7 +33,7 @@ export default function RedisCacheStats({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       const response = await apiClient.get('/api/admin/redis/stats');
       setStats(response as RedisStats);
@@ -44,12 +44,12 @@ export default function RedisCacheStats({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Initial fetch
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [fetchStats]);
 
   // Auto-refresh
   useEffect(() => {
@@ -57,7 +57,7 @@ export default function RedisCacheStats({
 
     const interval = setInterval(fetchStats, refreshInterval);
     return () => clearInterval(interval);
-  }, [autoRefresh, refreshInterval]);
+  }, [autoRefresh, refreshInterval, fetchStats]);
 
   // Format uptime
   const formatUptime = (seconds: number): string => {
@@ -247,19 +247,43 @@ export default function RedisCacheStats({
             Available Cache Management APIs:
           </div>
           <div className="space-y-1 text-gray-600 dark:text-gray-400">
-            <div><code className="bg-gray-200 dark:bg-gray-800 px-1 rounded">GET /api/admin/redis/stats</code> - Statistics</div>
-            <div><code className="bg-gray-200 dark:bg-gray-800 px-1 rounded">GET /api/admin/redis/keys?pattern=*</code> - Search keys</div>
-            <div><code className="bg-gray-200 dark:bg-gray-800 px-1 rounded">GET /api/admin/redis/inspect?key=...</code> - View key</div>
-            <div><code className="bg-gray-200 dark:bg-gray-800 px-1 rounded">POST /api/admin/redis/purge</code> - Delete keys</div>
-            <div><code className="bg-gray-200 dark:bg-gray-800 px-1 rounded">POST /api/admin/redis/ttl</code> - Update TTL</div>
+            <div>
+              <code className="bg-gray-200 dark:bg-gray-800 px-1 rounded">
+                GET /api/admin/redis/stats
+              </code>{' '}
+              - Statistics
+            </div>
+            <div>
+              <code className="bg-gray-200 dark:bg-gray-800 px-1 rounded">
+                GET /api/admin/redis/keys?pattern=*
+              </code>{' '}
+              - Search keys
+            </div>
+            <div>
+              <code className="bg-gray-200 dark:bg-gray-800 px-1 rounded">
+                GET /api/admin/redis/inspect?key=...
+              </code>{' '}
+              - View key
+            </div>
+            <div>
+              <code className="bg-gray-200 dark:bg-gray-800 px-1 rounded">
+                POST /api/admin/redis/purge
+              </code>{' '}
+              - Delete keys
+            </div>
+            <div>
+              <code className="bg-gray-200 dark:bg-gray-800 px-1 rounded">
+                POST /api/admin/redis/ttl
+              </code>{' '}
+              - Update TTL
+            </div>
           </div>
           <div className="mt-2 pt-2 border-t border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400">
-            Full UI components for key browsing and cache purging can be added in a future iteration.
-            For now, use the APIs directly via curl/Postman or browser dev tools.
+            Full UI components for key browsing and cache purging can be added in a future
+            iteration. For now, use the APIs directly via curl/Postman or browser dev tools.
           </div>
         </div>
       </details>
     </div>
   );
 }
-

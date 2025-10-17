@@ -32,20 +32,20 @@
  */
 
 import type { NextRequest } from 'next/server';
-import type { PermissionName, UserContext } from '@/lib/types/rbac';
 import type { AuthSession } from '@/lib/api/route-handler';
-import { RBACRouteBuilder } from './builders/rbac-route-builder';
-import { PublicRouteBuilder } from './builders/public-route-builder';
+import type { PermissionName, UserContext } from '@/lib/types/rbac';
 import { AuthRouteBuilder } from './builders/auth-route-builder';
+import { PublicRouteBuilder } from './builders/public-route-builder';
+import { RBACRouteBuilder } from './builders/rbac-route-builder';
 
 // Re-export types
 export type {
-  RBACRouteOptions,
-  PublicRouteOptions,
   AuthRouteOptions,
-  RouteContext,
-  MiddlewareResult,
   Middleware,
+  MiddlewareResult,
+  PublicRouteOptions,
+  RBACRouteOptions,
+  RouteContext,
 } from './types';
 
 /**
@@ -149,11 +149,7 @@ export function publicRoute(
  * ```
  */
 export function authRoute(
-  handler: (
-    request: NextRequest,
-    session?: AuthSession,
-    ...args: unknown[]
-  ) => Promise<Response>,
+  handler: (request: NextRequest, session?: AuthSession, ...args: unknown[]) => Promise<Response>,
   options: {
     rateLimit?: 'auth' | 'api' | 'upload';
     requireAuth?: boolean;

@@ -1,20 +1,17 @@
 'use client';
 
-import { useState } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
+import { useState } from 'react';
+import { useWorkItemStatuses, type WorkItemStatus } from '@/lib/hooks/use-work-item-statuses';
 import {
-  useWorkItemStatuses,
-  type WorkItemStatus,
-} from '@/lib/hooks/use-work-item-statuses';
-import {
-  useWorkItemTransitions,
   useCreateWorkItemTransition,
-  useUpdateWorkItemTransition,
   useDeleteWorkItemTransition,
+  useUpdateWorkItemTransition,
+  useWorkItemTransitions,
   type WorkItemStatusTransition,
 } from '@/lib/hooks/use-work-item-transitions';
-import Toast from './toast';
 import EditTransitionConfigModal from './edit-transition-config-modal';
+import Toast from './toast';
 
 interface WorkflowVisualizationModalProps {
   isOpen: boolean;
@@ -32,28 +29,33 @@ export default function WorkflowVisualizationModal({
   organizationId,
 }: WorkflowVisualizationModalProps) {
   const { data: statuses = [], isLoading: statusesLoading } = useWorkItemStatuses(workItemTypeId);
-  const { data: transitions = [], isLoading: transitionsLoading, refetch } = useWorkItemTransitions(workItemTypeId);
+  const {
+    data: transitions = [],
+    isLoading: transitionsLoading,
+    refetch,
+  } = useWorkItemTransitions(workItemTypeId);
   const createTransition = useCreateWorkItemTransition();
   const updateTransition = useUpdateWorkItemTransition();
   const deleteTransition = useDeleteWorkItemTransition();
 
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
-  const [selectedFromStatus, setSelectedFromStatus] = useState<string | null>(null);
-  const [selectedToStatus, setSelectedToStatus] = useState<string | null>(null);
+  const [_selectedFromStatus, _setSelectedFromStatus] = useState<string | null>(null);
+  const [_selectedToStatus, _setSelectedToStatus] = useState<string | null>(null);
   const [editingTransition, setEditingTransition] = useState<WorkItemStatusTransition | null>(null);
 
   const sortedStatuses = [...statuses].sort((a, b) => a.display_order - b.display_order);
 
   // Check if a transition exists between two statuses
   const getTransition = (fromId: string, toId: string): WorkItemStatusTransition | undefined => {
-    return transitions.find(
-      (t) => t.from_status_id === fromId && t.to_status_id === toId
-    );
+    return transitions.find((t) => t.from_status_id === fromId && t.to_status_id === toId);
   };
 
   const handleToggleTransition = async (fromStatus: WorkItemStatus, toStatus: WorkItemStatus) => {
-    const existingTransition = getTransition(fromStatus.work_item_status_id, toStatus.work_item_status_id);
+    const existingTransition = getTransition(
+      fromStatus.work_item_status_id,
+      toStatus.work_item_status_id
+    );
 
     try {
       if (existingTransition) {
@@ -66,9 +68,7 @@ export default function WorkflowVisualizationModal({
           typeId: workItemTypeId,
         });
         setToastMessage(
-          existingTransition.is_allowed
-            ? 'Transition blocked'
-            : 'Transition allowed'
+          existingTransition.is_allowed ? 'Transition blocked' : 'Transition allowed'
         );
       } else {
         // Create new transition (allowed by default)
@@ -163,7 +163,8 @@ export default function WorkflowVisualizationModal({
                     <>
                       <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                         <p className="text-sm text-gray-700 dark:text-gray-300">
-                          Click on a cell to allow/block a transition. Green = allowed, Red = blocked, Gray = no rule (permissive by default).
+                          Click on a cell to allow/block a transition. Green = allowed, Red =
+                          blocked, Gray = no rule (permissive by default).
                         </p>
                       </div>
 
@@ -208,14 +209,15 @@ export default function WorkflowVisualizationModal({
                                     fromStatus.work_item_status_id,
                                     toStatus.work_item_status_id
                                   );
-                                  const isSameStatus = fromStatus.work_item_status_id === toStatus.work_item_status_id;
+                                  const isSameStatus =
+                                    fromStatus.work_item_status_id === toStatus.work_item_status_id;
                                   const bgColor = isSameStatus
                                     ? 'bg-gray-200 dark:bg-gray-600'
                                     : transition
-                                    ? transition.is_allowed
-                                      ? 'bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50'
-                                      : 'bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50'
-                                    : 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700';
+                                      ? transition.is_allowed
+                                        ? 'bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50'
+                                        : 'bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50'
+                                      : 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700';
 
                                   return (
                                     <td
@@ -232,10 +234,10 @@ export default function WorkflowVisualizationModal({
                                         isSameStatus
                                           ? 'Same status'
                                           : transition
-                                          ? transition.is_allowed
-                                            ? 'Allowed - Click to block'
-                                            : 'Blocked - Click to allow'
-                                          : 'No rule (allowed by default) - Click to set explicit rule'
+                                            ? transition.is_allowed
+                                              ? 'Allowed - Click to block'
+                                              : 'Blocked - Click to allow'
+                                            : 'No rule (allowed by default) - Click to set explicit rule'
                                       }
                                     >
                                       {isSameStatus ? (
@@ -243,12 +245,28 @@ export default function WorkflowVisualizationModal({
                                       ) : transition ? (
                                         <div className="flex items-center justify-center gap-1">
                                           {transition.is_allowed ? (
-                                            <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            <svg
+                                              className="w-5 h-5 text-green-600 dark:text-green-400"
+                                              fill="currentColor"
+                                              viewBox="0 0 20 20"
+                                            >
+                                              <path
+                                                fillRule="evenodd"
+                                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                                clipRule="evenodd"
+                                              />
                                             </svg>
                                           ) : (
-                                            <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                                              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                            <svg
+                                              className="w-5 h-5 text-red-600 dark:text-red-400"
+                                              fill="currentColor"
+                                              viewBox="0 0 20 20"
+                                            >
+                                              <path
+                                                fillRule="evenodd"
+                                                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                                clipRule="evenodd"
+                                              />
                                             </svg>
                                           )}
                                         </div>
@@ -286,8 +304,12 @@ export default function WorkflowVisualizationModal({
                           <h3 className="text-lg font-semibold mb-3">Active Transition Rules</h3>
                           <div className="space-y-2">
                             {transitions.map((transition) => {
-                              const fromStatus = statuses.find((s) => s.work_item_status_id === transition.from_status_id);
-                              const toStatus = statuses.find((s) => s.work_item_status_id === transition.to_status_id);
+                              const fromStatus = statuses.find(
+                                (s) => s.work_item_status_id === transition.from_status_id
+                              );
+                              const toStatus = statuses.find(
+                                (s) => s.work_item_status_id === transition.to_status_id
+                              );
                               if (!fromStatus || !toStatus) return null;
 
                               return (
@@ -308,7 +330,8 @@ export default function WorkflowVisualizationModal({
                                     >
                                       {transition.is_allowed ? 'Allowed' : 'Blocked'}
                                     </span>
-                                    {(transition.validation_config !== null || transition.action_config !== null) && (
+                                    {(transition.validation_config !== null ||
+                                      transition.action_config !== null) && (
                                       <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
                                         Configured
                                       </span>
@@ -372,8 +395,14 @@ export default function WorkflowVisualizationModal({
             refetch(); // Refresh transitions after config changes
           }}
           transition={editingTransition}
-          fromStatusName={statuses.find((s) => s.work_item_status_id === editingTransition.from_status_id)?.status_name || 'Unknown'}
-          toStatusName={statuses.find((s) => s.work_item_status_id === editingTransition.to_status_id)?.status_name || 'Unknown'}
+          fromStatusName={
+            statuses.find((s) => s.work_item_status_id === editingTransition.from_status_id)
+              ?.status_name || 'Unknown'
+          }
+          toStatusName={
+            statuses.find((s) => s.work_item_status_id === editingTransition.to_status_id)
+              ?.status_name || 'Unknown'
+          }
           workItemTypeId={workItemTypeId}
         />
       )}

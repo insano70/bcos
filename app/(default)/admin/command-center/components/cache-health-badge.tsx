@@ -6,12 +6,12 @@
 
 'use client';
 
-import type { CacheHealthStatus } from '@/lib/monitoring/types';
 import {
   getHealthBadgeClasses,
-  getHealthLabel,
   getHealthEmoji,
+  getHealthLabel,
 } from '@/lib/monitoring/analytics-cache-health';
+import type { CacheHealthStatus } from '@/lib/monitoring/types';
 
 interface CacheHealthBadgeProps {
   health: CacheHealthStatus;
@@ -51,4 +51,3 @@ export default function CacheHealthBadge({
     </div>
   );
 }
-

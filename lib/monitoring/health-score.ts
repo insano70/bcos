@@ -16,7 +16,7 @@
  * - Security Incidents (15 points max)
  */
 
-import type { SystemHealth, HealthFactors } from './types';
+import type { HealthFactors, SystemHealth } from './types';
 
 /**
  * Input metrics for health score calculation
@@ -189,4 +189,3 @@ export function getFactorColor(status: 'healthy' | 'degraded' | 'unhealthy'): st
       return 'text-red-600 dark:text-red-400';
   }
 }
-

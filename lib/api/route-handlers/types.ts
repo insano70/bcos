@@ -6,8 +6,8 @@
  */
 
 import type { NextRequest } from 'next/server';
-import type { PermissionName, UserContext } from '@/lib/types/rbac';
 import type { AuthResult } from '@/lib/api/middleware/global-auth';
+import type { PermissionName, UserContext } from '@/lib/types/rbac';
 import type { TimingTracker } from './utils/timing-tracker';
 
 /**

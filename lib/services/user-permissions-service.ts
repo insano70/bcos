@@ -83,10 +83,7 @@ class UserPermissionsService implements UserPermissionsServiceInterface {
    * @param targetUserOrgs - Organizations the target user belongs to
    * @returns true if current user can manage target user
    */
-  canManageUser(
-    targetUserId: string,
-    targetUserOrgs: { organization_id: string }[]
-  ): boolean {
+  canManageUser(targetUserId: string, targetUserOrgs: { organization_id: string }[]): boolean {
     const startTime = Date.now();
 
     try {

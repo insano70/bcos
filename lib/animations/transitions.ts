@@ -151,7 +151,13 @@ export const rotationFadeVariants: Variants = {
 /**
  * Get transition variant by name
  */
-export type TransitionVariant = 'fade' | 'slide' | 'slideUp' | 'scale' | 'blurFade' | 'rotationFade';
+export type TransitionVariant =
+  | 'fade'
+  | 'slide'
+  | 'slideUp'
+  | 'scale'
+  | 'blurFade'
+  | 'rotationFade';
 
 export const getTransitionVariants = (variant: TransitionVariant = 'fade'): Variants => {
   const variants = {

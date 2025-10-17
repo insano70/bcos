@@ -5,7 +5,7 @@
  * Now with enhanced debugging and performance monitoring
  */
 
-import { debugLog, debugTiming, createDebugLogger } from '@/lib/utils/debug';
+import { createDebugLogger, debugLog, debugTiming } from '@/lib/utils/debug';
 
 const warmupLogger = createDebugLogger('warmup-script', 'development-warmup');
 
@@ -19,7 +19,7 @@ const routes = [
   'http://localhost:4001/configure/dashboards',
   'http://localhost:4001/api/health',
   'http://localhost:4001/api/csrf',
-  'http://localhost:4001/api/auth/me'
+  'http://localhost:4001/api/auth/me',
 ];
 
 interface WarmupResult {
@@ -33,18 +33,18 @@ interface WarmupResult {
 
 async function warmupRoute(url: string): Promise<WarmupResult> {
   const startTime = Date.now();
-  
+
   try {
     debugLog.api(`Warming up route: ${url}`, {
       operation: 'route_warmup',
       url,
-      startTime
+      startTime,
     });
 
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'enhanced-warmup-script/1.0'
-      }
+        'User-Agent': 'enhanced-warmup-script/1.0',
+      },
     });
 
     const duration = Date.now() - startTime;
@@ -53,7 +53,7 @@ async function warmupRoute(url: string): Promise<WarmupResult> {
       status: response.status,
       statusText: response.statusText,
       duration,
-      success: response.ok
+      success: response.ok,
     };
 
     if (response.ok) {
@@ -61,14 +61,14 @@ async function warmupRoute(url: string): Promise<WarmupResult> {
         status: response.status,
         statusText: response.statusText,
         responseTime: duration,
-        performanceOptimized: duration < 1000
+        performanceOptimized: duration < 1000,
       });
     } else {
       debugLog.api(`⚠️ ${url} - Non-OK status`, {
         status: response.status,
         statusText: response.statusText,
         duration,
-        warning: 'non_ok_status'
+        warning: 'non_ok_status',
       });
     }
 
@@ -76,13 +76,13 @@ async function warmupRoute(url: string): Promise<WarmupResult> {
   } catch (error) {
     const duration = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
+
     debugLog.api(`❌ ${url} - Error: ${errorMessage}`, {
       operation: 'route_warmup_failed',
       url,
       error: errorMessage,
       duration,
-      failed: true
+      failed: true,
     });
 
     return {
@@ -91,37 +91,37 @@ async function warmupRoute(url: string): Promise<WarmupResult> {
       statusText: 'ERROR',
       duration,
       success: false,
-      error: errorMessage
+      error: errorMessage,
     };
   }
 }
 
 async function warmupServer(): Promise<void> {
   const startTime = Date.now();
-  
+
   debugLog.api('🔥 Warming up development server...', {
     operation: 'development_warmup_start',
     routeCount: routes.length,
-    serverUrl: 'localhost:4001'
+    serverUrl: 'localhost:4001',
   });
 
   warmupLogger.info('📍 Development warmup initiated', {
     routes: routes.length,
     warmupType: 'parallel',
-    developmentOptimization: true
+    developmentOptimization: true,
   });
-  
+
   try {
     // Warm up routes in parallel with enhanced monitoring
     const results = await Promise.all(routes.map(warmupRoute));
-    
+
     const duration = Date.now() - startTime;
-    const successCount = results.filter(r => r.success).length;
+    const successCount = results.filter((r) => r.success).length;
     const failureCount = results.length - successCount;
     const averageResponseTime = results.reduce((sum, r) => sum + r.duration, 0) / results.length;
-    
+
     debugTiming('Development server warmup completed', startTime);
-    
+
     debugLog.api('🎉 Warmup completed', {
       operation: 'development_warmup_complete',
       totalDuration: duration,
@@ -129,7 +129,7 @@ async function warmupServer(): Promise<void> {
       successCount,
       failureCount,
       averageResponseTime,
-      performanceOptimized: averageResponseTime < 500
+      performanceOptimized: averageResponseTime < 500,
     });
 
     // Enhanced warmup analytics
@@ -137,31 +137,30 @@ async function warmupServer(): Promise<void> {
       totalRoutes: routes.length,
       successRate: (successCount / routes.length) * 100,
       averageResponseTime,
-      fastestRoute: Math.min(...results.map(r => r.duration)),
-      slowestRoute: Math.max(...results.map(r => r.duration)),
+      fastestRoute: Math.min(...results.map((r) => r.duration)),
+      slowestRoute: Math.max(...results.map((r) => r.duration)),
       developmentReady: failureCount === 0,
-      warmupEffective: duration < 10000
+      warmupEffective: duration < 10000,
     });
 
     if (failureCount > 0) {
-      const failures = results.filter(r => !r.success);
+      const failures = results.filter((r) => !r.success);
       debugLog.api('⚠️ Some routes failed during warmup', {
         failureCount,
-        failures: failures.map(f => ({ url: f.url, error: f.error }))
+        failures: failures.map((f) => ({ url: f.url, error: f.error })),
       });
     }
 
     warmupLogger.info('🚀 Development server is ready for fast responses!', {
       serverStatus: 'warmed_up',
       developmentReady: true,
-      totalWarmupTime: duration
+      totalWarmupTime: duration,
     });
-
   } catch (error) {
     debugLog.api('❌ Development server warmup failed', {
       operation: 'development_warmup_failed',
       error: error instanceof Error ? error.message : 'Unknown error',
-      duration: Date.now() - startTime
+      duration: Date.now() - startTime,
     });
     throw error;
   }
@@ -173,7 +172,7 @@ if (require.main === module) {
     .then(() => {
       debugLog.api('✅ Warmup script completed successfully', {
         operation: 'warmup_script_complete',
-        success: true
+        success: true,
       });
       process.exit(0);
     })
@@ -181,7 +180,7 @@ if (require.main === module) {
       debugLog.api('💥 Warmup script failed', {
         operation: 'warmup_script_failed',
         error: error instanceof Error ? error.message : 'Unknown error',
-        fatal: true
+        fatal: true,
       });
       process.exit(1);
     });

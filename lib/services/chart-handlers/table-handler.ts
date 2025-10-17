@@ -1,9 +1,9 @@
-import { BaseChartHandler } from './base-handler';
+import { log } from '@/lib/logger';
+import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 import type { ChartData } from '@/lib/types/analytics';
 import type { UserContext } from '@/lib/types/rbac';
-import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
-import { formatTableData, type FormatType } from '@/lib/utils/table-formatters';
-import { log } from '@/lib/logger';
+import { type FormatType, formatTableData } from '@/lib/utils/table-formatters';
+import { BaseChartHandler } from './base-handler';
 
 /**
  * Table Chart Handler
@@ -60,7 +60,10 @@ export class TableChartHandler extends BaseChartHandler {
    * @param userContext - User context for RBAC
    * @returns Row data (columns available via config.columns)
    */
-  async fetchData(config: Record<string, unknown>, userContext: UserContext): Promise<{
+  async fetchData(
+    config: Record<string, unknown>,
+    userContext: UserContext
+  ): Promise<{
     data: Record<string, unknown>[];
     cacheHit: boolean;
     queryTimeMs: number;
@@ -113,17 +116,19 @@ export class TableChartHandler extends BaseChartHandler {
 
     try {
       // Extract column metadata from config
-      const columns = config.columns as Array<{
-        columnName: string;
-        displayName: string;
-        dataType: string;
-        formatType: string | null;
-        displayIcon: boolean;
-        iconType: string | null;
-        iconColorMode: string | null;
-        iconColor: string | null;
-        iconMapping: Record<string, unknown> | null;
-      }> | undefined;
+      const columns = config.columns as
+        | Array<{
+            columnName: string;
+            displayName: string;
+            dataType: string;
+            formatType: string | null;
+            displayIcon: boolean;
+            iconType: string | null;
+            iconColorMode: string | null;
+            iconColor: string | null;
+            iconMapping: Record<string, unknown> | null;
+          }>
+        | undefined;
 
       if (!columns || columns.length === 0) {
         log.warn('No column metadata available for table formatting', {
@@ -198,7 +203,11 @@ export class TableChartHandler extends BaseChartHandler {
     }
 
     // Tables don't support multiple series
-    if (config.multipleSeries && Array.isArray(config.multipleSeries) && config.multipleSeries.length > 0) {
+    if (
+      config.multipleSeries &&
+      Array.isArray(config.multipleSeries) &&
+      config.multipleSeries.length > 0
+    ) {
       errors.push('Table charts do not support multiple series');
     }
 

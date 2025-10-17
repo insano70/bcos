@@ -16,8 +16,8 @@
 
 'use client';
 
+import { Download, Maximize2, RefreshCcw } from 'lucide-react';
 import { useState } from 'react';
-import { Download, RefreshCcw, Maximize2 } from 'lucide-react';
 
 /**
  * Chart header props
@@ -86,9 +86,7 @@ export default function ChartHeader({
       {/* Title */}
       <div className="flex-1">
         {title && (
-          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">
-            {title}
-          </h2>
+          <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
         )}
       </div>
 
@@ -112,10 +110,7 @@ export default function ChartHeader({
             {showExportMenu && (
               <>
                 {/* Backdrop */}
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setShowExportMenu(false)}
-                />
+                <div className="fixed inset-0 z-10" onClick={() => setShowExportMenu(false)} />
 
                 {/* Dropdown menu */}
                 <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20">

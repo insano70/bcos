@@ -17,8 +17,8 @@
  * - RBAC protection at API level
  */
 
-import { getRedisClient } from '@/lib/redis';
 import { log } from '@/lib/logger';
+import { getRedisClient } from '@/lib/redis';
 
 /**
  * Configuration constants for Redis operations
@@ -545,4 +545,3 @@ export class RedisAdminService {
 
 // Singleton instance
 export const redisAdminService = new RedisAdminService();
-

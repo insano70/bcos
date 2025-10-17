@@ -1,7 +1,17 @@
 import { relations } from 'drizzle-orm';
-import { boolean, index, integer, jsonb, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
-import { work_item_types, work_items, users } from './schema';
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+  varchar,
+} from 'drizzle-orm/pg-core';
 import type { FieldConfig, FieldOption, ValidationRules } from '@/lib/types/work-item-fields';
+import { users, work_item_types, work_items } from './schema';
 
 /**
  * Work Item Fields Schema
@@ -64,8 +74,14 @@ export const work_item_fields = pgTable(
     displayOrderIdx: index('idx_work_item_fields_display_order').on(table.display_order),
 
     // Composite indexes for common queries
-    typeVisibleIdx: index('idx_work_item_fields_type_visible').on(table.work_item_type_id, table.is_visible),
-    typeOrderIdx: index('idx_work_item_fields_type_order').on(table.work_item_type_id, table.display_order),
+    typeVisibleIdx: index('idx_work_item_fields_type_visible').on(
+      table.work_item_type_id,
+      table.is_visible
+    ),
+    typeOrderIdx: index('idx_work_item_fields_type_order').on(
+      table.work_item_type_id,
+      table.display_order
+    ),
   })
 );
 

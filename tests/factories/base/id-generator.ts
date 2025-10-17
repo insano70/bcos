@@ -8,7 +8,7 @@
  * Example: test_user_a3k9d2m1
  */
 
-import { nanoid } from 'nanoid'
+import { nanoid } from 'nanoid';
 
 /**
  * Valid entity types
@@ -23,7 +23,7 @@ export type TestEntityType =
   | 'practice'
   | 'staff'
   | 'patient'
-  | 'appointment'
+  | 'appointment';
 
 /**
  * Configuration for name generation
@@ -32,12 +32,12 @@ export interface IDGeneratorConfig {
   /**
    * Length of the random portion (default: 8)
    */
-  length?: number
+  length?: number;
 
   /**
    * Prefix for all test names (default: 'test')
    */
-  prefix?: string
+  prefix?: string;
 }
 
 /**
@@ -45,19 +45,19 @@ export interface IDGeneratorConfig {
  */
 const DEFAULT_CONFIG: Required<IDGeneratorConfig> = {
   length: 8,
-  prefix: 'test'
-}
+  prefix: 'test',
+};
 
 /**
  * Test Name Generator
  * Generates unique identifiers for test data names
  */
 export class IDGenerator {
-  private readonly config: Required<IDGeneratorConfig>
-  private readonly generatedIds: Set<string> = new Set()
+  private readonly config: Required<IDGeneratorConfig>;
+  private readonly generatedIds: Set<string> = new Set();
 
   constructor(config: IDGeneratorConfig = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...config }
+    this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
   /**
@@ -67,15 +67,15 @@ export class IDGenerator {
    * @returns A unique test identifier
    */
   generate(type: TestEntityType): string {
-    const randomPart = nanoid(this.config.length)
-    const id = `${this.config.prefix}_${type}_${randomPart}`
+    const randomPart = nanoid(this.config.length);
+    const id = `${this.config.prefix}_${type}_${randomPart}`;
 
     if (this.generatedIds.has(id)) {
-      throw new Error(`CRITICAL: Name collision detected for ${id}`)
+      throw new Error(`CRITICAL: Name collision detected for ${id}`);
     }
 
-    this.generatedIds.add(id)
-    return id
+    this.generatedIds.add(id);
+    return id;
   }
 
   /**
@@ -83,35 +83,35 @@ export class IDGenerator {
    */
   generateMany(type: TestEntityType, count: number): string[] {
     if (count < 1) {
-      throw new Error(`Count must be at least 1, got: ${count}`)
+      throw new Error(`Count must be at least 1, got: ${count}`);
     }
 
-    const ids: string[] = []
+    const ids: string[] = [];
     for (let i = 0; i < count; i++) {
-      ids.push(this.generate(type))
+      ids.push(this.generate(type));
     }
-    return ids
+    return ids;
   }
 
   /**
    * Check if a string matches the test identifier pattern
    */
   isTestId(id: string): boolean {
-    return id.startsWith(this.config.prefix + '_')
+    return id.startsWith(`${this.config.prefix}_`);
   }
 
   /**
    * Get the number of identifiers generated
    */
   getGeneratedCount(): number {
-    return this.generatedIds.size
+    return this.generatedIds.size;
   }
 
   /**
    * Reset internal tracking
    */
   reset(): void {
-    this.generatedIds.clear()
+    this.generatedIds.clear();
   }
 
   /**
@@ -119,13 +119,13 @@ export class IDGenerator {
    */
   getSQLPattern(type?: TestEntityType): string {
     if (type) {
-      return `${this.config.prefix}_${type}_%`
+      return `${this.config.prefix}_${type}_%`;
     }
-    return `${this.config.prefix}_%`
+    return `${this.config.prefix}_%`;
   }
 }
 
 /**
  * Default singleton instance
  */
-export const defaultIDGenerator = new IDGenerator()
+export const defaultIDGenerator = new IDGenerator();

@@ -28,7 +28,9 @@
  * - executeBaseQuery(): Used by period comparison to avoid infinite recursion
  */
 
+import { type CacheQueryParams, dataSourceCache } from '@/lib/cache';
 import { log } from '@/lib/logger';
+import { chartConfigService } from '@/lib/services/chart-config-service';
 import type {
   AggAppMeasure,
   AnalyticsQueryParams,
@@ -36,10 +38,8 @@ import type {
   ChartRenderContext,
 } from '@/lib/types/analytics';
 import type { UserContext } from '@/lib/types/rbac';
-import { dataSourceCache, type CacheQueryParams } from '@/lib/cache';
-import { chartConfigService } from '@/lib/services/chart-config-service';
-import { queryValidator } from './query-validator';
 import { queryExecutor } from './query-executor';
+import { queryValidator } from './query-validator';
 
 /**
  * Query orchestrator - routes between cache and legacy paths
@@ -60,7 +60,9 @@ export class QueryOrchestrator {
 
     // Check advanced filters for provider_uid
     if (params.advanced_filters) {
-      const providerFilter = params.advanced_filters.find((f) => f.field === 'provider_uid' && f.operator === 'eq');
+      const providerFilter = params.advanced_filters.find(
+        (f) => f.field === 'provider_uid' && f.operator === 'eq'
+      );
 
       if (providerFilter && typeof providerFilter.value === 'number') {
         return providerFilter.value;
@@ -123,7 +125,10 @@ export class QueryOrchestrator {
     );
 
     // Calculate total using MeasureAccessor for dynamic column access
-    const totalCount = await this.calculateTotal(fetchResult.rows as AggAppMeasure[], params.data_source_id);
+    const totalCount = await this.calculateTotal(
+      fetchResult.rows as AggAppMeasure[],
+      params.data_source_id
+    );
 
     const duration = Date.now() - startTime;
 

@@ -13,17 +13,17 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/route-handlers';
-import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
-import { log } from '@/lib/logger';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { indexedAnalyticsCache } from '@/lib/cache/indexed-analytics-cache';
-import { chartConfigService } from '@/lib/services/chart-config-service';
+import { log } from '@/lib/logger';
 import { cacheWarmingTracker } from '@/lib/monitoring/cache-warming-tracker';
+import { chartConfigService } from '@/lib/services/chart-config-service';
 
 interface InvalidateCacheRequest {
   datasourceId?: number; // Omit to invalidate all datasources
-  reason?: string;       // Optional reason for audit trail
+  reason?: string; // Optional reason for audit trail
 }
 
 interface InvalidateCacheResponse {
@@ -37,7 +37,7 @@ const invalidateCacheHandler = async (request: NextRequest, userContext: { user_
   const startTime = Date.now();
 
   try {
-    const body = await request.json() as InvalidateCacheRequest;
+    const body = (await request.json()) as InvalidateCacheRequest;
     const { datasourceId, reason = 'Manual invalidation' } = body;
 
     log.info('Cache invalidation request initiated', {
@@ -197,4 +197,3 @@ export const POST = rbacRoute(invalidateCacheHandler, {
   permission: 'settings:update:all',
   rateLimit: 'api',
 });
-

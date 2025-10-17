@@ -12,18 +12,18 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/route-handlers';
-import { createSuccessResponse } from '@/lib/api/responses/success';
 import { createErrorResponse } from '@/lib/api/responses/error';
-import { log } from '@/lib/logger';
+import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { indexedAnalyticsCache } from '@/lib/cache/indexed-analytics-cache';
-import { chartConfigService } from '@/lib/services/chart-config-service';
+import { log } from '@/lib/logger';
 import { enrichWithHealthMetrics } from '@/lib/monitoring/analytics-cache-health';
-import type { 
-  AnalyticsCacheStatsResponse, 
+import type {
+  AnalyticsCacheStatsResponse,
   AnalyticsCacheSummary,
-  DatasourceCacheMetrics 
+  DatasourceCacheMetrics,
 } from '@/lib/monitoring/types';
+import { chartConfigService } from '@/lib/services/chart-config-service';
 
 const analyticsCacheStatsHandler = async (request: NextRequest) => {
   const startTime = Date.now();
@@ -69,18 +69,17 @@ const analyticsCacheStatsHandler = async (request: NextRequest) => {
         };
 
         // Enrich with health metrics
-        return enrichWithHealthMetrics(
-          cacheStats,
-          ds.name,
-          performanceMetrics,
-          uniqueCounts
-        );
+        return enrichWithHealthMetrics(cacheStats, ds.name, performanceMetrics, uniqueCounts);
       } catch (error) {
-        log.error('Failed to get cache stats for datasource', error instanceof Error ? error : new Error(String(error)), {
-          datasourceId: ds.id,
-          datasourceName: ds.name,
-        });
-        
+        log.error(
+          'Failed to get cache stats for datasource',
+          error instanceof Error ? error : new Error(String(error)),
+          {
+            datasourceId: ds.id,
+            datasourceName: ds.name,
+          }
+        );
+
         // Return minimal metrics for failed datasource
         return {
           datasourceId: ds.id,
@@ -155,28 +154,32 @@ const analyticsCacheStatsHandler = async (request: NextRequest) => {
  */
 function calculateSummary(datasources: DatasourceCacheMetrics[]): AnalyticsCacheSummary {
   const totalDatasources = datasources.length;
-  const warmDatasources = datasources.filter(ds => ds.isWarm).length;
+  const warmDatasources = datasources.filter((ds) => ds.isWarm).length;
   const coldDatasources = totalDatasources - warmDatasources;
 
   const totalCacheEntries = datasources.reduce((sum, ds) => sum + ds.totalEntries, 0);
   const totalIndexes = datasources.reduce((sum, ds) => sum + ds.indexCount, 0);
-  const totalMemoryMB = Math.round(
-    datasources.reduce((sum, ds) => sum + ds.estimatedMemoryMB, 0) * 100
-  ) / 100;
+  const totalMemoryMB =
+    Math.round(datasources.reduce((sum, ds) => sum + ds.estimatedMemoryMB, 0) * 100) / 100;
 
   // Calculate average hit rate (weighted by total queries)
   const totalQueries = datasources.reduce((sum, ds) => sum + ds.totalQueries, 0);
-  const weightedHitRate = totalQueries > 0
-    ? datasources.reduce((sum, ds) => sum + (ds.cacheHitRate * ds.totalQueries), 0) / totalQueries
-    : 0;
+  const weightedHitRate =
+    totalQueries > 0
+      ? datasources.reduce((sum, ds) => sum + ds.cacheHitRate * ds.totalQueries, 0) / totalQueries
+      : 0;
 
   // Calculate average cache age (only for warm caches)
-  const warmDatasources_filtered = datasources.filter(ds => ds.isWarm && ds.ageMinutes !== Infinity);
-  const avgCacheAge = warmDatasources_filtered.length > 0
-    ? Math.round(
-        warmDatasources_filtered.reduce((sum, ds) => sum + ds.ageMinutes, 0) / warmDatasources_filtered.length
-      )
-    : 0;
+  const warmDatasources_filtered = datasources.filter(
+    (ds) => ds.isWarm && ds.ageMinutes !== Infinity
+  );
+  const avgCacheAge =
+    warmDatasources_filtered.length > 0
+      ? Math.round(
+          warmDatasources_filtered.reduce((sum, ds) => sum + ds.ageMinutes, 0) /
+            warmDatasources_filtered.length
+        )
+      : 0;
 
   // Find oldest cache
   const oldestCacheDs = warmDatasources_filtered.reduce<DatasourceCacheMetrics | null>(
@@ -241,4 +244,3 @@ export const GET = rbacRoute(analyticsCacheStatsHandler, {
   permission: 'settings:read:all',
   rateLimit: 'api',
 });
-

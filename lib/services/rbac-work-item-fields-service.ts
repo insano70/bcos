@@ -5,11 +5,11 @@ import { log } from '@/lib/logger';
 import { BaseRBACService } from '@/lib/rbac/base-service';
 import type { UserContext } from '@/lib/types/rbac';
 import type {
-  WorkItemField,
   CreateWorkItemFieldData,
-  UpdateWorkItemFieldData,
   FieldOption,
+  UpdateWorkItemFieldData,
   ValidationRules,
+  WorkItemField,
 } from '@/lib/types/work-item-fields';
 
 /**
@@ -113,7 +113,9 @@ export class RBACWorkItemFieldsService extends BaseRBACService {
     const [result] = await db
       .select()
       .from(work_item_fields)
-      .where(and(eq(work_item_fields.work_item_field_id, fieldId), isNull(work_item_fields.deleted_at)));
+      .where(
+        and(eq(work_item_fields.work_item_field_id, fieldId), isNull(work_item_fields.deleted_at))
+      );
 
     if (!result) {
       return null;
@@ -175,7 +177,9 @@ export class RBACWorkItemFieldsService extends BaseRBACService {
         field_label: fieldData.field_label,
         field_type: fieldData.field_type,
         field_description: fieldData.field_description,
-        field_options: fieldData.field_options ? JSON.parse(JSON.stringify(fieldData.field_options)) : null,
+        field_options: fieldData.field_options
+          ? JSON.parse(JSON.stringify(fieldData.field_options))
+          : null,
         is_required: fieldData.is_required ?? false,
         validation_rules: fieldData.validation_rules
           ? JSON.parse(JSON.stringify(fieldData.validation_rules))
@@ -209,7 +213,10 @@ export class RBACWorkItemFieldsService extends BaseRBACService {
   /**
    * Update a work item field
    */
-  async updateWorkItemField(fieldId: string, updateData: UpdateWorkItemFieldData): Promise<WorkItemField> {
+  async updateWorkItemField(
+    fieldId: string,
+    updateData: UpdateWorkItemFieldData
+  ): Promise<WorkItemField> {
     const startTime = Date.now();
 
     log.info('Work item field update initiated', {
@@ -319,6 +326,8 @@ export class RBACWorkItemFieldsService extends BaseRBACService {
 /**
  * Factory function to create RBAC Work Item Fields Service
  */
-export function createRBACWorkItemFieldsService(userContext: UserContext): RBACWorkItemFieldsService {
+export function createRBACWorkItemFieldsService(
+  userContext: UserContext
+): RBACWorkItemFieldsService {
   return new RBACWorkItemFieldsService(userContext);
 }

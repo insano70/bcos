@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
 import type { SlowQueriesResponse } from '@/lib/monitoring/types';
 
@@ -16,7 +16,7 @@ export default function SlowQueriesPanel({
   const [data, setData] = useState<SlowQueriesResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchQueries = async () => {
+  const fetchQueries = useCallback(async () => {
     try {
       const response = await apiClient.get('/api/admin/monitoring/slow-queries?limit=10');
       setData(response as SlowQueriesResponse);
@@ -25,22 +25,22 @@ export default function SlowQueriesPanel({
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchQueries();
-  }, []);
+  }, [fetchQueries]);
 
   useEffect(() => {
     if (!autoRefresh || refreshInterval === 0) return;
     const interval = setInterval(fetchQueries, refreshInterval);
     return () => clearInterval(interval);
-  }, [autoRefresh, refreshInterval]);
+  }, [autoRefresh, refreshInterval, fetchQueries]);
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
       <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Slow Queries</h3>
-      
+
       {loading && !data ? (
         <div className="flex items-center justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div>
@@ -76,4 +76,3 @@ export default function SlowQueriesPanel({
     </div>
   );
 }
-

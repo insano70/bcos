@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
@@ -67,11 +67,14 @@ const getDataSourceColumnsHandler = async (
 
     const activeCount = columns.filter((col) => col.is_active).length;
     const inactiveCount = columns.length - activeCount;
-    const dataTypeCounts = columns.reduce((acc, col) => {
-      const type = col.data_type || 'unknown';
-      acc[type] = (acc[type] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
+    const dataTypeCounts = columns.reduce(
+      (acc, col) => {
+        const type = col.data_type || 'unknown';
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
     log.info(`data source columns list completed - returned ${columns.length} columns`, {
       operation: 'list_data_source_columns',

@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { motion, useSpring, useTransform } from 'framer-motion';
-import type { ResponsiveChartProps } from '@/lib/types/responsive-charts';
+import { useEffect, useState } from 'react';
 import type { ChartData } from '@/lib/types/analytics';
+import type { ResponsiveChartProps } from '@/lib/types/responsive-charts';
 
 interface AnimatedCounterProps {
   value: number;
@@ -16,13 +16,13 @@ function AnimatedCounter({
   value,
   duration = 2,
   format = 'number',
-  decimals = 0
+  decimals = 0,
 }: AnimatedCounterProps) {
   const spring = useSpring(0, {
     mass: 0.8,
     stiffness: 75,
     damping: 15,
-    duration: duration * 1000
+    duration: duration * 1000,
   });
 
   const display = useTransform(spring, (current) => {
@@ -33,7 +33,10 @@ function AnimatedCounter({
     } else if (format === 'percentage') {
       return `${rounded.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}%`;
     } else {
-      return rounded.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+      return rounded.toLocaleString('en-US', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      });
     }
   });
 
@@ -84,7 +87,7 @@ export default function AnalyticsNumberChart({
     const datasets = chartData.datasets;
     if (datasets && datasets.length > 0) {
       const dataset = datasets[0];
-      if (dataset && dataset.data) {
+      if (dataset?.data) {
         const dataArray = dataset.data as number[];
         value = dataArray[0] || 0;
         measureType = (dataset.measureType as string) || 'number';
@@ -97,7 +100,9 @@ export default function AnalyticsNumberChart({
   }
 
   // Determine format from measure_type if not explicitly provided
-  const displayFormat = format || (measureType === 'currency' ? 'currency' : 'number') as 'currency' | 'number' | 'percentage';
+  const displayFormat =
+    format ||
+    ((measureType === 'currency' ? 'currency' : 'number') as 'currency' | 'number' | 'percentage');
 
   // Determine decimals: 0 for currency and large numbers, 1 for percentages
   const decimals = displayFormat === 'percentage' ? 1 : 0;
@@ -111,7 +116,10 @@ export default function AnalyticsNumberChart({
     } else if (displayFormat === 'percentage') {
       return `${rounded.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}%`;
     } else {
-      return rounded.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+      return rounded.toLocaleString('en-US', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      });
     }
   };
 
@@ -144,11 +152,11 @@ export default function AnalyticsNumberChart({
     >
       <div className="text-center">
         {title && (
-          <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-4">
-            {title}
-          </p>
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-4">{title}</p>
         )}
-        <div className={`${fontSizeClass} font-bold text-slate-800 dark:text-white truncate max-w-full px-4`}>
+        <div
+          className={`${fontSizeClass} font-bold text-slate-800 dark:text-white truncate max-w-full px-4`}
+        >
           <AnimatedCounter
             value={value}
             format={displayFormat}

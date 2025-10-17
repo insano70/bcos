@@ -1,19 +1,18 @@
 #!/usr/bin/env tsx
 /**
  * Analytics Security Testing Script
- * 
+ *
  * Tests the three-tier permission model for analytics data security:
  * 1. Super Admin (analytics:read:all) - See all data
  * 2. Organization User (analytics:read:organization) - Filtered by practice_uids
  * 3. Provider User (analytics:read:own) - Filtered by provider_uid
  * 4. No Permission - Fail-closed (no data)
- * 
+ *
  * Phase 2 Task 2.4: End-to-end security filtering verification
  */
 
 import { createOrganizationAccessService } from '@/lib/services/organization-access-service';
-import type { UserContext } from '@/lib/types/rbac';
-import type { Permission, Role, Organization } from '@/lib/types/rbac';
+import type { Organization, Permission, Role, UserContext } from '@/lib/types/rbac';
 
 async function runSecurityTests() {
   console.log('🔒 Analytics Security Testing - Three-Tier Permission Model\n');
@@ -120,7 +119,9 @@ async function runSecurityTests() {
   const superAdminProviderAccess = await superAdminService.getAccessibleProviderUid();
 
   console.log(`✅ Permission Scope: ${superAdminPracticeAccess.scope}`);
-  console.log(`✅ practice_uids: ${JSON.stringify(superAdminPracticeAccess.practiceUids)} (empty = no filtering)`);
+  console.log(
+    `✅ practice_uids: ${JSON.stringify(superAdminPracticeAccess.practiceUids)} (empty = no filtering)`
+  );
   console.log(`✅ provider_uid: ${superAdminProviderAccess.providerUid} (null = no filtering)`);
   console.log(`✅ Expected: Super admin sees ALL data without filtering`);
   console.log(
@@ -164,7 +165,9 @@ async function runSecurityTests() {
   const actualUids = orgUserPracticeAccess.practiceUids.sort((a, b) => a - b);
   const practiceUidsMatch = JSON.stringify(expectedUids) === JSON.stringify(actualUids);
 
-  console.log(`✅ Status: ${practiceUidsMatch && orgUserPracticeAccess.scope === 'organization' ? 'PASS ✓' : 'FAIL ✗'}`);
+  console.log(
+    `✅ Status: ${practiceUidsMatch && orgUserPracticeAccess.scope === 'organization' ? 'PASS ✓' : 'FAIL ✗'}`
+  );
 
   // Test 3: Organization User with Empty practice_uids (Fail-Closed)
   console.log('\n📊 Test 3: Organization User with Empty practice_uids (Fail-Closed Security)');
@@ -225,7 +228,9 @@ async function runSecurityTests() {
   const providerProviderAccess = await providerService.getAccessibleProviderUid();
 
   console.log(`✅ Permission Scope: ${providerPracticeAccess.scope}`);
-  console.log(`✅ practice_uids: ${JSON.stringify(providerPracticeAccess.practiceUids)} (empty for provider users)`);
+  console.log(
+    `✅ practice_uids: ${JSON.stringify(providerPracticeAccess.practiceUids)} (empty for provider users)`
+  );
   console.log(`✅ provider_uid: ${providerProviderAccess.providerUid}`);
   console.log(`✅ Expected: Filtered by provider_uid = 42 only`);
   console.log(
@@ -292,7 +297,9 @@ async function runSecurityTests() {
   console.log(`✅ Permission Scope: ${noPermAccess.scope}`);
   console.log(`✅ practice_uids: ${JSON.stringify(noPermAccess.practiceUids)} (empty array)`);
   console.log(`✅ Expected: Fail-closed security - user sees NO data`);
-  console.log(`✅ Status: ${noPermAccess.practiceUids.length === 0 && noPermAccess.scope === 'none' ? 'PASS ✓' : 'FAIL ✗'}`);
+  console.log(
+    `✅ Status: ${noPermAccess.practiceUids.length === 0 && noPermAccess.scope === 'none' ? 'PASS ✓' : 'FAIL ✗'}`
+  );
 
   // Test 7: Validation Methods
   console.log('\n📊 Test 7: Access Validation Methods');
@@ -310,12 +317,15 @@ async function runSecurityTests() {
   console.log(`✅ Can access org-999: ${canAccessOrg999} (should be false)`);
 
   const validationPass =
-    canAccess100 === true && canAccess999 === false && canAccessOrg1 === true && canAccessOrg999 === false;
+    canAccess100 === true &&
+    canAccess999 === false &&
+    canAccessOrg1 === true &&
+    canAccessOrg999 === false;
 
   console.log(`✅ Status: ${validationPass ? 'PASS ✓' : 'FAIL ✗'}`);
 
   // Summary
-  console.log('\n' + '='.repeat(80));
+  console.log(`\n${'='.repeat(80)}`);
   console.log('📊 Test Summary');
   console.log('='.repeat(80));
 

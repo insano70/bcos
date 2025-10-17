@@ -1,12 +1,12 @@
 'use client';
 
 import { useSelectedLayoutSegments } from 'next/navigation';
-import { useWindowWidth } from '@/components/utils/use-window-width';
 import { useAppProvider } from '@/app/app-provider';
-import SidebarLinkGroup from '../sidebar-link-group';
-import SidebarLink from '../sidebar-link';
 import { ProtectedComponent } from '@/components/rbac/protected-component';
+import { useWindowWidth } from '@/components/utils/use-window-width';
 import { usePublishedDashboards } from '@/lib/hooks/use-published-dashboards';
+import SidebarLink from '../sidebar-link';
+import SidebarLinkGroup from '../sidebar-link-group';
 
 /**
  * Dashboard Menu Section
@@ -19,7 +19,11 @@ export function DashboardMenuSection() {
   const breakpoint = useWindowWidth();
   const expandOnly = !sidebarExpanded && breakpoint && breakpoint >= 1024 && breakpoint < 1536;
 
-  const { dashboards: publishedDashboards, defaultDashboard, loading: dashboardsLoading } = usePublishedDashboards();
+  const {
+    dashboards: publishedDashboards,
+    defaultDashboard,
+    loading: dashboardsLoading,
+  } = usePublishedDashboards();
 
   return (
     <div>
@@ -84,8 +88,18 @@ export function DashboardMenuSection() {
                       <li className="mb-1 last:mb-0">
                         <SidebarLink href={`/dashboard/view/${defaultDashboard.dashboard_id}`}>
                           <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200 flex items-center">
-                            <svg className="w-3 h-3 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                            <svg
+                              className="w-3 h-3 mr-1.5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                              />
                             </svg>
                             Home
                           </span>
@@ -95,12 +109,16 @@ export function DashboardMenuSection() {
 
                     {/* Published Dashboards - Protected by Analytics RBAC */}
                     <ProtectedComponent
-                      permissions={['analytics:read:all', 'analytics:read:organization', 'analytics:read:own']}
+                      permissions={[
+                        'analytics:read:all',
+                        'analytics:read:organization',
+                        'analytics:read:own',
+                      ]}
                       requireAll={false}
                     >
-                      <>
-                        {/* Render published dashboards as menu items */}
-                        {!dashboardsLoading && publishedDashboards.map((dashboard) => (
+                      {/* Render published dashboards as menu items */}
+                      {!dashboardsLoading &&
+                        publishedDashboards.map((dashboard) => (
                           <li key={dashboard.dashboard_id} className="mb-1 last:mb-0">
                             <SidebarLink href={`/dashboard/view/${dashboard.dashboard_id}`}>
                               <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
@@ -109,7 +127,6 @@ export function DashboardMenuSection() {
                             </SidebarLink>
                           </li>
                         ))}
-                      </>
                     </ProtectedComponent>
                   </ul>
                 </div>

@@ -11,9 +11,7 @@ export const autoCreateConfigSchema = z.object({
     .string()
     .max(500, 'Subject template must be 500 characters or less')
     .optional(),
-  field_values: z
-    .record(z.string(), z.string().max(1000))
-    .optional(),
+  field_values: z.record(z.string(), z.string().max(1000)).optional(),
   inherit_fields: z
     .array(z.string().max(100))
     .max(50, 'Cannot inherit more than 50 fields')
@@ -30,24 +28,11 @@ export const workItemTypeRelationshipCreateSchema = z
       .min(1, 'Relationship name is required')
       .max(100, 'Relationship name must be 100 characters or less'),
     is_required: z.boolean().optional().default(false),
-    min_count: z
-      .number()
-      .int()
-      .min(0, 'Minimum count must be 0 or greater')
-      .optional(),
-    max_count: z
-      .number()
-      .int()
-      .min(1, 'Maximum count must be 1 or greater')
-      .optional(),
+    min_count: z.number().int().min(0, 'Minimum count must be 0 or greater').optional(),
+    max_count: z.number().int().min(1, 'Maximum count must be 1 or greater').optional(),
     auto_create: z.boolean().optional().default(false),
     auto_create_config: autoCreateConfigSchema.optional(),
-    display_order: z
-      .number()
-      .int()
-      .min(0)
-      .optional()
-      .default(0),
+    display_order: z.number().int().min(0).optional().default(0),
   })
   .refine(
     (data) => {
@@ -95,23 +80,11 @@ export const workItemTypeRelationshipUpdateSchema = z
       .max(100, 'Relationship name must be 100 characters or less')
       .optional(),
     is_required: z.boolean().optional(),
-    min_count: z
-      .number()
-      .int()
-      .min(0, 'Minimum count must be 0 or greater')
-      .optional(),
-    max_count: z
-      .number()
-      .int()
-      .min(1, 'Maximum count must be 1 or greater')
-      .optional(),
+    min_count: z.number().int().min(0, 'Minimum count must be 0 or greater').optional(),
+    max_count: z.number().int().min(1, 'Maximum count must be 1 or greater').optional(),
     auto_create: z.boolean().optional(),
     auto_create_config: autoCreateConfigSchema.optional(),
-    display_order: z
-      .number()
-      .int()
-      .min(0)
-      .optional(),
+    display_order: z.number().int().min(0).optional(),
   })
   .refine(
     (data) => {
@@ -148,17 +121,8 @@ export const workItemTypeRelationshipsQuerySchema = z.object({
     .enum(['true', 'false'])
     .transform((val) => val === 'true')
     .optional(),
-  limit: z
-    .number()
-    .int()
-    .min(1)
-    .max(100)
-    .optional(),
-  offset: z
-    .number()
-    .int()
-    .min(0)
-    .optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+  offset: z.number().int().min(0).optional(),
 });
 
 // Export types inferred from schemas

@@ -1,12 +1,12 @@
 import { sql } from 'drizzle-orm';
 import type { NextRequest } from 'next/server';
-import { rbacRoute } from '@/lib/api/route-handlers';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { checkDbHealth, db } from '@/lib/db';
+import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import { checkAnalyticsDbHealth } from '@/lib/services/analytics-db';
 import type { UserContext } from '@/lib/types/rbac';
-import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 
 /**
  * Database health check endpoint

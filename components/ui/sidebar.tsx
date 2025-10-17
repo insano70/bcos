@@ -1,12 +1,12 @@
 'use client';
 
-import Logo from './logo';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import { usePermissions } from '@/lib/hooks/use-permissions';
-import { useSidebarState } from './sidebar/use-sidebar-state';
-import { DashboardMenuSection } from './sidebar/dashboard-menu-section';
-import { WorkMenuSection } from './sidebar/work-menu-section';
+import Logo from './logo';
 import { AdminMenuSection } from './sidebar/admin-menu-section';
+import { DashboardMenuSection } from './sidebar/dashboard-menu-section';
+import { useSidebarState } from './sidebar/use-sidebar-state';
+import { WorkMenuSection } from './sidebar/work-menu-section';
 
 /**
  * Main Sidebar Component
@@ -26,7 +26,8 @@ import { AdminMenuSection } from './sidebar/admin-menu-section';
 export default function Sidebar({ variant = 'default' }: { variant?: 'default' | 'v2' }) {
   const { rbacLoading } = useAuth();
   const { hasAnyPermission } = usePermissions();
-  const { sidebar, sidebarOpen, setSidebarOpen, sidebarExpanded, setSidebarExpanded } = useSidebarState();
+  const { sidebar, sidebarOpen, setSidebarOpen, sidebarExpanded, setSidebarExpanded } =
+    useSidebarState();
 
   // Check if user has any permissions to see Admin section items (Configure + Monitor)
   const hasAdminAccess = hasAnyPermission([
@@ -38,14 +39,14 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
     'organizations:delete:organization',
     'work-items:manage:organization',
     'analytics:read:all',
-    'data-sources:read:organization'
+    'data-sources:read:organization',
   ]);
 
   // Check if user has any permissions to see Work section items
   const hasWorkAccess = hasAnyPermission([
     'work-items:read:own',
     'work-items:read:organization',
-    'work-items:read:all'
+    'work-items:read:all',
   ]);
 
   // Don't render the sidebar until authentication is loaded

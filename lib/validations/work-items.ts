@@ -402,15 +402,7 @@ export const workItemStatusTransitionParamsSchema = z.object({
   id: z.string().uuid('Invalid work item status transition ID'),
 });
 
-export type WorkItemStatusTransitionCreate = z.infer<
-  typeof workItemStatusTransitionCreateSchema
->;
-export type WorkItemStatusTransitionUpdate = z.infer<
-  typeof workItemStatusTransitionUpdateSchema
->;
-export type WorkItemStatusTransitionQuery = z.infer<
-  typeof workItemStatusTransitionQuerySchema
->;
-export type WorkItemStatusTransitionParams = z.infer<
-  typeof workItemStatusTransitionParamsSchema
->;
+export type WorkItemStatusTransitionCreate = z.infer<typeof workItemStatusTransitionCreateSchema>;
+export type WorkItemStatusTransitionUpdate = z.infer<typeof workItemStatusTransitionUpdateSchema>;
+export type WorkItemStatusTransitionQuery = z.infer<typeof workItemStatusTransitionQuerySchema>;
+export type WorkItemStatusTransitionParams = z.infer<typeof workItemStatusTransitionParamsSchema>;

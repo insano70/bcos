@@ -14,7 +14,7 @@
  * - Automatic refetch capability
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
 import type { ChartData, ChartFilter, DualAxisConfig } from '@/lib/types/analytics';
 
@@ -79,7 +79,7 @@ interface UniversalChartDataRequest {
     advancedFilters?: ChartFilter[];
     calculatedField?: string;
   };
-  
+
   // Cache control (Phase 6)
   nocache?: boolean;
 }
@@ -181,9 +181,7 @@ export function useChartData(request: UniversalChartDataRequest): UseChartDataRe
       setData(response);
       setError(null);
     } catch (err) {
-      const errorMessage = err instanceof Error
-        ? err.message
-        : 'Failed to fetch chart data';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch chart data';
 
       setError(errorMessage);
       setData(null);
@@ -200,52 +198,53 @@ export function useChartData(request: UniversalChartDataRequest): UseChartDataRe
       setIsLoading(false);
     }
     // Use serialized request for dependency to compare values, not references
-  }, [JSON.stringify(request)]);
+  }, [request]);
 
   /**
    * Refetch data
    * @param bypassCache - If true, bypasses cache and fetches fresh data
    */
-  const refetch = useCallback(async (bypassCache = false) => {
-    if (bypassCache && request.chartConfig) {
-      // Create new request with nocache flag
-      const freshRequest = {
-        ...request,
-        nocache: true,
-      };
-      
-      // Directly call API with nocache flag
-      try {
-        const response = await apiClient.post<UniversalChartDataResponse>(
-          '/api/admin/analytics/chart-data/universal?nocache=true',
-          freshRequest
-        );
-        setData(response);
-        setError(null);
-      } catch (err) {
-        const errorMessage = err instanceof Error
-          ? err.message
-          : 'Failed to fetch chart data';
-        setError(errorMessage);
+  const refetch = useCallback(
+    async (bypassCache = false) => {
+      if (bypassCache && request.chartConfig) {
+        // Create new request with nocache flag
+        const freshRequest = {
+          ...request,
+          nocache: true,
+        };
+
+        // Directly call API with nocache flag
+        try {
+          const response = await apiClient.post<UniversalChartDataResponse>(
+            '/api/admin/analytics/chart-data/universal?nocache=true',
+            freshRequest
+          );
+          setData(response);
+          setError(null);
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : 'Failed to fetch chart data';
+          setError(errorMessage);
+        }
+      } else {
+        await fetchData();
       }
-    } else {
-      await fetchData();
-    }
-  }, [fetchData, request]);
+    },
+    [fetchData, request]
+  );
 
   /**
    * Fetch data on mount or when request changes
    * Use ref to prevent duplicate fetches from React 19's double-render pattern
    */
   const lastFetchTimeRef = React.useRef<number>(0);
-  
+
   useEffect(() => {
     const now = Date.now();
     // Skip if we fetched less than 50ms ago (same render cycle)
     if (now - lastFetchTimeRef.current < 50) {
       return;
     }
-    
+
     lastFetchTimeRef.current = now;
     fetchData();
   }, [fetchData]);

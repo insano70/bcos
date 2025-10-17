@@ -11,9 +11,8 @@
  * to handle foreign key constraints.
  */
 
-import { defaultCleanupTracker } from './cleanup-tracker'
-import { defaultIDGenerator } from './id-generator'
-import type { BaseFactory, BaseFactoryOptions } from './base-factory'
+import type { BaseFactory, BaseFactoryOptions } from './base-factory';
+import { defaultCleanupTracker } from './cleanup-tracker';
 
 /**
  * Scoped factory collection for isolated test data
@@ -22,22 +21,22 @@ export interface FactoryScope {
   /**
    * Unique identifier for this scope
    */
-  scopeId: string
+  scopeId: string;
 
   /**
    * Factories in this scope
    */
-  factories: Map<string, BaseFactory<{ [key: string]: unknown }, BaseFactoryOptions>>
+  factories: Map<string, BaseFactory<{ [key: string]: unknown }, BaseFactoryOptions>>;
 
   /**
    * When this scope was created
    */
-  createdAt: Date
+  createdAt: Date;
 
   /**
    * Metadata about this scope
    */
-  metadata: Record<string, unknown> | undefined
+  metadata: Record<string, unknown> | undefined;
 }
 
 /**
@@ -62,8 +61,11 @@ export interface FactoryScope {
  * ```
  */
 export class FactoryRegistry {
-  private static scopes: Map<string, FactoryScope> = new Map()
-  private static globalFactories: Map<string, BaseFactory<{ [key: string]: unknown }, BaseFactoryOptions>> = new Map()
+  private static scopes: Map<string, FactoryScope> = new Map();
+  private static globalFactories: Map<
+    string,
+    BaseFactory<{ [key: string]: unknown }, BaseFactoryOptions>
+  > = new Map();
 
   /**
    * Register a factory globally
@@ -75,7 +77,7 @@ export class FactoryRegistry {
     name: string,
     factory: BaseFactory<{ [key: string]: unknown }, BaseFactoryOptions>
   ): void {
-    this.globalFactories.set(name, factory)
+    FactoryRegistry.globalFactories.set(name, factory);
   }
 
   /**
@@ -84,8 +86,10 @@ export class FactoryRegistry {
    * @param name - Factory name
    * @returns The factory instance
    */
-  static getFactory<T extends BaseFactory<{ [key: string]: unknown }, BaseFactoryOptions>>(name: string): T | undefined {
-    return this.globalFactories.get(name) as T | undefined
+  static getFactory<T extends BaseFactory<{ [key: string]: unknown }, BaseFactoryOptions>>(
+    name: string
+  ): T | undefined {
+    return FactoryRegistry.globalFactories.get(name) as T | undefined;
   }
 
   /**
@@ -95,27 +99,24 @@ export class FactoryRegistry {
    * @param metadata - Optional metadata
    * @returns A scoped factory collection
    */
-  static createScope(
-    scopeId: string,
-    metadata?: Record<string, unknown>
-  ): ScopedFactoryCollection {
-    if (this.scopes.has(scopeId)) {
+  static createScope(scopeId: string, metadata?: Record<string, unknown>): ScopedFactoryCollection {
+    if (FactoryRegistry.scopes.has(scopeId)) {
       throw new Error(
         `Scope ${scopeId} already exists. ` +
-        `Each test should use a unique scope ID or cleanup the previous scope first.`
-      )
+          `Each test should use a unique scope ID or cleanup the previous scope first.`
+      );
     }
 
     const scope: FactoryScope = {
       scopeId,
       factories: new Map(),
       createdAt: new Date(),
-      metadata: metadata ?? undefined
-    }
+      metadata: metadata ?? undefined,
+    };
 
-    this.scopes.set(scopeId, scope)
+    FactoryRegistry.scopes.set(scopeId, scope);
 
-    return new ScopedFactoryCollection(scopeId)
+    return new ScopedFactoryCollection(scopeId);
   }
 
   /**
@@ -123,7 +124,7 @@ export class FactoryRegistry {
    * Called automatically after cleanup
    */
   static removeScope(scopeId: string): void {
-    this.scopes.delete(scopeId)
+    FactoryRegistry.scopes.delete(scopeId);
   }
 
   /**
@@ -133,41 +134,42 @@ export class FactoryRegistry {
    * @returns Number of objects cleaned up
    */
   static async cleanupScope(scopeId: string): Promise<number> {
-    const scope = this.scopes.get(scopeId)
+    const scope = FactoryRegistry.scopes.get(scopeId);
     if (!scope) {
-      return 0
+      return 0;
     }
 
     // Get cleanup order from tracker
-    const cleanupOrder = defaultCleanupTracker.getCleanupOrder(scopeId)
+    const cleanupOrder = defaultCleanupTracker.getCleanupOrder(scopeId);
 
-    let totalCleaned = 0
+    let totalCleaned = 0;
 
     // Process each type in order
-    const processedTypes = new Set<string>()
+    const processedTypes = new Set<string>();
 
     for (const obj of cleanupOrder) {
       if (processedTypes.has(obj.type)) {
-        continue
+        continue;
       }
 
-      processedTypes.add(obj.type)
+      processedTypes.add(obj.type);
 
       // Find factory for this type
-      const factory = Array.from(this.globalFactories.values()).find(
-        f => (f as BaseFactory<{ [key: string]: unknown }, BaseFactoryOptions>)['entityType'] === obj.type
-      )
+      const factory = Array.from(FactoryRegistry.globalFactories.values()).find(
+        (f) =>
+          (f as BaseFactory<{ [key: string]: unknown }, BaseFactoryOptions>).entityType === obj.type
+      );
 
       if (factory) {
-        const cleaned = await factory.cleanup(scopeId)
-        totalCleaned += cleaned
+        const cleaned = await factory.cleanup(scopeId);
+        totalCleaned += cleaned;
       }
     }
 
     // Remove scope after cleanup
-    this.removeScope(scopeId)
+    FactoryRegistry.removeScope(scopeId);
 
-    return totalCleaned
+    return totalCleaned;
   }
 
   /**
@@ -177,36 +179,36 @@ export class FactoryRegistry {
    * @returns Number of objects cleaned up
    */
   static async cleanupAll(): Promise<number> {
-    let totalCleaned = 0
+    let totalCleaned = 0;
 
-    for (const scopeId of Array.from(this.scopes.keys())) {
-      const cleaned = await this.cleanupScope(scopeId)
-      totalCleaned += cleaned
+    for (const scopeId of Array.from(FactoryRegistry.scopes.keys())) {
+      const cleaned = await FactoryRegistry.cleanupScope(scopeId);
+      totalCleaned += cleaned;
     }
 
-    return totalCleaned
+    return totalCleaned;
   }
 
   /**
    * Get all active scope IDs
    */
   static getActiveScopeIds(): string[] {
-    return Array.from(this.scopes.keys())
+    return Array.from(FactoryRegistry.scopes.keys());
   }
 
   /**
    * Get debug information about the registry
    */
   static getDebugInfo(): {
-    activeScopeCount: number
-    registeredFactoryCount: number
-    cleanupTrackerInfo: ReturnType<typeof defaultCleanupTracker.getDebugInfo>
+    activeScopeCount: number;
+    registeredFactoryCount: number;
+    cleanupTrackerInfo: ReturnType<typeof defaultCleanupTracker.getDebugInfo>;
   } {
     return {
-      activeScopeCount: this.scopes.size,
-      registeredFactoryCount: this.globalFactories.size,
-      cleanupTrackerInfo: defaultCleanupTracker.getDebugInfo()
-    }
+      activeScopeCount: FactoryRegistry.scopes.size,
+      registeredFactoryCount: FactoryRegistry.globalFactories.size,
+      cleanupTrackerInfo: defaultCleanupTracker.getDebugInfo(),
+    };
   }
 
   /**
@@ -214,8 +216,8 @@ export class FactoryRegistry {
    * WARNING: Does not perform cleanup, just clears tracking
    */
   static reset(): void {
-    this.scopes.clear()
-    this.globalFactories.clear()
+    FactoryRegistry.scopes.clear();
+    FactoryRegistry.globalFactories.clear();
   }
 }
 
@@ -237,15 +239,15 @@ export class ScopedFactoryCollection {
   getFactory<T extends BaseFactory<{ [key: string]: unknown }, BaseFactoryOptions>>(
     factoryName: string
   ): T | undefined {
-    const factory = FactoryRegistry.getFactory<T>(factoryName)
+    const factory = FactoryRegistry.getFactory<T>(factoryName);
     if (!factory) {
-      return undefined
+      return undefined;
     }
 
     // Set default scope on the factory
-    factory.setDefaultScope(this.scopeId)
+    factory.setDefaultScope(this.scopeId);
 
-    return factory
+    return factory;
   }
 
   /**
@@ -254,14 +256,14 @@ export class ScopedFactoryCollection {
    * @returns Number of objects cleaned up
    */
   async cleanup(): Promise<number> {
-    return await FactoryRegistry.cleanupScope(this.scopeId)
+    return await FactoryRegistry.cleanupScope(this.scopeId);
   }
 
   /**
    * Get the scope ID
    */
   getScopeId(): string {
-    return this.scopeId
+    return this.scopeId;
   }
 }
 
@@ -276,7 +278,7 @@ export class ScopedFactoryCollection {
  * ```
  */
 export async function globalCleanup(): Promise<number> {
-  return await FactoryRegistry.cleanupAll()
+  return await FactoryRegistry.cleanupAll();
 }
 
 /**
@@ -297,5 +299,5 @@ export function createTestScope(
   scopeId: string,
   metadata?: Record<string, unknown>
 ): ScopedFactoryCollection {
-  return FactoryRegistry.createScope(scopeId, metadata)
+  return FactoryRegistry.createScope(scopeId, metadata);
 }
