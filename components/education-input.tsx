@@ -62,7 +62,7 @@ export default function EducationInput({
       {value.length > 0 && (
         <div className="space-y-3 mb-4">
           {value.map((edu, index) => (
-            <div key={index} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+            <div key={`${edu.degree}-${edu.school}-${edu.year}`} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
               <div className="flex justify-between items-start">
                 <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-3">
                   <input

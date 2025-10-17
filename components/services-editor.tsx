@@ -89,7 +89,7 @@ export default function ServicesEditor({
         <div className="space-y-2">
           {services.map((service, index) => (
             <div
-              key={index}
+              key={service}
               className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg group"
             >
               {/* Reorder buttons */}

@@ -43,14 +43,14 @@ interface AnalyticsDualAxisChartProps extends ResponsiveChartProps {
 export default function AnalyticsDualAxisChart({
   dualAxisConfig,
   chartData,
-  width = 800,
+  width: _width = 800,
   height = 400,
   title,
   // Responsive props
   responsive = false,
-  minHeight = 200,
-  maxHeight = 800,
-  aspectRatio,
+  minHeight: _minHeight = 200,
+  maxHeight: _maxHeight = 800,
+  aspectRatio: _aspectRatio,
 }: AnalyticsDualAxisChartProps) {
   const [chart, setChart] = useState<Chart | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);

@@ -1,6 +1,6 @@
 // Create a standalone database connection for seeding
 
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { organizations, permissions, role_permissions, roles } from '../lib/db/rbac-schema.js';
@@ -95,7 +95,9 @@ async function runRBACMigration() {
             is_active: true,
             updated_at: new Date(),
           })
-          .where(eq(roles.role_id, existingRole[0]?.role_id))
+          .where(
+            existingRole[0]?.role_id ? eq(roles.role_id, existingRole[0].role_id) : sql`1=0`
+          )
           .returning();
       } else {
         // Insert new role

@@ -54,12 +54,12 @@ describe('Token Lifecycle Integration', () => {
       expect(newTokenPair?.accessToken).not.toBe(tokenPair.accessToken);
 
       // 4. Revoke refresh token
-      const revokeResult = await revokeRefreshToken(newTokenPair?.refreshToken, 'logout');
+      const revokeResult = await revokeRefreshToken(newTokenPair?.refreshToken ?? '', 'logout');
 
       expect(revokeResult).toBe(true);
 
       // 5. Verify revoked token cannot be used
-      const failedRefresh = await refreshTokenPair(newTokenPair?.refreshToken, deviceInfo);
+      const failedRefresh = await refreshTokenPair(newTokenPair?.refreshToken ?? '', deviceInfo);
 
       expect(failedRefresh).toBeNull();
 

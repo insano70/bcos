@@ -230,6 +230,8 @@ export class CommittedChartFactory extends BaseFactory<CommittedChart, CreateCha
           `This may cause issues with cleanup.`
       );
     }
+
+    return options;
   }
 }
 

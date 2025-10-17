@@ -44,6 +44,9 @@ export interface ErrorHandlerContext {
 }
 
 export class RouteErrorHandler {
+  // Private constructor prevents instantiation - this is a static utility class
+  private constructor() {}
+
   /**
    * Handle route errors with consistent logging and metrics
    *

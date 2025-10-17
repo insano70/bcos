@@ -51,6 +51,7 @@ export default function StaffMemberCard({
         {/* Photo */}
         <div className="flex-shrink-0">
           {staffMember.photo_url ? (
+            // biome-ignore lint/performance/noImgElement: Staff member photos from external sources
             <img
               src={staffMember.photo_url}
               alt={staffMember.name}
@@ -108,9 +109,9 @@ export default function StaffMemberCard({
           {staffMember.specialties && staffMember.specialties.length > 0 && (
             <div className="mt-2">
               <div className="flex flex-wrap gap-1">
-                {staffMember.specialties.slice(0, 3).map((specialty, index) => (
+                {staffMember.specialties.slice(0, 3).map((specialty) => (
                   <span
-                    key={index}
+                    key={specialty}
                     className="inline-flex items-center px-2 py-1 rounded text-xs bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
                   >
                     {specialty}

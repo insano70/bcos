@@ -287,3 +287,101 @@ export function getMeasureTypeFromChart(value: unknown, fallback: string = 'numb
   }
   return fallback;
 }
+
+/**
+ * Type guard to check if a value is an array
+ *
+ * @param value - The value to check
+ * @returns True if value is an array, false otherwise
+ *
+ * @example
+ * ```typescript
+ * const filterValue: unknown = jsonData.filters;
+ * if (isUnknownArray(filterValue)) {
+ *   // TypeScript now knows filterValue is unknown[]
+ *   return filterValue.includes(searchValue);
+ * }
+ * ```
+ */
+export function isUnknownArray(value: unknown): value is unknown[] {
+  return Array.isArray(value);
+}
+
+/**
+ * Assertion function that throws if value is not an array
+ *
+ * @param value - The value to check
+ * @param context - Context string for error message
+ * @throws TypeError if value is not an array
+ *
+ * @example
+ * ```typescript
+ * assertArray(filterValue, 'filter processing');
+ * // If we reach here, TypeScript knows filterValue is unknown[]
+ * ```
+ */
+export function assertArray(value: unknown, context: string): asserts value is unknown[] {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`Expected array in ${context}, got ${typeof value}`);
+  }
+}
+
+/**
+ * Type guard to check if a value is a string array
+ *
+ * @param value - The value to check
+ * @returns True if value is a string array, false otherwise
+ */
+export function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
+
+/**
+ * Type guard to check if a value is a number array
+ *
+ * @param value - The value to check
+ * @returns True if value is a number array, false otherwise
+ */
+export function isNumberArray(value: unknown): value is number[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'number');
+}
+
+/**
+ * Type guard to check if a value is a non-null object
+ *
+ * @param value - The value to check
+ * @returns True if value is an object (and not null), false otherwise
+ */
+export function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Type guard to check if a value is a string
+ *
+ * @param value - The value to check
+ * @returns True if value is a string, false otherwise
+ */
+export function isString(value: unknown): value is string {
+  return typeof value === 'string';
+}
+
+/**
+ * Type guard to check if a value is a number
+ *
+ * @param value - The value to check
+ * @returns True if value is a number, false otherwise
+ */
+export function isNumber(value: unknown): value is number {
+  return typeof value === 'number' && !Number.isNaN(value);
+}
+
+/**
+ * Type guard to check if a value is a boolean
+ *
+ * @param value - The value to check
+ * @returns True if value is a boolean, false otherwise
+ */
+export function isBoolean(value: unknown): value is boolean {
+  return typeof value === 'boolean';
+}

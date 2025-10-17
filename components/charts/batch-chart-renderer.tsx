@@ -206,10 +206,14 @@ export default function BatchChartRenderer({
     | undefined;
   const calculatedField = configRecord.calculatedField as string | undefined;
   // CRITICAL: Field is stored as 'seriesConfigs' in chart_config, not 'multipleSeries'
-  const multipleSeries = configRecord.seriesConfigs as unknown[] | undefined;
+  const multipleSeries = Array.isArray(configRecord.seriesConfigs)
+    ? configRecord.seriesConfigs
+    : undefined;
   const target = configRecord.target as number | undefined;
   const aggregation = configRecord.aggregation as string | undefined;
-  const advancedFilters = configRecord.advancedFilters as unknown[] | undefined;
+  const advancedFilters = Array.isArray(configRecord.advancedFilters)
+    ? configRecord.advancedFilters
+    : undefined;
   const dataSourceId = configRecord.dataSourceId as number | undefined;
 
   // Calculate dimensions from position (approximate grid-based sizing)

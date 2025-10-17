@@ -1,11 +1,15 @@
+import { useId } from 'react';
+
 export default function SearchForm({ placeholder = 'Search…' }: { placeholder?: string }) {
+  const searchId = useId();
+
   return (
     <form className="relative">
-      <label htmlFor="action-search" className="sr-only">
+      <label htmlFor={searchId} className="sr-only">
         Search
       </label>
       <input
-        id="action-search"
+        id={searchId}
         className="form-input pl-9 bg-white dark:bg-gray-800"
         type="search"
         placeholder={placeholder}

@@ -2,7 +2,7 @@
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import {
@@ -48,6 +48,11 @@ export default function ManageStatusesModal({
   const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+
+  const statusNameId = useId();
+  const statusCategoryId = useId();
+  const colorId = useId();
+  const displayOrderId = useId();
 
   const {
     register,
@@ -228,11 +233,11 @@ export default function ManageStatusesModal({
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Status Name */}
                         <div>
-                          <label className="block text-sm font-medium mb-1" htmlFor="status_name">
+                          <label className="block text-sm font-medium mb-1" htmlFor={statusNameId}>
                             Status Name <span className="text-red-500">*</span>
                           </label>
                           <input
-                            id="status_name"
+                            id={statusNameId}
                             type="text"
                             className={`form-input w-full ${errors.status_name ? 'border-red-300' : ''}`}
                             {...register('status_name')}
@@ -249,12 +254,12 @@ export default function ManageStatusesModal({
                         <div>
                           <label
                             className="block text-sm font-medium mb-1"
-                            htmlFor="status_category"
+                            htmlFor={statusCategoryId}
                           >
                             Category <span className="text-red-500">*</span>
                           </label>
                           <select
-                            id="status_category"
+                            id={statusCategoryId}
                             className={`form-select w-full ${errors.status_category ? 'border-red-300' : ''}`}
                             {...register('status_category')}
                           >
@@ -272,11 +277,11 @@ export default function ManageStatusesModal({
 
                         {/* Color */}
                         <div>
-                          <label className="block text-sm font-medium mb-1" htmlFor="color">
+                          <label className="block text-sm font-medium mb-1" htmlFor={colorId}>
                             Color <span className="text-red-500">*</span>
                           </label>
                           <input
-                            id="color"
+                            id={colorId}
                             type="color"
                             className={`form-input w-full h-10 ${errors.color ? 'border-red-300' : ''}`}
                             {...register('color')}
@@ -288,11 +293,11 @@ export default function ManageStatusesModal({
 
                         {/* Display Order */}
                         <div>
-                          <label className="block text-sm font-medium mb-1" htmlFor="display_order">
+                          <label className="block text-sm font-medium mb-1" htmlFor={displayOrderId}>
                             Display Order <span className="text-red-500">*</span>
                           </label>
                           <input
-                            id="display_order"
+                            id={displayOrderId}
                             type="number"
                             min="0"
                             className={`form-input w-full ${errors.display_order ? 'border-red-300' : ''}`}

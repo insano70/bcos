@@ -33,6 +33,9 @@ import { MetricsRecorder } from '../utils/metrics-recorder';
 import { TimingTracker } from '../utils/timing-tracker';
 
 export class PublicRouteBuilder {
+  // Private constructor prevents instantiation - this is a static utility class
+  private constructor() {}
+
   /**
    * Build public route handler
    *

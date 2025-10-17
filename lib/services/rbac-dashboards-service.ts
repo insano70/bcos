@@ -844,8 +844,8 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
 
     // Calculate changes for audit trail
     const changes = calculateChanges(
-      existing as unknown as Record<string, unknown>,
-      data as unknown as Record<string, unknown>,
+      existing,
+      data,
       [
         'dashboard_name',
         'dashboard_description',

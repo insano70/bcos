@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { permissions, role_permissions, roles } from '@/lib/db/rbac-schema';
 
@@ -20,7 +20,7 @@ async function checkUserRolePermissions() {
     })
     .from(role_permissions)
     .innerJoin(permissions, eq(role_permissions.permission_id, permissions.permission_id))
-    .where(eq(role_permissions.role_id, userRole[0]?.role_id))
+    .where(userRole[0]?.role_id ? eq(role_permissions.role_id, userRole[0].role_id) : sql`1=0`)
     .orderBy(permissions.name);
 
   console.log('\n✅ Permissions for "user" role:');

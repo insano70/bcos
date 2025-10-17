@@ -7,7 +7,6 @@ import { generateUniqueRoleName } from '@/tests/helpers/unique-generator';
 import type { Organization } from './organization-factory';
 
 type Role = InferSelectModel<typeof roles>;
-type Permission = InferSelectModel<typeof permissions>;
 
 /**
  * Configuration options for creating test roles

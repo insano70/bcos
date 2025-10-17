@@ -88,9 +88,9 @@ export default function DataTable<T extends { id: string | number }>({
     if (key === 'actions' && actions) {
       return (
         <div className="flex items-center space-x-2">
-          {actions.map((action, idx) => (
+          {actions.map((action) => (
             <button
-              key={idx}
+              key={action.label}
               type="button"
               onClick={() => action.onClick(item)}
               className={
@@ -127,11 +127,11 @@ export default function DataTable<T extends { id: string | number }>({
               {/* Table header */}
               <thead className="text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20 border-t border-b border-gray-100 dark:border-gray-700/60">
                 <tr>
-                  {columns.map((column, idx) => {
+                  {columns.map((column) => {
                     if (column.key === 'checkbox') {
                       return (
                         <th
-                          key={idx}
+                          key="checkbox"
                           className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap w-px"
                         >
                           <div className="flex items-center">
@@ -152,7 +152,7 @@ export default function DataTable<T extends { id: string | number }>({
                     if (column.key === 'actions') {
                       return (
                         <th
-                          key={idx}
+                          key="actions"
                           className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap w-px"
                         >
                           <span className="sr-only">{column.header || 'Actions'}</span>
@@ -164,7 +164,7 @@ export default function DataTable<T extends { id: string | number }>({
 
                     return (
                       <th
-                        key={idx}
+                        key={String(column.key)}
                         className={`px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap ${column.className || ''}`}
                       >
                         {column.sortable ? (
@@ -212,7 +212,7 @@ export default function DataTable<T extends { id: string | number }>({
                     const rowId = getRowId ? getRowId(item) : item.id;
                     return (
                       <tr key={rowId}>
-                        {columns.map((column, idx) => {
+                        {columns.map((column) => {
                           const alignClass = getAlignmentClass(column.align);
                           const isCheckboxCol = column.key === 'checkbox';
                           const isActionsCol = column.key === 'actions';
@@ -220,7 +220,7 @@ export default function DataTable<T extends { id: string | number }>({
 
                           return (
                             <td
-                              key={idx}
+                              key={String(column.key)}
                               className={`px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap ${widthClass} ${column.className || ''}`}
                             >
                               <div className={alignClass}>{cellRenderer(column.key, item)}</div>

@@ -2,7 +2,7 @@
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import DynamicFieldRenderer from '@/components/dynamic-field-renderer';
@@ -49,6 +49,12 @@ export default function EditWorkItemModal({
   const { data: customFields = [] } = useWorkItemFields({
     work_item_type_id: workItem?.work_item_type_id || '',
   });
+
+  const subjectId = useId();
+  const descriptionId = useId();
+  const statusId = useId();
+  const priorityId = useId();
+  const dueDateId = useId();
 
   const {
     register,
@@ -197,13 +203,13 @@ export default function EditWorkItemModal({
                 {/* Subject */}
                 <div>
                   <label
-                    htmlFor="subject"
+                    htmlFor={subjectId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Subject <span className="text-red-500">*</span>
                   </label>
                   <input
-                    id="subject"
+                    id={subjectId}
                     type="text"
                     {...register('subject')}
                     disabled={isSubmitting}
@@ -220,13 +226,13 @@ export default function EditWorkItemModal({
                 {/* Description */}
                 <div>
                   <label
-                    htmlFor="description"
+                    htmlFor={descriptionId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Description
                   </label>
                   <textarea
-                    id="description"
+                    id={descriptionId}
                     {...register('description')}
                     disabled={isSubmitting}
                     rows={4}
@@ -245,13 +251,13 @@ export default function EditWorkItemModal({
                   {/* Status */}
                   <div>
                     <label
-                      htmlFor="status_id"
+                      htmlFor={statusId}
                       className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                     >
                       Status <span className="text-red-500">*</span>
                     </label>
                     <select
-                      id="status_id"
+                      id={statusId}
                       {...register('status_id')}
                       disabled={isSubmitting}
                       className="form-select w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
@@ -272,13 +278,13 @@ export default function EditWorkItemModal({
                   {/* Priority */}
                   <div>
                     <label
-                      htmlFor="priority"
+                      htmlFor={priorityId}
                       className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                     >
                       Priority <span className="text-red-500">*</span>
                     </label>
                     <select
-                      id="priority"
+                      id={priorityId}
                       {...register('priority')}
                       disabled={isSubmitting}
                       className="form-select w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
@@ -320,13 +326,13 @@ export default function EditWorkItemModal({
                   {/* Due Date */}
                   <div>
                     <label
-                      htmlFor="due_date"
+                      htmlFor={dueDateId}
                       className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                     >
                       Due Date
                     </label>
                     <input
-                      id="due_date"
+                      id={dueDateId}
                       type="date"
                       {...register('due_date')}
                       disabled={isSubmitting}

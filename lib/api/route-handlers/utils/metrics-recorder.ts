@@ -40,6 +40,9 @@ export interface MetricsRecorderContext {
 }
 
 export class MetricsRecorder {
+  // Private constructor prevents instantiation - this is a static utility class
+  private constructor() {}
+
   /**
    * Record request metrics with security event tracking
    *

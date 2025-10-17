@@ -26,7 +26,7 @@ export default function WorkflowVisualizationModal({
   onClose,
   workItemTypeId,
   workItemTypeName,
-  organizationId,
+  organizationId: _organizationId,
 }: WorkflowVisualizationModalProps) {
   const { data: statuses = [], isLoading: statusesLoading } = useWorkItemStatuses(workItemTypeId);
   const {

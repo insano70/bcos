@@ -226,9 +226,9 @@ export default function UserDetailModal({
                   Risk Factors:
                 </h4>
                 <ul className="space-y-1">
-                  {user.riskFactors.map((factor, index) => (
+                  {user.riskFactors.map((factor) => (
                     <li
-                      key={index}
+                      key={factor}
                       className="text-sm text-gray-700 dark:text-gray-300 flex items-start gap-2"
                     >
                       <span className="text-red-500">•</span>

@@ -39,9 +39,9 @@ export default function ColorPaletteSelector({
       <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md">
         {/* Color swatches */}
         <div className="flex items-center space-x-1.5 mb-2">
-          {selectedPalette.colors.slice(0, 8).map((color, index) => (
+          {selectedPalette.colors.slice(0, 8).map((color) => (
             <div
-              key={index}
+              key={color}
               className="w-6 h-6 rounded border border-gray-300 dark:border-gray-500 shadow-sm"
               style={{ backgroundColor: color }}
               title={color}

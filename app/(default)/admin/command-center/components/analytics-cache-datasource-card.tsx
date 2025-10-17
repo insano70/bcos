@@ -137,8 +137,8 @@ export default function AnalyticsCacheDatasourceCard({
         <div className="mb-3 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded text-xs">
           <div className="font-medium text-amber-800 dark:text-amber-200 mb-1">⚠️ Warnings</div>
           <ul className="space-y-0.5 text-amber-700 dark:text-amber-300">
-            {metrics.warnings.map((warning, index) => (
-              <li key={index}>• {warning}</li>
+            {metrics.warnings.map((warning) => (
+              <li key={warning}>• {warning}</li>
             ))}
           </ul>
         </div>

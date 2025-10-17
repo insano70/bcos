@@ -19,15 +19,11 @@ import type { RedisStats } from '@/lib/monitoring/types';
 interface RedisCacheStatsProps {
   autoRefresh?: boolean;
   refreshInterval?: number;
-  onViewKeys?: () => void;
-  onViewAdminTools?: () => void;
 }
 
 export default function RedisCacheStats({
   autoRefresh = true,
   refreshInterval = 30000,
-  onViewKeys,
-  onViewAdminTools,
 }: RedisCacheStatsProps) {
   const [stats, setStats] = useState<RedisStats | null>(null);
   const [loading, setLoading] = useState(true);

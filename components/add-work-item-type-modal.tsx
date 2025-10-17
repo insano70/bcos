@@ -2,7 +2,7 @@
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
@@ -38,6 +38,12 @@ export default function AddWorkItemTypeModal({
   const createWorkItemType = useCreateWorkItemType();
   const { data: organizations = [] } = useOrganizations();
   const { userContext } = useAuth();
+
+  const nameId = useId();
+  const descriptionId = useId();
+  const iconId = useId();
+  const colorId = useId();
+  const organizationId = useId();
 
   const {
     register,
@@ -141,11 +147,11 @@ export default function AddWorkItemTypeModal({
                     <div className="space-y-4">
                       {/* Name */}
                       <div>
-                        <label className="block text-sm font-medium mb-1" htmlFor="name">
+                        <label className="block text-sm font-medium mb-1" htmlFor={nameId}>
                           Name <span className="text-red-500">*</span>
                         </label>
                         <input
-                          id="name"
+                          id={nameId}
                           className={`form-input w-full ${errors.name ? 'border-red-300' : ''}`}
                           type="text"
                           {...register('name')}
@@ -158,11 +164,11 @@ export default function AddWorkItemTypeModal({
 
                       {/* Description */}
                       <div>
-                        <label className="block text-sm font-medium mb-1" htmlFor="description">
+                        <label className="block text-sm font-medium mb-1" htmlFor={descriptionId}>
                           Description
                         </label>
                         <textarea
-                          id="description"
+                          id={descriptionId}
                           className={`form-textarea w-full ${errors.description ? 'border-red-300' : ''}`}
                           rows={3}
                           {...register('description')}
@@ -177,7 +183,7 @@ export default function AddWorkItemTypeModal({
 
                       {/* Icon */}
                       <div>
-                        <label className="block text-sm font-medium mb-1" htmlFor="icon">
+                        <label className="block text-sm font-medium mb-1" htmlFor={iconId}>
                           Icon
                         </label>
                         <div className="flex gap-2 mb-2">
@@ -196,7 +202,7 @@ export default function AddWorkItemTypeModal({
                           ))}
                         </div>
                         <input
-                          id="icon"
+                          id={iconId}
                           className={`form-input w-full ${errors.icon ? 'border-red-300' : ''}`}
                           type="text"
                           {...register('icon')}
@@ -209,11 +215,11 @@ export default function AddWorkItemTypeModal({
 
                       {/* Color */}
                       <div>
-                        <label className="block text-sm font-medium mb-1" htmlFor="color">
+                        <label className="block text-sm font-medium mb-1" htmlFor={colorId}>
                           Color
                         </label>
                         <input
-                          id="color"
+                          id={colorId}
                           className={`form-input w-full ${errors.color ? 'border-red-300' : ''}`}
                           type="color"
                           {...register('color')}
@@ -225,11 +231,11 @@ export default function AddWorkItemTypeModal({
 
                       {/* Organization */}
                       <div>
-                        <label className="block text-sm font-medium mb-1" htmlFor="organization_id">
+                        <label className="block text-sm font-medium mb-1" htmlFor={organizationId}>
                           Organization <span className="text-red-500">*</span>
                         </label>
                         <select
-                          id="organization_id"
+                          id={organizationId}
                           className={`form-select w-full ${errors.organization_id ? 'border-red-300' : ''}`}
                           {...register('organization_id')}
                         >

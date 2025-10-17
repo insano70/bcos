@@ -20,18 +20,20 @@ const SplitText: React.FC<SplitTextProps> = ({
   textAlign = 'center',
 }) => {
   // Split text into individual characters for animation
-  const splitChars = text.split('').map((char, index) => {
+  let charCounter = 0;
+  const splitChars = text.split('').map((char) => {
+    const currentKey = charCounter++;
     // Preserve spaces with proper spacing
     if (char === ' ') {
       return (
-        <span key={index} className="split-space" aria-hidden="true">
+        <span key={`space-${currentKey}`} className="split-space" aria-hidden="true">
           &nbsp;
         </span>
       );
     }
 
     return (
-      <span key={index} className="split-char" aria-hidden="true">
+      <span key={`char-${currentKey}`} className="split-char" aria-hidden="true">
         {char}
       </span>
     );

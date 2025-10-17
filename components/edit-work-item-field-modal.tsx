@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import ConditionalVisibilityBuilder from '@/components/conditional-visibility-builder';
 import ModalBasic from '@/components/modal-basic';
 import { useUpdateWorkItemField } from '@/lib/hooks/use-work-item-fields';
@@ -36,6 +36,14 @@ export default function EditWorkItemFieldModal({
   const [conditionalVisibilityRules, setConditionalVisibilityRules] = useState<
     ConditionalVisibilityRule[]
   >([]);
+
+  const fieldNameId = useId();
+  const fieldTypeId = useId();
+  const fieldLabelId = useId();
+  const fieldDescriptionId = useId();
+  const displayOrderId = useId();
+  const isRequiredId = useId();
+  const isVisibleId = useId();
 
   const updateFieldMutation = useUpdateWorkItemField();
 
@@ -88,8 +96,8 @@ export default function EditWorkItemFieldModal({
     }
   };
 
-  const removeOption = (index: number) => {
-    setOptions(options.filter((_, i) => i !== index));
+  const removeOption = (value: string) => {
+    setOptions(options.filter((opt) => opt.value !== value));
   };
 
   if (!field) return null;
@@ -100,11 +108,11 @@ export default function EditWorkItemFieldModal({
         <div className="px-5 py-4 space-y-4">
           {/* Field Name (read-only) */}
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="field-name-readonly">
+            <label className="block text-sm font-medium mb-1" htmlFor={fieldNameId}>
               Field Name
             </label>
             <input
-              id="field-name-readonly"
+              id={fieldNameId}
               className="form-input w-full font-mono text-sm bg-gray-100 dark:bg-gray-800"
               type="text"
               value={field.field_name}
@@ -116,11 +124,11 @@ export default function EditWorkItemFieldModal({
 
           {/* Field Type (read-only) */}
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="field-type-readonly">
+            <label className="block text-sm font-medium mb-1" htmlFor={fieldTypeId}>
               Field Type
             </label>
             <input
-              id="field-type-readonly"
+              id={fieldTypeId}
               className="form-input w-full bg-gray-100 dark:bg-gray-800"
               type="text"
               value={field.field_type.replace('_', ' ')}
@@ -132,11 +140,11 @@ export default function EditWorkItemFieldModal({
 
           {/* Field Label */}
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="field-label-edit">
+            <label className="block text-sm font-medium mb-1" htmlFor={fieldLabelId}>
               Field Label <span className="text-red-500">*</span>
             </label>
             <input
-              id="field-label-edit"
+              id={fieldLabelId}
               className="form-input w-full"
               type="text"
               value={fieldLabel}
@@ -150,14 +158,14 @@ export default function EditWorkItemFieldModal({
             <div>
               <label className="block text-sm font-medium mb-1">Dropdown Options</label>
               <div className="space-y-2">
-                {options.map((option, index) => (
-                  <div key={index} className="flex items-center gap-2">
+                {options.map((option) => (
+                  <div key={option.value} className="flex items-center gap-2">
                     <span className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded text-sm">
                       {option.label} ({option.value})
                     </span>
                     <button
                       type="button"
-                      onClick={() => removeOption(index)}
+                      onClick={() => removeOption(option.value)}
                       className="text-red-500 hover:text-red-700"
                     >
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -199,11 +207,11 @@ export default function EditWorkItemFieldModal({
 
           {/* Field Description */}
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="field-description-edit">
+            <label className="block text-sm font-medium mb-1" htmlFor={fieldDescriptionId}>
               Description
             </label>
             <textarea
-              id="field-description-edit"
+              id={fieldDescriptionId}
               className="form-textarea w-full"
               rows={3}
               value={fieldDescription}
@@ -213,11 +221,11 @@ export default function EditWorkItemFieldModal({
 
           {/* Display Order */}
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="display-order-edit">
+            <label className="block text-sm font-medium mb-1" htmlFor={displayOrderId}>
               Display Order
             </label>
             <input
-              id="display-order-edit"
+              id={displayOrderId}
               className="form-input w-full"
               type="number"
               min="0"
@@ -240,25 +248,25 @@ export default function EditWorkItemFieldModal({
           <div className="space-y-2">
             <div className="flex items-center">
               <input
-                id="is-required-edit"
+                id={isRequiredId}
                 type="checkbox"
                 className="form-checkbox"
                 checked={isRequired}
                 onChange={(e) => setIsRequired(e.target.checked)}
               />
-              <label htmlFor="is-required-edit" className="ml-2 text-sm">
+              <label htmlFor={isRequiredId} className="ml-2 text-sm">
                 Required field
               </label>
             </div>
             <div className="flex items-center">
               <input
-                id="is-visible-edit"
+                id={isVisibleId}
                 type="checkbox"
                 className="form-checkbox"
                 checked={isVisible}
                 onChange={(e) => setIsVisible(e.target.checked)}
               />
-              <label htmlFor="is-visible-edit" className="ml-2 text-sm">
+              <label htmlFor={isVisibleId} className="ml-2 text-sm">
                 Visible in forms
               </label>
             </div>

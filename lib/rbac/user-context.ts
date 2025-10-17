@@ -173,7 +173,12 @@ export async function getUserContext(userId: string): Promise<UserContext> {
 
     if (!role || !permissionSet) {
       // This should not happen given our logic above, but we handle it safely
-      console.warn(`RBAC: Missing role or permission set for role_id: ${row.role_id}`);
+      log.warn('missing role or permission set in user context', {
+        roleId: row.role_id,
+        userId,
+        component: 'rbac',
+        operation: 'get_user_context',
+      });
       return; // Early return from forEach iteration
     }
 

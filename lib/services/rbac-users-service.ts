@@ -541,11 +541,7 @@ class RBACUsersService implements UsersServiceInterface {
       const duration = Date.now() - startTime;
 
       // Calculate changes for audit trail
-      const changes = calculateChanges(
-        existingUser as unknown as Record<string, unknown>,
-        updateData as unknown as Record<string, unknown>,
-        Object.keys(updateData)
-      );
+      const changes = calculateChanges(existingUser, updateData, Object.keys(updateData));
 
       const scope = getRBACScope(this.canReadAll, this.canReadOrganization);
 

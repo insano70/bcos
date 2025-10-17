@@ -278,7 +278,7 @@ export function TransitionActionBuilder({
           ) : (
             notifications.map((notification, index) => (
               <div
-                key={index}
+                key={`${notification.recipients}-${notification.template}-${index}`}
                 className="border border-gray-200 dark:border-gray-700/60 rounded-lg p-4 bg-white dark:bg-gray-800 space-y-3"
               >
                 <div className="flex items-start justify-between">
@@ -360,7 +360,7 @@ export function TransitionActionBuilder({
           ) : (
             fieldUpdates.map((update, index) => (
               <div
-                key={index}
+                key={`${update.field_id}-${update.value}-${index}`}
                 className="border border-gray-200 dark:border-gray-700/60 rounded-lg p-4 bg-white dark:bg-gray-800 space-y-3"
               >
                 <div className="flex items-start justify-between">
@@ -472,7 +472,9 @@ export function TransitionActionBuilder({
               No assignments configured. Click "Add Assignment" to create one.
             </div>
           ) : (
-            assignments.map((assignment, index) => (
+            assignments.map((assignment, index) => {
+              // Assignments identified by position, no stable unique IDs available
+              return (
               <div
                 key={index}
                 className="border border-gray-200 dark:border-gray-700/60 rounded-lg p-4 bg-white dark:bg-gray-800 space-y-3"
@@ -532,7 +534,8 @@ export function TransitionActionBuilder({
                   </div>
                 </div>
               </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

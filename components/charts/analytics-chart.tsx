@@ -69,16 +69,6 @@ interface AnalyticsChartProps extends ResponsiveChartProps {
   target?: number;
 }
 
-interface FormattedCell {
-  formatted: string;
-  raw: unknown;
-  icon?: {
-    name: string;
-    color?: string;
-    type?: string;
-  };
-}
-
 /**
  * AnalyticsChart Component (Refactored - Phase 4.4)
  *
@@ -95,37 +85,7 @@ interface FormattedCell {
  * as they have a different API structure without measure/frequency requirements.
  */
 export default function AnalyticsChart(props: AnalyticsChartProps) {
-  const {
-    chartType,
-    measure = 'Charges by Provider',
-    frequency = 'Monthly',
-    practice,
-    practiceUid,
-    providerName,
-    providerUid,
-    startDate,
-    endDate,
-    dateRangePreset,
-    width = 800,
-    height = 400,
-    title,
-    groupBy,
-    className = '',
-    calculatedField,
-    advancedFilters = [],
-    multipleSeries = [],
-    dataSourceId,
-    stackingMode = 'normal',
-    colorPalette = 'default',
-    periodComparison,
-    dualAxisConfig,
-    aggregation = 'sum',
-    target,
-    responsive = false,
-    minHeight = 200,
-    maxHeight = 800,
-    aspectRatio,
-  } = props;
+  const { chartType, title, dualAxisConfig } = props;
 
   // Debug logging for dual-axis charts only
   if (chartType === 'dual-axis' && dualAxisConfig) {

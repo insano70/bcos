@@ -2,7 +2,7 @@
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import DynamicFieldRenderer from '@/components/dynamic-field-renderer';
@@ -10,7 +10,6 @@ import UserPicker from '@/components/user-picker';
 import { useOrganizations } from '@/lib/hooks/use-organizations';
 import { useUsers } from '@/lib/hooks/use-users';
 import { useWorkItemFields } from '@/lib/hooks/use-work-item-fields';
-import { useWorkItemStatuses } from '@/lib/hooks/use-work-item-statuses';
 import { useActiveWorkItemTypes } from '@/lib/hooks/use-work-item-types';
 import { useCreateWorkItem } from '@/lib/hooks/use-work-items';
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
@@ -46,6 +45,13 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess }: AddWork
   const { data: organizations = [] } = useOrganizations();
   const { data: users = [] } = useUsers();
 
+  const workItemTypeId = useId();
+  const subjectId = useId();
+  const descriptionId = useId();
+  const priorityId = useId();
+  const organizationId = useId();
+  const dueDateId = useId();
+
   const {
     register,
     handleSubmit,
@@ -68,7 +74,6 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess }: AddWork
   });
 
   const selectedTypeId = watch('work_item_type_id');
-  const { data: statuses = [] } = useWorkItemStatuses(selectedTypeId || undefined);
   const { data: customFields = [] } = useWorkItemFields({
     work_item_type_id: selectedTypeId || '',
   });
@@ -189,13 +194,13 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess }: AddWork
                 {/* Work Item Type */}
                 <div>
                   <label
-                    htmlFor="work_item_type_id"
+                    htmlFor={workItemTypeId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Type <span className="text-red-500">*</span>
                   </label>
                   <select
-                    id="work_item_type_id"
+                    id={workItemTypeId}
                     {...register('work_item_type_id')}
                     disabled={isSubmitting || typesLoading}
                     className="form-select w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
@@ -219,13 +224,13 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess }: AddWork
                 {/* Subject */}
                 <div>
                   <label
-                    htmlFor="subject"
+                    htmlFor={subjectId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Subject <span className="text-red-500">*</span>
                   </label>
                   <input
-                    id="subject"
+                    id={subjectId}
                     type="text"
                     {...register('subject')}
                     disabled={isSubmitting}
@@ -242,13 +247,13 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess }: AddWork
                 {/* Description */}
                 <div>
                   <label
-                    htmlFor="description"
+                    htmlFor={descriptionId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Description
                   </label>
                   <textarea
-                    id="description"
+                    id={descriptionId}
                     {...register('description')}
                     disabled={isSubmitting}
                     rows={4}
@@ -267,13 +272,13 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess }: AddWork
                   {/* Priority */}
                   <div>
                     <label
-                      htmlFor="priority"
+                      htmlFor={priorityId}
                       className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                     >
                       Priority <span className="text-red-500">*</span>
                     </label>
                     <select
-                      id="priority"
+                      id={priorityId}
                       {...register('priority')}
                       disabled={isSubmitting}
                       className="form-select w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
@@ -293,13 +298,13 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess }: AddWork
                   {/* Organization */}
                   <div>
                     <label
-                      htmlFor="organization_id"
+                      htmlFor={organizationId}
                       className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                     >
                       Organization
                     </label>
                     <select
-                      id="organization_id"
+                      id={organizationId}
                       {...register('organization_id')}
                       disabled={isSubmitting}
                       className="form-select w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
@@ -343,13 +348,13 @@ export default function AddWorkItemModal({ isOpen, onClose, onSuccess }: AddWork
                   {/* Due Date */}
                   <div>
                     <label
-                      htmlFor="due_date"
+                      htmlFor={dueDateId}
                       className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                     >
                       Due Date
                     </label>
                     <input
-                      id="due_date"
+                      id={dueDateId}
                       type="date"
                       {...register('due_date')}
                       disabled={isSubmitting}

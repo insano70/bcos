@@ -33,18 +33,17 @@ import { RouteErrorHandler } from '../utils/error-handler';
 import { MetricsRecorder } from '../utils/metrics-recorder';
 import { TimingTracker } from '../utils/timing-tracker';
 
-export class AuthRouteBuilder {
-  /**
-   * Build authenticated route handler (without RBAC)
-   *
-   * @param handler - Route handler function receiving session
-   * @param options - Auth route options (rateLimit, requireAuth)
-   * @returns Next.js route handler function
-   */
-  static build(
-    handler: (request: NextRequest, session?: AuthSession, ...args: unknown[]) => Promise<Response>,
-    options: AuthRouteOptions = {}
-  ) {
+/**
+ * Build authenticated route handler (without RBAC)
+ *
+ * @param handler - Route handler function receiving session
+ * @param options - Auth route options (rateLimit, requireAuth)
+ * @returns Next.js route handler function
+ */
+export function buildAuthRoute(
+  handler: (request: NextRequest, session?: AuthSession, ...args: unknown[]) => Promise<Response>,
+  options: AuthRouteOptions = {}
+) {
     // Build pipeline without RBAC
     const pipeline = new MiddlewarePipeline([
       new CorrelationMiddleware(),
@@ -156,5 +155,4 @@ export class AuthRouteBuilder {
         }
       );
     };
-  }
 }

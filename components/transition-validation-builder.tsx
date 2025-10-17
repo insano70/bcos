@@ -174,7 +174,7 @@ export function TransitionValidationBuilder({
           ) : (
             customRules.map((rule, index) => (
               <div
-                key={index}
+                key={`${rule.field}-${rule.operator}-${index}`}
                 className="border border-gray-200 dark:border-gray-700/60 rounded-lg p-4 bg-white dark:bg-gray-800 space-y-3"
               >
                 <div className="flex items-start justify-between">

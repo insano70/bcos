@@ -37,7 +37,7 @@ export default function AnalyticsTableChart({
   data,
   formattedData,
   columns,
-  colorPalette = 'default',
+  colorPalette: _colorPalette = 'default',
   title,
   height = 400,
 }: AnalyticsTableChartProps) {
@@ -427,7 +427,7 @@ export default function AnalyticsTableChart({
               {displayData.map((row, rowIndex) => {
                 console.log(`🔍 Rendering row ${rowIndex}:`, row);
                 return (
-                  <tr key={rowIndex}>
+                  <tr key={String(row.id ?? rowIndex)}>
                     {columns.map((column, colIndex) => {
                       const { displayValue, rawValue, icon } = getCellValue(row, column.columnName);
                       const showIcon = column.displayIcon && colIndex === 0;

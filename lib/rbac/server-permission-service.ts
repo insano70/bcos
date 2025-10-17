@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { practices } from '@/lib/db/schema';
+import { log } from '@/lib/logger';
 import type { PermissionCheckResult, PermissionName, UserContext } from '@/lib/types/rbac';
 import { PermissionChecker } from './permission-checker';
 
@@ -74,12 +75,13 @@ export class ServerPermissionService {
       const result = await this.checkPermission(permissionName, resourceId, organizationId);
       return result.granted;
     } catch (error) {
-      console.warn('Server permission check failed:', {
+      log.error('server permission check failed', error, {
         userId: this.userContext.user_id,
         permission: permissionName,
         resourceId,
         organizationId,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        component: 'rbac',
+        operation: 'has_permission',
       });
       return false;
     }
@@ -102,7 +104,12 @@ export class ServerPermissionService {
 
       return practice[0]?.owner_user_id === this.userContext.user_id;
     } catch (error) {
-      console.warn('Failed to check practice ownership:', error);
+      log.error('failed to check practice ownership', error, {
+        userId: this.userContext.user_id,
+        practiceId,
+        component: 'rbac',
+        operation: 'check_practice_ownership',
+      });
       return false; // Fail safe - deny access on error
     }
   }

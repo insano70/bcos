@@ -147,7 +147,8 @@ export default function GalleryManager({
       {images.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {images.map((image, index) => (
-            <div key={index} className="relative group">
+            <div key={image} className="relative group">
+              {/* biome-ignore lint/performance/noImgElement: Gallery images from external sources */}
               <img
                 src={image}
                 alt={`Gallery image ${index + 1}`}

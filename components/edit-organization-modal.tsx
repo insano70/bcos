@@ -2,7 +2,7 @@
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import {
@@ -53,13 +53,18 @@ export default function EditOrganizationModal({
   const updateOrganization = useUpdateOrganization();
   const { data: organizations = [] } = useOrganizations();
 
+  const nameId = useId();
+  const slugId = useId();
+  const parentOrgId = useId();
+  const practiceUidsId = useId();
+  const isActiveId = useId();
+
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
     setValue,
-    watch,
   } = useForm<EditOrganizationForm>({
     resolver: zodResolver(editOrganizationSchema),
     defaultValues: {
@@ -233,13 +238,13 @@ export default function EditOrganizationModal({
               <div className="px-6 py-4 space-y-4">
                 <div>
                   <label
-                    htmlFor="edit-name"
+                    htmlFor={nameId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Organization Name <span className="text-red-500">*</span>
                   </label>
                   <input
-                    id="edit-name"
+                    id={nameId}
                     type="text"
                     {...register('name')}
                     disabled={isSubmitting}
@@ -254,13 +259,13 @@ export default function EditOrganizationModal({
 
                 <div>
                   <label
-                    htmlFor="edit-slug"
+                    htmlFor={slugId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Slug <span className="text-red-500">*</span>
                   </label>
                   <input
-                    id="edit-slug"
+                    id={slugId}
                     type="text"
                     {...register('slug')}
                     disabled={isSubmitting}
@@ -278,13 +283,13 @@ export default function EditOrganizationModal({
 
                 <div>
                   <label
-                    htmlFor="edit-parent_organization_id"
+                    htmlFor={parentOrgId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Parent Organization
                   </label>
                   <select
-                    id="edit-parent_organization_id"
+                    id={parentOrgId}
                     {...register('parent_organization_id')}
                     disabled={isSubmitting}
                     className="form-select w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
@@ -309,7 +314,7 @@ export default function EditOrganizationModal({
 
                 <div>
                   <label
-                    htmlFor="edit-practice_uids"
+                    htmlFor={practiceUidsId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Practice UIDs
@@ -318,7 +323,7 @@ export default function EditOrganizationModal({
                     </span>
                   </label>
                   <input
-                    id="edit-practice_uids"
+                    id={practiceUidsId}
                     type="text"
                     {...register('practice_uids_input')}
                     disabled={isSubmitting}
@@ -354,14 +359,14 @@ export default function EditOrganizationModal({
 
                 <div className="flex items-center">
                   <input
-                    id="edit-is_active"
+                    id={isActiveId}
                     type="checkbox"
                     {...register('is_active')}
                     disabled={isSubmitting}
                     className="form-checkbox h-4 w-4 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 rounded disabled:opacity-50"
                   />
                   <label
-                    htmlFor="edit-is_active"
+                    htmlFor={isActiveId}
                     className="ml-2 text-sm text-gray-700 dark:text-gray-300"
                   >
                     Active

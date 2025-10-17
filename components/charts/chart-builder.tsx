@@ -50,9 +50,12 @@ function ChartBuilderSkeleton() {
       {/* Step Navigation */}
       <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-700">
         <div className="flex space-x-6">
-          {[...Array(3)].map((_, i) => (
-            <Skeleton key={i} className="h-4 w-20" />
-          ))}
+          {(() => {
+            let counter = 0;
+            return [...Array(3)].map(() => (
+              <Skeleton key={`skeleton-${counter++}`} className="h-4 w-20" />
+            ));
+          })()}
         </div>
       </div>
 

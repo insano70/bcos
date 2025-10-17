@@ -2,6 +2,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { db, practice_attributes, practices, staff_members, templates } from '@/lib/db';
+import { log } from '@/lib/logger';
 import { getFeaturedComments } from '@/lib/services/practice-comments';
 import { getTemplateComponent } from '@/lib/template-loader';
 import type { PracticeAttributes, PracticeComment } from '@/lib/types/practice';
@@ -13,7 +14,11 @@ import {
 import { getColorStyles, getTemplateDefaultColors } from '@/lib/utils/color-utils';
 
 async function getPracticeByDomain(domain: string) {
-  console.log('🔍 getPracticeByDomain called with domain:', domain);
+  log.info('practice lookup initiated', {
+    domain,
+    component: 'server',
+    operation: 'get_practice_by_domain',
+  });
 
   try {
     // Get practice by domain
@@ -30,18 +35,22 @@ async function getPracticeByDomain(domain: string) {
       )
       .limit(1);
 
-    console.log('🔍 Database query result:', practice ? 'Found practice' : 'No practice found');
-
     if (!practice) {
-      console.log('❌ No practice found for domain:', domain);
+      log.info('practice not found for domain', {
+        domain,
+        component: 'server',
+        operation: 'get_practice_by_domain',
+      });
       return null;
     }
 
-    console.log('✅ Practice found:', {
-      id: practice.practices.practice_id,
-      name: practice.practices.name,
+    log.info('practice found', {
+      practiceId: practice.practices.practice_id,
+      practiceName: practice.practices.name,
       domain: practice.practices.domain,
       status: practice.practices.status,
+      component: 'server',
+      operation: 'get_practice_by_domain',
     });
 
     // Get practice attributes
@@ -71,7 +80,11 @@ async function getPracticeByDomain(domain: string) {
       staff: staff.map(transformStaffMember),
     };
   } catch (error) {
-    console.error('❌ Error in getPracticeByDomain:', error);
+    log.error('practice lookup failed', error, {
+      domain,
+      component: 'server',
+      operation: 'get_practice_by_domain',
+    });
     throw error;
   }
 }
@@ -146,7 +159,11 @@ export default async function PracticeWebsite({ params }: { params: Promise<{ do
   try {
     comments = await getFeaturedComments(practice.practice_id);
   } catch (_error) {
-    console.log('⚠️ Comments table not available, using empty comments array');
+    log.debug('comments table not available, using empty array', {
+      practiceId: practice.practice_id,
+      component: 'server',
+      operation: 'get_featured_comments',
+    });
     comments = [];
   }
 

@@ -260,7 +260,7 @@ export class CleanupTracker {
    */
   getCount(scope?: string): number {
     if (scope && this.scopes.has(scope)) {
-      return this.scopes.get(scope)?.size;
+      return this.scopes.get(scope)?.size ?? 0;
     }
     return this.objects.size;
   }

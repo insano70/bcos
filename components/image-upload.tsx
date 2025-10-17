@@ -79,6 +79,7 @@ export default function ImageUpload({
         {/* Current image preview */}
         {currentImage && (
           <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
+            {/* biome-ignore lint/performance/noImgElement: User-uploaded images from external sources */}
             <img src={currentImage} alt="Current image" className="w-full h-full object-cover" />
           </div>
         )}

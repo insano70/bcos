@@ -66,7 +66,7 @@ describe('Authentication Flow Integration', () => {
       expect(newTokenPair?.accessToken).not.toBe(tokenPair.accessToken);
 
       // 4. Revoke tokens (simulates logout)
-      const revokeResult = await revokeRefreshToken(newTokenPair?.refreshToken, 'logout');
+      const revokeResult = await revokeRefreshToken(newTokenPair?.refreshToken ?? '', 'logout');
 
       expect(revokeResult).toBe(true);
 
@@ -142,7 +142,7 @@ describe('Authentication Flow Integration', () => {
       expect(refreshedTokenPair?.refreshToken).not.toBe(initialTokenPair.refreshToken);
 
       // 4. New access token should validate correctly
-      const newPayload = await validateAccessToken(refreshedTokenPair?.accessToken);
+      const newPayload = await validateAccessToken(refreshedTokenPair?.accessToken ?? '');
       expect(newPayload).toBeDefined();
       expect(newPayload?.sub).toBe(testUser.user_id);
     });

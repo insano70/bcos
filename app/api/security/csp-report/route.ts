@@ -90,13 +90,15 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // In development, also log to console for immediate visibility
+    // Development-only debug logging for immediate visibility
     if (process.env.NODE_ENV === 'development') {
-      console.warn('🚨 CSP Violation:', {
+      log.warn('csp violation in development', {
         directive: violation['violated-directive'],
         blockedUri: violation['blocked-uri'],
         document: violation['document-uri'],
         line: violation['line-number'],
+        component: 'security',
+        operation: 'csp_report',
       });
     }
 

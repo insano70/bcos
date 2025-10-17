@@ -61,6 +61,9 @@ export interface FactoryScope {
  * ```
  */
 export class FactoryRegistry {
+  // Private constructor prevents instantiation - this is a static utility class
+  private constructor() {}
+
   private static scopes: Map<string, FactoryScope> = new Map();
   private static globalFactories: Map<
     string,
@@ -156,8 +159,7 @@ export class FactoryRegistry {
 
       // Find factory for this type
       const factory = Array.from(FactoryRegistry.globalFactories.values()).find(
-        (f) =>
-          (f as BaseFactory<{ [key: string]: unknown }, BaseFactoryOptions>).entityType === obj.type
+        (f) => f.getEntityType() === obj.type
       );
 
       if (factory) {

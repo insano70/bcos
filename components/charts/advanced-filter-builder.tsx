@@ -160,7 +160,7 @@ export default function AdvancedFilterBuilder({
 
         {/* Filters */}
         {group.filters.map((filter, index) => (
-          <div key={index} className="flex items-center gap-3 mb-3">
+          <div key={`${group.id}-filter-${index}`} className="flex items-center gap-3 mb-3">
             {/* Field Selector */}
             <select
               value={filter.field}
@@ -332,7 +332,7 @@ export default function AdvancedFilterBuilder({
           </div>
           <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
             {flattenFilters(rootGroup).map((filter, index) => (
-              <div key={index}>
+              <div key={`${filter.field}-${filter.operator}-${index}`}>
                 {availableFields.find((f) => f.name === filter.field)?.displayName}{' '}
                 {filter.operator}{' '}
                 {Array.isArray(filter.value)

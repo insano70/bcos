@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
 import { usePermissions } from '@/lib/hooks/use-permissions';
 import Logo from './logo';
@@ -28,6 +29,7 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
   const { hasAnyPermission } = usePermissions();
   const { sidebar, sidebarOpen, setSidebarOpen, sidebarExpanded, setSidebarExpanded } =
     useSidebarState();
+  const sidebarId = useId();
 
   // Check if user has any permissions to see Admin section items (Configure + Monitor)
   const hasAdminAccess = hasAnyPermission([
@@ -75,7 +77,7 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
 
       {/* Sidebar */}
       <div
-        id="sidebar"
+        id={sidebarId}
         ref={sidebar}
         className={`flex lg:flex! flex-col absolute z-40 left-0 top-0 lg:static lg:left-auto lg:top-auto lg:translate-x-0 h-[100dvh] overflow-y-scroll lg:overflow-y-auto no-scrollbar w-64 lg:w-20 lg:sidebar-expanded:!w-64 2xl:w-64! shrink-0 bg-white dark:bg-gray-800 p-4 transition-all duration-200 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-64'} ${variant === 'v2' ? 'border-r border-gray-200 dark:border-gray-700/60' : 'rounded-r-2xl shadow-xs'}`}
       >
@@ -84,7 +86,7 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
           {/* Close button */}
           <button type="button" className="lg:hidden text-gray-500 hover:text-gray-400"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            aria-controls="sidebar"
+            aria-controls={sidebarId}
             aria-expanded={sidebarOpen}
           >
             <span className="sr-only">Close sidebar</span>

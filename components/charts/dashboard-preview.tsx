@@ -51,8 +51,8 @@ export default function DashboardPreview({
   dashboardCharts,
   dashboardConfig,
   filterConfig,
-  onClose,
-  title,
+  onClose: _onClose,
+  title: _title,
 }: DashboardPreviewProps) {
   const [availableCharts, setAvailableCharts] = useState<ChartDefinition[]>([]);
   const [isLoadingCharts, setIsLoadingCharts] = useState(true);

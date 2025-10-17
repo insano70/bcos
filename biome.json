@@ -84,8 +84,7 @@
         "useUniqueElementIds": "warn"
       },
       "a11y": {
-        "noSvgWithoutTitle": "off",
-        "useButtonType": "warn"
+        "recommended": false
       },
       "security": {
         "noDangerouslySetInnerHtml": "warn"

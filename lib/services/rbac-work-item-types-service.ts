@@ -404,10 +404,7 @@ export class RBACWorkItemTypesService extends BaseRBACService {
       .select({ count: count() })
       .from(work_items)
       .where(
-        and(
-          eq(work_items.work_item_type_id, typeId),
-          eq(work_items.deleted_at, null as unknown as Date)
-        )
+        and(eq(work_items.work_item_type_id, typeId), isNull(work_items.deleted_at))
       );
 
     if (!workItemCount) {

@@ -6,6 +6,9 @@ import postgres from 'postgres';
  * Each test process gets its own connection pool to ensure complete isolation
  */
 export class TestDatabasePool {
+  // Private constructor prevents instantiation - this is a static utility class
+  private constructor() {}
+
   private static pools = new Map<string, ReturnType<typeof postgres>>();
   private static databases = new Map<string, ReturnType<typeof drizzle>>();
 

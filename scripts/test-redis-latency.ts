@@ -215,7 +215,7 @@ async function testLatency() {
 
   // Analysis
   console.log('\n📊 Analysis:');
-  const avgPing = results.find((r) => r.operation === 'PING')?.avg;
+  const avgPing = results.find((r) => r.operation === 'PING')?.avg ?? 0;
   if (avgPing < 5) {
     console.log('✅ Excellent latency (<5ms) - typical for same-region direct connection');
   } else if (avgPing < 20) {

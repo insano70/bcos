@@ -34,7 +34,7 @@
 import type { NextRequest } from 'next/server';
 import type { AuthSession } from '@/lib/api/route-handler';
 import type { PermissionName, UserContext } from '@/lib/types/rbac';
-import { AuthRouteBuilder } from './builders/auth-route-builder';
+import { buildAuthRoute } from './builders/auth-route-builder';
 import { PublicRouteBuilder } from './builders/public-route-builder';
 import { RBACRouteBuilder } from './builders/rbac-route-builder';
 
@@ -156,7 +156,7 @@ export function authRoute(
     publicReason?: string;
   } = {}
 ) {
-  return AuthRouteBuilder.build(handler, options);
+  return buildAuthRoute(handler, options);
 }
 
 /**

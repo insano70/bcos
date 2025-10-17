@@ -58,8 +58,9 @@ export default function ErrorLogPanel({
 
     for (const error of errors) {
       const key = `${error.endpoint}:${error.error?.name || 'Unknown'}`;
-      if (grouped.has(key)) {
-        grouped.get(key)!.count++;
+      const existing = grouped.get(key);
+      if (existing) {
+        existing.count++;
       } else {
         grouped.set(key, { error, count: 1 });
       }
@@ -87,7 +88,7 @@ export default function ErrorLogPanel({
       {groupedErrors.length > 0 ? (
         <div className="space-y-2">
           {groupedErrors.map((group, idx) => (
-            <div key={idx} className="border border-gray-200 dark:border-gray-700 rounded">
+            <div key={`${group.error.endpoint}:${group.error.error?.name || 'Unknown'}`} className="border border-gray-200 dark:border-gray-700 rounded">
               <div
                 className="p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50"
                 onClick={() => toggleExpand(idx)}

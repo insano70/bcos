@@ -36,6 +36,9 @@ import { MetricsRecorder } from '../utils/metrics-recorder';
 import { TimingTracker } from '../utils/timing-tracker';
 
 export class RBACRouteBuilder {
+  // Private constructor prevents instantiation - this is a static utility class
+  private constructor() {}
+
   /**
    * Build RBAC-protected route handler
    *

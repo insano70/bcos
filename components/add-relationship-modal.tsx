@@ -2,7 +2,7 @@
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useAuth } from '@/components/auth/rbac-auth-provider';
@@ -56,6 +56,12 @@ export default function AddRelationshipModal({
   const [autoCreateConfig, setAutoCreateConfig] = useState<AutoCreateConfig | null>(null);
   const createRelationship = useCreateTypeRelationship();
   const { userContext } = useAuth();
+
+  const childTypeId = useId();
+  const relationshipNameId = useId();
+  const minCountId = useId();
+  const maxCountId = useId();
+  const displayOrderId = useId();
 
   const { data: workItemTypes = [] } = useWorkItemTypes(
     userContext?.current_organization_id
@@ -174,11 +180,11 @@ export default function AddRelationshipModal({
                     <div className="space-y-4">
                       {/* Child Type */}
                       <div>
-                        <label className="block text-sm font-medium mb-1" htmlFor="child_type_id">
+                        <label className="block text-sm font-medium mb-1" htmlFor={childTypeId}>
                           Child Type <span className="text-red-500">*</span>
                         </label>
                         <select
-                          id="child_type_id"
+                          id={childTypeId}
                           className={`form-select w-full ${errors.child_type_id ? 'border-red-300' : ''}`}
                           {...register('child_type_id')}
                         >
@@ -200,12 +206,12 @@ export default function AddRelationshipModal({
                       <div>
                         <label
                           className="block text-sm font-medium mb-1"
-                          htmlFor="relationship_name"
+                          htmlFor={relationshipNameId}
                         >
                           Relationship Name <span className="text-red-500">*</span>
                         </label>
                         <input
-                          id="relationship_name"
+                          id={relationshipNameId}
                           className={`form-input w-full ${errors.relationship_name ? 'border-red-300' : ''}`}
                           type="text"
                           {...register('relationship_name')}
@@ -225,11 +231,11 @@ export default function AddRelationshipModal({
                       {/* Count Constraints */}
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium mb-1" htmlFor="min_count">
+                          <label className="block text-sm font-medium mb-1" htmlFor={minCountId}>
                             Minimum Count
                           </label>
                           <input
-                            id="min_count"
+                            id={minCountId}
                             type="number"
                             min="0"
                             className={`form-input w-full ${errors.min_count ? 'border-red-300' : ''}`}
@@ -244,11 +250,11 @@ export default function AddRelationshipModal({
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium mb-1" htmlFor="max_count">
+                          <label className="block text-sm font-medium mb-1" htmlFor={maxCountId}>
                             Maximum Count
                           </label>
                           <input
-                            id="max_count"
+                            id={maxCountId}
                             type="number"
                             min="1"
                             className={`form-input w-full ${errors.max_count ? 'border-red-300' : ''}`}
@@ -265,11 +271,11 @@ export default function AddRelationshipModal({
 
                       {/* Display Order */}
                       <div>
-                        <label className="block text-sm font-medium mb-1" htmlFor="display_order">
+                        <label className="block text-sm font-medium mb-1" htmlFor={displayOrderId}>
                           Display Order
                         </label>
                         <input
-                          id="display_order"
+                          id={displayOrderId}
                           type="number"
                           min="0"
                           className={`form-input w-full ${errors.display_order ? 'border-red-300' : ''}`}

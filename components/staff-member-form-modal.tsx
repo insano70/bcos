@@ -64,7 +64,7 @@ export default function StaffMemberFormModal({
     reset,
     setValue,
     watch,
-    formState: { errors, isDirty },
+    formState: { errors },
   } = useForm<StaffFormData>({
     resolver: zodResolver(staffFormSchema),
     defaultValues: {

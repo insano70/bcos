@@ -89,7 +89,7 @@ export default function ConditionsEditor({
         <div className="space-y-2">
           {conditions.map((condition, index) => (
             <div
-              key={index}
+              key={condition}
               className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg group"
             >
               {/* Reorder buttons */}

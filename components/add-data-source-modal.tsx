@@ -1,7 +1,7 @@
 'use client';
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import {
   type CreateDataSourceData,
@@ -36,6 +36,9 @@ export default function AddDataSourceModal({
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
+
+  const isActiveId = useId();
+  const requiresAuthId = useId();
 
   const createDataSourceMutation = useCreateDataSource();
 
@@ -286,13 +289,13 @@ export default function AddDataSourceModal({
                       <div className="space-y-3">
                         <div className="flex items-center">
                           <input
-                            id="is_active"
+                            id={isActiveId}
                             type="checkbox"
                             {...register('is_active')}
                             className="form-checkbox"
                           />
                           <label
-                            htmlFor="is_active"
+                            htmlFor={isActiveId}
                             className="ml-2 text-sm text-gray-700 dark:text-gray-300"
                           >
                             Active
@@ -301,13 +304,13 @@ export default function AddDataSourceModal({
 
                         <div className="flex items-center">
                           <input
-                            id="requires_auth"
+                            id={requiresAuthId}
                             type="checkbox"
                             {...register('requires_auth')}
                             className="form-checkbox"
                           />
                           <label
-                            htmlFor="requires_auth"
+                            htmlFor={requiresAuthId}
                             className="ml-2 text-sm text-gray-700 dark:text-gray-300"
                           >
                             Requires Authentication

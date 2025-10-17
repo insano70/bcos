@@ -170,14 +170,14 @@ export default function DropdownFilter({
                 Filters
               </div>
 
-              {filters.map((filterGroup, groupIndex) => (
-                <div key={groupIndex} className="bg-white dark:bg-gray-800">
+              {filters.map((filterGroup) => (
+                <div key={filterGroup.group} className="bg-white dark:bg-gray-800">
                   <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 pt-2 pb-1 px-3 bg-white dark:bg-gray-800">
                     {filterGroup.group}
                   </div>
                   <ul className="mb-2 bg-white dark:bg-gray-800">
-                    {filterGroup.options.map((option, optionIndex) => (
-                      <li key={optionIndex} className="py-1 px-3 bg-white dark:bg-gray-800">
+                    {filterGroup.options.map((option) => (
+                      <li key={option.value} className="py-1 px-3 bg-white dark:bg-gray-800">
                         <label className="flex items-center cursor-pointer">
                           <input
                             type="checkbox"

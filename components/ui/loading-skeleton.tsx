@@ -53,25 +53,30 @@ export function TableSkeleton({ rows = 5, columns = 4 }: { rows?: number; column
           className="grid gap-4 skeleton-grid"
           style={{ '--grid-columns': `repeat(${columns}, 1fr)` } as React.CSSProperties}
         >
-          {[...Array(columns)].map((_, i) => (
-            <Skeleton key={i} className="h-4 w-24" />
-          ))}
+          {[...Array(columns)].map((_, i) => {
+            // Static skeleton array, no reordering
+            return <Skeleton key={i} className="h-4 w-24" />;
+          })}
         </div>
       </div>
 
       {/* Rows */}
-      {[...Array(rows)].map((_, rowIndex) => (
+      {[...Array(rows)].map((_, rowIndex) => {
+        // Static skeleton array, no reordering
+        return (
         <div key={rowIndex} className="border-b border-gray-200 dark:border-gray-700 p-4">
           <div
             className="grid gap-4 skeleton-grid"
             style={{ '--grid-columns': `repeat(${columns}, 1fr)` } as React.CSSProperties}
           >
-            {[...Array(columns)].map((_, colIndex) => (
-              <Skeleton key={colIndex} className="h-4 w-full" />
-            ))}
+            {[...Array(columns)].map((_, colIndex) => {
+              // Static skeleton array, no reordering
+              return <Skeleton key={colIndex} className="h-4 w-full" />;
+            })}
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -97,12 +102,15 @@ export function CardSkeleton() {
 export function FormSkeleton({ fields = 6 }: { fields?: number }) {
   return (
     <div className="space-y-6">
-      {[...Array(fields)].map((_, i) => (
+      {[...Array(fields)].map((_, i) => {
+        // Static skeleton array, no reordering
+        return (
         <div key={i} className="space-y-2">
           <Skeleton className="h-4 w-24" />
           <Skeleton className="h-10 w-full" />
         </div>
-      ))}
+        );
+      })}
       <div className="flex justify-end space-x-2">
         <Skeleton className="h-10 w-20" />
         <Skeleton className="h-10 w-24" />
@@ -115,9 +123,10 @@ export function FormSkeleton({ fields = 6 }: { fields?: number }) {
 export function DashboardSkeleton() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {[...Array(6)].map((_, i) => (
-        <CardSkeleton key={i} />
-      ))}
+      {[...Array(6)].map((_, i) => {
+        // Static skeleton array, no reordering
+        return <CardSkeleton key={i} />;
+      })}
     </div>
   );
 }

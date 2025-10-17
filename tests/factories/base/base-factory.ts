@@ -120,6 +120,13 @@ export abstract class BaseFactory<
   protected abstract readonly entityType: TestEntityType;
 
   /**
+   * Public getter for entity type
+   */
+  getEntityType(): TestEntityType {
+    return this.entityType;
+  }
+
+  /**
    * ID generator instance
    */
   protected readonly idGenerator: IDGenerator;

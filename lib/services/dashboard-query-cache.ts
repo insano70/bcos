@@ -91,8 +91,8 @@ export function generateQueryHash(
   if (runtimeFilters.endDate) signature.endDate = runtimeFilters.endDate as string;
   if (runtimeFilters.practiceUids) signature.practiceUids = runtimeFilters.practiceUids as number[];
   if (runtimeFilters.providerName) signature.providerName = runtimeFilters.providerName as string;
-  if (runtimeFilters.advancedFilters)
-    signature.advancedFilters = runtimeFilters.advancedFilters as unknown[];
+  if (runtimeFilters.advancedFilters && Array.isArray(runtimeFilters.advancedFilters))
+    signature.advancedFilters = runtimeFilters.advancedFilters;
 
   // Include groupBy ONLY for charts that fetch at different granularity
   // Currently, groupBy is transformation-only for all chart types

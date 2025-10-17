@@ -12,14 +12,14 @@ import type { Variants } from 'framer-motion';
  * Animation timing configuration
  */
 export const TRANSITION_DURATION = 0.3; // Quick transition for snappy feel (template.tsx only does entry, not exit)
-export const TRANSITION_EASE = [0.43, 0.13, 0.23, 0.96] as const; // Custom easing curve (cubic-bezier)
+export const TRANSITION_EASE: [number, number, number, number] = [0.43, 0.13, 0.23, 0.96]; // Custom easing curve (cubic-bezier)
 
 /**
  * Base transition configuration
  */
 export const baseTransition = {
   duration: TRANSITION_DURATION,
-  ease: TRANSITION_EASE as unknown as [number, number, number, number],
+  ease: TRANSITION_EASE,
 };
 
 /**

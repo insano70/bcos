@@ -573,11 +573,13 @@ class OrganizationCoreService extends BaseOrganizationsService {
       }
 
       // Calculate changes for audit trail
-      const changes = calculateChanges(
-        existing as unknown as Record<string, unknown>,
-        data as unknown as Record<string, unknown>,
-        ['name', 'slug', 'parent_organization_id', 'is_active', 'practice_uids']
-      );
+      const changes = calculateChanges(existing, data, [
+        'name',
+        'slug',
+        'parent_organization_id',
+        'is_active',
+        'practice_uids',
+      ]);
 
       // Update organization
       const [updatedOrg] = await db

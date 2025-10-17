@@ -71,7 +71,7 @@ export function createDatabaseMock(options: DbMockOptions = {}): DatabaseMock {
     insertResult = { insertId: 1, affectedRows: 1 },
     updateResult = { affectedRows: 1 },
     deleteResult = { affectedRows: 1 },
-    enableChaining = true,
+    enableChaining: _enableChaining = true,
   } = options;
 
   // Create query chain mocks

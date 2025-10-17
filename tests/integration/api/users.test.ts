@@ -86,7 +86,7 @@ describe('User CRUD Operations', () => {
       expect(updatedUser).toBeDefined();
       expect(updatedUser?.email).toBe(newEmail);
       expect(updatedUser?.first_name).toBe(newFirstName);
-      expect(updatedUser?.updated_at?.getTime()).toBeGreaterThan(user.updated_at?.getTime());
+      expect(updatedUser?.updated_at?.getTime()).toBeGreaterThan(user.updated_at?.getTime() ?? 0);
     });
 
     it('should support user soft deletion', async () => {

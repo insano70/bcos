@@ -1,7 +1,7 @@
 'use client';
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import {
   type DataSourceColumn,
@@ -31,6 +31,17 @@ export default function EditDataSourceColumnModal({
   const [showToast, setShowToast] = useState(false);
   const [_toastMessage, setToastMessage] = useState('');
   const [_toastType, setToastType] = useState<'success' | 'error'>('success');
+
+  const filterableId = useId();
+  const groupableId = useId();
+  const measureId = useId();
+  const dimensionId = useId();
+  const dateFieldId = useId();
+  const measureTypeId = useId();
+  const timePeriodId = useId();
+  const displayIconId = useId();
+  const sensitiveId = useId();
+  const activeId = useId();
 
   // Always call the hook - hooks must be called in the same order every render
   const updateColumnMutation = useUpdateDataSourceColumn(dataSourceId, column?.column_id || 0);
@@ -229,13 +240,13 @@ export default function EditDataSourceColumnModal({
                         <div className="space-y-2">
                           <div className="flex items-center">
                             <input
-                              id="edit_is_filterable"
+                              id={filterableId}
                               type="checkbox"
                               {...register('is_filterable')}
                               className="form-checkbox"
                             />
                             <label
-                              htmlFor="edit_is_filterable"
+                              htmlFor={filterableId}
                               className="ml-2 text-sm text-gray-700 dark:text-gray-300"
                             >
                               Filterable - Can be used in filters
@@ -244,13 +255,13 @@ export default function EditDataSourceColumnModal({
 
                           <div className="flex items-center">
                             <input
-                              id="edit_is_groupable"
+                              id={groupableId}
                               type="checkbox"
                               {...register('is_groupable')}
                               className="form-checkbox"
                             />
                             <label
-                              htmlFor="edit_is_groupable"
+                              htmlFor={groupableId}
                               className="ml-2 text-sm text-gray-700 dark:text-gray-300"
                             >
                               Groupable - Can be used for grouping
@@ -259,13 +270,13 @@ export default function EditDataSourceColumnModal({
 
                           <div className="flex items-center">
                             <input
-                              id="edit_is_measure"
+                              id={measureId}
                               type="checkbox"
                               {...register('is_measure')}
                               className="form-checkbox"
                             />
                             <label
-                              htmlFor="edit_is_measure"
+                              htmlFor={measureId}
                               className="ml-2 text-sm text-gray-700 dark:text-gray-300"
                             >
                               Measure - Numeric value for calculations
@@ -274,13 +285,13 @@ export default function EditDataSourceColumnModal({
 
                           <div className="flex items-center">
                             <input
-                              id="edit_is_dimension"
+                              id={dimensionId}
                               type="checkbox"
                               {...register('is_dimension')}
                               className="form-checkbox"
                             />
                             <label
-                              htmlFor="edit_is_dimension"
+                              htmlFor={dimensionId}
                               className="ml-2 text-sm text-gray-700 dark:text-gray-300"
                             >
                               Dimension - Category for grouping
@@ -289,13 +300,13 @@ export default function EditDataSourceColumnModal({
 
                           <div className="flex items-center">
                             <input
-                              id="edit_is_date_field"
+                              id={dateFieldId}
                               type="checkbox"
                               {...register('is_date_field')}
                               className="form-checkbox"
                             />
                             <label
-                              htmlFor="edit_is_date_field"
+                              htmlFor={dateFieldId}
                               className="ml-2 text-sm text-gray-700 dark:text-gray-300"
                             >
                               Date Field - Contains date/time values
@@ -304,13 +315,13 @@ export default function EditDataSourceColumnModal({
 
                           <div className="flex items-center">
                             <input
-                              id="edit_is_measure_type"
+                              id={measureTypeId}
                               type="checkbox"
                               {...register('is_measure_type')}
                               className="form-checkbox"
                             />
                             <label
-                              htmlFor="edit_is_measure_type"
+                              htmlFor={measureTypeId}
                               className="ml-2 text-sm text-gray-700 dark:text-gray-300"
                             >
                               Measure Type - Contains formatting information (currency, count, etc.)
@@ -319,13 +330,13 @@ export default function EditDataSourceColumnModal({
 
                           <div className="flex items-center">
                             <input
-                              id="edit_is_time_period"
+                              id={timePeriodId}
                               type="checkbox"
                               {...register('is_time_period')}
                               className="form-checkbox"
                             />
                             <label
-                              htmlFor="edit_is_time_period"
+                              htmlFor={timePeriodId}
                               className="ml-2 text-sm text-gray-700 dark:text-gray-300"
                             >
                               Time Period - Contains frequency/period values (Monthly, Weekly, etc.)
@@ -342,13 +353,13 @@ export default function EditDataSourceColumnModal({
                         <div className="space-y-3">
                           <div className="flex items-center">
                             <input
-                              id="edit_display_icon"
+                              id={displayIconId}
                               type="checkbox"
                               {...register('display_icon')}
                               className="form-checkbox"
                             />
                             <label
-                              htmlFor="edit_display_icon"
+                              htmlFor={displayIconId}
                               className="ml-2 text-sm text-gray-700 dark:text-gray-300"
                             >
                               Display Icon - Show colored icon in first column of table charts
@@ -418,13 +429,13 @@ export default function EditDataSourceColumnModal({
                         <div className="space-y-2">
                           <div className="flex items-center">
                             <input
-                              id="edit_is_sensitive"
+                              id={sensitiveId}
                               type="checkbox"
                               {...register('is_sensitive')}
                               className="form-checkbox"
                             />
                             <label
-                              htmlFor="edit_is_sensitive"
+                              htmlFor={sensitiveId}
                               className="ml-2 text-sm text-gray-700 dark:text-gray-300"
                             >
                               Sensitive Data - Requires additional permissions
@@ -433,13 +444,13 @@ export default function EditDataSourceColumnModal({
 
                           <div className="flex items-center">
                             <input
-                              id="edit_is_active"
+                              id={activeId}
                               type="checkbox"
                               {...register('is_active')}
                               className="form-checkbox"
                             />
                             <label
-                              htmlFor="edit_is_active"
+                              htmlFor={activeId}
                               className="ml-2 text-sm text-gray-700 dark:text-gray-300"
                             >
                               Active - Column is available for use

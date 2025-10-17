@@ -20,6 +20,7 @@ export function PracticeCSSInjector({ colors, practiceId }: PracticeCSSInjectorP
     <style
       nonce={styleNonce}
       data-practice-id={practiceId}
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: CSS custom properties generated from validated hex color inputs
       dangerouslySetInnerHTML={{ __html: practiceCSS }}
     />
   );
@@ -40,6 +41,7 @@ export function ServerPracticeCSSInjector({
     <style
       nonce={nonce}
       data-practice-id={practiceId}
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: CSS custom properties generated from validated hex color inputs
       dangerouslySetInnerHTML={{ __html: practiceCSS }}
     />
   );

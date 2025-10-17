@@ -10,7 +10,7 @@
  * - In-memory RBAC filtering (maximum cache reuse across users)
  * - Date range and advanced filtering
  * - Graceful degradation (inherited from base)
- * - 4-hour TTL with scheduled cache warming
+ * - 48-hour TTL (data updates 1-2x daily, 24-hour staleness acceptable)
  * - Distributed locking for cache warming (prevents race conditions)
  * - Enhanced statistics (per-data-source breakdown, largest entries)
  *
@@ -91,7 +91,7 @@ interface CachedDataEntry {
  */
 class DataSourceCacheService extends CacheService<CachedDataEntry> {
   protected namespace = 'datasource';
-  protected defaultTTL = 14400; // 4 hours (data updates 1-2x daily)
+  protected defaultTTL = 172800; // 48 hours (2 days) - data updates 1-2x daily, 24-hour staleness acceptable
 
   private readonly MAX_CACHE_SIZE = 50 * 1024 * 1024; // 50MB
   private readonly WILDCARD = '*';
@@ -129,13 +129,45 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
     cacheKey: string;
     cacheLevel: number;
   } | null> {
+    const datasourceId = components.dataSourceId;
+
     // Check if indexed cache is warm for this datasource
-    const isWarm = await indexedAnalyticsCache.isCacheWarm(components.dataSourceId);
+    const isWarm = await indexedAnalyticsCache.isCacheWarm(datasourceId);
+
+    // Check cache age (if warm) to detect stale cache
+    let shouldWarm = !isWarm;
+    let cacheAgeHours: number | null = null;
+    let staleness: 'cold' | 'stale' | 'fresh' = 'cold';
+
+    if (isWarm) {
+      // Get cache stats to check age
+      const stats = await indexedAnalyticsCache.getCacheStats(datasourceId);
+
+      if (stats?.lastWarmed) {
+        const lastWarmTime = new Date(stats.lastWarmed).getTime();
+        const ageMs = Date.now() - lastWarmTime;
+        cacheAgeHours = ageMs / (1000 * 60 * 60);
+
+        // Trigger warming if cache is older than 4 hours (stale)
+        if (cacheAgeHours > 4) {
+          shouldWarm = true;
+          staleness = 'stale';
+        } else {
+          staleness = 'fresh';
+        }
+      }
+    }
+
+    // SELF-HEALING: Trigger warming if cold OR stale (>4h old)
+    // Rate limited to max once per 4 hours per datasource
+    if (shouldWarm) {
+      this.triggerCacheWarmingIfNeeded(datasourceId);
+    }
 
     if (isWarm && components.measure && components.frequency) {
       // Try indexed cache with index lookup
       const filters: CacheQueryFilters = {
-        datasourceId: components.dataSourceId,
+        datasourceId: datasourceId,
         measure: components.measure,
         frequency: components.frequency,
         ...(components.practiceUid && { practiceUids: [components.practiceUid] }),
@@ -147,14 +179,16 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
 
         if (rows.length > 0) {
           log.info('Data source cache hit', {
-            cacheKey: `ds:${components.dataSourceId}:m:${components.measure}:freq:${components.frequency}`,
+            cacheKey: `ds:${datasourceId}:m:${components.measure}:freq:${components.frequency}`,
             cacheLevel: 0,
             rowCount: rows.length,
+            cacheAgeHours: cacheAgeHours ? Math.round(cacheAgeHours * 10) / 10 : null,
+            staleness,
           });
 
           return {
             rows,
-            cacheKey: `ds:${components.dataSourceId}:m:${components.measure}`,
+            cacheKey: `ds:${datasourceId}:m:${components.measure}`,
             cacheLevel: 0,
           };
         }
@@ -164,9 +198,12 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
     }
 
     log.info('Data source cache miss', {
-      dataSourceId: components.dataSourceId,
+      dataSourceId: datasourceId,
       measure: components.measure,
       isWarm,
+      cacheAgeHours: cacheAgeHours ? Math.round(cacheAgeHours * 10) / 10 : null,
+      staleness,
+      autoWarmTriggered: shouldWarm,
     });
 
     return null;
@@ -1043,11 +1080,117 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
   }
 
   /**
+   * Trigger cache warming if needed (non-blocking)
+   * Called automatically when cold cache is detected
+   * Rate limited to max once per 4 hours per datasource
+   *
+   * @param datasourceId - Data source ID to warm
+   */
+  private triggerCacheWarmingIfNeeded(datasourceId: number): void {
+    // Fire and forget (don't block user request)
+    this.warmDataSourceBackground(datasourceId).catch((error) => {
+      log.warn('Background cache warming failed (non-blocking)', {
+        error: error instanceof Error ? error.message : String(error),
+        datasourceId,
+      });
+    });
+  }
+
+  /**
+   * Warm data source in background with rate limiting and distributed locking
+   * SELF-HEALING: Automatically triggered when cold cache is detected
+   *
+   * RATE LIMITING: Max once per 4 hours per datasource
+   * DISTRIBUTED LOCKING: Prevents concurrent warming attempts
+   *
+   * @param datasourceId - Data source ID to warm
+   */
+  private async warmDataSourceBackground(datasourceId: number): Promise<void> {
+    const client = this.getClient();
+    if (!client) {
+      log.debug('Redis not available, skipping auto-warming', { datasourceId });
+      return;
+    }
+
+    // === RATE LIMITING CHECK ===
+    // Check if warmed in last 4 hours to prevent too-frequent refreshes
+    const rateLimitKey = `cache:auto-warm:last:${datasourceId}`;
+    const lastWarmed = await client.get(rateLimitKey);
+
+    if (lastWarmed) {
+      // Key exists = recently warmed (within last 4 hours)
+      const ttlRemaining = await client.ttl(rateLimitKey);
+
+      log.debug('Auto-warming skipped - recently warmed', {
+        datasourceId,
+        lastWarmed,
+        cooldownRemaining: ttlRemaining,
+        cooldownRemainingHours: Math.round(ttlRemaining / 3600),
+      });
+      return; // Skip warming - rate limited
+    }
+
+    // === DISTRIBUTED LOCKING ===
+    // Prevent concurrent warming from multiple instances
+    const lockKey = `lock:cache:warm:${datasourceId}`;
+    const acquired = await client.set(lockKey, '1', 'EX', 300, 'NX'); // 5 min lock
+
+    if (!acquired) {
+      log.info('Cache warming already in progress, skipping', { datasourceId });
+      return;
+    }
+
+    try {
+      log.info('Auto-triggered cache warming', {
+        datasourceId,
+        reason: 'cold_cache_detected',
+        trigger: 'automatic',
+      });
+
+      const startTime = Date.now();
+
+      // Perform warming (delegates to indexed cache)
+      const result = await indexedAnalyticsCache.warmCache(datasourceId);
+
+      const duration = Date.now() - startTime;
+
+      // === SET RATE LIMIT (4-hour cooldown) ===
+      // Only set if warming succeeded
+      const now = new Date();
+      await client.setex(
+        rateLimitKey,
+        4 * 60 * 60, // 14400 seconds = 4 hours
+        now.toISOString() // Store timestamp for logging
+      );
+
+      const nextAllowedWarm = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+
+      log.info('Auto cache warming completed', {
+        datasourceId,
+        entriesCached: result.entriesCached,
+        totalRows: result.totalRows,
+        duration,
+        rateLimitSet: true,
+        nextAllowedWarm: nextAllowedWarm.toISOString(),
+      });
+    } catch (error) {
+      log.error('Auto cache warming failed', error, {
+        datasourceId,
+        note: 'Rate limit NOT set on failure, allowing retry after lock expires',
+      });
+      // Note: Rate limit NOT set on failure, allowing retry after lock expires (5 min)
+    } finally {
+      // Always release lock
+      await client.del(lockKey);
+    }
+  }
+
+  /**
    * Warm cache for a specific data source (delegates to indexed cache)
    * Fetches all data and caches it with secondary index sets
    *
    * SECURITY: Uses distributed locking to prevent concurrent warming
-   * Called by scheduled job every 4 hours (matches data update schedule)
+   * IMPORTANT: Manual warming resets the auto-warming rate limit (prevents auto-warm shortly after manual warm)
    */
   async warmDataSource(dataSourceId: number): Promise<{
     entriesCached: number;
@@ -1055,10 +1198,31 @@ class DataSourceCacheService extends CacheService<CachedDataEntry> {
     duration: number;
     skipped?: boolean;
   }> {
-    log.info('Warming data source cache', { dataSourceId });
+    log.info('Warming data source cache', { dataSourceId, trigger: 'manual' });
 
     // Delegate to indexed cache which handles locking, grouping, and index creation
-    return await indexedAnalyticsCache.warmCache(dataSourceId);
+    const result = await indexedAnalyticsCache.warmCache(dataSourceId);
+
+    // Reset auto-warming rate limit after successful manual warm
+    // This prevents auto-warming from triggering shortly after admin manually warms cache
+    const client = this.getClient();
+    if (client && !result.skipped) {
+      const rateLimitKey = `cache:auto-warm:last:${dataSourceId}`;
+      const now = new Date();
+      await client.setex(
+        rateLimitKey,
+        4 * 60 * 60, // 14400 seconds = 4 hours
+        now.toISOString()
+      );
+
+      log.info('Manual warming reset auto-warm rate limit', {
+        dataSourceId,
+        rateLimitSet: true,
+        nextAutoWarmAllowed: new Date(now.getTime() + 4 * 60 * 60 * 1000).toISOString(),
+      });
+    }
+
+    return result;
   }
 
   /**

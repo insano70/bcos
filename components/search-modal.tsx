@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import Link from 'next/link';
 
@@ -7,6 +8,8 @@ interface SearchModalProps {
 }
 
 export default function SearchModal({ isOpen, setIsOpen }: SearchModalProps) {
+  const searchId = useId();
+
   return (
     <Transition appear show={isOpen}>
       <Dialog as="div" onClose={() => setIsOpen(false)}>
@@ -35,11 +38,11 @@ export default function SearchModal({ isOpen, setIsOpen }: SearchModalProps) {
             {/* Search form */}
             <form className="border-b border-gray-200 dark:border-gray-700/60">
               <div className="relative">
-                <label htmlFor="search-modal" className="sr-only">
+                <label htmlFor={searchId} className="sr-only">
                   Search
                 </label>
                 <input
-                  id="search-modal"
+                  id={searchId}
                   className="w-full dark:text-gray-300 bg-white dark:bg-gray-800 border-0 focus:ring-transparent placeholder-gray-400 dark:placeholder-gray-500 appearance-none py-3 pl-10 pr-4"
                   type="search"
                   placeholder="Search Anything…"

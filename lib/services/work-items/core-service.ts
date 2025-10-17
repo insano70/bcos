@@ -591,10 +591,7 @@ class WorkItemCoreService extends BaseWorkItemsService {
       }
 
       // Calculate changes for audit logging
-      const changes = calculateChanges(
-        targetWorkItem as unknown as Record<string, unknown>,
-        updateData as unknown as Record<string, unknown>
-      );
+      const changes = calculateChanges(targetWorkItem, updateData);
 
       // Update work item
       const updateStart = Date.now();

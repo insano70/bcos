@@ -216,10 +216,12 @@ export class OIDCClient {
         hasRefreshToken: !!tokenSet.refresh_token,
       });
     } catch (error) {
-      // TEMPORARY: Console log to debug - this will show in server logs
-      console.error('RAW TOKEN EXCHANGE ERROR:', error);
-      console.error('ERROR TYPE:', error?.constructor?.name);
-      console.error('ERROR MESSAGE:', error instanceof Error ? error.message : String(error));
+      // Log token exchange error for debugging
+      log.error('oidc token exchange error', error, {
+        errorType: error?.constructor?.name,
+        component: 'oidc',
+        operation: 'exchange_authorization_code',
+      });
 
       // Serialize error details for logging
       const errorMessage = error instanceof Error ? error.message : String(error);

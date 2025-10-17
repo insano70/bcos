@@ -85,7 +85,7 @@ export interface CacheStats {
  */
 export class IndexedAnalyticsCache {
   private redis: Redis | null;
-  private readonly TTL = 4 * 60 * 60; // 4 hours
+  private readonly TTL = 48 * 60 * 60; // 48 hours (2 days) - data updates 1-2x daily, 24-hour staleness acceptable
   private readonly BATCH_SIZE = 5000;
   private readonly QUERY_BATCH_SIZE = 10000; // Max keys for MGET
 

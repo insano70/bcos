@@ -2,7 +2,7 @@
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { passwordSchema } from '@/lib/config/password-policy';
@@ -56,6 +56,15 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const updateUser = useUpdateUser();
+
+  const firstNameId = useId();
+  const lastNameId = useId();
+  const emailId = useId();
+  const passwordId = useId();
+  const confirmPasswordId = useId();
+  const providerUidId = useId();
+  const emailVerifiedId = useId();
+  const isActiveId = useId();
 
   const {
     register,
@@ -217,14 +226,14 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                 {/* First Name */}
                 <div>
                   <label
-                    htmlFor="edit_first_name"
+                    htmlFor={firstNameId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     First Name *
                   </label>
                   <input
                     type="text"
-                    id="edit_first_name"
+                    id={firstNameId}
                     {...register('first_name')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
                       errors.first_name
@@ -244,14 +253,14 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                 {/* Last Name */}
                 <div>
                   <label
-                    htmlFor="edit_last_name"
+                    htmlFor={lastNameId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Last Name *
                   </label>
                   <input
                     type="text"
-                    id="edit_last_name"
+                    id={lastNameId}
                     {...register('last_name')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
                       errors.last_name
@@ -271,14 +280,14 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                 {/* Email */}
                 <div>
                   <label
-                    htmlFor="edit_email"
+                    htmlFor={emailId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Email Address *
                   </label>
                   <input
                     type="email"
-                    id="edit_email"
+                    id={emailId}
                     {...register('email')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
                       errors.email
@@ -298,14 +307,14 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                 {/* Password Reset */}
                 <div>
                   <label
-                    htmlFor="edit_password"
+                    htmlFor={passwordId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     New Password (leave blank to keep current)
                   </label>
                   <input
                     type="password"
-                    id="edit_password"
+                    id={passwordId}
                     {...register('password')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
                       errors.password
@@ -325,14 +334,14 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                 {/* Confirm Password */}
                 <div>
                   <label
-                    htmlFor="edit_confirm_password"
+                    htmlFor={confirmPasswordId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Confirm New Password
                   </label>
                   <input
                     type="password"
-                    id="edit_confirm_password"
+                    id={confirmPasswordId}
                     {...register('confirm_password')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
                       errors.confirm_password
@@ -361,7 +370,7 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                 {/* Provider UID - Analytics Security */}
                 <div>
                   <label
-                    htmlFor="edit_provider_uid"
+                    htmlFor={providerUidId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Provider UID
@@ -371,7 +380,7 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                   </label>
                   <input
                     type="number"
-                    id="edit_provider_uid"
+                    id={providerUidId}
                     {...register('provider_uid_input')}
                     className="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600"
                     placeholder="Enter provider_uid (e.g., 42)"
@@ -409,13 +418,13 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                 <div className="flex items-center">
                   <input
                     type="checkbox"
-                    id="edit_email_verified"
+                    id={emailVerifiedId}
                     {...register('email_verified')}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     disabled={isSubmitting}
                   />
                   <label
-                    htmlFor="edit_email_verified"
+                    htmlFor={emailVerifiedId}
                     className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
                   >
                     Email Verified
@@ -426,13 +435,13 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                 <div className="flex items-center">
                   <input
                     type="checkbox"
-                    id="edit_is_active"
+                    id={isActiveId}
                     {...register('is_active')}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     disabled={isSubmitting}
                   />
                   <label
-                    htmlFor="edit_is_active"
+                    htmlFor={isActiveId}
                     className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
                   >
                     Active User

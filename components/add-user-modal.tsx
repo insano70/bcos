@@ -2,7 +2,7 @@
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 // Inline SVG for X mark icon
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -41,6 +41,14 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const createUser = useCreateUser();
+
+  const firstNameId = useId();
+  const lastNameId = useId();
+  const emailId = useId();
+  const passwordId = useId();
+  const confirmPasswordId = useId();
+  const emailVerifiedId = useId();
+  const isActiveId = useId();
 
   const {
     register,
@@ -159,14 +167,14 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
                 {/* First Name */}
                 <div>
                   <label
-                    htmlFor="first_name"
+                    htmlFor={firstNameId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     First Name *
                   </label>
                   <input
                     type="text"
-                    id="first_name"
+                    id={firstNameId}
                     {...register('first_name')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
                       errors.first_name
@@ -186,14 +194,14 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
                 {/* Last Name */}
                 <div>
                   <label
-                    htmlFor="last_name"
+                    htmlFor={lastNameId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Last Name *
                   </label>
                   <input
                     type="text"
-                    id="last_name"
+                    id={lastNameId}
                     {...register('last_name')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
                       errors.last_name
@@ -213,14 +221,14 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
                 {/* Email */}
                 <div>
                   <label
-                    htmlFor="email"
+                    htmlFor={emailId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Email Address *
                   </label>
                   <input
                     type="email"
-                    id="email"
+                    id={emailId}
                     {...register('email')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
                       errors.email
@@ -240,14 +248,14 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
                 {/* Password */}
                 <div>
                   <label
-                    htmlFor="password"
+                    htmlFor={passwordId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Password *
                   </label>
                   <input
                     type="password"
-                    id="password"
+                    id={passwordId}
                     {...register('password')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
                       errors.password
@@ -267,14 +275,14 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
                 {/* Confirm Password */}
                 <div>
                   <label
-                    htmlFor="confirm_password"
+                    htmlFor={confirmPasswordId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Confirm Password *
                   </label>
                   <input
                     type="password"
-                    id="confirm_password"
+                    id={confirmPasswordId}
                     {...register('confirm_password')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
                       errors.confirm_password
@@ -304,13 +312,13 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
                 <div className="flex items-center">
                   <input
                     type="checkbox"
-                    id="email_verified"
+                    id={emailVerifiedId}
                     {...register('email_verified')}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     disabled={isSubmitting}
                   />
                   <label
-                    htmlFor="email_verified"
+                    htmlFor={emailVerifiedId}
                     className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
                   >
                     Email Verified
@@ -321,13 +329,13 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
                 <div className="flex items-center">
                   <input
                     type="checkbox"
-                    id="is_active"
+                    id={isActiveId}
                     {...register('is_active')}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     disabled={isSubmitting}
                   />
                   <label
-                    htmlFor="is_active"
+                    htmlFor={isActiveId}
                     className="ml-2 block text-sm text-gray-700 dark:text-gray-300"
                   >
                     Active User

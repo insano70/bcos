@@ -2,7 +2,7 @@
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useCreatePractice } from '@/lib/hooks/use-practices';
@@ -34,6 +34,9 @@ interface AddPracticeModalProps {
 }
 
 export default function AddPracticeModal({ isOpen, onClose, onSuccess }: AddPracticeModalProps) {
+  const nameId = useId();
+  const domainId = useId();
+  const templateId = useId();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const createPractice = useCreatePractice();
@@ -160,14 +163,14 @@ export default function AddPracticeModal({ isOpen, onClose, onSuccess }: AddPrac
                 {/* Practice Name */}
                 <div>
                   <label
-                    htmlFor="name"
+                    htmlFor={nameId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Practice Name *
                   </label>
                   <input
                     type="text"
-                    id="name"
+                    id={nameId}
                     {...register('name')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
                       errors.name
@@ -187,14 +190,14 @@ export default function AddPracticeModal({ isOpen, onClose, onSuccess }: AddPrac
                 {/* Domain */}
                 <div>
                   <label
-                    htmlFor="domain"
+                    htmlFor={domainId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Domain *
                   </label>
                   <input
                     type="text"
-                    id="domain"
+                    id={domainId}
                     {...register('domain')}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${
                       errors.domain
@@ -217,13 +220,13 @@ export default function AddPracticeModal({ isOpen, onClose, onSuccess }: AddPrac
                 {/* Template Selection */}
                 <div>
                   <label
-                    htmlFor="template_id"
+                    htmlFor={templateId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Template *
                   </label>
                   <select
-                    id="template_id"
+                    id={templateId}
                     {...register('template_id')}
                     disabled={isSubmitting || templatesLoading}
                     className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 ${

@@ -1,11 +1,16 @@
 'use client';
 
 import Image from 'next/image';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import AccountImage from '@/public/images/user-avatar-80.png';
 
 export default function AccountPanel() {
   const [sync, setSync] = useState<boolean>(false);
+  const nameId = useId();
+  const businessIdId = useId();
+  const locationId = useId();
+  const emailId = useId();
+  const toggleId = useId();
 
   return (
     <div className="grow">
@@ -40,22 +45,22 @@ export default function AccountPanel() {
           </div>
           <div className="sm:flex sm:items-center space-y-4 sm:space-y-0 sm:space-x-4 mt-5">
             <div className="sm:w-1/3">
-              <label className="block text-sm font-medium mb-1" htmlFor="name">
+              <label className="block text-sm font-medium mb-1" htmlFor={nameId}>
                 Business Name
               </label>
-              <input id="name" className="form-input w-full" type="text" />
+              <input id={nameId} className="form-input w-full" type="text" />
             </div>
             <div className="sm:w-1/3">
-              <label className="block text-sm font-medium mb-1" htmlFor="business-id">
+              <label className="block text-sm font-medium mb-1" htmlFor={businessIdId}>
                 Business ID
               </label>
-              <input id="business-id" className="form-input w-full" type="text" />
+              <input id={businessIdId} className="form-input w-full" type="text" />
             </div>
             <div className="sm:w-1/3">
-              <label className="block text-sm font-medium mb-1" htmlFor="location">
+              <label className="block text-sm font-medium mb-1" htmlFor={locationId}>
                 Location
               </label>
-              <input id="location" className="form-input w-full" type="text" />
+              <input id={locationId} className="form-input w-full" type="text" />
             </div>
           </div>
         </section>
@@ -69,10 +74,10 @@ export default function AccountPanel() {
           </div>
           <div className="flex flex-wrap mt-5">
             <div className="mr-2">
-              <label className="sr-only" htmlFor="email">
+              <label className="sr-only" htmlFor={emailId}>
                 Business email
               </label>
-              <input id="email" className="form-input" type="email" />
+              <input id={emailId} className="form-input" type="email" />
             </div>
             <button type="button" className="btn dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300">
               Change
@@ -105,12 +110,12 @@ export default function AccountPanel() {
             <div className="form-switch">
               <input
                 type="checkbox"
-                id="toggle"
+                id={toggleId}
                 className="sr-only"
                 checked={sync}
                 onChange={() => setSync(!sync)}
               />
-              <label htmlFor="toggle">
+              <label htmlFor={toggleId}>
                 <span className="bg-white shadow-sm" aria-hidden="true"></span>
                 <span className="sr-only">Enable smart sync</span>
               </label>

@@ -3,6 +3,7 @@
  * Defines specific permission requirements for each API endpoint
  */
 
+import { log } from '@/lib/logger';
 import type { PermissionName } from '@/lib/types/rbac';
 
 /**
@@ -359,16 +360,20 @@ export function validateApiMigration() {
   const allPermissions = Object.values(API_PERMISSIONS).flat();
   const uniquePermissions = new Set(allPermissions);
 
-  console.log(`📊 API Migration Validation:`);
-  console.log(`   • ${Object.keys(API_PERMISSIONS).length} endpoints with permissions`);
-  console.log(`   • ${uniquePermissions.size} unique permissions used`);
-  console.log(`   • ${issues.length} issues found`);
+  log.info('api migration validation completed', {
+    totalEndpoints: Object.keys(API_PERMISSIONS).length,
+    uniquePermissions: uniquePermissions.size,
+    issuesFound: issues.length,
+    component: 'rbac',
+    operation: 'validate_api_migration',
+  });
 
   if (issues.length > 0) {
-    console.warn('⚠️ Issues found:');
-    for (const issue of issues) {
-      console.warn(`   - ${issue}`);
-    }
+    log.warn('api migration validation issues found', {
+      issues,
+      component: 'rbac',
+      operation: 'validate_api_migration',
+    });
   }
 
   return { issues, totalEndpoints: Object.keys(API_PERMISSIONS).length };

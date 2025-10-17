@@ -3,6 +3,7 @@
  * Properly converts database schema types to TypeScript interfaces
  */
 
+import { log } from '@/lib/logger';
 import type { Template } from '@/lib/hooks/use-templates';
 import type { practice_attributes, practices, staff_members, templates } from '../db/schema';
 import type { Practice, PracticeAttributes, StaffMember } from './practice';
@@ -127,7 +128,12 @@ function safeJsonParse<T>(jsonString: string | null | undefined, fallback: T): T
     const parsed = JSON.parse(jsonString);
     return parsed !== null ? parsed : fallback;
   } catch (error) {
-    console.warn('Failed to parse JSON:', jsonString, error);
+    log.warn('failed to parse json in transformer', {
+      jsonPreview: jsonString?.substring(0, 100),
+      error: error instanceof Error ? error.message : String(error),
+      component: 'transformers',
+      operation: 'safe_json_parse',
+    });
     return fallback;
   }
 }

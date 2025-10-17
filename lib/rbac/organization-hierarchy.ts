@@ -1,6 +1,7 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { organizations } from '@/lib/db/schema';
+import { log } from '@/lib/logger';
 import type { Organization } from '@/lib/types/rbac';
 
 /**
@@ -328,7 +329,12 @@ async function buildOrganizationTreeNode(
 ): Promise<OrganizationTreeNode | null> {
   if (depth > 10) {
     // Prevent infinite recursion
-    console.warn(`Organization hierarchy depth limit reached for ${org.organization_id}`);
+    log.warn('organization hierarchy depth limit reached', {
+      organizationId: org.organization_id,
+      depth,
+      component: 'rbac',
+      operation: 'build_organization_tree',
+    });
     return null;
   }
 

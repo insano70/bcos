@@ -87,10 +87,7 @@ const updatePracticeAttributesHandler = async (
     const duration = Date.now() - startTime;
 
     // Calculate actual changes for audit trail
-    const changes = calculateChanges(
-      beforeAttributes as unknown as Record<string, unknown>,
-      updatedAttributes as unknown as Record<string, unknown>
-    );
+    const changes = calculateChanges(beforeAttributes, updatedAttributes);
 
     const template = logTemplates.crud.update('practice_attributes', {
       resourceId: practiceId,

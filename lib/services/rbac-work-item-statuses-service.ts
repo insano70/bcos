@@ -1,4 +1,4 @@
-import { and, asc, count, eq } from 'drizzle-orm';
+import { and, asc, count, eq, isNull } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { work_item_statuses, work_item_types } from '@/lib/db/schema';
 import { log } from '@/lib/logger';
@@ -306,9 +306,7 @@ export class RBACWorkItemStatusesService extends BaseRBACService {
     const [workItemCount] = await db
       .select({ count: count() })
       .from(work_items)
-      .where(
-        and(eq(work_items.status_id, statusId), eq(work_items.deleted_at, null as unknown as Date))
-      );
+      .where(and(eq(work_items.status_id, statusId), isNull(work_items.deleted_at)));
 
     if (!workItemCount) {
       throw new Error('Failed to check work item count');

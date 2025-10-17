@@ -562,11 +562,12 @@ class PracticesService implements PracticesServiceInterface {
       }
 
       // Calculate changes for audit trail
-      const changes = calculateChanges(
-        existing as unknown as Record<string, unknown>,
-        data as unknown as Record<string, unknown>,
-        ['name', 'domain', 'status', 'template_id']
-      );
+      const changes = calculateChanges(existing, data, [
+        'name',
+        'domain',
+        'status',
+        'template_id',
+      ]);
       const duration = Date.now() - startTime;
 
       const logTemplate = logTemplates.crud.update('practice', {

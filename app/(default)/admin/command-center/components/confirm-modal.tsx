@@ -12,7 +12,7 @@
 
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -37,6 +37,7 @@ export default function ConfirmModal({
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  const reasonId = useId();
   const [reason, setReason] = useState('');
   const confirmButtonRef = useRef<HTMLButtonElement>(null);
   const reasonInputRef = useRef<HTMLTextAreaElement>(null);
@@ -128,14 +129,14 @@ export default function ConfirmModal({
             {requireReason && (
               <div className="mb-4">
                 <label
-                  htmlFor="reason"
+                  htmlFor={reasonId}
                   className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                 >
                   Reason <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   ref={reasonInputRef}
-                  id="reason"
+                  id={reasonId}
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                   placeholder={reasonPlaceholder}

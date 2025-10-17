@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import ModalBasic from '@/components/modal-basic';
 import { useCreateWorkItemField } from '@/lib/hooks/use-work-item-fields';
 import type { FieldOption, FieldType } from '@/lib/types/work-item-fields';
@@ -28,6 +28,14 @@ export default function AddWorkItemFieldModal({
   const [options, setOptions] = useState<FieldOption[]>([]);
   const [newOptionValue, setNewOptionValue] = useState('');
   const [newOptionLabel, setNewOptionLabel] = useState('');
+
+  const fieldLabelId = useId();
+  const fieldNameId = useId();
+  const fieldTypeId = useId();
+  const fieldDescriptionId = useId();
+  const displayOrderId = useId();
+  const isRequiredId = useId();
+  const isVisibleId = useId();
 
   const createFieldMutation = useCreateWorkItemField();
 
@@ -82,11 +90,11 @@ export default function AddWorkItemFieldModal({
         <div className="px-5 py-4 space-y-4">
           {/* Field Label */}
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="field-label">
+            <label className="block text-sm font-medium mb-1" htmlFor={fieldLabelId}>
               Field Label <span className="text-red-500">*</span>
             </label>
             <input
-              id="field-label"
+              id={fieldLabelId}
               className="form-input w-full"
               type="text"
               value={fieldLabel}
@@ -108,11 +116,11 @@ export default function AddWorkItemFieldModal({
 
           {/* Field Name */}
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="field-name">
+            <label className="block text-sm font-medium mb-1" htmlFor={fieldNameId}>
               Field Name <span className="text-red-500">*</span>
             </label>
             <input
-              id="field-name"
+              id={fieldNameId}
               className="form-input w-full font-mono text-sm"
               type="text"
               value={fieldName}
@@ -129,11 +137,11 @@ export default function AddWorkItemFieldModal({
 
           {/* Field Type */}
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="field-type">
+            <label className="block text-sm font-medium mb-1" htmlFor={fieldTypeId}>
               Field Type <span className="text-red-500">*</span>
             </label>
             <select
-              id="field-type"
+              id={fieldTypeId}
               className="form-select w-full"
               value={fieldType}
               onChange={(e) => setFieldType(e.target.value as FieldType)}
@@ -155,7 +163,7 @@ export default function AddWorkItemFieldModal({
               <label className="block text-sm font-medium mb-1">Dropdown Options</label>
               <div className="space-y-2">
                 {options.map((option, index) => (
-                  <div key={index} className="flex items-center gap-2">
+                  <div key={option.value} className="flex items-center gap-2">
                     <span className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded text-sm">
                       {option.label} ({option.value})
                     </span>
@@ -203,11 +211,11 @@ export default function AddWorkItemFieldModal({
 
           {/* Field Description */}
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="field-description">
+            <label className="block text-sm font-medium mb-1" htmlFor={fieldDescriptionId}>
               Description
             </label>
             <textarea
-              id="field-description"
+              id={fieldDescriptionId}
               className="form-textarea w-full"
               rows={3}
               value={fieldDescription}
@@ -217,11 +225,11 @@ export default function AddWorkItemFieldModal({
 
           {/* Display Order */}
           <div>
-            <label className="block text-sm font-medium mb-1" htmlFor="display-order">
+            <label className="block text-sm font-medium mb-1" htmlFor={displayOrderId}>
               Display Order
             </label>
             <input
-              id="display-order"
+              id={displayOrderId}
               className="form-input w-full"
               type="number"
               min="0"
@@ -234,25 +242,25 @@ export default function AddWorkItemFieldModal({
           <div className="space-y-2">
             <div className="flex items-center">
               <input
-                id="is-required"
+                id={isRequiredId}
                 type="checkbox"
                 className="form-checkbox"
                 checked={isRequired}
                 onChange={(e) => setIsRequired(e.target.checked)}
               />
-              <label htmlFor="is-required" className="ml-2 text-sm">
+              <label htmlFor={isRequiredId} className="ml-2 text-sm">
                 Required field
               </label>
             </div>
             <div className="flex items-center">
               <input
-                id="is-visible"
+                id={isVisibleId}
                 type="checkbox"
                 className="form-checkbox"
                 checked={isVisible}
                 onChange={(e) => setIsVisible(e.target.checked)}
               />
-              <label htmlFor="is-visible" className="ml-2 text-sm">
+              <label htmlFor={isVisibleId} className="ml-2 text-sm">
                 Visible in forms
               </label>
             </div>

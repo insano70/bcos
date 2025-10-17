@@ -50,7 +50,7 @@ interface MFASetupDialogProps {
 
 export default function MFASetupDialog({
   isOpen,
-  onClose,
+  onClose: _onClose,
   onSuccess,
   onSkip,
   tempToken,

@@ -2,7 +2,7 @@
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import {
@@ -49,6 +49,12 @@ export default function AddOrganizationModal({
   const [showToast, setShowToast] = useState(false);
   const createOrganization = useCreateOrganization();
   const { data: organizations = [] } = useOrganizations();
+
+  const nameId = useId();
+  const slugId = useId();
+  const parentOrgId = useId();
+  const practiceUidsId = useId();
+  const isActiveId = useId();
 
   const {
     register,
@@ -206,13 +212,13 @@ export default function AddOrganizationModal({
               <div className="px-6 py-4 space-y-4">
                 <div>
                   <label
-                    htmlFor="name"
+                    htmlFor={nameId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Organization Name <span className="text-red-500">*</span>
                   </label>
                   <input
-                    id="name"
+                    id={nameId}
                     type="text"
                     {...register('name')}
                     onChange={(e) => handleNameChange(e.target.value)}
@@ -229,13 +235,13 @@ export default function AddOrganizationModal({
 
                 <div>
                   <label
-                    htmlFor="slug"
+                    htmlFor={slugId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Slug <span className="text-red-500">*</span>
                   </label>
                   <input
-                    id="slug"
+                    id={slugId}
                     type="text"
                     {...register('slug')}
                     disabled={isSubmitting}
@@ -254,13 +260,13 @@ export default function AddOrganizationModal({
 
                 <div>
                   <label
-                    htmlFor="parent_organization_id"
+                    htmlFor={parentOrgId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Parent Organization
                   </label>
                   <select
-                    id="parent_organization_id"
+                    id={parentOrgId}
                     {...register('parent_organization_id')}
                     disabled={isSubmitting}
                     className="form-select w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
@@ -285,7 +291,7 @@ export default function AddOrganizationModal({
 
                 <div>
                   <label
-                    htmlFor="practice_uids"
+                    htmlFor={practiceUidsId}
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
                   >
                     Practice UIDs
@@ -294,7 +300,7 @@ export default function AddOrganizationModal({
                     </span>
                   </label>
                   <input
-                    id="practice_uids"
+                    id={practiceUidsId}
                     type="text"
                     {...register('practice_uids_input')}
                     disabled={isSubmitting}
@@ -330,14 +336,14 @@ export default function AddOrganizationModal({
 
                 <div className="flex items-center">
                   <input
-                    id="is_active"
+                    id={isActiveId}
                     type="checkbox"
                     {...register('is_active')}
                     disabled={isSubmitting}
                     className="form-checkbox h-4 w-4 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 rounded disabled:opacity-50"
                   />
                   <label
-                    htmlFor="is_active"
+                    htmlFor={isActiveId}
                     className="ml-2 text-sm text-gray-700 dark:text-gray-300"
                   >
                     Active

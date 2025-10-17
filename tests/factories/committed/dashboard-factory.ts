@@ -205,6 +205,8 @@ export class CommittedDashboardFactory extends BaseFactory<
           `This may cause issues with cleanup.`
       );
     }
+
+    return options;
   }
 }
 

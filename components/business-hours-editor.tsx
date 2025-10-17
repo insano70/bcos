@@ -164,10 +164,10 @@ export default function BusinessHoursEditor({
           type="button"
           onClick={() => {
             const allClosed = daysOfWeek.reduce(
-              (acc, { key }) => ({
-                ...acc,
-                [key]: { closed: true },
-              }),
+              (acc, { key }) => {
+                acc[key] = { closed: true };
+                return acc;
+              },
               {} as BusinessHours
             );
             onChange(allClosed);

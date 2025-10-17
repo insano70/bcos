@@ -562,20 +562,23 @@ export const logTemplates = {
  * // Result: { name: { from: 'Old', to: 'New' } }
  * ```
  */
-export function calculateChanges<T extends Record<string, unknown>>(
-  before: T,
-  after: T,
-  fieldsToTrack?: (keyof T)[]
+export function calculateChanges(
+  before: object,
+  after: object,
+  fieldsToTrack?: string[]
 ): Record<string, FieldChange> {
   const changes: Record<string, FieldChange> = {};
 
-  const fields = fieldsToTrack || (Object.keys(after) as (keyof T)[]);
+  const fields = fieldsToTrack || Object.keys(after);
 
   for (const field of fields) {
-    if (before[field] !== after[field]) {
-      changes[field as string] = {
-        from: before[field],
-        to: after[field],
+    const beforeValue = (before as Record<string, unknown>)[field];
+    const afterValue = (after as Record<string, unknown>)[field];
+
+    if (beforeValue !== afterValue) {
+      changes[field] = {
+        from: beforeValue,
+        to: afterValue,
       };
     }
   }

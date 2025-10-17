@@ -61,8 +61,8 @@ export default function DropdownSwitch() {
         leaveTo="opacity-0"
       >
         <MenuItems as="ul" className="focus:outline-hidden">
-          {options.map((option, optionIndex) => (
-            <MenuItem key={optionIndex} as="li">
+          {options.map((option) => (
+            <MenuItem key={option.id} as="li">
               {({ active }) => (
                 <button type="button" className={`w-full font-medium text-sm block py-1.5 px-3 ${active ? 'text-gray-800 dark:text-gray-200' : 'text-gray-600 dark:text-gray-300'}`}
                   onClick={() => {

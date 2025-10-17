@@ -102,10 +102,7 @@ const updateStaffMemberHandler = async (
     const duration = Date.now() - startTime;
 
     // Calculate actual changes for audit trail
-    const changes = calculateChanges(
-      beforeStaff as unknown as Record<string, unknown>,
-      updatedStaff as unknown as Record<string, unknown>
-    );
+    const changes = calculateChanges(beforeStaff, updatedStaff);
 
     const template = logTemplates.crud.update('staff_member', {
       resourceId: staffId,

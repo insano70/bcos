@@ -38,7 +38,7 @@ export interface CachedChartDataResponse {
  * pattern-based invalidation support.
  */
 export class ChartDataCache {
-  private readonly DEFAULT_TTL = 300; // 5 minutes in seconds
+  private readonly DEFAULT_TTL = 3600; // 1 hour in seconds
   private readonly KEY_PREFIX = 'chart:data:';
 
   /**
@@ -84,7 +84,7 @@ export class ChartDataCache {
    *
    * @param key - Cache key
    * @param data - Chart data to cache
-   * @param ttl - Time to live in seconds (default: 5 minutes)
+   * @param ttl - Time to live in seconds (default: 1 hour)
    */
   async set(
     key: string,

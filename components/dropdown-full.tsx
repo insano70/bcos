@@ -27,7 +27,7 @@ export default function DropdownFull() {
 
   return (
     <Menu as="div" className="relative inline-flex w-full">
-      {({ open }) => (
+      {({ open: _open }) => (
         <>
           <MenuButton
             className="btn w-full justify-between min-w-[11rem] bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-600 hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100"
@@ -56,8 +56,8 @@ export default function DropdownFull() {
             leaveTo="opacity-0"
           >
             <MenuItems className="font-medium text-sm text-gray-600 dark:text-gray-300 divide-y divide-gray-200 dark:divide-gray-700/60 focus:outline-hidden">
-              {options.map((option, optionIndex) => (
-                <MenuItem key={optionIndex}>
+              {options.map((option) => (
+                <MenuItem key={option.id}>
                   {({ active }) => (
                     <button type="button" className={`flex items-center justify-between w-full py-2 px-3 cursor-pointer ${active ? 'bg-gray-50 dark:bg-gray-700/20' : ''} ${option.id === selected && 'text-violet-500'}`}
                       onClick={() => {

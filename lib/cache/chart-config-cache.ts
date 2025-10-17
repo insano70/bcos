@@ -413,8 +413,8 @@ class ChartConfigCacheService extends CacheService {
           if (col.default_aggregation !== null)
             cachedCol.defaultAggregation = col.default_aggregation;
           if (col.example_value !== null) cachedCol.exampleValue = col.example_value;
-          if (col.allowed_values !== null)
-            cachedCol.allowedValues = col.allowed_values as unknown[];
+          if (col.allowed_values !== null && Array.isArray(col.allowed_values))
+            cachedCol.allowedValues = col.allowed_values;
           return cachedCol;
         }),
         cachedAt: Date.now(),

@@ -90,12 +90,12 @@ export default function DataTableDropdown<T>({ item, actions }: DataTableDropdow
           }}
         >
           <ul>
-            {visibleActions.map((action, idx) => {
+            {visibleActions.map((action) => {
               const label = typeof action.label === 'function' ? action.label(item) : action.label;
               const isDanger = action.variant === 'danger';
 
               return (
-                <li key={idx}>
+                <li key={label}>
                   <button
                     type="button"
                     className={`font-medium text-sm flex items-center py-1 px-3 w-full text-left disabled:opacity-50 ${

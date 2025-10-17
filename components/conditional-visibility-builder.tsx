@@ -123,7 +123,7 @@ export default function ConditionalVisibilityBuilder({
 
                 return (
                   <div
-                    key={index}
+                    key={`${rule.field_id}-${index}`}
                     className="p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded space-y-2"
                   >
                     <div className="flex items-start gap-2">

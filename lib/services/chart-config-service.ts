@@ -348,7 +348,7 @@ export class ChartConfigService {
       );
 
       return measures.map((row) => (row as { measure: string }).measure).filter(Boolean);
-    } catch (error) {
+    } catch (_error) {
       log.warn('Failed to load measures from database, using fallback', {
         operation: 'get_measures',
         tableName,

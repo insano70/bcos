@@ -90,7 +90,7 @@ export default function DataTable<T extends { id: string | number }>({
   exportable = false,
   exportFileName = 'export',
   isLoading = false,
-  resizable = true, // Default to enabled
+  resizable: _resizable = true, // Default to enabled
   densityToggle = true, // Default to enabled
   stickyHeader = true, // Default to enabled
   expandable,
@@ -265,9 +265,9 @@ export default function DataTable<T extends { id: string | number }>({
                   <span className="text-sm text-gray-600 dark:text-gray-400">
                     {selectedItems.length} selected
                   </span>
-                  {bulkActions.map((action, idx) => (
+                  {bulkActions.map((action) => (
                     <button
-                      key={idx}
+                      key={action.label}
                       type="button"
                       onClick={() => {
                         if (action.confirm && !confirm(action.confirm)) return;
@@ -366,11 +366,11 @@ export default function DataTable<T extends { id: string | number }>({
                       <span className="sr-only">Expand</span>
                     </th>
                   )}
-                  {visibleColumns.map((column, idx) => {
+                  {visibleColumns.map((column, _idx) => {
                     if (column.key === 'checkbox') {
                       return (
                         <th
-                          key={idx}
+                          key="checkbox"
                           className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap w-px"
                         >
                           {selectionMode === 'multi' && (
@@ -393,7 +393,7 @@ export default function DataTable<T extends { id: string | number }>({
                     if (column.key === 'actions') {
                       return (
                         <th
-                          key={idx}
+                          key="actions"
                           className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap w-px"
                         >
                           <span className="sr-only">{column.header || 'Actions'}</span>
@@ -405,7 +405,7 @@ export default function DataTable<T extends { id: string | number }>({
 
                     return (
                       <th
-                        key={idx}
+                        key={String(column.key)}
                         className={`px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap ${column.className || ''}`}
                       >
                         {column.sortable ? (
@@ -428,20 +428,26 @@ export default function DataTable<T extends { id: string | number }>({
               <tbody className="text-sm divide-y divide-gray-100 dark:divide-gray-700/60">
                 {isLoading ? (
                   // Loading skeleton
-                  Array.from({ length: 5 }).map((_, idx) => (
-                    <tr key={idx}>
-                      {expandable && (
-                        <td className="px-2 first:pl-5 last:pr-5 py-3">
-                          <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-                        </td>
-                      )}
-                      {visibleColumns.map((_col, colIdx) => (
-                        <td key={colIdx} className="px-2 first:pl-5 last:pr-5 py-3">
-                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-                        </td>
-                      ))}
-                    </tr>
-                  ))
+                  (() => {
+                    let rowCounter = 0;
+                    return Array.from({ length: 5 }).map(() => {
+                      const currentRow = rowCounter++;
+                      return (
+                        <tr key={`skeleton-row-${currentRow}`}>
+                          {expandable && (
+                            <td className="px-2 first:pl-5 last:pr-5 py-3">
+                              <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                            </td>
+                          )}
+                          {visibleColumns.map((col) => (
+                            <td key={`skeleton-col-${currentRow}-${String(col.key)}`} className="px-2 first:pl-5 last:pr-5 py-3">
+                              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    });
+                  })()
                 ) : displayData.length === 0 ? (
                   <tr>
                     <td
@@ -492,7 +498,7 @@ export default function DataTable<T extends { id: string | number }>({
                               </button>
                             </td>
                           )}
-                          {visibleColumns.map((column, idx) => {
+                          {visibleColumns.map((column) => {
                             const _alignClass = getAlignmentClass(column.align);
                             const isCheckboxCol = column.key === 'checkbox';
                             const isActionsCol = column.key === 'actions';
@@ -500,7 +506,7 @@ export default function DataTable<T extends { id: string | number }>({
 
                             return (
                               <td
-                                key={idx}
+                                key={String(column.key)}
                                 className={`px-2 first:pl-5 last:pr-5 ${getDensityClasses()} whitespace-nowrap ${widthClass} ${column.className || ''}`}
                               >
                                 {column.render

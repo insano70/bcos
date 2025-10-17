@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { log } from '@/lib/logger';
 
 /**
  * Validation rule operator types
@@ -101,7 +102,10 @@ export function parseValidationConfig(data: unknown): ValidationConfig | null {
   try {
     return validationConfigSchema.parse(data);
   } catch (error) {
-    console.error('Failed to parse validation config:', error);
+    log.error('failed to parse validation config', error, {
+      component: 'workflow',
+      operation: 'parse_validation_config',
+    });
     return null;
   }
 }
@@ -123,7 +127,10 @@ export function parseActionConfig(data: unknown): ActionConfig | null {
   try {
     return actionConfigSchema.parse(data);
   } catch (error) {
-    console.error('Failed to parse action config:', error);
+    log.error('failed to parse action config', error, {
+      component: 'workflow',
+      operation: 'parse_action_config',
+    });
     return null;
   }
 }

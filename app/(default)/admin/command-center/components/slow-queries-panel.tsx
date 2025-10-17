@@ -47,8 +47,8 @@ export default function SlowQueriesPanel({
         </div>
       ) : data && data.queries.length > 0 ? (
         <div className="space-y-2">
-          {data.queries.map((query, idx) => (
-            <div key={idx} className="p-3 border border-gray-200 dark:border-gray-700 rounded">
+          {data.queries.map((query) => (
+            <div key={`${query.operation}-${query.table}-${query.timestamp}`} className="p-3 border border-gray-200 dark:border-gray-700 rounded">
               <div className="flex justify-between items-start">
                 <div>
                   <div className="text-sm font-medium text-gray-900 dark:text-gray-100">

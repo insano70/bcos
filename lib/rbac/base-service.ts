@@ -1,4 +1,5 @@
 import type { db } from '@/lib/db';
+import { log } from '@/lib/logger';
 import {
   type AccessScope,
   type ActionType,
@@ -228,16 +229,16 @@ export abstract class BaseRBACService {
       });
     } catch (error) {
       // Never let audit logging failures break the main application
-      // Fallback to console.log for critical debugging
-      console.error('Audit logging failed for permission check:', error);
-      console.log(
-        `Permission check: ${this.userContext.user_id} -> ${permission} = ${granted ? 'GRANTED' : 'DENIED'}`,
-        {
-          resourceId,
-          organizationId,
-          timestamp: new Date().toISOString(),
-        }
-      );
+      // Fallback to structured logging for critical debugging
+      log.error('audit logging failed for permission check', error, {
+        userId: this.userContext.user_id,
+        permission,
+        granted,
+        resourceId,
+        organizationId,
+        component: 'rbac',
+        operation: 'log_permission_check',
+      });
     }
   }
 

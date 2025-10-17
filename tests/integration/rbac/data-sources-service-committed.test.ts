@@ -85,7 +85,7 @@ describe('RBAC Data Sources Service - Basic Committed Tests', () => {
           is_active: true,
         })
         .returning();
-      createdDataSourceIds.push(ds1?.data_source_id);
+      createdDataSourceIds.push(ds1?.data_source_id ?? 0);
 
       const [ds2] = await db
         .insert(chart_data_sources)
@@ -98,7 +98,7 @@ describe('RBAC Data Sources Service - Basic Committed Tests', () => {
           is_active: true,
         })
         .returning();
-      createdDataSourceIds.push(ds2?.data_source_id);
+      createdDataSourceIds.push(ds2?.data_source_id ?? 0);
 
       const userContext = await buildUserContext(user, org.organization_id);
       const dsService = createRBACDataSourcesService(userContext);
@@ -138,7 +138,7 @@ describe('RBAC Data Sources Service - Basic Committed Tests', () => {
           is_active: true,
         })
         .returning();
-      createdDataSourceIds.push(ds?.data_source_id);
+      createdDataSourceIds.push(ds?.data_source_id ?? 0);
 
       const userContext = await buildUserContext(user, org.organization_id);
       const dsService = createRBACDataSourcesService(userContext);
@@ -188,11 +188,11 @@ describe('RBAC Data Sources Service - Basic Committed Tests', () => {
           is_active: true,
         })
         .returning();
-      createdDataSourceIds.push(ds?.data_source_id);
+      createdDataSourceIds.push(ds?.data_source_id ?? 0);
 
       const userContext = await buildUserContext(user, org.organization_id);
       const dsService = createRBACDataSourcesService(userContext);
-      const result = await dsService.getDataSourceById(ds?.data_source_id);
+      const result = await dsService.getDataSourceById(ds?.data_source_id ?? 0);
 
       expect(result).toBeTruthy();
       expect(result?.data_source_id).toBe(ds?.data_source_id);
@@ -309,12 +309,12 @@ describe('RBAC Data Sources Service - Basic Committed Tests', () => {
           is_active: true,
         })
         .returning();
-      createdDataSourceIds.push(ds?.data_source_id);
+      createdDataSourceIds.push(ds?.data_source_id ?? 0);
 
       const userContext = await buildUserContext(user, org.organization_id);
       const dsService = createRBACDataSourcesService(userContext);
 
-      const result = await dsService.updateDataSource(ds?.data_source_id, {
+      const result = await dsService.updateDataSource(ds?.data_source_id ?? 0, {
         data_source_name: `updated_ds_${nanoid(6)}`,
       });
 
@@ -343,13 +343,13 @@ describe('RBAC Data Sources Service - Basic Committed Tests', () => {
           is_active: true,
         })
         .returning();
-      createdDataSourceIds.push(ds?.data_source_id);
+      createdDataSourceIds.push(ds?.data_source_id ?? 0);
 
       const userContext = await buildUserContext(user);
       const dsService = createRBACDataSourcesService(userContext);
 
       await expect(
-        dsService.updateDataSource(ds?.data_source_id, { data_source_name: 'hacked' })
+        dsService.updateDataSource(ds?.data_source_id ?? 0, { data_source_name: 'hacked' })
       ).rejects.toThrow(PermissionDeniedError);
     });
   });
@@ -382,18 +382,18 @@ describe('RBAC Data Sources Service - Basic Committed Tests', () => {
           is_active: true,
         })
         .returning();
-      createdDataSourceIds.push(ds?.data_source_id);
+      createdDataSourceIds.push(ds?.data_source_id ?? 0);
 
       const userContext = await buildUserContext(user, org.organization_id);
       const dsService = createRBACDataSourcesService(userContext);
 
-      await dsService.deleteDataSource(ds?.data_source_id);
+      await dsService.deleteDataSource(ds?.data_source_id ?? 0);
 
       // Verify soft deletion
       const [deleted] = await db
         .select()
         .from(chart_data_sources)
-        .where(eq(chart_data_sources.data_source_id, ds?.data_source_id));
+        .where(eq(chart_data_sources.data_source_id, ds?.data_source_id ?? 0));
 
       expect(deleted?.is_active).toBe(false);
     });
@@ -416,12 +416,12 @@ describe('RBAC Data Sources Service - Basic Committed Tests', () => {
           is_active: true,
         })
         .returning();
-      createdDataSourceIds.push(ds?.data_source_id);
+      createdDataSourceIds.push(ds?.data_source_id ?? 0);
 
       const userContext = await buildUserContext(user);
       const dsService = createRBACDataSourcesService(userContext);
 
-      await expect(dsService.deleteDataSource(ds?.data_source_id)).rejects.toThrow(
+      await expect(dsService.deleteDataSource(ds?.data_source_id ?? 0)).rejects.toThrow(
         PermissionDeniedError
       );
     });

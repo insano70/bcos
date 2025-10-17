@@ -89,7 +89,7 @@ export default function DateSelect({ onDateChange }: DateSelectProps) {
 
   return (
     <Menu as="div" className="relative inline-flex">
-      {({ open }) => (
+      {({ open: _open }) => (
         <>
           <MenuButton
             className="btn justify-between min-w-[11rem] bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-600 hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100"
@@ -125,8 +125,8 @@ export default function DateSelect({ onDateChange }: DateSelectProps) {
             leaveTo="opacity-0"
           >
             <MenuItems className="z-10 absolute top-full right-0 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/60 py-1.5 rounded-lg shadow-lg overflow-hidden mt-1 font-medium text-sm text-gray-600 dark:text-gray-300 focus:outline-hidden">
-              {options.map((option, optionIndex) => (
-                <MenuItem key={optionIndex}>
+              {options.map((option) => (
+                <MenuItem key={option.id}>
                   {({ focus }) => (
                     <button
                       type="button"

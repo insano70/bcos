@@ -7,6 +7,7 @@
 import { and, count, desc, eq, gt, sql } from 'drizzle-orm';
 import type { NextRequest } from 'next/server';
 import { csrf_failure_events, type NewCSRFFailureEvent } from '@/lib/db/csrf-schema';
+import { log } from '@/lib/logger';
 
 /**
  * CSRF failure event severity levels
@@ -96,17 +97,19 @@ export class CSRFSecurityMonitor {
 
       // Check for alert conditions (async - don't block)
       this.checkAlertConditions(ip).catch((error) => {
-        console.error('[CSRF Monitor] Alert condition check failed:', {
-          error: error instanceof Error ? error.message : String(error),
+        log.error('csrf alert condition check failed', error, {
           ip,
+          component: 'security',
+          operation: 'csrf_alert_check',
         });
       });
     } catch (error) {
       // Don't throw - monitoring failures shouldn't break the app
-      console.error('[CSRF Monitor] Failed to record CSRF failure:', {
-        error: error instanceof Error ? error.message : String(error),
+      log.error('failed to record csrf failure', error, {
         pathname: request.nextUrl.pathname,
         reason,
+        component: 'security',
+        operation: 'record_csrf_failure',
       });
     }
   }
@@ -128,15 +131,15 @@ export class CSRFSecurityMonitor {
    * Log CSRF failure with appropriate severity
    */
   private logFailure(event: CSRFFailureEvent): void {
-    // Console logging for CSRF validation failures
-    console.warn('[CSRF Monitor] Validation failure:', {
-      severity: event.severity,
+    // Security logging for CSRF validation failures
+    log.security('csrf_validation_failure', event.severity, {
       ip: event.ip,
       pathname: event.pathname,
       reason: event.reason,
       userAgent: event.userAgent.substring(0, 100),
       userId: event.userId,
       timestamp: event.timestamp.toISOString(),
+      component: 'security',
     });
   }
 
@@ -272,9 +275,10 @@ export class CSRFSecurityMonitor {
         });
       }
     } catch (error) {
-      console.error('[CSRF Monitor] Failed to check alert conditions:', {
-        error: error instanceof Error ? error.message : String(error),
+      log.error('failed to check csrf alert conditions', error, {
         ip,
+        component: 'security',
+        operation: 'check_alert_conditions',
       });
     }
   }
@@ -285,14 +289,15 @@ export class CSRFSecurityMonitor {
   private async sendAlert(alert: SecurityAlert): Promise<void> {
     const isDevelopment = process.env.NODE_ENV === 'development';
 
-    // Console logging for security alerts
-    console.error('🚨 [CSRF Monitor] Security Alert:', {
+    // Security logging for alerts
+    log.security('csrf_security_alert', alert.severity, {
       type: alert.type,
-      severity: alert.severity,
       message: alert.message,
       eventCount: alert.eventCount,
       metadata: alert.metadata,
       timestamp: new Date(alert.timestamp).toISOString(),
+      component: 'security',
+      blocked: true,
     });
 
     // In production, send to monitoring service
@@ -300,10 +305,11 @@ export class CSRFSecurityMonitor {
       try {
         await this.sendToMonitoringService(alert);
       } catch (error) {
-        console.error('[CSRF Monitor] Failed to send alert to monitoring service:', {
-          error: error instanceof Error ? error.message : String(error),
+        log.error('failed to send csrf alert to monitoring service', error, {
           alertType: alert.type,
           severity: alert.severity,
+          component: 'security',
+          operation: 'send_alert',
         });
       }
     }
@@ -341,7 +347,10 @@ export class CSRFSecurityMonitor {
       });
     } catch (error) {
       // Don't throw - monitoring failures shouldn't break the app
-      console.error('Failed to send security alert to webhook:', error);
+      log.error('failed to send security alert to webhook', error, {
+        component: 'security',
+        operation: 'send_webhook_alert',
+      });
     }
   }
 
@@ -390,8 +399,9 @@ export class CSRFSecurityMonitor {
         })),
       };
     } catch (error) {
-      console.error('[CSRF Monitor] Failed to get failure stats:', {
-        error: error instanceof Error ? error.message : String(error),
+      log.error('failed to get csrf failure stats', error, {
+        component: 'security',
+        operation: 'get_failure_stats',
       });
 
       // Return empty stats on error
@@ -418,17 +428,20 @@ export class CSRFSecurityMonitor {
 
       const deletedCount = result.length;
 
-      console.log('[CSRF Monitor] Cleanup completed:', {
+      log.info('csrf events cleanup completed', {
         deletedCount,
         retentionHours,
         cutoffDate: cutoff.toISOString(),
+        component: 'security',
+        operation: 'cleanup_old_events',
       });
 
       return deletedCount;
     } catch (error) {
-      console.error('[CSRF Monitor] Failed to cleanup old events:', {
-        error: error instanceof Error ? error.message : String(error),
+      log.error('failed to cleanup old csrf events', error, {
         retentionHours,
+        component: 'security',
+        operation: 'cleanup_old_events',
       });
       return 0;
     }
@@ -443,14 +456,17 @@ export class CSRFSecurityMonitor {
         .delete(csrf_failure_events)
         .returning({ id: csrf_failure_events.event_id });
 
-      console.warn('[CSRF Monitor] All CSRF events cleared:', {
+      log.warn('all csrf events cleared', {
         deletedCount: result.length,
+        component: 'security',
+        operation: 'clear_all_events',
       });
 
       return result.length;
     } catch (error) {
-      console.error('[CSRF Monitor] Failed to clear CSRF events:', {
-        error: error instanceof Error ? error.message : String(error),
+      log.error('failed to clear csrf events', error, {
+        component: 'security',
+        operation: 'clear_all_events',
       });
       return 0;
     }
