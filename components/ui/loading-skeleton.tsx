@@ -54,29 +54,27 @@ export function TableSkeleton({ rows = 5, columns = 4 }: { rows?: number; column
           style={{ '--grid-columns': `repeat(${columns}, 1fr)` } as React.CSSProperties}
         >
           {[...Array(columns)].map((_, i) => {
-            // Use header-specific key prefix for uniqueness
+            // biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton array, never reordered
             return <Skeleton key={`header-col-${i}`} className="h-4 w-24" />;
           })}
         </div>
       </div>
 
       {/* Rows */}
-      {[...Array(rows)].map((_, rowIndex) => {
-        // Use row-specific key prefix for uniqueness
-        return (
+      {/* Note: Using index in key for static skeleton array - acceptable as array never changes */}
+      {[...Array(rows)].map((_, rowIndex) => (
         <div key={`row-${rowIndex}`} className="border-b border-gray-200 dark:border-gray-700 p-4">
           <div
             className="grid gap-4 skeleton-grid"
             style={{ '--grid-columns': `repeat(${columns}, 1fr)` } as React.CSSProperties}
           >
             {[...Array(columns)].map((_, colIndex) => {
-              // Use composite key: row and column for uniqueness
+              // biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton array, never reordered
               return <Skeleton key={`row-${rowIndex}-col-${colIndex}`} className="h-4 w-full" />;
             })}
           </div>
         </div>
-        );
-      })}
+      ))}
     </div>
   );
 }
@@ -102,15 +100,13 @@ export function CardSkeleton() {
 export function FormSkeleton({ fields = 6 }: { fields?: number }) {
   return (
     <div className="space-y-6">
-      {[...Array(fields)].map((_, i) => {
-        // Use field-specific key prefix for uniqueness
-        return (
+      {/* Note: Using index in key for static skeleton array - acceptable as array never changes */}
+      {[...Array(fields)].map((_, i) => (
         <div key={`form-field-${i}`} className="space-y-2">
           <Skeleton className="h-4 w-24" />
           <Skeleton className="h-10 w-full" />
         </div>
-        );
-      })}
+      ))}
       <div className="flex justify-end space-x-2">
         <Skeleton className="h-10 w-20" />
         <Skeleton className="h-10 w-24" />
@@ -124,7 +120,7 @@ export function DashboardSkeleton() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {[...Array(6)].map((_, i) => {
-        // Use dashboard-card-specific key prefix for uniqueness
+        // biome-ignore lint/suspicious/noArrayIndexKey: Static skeleton array, never reordered
         return <CardSkeleton key={`dashboard-card-${i}`} />;
       })}
     </div>

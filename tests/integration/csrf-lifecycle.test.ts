@@ -255,7 +255,8 @@ describe('CSRF Token Lifecycle Integration Tests', () => {
       // Decode and verify payload structure
       const [encodedPayload] = token.split('.');
       expect(encodedPayload).toBeDefined();
-      const payload = JSON.parse(atob(encodedPayload!));
+      if (!encodedPayload) throw new Error('Encoded payload is missing');
+      const payload = JSON.parse(atob(encodedPayload));
 
       expect(payload.type).toBe('authenticated');
       expect(payload.userId).toBe(userId);

@@ -472,8 +472,8 @@ export async function createUserWithPermissions(
       .from(organizations)
       .where(eq(organizations.organization_id, organizationId));
 
-    if (orgs.length > 0) {
-      organization = mapDatabaseOrgToOrg(orgs[0]!);
+    if (orgs.length > 0 && orgs[0]) {
+      organization = mapDatabaseOrgToOrg(orgs[0]);
       await assignUserToOrganization(user, organization);
     }
   }

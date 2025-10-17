@@ -18,7 +18,10 @@ export function getTestDb() {
     testClient = postgres(process.env.DATABASE_URL, { max: 1 });
     testDb = drizzle(testClient);
   }
-  return testDb!;
+  if (!testDb) {
+    throw new Error('Test database initialization failed');
+  }
+  return testDb;
 }
 
 /**

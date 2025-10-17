@@ -44,13 +44,19 @@ describe('RBAC Data Sources Service - Basic Committed Tests', () => {
   afterEach(async () => {
     // Clean up data sources manually since they're not in the factory system
     if (createdDataSourceIds.length > 0) {
-      await db
-        .delete(chart_data_sources)
-        .where(eq(chart_data_sources.data_source_id, createdDataSourceIds[0]!));
-      for (let i = 1; i < createdDataSourceIds.length; i++) {
+      const firstId = createdDataSourceIds[0];
+      if (firstId) {
         await db
           .delete(chart_data_sources)
-          .where(eq(chart_data_sources.data_source_id, createdDataSourceIds[i]!));
+          .where(eq(chart_data_sources.data_source_id, firstId));
+      }
+      for (let i = 1; i < createdDataSourceIds.length; i++) {
+        const dataSourceId = createdDataSourceIds[i];
+        if (dataSourceId) {
+          await db
+            .delete(chart_data_sources)
+            .where(eq(chart_data_sources.data_source_id, dataSourceId));
+        }
       }
     }
     await scope.cleanup();

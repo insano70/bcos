@@ -42,8 +42,9 @@ describe('OIDC Login Integration', () => {
 
       const location = response.headers.get('location');
       expect(location).toBeTruthy();
+      if (!location) throw new Error('Location header is missing');
 
-      const url = new URL(location!);
+      const url = new URL(location);
 
       // Check for OAuth 2.0 / OIDC parameters
       expect(url.searchParams.has('client_id')).toBe(true);
@@ -60,8 +61,9 @@ describe('OIDC Login Integration', () => {
 
       const location = response.headers.get('location');
       expect(location).toBeTruthy();
+      if (!location) throw new Error('Location header is missing');
 
-      const url = new URL(location!);
+      const url = new URL(location);
 
       // PKCE parameters
       expect(url.searchParams.has('code_challenge')).toBe(true);
@@ -76,8 +78,9 @@ describe('OIDC Login Integration', () => {
 
       const location = response.headers.get('location');
       expect(location).toBeTruthy();
+      if (!location) throw new Error('Location header is missing');
 
-      const url = new URL(location!);
+      const url = new URL(location);
       const scopes = url.searchParams.get('scope');
 
       expect(scopes).toBeTruthy();
@@ -95,9 +98,10 @@ describe('OIDC Login Integration', () => {
 
       const location1 = response1.headers.get('location');
       const location2 = response2.headers.get('location');
+      if (!location1 || !location2) throw new Error('Location headers are missing');
 
-      const url1 = new URL(location1!);
-      const url2 = new URL(location2!);
+      const url1 = new URL(location1);
+      const url2 = new URL(location2);
 
       const state1 = url1.searchParams.get('state');
       const state2 = url2.searchParams.get('state');
@@ -118,9 +122,10 @@ describe('OIDC Login Integration', () => {
 
       const location1 = response1.headers.get('location');
       const location2 = response2.headers.get('location');
+      if (!location1 || !location2) throw new Error('Location headers are missing');
 
-      const url1 = new URL(location1!);
-      const url2 = new URL(location2!);
+      const url1 = new URL(location1);
+      const url2 = new URL(location2);
 
       const challenge1 = url1.searchParams.get('code_challenge');
       const challenge2 = url2.searchParams.get('code_challenge');
@@ -224,7 +229,8 @@ describe('OIDC Login Integration', () => {
       });
 
       const location = response.headers.get('location');
-      const url = new URL(location!);
+      if (!location) throw new Error('Location header is missing');
+      const url = new URL(location);
 
       const redirectUri = url.searchParams.get('redirect_uri');
       expect(redirectUri).toBeTruthy();
@@ -237,7 +243,8 @@ describe('OIDC Login Integration', () => {
       });
 
       const location = response.headers.get('location');
-      const url = new URL(location!);
+      if (!location) throw new Error('Location header is missing');
+      const url = new URL(location);
 
       const responseType = url.searchParams.get('response_type');
       expect(responseType).toBe('code');
@@ -329,7 +336,8 @@ describe('OIDC Login Integration', () => {
       expect([302, 307]).toContain(response.status);
 
       const location = response.headers.get('location');
-      const url = new URL(location!);
+      if (!location) throw new Error('Location header is missing');
+      const url = new URL(location);
 
       // Should include prompt parameter
       expect(url.searchParams.get('prompt')).toBe('login');
@@ -343,7 +351,8 @@ describe('OIDC Login Integration', () => {
       expect([302, 307]).toContain(response.status);
 
       const location = response.headers.get('location');
-      const url = new URL(location!);
+      if (!location) throw new Error('Location header is missing');
+      const url = new URL(location);
 
       expect(url.searchParams.get('prompt')).toBe('consent');
     });
@@ -358,7 +367,8 @@ describe('OIDC Login Integration', () => {
       expect([302, 307]).toContain(response.status);
 
       const location = response.headers.get('location');
-      const url = new URL(location!);
+      if (!location) throw new Error('Location header is missing');
+      const url = new URL(location);
 
       // Should include domain_hint parameter
       expect(url.searchParams.get('domain_hint')).toBe('example.com');
@@ -372,7 +382,8 @@ describe('OIDC Login Integration', () => {
       });
 
       const location = response.headers.get('location');
-      const url = new URL(location!);
+      if (!location) throw new Error('Location header is missing');
+      const url = new URL(location);
 
       // Nonce should be present
       expect(url.searchParams.has('nonce')).toBe(true);
@@ -387,8 +398,12 @@ describe('OIDC Login Integration', () => {
         redirect: 'manual',
       });
 
-      const url1 = new URL(response1.headers.get('location')!);
-      const url2 = new URL(response2.headers.get('location')!);
+      const location1 = response1.headers.get('location');
+      const location2 = response2.headers.get('location');
+      if (!location1 || !location2) throw new Error('Location headers are missing');
+
+      const url1 = new URL(location1);
+      const url2 = new URL(location2);
 
       const nonce1 = url1.searchParams.get('nonce');
       const nonce2 = url2.searchParams.get('nonce');

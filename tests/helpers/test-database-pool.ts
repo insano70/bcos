@@ -41,9 +41,16 @@ export class TestDatabasePool {
       await client`SELECT 1 as connection_test`;
     }
 
+    const poolClient = TestDatabasePool.pools.get(processId);
+    const poolDb = TestDatabasePool.databases.get(processId);
+
+    if (!poolClient || !poolDb) {
+      throw new Error(`Failed to initialize database pool for process ${processId}`);
+    }
+
     return {
-      client: TestDatabasePool.pools.get(processId)!,
-      db: TestDatabasePool.databases.get(processId)!,
+      client: poolClient,
+      db: poolDb,
     };
   }
 
