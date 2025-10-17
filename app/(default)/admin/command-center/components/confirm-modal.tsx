@@ -152,14 +152,12 @@ export default function ConfirmModal({
 
           {/* Footer Actions */}
           <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 rounded-b-xl flex justify-end gap-3">
-            <button
-              onClick={onCancel}
+            <button type="button" onClick={onCancel}
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
               Cancel
             </button>
-            <button
-              ref={confirmButtonRef}
+            <button type="button" ref={confirmButtonRef}
               onClick={handleConfirm}
               disabled={requireReason && reason.trim().length === 0}
               className={getConfirmButtonClasses()}

@@ -605,8 +605,7 @@ export default function FunctionalChartBuilder({
           </h2>
 
           {onCancel && (
-            <button
-              onClick={onCancel}
+            <button type="button" onClick={onCancel}
               className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
             >
               ← Back to Charts
@@ -622,8 +621,7 @@ export default function FunctionalChartBuilder({
             { key: 'configure' as const, label: 'Configure' },
             { key: 'preview' as const, label: 'Preview' },
           ].map(({ key, label }) => (
-            <button
-              key={key}
+            <button type="button" key={key}
               onClick={() => setCurrentStep(key)}
               className={`pb-2 border-b-2 font-medium text-sm ${
                 currentStep === key
@@ -665,8 +663,7 @@ export default function FunctionalChartBuilder({
 
             {schemaInfo && (
               <div className="flex justify-end">
-                <button
-                  onClick={handlePreview}
+                <button type="button" onClick={handlePreview}
                   className="px-6 py-2 bg-violet-500 text-white rounded-md hover:bg-violet-600 transition-colors"
                 >
                   Preview Chart

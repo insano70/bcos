@@ -20,8 +20,7 @@ export default function Header({ variant = 'default' }: { variant?: 'default' | 
           {/* Header: Left side */}
           <div className="flex">
             {/* Hamburger button */}
-            <button
-              className="text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 lg:hidden"
+            <button type="button" className="text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 lg:hidden"
               aria-controls="sidebar"
               aria-expanded={sidebarOpen}
               onClick={() => {

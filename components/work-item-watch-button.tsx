@@ -44,8 +44,7 @@ export function WorkItemWatchButton({
   };
 
   return (
-    <button
-      onClick={handleToggleWatch}
+    <button type="button" onClick={handleToggleWatch}
       disabled={isLoading}
       className={`btn flex items-center gap-2 ${
         isWatching

@@ -59,8 +59,7 @@ export default function DropdownFull() {
               {options.map((option, optionIndex) => (
                 <MenuItem key={optionIndex}>
                   {({ active }) => (
-                    <button
-                      className={`flex items-center justify-between w-full py-2 px-3 cursor-pointer ${active ? 'bg-gray-50 dark:bg-gray-700/20' : ''} ${option.id === selected && 'text-violet-500'}`}
+                    <button type="button" className={`flex items-center justify-between w-full py-2 px-3 cursor-pointer ${active ? 'bg-gray-50 dark:bg-gray-700/20' : ''} ${option.id === selected && 'text-violet-500'}`}
                       onClick={() => {
                         setSelected(option.id);
                       }}

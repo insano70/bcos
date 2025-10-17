@@ -269,23 +269,20 @@ export function UnauthorizedPage() {
         </div>
 
         <div className="space-y-3">
-          <button
-            onClick={() => router.push('/dashboard')}
+          <button type="button" onClick={() => router.push('/dashboard')}
             className="w-full btn bg-blue-600 text-white hover:bg-blue-700"
           >
             Go to Dashboard
           </button>
 
           {isAuthenticated ? (
-            <button
-              onClick={() => router.back()}
+            <button type="button" onClick={() => router.back()}
               className="w-full btn bg-gray-200 text-gray-800 hover:bg-gray-300"
             >
               Go Back
             </button>
           ) : (
-            <button
-              onClick={() => router.push('/signin')}
+            <button type="button" onClick={() => router.push('/signin')}
               className="w-full btn bg-gray-200 text-gray-800 hover:bg-gray-300"
             >
               Sign In

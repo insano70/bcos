@@ -71,8 +71,7 @@ function SamlErrorContent() {
 
           {/* Actions */}
           <div className="space-y-3 pt-4">
-            <button
-              onClick={handleSwitchAccount}
+            <button type="button" onClick={handleSwitchAccount}
               className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-medium rounded-lg hover:bg-gray-800 dark:hover:bg-white transition-colors"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -147,8 +146,7 @@ function SamlErrorContent() {
           </p>
 
           <div className="space-y-3 pt-4">
-            <button
-              onClick={handleRetry}
+            <button type="button" onClick={handleRetry}
               className="w-full px-6 py-3 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-medium rounded-lg hover:bg-gray-800 dark:hover:bg-white transition-colors"
             >
               Try Again
@@ -197,8 +195,7 @@ function SamlErrorContent() {
         </p>
 
         <div className="space-y-3 pt-4">
-          <button
-            onClick={handleRetry}
+          <button type="button" onClick={handleRetry}
             className="w-full px-6 py-3 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-medium rounded-lg hover:bg-gray-800 dark:hover:bg-white transition-colors"
           >
             Try Again

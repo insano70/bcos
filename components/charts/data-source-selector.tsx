@@ -138,8 +138,7 @@ export default function DataSourceSelector({
                 {dataSources.map((dataSource) => (
                   <MenuItem key={dataSource.id}>
                     {({ active }) => (
-                      <button
-                        className={`flex flex-col items-start w-full py-3 px-3 cursor-pointer text-left ${active ? 'bg-gray-50 dark:bg-gray-700/20' : ''} ${dataSource.id === selectedDataSource?.id && 'bg-violet-50 dark:bg-violet-900/20'}`}
+                      <button type="button" className={`flex flex-col items-start w-full py-3 px-3 cursor-pointer text-left ${active ? 'bg-gray-50 dark:bg-gray-700/20' : ''} ${dataSource.id === selectedDataSource?.id && 'bg-violet-50 dark:bg-violet-900/20'}`}
                         onClick={() => {
                           onDataSourceChange(dataSource);
                         }}

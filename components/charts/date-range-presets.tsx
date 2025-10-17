@@ -325,8 +325,7 @@ export default function DateRangePresets({
       {/* Preset Buttons */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         {DATE_PRESETS.map((preset) => (
-          <button
-            key={preset.id}
+          <button type="button" key={preset.id}
             onClick={() => handlePresetSelect(preset.id)}
             className={`p-3 text-left border rounded-lg transition-colors ${
               selectedPreset === preset.id

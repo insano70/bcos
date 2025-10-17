@@ -73,8 +73,7 @@ export default function DropdownProfile({ align }: { align?: 'left' | 'right' })
             </Link>
           </MenuItem>
           <MenuItem as="li">
-            <button
-              onClick={handleSignOut}
+            <button type="button" onClick={handleSignOut}
               className="font-medium text-sm flex items-center py-1 px-3 text-violet-500 hover:text-violet-600 w-full text-left"
             >
               Sign Out

@@ -193,8 +193,7 @@ export default function AdvancedFilterBuilder({
             {renderValueInput(group.id, index, filter)}
 
             {/* Remove Filter Button */}
-            <button
-              onClick={() => removeFilter(group.id, index)}
+            <button type="button" onClick={() => removeFilter(group.id, index)}
               className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
               title="Remove filter"
             >
@@ -215,16 +214,14 @@ export default function AdvancedFilterBuilder({
 
         {/* Add Filter/Group Buttons */}
         <div className="flex gap-2 mt-4">
-          <button
-            onClick={() => addFilter(group.id)}
+          <button type="button" onClick={() => addFilter(group.id)}
             className="px-3 py-2 text-sm bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
           >
             + Add Filter
           </button>
 
           {depth < 2 && ( // Limit nesting depth
-            <button
-              onClick={() => addGroup(group.id)}
+            <button type="button" onClick={() => addGroup(group.id)}
               className="px-3 py-2 text-sm bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
             >
               + Add Group
@@ -318,8 +315,7 @@ export default function AdvancedFilterBuilder({
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Advanced Filters</h3>
-        <button
-          onClick={() => setRootGroup({ id: 'root', logic: 'AND', filters: [], groups: [] })}
+        <button type="button" onClick={() => setRootGroup({ id: 'root', logic: 'AND', filters: [], groups: [] })}
           className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
         >
           Clear All

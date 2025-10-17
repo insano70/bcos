@@ -24,7 +24,7 @@ export default function AccountPanel() {
                 alt="User upload"
               />
             </div>
-            <button className="btn-sm dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300">
+            <button type="button" className="btn-sm dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300">
               Change
             </button>
           </div>
@@ -74,7 +74,7 @@ export default function AccountPanel() {
               </label>
               <input id="email" className="form-input" type="email" />
             </div>
-            <button className="btn dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300">
+            <button type="button" className="btn dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300">
               Change
             </button>
           </div>
@@ -88,7 +88,7 @@ export default function AccountPanel() {
             You can set a permanent password if you don't want to use temporary login codes.
           </div>
           <div className="mt-5">
-            <button className="btn dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300">
+            <button type="button" className="btn dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300">
               Set New Password
             </button>
           </div>
@@ -125,10 +125,10 @@ export default function AccountPanel() {
       <footer>
         <div className="flex flex-col px-6 py-5 border-t border-gray-200 dark:border-gray-700/60">
           <div className="flex self-end">
-            <button className="btn dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300">
+            <button type="button" className="btn dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300">
               Cancel
             </button>
-            <button className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white ml-3">
+            <button type="button" className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white ml-3">
               Save Changes
             </button>
           </div>

@@ -69,8 +69,7 @@ class ChartErrorBoundary extends React.Component<ChartErrorBoundaryProps, ChartE
             There was an error rendering this chart. This could be due to invalid data format or a
             temporary issue.
           </p>
-          <button
-            onClick={this.handleRetry}
+          <button type="button" onClick={this.handleRetry}
             className="px-4 py-2 bg-red-600 text-white rounded-md text-sm hover:bg-red-700 transition-colors"
           >
             Try Again

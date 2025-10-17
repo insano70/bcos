@@ -17,8 +17,7 @@ export default function DatePickerWithRange({ className }: React.HTMLAttributes<
     <div className={cn('grid gap-2', className)}>
       <Popover>
         <PopoverTrigger asChild>
-          <button
-            id="date"
+          <button type="button" id="date"
             className={cn(
               'btn px-2.5 min-w-[15.5rem] bg-white border-gray-200 hover:border-gray-300 dark:border-gray-700/60 dark:hover:border-gray-600 dark:bg-gray-800 text-gray-600 hover:text-gray-800 dark:text-gray-300 dark:hover:text-gray-100 font-medium text-left justify-start',
               !date && 'text-muted-foreground'

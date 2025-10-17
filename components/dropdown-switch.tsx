@@ -64,8 +64,7 @@ export default function DropdownSwitch() {
           {options.map((option, optionIndex) => (
             <MenuItem key={optionIndex} as="li">
               {({ active }) => (
-                <button
-                  className={`w-full font-medium text-sm block py-1.5 px-3 ${active ? 'text-gray-800 dark:text-gray-200' : 'text-gray-600 dark:text-gray-300'}`}
+                <button type="button" className={`w-full font-medium text-sm block py-1.5 px-3 ${active ? 'text-gray-800 dark:text-gray-200' : 'text-gray-600 dark:text-gray-300'}`}
                   onClick={() => {
                     setSelected(option.id);
                   }}

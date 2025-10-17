@@ -122,14 +122,12 @@ export default function RedisKeyInspector({
           </div>
 
           <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
-            <button
-              onClick={handleDeleteClick}
+            <button type="button" onClick={handleDeleteClick}
               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
             >
               Delete Key
             </button>
-            <button
-              onClick={onClose}
+            <button type="button" onClick={onClose}
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
             >
               Close

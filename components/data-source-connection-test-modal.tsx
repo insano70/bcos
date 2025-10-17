@@ -109,8 +109,7 @@ export default function DataSourceConnectionTestModal({
                       <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
                         Test Connection
                       </h2>
-                      <button
-                        onClick={handleClose}
+                      <button type="button" onClick={handleClose}
                         className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                       >
                         <span className="sr-only">Close</span>
@@ -160,8 +159,7 @@ export default function DataSourceConnectionTestModal({
 
                     {/* Test Button */}
                     <div className="mb-6">
-                      <button
-                        onClick={handleTestConnection}
+                      <button type="button" onClick={handleTestConnection}
                         disabled={isTesting || !dataSource}
                         className="w-full px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                       >
@@ -356,8 +354,7 @@ export default function DataSourceConnectionTestModal({
                       Close
                     </button>
                     {testResult && !testResult.success && (
-                      <button
-                        onClick={handleTestConnection}
+                      <button type="button" onClick={handleTestConnection}
                         disabled={isTesting}
                         className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                       >

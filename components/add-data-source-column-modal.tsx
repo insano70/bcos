@@ -117,8 +117,7 @@ export default function AddDataSourceColumnModal({
                       <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
                         Add Data Source Column
                       </h2>
-                      <button
-                        onClick={handleClose}
+                      <button type="button" onClick={handleClose}
                         className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                       >
                         <span className="sr-only">Close</span>

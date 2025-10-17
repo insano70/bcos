@@ -34,8 +34,7 @@ export default function PaginationClassic({
         <ul className="flex justify-center">
           <li className="ml-3 first:ml-0">
             {hasPrevious ? (
-              <button
-                onClick={onPrevious}
+              <button type="button" onClick={onPrevious}
                 className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300"
               >
                 &lt;- Previous
@@ -48,8 +47,7 @@ export default function PaginationClassic({
           </li>
           <li className="ml-3 first:ml-0">
             {hasNext ? (
-              <button
-                onClick={onNext}
+              <button type="button" onClick={onNext}
                 className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-800 dark:text-gray-300"
               >
                 Next -&gt;

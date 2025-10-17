@@ -308,8 +308,7 @@ export default function ErrorRateChart({ category, timeRange, height = 300 }: Er
         <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
           Error Rate Trending
         </h3>
-        <button
-          onClick={handleResetZoom}
+        <button type="button" onClick={handleResetZoom}
           className="px-3 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
           title="Reset zoom"
         >

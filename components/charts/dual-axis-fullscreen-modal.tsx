@@ -380,15 +380,13 @@ export default function DualAxisFullscreenModal({
             {chartTitle}
           </h2>
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleResetZoom}
+            <button type="button" onClick={handleResetZoom}
               className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-md transition-colors"
               aria-label="Reset zoom level"
             >
               Reset Zoom
             </button>
-            <button
-              onClick={onClose}
+            <button type="button" onClick={onClose}
               className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               aria-label="Close fullscreen view"
             >

@@ -74,8 +74,7 @@ export default function Toast03({
                 {typeIcon(type)}
                 <div>{children}</div>
               </div>
-              <button
-                className="dark:text-gray-400 opacity-60 hover:opacity-70 ml-3 mt-[3px]"
+              <button type="button" className="dark:text-gray-400 opacity-60 hover:opacity-70 ml-3 mt-[3px]"
                 onClick={() => setOpen(false)}
               >
                 <div className="sr-only">Close</div>

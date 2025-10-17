@@ -63,8 +63,7 @@ export default function TemplatePreviewToolbar({
 
           <div className="flex flex-wrap gap-2">
             {templates.map((template) => (
-              <button
-                key={template.slug}
+              <button type="button" key={template.slug}
                 onClick={() => handleTemplateClick(template.slug)}
                 disabled={isLoading}
                 className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${

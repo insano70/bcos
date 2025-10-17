@@ -78,8 +78,7 @@ export default function Tooltip({
       onFocus={() => setTooltipOpen(true)}
       onBlur={() => setTooltipOpen(false)}
     >
-      <button
-        className="block"
+      <button type="button" className="block"
         aria-haspopup="true"
         aria-expanded={tooltipOpen}
         onClick={(e) => e.preventDefault()}

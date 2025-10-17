@@ -35,8 +35,7 @@ export default function WorkItemAttachmentsSection({
           ]}
           requireAll={false}
         >
-          <button
-            onClick={() => setShowUpload(!showUpload)}
+          <button type="button" onClick={() => setShowUpload(!showUpload)}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
           >
             {showUpload ? 'Cancel' : 'Upload File'}

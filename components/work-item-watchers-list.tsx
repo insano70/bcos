@@ -189,8 +189,7 @@ function WatcherItem({
             </label>
 
             <div className="flex gap-2 mt-3">
-              <button
-                onClick={handleSavePreferences}
+              <button type="button" onClick={handleSavePreferences}
                 disabled={updatePreferences.isPending}
                 className="btn-sm bg-blue-500 hover:bg-blue-600 text-white"
               >
@@ -200,8 +199,7 @@ function WatcherItem({
                   'Save'
                 )}
               </button>
-              <button
-                onClick={onEditToggle}
+              <button type="button" onClick={onEditToggle}
                 className="btn-sm bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-gray-700 dark:text-gray-300"
               >
                 Cancel
@@ -210,8 +208,7 @@ function WatcherItem({
           </div>
         ) : (
           isCurrentUser && (
-            <button
-              onClick={onEditToggle}
+            <button type="button" onClick={onEditToggle}
               className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1"
             >
               <Settings className="h-3 w-3" />

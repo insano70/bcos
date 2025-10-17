@@ -167,8 +167,7 @@ export default function ChargesPaymentsChart({
         <div className="flex flex-col items-center justify-center h-64">
           <div className="text-red-500 mb-2">⚠️ Chart Error</div>
           <div className="text-sm text-gray-600 dark:text-gray-400 text-center px-4">{error}</div>
-          <button
-            onClick={fetchChargesPaymentsData}
+          <button type="button" onClick={fetchChargesPaymentsData}
             className="mt-3 px-4 py-2 bg-violet-500 text-white rounded-md text-sm hover:bg-violet-600 transition-colors"
           >
             Retry

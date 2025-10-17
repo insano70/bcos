@@ -201,8 +201,7 @@ export default function ChartBuilderAdvanced({
                 <h4 className="text-md font-medium text-gray-800 dark:text-gray-200">
                   Series Configuration
                 </h4>
-                <button
-                  onClick={addSeries}
+                <button type="button" onClick={addSeries}
                   className="px-3 py-1 bg-violet-500 text-white text-sm rounded hover:bg-violet-600 transition-colors"
                 >
                   Add Series
@@ -218,8 +217,7 @@ export default function ChartBuilderAdvanced({
                     <h5 className="font-medium text-gray-700 dark:text-gray-300">
                       Series {index + 1}
                     </h5>
-                    <button
-                      onClick={() => removeSeries(series.id)}
+                    <button type="button" onClick={() => removeSeries(series.id)}
                       className="text-red-500 hover:text-red-700 text-sm"
                     >
                       Remove

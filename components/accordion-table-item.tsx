@@ -68,8 +68,7 @@ export default function AccordionTableItem({ item }: ItemProps) {
         </td>
         <td className="px-2 first:pl-5 last:pr-5 py-3 whitespace-nowrap w-px">
           <div className="flex items-center">
-            <button
-              className={`text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400 ${open && 'rotate-180'}`}
+            <button type="button" className={`text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400 ${open && 'rotate-180'}`}
               aria-expanded={open}
               onClick={() => setOpen(!open)}
               aria-controls={`description-${item.id}`}

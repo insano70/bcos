@@ -82,15 +82,13 @@ export default function RedisPurgeTools() {
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
           />
           <div className="flex gap-2">
-            <button
-              onClick={handlePreview}
+            <button type="button" onClick={handlePreview}
               disabled={loading || !purgePattern.trim()}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
               Preview
             </button>
-            <button
-              onClick={() => setShowConfirm(true)}
+            <button type="button" onClick={() => setShowConfirm(true)}
               disabled={loading || !purgePattern.trim() || previewCount === null}
               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
             >

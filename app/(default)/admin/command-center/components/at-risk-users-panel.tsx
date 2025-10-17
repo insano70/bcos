@@ -196,8 +196,7 @@ export default function AtRiskUsersPanel({
             <option value="monitoring">Monitoring</option>
           </select>
           {/* Export Button */}
-          <button
-            onClick={handleExport}
+          <button type="button" onClick={handleExport}
             disabled={!data || data.users.length === 0}
             className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             title="Export to CSV"
@@ -218,8 +217,7 @@ export default function AtRiskUsersPanel({
           </button>
 
           {/* Refresh Button */}
-          <button
-            onClick={() => {
+          <button type="button" onClick={() => {
               setLoading(true);
               fetchUsers();
             }}
@@ -314,8 +312,7 @@ export default function AtRiskUsersPanel({
             </div>
             {totalPages > 1 && (
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
                   className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded disabled:opacity-50"
                 >
@@ -324,8 +321,7 @@ export default function AtRiskUsersPanel({
                 <span className="text-sm text-gray-600 dark:text-gray-400">
                   Page {page} of {totalPages}
                 </span>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                <button type="button" onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
                   className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded disabled:opacity-50"
                 >
@@ -387,8 +383,7 @@ function AtRiskUserRow({ user, onView }: AtRiskUserRowProps) {
         </div>
 
         {/* Action Button */}
-        <button
-          onClick={() => onView?.(user)}
+        <button type="button" onClick={() => onView?.(user)}
           className="px-3 py-1 text-sm text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 font-medium"
           aria-label={`Review security details for ${user.email}`}
         >

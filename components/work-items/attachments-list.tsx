@@ -115,8 +115,7 @@ export default function AttachmentsList({ workItemId }: AttachmentsListProps) {
 
               {/* Actions */}
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleDownload(attachment.work_item_attachment_id)}
+                <button type="button" onClick={() => handleDownload(attachment.work_item_attachment_id)}
                   disabled={downloadMutation.isPending}
                   className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
                   title="Download"
@@ -137,8 +136,7 @@ export default function AttachmentsList({ workItemId }: AttachmentsListProps) {
                   </svg>
                 </button>
 
-                <button
-                  onClick={() =>
+                <button type="button" onClick={() =>
                     handleDelete(attachment.work_item_attachment_id, attachment.file_name)
                   }
                   disabled={isDeleting}

@@ -13,8 +13,7 @@ export default function AccordionBasic({
 
   return (
     <div className="px-5 py-4 rounded-lg border border-gray-200 dark:border-gray-700/60">
-      <button
-        className="flex items-center justify-between w-full group mb-1"
+      <button type="button" className="flex items-center justify-between w-full group mb-1"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >

@@ -269,8 +269,7 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
                 {batchMetrics.chartsRendered} charts
               </span>
             </div>
-            <button
-              onClick={() => refetchBatch(true)}
+            <button type="button" onClick={() => refetchBatch(true)}
               className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
             >
               🔄

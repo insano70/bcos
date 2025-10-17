@@ -182,8 +182,7 @@ export default function UserDetailModal({
               <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                 User Security Profile
               </h2>
-              <button
-                onClick={onClose}
+              <button type="button" onClick={onClose}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -327,8 +326,7 @@ export default function UserDetailModal({
               <div className="flex gap-2">
                 {/* Unlock Account Button */}
                 {isLocked && (
-                  <button
-                    onClick={handleUnlockAccount}
+                  <button type="button" onClick={handleUnlockAccount}
                     disabled={actionLoading}
                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                   >
@@ -338,8 +336,7 @@ export default function UserDetailModal({
 
                 {/* Clear Failed Attempts Button */}
                 {user.failedAttempts > 0 && (
-                  <button
-                    onClick={handleClearAttempts}
+                  <button type="button" onClick={handleClearAttempts}
                     disabled={actionLoading}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                   >
@@ -348,8 +345,7 @@ export default function UserDetailModal({
                 )}
 
                 {/* Flag/Unflag Button */}
-                <button
-                  onClick={handleToggleFlag}
+                <button type="button" onClick={handleToggleFlag}
                   disabled={actionLoading}
                   className={`px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 ${
                     user.suspiciousActivity
@@ -361,8 +357,7 @@ export default function UserDetailModal({
                 </button>
 
                 {/* Close Button */}
-                <button
-                  onClick={onClose}
+                <button type="button" onClick={onClose}
                   disabled={actionLoading}
                   className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
                 >

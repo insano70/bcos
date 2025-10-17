@@ -82,8 +82,7 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
         {/* Sidebar header */}
         <div className="flex justify-between mb-10 pr-3 sm:px-2">
           {/* Close button */}
-          <button
-            className="lg:hidden text-gray-500 hover:text-gray-400"
+          <button type="button" className="lg:hidden text-gray-500 hover:text-gray-400"
             onClick={() => setSidebarOpen(!sidebarOpen)}
             aria-controls="sidebar"
             aria-expanded={sidebarOpen}
@@ -116,8 +115,7 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
         {/* Expand / collapse button */}
         <div className="pt-3 hidden lg:inline-flex 2xl:hidden justify-end mt-auto">
           <div className="w-12 pl-4 pr-3 py-2">
-            <button
-              className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400"
+            <button type="button" className="text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400"
               onClick={() => setSidebarExpanded(!sidebarExpanded)}
             >
               <span className="sr-only">Expand / collapse sidebar</span>

@@ -39,8 +39,7 @@ export default function RedisAdminTabs({
       <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
         <nav className="flex gap-4">
           {tabs.map((tab) => (
-            <button
-              key={tab.id}
+            <button type="button" key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2 border-b-2 transition-colors ${
                 activeTab === tab.id

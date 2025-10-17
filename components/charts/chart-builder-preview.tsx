@@ -74,15 +74,13 @@ export default function ChartBuilderPreview({
       </div>
 
       <div className="flex justify-between">
-        <button
-          onClick={onBackToConfigure}
+        <button type="button" onClick={onBackToConfigure}
           className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
         >
           Back to Configure
         </button>
 
-        <button
-          onClick={onSave}
+        <button type="button" onClick={onSave}
           disabled={isSaving}
           className="px-6 py-2 bg-violet-500 text-white rounded-md hover:bg-violet-600 transition-colors disabled:opacity-50 flex items-center"
         >

@@ -205,8 +205,7 @@ export default function HistoricalComparisonWidget({
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Comparison Type
           </label>
-          <button
-            onClick={performComparison}
+          <button type="button" onClick={performComparison}
             disabled={isLoading || !measure || !frequency}
             className="px-3 py-1 bg-violet-500 text-white text-sm rounded hover:bg-violet-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
           >
@@ -280,8 +279,7 @@ export default function HistoricalComparisonWidget({
               </div>
             </div>
 
-            <button
-              onClick={performComparison}
+            <button type="button" onClick={performComparison}
               disabled={!measure || !frequency}
               className="px-4 py-2 bg-violet-500 text-white rounded-md hover:bg-violet-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >

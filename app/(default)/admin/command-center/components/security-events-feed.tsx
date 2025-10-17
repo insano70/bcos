@@ -134,8 +134,7 @@ export default function SecurityEventsFeed({
           </select>
 
           {/* Export Button */}
-          <button
-            onClick={handleExport}
+          <button type="button" onClick={handleExport}
             disabled={!data || data.events.length === 0}
             className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             title="Export to CSV"
@@ -156,8 +155,7 @@ export default function SecurityEventsFeed({
           </button>
 
           {/* Manual Refresh */}
-          <button
-            onClick={() => {
+          <button type="button" onClick={() => {
               setLoading(true);
               fetchEvents();
             }}
@@ -311,8 +309,7 @@ function SecurityEventItem({ event }: SecurityEventItemProps) {
         </div>
 
         {/* Expand Button */}
-        <button
-          onClick={() => setExpanded(!expanded)}
+        <button type="button" onClick={() => setExpanded(!expanded)}
           className="text-xs text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300 flex-shrink-0"
         >
           {expanded ? 'Hide' : 'Details'}

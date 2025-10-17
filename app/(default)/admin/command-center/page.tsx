@@ -169,8 +169,7 @@ export default function CommandCenterPage() {
             )}
 
             {/* Manual Refresh Button */}
-            <button
-              onClick={handleManualRefresh}
+            <button type="button" onClick={handleManualRefresh}
               disabled={loading}
               className="px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600 disabled:bg-gray-400 transition-colors flex items-center gap-2"
               aria-label="Refresh dashboard metrics"

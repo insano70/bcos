@@ -87,8 +87,7 @@ export default function Banner({
                 {typeIcon(type)}
                 <div className="font-medium">{children}</div>
               </div>
-              <button
-                className="opacity-60 hover:opacity-70 ml-3 mt-[3px]"
+              <button type="button" className="opacity-60 hover:opacity-70 ml-3 mt-[3px]"
                 onClick={() => setOpen(false)}
               >
                 <div className="sr-only">Close</div>

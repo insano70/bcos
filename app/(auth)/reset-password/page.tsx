@@ -30,7 +30,7 @@ export default function ResetPassword() {
                   </div>
                 </div>
                 <div className="flex justify-end mt-6">
-                  <button className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white whitespace-nowrap">
+                  <button type="button" className="btn bg-gray-900 text-gray-100 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-800 dark:hover:bg-white whitespace-nowrap">
                     Send Reset Link
                   </button>
                 </div>

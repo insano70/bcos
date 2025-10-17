@@ -55,15 +55,13 @@ export default function ChartBuilderSave({
       </div>
 
       <div className="flex justify-between">
-        <button
-          onClick={onBackToPreview}
+        <button type="button" onClick={onBackToPreview}
           className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
         >
           Back to Preview
         </button>
 
-        <button
-          onClick={onSave}
+        <button type="button" onClick={onSave}
           disabled={isSaving}
           className="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors disabled:opacity-50"
         >

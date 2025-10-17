@@ -118,8 +118,7 @@ export default function RedisCacheStats({
         <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
           Redis Cache Statistics
         </h3>
-        <button
-          onClick={() => {
+        <button type="button" onClick={() => {
             setLoading(true);
             fetchStats();
           }}

@@ -147,8 +147,7 @@ export default function AnalyticsCacheDatasourceCard({
       {/* Action Buttons */}
       <div className="flex gap-2">
         {onRefresh && (
-          <button
-            onClick={() => onRefresh(metrics.datasourceId)}
+          <button type="button" onClick={() => onRefresh(metrics.datasourceId)}
             disabled={isRefreshing}
             className="flex-1 px-3 py-1.5 bg-violet-600 text-white text-xs font-medium rounded hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             title="Refresh cache for this datasource"
@@ -164,8 +163,7 @@ export default function AnalyticsCacheDatasourceCard({
           </button>
         )}
         {onInvalidate && (
-          <button
-            onClick={() => onInvalidate(metrics.datasourceId)}
+          <button type="button" onClick={() => onInvalidate(metrics.datasourceId)}
             disabled={isRefreshing}
             className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium rounded hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             title="Invalidate cache for this datasource"

@@ -11,7 +11,7 @@ export default function DeleteButton() {
         <div className="hidden xl:block text-sm italic mr-2 whitespace-nowrap">
           <span>{selectedItems.length}</span> items selected
         </div>
-        <button className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-red-500">
+        <button type="button" className="btn bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/60 hover:border-gray-300 dark:hover:border-gray-600 text-red-500">
           Delete
         </button>
       </div>
