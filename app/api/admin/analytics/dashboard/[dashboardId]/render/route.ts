@@ -32,9 +32,9 @@ import { dashboardRenderRequestSchema } from '@/lib/validations/analytics';
  */
 
 interface RenderDashboardParams {
-  params: {
+  params: Promise<{
     dashboardId: string;
-  };
+  }>;
 }
 
 /**
@@ -47,7 +47,8 @@ const renderDashboardHandler = async (
 ) => {
   const startTime = Date.now();
   const { params } = args[0] as RenderDashboardParams;
-  const { dashboardId } = params;
+  // Next.js 15: params must be awaited before accessing properties
+  const { dashboardId } = await params;
 
   log.info('Dashboard batch render request initiated', {
     dashboardId,

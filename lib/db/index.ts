@@ -112,11 +112,9 @@ export const closeDb = async () => {
 };
 
 // Cleanup on process termination (only in Node.js runtime, not Edge)
-if (typeof process !== 'undefined' && typeof process.on === 'function') {
-  process.on('beforeExit', closeDb);
-  process.on('SIGINT', closeDb);
-  process.on('SIGTERM', closeDb);
-}
+// Note: Event handlers removed entirely - Next.js manages process lifecycle
+// Database connections will be closed automatically by postgres.js when process exits
+// Registering handlers here causes issues with Next.js worker processes
 
 export * from './analytics-schema';
 export * from './audit-schema';

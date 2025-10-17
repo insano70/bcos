@@ -168,8 +168,6 @@ export const closeAnalyticsDb = async () => {
 };
 
 // Cleanup on process termination
-if (typeof process !== 'undefined') {
-  process.on('beforeExit', closeAnalyticsDb);
-  process.on('SIGINT', closeAnalyticsDb);
-  process.on('SIGTERM', closeAnalyticsDb);
-}
+// Note: Event handlers removed entirely - Next.js manages process lifecycle
+// Database connections will be closed automatically by postgres.js when process exits
+// Registering handlers here causes issues with Next.js worker processes
