@@ -33,7 +33,7 @@ import { unsealData } from 'iron-session';
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { publicRoute } from '@/lib/api/route-handler';
+import { publicRoute } from '@/lib/api/route-handlers';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { validateAuthProfile, validateEmailDomain } from '@/lib/auth/input-validator';
 import { createTokenPair } from '@/lib/auth/token-manager';

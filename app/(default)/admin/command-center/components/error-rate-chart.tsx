@@ -303,8 +303,8 @@ export default function ErrorRateChart({ category, timeRange, height = 300 }: Er
   }, [darkMode]);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6" style={{ height }}>
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 flex flex-col" style={{ height: `${height}px` }}>
+      <div className="flex items-center justify-between mb-4 shrink-0">
         <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
           Error Rate Trending
         </h3>
@@ -316,12 +316,12 @@ export default function ErrorRateChart({ category, timeRange, height = 300 }: Er
         </button>
       </div>
       {loading && (
-        <div className="flex items-center justify-center h-48">
+        <div className="flex items-center justify-center flex-1">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-500"></div>
         </div>
       )}
-      {error && <div className="text-center text-red-600 py-8">{error}</div>}
-      {!loading && !error && <canvas ref={canvasRef} />}
+      {error && <div className="text-center text-red-600 py-8 flex-1">{error}</div>}
+      {!loading && !error && <div className="flex-1 relative"><canvas ref={canvasRef} className="absolute inset-0" /></div>}
     </div>
   );
 }

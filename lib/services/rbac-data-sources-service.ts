@@ -1,106 +1,46 @@
-import { and, count, desc, eq, like, or, sql } from 'drizzle-orm';
-import { z } from 'zod';
-import { db } from '@/lib/db';
-import { chart_data_source_columns, chart_data_sources } from '@/lib/db/chart-config-schema';
-import { log } from '@/lib/logger';
-import { BaseRBACService } from '@/lib/rbac/base-service';
-import { getAnalyticsDb } from '@/lib/services/analytics-db';
-import type { UserContext } from '@/lib/types/rbac';
-import { PermissionDeniedError } from '@/lib/types/rbac';
-import type {
-  DataSourceColumnCreateInput,
-  DataSourceColumnQueryInput,
-  DataSourceColumnUpdateInput,
-  DataSourceCreateInput,
-  DataSourceQueryInput,
-  DataSourceUpdateInput,
-  TableColumnsQueryInput,
-} from '@/lib/validations/data-sources';
-
 /**
- * Enhanced Data Sources Service with RBAC
- * Provides data source management with automatic permission checking and data filtering
+ * RBAC Data Sources Service
+ *
+ * Handles CRUD operations for chart data sources configuration.
+ * Manages chart_data_sources table with RBAC enforcement.
+ *
+ * REFACTORED: Removed column CRUD, introspection, and connection testing.
+ * Those responsibilities are now in separate services:
+ * - rbac-data-source-columns-service.ts (Column CRUD)
+ * - data-sources/introspection-service.ts (Schema introspection)
+ * - data-sources/connection-tester.ts (Connection testing)
+ *
+ * This service now follows Single Responsibility Principle and STANDARDS.md guidelines.
  */
 
-// Universal logger for RBAC data sources service operations
-// Use validation schema types for consistency
-export type CreateDataSourceData = DataSourceCreateInput;
-export type UpdateDataSourceData = DataSourceUpdateInput;
-export type DataSourceQueryOptions = DataSourceQueryInput;
-export type CreateDataSourceColumnData = DataSourceColumnCreateInput;
-export type UpdateDataSourceColumnData = DataSourceColumnUpdateInput;
-export type DataSourceColumnQueryOptions = DataSourceColumnQueryInput;
+import { and, count, desc, eq, like, or } from 'drizzle-orm';
+import { chartDataCache } from '@/lib/cache/chart-data-cache';
+import { QUERY_LIMITS } from '@/lib/constants/query-limits';
+import { db } from '@/lib/db';
+import { chart_data_source_columns, chart_data_sources } from '@/lib/db/chart-config-schema';
+import { calculateChanges, log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
+import { BaseRBACService } from '@/lib/rbac/base-service';
+import { connectionTester } from '@/lib/services/data-sources/connection-tester';
+import { introspectionService } from '@/lib/services/data-sources/introspection-service';
+import { createRBACDataSourceColumnsService } from '@/lib/services/rbac-data-source-columns-service';
+import type {
+  ConnectionTestResult,
+  CreateDataSourceData,
+  DataSourceColumnWithMetadata,
+  DataSourceQueryOptions,
+  DataSourceWithMetadata,
+  UpdateDataSourceData,
+} from '@/lib/types/data-sources';
+import type { UserContext } from '@/lib/types/rbac';
+import { PermissionDeniedError } from '@/lib/types/rbac';
+import type { TableColumnsQueryInput } from '@/lib/validations/data-sources';
 
-export interface DataSourceColumnWithMetadata {
-  column_id: number;
-  data_source_id: number;
-  column_name: string;
-  display_name: string;
-  column_description: string | null;
-  data_type: string;
-
-  // Chart functionality flags
-  is_filterable: boolean | null;
-  is_groupable: boolean | null;
-  is_measure: boolean | null;
-  is_dimension: boolean | null;
-  is_date_field: boolean | null;
-  is_measure_type: boolean | null;
-  is_time_period: boolean | null;
-
-  // Display and formatting
-  format_type: string | null;
-  sort_order: number | null;
-  default_aggregation: string | null;
-
-  // Icon display options
-  display_icon: boolean | null;
-  icon_type: string | null;
-  icon_color_mode: string | null;
-  icon_color: string | null;
-  icon_mapping: unknown;
-
-  // Security and validation
-  is_sensitive: boolean | null;
-  access_level: string | null;
-  allowed_values: unknown;
-  validation_rules: unknown;
-
-  // Metadata
-  example_value: string | null;
-  is_active: boolean | null;
-  created_at: Date | null;
-  updated_at: Date | null;
-}
-
-export interface DataSourceWithMetadata {
-  data_source_id: number;
-  data_source_name: string;
-  data_source_description: string | null;
-  table_name: string;
-  schema_name: string;
-  database_type: string | null;
-  connection_config: unknown; // Match the database schema type
-  is_active: boolean | null;
-  requires_auth: boolean | null;
-  created_at: Date | null;
-  updated_at: Date | null;
-  created_by: string | null;
-  column_count?: number;
-  last_tested?: Date | null;
-}
-
-export interface ConnectionTestResult {
-  success: boolean;
-  error?: string;
-  details?: {
-    connection_time_ms?: number;
-    schema_accessible?: boolean;
-    table_accessible?: boolean;
-    sample_row_count?: number;
-  };
-}
-
+/**
+ * RBAC Data Sources Service
+ *
+ * Provides CRUD operations for data source configurations.
+ * Enforces RBAC permissions for all operations.
+ */
 export class RBACDataSourcesService extends BaseRBACService {
   constructor(userContext: UserContext) {
     super(userContext, db);
@@ -108,13 +48,21 @@ export class RBACDataSourcesService extends BaseRBACService {
 
   /**
    * Get data sources with automatic permission-based filtering
+   *
+   * Improvements:
+   * - Uses logTemplates for consistent logging
+   * - Separate timing for count vs list queries
+   * - RBAC scope visibility in logs
+   * - Helper method to enrich with column count
    */
   async getDataSources(
-    options: DataSourceQueryOptions = { limit: 50, offset: 0 }
+    options: DataSourceQueryOptions = { limit: QUERY_LIMITS.DATA_SOURCES_DEFAULT, offset: 0 }
   ): Promise<DataSourceWithMetadata[]> {
+    const startTime = Date.now();
+
     this.requirePermission('data-sources:read:organization');
 
-    const accessScope = this.getAccessScope('analytics', 'read'); // Use 'analytics' since 'data-sources' may not be defined as ResourceType
+    const accessScope = this.getAccessScope('analytics', 'read');
 
     // Build all where conditions upfront
     const whereConditions = [eq(chart_data_sources.is_active, true)];
@@ -164,7 +112,20 @@ export class RBACDataSourcesService extends BaseRBACService {
     }
 
     try {
-      // Build query with column count subquery
+      // Count query timing (separate from list query)
+      const countStart = Date.now();
+      const [countResult] = await db
+        .select({ count: count() })
+        .from(chart_data_sources)
+        .where(and(...whereConditions));
+      const countDuration = Date.now() - countStart;
+
+      // List query timing with LEFT JOIN for column counts (single query instead of N+1)
+      // Performance optimization: Use LEFT JOIN with GROUP BY to get column counts in a single query.
+      // This eliminates the N+1 query problem where we would make 1 query for data sources
+      // and then N additional queries (one per data source) to get column counts.
+      // The LEFT JOIN ensures data sources with zero columns still appear in results (count = 0).
+      const queryStart = Date.now();
       const results = await db
         .select({
           data_source_id: chart_data_sources.data_source_id,
@@ -179,45 +140,56 @@ export class RBACDataSourcesService extends BaseRBACService {
           created_at: chart_data_sources.created_at,
           updated_at: chart_data_sources.updated_at,
           created_by: chart_data_sources.created_by,
+          column_count: count(chart_data_source_columns.column_id),
         })
         .from(chart_data_sources)
+        .leftJoin(
+          chart_data_source_columns,
+          and(
+            eq(chart_data_source_columns.data_source_id, chart_data_sources.data_source_id),
+            eq(chart_data_source_columns.is_active, true) // Only count active columns
+          )
+        )
         .where(and(...whereConditions))
+        .groupBy(chart_data_sources.data_source_id)
         .orderBy(desc(chart_data_sources.updated_at))
-        .limit(options.limit || 50)
+        .limit(options.limit || QUERY_LIMITS.DATA_SOURCES_DEFAULT)
         .offset(options.offset || 0);
+      const queryDuration = Date.now() - queryStart;
 
-      // Get column counts for each data source
-      const enrichedResults = await Promise.all(
-        results.map(async (dataSource) => {
-          const [columnCount] = await db
-            .select({ count: count() })
-            .from(chart_data_source_columns)
-            .where(
-              and(
-                eq(chart_data_source_columns.data_source_id, dataSource.data_source_id),
-                eq(chart_data_source_columns.is_active, true)
-              )
-            );
+      // No need for enrichment - column_count already included via JOIN
+      const enrichedResults = results;
 
-          return {
-            ...dataSource,
-            column_count: columnCount?.count || 0,
-          };
-        })
-      );
+      const duration = Date.now() - startTime;
 
-      log.info('Data sources retrieved successfully', {
+      // Use logTemplates for consistent logging
+      const template = logTemplates.crud.list('data_sources', {
         userId: this.userContext.user_id,
-        count: enrichedResults.length,
-        filters: options,
+        ...(this.userContext.current_organization_id && { organizationId: this.userContext.current_organization_id }),
+        filters: options as Record<string, unknown>,
+        results: {
+          returned: enrichedResults.length,
+          total: countResult?.count || 0,
+          page: Math.floor((options.offset || 0) / (options.limit || QUERY_LIMITS.DATA_SOURCES_DEFAULT)) + 1,
+        },
+        duration,
+        metadata: {
+          countDuration,
+          queryDuration,
+          slowCount: countDuration > SLOW_THRESHOLDS.DB_QUERY,
+          slowQuery: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
+          rbacScope: accessScope.scope,
+        },
       });
+
+      log.info(template.message, template.context);
 
       return enrichedResults;
     } catch (error) {
-      log.error('Failed to retrieve data sources', {
+      log.error('Data sources list query failed', error, {
         userId: this.userContext.user_id,
-        error: error instanceof Error ? error.message : 'Unknown error',
         filters: options,
+        component: 'data-sources',
       });
       throw error;
     }
@@ -227,6 +199,8 @@ export class RBACDataSourcesService extends BaseRBACService {
    * Get a single data source by ID
    */
   async getDataSourceById(dataSourceId: number): Promise<DataSourceWithMetadata | null> {
+    const startTime = Date.now();
+
     this.requirePermission('data-sources:read:organization');
 
     try {
@@ -249,29 +223,43 @@ export class RBACDataSourcesService extends BaseRBACService {
         .where(eq(chart_data_sources.data_source_id, dataSourceId));
 
       if (!result) {
+        const duration = Date.now() - startTime;
+        const template = logTemplates.crud.read('data_source', {
+          resourceId: String(dataSourceId),
+          found: false,
+          userId: this.userContext.user_id,
+          duration,
+        });
+        log.info(template.message, template.context);
         return null;
       }
 
-      // Get column count
-      const [columnCount] = await db
-        .select({ count: count() })
-        .from(chart_data_source_columns)
-        .where(
-          and(
-            eq(chart_data_source_columns.data_source_id, dataSourceId),
-            eq(chart_data_source_columns.is_active, true)
-          )
-        );
+      // Enrich with column count
+      const enriched = await this.enrichWithColumnCount(result);
 
-      return {
-        ...result,
-        column_count: columnCount?.count || 0,
-      };
+      const duration = Date.now() - startTime;
+
+      const template = logTemplates.crud.read('data_source', {
+        resourceId: String(dataSourceId),
+        resourceName: enriched.data_source_name,
+        found: true,
+        userId: this.userContext.user_id,
+        duration,
+        metadata: {
+          schemaName: enriched.schema_name,
+          tableName: enriched.table_name,
+          columnCount: enriched.column_count,
+        },
+      });
+
+      log.info(template.message, template.context);
+
+      return enriched;
     } catch (error) {
-      log.error('Failed to retrieve data source', {
+      log.error('Data source read failed', error, {
         userId: this.userContext.user_id,
         dataSourceId,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        component: 'data-sources',
       });
       throw error;
     }
@@ -281,6 +269,8 @@ export class RBACDataSourcesService extends BaseRBACService {
    * Create a new data source
    */
   async createDataSource(data: CreateDataSourceData): Promise<DataSourceWithMetadata> {
+    const startTime = Date.now();
+
     this.requirePermission('data-sources:create:organization');
 
     try {
@@ -317,21 +307,31 @@ export class RBACDataSourcesService extends BaseRBACService {
         throw new Error('Failed to create data source - no result returned');
       }
 
-      log.info('Data source created successfully', {
+      const duration = Date.now() - startTime;
+
+      const template = logTemplates.crud.create('data_source', {
+        resourceId: String(newDataSource.data_source_id),
+        resourceName: newDataSource.data_source_name,
         userId: this.userContext.user_id,
-        dataSourceId: newDataSource.data_source_id,
-        dataSourceName: newDataSource.data_source_name,
+        duration,
+        metadata: {
+          databaseType: newDataSource.database_type,
+          schemaName: newDataSource.schema_name,
+          tableName: newDataSource.table_name,
+          isActive: newDataSource.is_active,
+        },
       });
+
+      log.info(template.message, template.context);
 
       return {
         ...newDataSource,
         column_count: 0,
       };
     } catch (error) {
-      log.error('Failed to create data source', {
+      log.error('Data source creation failed', error, {
         userId: this.userContext.user_id,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        data,
+        component: 'data-sources',
       });
       throw error;
     }
@@ -339,11 +339,17 @@ export class RBACDataSourcesService extends BaseRBACService {
 
   /**
    * Update a data source
+   *
+   * Improvements:
+   * - Uses calculateChanges for audit trail
+   * - Logs field change count
    */
   async updateDataSource(
     dataSourceId: number,
     data: UpdateDataSourceData
   ): Promise<DataSourceWithMetadata | null> {
+    const startTime = Date.now();
+
     this.requirePermission('data-sources:update:organization');
 
     try {
@@ -386,31 +392,46 @@ export class RBACDataSourcesService extends BaseRBACService {
         return null;
       }
 
-      log.info('Data source updated successfully', {
+      const duration = Date.now() - startTime;
+
+      // Calculate changes for audit trail
+      const changes = calculateChanges(existing, data);
+
+      const template = logTemplates.crud.update('data_source', {
+        resourceId: String(updatedDataSource.data_source_id),
+        resourceName: updatedDataSource.data_source_name,
         userId: this.userContext.user_id,
-        dataSourceId,
-        changes: data,
+        changes,
+        duration,
+        metadata: {
+          fieldsChanged: Object.keys(changes).length,
+          databaseType: updatedDataSource.database_type,
+          isActive: updatedDataSource.is_active,
+        },
       });
+
+      log.info(template.message, template.context);
 
       return {
         ...updatedDataSource,
         column_count: existing.column_count || 0,
       };
     } catch (error) {
-      log.error('Failed to update data source', {
+      log.error('Data source update failed', error, {
         userId: this.userContext.user_id,
         dataSourceId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        data,
+        component: 'data-sources',
       });
       throw error;
     }
   }
 
   /**
-   * Delete a data source
+   * Delete a data source (soft delete)
    */
   async deleteDataSource(dataSourceId: number): Promise<boolean> {
+    const startTime = Date.now();
+
     this.requirePermission('data-sources:delete:organization');
 
     try {
@@ -434,18 +455,36 @@ export class RBACDataSourcesService extends BaseRBACService {
         return false;
       }
 
-      log.info('Data source deleted successfully', {
-        userId: this.userContext.user_id,
+      // Invalidate cache for all charts using this data source
+      await chartDataCache.invalidateByDataSource(dataSourceId);
+
+      log.info('Cache invalidated after data source deletion', {
         dataSourceId,
         dataSourceName: existing.data_source_name,
       });
 
+      const duration = Date.now() - startTime;
+
+      const template = logTemplates.crud.delete('data_source', {
+        resourceId: String(dataSourceId),
+        resourceName: existing.data_source_name,
+        userId: this.userContext.user_id,
+        soft: true,
+        duration,
+        metadata: {
+          databaseType: existing.database_type,
+          schemaName: existing.schema_name,
+        },
+      });
+
+      log.info(template.message, template.context);
+
       return true;
     } catch (error) {
-      log.error('Failed to delete data source', {
+      log.error('Data source deletion failed', error, {
         userId: this.userContext.user_id,
         dataSourceId,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        component: 'data-sources',
       });
       throw error;
     }
@@ -453,6 +492,8 @@ export class RBACDataSourcesService extends BaseRBACService {
 
   /**
    * Test connection to a data source
+   *
+   * Delegates to connection-tester utility service.
    */
   async testConnection(dataSourceId: number): Promise<ConnectionTestResult> {
     this.requirePermission('data-sources:read:organization');
@@ -467,117 +508,13 @@ export class RBACDataSourcesService extends BaseRBACService {
         };
       }
 
-      const startTime = Date.now();
-
-      try {
-        // Test basic connectivity to the table
-        const tableReference = `${dataSource.schema_name}.${dataSource.table_name}`;
-
-        // Test schema accessibility
-        const schemaCheckQuery = sql.raw(`
-          SELECT EXISTS (
-            SELECT 1 FROM information_schema.schemata 
-            WHERE schema_name = '${dataSource.schema_name}'
-          ) as schema_exists
-        `);
-
-        // Use analytics database for testing external data sources
-        const analyticsDb = getAnalyticsDb();
-        const [schemaResult] = await analyticsDb.execute(schemaCheckQuery);
-        const schemaAccessible = (schemaResult as { schema_exists: boolean }).schema_exists;
-
-        if (!schemaAccessible) {
-          return {
-            success: false,
-            error: `Schema '${dataSource.schema_name}' does not exist or is not accessible`,
-            details: {
-              connection_time_ms: Date.now() - startTime,
-              schema_accessible: false,
-              table_accessible: false,
-            },
-          };
-        }
-
-        // Test table accessibility and get row count
-        const tableCheckQuery = sql.raw(`
-          SELECT 
-            EXISTS (
-              SELECT 1 FROM information_schema.tables 
-              WHERE table_schema = '${dataSource.schema_name}' 
-              AND table_name = '${dataSource.table_name}'
-            ) as table_exists,
-            CASE 
-              WHEN EXISTS (
-                SELECT 1 FROM information_schema.tables 
-                WHERE table_schema = '${dataSource.schema_name}' 
-                AND table_name = '${dataSource.table_name}'
-              ) 
-              THEN (SELECT COUNT(*) FROM ${tableReference} LIMIT 1000)
-              ELSE 0 
-            END as sample_row_count
-        `);
-
-        const [tableResult] = await analyticsDb.execute(tableCheckQuery);
-        const result = tableResult as { table_exists: boolean; sample_row_count: number };
-
-        const connectionTime = Date.now() - startTime;
-
-        if (!result.table_exists) {
-          return {
-            success: false,
-            error: `Table '${tableReference}' does not exist or is not accessible`,
-            details: {
-              connection_time_ms: connectionTime,
-              schema_accessible: true,
-              table_accessible: false,
-            },
-          };
-        }
-
-        log.info('Data source connection test successful', {
-          userId: this.userContext.user_id,
-          dataSourceId,
-          tableName: tableReference,
-          connectionTime,
-          rowCount: result.sample_row_count,
-        });
-
-        return {
-          success: true,
-          details: {
-            connection_time_ms: connectionTime,
-            schema_accessible: true,
-            table_accessible: true,
-            sample_row_count: result.sample_row_count,
-          },
-        };
-      } catch (dbError) {
-        const connectionTime = Date.now() - startTime;
-        const errorMessage =
-          dbError instanceof Error ? dbError.message : 'Database connection failed';
-
-        log.warn('Data source connection test failed', {
-          userId: this.userContext.user_id,
-          dataSourceId,
-          error: errorMessage,
-          connectionTime,
-        });
-
-        return {
-          success: false,
-          error: errorMessage,
-          details: {
-            connection_time_ms: connectionTime,
-            schema_accessible: false,
-            table_accessible: false,
-          },
-        };
-      }
+      // Delegate to connection tester utility
+      return await connectionTester.testConnection(dataSource, this.userContext.user_id);
     } catch (error) {
-      log.error('Failed to test data source connection', {
+      log.error('Failed to test data source connection', error, {
         userId: this.userContext.user_id,
         dataSourceId,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        component: 'data-sources',
       });
 
       return {
@@ -588,8 +525,9 @@ export class RBACDataSourcesService extends BaseRBACService {
   }
 
   /**
-   * Get table columns for a specific schema and table
-   * This method fetches column information from the database metadata
+   * Get table columns from information_schema
+   *
+   * Delegates to introspection service utility.
    */
   async getTableColumns(query: TableColumnsQueryInput): Promise<
     Array<{
@@ -600,447 +538,24 @@ export class RBACDataSourcesService extends BaseRBACService {
       ordinal_position: number;
     }>
   > {
-    const startTime = Date.now();
-    log.info('Table columns query initiated', {
-      userId: this.userContext.user_id,
-      schema: query.schema_name,
-      table: query.table_name,
-      databaseType: query.database_type,
-    });
+    this.requireAnyPermission(['data-sources:read:organization', 'data-sources:read:all']);
 
-    try {
-      // Check permissions before proceeding
-      this.requireAnyPermission(['data-sources:read:organization', 'data-sources:read:all']);
-
-      // Ensure database context is available
-      if (!this.dbContext) {
-        throw new Error('Database context not available');
-      }
-
-      // Query the analytics database information schema to get real column information
-      const analyticsDb = getAnalyticsDb();
-      const columns = await analyticsDb.execute(sql`
-        SELECT 
-          column_name,
-          data_type,
-          is_nullable = 'YES' as is_nullable,
-          column_default,
-          ordinal_position
-        FROM information_schema.columns 
-        WHERE table_schema = ${query.schema_name} 
-          AND table_name = ${query.table_name}
-        ORDER BY ordinal_position
-      `);
-
-      // Zod schema for PostgreSQL information_schema.columns query result
-      const informationSchemaColumnSchema = z.object({
-        column_name: z.string(),
-        data_type: z.string(),
-        is_nullable: z.boolean(),
-        column_default: z.string().nullable(),
-        ordinal_position: z.number(),
-      });
-
-      // Validate and transform the database result
-      const columnsSchema = z.array(informationSchemaColumnSchema);
-      const validationResult = columnsSchema.safeParse(columns);
-
-      if (!validationResult.success) {
-        log.error('Invalid information_schema.columns query result', {
-          error: validationResult.error,
-          schema: query.schema_name,
-          table: query.table_name,
-        });
-        throw new Error('Database query returned unexpected column structure');
-      }
-
-      const formattedColumns = validationResult.data.map((col) => ({
-        column_name: col.column_name,
-        data_type: col.data_type,
-        is_nullable: col.is_nullable,
-        column_default: col.column_default,
-        ordinal_position: col.ordinal_position,
-      }));
-
-      log.info('Table columns query completed', {
-        userId: this.userContext.user_id,
-        schema: query.schema_name,
-        table: query.table_name,
-        columnCount: formattedColumns.length,
-        duration: Date.now() - startTime,
-      });
-
-      return formattedColumns;
-    } catch (error) {
-      log.error('Table columns query failed', {
-        userId: this.userContext.user_id,
-        schema: query.schema_name,
-        table: query.table_name,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-
-      throw error;
-    }
-  }
-
-  /**
-   * Get all columns for a specific data source
-   */
-  async getDataSourceColumns(
-    query: DataSourceColumnQueryOptions
-  ): Promise<DataSourceColumnWithMetadata[]> {
-    const startTime = Date.now();
-    log.info('Data source columns query initiated', {
-      userId: this.userContext.user_id,
-      dataSourceId: query.data_source_id,
-      isActive: query.is_active,
-      limit: query.limit,
-      offset: query.offset,
-    });
-
-    try {
-      // Check permissions before proceeding
-      this.requireAnyPermission(['data-sources:read:organization', 'data-sources:read:all']);
-
-      // Ensure database context is available
-      if (!this.dbContext) {
-        throw new Error('Database context not available');
-      }
-
-      // Build the where conditions
-      const whereConditions = [eq(chart_data_source_columns.data_source_id, query.data_source_id)];
-
-      if (query.is_active !== undefined) {
-        whereConditions.push(eq(chart_data_source_columns.is_active, query.is_active));
-      }
-
-      const columns = await this.dbContext
-        .select()
-        .from(chart_data_source_columns)
-        .where(and(...whereConditions))
-        .orderBy(chart_data_source_columns.sort_order, chart_data_source_columns.column_name)
-        .limit(query.limit || 100)
-        .offset(query.offset || 0);
-
-      log.info('Data source columns query completed', {
-        userId: this.userContext.user_id,
-        dataSourceId: query.data_source_id,
-        columnCount: columns.length,
-        duration: Date.now() - startTime,
-      });
-
-      return columns;
-    } catch (error) {
-      log.error('Data source columns query failed', {
-        userId: this.userContext.user_id,
-        dataSourceId: query.data_source_id,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-
-      throw error;
-    }
-  }
-
-  /**
-   * Get single column by ID
-   */
-  async getDataSourceColumnById(columnId: number): Promise<DataSourceColumnWithMetadata | null> {
-    const startTime = Date.now();
-    log.info('Data source column get initiated', {
-      userId: this.userContext.user_id,
-      columnId,
-    });
-
-    try {
-      // Check permissions before proceeding
-      this.requireAnyPermission(['data-sources:read:organization', 'data-sources:read:all']);
-
-      // Ensure database context is available
-      if (!this.dbContext) {
-        throw new Error('Database context not available');
-      }
-
-      const [column] = await this.dbContext
-        .select()
-        .from(chart_data_source_columns)
-        .where(eq(chart_data_source_columns.column_id, columnId))
-        .limit(1);
-
-      log.info('Data source column get completed', {
-        userId: this.userContext.user_id,
-        columnId,
-        found: !!column,
-        duration: Date.now() - startTime,
-      });
-
-      return column || null;
-    } catch (error) {
-      log.error('Data source column get failed', {
-        userId: this.userContext.user_id,
-        columnId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-
-      throw error;
-    }
-  }
-
-  /**
-   * Create a new data source column
-   */
-  async createDataSourceColumn(
-    data: CreateDataSourceColumnData
-  ): Promise<DataSourceColumnWithMetadata> {
-    const startTime = Date.now();
-    log.info('Data source column creation initiated', {
-      userId: this.userContext.user_id,
-      dataSourceId: data.data_source_id,
-      columnName: data.column_name,
-    });
-
-    try {
-      // Check permissions before proceeding
-      this.requireAnyPermission(['data-sources:create:organization', 'data-sources:create:all']);
-
-      // Ensure database context is available
-      if (!this.dbContext) {
-        throw new Error('Database context not available');
-      }
-
-      // Execute column creation as atomic transaction
-      const newColumn = await this.dbContext.transaction(async (tx) => {
-        // Check if column already exists for this data source
-        const existingColumn = await tx
-          .select()
-          .from(chart_data_source_columns)
-          .where(
-            and(
-              eq(chart_data_source_columns.data_source_id, data.data_source_id),
-              eq(chart_data_source_columns.column_name, data.column_name)
-            )
-          )
-          .limit(1);
-
-        if (existingColumn.length > 0) {
-          throw new Error(`Column '${data.column_name}' already exists for this data source`);
-        }
-
-        const result = await tx
-          .insert(chart_data_source_columns)
-          .values({
-            data_source_id: data.data_source_id,
-            column_name: data.column_name,
-            display_name: data.display_name,
-            column_description: data.column_description,
-            data_type: data.data_type,
-            is_filterable: data.is_filterable,
-            is_groupable: data.is_groupable,
-            is_measure: data.is_measure,
-            is_dimension: data.is_dimension,
-            is_date_field: data.is_date_field,
-            is_measure_type: data.is_measure_type,
-            is_time_period: data.is_time_period,
-            format_type: data.format_type,
-            sort_order: data.sort_order,
-            default_aggregation: data.default_aggregation,
-            display_icon: data.display_icon,
-            icon_type: data.icon_type,
-            icon_color_mode: data.icon_color_mode,
-            icon_color: data.icon_color,
-            icon_mapping: data.icon_mapping,
-            is_sensitive: data.is_sensitive,
-            access_level: data.access_level,
-            allowed_values: data.allowed_values,
-            validation_rules: data.validation_rules,
-            example_value: data.example_value,
-            is_active: data.is_active,
-          })
-          .returning();
-
-        const newColumn = result[0];
-        if (!newColumn) {
-          throw new Error('Failed to create column - no data returned');
-        }
-
-        return newColumn;
-      });
-
-      log.info('Data source column creation completed', {
-        userId: this.userContext.user_id,
-        columnId: newColumn.column_id,
-        dataSourceId: data.data_source_id,
-        duration: Date.now() - startTime,
-      });
-
-      return newColumn;
-    } catch (error) {
-      log.error('Data source column creation failed', {
-        userId: this.userContext.user_id,
-        dataSourceId: data.data_source_id,
-        columnName: data.column_name,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-
-      throw error;
-    }
-  }
-
-  /**
-   * Update a data source column
-   */
-  async updateDataSourceColumn(
-    columnId: number,
-    data: UpdateDataSourceColumnData
-  ): Promise<DataSourceColumnWithMetadata | null> {
-    const startTime = Date.now();
-    log.info('Data source column update initiated', {
-      userId: this.userContext.user_id,
-      columnId,
-    });
-
-    try {
-      // Check permissions before proceeding
-      this.requireAnyPermission(['data-sources:update:organization', 'data-sources:update:all']);
-
-      // Ensure database context is available
-      if (!this.dbContext) {
-        throw new Error('Database context not available');
-      }
-
-      const [updatedColumn] = await this.dbContext
-        .update(chart_data_source_columns)
-        .set({
-          display_name: data.display_name,
-          column_description: data.column_description,
-          is_filterable: data.is_filterable,
-          is_groupable: data.is_groupable,
-          is_measure: data.is_measure,
-          is_dimension: data.is_dimension,
-          is_date_field: data.is_date_field,
-          is_measure_type: data.is_measure_type,
-          is_time_period: data.is_time_period,
-          format_type: data.format_type,
-          sort_order: data.sort_order,
-          default_aggregation: data.default_aggregation,
-          display_icon: data.display_icon,
-          icon_type: data.icon_type,
-          icon_color_mode: data.icon_color_mode,
-          icon_color: data.icon_color,
-          icon_mapping: data.icon_mapping,
-          is_sensitive: data.is_sensitive,
-          access_level: data.access_level,
-          allowed_values: data.allowed_values,
-          validation_rules: data.validation_rules,
-          example_value: data.example_value,
-          is_active: data.is_active,
-          updated_at: new Date(),
-        })
-        .where(eq(chart_data_source_columns.column_id, columnId))
-        .returning();
-
-      log.info('Data source column update completed', {
-        userId: this.userContext.user_id,
-        columnId,
-        updated: !!updatedColumn,
-        duration: Date.now() - startTime,
-      });
-
-      return updatedColumn || null;
-    } catch (error) {
-      log.error('Data source column update failed', {
-        userId: this.userContext.user_id,
-        columnId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-
-      throw error;
-    }
-  }
-
-  /**
-   * Delete a data source column
-   */
-  async deleteDataSourceColumn(columnId: number): Promise<boolean> {
-    const startTime = Date.now();
-    log.info('Data source column deletion initiated', {
-      userId: this.userContext.user_id,
-      columnId,
-    });
-
-    try {
-      // Check permissions before proceeding
-      this.requireAnyPermission(['data-sources:delete:organization', 'data-sources:delete:all']);
-
-      // Ensure database context is available
-      if (!this.dbContext) {
-        throw new Error('Database context not available');
-      }
-
-      // Execute column deletion as atomic transaction
-      const deleted = await this.dbContext.transaction(async (tx) => {
-        // First check if the column exists
-        const existingColumn = await tx
-          .select({ column_id: chart_data_source_columns.column_id })
-          .from(chart_data_source_columns)
-          .where(eq(chart_data_source_columns.column_id, columnId))
-          .limit(1);
-
-        if (existingColumn.length === 0) {
-          return false; // Column doesn't exist
-        }
-
-        // TODO: Remove column from any existing charts that use it
-        // This would require querying chart_definitions and updating their configurations
-
-        await tx
-          .delete(chart_data_source_columns)
-          .where(eq(chart_data_source_columns.column_id, columnId));
-
-        return true; // Deletion successful
-      });
-
-      log.info('Data source column deletion completed', {
-        userId: this.userContext.user_id,
-        columnId,
-        deleted,
-        duration: Date.now() - startTime,
-      });
-
-      return deleted;
-    } catch (error) {
-      log.error('Data source column deletion failed', {
-        userId: this.userContext.user_id,
-        columnId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-
-      throw error;
-    }
+    // Delegate to introspection service
+    return await introspectionService.getTableColumns(query, this.userContext.user_id);
   }
 
   /**
    * Introspect data source columns and create column definitions
-   * Queries the specific table defined in the data source and creates column records
+   *
+   * Delegates to introspection service and column service.
    */
   async introspectDataSourceColumns(dataSourceId: number): Promise<{
     created: number;
     columns: DataSourceColumnWithMetadata[];
   }> {
-    const startTime = Date.now();
-    log.info('Data source introspection initiated', {
-      userId: this.userContext.user_id,
-      dataSourceId,
-    });
+    this.requireAnyPermission(['data-sources:create:organization', 'data-sources:create:all']);
 
     try {
-      // Check permissions before proceeding
-      this.requireAnyPermission(['data-sources:create:organization', 'data-sources:create:all']);
-
-      // Ensure database context is available
-      if (!this.dbContext) {
-        throw new Error('Database context not available');
-      }
-
       // Get the data source to introspect
       const dataSource = await this.getDataSourceById(dataSourceId);
       if (!dataSource) {
@@ -1048,128 +563,59 @@ export class RBACDataSourcesService extends BaseRBACService {
       }
 
       // Check if columns already exist
-      const existingColumns = await this.getDataSourceColumns({ data_source_id: dataSourceId });
+      const columnsService = createRBACDataSourceColumnsService(this.userContext);
+      const existingColumns = await columnsService.getDataSourceColumns({
+        data_source_id: dataSourceId,
+      });
+
       if (existingColumns.length > 0) {
         throw new Error(
           'Data source already has column definitions. Delete existing columns before introspecting.'
         );
       }
 
-      // Query the analytics database for column information
-      const tableColumns = await this.getTableColumns({
-        schema_name: dataSource.schema_name,
-        table_name: dataSource.table_name,
-        database_type: dataSource.database_type || 'postgresql',
-      });
-
-      if (tableColumns.length === 0) {
-        throw new Error(
-          `No columns found in table ${dataSource.schema_name}.${dataSource.table_name}`
-        );
-      }
-
-      // Execute column creation as atomic transaction
-      const createdColumns = await this.dbContext.transaction(async (tx) => {
-        const columnInserts = tableColumns.map((col, index) => {
-          // Intelligent type mapping based on column name and data type
-          const columnName = col.column_name.toLowerCase();
-          const dataType = col.data_type.toLowerCase();
-
-          // Detect if this is a date field
-          const isDateField =
-            dataType.includes('timestamp') ||
-            dataType.includes('date') ||
-            columnName.includes('date') ||
-            columnName.includes('time') ||
-            columnName.endsWith('_at');
-
-          // Detect if this is a measure (numeric field that can be aggregated)
-          const isMeasure =
-            (dataType.includes('numeric') ||
-              dataType.includes('decimal') ||
-              dataType.includes('float') ||
-              dataType.includes('double') ||
-              dataType.includes('integer') ||
-              dataType.includes('bigint')) &&
-            !columnName.includes('id') &&
-            !columnName.includes('count') &&
-            !isDateField;
-
-          // Detect if this is a dimension (categorical field for grouping)
-          const isDimension =
-            (dataType.includes('varchar') ||
-              dataType.includes('text') ||
-              dataType.includes('char')) &&
-            !columnName.includes('description') &&
-            !columnName.includes('note') &&
-            !columnName.includes('comment');
-
-          // Detect if this column contains measure type information (for formatting)
-          const isMeasureType =
-            columnName.match(
-              /^(measure_type|number_format|display_format|format_type|value_type|data_format)$/i
-            ) !== null;
-
-          // Detect if this column contains time period/frequency information
-          const isTimePeriod =
-            columnName.match(/^(time_period|frequency|period|time_unit|period_type)$/i) !== null;
-
-          // Create display name from column name
-          const displayName = col.column_name
-            .split('_')
-            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
-
-          return {
-            data_source_id: dataSourceId,
-            column_name: col.column_name,
-            display_name: displayName,
-            column_description: `Auto-generated from ${dataSource.schema_name}.${dataSource.table_name}`,
-            data_type: col.data_type,
-            is_filterable: isDimension || isDateField,
-            is_groupable: isDimension || isDateField,
-            is_measure: isMeasure,
-            is_dimension: isDimension,
-            is_date_field: isDateField,
-            is_measure_type: isMeasureType,
-            is_time_period: isTimePeriod,
-            sort_order: index,
-            is_sensitive: false,
-            access_level: 'all',
-            is_active: true,
-          };
-        });
-
-        // Bulk insert all columns
-        const result = await tx.insert(chart_data_source_columns).values(columnInserts).returning();
-
-        return result;
-      });
-
-      log.info('Data source introspection completed', {
-        userId: this.userContext.user_id,
-        dataSourceId,
-        columnsCreated: createdColumns.length,
-        duration: Date.now() - startTime,
-      });
-
-      return {
-        created: createdColumns.length,
-        columns: createdColumns,
-      };
+      // Delegate to introspection service with column creation callback
+      return await introspectionService.introspectDataSourceColumns(
+        dataSource,
+        this.userContext.user_id,
+        (data) => columnsService.createDataSourceColumn(data)
+      );
     } catch (error) {
-      log.error('Data source introspection failed', {
+      log.error('Data source introspection failed', error, {
         userId: this.userContext.user_id,
         dataSourceId,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        component: 'data-sources',
       });
-
       throw error;
     }
   }
+
+  /**
+   * Helper: Enrich data source with column count
+   *
+   * Reduces duplication across getDataSources() and getDataSourceById().
+   */
+  private async enrichWithColumnCount(
+    dataSource: DataSourceWithMetadata
+  ): Promise<DataSourceWithMetadata> {
+    const [columnCount] = await db
+      .select({ count: count() })
+      .from(chart_data_source_columns)
+      .where(
+        and(
+          eq(chart_data_source_columns.data_source_id, dataSource.data_source_id),
+          eq(chart_data_source_columns.is_active, true)
+        )
+      );
+
+    return {
+      ...dataSource,
+      column_count: columnCount?.count || 0,
+    };
+  }
 }
 
-// Export singleton creator
+// Export factory function
 export function createRBACDataSourcesService(userContext: UserContext): RBACDataSourcesService {
   return new RBACDataSourcesService(userContext);
 }

@@ -14,7 +14,7 @@ import { requireAuth } from '@/lib/api/middleware/auth';
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { AuthenticationError, createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { publicRoute } from '@/lib/api/route-handler';
+import { publicRoute } from '@/lib/api/route-handlers';
 import {
   createTokenPair,
   generateDeviceFingerprint,

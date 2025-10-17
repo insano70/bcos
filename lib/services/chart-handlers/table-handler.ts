@@ -1,5 +1,5 @@
 import { log } from '@/lib/logger';
-import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
+import { createRBACDataSourceColumnsService } from '@/lib/services/rbac-data-source-columns-service';
 import type { ChartData } from '@/lib/types/analytics';
 import type { UserContext } from '@/lib/types/rbac';
 import { type FormatType, formatTableData } from '@/lib/utils/table-formatters';
@@ -71,8 +71,8 @@ export class TableChartHandler extends BaseChartHandler {
     const dataSourceId = config.dataSourceId as number;
 
     // Get column metadata from data source with RBAC enforcement
-    const dataSourcesService = createRBACDataSourcesService(userContext);
-    const columns = await dataSourcesService.getDataSourceColumns({
+    const columnsService = createRBACDataSourceColumnsService(userContext);
+    const columns = await columnsService.getDataSourceColumns({
       data_source_id: dataSourceId,
       is_active: true,
     });

@@ -179,7 +179,7 @@ export default function WarmingJobList({
                     <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
                       <div
                         className="bg-violet-500 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${job.progress}%` }}
+                        style={{ width: `${Math.min(100, Math.max(0, job.progress))}%` }}
                       />
                     </div>
                     {job.etaSeconds !== null && job.etaSeconds !== undefined && (

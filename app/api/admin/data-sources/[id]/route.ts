@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
@@ -42,7 +42,7 @@ const getDataSourceHandler = async (
         duration: Date.now() - startTime,
       });
       log.info(template.message, template.context);
-      return createErrorResponse('Data source not found', 404);
+      return createErrorResponse(NotFoundError('Data source'), 404, request);
     }
 
     const duration = Date.now() - startTime;
@@ -94,14 +94,18 @@ const updateDataSourceHandler = async (
     const before = await dataSourcesService.getDataSourceById(dataSourceId);
 
     if (!before) {
-      return createErrorResponse('Data source not found', 404);
+      return createErrorResponse(NotFoundError('Data source'), 404, request);
     }
 
     // Update data source
     const updatedDataSource = await dataSourcesService.updateDataSource(dataSourceId, updateData);
 
     if (!updatedDataSource) {
-      return createErrorResponse('Data source update failed', 500);
+      log.error('Data source update returned null', null, {
+        dataSourceId,
+        userId: userContext.user_id,
+      });
+      return createErrorResponse('Data source update failed', 500, request);
     }
 
     const duration = Date.now() - startTime;
@@ -169,14 +173,18 @@ const deleteDataSourceHandler = async (
     const dataSource = await dataSourcesService.getDataSourceById(dataSourceId);
 
     if (!dataSource) {
-      return createErrorResponse('Data source not found', 404);
+      return createErrorResponse(NotFoundError('Data source'), 404, request);
     }
 
     // Delete data source
     const deleted = await dataSourcesService.deleteDataSource(dataSourceId);
 
     if (!deleted) {
-      return createErrorResponse('Data source delete failed', 500);
+      log.error('Data source deletion returned false', null, {
+        dataSourceId,
+        userId: userContext.user_id,
+      });
+      return createErrorResponse('Data source delete failed', 500, request);
     }
 
     const duration = Date.now() - startTime;

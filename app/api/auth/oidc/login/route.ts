@@ -26,7 +26,7 @@ import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { createErrorResponse } from '@/lib/api/responses/error';
-import { publicRoute } from '@/lib/api/route-handler';
+import { publicRoute } from '@/lib/api/route-handlers';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { isOIDCEnabled } from '@/lib/env';
 import { correlation, log } from '@/lib/logger';

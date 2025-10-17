@@ -152,3 +152,31 @@ export interface RBACMiddlewareOptions {
   /** Extract organization ID from request for scope checking */
   extractOrganizationId?: ((request: NextRequest) => string | undefined) | undefined;
 }
+
+/**
+ * Authentication Session
+ *
+ * Session object passed to authRoute handlers.
+ * Contains user information, tokens, and full RBAC context.
+ *
+ * @deprecated Import from '@/lib/api/route-handlers' instead of '@/lib/api/route-handler'
+ */
+export interface AuthSession {
+  user: {
+    id: string;
+    email: string | null;
+    name: string;
+    firstName: string | null;
+    lastName: string | null;
+    role: string | undefined;
+    emailVerified: boolean | null;
+    practiceId: string | null | undefined;
+    roles: string[];
+    permissions: string[];
+    isSuperAdmin: boolean;
+    organizationAdminFor: string[];
+  };
+  accessToken: string;
+  sessionId: string;
+  userContext: UserContext | null;
+}

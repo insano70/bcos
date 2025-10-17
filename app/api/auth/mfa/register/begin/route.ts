@@ -11,7 +11,7 @@ import type { NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/api/middleware/auth';
 import { AuthenticationError, createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { publicRoute } from '@/lib/api/route-handler';
+import { publicRoute } from '@/lib/api/route-handlers';
 import { beginRegistration } from '@/lib/auth/webauthn';
 import { requireMFATempToken } from '@/lib/auth/webauthn-temp-token';
 import { db, users } from '@/lib/db';

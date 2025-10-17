@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { requireAdmin } from '@/lib/api/middleware/auth';
 import { AuthorizationError, createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { type AuthSession, secureRoute } from '@/lib/api/route-handler';
+import { authRoute, type AuthSession } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { revokeAllUserTokens } from '@/lib/auth/token-manager';
 import { adminResetMFA } from '@/lib/auth/webauthn';
@@ -23,7 +23,7 @@ const userIdParamsSchema = z.object({
   userId: z.string().uuid(),
 });
 
-const handler = async (request: NextRequest, session: AuthSession | null, ...args: unknown[]) => {
+const handler = async (request: NextRequest, session?: AuthSession, ...args: unknown[]) => {
   try {
     // Require admin authentication
     await requireAdmin(request);
@@ -76,4 +76,4 @@ const handler = async (request: NextRequest, session: AuthSession | null, ...arg
   }
 };
 
-export const POST = secureRoute(handler, { rateLimit: 'api' });
+export const POST = authRoute(handler, { rateLimit: 'api' });

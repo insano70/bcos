@@ -1,12 +1,13 @@
 import { type SQL, sql } from 'drizzle-orm';
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, ValidationError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { log } from '@/lib/logger';
 import { getAnalyticsDb } from '@/lib/services/analytics-db';
+import { createRBACDataSourceColumnsService } from '@/lib/services/rbac-data-source-columns-service';
 import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
 import type { UserContext } from '@/lib/types/rbac';
 import { getDateRange } from '@/lib/utils/date-presets';
@@ -85,13 +86,21 @@ const queryDataSourceHandler = async (
             error: validationResult.error,
             advancedFiltersParam,
           });
-          return createErrorResponse('Invalid filter format', 400, request);
+          return createErrorResponse(
+            ValidationError(validationResult.error.format(), 'Invalid filter format'),
+            400,
+            request
+          );
         }
 
         advancedFilters = validationResult.data;
       } catch (error) {
         log.warn('Failed to parse advanced filters JSON', { error, advancedFiltersParam });
-        return createErrorResponse('Invalid JSON in advanced_filters parameter', 400, request);
+        return createErrorResponse(
+          ValidationError({ json: 'Invalid JSON format' }, 'Invalid JSON in advanced_filters parameter'),
+          400,
+          request
+        );
       }
     }
 
@@ -114,7 +123,8 @@ const queryDataSourceHandler = async (
     }
 
     // Get active columns for this data source
-    const columns = await dataSourcesService.getDataSourceColumns({
+    const columnsService = createRBACDataSourceColumnsService(userContext);
+    const columns = await columnsService.getDataSourceColumns({
       data_source_id: dataSourceId,
       is_active: true,
     });
@@ -127,14 +137,42 @@ const queryDataSourceHandler = async (
     const analyticsDb = getAnalyticsDb();
     const tableName = `${dataSource.schema_name}.${dataSource.table_name}`;
 
-    // Build SELECT clause with all active columns
-    const selectColumns = columns.map((col) => col.column_name).join(', ');
+    // Validate column names before building SELECT clause (defense in depth)
+    const columnNamePattern = /^[a-zA-Z][a-zA-Z0-9_]*$/;
+    const validColumns = columns.filter((col) => {
+      if (!col.column_name || !columnNamePattern.test(col.column_name)) {
+        log.warn('Skipping invalid column name in SELECT clause', {
+          dataSourceId,
+          columnId: col.column_id,
+          columnName: col.column_name,
+          userId: userContext.user_id,
+        });
+        return false;
+      }
+      return true;
+    });
+
+    if (validColumns.length === 0) {
+      log.error('No valid columns found for data source', null, {
+        dataSourceId,
+        totalColumns: columns.length,
+        userId: userContext.user_id,
+      });
+      return createErrorResponse(
+        ValidationError({ columns: 'No valid columns found' }, 'No valid columns found for data source'),
+        400,
+        request
+      );
+    }
+
+    // Build SELECT clause with validated active columns
+    const selectColumns = validColumns.map((col) => col.column_name).join(', ');
 
     // Build WHERE clause with proper SQL parameter binding
     const whereClauses: SQL[] = [];
 
     // Create allowed columns set for validation (SECURITY: prevent SQL injection)
-    const allowedColumns = new Set(columns.map((col) => col.column_name));
+    const allowedColumns = new Set(validColumns.map((col) => col.column_name));
 
     if (practiceUid) {
       whereClauses.push(sql`practice_uid = ${parseInt(practiceUid, 10)}`);
@@ -142,7 +180,7 @@ const queryDataSourceHandler = async (
 
     if (startDate) {
       // Find the date column - look for columns that are date fields
-      const dateColumn = columns.find((col) => col.is_date_field);
+      const dateColumn = validColumns.find((col) => col.is_date_field);
       if (dateColumn) {
         // SECURITY FIX: Use parameterized query instead of sql.raw
         whereClauses.push(sql`${sql.identifier(dateColumn.column_name)} >= ${startDate}`);
@@ -150,7 +188,7 @@ const queryDataSourceHandler = async (
     }
 
     if (endDate) {
-      const dateColumn = columns.find((col) => col.is_date_field);
+      const dateColumn = validColumns.find((col) => col.is_date_field);
       if (dateColumn) {
         // SECURITY FIX: Use parameterized query instead of sql.raw
         whereClauses.push(sql`${sql.identifier(dateColumn.column_name)} <= ${endDate}`);
@@ -287,7 +325,8 @@ const queryDataSourceHandler = async (
     log.info('Executing data source query', {
       dataSourceId,
       tableName,
-      columnsCount: columns.length,
+      columnsCount: validColumns.length,
+      totalColumns: columns.length,
       hasFilters: whereClauses.length > 0,
     });
 
@@ -306,7 +345,7 @@ const queryDataSourceHandler = async (
       {
         data: rows,
         total_count: rows.length,
-        columns: columns.map((col) => ({
+        columns: validColumns.map((col) => ({
           name: col.column_name,
           display_name: col.display_name,
           data_type: col.data_type,

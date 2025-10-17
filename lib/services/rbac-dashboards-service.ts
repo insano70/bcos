@@ -1,12 +1,6 @@
 import { and, count, desc, eq, inArray, isNull, like, or, type SQL, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import {
-  chart_categories,
-  chart_definitions,
-  dashboard_charts,
-  dashboards,
-  users,
-} from '@/lib/db/schema';
+import { dashboard_charts, dashboards } from '@/lib/db/schema';
 import {
   calculateChanges,
   log,
@@ -16,6 +10,14 @@ import {
 } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
 import { PermissionDeniedError } from '@/lib/types/rbac';
+import type {
+  CreateDashboardData,
+  DashboardQueryOptions,
+  DashboardsServiceInterface,
+  DashboardWithCharts,
+  UpdateDashboardData,
+} from '@/lib/types/dashboards';
+import { getDashboardChartDetails, getDashboardQueryBuilder } from './dashboards/query-builder';
 
 /**
  * RBAC Dashboards Service
@@ -63,107 +65,6 @@ import { PermissionDeniedError } from '@/lib/types/rbac';
  *   is_active: true,
  * });
  */
-
-export interface CreateDashboardData {
-  dashboard_name: string;
-  dashboard_description?: string | undefined;
-  dashboard_category_id?: number | undefined;
-  /**
-   * Organization ID for dashboard scoping
-   * - undefined: defaults to user's current_organization_id (or null if none)
-   * - null: creates universal dashboard (visible to all orgs)
-   * - UUID: creates org-specific dashboard (visible only to that org)
-   */
-  organization_id?: string | null | undefined;
-  chart_ids?: string[] | undefined;
-  chart_positions?: Record<string, unknown>[] | undefined;
-  layout_config?: Record<string, unknown> | undefined;
-  is_active?: boolean | undefined;
-  is_published?: boolean | undefined;
-  is_default?: boolean | undefined;
-}
-
-export interface UpdateDashboardData {
-  dashboard_name?: string;
-  dashboard_description?: string;
-  dashboard_category_id?: number;
-  /**
-   * Organization ID for dashboard scoping
-   * - undefined: don't update (keep existing value)
-   * - null: set to universal dashboard (visible to all orgs)
-   * - UUID: set to org-specific dashboard (visible only to that org)
-   */
-  organization_id?: string | null;
-  chart_ids?: string[];
-  chart_positions?: Record<string, unknown>[];
-  layout_config?: Record<string, unknown>;
-  is_active?: boolean;
-  is_published?: boolean;
-  is_default?: boolean;
-}
-
-export interface DashboardQueryOptions {
-  category_id?: string | undefined;
-  is_active?: boolean | undefined;
-  is_published?: boolean | undefined;
-  search?: string | undefined;
-  /**
-   * Filter by organization
-   * - undefined: apply RBAC-based filtering (universal + user's orgs)
-   * - null: only universal dashboards
-   * - UUID: only dashboards for that specific org (+ universal)
-   */
-  organization_id?: string | null | undefined;
-  limit?: number | undefined;
-  offset?: number | undefined;
-}
-
-export interface DashboardWithCharts {
-  dashboard_id: string;
-  dashboard_name: string;
-  dashboard_description: string | undefined;
-  layout_config: Record<string, unknown>;
-  dashboard_category_id: number | undefined;
-  organization_id: string | undefined;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-  is_active: boolean;
-  is_published: boolean;
-  is_default: boolean;
-  chart_count: number;
-  category:
-    | {
-        chart_category_id: number;
-        category_name: string;
-        category_description: string | undefined;
-      }
-    | undefined;
-  creator:
-    | {
-        user_id: string;
-        first_name: string;
-        last_name: string;
-        email: string;
-      }
-    | undefined;
-  charts: {
-    chart_definition_id: string;
-    chart_name: string;
-    chart_description: string | undefined;
-    chart_type: string;
-    position_config: Record<string, unknown> | undefined;
-  }[];
-}
-
-export interface DashboardsServiceInterface {
-  getDashboards(options?: DashboardQueryOptions): Promise<DashboardWithCharts[]>;
-  getDashboardById(dashboardId: string): Promise<DashboardWithCharts | null>;
-  getDashboardCount(options?: DashboardQueryOptions): Promise<number>;
-  createDashboard(data: CreateDashboardData): Promise<DashboardWithCharts>;
-  updateDashboard(dashboardId: string, data: UpdateDashboardData): Promise<DashboardWithCharts>;
-  deleteDashboard(dashboardId: string): Promise<void>;
-}
 
 /**
  * Internal implementation of RBAC Dashboards Service
@@ -329,64 +230,10 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
     // Build query conditions
     const conditions = this.buildRBACWhereConditions(options);
 
-    // Execute query with timing
+    // Execute query with timing using query builder
     const queryStart = Date.now();
-    const dashboardList = await db
-      .select({
-        // Dashboard fields
-        dashboard_id: dashboards.dashboard_id,
-        dashboard_name: dashboards.dashboard_name,
-        dashboard_description: dashboards.dashboard_description,
-        layout_config: dashboards.layout_config,
-        dashboard_category_id: dashboards.dashboard_category_id,
-        organization_id: dashboards.organization_id,
-        created_by: dashboards.created_by,
-        created_at: dashboards.created_at,
-        updated_at: dashboards.updated_at,
-        is_active: dashboards.is_active,
-        is_published: dashboards.is_published,
-        is_default: dashboards.is_default,
-        // Category fields
-        chart_category_id: chart_categories.chart_category_id,
-        category_name: chart_categories.category_name,
-        category_description: chart_categories.category_description,
-        // Creator fields
-        user_id: users.user_id,
-        first_name: users.first_name,
-        last_name: users.last_name,
-        email: users.email,
-        // Chart count (aggregated)
-        chart_count: count(dashboard_charts.chart_definition_id),
-      })
-      .from(dashboards)
-      .leftJoin(
-        chart_categories,
-        eq(dashboards.dashboard_category_id, chart_categories.chart_category_id)
-      )
-      .leftJoin(users, eq(dashboards.created_by, users.user_id))
-      .leftJoin(dashboard_charts, eq(dashboards.dashboard_id, dashboard_charts.dashboard_id))
+    const dashboardList = await getDashboardQueryBuilder()
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .groupBy(
-        dashboards.dashboard_id,
-        dashboards.dashboard_name,
-        dashboards.dashboard_description,
-        dashboards.layout_config,
-        dashboards.dashboard_category_id,
-        dashboards.organization_id,
-        dashboards.created_by,
-        dashboards.created_at,
-        dashboards.updated_at,
-        dashboards.is_active,
-        dashboards.is_published,
-        dashboards.is_default,
-        chart_categories.chart_category_id,
-        chart_categories.category_name,
-        chart_categories.category_description,
-        users.user_id,
-        users.first_name,
-        users.last_name,
-        users.email
-      )
       .orderBy(desc(dashboards.created_at))
       .limit(options.limit ?? 1000000)
       .offset(options.offset ?? 0);
@@ -477,16 +324,9 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
       );
     }
 
-    // Get dashboard with creator and category info
+    // Get dashboard with creator and category info using query builder
     const queryStart = Date.now();
-    const dashboardResult = await db
-      .select()
-      .from(dashboards)
-      .leftJoin(
-        chart_categories,
-        eq(dashboards.dashboard_category_id, chart_categories.chart_category_id)
-      )
-      .leftJoin(users, eq(dashboards.created_by, users.user_id))
+    const dashboardResult = await getDashboardQueryBuilder()
       .where(eq(dashboards.dashboard_id, dashboardId))
       .limit(1);
     const queryDuration = Date.now() - queryStart;
@@ -525,52 +365,38 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
       .where(eq(dashboard_charts.dashboard_id, dashboardId));
     const chartCountDuration = Date.now() - chartCountStart;
 
-    // Get chart details
+    // Get chart details using query builder helper
     const chartsStart = Date.now();
-    const chartDetails = await db
-      .select({
-        chart_definition_id: chart_definitions.chart_definition_id,
-        chart_name: chart_definitions.chart_name,
-        chart_description: chart_definitions.chart_description,
-        chart_type: chart_definitions.chart_type,
-        position_config: dashboard_charts.position_config,
-      })
-      .from(dashboard_charts)
-      .innerJoin(
-        chart_definitions,
-        eq(dashboard_charts.chart_definition_id, chart_definitions.chart_definition_id)
-      )
-      .where(eq(dashboard_charts.dashboard_id, dashboardId))
-      .orderBy(dashboard_charts.added_at);
+    const chartDetails = await getDashboardChartDetails(dashboardId);
     const chartsDuration = Date.now() - chartsStart;
 
     const dashboardWithCharts: DashboardWithCharts = {
-      dashboard_id: dashboard.dashboards.dashboard_id,
-      dashboard_name: dashboard.dashboards.dashboard_name,
-      dashboard_description: dashboard.dashboards.dashboard_description || undefined,
-      layout_config: (dashboard.dashboards.layout_config as Record<string, unknown>) || {},
-      dashboard_category_id: dashboard.dashboards.dashboard_category_id || undefined,
-      organization_id: dashboard.dashboards.organization_id || undefined,
-      created_by: dashboard.dashboards.created_by,
-      created_at: (dashboard.dashboards.created_at || new Date()).toISOString(),
-      updated_at: (dashboard.dashboards.updated_at || new Date()).toISOString(),
-      is_active: dashboard.dashboards.is_active ?? true,
-      is_published: dashboard.dashboards.is_published ?? false,
-      is_default: dashboard.dashboards.is_default ?? false,
+      dashboard_id: dashboard.dashboard_id,
+      dashboard_name: dashboard.dashboard_name,
+      dashboard_description: dashboard.dashboard_description || undefined,
+      layout_config: (dashboard.layout_config as Record<string, unknown>) || {},
+      dashboard_category_id: dashboard.dashboard_category_id || undefined,
+      organization_id: dashboard.organization_id || undefined,
+      created_by: dashboard.created_by,
+      created_at: (dashboard.created_at || new Date()).toISOString(),
+      updated_at: (dashboard.updated_at || new Date()).toISOString(),
+      is_active: dashboard.is_active ?? true,
+      is_published: dashboard.is_published ?? false,
+      is_default: dashboard.is_default ?? false,
       chart_count: Number(chartCount?.count) || 0,
-      category: dashboard.chart_categories
+      category: dashboard.chart_category_id
         ? {
-            chart_category_id: dashboard.chart_categories.chart_category_id,
-            category_name: dashboard.chart_categories.category_name,
-            category_description: dashboard.chart_categories.category_description || undefined,
+            chart_category_id: dashboard.chart_category_id,
+            category_name: dashboard.category_name || '',
+            category_description: dashboard.category_description || undefined,
           }
         : undefined,
-      creator: dashboard.users
+      creator: dashboard.user_id
         ? {
-            user_id: dashboard.users.user_id,
-            first_name: dashboard.users.first_name,
-            last_name: dashboard.users.last_name,
-            email: dashboard.users.email,
+            user_id: dashboard.user_id,
+            first_name: dashboard.first_name || '',
+            last_name: dashboard.last_name || '',
+            email: dashboard.email || '',
           }
         : undefined,
       charts: chartDetails.map((chart) => ({
@@ -843,20 +669,16 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
     }
 
     // Calculate changes for audit trail
-    const changes = calculateChanges(
-      existing,
-      data,
-      [
-        'dashboard_name',
-        'dashboard_description',
-        'dashboard_category_id',
-        'organization_id',
-        'is_active',
-        'is_published',
-        'is_default',
-        'layout_config',
-      ]
-    );
+    const changes = calculateChanges(existing, data, [
+      'dashboard_name',
+      'dashboard_description',
+      'dashboard_category_id',
+      'organization_id',
+      'is_active',
+      'is_published',
+      'is_default',
+      'layout_config',
+    ]);
 
     // Execute dashboard update and chart management as atomic transaction
     const updateStart = Date.now();

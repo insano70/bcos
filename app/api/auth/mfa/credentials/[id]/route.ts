@@ -13,7 +13,7 @@ import { z } from 'zod';
 import { requireFreshAuth } from '@/lib/api/middleware/auth';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { type AuthSession, secureRoute } from '@/lib/api/route-handler';
+import { authRoute, type AuthSession } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { deleteCredential, renameCredential } from '@/lib/auth/webauthn';
 import { log } from '@/lib/logger';
@@ -31,7 +31,7 @@ const credentialParamsSchema = z.object({
  */
 const deleteHandler = async (
   request: NextRequest,
-  session: AuthSession | null,
+  session?: AuthSession,
   ...args: unknown[]
 ) => {
   const startTime = Date.now();
@@ -83,7 +83,7 @@ const deleteHandler = async (
  */
 const renameHandler = async (
   request: NextRequest,
-  session: AuthSession | null,
+  session?: AuthSession,
   ...args: unknown[]
 ) => {
   const startTime = Date.now();
@@ -138,5 +138,5 @@ const renameHandler = async (
   }
 };
 
-export const DELETE = secureRoute(deleteHandler, { rateLimit: 'api' });
-export const PATCH = secureRoute(renameHandler, { rateLimit: 'api' });
+export const DELETE = authRoute(deleteHandler, { rateLimit: 'api' });
+export const PATCH = authRoute(renameHandler, { rateLimit: 'api' });

@@ -22,8 +22,8 @@
  */
 
 import type { NextRequest } from 'next/server';
-import type { AuthSession } from '@/lib/api/route-handler';
 import { correlation, log } from '@/lib/logger';
+import type { AuthSession } from '../types';
 import { AuthMiddleware } from '../middleware/auth-middleware';
 import { CorrelationMiddleware } from '../middleware/correlation-middleware';
 import { MiddlewarePipeline } from '../middleware/pipeline';

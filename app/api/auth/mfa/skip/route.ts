@@ -20,7 +20,7 @@ import type { NextRequest } from 'next/server';
 import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { publicRoute } from '@/lib/api/route-handler';
+import { publicRoute } from '@/lib/api/route-handlers';
 import { recordMFASkip } from '@/lib/auth/mfa-skip-tracker';
 import {
   createTokenPair,

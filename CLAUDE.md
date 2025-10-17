@@ -35,6 +35,187 @@ This document contains the rules, guidelines, and context for AI assistants work
 - Never make an infrastructure or code change that will negatively impact the security profile
 - Always consider security implications of any changes
 
+### API Route Security Wrappers
+
+All API routes **MUST** use one of the three security wrapper functions. Direct route exports without wrappers are **FORBIDDEN** except for specific auth system routes with documented justification.
+
+#### 1. **rbacRoute** - RBAC Permission-Based Protection (Default Choice)
+
+**Use for**: Most API routes requiring permission-based access control
+
+**Location**: `@/lib/api/route-handlers`
+
+**Handler receives**: `userContext` (full RBAC context with user, roles, permissions)
+
+**Example**:
+```typescript
+import { rbacRoute } from '@/lib/api/route-handlers';
+import type { UserContext } from '@/lib/types/rbac';
+
+const handler = async (request: NextRequest, userContext: UserContext) => {
+  // Handler has access to:
+  // - userContext.user_id
+  // - userContext.roles (array of role objects)
+  // - userContext.all_permissions (array of permission objects)
+  // - userContext.is_super_admin
+  // - userContext.current_organization_id
+
+  return NextResponse.json({ data });
+};
+
+export const GET = rbacRoute(handler, {
+  permission: 'users:read:all',  // Single permission
+  rateLimit: 'api',
+});
+
+// Multiple permissions (user needs ANY of these)
+export const POST = rbacRoute(handler, {
+  permission: ['users:create:all', 'users:create:organization'],
+  rateLimit: 'api',
+});
+
+// Require ALL permissions
+export const PUT = rbacRoute(handler, {
+  permission: ['users:update:all', 'users:update:sensitive'],
+  requireAllPermissions: true,
+  rateLimit: 'api',
+});
+```
+
+**Permission naming convention**: `resource:action:scope`
+- Resource: `users`, `practices`, `analytics`, `work_items`, etc.
+- Action: `read`, `create`, `update`, `delete`, `manage`
+- Scope: `all`, `organization`, `own`
+
+**Examples**: `users:read:all`, `practices:update:organization`, `analytics:read:own`
+
+#### 2. **publicRoute** - No Authentication Required
+
+**Use for**: Public endpoints (health checks, CSRF tokens, login, CSP reports, contact forms)
+
+**Location**: `@/lib/api/route-handlers`
+
+**Handler receives**: `request` only (no session or userContext)
+
+**Requires**: Documented reason string (mandatory)
+
+**Example**:
+```typescript
+import { publicRoute } from '@/lib/api/route-handlers';
+
+const handler = async (request: NextRequest) => {
+  // No authentication available here
+  return NextResponse.json({ status: 'ok' });
+};
+
+export const GET = publicRoute(
+  handler,
+  'Health check endpoint for monitoring tools and load balancers',
+  { rateLimit: 'api' }
+);
+```
+
+**Common valid reasons**:
+- "Health check endpoint for monitoring tools and load balancers"
+- "CSRF tokens must be available to anonymous users for form protection"
+- "Authentication endpoint - must be public"
+- "Allow visitors to submit contact forms"
+- "CSP violation reporting endpoint - browsers send these automatically"
+
+#### 3. **authRoute** - Authentication Without RBAC
+
+**Use for**: Auth system routes that need authentication but not permission checking (MFA, profile, sessions)
+
+**Location**: `@/lib/api/route-handlers`
+
+**Handler receives**: `session` object (not userContext)
+
+**Example**:
+```typescript
+import { authRoute } from '@/lib/api/route-handlers';
+import type { AuthSession } from '@/lib/api/route-handler';
+
+const handler = async (request: NextRequest, session?: AuthSession) => {
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Handler has access to:
+  // - session.user.id
+  // - session.user.email
+  // - session.user.roles
+  // - session.accessToken
+  // - session.sessionId
+  // - session.userContext (full RBAC data)
+
+  return NextResponse.json({ data });
+};
+
+export const GET = authRoute(handler, { rateLimit: 'api' });
+```
+
+**When to use authRoute vs rbacRoute**:
+- Use `authRoute` for: MFA endpoints, credential management, user profile, session management
+- Use `rbacRoute` for: Everything else (business logic, admin operations, data access)
+
+#### Rate Limiting Options
+
+All wrappers support rate limiting:
+- `rateLimit: 'auth'` - Strict limits for authentication endpoints (10 req/min)
+- `rateLimit: 'api'` - Standard API limits (100 req/min)
+- `rateLimit: 'upload'` - Relaxed limits for file uploads (20 req/min)
+
+#### Forbidden Patterns
+
+**❌ NEVER do this** (direct export without wrapper):
+```typescript
+export async function GET(request: NextRequest) {
+  // FORBIDDEN: No wrapper!
+  return NextResponse.json({ data });
+}
+```
+
+**❌ NEVER do this** (legacy imports):
+```typescript
+// FORBIDDEN: Old location
+import { publicRoute, secureRoute } from '@/lib/api/route-handler';
+
+// CORRECT: New location
+import { publicRoute, authRoute } from '@/lib/api/route-handlers';
+```
+
+#### Exception: Complex Auth System Routes
+
+Only the following routes are allowed to NOT use wrappers due to custom authentication flow:
+- `/api/auth/refresh` - Custom refresh token validation
+- `/api/auth/logout` - Custom cookie clearing and CSRF handling
+
+These routes implement internal authentication via:
+- `requireAuth(request)` - Standard auth validation
+- `verifyRefreshToken()` - Refresh token validation
+- `verifyCSRFToken()` - CSRF protection
+- `applyRateLimit()` - Rate limiting
+
+**All other routes MUST use a wrapper.**
+
+#### Migration from Legacy Wrappers
+
+If you encounter these legacy patterns, migrate them:
+
+**Legacy** → **Modern**:
+- `secureRoute()` → `authRoute()`
+- `adminRoute()` → `rbacRoute()` with `permission: 'admin:*:*'`
+- `publicRoute()` from `@/lib/api/route-handler` → `publicRoute()` from `@/lib/api/route-handlers`
+
+#### Security Audit Status
+
+Last audited: 2025-01-17
+- **Total Routes**: 110
+- **Protected with rbacRoute**: 84.7%
+- **Public Routes**: 8.8%
+- **Auth Routes**: 2.4%
+- **Unprotected**: 0% (all have internal auth)
+
 ## Logging Standards
 
 ### Node Only

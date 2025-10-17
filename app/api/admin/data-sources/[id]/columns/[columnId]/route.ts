@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+import { createErrorResponse, NotFoundError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
@@ -16,7 +16,7 @@ const combinedParamsSchema = dataSourceParamsSchema.extend({
 
 import { chartDataCache } from '@/lib/cache/chart-data-cache';
 import { calculateChanges, log, logTemplates } from '@/lib/logger';
-import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
+import { createRBACDataSourceColumnsService } from '@/lib/services/rbac-data-source-columns-service';
 import type { UserContext } from '@/lib/types/rbac';
 
 /**
@@ -34,13 +34,12 @@ const getDataSourceColumnHandler = async (
   let columnId: number | undefined;
 
   try {
-    const { id, columnId: columnIdParam } = await extractRouteParams(args[0], combinedParamsSchema);
-    const _dataSourceId = parseInt(id, 10);
+    const { columnId: columnIdParam } = await extractRouteParams(args[0], combinedParamsSchema);
     columnId = parseInt(columnIdParam, 10);
 
     // Create service instance and get column
-    const dataSourcesService = createRBACDataSourcesService(userContext);
-    const column = await dataSourcesService.getDataSourceColumnById(columnId);
+    const columnsService = createRBACDataSourceColumnsService(userContext);
+    const column = await columnsService.getDataSourceColumnById(columnId);
 
     if (!column) {
       const template = logTemplates.crud.read('data_source_column', {
@@ -50,7 +49,7 @@ const getDataSourceColumnHandler = async (
         duration: Date.now() - startTime,
       });
       log.info(template.message, template.context);
-      return createErrorResponse('Data source column not found', 404);
+      return createErrorResponse(NotFoundError('Data source column'), 404, request);
     }
 
     const duration = Date.now() - startTime;
@@ -93,26 +92,29 @@ const updateDataSourceColumnHandler = async (
   let columnId: number | undefined;
 
   try {
-    const { id, columnId: columnIdParam } = await extractRouteParams(args[0], combinedParamsSchema);
-    const _dataSourceId = parseInt(id, 10);
+    const { columnId: columnIdParam } = await extractRouteParams(args[0], combinedParamsSchema);
     columnId = parseInt(columnIdParam, 10);
 
     // Validate request body
     const updateData = await validateRequest(request, dataSourceColumnUpdateRefinedSchema);
 
     // Get before state for change tracking
-    const dataSourcesService = createRBACDataSourcesService(userContext);
-    const before = await dataSourcesService.getDataSourceColumnById(columnId);
+    const columnsService = createRBACDataSourceColumnsService(userContext);
+    const before = await columnsService.getDataSourceColumnById(columnId);
 
     if (!before) {
-      return createErrorResponse('Data source column not found', 404);
+      return createErrorResponse(NotFoundError('Data source column'), 404, request);
     }
 
     // Update column
-    const updatedColumn = await dataSourcesService.updateDataSourceColumn(columnId, updateData);
+    const updatedColumn = await columnsService.updateDataSourceColumn(columnId, updateData);
 
     if (!updatedColumn) {
-      return createErrorResponse('Data source column update failed', 500);
+      log.error('Data source column update returned null', null, {
+        columnId,
+        userId: userContext.user_id,
+      });
+      return createErrorResponse('Data source column update failed', 500, request);
     }
 
     const duration = Date.now() - startTime;
@@ -184,23 +186,26 @@ const deleteDataSourceColumnHandler = async (
   let columnId: number | undefined;
 
   try {
-    const { id, columnId: columnIdParam } = await extractRouteParams(args[0], combinedParamsSchema);
-    const _dataSourceId = parseInt(id, 10);
+    const { columnId: columnIdParam } = await extractRouteParams(args[0], combinedParamsSchema);
     columnId = parseInt(columnIdParam, 10);
 
     // Get column info before deletion
-    const dataSourcesService = createRBACDataSourcesService(userContext);
-    const column = await dataSourcesService.getDataSourceColumnById(columnId);
+    const columnsService = createRBACDataSourceColumnsService(userContext);
+    const column = await columnsService.getDataSourceColumnById(columnId);
 
     if (!column) {
-      return createErrorResponse('Data source column not found', 404);
+      return createErrorResponse(NotFoundError('Data source column'), 404, request);
     }
 
     // Delete column
-    const deleted = await dataSourcesService.deleteDataSourceColumn(columnId);
+    const deleted = await columnsService.deleteDataSourceColumn(columnId);
 
     if (!deleted) {
-      return createErrorResponse('Data source column delete failed', 500);
+      log.error('Data source column deletion returned false', null, {
+        columnId,
+        userId: userContext.user_id,
+      });
+      return createErrorResponse('Data source column delete failed', 500, request);
     }
 
     const duration = Date.now() - startTime;

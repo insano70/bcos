@@ -13,7 +13,7 @@
 
 import { log } from '@/lib/logger';
 import { chartConfigService, type DataSourceConfig } from '@/lib/services/chart-config-service';
-import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
+import { createRBACDataSourceColumnsService } from '@/lib/services/rbac-data-source-columns-service';
 import type { ChartFilter } from '@/lib/types/analytics';
 import type { UserContext } from '@/lib/types/rbac';
 import { ALLOWED_OPERATORS, isAllowedOperator } from './query-types';
@@ -135,8 +135,8 @@ export class QueryValidator {
     }
 
     // Get data source column configuration using RBAC-aware service
-    const dataSourcesService = createRBACDataSourcesService(userContext);
-    const columns = await dataSourcesService.getDataSourceColumns({
+    const columnsService = createRBACDataSourceColumnsService(userContext);
+    const columns = await columnsService.getDataSourceColumns({
       data_source_id: dataSourceId,
       is_active: true,
     });

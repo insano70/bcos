@@ -5,7 +5,7 @@ import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
 import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
-import { createRBACDataSourcesService } from '@/lib/services/rbac-data-sources-service';
+import { createRBACDataSourceColumnsService } from '@/lib/services/rbac-data-source-columns-service';
 import type { UserContext } from '@/lib/types/rbac';
 import {
   dataSourceColumnCreateRefinedSchema,
@@ -43,8 +43,8 @@ const getDataSourceColumnsHandler = async (
     const validatedQuery = dataSourceColumnQuerySchema.parse(queryParams);
 
     // Create service instance and get columns
-    const dataSourcesService = createRBACDataSourcesService(userContext);
-    const columns = await dataSourcesService.getDataSourceColumns(validatedQuery);
+    const columnsService = createRBACDataSourceColumnsService(userContext);
+    const columns = await columnsService.getDataSourceColumns(validatedQuery);
 
     const responseData = {
       columns,
@@ -129,8 +129,8 @@ const createDataSourceColumnHandler = async (
     }
 
     // Create service instance and create column
-    const dataSourcesService = createRBACDataSourcesService(userContext);
-    const newColumn = await dataSourcesService.createDataSourceColumn(createData);
+    const columnsService = createRBACDataSourceColumnsService(userContext);
+    const newColumn = await columnsService.createDataSourceColumn(createData);
 
     const duration = Date.now() - startTime;
     const template = logTemplates.crud.create('data_source_column', {

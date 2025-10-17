@@ -9,18 +9,20 @@
 import type { NextRequest } from 'next/server';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { adminRoute } from '@/lib/api/route-handler';
+import { rbacRoute } from '@/lib/api/route-handlers';
 import { cleanupExpiredChallenges } from '@/lib/auth/webauthn';
 import { log } from '@/lib/logger';
+import type { UserContext } from '@/lib/types/rbac';
 
 export const dynamic = 'force-dynamic';
 
-const handler = async (request: NextRequest) => {
+const handler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
 
   try {
     log.info('Security maintenance triggered', {
       triggeredBy: 'admin',
+      adminUserId: userContext.user_id,
     });
 
     // Cleanup expired WebAuthn challenges
@@ -58,4 +60,7 @@ const handler = async (request: NextRequest) => {
   }
 };
 
-export const POST = adminRoute(handler);
+export const POST = rbacRoute(handler, {
+  permission: 'settings:update:all',
+  rateLimit: 'api',
+});

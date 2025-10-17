@@ -16,7 +16,7 @@
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { publicRoute } from '@/lib/api/route-handler';
+import { publicRoute } from '@/lib/api/route-handlers';
 import { getOIDCConfig } from '@/lib/env';
 import { log } from '@/lib/logger';
 

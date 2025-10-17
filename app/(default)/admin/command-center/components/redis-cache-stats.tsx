@@ -158,7 +158,7 @@ export default function RedisCacheStats({
         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
           <div
             className="bg-violet-500 h-2 rounded-full transition-all duration-300"
-            style={{ width: `${stats.stats.hitRate}%` }}
+            style={{ width: `${Math.min(100, Math.max(0, stats.stats.hitRate))}%` }}
           />
         </div>
         <div className="flex justify-between mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -178,7 +178,7 @@ export default function RedisCacheStats({
         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
           <div
             className={`h-2 rounded-full transition-all duration-300 ${getMemoryColor(stats.memory.percentage)}`}
-            style={{ width: `${stats.memory.percentage}%` }}
+            style={{ width: `${Math.min(100, Math.max(0, stats.memory.percentage))}%` }}
           />
         </div>
         <div className="flex justify-between mt-1 text-xs text-gray-500 dark:text-gray-400">

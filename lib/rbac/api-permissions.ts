@@ -74,6 +74,9 @@ export const API_PERMISSIONS: Record<string, PermissionName | PermissionName[]> 
   'POST /api/admin/*': ['users:manage:all', 'practices:manage:all'], // Super admin only
   'PUT /api/admin/*': ['users:manage:all', 'practices:manage:all'], // Super admin only
   'DELETE /api/admin/*': ['users:manage:all', 'practices:manage:all'], // Super admin only
+
+  // System Maintenance APIs
+  'POST /api/admin/maintenance/security': 'settings:update:all', // Security cleanup (expired challenges, etc.)
 };
 
 /**

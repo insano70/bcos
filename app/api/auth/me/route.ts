@@ -1,8 +1,7 @@
 import type { NextRequest } from 'next/server';
-import { requireJWTAuth } from '@/lib/api/middleware/jwt-auth';
-import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { authRoute, type AuthSession } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
 
 // Force dynamic rendering for this API route
@@ -12,15 +11,15 @@ export const dynamic = 'force-dynamic';
  * Get current user with full RBAC context
  * Provides complete user information including roles, permissions, and organization access
  */
-export async function GET(request: NextRequest) {
+const handler = async (request: NextRequest, session?: AuthSession) => {
   const startTime = Date.now();
 
   try {
-    // RATE LIMITING: Apply API-level rate limiting to prevent user context abuse
-    await applyRateLimit(request, 'api');
-
     // Get authenticated user session with JWT-enhanced data (eliminates database queries!)
-    const session = await requireJWTAuth(request);
+    // authRoute middleware already handles authentication, so we can trust the session
+    if (!session) {
+      throw new Error('Session not found - authentication failed');
+    }
 
     // User context is already available from JWT + cache - no additional database queries needed!
     const userContext = session.userContext;
@@ -119,4 +118,6 @@ export async function GET(request: NextRequest) {
       request
     );
   }
-}
+};
+
+export const GET = authRoute(handler, { rateLimit: 'api' });

@@ -32,15 +32,16 @@
  */
 
 import type { NextRequest } from 'next/server';
-import type { AuthSession } from '@/lib/api/route-handler';
 import type { PermissionName, UserContext } from '@/lib/types/rbac';
 import { buildAuthRoute } from './builders/auth-route-builder';
 import { PublicRouteBuilder } from './builders/public-route-builder';
 import { RBACRouteBuilder } from './builders/rbac-route-builder';
+import type { AuthSession } from './types';
 
 // Re-export types
 export type {
   AuthRouteOptions,
+  AuthSession,
   Middleware,
   MiddlewareResult,
   PublicRouteOptions,

@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+import { publicRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
 
 /**
@@ -23,7 +24,7 @@ interface CSPViolationReport {
   };
 }
 
-export async function POST(request: NextRequest) {
+const postHandler = async (request: NextRequest) => {
   try {
     // Parse the CSP violation report
     const report: CSPViolationReport = await request.json();
@@ -107,9 +108,22 @@ export async function POST(request: NextRequest) {
     log.error('Failed to process CSP violation report', error);
     return createErrorResponse('Internal server error', 500, request);
   }
-}
+};
 
-// CSP reports are always POST requests
-export async function GET(request: NextRequest) {
+const getHandler = async (request: NextRequest) => {
   return createErrorResponse('Method not allowed', 405, request);
-}
+};
+
+// CSP reports are sent by browsers automatically when violations occur
+// Cannot include authentication headers, so must be public
+export const POST = publicRoute(
+  postHandler,
+  'CSP violation reporting endpoint - browsers send these automatically',
+  { rateLimit: 'api' }
+);
+
+export const GET = publicRoute(
+  getHandler,
+  'CSP violation reporting endpoint - GET not allowed',
+  { rateLimit: 'api' }
+);

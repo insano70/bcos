@@ -16,7 +16,7 @@ import { loginSchema } from '@/lib/validations/auth';
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
 
-import { publicRoute } from '@/lib/api/route-handler';
+import { publicRoute } from '@/lib/api/route-handlers';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { correlation, log } from '@/lib/logger';
 

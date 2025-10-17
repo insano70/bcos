@@ -9,7 +9,7 @@ import type { NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/api/middleware/auth';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
-import { secureRoute } from '@/lib/api/route-handler';
+import { authRoute } from '@/lib/api/route-handlers';
 import { getUserCredentials } from '@/lib/auth/webauthn';
 import { log } from '@/lib/logger';
 import type { CredentialListItem } from '@/lib/types/webauthn';
@@ -84,4 +84,4 @@ const handler = async (request: NextRequest) => {
   }
 };
 
-export const GET = secureRoute(handler, { rateLimit: 'api' });
+export const GET = authRoute(handler, { rateLimit: 'api' });
