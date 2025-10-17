@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import type { PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/browser';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { loginSchema } from '@/lib/validations/auth';
 import MFASetupDialog from './mfa-setup-dialog';

@@ -1,7 +1,7 @@
 'use client';
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import {
   type DataSource,
@@ -39,6 +39,9 @@ export default function EditDataSourceModal({
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
+
+  const editIsActiveId = useId();
+  const editRequiresAuthId = useId();
 
   // Always call the hook - hooks must be called in the same order every render
   const updateDataSourceMutation = useUpdateDataSource(dataSource?.data_source_id || null);
@@ -301,13 +304,13 @@ export default function EditDataSourceModal({
                       <div className="space-y-3">
                         <div className="flex items-center">
                           <input
-                            id="edit_is_active"
+                            id={editIsActiveId}
                             type="checkbox"
                             {...register('is_active')}
                             className="form-checkbox"
                           />
                           <label
-                            htmlFor="edit_is_active"
+                            htmlFor={editIsActiveId}
                             className="ml-2 text-sm text-gray-700 dark:text-gray-300"
                           >
                             Active
@@ -316,13 +319,13 @@ export default function EditDataSourceModal({
 
                         <div className="flex items-center">
                           <input
-                            id="edit_requires_auth"
+                            id={editRequiresAuthId}
                             type="checkbox"
                             {...register('requires_auth')}
                             className="form-checkbox"
                           />
                           <label
-                            htmlFor="edit_requires_auth"
+                            htmlFor={editRequiresAuthId}
                             className="ml-2 text-sm text-gray-700 dark:text-gray-300"
                           >
                             Requires Authentication
