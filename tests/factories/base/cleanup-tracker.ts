@@ -177,9 +177,11 @@ export class CleanupTracker {
     let objects = Array.from(this.objects.values());
 
     // Filter by scope if provided
-    if (scope && this.scopes.has(scope)) {
-      const scopeIds = this.scopes.get(scope)!;
-      objects = objects.filter((obj) => scopeIds.has(obj.id));
+    if (scope) {
+      const scopeIds = this.scopes.get(scope);
+      if (scopeIds) {
+        objects = objects.filter((obj) => scopeIds.has(obj.id));
+      }
     }
 
     // Sort by cleanup priority
@@ -213,9 +215,11 @@ export class CleanupTracker {
   getIdsByType(type: TestEntityType, scope?: string): string[] {
     let objects = Array.from(this.objects.values()).filter((obj) => obj.type === type);
 
-    if (scope && this.scopes.has(scope)) {
-      const scopeIds = this.scopes.get(scope)!;
-      objects = objects.filter((obj) => scopeIds.has(obj.id));
+    if (scope) {
+      const scopeIds = this.scopes.get(scope);
+      if (scopeIds) {
+        objects = objects.filter((obj) => scopeIds.has(obj.id));
+      }
     }
 
     return objects.map((obj) => obj.id);

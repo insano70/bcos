@@ -473,10 +473,11 @@ export function TransitionActionBuilder({
             </div>
           ) : (
             assignments.map((assignment, index) => {
-              // Assignments identified by position, no stable unique IDs available
+              // Use composite key: assign_to, condition, and index for stability
+              const assignmentKey = `${assignment.assign_to || 'unassigned'}-${assignment.condition || 'no-condition'}-${index}`;
               return (
               <div
-                key={index}
+                key={assignmentKey}
                 className="border border-gray-200 dark:border-gray-700/60 rounded-lg p-4 bg-white dark:bg-gray-800 space-y-3"
               >
                 <div className="flex items-start justify-between">

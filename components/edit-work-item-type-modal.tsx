@@ -2,7 +2,7 @@
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useUpdateWorkItemType, type WorkItemType } from '@/lib/hooks/use-work-item-types';
@@ -35,6 +35,11 @@ export default function EditWorkItemTypeModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const updateWorkItemType = useUpdateWorkItemType();
+
+  const nameId = useId();
+  const descriptionId = useId();
+  const iconId = useId();
+  const colorId = useId();
 
   const {
     register,
@@ -151,11 +156,11 @@ export default function EditWorkItemTypeModal({
                     <div className="space-y-4">
                       {/* Name */}
                       <div>
-                        <label className="block text-sm font-medium mb-1" htmlFor="name">
+                        <label className="block text-sm font-medium mb-1" htmlFor={nameId}>
                           Name
                         </label>
                         <input
-                          id="name"
+                          id={nameId}
                           className={`form-input w-full ${errors.name ? 'border-red-300' : ''}`}
                           type="text"
                           {...register('name')}
@@ -168,11 +173,11 @@ export default function EditWorkItemTypeModal({
 
                       {/* Description */}
                       <div>
-                        <label className="block text-sm font-medium mb-1" htmlFor="description">
+                        <label className="block text-sm font-medium mb-1" htmlFor={descriptionId}>
                           Description
                         </label>
                         <textarea
-                          id="description"
+                          id={descriptionId}
                           className={`form-textarea w-full ${errors.description ? 'border-red-300' : ''}`}
                           rows={3}
                           {...register('description')}
@@ -187,7 +192,7 @@ export default function EditWorkItemTypeModal({
 
                       {/* Icon */}
                       <div>
-                        <label className="block text-sm font-medium mb-1" htmlFor="icon">
+                        <label className="block text-sm font-medium mb-1" htmlFor={iconId}>
                           Icon
                         </label>
                         <div className="flex gap-2 mb-2">
@@ -197,7 +202,7 @@ export default function EditWorkItemTypeModal({
                               type="button"
                               className="p-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
                               onClick={() => {
-                                const input = document.getElementById('icon') as HTMLInputElement;
+                                const input = document.getElementById(iconId) as HTMLInputElement;
                                 if (input) input.value = iconOption;
                               }}
                             >
@@ -206,7 +211,7 @@ export default function EditWorkItemTypeModal({
                           ))}
                         </div>
                         <input
-                          id="icon"
+                          id={iconId}
                           className={`form-input w-full ${errors.icon ? 'border-red-300' : ''}`}
                           type="text"
                           {...register('icon')}
@@ -219,11 +224,11 @@ export default function EditWorkItemTypeModal({
 
                       {/* Color */}
                       <div>
-                        <label className="block text-sm font-medium mb-1" htmlFor="color">
+                        <label className="block text-sm font-medium mb-1" htmlFor={colorId}>
                           Color
                         </label>
                         <input
-                          id="color"
+                          id={colorId}
                           className={`form-input w-full ${errors.color ? 'border-red-300' : ''}`}
                           type="color"
                           {...register('color')}

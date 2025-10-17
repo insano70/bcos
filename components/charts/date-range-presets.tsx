@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 
 /**
  * Date Range Presets Component
@@ -286,6 +286,8 @@ export default function DateRangePresets({
   const [customStartDate, setCustomStartDate] = useState(currentStartDate || '');
   const [customEndDate, setCustomEndDate] = useState(currentEndDate || '');
 
+  const customRadioId = useId();
+
   // Update selectedPreset when prop changes (for editing existing charts)
   useEffect(() => {
     setSelectedPreset(initialSelectedPreset);
@@ -346,12 +348,12 @@ export default function DateRangePresets({
         <div className="flex items-center gap-2 mb-3">
           <input
             type="radio"
-            id="custom"
+            id={customRadioId}
             checked={selectedPreset === 'custom'}
             onChange={() => setSelectedPreset('custom')}
             className="text-violet-500"
           />
-          <label htmlFor="custom" className="font-medium text-gray-900 dark:text-gray-100">
+          <label htmlFor={customRadioId} className="font-medium text-gray-900 dark:text-gray-100">
             Custom Range
           </label>
         </div>

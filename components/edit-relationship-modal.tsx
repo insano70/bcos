@@ -2,7 +2,7 @@
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import {
@@ -56,6 +56,12 @@ export default function EditRelationshipModal({
   const [autoCreateConfig, setAutoCreateConfig] = useState<AutoCreateConfig | null>(
     relationship.auto_create_config || null
   );
+
+  const relationshipNameId = useId();
+  const minCountId = useId();
+  const maxCountId = useId();
+  const displayOrderId = useId();
+
   const updateRelationship = useUpdateTypeRelationship();
 
   const {
@@ -185,12 +191,12 @@ export default function EditRelationshipModal({
                       <div>
                         <label
                           className="block text-sm font-medium mb-1"
-                          htmlFor="relationship_name"
+                          htmlFor={relationshipNameId}
                         >
                           Relationship Name <span className="text-red-500">*</span>
                         </label>
                         <input
-                          id="relationship_name"
+                          id={relationshipNameId}
                           className={`form-input w-full ${errors.relationship_name ? 'border-red-300' : ''}`}
                           type="text"
                           {...register('relationship_name')}
@@ -206,11 +212,11 @@ export default function EditRelationshipModal({
                       {/* Count Constraints */}
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium mb-1" htmlFor="min_count">
+                          <label className="block text-sm font-medium mb-1" htmlFor={minCountId}>
                             Minimum Count
                           </label>
                           <input
-                            id="min_count"
+                            id={minCountId}
                             type="number"
                             min="0"
                             className={`form-input w-full ${errors.min_count ? 'border-red-300' : ''}`}
@@ -225,11 +231,11 @@ export default function EditRelationshipModal({
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium mb-1" htmlFor="max_count">
+                          <label className="block text-sm font-medium mb-1" htmlFor={maxCountId}>
                             Maximum Count
                           </label>
                           <input
-                            id="max_count"
+                            id={maxCountId}
                             type="number"
                             min="1"
                             className={`form-input w-full ${errors.max_count ? 'border-red-300' : ''}`}
@@ -246,11 +252,11 @@ export default function EditRelationshipModal({
 
                       {/* Display Order */}
                       <div>
-                        <label className="block text-sm font-medium mb-1" htmlFor="display_order">
+                        <label className="block text-sm font-medium mb-1" htmlFor={displayOrderId}>
                           Display Order
                         </label>
                         <input
-                          id="display_order"
+                          id={displayOrderId}
                           type="number"
                           min="0"
                           className={`form-input w-full ${errors.display_order ? 'border-red-300' : ''}`}

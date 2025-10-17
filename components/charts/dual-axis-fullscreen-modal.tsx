@@ -15,7 +15,7 @@ import {
 } from 'chart.js';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { useTheme } from 'next-themes';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { chartColors } from '@/components/charts/chartjs-config';
 import type { ChartData } from '@/lib/types/analytics';
@@ -49,6 +49,8 @@ export default function DualAxisFullscreenModal({
   const modalRef = useRef<HTMLDivElement>(null);
   const { theme } = useTheme();
   const darkMode = theme === 'dark';
+
+  const chartTitleId = useId();
 
   // Callback ref to ensure canvas is mounted
   const setCanvasRef = (element: HTMLCanvasElement | null) => {
@@ -365,7 +367,7 @@ export default function DualAxisFullscreenModal({
       onClick={handleOverlayClick}
       role="dialog"
       aria-modal="true"
-      aria-labelledby="fullscreen-chart-title"
+      aria-labelledby={chartTitleId}
     >
       <div
         className="bg-white dark:bg-gray-800 sm:rounded-xl shadow-2xl w-full h-full sm:h-auto sm:max-w-7xl sm:max-h-[95vh] flex flex-col overflow-hidden"
@@ -374,7 +376,7 @@ export default function DualAxisFullscreenModal({
         {/* Header */}
         <header className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
           <h2
-            id="fullscreen-chart-title"
+            id={chartTitleId}
             className="font-semibold text-gray-800 dark:text-gray-100 text-lg"
           >
             {chartTitle}
