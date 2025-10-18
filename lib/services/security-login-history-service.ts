@@ -6,6 +6,13 @@
  *
  * **Non-CRUD Service** - Security monitoring operations only
  *
+ * ## Error Handling Strategy
+ *
+ * - **Authorization Errors**: Service constructor throws `AuthorizationError` if user is not super admin
+ * - **Validation Errors**: Invalid userId format throws `ValidationError` with clear message
+ * - **Query Errors**: Database query failures are thrown as-is (not masked)
+ * - **No Graceful Degradation**: All errors propagate to route handler for proper error responses
+ *
  * @example
  * ```typescript
  * const service = createSecurityLoginHistoryService(userContext);
@@ -13,27 +20,63 @@
  * ```
  */
 
+// Third-party libraries
 import { desc, eq, sql } from 'drizzle-orm';
+
+// Database
 import { db, login_attempts } from '@/lib/db';
+
+// API responses
+import { ValidationError } from '@/lib/api/responses/error';
+
+// API utilities
+import { requireSuperAdmin } from '@/lib/api/utils/rbac-guards';
+
+// Logging
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
-import { AuthorizationError, ValidationError } from '@/lib/api/responses/error';
+
+// Types
 import type { UserContext } from '@/lib/types/rbac';
 import type { LoginAttempt, LoginHistoryResponse } from '@/lib/monitoring/types';
 
-// UUID validation regex
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Constants
+import { SECURITY_MONITORING_LIMITS, UUID_REGEX } from '@/lib/constants/security-monitoring';
 
 // ============================================================
 // INTERFACES
 // ============================================================
 
 export interface SecurityLoginHistoryServiceInterface {
+  /**
+   * Get login attempt history for a specific user
+   *
+   * Retrieves detailed login history with summary statistics including
+   * total attempts, success/failure counts, unique IPs, and recent activity.
+   *
+   * @param userId - User ID (must be valid UUID)
+   * @param filters - Optional filters for limit and success/failure filtering
+   * @returns Promise resolving to login history with attempts and summary statistics
+   * @throws {AuthorizationError} If user is not super admin
+   * @throws {ValidationError} If userId is not a valid UUID
+   *
+   * @example
+   * ```typescript
+   * const history = await service.getLoginHistory('user-123', {
+   *   limit: 100,
+   *   failureOnly: true
+   * });
+   * console.log(`${history.summary.failedAttempts} failed login attempts`);
+   * ```
+   */
   getLoginHistory(userId: string, filters?: LoginHistoryFilters): Promise<LoginHistoryResponse>;
 }
 
 export interface LoginHistoryFilters {
+  /** Maximum number of login attempts to return (default: 50, max: 500) */
   limit?: number;
+  /** Only return successful login attempts */
   successOnly?: boolean;
+  /** Only return failed login attempts */
   failureOnly?: boolean;
 }
 
@@ -43,10 +86,7 @@ export interface LoginHistoryFilters {
 
 class SecurityLoginHistoryService {
   constructor(private readonly userContext: UserContext) {
-    // Super admin only - no complex RBAC needed
-    if (!userContext.is_super_admin) {
-      throw AuthorizationError('Super admin access required for security monitoring');
-    }
+    requireSuperAdmin(userContext, 'security monitoring');
   }
 
   async getLoginHistory(
@@ -57,11 +97,14 @@ class SecurityLoginHistoryService {
 
     // Validate UUID format
     if (!UUID_REGEX.test(userId)) {
-      throw ValidationError('Invalid userId format - must be a valid UUID');
+      throw ValidationError('Invalid userId format');
     }
 
     try {
-      const limit = Math.min(filters.limit || 50, 500);
+      const limit = Math.min(
+        filters.limit || SECURITY_MONITORING_LIMITS.DEFAULT_PAGE_SIZE,
+        SECURITY_MONITORING_LIMITS.MAX_PAGE_SIZE
+      );
 
       // Build where clause
       const whereConditions = [eq(login_attempts.user_id, userId)];

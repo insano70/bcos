@@ -6,6 +6,12 @@
  *
  * **Non-CRUD Service** - Security monitoring operations only
  *
+ * ## Error Handling Strategy
+ *
+ * - **Authorization Errors**: Service constructor throws `AuthorizationError` if user is not super admin
+ * - **Query Errors**: Database query failures are thrown as-is (not masked)
+ * - **No Graceful Degradation**: All errors propagate to route handler for proper error responses
+ *
  * @example
  * ```typescript
  * const service = createSecurityAtRiskUsersService(userContext);
@@ -13,24 +19,57 @@
  * ```
  */
 
+// Third-party libraries
 import { eq, gt, or, sql } from 'drizzle-orm';
+
+// Database
 import { account_security, db, login_attempts, users } from '@/lib/db';
+
+// API utilities
+import { requireSuperAdmin } from '@/lib/api/utils/rbac-guards';
+
+// Logging
 import { log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
-import { AuthorizationError } from '@/lib/api/responses/error';
+
+// Monitoring utilities
 import { calculateRiskScore, getRiskFactors } from '@/lib/monitoring/risk-score';
+
+// Types
 import type { UserContext } from '@/lib/types/rbac';
 import type { AtRiskUser, AtRiskUsersResponse } from '@/lib/monitoring/types';
+
+// Constants
+import { SECURITY_MONITORING_LIMITS, SECURITY_MONITORING_TIME } from '@/lib/constants/security-monitoring';
 
 // ============================================================
 // INTERFACES
 // ============================================================
 
 export interface SecurityAtRiskUsersServiceInterface {
+  /**
+   * Get users with security risks (failed logins, locked accounts, suspicious activity)
+   *
+   * Queries database for users with security issues and enriches with risk scores.
+   * Uses batch queries to prevent N+1 query problems.
+   *
+   * @param filters - Optional filters for limit and minimum risk score
+   * @returns Promise resolving to at-risk users with risk scores and summary
+   * @throws {AuthorizationError} If user is not super admin
+   *
+   * @example
+   * ```typescript
+   * const result = await service.getAtRiskUsers({ minRiskScore: 50, limit: 100 });
+   * console.log(`Found ${result.totalCount} at-risk users`);
+   * console.log(`${result.summary.locked} locked accounts`);
+   * ```
+   */
   getAtRiskUsers(filters?: AtRiskUsersFilters): Promise<AtRiskUsersResponse>;
 }
 
 export interface AtRiskUsersFilters {
+  /** Maximum number of users to return (default: 50, max: 500) */
   limit?: number;
+  /** Minimum risk score to filter by (0-100) */
   minRiskScore?: number;
 }
 
@@ -40,22 +79,26 @@ export interface AtRiskUsersFilters {
 
 class SecurityAtRiskUsersService {
   constructor(private readonly userContext: UserContext) {
-    // Super admin only - no complex RBAC needed
-    if (!userContext.is_super_admin) {
-      throw AuthorizationError('Super admin access required for security monitoring');
-    }
+    requireSuperAdmin(userContext, 'security monitoring');
   }
 
   async getAtRiskUsers(filters: AtRiskUsersFilters = {}): Promise<AtRiskUsersResponse> {
     const startTime = Date.now();
 
     try {
-      const limit = Math.min(filters.limit || 50, 500);
-      const minRiskScore = filters.minRiskScore || 0;
+      const limit = Math.min(
+        filters.limit || SECURITY_MONITORING_LIMITS.DEFAULT_PAGE_SIZE,
+        SECURITY_MONITORING_LIMITS.MAX_PAGE_SIZE
+      );
+      // Clamp minRiskScore to valid range (0-100)
+      const minRiskScore = Math.max(
+        0,
+        Math.min(filters.minRiskScore || 0, SECURITY_MONITORING_LIMITS.MAX_RISK_SCORE)
+      );
 
       const now = new Date();
-      const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const twentyFourHoursAgo = new Date(now.getTime() - SECURITY_MONITORING_TIME.MS_PER_DAY);
+      const sevenDaysAgo = new Date(now.getTime() - SECURITY_MONITORING_TIME.MS_PER_WEEK);
 
       // Query users with security issues
       const queryStart = Date.now();

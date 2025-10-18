@@ -28,22 +28,21 @@
  * @access Public (unauthenticated, but validates session)
  */
 
-import { eq } from 'drizzle-orm';
 import { unsealData } from 'iron-session';
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { publicRoute } from '@/lib/api/route-handlers';
 import { AuditLogger } from '@/lib/api/services/audit';
-import { validateAuthProfile, validateEmailDomain } from '@/lib/auth/input-validator';
-import { createTokenPair } from '@/lib/auth/token-manager';
-import { db, users } from '@/lib/db';
+import { validateAuthProfile } from '@/lib/auth/input-validator';
 import { getOIDCConfig } from '@/lib/env';
 import { correlation, log } from '@/lib/logger';
 import { getOIDCClient } from '@/lib/oidc/client';
 import { databaseStateManager } from '@/lib/oidc/database-state-manager';
 import { SessionError, StateValidationError } from '@/lib/oidc/errors';
 import type { OIDCSessionData } from '@/lib/oidc/types';
+import { createAuthSession } from '@/lib/services/auth/session-manager-service';
+import { lookupSSOUser, validateEmailDomain } from '@/lib/services/auth/sso-auth-service';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -342,55 +341,32 @@ const oidcCallbackHandler = async (request: NextRequest) => {
 
     const sanitizedProfile = validationResult.sanitized;
 
-    // ===== 9. Lookup User in Database =====
-    const [existingUser] = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, sanitizedProfile.email))
-      .limit(1);
+    // ===== 9. Lookup User in Database Using Service Layer =====
+    let existingUser: Awaited<ReturnType<typeof lookupSSOUser>>;
+    try {
+      existingUser = await lookupSSOUser(
+        sanitizedProfile.email,
+        'oidc',
+        currentMetadata.ipAddress,
+        currentMetadata.userAgent
+      );
+    } catch (error) {
+      // Handle specific SSO errors (user not found, inactive, etc.)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
-    if (!existingUser) {
-      log.warn('OIDC user not found in database', {
-        email: sanitizedProfile.email.replace(/(.{2}).*@/, '$1***@'),
-      });
+      if (errorMessage.includes('not found') || errorMessage.includes('not provisioned')) {
+        return NextResponse.redirect(new URL('/signin?error=user_not_provisioned', baseUrl));
+      }
 
-      await AuditLogger.logAuth({
-        action: 'login_failed',
-        email: sanitizedProfile.email,
-        ipAddress: currentMetadata.ipAddress,
-        userAgent: currentMetadata.userAgent,
-        metadata: {
-          authMethod: 'oidc',
-          reason: 'user_not_provisioned',
-        },
-      });
+      if (errorMessage.includes('inactive') || errorMessage.includes('not active')) {
+        return NextResponse.redirect(new URL('/signin?error=user_inactive', baseUrl));
+      }
 
-      return NextResponse.redirect(new URL('/signin?error=user_not_provisioned', baseUrl));
+      // Generic error
+      return NextResponse.redirect(new URL('/signin?error=oidc_callback_failed', baseUrl));
     }
 
-    // Check if user is active
-    if (!existingUser.is_active) {
-      log.warn('OIDC user account not active', {
-        email: sanitizedProfile.email.replace(/(.{2}).*@/, '$1***@'),
-        isActive: existingUser.is_active,
-      });
-
-      await AuditLogger.logAuth({
-        action: 'login_failed',
-        userId: existingUser.user_id,
-        email: sanitizedProfile.email,
-        ipAddress: currentMetadata.ipAddress,
-        userAgent: currentMetadata.userAgent,
-        metadata: {
-          authMethod: 'oidc',
-          reason: 'user_not_active',
-        },
-      });
-
-      return NextResponse.redirect(new URL('/signin?error=user_inactive', baseUrl));
-    }
-
-    // ===== 10. Create Internal JWT Tokens =====
+    // ===== 10. Create Internal JWT Tokens Using Service Layer =====
     const deviceInfo = {
       ipAddress: currentMetadata.ipAddress,
       userAgent: currentMetadata.userAgent,
@@ -398,13 +374,13 @@ const oidcCallbackHandler = async (request: NextRequest) => {
       deviceName: currentMetadata.deviceName,
     };
 
-    const tokens = await createTokenPair(
-      existingUser.user_id,
+    const tokens = await createAuthSession({
+      userId: existingUser.user_id,
       deviceInfo,
-      false, // rememberMe = false for SSO
-      sanitizedProfile.email,
-      'oidc' // authMethod
-    );
+      rememberMe: false, // rememberMe = false for SSO
+      email: sanitizedProfile.email,
+      authMethod: 'oidc',
+    });
 
     // ===== 11. Success Log with Security Validation Metrics =====
     // Note: Audit log is created by createTokenPair() above

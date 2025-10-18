@@ -6,20 +6,12 @@
  * Returns: Full access + refresh tokens
  */
 
-import { eq } from 'drizzle-orm';
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { AuthenticationError, createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { publicRoute } from '@/lib/api/route-handlers';
-import {
-  createTokenPair,
-  generateDeviceFingerprint,
-  generateDeviceName,
-} from '@/lib/auth/token-manager';
-import { completeAuthentication } from '@/lib/auth/webauthn';
 import { requireMFATempToken } from '@/lib/auth/webauthn-temp-token';
-import { db, users } from '@/lib/db';
 import { log } from '@/lib/logger';
 import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context';
 import { setCSRFToken } from '@/lib/security/csrf-unified';
@@ -27,6 +19,9 @@ import type {
   AuthenticationCompleteRequest,
   AuthenticationCompleteResponse,
 } from '@/lib/types/webauthn';
+import { completePasskeyVerification } from '@/lib/services/auth/mfa-service';
+import { createAuthSession } from '@/lib/services/auth/session-manager-service';
+import { getUserById } from '@/lib/services/auth/user-lookup-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,8 +49,8 @@ const handler = async (request: NextRequest) => {
     const tempPayload = await requireMFATempToken(request);
     const userId = tempPayload.sub;
 
-    // Verify passkey assertion
-    const verificationResult = await completeAuthentication({
+    // Verify passkey assertion using service layer
+    const verificationResult = await completePasskeyVerification({
       userId,
       challengeId: challenge_id,
       assertion,
@@ -67,14 +62,17 @@ const handler = async (request: NextRequest) => {
       throw AuthenticationError(verificationResult.error || 'Passkey verification failed');
     }
 
-    // Fetch user details
-    const [user] = await db.select().from(users).where(eq(users.user_id, userId)).limit(1);
+    // Fetch user details using service layer
+    const user = await getUserById(userId);
 
     if (!user || !user.is_active) {
       throw AuthenticationError('User account is inactive');
     }
 
-    // Generate device info
+    // Build device info for session creation
+    const { generateDeviceFingerprint, generateDeviceName } = await import(
+      '@/lib/auth/token-manager'
+    );
     const deviceFingerprint = generateDeviceFingerprint(ipAddress, userAgent || 'unknown');
     const deviceName = generateDeviceName(userAgent || 'unknown');
 
@@ -85,8 +83,13 @@ const handler = async (request: NextRequest) => {
       deviceName,
     };
 
-    // Create full token pair
-    const tokenPair = await createTokenPair(user.user_id, deviceInfo, false, user.email);
+    // Create full session using service layer
+    const tokenPair = await createAuthSession({
+      userId: user.user_id,
+      deviceInfo,
+      rememberMe: false,
+      email: user.email,
+    });
 
     // Set secure httpOnly cookies
     const cookieStore = await cookies();

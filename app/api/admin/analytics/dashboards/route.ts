@@ -4,7 +4,7 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
-import { createRBACDashboardsService } from '@/lib/services/rbac-dashboards-service';
+import { createRBACDashboardsService } from '@/lib/services/dashboards';
 import type { UserContext } from '@/lib/types/rbac';
 import { dashboardCreateSchema } from '@/lib/validations/analytics';
 

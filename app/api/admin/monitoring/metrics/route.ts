@@ -12,15 +12,31 @@
  * RBAC: settings:read:all (Super Admin only)
  */
 
+// Next.js
 import type { NextRequest } from 'next/server';
+
+// API responses
 import { createSuccessResponse } from '@/lib/api/responses/success';
+
+// API route handlers
 import { rbacRoute } from '@/lib/api/route-handlers';
+
+// Logging
 import { log } from '@/lib/logger';
+
+// Monitoring utilities
 import { calculateHealthScore } from '@/lib/monitoring/health-score';
 import { metricsCollector } from '@/lib/monitoring/metrics-collector';
-import type { MonitoringMetrics } from '@/lib/monitoring/types';
+
+// Services
 import { createSecurityMetricsService } from '@/lib/services/security-metrics-service';
+
+// Types
 import type { UserContext } from '@/lib/types/rbac';
+import type { MonitoringMetrics } from '@/lib/monitoring/types';
+
+// Constants
+import { FALLBACK_MONITORING_METRICS } from '@/lib/constants/security-monitoring';
 
 const metricsHandler = async (_request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
@@ -136,61 +152,10 @@ const metricsHandler = async (_request: NextRequest, userContext: UserContext) =
     });
 
     // Return degraded metrics on error (don't fail completely)
-    const fallbackMetrics: MonitoringMetrics = {
+    return createSuccessResponse({
+      ...FALLBACK_MONITORING_METRICS,
       timestamp: new Date().toISOString(),
-      timeRange: '5m',
-      systemHealth: {
-        status: 'degraded',
-        score: 50,
-        factors: {
-          uptime: 'degraded',
-          errorRate: 'degraded',
-          responseTime: 'degraded',
-          cachePerformance: 'degraded',
-          databaseLatency: 'degraded',
-        },
-      },
-      performance: {
-        requests: { total: 0, perSecond: 0, byEndpoint: {} },
-        responseTime: {
-          p50: 0,
-          p95: 0,
-          p99: 0,
-          avg: 0,
-          min: 0,
-          max: 0,
-          count: 0,
-          byEndpoint: {},
-        },
-        errors: { total: 0, rate: 0, byEndpoint: {}, byType: {} },
-        slowRequests: { count: 0, threshold: 1000, endpoints: [] },
-      },
-      analytics: {
-        requests: { total: 0, byEndpoint: {} },
-        responseTime: {
-          p50: 0,
-          p95: 0,
-          p99: 0,
-          avg: 0,
-          min: 0,
-          max: 0,
-          count: 0,
-        },
-        errors: { total: 0, rate: 0, byEndpoint: {} },
-        slowRequests: { count: 0, threshold: 5000, endpoints: [] },
-      },
-      cache: { hitRate: 0, hits: 0, misses: 0, opsPerSec: 0 },
-      security: {
-        failedLogins: 0,
-        rateLimitBlocks: 0,
-        csrfBlocks: 0,
-        suspiciousUsers: 0,
-        lockedAccounts: 0,
-      },
-      activeUsers: { current: 0 },
-    };
-
-    return createSuccessResponse(fallbackMetrics);
+    } as MonitoringMetrics);
   }
 };
 

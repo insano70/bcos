@@ -25,7 +25,7 @@ import { DashboardQueryCache, generateQueryHash } from './dashboard-query-cache'
 import { createOrganizationAccessService } from './organization-access-service';
 import { organizationHierarchyService } from './organization-hierarchy-service';
 import { createRBACChartsService } from './rbac-charts-service';
-import { createRBACDashboardsService } from './rbac-dashboards-service';
+import { createRBACDashboardsService } from './dashboards';
 
 /**
  * Dashboard-level universal filters

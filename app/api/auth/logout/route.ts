@@ -3,10 +3,13 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { authRoute, type AuthSession } from '@/lib/api/route-handlers';
 import { AuditLogger } from '@/lib/api/services/audit';
-import { revokeAllUserTokens, revokeRefreshToken } from '@/lib/auth/token-manager';
-import { db, token_blacklist } from '@/lib/db';
 import { correlation, log } from '@/lib/logger';
 import { verifyCSRFToken } from '@/lib/security/csrf';
+import {
+  getCurrentSessionId,
+  revokeAllSessions,
+  revokeSession,
+} from '@/lib/services/auth/session-manager-service';
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
@@ -74,86 +77,31 @@ const logoutHandler = async (request: NextRequest, session?: AuthSession) => {
       return createErrorResponse('No active session found', 400, request);
     }
 
-    // VALIDATE TOKEN OWNERSHIP: Ensure refresh token belongs to authenticated user
-    // This prevents one user from logging out another user
-    const { verifyRefreshToken } = await import('@/lib/auth/token-verification');
-    const payload = await verifyRefreshToken(refreshToken);
-
-    if (!payload) {
-      return createErrorResponse('Invalid session token', 401, request);
-    }
-
-    const tokenUserId = payload.userId;
-    if (tokenUserId !== session.user.id) {
-      return createErrorResponse(
-        'Unauthorized: Token does not belong to authenticated user',
-        403,
-        request
-      );
-    }
-
     // Extract device info for audit logging
     const { extractRequestMetadata } = await import('@/lib/api/utils/request');
     const metadata = extractRequestMetadata(request);
 
-    // Revoke the refresh token
-    const revoked = await revokeRefreshToken(refreshToken, 'logout');
+    // Get current session ID to revoke
+    const sessionId = await getCurrentSessionId(refreshToken, session.user.id);
 
-    if (!revoked) {
-      return createErrorResponse('Failed to logout', 500, request);
+    if (!sessionId) {
+      return createErrorResponse('Invalid session', 401, request);
     }
 
-    // Blacklist access token if provided (defense-in-depth)
-    // Use authenticated user's ID for security
-    const authHeader = request.headers.get('Authorization');
-    if (authHeader?.startsWith('Bearer ')) {
-      try {
-        const token = authHeader.slice(7);
-        const { jwtVerify } = await import('jose');
-        const accessSecret = process.env.JWT_SECRET;
-        if (!accessSecret) {
-          throw new Error('JWT_SECRET is not configured');
-        }
-        const ACCESS_TOKEN_SECRET = new TextEncoder().encode(accessSecret);
-        const { payload } = await jwtVerify(token, ACCESS_TOKEN_SECRET);
-        const jti = payload.jti as string | undefined;
-        const tokenUserId = payload.sub as string | undefined;
-
-        // SECURITY: Ensure access token belongs to authenticated user
-        if (jti && tokenUserId && tokenUserId === session.user.id) {
-          await db.insert(token_blacklist).values({
-            jti,
-            user_id: session.user.id, // Use authenticated user's ID
-            token_type: 'access',
-            expires_at: new Date(Date.now() + 15 * 60 * 1000),
-            reason: 'logout',
-          });
-        }
-      } catch (e) {
-        // Security logging for token blacklisting failure
-        log.security('token_blacklist_failure', 'medium', {
-          action: 'logout_token_cleanup_failed',
-          reason: 'blacklist_error',
-          threat: 'token_persistence',
-        });
-
-        log.warn('Failed to blacklist access token on logout', {
-          error: e instanceof Error ? e.message : 'Unknown error',
-          operation: 'logout',
-        });
-      }
-    }
+    // Revoke the current session using service layer
+    const result = await revokeSession(session.user.id, sessionId, refreshToken);
 
     // AUDIT LOGGING: Log the logout action
     await AuditLogger.logUserAction({
       action: 'logout',
       userId: session.user.id,
       resourceType: 'session',
-      resourceId: 'current',
+      resourceId: result.sessionId,
       ipAddress: metadata.ipAddress,
       userAgent: metadata.userAgent,
       metadata: {
         reason: 'user_initiated',
+        tokensRevoked: result.tokensRevoked,
       },
     });
 
@@ -167,8 +115,8 @@ const logoutHandler = async (request: NextRequest, session?: AuthSession) => {
       deviceName: metadata.deviceName,
       deviceFingerprint: metadata.fingerprint.substring(0, 8),
       sessionCleanup: {
-        refreshTokenRevoked: revoked,
-        accessTokenBlacklisted: !!authHeader,
+        sessionRevoked: result.sessionId,
+        tokensRevoked: result.tokensRevoked,
         cookiesCleared: 3, // refresh-token, access-token, csrf-token
         csrfProtection: 'verified',
       },
@@ -224,7 +172,7 @@ const revokeAllSessionsHandler = async (request: NextRequest, session?: AuthSess
       return createErrorResponse('Authentication required', 401, request);
     }
 
-    // Get refresh token from httpOnly cookie
+    // Get refresh token from httpOnly cookie (not strictly needed for revokeAllSessions but validates session)
     const cookieStore = await cookies();
     const refreshToken = cookieStore.get('refresh-token')?.value;
 
@@ -232,39 +180,21 @@ const revokeAllSessionsHandler = async (request: NextRequest, session?: AuthSess
       return createErrorResponse('No active session found', 400, request);
     }
 
-    // VALIDATE TOKEN OWNERSHIP: Double-check that refresh token belongs to authenticated user
-    const { verifyRefreshToken } = await import('@/lib/auth/token-verification');
-    const payload = await verifyRefreshToken(refreshToken);
-
-    if (!payload) {
-      return createErrorResponse('Invalid session', 401, request);
-    }
-
-    const tokenUserId = payload.userId;
-    if (tokenUserId !== session.user.id) {
-      return createErrorResponse(
-        'Unauthorized: Token does not belong to authenticated user',
-        403,
-        request
-      );
-    }
-
-    const userId = tokenUserId;
-
-    // Revoke all user tokens
-    const revokedCount = await revokeAllUserTokens(userId, 'security');
-
-    // AUDIT LOGGING: Log the revoke all sessions action
+    // Extract device info for audit logging
     const { extractRequestMetadata } = await import('@/lib/api/utils/request');
     const metadata = extractRequestMetadata(request);
 
+    // Revoke all user sessions using service layer
+    const result = await revokeAllSessions(session.user.id, 'security');
+
+    // AUDIT LOGGING: Log the revoke all sessions action
     await AuditLogger.logSecurity({
       action: 'revoke_all_sessions',
-      userId: session.user.id, // Use authenticated user's ID
+      userId: session.user.id,
       ipAddress: metadata.ipAddress,
       userAgent: metadata.userAgent,
       metadata: {
-        revokedCount,
+        tokensRevoked: result.tokensRevoked,
         reason: 'user_requested',
       },
       severity: 'medium',
@@ -280,7 +210,7 @@ const revokeAllSessionsHandler = async (request: NextRequest, session?: AuthSess
       deviceName: metadata.deviceName,
       deviceFingerprint: metadata.fingerprint.substring(0, 8),
       sessionCleanup: {
-        tokensRevoked: revokedCount,
+        tokensRevoked: result.tokensRevoked,
         allDevices: true,
         cookiesCleared: 3, // refresh-token, access-token, csrf-token
         csrfProtection: 'verified',
@@ -299,8 +229,8 @@ const revokeAllSessionsHandler = async (request: NextRequest, session?: AuthSess
     // Create response and clear authentication cookies
     const response = NextResponse.json({
       success: true,
-      data: { revokedSessions: revokedCount },
-      message: `Successfully logged out from ${revokedCount} device(s)`,
+      data: { revokedSessions: result.tokensRevoked },
+      message: `Successfully logged out from all devices`,
       meta: { timestamp: new Date().toISOString() },
     });
 

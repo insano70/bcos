@@ -91,3 +91,31 @@ export const ConflictError = (message = 'Resource already exists') =>
 
 export const RateLimitError = (resetTime?: number) =>
   new APIError('Too many requests', 429, 'RATE_LIMIT_EXCEEDED', { resetTime });
+
+/**
+ * Converts unknown error types to Error instances
+ *
+ * Utility function to ensure consistent error handling across the application.
+ * Use this to normalize errors before passing to createErrorResponse.
+ *
+ * @param error - Any error type (Error, string, unknown)
+ * @returns Error instance
+ *
+ * @example
+ * ```typescript
+ * try {
+ *   await operation();
+ * } catch (error) {
+ *   return createErrorResponse(toError(error), 500, request);
+ * }
+ * ```
+ */
+export function toError(error: unknown): Error {
+  if (error instanceof Error) {
+    return error;
+  }
+  if (typeof error === 'string') {
+    return new Error(error);
+  }
+  return new Error(String(error));
+}

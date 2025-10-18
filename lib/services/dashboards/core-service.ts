@@ -1,6 +1,30 @@
-import { and, count, desc, eq, inArray, isNull, like, or, type SQL, sql } from 'drizzle-orm';
+/**
+ * Dashboard Core Service
+ *
+ * Handles core CRUD operations for dashboards with full RBAC enforcement.
+ * Delegates to specialized services for chart associations and default handling.
+ *
+ * Responsibilities:
+ * - Read: getDashboards, getDashboardById, getDashboardCount
+ * - Create: createDashboard
+ * - Update: updateDashboard
+ * - Delete: deleteDashboard
+ *
+ * Architecture:
+ * - Extends BaseDashboardsService for shared RBAC helpers
+ * - Uses mappers.ts for result transformation
+ * - Delegates to chart-associations.ts for chart management
+ * - Delegates to default-handler.ts for default dashboard logic
+ * - Uses query-builder.ts for reusable queries
+ */
+
+// 1. Drizzle ORM
+import { and, count, desc, eq } from 'drizzle-orm';
+
+// 2. Database
 import { db } from '@/lib/db';
 import { dashboard_charts, dashboards } from '@/lib/db/schema';
+// 6. Logger
 import {
   calculateChanges,
   log,
@@ -8,63 +32,22 @@ import {
   SLOW_THRESHOLDS,
   sanitizeFilters,
 } from '@/lib/logger';
-import type { UserContext } from '@/lib/types/rbac';
-import { PermissionDeniedError } from '@/lib/types/rbac';
 import type {
   CreateDashboardData,
   DashboardQueryOptions,
-  DashboardsServiceInterface,
   DashboardWithCharts,
   UpdateDashboardData,
 } from '@/lib/types/dashboards';
-import { getDashboardChartDetails, getDashboardQueryBuilder } from './dashboards/query-builder';
-
-/**
- * RBAC Dashboards Service
- *
- * Manages dashboard CRUD operations with comprehensive RBAC filtering and
- * multi-tenancy support. Provides full lifecycle management for dashboards
- * including organization scoping and default dashboard handling.
- *
- * ## Key Features
- * - Full CRUD operations with RBAC filtering
- * - Organization scoping (universal, org-specific, or user-owned)
- * - Default dashboard management
- * - Category and creator metadata
- * - Batch-optimized queries with chart counts
- * - Performance tracking with SLOW_THRESHOLDS
- *
- * ## RBAC Scopes
- * - `all`: Super admins and users with `dashboards:*:all` permissions
- * - `organization`: Users with `dashboards:*:organization` (filtered by accessible_organizations)
- * - `own`: Users with `dashboards:*:own` (only their created dashboards)
- * - `none`: No access (throws AuthorizationError)
- *
- * ## Organization Scoping
- * - `null`: Universal dashboard (visible to all organizations)
- * - `UUID`: Organization-specific dashboard (visible only to that org + users with access)
- * - Filtering logic: (universal OR user's accessible orgs) based on RBAC scope
- *
- * @example
- * // Create service instance
- * const dashboardService = createRBACDashboardsService(userContext);
- *
- * // List all accessible dashboards
- * const dashboards = await dashboardService.getDashboards({ is_active: true });
- *
- * // Create new dashboard
- * const newDashboard = await dashboardService.createDashboard({
- *   dashboard_name: 'Q1 Sales Dashboard',
- *   organization_id: 'org-123',
- *   is_published: true,
- * });
- *
- * // Update dashboard
- * const updated = await dashboardService.updateDashboard('dash-123', {
- *   dashboard_name: 'Q1 Sales Dashboard (Updated)',
- *   is_active: true,
- * });
- */
+// 7. Types
+import type { UserContext } from '@/lib/types/rbac';
+// 3. Base service
+import { BaseDashboardsService } from './base-service';
+// 4. Sub-services
+import { createDashboardChartAssociationsService } from './chart-associations';
+import { createDashboardDefaultHandlerService } from './default-handler';
+import { mapDashboardList, mapDashboardResult } from './mappers';
+// 5. Query builder and mappers
+import { getDashboardChartDetails, getDashboardQueryBuilder } from './query-builder';
 
 /**
  * Default query limit for unbounded list operations
@@ -72,153 +55,21 @@ import { getDashboardChartDetails, getDashboardQueryBuilder } from './dashboards
 const DEFAULT_QUERY_LIMIT = 1000000;
 
 /**
- * Escape LIKE wildcard characters (% and _) in search strings
- * Prevents user input from being interpreted as SQL LIKE patterns
+ * Dashboard Core Service
  *
- * @param str - User-provided search string
- * @returns Escaped string safe for LIKE operations
+ * Main CRUD service for dashboards.
+ * Uses composition pattern - delegates to specialized services.
+ *
+ * @internal - Use factory function instead
  */
-function escapeLikeWildcards(str: string): string {
-  return str.replace(/[%_]/g, '\\$&');
-}
+class DashboardCoreService extends BaseDashboardsService {
+  private chartService: ReturnType<typeof createDashboardChartAssociationsService>;
+  private defaultHandler: ReturnType<typeof createDashboardDefaultHandlerService>;
 
-/**
- * Internal implementation of RBAC Dashboards Service
- */
-class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
-  // Permission flags cached in constructor
-  private readonly canReadAll: boolean;
-  private readonly canReadOrganization: boolean;
-  private readonly canReadOwn: boolean;
-  private readonly canCreate: boolean;
-  private readonly canManage: boolean;
-  private readonly accessibleOrgIds: string[];
-
-  constructor(private readonly userContext: UserContext) {
-    // Cache permission checks
-    this.canReadAll =
-      userContext.is_super_admin ||
-      userContext.all_permissions?.some((p) => p.name === 'dashboards:read:all') ||
-      false;
-    this.canReadOrganization =
-      userContext.all_permissions?.some((p) => p.name === 'dashboards:read:organization') || false;
-    this.canReadOwn =
-      userContext.all_permissions?.some((p) => p.name === 'dashboards:read:own') || false;
-    this.canCreate =
-      userContext.all_permissions?.some((p) => p.name === 'dashboards:create:organization') ||
-      false;
-    this.canManage =
-      userContext.all_permissions?.some((p) => p.name === 'dashboards:manage:all') || false;
-
-    // Cache accessible organization IDs
-    this.accessibleOrgIds =
-      userContext.accessible_organizations?.map((org) => org.organization_id) || [];
-  }
-
-  /**
-   * Build WHERE conditions based on RBAC scope
-   */
-  private buildRBACWhereConditions(options: DashboardQueryOptions = {}): SQL[] {
-    const conditions: SQL[] = [];
-
-    // Apply RBAC-based organization filtering
-    const scope = this.getRBACScope();
-    switch (scope) {
-      case 'own':
-        // Own scope: user's dashboards only
-        conditions.push(eq(dashboards.created_by, this.userContext.user_id));
-
-        // Also apply org filter (universal OR user's orgs)
-        if (this.accessibleOrgIds.length > 0) {
-          const orgCondition = or(
-            isNull(dashboards.organization_id), // Universal dashboards
-            inArray(dashboards.organization_id, this.accessibleOrgIds)
-          );
-          if (orgCondition) {
-            conditions.push(orgCondition);
-          }
-        } else {
-          // No orgs - only universal dashboards
-          conditions.push(isNull(dashboards.organization_id));
-        }
-        break;
-
-      case 'organization':
-        // Organization scope: universal OR user's accessible orgs
-        if (this.accessibleOrgIds.length > 0) {
-          const orgCondition = or(
-            isNull(dashboards.organization_id), // Universal dashboards
-            inArray(dashboards.organization_id, this.accessibleOrgIds)
-          );
-          if (orgCondition) {
-            conditions.push(orgCondition);
-          }
-        } else {
-          // No accessible orgs - only universal dashboards
-          conditions.push(isNull(dashboards.organization_id));
-        }
-        break;
-
-      case 'all':
-        // Super admin - no organization filter (see everything)
-        break;
-
-      case 'none':
-        // No access - return no results
-        conditions.push(sql`1=0`);
-        break;
-    }
-
-    // Apply additional filters
-    if (options.is_active !== undefined) {
-      conditions.push(eq(dashboards.is_active, options.is_active));
-    }
-
-    if (options.is_published !== undefined) {
-      conditions.push(eq(dashboards.is_published, options.is_published));
-    }
-
-    if (options.category_id) {
-      const categoryId = parseInt(options.category_id, 10);
-      if (!Number.isNaN(categoryId) && categoryId > 0) {
-        conditions.push(eq(dashboards.dashboard_category_id, categoryId));
-      }
-    }
-
-    if (options.search) {
-      const escapedSearch = escapeLikeWildcards(options.search);
-      const searchCondition = or(
-        like(dashboards.dashboard_name, `%${escapedSearch}%`),
-        like(dashboards.dashboard_description, `%${escapedSearch}%`)
-      );
-      if (searchCondition) {
-        conditions.push(searchCondition);
-      }
-    }
-
-    return conditions;
-  }
-
-  /**
-   * Check if user can access specific organization
-   */
-  private canAccessOrganization(organizationId: string | null): boolean {
-    if (organizationId === null) return true; // Universal dashboards
-    if (this.canReadAll || this.canManage) return true;
-    if (this.canReadOrganization || this.canCreate) {
-      return this.accessibleOrgIds.includes(organizationId);
-    }
-    return false;
-  }
-
-  /**
-   * Get RBAC scope for logging
-   */
-  private getRBACScope(): 'all' | 'organization' | 'own' | 'none' {
-    if (this.canReadAll || this.canManage) return 'all';
-    if (this.canReadOrganization || this.canCreate) return 'organization';
-    if (this.canReadOwn) return 'own';
-    return 'none';
+  constructor(userContext: UserContext) {
+    super(userContext);
+    this.chartService = createDashboardChartAssociationsService(userContext);
+    this.defaultHandler = createDashboardDefaultHandlerService(userContext);
   }
 
   /**
@@ -227,27 +78,31 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
    * Performs single query with LEFT JOIN for chart count aggregation.
    * Organization scoping: NULL organization_id = universal (all orgs can see).
    *
+   * RBAC filtering applied via base class helper buildBaseDashboardWhereConditions().
+   *
    * @param options - Optional filters (category, active, published, search, limit, offset)
    * @returns Array of dashboards with chart counts and metadata
-   * @throws {AuthorizationError} If user lacks required permissions
+   * @throws PermissionDeniedError if user lacks required permissions
+   *
    * @example
+   * ```typescript
    * const dashboards = await service.getDashboards({ is_active: true, limit: 50 });
+   * ```
    */
   async getDashboards(options: DashboardQueryOptions = {}): Promise<DashboardWithCharts[]> {
     const startTime = Date.now();
 
-    // Check permissions
-    if (!this.canReadAll && !this.canReadOrganization && !this.canReadOwn) {
-      throw new PermissionDeniedError(
-        'Insufficient permissions to read dashboards',
-        this.userContext.user_id
-      );
-    }
+    // Permission check via base class
+    this.requireAnyPermission([
+      'dashboards:read:all',
+      'dashboards:read:organization',
+      'dashboards:read:own',
+    ]);
 
-    // Build query conditions
-    const conditions = this.buildRBACWhereConditions(options);
+    // Build RBAC conditions using base class helper
+    const conditions = this.buildBaseDashboardWhereConditions(options);
 
-    // Execute query with timing using query builder
+    // Execute query with timing
     const queryStart = Date.now();
     const dashboardList = await getDashboardQueryBuilder()
       .where(conditions.length > 0 ? and(...conditions) : undefined)
@@ -256,38 +111,8 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
       .offset(options.offset ?? 0);
     const queryDuration = Date.now() - queryStart;
 
-    // Transform to DashboardWithCharts format
-    const results: DashboardWithCharts[] = dashboardList.map((dashboard) => ({
-      dashboard_id: dashboard.dashboard_id,
-      dashboard_name: dashboard.dashboard_name,
-      dashboard_description: dashboard.dashboard_description || undefined,
-      layout_config: (dashboard.layout_config as Record<string, unknown>) || {},
-      dashboard_category_id: dashboard.dashboard_category_id || undefined,
-      organization_id: dashboard.organization_id || undefined,
-      created_by: dashboard.created_by,
-      created_at: (dashboard.created_at || new Date()).toISOString(),
-      updated_at: (dashboard.updated_at || new Date()).toISOString(),
-      is_active: dashboard.is_active ?? true,
-      is_published: dashboard.is_published ?? false,
-      is_default: dashboard.is_default ?? false,
-      chart_count: Number(dashboard.chart_count) || 0,
-      category: dashboard.chart_category_id
-        ? {
-            chart_category_id: dashboard.chart_category_id,
-            category_name: dashboard.category_name || '',
-            category_description: dashboard.category_description || undefined,
-          }
-        : undefined,
-      creator: dashboard.user_id
-        ? {
-            user_id: dashboard.user_id,
-            first_name: dashboard.first_name || '',
-            last_name: dashboard.last_name || '',
-            email: dashboard.email || '',
-          }
-        : undefined,
-      charts: [], // Charts are loaded separately in getDashboardById
-    }));
+    // Map results using shared mapper
+    const results = mapDashboardList(dashboardList);
 
     const duration = Date.now() - startTime;
 
@@ -309,7 +134,7 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
           duration: queryDuration,
           slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
         },
-        rbacScope: this.getRBACScope(),
+        rbacScope: this.getDashboardRBACScope(),
         component: 'service',
       },
     });
@@ -322,24 +147,28 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
    * Get a specific dashboard by ID with permission checking
    *
    * Loads full dashboard details including category, creator, and associated charts.
-   * Performs 3 separate queries for optimal performance.
+   * Performs 2 separate queries for optimal performance:
+   * 1. Dashboard with category/creator (via query builder)
+   * 2. Chart details (via getDashboardChartDetails)
    *
    * @param dashboardId - Dashboard ID to retrieve
    * @returns Dashboard with full details or null if not found
-   * @throws {AuthorizationError} If user lacks required permissions
+   * @throws PermissionDeniedError if user lacks required permissions
+   *
    * @example
+   * ```typescript
    * const dashboard = await service.getDashboardById('dash-123');
+   * ```
    */
   async getDashboardById(dashboardId: string): Promise<DashboardWithCharts | null> {
     const startTime = Date.now();
 
-    // Check permissions
-    if (!this.canReadAll && !this.canReadOrganization && !this.canReadOwn) {
-      throw new PermissionDeniedError(
-        'Insufficient permissions to read dashboard',
-        this.userContext.user_id
-      );
-    }
+    // Permission check via base class
+    this.requireAnyPermission([
+      'dashboards:read:all',
+      'dashboards:read:organization',
+      'dashboards:read:own',
+    ]);
 
     // Get dashboard with creator and category info using query builder
     const queryStart = Date.now();
@@ -360,7 +189,7 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
             duration: queryDuration,
             slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
           },
-          rbacScope: this.getRBACScope(),
+          rbacScope: this.getDashboardRBACScope(),
           component: 'service',
         },
       });
@@ -374,56 +203,13 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
       return null;
     }
 
-    // Get chart count
-    const chartCountStart = Date.now();
-    const [chartCount] = await db
-      .select({ count: count() })
-      .from(dashboard_charts)
-      .where(eq(dashboard_charts.dashboard_id, dashboardId));
-    const chartCountDuration = Date.now() - chartCountStart;
-
     // Get chart details using query builder helper
     const chartsStart = Date.now();
     const chartDetails = await getDashboardChartDetails(dashboardId);
     const chartsDuration = Date.now() - chartsStart;
 
-    const dashboardWithCharts: DashboardWithCharts = {
-      dashboard_id: dashboard.dashboard_id,
-      dashboard_name: dashboard.dashboard_name,
-      dashboard_description: dashboard.dashboard_description || undefined,
-      layout_config: (dashboard.layout_config as Record<string, unknown>) || {},
-      dashboard_category_id: dashboard.dashboard_category_id || undefined,
-      organization_id: dashboard.organization_id || undefined,
-      created_by: dashboard.created_by,
-      created_at: (dashboard.created_at || new Date()).toISOString(),
-      updated_at: (dashboard.updated_at || new Date()).toISOString(),
-      is_active: dashboard.is_active ?? true,
-      is_published: dashboard.is_published ?? false,
-      is_default: dashboard.is_default ?? false,
-      chart_count: Number(chartCount?.count) || 0,
-      category: dashboard.chart_category_id
-        ? {
-            chart_category_id: dashboard.chart_category_id,
-            category_name: dashboard.category_name || '',
-            category_description: dashboard.category_description || undefined,
-          }
-        : undefined,
-      creator: dashboard.user_id
-        ? {
-            user_id: dashboard.user_id,
-            first_name: dashboard.first_name || '',
-            last_name: dashboard.last_name || '',
-            email: dashboard.email || '',
-          }
-        : undefined,
-      charts: chartDetails.map((chart) => ({
-        chart_definition_id: chart.chart_definition_id,
-        chart_name: chart.chart_name,
-        chart_description: chart.chart_description || undefined,
-        chart_type: chart.chart_type,
-        position_config: (chart.position_config as Record<string, unknown>) || undefined,
-      })),
-    };
+    // Map using shared mapper
+    const dashboardWithCharts = mapDashboardResult(dashboard, chartDetails);
 
     const duration = Date.now() - startTime;
 
@@ -439,16 +225,12 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
           duration: queryDuration,
           slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
         },
-        chartCountQuery: {
-          duration: chartCountDuration,
-          slow: chartCountDuration > SLOW_THRESHOLDS.DB_QUERY,
-        },
         chartsQuery: {
           duration: chartsDuration,
           slow: chartsDuration > SLOW_THRESHOLDS.DB_QUERY,
         },
         chartCount: dashboardWithCharts.chart_count,
-        rbacScope: this.getRBACScope(),
+        rbacScope: this.getDashboardRBACScope(),
         component: 'service',
       },
     });
@@ -461,26 +243,29 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
    * Get dashboard count for pagination
    *
    * Counts dashboards based on RBAC filtering and optional filters.
+   * Uses same RBAC logic as getDashboards for consistency.
    *
    * @param options - Optional filters (category, active, published, search)
    * @returns Total count of accessible dashboards
-   * @throws {AuthorizationError} If user lacks required permissions
+   * @throws PermissionDeniedError if user lacks required permissions
+   *
    * @example
+   * ```typescript
    * const total = await service.getDashboardCount({ is_active: true });
+   * ```
    */
   async getDashboardCount(options: DashboardQueryOptions = {}): Promise<number> {
     const startTime = Date.now();
 
-    // Check permissions
-    if (!this.canReadAll && !this.canReadOrganization && !this.canReadOwn) {
-      throw new PermissionDeniedError(
-        'Insufficient permissions to count dashboards',
-        this.userContext.user_id
-      );
-    }
+    // Permission check via base class
+    this.requireAnyPermission([
+      'dashboards:read:all',
+      'dashboards:read:organization',
+      'dashboards:read:own',
+    ]);
 
-    // Build query conditions
-    const conditions = this.buildRBACWhereConditions(options);
+    // Build RBAC conditions using base class helper
+    const conditions = this.buildBaseDashboardWhereConditions(options);
 
     // Execute count query
     const queryStart = Date.now();
@@ -508,7 +293,7 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
           duration: queryDuration,
           slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
         },
-        rbacScope: this.getRBACScope(),
+        rbacScope: this.getDashboardRBACScope(),
         component: 'service',
       },
     });
@@ -520,30 +305,32 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
    * Create a new dashboard with permission checking
    *
    * Creates dashboard with optional chart associations. Handles default dashboard
-   * logic (clears existing default if this is set as default). Uses transaction
-   * for chart associations.
+   * logic (clears existing default if this is set as default).
+   *
+   * Organization logic:
+   * - undefined: defaults to user's current_organization_id (or null if none)
+   * - null: creates universal dashboard (visible to all orgs)
+   * - UUID: creates org-specific dashboard (requires org access)
    *
    * @param data - Dashboard creation data
    * @returns Created dashboard with full details
-   * @throws {AuthorizationError} If user lacks required permissions
-   * @throws {Error} If organization access validation fails
+   * @throws PermissionDeniedError if user lacks required permissions
+   * @throws Error if organization access validation fails
+   *
    * @example
+   * ```typescript
    * const dashboard = await service.createDashboard({
    *   dashboard_name: 'Q1 Sales',
    *   organization_id: 'org-123',
    *   chart_ids: ['chart-1', 'chart-2'],
    * });
+   * ```
    */
   async createDashboard(data: CreateDashboardData): Promise<DashboardWithCharts> {
     const startTime = Date.now();
 
-    // Check permissions
-    if (!this.canCreate && !this.canManage) {
-      throw new PermissionDeniedError(
-        'Insufficient permissions to create dashboard',
-        this.userContext.user_id
-      );
-    }
+    // Permission check via base class
+    this.requireAnyPermission(['dashboards:create:organization', 'dashboards:manage:all']);
 
     // Determine organization_id for dashboard
     let organizationId: string | null;
@@ -555,14 +342,14 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
       organizationId = data.organization_id;
     }
 
-    // If setting specific organization, validate user has access
-    if (organizationId && !this.canAccessOrganization(organizationId)) {
+    // Validate organization access using base class helper
+    if (organizationId && !this.canAccessDashboardOrganization(organizationId)) {
       throw new Error(`Cannot create dashboard for organization ${organizationId}: Access denied`);
     }
 
-    // If setting this as default, clear any existing default dashboard
+    // If setting this as default, clear existing default
     if (data.is_default === true) {
-      await db.update(dashboards).set({ is_default: false }).where(eq(dashboards.is_default, true));
+      await this.defaultHandler.clearExistingDefault();
     }
 
     // Create new dashboard
@@ -587,18 +374,13 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
       throw new Error('Failed to create dashboard');
     }
 
-    // Add charts to dashboard if provided
+    // Add charts to dashboard if provided (delegate to chart service)
     if (data.chart_ids && data.chart_ids.length > 0) {
-      const chartAssociations = data.chart_ids.map((chartId: string, index: number) => {
-        const position = data.chart_positions?.[index] || { x: 0, y: index, w: 6, h: 4 };
-        return {
-          dashboard_id: newDashboard.dashboard_id,
-          chart_definition_id: chartId,
-          position_config: position,
-        };
-      });
-
-      await db.insert(dashboard_charts).values(chartAssociations);
+      await this.chartService.addChartsToDashboard(
+        newDashboard.dashboard_id,
+        data.chart_ids,
+        data.chart_positions
+      );
     }
 
     // Fetch created dashboard with full details
@@ -609,7 +391,7 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
 
     const duration = Date.now() - startTime;
 
-    // Log with logTemplates - SINGLE LOG STATEMENT (fixed excessive logging anti-pattern)
+    // Log with logTemplates - SINGLE LOG STATEMENT
     const template = logTemplates.crud.create('dashboard', {
       resourceId: newDashboard.dashboard_id,
       resourceName: data.dashboard_name,
@@ -626,7 +408,7 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
         isPublished: data.is_published ?? false,
         isDefault: data.is_default ?? false,
         organizationScope: organizationId ? 'organization-specific' : 'universal',
-        rbacScope: this.getRBACScope(),
+        rbacScope: this.getDashboardRBACScope(),
         component: 'service',
       },
     });
@@ -641,16 +423,23 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
    * Updates dashboard and optionally chart associations. Uses transaction for
    * chart updates. Supports changing organization scope and default status.
    *
+   * Change tracking:
+   * - Uses calculateChanges() for audit trail
+   * - Logs all field changes
+   *
    * @param dashboardId - Dashboard ID to update
    * @param data - Dashboard update data
    * @returns Updated dashboard with full details
-   * @throws {AuthorizationError} If user lacks required permissions
-   * @throws {Error} If dashboard not found or organization access validation fails
+   * @throws PermissionDeniedError if user lacks required permissions
+   * @throws Error if dashboard not found or organization access validation fails
+   *
    * @example
+   * ```typescript
    * const updated = await service.updateDashboard('dash-123', {
    *   dashboard_name: 'Updated Name',
    *   is_published: true,
    * });
+   * ```
    */
   async updateDashboard(
     dashboardId: string,
@@ -658,13 +447,8 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
   ): Promise<DashboardWithCharts> {
     const startTime = Date.now();
 
-    // Check permissions
-    if (!this.canCreate && !this.canManage) {
-      throw new PermissionDeniedError(
-        'Insufficient permissions to update dashboard',
-        this.userContext.user_id
-      );
-    }
+    // Permission check via base class
+    this.requireAnyPermission(['dashboards:create:organization', 'dashboards:manage:all']);
 
     // Check if dashboard exists
     const existing = await this.getDashboardById(dashboardId);
@@ -672,11 +456,18 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
       throw new Error('Dashboard not found');
     }
 
+    // Validate dashboard access using base class
+    await this.validateDashboardAccess({
+      dashboard_id: dashboardId,
+      created_by: existing.created_by,
+      organization_id: existing.organization_id || null,
+    });
+
     // If changing organization_id, validate access
     if (data.organization_id !== undefined) {
       if (data.organization_id !== null) {
         // Changing to specific org - validate user has access
-        if (!this.canAccessOrganization(data.organization_id)) {
+        if (!this.canAccessDashboardOrganization(data.organization_id)) {
           throw new Error(
             `Cannot assign dashboard to organization ${data.organization_id}: Access denied`
           );
@@ -700,7 +491,7 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
     // Execute dashboard update and chart management as atomic transaction
     const updateStart = Date.now();
     await db.transaction(async (tx) => {
-      // If setting this as default, clear any existing default dashboard
+      // If setting this as default, clear existing default
       if (data.is_default === true) {
         await tx
           .update(dashboards)
@@ -735,12 +526,11 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
         throw new Error('Failed to update dashboard');
       }
 
-      // Update chart associations if provided
+      // Update chart associations if provided (within transaction context)
       if (data.chart_ids !== undefined) {
-        // First, remove all current chart associations
+        // Replace charts inline (we're already in a transaction)
         await tx.delete(dashboard_charts).where(eq(dashboard_charts.dashboard_id, dashboardId));
 
-        // Then add the new chart associations if provided
         if (data.chart_ids.length > 0) {
           const chartAssociations = data.chart_ids.map((chartId: string, index: number) => {
             const position = data.chart_positions?.[index] || { x: 0, y: index, w: 6, h: 4 };
@@ -748,6 +538,7 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
               dashboard_id: dashboardId,
               chart_definition_id: chartId,
               position_config: position,
+              added_at: new Date(),
             };
           });
 
@@ -779,7 +570,7 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
         },
         fieldsChanged: Object.keys(changes).length,
         chartAssociationsUpdated: data.chart_ids !== undefined,
-        rbacScope: this.getRBACScope(),
+        rbacScope: this.getDashboardRBACScope(),
         component: 'service',
       },
     });
@@ -795,27 +586,32 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
    * for atomic deletion.
    *
    * @param dashboardId - Dashboard ID to delete
-   * @throws {AuthorizationError} If user lacks required permissions
-   * @throws {Error} If dashboard not found or deletion fails
+   * @throws PermissionDeniedError if user lacks required permissions
+   * @throws Error if dashboard not found or deletion fails
+   *
    * @example
+   * ```typescript
    * await service.deleteDashboard('dash-123');
+   * ```
    */
   async deleteDashboard(dashboardId: string): Promise<void> {
     const startTime = Date.now();
 
-    // Check permissions
-    if (!this.canCreate && !this.canManage) {
-      throw new PermissionDeniedError(
-        'Insufficient permissions to delete dashboard',
-        this.userContext.user_id
-      );
-    }
+    // Permission check via base class
+    this.requireAnyPermission(['dashboards:create:organization', 'dashboards:manage:all']);
 
     // Check if dashboard exists
     const existing = await this.getDashboardById(dashboardId);
     if (!existing) {
       throw new Error('Dashboard not found');
     }
+
+    // Validate dashboard access using base class
+    await this.validateDashboardAccess({
+      dashboard_id: dashboardId,
+      created_by: existing.created_by,
+      organization_id: existing.organization_id || null,
+    });
 
     // Execute dashboard deletion and chart cleanup as atomic transaction
     const deleteStart = Date.now();
@@ -850,7 +646,7 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
           slow: deleteDuration > SLOW_THRESHOLDS.DB_QUERY,
         },
         chartCount: existing.chart_count,
-        rbacScope: this.getRBACScope(),
+        rbacScope: this.getDashboardRBACScope(),
         component: 'service',
       },
     });
@@ -858,20 +654,45 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
   }
 }
 
-/**
- * Factory function to create RBAC Dashboards Service
- *
- * @param userContext - User context with permissions and organization access
- * @returns Dashboard service instance
- * @example
- * const service = createRBACDashboardsService(userContext);
- * const dashboards = await service.getDashboards();
- */
-export const createRBACDashboardsService = (
-  userContext: UserContext
-): DashboardsServiceInterface => {
-  return new RBACDashboardsServiceImpl(userContext);
-};
+// ============================================================
+// FACTORY
+// ============================================================
 
-// Re-export the class for backwards compatibility during migration
-export class RBACDashboardsService extends RBACDashboardsServiceImpl {}
+/**
+ * Create Dashboard Core Service
+ *
+ * Factory function to create a new dashboard core service instance
+ * with automatic RBAC enforcement.
+ *
+ * @param userContext - User context with RBAC permissions
+ * @returns Dashboard core service instance
+ *
+ * @example
+ * ```typescript
+ * const service = createDashboardCoreService(userContext);
+ *
+ * // List dashboards
+ * const dashboards = await service.getDashboards({ is_active: true });
+ *
+ * // Get single dashboard
+ * const dashboard = await service.getDashboardById('dash-123');
+ *
+ * // Create dashboard
+ * const newDashboard = await service.createDashboard({
+ *   dashboard_name: 'Q1 Sales Dashboard',
+ *   organization_id: 'org-123',
+ *   chart_ids: ['chart-1', 'chart-2'],
+ * });
+ *
+ * // Update dashboard
+ * const updated = await service.updateDashboard('dash-123', {
+ *   dashboard_name: 'Updated Name',
+ * });
+ *
+ * // Delete dashboard
+ * await service.deleteDashboard('dash-123');
+ * ```
+ */
+export function createDashboardCoreService(userContext: UserContext) {
+  return new DashboardCoreService(userContext);
+}

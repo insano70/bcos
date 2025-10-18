@@ -9,20 +9,40 @@
  * RBAC: settings:read:all (Super Admin only)
  */
 
+// Next.js
 import type { NextRequest } from 'next/server';
+
+// API responses
+import { createErrorResponse, toError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+
+// API route handlers
 import { rbacRoute } from '@/lib/api/route-handlers';
-import { createSecurityAtRiskUsersService } from '@/lib/services/security-at-risk-users-service';
-import type { UserContext } from '@/lib/types/rbac';
+
+// Logging
 import { log } from '@/lib/logger';
-import type { AtRiskUsersResponse } from '@/lib/monitoring/types';
+
+// Services
+import { createSecurityAtRiskUsersService } from '@/lib/services/security-at-risk-users-service';
+
+// Types
+import type { UserContext } from '@/lib/types/rbac';
+
+// Constants
+import { SECURITY_MONITORING_LIMITS } from '@/lib/constants/security-monitoring';
 
 const atRiskUsersHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
 
   try {
     const { searchParams } = new URL(request.url);
-    const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 500);
+    const limit = Math.min(
+      parseInt(
+        searchParams.get('limit') || String(SECURITY_MONITORING_LIMITS.DEFAULT_PAGE_SIZE),
+        10
+      ),
+      SECURITY_MONITORING_LIMITS.MAX_PAGE_SIZE
+    );
     const minRiskScore = parseInt(searchParams.get('minRiskScore') || '0', 10);
 
     log.info('At-risk users request initiated', {
@@ -58,14 +78,8 @@ const atRiskUsersHandler = async (request: NextRequest, userContext: UserContext
       component: 'api',
     });
 
-    // Return empty result on error
-    const fallback: AtRiskUsersResponse = {
-      users: [],
-      totalCount: 0,
-      summary: { locked: 0, suspicious: 0, monitoring: 0 },
-    };
-
-    return createSuccessResponse(fallback);
+    // Return error response to admin - don't mask failures
+    return createErrorResponse(toError(error), 500, request);
   }
 };
 

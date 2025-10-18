@@ -14,23 +14,18 @@
  * 5. Return session data to client
  */
 
-import { eq } from 'drizzle-orm';
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { publicRoute } from '@/lib/api/route-handlers';
-import { recordMFASkip } from '@/lib/auth/mfa-skip-tracker';
-import {
-  createTokenPair,
-  generateDeviceFingerprint,
-  generateDeviceName,
-} from '@/lib/auth/token-manager';
 import { requireMFATempToken } from '@/lib/auth/webauthn-temp-token';
-import { db, users } from '@/lib/db';
 import { correlation, log } from '@/lib/logger';
 import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context';
 import { setCSRFToken } from '@/lib/security/csrf-unified';
+import { recordMFASkip } from '@/lib/services/auth/mfa-service';
+import { createAuthSession } from '@/lib/services/auth/session-manager-service';
+import { getUserById } from '@/lib/services/auth/user-lookup-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,18 +42,21 @@ const handler = async (request: NextRequest) => {
     const { extractRequestMetadata } = await import('@/lib/api/utils/request');
     const metadata = extractRequestMetadata(request);
 
-    // Record skip and get remaining count
+    // Record skip and get remaining count (using service layer)
     // This will throw if no skips remaining (fail-closed security)
     const skipResult = await recordMFASkip(userId, metadata.ipAddress, metadata.userAgent);
 
-    // Fetch user details
-    const [user] = await db.select().from(users).where(eq(users.user_id, userId)).limit(1);
+    // Fetch user details using service layer
+    const user = await getUserById(userId);
 
     if (!user || !user.is_active) {
       throw new Error('User account is inactive');
     }
 
-    // Create full session
+    // Build device info for session creation
+    const { generateDeviceFingerprint, generateDeviceName } = await import(
+      '@/lib/auth/token-manager'
+    );
     const deviceFingerprint = generateDeviceFingerprint(
       metadata.ipAddress,
       metadata.userAgent || 'unknown'
@@ -72,8 +70,13 @@ const handler = async (request: NextRequest) => {
       deviceName,
     };
 
-    // Create token pair (7-day session by default)
-    const tokenPair = await createTokenPair(user.user_id, deviceInfo, false, user.email);
+    // Create session using service layer (7-day session by default)
+    const tokenPair = await createAuthSession({
+      userId: user.user_id,
+      deviceInfo,
+      rememberMe: false,
+      email: user.email,
+    });
 
     // Set secure httpOnly cookies
     const cookieStore = await cookies();
@@ -108,7 +111,7 @@ const handler = async (request: NextRequest) => {
     log.info('mfa setup skipped - session created', {
       operation: 'mfa_skip',
       userId: user.user_id,
-      skipsRemaining: skipResult.skips_remaining,
+      skipsRemaining: skipResult.skipsRemaining,
       sessionCreated: true,
       sessionId: tokenPair.sessionId,
       duration,
@@ -119,9 +122,9 @@ const handler = async (request: NextRequest) => {
     });
 
     const skipsRemainingText =
-      skipResult.skips_remaining === 1
+      skipResult.skipsRemaining === 1
         ? '1 skip remaining'
-        : `${skipResult.skips_remaining} skips remaining`;
+        : `${skipResult.skipsRemaining} skips remaining`;
 
     return createSuccessResponse(
       {
@@ -129,7 +132,7 @@ const handler = async (request: NextRequest) => {
         accessToken: tokenPair.accessToken,
         sessionId: tokenPair.sessionId,
         expiresAt: tokenPair.expiresAt.toISOString(),
-        skipsRemaining: skipResult.skips_remaining,
+        skipsRemaining: skipResult.skipsRemaining,
         user: {
           id: user.user_id,
           email: user.email,

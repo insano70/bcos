@@ -19,7 +19,7 @@ import { inArray } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { db } from '@/lib/db';
 import { dashboards } from '@/lib/db/schema';
-import { createRBACDashboardsService } from '@/lib/services/rbac-dashboards-service';
+import { createRBACDashboardsService } from '@/lib/services/dashboards';
 import type { PermissionName } from '@/lib/types/rbac';
 import { PermissionDeniedError } from '@/lib/types/rbac';
 import { assignRoleToUser, createTestRole } from '@/tests/factories';

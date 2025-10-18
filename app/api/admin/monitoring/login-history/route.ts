@@ -9,13 +9,24 @@
  * RBAC: settings:read:all (Super Admin only)
  */
 
+// Next.js
 import type { NextRequest } from 'next/server';
-import { createErrorResponse } from '@/lib/api/responses/error';
+
+// API responses
+import { createErrorResponse, toError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+
+// API route handlers
 import { rbacRoute } from '@/lib/api/route-handlers';
-import { createSecurityLoginHistoryService } from '@/lib/services/security-login-history-service';
-import type { UserContext } from '@/lib/types/rbac';
+
+// Logging
 import { log } from '@/lib/logger';
+
+// Services
+import { createSecurityLoginHistoryService } from '@/lib/services/security-login-history-service';
+
+// Types
+import type { UserContext } from '@/lib/types/rbac';
 
 const loginHistoryHandler = async (request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
@@ -69,7 +80,7 @@ const loginHistoryHandler = async (request: NextRequest, userContext: UserContex
       component: 'api',
     });
 
-    return createErrorResponse(error instanceof Error ? error : new Error(String(error)), 500, request);
+    return createErrorResponse(toError(error), 500, request);
   }
 };
 

@@ -13,7 +13,7 @@
 import { describe, expect, it } from 'vitest';
 import '@/tests/setup/integration-setup';
 import { eq } from 'drizzle-orm';
-import { createRBACDashboardsService } from '@/lib/services/rbac-dashboards-service';
+import { createRBACDashboardsService } from '@/lib/services/dashboards';
 import type { PermissionName } from '@/lib/types/rbac';
 import { PermissionDeniedError } from '@/lib/types/rbac';
 import {

@@ -26,11 +26,11 @@ export interface DashboardQueryResult {
   dashboard_category_id: number | null;
   organization_id: string | null;
   created_by: string;
-  created_at: Date;
-  updated_at: Date;
-  is_active: boolean;
-  is_published: boolean;
-  is_default: boolean;
+  created_at: Date | null;
+  updated_at: Date | null;
+  is_active: boolean | null;
+  is_published: boolean | null;
+  is_default: boolean | null;
   // Category fields
   chart_category_id: number | null;
   category_name: string | null;

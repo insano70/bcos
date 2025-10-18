@@ -6,17 +6,16 @@
  * Security: User must have validated credentials (temp token or session)
  */
 
-import { eq } from 'drizzle-orm';
 import type { NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/api/middleware/auth';
 import { AuthenticationError, createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { publicRoute } from '@/lib/api/route-handlers';
-import { beginRegistration } from '@/lib/auth/webauthn';
 import { requireMFATempToken } from '@/lib/auth/webauthn-temp-token';
-import { db, users } from '@/lib/db';
 import { log } from '@/lib/logger';
 import type { RegistrationBeginResponse } from '@/lib/types/webauthn';
+import { beginPasskeyRegistration } from '@/lib/services/auth/mfa-service';
+import { getUserById } from '@/lib/services/auth/user-lookup-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,7 +40,8 @@ const handler = async (request: NextRequest) => {
       const tempPayload = await requireMFATempToken(request);
       userId = tempPayload.sub;
 
-      const [user] = await db.select().from(users).where(eq(users.user_id, userId)).limit(1);
+      // Use service layer for user lookup
+      const user = await getUserById(userId);
 
       if (!user) {
         throw AuthenticationError('User not found');
@@ -55,13 +55,14 @@ const handler = async (request: NextRequest) => {
     const { extractRequestMetadata } = await import('@/lib/api/utils/request');
     const metadata = extractRequestMetadata(request);
 
-    const { options, challenge_id } = await beginRegistration(
+    // Use service layer for registration
+    const { options, challenge_id } = await beginPasskeyRegistration({
       userId,
       userEmail,
       userName,
-      metadata.ipAddress,
-      metadata.userAgent
-    );
+      ipAddress: metadata.ipAddress,
+      userAgent: metadata.userAgent,
+    });
 
     const duration = Date.now() - startTime;
     log.info('mfa registration challenge generated', {

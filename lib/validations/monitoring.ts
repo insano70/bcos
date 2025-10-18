@@ -13,7 +13,7 @@ import { z } from 'zod';
 export const unlockAccountSchema = z.object({
   reason: z
     .string()
-    .min(1, 'Reason is required')
+    .min(10, 'Reason must be at least 10 characters')
     .max(500, 'Reason must be less than 500 characters')
     .trim(),
 });
@@ -24,7 +24,7 @@ export const unlockAccountSchema = z.object({
 export const clearAttemptsSchema = z.object({
   reason: z
     .string()
-    .min(1, 'Reason is required')
+    .min(10, 'Reason must be at least 10 characters')
     .max(500, 'Reason must be less than 500 characters')
     .trim(),
 });
@@ -36,7 +36,7 @@ export const flagUserSchema = z.object({
   flag: z.boolean(),
   reason: z
     .string()
-    .min(1, 'Reason is required')
+    .min(10, 'Reason must be at least 10 characters')
     .max(500, 'Reason must be less than 500 characters')
     .trim(),
 });

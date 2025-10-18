@@ -6,6 +6,13 @@
  *
  * **Non-CRUD Service** - Security monitoring operations only
  *
+ * ## Error Handling Strategy
+ *
+ * - **Authorization Errors**: Service constructor throws `AuthorizationError` if user is not super admin
+ * - **Metrics Query Errors**: Returns zeros instead of throwing (graceful degradation for monitoring)
+ * - **Redis Errors**: Returns null instead of throwing (graceful degradation - Redis is optional)
+ * - **Rationale**: Monitoring endpoints should not fail completely if one data source is unavailable
+ *
  * @example
  * ```typescript
  * const service = createSecurityMetricsService(userContext);
@@ -14,32 +21,88 @@
  * ```
  */
 
+// Third-party libraries
 import { gte, sql } from 'drizzle-orm';
+
+// Database
 import { account_security, csrf_failure_events, db } from '@/lib/db';
+
+// API utilities
+import { requireSuperAdmin } from '@/lib/api/utils/rbac-guards';
+
+// Logging
 import { log } from '@/lib/logger';
-import { AuthorizationError } from '@/lib/api/responses/error';
-import type { UserContext } from '@/lib/types/rbac';
+
+// Redis
 import { getRedisClient } from '@/lib/redis';
+
+// Types
+import type { UserContext } from '@/lib/types/rbac';
+
+// Constants
+import { SECURITY_MONITORING_TIME } from '@/lib/constants/security-monitoring';
 
 // ============================================================
 // INTERFACES
 // ============================================================
 
 export interface SecurityMetricsServiceInterface {
+  /**
+   * Get security metrics from database
+   *
+   * Retrieves counts of suspicious users, locked accounts, and recent CSRF blocks.
+   * Returns zeros on error instead of throwing (graceful degradation).
+   *
+   * @returns Promise resolving to security metrics
+   * @throws {AuthorizationError} If user is not super admin
+   *
+   * @example
+   * ```typescript
+   * const metrics = await service.getSecurityMetrics();
+   * console.log(`${metrics.suspiciousUsers} suspicious users`);
+   * console.log(`${metrics.lockedAccounts} locked accounts`);
+   * console.log(`${metrics.csrfBlocks} CSRF blocks in last hour`);
+   * ```
+   */
   getSecurityMetrics(): Promise<SecurityMetrics>;
+
+  /**
+   * Get Redis cache statistics
+   *
+   * Retrieves hit rate, hits, misses, and operations per second from Redis.
+   * Returns null if Redis is unavailable or on error (graceful degradation).
+   *
+   * @returns Promise resolving to Redis stats or null if unavailable
+   *
+   * @example
+   * ```typescript
+   * const stats = await service.getRedisStats();
+   * if (stats) {
+   *   console.log(`Redis hit rate: ${stats.hitRate.toFixed(2)}%`);
+   *   console.log(`Operations per second: ${stats.opsPerSec}`);
+   * }
+   * ```
+   */
   getRedisStats(): Promise<RedisStats | null>;
 }
 
 export interface SecurityMetrics {
+  /** Count of users flagged with suspicious activity */
   suspiciousUsers: number;
+  /** Count of currently locked accounts */
   lockedAccounts: number;
+  /** Count of CSRF blocks in the last hour */
   csrfBlocks: number;
 }
 
 export interface RedisStats {
+  /** Cache hit rate percentage (0-100) */
   hitRate: number;
+  /** Total cache hits */
   hits: number;
+  /** Total cache misses */
   misses: number;
+  /** Instantaneous operations per second */
   opsPerSec: number;
 }
 
@@ -49,10 +112,7 @@ export interface RedisStats {
 
 class SecurityMetricsService {
   constructor(private readonly userContext: UserContext) {
-    // Super admin only - no complex RBAC needed
-    if (!userContext.is_super_admin) {
-      throw AuthorizationError('Super admin access required for security monitoring');
-    }
+    requireSuperAdmin(userContext, 'security monitoring');
   }
 
   async getSecurityMetrics(): Promise<SecurityMetrics> {
@@ -60,7 +120,7 @@ class SecurityMetricsService {
 
     try {
       const now = new Date();
-      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+      const oneHourAgo = new Date(now.getTime() - SECURITY_MONITORING_TIME.MS_PER_HOUR);
 
       // Get counts from account_security table
       const [securityStats] = await db
@@ -149,6 +209,8 @@ class SecurityMetricsService {
    *
    * @param infoString - Raw INFO response from Redis
    * @returns Parsed key-value pairs as numbers
+   * @throws Never throws - returns empty object on parse errors
+   * @note Filters out non-numeric values (e.g., Redis version strings)
    */
   private parseRedisInfo(infoString: string): Record<string, number> {
     const lines = infoString.split('\r\n');
@@ -156,8 +218,10 @@ class SecurityMetricsService {
 
     for (const line of lines) {
       if (line && !line.startsWith('#')) {
-        const [key, value] = line.split(':');
-        if (key && value) {
+        const parts = line.split(':');
+        // Validate we have exactly 2 parts (key:value)
+        if (parts.length === 2 && parts[0] && parts[1]) {
+          const [key, value] = parts;
           const numValue = parseFloat(value);
           if (!Number.isNaN(numValue)) {
             info[key] = numValue;

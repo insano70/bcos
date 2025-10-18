@@ -38,6 +38,10 @@ import { isAccountLocked } from '@/lib/auth/security';
 import { CacheService } from '@/lib/cache/base';
 import { db, users } from '@/lib/db';
 import { log } from '@/lib/logger';
+import { UserLookupError, UserLookupErrorCode } from './errors';
+
+// Re-export for backward compatibility
+export { UserLookupError, UserLookupErrorCode };
 
 // ============================================================================
 // Type Definitions
@@ -70,30 +74,17 @@ export interface UserValidationResult {
   isSSOOnly: boolean;
 }
 
-/**
- * User lookup error codes
- */
-export enum UserLookupErrorCode {
-  USER_NOT_FOUND = 'USER_NOT_FOUND',
-  USER_INACTIVE = 'USER_INACTIVE',
-  USER_DELETED = 'USER_DELETED',
-  ACCOUNT_LOCKED = 'ACCOUNT_LOCKED',
-  SSO_ONLY_USER = 'SSO_ONLY_USER',
-}
+
+// ============================================================================
+// Cache Configuration
+// ============================================================================
 
 /**
- * User lookup error
+ * User lookup cache TTL in seconds
+ * Can be overridden via environment variable USER_LOOKUP_CACHE_TTL
+ * Default: 60 seconds (1 minute)
  */
-export class UserLookupError extends Error {
-  constructor(
-    public code: UserLookupErrorCode,
-    message: string,
-    public details?: Record<string, unknown>
-  ) {
-    super(message);
-    this.name = 'UserLookupError';
-  }
-}
+const USER_LOOKUP_CACHE_TTL = Number(process.env.USER_LOOKUP_CACHE_TTL) || 60;
 
 // ============================================================================
 // Cache Service
@@ -105,7 +96,7 @@ export class UserLookupError extends Error {
  */
 class UserLookupCacheService extends CacheService<User> {
   protected namespace = 'auth:user';
-  protected defaultTTL = 60; // 60 seconds
+  protected defaultTTL = USER_LOOKUP_CACHE_TTL;
 
   /**
    * Get user by email from cache
@@ -414,12 +405,25 @@ export async function validateUserForAuth(email: string): Promise<UserValidation
 /**
  * Invalidate user cache (both by email and by ID)
  *
- * USAGE:
- * - Call after user updates (email change, password change, status change)
- * - Call after user deletion
+ * ⚠️ **CRITICAL**: This function MUST be called after any user data modification to prevent stale cache data.
+ *
+ * REQUIRED AFTER:
+ * - ✅ Email change: `await invalidateUserCache(userId, oldEmail)`
+ * - ✅ Password change: `await invalidateUserCache(userId, user.email)`
+ * - ✅ Status change (is_active): `await invalidateUserCache(userId, user.email)`
+ * - ✅ User deletion: `await invalidateUserCache(userId, user.email)`
+ * - ✅ SSO configuration change: `await invalidateUserCache(userId, user.email)`
+ * - ✅ provider_uid change: `await invalidateUserCache(userId, user.email)`
+ *
+ * EXAMPLE:
+ * ```typescript
+ * // After updating user password
+ * await db.update(users).set({ password_hash: newHash }).where(eq(users.user_id, userId));
+ * await invalidateUserCache(userId, user.email); // ← REQUIRED
+ * ```
  *
  * @param userId - User UUID
- * @param email - User email (optional, if known)
+ * @param email - User email (optional, if known - recommended for complete invalidation)
  */
 export async function invalidateUserCache(userId: string, email?: string): Promise<void> {
   // Invalidate by ID

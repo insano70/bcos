@@ -42,15 +42,15 @@ export class CacheKeyBuilder {
   buildKey(components: CacheKeyComponents): string {
     return [
       this.NAMESPACE,
-      components.dataSourceId,
+      components.dataSourceId.toString(),
       'm',
-      components.measure || this.WILDCARD,
+      components.measure ?? this.WILDCARD,
       'p',
-      components.practiceUid || this.WILDCARD,
+      components.practiceUid?.toString() ?? this.WILDCARD,
       'prov',
-      components.providerUid || this.WILDCARD,
+      components.providerUid?.toString() ?? this.WILDCARD,
       'freq',
-      components.frequency || this.WILDCARD,
+      components.frequency ?? this.WILDCARD,
     ].join(':');
   }
 
@@ -92,20 +92,47 @@ export class CacheKeyBuilder {
       return null;
     }
 
-    const dataSourceId = parseInt(parts[1], 10);
+    const dataSourceIdStr = parts[1];
+    if (!dataSourceIdStr) {
+      return null;
+    }
+
+    const dataSourceId = parseInt(dataSourceIdStr, 10);
     if (Number.isNaN(dataSourceId)) {
       return null;
     }
 
-    return {
+    const components: CacheKeyComponents = {
       dataSourceId,
-      measure: parts[3] !== this.WILDCARD ? parts[3] : undefined,
-      practiceUid:
-        parts[5] !== this.WILDCARD ? parseInt(parts[5], 10) : undefined,
-      providerUid:
-        parts[7] !== this.WILDCARD ? parseInt(parts[7], 10) : undefined,
-      frequency: parts[9] !== this.WILDCARD ? parts[9] : undefined,
     };
+
+    const measurePart = parts[3];
+    if (measurePart && measurePart !== this.WILDCARD) {
+      components.measure = measurePart;
+    }
+
+    const practicePart = parts[5];
+    if (practicePart && practicePart !== this.WILDCARD) {
+      const practiceUid = parseInt(practicePart, 10);
+      if (!Number.isNaN(practiceUid)) {
+        components.practiceUid = practiceUid;
+      }
+    }
+
+    const providerPart = parts[7];
+    if (providerPart && providerPart !== this.WILDCARD) {
+      const providerUid = parseInt(providerPart, 10);
+      if (!Number.isNaN(providerUid)) {
+        components.providerUid = providerUid;
+      }
+    }
+
+    const frequencyPart = parts[9];
+    if (frequencyPart && frequencyPart !== this.WILDCARD) {
+      components.frequency = frequencyPart;
+    }
+
+    return components;
   }
 
   /**

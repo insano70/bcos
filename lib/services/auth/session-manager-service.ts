@@ -29,7 +29,7 @@
  * ```
  */
 
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
 import type { DeviceInfo, TokenPair } from '@/lib/auth/token-manager';
 import {
   createTokenPair,
@@ -159,6 +159,8 @@ export async function listUserSessions(
   const dbStartTime = Date.now();
 
   // Get all active sessions for user
+  // LEFT JOIN with refresh_tokens to handle orphaned sessions
+  // Filter: session is active AND (refresh token is active OR no refresh token linked)
   const sessions = await db
     .select({
       sessionId: user_sessions.session_id,
@@ -176,7 +178,10 @@ export async function listUserSessions(
       and(
         eq(user_sessions.user_id, userId),
         eq(user_sessions.is_active, true),
-        eq(refresh_tokens.is_active, true)
+        or(
+          eq(refresh_tokens.is_active, true),
+          isNull(refresh_tokens.token_id) // Handle LEFT JOIN nulls
+        )
       )
     )
     .orderBy(desc(user_sessions.last_activity));

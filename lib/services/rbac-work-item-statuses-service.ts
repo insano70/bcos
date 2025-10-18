@@ -27,11 +27,28 @@ export interface WorkItemStatusWithDetails {
 export class RBACWorkItemStatusesService extends BaseRBACService {
   /**
    * Get statuses for a work item type
+   * Validates organization access before returning statuses
    */
   async getStatusesByType(typeId: string): Promise<WorkItemStatusWithDetails[]> {
     const queryStart = Date.now();
 
     try {
+      // Validate work item type exists and check organization access
+      const [workItemType] = await db
+        .select({ organization_id: work_item_types.organization_id })
+        .from(work_item_types)
+        .where(eq(work_item_types.work_item_type_id, typeId))
+        .limit(1);
+
+      if (!workItemType) {
+        throw new Error('Work item type not found');
+      }
+
+      // Check organization access if type is organization-scoped
+      if (workItemType.organization_id) {
+        this.requireOrganizationAccess(workItemType.organization_id);
+      }
+
       const results = await db
         .select({
           work_item_status_id: work_item_statuses.work_item_status_id,
@@ -53,6 +70,7 @@ export class RBACWorkItemStatusesService extends BaseRBACService {
         typeId,
         count: results.length,
         duration: Date.now() - queryStart,
+        organizationId: workItemType.organization_id,
       });
 
       return results;
@@ -64,6 +82,7 @@ export class RBACWorkItemStatusesService extends BaseRBACService {
 
   /**
    * Get status by ID
+   * Validates organization access before returning status
    */
   async getStatusById(statusId: string): Promise<WorkItemStatusWithDetails | null> {
     try {
@@ -84,7 +103,27 @@ export class RBACWorkItemStatusesService extends BaseRBACService {
         .where(eq(work_item_statuses.work_item_status_id, statusId))
         .limit(1);
 
-      return result || null;
+      if (!result) {
+        return null;
+      }
+
+      // Validate organization access via the work item type
+      const [workItemType] = await db
+        .select({ organization_id: work_item_types.organization_id })
+        .from(work_item_types)
+        .where(eq(work_item_types.work_item_type_id, result.work_item_type_id))
+        .limit(1);
+
+      if (!workItemType) {
+        throw new Error('Work item type not found');
+      }
+
+      // Check organization access if type is organization-scoped
+      if (workItemType.organization_id) {
+        this.requireOrganizationAccess(workItemType.organization_id);
+      }
+
+      return result;
     } catch (error) {
       log.error('Failed to retrieve work item status', error, { statusId });
       throw error;

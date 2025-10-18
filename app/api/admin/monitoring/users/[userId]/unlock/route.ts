@@ -18,17 +18,37 @@
  * - Includes reason provided by admin
  */
 
+// Next.js
 import type { NextRequest } from 'next/server';
+
+// Third-party libraries
 import { z } from 'zod';
+
+// API middleware
 import { validateRequest } from '@/lib/api/middleware/validation';
-import { createErrorResponse } from '@/lib/api/responses/error';
+
+// API responses
+import { createErrorResponse, toError } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
+
+// API route handlers
 import { rbacRoute } from '@/lib/api/route-handlers';
+
+// API utilities
+import { getClientIP } from '@/lib/api/utils/get-client-ip';
 import { extractRouteParams } from '@/lib/api/utils/params';
+
+// Logging
 import { log } from '@/lib/logger';
-import type { UserContext } from '@/lib/types/rbac';
-import { unlockAccountSchema } from '@/lib/validations/monitoring';
+
+// Services
 import { createSecurityAdminActionsService } from '@/lib/services/security-admin-actions-service';
+
+// Types
+import type { UserContext } from '@/lib/types/rbac';
+
+// Validations
+import { unlockAccountSchema } from '@/lib/validations/monitoring';
 
 const userIdParamsSchema = z.object({
   userId: z.string().uuid(),
@@ -55,7 +75,7 @@ const unlockAccountHandler = async (
     const service = createSecurityAdminActionsService(userContext);
     const result = await service.unlockAccount(userId, {
       reason: body.reason,
-      ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
+      ipAddress: getClientIP(request),
     });
 
     const duration = Date.now() - startTime;
@@ -79,7 +99,7 @@ const unlockAccountHandler = async (
       component: 'api',
     });
 
-    return createErrorResponse(error instanceof Error ? error : new Error(String(error)), 500, request);
+    return createErrorResponse(toError(error), 500, request);
   }
 };
 
