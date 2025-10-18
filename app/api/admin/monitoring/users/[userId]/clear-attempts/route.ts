@@ -3,9 +3,8 @@
  *
  * POST /api/admin/monitoring/users/[userId]/clear-attempts
  *
- * Resets the failed login attempt counter for a user.
- * Does NOT unlock the account (preserves lockout if still active).
- * Used when admin wants to give user another chance without fully unlocking.
+ * Clears the failed login attempts counter for a user account.
+ * Does NOT unlock the account if it's locked - use /unlock endpoint for that.
  *
  * SECURITY:
  * - RBAC: settings:write:all (Super Admin only)
@@ -15,23 +14,21 @@
  *
  * AUDIT:
  * - Creates audit log entry with admin user ID
- * - Records previous failed attempt count
+ * - Records previous failed attempts count
  * - Includes reason provided by admin
  */
 
-import { eq } from 'drizzle-orm';
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
-import { AuditLogger } from '@/lib/api/services/audit';
 import { extractRouteParams } from '@/lib/api/utils/params';
-import { account_security, db, users } from '@/lib/db';
 import { log } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
 import { clearAttemptsSchema } from '@/lib/validations/monitoring';
+import { createSecurityAdminActionsService } from '@/lib/services/security-admin-actions-service';
 
 const userIdParamsSchema = z.object({
   userId: z.string().uuid(),
@@ -43,125 +40,51 @@ const clearAttemptsHandler = async (
   ...args: unknown[]
 ) => {
   const startTime = Date.now();
-  const { userId } = await extractRouteParams(args[0], userIdParamsSchema);
 
   try {
-    // Validate request body with Zod
+    const { userId } = await extractRouteParams(args[0], userIdParamsSchema);
     const body = await validateRequest(request, clearAttemptsSchema);
 
-    log.info('Clear failed attempts initiated', {
+    log.info('Clear failed attempts request initiated', {
       operation: 'clear_failed_attempts',
       adminUserId: userContext.user_id,
       targetUserId: userId,
-      component: 'security-admin',
+      component: 'api',
     });
 
-    // Verify user exists
-    const [user] = await db
-      .select({
-        userId: users.user_id,
-        email: users.email,
-        firstName: users.first_name,
-        lastName: users.last_name,
-      })
-      .from(users)
-      .where(eq(users.user_id, userId))
-      .limit(1);
-
-    if (!user) {
-      return createErrorResponse('User not found', 404, request);
-    }
-
-    // Get current security status
-    const [securityStatus] = await db
-      .select()
-      .from(account_security)
-      .where(eq(account_security.user_id, userId))
-      .limit(1);
-
-    if (!securityStatus) {
-      return createErrorResponse('User security record not found', 404, request);
-    }
-
-    const previousFailedAttempts = securityStatus.failed_login_attempts;
-
-    // Update account_security: reset failed attempts only
-    // Keep locked_until unchanged - if account is locked, it stays locked
-    await db
-      .update(account_security)
-      .set({
-        failed_login_attempts: 0,
-        updated_at: new Date(),
-      })
-      .where(eq(account_security.user_id, userId));
-
-    // Log to audit trail (compliance requirement)
-    await AuditLogger.logUserAction({
-      action: 'user_failed_attempts_cleared',
-      userId: userContext.user_id, // Admin who performed the action
-      resourceType: 'user',
-      resourceId: userId, // Target user
-      ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '',
-      metadata: {
-        reason: body.reason,
-        previousFailedAttempts,
-        targetUserEmail: user.email,
-        targetUserName: `${user.firstName} ${user.lastName}`,
-        lockedUntilUnchanged: securityStatus.locked_until?.toISOString() || null,
-      },
+    const service = createSecurityAdminActionsService(userContext);
+    const result = await service.clearFailedAttempts(userId, {
+      reason: body.reason,
+      ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
     });
 
     const duration = Date.now() - startTime;
 
     log.info('Failed attempts cleared successfully', {
       operation: 'clear_failed_attempts',
-      adminUserId: userContext.user_id,
-      targetUserId: userId,
-      targetUserEmail: user.email,
-      previousFailedAttempts,
       duration,
-      component: 'security-admin',
-    });
-
-    // Log security event
-    log.security('user_failed_attempts_cleared', 'low', {
-      action: 'admin_clear_attempts',
-      adminUserId: userContext.user_id,
       targetUserId: userId,
-      reason: body.reason,
+      targetUserEmail: result.userEmail,
+      previousAttempts: result.previousFailedAttempts,
+      component: 'api',
     });
 
-    return createSuccessResponse({
-      success: true,
-      userId,
-      userEmail: user.email,
-      previousFailedAttempts,
-      message: 'Failed login attempts cleared successfully',
-    });
+    return createSuccessResponse(result, 'Failed login attempts cleared successfully');
   } catch (error) {
     const duration = Date.now() - startTime;
 
-    log.error(
-      'Failed to clear failed attempts',
-      error instanceof Error ? error : new Error(String(error)),
-      {
-        operation: 'clear_failed_attempts',
-        adminUserId: userContext.user_id,
-        targetUserId: userId,
-        duration,
-        component: 'security-admin',
-      }
-    );
+    log.error('Clear failed attempts failed', error, {
+      operation: 'clear_failed_attempts',
+      duration,
+      adminUserId: userContext.user_id,
+      component: 'api',
+    });
 
-    return createErrorResponse(
-      error instanceof Error ? error : new Error(String(error)),
-      500,
-      request
-    );
+    return createErrorResponse(error instanceof Error ? error : new Error(String(error)), 500, request);
   }
 };
 
-// Export with RBAC protection - only super admins can clear attempts
+// Export with RBAC protection - super admin write operation
 export const POST = rbacRoute(clearAttemptsHandler, {
   permission: 'settings:update:all',
   rateLimit: 'api',

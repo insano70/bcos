@@ -55,6 +55,16 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
   // RACE CONDITION PROTECTION: Mutex to prevent concurrent auth operations
   const authOperationInProgress = useRef(false);
 
+  // Ref to access current csrfToken value in callbacks without causing re-creation
+  // This prevents infinite loops while avoiding stale closures
+  const csrfTokenRef = useRef<string | null>(csrfToken);
+
+  // Sync ref with state on every render
+  // This ensures callbacks always read the latest value without re-creating
+  useEffect(() => {
+    csrfTokenRef.current = csrfToken;
+  }, [csrfToken]);
+
   const refreshToken = useCallback(async () => {
     // RACE CONDITION PROTECTION: Prevent concurrent refresh operations
     if (authOperationInProgress.current) {
@@ -67,7 +77,9 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     try {
       actions.refreshStart();
 
-      const token = csrfToken || (await ensureCsrfToken()) || '';
+      // Read current value from ref (always up-to-date, never stale)
+      const currentToken = csrfTokenRef.current;
+      const token = currentToken || (await ensureCsrfToken()) || '';
 
       // Use HTTP service to refresh token
       const result = await authHTTPService.refreshAuthToken(token);
@@ -104,13 +116,11 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
       authOperationInProgress.current = false;
     }
   },
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   [ensureCsrfToken, setCsrfToken, actions]
-  // CRITICAL: csrfToken removed from dependencies to prevent infinite loop.
-  // The callback reads csrfToken from closure but doesn't need to re-create when it changes.
-  // Including csrfToken causes: csrfToken changes → refreshToken changes →
-  // initializeAuth changes → useEffect runs → infinite loop.
-  // This is safe because the function logic doesn't change based on token value.
+  // Empty deps: Reads current csrfToken from ref (csrfTokenRef) instead of closure.
+  // Refs are updated via useEffect, so callback always sees current value without re-creating.
+  // This prevents infinite loops while avoiding stale closures.
+  // State setters (setCsrfToken) are stable and don't need to be listed.
   );
 
   const logout = useCallback(async () => {

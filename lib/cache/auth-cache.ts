@@ -31,6 +31,7 @@ interface User {
   password_hash: string | null;
   email_verified: boolean | null;
   is_active: boolean | null;
+  provider_uid: number | null; // Analytics provider filtering
   created_at: Date | null;
   updated_at: Date | null;
   deleted_at: Date | null;
@@ -203,6 +204,7 @@ class AuthCacheService extends CacheService {
         password_hash: users.password_hash,
         email_verified: users.email_verified,
         is_active: users.is_active,
+        provider_uid: users.provider_uid,
         created_at: users.created_at,
         updated_at: users.updated_at,
         deleted_at: users.deleted_at,

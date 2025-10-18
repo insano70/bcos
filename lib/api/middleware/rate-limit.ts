@@ -12,34 +12,73 @@ interface RateLimitConfig {
 
 /**
  * Rate limit configurations by type
- * Now centralized for easy adjustment
+ * Centralized configuration for easy adjustment
+ *
+ * Design Philosophy:
+ * - Fail-safe: Prevent abuse while allowing legitimate usage
+ * - User-friendly: Limits high enough for normal workflows
+ * - Security-first: Aggressive limits on authentication endpoints
  */
 const RATE_LIMIT_CONFIGS: Record<string, RateLimitConfig> = {
   auth: {
-    limit: 20, // 20 auth attempts per 15 minutes
-    windowSeconds: 15 * 60,
+    limit: 20, // 20 auth attempts per 15-minute window
+    windowSeconds: 15 * 60, // 15 minutes
+    // Rationale: Allows 1-2 failed login attempts + retries before lockout
+    // Prevents brute force attacks while accommodating typos/forgotten passwords
   },
   mfa: {
-    limit: 5, // 5 MFA attempts per 15 minutes
-    windowSeconds: 15 * 60,
+    limit: 5, // 5 MFA verification attempts per 15-minute window
+    windowSeconds: 15 * 60, // 15 minutes
+    // Rationale: Strict limit to prevent TOTP/passkey brute force
+    // Lower than 'auth' because MFA should succeed on first try
   },
   upload: {
-    limit: 10, // 10 uploads per minute
-    windowSeconds: 60,
+    limit: 10, // 10 file uploads per minute
+    windowSeconds: 60, // 1 minute
+    // Rationale: Prevents storage/bandwidth abuse from bulk uploads
+    // 10/min allows batch operations while blocking DoS via large files
   },
   api: {
-    limit: 200, // 200 requests per minute
-    windowSeconds: 60,
+    limit: 200, // 200 standard API requests per minute
+    windowSeconds: 60, // 1 minute
+    // Rationale: Supports typical dashboard usage (3-4 requests/second)
+    // High enough for complex UIs, low enough to prevent abuse
   },
   session_read: {
-    limit: 500, // 500 session reads per minute - high limit for authenticated session verification
-    windowSeconds: 60,
-  },
-  global: {
-    limit: 100, // 100 requests per 15 minutes
-    windowSeconds: 15 * 60,
+    limit: 500, // 500 session verification requests per minute
+    windowSeconds: 60, // 1 minute
+    // Rationale: High limit for frequent auth checks (/api/auth/me called 3+ times per page)
+    // Must be higher than 'api' to avoid blocking legitimate session verification
   },
 };
+
+/**
+ * Redact IP address for privacy-compliant logging
+ * Keeps first two octets for debugging while protecting PII
+ *
+ * @param ip - IP address to redact
+ * @returns Redacted IP (e.g., "192.168.xxx.xxx")
+ */
+function redactIpForLogging(ip: string): string {
+  if (ip === 'anonymous') {
+    return 'anonymous';
+  }
+
+  // IPv4: Keep first two octets
+  const ipv4Match = ip.match(/^(\d{1,3}\.\d{1,3})\.\d{1,3}\.\d{1,3}$/);
+  if (ipv4Match) {
+    return `${ipv4Match[1]}.xxx.xxx`;
+  }
+
+  // IPv6: Keep first two segments
+  const ipv6Match = ip.match(/^([0-9a-f]{1,4}:[0-9a-f]{1,4}):/i);
+  if (ipv6Match) {
+    return `${ipv6Match[1]}:xxxx:xxxx:xxxx:xxxx:xxxx`;
+  }
+
+  // Fallback for unknown format
+  return '[REDACTED]';
+}
 
 /**
  * Extract IP address from request
@@ -103,7 +142,7 @@ export async function applyRateLimit(
       threat: 'dos_attempt',
       blocked: true,
       type,
-      identifier,
+      identifier: redactIpForLogging(identifier),
       current: result.current,
       limit: result.limit,
       resetAt: result.resetAt,
@@ -124,7 +163,7 @@ export async function applyRateLimit(
   if (process.env.NODE_ENV === 'development') {
     log.debug('Rate limit check passed', {
       type,
-      identifier,
+      identifier: redactIpForLogging(identifier),
       current: result.current,
       remaining: result.remaining,
       limit: result.limit,

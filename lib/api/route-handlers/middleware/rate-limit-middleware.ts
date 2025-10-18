@@ -11,9 +11,16 @@
  *
  * Features:
  * - Optional rate limiting (skip if limitType not provided)
- * - Supports 'auth', 'api', 'upload' limit types
+ * - Supports 'auth', 'mfa', 'api', 'upload', 'session_read' limit types
  * - Automatic timing tracking
  * - Throws RateLimitError if exceeded (handled by error handler)
+ *
+ * Rate Limit Types:
+ * - auth: 20 requests/15min - Authentication endpoints (login, logout, refresh)
+ * - mfa: 5 requests/15min - MFA verification (strict limit to prevent brute force)
+ * - api: 200 requests/min - Standard API operations
+ * - upload: 10 requests/min - File upload endpoints
+ * - session_read: 500 requests/min - High-frequency session verification endpoints
  *
  * Usage:
  * ```typescript
@@ -31,7 +38,7 @@ import type { Middleware, MiddlewareResult, RouteContext } from '../types';
 export class RateLimitMiddleware implements Middleware {
   name = 'rateLimit';
 
-  constructor(private limitType?: 'auth' | 'api' | 'upload' | 'session_read') {}
+  constructor(private limitType?: 'auth' | 'mfa' | 'api' | 'upload' | 'session_read') {}
 
   async execute(request: NextRequest, context: RouteContext): Promise<MiddlewareResult> {
     // Skip if no rate limit configured
@@ -44,8 +51,8 @@ export class RateLimitMiddleware implements Middleware {
     await applyRateLimit(request, this.limitType);
     endTiming();
 
-    // Log successful rate limit check
-    log.info('Rate limit check completed', {
+    // Log successful rate limit check (DEBUG to reduce log volume in production)
+    log.debug('Rate limit check completed', {
       duration: context.timingTracker.getTiming('rateLimit'),
       limitType: this.limitType,
     });

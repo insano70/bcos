@@ -1,5 +1,4 @@
 import type { NextRequest } from 'next/server';
-import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
@@ -21,9 +20,7 @@ const analyticsHandler = async (request: NextRequest, userContext: UserContext) 
   });
 
   try {
-    const rateLimitStart = Date.now();
-    await applyRateLimit(request, 'api');
-    log.info('Rate limit check completed', { duration: Date.now() - rateLimitStart });
+    // Rate limit already applied by rbacRoute wrapper - no need to apply here
 
     const { searchParams } = new URL(request.url);
     timeframe = searchParams.get('timeframe') || '24h';

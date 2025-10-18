@@ -81,7 +81,7 @@ export function rbacRoute(
   ) => Promise<Response>,
   options: {
     permission: PermissionName | PermissionName[];
-    rateLimit?: 'auth' | 'api' | 'upload' | 'session_read';
+    rateLimit?: 'auth' | 'mfa' | 'api' | 'upload' | 'session_read';
     requireAuth?: boolean;
     publicReason?: string;
     requireAllPermissions?: boolean;
@@ -120,7 +120,7 @@ export function publicRoute(
   handler: (request: NextRequest, ...args: unknown[]) => Promise<Response>,
   reason: string,
   options: {
-    rateLimit?: 'auth' | 'api' | 'upload' | 'session_read';
+    rateLimit?: 'auth' | 'mfa' | 'api' | 'upload' | 'session_read';
   } = {}
 ) {
   return PublicRouteBuilder.build(handler, reason, options);
@@ -152,7 +152,7 @@ export function publicRoute(
 export function authRoute(
   handler: (request: NextRequest, session?: AuthSession, ...args: unknown[]) => Promise<Response>,
   options: {
-    rateLimit?: 'auth' | 'api' | 'upload' | 'session_read';
+    rateLimit?: 'auth' | 'mfa' | 'api' | 'upload' | 'session_read';
     requireAuth?: boolean;
     publicReason?: string;
   } = {}

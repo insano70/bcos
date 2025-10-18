@@ -12,29 +12,27 @@
  * RBAC: settings:read:all (Super Admin only)
  */
 
-import { gte, sql } from 'drizzle-orm';
 import type { NextRequest } from 'next/server';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
-import { account_security, csrf_failure_events, db } from '@/lib/db';
 import { log } from '@/lib/logger';
 import { calculateHealthScore } from '@/lib/monitoring/health-score';
 import { metricsCollector } from '@/lib/monitoring/metrics-collector';
 import type { MonitoringMetrics } from '@/lib/monitoring/types';
-import { getRedisClient } from '@/lib/redis';
+import { createSecurityMetricsService } from '@/lib/services/security-metrics-service';
+import type { UserContext } from '@/lib/types/rbac';
 
-const metricsHandler = async (_request: NextRequest) => {
+const metricsHandler = async (_request: NextRequest, userContext: UserContext) => {
   const startTime = Date.now();
 
   try {
     // Get current metrics snapshot from collector
     const snapshot = metricsCollector.getSnapshot();
 
-    // Get Redis cache stats
-    const cacheStats = await getRedisStats();
-
-    // Get security metrics from database
-    const securityMetrics = await getSecurityMetrics();
+    // Get security metrics from service
+    const service = createSecurityMetricsService(userContext);
+    const cacheStats = await service.getRedisStats();
+    const securityMetrics = await service.getSecurityMetrics();
 
     // Calculate system health score
     const systemHealth = calculateHealthScore({
@@ -131,15 +129,11 @@ const metricsHandler = async (_request: NextRequest) => {
   } catch (error) {
     const duration = Date.now() - startTime;
 
-    log.error(
-      'Failed to get monitoring metrics',
-      error instanceof Error ? error : new Error(String(error)),
-      {
-        operation: 'get_monitoring_metrics',
-        duration,
-        component: 'monitoring',
-      }
-    );
+    log.error('Failed to get monitoring metrics', error, {
+      operation: 'get_monitoring_metrics',
+      duration,
+      component: 'monitoring',
+    });
 
     // Return degraded metrics on error (don't fail completely)
     const fallbackMetrics: MonitoringMetrics = {
@@ -199,126 +193,6 @@ const metricsHandler = async (_request: NextRequest) => {
     return createSuccessResponse(fallbackMetrics);
   }
 };
-
-/**
- * Get Redis cache statistics
- * Returns null if Redis is unavailable
- */
-async function getRedisStats(): Promise<{
-  hitRate: number;
-  hits: number;
-  misses: number;
-  opsPerSec: number;
-} | null> {
-  try {
-    const redis = getRedisClient();
-    if (!redis) {
-      return null;
-    }
-
-    // Get Redis INFO stats section
-    const info = await redis.info('stats');
-
-    // Parse INFO string
-    const stats = parseRedisInfo(info);
-
-    // Calculate hit rate
-    const hits = stats.keyspace_hits || 0;
-    const misses = stats.keyspace_misses || 0;
-    const total = hits + misses;
-    const hitRate = total > 0 ? (hits / total) * 100 : 0;
-
-    return {
-      hitRate,
-      hits,
-      misses,
-      opsPerSec: stats.instantaneous_ops_per_sec || 0,
-    };
-  } catch (error) {
-    log.error(
-      'Failed to get Redis stats',
-      error instanceof Error ? error : new Error(String(error)),
-      {
-        operation: 'get_redis_stats',
-        component: 'monitoring',
-      }
-    );
-    return null;
-  }
-}
-
-/**
- * Parse Redis INFO command output
- */
-function parseRedisInfo(infoString: string): Record<string, number> {
-  const lines = infoString.split('\r\n');
-  const info: Record<string, number> = {};
-
-  for (const line of lines) {
-    if (line && !line.startsWith('#')) {
-      const [key, value] = line.split(':');
-      if (key && value) {
-        const numValue = parseFloat(value);
-        if (!Number.isNaN(numValue)) {
-          info[key] = numValue;
-        }
-      }
-    }
-  }
-
-  return info;
-}
-
-/**
- * Get security metrics from database
- */
-async function getSecurityMetrics(): Promise<{
-  suspiciousUsers: number;
-  lockedAccounts: number;
-  csrfBlocks: number;
-}> {
-  try {
-    const now = new Date();
-    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-
-    // Get counts from account_security table
-    const [securityStats] = await db
-      .select({
-        suspiciousUsers: sql<number>`COUNT(*) FILTER (WHERE ${account_security.suspicious_activity_detected} = true)`,
-        lockedAccounts: sql<number>`COUNT(*) FILTER (WHERE ${account_security.locked_until} > ${now})`,
-      })
-      .from(account_security);
-
-    // Get CSRF blocks from last hour
-    const [csrfStats] = await db
-      .select({
-        count: sql<number>`COUNT(*)`,
-      })
-      .from(csrf_failure_events)
-      .where(gte(csrf_failure_events.timestamp, oneHourAgo));
-
-    return {
-      suspiciousUsers: securityStats?.suspiciousUsers || 0,
-      lockedAccounts: securityStats?.lockedAccounts || 0,
-      csrfBlocks: csrfStats?.count || 0,
-    };
-  } catch (error) {
-    log.error(
-      'Failed to get security metrics',
-      error instanceof Error ? error : new Error(String(error)),
-      {
-        operation: 'get_security_metrics',
-        component: 'monitoring',
-      }
-    );
-
-    return {
-      suspiciousUsers: 0,
-      lockedAccounts: 0,
-      csrfBlocks: 0,
-    };
-  }
-}
 
 // Export with RBAC protection - only super admins can access
 export const GET = rbacRoute(metricsHandler, {

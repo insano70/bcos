@@ -15,7 +15,7 @@
  * const token = await ensureCsrfToken(); // Get or refresh token
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   getCSRFTokenFromCookie,
   shouldRefreshToken,
@@ -51,6 +51,18 @@ export function useCSRFManagement(): CSRFManagement {
   // Track in-flight token fetch to prevent duplicate requests (OPTIMIZATION)
   const fetchInProgress = useRef<Promise<string | null> | null>(null);
 
+  // Refs to access current state values in callbacks without causing re-creation
+  // This prevents infinite loops while avoiding stale closures
+  const csrfTokenRef = useRef<string | null>(csrfToken);
+  const lastFetchTimeRef = useRef<number | null>(lastFetchTime);
+
+  // Sync refs with state on every render
+  // This ensures callbacks always read the latest values without re-creating
+  useEffect(() => {
+    csrfTokenRef.current = csrfToken;
+    lastFetchTimeRef.current = lastFetchTime;
+  }, [csrfToken, lastFetchTime]);
+
   /**
    * Ensure a valid CSRF token is available
    *
@@ -72,8 +84,12 @@ export function useCSRFManagement(): CSRFManagement {
           return fetchInProgress.current;
         }
 
+        // Read current values from refs (always up-to-date, never stale)
+        const currentToken = csrfTokenRef.current;
+        const currentFetchTime = lastFetchTimeRef.current;
+
         // OPTIMIZATION: Step 1 - Check cookie first (already set by server)
-        if (!forceRefresh && !csrfToken) {
+        if (!forceRefresh && !currentToken) {
           const cookieToken = getCSRFTokenFromCookie();
 
           if (cookieToken) {
@@ -92,13 +108,13 @@ export function useCSRFManagement(): CSRFManagement {
         }
 
         // Step 2 - Check if cached token in state is still valid
-        if (csrfToken && !forceRefresh) {
-          const shouldRefresh = shouldRefreshToken(csrfToken, lastFetchTime);
+        if (currentToken && !forceRefresh) {
+          const shouldRefresh = shouldRefreshToken(currentToken, currentFetchTime);
 
           if (!shouldRefresh) {
             // Token is still valid, return it
             debugLog.auth('Using cached CSRF token from state');
-            return csrfToken;
+            return currentToken;
           }
 
           // Token needs refresh
@@ -162,18 +178,11 @@ export function useCSRFManagement(): CSRFManagement {
         return null;
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
-    // CRITICAL: Empty dependency array to prevent infinite loops.
-    // This callback reads csrfToken and lastFetchTime from closure, but doesn't need to
-    // re-create when they change. The function logic is always the same:
-    // 1. Check current state values
-    // 2. Validate/fetch as needed
-    // 3. Update state
-    // Including csrfToken/lastFetchTime as deps causes infinite re-renders because:
-    // - ensureCsrfToken changes → initializeAuth changes → useEffect runs
-    // - ensureCsrfToken modifies the state it depends on
-    // State setters (setCsrfToken, setLastFetchTime) are stable and don't need to be listed.
+    // Empty deps: Reads current values from refs (csrfTokenRef, lastFetchTimeRef)
+    // instead of closure. Refs are updated via useEffect, so callback always sees
+    // current values without needing to re-create. This prevents infinite loops while
+    // avoiding stale closures. State setters are stable and don't need to be listed.
   );
 
   return {

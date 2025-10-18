@@ -18,7 +18,7 @@
  * actions.rbacLoadSuccess({ userContext });
  */
 
-import { useCallback, useMemo, useReducer } from 'react';
+import { useMemo, useReducer } from 'react';
 import type { UserContext } from '@/lib/types/rbac';
 import type { User } from '../types';
 import type { AuthState } from './auth-reducer';

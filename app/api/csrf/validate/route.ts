@@ -1,6 +1,5 @@
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
@@ -29,10 +28,7 @@ const validateTokenHandler = async (request: NextRequest) => {
   });
 
   try {
-    // Apply rate limiting (use 'auth' limits since this is security-related)
-    const rateLimitStartTime = Date.now();
-    await applyRateLimit(request, 'auth');
-    log.info('Rate limit check completed', { duration: Date.now() - rateLimitStartTime });
+    // Rate limit already applied by publicRoute wrapper - no need to apply here
 
     // Validate request body (optional)
     const validationStartTime = Date.now();

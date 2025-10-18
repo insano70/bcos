@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/api/middleware/auth';
 import { createErrorResponse } from '@/lib/api/responses/error';
+import { authRoute, type AuthSession } from '@/lib/api/route-handlers';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { revokeAllUserTokens, revokeRefreshToken } from '@/lib/auth/token-manager';
 import { db, token_blacklist } from '@/lib/db';
@@ -51,21 +51,20 @@ function clearAuthCookies(response: NextResponse): void {
  * Complete token cleanup and session termination
  * SECURED: Requires authentication to prevent unauthorized logout
  */
-export async function POST(request: NextRequest) {
+const logoutHandler = async (request: NextRequest, session?: AuthSession) => {
   const startTime = Date.now();
 
   try {
-    // Rate limiting should be handled by route wrapper
-    // TODO: Migrate to authRoute wrapper to enable automatic rate limiting
-
     // CSRF PROTECTION: Verify CSRF token before authentication check
     const isValidCSRF = await verifyCSRFToken(request);
     if (!isValidCSRF) {
       return createErrorResponse('CSRF token validation failed', 403, request);
     }
 
-    // REQUIRE AUTHENTICATION: Only authenticated users can logout
-    const session = await requireAuth(request);
+    // Verify session exists (authRoute ensures authentication)
+    if (!session) {
+      return createErrorResponse('Authentication required', 401, request);
+    }
 
     // Get refresh token from httpOnly cookie
     const cookieStore = await cookies();
@@ -198,14 +197,14 @@ export async function POST(request: NextRequest) {
     });
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   }
-}
+};
 
 /**
  * Revoke All Sessions Endpoint
  * Emergency logout from all devices
  * SECURED: Requires authentication and token validation
  */
-export async function DELETE(request: NextRequest) {
+const revokeAllSessionsHandler = async (request: NextRequest, session?: AuthSession) => {
   const startTime = Date.now();
 
   try {
@@ -214,17 +213,16 @@ export async function DELETE(request: NextRequest) {
       threat: 'potential_compromise',
     });
 
-    // Rate limiting should be handled by route wrapper
-    // TODO: Migrate to authRoute wrapper to enable automatic rate limiting
-
     // CSRF PROTECTION: Verify CSRF token before authentication check
     const isValidCSRF = await verifyCSRFToken(request);
     if (!isValidCSRF) {
       return createErrorResponse('CSRF token validation failed', 403, request);
     }
 
-    // REQUIRE AUTHENTICATION: Critical security - only authenticated users can revoke all sessions
-    const session = await requireAuth(request);
+    // Verify session exists (authRoute ensures authentication)
+    if (!session) {
+      return createErrorResponse('Authentication required', 401, request);
+    }
 
     // Get refresh token from httpOnly cookie
     const cookieStore = await cookies();
@@ -317,4 +315,8 @@ export async function DELETE(request: NextRequest) {
     });
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   }
-}
+};
+
+// Export with authRoute wrapper for automatic authentication and rate limiting
+export const POST = authRoute(logoutHandler, { rateLimit: 'auth' });
+export const DELETE = authRoute(revokeAllSessionsHandler, { rateLimit: 'auth' });

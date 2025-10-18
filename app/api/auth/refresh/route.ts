@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/api/middleware/auth';
 import { createErrorResponse } from '@/lib/api/responses/error';
+import { publicRoute } from '@/lib/api/route-handlers';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { refreshTokenPair } from '@/lib/auth/token-manager';
 import { correlation, log } from '@/lib/logger';
@@ -24,9 +24,7 @@ const refreshHandler = async (request: NextRequest) => {
   try {
     // NOTE: We don't require auth header here since we're validating the refresh token cookie directly
     // This allows token refresh without needing a valid access token
-
-    // Rate limiting should be handled by route wrapper
-    // TODO: Migrate to publicRoute or authRoute wrapper to enable automatic rate limiting
+    // Rate limiting is applied by publicRoute wrapper
 
     // Get refresh token from httpOnly cookie
     const cookieStore = await cookies();
@@ -267,38 +265,26 @@ const refreshHandler = async (request: NextRequest) => {
       // Could not extract user ID from token
     }
 
-    // Try to get user info from the request (may not be available if auth failed)
-    try {
-      const _session = await requireAuth(request);
-      await AuditLogger.logUserAction({
-        action: 'token_refresh_error',
-        userId: failedUserId,
-        resourceType: 'session',
-        resourceId: 'unknown',
-        ipAddress: metadata.ipAddress,
-        userAgent: metadata.userAgent,
-        metadata: {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          correlationId: correlation.current(),
-        },
-      });
-    } catch {
-      // If we can't get authenticated user, log as anonymous security event
-      await AuditLogger.logSecurity({
-        action: 'token_refresh_error',
-        ipAddress: metadata.ipAddress,
-        metadata: {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          authFailed: true,
-          correlationId: correlation.current(),
-        },
-        severity: 'medium',
-      });
-    }
+    // Log as security event (token refresh doesn't require prior authentication)
+    await AuditLogger.logSecurity({
+      action: 'token_refresh_error',
+      ipAddress: metadata.ipAddress,
+      metadata: {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        userId: failedUserId !== 'unknown' ? failedUserId : undefined,
+        correlationId: correlation.current(),
+      },
+      severity: 'medium',
+    });
 
     return createErrorResponse(error instanceof Error ? error : 'Unknown error', 500, request);
   }
 };
 
-// Export handler directly (correlation ID automatically added by middleware)
-export const POST = refreshHandler;
+// Export with publicRoute wrapper for automatic rate limiting
+// Uses 'auth' rate limit (20/15min) since this is a security-critical authentication endpoint
+export const POST = publicRoute(
+  refreshHandler,
+  'Token refresh must be available without prior authentication',
+  { rateLimit: 'auth' }
+);
