@@ -17,7 +17,6 @@
 import { eq } from 'drizzle-orm';
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
-import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { publicRoute } from '@/lib/api/route-handlers';
@@ -39,7 +38,7 @@ const handler = async (request: NextRequest) => {
   const startTime = Date.now();
 
   try {
-    await applyRateLimit(request, 'auth');
+    // Rate limit already applied by publicRoute wrapper - no need to apply here
 
     // Verify temp token (user must have completed password authentication)
     const tempPayload = await requireMFATempToken(request);

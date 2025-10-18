@@ -18,7 +18,7 @@
  * actions.rbacLoadSuccess({ userContext });
  */
 
-import { useCallback, useReducer } from 'react';
+import { useCallback, useMemo, useReducer } from 'react';
 import type { UserContext } from '@/lib/types/rbac';
 import type { User } from '../types';
 import type { AuthState } from './auth-reducer';
@@ -79,77 +79,80 @@ export function useAuthState(): UseAuthStateReturn {
   const [state, dispatch] = useReducer(authReducer, initialAuthState);
 
   // Create memoized action creators
-  const actions: AuthActions = {
-    // Session initialization
-    initStart: useCallback(() => {
-      dispatch({ type: 'INIT_START' });
-    }, []),
+  // CRITICAL: Wrap in useMemo to preserve object identity across renders
+  // Without this, the actions object gets a new reference on every render,
+  // causing infinite loops in components that depend on it
+  const actions: AuthActions = useMemo(
+    () => ({
+      // Session initialization
+      initStart: () => {
+        dispatch({ type: 'INIT_START' });
+      },
 
-    initSuccess: useCallback(
-      (payload: { user: User; sessionId: string; userContext?: UserContext }) => {
+      initSuccess: (payload: { user: User; sessionId: string; userContext?: UserContext }) => {
         dispatch({ type: 'INIT_SUCCESS', payload });
       },
-      []
-    ),
 
-    initFailure: useCallback(() => {
-      dispatch({ type: 'INIT_FAILURE' });
-    }, []),
+      initFailure: () => {
+        dispatch({ type: 'INIT_FAILURE' });
+      },
 
-    // Login flow
-    loginStart: useCallback(() => {
-      dispatch({ type: 'LOGIN_START' });
-    }, []),
+      // Login flow
+      loginStart: () => {
+        dispatch({ type: 'LOGIN_START' });
+      },
 
-    loginSuccess: useCallback((payload: { user: User; sessionId: string }) => {
-      dispatch({ type: 'LOGIN_SUCCESS', payload });
-    }, []),
+      loginSuccess: (payload: { user: User; sessionId: string }) => {
+        dispatch({ type: 'LOGIN_SUCCESS', payload });
+      },
 
-    loginFailure: useCallback(() => {
-      dispatch({ type: 'LOGIN_FAILURE' });
-    }, []),
+      loginFailure: () => {
+        dispatch({ type: 'LOGIN_FAILURE' });
+      },
 
-    // Logout
-    logout: useCallback(() => {
-      dispatch({ type: 'LOGOUT' });
-    }, []),
+      // Logout
+      logout: () => {
+        dispatch({ type: 'LOGOUT' });
+      },
 
-    // Token refresh
-    refreshStart: useCallback(() => {
-      dispatch({ type: 'REFRESH_START' });
-    }, []),
+      // Token refresh
+      refreshStart: () => {
+        dispatch({ type: 'REFRESH_START' });
+      },
 
-    refreshSuccess: useCallback((payload: { user: User; sessionId: string }) => {
-      dispatch({ type: 'REFRESH_SUCCESS', payload });
-    }, []),
+      refreshSuccess: (payload: { user: User; sessionId: string }) => {
+        dispatch({ type: 'REFRESH_SUCCESS', payload });
+      },
 
-    refreshFailure: useCallback(() => {
-      dispatch({ type: 'REFRESH_FAILURE' });
-    }, []),
+      refreshFailure: () => {
+        dispatch({ type: 'REFRESH_FAILURE' });
+      },
 
-    // RBAC context
-    rbacLoadStart: useCallback(() => {
-      dispatch({ type: 'RBAC_LOAD_START' });
-    }, []),
+      // RBAC context
+      rbacLoadStart: () => {
+        dispatch({ type: 'RBAC_LOAD_START' });
+      },
 
-    rbacLoadSuccess: useCallback((payload: { userContext: UserContext }) => {
-      dispatch({ type: 'RBAC_LOAD_SUCCESS', payload });
-    }, []),
+      rbacLoadSuccess: (payload: { userContext: UserContext }) => {
+        dispatch({ type: 'RBAC_LOAD_SUCCESS', payload });
+      },
 
-    rbacLoadFailure: useCallback((payload: { error: string }) => {
-      dispatch({ type: 'RBAC_LOAD_FAILURE', payload });
-    }, []),
+      rbacLoadFailure: (payload: { error: string }) => {
+        dispatch({ type: 'RBAC_LOAD_FAILURE', payload });
+      },
 
-    // Loading state
-    setLoading: useCallback((isLoading: boolean) => {
-      dispatch({ type: 'SET_LOADING', payload: { isLoading } });
-    }, []),
+      // Loading state
+      setLoading: (isLoading: boolean) => {
+        dispatch({ type: 'SET_LOADING', payload: { isLoading } });
+      },
 
-    // Session expired
-    sessionExpired: useCallback(() => {
-      dispatch({ type: 'SESSION_EXPIRED' });
-    }, []),
-  };
+      // Session expired
+      sessionExpired: () => {
+        dispatch({ type: 'SESSION_EXPIRED' });
+      },
+    }),
+    [] // Empty dependency array - actions never change
+  );
 
   return {
     state,

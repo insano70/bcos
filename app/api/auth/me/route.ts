@@ -120,4 +120,4 @@ const handler = async (request: NextRequest, session?: AuthSession) => {
   }
 };
 
-export const GET = authRoute(handler, { rateLimit: 'api' });
+export const GET = authRoute(handler, { rateLimit: 'session_read' });

@@ -214,7 +214,7 @@ const revokeSessionHandler = async (request: NextRequest, userContext: UserConte
 // Export with RBAC protection
 export const GET = rbacRoute(getSessionsHandler, {
   permission: 'users:read:own',
-  rateLimit: 'api',
+  rateLimit: 'session_read',
 });
 
 export const DELETE = rbacRoute(revokeSessionHandler, {

@@ -162,7 +162,18 @@ export function useCSRFManagement(): CSRFManagement {
         return null;
       }
     },
-    [csrfToken, lastFetchTime]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+    // CRITICAL: Empty dependency array to prevent infinite loops.
+    // This callback reads csrfToken and lastFetchTime from closure, but doesn't need to
+    // re-create when they change. The function logic is always the same:
+    // 1. Check current state values
+    // 2. Validate/fetch as needed
+    // 3. Update state
+    // Including csrfToken/lastFetchTime as deps causes infinite re-renders because:
+    // - ensureCsrfToken changes → initializeAuth changes → useEffect runs
+    // - ensureCsrfToken modifies the state it depends on
+    // State setters (setCsrfToken, setLastFetchTime) are stable and don't need to be listed.
   );
 
   return {

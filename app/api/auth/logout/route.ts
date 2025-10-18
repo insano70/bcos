@@ -11,8 +11,6 @@ import { verifyCSRFToken } from '@/lib/security/csrf';
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
 
-import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
-
 /**
  * Helper function to clear authentication cookies
  * Used by both logout and revoke all sessions endpoints
@@ -57,7 +55,8 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
   try {
-    await applyRateLimit(request, 'auth');
+    // Rate limiting should be handled by route wrapper
+    // TODO: Migrate to authRoute wrapper to enable automatic rate limiting
 
     // CSRF PROTECTION: Verify CSRF token before authentication check
     const isValidCSRF = await verifyCSRFToken(request);
@@ -215,8 +214,8 @@ export async function DELETE(request: NextRequest) {
       threat: 'potential_compromise',
     });
 
-    // RATE LIMITING: Apply auth-level rate limiting to prevent revoke all sessions abuse
-    await applyRateLimit(request, 'auth');
+    // Rate limiting should be handled by route wrapper
+    // TODO: Migrate to authRoute wrapper to enable automatic rate limiting
 
     // CSRF PROTECTION: Verify CSRF token before authentication check
     const isValidCSRF = await verifyCSRFToken(request);

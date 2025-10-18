@@ -29,8 +29,8 @@ const PUBLIC_API_ROUTES = new Set([
 // Routes that require public access patterns
 const PUBLIC_ROUTE_PATTERNS = [
   /^\/api\/webhooks\//, // Webhook endpoints
-  /^\/api\/auth\//, // Authentication endpoints
   /^\/api\/health/, // Health check endpoints
+  // Note: /api/auth/* routes are NOT all public - only specific ones listed in PUBLIC_API_ROUTES
 ];
 
 /**
@@ -92,7 +92,7 @@ export async function applyGlobalAuth(request: NextRequest): Promise<AuthResult 
 
   // UNIVERSAL RATE LIMITING: Apply to ALL API routes (public and protected)
   // This runs BEFORE authentication to prevent abuse
-  // Note: Rate limit errors will propagate to the route handler
+  // Note: Route wrappers may apply additional rate limits (defense in depth)
   const rateLimitType = pathname.startsWith('/api/auth/') ? 'auth' : 'api';
   await applyRateLimit(request, rateLimitType);
 

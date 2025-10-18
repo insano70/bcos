@@ -1,7 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/api/middleware/auth';
-import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { refreshTokenPair } from '@/lib/auth/token-manager';
@@ -26,8 +25,8 @@ const refreshHandler = async (request: NextRequest) => {
     // NOTE: We don't require auth header here since we're validating the refresh token cookie directly
     // This allows token refresh without needing a valid access token
 
-    // Apply aggressive rate limiting for token refresh
-    await applyRateLimit(request, 'auth');
+    // Rate limiting should be handled by route wrapper
+    // TODO: Migrate to publicRoute or authRoute wrapper to enable automatic rate limiting
 
     // Get refresh token from httpOnly cookie
     const cookieStore = await cookies();

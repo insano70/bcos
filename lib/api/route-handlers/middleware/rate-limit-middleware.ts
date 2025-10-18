@@ -31,7 +31,7 @@ import type { Middleware, MiddlewareResult, RouteContext } from '../types';
 export class RateLimitMiddleware implements Middleware {
   name = 'rateLimit';
 
-  constructor(private limitType?: 'auth' | 'api' | 'upload') {}
+  constructor(private limitType?: 'auth' | 'api' | 'upload' | 'session_read') {}
 
   async execute(request: NextRequest, context: RouteContext): Promise<MiddlewareResult> {
     // Skip if no rate limit configured

@@ -67,6 +67,22 @@ import { getDashboardChartDetails, getDashboardQueryBuilder } from './dashboards
  */
 
 /**
+ * Default query limit for unbounded list operations
+ */
+const DEFAULT_QUERY_LIMIT = 1000000;
+
+/**
+ * Escape LIKE wildcard characters (% and _) in search strings
+ * Prevents user input from being interpreted as SQL LIKE patterns
+ *
+ * @param str - User-provided search string
+ * @returns Escaped string safe for LIKE operations
+ */
+function escapeLikeWildcards(str: string): string {
+  return str.replace(/[%_]/g, '\\$&');
+}
+
+/**
  * Internal implementation of RBAC Dashboards Service
  */
 class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
@@ -170,9 +186,10 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
     }
 
     if (options.search) {
+      const escapedSearch = escapeLikeWildcards(options.search);
       const searchCondition = or(
-        like(dashboards.dashboard_name, `%${options.search}%`),
-        like(dashboards.dashboard_description, `%${options.search}%`)
+        like(dashboards.dashboard_name, `%${escapedSearch}%`),
+        like(dashboards.dashboard_description, `%${escapedSearch}%`)
       );
       if (searchCondition) {
         conditions.push(searchCondition);
@@ -235,7 +252,7 @@ class RBACDashboardsServiceImpl implements DashboardsServiceInterface {
     const dashboardList = await getDashboardQueryBuilder()
       .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(desc(dashboards.created_at))
-      .limit(options.limit ?? 1000000)
+      .limit(options.limit ?? DEFAULT_QUERY_LIMIT)
       .offset(options.offset ?? 0);
     const queryDuration = Date.now() - queryStart;
 

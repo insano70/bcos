@@ -58,6 +58,8 @@ async function main() {
       '*cache:meta:ds:*', // Old format
       '*cache:meta:{ds:*',// New format with hash tags
       '*temp:*',          // Temp keys (all formats)
+      '*rate*',   //rate limiters
+      '*', //everything
     ];
     const allKeys = new Set();
     

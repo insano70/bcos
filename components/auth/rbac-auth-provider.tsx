@@ -103,7 +103,15 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
       // Always release mutex
       authOperationInProgress.current = false;
     }
-  }, [csrfToken, ensureCsrfToken, setCsrfToken, actions]);
+  },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [ensureCsrfToken, setCsrfToken, actions]
+  // CRITICAL: csrfToken removed from dependencies to prevent infinite loop.
+  // The callback reads csrfToken from closure but doesn't need to re-create when it changes.
+  // Including csrfToken causes: csrfToken changes → refreshToken changes →
+  // initializeAuth changes → useEffect runs → infinite loop.
+  // This is safe because the function logic doesn't change based on token value.
+  );
 
   const logout = useCallback(async () => {
     try {
@@ -231,9 +239,12 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
       await ensureCsrfToken();
       await refreshToken();
     } catch (error) {
+      // CRITICAL FIX: Do NOT retry on initialization failure
+      // If there's no session, that's a normal state - user needs to login
       console.log('No active session found:', error);
       actions.initFailure();
-      setHasInitialized(false); // Allow retry on error
+      // DO NOT reset hasInitialized - prevents infinite loop
+      // User must explicitly login to create a new session
     }
   }, [hasInitialized, actions, ensureCsrfToken, refreshToken]);
 

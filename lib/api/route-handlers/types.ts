@@ -93,7 +93,7 @@ export interface RouteContext {
  */
 export interface RBACRouteOptions {
   /** Rate limit type */
-  rateLimit?: 'auth' | 'api' | 'upload';
+  rateLimit?: 'auth' | 'api' | 'upload' | 'session_read';
 
   /** Whether authentication is required (default: true) */
   requireAuth?: boolean;
@@ -122,7 +122,7 @@ export interface RBACRouteOptions {
  */
 export interface PublicRouteOptions {
   /** Rate limit type */
-  rateLimit?: 'auth' | 'api' | 'upload';
+  rateLimit?: 'auth' | 'api' | 'upload' | 'session_read';
 }
 
 /**
@@ -130,7 +130,7 @@ export interface PublicRouteOptions {
  */
 export interface AuthRouteOptions {
   /** Rate limit type */
-  rateLimit?: 'auth' | 'api' | 'upload';
+  rateLimit?: 'auth' | 'api' | 'upload' | 'session_read';
 
   /** Whether authentication is required (default: true) */
   requireAuth?: boolean;

@@ -1,6 +1,5 @@
 import { eq } from 'drizzle-orm';
 import type { NextRequest } from 'next/server';
-import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { validateRequest } from '@/lib/api/middleware/validation';
 import { AuthenticationError, createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
@@ -28,7 +27,7 @@ const loginHandler = async (request: NextRequest) => {
   const startTime = Date.now();
 
   try {
-    await applyRateLimit(request, 'auth');
+    // Rate limit already applied by publicRoute wrapper - no need to apply here
 
     const validatedData = await validateRequest(request, loginSchema);
     const { email, password, remember } = validatedData;

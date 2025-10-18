@@ -31,6 +31,10 @@ const RATE_LIMIT_CONFIGS: Record<string, RateLimitConfig> = {
     limit: 200, // 200 requests per minute
     windowSeconds: 60,
   },
+  session_read: {
+    limit: 500, // 500 session reads per minute - high limit for authenticated session verification
+    windowSeconds: 60,
+  },
   global: {
     limit: 100, // 100 requests per 15 minutes
     windowSeconds: 15 * 60,
@@ -54,13 +58,13 @@ export function getRateLimitKey(request: Request, prefix = ''): string {
  * Multi-instance safe - rate limits enforced globally across all instances
  *
  * @param request - HTTP request
- * @param type - Rate limit type (auth, api, upload, mfa)
+ * @param type - Rate limit type (auth, api, upload, mfa, session_read)
  * @returns Rate limit result with remaining count and reset time
  * @throws RateLimitError if rate limit exceeded
  */
 export async function applyRateLimit(
   request: Request,
-  type: 'auth' | 'api' | 'upload' | 'mfa' = 'api'
+  type: 'auth' | 'api' | 'upload' | 'mfa' | 'session_read' = 'api'
 ): Promise<{
   success: boolean;
   remaining: number;

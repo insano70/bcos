@@ -65,10 +65,9 @@ const healthHandler = async (request: NextRequest) => {
   }
 };
 
-// Export as public route with rate limiting
-// Health checks need to be public for monitoring tools and load balancers
+// Export as public route without rate limiting
+// Health checks need to be public and unrestricted for monitoring tools and load balancers
 export const GET = publicRoute(
   healthHandler,
-  'Health check endpoint for monitoring tools and load balancers',
-  { rateLimit: 'api' }
+  'Health check endpoint for monitoring tools and load balancers'
 );

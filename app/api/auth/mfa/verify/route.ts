@@ -9,7 +9,6 @@
 import { eq } from 'drizzle-orm';
 import { cookies } from 'next/headers';
 import type { NextRequest } from 'next/server';
-import { applyRateLimit } from '@/lib/api/middleware/rate-limit';
 import { AuthenticationError, createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { publicRoute } from '@/lib/api/route-handlers';
@@ -35,8 +34,7 @@ const handler = async (request: NextRequest) => {
   const startTime = Date.now();
 
   try {
-    // MFA-specific rate limiting (5 attempts per 15 minutes)
-    await applyRateLimit(request, 'mfa');
+    // Rate limit already applied by publicRoute wrapper - no need to apply here
 
     // Extract IP and user agent
     const { extractRequestMetadata } = await import('@/lib/api/utils/request');

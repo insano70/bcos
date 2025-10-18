@@ -139,4 +139,4 @@ const renameHandler = async (
 };
 
 export const DELETE = authRoute(deleteHandler, { rateLimit: 'api' });
-export const PATCH = authRoute(renameHandler, { rateLimit: 'api' });
+export const PATCH = authRoute(renameHandler, { rateLimit: 'session_read' });
