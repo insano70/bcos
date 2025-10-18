@@ -43,3 +43,6 @@ next-env.d.ts
 /docs/tidy-professional/
 /docs/archive-ignore/
 
+/docs/*.txt
+/tmp/*
+
