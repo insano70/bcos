@@ -3,13 +3,13 @@ import { and, asc, count, desc, eq } from 'drizzle-orm';
 
 // 2. Database
 import { db } from '@/lib/db';
-import { work_item_status_transitions, work_item_statuses, work_items } from '@/lib/db/schema';
+import { work_item_statuses, work_items } from '@/lib/db/schema';
 
 // 3. Logging
 import { calculateChanges, log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
 
 // 4. Errors
-import { AuthorizationError, NotFoundError, ValidationError } from '@/lib/api/responses/error';
+import { NotFoundError } from '@/lib/api/responses/error';
 
 // 5. Types
 import type { UserContext } from '@/lib/types/rbac';
@@ -22,7 +22,20 @@ import type {
 
 // 6. Internal services and utilities
 import { BaseWorkItemsService } from './base-service';
+import { WORK_ITEM_CONSTRAINTS } from './constants';
+import { createWorkItemCustomFieldsService } from './custom-fields-service';
+import { buildWorkItemPath, calculateHierarchyFields } from './hierarchy-service';
 import { getWorkItemQueryBuilder } from './query-builder';
+import { createWorkItemStatusService } from './status-service';
+import {
+  validateManagementPermission,
+  validateOrganizationAccess,
+  validateOwnership,
+  validateReadPermission,
+} from './validators';
+
+// 7. Validation utilities
+import { validatePagination, validateUUID } from '@/lib/utils/validators';
 
 /**
  * Work Items Core Service
@@ -60,10 +73,11 @@ class WorkItemCoreService extends BaseWorkItemsService {
     const startTime = Date.now();
 
     try {
-      // Check permission
-      if (!this.canReadAll && !this.canReadOrg && !this.canReadOwn) {
-        throw AuthorizationError('You do not have permission to read work items');
-      }
+      // Validate UUID format
+      validateUUID(workItemId, 'work item ID');
+
+      // Check permission using validator
+      validateReadPermission(this.canReadAll, this.canReadOrg, this.canReadOwn);
 
       // Execute query with performance tracking
       const queryStart = Date.now();
@@ -90,18 +104,18 @@ class WorkItemCoreService extends BaseWorkItemsService {
         return null;
       }
 
-      // Additional RBAC check after fetch
+      // Additional RBAC check after fetch using validators
       if (!this.canReadAll) {
         if (this.canReadOrg) {
-          if (!this.accessibleOrgIds.includes(result.organization_id)) {
-            throw AuthorizationError(
-              'You do not have permission to access work items in this organization'
-            );
-          }
+          validateOrganizationAccess(
+            this.userContext,
+            result.organization_id,
+            this.accessibleOrgIds,
+            this.canReadAll,
+            'access'
+          );
         } else if (this.canReadOwn) {
-          if (result.created_by !== this.userContext.user_id) {
-            throw AuthorizationError('You can only access your own work items');
-          }
+          validateOwnership(this.userContext, result.created_by, 'work items');
         }
       }
 
@@ -156,7 +170,7 @@ class WorkItemCoreService extends BaseWorkItemsService {
     const startTime = Date.now();
 
     try {
-      // Check permission
+      // Check permission using validator (returns 0 if no permission instead of throwing)
       if (!this.canReadAll && !this.canReadOrg && !this.canReadOwn) {
         log.info('work item count - no permission', {
           operation: 'count_work_items',
@@ -285,19 +299,28 @@ class WorkItemCoreService extends BaseWorkItemsService {
       })();
       const orderByClause = sortOrder === 'asc' ? asc(sortColumn) : desc(sortColumn);
 
+      // Validate and enforce pagination limits
+      const { limit, offset } = validatePagination(
+        options.limit,
+        options.offset,
+        WORK_ITEM_CONSTRAINTS.MAX_PAGE_LIMIT,
+        WORK_ITEM_CONSTRAINTS.DEFAULT_PAGE_LIMIT
+      );
+
       // Execute list query with joins
       const queryStart = Date.now();
       const results = await getWorkItemQueryBuilder()
         .where(and(...whereConditions))
         .orderBy(orderByClause)
-        .limit(options.limit || 50)
-        .offset(options.offset || 0);
+        .limit(limit)
+        .offset(offset);
       const queryDuration = Date.now() - queryStart;
 
-      // Fetch custom field values for all work items
+      // Fetch custom field values for all work items using dedicated service
       const workItemIds = results.map((r) => r.work_item_id);
       const customFieldsStart = Date.now();
-      const customFieldsMap = await this.getCustomFieldValues(workItemIds);
+      const customFieldsService = createWorkItemCustomFieldsService(this.userContext);
+      const customFieldsMap = await customFieldsService.getCustomFieldValues(workItemIds);
       const customFieldsDuration = Date.now() - customFieldsStart;
 
       // Map results to WorkItemWithDetails
@@ -323,7 +346,7 @@ class WorkItemCoreService extends BaseWorkItemsService {
         results: {
           returned: workItems.length,
           total: totalCount,
-          page: Math.floor((options.offset || 0) / (options.limit || 50)) + 1,
+          page: Math.floor(offset / limit) + 1,
         },
         duration,
         metadata: {
@@ -334,8 +357,8 @@ class WorkItemCoreService extends BaseWorkItemsService {
           slowQuery: queryDuration > SLOW_THRESHOLDS.DB_QUERY,
           slowCustomFields: customFieldsDuration > SLOW_THRESHOLDS.DB_QUERY,
           rbacScope: this.getRBACScope(),
-          limit: options.limit || 50,
-          offset: options.offset || 0,
+          limit,
+          offset,
           sortBy,
           sortOrder,
           component: 'core_service',
@@ -377,17 +400,17 @@ class WorkItemCoreService extends BaseWorkItemsService {
     const startTime = Date.now();
 
     try {
-      // Check organization access
+      // Check permissions using validators
+      validateManagementPermission(this.canManageAll, this.canManageOrg, false, 'create');
+
       if (!this.canManageAll) {
-        if (this.canManageOrg) {
-          if (!this.accessibleOrgIds.includes(workItemData.organization_id)) {
-            throw AuthorizationError(
-              'You do not have permission to create work items in this organization'
-            );
-          }
-        } else {
-          throw AuthorizationError('You do not have permission to create work items');
-        }
+        validateOrganizationAccess(
+          this.userContext,
+          workItemData.organization_id,
+          this.accessibleOrgIds,
+          this.canManageAll,
+          'create'
+        );
       }
 
       // Get initial status for this work item type
@@ -408,43 +431,10 @@ class WorkItemCoreService extends BaseWorkItemsService {
         throw NotFoundError('No initial status found for this work item type');
       }
 
-      // Calculate hierarchy fields if parent exists
-      let depth = 0;
-      let rootId: string | null = null;
-      let parentPath: string | null = null;
-
-      if (workItemData.parent_work_item_id) {
-        const hierarchyStart = Date.now();
-        const [parentInfo] = await db
-          .select({
-            depth: work_items.depth,
-            root_work_item_id: work_items.root_work_item_id,
-            path: work_items.path,
-          })
-          .from(work_items)
-          .where(eq(work_items.work_item_id, workItemData.parent_work_item_id))
-          .limit(1);
-        const hierarchyDuration = Date.now() - hierarchyStart;
-
-        if (!parentInfo) {
-          throw NotFoundError('Parent work item not found');
-        }
-
-        depth = (parentInfo.depth || 0) + 1;
-        if (depth > 10) {
-          throw ValidationError(null, 'Maximum nesting depth of 10 levels exceeded');
-        }
-
-        rootId = parentInfo.root_work_item_id || workItemData.parent_work_item_id;
-        parentPath = parentInfo.path;
-
-        log.debug('hierarchy fields calculated', {
-          parentId: workItemData.parent_work_item_id,
-          depth,
-          rootId,
-          hierarchyDuration,
-        });
-      }
+      // Calculate hierarchy fields using dedicated helper
+      const { depth, rootId, parentPath } = await calculateHierarchyFields(
+        workItemData.parent_work_item_id || null
+      );
 
       // Create work item
       const insertStart = Date.now();
@@ -471,20 +461,14 @@ class WorkItemCoreService extends BaseWorkItemsService {
         throw NotFoundError('Failed to create work item');
       }
 
-      // Update path now that we have the work item ID
-      let path: string;
-      if (workItemData.parent_work_item_id && parentPath) {
-        path = `${parentPath}/${newWorkItem.work_item_id}`;
-      } else {
-        // Root level work item
-        path = `/${newWorkItem.work_item_id}`;
-        rootId = newWorkItem.work_item_id;
-      }
+      // Build and update path using dedicated helper
+      const path = buildWorkItemPath(newWorkItem.work_item_id, parentPath);
+      const finalRootId = parentPath ? rootId : newWorkItem.work_item_id;
 
       const updateStart = Date.now();
       await db
         .update(work_items)
-        .set({ path, root_work_item_id: rootId })
+        .set({ path, root_work_item_id: finalRootId })
         .where(eq(work_items.work_item_id, newWorkItem.work_item_id));
       const updateDuration = Date.now() - updateStart;
 
@@ -558,32 +542,41 @@ class WorkItemCoreService extends BaseWorkItemsService {
     const startTime = Date.now();
 
     try {
+      // Validate UUID format
+      validateUUID(workItemId, 'work item ID');
+
       // Get current work item to check permissions
       const targetWorkItem = await this.getWorkItemById(workItemId);
       if (!targetWorkItem) {
         throw NotFoundError('Work item not found');
       }
 
-      // Check update permission
+      // Check update permission using validators
       if (!this.canManageAll) {
         if (this.canManageOrg) {
-          if (!this.accessibleOrgIds.includes(targetWorkItem.organization_id)) {
-            throw AuthorizationError(
-              'You do not have permission to update work items in this organization'
-            );
-          }
+          validateOrganizationAccess(
+            this.userContext,
+            targetWorkItem.organization_id,
+            this.accessibleOrgIds,
+            this.canManageAll,
+            'update'
+          );
         } else if (this.canManageOwn) {
-          if (targetWorkItem.created_by !== this.userContext.user_id) {
-            throw AuthorizationError('You can only update your own work items');
-          }
+          validateOwnership(this.userContext, targetWorkItem.created_by, 'work items');
         } else {
-          throw AuthorizationError('You do not have permission to update work items');
+          validateManagementPermission(
+            this.canManageAll,
+            this.canManageOrg,
+            this.canManageOwn,
+            'update'
+          );
         }
       }
 
-      // Validate status transition if status is being changed
+      // Validate status transition if status is being changed using status service
       if (updateData.status_id && updateData.status_id !== targetWorkItem.status_id) {
-        await this.validateStatusTransition(
+        const statusService = createWorkItemStatusService(this.userContext);
+        await statusService.validateStatusTransition(
           targetWorkItem.work_item_type_id,
           targetWorkItem.status_id,
           updateData.status_id
@@ -665,26 +658,34 @@ class WorkItemCoreService extends BaseWorkItemsService {
     const startTime = Date.now();
 
     try {
+      // Validate UUID format
+      validateUUID(workItemId, 'work item ID');
+
       // Get current work item to check permissions
       const targetWorkItem = await this.getWorkItemById(workItemId);
       if (!targetWorkItem) {
         throw NotFoundError('Work item not found');
       }
 
-      // Check delete permission
+      // Check delete permission using validators
       if (!this.canManageAll) {
         if (this.canManageOrg) {
-          if (!this.accessibleOrgIds.includes(targetWorkItem.organization_id)) {
-            throw AuthorizationError(
-              'You do not have permission to delete work items in this organization'
-            );
-          }
+          validateOrganizationAccess(
+            this.userContext,
+            targetWorkItem.organization_id,
+            this.accessibleOrgIds,
+            this.canManageAll,
+            'delete'
+          );
         } else if (this.canManageOwn) {
-          if (targetWorkItem.created_by !== this.userContext.user_id) {
-            throw AuthorizationError('You can only delete your own work items');
-          }
+          validateOwnership(this.userContext, targetWorkItem.created_by, 'work items');
         } else {
-          throw AuthorizationError('You do not have permission to delete work items');
+          validateManagementPermission(
+            this.canManageAll,
+            this.canManageOrg,
+            this.canManageOwn,
+            'delete'
+          );
         }
       }
 
@@ -725,94 +726,6 @@ class WorkItemCoreService extends BaseWorkItemsService {
         userId: this.userContext.user_id,
         duration: Date.now() - startTime,
         component: 'core_service',
-      });
-
-      throw error;
-    }
-  }
-
-  /**
-   * Validate status transition is allowed
-   *
-   * Checks if transition from current status to desired status is permitted
-   * based on work_item_status_transitions configuration.
-   *
-   * Permissive by default: allows transition if no rule exists.
-   * Blocks only if explicit rule exists with is_allowed=false.
-   *
-   * @param typeId - Work item type ID
-   * @param fromStatusId - Current status ID
-   * @param toStatusId - Desired status ID
-   * @throws ValidationError if transition is not allowed
-   */
-  private async validateStatusTransition(
-    typeId: string,
-    fromStatusId: string,
-    toStatusId: string
-  ): Promise<void> {
-    const queryStart = Date.now();
-
-    try {
-      // Check if a transition rule exists for this type and status pair
-      const [transition] = await db
-        .select({
-          work_item_status_transition_id:
-            work_item_status_transitions.work_item_status_transition_id,
-          is_allowed: work_item_status_transitions.is_allowed,
-        })
-        .from(work_item_status_transitions)
-        .where(
-          and(
-            eq(work_item_status_transitions.work_item_type_id, typeId),
-            eq(work_item_status_transitions.from_status_id, fromStatusId),
-            eq(work_item_status_transitions.to_status_id, toStatusId)
-          )
-        )
-        .limit(1);
-      const queryDuration = Date.now() - queryStart;
-
-      // If no transition rule exists, allow the transition (permissive by default)
-      if (!transition) {
-        log.debug('no transition rule found, allowing status change', {
-          typeId,
-          fromStatusId,
-          toStatusId,
-          queryDuration,
-        });
-        return;
-      }
-
-      // If transition rule exists but is_allowed is false, reject the transition
-      if (!transition.is_allowed) {
-        log.warn('status transition not allowed', {
-          typeId,
-          fromStatusId,
-          toStatusId,
-          transitionId: transition.work_item_status_transition_id,
-          userId: this.userContext.user_id,
-          queryDuration,
-        });
-
-        throw ValidationError(
-          null,
-          'Status transition from current status to selected status is not allowed'
-        );
-      }
-
-      log.debug('status transition validated successfully', {
-        typeId,
-        fromStatusId,
-        toStatusId,
-        transitionId: transition.work_item_status_transition_id,
-        queryDuration,
-      });
-    } catch (error) {
-      const duration = Date.now() - queryStart;
-      log.error('status transition validation failed', error, {
-        typeId,
-        fromStatusId,
-        toStatusId,
-        duration,
       });
 
       throw error;

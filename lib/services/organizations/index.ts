@@ -12,6 +12,19 @@ export { createOrganizationMembersService } from './members-service';
 // Main service (composite that delegates to sub-services)
 export { createRBACOrganizationsService } from './organizations-service';
 
+// Utilities (batch operations, validation, mapping)
+export {
+  getBatchChildrenCounts,
+  getBatchEnrichmentData,
+  getBatchMemberCounts,
+} from './batch-operations';
+export {
+  validateChildrenCount,
+  validateCircularReference,
+  validateHierarchyDepth,
+} from './hierarchy-validator';
+export { mapPracticeInfo, validatePracticeUids } from './practice-mapper';
+
 // Types
 export type {
   CreateOrganizationData,

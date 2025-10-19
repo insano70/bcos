@@ -4,7 +4,7 @@ import { db, organizations, user_organizations, users } from '@/lib/db';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
 import { BaseOrganizationsService } from './base-service';
-import { getBatchMemberCounts } from './query-builder';
+import { getBatchMemberCounts } from './batch-operations';
 import type {
   OrganizationMember,
   OrganizationMembersServiceInterface,

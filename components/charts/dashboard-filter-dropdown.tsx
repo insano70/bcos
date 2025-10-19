@@ -3,6 +3,7 @@
 import { Popover, PopoverButton, PopoverPanel, Transition } from '@headlessui/react';
 import { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
+import HierarchySelect from '@/components/hierarchy-select';
 import type { DashboardUniversalFilters } from './dashboard-filter-bar';
 
 /**
@@ -19,11 +20,13 @@ import type { DashboardUniversalFilters } from './dashboard-filter-bar';
  * - Follows standard DropdownFilter pattern
  */
 
-interface Organization {
+interface Organization extends Record<string, unknown> {
   id?: string; // API returns 'id' field
   organization_id?: string; // Legacy field name
   name: string;
   slug: string;
+  parent_organization_id?: string | null;
+  is_active?: boolean;
 }
 
 interface DatePreset {
@@ -410,34 +413,21 @@ export default function DashboardFilterDropdown({
               <div className="p-4 space-y-4">
                 {/* Organization Filter - Top */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                    Organization
-                  </label>
-                  <select
-                    value={pendingFilters.organizationId || ''}
-                    onChange={(e) => handleOrganizationChange(e.target.value)}
+                  <HierarchySelect
+                    items={organizations}
+                    value={pendingFilters.organizationId}
+                    onChange={(id) => handleOrganizationChange((id as string) || '')}
+                    idField="id"
+                    nameField="name"
+                    parentField="parent_organization_id"
+                    activeField="is_active"
+                    label="Organization"
+                    placeholder="All Organizations"
                     disabled={loadingOrganizations}
-                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 disabled:opacity-50"
-                  >
-                    <option value="">All Organizations</option>
-                    {organizations.length > 0 ? (
-                      organizations.map((org) => {
-                        const orgId = org.id || org.organization_id;
-                        return (
-                          <option key={orgId} value={orgId}>
-                            {org.name} ({org.slug})
-                          </option>
-                        );
-                      })
-                    ) : (
-                      <option disabled>Loading organizations...</option>
-                    )}
-                  </select>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {loadingOrganizations
-                      ? 'Loading...'
-                      : `${organizations.length} organizations available`}
-                  </p>
+                    showSearch
+                    allowClear
+                    rootLabel="All Organizations"
+                  />
                 </div>
 
                 {/* Date Range Filter - Below (Dropdown) */}

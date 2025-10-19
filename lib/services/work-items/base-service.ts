@@ -2,13 +2,18 @@
 import { eq, inArray, isNull, like, or, type SQL } from 'drizzle-orm';
 
 // 2. Database
-import { db } from '@/lib/db';
-import { work_item_field_values, work_items } from '@/lib/db/schema';
+import { work_items } from '@/lib/db/schema';
 
 // 3. Base classes
 import { BaseRBACService } from '@/lib/rbac/base-service';
 
-// 4. Types
+// 4. Validation utilities
+import { validateAndSanitizeSearch } from '@/lib/utils/validators';
+
+// 5. Constants
+import { WORK_ITEM_CONSTRAINTS } from './constants';
+
+// 6. Types
 import type { PermissionName, UserContext } from '@/lib/types/rbac';
 import type { WorkItemQueryOptions, WorkItemWithDetails } from '@/lib/types/work-items';
 import type { WorkItemQueryResult } from './query-builder';
@@ -131,10 +136,17 @@ export abstract class BaseWorkItemsService extends BaseRBACService {
     }
 
     if (options.search) {
-      const searchCondition = or(
-        like(work_items.subject, `%${options.search}%`),
-        like(work_items.description, `%${options.search}%`)
+      // Validate and sanitize search string to prevent LIKE injection and enforce limits
+      const sanitizedSearch = validateAndSanitizeSearch(
+        options.search,
+        WORK_ITEM_CONSTRAINTS.MAX_SEARCH_LENGTH
       );
+
+      const searchCondition = or(
+        like(work_items.subject, `%${sanitizedSearch}%`),
+        like(work_items.description, `%${sanitizedSearch}%`)
+      );
+
       if (searchCondition) {
         conditions.push(searchCondition);
       }
@@ -190,42 +202,6 @@ export abstract class BaseWorkItemsService extends BaseRBACService {
       updated_at: result.updated_at,
       custom_fields: customFields,
     };
-  }
-
-  /**
-   * Get custom field values for multiple work items
-   *
-   * Fetches and organizes custom field values for efficient batch retrieval.
-   * Returns a map for O(1) lookup when mapping work items.
-   *
-   * @param workItemIds - Array of work item IDs
-   * @returns Map of work item ID to custom field values
-   */
-  protected async getCustomFieldValues(
-    workItemIds: string[]
-  ): Promise<Map<string, Record<string, unknown>>> {
-    if (workItemIds.length === 0) {
-      return new Map();
-    }
-
-    const fieldValues = await db
-      .select()
-      .from(work_item_field_values)
-      .where(inArray(work_item_field_values.work_item_id, workItemIds));
-
-    const customFieldsMap = new Map<string, Record<string, unknown>>();
-
-    for (const fieldValue of fieldValues) {
-      if (!customFieldsMap.has(fieldValue.work_item_id)) {
-        customFieldsMap.set(fieldValue.work_item_id, {});
-      }
-      const workItemFields = customFieldsMap.get(fieldValue.work_item_id);
-      if (workItemFields) {
-        workItemFields[fieldValue.work_item_field_id] = fieldValue.field_value;
-      }
-    }
-
-    return customFieldsMap;
   }
 
   /**

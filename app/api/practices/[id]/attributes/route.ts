@@ -8,7 +8,8 @@ import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { calculateChanges, log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
 import { createRBACPracticeAttributesService } from '@/lib/services/rbac-practice-attributes-service';
 import type { UserContext } from '@/lib/types/rbac';
-import { practiceAttributesUpdateSchema, practiceParamsSchema } from '@/lib/validations/practice';
+import { practiceParamsSchema } from '@/lib/validations/practice';
+import { practiceAttributesFormSchema } from '@/lib/validations/practice-form';
 
 const getPracticeAttributesHandler = async (
   request: NextRequest,
@@ -70,7 +71,7 @@ const updatePracticeAttributesHandler = async (
   try {
     const params = await extractRouteParams(args[0], practiceParamsSchema);
     practiceId = params.id;
-    const validatedData = await validateRequest(request, practiceAttributesUpdateSchema);
+    const validatedData = await validateRequest(request, practiceAttributesFormSchema);
 
     // Use the RBAC practice attributes service
     const attributesService = createRBACPracticeAttributesService(userContext);

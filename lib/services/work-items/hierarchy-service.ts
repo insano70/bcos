@@ -2,13 +2,14 @@
 import { and, asc, eq, inArray, isNull, type SQL } from 'drizzle-orm';
 
 // 2. Database
+import { db } from '@/lib/db';
 import { work_items } from '@/lib/db/schema';
 
 // 3. Logging
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 
 // 4. Errors
-import { NotFoundError } from '@/lib/api/responses/error';
+import { NotFoundError, ValidationError } from '@/lib/api/responses/error';
 
 // 5. Types
 import type { UserContext } from '@/lib/types/rbac';
@@ -16,7 +17,17 @@ import type { WorkItemWithDetails } from '@/lib/types/work-items';
 
 // 6. Internal services and utilities
 import { BaseWorkItemsService } from './base-service';
+import { WORK_ITEM_CONSTRAINTS } from './constants';
 import { getWorkItemQueryBuilder } from './query-builder';
+
+/**
+ * Hierarchy calculation result
+ */
+export interface HierarchyFields {
+  depth: number;
+  rootId: string | null;
+  parentPath: string | null;
+}
 
 /**
  * Work Items Hierarchy Service
@@ -253,6 +264,90 @@ class WorkItemHierarchyService extends BaseWorkItemsService {
       throw error;
     }
   }
+}
+
+// ============================================================
+// HIERARCHY CALCULATION HELPERS
+// ============================================================
+
+/**
+ * Calculate hierarchy fields for a new work item
+ *
+ * Determines depth, root work item ID, and parent path for a work item
+ * based on its parent. Used during work item creation.
+ *
+ * Validates:
+ * - Parent exists
+ * - Maximum depth not exceeded (10 levels)
+ *
+ * @param parentWorkItemId - Parent work item ID (null for root-level items)
+ * @returns Hierarchy fields for new work item
+ * @throws NotFoundError if parent work item not found
+ * @throws ValidationError if maximum nesting depth exceeded
+ */
+export async function calculateHierarchyFields(
+  parentWorkItemId: string | null
+): Promise<HierarchyFields> {
+  // Root-level work item (no parent)
+  if (!parentWorkItemId) {
+    return { depth: 0, rootId: null, parentPath: null };
+  }
+
+  const hierarchyStart = Date.now();
+  const [parentInfo] = await db
+    .select({
+      depth: work_items.depth,
+      root_work_item_id: work_items.root_work_item_id,
+      path: work_items.path,
+    })
+    .from(work_items)
+    .where(eq(work_items.work_item_id, parentWorkItemId))
+    .limit(1);
+
+  const hierarchyDuration = Date.now() - hierarchyStart;
+
+  if (!parentInfo) {
+    throw NotFoundError('Parent work item not found');
+  }
+
+  const depth = (parentInfo.depth || 0) + 1;
+
+  // Enforce maximum depth limit
+  if (depth > WORK_ITEM_CONSTRAINTS.MAX_HIERARCHY_DEPTH) {
+    throw ValidationError(
+      null,
+      `Maximum nesting depth of ${WORK_ITEM_CONSTRAINTS.MAX_HIERARCHY_DEPTH} levels exceeded`
+    );
+  }
+
+  const rootId = parentInfo.root_work_item_id || parentWorkItemId;
+  const parentPath = parentInfo.path;
+
+  log.debug('hierarchy fields calculated', {
+    parentId: parentWorkItemId,
+    depth,
+    rootId,
+    hierarchyDuration,
+  });
+
+  return { depth, rootId, parentPath };
+}
+
+/**
+ * Build path for new work item
+ *
+ * Constructs the hierarchical path for a work item based on its parent's path.
+ * Path format: /root-id/parent-id/work-item-id
+ *
+ * @param workItemId - New work item ID
+ * @param parentPath - Parent's path (null for root-level items)
+ * @returns Complete path for work item
+ */
+export function buildWorkItemPath(workItemId: string, parentPath: string | null): string {
+  if (parentPath) {
+    return `${parentPath}/${workItemId}`;
+  }
+  return `/${workItemId}`;
 }
 
 // ============================================================

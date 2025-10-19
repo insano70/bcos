@@ -1,102 +1,27 @@
 'use client';
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useId, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { useAuth } from '@/components/auth/rbac-auth-provider';
-import BusinessHoursEditor from '@/components/business-hours-editor';
-import ColorPicker from '@/components/color-picker';
-import ConditionsEditor from '@/components/conditions-editor';
-import GalleryManager from '@/components/gallery-manager';
-import ImageUpload from '@/components/image-upload';
-import ServicesEditor from '@/components/services-editor';
-import StaffListEmbedded from '@/components/staff-list-embedded';
+import { useQueryClient } from '@tanstack/react-query';
+import { useId, useState } from 'react';
 import Toast from '@/components/toast';
-import { apiClient } from '@/lib/api/client';
-import type { SuccessResponse } from '@/lib/api/responses/success';
 import type { Template } from '@/lib/hooks/use-templates';
 import type {
-  BusinessHours,
   Practice,
   PracticeAttributes,
   StaffMember,
+  BusinessHours,
 } from '@/lib/types/practice';
-
-interface PracticeFormData {
-  // Practice Settings
-  name: string;
-  template_id: string;
-
-  // Contact Information
-  phone: string;
-  email: string;
-  address_line1: string;
-  address_line2: string;
-  city: string;
-  state: string;
-  zip_code: string;
-
-  // Content
-  about_text: string;
-  mission_statement: string;
-  welcome_message: string;
-
-  // Services & Conditions
-  services: string[];
-  conditions_treated: string[];
-
-  // Business Hours
-  business_hours: BusinessHours;
-
-  // Images
-  logo_url: string;
-  hero_image_url: string;
-  gallery_images: string[];
-
-  // SEO
-  meta_title: string;
-  meta_description: string;
-
-  // Brand Colors
-  primary_color: string;
-  secondary_color: string;
-  accent_color: string;
-}
-
-async function fetchPracticeAttributes(practiceId: string): Promise<PracticeAttributes> {
-  const response = await apiClient.get<SuccessResponse<PracticeAttributes>>(
-    `/api/practices/${practiceId}/attributes`
-  );
-  return response.data;
-}
-
-async function updatePracticeAttributes(
-  practiceId: string,
-  data: Omit<PracticeFormData, 'template_id' | 'name'>,
-  _csrfToken?: string
-): Promise<SuccessResponse<PracticeAttributes>> {
-  console.log('🔄 updatePracticeAttributes called with practiceId:', practiceId);
-  console.log('🔄 Raw data:', JSON.stringify(data, null, 2));
-
-  // Clean the data - convert empty strings to undefined for optional fields
-  const cleanedData = Object.fromEntries(
-    Object.entries(data).map(([key, value]) => [key, value === '' ? undefined : value])
-  );
-
-  // Remove undefined values to avoid sending them
-  const filteredData = Object.fromEntries(
-    Object.entries(cleanedData).filter(([_, value]) => value !== undefined)
-  );
-
-  console.log('🔄 Cleaned data being sent:', JSON.stringify(filteredData, null, 2));
-
-  const result = await apiClient.put<SuccessResponse<PracticeAttributes>>(
-    `/api/practices/${practiceId}/attributes`,
-    filteredData
-  );
-  console.log('✅ Update successful:', result);
-  return result;
-}
+import { DEFAULT_BUSINESS_HOURS } from '@/lib/constants/practice';
+import { PracticeInfoSection } from './sections/practice-info-section';
+import { ContactInfoSection } from './sections/contact-info-section';
+import { ContentSection } from './sections/content-section';
+import { ServicesConditionsSection } from './sections/services-conditions-section';
+import { BusinessHoursSection } from './sections/business-hours-section';
+import { BrandingSection } from './sections/branding-section';
+import { StaffSection } from './sections/staff-section';
+import { SEOSection } from './sections/seo-section';
+import type { PracticeFormData } from './types';
+import { usePracticeConfigForm } from './hooks/use-practice-config-form';
+import { usePracticeMutations } from './hooks/use-practice-mutations';
 
 interface PracticeConfigFormProps {
   practice: Practice;
@@ -113,141 +38,59 @@ export default function PracticeConfigForm({
   const practiceId = practice.practice_id;
   const queryClient = useQueryClient();
   const uid = useId();
-  const { ensureCsrfToken } = useAuth();
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Toast state
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [showErrorToast, setShowErrorToast] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [currentPractice, setCurrentPractice] = useState(practice);
 
-  const { data: attributes, isLoading } = useQuery({
-    queryKey: ['practice-attributes', practiceId],
-    queryFn: () => fetchPracticeAttributes(practiceId),
-    enabled: !!practiceId,
-    initialData: initialAttributes,
+  // Use custom hooks for form management and mutations
+  const { form, isLoading, currentPractice, setCurrentPractice } = usePracticeConfigForm({
+    practice,
+    initialAttributes,
   });
+
+  const { mutateAsync, isPending } = usePracticeMutations({
+    practiceId,
+    currentPracticeName: currentPractice.name,
+    currentTemplateId: currentPractice.template_id,
+    onSuccess: () => {
+      // Update local practice state if name/template changed
+      const formValues = form.getValues();
+      if (
+        formValues.name !== currentPractice.name ||
+        formValues.template_id !== currentPractice.template_id
+      ) {
+        setCurrentPractice((prev) => ({
+          ...prev,
+          name: formValues.name,
+          template_id: formValues.template_id,
+        }));
+      }
+
+      // Show success toast
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 3000);
+    },
+    onError: (error) => {
+      // Show error toast
+      setErrorMessage(error.message || 'Failed to update practice settings');
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
+    },
+  });
+
+  const onSubmit = async (data: PracticeFormData) => {
+    await mutateAsync(data);
+  };
 
   const {
     register,
     handleSubmit,
-    reset,
     setValue,
     watch,
     formState: { errors, isDirty },
-  } = useForm<PracticeFormData>();
-
-  const logoUrl = watch('logo_url');
-  const heroImageUrl = watch('hero_image_url');
-
-  // Reset form when fresh data loads - but only when data actually changes, not when form becomes dirty
-  useEffect(() => {
-    console.log('🔄 useEffect triggered - attributes changed');
-    console.log('Attributes:', attributes);
-    console.log('Practice:', practice);
-
-    if (attributes) {
-      const resetData = {
-        name: currentPractice?.name || '',
-        template_id: currentPractice?.template_id || '',
-        phone: attributes.phone || '',
-        email: attributes.email || '',
-        address_line1: attributes.address_line1 || '',
-        address_line2: attributes.address_line2 || '',
-        city: attributes.city || '',
-        state: attributes.state || '',
-        zip_code: attributes.zip_code || '',
-        about_text: attributes.about_text || '',
-        mission_statement: attributes.mission_statement || '',
-        welcome_message: attributes.welcome_message || '',
-        services: attributes.services || [],
-        conditions_treated: attributes.conditions_treated || [],
-        business_hours: attributes.business_hours || {
-          sunday: { closed: true },
-          monday: { open: '09:00', close: '17:00', closed: false },
-          tuesday: { open: '09:00', close: '17:00', closed: false },
-          wednesday: { open: '09:00', close: '17:00', closed: false },
-          thursday: { open: '09:00', close: '17:00', closed: false },
-          friday: { open: '09:00', close: '17:00', closed: false },
-          saturday: { closed: true },
-        },
-        logo_url: attributes.logo_url || '',
-        hero_image_url: attributes.hero_image_url || '',
-        gallery_images: attributes.gallery_images || [],
-        meta_title: attributes.meta_title || '',
-        meta_description: attributes.meta_description || '',
-        primary_color: attributes.primary_color || '#00AEEF',
-        secondary_color: attributes.secondary_color || '#FFFFFF',
-        accent_color: attributes.accent_color || '#44C0AE',
-      };
-
-      console.log('📝 Resetting form with data:', resetData);
-      reset(resetData);
-    }
-  }, [attributes, currentPractice, reset, practice]);
-
-  const onSubmit = async (data: PracticeFormData) => {
-    console.log('💾 Form submit started with data:', data);
-    setIsSubmitting(true);
-
-    // Track practice changes for later use
-    const practiceChanges: Partial<Pick<PracticeFormData, 'name' | 'template_id'>> = {};
-    if (data.name !== practice?.name) {
-      practiceChanges.name = data.name;
-    }
-    if (data.template_id !== practice?.template_id) {
-      practiceChanges.template_id = data.template_id;
-    }
-
-    try {
-      // Get CSRF token once for all API calls
-      const csrfToken = await ensureCsrfToken();
-
-      // Update practice info (name, template) if changed
-      if (Object.keys(practiceChanges).length > 0) {
-        await apiClient.put(`/api/practices/${practiceId}`, practiceChanges);
-
-        // Update local practice state to reflect changes
-        setCurrentPractice((prev) => ({ ...prev, ...practiceChanges }));
-
-        // Invalidate the practices list
-        queryClient.invalidateQueries({ queryKey: ['practices'] });
-      }
-
-      // Update attributes (exclude name and template_id which are handled separately)
-      const { name: _name, template_id: _template_id, ...attributesData } = data;
-
-      // Make the API call (no optimistic update to avoid cache corruption)
-      const result = await updatePracticeAttributes(
-        practiceId,
-        attributesData,
-        csrfToken || undefined
-      );
-
-      // Extract actual data from API response
-      const actualData = result.data || result;
-
-      // Update cache with the actual data structure
-      queryClient.setQueryData(['practice-attributes', practiceId], actualData);
-      queryClient.invalidateQueries({ queryKey: ['practices'] });
-
-      // Show success message
-      setShowSuccessToast(true);
-      setTimeout(() => setShowSuccessToast(false), 3000);
-    } catch (error) {
-      console.error('Error updating practice:', error);
-      // Revert optimistic update on failure
-      queryClient.invalidateQueries({ queryKey: ['practice-attributes', practiceId] });
-      // Show error to user
-      setErrorMessage(
-        error instanceof Error ? error.message : 'Failed to update practice settings'
-      );
-      setShowErrorToast(true);
-      setTimeout(() => setShowErrorToast(false), 5000);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  } = form;
 
   const handlePreview = () => {
     // Open preview in new tab
@@ -292,447 +135,49 @@ export default function PracticeConfigForm({
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-        {/* Practice Name */}
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-            Practice Information
-          </h2>
+        {/* Practice Info Section */}
+        <PracticeInfoSection
+          register={register}
+          errors={errors}
+          allTemplates={allTemplates}
+          uid={uid}
+        />
 
-          <div>
-            <label
-              htmlFor={`${uid}-name`}
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-            >
-              Practice Name *
-            </label>
-            <input
-              id={`${uid}-name`}
-              type="text"
-              {...register('name', { required: 'Practice name is required' })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Enter practice name"
-            />
-            {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>}
-          </div>
-        </div>
+        {/* Branding Section */}
+        <BrandingSection
+          practiceId={practiceId}
+          watch={watch}
+          setValue={setValue}
+          queryClient={queryClient}
+        />
 
-        {/* Template Selection */}
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-            Website Template
-          </h2>
+        {/* Contact Info Section */}
+        <ContactInfoSection register={register} errors={errors} uid={uid} />
 
-          <div className="space-y-4">
-            <div>
-              <label
-                htmlFor={`${uid}-template_id`}
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Choose Template Design
-              </label>
-              <select
-                id={`${uid}-template_id`}
-                {...register('template_id', { required: 'Please select a template' })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">Select a template...</option>
-                {allTemplates.map((template) => (
-                  <option key={template.id} value={template.id}>
-                    {template.name} - {template.description}
-                  </option>
-                ))}
-              </select>
-              {errors.template_id && (
-                <p className="mt-1 text-sm text-red-600">{errors.template_id.message}</p>
-              )}
-            </div>
+        {/* Content Section */}
+        <ContentSection register={register} errors={errors} uid={uid} />
 
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-              <p className="text-sm text-blue-700 dark:text-blue-300">
-                💡 <strong>Tip:</strong> After saving, use the "Preview" button to see how your
-                website looks with the new template.
-              </p>
-            </div>
-          </div>
-        </div>
+        {/* Services & Conditions Section */}
+        <ServicesConditionsSection
+          services={watch('services') || []}
+          conditions={watch('conditions_treated') || []}
+          onServicesChange={(services) => setValue('services', services, { shouldDirty: true })}
+          onConditionsChange={(conditions) =>
+            setValue('conditions_treated', conditions, { shouldDirty: true })
+          }
+        />
 
-        {/* Brand Colors */}
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-            Brand Colors
-          </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-            Customize your website colors to match your practice's brand identity.
-          </p>
+        {/* Business Hours Section */}
+        <BusinessHoursSection
+          businessHours={(watch('business_hours') || DEFAULT_BUSINESS_HOURS) as BusinessHours}
+          onChange={(hours) => setValue('business_hours', hours, { shouldDirty: true })}
+        />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <ColorPicker
-              label="Primary Color"
-              value={watch('primary_color')}
-              onChange={(color) => setValue('primary_color', color, { shouldDirty: true })}
-              defaultColor="#00AEEF"
-              description="Main brand color for buttons and key elements"
-            />
-            <ColorPicker
-              label="Secondary Color"
-              value={watch('secondary_color')}
-              onChange={(color) => setValue('secondary_color', color, { shouldDirty: true })}
-              defaultColor="#FFFFFF"
-              description="Background and supporting elements"
-            />
-            <ColorPicker
-              label="Accent Color"
-              value={watch('accent_color')}
-              onChange={(color) => setValue('accent_color', color, { shouldDirty: true })}
-              defaultColor="#44C0AE"
-              description="Highlights and call-to-action elements"
-            />
-          </div>
+        {/* Staff Section */}
+        <StaffSection practiceId={practiceId} />
 
-          <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <div className="flex items-center space-x-3">
-              <div className="flex space-x-2">
-                <div
-                  className="w-8 h-8 rounded border border-gray-300 dark:border-gray-600"
-                  style={{ backgroundColor: watch('primary_color') || '#00AEEF' }}
-                />
-                <div
-                  className="w-8 h-8 rounded border border-gray-300 dark:border-gray-600"
-                  style={{ backgroundColor: watch('secondary_color') || '#FFFFFF' }}
-                />
-                <div
-                  className="w-8 h-8 rounded border border-gray-300 dark:border-gray-600"
-                  style={{ backgroundColor: watch('accent_color') || '#44C0AE' }}
-                />
-              </div>
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                Color preview - see how they work together
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Contact Information */}
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-            Contact Information
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label
-                htmlFor={`${uid}-phone`}
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Phone Number
-              </label>
-              <input
-                type="tel"
-                id={`${uid}-phone`}
-                {...register('phone')}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="(555) 123-4567"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor={`${uid}-email`}
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Email Address
-              </label>
-              <input
-                type="email"
-                id={`${uid}-email`}
-                {...register('email')}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="info@practice.com"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor={`${uid}-address_line1`}
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Address Line 1
-              </label>
-              <input
-                type="text"
-                id={`${uid}-address_line1`}
-                {...register('address_line1')}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="123 Medical Center Drive"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor={`${uid}-address_line2`}
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Address Line 2
-              </label>
-              <input
-                type="text"
-                id={`${uid}-address_line2`}
-                {...register('address_line2')}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Suite 200"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor={`${uid}-city`}
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                City
-              </label>
-              <input
-                type="text"
-                id={`${uid}-city`}
-                {...register('city')}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Denver"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor={`${uid}-state`}
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                State
-              </label>
-              <input
-                type="text"
-                id={`${uid}-state`}
-                {...register('state')}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="CO"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor={`${uid}-zip_code`}
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                ZIP Code
-              </label>
-              <input
-                type="text"
-                id={`${uid}-zip_code`}
-                {...register('zip_code')}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="80202"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-            Website Content
-          </h2>
-
-          <div className="space-y-6">
-            <div>
-              <label
-                htmlFor={`${uid}-welcome_message`}
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Welcome Message
-              </label>
-              <input
-                type="text"
-                id={`${uid}-welcome_message`}
-                {...register('welcome_message')}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Welcome to our rheumatology practice"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor={`${uid}-about_text`}
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                About Text
-              </label>
-              <textarea
-                id={`${uid}-about_text`}
-                {...register('about_text')}
-                rows={4}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Describe your practice, experience, and approach to care..."
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor={`${uid}-mission_statement`}
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Mission Statement
-              </label>
-              <textarea
-                id={`${uid}-mission_statement`}
-                {...register('mission_statement')}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Your practice's mission and values..."
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Services & Conditions */}
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-            Services & Conditions
-          </h2>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <ServicesEditor
-              services={watch('services') || []}
-              onChange={(services) => setValue('services', services, { shouldDirty: true })}
-              label="Services Offered"
-              placeholder="Enter service (e.g., Rheumatoid Arthritis Treatment)"
-            />
-
-            <ConditionsEditor
-              conditions={watch('conditions_treated') || []}
-              onChange={(conditions) =>
-                setValue('conditions_treated', conditions, { shouldDirty: true })
-              }
-              label="Conditions Treated"
-              placeholder="Enter condition (e.g., Lupus)"
-            />
-          </div>
-        </div>
-
-        {/* Business Hours */}
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-            Business Hours
-          </h2>
-
-          <BusinessHoursEditor
-            businessHours={
-              watch('business_hours') || {
-                sunday: { closed: true },
-                monday: { open: '09:00', close: '17:00', closed: false },
-                tuesday: { open: '09:00', close: '17:00', closed: false },
-                wednesday: { open: '09:00', close: '17:00', closed: false },
-                thursday: { open: '09:00', close: '17:00', closed: false },
-                friday: { open: '09:00', close: '17:00', closed: false },
-                saturday: { closed: true },
-              }
-            }
-            onChange={(hours) => setValue('business_hours', hours, { shouldDirty: true })}
-            label="Practice Hours"
-          />
-        </div>
-
-        {/* Images */}
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-            Images & Branding
-          </h2>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <ImageUpload
-              currentImage={logoUrl}
-              onImageUploaded={(_url) => {
-                // Service layer has already updated the database
-                // Standard pattern: invalidate and let React Query handle the rest
-                queryClient.invalidateQueries({ queryKey: ['practice-attributes', practiceId] });
-              }}
-              practiceId={practiceId}
-              type="logo"
-              label="Practice Logo"
-            />
-
-            <ImageUpload
-              currentImage={heroImageUrl}
-              onImageUploaded={(_url) => {
-                // Service layer has already updated the database
-                // Standard pattern: invalidate and let React Query handle the rest
-                queryClient.invalidateQueries({ queryKey: ['practice-attributes', practiceId] });
-              }}
-              practiceId={practiceId}
-              type="hero"
-              label="Hero/Banner Image"
-            />
-          </div>
-
-          {/* Gallery Images */}
-          <div className="mt-8">
-            <GalleryManager
-              images={watch('gallery_images') || []}
-              onImagesUpdated={(images) => {
-                // Update form field immediately for responsive UI
-                setValue('gallery_images', images, { shouldDirty: true });
-
-                // Standard pattern: invalidate cache to keep data in sync
-                queryClient.invalidateQueries({ queryKey: ['practice-attributes', practiceId] });
-              }}
-              practiceId={practiceId}
-              label="Practice Gallery"
-            />
-          </div>
-        </div>
-
-        {/* Staff Management */}
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
-          <StaffListEmbedded practiceId={practiceId} />
-        </div>
-
-        {/* SEO */}
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-xl p-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-            SEO Settings
-          </h2>
-
-          <div className="space-y-6">
-            <div>
-              <label
-                htmlFor={`${uid}-meta_title`}
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Meta Title
-              </label>
-              <input
-                type="text"
-                id={`${uid}-meta_title`}
-                {...register('meta_title')}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Practice Name - Expert Rheumatology Care"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor={`${uid}-meta_description`}
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-              >
-                Meta Description
-              </label>
-              <textarea
-                id={`${uid}-meta_description`}
-                {...register('meta_description')}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Brief description for search engines (160 characters max)..."
-                maxLength={160}
-              />
-            </div>
-          </div>
-        </div>
+        {/* SEO Section */}
+        <SEOSection register={register} errors={errors} uid={uid} />
 
         {/* Submit */}
         <div className="flex justify-between">
@@ -756,16 +201,16 @@ export default function PracticeConfigForm({
             <button
               type="button"
               className="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-              disabled={isSubmitting}
+              disabled={isPending}
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={!isDirty || isSubmitting}
+              disabled={!isDirty || isPending}
               className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? 'Saving...' : 'Save Changes'}
+              {isPending ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </div>
