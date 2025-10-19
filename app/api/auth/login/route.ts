@@ -63,9 +63,11 @@ const loginHandler = async (request: NextRequest) => {
 
         return createSuccessResponse(
           {
+            status: 'mfa_required',
             requiresMFA: true,
             tempToken: authResult.tempToken,
             challenge: authResult.challenge,
+            challengeId: authResult.challengeId,
             challenge_id: authResult.challengeId,
             csrfToken,
           },
@@ -89,10 +91,12 @@ const loginHandler = async (request: NextRequest) => {
 
         return createSuccessResponse(
           {
+            status: 'mfa_setup_optional',
             requiresMFASetup: true,
             canSkip: true,
             skipsRemaining: authResult.skipsRemaining,
             tempToken: authResult.tempToken,
+            user: authResult.user,
             csrfToken,
           },
           `MFA setup recommended. You have ${authResult.skipsRemaining} skip${authResult.skipsRemaining === 1 ? '' : 's'} remaining.`
@@ -114,9 +118,12 @@ const loginHandler = async (request: NextRequest) => {
 
         return createSuccessResponse(
           {
+            status: 'mfa_setup_enforced',
             requiresMFASetup: true,
             canSkip: false,
+            skipsRemaining: 0,
             tempToken: authResult.tempToken,
+            user: authResult.user,
             csrfToken,
           },
           'MFA setup is required to complete login.'

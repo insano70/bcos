@@ -2,7 +2,7 @@
 
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
 import type { PublicKeyCredentialRequestOptionsJSON } from '@simplewebauthn/browser';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   authenticatePasskey,
   getWebAuthnErrorMessage,
@@ -42,6 +42,7 @@ export default function MFAVerifyDialog({
 }: MFAVerifyDialogProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasAttemptedRef = useRef(false);
 
   const handleVerifyPasskey = useCallback(async () => {
     if (!isWebAuthnSupported()) {
@@ -90,15 +91,24 @@ export default function MFAVerifyDialog({
     }
   }, [challenge, tempToken, csrfToken, challengeId, onSuccess]);
 
-  // Auto-trigger passkey verification when dialog opens
+  // Auto-trigger passkey verification when dialog opens (only once)
   useEffect(() => {
-    if (isOpen && !isLoading) {
+    if (isOpen && !isLoading && !hasAttemptedRef.current) {
+      hasAttemptedRef.current = true;
       handleVerifyPasskey();
     }
-  }, [isOpen, handleVerifyPasskey, isLoading]);
+  }, [isOpen, isLoading, handleVerifyPasskey]);
+
+  // Reset attempt tracking when dialog closes
+  useEffect(() => {
+    if (!isOpen) {
+      hasAttemptedRef.current = false;
+    }
+  }, [isOpen]);
 
   const handleRetry = () => {
     setError(null);
+    hasAttemptedRef.current = false; // Reset attempt flag to allow retry
     handleVerifyPasskey();
   };
 
