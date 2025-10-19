@@ -8,6 +8,7 @@ export const userCreateSchema = z.object({
   first_name: createNameSchema('First name'), // ✅ ENHANCED: XSS-safe name validation
   last_name: createNameSchema('Last name'), // ✅ ENHANCED: XSS-safe name validation
   password: passwordSchema, // ✅ CENTRALIZED: Uses 12-char policy from single source
+  organization_id: z.string().uuid('Invalid organization ID'), // ✅ REQUIRED: Users must belong to an organization
   role_ids: z.array(z.string().uuid('Invalid role ID')).min(1, 'At least one role is required'),
   email_verified: z.boolean().optional().default(false),
   is_active: z.boolean().optional().default(true),

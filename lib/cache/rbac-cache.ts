@@ -40,7 +40,8 @@ class RbacCacheService extends CacheService {
   // TTL constants
   private readonly USER_CONTEXT_TTL = 300; // 5 minutes
   private readonly ROLE_PERMISSIONS_TTL = 86400; // 24 hours
-  private readonly ORGANIZATION_HIERARCHY_TTL = 86400; // 24 hours (organizations change infrequently)
+  private readonly ORGANIZATION_HIERARCHY_TTL = 30 * 86400; // 30 days (self-refreshing, long TTL as safety net)
+  private readonly ORGANIZATION_STALE_THRESHOLD_HOURS = 4; // Trigger background refresh after 4 hours
 
   /**
    * Get user context from cache
@@ -206,19 +207,63 @@ class RbacCacheService extends CacheService {
   /**
    * Get organization hierarchy from cache
    *
-   * Caches all active organizations for 24 hours since org structure changes infrequently.
+   * SELF-REFRESHING CACHE:
+   * - Never expires (30-day TTL as safety net)
+   * - Triggers background refresh if data is >4 hours old (stale)
+   * - Returns stale data immediately (non-blocking)
+   * - Background refresh is rate-limited (max once per 4 hours)
+   *
    * Used by OrganizationHierarchyService.
    *
-   * @returns Array of organizations or null if not cached
+   * @returns Cached organizations with metadata, or null if cold cache
    */
   async getOrganizationHierarchy(): Promise<import('@/lib/types/rbac').Organization[] | null> {
     // Key: rbac:org:hierarchy:all
     const key = this.buildKey('org', 'hierarchy', 'all');
-    return await this.get<import('@/lib/types/rbac').Organization[]>(key);
+    const cached = await this.get<{
+      organizations: import('@/lib/types/rbac').Organization[];
+      lastWarmed: string;
+    }>(key);
+
+    if (!cached) {
+      // Cold cache - no data available
+      return null;
+    }
+
+    // Check staleness
+    const lastWarmTime = new Date(cached.lastWarmed).getTime();
+    const ageMs = Date.now() - lastWarmTime;
+    const ageHours = ageMs / (1000 * 60 * 60);
+
+    if (ageHours > this.ORGANIZATION_STALE_THRESHOLD_HOURS) {
+      // Stale cache detected - set flag for background refresh
+      // OrganizationHierarchyService checks this flag and triggers refresh
+      const staleKey = this.buildKey('org', 'hierarchy', 'stale');
+      const client = this.getClient();
+      if (client) {
+        // Set stale flag (fire-and-forget, expires in 5 minutes)
+        client.setex(staleKey, 300, Date.now().toString()).catch(() => {
+          // Ignore errors - non-critical
+        });
+
+        log.debug('Organization hierarchy cache is stale', {
+          component: 'rbac-cache',
+          ageHours: Math.round(ageHours * 10) / 10,
+          threshold: this.ORGANIZATION_STALE_THRESHOLD_HOURS,
+          staleFlagSet: true,
+        });
+      }
+    }
+
+    // Return cached data (even if stale - non-blocking)
+    return cached.organizations;
   }
 
   /**
-   * Cache organization hierarchy
+   * Cache organization hierarchy with metadata
+   *
+   * Stores organizations with lastWarmed timestamp for staleness detection.
+   * 30-day TTL acts as safety net (should be refreshed every 4 hours).
    *
    * @param organizations - Array of all active organizations
    * @returns true if successful
@@ -228,7 +273,28 @@ class RbacCacheService extends CacheService {
   ): Promise<boolean> {
     // Key: rbac:org:hierarchy:all
     const key = this.buildKey('org', 'hierarchy', 'all');
-    return await this.set(key, organizations, { ttl: this.ORGANIZATION_HIERARCHY_TTL });
+
+    // Store with metadata for staleness detection
+    const cacheData = {
+      organizations,
+      lastWarmed: new Date().toISOString(),
+    };
+
+    const success = await this.set(key, cacheData, { ttl: this.ORGANIZATION_HIERARCHY_TTL });
+
+    if (success) {
+      // Clear stale flag if it exists
+      const staleKey = this.buildKey('org', 'hierarchy', 'stale');
+      await this.del(staleKey);
+
+      log.info('Organization hierarchy cached', {
+        component: 'rbac-cache',
+        organizationCount: organizations.length,
+        ttlDays: Math.round(this.ORGANIZATION_HIERARCHY_TTL / 86400),
+      });
+    }
+
+    return success;
   }
 
   /**

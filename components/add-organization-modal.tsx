@@ -2,15 +2,12 @@
 
 import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useId, useMemo, useState } from 'react';
+import { useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import {
-  type Organization,
-  useCreateOrganization,
-  useOrganizations,
-} from '@/lib/hooks/use-organizations';
+import { useCreateOrganization, useOrganizations } from '@/lib/hooks/use-organizations';
 import { createSafeTextSchema } from '@/lib/validations/sanitization';
+import HierarchySelect from './hierarchy-select';
 import Toast from './toast';
 
 const createOrganizationSchema = z.object({
@@ -32,12 +29,6 @@ interface AddOrganizationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
-}
-
-interface HierarchicalOrg {
-  id: string;
-  name: string;
-  level: number;
 }
 
 export default function AddOrganizationModal({
@@ -72,40 +63,6 @@ export default function AddOrganizationModal({
   });
 
   const _name = watch('name');
-
-  // Build hierarchical organization list
-  const hierarchicalOrgs = useMemo(() => {
-    // Filter active organizations only
-    const activeOrgs = organizations.filter((org) => org.is_active);
-
-    // Build hierarchy recursively
-    const buildHierarchy = (
-      orgs: Organization[],
-      parentId: string | null | undefined = null,
-      level = 0
-    ): HierarchicalOrg[] => {
-      const children = orgs.filter((org) => {
-        // Match parent - handle null/undefined comparison properly
-        if (parentId === null || parentId === undefined) {
-          return org.parent_organization_id === null || org.parent_organization_id === undefined;
-        }
-        return org.parent_organization_id === parentId;
-      });
-
-      return children.flatMap((org) => {
-        const item: HierarchicalOrg = {
-          id: org.id,
-          name: org.name,
-          level,
-        };
-
-        const descendants = buildHierarchy(orgs, org.id, level + 1);
-        return [item, ...descendants];
-      });
-    };
-
-    return buildHierarchy(activeOrgs);
-  }, [organizations]);
 
   // Auto-generate slug from name
   const handleNameChange = (value: string) => {
@@ -258,36 +215,22 @@ export default function AddOrganizationModal({
                   )}
                 </div>
 
-                <div>
-                  <label
-                    htmlFor={parentOrgId}
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-                  >
-                    Parent Organization
-                  </label>
-                  <select
-                    id={parentOrgId}
-                    {...register('parent_organization_id')}
-                    disabled={isSubmitting}
-                    className="form-select w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 disabled:opacity-50"
-                  >
-                    <option value="">None (Root Organization)</option>
-                    {hierarchicalOrgs.map((org) => (
-                      <option key={org.id} value={org.id}>
-                        {'\u00A0'.repeat(org.level * 4)}
-                        {org.name}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Optional: Select a parent organization to create a hierarchy
-                  </p>
-                  {errors.parent_organization_id && (
-                    <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                      {errors.parent_organization_id.message}
-                    </p>
-                  )}
-                </div>
+                <HierarchySelect
+                  items={organizations}
+                  value={watch('parent_organization_id') || undefined}
+                  onChange={(id) => setValue('parent_organization_id', id as string || null)}
+                  idField="id"
+                  nameField="name"
+                  parentField="parent_organization_id"
+                  activeField="is_active"
+                  label="Parent Organization"
+                  placeholder="None (Root Organization)"
+                  disabled={isSubmitting}
+                  showSearch
+                  allowClear
+                  rootLabel="None (Root Organization)"
+                  error={errors.parent_organization_id?.message}
+                />
 
                 <div>
                   <label

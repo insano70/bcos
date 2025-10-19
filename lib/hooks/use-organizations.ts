@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 
-export interface Organization {
+export interface Organization extends Record<string, unknown> {
   id: string;
   name: string;
   slug: string;

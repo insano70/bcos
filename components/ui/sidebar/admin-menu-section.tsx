@@ -141,8 +141,11 @@ export function AdminMenuSection() {
                       </li>
                     </ProtectedComponent>
 
-                    {/* Data Sources - Protected by Data Sources RBAC */}
-                    <ProtectedComponent permission="data-sources:read:organization">
+                    {/* Data Sources - Protected by Data Sources RBAC (Configure requires manage/create permissions) */}
+                    <ProtectedComponent
+                      permissions={['data-sources:manage:all', 'data-sources:create:all']}
+                      requireAll={false}
+                    >
                       <li className="mb-1 last:mb-0">
                         <SidebarLink href="/configure/data-sources">
                           <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
@@ -169,65 +172,67 @@ export function AdminMenuSection() {
           }}
         </SidebarLinkGroup>
 
-        {/* Monitor Dropdown */}
-        <SidebarLinkGroup open={segments.includes('admin')}>
-          {(handleClick, open) => {
-            return (
-              <>
-                <a
-                  href="#0"
-                  className={`block text-gray-800 dark:text-gray-100 truncate transition ${
-                    segments.includes('admin') ? '' : 'hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    expandOnly ? setSidebarExpanded(true) : handleClick();
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <svg
-                        className={`shrink-0 fill-current ${segments.includes('admin') ? 'text-violet-500' : 'text-gray-400 dark:text-gray-500'}`}
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 16 16"
-                      >
-                        <path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm0 12c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm1-3H7V4h2v5z" />
-                      </svg>
-                      <span className="text-sm font-medium ml-4 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
-                        Monitor
-                      </span>
+        {/* Monitor Dropdown - Only show if user has Command Center access */}
+        <ProtectedComponent permission="analytics:read:all">
+          <SidebarLinkGroup open={segments.includes('admin')}>
+            {(handleClick, open) => {
+              return (
+                <>
+                  <a
+                    href="#0"
+                    className={`block text-gray-800 dark:text-gray-100 truncate transition ${
+                      segments.includes('admin') ? '' : 'hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      expandOnly ? setSidebarExpanded(true) : handleClick();
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <svg
+                          className={`shrink-0 fill-current ${segments.includes('admin') ? 'text-violet-500' : 'text-gray-400 dark:text-gray-500'}`}
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 16 16"
+                        >
+                          <path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm0 12c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm1-3H7V4h2v5z" />
+                        </svg>
+                        <span className="text-sm font-medium ml-4 lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                          Monitor
+                        </span>
+                      </div>
+                      {/* Icon */}
+                      <div className="flex shrink-0 ml-2">
+                        <svg
+                          className={`w-3 h-3 shrink-0 ml-1 fill-current text-gray-400 dark:text-gray-500 ${open && 'rotate-180'}`}
+                          viewBox="0 0 12 12"
+                        >
+                          <path d="M5.9 11.4L.5 6l1.4-1.4 4 4 4-4L11.3 6z" />
+                        </svg>
+                      </div>
                     </div>
-                    {/* Icon */}
-                    <div className="flex shrink-0 ml-2">
-                      <svg
-                        className={`w-3 h-3 shrink-0 ml-1 fill-current text-gray-400 dark:text-gray-500 ${open && 'rotate-180'}`}
-                        viewBox="0 0 12 12"
-                      >
-                        <path d="M5.9 11.4L.5 6l1.4-1.4 4 4 4-4L11.3 6z" />
-                      </svg>
-                    </div>
+                  </a>
+                  <div className="lg:hidden lg:sidebar-expanded:block 2xl:block">
+                    <ul className={`pl-8 mt-1 ${!open && 'hidden'}`}>
+                      {/* Command Center - Protected by Admin RBAC */}
+                      <ProtectedComponent permission="analytics:read:all">
+                        <li className="mb-1 last:mb-0">
+                          <SidebarLink href="/admin/command-center">
+                            <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
+                              Command Center
+                            </span>
+                          </SidebarLink>
+                        </li>
+                      </ProtectedComponent>
+                    </ul>
                   </div>
-                </a>
-                <div className="lg:hidden lg:sidebar-expanded:block 2xl:block">
-                  <ul className={`pl-8 mt-1 ${!open && 'hidden'}`}>
-                    {/* Command Center - Protected by Admin RBAC */}
-                    <ProtectedComponent permission="analytics:read:all">
-                      <li className="mb-1 last:mb-0">
-                        <SidebarLink href="/admin/command-center">
-                          <span className="text-sm font-medium lg:opacity-0 lg:sidebar-expanded:opacity-100 2xl:opacity-100 duration-200">
-                            Command Center
-                          </span>
-                        </SidebarLink>
-                      </li>
-                    </ProtectedComponent>
-                  </ul>
-                </div>
-              </>
-            );
-          }}
-        </SidebarLinkGroup>
+                </>
+              );
+            }}
+          </SidebarLinkGroup>
+        </ProtectedComponent>
       </ul>
     </div>
   );

@@ -130,8 +130,16 @@ const createUserHandler = async (request: NextRequest, userContext: UserContext)
 
   try {
     const validatedData = await validateRequest(request, userCreateSchema);
-    const { email, password, first_name, last_name, email_verified, is_active, role_ids } =
-      validatedData;
+    const {
+      email,
+      password,
+      first_name,
+      last_name,
+      organization_id,
+      email_verified,
+      is_active,
+      role_ids,
+    } = validatedData;
 
     // Create services
     const usersService = createRBACUsersService(userContext);
@@ -143,7 +151,7 @@ const createUserHandler = async (request: NextRequest, userContext: UserContext)
       password,
       first_name,
       last_name,
-      organization_id: userContext.current_organization_id || '',
+      organization_id,
       email_verified: email_verified || false,
       is_active: is_active || true,
     });

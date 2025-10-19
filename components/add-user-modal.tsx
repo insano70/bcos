@@ -7,8 +7,10 @@ import { useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { passwordSchema } from '@/lib/config/password-policy';
+import { useOrganizations } from '@/lib/hooks/use-organizations';
 import { useCreateUser } from '@/lib/hooks/use-users';
 import { createNameSchema, safeEmailSchema } from '@/lib/validations/sanitization';
+import HierarchySelect from './hierarchy-select';
 import RoleSelector from './role-selector';
 import Toast from './toast';
 
@@ -20,6 +22,7 @@ const createUserSchema = z
     email: safeEmailSchema,
     password: passwordSchema, // ✅ CENTRALIZED: Uses 12-char policy from single source
     confirm_password: z.string(),
+    organization_id: z.string().min(1, 'Please select an organization'),
     role_ids: z.array(z.string()).min(1, 'Please select at least one role'),
     email_verified: z.boolean().optional(),
     is_active: z.boolean().optional(),
@@ -41,6 +44,7 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const createUser = useCreateUser();
+  const { data: organizations = [] } = useOrganizations();
 
   const firstNameId = useId();
   const lastNameId = useId();
@@ -62,6 +66,7 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
     defaultValues: {
       email_verified: false,
       is_active: true,
+      organization_id: '',
       role_ids: [],
     },
   });
@@ -81,6 +86,7 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
         password: data.password,
         first_name: data.first_name,
         last_name: data.last_name,
+        organization_id: data.organization_id,
         email_verified: data.email_verified || false,
         is_active: data.is_active || true,
         role_ids: data.role_ids,
@@ -244,6 +250,25 @@ export default function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModa
                     </p>
                   )}
                 </div>
+
+                {/* Organization */}
+                <HierarchySelect
+                  items={organizations}
+                  value={watch('organization_id')}
+                  onChange={(id) => setValue('organization_id', id as string || '', { shouldValidate: true })}
+                  idField="id"
+                  nameField="name"
+                  parentField="parent_organization_id"
+                  activeField="is_active"
+                  label="Organization"
+                  placeholder="Select an organization"
+                  required
+                  disabled={isSubmitting}
+                  showSearch
+                  allowClear={false}
+                  rootLabel="None (Root Organization)"
+                  error={errors.organization_id?.message}
+                />
 
                 {/* Password */}
                 <div>

@@ -41,7 +41,8 @@ export default function Sidebar({ variant = 'default' }: { variant?: 'default' |
     'organizations:delete:organization',
     'work-items:manage:organization',
     'analytics:read:all',
-    'data-sources:read:organization',
+    'data-sources:manage:all',
+    'data-sources:create:all',
   ]);
 
   // Check if user has any permissions to see Work section items

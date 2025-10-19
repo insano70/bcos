@@ -20,7 +20,7 @@
  */
 
 // Third-party libraries
-import { eq, gt, or, sql } from 'drizzle-orm';
+import { eq, gt, inArray, or, sql } from 'drizzle-orm';
 
 // Database
 import { account_security, db, login_attempts, users } from '@/lib/db';
@@ -100,6 +100,10 @@ class SecurityAtRiskUsersService {
       const twentyFourHoursAgo = new Date(now.getTime() - SECURITY_MONITORING_TIME.MS_PER_DAY);
       const sevenDaysAgo = new Date(now.getTime() - SECURITY_MONITORING_TIME.MS_PER_WEEK);
 
+      // Convert to ISO strings for SQL queries
+      const twentyFourHoursAgoISO = twentyFourHoursAgo.toISOString();
+      const sevenDaysAgoISO = sevenDaysAgo.toISOString();
+
       // Query users with security issues
       const queryStart = Date.now();
       const atRiskUsersData = await db
@@ -140,11 +144,11 @@ class SecurityAtRiskUsersService {
           ? await db
               .select({
                 userId: login_attempts.user_id,
-                attempts24h: sql<string>`COUNT(*) FILTER (WHERE ${login_attempts.attempted_at} > ${twentyFourHoursAgo})`,
-                uniqueIPs7d: sql<string>`COUNT(DISTINCT ${login_attempts.ip_address}) FILTER (WHERE ${login_attempts.attempted_at} > ${sevenDaysAgo})`,
+                attempts24h: sql<string>`COUNT(*) FILTER (WHERE ${login_attempts.attempted_at} > ${sql.raw(`'${twentyFourHoursAgoISO}'`)})`,
+                uniqueIPs7d: sql<string>`COUNT(DISTINCT ${login_attempts.ip_address}) FILTER (WHERE ${login_attempts.attempted_at} > ${sql.raw(`'${sevenDaysAgoISO}'`)})`,
               })
               .from(login_attempts)
-              .where(sql`${login_attempts.user_id} = ANY(${userIds})`)
+              .where(inArray(login_attempts.user_id, userIds))
               .groupBy(login_attempts.user_id)
           : [];
 

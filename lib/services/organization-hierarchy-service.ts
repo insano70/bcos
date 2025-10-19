@@ -25,6 +25,7 @@ import { eq } from 'drizzle-orm';
 import { rbacCache } from '@/lib/cache';
 import { db, organizations } from '@/lib/db';
 import { log } from '@/lib/logger';
+import { getRedisClient } from '@/lib/redis';
 import type { Organization } from '@/lib/types/rbac';
 
 /**
@@ -32,6 +33,11 @@ import type { Organization } from '@/lib/types/rbac';
  * If depth exceeds this value, circular reference is assumed
  */
 const MAX_ORGANIZATION_HIERARCHY_DEPTH = 10;
+
+/**
+ * Refresh rate limiting constants
+ */
+const REFRESH_RATE_LIMIT_SECONDS = 4 * 60 * 60; // 4 hours
 
 /**
  * Organization Hierarchy Service
@@ -42,10 +48,12 @@ export class OrganizationHierarchyService {
    * Get all organizations from database with Redis caching
    *
    * This loads the complete organization tree for hierarchy traversal.
-   * Results cached for 24 hours since organization structure changes infrequently.
    *
-   * Cache Strategy:
-   * - Check Redis cache first (24-hour TTL)
+   * SELF-REFRESHING CACHE STRATEGY:
+   * - Cache never expires (30-day TTL as safety net)
+   * - Check for staleness flag (set by rbac-cache when data >4 hours old)
+   * - Trigger background refresh if stale (fire-and-forget, rate-limited)
+   * - Return cached data immediately (non-blocking)
    * - On cache miss: query database and cache result
    * - Invalidate cache on org create/update/delete
    *
@@ -64,6 +72,10 @@ export class OrganizationHierarchyService {
           duration,
           cacheHit: true,
         });
+
+        // Check for stale flag and trigger background refresh if needed
+        this.triggerBackgroundRefreshIfStale();
+
         return cached;
       }
 
@@ -361,6 +373,134 @@ export class OrganizationHierarchyService {
     const orgs = allOrganizations || (await this.getAllOrganizations());
 
     return orgs.filter((org) => !org.parent_organization_id && org.is_active && !org.deleted_at);
+  }
+
+  /**
+   * Trigger background refresh if cache is stale
+   *
+   * SELF-HEALING MECHANISM:
+   * - Checks for stale flag (set by rbac-cache when data >4 hours old)
+   * - Acquires distributed lock to prevent concurrent refreshes
+   * - Refreshes organization hierarchy in background (non-blocking)
+   * - Rate limited to max once per 4 hours
+   *
+   * Fire-and-forget: Errors are logged but don't throw
+   */
+  private triggerBackgroundRefreshIfStale(): void {
+    // Fire and forget (non-blocking)
+    this.checkAndRefreshStaleCache().catch((error) => {
+      log.warn('Background organization hierarchy refresh failed (non-blocking)', {
+        error: error instanceof Error ? error.message : String(error),
+        component: 'organization-hierarchy',
+      });
+    });
+  }
+
+  /**
+   * Check stale flag and refresh cache if needed
+   * INTERNAL: Called by triggerBackgroundRefreshIfStale
+   */
+  private async checkAndRefreshStaleCache(): Promise<void> {
+    const client = getRedisClient();
+    if (!client) {
+      log.debug('Redis not available, skipping stale check', {
+        component: 'organization-hierarchy',
+      });
+      return;
+    }
+
+    // Check if stale flag exists (set by rbac-cache)
+    const staleKey = 'rbac:org:hierarchy:stale';
+    const staleFlag = await client.get(staleKey);
+
+    if (!staleFlag) {
+      // Cache not stale, no refresh needed
+      return;
+    }
+
+    // === RATE LIMITING CHECK ===
+    // Acquire distributed lock to prevent concurrent refreshes (max once per 4 hours)
+    const rateLimitKey = 'rbac:org:hierarchy:refresh-lock';
+    const acquired = await client.set(
+      rateLimitKey,
+      Date.now().toString(),
+      'EX',
+      REFRESH_RATE_LIMIT_SECONDS, // 4 hour expiration
+      'NX' // Only set if not exists
+    );
+
+    if (!acquired) {
+      // Another process already refreshing
+      const ttlRemaining = await client.ttl(rateLimitKey);
+      log.debug('Organization hierarchy refresh already in progress', {
+        component: 'organization-hierarchy',
+        cooldownRemaining: ttlRemaining,
+        cooldownRemainingHours: Math.round(ttlRemaining / 3600),
+      });
+      return;
+    }
+
+    // Lock acquired - perform refresh
+    log.info('Background organization hierarchy refresh started', {
+      component: 'organization-hierarchy',
+      reason: 'stale_cache',
+    });
+
+    const startTime = Date.now();
+
+    try {
+      // Query fresh data from database
+      const orgs = await db
+        .select({
+          organization_id: organizations.organization_id,
+          name: organizations.name,
+          slug: organizations.slug,
+          parent_organization_id: organizations.parent_organization_id,
+          practice_uids: organizations.practice_uids,
+          is_active: organizations.is_active,
+          created_at: organizations.created_at,
+          updated_at: organizations.updated_at,
+          deleted_at: organizations.deleted_at,
+        })
+        .from(organizations)
+        .where(eq(organizations.is_active, true));
+
+      const transformedOrgs = orgs.map((org) => ({
+        organization_id: org.organization_id,
+        name: org.name,
+        slug: org.slug,
+        parent_organization_id: org.parent_organization_id || undefined,
+        practice_uids: org.practice_uids || undefined,
+        is_active: org.is_active ?? true,
+        created_at: org.created_at ?? new Date(),
+        updated_at: org.updated_at ?? new Date(),
+        deleted_at: org.deleted_at || undefined,
+      }));
+
+      // Update cache with fresh data
+      await rbacCache.setOrganizationHierarchy(transformedOrgs);
+
+      const duration = Date.now() - startTime;
+
+      log.info('Background organization hierarchy refresh completed', {
+        component: 'organization-hierarchy',
+        organizationCount: transformedOrgs.length,
+        duration,
+        success: true,
+      });
+    } catch (error) {
+      log.error(
+        'Background organization hierarchy refresh failed',
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          component: 'organization-hierarchy',
+          duration: Date.now() - startTime,
+        }
+      );
+
+      // Release lock on error so retry can happen sooner
+      await client.del(rateLimitKey);
+    }
   }
 }
 
