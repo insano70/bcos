@@ -49,7 +49,6 @@ export default function EditOrganizationModal({
 
   const nameId = useId();
   const slugId = useId();
-  const parentOrgId = useId();
   const practiceUidsId = useId();
   const isActiveId = useId();
 
