@@ -116,23 +116,30 @@ class DataSourceCacheService {
 
     // Try cache first (unless nocache=true)
     if (!nocache) {
+      const cacheStart = Date.now();
       const cached = await cacheOperations.getCached(keyComponents);
+      const cacheDuration = Date.now() - cacheStart;
 
       if (cached) {
         // Apply in-memory filters (ORDER MATTERS: RBAC first for security)
         let filteredRows = cached.rows;
 
         // 1. RBAC filtering (SECURITY CRITICAL - applied server-side before returning to client)
+        const rbacStart = Date.now();
         filteredRows = rbacFilterService.applyRBACFilter(filteredRows, context, userContext);
+        const rbacDuration = Date.now() - rbacStart;
 
         // 2. Date range filtering (in-memory for maximum cache reuse)
+        let dateFilterDuration = 0;
         if (params.startDate || params.endDate) {
+          const dateStart = Date.now();
           filteredRows = await inMemoryFilterService.applyDateRangeFilter(
             filteredRows,
             params.dataSourceId,
             params.startDate,
             params.endDate
           );
+          dateFilterDuration = Date.now() - dateStart;
         }
 
         // 3. CRITICAL FIX: Apply advanced filters (dashboard/organization filters) in-memory
@@ -164,6 +171,12 @@ class DataSourceCacheService {
           finalRowCount: filteredRows.length,
           duration,
           slow: duration > SLOW_THRESHOLDS.API_OPERATION,
+          timingBreakdown: {
+            cacheFetch: cacheDuration,
+            rbacFilter: rbacDuration,
+            dateFilter: dateFilterDuration,
+            total: duration,
+          },
           userId: context.user_id,
           permissionScope: context.permission_scope,
           security: 'filtered_before_client_send',

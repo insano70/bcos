@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { hashPassword, needsRehash, verifyPassword } from '@/lib/auth/password';
+import { hashPassword, verifyPassword } from '@/lib/auth/password';
 
 // Mock bcrypt functions
 vi.mock('bcrypt', () => ({
@@ -135,59 +135,6 @@ describe('password authentication logic', () => {
       expect(consoleSpy).toHaveBeenCalled();
 
       consoleSpy.mockRestore();
-    });
-  });
-
-  describe('needsRehash', () => {
-    it('should return false for bcrypt hashes starting with $2', () => {
-      const validHashes = [
-        '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfBPjJcZQKXGJ2O',
-        '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfBPjJcZQKXGJ2O',
-        '$2x$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfBPjJcZQKXGJ2O',
-        '$2y$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewfBPjJcZQKXGJ2O',
-      ];
-
-      validHashes.forEach((hash) => {
-        expect(needsRehash(hash)).toBe(false);
-      });
-    });
-
-    it('should return true for non-bcrypt hashes', () => {
-      const invalidHashes = [
-        '$1$abcdefgh$ijklmnopqrstuvwxyz', // MD5
-        '$5$abcdefgh$ijklmnopqrstuvwxyz', // SHA-256
-        '$6$abcdefgh$ijklmnopqrstuvwxyz', // SHA-512
-        'plaintextpassword',
-        'md5hash',
-        '',
-      ];
-
-      invalidHashes.forEach((hash) => {
-        expect(needsRehash(hash)).toBe(true);
-      });
-    });
-
-    it('should return true for hashes starting with different prefixes', () => {
-      const otherHashes = [
-        '$1$hash', // MD5
-        '$3$hash', // Unknown
-        '$5$hash', // SHA-256
-        '$6$hash', // SHA-512
-        'other$hash',
-      ];
-
-      otherHashes.forEach((hash) => {
-        expect(needsRehash(hash)).toBe(true);
-      });
-    });
-
-    it('should handle empty string', () => {
-      expect(needsRehash('')).toBe(true);
-    });
-
-    it('should handle short strings', () => {
-      expect(needsRehash('$')).toBe(true); // Doesn't start with '$2'
-      expect(needsRehash('$2')).toBe(false); // Starts with '$2'
     });
   });
 });

@@ -1,60 +1,74 @@
-import { type JWTPayload, jwtVerify, SignJWT } from 'jose';
-import { nanoid } from 'nanoid';
-import { getJWTConfig } from '@/lib/env';
+/**
+ * @deprecated This file contains legacy JWT functions that should NOT be used in new code.
+ *
+ * MIGRATION GUIDE:
+ * - Use `token-manager.ts` for all token operations
+ * - createTokenPair() - Creates access + refresh tokens with proper rotation
+ * - validateAccessToken() - Validates access tokens with blacklist checking
+ * - refreshTokenPair() - Rotates tokens with reuse detection
+ *
+ * SECURITY ISSUES WITH THIS FILE:
+ * - signJWT() creates 24-hour tokens (should be 15 minutes)
+ * - refreshJWT() doesn't rotate tokens (security vulnerability)
+ * - No blacklist checking (tokens can't be revoked)
+ * - No audit logging
+ * - No device fingerprinting
+ *
+ * This file is kept only for backward compatibility with legacy tests.
+ * DO NOT import from this file in production code.
+ */
+
 import { log } from '@/lib/logger';
 
-const jwtConfig = getJWTConfig();
-const secret = new TextEncoder().encode(jwtConfig.accessSecret);
-
-export async function signJWT(payload: JWTPayload): Promise<string> {
-  return await new SignJWT(payload)
-    .setProtectedHeader({ alg: 'HS256' })
-    .setJti(nanoid())
-    .setIssuedAt()
-    .setExpirationTime('24h')
-    .sign(secret);
+/**
+ * @deprecated Use createTokenPair() from token-manager.ts instead
+ * @internal Legacy function - will be removed in future version
+ */
+export async function signJWT(): Promise<string> {
+  log.error('DEPRECATED: signJWT() called - use token-manager.ts instead', new Error('deprecated'), {
+    operation: 'signJWT',
+    deprecated: true,
+    migration: 'Use createTokenPair() from @/lib/auth/token-manager',
+  });
+  throw new Error(
+    'signJWT() is deprecated. Use createTokenPair() from @/lib/auth/token-manager instead.'
+  );
 }
 
-export async function verifyJWT(token: string): Promise<JWTPayload | null> {
-  try {
-    const { payload } = await jwtVerify(token, secret);
-    return payload;
-  } catch (error) {
-    log.error(
-      'JWT verification failed',
-      error instanceof Error ? error : new Error(String(error)),
-      {
-        operation: 'verifyJWT',
-      }
-    );
-    return null;
-  }
+/**
+ * @deprecated Use validateAccessToken() from token-manager.ts instead
+ * @internal Legacy function - will be removed in future version
+ */
+export async function verifyJWT(): Promise<null> {
+  log.error('DEPRECATED: verifyJWT() called - use token-manager.ts instead', new Error('deprecated'), {
+    operation: 'verifyJWT',
+    deprecated: true,
+    migration: 'Use validateAccessToken() from @/lib/auth/token-manager',
+  });
+  throw new Error(
+    'verifyJWT() is deprecated. Use validateAccessToken() from @/lib/auth/token-manager instead.'
+  );
 }
 
-export async function refreshJWT(token: string): Promise<string | null> {
-  const payload = await verifyJWT(token);
-  if (!payload) return null;
-
-  try {
-    return await signJWT({
-      ...(payload.sub && { sub: payload.sub }),
-      email: payload.email,
-      role: payload.role,
-      firstName: payload.firstName,
-      lastName: payload.lastName,
-    });
-  } catch (error) {
-    log.error(
-      'JWT refresh signing failed',
-      error instanceof Error ? error : new Error(String(error)),
-      {
-        operation: 'refreshJWT',
-      }
-    );
-    return null;
-  }
+/**
+ * @deprecated Use refreshTokenPair() from token-manager.ts instead
+ * @internal Legacy function - will be removed in future version
+ */
+export async function refreshJWT(): Promise<null> {
+  log.error('DEPRECATED: refreshJWT() called - use token-manager.ts instead', new Error('deprecated'), {
+    operation: 'refreshJWT',
+    deprecated: true,
+    migration: 'Use refreshTokenPair() from @/lib/auth/token-manager',
+  });
+  throw new Error(
+    'refreshJWT() is deprecated. Use refreshTokenPair() from @/lib/auth/token-manager instead.'
+  );
 }
 
+/**
+ * Extract Bearer token from Authorization header
+ * This function is still valid and used by middleware
+ */
 export function extractTokenFromRequest(request: Request): string | null {
   const authHeader = request.headers.get('Authorization');
   if (authHeader?.startsWith('Bearer ')) {

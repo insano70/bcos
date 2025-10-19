@@ -6,7 +6,7 @@
     "dev": "next dev -p ${PORT:-4001}",
     "dev:turbo": "next dev --turbo -p ${PORT:-4001}",
     "dev:warm": "next dev -p ${PORT:-4001} & sleep 5 && node scripts/warmup-dev.js",
-    "build": "next build",
+    "build": "tsx scripts/validate-env.ts && next build",
     "start": "next start -p ${PORT:-4001}",
     "lint": "pnpm lint:biome && pnpm lint:logger",
     "lint:biome": "biome lint .",

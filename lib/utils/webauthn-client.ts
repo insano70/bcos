@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * WebAuthn Client Utilities
  * Browser-side helpers for WebAuthn operations
@@ -25,18 +27,24 @@ export async function registerPasskey(
     if (error instanceof Error) {
       // Check for specific WebAuthn errors
       if (error.name === 'InvalidStateError') {
-        throw new Error('This passkey is already registered. Please try a different device.');
+        throw new Error(
+          'This passkey is already registered. Please try a different device or remove the existing passkey first.'
+        );
       } else if (error.name === 'NotAllowedError') {
-        throw new Error('Passkey registration was cancelled or timed out.');
+        throw new Error(
+          'Passkey registration was cancelled or timed out. Please try again and complete the process within 2 minutes.'
+        );
       } else if (error.name === 'NotSupportedError') {
-        throw new Error('Your browser does not support passkeys. Please use a modern browser.');
+        throw new Error(
+          'Your browser does not support passkeys. Please upgrade to Chrome 108+, Safari 16+, Edge 108+, or Firefox 119+.'
+        );
       } else if (error.name === 'SecurityError') {
         throw new Error(
-          'Security error during passkey registration. Please check your connection.'
+          'Security error during passkey registration. Please ensure you are using a secure connection (HTTPS) and try again.'
         );
       }
     }
-    throw new Error('Failed to register passkey. Please try again.');
+    throw new Error('Failed to register passkey. Please try again or contact support.');
   }
 }
 
@@ -54,16 +62,20 @@ export async function authenticatePasskey(
     if (error instanceof Error) {
       // Check for specific WebAuthn errors
       if (error.name === 'NotAllowedError') {
-        throw new Error('Passkey authentication was cancelled or timed out.');
+        throw new Error(
+          'Passkey authentication was cancelled or timed out. Please try again and complete the process within 2 minutes.'
+        );
       } else if (error.name === 'NotSupportedError') {
-        throw new Error('Your browser does not support passkeys. Please use a modern browser.');
+        throw new Error(
+          'Your browser does not support passkeys. Please upgrade to Chrome 108+, Safari 16+, Edge 108+, or Firefox 119+.'
+        );
       } else if (error.name === 'SecurityError') {
         throw new Error(
-          'Security error during passkey authentication. Please check your connection.'
+          'Security error during passkey authentication. Please ensure you are using a secure connection (HTTPS) and try again.'
         );
       }
     }
-    throw new Error('Failed to authenticate with passkey. Please try again.');
+    throw new Error('Failed to authenticate with passkey. Please try again or contact support.');
   }
 }
 
@@ -115,28 +127,29 @@ export function getDeviceTypeDescription(deviceType: 'platform' | 'cross-platfor
 
 /**
  * Get user-friendly error messages for WebAuthn errors
+ * Includes browser version requirements and recovery steps
  */
 export function getWebAuthnErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     // Check for specific WebAuthn error names
     switch (error.name) {
       case 'InvalidStateError':
-        return 'This passkey is already registered. Please try a different device.';
+        return 'This passkey is already registered. Please try a different device or remove the existing passkey first.';
       case 'NotAllowedError':
-        return 'The operation was cancelled or timed out. Please try again.';
+        return 'The operation was cancelled or timed out. Please try again and complete the authentication within 2 minutes.';
       case 'NotSupportedError':
-        return 'Your browser does not support passkeys. Please use a modern browser like Chrome, Safari, or Edge.';
+        return 'Your browser does not support passkeys. Please upgrade to Chrome 108+, Safari 16+, Edge 108+, or Firefox 119+.';
       case 'SecurityError':
-        return 'A security error occurred. Please ensure you are using a secure connection (HTTPS).';
+        return 'A security error occurred. Please ensure you are using a secure connection (HTTPS) and try again.';
       case 'AbortError':
-        return 'The operation was cancelled. Please try again.';
+        return 'The operation was cancelled. Please try again when ready.';
       case 'ConstraintError':
-        return 'Your authenticator cannot satisfy the requested constraints.';
+        return 'Your authenticator cannot satisfy the requested constraints. Try using a different device or security key.';
       case 'UnknownError':
-        return 'An unknown error occurred. Please try again.';
+        return 'An unknown error occurred with your authenticator. Please try a different device or contact support.';
       default:
-        return error.message || 'An error occurred during passkey operation.';
+        return error.message || 'An error occurred during passkey operation. Please try again or contact support.';
     }
   }
-  return 'An unexpected error occurred. Please try again.';
+  return 'An unexpected error occurred. Please refresh the page and try again.';
 }

@@ -19,10 +19,10 @@ import type { MFATempTokenPayload } from '@/lib/types/webauthn';
 const TEMP_TOKEN_DURATION_MS = 5 * 60 * 1000;
 
 /**
- * Get JWT secret for temp tokens
- * Uses dedicated MFA_TEMP_TOKEN_SECRET for security isolation
+ * Validate and encode MFA temp token secret at module load time
+ * SECURITY: Fail fast if environment variable is missing or invalid
  */
-function getTempTokenSecret(): Uint8Array {
+function validateAndEncodeTempTokenSecret(): Uint8Array {
   const secret = process.env.MFA_TEMP_TOKEN_SECRET;
 
   if (!secret) {
@@ -35,6 +35,12 @@ function getTempTokenSecret(): Uint8Array {
 
   return new TextEncoder().encode(secret);
 }
+
+/**
+ * Module-scoped secret - validated at load time
+ * SECURITY: Fail fast on startup if secret is missing/invalid
+ */
+const MFA_TEMP_TOKEN_SECRET = validateAndEncodeTempTokenSecret();
 
 /**
  * Create temporary MFA token for authentication flow
@@ -57,7 +63,7 @@ export async function createMFATempToken(userId: string, challengeId?: string): 
 
   const token = await new SignJWT(payload as Record<string, unknown>)
     .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
-    .sign(getTempTokenSecret());
+    .sign(MFA_TEMP_TOKEN_SECRET);
 
   log.debug('MFA temp token created', {
     userId,
@@ -75,7 +81,7 @@ export async function createMFATempToken(userId: string, challengeId?: string): 
  */
 export async function validateMFATempToken(token: string): Promise<MFATempTokenPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, getTempTokenSecret());
+    const { payload } = await jwtVerify(token, MFA_TEMP_TOKEN_SECRET);
 
     // Verify token type and required fields
     if (

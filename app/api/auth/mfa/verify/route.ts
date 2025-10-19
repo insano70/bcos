@@ -11,6 +11,7 @@ import type { NextRequest } from 'next/server';
 import { AuthenticationError, createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { publicRoute } from '@/lib/api/route-handlers';
+import { COOKIE_NAMES } from '@/lib/auth/cookie-names';
 import { requireMFATempToken } from '@/lib/auth/webauthn-temp-token';
 import { log } from '@/lib/logger';
 import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context';
@@ -96,7 +97,7 @@ const handler = async (request: NextRequest) => {
     const isSecureEnvironment = process.env.NODE_ENV === 'production';
     const maxAge = 7 * 24 * 60 * 60; // 7 days
 
-    cookieStore.set('refresh-token', tokenPair.refreshToken, {
+    cookieStore.set(COOKIE_NAMES.REFRESH_TOKEN, tokenPair.refreshToken, {
       httpOnly: true,
       secure: isSecureEnvironment,
       sameSite: 'strict',
@@ -104,7 +105,7 @@ const handler = async (request: NextRequest) => {
       maxAge,
     });
 
-    cookieStore.set('access-token', tokenPair.accessToken, {
+    cookieStore.set(COOKIE_NAMES.ACCESS_TOKEN, tokenPair.accessToken, {
       httpOnly: true,
       secure: isSecureEnvironment,
       sameSite: 'strict',

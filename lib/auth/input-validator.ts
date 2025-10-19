@@ -28,11 +28,13 @@ export interface ValidationResult {
 }
 
 /**
- * Email validation regex (RFC 5322 simplified)
- * Prevents SQL injection characters in email
+ * Email validation regex (simplified for security and maintainability)
+ * Matches: localpart@domain
+ * - Localpart: alphanumeric, dots, hyphens, underscores
+ * - Domain: alphanumeric with dots (standard domain format)
+ * Note: Deliberately simple to avoid ReDoS and maintain security focus
  */
-const EMAIL_REGEX =
-  /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+const EMAIL_REGEX = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
 /**
  * Name validation regex

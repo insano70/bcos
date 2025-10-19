@@ -4,7 +4,7 @@ import { validateRequest } from '@/lib/api/middleware/validation';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { publicRoute } from '@/lib/api/route-handlers';
-import { emailService } from '@/lib/api/services/email-service-instance';
+import { emailService } from '@/lib/api/services/email';
 import { log } from '@/lib/logger';
 
 const ContactFormSchema = z.object({

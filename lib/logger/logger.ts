@@ -175,8 +175,21 @@ function sanitize(obj: unknown, seen = new WeakSet<object>()): unknown {
 
 /**
  * Sanitize string values that match PII patterns
+ * HIPAA Compliance: Redacts emails, phones, SSNs, credit cards, IPs, UUIDs
  */
 function sanitizeString(value: string): string {
+  // Redact IPv4 addresses (partial redaction - keeps first 2 octets for debugging)
+  if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(value)) {
+    const parts = value.split('.');
+    return `${parts[0]}.${parts[1]}.xxx.xxx`;
+  }
+
+  // Redact IPv6 addresses (partial redaction - keeps first 2 groups)
+  if (/^([0-9a-f]{1,4}:){7}[0-9a-f]{1,4}$/i.test(value)) {
+    const parts = value.split(':');
+    return `${parts[0]}:${parts[1]}:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx`;
+  }
+
   // Redact email patterns
   if (value.includes('@') && value.includes('.') && value.length < 100) {
     return '[EMAIL]';

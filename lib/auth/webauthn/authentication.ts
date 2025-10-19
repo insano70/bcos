@@ -30,6 +30,7 @@ import type { VerifyAssertionParams, VerifyAssertionResult } from '@/lib/types/w
 import { createChallenge, validateChallenge, markChallengeUsed } from './challenge-manager';
 import { RP_ID, ORIGIN } from './constants';
 import { validateCounter } from './security-validator';
+import { validateRPID, validateCredentialId } from './validation';
 
 /**
  * Begin passkey authentication
@@ -61,7 +62,7 @@ export async function beginAuthentication(
       userId,
       component: 'auth',
     });
-    throw new Error('No passkeys registered. Please register a passkey first.');
+    throw new Error('No passkeys registered');
   }
 
   // Prepare allowed credentials
@@ -119,6 +120,9 @@ export async function completeAuthentication(
 ): Promise<VerifyAssertionResult> {
   const { userId, challengeId, assertion, ipAddress, userAgent } = params;
 
+  // SECURITY: Validate RP_ID against origin to prevent subdomain attacks
+  validateRPID(RP_ID, ORIGIN);
+
   // Retrieve and validate challenge using challenge manager
   const challenge = await validateChallenge(challengeId, userId, 'authentication');
 
@@ -128,6 +132,9 @@ export async function completeAuthentication(
 
   // Get credential from database
   const credentialIdStr = assertion.id;
+
+  // SECURITY: Validate credential ID format to prevent injection attacks
+  validateCredentialId(credentialIdStr);
   const [credential] = await db
     .select()
     .from(webauthn_credentials)
@@ -222,6 +229,22 @@ export async function completeAuthentication(
   // SECURITY: Counter regression detection using security validator
   const counterValidation = validateCounter(credential.counter, newCounter);
 
+  // SECURITY: Counter stagnation detection (counter not incrementing)
+  // Some authenticators don't increment on every use, but long-term stagnation is suspicious
+  if (newCounter === credential.counter && credential.counter > 0) {
+    log.warn('webauthn counter not incrementing - possible authenticator issue or attack', {
+      operation: 'complete_authentication',
+      userId,
+      credentialId: credentialIdStr.substring(0, 16),
+      credentialName: credential.credential_name,
+      storedCounter: credential.counter,
+      receivedCounter: newCounter,
+      issue: 'counter_stagnation',
+      recommendation: 'monitor_for_clone_attacks',
+      component: 'auth',
+    });
+  }
+
   if (!counterValidation.valid) {
     log.error('webauthn counter regression detected - possible cloned authenticator', {
       operation: 'complete_authentication',
@@ -256,19 +279,23 @@ export async function completeAuthentication(
 
     return {
       success: false,
-      error: 'Security issue detected. This passkey has been disabled. Please contact support.',
+      error: 'Security issue detected - this passkey has been disabled',
     };
   }
 
-  // Update counter (challenge already marked as used above)
+  // SECURITY: Update counter in transaction to ensure atomicity
+  // If counter update fails, authentication must fail (critical for clone detection)
   try {
-    await db
-      .update(webauthn_credentials)
-      .set({
-        counter: newCounter,
-        last_used: new Date(),
-      })
-      .where(eq(webauthn_credentials.credential_id, credentialIdStr));
+    await db.transaction(async (tx) => {
+      // Update credential counter and last_used timestamp
+      await tx
+        .update(webauthn_credentials)
+        .set({
+          counter: newCounter,
+          last_used: new Date(),
+        })
+        .where(eq(webauthn_credentials.credential_id, credentialIdStr));
+    });
 
     // Audit log (outside transaction - non-critical)
     await AuditLogger.logAuth({
@@ -288,6 +315,7 @@ export async function completeAuthentication(
       userId,
       credentialId: credentialIdStr.substring(0, 16),
       credentialName: credential.credential_name,
+      newCounter,
       component: 'auth',
     });
 
@@ -297,15 +325,17 @@ export async function completeAuthentication(
       counter: newCounter,
     };
   } catch (error) {
-    log.error('webauthn verification transaction failed', error, {
+    log.error('webauthn counter update transaction failed', error, {
       operation: 'complete_authentication',
       userId,
       credentialId: credentialIdStr.substring(0, 16),
       component: 'auth',
     });
+    // SECURITY: If counter update fails, authentication fails
+    // This prevents counter desync which would weaken clone detection
     return {
       success: false,
-      error: 'Failed to complete passkey verification. Please try again.',
+      error: 'Failed to complete passkey verification',
     };
   }
 }

@@ -27,7 +27,11 @@ export async function hashPassword(password: string): Promise<string> {
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
   try {
     return await bcrypt.compare(password, hash);
-  } catch {
+  } catch (error) {
+    log.error('Password verification error', error, {
+      operation: 'verify_password',
+      component: 'auth',
+    });
     return false;
   }
 }
@@ -142,10 +146,10 @@ export async function ensureSecurityRecord(userId: string): Promise<{
     }
 
     // For any other error, log and re-throw
-    log.error('Failed to ensure account security record', {
-      error: error instanceof Error ? error.message : String(error),
+    log.error('Failed to ensure account security record', error, {
       userId,
       operation: 'ensureSecurityRecord',
+      component: 'auth',
     });
     throw error;
   }
@@ -201,12 +205,14 @@ export async function isAccountLocked(
 
     return { locked: false };
   } catch (error) {
-    log.error('Error checking account lockout status', {
-      error: error instanceof Error ? error.message : String(error),
+    log.error('Error checking account lockout status', error, {
       identifier,
       operation: 'isAccountLocked',
+      component: 'auth',
     });
-    return { locked: false }; // Fail open on database errors
+    // SECURITY: Fail closed on database errors - assume account is locked
+    // This prevents bypassing lockouts during database outages
+    return { locked: true, lockedUntil: Date.now() + 15 * 60 * 1000 }; // 15 minute lockout
   }
 }
 
@@ -265,12 +271,14 @@ export async function recordFailedAttempt(
     }
     return result;
   } catch (error) {
-    log.error('Error recording failed attempt', {
-      error: error instanceof Error ? error.message : String(error),
+    log.error('Error recording failed attempt', error, {
       identifier,
       operation: 'recordFailedAttempt',
+      component: 'auth',
     });
-    return { locked: false }; // Fail open on database errors
+    // SECURITY: Fail closed on database errors - assume account is locked
+    // This prevents brute force attacks during database outages
+    return { locked: true, lockedUntil: Date.now() + 15 * 60 * 1000 }; // 15 minute lockout
   }
 }
 
@@ -305,10 +313,10 @@ export async function clearFailedAttempts(identifier: string): Promise<void> {
       })
       .where(eq(account_security.user_id, user.user_id));
   } catch (error) {
-    log.error('Error clearing failed attempts', {
-      error: error instanceof Error ? error.message : String(error),
+    log.error('Error clearing failed attempts', error, {
       identifier,
       operation: 'clearFailedAttempts',
+      component: 'auth',
     });
   }
 }
@@ -336,10 +344,10 @@ export async function getFailedAttemptCount(identifier: string): Promise<number>
 
     return securityRecord.failed_login_attempts;
   } catch (error) {
-    log.error('Error getting failed attempt count', {
-      error: error instanceof Error ? error.message : String(error),
+    log.error('Error getting failed attempt count', error, {
       identifier,
       operation: 'getFailedAttemptCount',
+      component: 'auth',
     });
     return 0;
   }
@@ -364,9 +372,9 @@ export async function cleanupExpiredLockouts(): Promise<number> {
 
     return Array.isArray(result) ? result.length : 0;
   } catch (error) {
-    log.error('Error cleaning up expired lockouts', {
-      error: error instanceof Error ? error.message : String(error),
+    log.error('Error cleaning up expired lockouts', error, {
       operation: 'cleanupExpiredLockouts',
+      component: 'auth',
     });
     return 0;
   }

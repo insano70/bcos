@@ -5,15 +5,16 @@
  * Usage: tsx scripts/test-email.ts
  */
 
-import { emailService } from '../lib/api/services/email-service-instance';
+import { emailService, getWelcomeTemplate } from '../lib/api/services/email';
 
 async function testEmailService() {
   console.log('🧪 Testing AWS SES Email Service...\n');
 
   try {
-    // Test 1: Send a welcome email
+    // Test 1: Send a welcome email (using template-based approach)
     console.log('📧 Test 1: Sending welcome email...');
-    await emailService.sendWelcomeEmail('test@example.com', 'Test', 'User');
+    const welcomeTemplate = getWelcomeTemplate({ firstName: 'Test', lastName: 'User' });
+    await emailService.sendTemplatedEmail('test@example.com', welcomeTemplate);
     console.log('✅ Welcome email sent successfully\n');
 
     // Test 2: Send system notification

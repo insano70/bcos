@@ -1,21 +1,16 @@
 import { eq } from 'drizzle-orm';
 import { type JWTPayload, jwtVerify } from 'jose';
 import { db, token_blacklist } from '@/lib/db';
-import { getJWTConfig } from '@/lib/env';
+import { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } from '@/lib/auth/jwt-secrets';
 import { log } from '@/lib/logger';
 
 /**
  * Token Verification Service
  * Centralized JWT token verification for all API routes
  *
- * SECURITY: JWT secrets remain module-scoped and are NOT exported
- * This prevents routes from directly accessing sensitive cryptographic material
+ * SECURITY: JWT secrets imported from centralized jwt-secrets module
+ * This prevents duplication and ensures single source of truth
  */
-
-// SECURITY: Module-scoped secrets - NOT exported
-const jwtConfig = getJWTConfig();
-const ACCESS_TOKEN_SECRET = new TextEncoder().encode(jwtConfig.accessSecret);
-const REFRESH_TOKEN_SECRET = new TextEncoder().encode(jwtConfig.refreshSecret);
 
 /**
  * Structured token payload returned by verification functions

@@ -4,20 +4,22 @@ import { type JWTPayload, jwtVerify, SignJWT } from 'jose';
 import { nanoid } from 'nanoid';
 import { AuditLogger } from '@/lib/api/services/audit';
 import { authCache } from '@/lib/cache';
-import { db, login_attempts, refresh_tokens, token_blacklist, user_sessions } from '@/lib/db';
-import { getJWTConfig } from '@/lib/env';
+import {
+  account_security,
+  db,
+  login_attempts,
+  refresh_tokens,
+  token_blacklist,
+  user_sessions,
+} from '@/lib/db';
+import { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET } from '@/lib/auth/jwt-secrets';
 import { log } from '@/lib/logger';
 
 /**
  * Enterprise JWT + Refresh Token Manager - Pure Functions Module
  * Handles 15-minute access tokens with sliding window refresh tokens
- * SECURITY: JWT secrets remain module-scoped and are NOT exported
+ * SECURITY: JWT secrets imported from centralized jwt-secrets module
  */
-
-// SECURITY: Module-scoped secrets - NOT exported
-const jwtConfig = getJWTConfig();
-const ACCESS_TOKEN_SECRET = new TextEncoder().encode(jwtConfig.accessSecret);
-const REFRESH_TOKEN_SECRET = new TextEncoder().encode(jwtConfig.refreshSecret);
 
 export interface TokenPair {
   accessToken: string;
@@ -62,6 +64,62 @@ export async function createTokenPair(
   const now = new Date();
   const sessionId = nanoid(32);
   const refreshTokenId = nanoid(32);
+
+  // Check concurrent session limit
+  const [securitySettings] = await db
+    .select({ max_concurrent_sessions: account_security.max_concurrent_sessions })
+    .from(account_security)
+    .where(eq(account_security.user_id, userId))
+    .limit(1);
+
+  const maxSessions = securitySettings?.max_concurrent_sessions || 3;
+
+  // Count active sessions
+  const activeSessions = await db
+    .select()
+    .from(user_sessions)
+    .where(and(eq(user_sessions.user_id, userId), eq(user_sessions.is_active, true)));
+
+  // If at limit, revoke oldest session
+  if (activeSessions.length >= maxSessions) {
+    // Sort by last_activity to find oldest session
+    const oldestSession = activeSessions.sort(
+      (a, b) => a.last_activity.getTime() - b.last_activity.getTime()
+    )[0];
+
+    if (oldestSession) {
+      // Revoke the oldest session's refresh token (if it has one)
+      if (oldestSession.refresh_token_id) {
+        await db
+          .update(refresh_tokens)
+          .set({
+            is_active: false,
+            revoked_at: now,
+            revoked_reason: 'session_limit_exceeded',
+          })
+          .where(eq(refresh_tokens.token_id, oldestSession.refresh_token_id));
+      }
+
+      // End the oldest session
+      await db
+        .update(user_sessions)
+        .set({
+          is_active: false,
+          ended_at: now,
+          end_reason: 'session_limit_exceeded',
+        })
+        .where(eq(user_sessions.session_id, oldestSession.session_id));
+
+      log.info('revoked oldest session due to concurrent session limit', {
+        operation: 'create_token_pair',
+        userId,
+        maxSessions,
+        revokedSession: oldestSession.session_id,
+        revokedDevice: oldestSession.device_name,
+        component: 'auth',
+      });
+    }
+  }
 
   // Create access token (15 minutes)
   const accessTokenPayload = {
@@ -283,6 +341,17 @@ export async function refreshTokenPair(
           revoked_reason: 'rotation',
         })
         .where(eq(refresh_tokens.token_id, refreshTokenId));
+
+      // SECURITY: Immediately blacklist old token to prevent race conditions
+      // This prevents the old token from being reused between DB write and cache invalidation
+      const blacklistExpiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
+      await authCache.addTokenToBlacklist(
+        refreshTokenId,
+        userId,
+        'refresh',
+        blacklistExpiresAt,
+        'rotation'
+      );
 
       // Store new refresh token (within transaction)
       await tx.insert(refresh_tokens).values({

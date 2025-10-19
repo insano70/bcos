@@ -12,11 +12,24 @@ export async function getCurrentUserFromToken(accessToken: string) {
     const payload = await validateAccessToken(accessToken);
     if (!payload) return null;
 
-    const userId = payload.sub as string;
+    // Runtime validation of payload structure
+    if (typeof payload.sub !== 'string' || !payload.sub) {
+      return null;
+    }
+
+    const userId = payload.sub;
 
     const [user] = await db.select().from(users).where(eq(users.user_id, userId)).limit(1);
 
     if (!user || !user.is_active) return null;
+
+    // Safely extract optional fields with runtime validation
+    const role =
+      payload.role && typeof payload.role === 'string' ? payload.role : 'user';
+    const practiceId =
+      payload.practiceId && typeof payload.practiceId === 'string'
+        ? payload.practiceId
+        : undefined;
 
     return {
       id: user.user_id,
@@ -24,15 +37,19 @@ export async function getCurrentUserFromToken(accessToken: string) {
       name: `${user.first_name} ${user.last_name}`,
       firstName: user.first_name,
       lastName: user.last_name,
-      role: (payload.role as string) || 'user', // Use role from JWT payload
+      role,
       emailVerified: user.email_verified,
-      practiceId: (payload.practiceId as string) || undefined, // Use practiceId from JWT payload
+      practiceId,
     };
   } catch (_error) {
     return null;
   }
 }
 
+/**
+ * @deprecated Use rbacRoute() with RBAC permissions instead
+ * @internal Legacy function - kept for backward compatibility only
+ */
 export async function validateTokenAndGetUser(accessToken: string) {
   const user = await getCurrentUserFromToken(accessToken);
   if (!user) {
@@ -41,6 +58,17 @@ export async function validateTokenAndGetUser(accessToken: string) {
   return user;
 }
 
+/**
+ * @deprecated Use rbacRoute() with permission checks instead of role checks
+ * @internal Legacy function - bypasses RBAC permission system
+ *
+ * MIGRATION:
+ * Instead of: requireTokenRole(token, ['admin', 'manager'])
+ * Use: rbacRoute(handler, { permission: 'resource:action:scope' })
+ *
+ * Example:
+ * export const GET = rbacRoute(handler, { permission: 'users:read:all' });
+ */
 export async function requireTokenRole(accessToken: string, allowedRoles: string[]) {
   const user = await validateTokenAndGetUser(accessToken);
   if (!allowedRoles.includes(user.role)) {
@@ -49,10 +77,29 @@ export async function requireTokenRole(accessToken: string, allowedRoles: string
   return user;
 }
 
+/**
+ * @deprecated Use rbacRoute() with 'users:manage:all' permission instead
+ * @internal Legacy function - uses hard-coded role names
+ *
+ * MIGRATION:
+ * Instead of: requireTokenAdmin(token)
+ * Use: rbacRoute(handler, { permission: 'users:manage:all' })
+ */
 export async function requireTokenAdmin(accessToken: string) {
   return await requireTokenRole(accessToken, ['admin']);
 }
 
+/**
+ * @deprecated Use rbacRoute() with organization-scoped permissions instead
+ * @internal Legacy function - uses hard-coded role-based logic
+ *
+ * MIGRATION:
+ * Instead of: requireTokenPracticeAccess(token, practiceId)
+ * Use: rbacRoute(handler, {
+ *   permission: 'practices:read:organization',
+ *   extractOrganizationId: (req) => getPracticeId(req)
+ * })
+ */
 export async function requireTokenPracticeAccess(accessToken: string, practiceId: string) {
   const user = await validateTokenAndGetUser(accessToken);
 

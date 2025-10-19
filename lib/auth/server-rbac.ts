@@ -7,7 +7,7 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { getJWTConfig } from '@/lib/env';
+import { ACCESS_TOKEN_SECRET } from '@/lib/auth/jwt-secrets';
 import { getCachedUserContextSafe } from '@/lib/rbac/cached-user-context';
 import { PermissionChecker } from '@/lib/rbac/permission-checker';
 import type { PermissionName } from '@/lib/types/rbac';
@@ -25,11 +25,8 @@ async function getAuthenticatedUserId(): Promise<string | null> {
       return null;
     }
 
-    // Verify JWT and extract user ID
-    const jwtConfig = getJWTConfig();
+    // Verify JWT and extract user ID (using centralized secret)
     const { jwtVerify } = await import('jose');
-    const ACCESS_TOKEN_SECRET = new TextEncoder().encode(jwtConfig.accessSecret);
-
     const { payload } = await jwtVerify(accessToken, ACCESS_TOKEN_SECRET);
     return payload.sub as string;
   } catch {

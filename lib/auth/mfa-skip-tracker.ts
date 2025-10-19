@@ -158,12 +158,33 @@ export async function isMFAEnforced(userId: string): Promise<boolean> {
  * @param targetUserId - User whose skips are being reset
  * @param newSkipsRemaining - Number of skips to grant (default: 5)
  * @returns Success status
+ * @throws Error if admin lacks permission or attempts self-reset
  */
 export async function adminResetSkipCounter(
   adminUserId: string,
   targetUserId: string,
   newSkipsRemaining: number = 5
 ): Promise<{ success: boolean }> {
+  // SECURITY: Verify admin has permission to manage users
+  const { getUserContext } = await import('@/lib/rbac/user-context');
+  const { PermissionChecker } = await import('@/lib/rbac/permission-checker');
+
+  const adminContext = await getUserContext(adminUserId);
+  const permissionChecker = new PermissionChecker(adminContext);
+
+  permissionChecker.requirePermission('users:manage:all');
+
+  // SECURITY: Prevent self-reset (defense in depth)
+  if (adminUserId === targetUserId) {
+    log.warn('admin attempted to reset own mfa skip counter', {
+      operation: 'admin_reset_skip_counter',
+      adminUserId,
+      reason: 'self_reset_blocked',
+      component: 'auth',
+    });
+    throw new Error('Administrators cannot reset their own MFA skip counter');
+  }
+
   const now = new Date();
 
   await db

@@ -63,7 +63,6 @@ export interface PasswordMocks {
   validatePasswordStrength: ReturnType<typeof vi.fn>;
   hashPassword: ReturnType<typeof vi.fn>;
   verifyPassword: ReturnType<typeof vi.fn>;
-  needsRehash: ReturnType<typeof vi.fn>;
 }
 
 export interface AuthMockSuite {
@@ -206,7 +205,6 @@ export function createPasswordMocks(): PasswordMocks {
     validatePasswordStrength: vi.fn().mockReturnValue({ isValid: true, errors: [] }),
     hashPassword: vi.fn().mockResolvedValue('$2b$12$mock.hash.value'),
     verifyPassword: vi.fn().mockResolvedValue(true),
-    needsRehash: vi.fn().mockReturnValue(false),
   };
 }
 

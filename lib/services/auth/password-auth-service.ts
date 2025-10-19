@@ -151,10 +151,15 @@ export interface MFASetupEnforcedAuthResult extends BaseAuthResult {
 }
 
 /**
- * Union type for all authentication results
+ * Union type for password authentication results
+ * NOTE: SuccessAuthResult is NOT included because password authentication
+ * NEVER returns SUCCESS directly. It always returns an intermediate state
+ * requiring MFA verification or setup. SUCCESS is only returned by:
+ * - /api/auth/mfa/verify, /api/auth/mfa/skip
+ * - /api/auth/mfa/register/complete
+ * - SSO/OIDC callback routes
  */
 export type PasswordAuthResult =
-  | SuccessAuthResult
   | MFARequiredAuthResult
   | MFASetupOptionalAuthResult
   | MFASetupEnforcedAuthResult;

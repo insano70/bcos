@@ -52,6 +52,9 @@ export const webauthn_credentials = pgTable(
     userIdx: index('idx_webauthn_credentials_user_id').on(table.user_id),
     activeIdx: index('idx_webauthn_credentials_active').on(table.is_active),
     lastUsedIdx: index('idx_webauthn_credentials_last_used').on(table.last_used),
+    // Composite index for most frequent query: lookup by user_id + is_active
+    // Used in: getUserCredentials, beginAuthentication, beginRegistration
+    userActiveIdx: index('idx_webauthn_credentials_user_active').on(table.user_id, table.is_active),
   })
 );
 
@@ -86,5 +89,8 @@ export const webauthn_challenges = pgTable(
     userIdx: index('idx_webauthn_challenges_user_id').on(table.user_id),
     expiresIdx: index('idx_webauthn_challenges_expires_at').on(table.expires_at),
     challengeTypeIdx: index('idx_webauthn_challenges_challenge_type').on(table.challenge_type),
+    // Composite index for cleanup query performance
+    // Used in: cleanupExpiredChallenges (expires_at + used_at for grace period logic)
+    expiresUsedIdx: index('idx_webauthn_challenges_expires_used').on(table.expires_at, table.used_at),
   })
 );

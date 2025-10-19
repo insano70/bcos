@@ -80,11 +80,11 @@ export class CacheOperations {
     let staleness: CacheStaleness = 'cold';
 
     if (isWarm) {
-      // Get cache stats to check age
-      const stats = await indexedAnalyticsCache.getCacheStats(datasourceId);
+      // Get last warmed timestamp to check age (lightweight - single Redis GET)
+      const lastWarmed = await indexedAnalyticsCache.getLastWarmedTime(datasourceId);
 
-      if (stats?.lastWarmed) {
-        const lastWarmTime = new Date(stats.lastWarmed).getTime();
+      if (lastWarmed) {
+        const lastWarmTime = new Date(lastWarmed).getTime();
         const ageMs = Date.now() - lastWarmTime;
         cacheAgeHours = ageMs / (1000 * 60 * 60);
 

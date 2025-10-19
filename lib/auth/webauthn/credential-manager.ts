@@ -15,29 +15,7 @@ import { AuditLogger } from '@/lib/api/services/audit';
 import { account_security, db, webauthn_credentials } from '@/lib/db';
 import { log } from '@/lib/logger';
 import type { WebAuthnCredential } from '@/lib/types/webauthn';
-
-/**
- * Validate credential name input
- * Prevents XSS, excessively long strings, and invalid characters
- *
- * @param name - Credential name to validate
- * @throws Error if validation fails
- */
-function validateCredentialName(name: string): void {
-  if (!name || name.trim().length === 0) {
-    throw new Error('Credential name cannot be empty');
-  }
-
-  if (name.length > 50) {
-    throw new Error('Credential name must be 50 characters or less');
-  }
-
-  // Allow alphanumeric, spaces, and common punctuation
-  const validPattern = /^[a-zA-Z0-9\s\-_'.]+$/;
-  if (!validPattern.test(name)) {
-    throw new Error('Credential name contains invalid characters. Only letters, numbers, spaces, and basic punctuation (- _ \' .) are allowed');
-  }
-}
+import { validateCredentialName } from './validation';
 
 /**
  * Get user's active credentials (sanitized - no public keys exposed)

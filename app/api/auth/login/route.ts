@@ -130,20 +130,8 @@ const loginHandler = async (request: NextRequest) => {
         );
       }
 
-      case AuthStatus.SUCCESS: {
-        // SECURITY: This should NEVER happen from password authentication
-        // SUCCESS only comes from MFA completion routes, SSO, or OIDC callbacks
-        log.error('SECURITY VIOLATION: AuthStatus.SUCCESS returned from password login', {
-          operation: 'login',
-          userId: authResult.user.id,
-          component: 'auth',
-          securityIssue: 'password_auth_returned_success',
-        });
-
-        throw new Error(
-          'Internal security error: password authentication returned SUCCESS status. This should never happen.'
-        );
-      }
+      // NOTE: AuthStatus.SUCCESS case removed - password authentication never returns SUCCESS
+      // Type system now enforces this at compile time (PasswordAuthResult union type)
 
       default: {
         // TypeScript exhaustiveness check

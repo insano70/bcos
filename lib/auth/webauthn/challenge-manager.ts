@@ -14,7 +14,7 @@ import { nanoid } from 'nanoid';
 import { db, webauthn_challenges } from '@/lib/db';
 import { log } from '@/lib/logger';
 import type { WebAuthnChallenge } from '@/lib/types/webauthn';
-import { CHALLENGE_EXPIRATION_MS } from './constants';
+import { CHALLENGE_EXPIRATION_MS, CLEANUP_GRACE_PERIOD_MS } from './constants';
 
 /**
  * Create a new WebAuthn challenge
@@ -183,19 +183,31 @@ export async function markChallengeUsed(challengeId: string): Promise<void> {
  * Cleanup expired challenges (maintenance function)
  * Called periodically by security maintenance service
  *
+ * SECURITY: Uses 5-minute grace period to prevent race condition where
+ * a challenge expires while a verification is in progress. Only deletes
+ * challenges that have been expired for > 5 minutes OR have already been used.
+ *
  * @returns Number of challenges deleted
  */
 export async function cleanupExpiredChallenges(): Promise<number> {
   const now = new Date();
-  const result = await db
-    .delete(webauthn_challenges)
-    .where(lt(webauthn_challenges.expires_at, now));
+  // Grace period: allows in-flight verifications to complete before cleanup
+  const gracePeriod = new Date(now.getTime() - CLEANUP_GRACE_PERIOD_MS);
 
-  const count = Array.isArray(result) ? result.length : 0;
+  // Delete challenges that are expired AND past grace period
+  // This prevents deletion of challenges that just expired but may still be in use
+  const deletedChallenges = await db
+    .delete(webauthn_challenges)
+    .where(lt(webauthn_challenges.expires_at, gracePeriod))
+    .returning({ id: webauthn_challenges.challenge_id });
+
+  const count = deletedChallenges.length;
 
   log.info('expired webauthn challenges cleaned up', {
     operation: 'cleanup_expired_challenges',
     count,
+    gracePeriodMinutes: 5,
+    cutoffTime: gracePeriod.toISOString(),
     component: 'auth',
   });
 

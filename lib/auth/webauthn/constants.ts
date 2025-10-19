@@ -40,7 +40,7 @@ export const ORIGIN = getRequiredEnvVar(
 /**
  * Security and Operational Limits
  */
-export const CHALLENGE_EXPIRATION_MS = 5 * 60 * 1000; // 5 minutes
+export const CHALLENGE_EXPIRATION_MS = 2 * 60 * 1000; // 2 minutes (reduced from 5 for tighter security)
 export const MAX_CREDENTIALS_PER_USER = 5;
 
 /**
@@ -60,3 +60,10 @@ export const AUTHENTICATOR_SELECTION = {
  * - 'none': Privacy-focused, no attestation required
  */
 export const ATTESTATION_TYPE = 'none' as const;
+
+/**
+ * Cleanup Job Configuration
+ * Schedule for WebAuthn challenge cleanup cron job
+ */
+export const CLEANUP_SCHEDULE = '0,15,30,45 * * * *'; // Every 15 minutes
+export const CLEANUP_GRACE_PERIOD_MS = 5 * 60 * 1000; // 5 minutes

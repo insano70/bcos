@@ -256,7 +256,7 @@ class AuditLoggerService {
   private async sendCriticalAlert(entry: AuditLogEntry): Promise<void> {
     try {
       // Dynamic import to avoid circular dependencies
-      const { emailService } = await import('./email-service-instance');
+      const { emailService } = await import('./email');
 
       await emailService.sendSystemNotification(
         `Critical Security Event: ${entry.action}`,

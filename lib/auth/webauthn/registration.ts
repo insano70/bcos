@@ -27,29 +27,7 @@ import type { MFAStatus } from '@/lib/types/webauthn';
 import { createChallenge, validateChallenge, markChallengeUsed } from './challenge-manager';
 import { RP_NAME, RP_ID, ORIGIN, AUTHENTICATOR_SELECTION, ATTESTATION_TYPE } from './constants';
 import { enforceCredentialLimit, ensureUniqueCredential } from './security-validator';
-
-/**
- * Validate credential name input
- * Prevents XSS, excessively long strings, and invalid characters
- *
- * @param name - Credential name to validate
- * @throws Error if validation fails
- */
-function validateCredentialName(name: string): void {
-  if (!name || name.trim().length === 0) {
-    throw new Error('Credential name cannot be empty');
-  }
-
-  if (name.length > 50) {
-    throw new Error('Credential name must be 50 characters or less');
-  }
-
-  // Allow alphanumeric, spaces, and common punctuation
-  const validPattern = /^[a-zA-Z0-9\s\-_'.]+$/;
-  if (!validPattern.test(name)) {
-    throw new Error('Credential name contains invalid characters. Only letters, numbers, spaces, and basic punctuation (- _ \' .) are allowed');
-  }
-}
+import { validateRPID, validateCredentialName } from './validation';
 
 /**
  * Begin passkey registration
@@ -148,6 +126,9 @@ export async function completeRegistration(
   ipAddress: string,
   userAgent: string | null
 ): Promise<{ credential_id: string; credential_name: string }> {
+  // SECURITY: Validate RP_ID against origin to prevent subdomain attacks
+  validateRPID(RP_ID, ORIGIN);
+
   // Validate credential name
   validateCredentialName(credentialName);
 
@@ -187,7 +168,7 @@ export async function completeRegistration(
       },
     });
 
-    throw new Error('Passkey verification failed. Please try again.');
+    throw new Error('Passkey verification failed');
   }
 
   if (!verification.verified || !verification.registrationInfo) {
@@ -274,7 +255,7 @@ export async function completeRegistration(
       credentialName,
       component: 'auth',
     });
-    throw new Error('Failed to complete passkey registration. Please try again.');
+    throw new Error('Failed to complete passkey registration');
   }
 }
 
