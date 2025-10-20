@@ -82,8 +82,7 @@ export class OIDCClient {
         issuer: issuerUrl.href,
       });
     } catch (error) {
-      log.error('Failed to discover OIDC configuration', {
-        error: error instanceof Error ? error.message : 'Unknown',
+      log.error('Failed to discover OIDC configuration', error, {
         tenantId: this.config.tenantId,
       });
       throw new DiscoveryError('OIDC discovery failed', {

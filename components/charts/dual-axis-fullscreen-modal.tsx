@@ -102,10 +102,14 @@ export default function DualAxisFullscreenModal({
   }, [isOpen, onClose]);
 
   // Initialize chart
+  // Chart initialization - deferred to prevent race condition
   useEffect(() => {
     if (!isOpen || !canvasRef.current || !chartData) return;
 
     const ctx = canvasRef.current;
+    
+    // Safety check: ensure canvas is properly mounted
+    if (!ctx.parentElement || !ctx.isConnected) return;
 
     // Get fresh color values inside useEffect to ensure they're read after theme is loaded
     const { textColor, gridColor, tooltipBodyColor, tooltipBgColor, tooltipBorderColor } =
@@ -116,6 +120,16 @@ export default function DualAxisFullscreenModal({
       labels: chartData.labels,
       datasets: chartData.datasets,
     };
+
+    // Defer initialization until after React's layout phase (fixes race condition)
+    const rafId = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!ctx.isConnected) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[DualAxisFullscreenModal] Canvas disconnected during initialization deferral');
+          }
+          return;
+        }
 
     const config: ChartConfiguration = {
       type: 'bar',
@@ -267,17 +281,17 @@ export default function DualAxisFullscreenModal({
             },
           },
         },
-        responsive: true,
+        responsive: false, // Disable Chart.js responsive mode (we handle it manually)
         maintainAspectRatio: false,
       },
     };
 
-    const newChart = new Chart(ctx, config);
-    setChart(newChart);
+        const newChart = new Chart(ctx, config);
+        setChart(newChart);
 
-    // Generate HTML legend
-    if (legendRef.current) {
-      const ul = legendRef.current;
+        // Generate HTML legend
+        if (legendRef.current?.isConnected) {
+          const ul = legendRef.current;
       ul.innerHTML = '';
 
       const items = newChart.options.plugins?.legend?.labels?.generateLabels?.(newChart);
@@ -336,11 +350,16 @@ export default function DualAxisFullscreenModal({
         };
 
         ul.appendChild(li);
+        });
+      }
       });
-    }
+    });
 
     return () => {
-      newChart.destroy();
+      cancelAnimationFrame(rafId);
+      if (chart) {
+        chart.destroy();
+      }
     };
   }, [isOpen, mounted, chartData, primaryAxisLabel, secondaryAxisLabel, darkMode]);
 

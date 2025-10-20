@@ -144,9 +144,7 @@ const oidcLoginHandler = async (request: NextRequest) => {
   } catch (error) {
     const duration = Date.now() - startTime;
 
-    log.error('OIDC login initiation failed', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+    log.error('OIDC login initiation failed', error, {
       duration,
     });
 

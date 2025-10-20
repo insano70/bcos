@@ -40,102 +40,134 @@ const LineChart01 = forwardRef<HTMLCanvasElement, LineChart01Props>(function Lin
   const darkMode = theme === 'dark';
   const { textColor, tooltipBodyColor, tooltipBgColor, tooltipBorderColor } = chartColors;
 
+  // Chart initialization - deferred to prevent race condition with React 19 concurrent rendering
   useEffect(() => {
     const ctx = canvas.current;
-    if (!ctx || !ctx.parentElement) return;
+    
+    // Safety check: ensure canvas is properly mounted
+    if (!ctx?.parentElement || !ctx.isConnected) return;
 
-    const newChart = new Chart(ctx, {
-      type: 'line',
-      data: data,
-      options: {
-        layout: {
-          padding: {
-            left: 40,
-            right: 40,
-            top: 20,
-            bottom: 20,
-          },
-        },
-        scales: {
-          y: {
-            display: false,
-            beginAtZero: true,
-          },
-          x: {
-            type: 'time',
-            time: {
-              // parser: false, // Let Chart.js handle Date objects directly
-              unit: 'week', // Use week unit for better weekly data handling
-              displayFormats: {
-                week: 'MMM DD',
-                month: 'MMM YY',
-              },
-            },
-            display: true,
-            border: {
-              display: false,
-            },
-            grid: {
-              display: false,
-            },
-            ticks: {
-              color: darkMode ? textColor.dark : textColor.light,
-              maxTicksLimit: 10, // Allow up to 10 ticks for weekly data
-              autoSkip: false, // Don't skip any labels
-              includeBounds: true, // Include first and last ticks
-              source: 'data', // Use data points as tick sources
-              callback: function (value, _index, _ticks) {
-                // Custom formatting for quarterly data
-                const date = new Date(this.getLabelForValue(Number(value)));
-                const quarter = Math.floor(date.getMonth() / 3) + 1;
-                const year = date.getFullYear();
+    // Defer initialization until after React's layout phase (fixes race condition)
+    const rafId = requestAnimationFrame(() => {
+      // Double RAF ensures we're after paint
+      requestAnimationFrame(() => {
+        // Re-check connection after deferral
+        if (!ctx.isConnected) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[LineChart01] Canvas disconnected during initialization deferral');
+          }
+          return;
+        }
 
-                // Check if this looks like quarterly data (March, June, September, December)
-                const month = date.getMonth();
-                if (month === 2 || month === 5 || month === 8 || month === 11) {
-                  // Mar, Jun, Sep, Dec
-                  return `Q${quarter} ${year}`;
-                }
+        const newChart = new Chart(ctx, {
+          type: 'line',
+          data: data,
+          options: {
+            layout: {
+              padding: {
+                left: 40,
+                right: 40,
+                top: 20,
+                bottom: 20,
+              },
+            },
+            scales: {
+              y: {
+                display: false,
+                beginAtZero: true,
+              },
+              x: {
+                type: 'time',
+                time: {
+                  // parser: false, // Let Chart.js handle Date objects directly
+                  unit: 'week', // Use week unit for better weekly data handling
+                  displayFormats: {
+                    week: 'MMM DD',
+                    month: 'MMM YY',
+                  },
+                },
+                display: true,
+                border: {
+                  display: false,
+                },
+                grid: {
+                  display: false,
+                },
+                ticks: {
+                  color: darkMode ? textColor.dark : textColor.light,
+                  maxTicksLimit: 10, // Allow up to 10 ticks for weekly data
+                  autoSkip: false, // Don't skip any labels
+                  includeBounds: true, // Include first and last ticks
+                  source: 'data', // Use data points as tick sources
+                  callback: function (value, _index, _ticks) {
+                    // Custom formatting for quarterly data
+                    const date = new Date(this.getLabelForValue(Number(value)));
+                    const quarter = Math.floor(date.getMonth() / 3) + 1;
+                    const year = date.getFullYear();
 
-                // For other data, use default formatting
-                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    // Check if this looks like quarterly data (March, June, September, December)
+                    const month = date.getMonth();
+                    if (month === 2 || month === 5 || month === 8 || month === 11) {
+                      // Mar, Jun, Sep, Dec
+                      return `Q${quarter} ${year}`;
+                    }
+
+                    // For other data, use default formatting
+                    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                  },
+                },
               },
             },
-          },
-        },
-        plugins: {
-          tooltip: {
-            callbacks: {
-              title: (context) => {
-                // Show the date as the title
-                const date = new Date(context[0]?.label || '');
-                return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            plugins: {
+              tooltip: {
+                callbacks: {
+                  title: (context) => {
+                    // Show the date as the title
+                    const date = new Date(context[0]?.label || '');
+                    return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+                  },
+                  label: (context) => {
+                    // Show provider name and value
+                    return `${context.dataset.label}: ${formatValue(context.parsed.y ?? 0)}`;
+                  },
+                },
+                bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
+                backgroundColor: darkMode ? tooltipBgColor.dark : tooltipBgColor.light,
+                borderColor: darkMode ? tooltipBorderColor.dark : tooltipBorderColor.light,
               },
-              label: (context) => {
-                // Show provider name and value
-                return `${context.dataset.label}: ${formatValue(context.parsed.y ?? 0)}`;
+              legend: {
+                display: false,
               },
             },
-            bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
-            backgroundColor: darkMode ? tooltipBgColor.dark : tooltipBgColor.light,
-            borderColor: darkMode ? tooltipBorderColor.dark : tooltipBorderColor.light,
+            interaction: {
+              intersect: false,
+              mode: 'nearest',
+            },
+            maintainAspectRatio: false,
+            responsive: false, // Disable Chart.js responsive mode (we handle it manually below)
+            resizeDelay: 200,
           },
-          legend: {
-            display: false,
-          },
-        },
-        interaction: {
-          intersect: false,
-          mode: 'nearest',
-        },
-        maintainAspectRatio: false,
-        responsive: true,
-        resizeDelay: 200,
-      },
+        });
+        setChart(newChart);
+      });
     });
-    setChart(newChart);
-    return () => newChart.destroy();
-  }, []);
+
+    return () => {
+      // Clean up animation frame if component unmounts during deferral
+      cancelAnimationFrame(rafId);
+      if (chart) {
+        chart.destroy();
+      }
+    };
+  }, []); // Initialize once
+
+  // Update data when it changes (without recreating chart)
+  useEffect(() => {
+    if (!chart || !canvas.current?.isConnected) return;
+
+    chart.data = data;
+    chart.update('none');
+  }, [chart, data]);
 
   useEffect(() => {
     if (!chart || !canvas.current) return;
@@ -152,15 +184,44 @@ const LineChart01 = forwardRef<HTMLCanvasElement, LineChart01Props>(function Lin
     chart.update('none');
   }, [theme]);
 
-  // Handle dimension changes for responsive behavior
+  // Manual responsive handling (replaces Chart.js responsive mode - preserves responsive design!)
   useEffect(() => {
-    if (!chart || !canvas.current) return;
+    if (!chart || !canvas.current?.isConnected) return;
 
-    // Let Chart.js handle responsive sizing automatically
+    // Observe parent container for size changes
+    const container = canvas.current.parentElement;
+    if (!container) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      // Defer resize to next frame for safety
+      requestAnimationFrame(() => {
+        if (chart && canvas.current?.isConnected) {
+          chart.resize();
+        }
+      });
+    });
+
+    resizeObserver.observe(container);
+
+    return () => resizeObserver.disconnect();
+  }, [chart]);
+
+  // Handle explicit width/height prop changes
+  useEffect(() => {
+    if (!chart || !canvas.current?.isConnected) return;
+
     chart.resize();
   }, [chart, width, height]);
 
-  return <canvas ref={canvas} className="chart-canvas" />;
+  return (
+    <canvas 
+      ref={canvas} 
+      width={width}
+      height={height}
+      className="chart-canvas"
+      style={{ width: '100%', height: '100%', display: 'block' }}
+    />
+  );
 });
 
 export default LineChart01;

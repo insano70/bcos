@@ -30,45 +30,60 @@ const DoughnutChart = forwardRef<HTMLCanvasElement, DoughnutProps>(function Doug
   const darkMode = theme === 'dark';
   const { tooltipTitleColor, tooltipBodyColor, tooltipBgColor, tooltipBorderColor } = chartColors;
 
+  // Chart initialization - deferred to prevent race condition with React 19 concurrent rendering
   useEffect(() => {
     const ctx = canvas.current;
-    if (!ctx || !ctx.parentElement) return;
+    
+    // Safety check: ensure canvas is properly mounted
+    if (!ctx?.parentElement || !ctx.isConnected) return;
 
-    const newChart = new Chart(ctx, {
-      type: 'doughnut',
-      data: data,
-      options: {
-        layout: {
-          padding: 24,
-        },
-        plugins: {
-          legend: {
-            display: false,
+    // Defer initialization until after React's layout phase (fixes race condition)
+    const rafId = requestAnimationFrame(() => {
+      // Double RAF ensures we're after paint
+      requestAnimationFrame(() => {
+        // Re-check connection after deferral
+        if (!ctx.isConnected) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[DoughnutChart] Canvas disconnected during initialization deferral');
+          }
+          return;
+        }
+
+        const newChart = new Chart(ctx, {
+          type: 'doughnut',
+          data: data,
+          options: {
+            layout: {
+              padding: 24,
+            },
+            plugins: {
+              legend: {
+                display: false,
+              },
+              tooltip: {
+                titleColor: darkMode ? tooltipTitleColor.dark : tooltipTitleColor.light,
+                bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
+                backgroundColor: darkMode ? tooltipBgColor.dark : tooltipBgColor.light,
+                borderColor: darkMode ? tooltipBorderColor.dark : tooltipBorderColor.light,
+              },
+            },
+            interaction: {
+              intersect: false,
+              mode: 'nearest',
+            },
+            animation: {
+              duration: 500,
+            },
+            maintainAspectRatio: false,
+            responsive: false, // Disable Chart.js responsive mode (we handle it manually below)
+            resizeDelay: 200,
           },
-          tooltip: {
-            titleColor: darkMode ? tooltipTitleColor.dark : tooltipTitleColor.light,
-            bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
-            backgroundColor: darkMode ? tooltipBgColor.dark : tooltipBgColor.light,
-            borderColor: darkMode ? tooltipBorderColor.dark : tooltipBorderColor.light,
-          },
-        },
-        interaction: {
-          intersect: false,
-          mode: 'nearest',
-        },
-        animation: {
-          duration: 500,
-        },
-        maintainAspectRatio: false,
-        responsive: true,
-        resizeDelay: 200,
-      },
-      plugins: [
-        {
-          id: 'htmlLegend',
-          afterUpdate(c, _args, _options) {
-            const ul = legend.current;
-            if (!ul) return;
+          plugins: [
+            {
+              id: 'htmlLegend',
+              afterUpdate(c, _args, _options) {
+                const ul = legend.current;
+                if (!ul || !ul.isConnected) return;
             // Remove old legend items
             while (ul.firstChild) {
               ul.firstChild.remove();
@@ -118,10 +133,27 @@ const DoughnutChart = forwardRef<HTMLCanvasElement, DoughnutProps>(function Doug
           },
         },
       ],
+        });
+        setChart(newChart);
+      });
     });
-    setChart(newChart);
-    return () => newChart.destroy();
-  }, []);
+
+    return () => {
+      // Clean up animation frame if component unmounts during deferral
+      cancelAnimationFrame(rafId);
+      if (chart) {
+        chart.destroy();
+      }
+    };
+  }, []); // Initialize once
+
+  // Update data when it changes (without recreating chart)
+  useEffect(() => {
+    if (!chart || !canvas.current?.isConnected) return;
+
+    chart.data = data;
+    chart.update('none');
+  }, [chart, data]);
 
   useEffect(() => {
     if (!chart || !canvas.current) return;
@@ -140,17 +172,32 @@ const DoughnutChart = forwardRef<HTMLCanvasElement, DoughnutProps>(function Doug
     chart.update('none');
   }, [theme]);
 
-  // Handle dimension changes for responsive behavior
+  // Manual responsive handling (replaces Chart.js responsive mode - preserves responsive design!)
   useEffect(() => {
-    if (!chart || !canvas.current) return;
+    if (!chart || !canvas.current?.isConnected) return;
 
-    const canvasElement = canvas.current;
+    // Observe parent container for size changes
+    const container = canvas.current.parentElement;
+    if (!container) return;
 
-    // Update canvas dimensions
-    canvasElement.width = width;
-    canvasElement.height = height;
+    const resizeObserver = new ResizeObserver(() => {
+      // Defer resize to next frame for safety
+      requestAnimationFrame(() => {
+        if (chart && canvas.current?.isConnected) {
+          chart.resize();
+        }
+      });
+    });
 
-    // Resize the chart
+    resizeObserver.observe(container);
+
+    return () => resizeObserver.disconnect();
+  }, [chart]);
+
+  // Handle explicit width/height prop changes
+  useEffect(() => {
+    if (!chart || !canvas.current?.isConnected) return;
+
     chart.resize();
   }, [chart, width, height]);
 
@@ -159,6 +206,8 @@ const DoughnutChart = forwardRef<HTMLCanvasElement, DoughnutProps>(function Doug
       <div className="flex-1 min-h-0 flex items-center justify-center">
         <canvas
           ref={canvas}
+          width={width}
+          height={height}
           style={{
             width: '100%',
             height: '100%',

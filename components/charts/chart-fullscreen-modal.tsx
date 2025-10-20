@@ -141,10 +141,15 @@ export default function ChartFullscreenModal({
   };
 
   // Initialize chart
+  // Chart initialization - deferred to prevent race condition
   useEffect(() => {
     if (!isOpen || !canvasRef.current || !chartData) return;
 
     const ctx = canvasRef.current;
+    
+    // Safety check: ensure canvas is properly mounted
+    if (!ctx.parentElement || !ctx.isConnected) return;
+
     const _timeConfig = getTimeConfig();
 
     // Get fresh color values inside useEffect to ensure they're read after theme is loaded
@@ -164,7 +169,17 @@ export default function ChartFullscreenModal({
 
     const isHorizontal = chartType === 'horizontal-bar';
 
-    const newChart = new Chart(ctx, {
+    // Defer initialization until after React's layout phase (fixes race condition)
+    const rafId = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!ctx.isConnected) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[ChartFullscreenModal] Canvas disconnected during initialization deferral');
+          }
+          return;
+        }
+
+        const newChart = new Chart(ctx, {
       type: 'bar',
       data: chartjsData,
       options: {
@@ -345,16 +360,16 @@ export default function ChartFullscreenModal({
             },
           },
         },
-        responsive: true,
+        responsive: false, // Disable Chart.js responsive mode (we handle it manually)
         maintainAspectRatio: false,
       },
     });
 
-    setChart(newChart);
+        setChart(newChart);
 
-    // Generate HTML legend
-    if (legendRef.current) {
-      const ul = legendRef.current;
+        // Generate HTML legend
+        if (legendRef.current?.isConnected) {
+          const ul = legendRef.current;
       ul.innerHTML = '';
 
       if (hasPeriodComparison) {
@@ -417,12 +432,17 @@ export default function ChartFullscreenModal({
           };
 
           ul.appendChild(li);
-        });
-      }
-    }
+            });
+          }
+        }
+      });
+    });
 
     return () => {
-      newChart.destroy();
+      cancelAnimationFrame(rafId);
+      if (chart) {
+        chart.destroy();
+      }
     };
   }, [isOpen, mounted, chartData, chartType, frequency, stackingMode, darkMode]);
 

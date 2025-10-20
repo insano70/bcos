@@ -87,9 +87,8 @@ class DatabaseStateManager {
         throw new Error('State token already exists (possible collision)');
       }
 
-      log.error('Failed to register state token', {
+      log.error('Failed to register state token', error, {
         state: `${state.substring(0, 8)}...`,
-        error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
     }
@@ -165,9 +164,8 @@ class DatabaseStateManager {
 
       return result;
     } catch (error) {
-      log.error('State validation transaction failed', {
+      log.error('State validation transaction failed', error, {
         state: `${state.substring(0, 8)}...`,
-        error: error instanceof Error ? error.message : 'Unknown error',
       });
       return false;
     }
@@ -197,9 +195,8 @@ class DatabaseStateManager {
 
       return stateRecord?.nonce || null;
     } catch (error) {
-      log.error('Failed to retrieve nonce for state', {
+      log.error('Failed to retrieve nonce for state', error, {
         state: `${state.substring(0, 8)}...`,
-        error: error instanceof Error ? error.message : 'Unknown error',
       });
       return null;
     }
@@ -227,9 +224,7 @@ class DatabaseStateManager {
 
       return deleted;
     } catch (error) {
-      log.error('Failed to cleanup expired states', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
+      log.error('Failed to cleanup expired states', error);
       return 0;
     }
   }
@@ -248,9 +243,7 @@ class DatabaseStateManager {
 
       return result.length;
     } catch (error) {
-      log.error('Failed to get state count', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
+      log.error('Failed to get state count', error);
       return 0;
     }
   }
@@ -277,9 +270,7 @@ class DatabaseStateManager {
 
       return deleted;
     } catch (error) {
-      log.error('Failed to clear all states', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
+      log.error('Failed to clear all states', error);
       return 0;
     }
   }

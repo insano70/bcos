@@ -130,9 +130,7 @@ const oidcCallbackHandler = async (request: NextRequest) => {
         password: sessionSecret,
       });
     } catch (error) {
-      log.error('Failed to decrypt OIDC session', {
-        error: error instanceof Error ? error.message : 'Unknown',
-      });
+      log.error('Failed to decrypt OIDC session', error);
       throw new SessionError('OIDC session decryption failed - possible tampering');
     }
 
@@ -456,10 +454,7 @@ const oidcCallbackHandler = async (request: NextRequest) => {
   } catch (error) {
     const duration = Date.now() - startTime;
 
-    log.error('OIDC callback failed', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      errorName: error instanceof Error ? error.constructor.name : 'Unknown',
-      stack: error instanceof Error ? error.stack : undefined,
+    log.error('OIDC callback failed', error, {
       duration,
     });
 

@@ -94,9 +94,7 @@ const oidcLogoutHandler = async (request: NextRequest) => {
   } catch (error) {
     const duration = Date.now() - startTime;
 
-    log.error('OIDC logout failed', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
+    log.error('OIDC logout failed', error, {
       duration,
     });
 
