@@ -10,11 +10,11 @@ import {
   TimeScale,
   Tooltip,
 } from 'chart.js';
+import type { Chart as ChartType, ChartConfiguration } from 'chart.js';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { useTheme } from 'next-themes';
 import { useEffect, useRef, useState } from 'react';
 import 'chartjs-adapter-moment';
-import type { Chart as ChartType } from 'chart.js';
 import { chartColors } from '@/components/charts/chartjs-config';
 import { apiClient } from '@/lib/api/client';
 import type { PerformanceHistoryResponse } from '@/lib/monitoring/types';
@@ -139,7 +139,7 @@ export default function ErrorRateChart({ category, timeRange, height = 300 }: Er
         } else if (canvasRef.current) {
           const ctx = canvasRef.current.getContext('2d');
           if (ctx) {
-            const newChart = new Chart(ctx, {
+            const config: ChartConfiguration = {
               type: 'line',
               data: chartData,
               options: {
@@ -230,7 +230,8 @@ export default function ErrorRateChart({ category, timeRange, height = 300 }: Er
                   },
                 },
               },
-            });
+            };
+            const newChart = new Chart(ctx, config);
             setChart(newChart);
           }
         }
