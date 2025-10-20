@@ -193,52 +193,115 @@ jobs:
           echo "migration-task-def-arn=${TASK_DEF_ARN}" >> $GITHUB_OUTPUT
           echo "✅ Registered migration task definition: ${TASK_DEF_ARN}"
 
+      - name: Warm up VPC endpoints
+        run: |
+          echo "🔥 Warming up VPC endpoints..."
+          # Make test calls to warm up interface VPC endpoints
+          if [ "${{ steps.vars.outputs.TARGET_ENV }}" = "production" ]; then
+            SECRET_ARN=$(aws cloudformation describe-stacks --stack-name BCOS-SecurityStack --query 'Stacks[0].Outputs[?OutputKey==`ProductionSecretArn`].OutputValue' --output text)
+          else
+            SECRET_ARN=$(aws cloudformation describe-stacks --stack-name BCOS-SecurityStack --query 'Stacks[0].Outputs[?OutputKey==`StagingSecretArn`].OutputValue' --output text)
+          fi
+
+          aws secretsmanager describe-secret --secret-id ${SECRET_ARN} > /dev/null || true
+          echo "✅ VPC endpoints warmed up"
+
       - name: Run database migrations
         run: |
           # Get network configuration from CloudFormation exports
           PRIVATE_SUBNETS=$(aws cloudformation describe-stacks --stack-name BCOS-NetworkStack --query 'Stacks[0].Outputs[?OutputKey==`PrivateSubnetIds`].OutputValue' --output text)
           ECS_SECURITY_GROUP=$(aws cloudformation describe-stacks --stack-name BCOS-NetworkStack --query 'Stacks[0].Outputs[?OutputKey==`ECSSecurityGroupId`].OutputValue' --output text)
-          
-          echo "🔄 Running database migrations..."
+
+          echo "🔄 Running database migrations with retry logic..."
           echo "📊 Environment: ${{ steps.vars.outputs.TARGET_ENV }}"
           echo "🗄️  Using task definition: ${{ steps.migration-task-def.outputs.migration-task-def-arn }}"
-          
-          # Run migration task
-          TASK_ARN=$(aws ecs run-task \
-            --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} \
-            --task-definition ${{ steps.migration-task-def.outputs.migration-task-def-arn }} \
-            --network-configuration "awsvpcConfiguration={subnets=[${PRIVATE_SUBNETS}],securityGroups=[${ECS_SECURITY_GROUP}],assignPublicIp=DISABLED}" \
-            --launch-type FARGATE \
-            --query 'tasks[0].taskArn' \
-            --output text)
-          
-          echo "📝 Migration task started: ${TASK_ARN}"
-          
-          # Wait for migration task to complete (timeout after 10 minutes)
-          echo "⏳ Waiting for migrations to complete..."
-          aws ecs wait tasks-stopped --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} --tasks ${TASK_ARN} --cli-read-timeout 600 || {
-            echo "⚠️  Wait command timed out or failed"
-          }
-          
-          # Check migration task result
-          TASK_INFO=$(aws ecs describe-tasks --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} --tasks ${TASK_ARN})
-          EXIT_CODE=$(echo "${TASK_INFO}" | jq -r '.tasks[0].containers[0].exitCode // "null"')
-          STOPPED_REASON=$(echo "${TASK_INFO}" | jq -r '.tasks[0].stoppedReason // "Unknown"')
-          LAST_STATUS=$(echo "${TASK_INFO}" | jq -r '.tasks[0].lastStatus')
-          
-          echo "📊 Migration task status: ${LAST_STATUS}"
-          echo "🔢 Exit code: ${EXIT_CODE}"
-          
-          if [ "${EXIT_CODE}" != "0" ]; then
-            echo "❌ Migration failed with exit code: ${EXIT_CODE}"
-            echo "Reason: ${STOPPED_REASON}"
+
+          # Retry up to 3 times with 30-second delay between attempts
+          MAX_ATTEMPTS=3
+          ATTEMPT=1
+          SUCCESS=false
+
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
             echo ""
+            echo "🔄 Migration attempt $ATTEMPT of $MAX_ATTEMPTS..."
+
+            # Run migration task
+            TASK_ARN=$(aws ecs run-task \
+              --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} \
+              --task-definition ${{ steps.migration-task-def.outputs.migration-task-def-arn }} \
+              --network-configuration "awsvpcConfiguration={subnets=[${PRIVATE_SUBNETS}],securityGroups=[${ECS_SECURITY_GROUP}],assignPublicIp=DISABLED}" \
+              --launch-type FARGATE \
+              --query 'tasks[0].taskArn' \
+              --output text)
+
+            echo "📝 Migration task started: ${TASK_ARN}"
+
+            # Wait for migration task to complete (timeout after 10 minutes)
+            echo "⏳ Waiting for migrations to complete..."
+            aws ecs wait tasks-stopped --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} --tasks ${TASK_ARN} --cli-read-timeout 600 || {
+              echo "⚠️  Wait command timed out or failed"
+            }
+
+            # Check migration task result
+            TASK_INFO=$(aws ecs describe-tasks --cluster ${{ steps.vars.outputs.ECS_CLUSTER }} --tasks ${TASK_ARN})
+            EXIT_CODE=$(echo "${TASK_INFO}" | jq -r '.tasks[0].containers[0].exitCode // "null"')
+            STOPPED_REASON=$(echo "${TASK_INFO}" | jq -r '.tasks[0].stoppedReason // "Unknown"')
+            LAST_STATUS=$(echo "${TASK_INFO}" | jq -r '.tasks[0].lastStatus')
+            CONTAINER_REASON=$(echo "${TASK_INFO}" | jq -r '.tasks[0].containers[0].reason // "None"')
+
+            echo "📊 Migration task status: ${LAST_STATUS}"
+            echo "🔢 Exit code: ${EXIT_CODE}"
+
+            # Check for success (exit code 0)
+            if [ "${EXIT_CODE}" = "0" ]; then
+              echo "✅ Database migrations completed successfully on attempt $ATTEMPT"
+              SUCCESS=true
+              break
+            fi
+
+            # Handle different failure scenarios
+            if [ "${EXIT_CODE}" = "null" ]; then
+              echo "❌ Migration task failed to start (ResourceInitializationError)"
+              echo "Reason: ${STOPPED_REASON}"
+              echo "Container reason: ${CONTAINER_REASON}"
+
+              # Check if it's a VPC endpoint timeout (retriable)
+              if echo "${STOPPED_REASON}" | grep -q "unable to retrieve secret\|connection issue\|context deadline exceeded"; then
+                echo "⚠️  This appears to be a VPC endpoint timeout (retriable)"
+              else
+                echo "⚠️  This appears to be a non-retriable initialization error"
+                echo ""
+                echo "📋 Check migration logs at:"
+                echo "https://console.aws.amazon.com/cloudwatch/home?region=${{ env.AWS_REGION }}#logsV2:log-groups/log-group/\$252Fecs\$252Fbcos-migrations-${{ steps.vars.outputs.TARGET_ENV }}"
+                exit 1
+              fi
+            else
+              echo "❌ Migration failed with exit code: ${EXIT_CODE}"
+              echo "Reason: ${STOPPED_REASON}"
+              echo "Container reason: ${CONTAINER_REASON}"
+              echo ""
+              echo "📋 Check migration logs at:"
+              echo "https://console.aws.amazon.com/cloudwatch/home?region=${{ env.AWS_REGION }}#logsV2:log-groups/log-group/\$252Fecs\$252Fbcos-migrations-${{ steps.vars.outputs.TARGET_ENV }}"
+              exit 1
+            fi
+
+            # Retry logic
+            if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+              echo "⏳ Waiting 30 seconds before retry..."
+              sleep 30
+            fi
+
+            ATTEMPT=$((ATTEMPT + 1))
+          done
+
+          # Final check
+          if [ "$SUCCESS" = false ]; then
+            echo ""
+            echo "❌ All $MAX_ATTEMPTS migration attempts failed"
             echo "📋 Check migration logs at:"
             echo "https://console.aws.amazon.com/cloudwatch/home?region=${{ env.AWS_REGION }}#logsV2:log-groups/log-group/\$252Fecs\$252Fbcos-migrations-${{ steps.vars.outputs.TARGET_ENV }}"
             exit 1
           fi
-          
-          echo "✅ Database migrations completed successfully"
 
       - name: Get current task definition
         run: |
