@@ -514,7 +514,6 @@ export default function ChartFullscreenModal({
               ref={setCanvasRef}
               width={canvasDimensions.width}
               height={canvasDimensions.height}
-              style={{ width: '100%', height: '100%' }}
             />
           </div>
 
