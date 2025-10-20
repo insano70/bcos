@@ -36,7 +36,7 @@ export default function LineChart04({ data, width, height }: LineChart04Props) {
 
   useEffect(() => {
     const ctx = canvas.current;
-    if (!ctx) return;
+    if (!ctx || !ctx.parentElement) return;
 
     const newChart = new Chart(ctx, {
       type: 'line',
@@ -88,7 +88,7 @@ export default function LineChart04({ data, width, height }: LineChart04Props) {
   }, []);
 
   useEffect(() => {
-    if (!chart) return;
+    if (!chart || !canvas.current) return;
 
     if (darkMode) {
       chart.options.plugins!.tooltip!.bodyColor = tooltipBodyColor.dark;

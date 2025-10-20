@@ -42,7 +42,7 @@ const LineChart01 = forwardRef<HTMLCanvasElement, LineChart01Props>(function Lin
 
   useEffect(() => {
     const ctx = canvas.current;
-    if (!ctx) return;
+    if (!ctx || !ctx.parentElement) return;
 
     const newChart = new Chart(ctx, {
       type: 'line',

@@ -34,7 +34,7 @@ export default function StackedBarChart({ data, width, height }: StackedBarChart
 
   useEffect(() => {
     const ctx = canvas.current;
-    if (!ctx) return;
+    if (!ctx || !ctx.parentElement) return;
 
     const newChart = new Chart(ctx, {
       type: 'bar',
@@ -118,7 +118,7 @@ export default function StackedBarChart({ data, width, height }: StackedBarChart
   }, []);
 
   useEffect(() => {
-    if (!chart) return;
+    if (!chart || !canvas.current) return;
 
     // Update theme colors
     if (darkMode) {

@@ -91,7 +91,8 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
 
     useEffect(() => {
       const ctx = canvas.current;
-      if (!ctx) return;
+      // Ensure canvas is mounted and has a parent element before creating chart
+      if (!ctx || !ctx.parentElement) return;
 
       const _timeConfig = getTimeConfig();
       const isPercentageMode = stackingMode === 'percentage';

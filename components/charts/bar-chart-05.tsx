@@ -37,7 +37,7 @@ export default function BarChart05({ data, width, height }: BarChart05Props) {
 
   useEffect(() => {
     const ctx = canvas.current;
-    if (!ctx) return;
+    if (!ctx || !ctx.parentElement) return;
 
     const newChart = new Chart(ctx, {
       type: 'bar',

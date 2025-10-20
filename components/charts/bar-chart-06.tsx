@@ -45,7 +45,7 @@ export default function BarChart06({ data, width, height }: BarChart06Props) {
 
   useEffect(() => {
     const ctx = canvas.current;
-    if (!ctx) return;
+    if (!ctx || !ctx.parentElement) return;
 
     const newChart = new Chart(ctx, {
       type: 'bar',

@@ -35,7 +35,7 @@ export default function AreaChart({ data, width, height }: AreaChartProps) {
 
   useEffect(() => {
     const ctx = canvas.current;
-    if (!ctx) return;
+    if (!ctx || !ctx.parentElement) return;
 
     const newChart = new Chart(ctx, {
       type: 'line',

@@ -61,7 +61,7 @@ export default function AnalyticsDualAxisChart({
 
   // Create and update chart with Chart.js
   useEffect(() => {
-    if (!canvas.current || !chartData || chartData.datasets.length === 0) {
+    if (!canvas.current || !canvas.current.parentElement || !chartData || chartData.datasets.length === 0) {
       return;
     }
 
@@ -69,7 +69,7 @@ export default function AnalyticsDualAxisChart({
     if (!ctx) return;
 
     // Destroy existing chart before creating new one
-    if (chart) {
+    if (chart && canvas.current) {
       chart.destroy();
       setChart(null);
     }

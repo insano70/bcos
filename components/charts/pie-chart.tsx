@@ -26,7 +26,7 @@ export default function DoughnutChart({ data, width, height }: DoughnutProps) {
 
   useEffect(() => {
     const ctx = canvas.current;
-    if (!ctx) return;
+    if (!ctx || !ctx.parentElement) return;
 
     const newChart = new Chart(ctx, {
       type: 'pie',

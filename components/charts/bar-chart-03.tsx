@@ -37,7 +37,7 @@ export default function BarChart03({ data, width, height }: BarChart03Props) {
 
   useEffect(() => {
     const ctx = canvas.current;
-    if (!ctx) return;
+    if (!ctx || !ctx.parentElement) return;
 
     const newChart = new Chart(ctx, {
       type: 'bar',

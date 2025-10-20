@@ -85,7 +85,8 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
 
     useEffect(() => {
       const ctx = canvas.current;
-      if (!ctx) return;
+      // Ensure canvas is mounted, has a parent element, and is connected to the document
+      if (!ctx || !ctx.parentElement || !ctx.isConnected) return;
 
       const _timeConfig = getTimeConfig();
 
@@ -310,7 +311,13 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
       });
 
       setChart(newChart);
-      return () => newChart.destroy();
+      return () => {
+        // Destroy chart synchronously to prevent canvas reuse errors
+        // Chart.js requires cleanup before the canvas can be reused
+        if (newChart) {
+          newChart.destroy();
+        }
+      };
     }, [frequency]);
 
     useEffect(() => {

@@ -32,7 +32,7 @@ const DoughnutChart = forwardRef<HTMLCanvasElement, DoughnutProps>(function Doug
 
   useEffect(() => {
     const ctx = canvas.current;
-    if (!ctx) return;
+    if (!ctx || !ctx.parentElement) return;
 
     const newChart = new Chart(ctx, {
       type: 'doughnut',

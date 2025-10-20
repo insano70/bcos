@@ -38,7 +38,7 @@ export default function LineChart02({ data, width, height }: LineChart02Props) {
 
   useEffect(() => {
     const ctx = canvas.current;
-    if (!ctx) return;
+    if (!ctx || !ctx.parentElement) return;
 
     const newChart = new Chart(ctx, {
       type: 'line',

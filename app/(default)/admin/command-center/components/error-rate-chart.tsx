@@ -303,12 +303,17 @@ export default function ErrorRateChart({ category, timeRange, height = 300 }: Er
   }, [darkMode]);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 flex flex-col" style={{ height: `${height}px` }}>
+    <div
+      className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 flex flex-col"
+      style={{ height: `${height}px` }}
+    >
       <div className="flex items-center justify-between mb-4 shrink-0">
         <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
           Error Rate Trending
         </h3>
-        <button type="button" onClick={handleResetZoom}
+        <button
+          type="button"
+          onClick={handleResetZoom}
           className="px-3 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
           title="Reset zoom"
         >
@@ -321,7 +326,11 @@ export default function ErrorRateChart({ category, timeRange, height = 300 }: Er
         </div>
       )}
       {error && <div className="text-center text-red-600 py-8 flex-1">{error}</div>}
-      {!loading && !error && <div className="flex-1 relative"><canvas ref={canvasRef} className="absolute inset-0" /></div>}
+      {!loading && !error && (
+        <div className="flex-1 relative">
+          <canvas ref={canvasRef} className="absolute inset-0" />
+        </div>
+      )}
     </div>
   );
 }

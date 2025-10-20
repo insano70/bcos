@@ -33,7 +33,7 @@ export default function PolarChart({ data, width, height }: PolarProps) {
 
   useEffect(() => {
     const ctx = canvas.current;
-    if (!ctx) return;
+    if (!ctx || !ctx.parentElement) return;
 
     const newChart = new Chart(ctx, {
       type: 'polarArea',

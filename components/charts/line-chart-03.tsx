@@ -37,7 +37,7 @@ export default function LineChart03({ data, width, height }: LineChart03Props) {
 
   useEffect(() => {
     const ctx = canvas.current;
-    if (!ctx) return;
+    if (!ctx || !ctx.parentElement) return;
 
     const newChart = new Chart(ctx, {
       type: 'line',
@@ -109,7 +109,7 @@ export default function LineChart03({ data, width, height }: LineChart03Props) {
   }, []);
 
   useEffect(() => {
-    if (!chart) return;
+    if (!chart || !canvas.current) return;
 
     if (darkMode) {
       chart.options.scales!.x!.ticks!.color = textColor.dark;
