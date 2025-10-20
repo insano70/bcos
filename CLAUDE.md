@@ -2,6 +2,8 @@
 
 This document contains the rules, guidelines, and context for AI assistants working on this codebase.
 
+-Application uses Next.js 15, Node.js 24, AWS/ECS Fargate, Postgres 17 on RDS, AWS Elasticache Valkey for caching, Drizzle ORM, biome for lint, strict typescript
+
 ## Git Operations
 
 ### Strict Prohibitions

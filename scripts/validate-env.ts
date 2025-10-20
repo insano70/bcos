@@ -23,11 +23,6 @@ const WEBAUTHN_ENV_VARS = {
     example: 'https://bendcare.com',
     required: true,
   },
-  CRON_SECRET: {
-    description: 'Secret for authenticating cron endpoints',
-    example: 'random-secret-string',
-    required: true,
-  },
 } as const;
 
 /**
@@ -37,6 +32,11 @@ const RECOMMENDED_ENV_VARS = {
   DATABASE_URL: {
     description: 'PostgreSQL database connection string',
     example: 'postgresql://user:pass@host:5432/db',
+    required: false,
+  },
+  CRON_SECRET: {
+    description: 'Secret for authenticating external cron endpoints (optional - only if using Vercel Cron or external HTTP cron triggers)',
+    example: 'random-secret-string',
     required: false,
   },
 } as const;
@@ -57,7 +57,9 @@ function validateEnvironmentVariables(): ValidationResult {
   // Validate required WebAuthn variables
   for (const [key, config] of Object.entries(WEBAUTHN_ENV_VARS)) {
     if (!process.env[key]) {
-      if (process.env.NODE_ENV === 'production') {
+      // Only error in production if SKIP_ENV_VALIDATION is not set
+      // This allows Docker builds to proceed with dummy values
+      if (process.env.NODE_ENV === 'production' && !process.env.SKIP_ENV_VALIDATION) {
         errors.push(
           `REQUIRED: ${key} is missing\n  Description: ${config.description}\n  Example: ${config.example}`
         );

@@ -2,8 +2,11 @@
  * GET /api/cron/webauthn-cleanup
  * Cron endpoint for WebAuthn challenge cleanup
  *
- * Authentication: Cron secret header (Vercel Cron)
- * Schedule: Every 15 minutes (0,15,30,45 * * * *)
+ * Authentication: Optional CRON_SECRET header (for external cron services like Vercel Cron)
+ * Schedule: Every 15 minutes (recommended)
+ *
+ * For AWS ECS: Call this endpoint via EventBridge Scheduler or invoke runWebAuthnCleanup() directly
+ * For Vercel: Set CRON_SECRET environment variable and configure cron in vercel.json
  *
  * This endpoint removes expired WebAuthn challenges to prevent database bloat.
  */
@@ -20,20 +23,24 @@ const handler = async (request: NextRequest) => {
   const startTime = Date.now();
 
   try {
-    // SECURITY: Verify cron secret (Vercel Cron authentication)
-    // In production, Vercel automatically adds this header
-    // For local testing, you can set CRON_SECRET in .env.local
-    const authHeader = request.headers.get('authorization');
+    // SECURITY: Optional cron secret verification (only if CRON_SECRET is set)
+    // Use this if calling from external cron services (Vercel Cron, etc.)
+    // For AWS EventBridge or internal calls, CRON_SECRET is not required
     const cronSecret = process.env.CRON_SECRET;
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      log.security('unauthorized_cron_access', 'high', {
-        endpoint: '/api/cron/webauthn-cleanup',
-        blocked: true,
-        threat: 'unauthorized_cron_invocation',
-      });
+    if (cronSecret) {
+      const authHeader = request.headers.get('authorization');
+      if (authHeader !== `Bearer ${cronSecret}`) {
+        log.security('unauthorized_cron_access', 'high', {
+          endpoint: '/api/cron/webauthn-cleanup',
+          blocked: true,
+          threat: 'unauthorized_cron_invocation',
+          hasSecret: !!cronSecret,
+          hasAuth: !!authHeader,
+        });
 
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
     }
 
     // Run cleanup job
@@ -74,6 +81,6 @@ const handler = async (request: NextRequest) => {
 
 export const GET = publicRoute(
   handler,
-  'Cron endpoint - authenticated via CRON_SECRET header by Vercel Cron. Must be public to receive Vercel Cron requests.',
+  'Cron endpoint for WebAuthn challenge cleanup. Public endpoint with optional CRON_SECRET authentication. Call from AWS EventBridge, ECS Scheduled Task, or external cron services.',
   { rateLimit: 'api' }
 );

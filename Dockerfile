@@ -27,6 +27,8 @@ ENV JWT_REFRESH_SECRET="dummy-refresh-secret-for-build-validation-only-not-used"
 ENV CSRF_SECRET="dummy-csrf-secret-for-build-validation"
 ENV APP_URL="http://localhost:4001"
 ENV NEXT_PUBLIC_APP_URL="https://app.bendcare.com"
+# WebAuthn build-time validation (real values set at runtime)
+ENV WEBAUTHN_RP_ID="bendcare.com"
 
 RUN pnpm build
 
