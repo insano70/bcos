@@ -20,9 +20,9 @@ import { dashboard_charts } from '@/lib/db/analytics-schema';
 import { dashboards } from '@/lib/db/schema';
 import { log } from '@/lib/logger';
 import {
-  DashboardRenderer,
+  createDashboardRenderingService,
   type DashboardUniversalFilters,
-} from '@/lib/services/dashboard-renderer';
+} from '@/lib/services/dashboard-rendering';
 import type { PermissionName, UserContext } from '@/lib/types/rbac';
 import { assignRoleToUser, createTestRole } from '@/tests/factories';
 import { createTestScope, type ScopedFactoryCollection } from '@/tests/factories/base';
@@ -163,12 +163,11 @@ describe('Dashboard Batch Rendering API', () => {
 
   describe('Basic Batch Rendering', () => {
     it('should render dashboard with all charts', async () => {
-      const dashboardRenderer = new DashboardRenderer();
+      const dashboardRenderingService = createDashboardRenderingService(userContext);
 
-      const result = await dashboardRenderer.renderDashboard(
+      const result = await dashboardRenderingService.renderDashboard(
         testDashboard.dashboard_id,
-        {},
-        userContext
+        {}
       );
 
       // Verify response structure
@@ -193,12 +192,11 @@ describe('Dashboard Batch Rendering API', () => {
     });
 
     it('should include performance metrics', async () => {
-      const dashboardRenderer = new DashboardRenderer();
+      const dashboardRenderingService = createDashboardRenderingService(userContext);
 
-      const result = await dashboardRenderer.renderDashboard(
+      const result = await dashboardRenderingService.renderDashboard(
         testDashboard.dashboard_id,
-        {},
-        userContext
+        {}
       );
 
       // Verify performance metrics exist
@@ -225,7 +223,7 @@ describe('Dashboard Batch Rendering API', () => {
 
   describe('Dashboard Filters', () => {
     it('should apply date range filters', async () => {
-      const dashboardRenderer = new DashboardRenderer();
+      const dashboardRenderingService = createDashboardRenderingService(userContext);
 
       const universalFilters: DashboardUniversalFilters = {
         startDate: '2024-01-01',
@@ -233,10 +231,9 @@ describe('Dashboard Batch Rendering API', () => {
         dateRangePreset: 'custom',
       };
 
-      const result = await dashboardRenderer.renderDashboard(
+      const result = await dashboardRenderingService.renderDashboard(
         testDashboard.dashboard_id,
-        universalFilters,
-        userContext
+        universalFilters
       );
 
       expect(result).toBeDefined();
@@ -248,16 +245,15 @@ describe('Dashboard Batch Rendering API', () => {
     });
 
     it('should apply organization filters', async () => {
-      const dashboardRenderer = new DashboardRenderer();
+      const dashboardRenderingService = createDashboardRenderingService(userContext);
 
       const universalFilters: DashboardUniversalFilters = {
         organizationId: testOrganization.organization_id,
       };
 
-      const result = await dashboardRenderer.renderDashboard(
+      const result = await dashboardRenderingService.renderDashboard(
         testDashboard.dashboard_id,
-        universalFilters,
-        userContext
+        universalFilters
       );
 
       expect(result).toBeDefined();
@@ -270,7 +266,7 @@ describe('Dashboard Batch Rendering API', () => {
     });
 
     it('should apply multiple filters simultaneously', async () => {
-      const dashboardRenderer = new DashboardRenderer();
+      const dashboardRenderingService = createDashboardRenderingService(userContext);
 
       const universalFilters: DashboardUniversalFilters = {
         startDate: '2024-01-01',
@@ -278,10 +274,9 @@ describe('Dashboard Batch Rendering API', () => {
         organizationId: testOrganization.organization_id,
       };
 
-      const result = await dashboardRenderer.renderDashboard(
+      const result = await dashboardRenderingService.renderDashboard(
         testDashboard.dashboard_id,
-        universalFilters,
-        userContext
+        universalFilters
       );
 
       expect(result).toBeDefined();
@@ -297,11 +292,11 @@ describe('Dashboard Batch Rendering API', () => {
 
   describe('Error Handling', () => {
     it('should handle dashboard not found', async () => {
-      const dashboardRenderer = new DashboardRenderer();
+      const dashboardRenderingService = createDashboardRenderingService(userContext);
       const nonExistentId = '00000000-0000-0000-0000-000000000000';
 
       await expect(
-        dashboardRenderer.renderDashboard(nonExistentId, {}, userContext)
+        dashboardRenderingService.renderDashboard(nonExistentId, {})
       ).rejects.toThrow(/not found/i);
 
       log.info('Dashboard not found test passed');
@@ -315,12 +310,11 @@ describe('Dashboard Batch Rendering API', () => {
         scope: scopeId,
       });
 
-      const dashboardRenderer = new DashboardRenderer();
+      const dashboardRenderingService = createDashboardRenderingService(userContext);
 
-      const result = await dashboardRenderer.renderDashboard(
+      const result = await dashboardRenderingService.renderDashboard(
         emptyDashboard.dashboard_id,
-        {},
-        userContext
+        {}
       );
 
       expect(result).toBeDefined();
@@ -333,13 +327,12 @@ describe('Dashboard Batch Rendering API', () => {
 
   describe('Performance', () => {
     it('should render dashboard in under 5 seconds', async () => {
-      const dashboardRenderer = new DashboardRenderer();
+      const dashboardRenderingService = createDashboardRenderingService(userContext);
       const startTime = Date.now();
 
-      const result = await dashboardRenderer.renderDashboard(
+      const result = await dashboardRenderingService.renderDashboard(
         testDashboard.dashboard_id,
-        {},
-        userContext
+        {}
       );
 
       const duration = Date.now() - startTime;
@@ -354,12 +347,11 @@ describe('Dashboard Batch Rendering API', () => {
     });
 
     it('should execute queries in parallel', async () => {
-      const dashboardRenderer = new DashboardRenderer();
+      const dashboardRenderingService = createDashboardRenderingService(userContext);
 
-      const result = await dashboardRenderer.renderDashboard(
+      const result = await dashboardRenderingService.renderDashboard(
         testDashboard.dashboard_id,
-        {},
-        userContext
+        {}
       );
 
       expect(result.metadata.parallelExecution).toBe(true);
@@ -370,12 +362,11 @@ describe('Dashboard Batch Rendering API', () => {
 
   describe('Query Deduplication (Phase 7)', () => {
     it('should include deduplication metadata in response', async () => {
-      const dashboardRenderer = new DashboardRenderer();
+      const dashboardRenderingService = createDashboardRenderingService(userContext);
 
-      const result = await dashboardRenderer.renderDashboard(
+      const result = await dashboardRenderingService.renderDashboard(
         testDashboard.dashboard_id,
-        {},
-        userContext
+        {}
       );
 
       // Phase 7: Verify deduplication metadata exists
@@ -456,12 +447,11 @@ describe('Dashboard Batch Rendering API', () => {
         }))
       );
 
-      const dashboardRenderer = new DashboardRenderer();
+      const dashboardRenderingService = createDashboardRenderingService(userContext);
 
-      const result = await dashboardRenderer.renderDashboard(
+      const result = await dashboardRenderingService.renderDashboard(
         dedupDashboard.dashboard_id,
-        {},
-        userContext
+        {}
       );
 
       // Phase 7: Verify query deduplication occurred
@@ -526,12 +516,11 @@ describe('Dashboard Batch Rendering API', () => {
         }))
       );
 
-      const dashboardRenderer = new DashboardRenderer();
+      const dashboardRenderingService = createDashboardRenderingService(userContext);
 
-      const result = await dashboardRenderer.renderDashboard(
+      const result = await dashboardRenderingService.renderDashboard(
         dashboard.dashboard_id,
-        {},
-        userContext
+        {}
       );
 
       // Different measures = different queries, no deduplication
@@ -617,12 +606,11 @@ describe('Dashboard Batch Rendering API', () => {
         }))
       );
 
-      const dashboardRenderer = new DashboardRenderer();
+      const dashboardRenderingService = createDashboardRenderingService(userContext);
 
-      const result = await dashboardRenderer.renderDashboard(
+      const result = await dashboardRenderingService.renderDashboard(
         dashboard.dashboard_id,
-        {},
-        userContext
+        {}
       );
 
       // All 4 charts fetch the same underlying data
@@ -669,12 +657,11 @@ describe('Dashboard Batch Rendering API', () => {
         position_config: { x: 0, y: 0, w: 12, h: 4 },
       });
 
-      const dashboardRenderer = new DashboardRenderer();
+      const dashboardRenderingService = createDashboardRenderingService(userContext);
 
-      const result = await dashboardRenderer.renderDashboard(
+      const result = await dashboardRenderingService.renderDashboard(
         dashboard.dashboard_id,
-        {},
-        userContext
+        {}
       );
 
       // Phase 7: Verify table chart was rendered
@@ -725,12 +712,11 @@ describe('Dashboard Batch Rendering API', () => {
         position_config: { x: 0, y: 0, w: 12, h: 6 },
       });
 
-      const dashboardRenderer = new DashboardRenderer();
+      const dashboardRenderingService = createDashboardRenderingService(userContext);
 
-      const result = await dashboardRenderer.renderDashboard(
+      const result = await dashboardRenderingService.renderDashboard(
         dashboard.dashboard_id,
-        {},
-        userContext
+        {}
       );
 
       // Phase 7: Verify table-specific metadata is included
@@ -815,12 +801,11 @@ describe('Dashboard Batch Rendering API', () => {
         }))
       );
 
-      const dashboardRenderer = new DashboardRenderer();
+      const dashboardRenderingService = createDashboardRenderingService(userContext);
 
-      const result = await dashboardRenderer.renderDashboard(
+      const result = await dashboardRenderingService.renderDashboard(
         dashboard.dashboard_id,
-        {},
-        userContext
+        {}
       );
 
       // Phase 7: Verify all chart types render together
@@ -894,12 +879,11 @@ describe('Dashboard Batch Rendering API', () => {
         }))
       );
 
-      const dashboardRenderer = new DashboardRenderer();
+      const dashboardRenderingService = createDashboardRenderingService(userContext);
 
-      const result = await dashboardRenderer.renderDashboard(
+      const result = await dashboardRenderingService.renderDashboard(
         dashboard.dashboard_id,
-        {},
-        userContext
+        {}
       );
 
       // Phase 7: Verify table charts participate in query deduplication

@@ -5,9 +5,9 @@ import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { log } from '@/lib/logger';
 import {
-  DashboardRenderer,
+  createDashboardRenderingService,
   type DashboardUniversalFilters,
-} from '@/lib/services/dashboard-renderer';
+} from '@/lib/services/dashboard-rendering';
 import type { UserContext } from '@/lib/types/rbac';
 import { dashboardRenderRequestSchema } from '@/lib/validations/analytics';
 
@@ -82,11 +82,11 @@ const renderDashboardHandler = async (
       });
     }
 
-    // Create dashboard renderer instance
-    const dashboardRenderer = new DashboardRenderer();
+    // Create dashboard rendering service instance
+    const dashboardRenderingService = createDashboardRenderingService(userContext);
 
     // Render dashboard with universal filters
-    const result = await dashboardRenderer.renderDashboard(dashboardId, filters, userContext);
+    const result = await dashboardRenderingService.renderDashboard(dashboardId, filters);
 
     const duration = Date.now() - startTime;
 
