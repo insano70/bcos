@@ -44,18 +44,19 @@ export default function PerformanceChart({
   height = 300,
 }: PerformanceChartProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const chartRef = useRef<ChartType | null>(null);
+  const [chart, setChart] = useState<ChartType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { theme } = useTheme();
   const darkMode = theme === 'dark';
 
   const handleResetZoom = () => {
-    if (chartRef.current) {
-      chartRef.current.resetZoom();
+    if (chart) {
+      chart.resetZoom();
     }
   };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Chart instance should not trigger re-fetches - only timeRange, category, and darkMode changes
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -105,11 +106,10 @@ export default function PerformanceChart({
           ],
         };
 
-        if (chartRef.current) {
-          chartRef.current.data = chartData;
+        if (chart) {
+          chart.data = chartData;
 
           // Update colors for current theme
-          const chart = chartRef.current;
           if (chart.options.scales?.x?.ticks) {
             chart.options.scales.x.ticks.color = darkMode
               ? chartColors.textColor.dark
@@ -145,11 +145,11 @@ export default function PerformanceChart({
               : chartColors.tooltipBorderColor.light;
           }
 
-          chartRef.current.update();
+          chart.update();
         } else if (canvasRef.current) {
           const ctx = canvasRef.current.getContext('2d');
           if (ctx) {
-            chartRef.current = new Chart(ctx, {
+            const newChart = new Chart(ctx, {
               type: 'line',
               data: chartData,
               options: {
@@ -223,6 +223,7 @@ export default function PerformanceChart({
                 },
               },
             });
+            setChart(newChart);
           }
         }
 
@@ -237,18 +238,15 @@ export default function PerformanceChart({
     fetchData();
 
     return () => {
-      if (chartRef.current) {
-        chartRef.current.destroy();
-        chartRef.current = null;
+      if (chart) {
+        chart.destroy();
       }
     };
   }, [timeRange, category, darkMode]);
 
   // Separate effect for theme changes
   useEffect(() => {
-    if (!chartRef.current) return;
-
-    const chart = chartRef.current;
+    if (!chart) return;
 
     // Update all colors when theme changes
     if (chart.options.scales?.x?.ticks) {
@@ -287,7 +285,7 @@ export default function PerformanceChart({
     }
 
     chart.update('none'); // Update without animation
-  }, [darkMode]);
+  }, [chart, darkMode]);
 
   return (
     <div

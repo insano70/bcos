@@ -16,7 +16,7 @@ import {
 	$getRoot,
 	$createParagraphNode,
 	$createTextNode,
-	EditorState,
+	type EditorState,
 	FORMAT_TEXT_COMMAND,
 	UNDO_COMMAND,
 	REDO_COMMAND,
