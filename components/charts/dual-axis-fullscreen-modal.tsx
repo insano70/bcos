@@ -238,7 +238,7 @@ export default function DualAxisFullscreenModal({
             callbacks: {
               label: (context) => {
                 const label = context.dataset.label || '';
-                const value = context.parsed.y;
+                const value = context.parsed.y ?? 0;
                 const measureType = getMeasureTypeFromChart(context.dataset, 'number');
                 const formattedValue = formatValue(value, measureType);
                 return `${label}: ${formattedValue}`;

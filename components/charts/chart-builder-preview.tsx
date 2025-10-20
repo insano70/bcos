@@ -21,6 +21,9 @@ export default function ChartBuilderPreview({
   onSave,
   isSaving,
 }: ChartBuilderPreviewProps) {
+  // Generate a more comprehensive key that includes colorPalette to force re-render
+  const chartKey = `${previewKey}-${chartConfig.colorPalette || 'default'}`;
+
   return (
     <div className="space-y-6">
       <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-6">
@@ -44,7 +47,7 @@ export default function ChartBuilderPreview({
           style={{ height: '500px', maxHeight: '500px', overflow: 'hidden' }}
         >
           <AnalyticsChart
-            key={previewKey}
+            key={chartKey}
             chartType={chartConfig.chartType}
             measure={chartConfig.measure as MeasureType}
             frequency={chartConfig.frequency as FrequencyType}

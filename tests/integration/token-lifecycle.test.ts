@@ -12,7 +12,7 @@ import {
   revokeAllUserTokens,
   revokeRefreshToken,
   validateAccessToken,
-} from '@/lib/auth/token-manager';
+} from '@/lib/auth/tokens';
 import { createTestUser } from '@/tests/factories/user-factory';
 
 describe('Token Lifecycle Integration', () => {

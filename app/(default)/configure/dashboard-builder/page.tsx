@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import RowBasedDashboardBuilder from '@/components/charts/row-based-dashboard-builder';
+import RowBasedDashboardBuilder from '@/components/dashboards/row-builder';
 
 export default function DashboardBuilderPage() {
   const router = useRouter();

@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { db, users } from '@/lib/db';
-import { validateAccessToken } from './token-manager';
+import { validateAccessToken } from './tokens';
 
 /**
  * Updated session utilities for JWT + Refresh Token strategy

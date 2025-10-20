@@ -4,7 +4,7 @@
  */
 
 import { eq } from 'drizzle-orm';
-import { revokeAllUserTokens } from '@/lib/auth/token-manager';
+import { revokeAllUserTokens } from '@/lib/auth/tokens';
 import { rbacCache } from '@/lib/cache';
 import { db, user_roles } from '@/lib/db';
 import { log } from '@/lib/logger';

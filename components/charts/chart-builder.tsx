@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Toast from '@/components/toast';
 import { FormSkeleton, Skeleton } from '@/components/ui/loading-skeleton';
 import { apiClient } from '@/lib/api/client';
+import { useToast } from '@/lib/hooks/use-toast';
 import type {
   ChartDefinition,
   ChartFilter,
@@ -18,6 +19,12 @@ import ChartBuilderAdvanced from './chart-builder-advanced';
 import ChartBuilderCore, { type ChartConfig, type DataSource } from './chart-builder-core';
 import ChartBuilderPreview from './chart-builder-preview';
 import ChartBuilderSchema from './chart-builder-schema';
+import {
+  applyChartTypeDefaults,
+  buildChartPayload,
+  findDataSource,
+  parseChartForEdit,
+} from './chart-builder-utils';
 
 interface FieldDefinition {
   name: string;
@@ -83,14 +90,7 @@ export default function FunctionalChartBuilder({
   onCancel,
   onSaveSuccess,
 }: ChartBuilderProps = {}) {
-  const [schemaInfo, setSchemaInfo] = useState<SchemaInfo | null>(null);
-  const [isLoadingSchema, setIsLoadingSchema] = useState(false);
-  const [currentStep, setCurrentStep] = useState<'configure' | 'preview'>('configure');
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error'>('success');
-  const [isEditMode, _setIsEditMode] = useState(!!editingChart);
-
+  // Core state
   const [chartConfig, setChartConfig] = useState<ChartConfig>({
     chartName: '',
     chartType: 'bar',
@@ -105,62 +105,20 @@ export default function FunctionalChartBuilder({
     useMultipleSeries: false,
     seriesConfigs: [],
     selectedDataSource: null,
+    colorPalette: 'default',
   });
-
-  const [selectedDatePreset, setSelectedDatePreset] = useState<string>('custom');
-
-  const [previewKey, setPreviewKey] = useState(0);
+  const [schemaInfo, setSchemaInfo] = useState<SchemaInfo | null>(null);
+  const [isLoadingSchema, setIsLoadingSchema] = useState(false);
+  const [currentStep, setCurrentStep] = useState<'configure' | 'preview'>('configure');
   const [isSaving, setIsSaving] = useState(false);
+  const [previewKey, setPreviewKey] = useState(0);
 
-  // Helper function to find data source from saved chart
-  const findDataSourceFromChart = async (
-    tableReference?: string,
-    dataSourceId?: number
-  ): Promise<DataSource | null> => {
-    try {
-      // First try to get all data sources to find the correct one
-      const response = await apiClient.get<{ dataSources: DataSource[] }>(
-        '/api/admin/analytics/data-sources'
-      );
-      const dataSources = response.dataSources || [];
+  // Toast notifications
+  const { toast, showToast, setToastOpen } = useToast();
 
-      // If we have a dataSourceId, use that first
-      if (dataSourceId) {
-        const found = dataSources.find((ds) => ds.id === dataSourceId);
-        if (found) return found;
-      }
-
-      // Otherwise, try to match by table reference
-      if (tableReference) {
-        // Handle both "schema.table" and "table" formats
-        const parts = tableReference.split('.');
-        let schemaName: string;
-        let tableName: string;
-
-        if (parts.length === 2) {
-          schemaName = parts[0]!;
-          tableName = parts[1]!;
-        } else if (parts.length === 1) {
-          // Default schema to 'ih' if not specified
-          schemaName = 'ih';
-          tableName = parts[0]!;
-        } else {
-          console.warn('Invalid table reference format:', tableReference);
-          return null;
-        }
-
-        const found = dataSources.find(
-          (ds) => ds.schemaName === schemaName && ds.tableName === tableName
-        );
-        if (found) return found;
-      }
-
-      return null;
-    } catch (error) {
-      console.error('Failed to find data source for editing:', error);
-      return null;
-    }
-  };
+  // Derived values
+  const isEditMode = !!editingChart;
+  const selectedDatePreset = chartConfig.dateRangePreset || 'custom';
 
   // Load schema information when data source is selected
   useEffect(() => {
@@ -172,86 +130,23 @@ export default function FunctionalChartBuilder({
 
   // Populate form when editing
   useEffect(() => {
-    if (editingChart && schemaInfo) {
-      const populateEditForm = async () => {
-        // Extract data from chart definition
-        const dataSource = editingChart.data_source as {
-          table?: string;
-          filters?: ChartFilter[];
-          advancedFilters?: ChartFilter[];
-        };
-        const chartConfigData =
-          (editingChart.chart_config as {
-            calculatedField?: string;
-            seriesConfigs?: MultipleSeriesConfig[];
-            dateRangePreset?: string;
-            series?: { groupBy?: string };
-            dataSourceId?: number;
-            colorPalette?: string;
-            stackingMode?: 'normal' | 'percentage';
-            periodComparison?: PeriodComparisonConfig;
-            dualAxisConfig?: DualAxisConfig;
-            frequency?: string; // For dual-axis charts, frequency is stored here
-          }) || {};
+    if (!editingChart || !schemaInfo) return;
 
-        // Try to find the selected data source by matching table reference or dataSourceId
-        const savedDataSource = await findDataSourceFromChart(
-          dataSource.table,
-          chartConfigData.dataSourceId
-        );
+    const populateEditForm = async () => {
+      const parsedConfig = parseChartForEdit(editingChart);
+      const chartConfigData = editingChart.chart_config as { dataSourceId?: number };
+      const dataSource = editingChart.data_source as { table?: string };
 
-        // Find filters from saved chart
-        const measureFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'measure');
-        const frequencyFilter = dataSource.filters?.find(
-          (f: ChartFilter) => f.field === 'frequency'
-        );
-        const startDateFilter = dataSource.filters?.find(
-          (f: ChartFilter) => f.field === 'date_index' && f.operator === 'gte'
-        );
-        const endDateFilter = dataSource.filters?.find(
-          (f: ChartFilter) => f.field === 'date_index' && f.operator === 'lte'
-        );
+      const savedDataSource = await findDataSource(chartConfigData.dataSourceId, dataSource.table);
 
-        // Extract advanced configuration
-        const calculatedField = chartConfigData.calculatedField || undefined;
-        const advancedFilters = dataSource.advancedFilters || [];
-        const useAdvancedFiltering = Array.isArray(advancedFilters) && advancedFilters.length > 0;
-        const seriesConfigs = chartConfigData.seriesConfigs || [];
-        const useMultipleSeries = Array.isArray(seriesConfigs) && seriesConfigs.length > 0;
-        const selectedPreset = chartConfigData.dateRangePreset || 'custom';
+      setChartConfig((prev) => ({
+        ...prev,
+        ...parsedConfig,
+        selectedDataSource: savedDataSource,
+      }));
+    };
 
-        const newConfig: ChartConfig = {
-          chartName: editingChart.chart_name || '',
-          chartType:
-            (editingChart.chart_type === 'pie' || editingChart.chart_type === 'area'
-              ? 'bar'
-              : editingChart.chart_type) || 'bar',
-          measure: String(measureFilter?.value || ''),
-          // For dual-axis charts, frequency is in chart_config; for others, it's in filters
-          frequency: String(chartConfigData.frequency || frequencyFilter?.value || ''),
-          startDate: String(startDateFilter?.value || '2024-01-01'),
-          endDate: String(endDateFilter?.value || '2025-12-31'),
-          groupBy: chartConfigData.series?.groupBy || 'provider_name',
-          calculatedField,
-          advancedFilters,
-          useAdvancedFiltering,
-          useMultipleSeries,
-          seriesConfigs,
-          selectedDataSource: savedDataSource,
-          ...(chartConfigData.colorPalette && { colorPalette: chartConfigData.colorPalette }),
-          ...(chartConfigData.stackingMode && { stackingMode: chartConfigData.stackingMode }),
-          ...(chartConfigData.periodComparison && {
-            periodComparison: chartConfigData.periodComparison,
-          }),
-          ...(chartConfigData.dualAxisConfig && { dualAxisConfig: chartConfigData.dualAxisConfig }),
-        };
-
-        setSelectedDatePreset(selectedPreset);
-        setChartConfig(newConfig);
-      };
-
-      populateEditForm();
-    }
+    populateEditForm();
   }, [editingChart, schemaInfo]);
 
   const loadSchemaInfo = async (dataSource?: DataSource | null) => {
@@ -319,69 +214,27 @@ export default function FunctionalChartBuilder({
       | null
       | undefined
   ) => {
-    // If data source is changing, reset related fields
     if (key === 'selectedDataSource' && value !== chartConfig.selectedDataSource) {
-      console.log('🔄 Data source changed...');
-
-      // Reset fields that depend on the data source
-      // Note: Schema will be loaded by the useEffect hook that watches selectedDataSource
-      if (!isEditMode) {
-        setChartConfig((prev) => ({
-          ...prev,
-          selectedDataSource: value as DataSource | null,
-          measure: '',
-          frequency: '',
-          advancedFilters: [],
-          seriesConfigs: [],
-        }));
-      } else {
-        setChartConfig((prev) => ({ ...prev, selectedDataSource: value as DataSource | null }));
-      }
-    } else if (key === 'chartType' && value === 'stacked-bar') {
-      // Smart default: When switching to stacked-bar, auto-set groupBy to provider_name if currently none
-      setChartConfig((prev) => ({
-        ...prev,
-        [key]: value,
-        groupBy: prev.groupBy === 'none' ? 'provider_name' : prev.groupBy,
-        stackingMode: prev.stackingMode || 'normal',
-        colorPalette: prev.colorPalette || 'blue', // Auto-select blue palette for stacked bars
-      }));
-    } else if (key === 'chartType' && value === 'horizontal-bar') {
-      // Smart default: When switching to horizontal-bar, require groupBy and set color palette
-      setChartConfig((prev) => ({
-        ...prev,
-        [key]: value,
-        // Set groupBy to first available field if currently none, otherwise keep current
-        groupBy:
-          prev.groupBy === 'none'
-            ? schemaInfo?.availableGroupByFields?.[0]?.columnName || 'practice_primary'
-            : prev.groupBy,
-        colorPalette: prev.colorPalette || 'blue', // Auto-select blue palette
-      }));
-    } else if (key === 'chartType' && value === 'dual-axis') {
-      // Initialize dual-axis configuration when dual-axis chart type is selected
-      // Clear measure and frequency since dual-axis uses dualAxisConfig instead
-      setChartConfig((prev) => ({
-        ...prev,
-        [key]: value,
-        measure: '', // Clear single measure field
-        frequency: '', // Clear frequency field
-        dualAxisConfig: prev.dualAxisConfig || {
-          enabled: true,
-          primary: {
+      // Data source changed - reset dependent fields
+      const resetFields = isEditMode
+        ? {}
+        : {
             measure: '',
-            chartType: 'bar' as const,
-            axisPosition: 'left' as const,
-          },
-          secondary: {
-            measure: '',
-            chartType: 'line' as const,
-            axisPosition: 'right' as const,
-          },
-        },
+            frequency: '',
+            advancedFilters: [],
+            seriesConfigs: [],
+          };
+      setChartConfig((prev) => ({ ...prev, selectedDataSource: value as DataSource, ...resetFields }));
+    } else if (key === 'chartType') {
+      // Apply smart defaults for chart type
+      const defaults = applyChartTypeDefaults(value as string, chartConfig, schemaInfo);
+      setChartConfig((prev) => ({
+        ...prev,
+        chartType: value as ChartConfig['chartType'],
+        ...defaults,
       }));
     } else {
-      // Handle all other config updates normally
+      // Normal update
       setChartConfig((prev) => ({ ...prev, [key]: value }));
     }
   };
@@ -395,8 +248,7 @@ export default function FunctionalChartBuilder({
   };
 
   const handleDatePresetChange = (presetId: string, startDate: string, endDate: string) => {
-    setSelectedDatePreset(presetId);
-    setChartConfig((prev) => ({ ...prev, startDate, endDate }));
+    setChartConfig((prev) => ({ ...prev, startDate, endDate, dateRangePreset: presetId }));
   };
 
   const addSeries = () => {
@@ -430,149 +282,59 @@ export default function FunctionalChartBuilder({
 
   const handlePreview = () => {
     if (!chartConfig.chartName.trim()) {
-      setToastMessage('Chart name is required');
-      setToastType('error');
-      setShowToast(true);
+      showToast('error', 'Chart name is required');
       return;
     }
 
     // For dual-axis charts, validate dual-axis configuration
     if (chartConfig.chartType === 'dual-axis') {
       if (!chartConfig.dualAxisConfig) {
-        setToastMessage('Dual-axis configuration is required');
-        setToastType('error');
-        setShowToast(true);
+        showToast('error', 'Dual-axis configuration is required');
         return;
       }
       if (!chartConfig.dualAxisConfig.primary.measure) {
-        setToastMessage('Primary measure is required for dual-axis charts');
-        setToastType('error');
-        setShowToast(true);
+        showToast('error', 'Primary measure is required for dual-axis charts');
         return;
       }
       if (!chartConfig.dualAxisConfig.secondary.measure) {
-        setToastMessage('Secondary measure is required for dual-axis charts');
-        setToastType('error');
-        setShowToast(true);
+        showToast('error', 'Secondary measure is required for dual-axis charts');
         return;
       }
     }
     // Measure is not required for table charts or dual-axis (validated above)
     else if (chartConfig.chartType !== 'table' && !chartConfig.measure) {
-      setToastMessage('Measure selection is required');
-      setToastType('error');
-      setShowToast(true);
+      showToast('error', 'Measure selection is required');
       return;
     }
 
-    setPreviewKey((prev) => prev + 1); // Force re-render of preview chart
+    // Force re-render of preview chart by incrementing key
+    setPreviewKey((prev) => prev + 1);
     setCurrentStep('preview');
   };
 
   const handleSave = async () => {
+    if (!chartConfig.selectedDataSource) {
+      showToast('error', 'Data source selection is required');
+      return;
+    }
+
     setIsSaving(true);
-
     try {
-      // Validate data source selection
-      if (!chartConfig.selectedDataSource) {
-        setToastMessage('Data source selection is required');
-        setToastType('error');
-        setShowToast(true);
-        setIsSaving(false);
-        return;
-      }
-
-      // Build table reference from selected data source
-      const tableReference = `${chartConfig.selectedDataSource.schemaName}.${chartConfig.selectedDataSource.tableName}`;
-
-      // Build filters based on chart type
-      const filters = [];
-
-      // Table charts, dual-axis charts, and multi-series charts don't need measure/frequency filters
-      // - Dual-axis charts store measures in dualAxisConfig instead
-      // - Multi-series charts store measures in seriesConfigs instead
-      if (
-        chartConfig.chartType !== 'table' &&
-        chartConfig.chartType !== 'dual-axis' &&
-        !chartConfig.useMultipleSeries
-      ) {
-        filters.push(
-          { field: 'measure', operator: 'eq', value: chartConfig.measure },
-          { field: 'frequency', operator: 'eq', value: chartConfig.frequency }
-        );
-      }
-
-      // Add date range filters
-      if (chartConfig.startDate) {
-        filters.push({ field: 'date_index', operator: 'gte', value: chartConfig.startDate });
-      }
-      if (chartConfig.endDate) {
-        filters.push({ field: 'date_index', operator: 'lte', value: chartConfig.endDate });
-      }
-
-      // Create chart definition matching the expected schema
-      const chartDefinition = {
-        chart_name: chartConfig.chartName,
-        chart_description:
-          chartConfig.chartType === 'table'
-            ? `Table view of ${chartConfig.selectedDataSource?.name || 'data'}`
-            : chartConfig.chartType === 'dual-axis'
-              ? `Dual-axis chart showing ${chartConfig.dualAxisConfig?.primary.measure} and ${chartConfig.dualAxisConfig?.secondary.measure}`
-              : chartConfig.useMultipleSeries
-                ? `${chartConfig.chartType} chart showing ${chartConfig.seriesConfigs.length} series by ${chartConfig.groupBy}`
-                : `${chartConfig.chartType} chart showing ${chartConfig.measure} by ${chartConfig.groupBy}`,
-        chart_type: chartConfig.chartType,
-        chart_category_id: null, // No category by default
-        chart_config: {
-          x_axis: { field: 'period_end', label: 'Date', format: 'date' },
-          y_axis: { field: 'measure_value', label: 'Amount', format: 'currency' },
-          series:
-            chartConfig.chartType !== 'table'
-              ? {
-                  groupBy: chartConfig.groupBy,
-                  colorPalette: chartConfig.colorPalette || 'default',
-                }
-              : undefined,
-          options: { responsive: true, showLegend: true, showTooltips: true, animation: true },
-          // Save additional configuration
-          calculatedField: chartConfig.calculatedField,
-          dateRangePreset: selectedDatePreset,
-          seriesConfigs: chartConfig.seriesConfigs,
-          dataSourceId: chartConfig.selectedDataSource.id, // Store data source reference
-          stackingMode: chartConfig.stackingMode, // Save stacking mode for stacked-bar charts
-          colorPalette: chartConfig.colorPalette, // Save color palette at root level too for easier access
-          periodComparison: chartConfig.periodComparison, // Save period comparison config
-          dualAxisConfig: chartConfig.dualAxisConfig, // Save dual-axis configuration
-          // For dual-axis charts, save frequency in chart_config since it's not in filters
-          ...(chartConfig.chartType === 'dual-axis' &&
-            chartConfig.frequency && { frequency: chartConfig.frequency }),
-        },
-        // Save advanced filters in data_source
-        data_source: {
-          table: tableReference,
-          filters,
-          advancedFilters: chartConfig.advancedFilters,
-          groupBy: chartConfig.chartType !== 'table' ? [chartConfig.groupBy, 'period_end'] : [],
-          orderBy: [{ field: 'period_end', direction: 'ASC' }],
-        },
-      };
-
-      console.log(`💾 ${isEditMode ? 'Updating' : 'Creating'} chart definition:`, chartDefinition);
-
+      const payload = buildChartPayload(
+        chartConfig,
+        chartConfig.selectedDataSource,
+        selectedDatePreset
+      );
       const url = isEditMode
         ? `/api/admin/analytics/charts/${editingChart?.chart_definition_id}`
         : '/api/admin/analytics/charts';
 
-      const result = isEditMode
-        ? await apiClient.patch(url, chartDefinition)
-        : await apiClient.post(url, chartDefinition);
-      console.log(`✅ Chart ${isEditMode ? 'updated' : 'saved'} successfully:`, result);
+      await (isEditMode ? apiClient.patch(url, payload) : apiClient.post(url, payload));
 
-      setToastMessage(
+      showToast(
+        'success',
         `Chart "${chartConfig.chartName}" ${isEditMode ? 'updated' : 'saved'} successfully!`
       );
-      setToastType('success');
-      setShowToast(true);
 
       // Call success callback or reset form
       if (onSaveSuccess) {
@@ -583,12 +345,10 @@ export default function FunctionalChartBuilder({
         setCurrentStep('configure');
       }
     } catch (error) {
-      console.error(`❌ Failed to ${isEditMode ? 'update' : 'save'} chart:`, error);
-      setToastMessage(
+      showToast(
+        'error',
         `Failed to ${isEditMode ? 'update' : 'save'} chart: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
-      setToastType('error');
-      setShowToast(true);
     } finally {
       setIsSaving(false);
     }
@@ -693,12 +453,12 @@ export default function FunctionalChartBuilder({
 
       {/* Toast Notification */}
       <Toast
-        type={toastType}
-        open={showToast}
-        setOpen={setShowToast}
+        type={toast.type}
+        open={toast.show}
+        setOpen={setToastOpen}
         className="fixed bottom-4 right-4 z-50"
       >
-        {toastMessage}
+        {toast.message}
       </Toast>
     </div>
   );

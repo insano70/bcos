@@ -113,7 +113,7 @@ const LineChart01 = forwardRef<HTMLCanvasElement, LineChart01Props>(function Lin
               },
               label: (context) => {
                 // Show provider name and value
-                return `${context.dataset.label}: ${formatValue(context.parsed.y)}`;
+                return `${context.dataset.label}: ${formatValue(context.parsed.y ?? 0)}`;
               },
             },
             bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
@@ -138,7 +138,7 @@ const LineChart01 = forwardRef<HTMLCanvasElement, LineChart01Props>(function Lin
   }, []);
 
   useEffect(() => {
-    if (!chart) return;
+    if (!chart || !canvas.current) return;
 
     if (darkMode) {
       chart.options.plugins!.tooltip!.bodyColor = tooltipBodyColor.dark;

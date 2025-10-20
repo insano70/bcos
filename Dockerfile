@@ -29,6 +29,7 @@ ENV APP_URL="http://localhost:4001"
 ENV NEXT_PUBLIC_APP_URL="https://app.bendcare.com"
 # WebAuthn build-time validation (real values set at runtime)
 ENV WEBAUTHN_RP_ID="bendcare.com"
+ENV MFA_TEMP_TOKEN_SECRET="dummy-mfa-temp-token-secret-for-build-only-min-32-chars-required-override-at-runtime"
 
 RUN pnpm build
 

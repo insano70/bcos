@@ -6,7 +6,7 @@
  * - Secrets are validated and encoded at module load time (fail-fast)
  * - Module-scoped - NOT exported, only the encoded Uint8Arrays are exported
  * - Single source of truth for JWT cryptographic material
- * - Used by token-manager.ts and token-verification.ts
+ * - Used by lib/auth/tokens and token-verification.ts
  *
  * @module lib/auth/jwt-secrets
  */

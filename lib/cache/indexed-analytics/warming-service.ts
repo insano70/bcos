@@ -300,7 +300,7 @@ export class CacheWarmingService {
 
       const cacheKey = KeyGenerator.getCacheKey(entry);
       const indexKeys = KeyGenerator.getIndexKeys(entry);
-      const ttl = this.client['defaultTTL']; // Access TTL from client
+      const ttl = this.client.getDefaultTTL();
 
       // Store data with TTL
       pipeline.set(cacheKey, JSON.stringify(rows), 'EX', ttl);
@@ -365,9 +365,8 @@ export class CacheWarmingService {
    */
   private async setMetadata(datasourceId: number): Promise<void> {
     const metadataKey = KeyGenerator.getMetadataKey(datasourceId);
-    const ttl = this.client['defaultTTL'];
 
-    await this.client.setCached(metadataKey, [{ timestamp: new Date().toISOString() }], ttl);
+    await this.client.setCached(metadataKey, [{ timestamp: new Date().toISOString() }]);
 
     log.debug('Cache metadata set', {
       datasourceId,

@@ -115,7 +115,7 @@ export default function DoughnutChart({ data, width, height }: DoughnutProps) {
   }, []);
 
   useEffect(() => {
-    if (!chart) return;
+    if (!chart || !canvas.current) return;
 
     if (darkMode) {
       chart.options.plugins!.tooltip!.titleColor = tooltipTitleColor.dark;

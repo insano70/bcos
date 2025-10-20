@@ -37,10 +37,6 @@ import { BaseDashboardsService } from './base-service';
  * @internal - Use factory function instead
  */
 class DashboardChartAssociationsService extends BaseDashboardsService {
-  constructor(userContext: UserContext) {
-    super(userContext);
-  }
-
   /**
    * Add charts to a dashboard with position configuration
    *

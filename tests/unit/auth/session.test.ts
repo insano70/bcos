@@ -6,10 +6,10 @@ import {
   requireTokenRole,
   validateTokenAndGetUser,
 } from '@/lib/auth/session';
-import { validateAccessToken } from '@/lib/auth/token-manager';
+import { validateAccessToken } from '@/lib/auth/tokens';
 
 // Use standardized mock pattern based on mock utilities design
-vi.mock('@/lib/auth/token-manager', () => ({
+vi.mock('@/lib/auth/tokens', () => ({
   validateAccessToken: vi.fn().mockResolvedValue({ sub: 'user-123', jti: 'jti-123' }),
 }));
 
@@ -49,7 +49,7 @@ describe('session authentication logic', () => {
     vi.clearAllMocks();
 
     // Get references to the standardized mocks
-    const tokenManagerModule = await import('@/lib/auth/token-manager');
+    const tokenManagerModule = await import('@/lib/auth/tokens');
     mockValidateAccessToken = vi.mocked(tokenManagerModule.validateAccessToken);
 
     const dbModule = await import('@/lib/db');

@@ -135,7 +135,7 @@ export default function PolarChart({ data, width, height }: PolarProps) {
   }, []);
 
   useEffect(() => {
-    if (!chart) return;
+    if (!chart || !canvas.current) return;
 
     if (darkMode) {
       chart.options.scales!.r!.grid!.color = gridColor.dark;

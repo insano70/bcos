@@ -14,6 +14,9 @@ export interface User {
     id: string;
     name: string;
   }>;
+  mfa_enabled?: boolean | null;
+  mfa_method?: string | null;
+  mfa_credentials_count?: number;
 }
 
 export interface CreateUserData {

@@ -1,8 +1,7 @@
 // 1. Drizzle ORM
-import { and, eq, ilike, inArray, isNull, or, type SQL } from 'drizzle-orm';
+import { eq, ilike, inArray, isNull, or, type SQL } from 'drizzle-orm';
 
 // 2. Database
-import { db } from '@/lib/db';
 import { dashboards } from '@/lib/db/schema';
 
 // 3. Base classes
@@ -80,12 +79,13 @@ export abstract class BaseDashboardsService extends BaseRBACService {
     } else if (this.canReadOrganization) {
       // Can read organization dashboards + universal dashboards
       if (this.accessibleOrgIds.length > 0) {
-        conditions.push(
-          or(
-            inArray(dashboards.organization_id, this.accessibleOrgIds),
-            isNull(dashboards.organization_id)
-          )!
+        const rbacCondition = or(
+          inArray(dashboards.organization_id, this.accessibleOrgIds),
+          isNull(dashboards.organization_id)
         );
+        if (rbacCondition) {
+          conditions.push(rbacCondition);
+        }
       } else {
         // No organizations accessible - only universal dashboards
         conditions.push(isNull(dashboards.organization_id));

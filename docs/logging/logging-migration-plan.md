@@ -406,7 +406,6 @@ Updated route wrappers in `lib/api/rbac-route-handler.ts` to wrap all handlers w
 - [ ] `/lib/services/analytics-cache.ts`
 - [ ] `/lib/services/analytics-db.ts`
 - [ ] `/lib/services/analytics-query-builder.ts`
-- [ ] `/lib/services/bulk-chart-operations.ts`
 - [ ] `/lib/services/chart-config-service.ts`
 - [ ] `/lib/services/chart-executor.ts`
 - [ ] `/lib/services/chart-refresh-scheduler.ts`

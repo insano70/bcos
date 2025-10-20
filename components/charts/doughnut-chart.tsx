@@ -124,7 +124,7 @@ const DoughnutChart = forwardRef<HTMLCanvasElement, DoughnutProps>(function Doug
   }, []);
 
   useEffect(() => {
-    if (!chart) return;
+    if (!chart || !canvas.current) return;
 
     if (darkMode) {
       chart.options.plugins!.tooltip!.titleColor = tooltipTitleColor.dark;

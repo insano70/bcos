@@ -41,10 +41,6 @@ import { getDashboardChartDetails, getDashboardQueryBuilder } from './query-buil
  * @internal - Use factory function instead
  */
 class DashboardDefaultHandlerService extends BaseDashboardsService {
-  constructor(userContext: UserContext) {
-    super(userContext);
-  }
-
   /**
    * Clear existing default dashboard before setting a new one
    *

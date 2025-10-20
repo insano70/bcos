@@ -13,7 +13,7 @@ import { AuthorizationError, createErrorResponse } from '@/lib/api/responses/err
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { authRoute, type AuthSession } from '@/lib/api/route-handlers';
 import { extractRouteParams } from '@/lib/api/utils/params';
-import { revokeAllUserTokens } from '@/lib/auth/token-manager';
+import { revokeAllUserTokens } from '@/lib/auth/tokens';
 import { adminResetMFA } from '@/lib/auth/webauthn';
 import { log } from '@/lib/logger';
 

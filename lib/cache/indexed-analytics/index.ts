@@ -16,7 +16,7 @@
  * - Type exports
  */
 
-import { cacheClient, IndexedCacheClient } from './cache-client';
+import { cacheClient, type IndexedCacheClient } from './cache-client';
 import { CacheInvalidationService } from './invalidation-service';
 import { CacheQueryService, type CacheQueryFilters, type CacheEntry } from './query-service';
 import { CacheStatsCollector, type CacheStats } from './stats-collector';
@@ -85,6 +85,19 @@ export class IndexedAnalyticsCache {
    */
   async query(filters: CacheQueryFilters): Promise<CacheEntry[]> {
     return this.queryService.query(filters);
+  }
+
+  /**
+   * Batch query for multiple measures from same data source
+   * Executes queries in parallel for better performance
+   *
+   * @param batchFilters - Array of query filters (must share datasourceId and frequency)
+   * @returns Map of measure to cache entries
+   */
+  async batchQuery(
+    batchFilters: CacheQueryFilters[]
+  ): Promise<Map<string, CacheEntry[]>> {
+    return this.queryService.batchQuery(batchFilters);
   }
 
   /**

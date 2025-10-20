@@ -30,7 +30,8 @@ const EXCLUDED_PROPERTIES = new Set([
   'aspectRatio',
   'className',
   'title', // Chart title doesn't affect data
-  'colorPalette', // Colors don't affect data (only visual)
+  // NOTE: colorPalette is NOT excluded because colors are applied server-side
+  // during data transformation in chart strategies (bar-chart-strategy.ts, etc.)
 ]);
 
 /**

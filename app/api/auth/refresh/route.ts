@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { publicRoute } from '@/lib/api/route-handlers';
 import { AuditLogger } from '@/lib/api/services/audit';
-import { refreshTokenPair } from '@/lib/auth/token-manager';
+import { refreshTokenPair } from '@/lib/auth/tokens';
 import { correlation, log } from '@/lib/logger';
 import { setCSRFToken } from '@/lib/security/csrf-unified';
 

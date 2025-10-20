@@ -94,7 +94,7 @@ export default function BarChart04({ data, width, height }: BarChart04Props) {
           tooltip: {
             callbacks: {
               title: () => '', // Disable tooltip title
-              label: (context) => formatThousands(context.parsed.x),
+              label: (context) => formatThousands(context.parsed.x ?? 0),
             },
             bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
             backgroundColor: darkMode ? tooltipBgColor.dark : tooltipBgColor.light,
@@ -165,7 +165,7 @@ export default function BarChart04({ data, width, height }: BarChart04Props) {
   }, []);
 
   useEffect(() => {
-    if (!chart) return;
+    if (!chart || !canvas.current) return;
 
     if (darkMode) {
       chart.options.scales!.x!.ticks!.color = textColor.dark;

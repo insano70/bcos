@@ -10,7 +10,7 @@ import {
   refreshTokenPair,
   revokeRefreshToken,
   validateAccessToken,
-} from '@/lib/auth/token-manager';
+} from '@/lib/auth/tokens';
 import { createTestOrganization } from '@/tests/factories/organization-factory';
 import { createTestRole } from '@/tests/factories/role-factory';
 import { createTestUser } from '@/tests/factories/user-factory';

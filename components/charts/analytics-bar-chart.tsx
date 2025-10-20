@@ -148,7 +148,13 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
                 );
 
                 if (hasPeriodComparison) {
-                  return createPeriodComparisonTooltipCallbacks(frequency, darkMode);
+                  // Type assertion needed because createPeriodComparisonTooltipCallbacks returns 'bar' type
+                  // but this chart uses 'bar' | 'line' union type for flexibility
+                  return createPeriodComparisonTooltipCallbacks(frequency, darkMode) as unknown as {
+                    title?: (tooltipItems: TooltipItem<'bar' | 'line'>[]) => string;
+                    label?: (tooltipItem: TooltipItem<'bar' | 'line'>) => string;
+                    footer?: (tooltipItems: TooltipItem<'bar' | 'line'>[]) => string[];
+                  };
                 }
 
                 // Default tooltip callbacks
@@ -183,7 +189,8 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
                       (tooltipItem.dataset as { measureType?: string })?.measureType ||
                       (tooltipItem.chart.data as { measureType?: string })?.measureType ||
                       'number';
-                    const formattedValue = formatChartValue(tooltipItem.parsed.y, measureType);
+                    const value = tooltipItem.parsed.y ?? 0;
+                    const formattedValue = formatChartValue(value, measureType);
                     return `${tooltipItem.dataset.label}: ${formattedValue}`;
                   },
                 };
@@ -307,7 +314,7 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
     }, [frequency]);
 
     useEffect(() => {
-      if (!chart) return;
+      if (!chart || !canvas.current) return;
 
       // Update theme colors
       if (darkMode) {

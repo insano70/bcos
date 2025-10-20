@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { generateDeviceFingerprint, generateDeviceName } from '@/lib/auth/token-manager';
+import { generateDeviceFingerprint, generateDeviceName } from '@/lib/auth/tokens';
 import { ValidationError } from '../responses/error';
 
 export interface PaginationParams {

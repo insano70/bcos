@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { passwordSchema } from '@/lib/config/password-policy';
 import { type User, useUpdateUser } from '@/lib/hooks/use-users';
 import { createNameSchema, safeEmailSchema } from '@/lib/validations/sanitization';
+import ResetMFAConfirmationModal from './reset-mfa-confirmation-modal';
 import RoleSelector from './role-selector';
 import Toast from './toast';
 
@@ -55,6 +56,8 @@ interface EditUserModalProps {
 export default function EditUserModal({ isOpen, onClose, onSuccess, user }: EditUserModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showToast, setShowToast] = useState(false);
+  const [showMFAResetModal, setShowMFAResetModal] = useState(false);
+  const [showMFAResetSuccess, setShowMFAResetSuccess] = useState(false);
   const updateUser = useUpdateUser();
 
   const firstNameId = useId();
@@ -172,6 +175,38 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
     if (!isSubmitting) {
       reset();
       onClose();
+    }
+  };
+
+  const handleResetMFA = async () => {
+    if (!user) return;
+
+    try {
+      const response = await fetch(`/api/admin/users/${user.id}/mfa/reset`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to reset MFA');
+      }
+
+      // Show success toast
+      setShowMFAResetSuccess(true);
+
+      // Refresh user data
+      onSuccess?.();
+
+      // Auto-hide success toast after 3 seconds
+      setTimeout(() => {
+        setShowMFAResetSuccess(false);
+      }, 3000);
+    } catch (error) {
+      console.error('Error resetting MFA:', error);
+      // Error will be visible to user via toast or console
     }
   };
 
@@ -448,6 +483,60 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
                   </label>
                 </div>
 
+                {/* MFA Status Section */}
+                {user?.mfa_enabled && (
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center mb-2">
+                            <svg
+                              className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-2"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                              />
+                            </svg>
+                            <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                              Multi-Factor Authentication (MFA)
+                            </h4>
+                          </div>
+                          <div className="ml-7 space-y-1">
+                            <p className="text-sm text-blue-800 dark:text-blue-200">
+                              <span className="font-medium">Status:</span> Enabled
+                            </p>
+                            <p className="text-sm text-blue-800 dark:text-blue-200">
+                              <span className="font-medium">Method:</span>{' '}
+                              {user.mfa_method === 'webauthn' ? 'WebAuthn/Passkey' : user.mfa_method || 'Unknown'}
+                            </p>
+                            <p className="text-sm text-blue-800 dark:text-blue-200">
+                              <span className="font-medium">Registered Passkeys:</span>{' '}
+                              {user.mfa_credentials_count || 0}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowMFAResetModal(true)}
+                          disabled={isSubmitting}
+                          className="ml-4 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-md hover:bg-amber-200 dark:hover:bg-amber-900/50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          Reset MFA
+                        </button>
+                      </div>
+                      <p className="mt-3 ml-7 text-xs text-blue-700 dark:text-blue-300">
+                        Resetting MFA will remove all registered passkeys and allow the user to set up MFA again.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Error display */}
                 {updateUser.error && (
                   <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
@@ -495,6 +584,28 @@ export default function EditUserModal({ isOpen, onClose, onSuccess, user }: Edit
       >
         User updated successfully!
       </Toast>
+
+      {/* MFA Reset Success Toast */}
+      <Toast
+        type="success"
+        open={showMFAResetSuccess}
+        setOpen={setShowMFAResetSuccess}
+        className="fixed bottom-4 right-4 z-50"
+      >
+        MFA has been reset successfully. User can now set up MFA again.
+      </Toast>
+
+      {/* MFA Reset Confirmation Modal */}
+      {user && (
+        <ResetMFAConfirmationModal
+          isOpen={showMFAResetModal}
+          setIsOpen={setShowMFAResetModal}
+          userName={`${user.first_name} ${user.last_name}`}
+          userEmail={user.email}
+          credentialCount={user.mfa_credentials_count || 0}
+          onConfirm={handleResetMFA}
+        />
+      )}
     </Transition>
   );
 }

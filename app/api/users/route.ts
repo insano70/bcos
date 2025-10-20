@@ -1,10 +1,12 @@
 import type { NextRequest } from 'next/server';
+import { inArray } from 'drizzle-orm';
 import { validateQuery, validateRequest } from '@/lib/api/middleware/validation';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createPaginatedResponse, createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { extractors } from '@/lib/api/utils/rbac-extractors';
 import { getPagination, getSortParams } from '@/lib/api/utils/request';
+import { account_security, db } from '@/lib/db';
 import { log, logTemplates, sanitizeFilters } from '@/lib/logger';
 import { createRBACUsersService } from '@/lib/services/rbac-users-service';
 import { createUserRolesService } from '@/lib/services/user-roles-service';
@@ -40,17 +42,48 @@ const getUsersHandler = async (request: NextRequest, userContext: UserContext) =
     const userIds = users.map((u) => u.user_id);
     const rolesMap = await rolesService.batchGetUserRoles(userIds);
 
-    const responseData = users.map((user) => ({
-      id: user.user_id,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      email: user.email,
-      email_verified: user.email_verified,
-      is_active: user.is_active,
-      created_at: user.created_at,
-      organizations: user.organizations,
-      roles: rolesMap.get(user.user_id) || [],
-    }));
+    // Batch fetch MFA status for all users (prevents N+1)
+    const mfaStatusMap = new Map<string, { mfa_enabled: boolean; mfa_method: string | null }>();
+    if (userIds.length > 0) {
+      const mfaStatuses = await db
+        .select({
+          user_id: account_security.user_id,
+          mfa_enabled: account_security.mfa_enabled,
+          mfa_method: account_security.mfa_method,
+        })
+        .from(account_security)
+        .where(inArray(account_security.user_id, userIds));
+
+      for (const status of mfaStatuses) {
+        mfaStatusMap.set(status.user_id, {
+          mfa_enabled: status.mfa_enabled,
+          mfa_method: status.mfa_method,
+        });
+      }
+    }
+
+    // Batch fetch MFA credential counts
+    const credentialCountsMap = await usersService.getMFACredentialCounts(userIds);
+
+    const responseData = users.map((user) => {
+      const mfaStatus = mfaStatusMap.get(user.user_id);
+      const credentialCount = credentialCountsMap.get(user.user_id) || 0;
+
+      return {
+        id: user.user_id,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        email: user.email,
+        email_verified: user.email_verified,
+        is_active: user.is_active,
+        created_at: user.created_at,
+        organizations: user.organizations,
+        roles: rolesMap.get(user.user_id) || [],
+        mfa_enabled: mfaStatus?.mfa_enabled || false,
+        mfa_method: mfaStatus?.mfa_method || null,
+        mfa_credentials_count: credentialCount,
+      };
+    });
 
     // Prepare sanitized filter context
     const filters = sanitizeFilters({

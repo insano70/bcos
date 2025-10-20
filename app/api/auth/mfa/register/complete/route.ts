@@ -103,7 +103,7 @@ const handler = async (request: NextRequest) => {
 
       // Build device info for session creation
       const { generateDeviceFingerprint, generateDeviceName } = await import(
-        '@/lib/auth/token-manager'
+        '@/lib/auth/tokens'
       );
       const deviceFingerprint = generateDeviceFingerprint(
         metadata.ipAddress,

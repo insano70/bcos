@@ -149,6 +149,83 @@ export class CacheQueryService {
   }
 
   /**
+   * Batch query for multiple measures from same data source
+   *
+   * OPTIMIZATION: Executes multiple queries in parallel with shared connection pooling.
+   * Reduces fixed overhead from N sequential queries to N parallel queries.
+   *
+   * Use case: Dashboard with multiple charts from same data source.
+   * Example: 5 charts (different measures) from ds:3
+   *   - Before: 5 × 400ms sequential = 2000ms total
+   *   - After: 5 × 400ms parallel = ~500ms total (75% faster!)
+   *
+   * @param batchFilters - Array of query filters (must share datasourceId and frequency)
+   * @returns Map of measure to cache entries
+   */
+  async batchQuery(
+    batchFilters: CacheQueryFilters[]
+  ): Promise<Map<string, CacheEntry[]>> {
+    const startTime = Date.now();
+    const results = new Map<string, CacheEntry[]>();
+
+    if (batchFilters.length === 0) {
+      return results;
+    }
+
+    // Validate all filters share same datasourceId and frequency
+    const firstFilter = batchFilters[0];
+    if (!firstFilter) {
+      return results;
+    }
+
+    const { datasourceId, frequency } = firstFilter;
+    const allSameSource = batchFilters.every(
+      (f) => f.datasourceId === datasourceId && f.frequency === frequency
+    );
+
+    if (!allSameSource) {
+      log.error('Batch query requires same datasourceId and frequency', {
+        component: 'query-service',
+        operation: 'batchQuery',
+        filters: batchFilters.map((f) => ({
+          datasourceId: f.datasourceId,
+          frequency: f.frequency,
+        })),
+      });
+      return results;
+    }
+
+    // Execute all queries in parallel
+    const queryPromises = batchFilters.map(async (filter) => {
+      const entries = await this.query(filter);
+      return { measure: filter.measure, entries };
+    });
+
+    const queryResults = await Promise.all(queryPromises);
+
+    // Build results map
+    for (const { measure, entries } of queryResults) {
+      results.set(measure, entries);
+    }
+
+    const totalDuration = Date.now() - startTime;
+
+    log.info('Batch query completed', {
+      datasourceId,
+      frequency,
+      measureCount: batchFilters.length,
+      totalDuration,
+      avgDurationPerMeasure: Math.round(totalDuration / batchFilters.length),
+      savedTime: Math.round(
+        batchFilters.length * 400 - totalDuration
+      ), // Estimated savings
+      component: 'query-service',
+    });
+
+    return results;
+  }
+
+  /**
    * Build practice index set (handles single or multiple practices)
    *
    * @param datasourceId - Data source ID
@@ -231,6 +308,9 @@ export class CacheQueryService {
   /**
    * Execute intersection of index sets to get matching cache keys
    *
+   * Uses Redis pipeline to reduce network round-trips from 2 to 1.
+   * OPTIMIZATION: SINTERSTORE + SMEMBERS batched into single pipeline.
+   *
    * @param datasourceId - Data source ID
    * @param indexSets - Array of index set keys
    * @param tempKeys - Array to track temp keys for cleanup
@@ -253,13 +333,47 @@ export class CacheQueryService {
       return this.client.smembers(firstIndex);
     }
 
-    // Intersect all filter sets
+    // Intersect all filter sets using pipeline (single round-trip)
     const tempResultKey = KeyGenerator.getTempKey(datasourceId, 'result');
     tempKeys.push(tempResultKey);
 
-    await this.client.sinterstore(tempResultKey, ...indexSets);
-    const matchingKeys = await this.client.smembers(tempResultKey);
+    const pipeline = this.client.createPipeline();
+    if (!pipeline) {
+      // Fallback to sequential operations if pipeline unavailable
+      await this.client.sinterstore(tempResultKey, ...indexSets);
+      const matchingKeys = await this.client.smembers(tempResultKey);
+      return matchingKeys;
+    }
 
+    // OPTIMIZATION: Batch SINTERSTORE + SMEMBERS into single round-trip
+    pipeline.sinterstore(tempResultKey, ...indexSets);
+    pipeline.smembers(tempResultKey);
+
+    const results = await pipeline.exec();
+
+    if (!results || results.length < 2) {
+      log.error('Pipeline execution returned unexpected results', {
+        component: 'query-service',
+        operation: 'executeIntersection',
+        resultCount: results?.length || 0,
+      });
+      return [];
+    }
+
+    // Check for errors in pipeline execution
+    const [sinterstoreResult, smembersResult] = results;
+    if (sinterstoreResult?.[0] || smembersResult?.[0]) {
+      log.error('Pipeline execution had errors', {
+        component: 'query-service',
+        operation: 'executeIntersection',
+        sinterstoreError: sinterstoreResult?.[0]?.message,
+        smembersError: smembersResult?.[0]?.message,
+      });
+      return [];
+    }
+
+    // Extract matching keys from pipeline result
+    const matchingKeys = (smembersResult?.[1] as string[]) || [];
     return matchingKeys;
   }
 

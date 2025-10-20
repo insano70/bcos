@@ -2,7 +2,7 @@
  * @deprecated These tests are for legacy JWT functions that have been deprecated.
  *
  * The functions in lib/auth/jwt.ts (signJWT, verifyJWT, refreshJWT) are deprecated
- * and replaced by token-manager.ts functions.
+ * and replaced by lib/auth/tokens functions.
  *
  * These tests are skipped to avoid false test failures.
  * Use tests/unit/auth/token-manager.test.ts instead for token functionality.

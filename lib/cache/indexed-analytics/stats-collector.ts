@@ -59,7 +59,7 @@ export class CacheStatsCollector {
     const metadata = await this.client.getCached(metadataKey);
 
     // Extract last warmed timestamp from metadata
-    const lastWarmed = metadata && metadata[0] ? (metadata[0].timestamp as string) : null;
+    const lastWarmed = metadata?.[0] ? (metadata[0].timestamp as string) : null;
 
     // Sample memory usage
     const estimatedMemoryMB = await this.estimateMemory(masterIndex, totalKeys);
@@ -123,11 +123,12 @@ export class CacheStatsCollector {
 
     const indexPattern = KeyGenerator.getIndexPattern(datasourceId);
     let indexCount = 0;
-    let cursor = '0';
     let iterations = 0;
 
     try {
-      do {
+      // Loop until no more keys or max iterations reached
+      // Exit conditions: keys.length === 0, keys.length < SCAN_COUNT, or iterations >= MAX
+      while (true) {
         if (iterations++ >= this.MAX_SCAN_ITERATIONS) {
           log.error('SCAN operation exceeded max iterations - Redis may be unhealthy', {
             datasourceId,
@@ -175,11 +176,11 @@ export class CacheStatsCollector {
           }
         }
 
-        // Simulate cursor exhaustion for pagination
+        // Partial batch indicates we've exhausted all results
         if (keys.length < this.SCAN_COUNT) {
           break;
         }
-      } while (cursor !== '0');
+      }
     } catch (error) {
       log.error(
         'Failed to parse index keys',

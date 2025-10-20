@@ -7,7 +7,7 @@ import {
   revokeAllUserTokens,
   revokeRefreshToken,
   validateAccessToken,
-} from '@/lib/auth/token-manager';
+} from '@/lib/auth/tokens';
 
 // Mock dependencies - standardized pattern
 vi.mock('jose', () => ({

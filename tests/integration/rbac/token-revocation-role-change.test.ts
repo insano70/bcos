@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import '@/tests/setup/integration-setup';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
-import { createTokenPair, type DeviceInfo } from '@/lib/auth/token-manager';
+import { createTokenPair, type DeviceInfo } from '@/lib/auth/tokens';
 import { db, refresh_tokens, token_blacklist } from '@/lib/db';
 import { invalidateUserTokensWithRole } from '@/lib/rbac/cache-invalidation';
 import {

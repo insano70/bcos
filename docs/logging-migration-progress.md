@@ -139,12 +139,11 @@ None currently
 - [ ] lib/security/csrf-monitoring-refactored.ts
 - [ ] lib/security/csrf-unified.ts
 
-**Services (15 files):**
+**Services (14 files):**
 - [ ] lib/services/advanced-permissions.ts
 - [ ] lib/services/analytics-cache.ts
 - [ ] lib/services/analytics-db.ts
 - [ ] lib/services/analytics-query-builder.ts
-- [ ] lib/services/bulk-chart-operations.ts
 - [ ] lib/services/chart-config-service.ts
 - [ ] lib/services/chart-executor.ts
 - [ ] lib/services/chart-refresh-scheduler.ts

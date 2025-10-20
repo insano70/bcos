@@ -184,13 +184,15 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
                   const measureType =
                     datasetMeasureType !== 'number' ? datasetMeasureType : chartMeasureType;
 
+                  const value = context.parsed.y ?? 0;
+
                   if (isPercentageMode) {
                     // In percentage mode, show both percentage and actual value
-                    const percentage = context.parsed.y.toFixed(1);
+                    const percentage = value.toFixed(1);
                     return `${context.dataset.label}: ${percentage}%`;
                   }
 
-                  const formattedValue = formatValue(context.parsed.y, measureType);
+                  const formattedValue = formatValue(value, measureType);
                   return `${context.dataset.label}: ${formattedValue}`;
                 },
                 footer: (tooltipItems) => {
@@ -199,7 +201,7 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
                     return 'Total: 100%';
                   }
 
-                  const total = tooltipItems.reduce((sum, item) => sum + item.parsed.y, 0);
+                  const total = tooltipItems.reduce((sum, item) => sum + (item.parsed.y ?? 0), 0);
                   const measureType = getMeasureTypeFromChart(
                     tooltipItems[0]?.chart.data,
                     'number'
@@ -328,7 +330,7 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
     }, [frequency, stackingMode]);
 
     useEffect(() => {
-      if (!chart) return;
+      if (!chart || !canvas.current) return;
 
       // Update theme colors
       if (darkMode) {

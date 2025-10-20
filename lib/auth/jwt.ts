@@ -2,7 +2,7 @@
  * @deprecated This file contains legacy JWT functions that should NOT be used in new code.
  *
  * MIGRATION GUIDE:
- * - Use `token-manager.ts` for all token operations
+ * - Use `lib/auth/tokens` for all token operations
  * - createTokenPair() - Creates access + refresh tokens with proper rotation
  * - validateAccessToken() - Validates access tokens with blacklist checking
  * - refreshTokenPair() - Rotates tokens with reuse detection
@@ -21,47 +21,47 @@
 import { log } from '@/lib/logger';
 
 /**
- * @deprecated Use createTokenPair() from token-manager.ts instead
+ * @deprecated Use createTokenPair() from lib/auth/tokens instead
  * @internal Legacy function - will be removed in future version
  */
 export async function signJWT(): Promise<string> {
-  log.error('DEPRECATED: signJWT() called - use token-manager.ts instead', new Error('deprecated'), {
+  log.error('DEPRECATED: signJWT() called - use lib/auth/tokens instead', new Error('deprecated'), {
     operation: 'signJWT',
     deprecated: true,
-    migration: 'Use createTokenPair() from @/lib/auth/token-manager',
+    migration: 'Use createTokenPair() from @/lib/auth/tokens',
   });
   throw new Error(
-    'signJWT() is deprecated. Use createTokenPair() from @/lib/auth/token-manager instead.'
+    'signJWT() is deprecated. Use createTokenPair() from @/lib/auth/tokens instead.'
   );
 }
 
 /**
- * @deprecated Use validateAccessToken() from token-manager.ts instead
+ * @deprecated Use validateAccessToken() from lib/auth/tokens instead
  * @internal Legacy function - will be removed in future version
  */
 export async function verifyJWT(): Promise<null> {
-  log.error('DEPRECATED: verifyJWT() called - use token-manager.ts instead', new Error('deprecated'), {
+  log.error('DEPRECATED: verifyJWT() called - use lib/auth/tokens instead', new Error('deprecated'), {
     operation: 'verifyJWT',
     deprecated: true,
-    migration: 'Use validateAccessToken() from @/lib/auth/token-manager',
+    migration: 'Use validateAccessToken() from @/lib/auth/tokens',
   });
   throw new Error(
-    'verifyJWT() is deprecated. Use validateAccessToken() from @/lib/auth/token-manager instead.'
+    'verifyJWT() is deprecated. Use validateAccessToken() from @/lib/auth/tokens instead.'
   );
 }
 
 /**
- * @deprecated Use refreshTokenPair() from token-manager.ts instead
+ * @deprecated Use refreshTokenPair() from lib/auth/tokens instead
  * @internal Legacy function - will be removed in future version
  */
 export async function refreshJWT(): Promise<null> {
-  log.error('DEPRECATED: refreshJWT() called - use token-manager.ts instead', new Error('deprecated'), {
+  log.error('DEPRECATED: refreshJWT() called - use lib/auth/tokens instead', new Error('deprecated'), {
     operation: 'refreshJWT',
     deprecated: true,
-    migration: 'Use refreshTokenPair() from @/lib/auth/token-manager',
+    migration: 'Use refreshTokenPair() from @/lib/auth/tokens',
   });
   throw new Error(
-    'refreshJWT() is deprecated. Use refreshTokenPair() from @/lib/auth/token-manager instead.'
+    'refreshJWT() is deprecated. Use refreshTokenPair() from @/lib/auth/tokens instead.'
   );
 }
 

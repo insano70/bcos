@@ -2,6 +2,7 @@ import { and, count, eq } from 'drizzle-orm';
 import { ensureSecurityRecord, hashPassword } from '@/lib/auth/security';
 import { account_security, db } from '@/lib/db';
 import { user_organizations, users } from '@/lib/db/schema';
+import { webauthn_credentials } from '@/lib/db/webauthn-schema';
 import { calculateChanges, log, logTemplates, SLOW_THRESHOLDS } from '@/lib/logger';
 import type { UserContext } from '@/lib/types/rbac';
 import { PermissionDeniedError } from '@/lib/types/rbac';
@@ -135,6 +136,7 @@ export interface UsersServiceInterface {
   deleteUser(userId: string): Promise<void>;
   searchUsers(searchTerm: string, organizationId?: string): Promise<UserWithOrganizations[]>;
   getUserCount(organizationId?: string): Promise<number>;
+  getMFACredentialCounts(userIds: string[]): Promise<Map<string, number>>;
 }
 
 // ============================================================================
@@ -732,6 +734,60 @@ class RBACUsersService implements UsersServiceInterface {
         operation: 'get_user_count',
         userId: this.userContext.user_id,
         organizationId,
+        component: 'service',
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Get MFA credential counts for multiple users
+   * Returns a map of userId -> credential count
+   */
+  async getMFACredentialCounts(userIds: string[]): Promise<Map<string, number>> {
+    const startTime = Date.now();
+
+    try {
+      if (userIds.length === 0) {
+        return new Map();
+      }
+
+      const queryStart = Date.now();
+      const results = await db
+        .select({
+          user_id: webauthn_credentials.user_id,
+          count: count(),
+        })
+        .from(webauthn_credentials)
+        .where(and(eq(webauthn_credentials.is_active, true)))
+        .groupBy(webauthn_credentials.user_id);
+
+      const queryDuration = Date.now() - queryStart;
+      const duration = Date.now() - startTime;
+
+      // Build map of user_id -> count
+      const countsMap = new Map<string, number>();
+      for (const result of results) {
+        countsMap.set(result.user_id, result.count);
+      }
+
+      log.info('mfa credential counts retrieved', {
+        operation: 'get_mfa_credential_counts',
+        userId: this.userContext.user_id,
+        duration,
+        metadata: {
+          userCount: userIds.length,
+          credentialQuery: { duration: queryDuration, slow: queryDuration > SLOW_THRESHOLDS.DB_QUERY },
+          component: 'service',
+        },
+      });
+
+      return countsMap;
+    } catch (error) {
+      log.error('get mfa credential counts failed', error, {
+        operation: 'get_mfa_credential_counts',
+        userId: this.userContext.user_id,
+        userCount: userIds.length,
         component: 'service',
       });
       throw error;

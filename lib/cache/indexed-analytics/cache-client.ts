@@ -51,24 +51,36 @@ export class IndexedCacheClient extends CacheService<Record<string, unknown>[]> 
    * @returns Array of cached data arrays (null entries excluded)
    */
   async mget(keys: string[]): Promise<Record<string, unknown>[][]> {
+    const startTime = Date.now();
     const client = this.getClient();
     if (!client) {
       return [];
     }
 
     const results: Record<string, unknown>[][] = [];
+    let totalNetworkTime = 0;
+    let totalParseTime = 0;
+    let totalRows = 0;
 
     try {
       // Process in batches to avoid overwhelming Redis
       for (let i = 0; i < keys.length; i += this.QUERY_BATCH_SIZE) {
         const batch = keys.slice(i, i + this.QUERY_BATCH_SIZE);
-        const values = await client.mget(...batch);
 
+        // Measure network time (Redis round-trip)
+        const networkStart = Date.now();
+        const values = await client.mget(...batch);
+        const networkTime = Date.now() - networkStart;
+        totalNetworkTime += networkTime;
+
+        // Measure JSON parsing time
+        const parseStart = Date.now();
         for (const value of values) {
           if (value) {
             try {
               const parsed = JSON.parse(value) as Record<string, unknown>[];
               results.push(parsed);
+              totalRows += parsed.length;
             } catch (parseError) {
               log.error(
                 'Failed to parse cached data in mget',
@@ -81,7 +93,32 @@ export class IndexedCacheClient extends CacheService<Record<string, unknown>[]> 
             }
           }
         }
+        totalParseTime += Date.now() - parseStart;
       }
+
+      const totalTime = Date.now() - startTime;
+      const otherTime = totalTime - totalNetworkTime - totalParseTime;
+
+      // Log detailed timing breakdown for performance analysis
+      log.debug('MGET operation timing breakdown', {
+        component: 'indexed-cache-client',
+        operation: 'mget',
+        keyCount: keys.length,
+        resultCount: results.length,
+        totalRows,
+        timing: {
+          total: totalTime,
+          network: totalNetworkTime,
+          parse: totalParseTime,
+          other: otherTime,
+          networkPct: ((totalNetworkTime / totalTime) * 100).toFixed(1),
+          parsePct: ((totalParseTime / totalTime) * 100).toFixed(1),
+        },
+        efficiency: {
+          msPerKey: (totalTime / keys.length).toFixed(2),
+          msPerRow: totalRows > 0 ? (totalTime / totalRows).toFixed(3) : 'N/A',
+        },
+      });
 
       return results;
     } catch (error) {
@@ -92,6 +129,7 @@ export class IndexedCacheClient extends CacheService<Record<string, unknown>[]> 
           component: 'indexed-cache-client',
           operation: 'mget',
           keyCount: keys.length,
+          duration: Date.now() - startTime,
         }
       );
       return [];
@@ -477,6 +515,15 @@ export class IndexedCacheClient extends CacheService<Record<string, unknown>[]> 
    */
   async deleteKey(key: string): Promise<boolean> {
     return this.del(key);
+  }
+
+  /**
+   * Get the default TTL configured for this cache
+   *
+   * @returns Default TTL in seconds
+   */
+  getDefaultTTL(): number {
+    return this.defaultTTL;
   }
 }
 

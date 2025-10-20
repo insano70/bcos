@@ -3,7 +3,7 @@
  * Uses JWT user data and cached role permissions to eliminate database queries
  */
 
-import { validateAccessToken } from '@/lib/auth/token-manager';
+import { validateAccessToken } from '@/lib/auth/tokens';
 import { rbacCache } from '@/lib/cache';
 import { log } from '@/lib/logger';
 import type { Permission, Role, UserContext } from '@/lib/types/rbac';

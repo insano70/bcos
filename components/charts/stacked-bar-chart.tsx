@@ -84,9 +84,9 @@ export default function StackedBarChart({ data, width, height }: StackedBarChart
             intersect: false,
             callbacks: {
               title: () => '',
-              label: (context) => `${context.dataset.label}: ${formatValue(context.parsed.y)}`,
+              label: (context) => `${context.dataset.label}: ${formatValue(context.parsed.y ?? 0)}`,
               footer: (tooltipItems) => {
-                const total = tooltipItems.reduce((sum, item) => sum + item.parsed.y, 0);
+                const total = tooltipItems.reduce((sum, item) => sum + (item.parsed.y ?? 0), 0);
                 return `Total: ${formatValue(total)}`;
               },
             },

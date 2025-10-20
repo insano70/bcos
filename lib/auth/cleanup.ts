@@ -1,7 +1,7 @@
 import { AuditLogger } from '@/lib/api/services/audit';
 import { log } from '@/lib/logger';
 import { databaseStateManager } from '@/lib/oidc/database-state-manager';
-import { cleanupExpiredTokens } from './token-manager';
+import { cleanupExpiredTokens } from './tokens';
 
 /**
  * Token and OIDC State Cleanup Service

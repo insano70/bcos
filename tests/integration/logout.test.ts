@@ -14,7 +14,7 @@
 
 import { describe, expect, it } from 'vitest';
 import '@/tests/setup/integration-setup';
-import { createTokenPair } from '@/lib/auth/token-manager';
+import { createTokenPair } from '@/lib/auth/tokens';
 import { createTestUser } from '@/tests/factories/user-factory';
 import { getCurrentTransaction } from '@/tests/helpers/db-helper';
 import { generateUniqueEmail } from '@/tests/helpers/unique-generator';

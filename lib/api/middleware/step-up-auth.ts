@@ -1,4 +1,4 @@
-import { validateAccessToken } from '@/lib/auth/token-manager';
+import { validateAccessToken } from '@/lib/auth/tokens';
 import { AuthenticationError } from '../responses/error';
 
 /**

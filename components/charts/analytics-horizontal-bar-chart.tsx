@@ -104,22 +104,29 @@ const AnalyticsHorizontalBarChart = forwardRef<HTMLCanvasElement, AnalyticsHoriz
                 );
 
                 if (hasPeriodComparison) {
-                  return createPeriodComparisonHorizontalTooltipCallbacks(darkMode);
+                  // Type assertion needed because createPeriodComparisonHorizontalTooltipCallbacks returns 'bar' type
+                  // but this chart uses 'bar' | 'line' union type for flexibility
+                  return createPeriodComparisonHorizontalTooltipCallbacks(darkMode) as unknown as {
+                    title?: (tooltipItems: TooltipItem<'bar' | 'line'>[]) => string;
+                    label?: (tooltipItem: TooltipItem<'bar' | 'line'>) => string;
+                    footer?: (tooltipItems: TooltipItem<'bar' | 'line'>[]) => string[];
+                  };
                 }
 
                 // Default tooltip callbacks
                 return {
-                  title: (tooltipItems: TooltipItem<'bar'>[]) => {
+                  title: (tooltipItems: TooltipItem<'bar' | 'line'>[]) => {
                     // Show the category label as title
                     return tooltipItems[0]?.label || '';
                   },
-                  label: (tooltipItem: TooltipItem<'bar'>) => {
+                  label: (tooltipItem: TooltipItem<'bar' | 'line'>) => {
                     // Get measure type from dataset metadata, fallback to chart data, then to 'number'
                     const measureType =
                       (tooltipItem.dataset as { measureType?: string })?.measureType ||
                       (tooltipItem.chart.data as { measureType?: string })?.measureType ||
                       'number';
-                    const formattedValue = formatValue(tooltipItem.parsed.x, measureType);
+                    const value = tooltipItem.parsed.x ?? 0;
+                    const formattedValue = formatValue(value, measureType);
                     return `${tooltipItem.dataset.label}: ${formattedValue}`;
                   },
                 };
@@ -243,7 +250,7 @@ const AnalyticsHorizontalBarChart = forwardRef<HTMLCanvasElement, AnalyticsHoriz
     }, [data]);
 
     useEffect(() => {
-      if (!chart) return;
+      if (!chart || !canvas.current) return;
 
       // Update theme colors
       if (darkMode) {

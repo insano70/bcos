@@ -67,6 +67,7 @@ export interface ChartConfig {
   colorPalette?: string;
   periodComparison?: PeriodComparisonConfig;
   dualAxisConfig?: DualAxisConfig;
+  dateRangePreset?: string;
 }
 
 interface ChartBuilderCoreProps {

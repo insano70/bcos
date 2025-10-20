@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
-import RowBasedDashboardBuilder from '@/components/charts/row-based-dashboard-builder';
+import RowBasedDashboardBuilder from '@/components/dashboards/row-builder';
 import { apiClient } from '@/lib/api/client';
 import type { Dashboard, DashboardChart } from '@/lib/types/analytics';
 

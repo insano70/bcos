@@ -90,7 +90,7 @@ export default function AreaChart({ data, width, height }: AreaChartProps) {
           tooltip: {
             callbacks: {
               title: () => '',
-              label: (context) => `${context.dataset.label}: ${formatValue(context.parsed.y)}`,
+              label: (context) => `${context.dataset.label}: ${formatValue(context.parsed.y ?? 0)}`,
             },
             bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
             backgroundColor: darkMode ? tooltipBgColor.dark : tooltipBgColor.light,
@@ -119,7 +119,7 @@ export default function AreaChart({ data, width, height }: AreaChartProps) {
   }, []);
 
   useEffect(() => {
-    if (!chart) return;
+    if (!chart || !canvas.current) return;
 
     // Update theme colors
     if (darkMode) {

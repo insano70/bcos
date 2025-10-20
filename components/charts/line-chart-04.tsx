@@ -66,7 +66,7 @@ export default function LineChart04({ data, width, height }: LineChart04Props) {
           tooltip: {
             callbacks: {
               title: () => '', // Disable tooltip title
-              label: (context) => formatThousands(context.parsed.y),
+              label: (context) => formatThousands(context.parsed.y ?? 0),
             },
             bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
             backgroundColor: darkMode ? tooltipBgColor.dark : tooltipBgColor.light,

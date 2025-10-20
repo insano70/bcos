@@ -2,7 +2,7 @@
  * Session Manager Service - Authentication Helper
  *
  * Provides centralized session lifecycle management for authentication flows.
- * Wraps token-manager.ts and adds session-specific operations with transaction safety.
+ * Wraps lib/auth/tokens and adds session-specific operations with transaction safety.
  *
  * SECURITY FEATURES:
  * - Atomic session creation (transaction-safe)
@@ -30,12 +30,12 @@
  */
 
 import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
-import type { DeviceInfo, TokenPair } from '@/lib/auth/token-manager';
+import type { DeviceInfo, TokenPair } from '@/lib/auth/tokens';
 import {
   createTokenPair,
   revokeAllUserTokens,
   revokeRefreshToken,
-} from '@/lib/auth/token-manager';
+} from '@/lib/auth/tokens';
 import { db, refresh_tokens, user_sessions } from '@/lib/db';
 import { log, SLOW_THRESHOLDS } from '@/lib/logger';
 

@@ -91,7 +91,7 @@ export default function LineChart02({ data, width, height }: LineChart02Props) {
           tooltip: {
             callbacks: {
               title: () => '', // Disable tooltip title
-              label: (context) => formatValue(context.parsed.y),
+              label: (context) => formatValue(context.parsed.y ?? 0),
             },
             bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
             backgroundColor: darkMode ? tooltipBgColor.dark : tooltipBgColor.light,
@@ -160,7 +160,7 @@ export default function LineChart02({ data, width, height }: LineChart02Props) {
   }, []);
 
   useEffect(() => {
-    if (!chart) return;
+    if (!chart || !canvas.current) return;
 
     if (darkMode) {
       chart.options.scales!.x!.ticks!.color = textColor.dark;

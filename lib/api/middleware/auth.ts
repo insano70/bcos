@@ -1,4 +1,4 @@
-import { validateAccessToken } from '@/lib/auth/token-manager';
+import { validateAccessToken } from '@/lib/auth/tokens';
 import { authCache } from '@/lib/cache';
 import { log } from '@/lib/logger';
 import { getUserContextSafe } from '@/lib/rbac/user-context';
