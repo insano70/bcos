@@ -16,6 +16,7 @@ import type {
 } from '@/lib/types/analytics';
 import AnalyticsChart from './analytics-chart';
 import BatchChartRenderer, { type BatchChartData } from './batch-chart-renderer';
+import ChartErrorBoundary from './chart-error-boundary';
 import type { DashboardUniversalFilters } from './dashboard-filter-bar';
 import DashboardFilterDropdown from './dashboard-filter-dropdown';
 
@@ -364,53 +365,56 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
               }}
             >
               {/* Phase 7: Render with batch data if available, otherwise fallback to individual fetching */}
-              {batchChartData ? (
-                <BatchChartRenderer
-                  chartData={batchChartData as BatchChartData}
-                  chartDefinition={{
-                    chart_definition_id: chartDef.chart_definition_id,
-                    chart_name: chartDef.chart_name,
-                    chart_type: chartDef.chart_type,
-                    chart_config: chartConfig,
-                  }}
-                  position={dashboardChart.position}
-                  className="w-full h-full flex-1"
-                  responsive={true}
-                  minHeight={200}
-                  maxHeight={containerHeight - 100}
-                />
-              ) : (
-                <AnalyticsChart
-                  chartType={chartDef.chart_type}
-                  {...(measureFilter?.value && { measure: measureFilter.value as MeasureType })}
-                  {...(frequencyFilter?.value && {
-                    frequency: frequencyFilter.value as FrequencyType,
-                  })}
-                  practice={practiceFilter?.value?.toString()}
-                  // Phase 7: Dashboard filters override chart filters
-                  startDate={universalFilters.startDate || startDateFilter?.value?.toString()}
-                  endDate={universalFilters.endDate || endDateFilter?.value?.toString()}
-                  groupBy={chartConfig.series?.groupBy || 'none'}
-                  title={chartDef.chart_name}
-                  calculatedField={chartConfig.calculatedField}
-                  advancedFilters={dataSource.advancedFilters || []}
-                  dataSourceId={chartConfig.dataSourceId}
-                  stackingMode={chartConfig.stackingMode}
-                  colorPalette={chartConfig.colorPalette}
-                  {...(chartConfig.seriesConfigs && chartConfig.seriesConfigs.length > 0
-                    ? { multipleSeries: chartConfig.seriesConfigs }
-                    : {})}
-                  {...(chartConfig.dualAxisConfig
-                    ? { dualAxisConfig: chartConfig.dualAxisConfig }
-                    : {})}
-                  {...(chartConfig.target && { target: chartConfig.target })}
-                  {...(chartConfig.aggregation && { aggregation: chartConfig.aggregation })}
-                  className="w-full h-full flex-1"
-                  responsive={true}
-                  minHeight={200}
-                  maxHeight={containerHeight - 100}
-                />
-              )}
+              {/* Phase 2: Wrap charts with error boundary to prevent dashboard crashes */}
+              <ChartErrorBoundary chartName={chartDef.chart_name}>
+                {batchChartData ? (
+                  <BatchChartRenderer
+                    chartData={batchChartData as BatchChartData}
+                    chartDefinition={{
+                      chart_definition_id: chartDef.chart_definition_id,
+                      chart_name: chartDef.chart_name,
+                      chart_type: chartDef.chart_type,
+                      chart_config: chartConfig,
+                    }}
+                    position={dashboardChart.position}
+                    className="w-full h-full flex-1"
+                    responsive={true}
+                    minHeight={200}
+                    maxHeight={containerHeight - 100}
+                  />
+                ) : (
+                  <AnalyticsChart
+                    chartType={chartDef.chart_type}
+                    {...(measureFilter?.value && { measure: measureFilter.value as MeasureType })}
+                    {...(frequencyFilter?.value && {
+                      frequency: frequencyFilter.value as FrequencyType,
+                    })}
+                    practice={practiceFilter?.value?.toString()}
+                    // Phase 7: Dashboard filters override chart filters
+                    startDate={universalFilters.startDate || startDateFilter?.value?.toString()}
+                    endDate={universalFilters.endDate || endDateFilter?.value?.toString()}
+                    groupBy={chartConfig.series?.groupBy || 'none'}
+                    title={chartDef.chart_name}
+                    calculatedField={chartConfig.calculatedField}
+                    advancedFilters={dataSource.advancedFilters || []}
+                    dataSourceId={chartConfig.dataSourceId}
+                    stackingMode={chartConfig.stackingMode}
+                    colorPalette={chartConfig.colorPalette}
+                    {...(chartConfig.seriesConfigs && chartConfig.seriesConfigs.length > 0
+                      ? { multipleSeries: chartConfig.seriesConfigs }
+                      : {})}
+                    {...(chartConfig.dualAxisConfig
+                      ? { dualAxisConfig: chartConfig.dualAxisConfig }
+                      : {})}
+                    {...(chartConfig.target && { target: chartConfig.target })}
+                    {...(chartConfig.aggregation && { aggregation: chartConfig.aggregation })}
+                    className="w-full h-full flex-1"
+                    responsive={true}
+                    minHeight={200}
+                    maxHeight={containerHeight - 100}
+                  />
+                )}
+              </ChartErrorBoundary>
             </div>
           );
         })}

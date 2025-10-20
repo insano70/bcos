@@ -89,13 +89,25 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
       }
     };
 
+    // Chart initialization - deferred to prevent race condition with React 19 concurrent rendering
     useEffect(() => {
       const ctx = canvas.current;
-      // Ensure canvas is mounted and has a parent element before creating chart
-      if (!ctx || !ctx.parentElement) return;
+      
+      // Safety check: ensure canvas is properly mounted
+      if (!ctx?.parentElement || !ctx.isConnected) return;
 
       const _timeConfig = getTimeConfig();
       const isPercentageMode = stackingMode === 'percentage';
+
+      // Defer initialization until after React's layout phase (fixes race condition)
+      const rafId = requestAnimationFrame(() => {
+        // Double RAF ensures we're after paint
+        requestAnimationFrame(() => {
+          // Re-check connection after deferral
+          if (!ctx.isConnected) {
+            console.warn('[AnalyticsStackedBarChart] Canvas disconnected during initialization deferral');
+            return;
+          }
 
       const newChart = new Chart(ctx, {
         type: 'bar',
@@ -225,7 +237,7 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
             duration: 500,
           },
           maintainAspectRatio: false,
-          responsive: true,
+          responsive: false, // Disable Chart.js responsive mode (we handle it manually below)
           resizeDelay: 200,
         },
         plugins: [
@@ -233,7 +245,7 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
             id: 'htmlLegend',
             afterUpdate(c, _args, _options) {
               const ul = legend.current;
-              if (!ul) return;
+              if (!ul || !ul.isConnected) return;
               // Remove old legend items
               while (ul.firstChild) {
                 ul.firstChild.remove();
@@ -326,9 +338,27 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
         ],
       });
 
-      setChart(newChart);
-      return () => newChart.destroy();
-    }, [frequency, stackingMode]);
+          setChart(newChart);
+        });
+      });
+
+      return () => {
+        // Clean up animation frame if component unmounts during deferral
+        cancelAnimationFrame(rafId);
+        // Destroy chart synchronously to prevent canvas reuse errors
+        if (chart) {
+          chart.destroy();
+        }
+      };
+    }, [frequency, stackingMode]); // Keep dependencies for re-initialization
+
+    // Update data when it changes (without recreating chart)
+    useEffect(() => {
+      if (!chart || !canvas.current?.isConnected) return;
+
+      chart.data = data;
+      chart.update('none'); // Skip animation for data updates
+    }, [chart, data]);
 
     useEffect(() => {
       if (!chart || !canvas.current) return;
@@ -362,11 +392,32 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
       chart.update('none');
     }, [theme]);
 
-    // Handle dimension changes for responsive behavior
+    // Manual responsive handling (replaces Chart.js responsive mode - preserves responsive design!)
     useEffect(() => {
-      if (!chart || !canvas.current) return;
+      if (!chart || !canvas.current?.isConnected) return;
 
-      // Let Chart.js handle responsive sizing automatically
+      // Observe parent container for size changes
+      const container = canvas.current.parentElement;
+      if (!container) return;
+
+      const resizeObserver = new ResizeObserver(() => {
+        // Defer resize to next frame for safety
+        requestAnimationFrame(() => {
+          if (chart && canvas.current?.isConnected) {
+            chart.resize();
+          }
+        });
+      });
+
+      resizeObserver.observe(container);
+
+      return () => resizeObserver.disconnect();
+    }, [chart]);
+
+    // Handle explicit width/height prop changes
+    useEffect(() => {
+      if (!chart || !canvas.current?.isConnected) return;
+
       chart.resize();
     }, [chart, width, height]);
 
@@ -386,6 +437,8 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
         <div className="flex-1 min-h-0">
           <canvas
             ref={canvas}
+            width={width}
+            height={height}
             style={{
               width: '100%',
               height: '100%',

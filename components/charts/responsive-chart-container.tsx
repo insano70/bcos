@@ -37,11 +37,10 @@ export default function ResponsiveChartContainer({
   aspectRatio,
 }: ResponsiveChartContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [_dimensions, setDimensions] = useState<ChartDimensions>({
+  const [dimensions, setDimensions] = useState<ChartDimensions>({
     width: 800, // Fallback width for SSR
     height: 400, // Fallback height for SSR
   });
-  const resizeTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -84,39 +83,39 @@ export default function ResponsiveChartContainer({
       });
     };
 
-    // Debounced resize handler for performance
-    const handleResize = () => {
-      if (resizeTimeoutRef.current) {
-        clearTimeout(resizeTimeoutRef.current);
-      }
-
-      resizeTimeoutRef.current = setTimeout(() => {
-        updateDimensions();
-      }, 150); // 150ms debounce for smooth resizing
-    };
-
-    // Set up ResizeObserver for container size changes
+    // Set up ResizeObserver for container size changes (deferred with RAF)
     if (typeof ResizeObserver !== 'undefined') {
+      let rafId: number;
       const resizeObserver = new ResizeObserver((_entries) => {
-        handleResize();
+        // Defer dimension updates to prevent race conditions
+        rafId = requestAnimationFrame(() => {
+          updateDimensions();
+        });
       });
       resizeObserver.observe(container);
+
+      // Initial measurement (also deferred)
+      rafId = requestAnimationFrame(() => {
+        updateDimensions();
+      });
 
       // Cleanup
       return () => {
         resizeObserver.disconnect();
-        if (resizeTimeoutRef.current) {
-          clearTimeout(resizeTimeoutRef.current);
-        }
+        cancelAnimationFrame(rafId);
       };
     }
 
-    // Initial measurement after mount
+    // Initial measurement after mount (fallback for browsers without ResizeObserver)
     updateDimensions();
   }, [minHeight, maxHeight, aspectRatio]);
 
-  // Clone the child element - let CSS handle sizing
-  const chartElement = cloneElement(children);
+  // CRITICAL FIX: Pass dimensions to child chart component
+  // Use type assertion since we know chart components accept width/height props
+  const chartElement = cloneElement(children, {
+    width: dimensions.width,
+    height: dimensions.height,
+  } as Partial<unknown>);
 
   return (
     <div
@@ -125,8 +124,7 @@ export default function ResponsiveChartContainer({
       style={{
         minHeight: `${minHeight}px`,
         maxHeight: `${maxHeight}px`,
-        overflowY: 'auto',
-        overflowX: 'auto',
+        width: '100%',
       }}
     >
       {chartElement}

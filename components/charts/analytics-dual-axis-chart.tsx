@@ -59,26 +59,37 @@ export default function AnalyticsDualAxisChart({
   const { textColor, gridColor, tooltipBodyColor, tooltipBgColor, tooltipBorderColor } =
     chartColors;
 
-  // Create and update chart with Chart.js
+  // Create and update chart with Chart.js - deferred to prevent race condition
   useEffect(() => {
-    if (!canvas.current || !canvas.current.parentElement || !chartData || chartData.datasets.length === 0) {
+    if (!canvas.current?.parentElement || !canvas.current.isConnected || !chartData || chartData.datasets.length === 0) {
       return;
     }
 
-    const ctx = canvas.current.getContext('2d');
+    const canvasElement = canvas.current;
+    const ctx = canvasElement.getContext('2d');
     if (!ctx) return;
 
     // Destroy existing chart before creating new one
-    if (chart && canvas.current) {
+    if (chart && canvasElement) {
       chart.destroy();
       setChart(null);
     }
 
     // Also check if there's an existing chart on this canvas using Chart.js registry
-    const existingChart = Chart.getChart(canvas.current);
+    const existingChart = Chart.getChart(canvasElement);
     if (existingChart) {
       existingChart.destroy();
     }
+
+    // Defer initialization until after React's layout phase (fixes race condition)
+    const rafId = requestAnimationFrame(() => {
+      // Double RAF ensures we're after paint
+      requestAnimationFrame(() => {
+        // Re-check connection after deferral
+        if (!canvasElement.isConnected) {
+          console.warn('[AnalyticsDualAxisChart] Canvas disconnected during initialization deferral');
+          return;
+        }
 
     // Create chart configuration
     const config: ChartConfiguration = {
@@ -209,18 +220,22 @@ export default function AnalyticsDualAxisChart({
           mode: 'index',
           intersect: false,
         },
-        responsive: true,
+        responsive: false, // Disable Chart.js responsive mode (we handle it manually)
         maintainAspectRatio: false,
       },
     };
 
-    const newChart = new Chart(ctx, config);
-    setChart(newChart);
+        const newChart = new Chart(ctx, config);
+        setChart(newChart);
+      });
+    });
 
     // Cleanup function
     return () => {
-      if (newChart) {
-        newChart.destroy();
+      // Clean up animation frame if component unmounts during deferral
+      cancelAnimationFrame(rafId);
+      if (chart) {
+        chart.destroy();
       }
     };
   }, [chartData, darkMode, theme, title, dualAxisConfig]);
@@ -240,6 +255,8 @@ export default function AnalyticsDualAxisChart({
     <div className="w-full h-full">
       <canvas
         ref={canvas}
+        width={_width}
+        height={height}
         style={{
           width: '100%',
           height: '100%',
