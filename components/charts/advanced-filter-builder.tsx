@@ -258,22 +258,42 @@ export default function AdvancedFilterBuilder({
           <input
             type={field?.type === 'number' ? 'number' : field?.type === 'date' ? 'date' : 'text'}
             value={values[0]?.toString() || ''}
-            onChange={(e) =>
+            onChange={(e) => {
+              let parsedFromValue: string | number = e.target.value;
+
+              // Parse number fields to ensure correct type for database queries
+              if (field?.type === 'number' && e.target.value.trim() !== '') {
+                const numValue = Number(e.target.value);
+                if (!Number.isNaN(numValue)) {
+                  parsedFromValue = numValue;
+                }
+              }
+
               updateFilter(groupId, filterIndex, {
-                value: [e.target.value, values[1] || ''],
-              })
-            }
+                value: [parsedFromValue, values[1] || ''],
+              });
+            }}
             placeholder="From"
             className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
           />
           <input
             type={field?.type === 'number' ? 'number' : field?.type === 'date' ? 'date' : 'text'}
             value={values[1]?.toString() || ''}
-            onChange={(e) =>
+            onChange={(e) => {
+              let parsedToValue: string | number = e.target.value;
+
+              // Parse number fields to ensure correct type for database queries
+              if (field?.type === 'number' && e.target.value.trim() !== '') {
+                const numValue = Number(e.target.value);
+                if (!Number.isNaN(numValue)) {
+                  parsedToValue = numValue;
+                }
+              }
+
               updateFilter(groupId, filterIndex, {
-                value: [values[0] || '', e.target.value],
-              })
-            }
+                value: [values[0] || '', parsedToValue],
+              });
+            }}
             placeholder="To"
             className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
           />
@@ -304,7 +324,19 @@ export default function AdvancedFilterBuilder({
       <input
         type={field?.type === 'number' ? 'number' : field?.type === 'date' ? 'date' : 'text'}
         value={filter.value?.toString() || ''}
-        onChange={(e) => updateFilter(groupId, filterIndex, { value: e.target.value })}
+        onChange={(e) => {
+          let parsedValue: string | number = e.target.value;
+
+          // Parse number fields to ensure correct type for database queries
+          if (field?.type === 'number' && e.target.value.trim() !== '') {
+            const numValue = Number(e.target.value);
+            if (!Number.isNaN(numValue)) {
+              parsedValue = numValue;
+            }
+          }
+
+          updateFilter(groupId, filterIndex, { value: parsedValue });
+        }}
         placeholder="Enter value"
         className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
       />

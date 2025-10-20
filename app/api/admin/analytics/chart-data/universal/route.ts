@@ -76,8 +76,20 @@ const universalChartDataRequestSchema = z.object({
       providerName: z.string().optional(),
       measure: z.string().optional(),
       frequency: z.string().optional(),
+      advancedFilters: z
+        .array(
+          z.object({
+            field: z.string(),
+            operator: z.enum(['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'not_in', 'like', 'between']),
+            value: z.union([z.string(), z.number(), z.array(z.string()), z.array(z.number())]),
+          })
+        )
+        .optional(),
     })
     .optional(),
+
+  // Cache control
+  nocache: z.boolean().optional(),
 });
 
 /**
@@ -196,7 +208,9 @@ const universalChartDataHandler = async (
 
     // 2. Check cache before fetching (Phase 6)
     const { searchParams } = new URL(request.url);
-    const bypassCache = searchParams.get('nocache') === 'true';
+    const nocacheFromQuery = searchParams.get('nocache') === 'true';
+    const nocacheFromBody = (validatedData as {nocache?: boolean}).nocache === true;
+    const bypassCache = nocacheFromQuery || nocacheFromBody;
 
     let cacheKey: string | null = null;
     let cachedData: Awaited<ReturnType<typeof chartDataCache.get>> = null;

@@ -4,12 +4,15 @@ export const metadata = {
 };
 
 import { SelectedItemsProvider } from '@/app/selected-items-context';
+import { PracticeManagementPageProtection } from '@/components/rbac/protected-page';
 import PracticesContent from './practices-content';
 
 export default function Practices() {
   return (
-    <SelectedItemsProvider>
-      <PracticesContent />
-    </SelectedItemsProvider>
+    <PracticeManagementPageProtection>
+      <SelectedItemsProvider>
+        <PracticesContent />
+      </SelectedItemsProvider>
+    </PracticeManagementPageProtection>
   );
 }

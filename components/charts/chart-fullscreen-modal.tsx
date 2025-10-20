@@ -47,7 +47,9 @@ export default function ChartFullscreenModal({
 }: ChartFullscreenModalProps) {
   const [chart, setChart] = useState<ChartType | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [canvasDimensions, setCanvasDimensions] = useState({ width: 800, height: 400 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const legendRef = useRef<HTMLUListElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const { theme } = useTheme();
@@ -78,6 +80,45 @@ export default function ChartFullscreenModal({
     setMounted(true);
   }, []);
 
+  // Track canvas container dimensions for responsive sizing
+  useEffect(() => {
+    if (!isOpen || !containerRef.current) return;
+
+    const updateCanvasSize = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const newWidth = Math.floor(rect.width);
+        const newHeight = Math.floor(rect.height);
+
+        // Only update if dimensions actually changed
+        setCanvasDimensions((prev) => {
+          if (prev.width !== newWidth || prev.height !== newHeight) {
+            return { width: newWidth, height: newHeight };
+          }
+          return prev;
+        });
+      }
+    };
+
+    // Initial measurement (deferred to ensure layout is complete)
+    const initialRafId = requestAnimationFrame(() => {
+      updateCanvasSize();
+    });
+
+    // Watch for resize events (browser resize, device rotation, etc.)
+    const resizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(() => {
+        updateCanvasSize();
+      });
+    });
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      cancelAnimationFrame(initialRafId);
+      resizeObserver.disconnect();
+    };
+  }, [isOpen]);
+
   // Lock body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
@@ -102,55 +143,15 @@ export default function ChartFullscreenModal({
     }
   }, [isOpen, onClose]);
 
-  // Configure time display formats based on frequency
-  const getTimeConfig = () => {
-    switch (frequency) {
-      case 'Weekly':
-        return {
-          unit: 'week',
-          displayFormats: {
-            week: 'DD-MMM-YY',
-          },
-          tooltipFormat: 'DD-MMM-YYYY',
-        };
-      case 'Monthly':
-        return {
-          unit: 'month',
-          displayFormats: {
-            month: 'MMM YYYY',
-          },
-          tooltipFormat: 'MMM YYYY',
-        };
-      case 'Quarterly':
-        return {
-          unit: 'quarter',
-          displayFormats: {
-            quarter: '[Q]Q YYYY',
-          },
-          tooltipFormat: '[Q]Q YYYY',
-        };
-      default:
-        return {
-          unit: 'month',
-          displayFormats: {
-            month: 'MMM YYYY',
-          },
-          tooltipFormat: 'MMM YYYY',
-        };
-    }
-  };
-
   // Initialize chart
   // Chart initialization - deferred to prevent race condition
   useEffect(() => {
-    if (!isOpen || !canvasRef.current || !chartData) return;
+    if (!isOpen || !canvasRef.current || !chartData || canvasDimensions.width === 0) return;
 
     const ctx = canvasRef.current;
-    
+
     // Safety check: ensure canvas is properly mounted
     if (!ctx.parentElement || !ctx.isConnected) return;
-
-    const _timeConfig = getTimeConfig();
 
     // Get fresh color values inside useEffect to ensure they're read after theme is loaded
     const { textColor, gridColor, tooltipBodyColor, tooltipBgColor, tooltipBorderColor } =
@@ -444,7 +445,7 @@ export default function ChartFullscreenModal({
         chart.destroy();
       }
     };
-  }, [isOpen, mounted, chartData, chartType, frequency, stackingMode, darkMode]);
+  }, [isOpen, mounted, chartData, chartType, frequency, stackingMode, darkMode, canvasDimensions]);
 
   const handleResetZoom = () => {
     if (chart) {
@@ -508,8 +509,13 @@ export default function ChartFullscreenModal({
 
         {/* Chart Content */}
         <div className="flex-1 p-6 overflow-auto">
-          <div className="w-full h-[calc(90vh-200px)] min-h-[400px]">
-            <canvas ref={setCanvasRef} />
+          <div ref={containerRef} className="w-full h-[calc(90vh-200px)] min-h-[400px]">
+            <canvas
+              ref={setCanvasRef}
+              width={canvasDimensions.width}
+              height={canvasDimensions.height}
+              style={{ width: '100%', height: '100%' }}
+            />
           </div>
 
           {/* Legend */}

@@ -44,7 +44,9 @@ export default function DualAxisFullscreenModal({
 }: DualAxisFullscreenModalProps) {
   const [chart, setChart] = useState<ChartType | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [canvasDimensions, setCanvasDimensions] = useState({ width: 800, height: 400 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const legendRef = useRef<HTMLUListElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const { theme } = useTheme();
@@ -77,6 +79,45 @@ export default function DualAxisFullscreenModal({
     setMounted(true);
   }, []);
 
+  // Track canvas container dimensions for responsive sizing
+  useEffect(() => {
+    if (!isOpen || !containerRef.current) return;
+
+    const updateCanvasSize = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        const newWidth = Math.floor(rect.width);
+        const newHeight = Math.floor(rect.height);
+
+        // Only update if dimensions actually changed
+        setCanvasDimensions((prev) => {
+          if (prev.width !== newWidth || prev.height !== newHeight) {
+            return { width: newWidth, height: newHeight };
+          }
+          return prev;
+        });
+      }
+    };
+
+    // Initial measurement (deferred to ensure layout is complete)
+    const initialRafId = requestAnimationFrame(() => {
+      updateCanvasSize();
+    });
+
+    // Watch for resize events (browser resize, device rotation, etc.)
+    const resizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(() => {
+        updateCanvasSize();
+      });
+    });
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      cancelAnimationFrame(initialRafId);
+      resizeObserver.disconnect();
+    };
+  }, [isOpen]);
+
   // Lock body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
@@ -104,10 +145,10 @@ export default function DualAxisFullscreenModal({
   // Initialize chart
   // Chart initialization - deferred to prevent race condition
   useEffect(() => {
-    if (!isOpen || !canvasRef.current || !chartData) return;
+    if (!isOpen || !canvasRef.current || !chartData || canvasDimensions.width === 0) return;
 
     const ctx = canvasRef.current;
-    
+
     // Safety check: ensure canvas is properly mounted
     if (!ctx.parentElement || !ctx.isConnected) return;
 
@@ -361,7 +402,7 @@ export default function DualAxisFullscreenModal({
         chart.destroy();
       }
     };
-  }, [isOpen, mounted, chartData, primaryAxisLabel, secondaryAxisLabel, darkMode]);
+  }, [isOpen, mounted, chartData, primaryAxisLabel, secondaryAxisLabel, darkMode, canvasDimensions]);
 
   const handleResetZoom = () => {
     if (chart) {
@@ -425,8 +466,13 @@ export default function DualAxisFullscreenModal({
 
         {/* Chart Content */}
         <div className="flex-1 p-6 overflow-auto">
-          <div className="w-full h-[calc(90vh-200px)] min-h-[400px]">
-            <canvas ref={setCanvasRef} />
+          <div ref={containerRef} className="w-full h-[calc(90vh-200px)] min-h-[400px]">
+            <canvas
+              ref={setCanvasRef}
+              width={canvasDimensions.width}
+              height={canvasDimensions.height}
+              style={{ width: '100%', height: '100%' }}
+            />
           </div>
 
           {/* Legend */}

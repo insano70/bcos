@@ -65,6 +65,7 @@ export default function ChartBuilderPreview({
             responsive={true}
             minHeight={200}
             maxHeight={400}
+            nocache={true}
             {...(chartConfig.useMultipleSeries && chartConfig.seriesConfigs.length > 0
               ? { multipleSeries: chartConfig.seriesConfigs }
               : {})}

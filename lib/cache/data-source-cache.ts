@@ -235,29 +235,25 @@ class DataSourceCacheService {
       );
     }
 
-    // 3. CRITICAL FIX: Apply advanced filters if NOT applied in SQL
-    // Note: Advanced filters ARE applied in SQL query (Task 1.5), but as a safety measure,
-    // we verify and log if they would have filtered additional rows (indicates SQL issue)
+    // 3. Apply advanced filters (in-memory for consistency with cache path)
+    // Advanced filters are ALSO applied in SQL query, but we apply them in-memory as well
+    // to ensure consistency between cached and non-cached paths, and to handle type coercion
     if (params.advancedFilters && params.advancedFilters.length > 0) {
       const rowCountBefore = filteredRows.length;
-      const testFiltered = inMemoryFilterService.applyAdvancedFilters(
+      filteredRows = inMemoryFilterService.applyAdvancedFilters(
         filteredRows,
         params.advancedFilters
       );
 
-      if (testFiltered.length !== rowCountBefore) {
-        log.error('Advanced filters NOT applied in SQL - applying in-memory as fallback', {
-          userId: context.user_id,
-          filterCount: params.advancedFilters.length,
-          filters: params.advancedFilters,
-          beforeFilter: rowCountBefore,
-          afterFilter: testFiltered.length,
-          rowsFiltered: rowCountBefore - testFiltered.length,
-          source: 'cache_miss_path',
-          action: 'fallback_applied',
-        });
-        filteredRows = testFiltered;
-      }
+      log.info('Advanced filters applied in-memory (nocache path)', {
+        userId: context.user_id,
+        filterCount: params.advancedFilters.length,
+        filters: params.advancedFilters,
+        beforeFilter: rowCountBefore,
+        afterFilter: filteredRows.length,
+        rowsFiltered: rowCountBefore - filteredRows.length,
+        source: 'cache_miss_path',
+      });
     }
 
     const duration = Date.now() - startTime;

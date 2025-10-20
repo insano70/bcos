@@ -67,6 +67,7 @@ interface AnalyticsChartProps extends ResponsiveChartProps {
   dualAxisConfig?: DualAxisConfig | undefined;
   aggregation?: 'sum' | 'avg' | 'count' | 'min' | 'max';
   target?: number;
+  nocache?: boolean | undefined; // Force bypass cache (for previews)
 }
 
 /**
@@ -382,6 +383,7 @@ function UniversalChartComponent(props: AnalyticsChartProps) {
     const request: {
       chartConfig: Record<string, unknown>;
       runtimeFilters?: Record<string, unknown>;
+      nocache?: boolean;
     } = {
       chartConfig: {
         chartType,
@@ -389,6 +391,11 @@ function UniversalChartComponent(props: AnalyticsChartProps) {
         colorPalette,
       },
     };
+
+    // Add nocache flag if specified (for previews)
+    if (props.nocache) {
+      request.nocache = true;
+    }
 
     // Add groupBy for chart types that support it (NOT number charts)
     if (chartType !== 'number') {

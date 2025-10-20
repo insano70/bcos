@@ -173,8 +173,13 @@ export function useChartData(request: UniversalChartDataRequest): UseChartDataRe
     setError(null);
 
     try {
+      // Add nocache query param if nocache is true in request body
+      const url = request.nocache
+        ? '/api/admin/analytics/chart-data/universal?nocache=true'
+        : '/api/admin/analytics/chart-data/universal';
+
       const response = await apiClient.post<UniversalChartDataResponse>(
-        '/api/admin/analytics/chart-data/universal',
+        url,
         request
       );
 

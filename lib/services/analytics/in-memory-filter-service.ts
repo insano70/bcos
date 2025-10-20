@@ -101,8 +101,17 @@ export class InMemoryFilterService {
    */
   private applyFilter(row: Record<string, unknown>, filter: ChartFilter): boolean {
     const fieldValue = row[filter.field];
-    const filterValue = filter.value;
+    let filterValue = filter.value;
     const operator = filter.operator || 'eq';
+
+    // Type coercion: Convert string numbers to actual numbers for comparison
+    // This handles cases where UI sends "114" but database has 114
+    if (typeof fieldValue === 'number' && typeof filterValue === 'string') {
+      const numValue = Number(filterValue);
+      if (!Number.isNaN(numValue)) {
+        filterValue = numValue;
+      }
+    }
 
     switch (operator) {
       case 'eq':
@@ -141,10 +150,32 @@ export class InMemoryFilterService {
 
       case 'in':
         if (!Array.isArray(filterValue)) return false;
+        // Type coercion for array values: convert string numbers to numbers if fieldValue is number
+        if (typeof fieldValue === 'number') {
+          const coercedArray = (filterValue as unknown[]).map(v => {
+            if (typeof v === 'string') {
+              const numValue = Number(v);
+              return Number.isNaN(numValue) ? v : numValue;
+            }
+            return v;
+          });
+          return coercedArray.includes(fieldValue);
+        }
         return (filterValue as unknown[]).includes(fieldValue);
 
       case 'not_in':
         if (!Array.isArray(filterValue)) return true; // If not array, pass
+        // Type coercion for array values: convert string numbers to numbers if fieldValue is number
+        if (typeof fieldValue === 'number') {
+          const coercedArray = (filterValue as unknown[]).map(v => {
+            if (typeof v === 'string') {
+              const numValue = Number(v);
+              return Number.isNaN(numValue) ? v : numValue;
+            }
+            return v;
+          });
+          return !coercedArray.includes(fieldValue);
+        }
         return !(filterValue as unknown[]).includes(fieldValue);
 
       case 'like':
