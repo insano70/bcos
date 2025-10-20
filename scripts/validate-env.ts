@@ -34,11 +34,6 @@ const RECOMMENDED_ENV_VARS = {
     example: 'postgresql://user:pass@host:5432/db',
     required: false,
   },
-  CRON_SECRET: {
-    description: 'Secret for authenticating external cron endpoints (optional - only if using Vercel Cron or external HTTP cron triggers)',
-    example: 'random-secret-string',
-    required: false,
-  },
 } as const;
 
 interface ValidationResult {

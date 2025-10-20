@@ -265,9 +265,14 @@ jobs:
               echo "Reason: ${STOPPED_REASON}"
               echo "Container reason: ${CONTAINER_REASON}"
 
-              # Check if it's a VPC endpoint timeout (retriable)
-              if echo "${STOPPED_REASON}" | grep -q "unable to retrieve secret\|connection issue\|context deadline exceeded"; then
-                echo "⚠️  This appears to be a VPC endpoint timeout (retriable)"
+              # Check if it's a retriable error
+              if echo "${STOPPED_REASON}" | grep -qi "unable to retrieve secret\|connection issue\|context deadline exceeded\|rate limit.*network interface\|eni creation"; then
+                echo "⚠️  This appears to be a retriable initialization error"
+                if echo "${STOPPED_REASON}" | grep -qi "rate limit"; then
+                  echo "   (AWS rate limit on ENI creation - common during deployments)"
+                elif echo "${STOPPED_REASON}" | grep -qi "unable to retrieve secret\|connection issue"; then
+                  echo "   (VPC endpoint connection timeout)"
+                fi
               else
                 echo "⚠️  This appears to be a non-retriable initialization error"
                 echo ""

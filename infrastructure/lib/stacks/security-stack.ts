@@ -349,6 +349,21 @@ export class SecurityStack extends cdk.Stack {
     this.productionSecret.grantRead(this.ecsTaskExecutionRole);
     this.stagingSecret.grantRead(this.ecsTaskExecutionRole);
 
+    // Grant GitHub Actions read access to secrets (for VPC endpoint warmup)
+    this.githubActionsRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'SecretsManagerDescribe',
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'secretsmanager:DescribeSecret',
+        ],
+        resources: [
+          this.productionSecret.secretArn,
+          this.stagingSecret.secretArn,
+        ],
+      })
+    );
+
     // Allow GitHub Actions to pass ECS roles
     this.githubActionsRole.addToPolicy(
       new iam.PolicyStatement({
