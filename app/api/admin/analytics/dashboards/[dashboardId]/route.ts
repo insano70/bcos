@@ -3,6 +3,8 @@ import { validateRequest } from '@/lib/api/middleware/validation';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
+import { analyticsCache } from '@/lib/cache/analytics-cache';
+import { chartDataCache } from '@/lib/cache/chart-data-cache';
 import { log } from '@/lib/logger';
 import { createRBACDashboardsService } from '@/lib/services/dashboards';
 import type { UserContext } from '@/lib/types/rbac';
@@ -105,6 +107,56 @@ const updateDashboardHandler = async (
       updatedBy: userContext.user_id,
     });
 
+    // Aggressive cache invalidation - invalidate all related caches
+    // Get dashboard with charts to invalidate their caches
+    const fullDashboard = await dashboardsService.getDashboardById(dashboardId);
+
+    if (fullDashboard?.charts) {
+      // Invalidate each chart's definition cache
+      for (const chart of fullDashboard.charts) {
+        await analyticsCache.invalidate('chart', chart.chart_definition_id);
+      }
+
+      // Extract unique data source IDs from chart configs
+      const dataSourceIds = new Set<number>();
+      for (const chart of fullDashboard.charts) {
+        // Chart configs are stored in the chart_config column of the chart definition
+        // We need to get the full chart to access the config
+        const chartDef = await analyticsCache.getChartDefinition(chart.chart_definition_id);
+        if (chartDef?.chart_config) {
+          const dataSourceId = (chartDef.chart_config as { dataSourceId?: number })?.dataSourceId;
+          if (dataSourceId) {
+            dataSourceIds.add(dataSourceId);
+          }
+        }
+      }
+
+      // Invalidate chart data cache for all data sources
+      for (const dataSourceId of Array.from(dataSourceIds)) {
+        await chartDataCache.invalidateByDataSource(dataSourceId);
+      }
+
+      log.info('Dashboard chart caches invalidated', {
+        dashboardId,
+        chartsInvalidated: fullDashboard.charts.length,
+        dataSourcesInvalidated: dataSourceIds.size,
+      });
+    }
+
+    // Invalidate dashboard-specific cache
+    await analyticsCache.invalidate('dashboard', dashboardId);
+
+    // Invalidate dashboard list cache
+    await analyticsCache.invalidate('dashboard');
+
+    // Invalidate chart list cache (charts may have been affected)
+    await analyticsCache.invalidate('chart');
+
+    log.info('All caches invalidated after dashboard update', {
+      dashboardId,
+      invalidated: ['dashboard', 'dashboard-list', 'chart-definitions', 'chart-data', 'chart-list'],
+    });
+
     return createSuccessResponse({ dashboard: updatedDashboard }, 'Dashboard updated successfully');
   } catch (error) {
     log.error('Dashboard update error', error, {
@@ -142,11 +194,44 @@ const deleteDashboardHandler = async (
     // Create RBAC dashboards service
     const dashboardsService = createRBACDashboardsService(userContext);
 
-    // Get dashboard before deletion for logging
+    // Get dashboard before deletion for logging and cache invalidation
     const dashboard = await dashboardsService.getDashboardById(dashboardId);
 
     if (!dashboard) {
       return createErrorResponse('Dashboard not found', 404);
+    }
+
+    // Aggressive cache invalidation - invalidate all related caches BEFORE deletion
+    if (dashboard.charts) {
+      // Invalidate each chart's definition cache
+      for (const chart of dashboard.charts) {
+        await analyticsCache.invalidate('chart', chart.chart_definition_id);
+      }
+
+      // Extract unique data source IDs from chart configs
+      const dataSourceIds = new Set<number>();
+      for (const chart of dashboard.charts) {
+        // Chart configs are stored in the chart_config column of the chart definition
+        // We need to get the full chart to access the config
+        const chartDef = await analyticsCache.getChartDefinition(chart.chart_definition_id);
+        if (chartDef?.chart_config) {
+          const dataSourceId = (chartDef.chart_config as { dataSourceId?: number })?.dataSourceId;
+          if (dataSourceId) {
+            dataSourceIds.add(dataSourceId);
+          }
+        }
+      }
+
+      // Invalidate chart data cache for all data sources
+      for (const dataSourceId of Array.from(dataSourceIds)) {
+        await chartDataCache.invalidateByDataSource(dataSourceId);
+      }
+
+      log.info('Dashboard chart caches invalidated before deletion', {
+        dashboardId,
+        chartsInvalidated: dashboard.charts.length,
+        dataSourcesInvalidated: dataSourceIds.size,
+      });
     }
 
     // Delete dashboard through service with automatic permission checking
@@ -158,6 +243,20 @@ const deleteDashboardHandler = async (
       dashboardId,
       dashboardName: dashboard.dashboard_name,
       deletedBy: userContext.user_id,
+    });
+
+    // Invalidate dashboard-specific cache
+    await analyticsCache.invalidate('dashboard', dashboardId);
+
+    // Invalidate dashboard list cache
+    await analyticsCache.invalidate('dashboard');
+
+    // Invalidate chart list cache (charts may have been affected)
+    await analyticsCache.invalidate('chart');
+
+    log.info('All caches invalidated after dashboard deletion', {
+      dashboardId,
+      invalidated: ['dashboard', 'dashboard-list', 'chart-definitions', 'chart-data', 'chart-list'],
     });
 
     return createSuccessResponse(

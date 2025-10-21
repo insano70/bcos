@@ -301,8 +301,12 @@ export default function FunctionalChartBuilder({
         return;
       }
     }
-    // Measure is not required for table charts or dual-axis (validated above)
-    else if (chartConfig.chartType !== 'table' && !chartConfig.measure) {
+    // Measure is not required for table charts, dual-axis (validated above), or multi-series (uses seriesConfigs)
+    else if (
+      chartConfig.chartType !== 'table' &&
+      !chartConfig.useMultipleSeries &&
+      !chartConfig.measure
+    ) {
       showToast('error', 'Measure selection is required');
       return;
     }

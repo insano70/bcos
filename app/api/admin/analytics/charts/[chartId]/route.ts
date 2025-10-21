@@ -3,6 +3,7 @@ import { validateRequest } from '@/lib/api/middleware/validation';
 import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
+import { analyticsCache } from '@/lib/cache/analytics-cache';
 import { chartDataCache } from '@/lib/cache/chart-data-cache';
 import { log } from '@/lib/logger';
 import { createRBACChartsService } from '@/lib/services/rbac-charts-service';
@@ -91,18 +92,26 @@ const updateChartHandler = async (
       updatedBy: userContext.user_id,
     });
 
-    // Phase 6: Invalidate cache for this chart's data source
+    // Phase 6: Aggressive cache invalidation - invalidate all related caches
     // Extract data source ID from updated chart config
     const dataSourceId = (updatedChart.chart_config as { dataSourceId?: number })?.dataSourceId;
 
+    // Invalidate chart data cache for this data source
     if (dataSourceId) {
       await chartDataCache.invalidateByDataSource(dataSourceId);
-
-      log.info('Cache invalidated after chart update', {
-        chartId: params.chartId,
-        dataSourceId,
-      });
     }
+
+    // Invalidate chart definition cache (this specific chart)
+    await analyticsCache.invalidate('chart', params.chartId);
+
+    // Invalidate chart list cache (so updated chart appears in lists)
+    await analyticsCache.invalidate('chart');
+
+    log.info('All caches invalidated after chart update', {
+      chartId: params.chartId,
+      dataSourceId,
+      invalidated: ['chart-data', 'chart-definition', 'chart-list'],
+    });
 
     return createSuccessResponse({ chart: updatedChart }, 'Chart definition updated successfully');
   } catch (error) {
@@ -150,15 +159,23 @@ const deleteChartHandler = async (
       deletedBy: userContext.user_id,
     });
 
-    // Phase 6: Invalidate cache for this chart's data source
+    // Phase 6: Aggressive cache invalidation - invalidate all related caches
+    // Invalidate chart data cache for this data source
     if (dataSourceId) {
       await chartDataCache.invalidateByDataSource(dataSourceId);
-
-      log.info('Cache invalidated after chart deletion', {
-        chartId: params.chartId,
-        dataSourceId,
-      });
     }
+
+    // Invalidate chart definition cache (this specific chart)
+    await analyticsCache.invalidate('chart', params.chartId);
+
+    // Invalidate chart list cache (so deleted chart is removed from lists)
+    await analyticsCache.invalidate('chart');
+
+    log.info('All caches invalidated after chart deletion', {
+      chartId: params.chartId,
+      dataSourceId,
+      invalidated: ['chart-data', 'chart-definition', 'chart-list'],
+    });
 
     return createSuccessResponse(
       {

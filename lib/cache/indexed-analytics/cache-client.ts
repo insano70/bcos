@@ -518,6 +518,14 @@ export class IndexedCacheClient extends CacheService<Record<string, unknown>[]> 
   }
 
   /**
+   * Get Redis client (public wrapper for protected getClient)
+   * Needed for direct SCAN operations with cursor management
+   */
+  getClient(): ReturnType<typeof import('@/lib/redis').getRedisClient> {
+    return super.getClient();
+  }
+
+  /**
    * Get the default TTL configured for this cache
    *
    * @returns Default TTL in seconds

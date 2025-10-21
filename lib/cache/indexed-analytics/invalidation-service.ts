@@ -27,7 +27,6 @@ import { KeyGenerator } from './key-generator';
 export class CacheInvalidationService {
   private readonly BATCH_SIZE = 1000;
   private readonly SCAN_COUNT = 1000;
-  private readonly MAX_SCAN_ITERATIONS = 10000;
 
   constructor(private client: IndexedCacheClient) {}
 
@@ -110,37 +109,29 @@ export class CacheInvalidationService {
    * @returns Number of index keys deleted
    */
   private async cleanupIndexes(datasourceId: number): Promise<number> {
+    const redis = this.client.getClient();
+    if (!redis) {
+      return 0;
+    }
+
     const indexPattern = KeyGenerator.getIndexPattern(datasourceId);
     const indexKeys: string[] = [];
-    let iterations = 0;
 
     try {
-      // Loop until no more keys or max iterations reached
-      // Exit conditions: keys.length === 0, keys.length < SCAN_COUNT, or iterations >= MAX
-      while (true) {
-        if (iterations++ >= this.MAX_SCAN_ITERATIONS) {
-          log.error('SCAN operation exceeded max iterations - Redis may be unhealthy', {
-            datasourceId,
-            pattern: indexPattern,
-            iterations,
-            keysFound: indexKeys.length,
-            component: 'invalidation-service',
-          });
-          break;
-        }
+      // Use SCAN with cursor properly (like flush-redis.mjs)
+      let cursor = '0';
+      do {
+        const result = await redis.scan(cursor, 'MATCH', indexPattern, 'COUNT', this.SCAN_COUNT);
+        cursor = result[0];
+        indexKeys.push(...result[1]);
+      } while (cursor !== '0');
 
-        const keys = await this.client.scanKeys(indexPattern, this.SCAN_COUNT);
-        if (keys.length === 0) {
-          break;
-        }
-
-        indexKeys.push(...keys);
-
-        // Partial batch indicates we've exhausted all results
-        if (keys.length < this.SCAN_COUNT) {
-          break;
-        }
-      }
+      log.info('Index keys scanned for deletion', {
+        datasourceId,
+        pattern: indexPattern,
+        keysFound: indexKeys.length,
+        component: 'invalidation-service',
+      });
     } catch (error) {
       log.error(
         'Failed to scan index keys',

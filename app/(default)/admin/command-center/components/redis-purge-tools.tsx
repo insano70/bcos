@@ -10,6 +10,7 @@ export default function RedisPurgeTools() {
   const [previewCount, setPreviewCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showFlushAllConfirm, setShowFlushAllConfirm] = useState(false);
   const { showToast } = useToast();
 
   const handlePreview = async () => {
@@ -51,6 +52,19 @@ export default function RedisPurgeTools() {
     }
   };
 
+  const handleFlushAll = async () => {
+    setLoading(true);
+    try {
+      await apiClient.post('/api/admin/redis/flushall', {});
+      showToast({ type: 'success', message: 'All Redis keys deleted' });
+      setShowFlushAllConfirm(false);
+    } catch {
+      showToast({ type: 'error', message: 'FLUSHALL failed' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
@@ -71,6 +85,23 @@ export default function RedisPurgeTools() {
 
       <div>
         <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+          Flush All Keys
+        </h4>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+          Nuclear option: Delete ALL keys from Redis instantly. Use during development when you need a clean slate.
+        </p>
+        <button
+          type="button"
+          onClick={() => setShowFlushAllConfirm(true)}
+          disabled={loading}
+          className="px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 disabled:opacity-50 font-semibold"
+        >
+          🗑️ FLUSH ALL KEYS
+        </button>
+      </div>
+
+      <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+        <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
           Purge Cache by Pattern
         </h4>
         <div className="space-y-3">
@@ -78,7 +109,7 @@ export default function RedisPurgeTools() {
             type="text"
             value={purgePattern}
             onChange={(e) => setPurgePattern(e.target.value)}
-            placeholder="e.g., chart:data:*"
+            placeholder="e.g., cache:*, idx:*, session:*"
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
           />
           <div className="flex gap-2">
@@ -107,6 +138,17 @@ export default function RedisPurgeTools() {
         requireReason={true}
         onConfirm={handlePurge}
         onCancel={() => setShowConfirm(false)}
+      />
+
+      <ConfirmModal
+        isOpen={showFlushAllConfirm}
+        title="FLUSH ALL REDIS KEYS"
+        message="This will delete EVERY key in Redis: sessions, cache, rate limits, everything. This cannot be undone. Are you absolutely sure?"
+        confirmText="FLUSH ALL"
+        confirmVariant="danger"
+        requireReason={true}
+        onConfirm={handleFlushAll}
+        onCancel={() => setShowFlushAllConfirm(false)}
       />
     </div>
   );

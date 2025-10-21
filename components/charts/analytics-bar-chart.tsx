@@ -48,6 +48,14 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
     // Configure time display formats based on frequency
     const getTimeConfig = () => {
       switch (frequency) {
+        case 'Daily':
+          return {
+            unit: 'day',
+            displayFormats: {
+              day: 'DD-MMM-YY', // "15-Sep-25"
+            },
+            tooltipFormat: 'DD-MMM-YYYY', // "15-Sep-2025"
+          };
         case 'Weekly':
           return {
             unit: 'week',
@@ -190,7 +198,9 @@ const AnalyticsBarChart = forwardRef<HTMLCanvasElement, AnalyticsBarChartProps>(
                         }
 
                         // Format based on frequency
-                        if (frequency === 'Weekly') {
+                        if (frequency === 'Daily') {
+                          return parsedDate.format('MMM D, YYYY');
+                        } else if (frequency === 'Weekly') {
                           return parsedDate.format('MMM D, YYYY');
                         } else if (frequency === 'Quarterly') {
                           return parsedDate.format('[Q]Q YYYY');
