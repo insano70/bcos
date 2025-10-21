@@ -385,6 +385,7 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
                 ) : (
                   <AnalyticsChart
                     chartType={chartDef.chart_type}
+                    chartDefinitionId={chartDef.chart_definition_id}
                     {...(measureFilter?.value && { measure: measureFilter.value as MeasureType })}
                     {...(frequencyFilter?.value && {
                       frequency: frequencyFilter.value as FrequencyType,

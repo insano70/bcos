@@ -48,12 +48,6 @@ export function mapDashboardRenderResponse(
       chartsRendered: Object.keys(charts).length,
       dashboardFiltersApplied: getAppliedFilterNames(universalFilters),
       parallelExecution: true,
-      deduplication: {
-        enabled: true,
-        queriesDeduped: executionResult.stats.deduplicationStats.queriesDeduped,
-        uniqueQueries: executionResult.stats.deduplicationStats.uniqueQueries,
-        deduplicationRate: executionResult.stats.deduplicationStats.deduplicationRate,
-      },
     },
   };
 }
@@ -104,12 +98,6 @@ export function buildEmptyDashboardResponse(
       chartsRendered: 0,
       dashboardFiltersApplied: getAppliedFilterNames(filters),
       parallelExecution: false,
-      deduplication: {
-        enabled: false,
-        queriesDeduped: 0,
-        uniqueQueries: 0,
-        deduplicationRate: 0,
-      },
     },
   };
 }

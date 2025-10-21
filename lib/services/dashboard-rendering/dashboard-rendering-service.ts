@@ -10,7 +10,7 @@
  * - DashboardLoaderService: Load dashboard + charts (RBAC)
  * - FilterService: Validate and resolve filters
  * - ChartConfigBuilderService: Build chart configs
- * - BatchExecutorService: Execute in parallel with deduplication
+ * - BatchExecutorService: Execute charts in parallel
  */
 
 import { log, logTemplates } from '@/lib/logger';
@@ -47,7 +47,7 @@ export class DashboardRenderingService {
    * 1. Load dashboard + charts (RBAC enforced)
    * 2. Validate and resolve filters
    * 3. Build chart configurations
-   * 4. Execute in parallel with deduplication
+   * 4. Execute charts in parallel
    * 5. Transform and return
    *
    * @param dashboardId - Dashboard ID
@@ -67,7 +67,6 @@ export class DashboardRenderingService {
         operation: 'render_dashboard',
         hasUniversalFilters: Boolean(universalFilters && Object.keys(universalFilters).length > 0),
         organizationFilter: universalFilters.organizationId || null,
-        queryDeduplicationEnabled: true,
         component: 'dashboard-rendering',
       });
 
@@ -87,7 +86,7 @@ export class DashboardRenderingService {
       // 3. Build chart configurations
       const chartConfigs = this.configBuilder.buildChartConfigs(charts, resolvedFilters);
 
-      // 4. Execute in parallel with deduplication
+      // 4. Execute charts in parallel
       const executionResult = await this.executor.executeParallel(chartConfigs);
 
       // 5. Transform and return
@@ -103,7 +102,6 @@ export class DashboardRenderingService {
         metadata: {
           chartsRendered: executionResult.results.length,
           cacheHits: executionResult.stats.cacheHits,
-          deduplicationRate: executionResult.stats.deduplicationStats.deduplicationRate,
         },
       });
       log.info(template.message, template.context);

@@ -225,6 +225,15 @@ const universalChartDataHandler = async (
       };
 
       cacheKey = generateCacheKey(configForCache);
+
+      // Debug logging for cache key generation
+      log.debug('Cache key generated', {
+        chartType: validatedData.chartConfig.chartType,
+        chartDefinitionId: validatedData.chartDefinitionId,
+        cacheKey,
+        component: 'universal-endpoint',
+      });
+
       cachedData = await chartDataCache.get(cacheKey);
 
       if (cachedData) {

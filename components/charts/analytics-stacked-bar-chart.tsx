@@ -172,8 +172,8 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
               display: false, // We'll use custom legend with totals
             },
             tooltip: {
-              mode: 'index',
-              intersect: false,
+              mode: 'point',
+              intersect: true,
               padding: 12,
               callbacks: {
                 title: (context) => {
@@ -218,19 +218,6 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
                   const formattedValue = formatValue(value, measureType);
                   return `${context.dataset.label}: ${formattedValue}`;
                 },
-                footer: (tooltipItems) => {
-                  // Show total across all stacks
-                  if (isPercentageMode) {
-                    return 'Total: 100%';
-                  }
-
-                  const total = tooltipItems.reduce((sum, item) => sum + (item.parsed.y ?? 0), 0);
-                  const measureType = getMeasureTypeFromChart(
-                    tooltipItems[0]?.chart.data,
-                    'number'
-                  );
-                  return `Total: ${formatValue(total, measureType)}`;
-                },
               },
               titleColor: darkMode ? tooltipTitleColor.dark : tooltipTitleColor.light,
               bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,
@@ -240,8 +227,8 @@ const AnalyticsStackedBarChart = forwardRef<HTMLCanvasElement, AnalyticsStackedB
             },
           },
           interaction: {
-            intersect: false,
-            mode: 'nearest',
+            intersect: true,
+            mode: 'point',
           },
           animation: {
             duration: 500,

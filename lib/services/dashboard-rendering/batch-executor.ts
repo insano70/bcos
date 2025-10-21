@@ -1,12 +1,10 @@
 /**
  * Batch Executor Service
  *
- * Responsible for parallel chart execution with query deduplication.
+ * Responsible for parallel chart execution.
  *
  * Single Responsibility:
  * - Execute all charts in parallel
- * - Query hash generation
- * - Deduplication via DashboardQueryCache
  * - Result aggregation
  * - Statistics collection
  * - Error handling (partial success)
@@ -14,86 +12,68 @@
 
 import { log } from '@/lib/logger';
 import { chartDataOrchestrator } from '@/lib/services/chart-data-orchestrator';
-import { DashboardQueryCache, generateQueryHash } from '@/lib/services/dashboard-query-cache';
 import { BaseDashboardRenderingService } from './base-service';
 import type { ChartExecutionConfig, ChartRenderResult, ExecutionResult } from './types';
 
 /**
  * Batch Executor Service
  *
- * Executes all charts in parallel with query deduplication.
+ * Executes all charts in parallel.
  */
 export class BatchExecutorService extends BaseDashboardRenderingService {
   /**
-   * Execute all charts in parallel with query deduplication and same-source batching
-   *
-   * OPTIMIZATION LAYERS:
-   * 1. Same-source detection - identifies batching opportunities
-   * 2. Parallel execution - all charts execute concurrently
-   * 3. Query deduplication - reuses identical query results
+   * Execute all charts in parallel
    *
    * Process:
    * 1. Analyze charts for batching opportunities
-   * 2. Create per-render query cache
-   * 3. Execute all charts in parallel
-   * 4. Aggregate statistics
-   * 5. Clear cache
+   * 2. Execute all charts in parallel
+   * 3. Aggregate statistics
    *
    * @param chartConfigs - Chart execution configs
    * @returns Execution result with statistics
    */
   async executeParallel(chartConfigs: ChartExecutionConfig[]): Promise<ExecutionResult> {
-    const queryCache = new DashboardQueryCache();
     const startTime = Date.now();
 
-    try {
-      // Analyze charts for batching opportunities
-      const batchingOpportunities = this.analyzeBatchingOpportunities(chartConfigs);
+    // Analyze charts for batching opportunities
+    const batchingOpportunities = this.analyzeBatchingOpportunities(chartConfigs);
 
-      if (batchingOpportunities.batchableCount > 0) {
-        log.info('Same-source batching opportunities detected', {
-          userId: this.userContext.user_id,
-          totalCharts: chartConfigs.length,
-          batchableCharts: batchingOpportunities.batchableCount,
-          datasourceGroups: batchingOpportunities.groupCount,
-          estimatedSavings: `${Math.round(batchingOpportunities.batchableCount * 300)}ms`,
-          component: 'dashboard-rendering',
-        });
-      }
-
-      // Execute all charts in parallel (parallel execution provides implicit batching)
-      const renderPromises = chartConfigs.map((config) =>
-        this.executeSingleChart(config, queryCache)
-      );
-
-      const results = await Promise.all(renderPromises);
-
-      // Aggregate statistics
-      const stats = this.aggregateStats(results, queryCache);
-
-      const duration = Date.now() - startTime;
-
-      log.info('Batch execution completed', {
+    if (batchingOpportunities.batchableCount > 0) {
+      log.info('Same-source batching opportunities detected', {
         userId: this.userContext.user_id,
-        chartsRendered: results.filter((r) => r.result !== null).length,
         totalCharts: chartConfigs.length,
-        cacheHits: stats.cacheHits,
-        cacheMisses: stats.cacheMisses,
-        totalQueryTime: stats.totalQueryTime,
-        parallelDuration: duration,
-        deduplication: {
-          uniqueQueries: stats.deduplicationStats.uniqueQueries,
-          queriesDeduped: stats.deduplicationStats.queriesDeduped,
-          deduplicationRate: `${stats.deduplicationStats.deduplicationRate}%`,
-        },
-        batchingOpportunities: batchingOpportunities.groupCount,
+        batchableCharts: batchingOpportunities.batchableCount,
+        datasourceGroups: batchingOpportunities.groupCount,
+        estimatedSavings: `${Math.round(batchingOpportunities.batchableCount * 300)}ms`,
         component: 'dashboard-rendering',
       });
-
-      return { results, stats };
-    } finally {
-      queryCache.clear();
     }
+
+    // Execute all charts in parallel
+    const renderPromises = chartConfigs.map((config) =>
+      this.executeSingleChart(config)
+    );
+
+    const results = await Promise.all(renderPromises);
+
+    // Aggregate statistics
+    const stats = this.aggregateStats(results);
+
+    const duration = Date.now() - startTime;
+
+    log.info('Batch execution completed', {
+      userId: this.userContext.user_id,
+      chartsRendered: results.filter((r) => r.result !== null).length,
+      totalCharts: chartConfigs.length,
+      cacheHits: stats.cacheHits,
+      cacheMisses: stats.cacheMisses,
+      totalQueryTime: stats.totalQueryTime,
+      parallelDuration: duration,
+      batchingOpportunities: batchingOpportunities.groupCount,
+      component: 'dashboard-rendering',
+    });
+
+    return { results, stats };
   }
 
   /**
@@ -139,15 +119,13 @@ export class BatchExecutorService extends BaseDashboardRenderingService {
   }
 
   /**
-   * Execute single chart with deduplication
+   * Execute single chart
    *
    * @param config - Chart execution config
-   * @param queryCache - Per-render query cache
    * @returns Chart ID and result (or null on error)
    */
   private async executeSingleChart(
-    config: ChartExecutionConfig,
-    queryCache: DashboardQueryCache
+    config: ChartExecutionConfig
   ): Promise<{ chartId: string; result: ChartRenderResult | null }> {
     try {
       log.info('Processing chart in batch', {
@@ -159,22 +137,17 @@ export class BatchExecutorService extends BaseDashboardRenderingService {
         component: 'dashboard-rendering',
       });
 
-      // Generate query hash for deduplication
-      const queryHash = generateQueryHash(config.finalChartConfig, config.runtimeFilters);
-
-      // Execute with deduplication
-      const orchestrationResult = await queryCache.get(queryHash, async () => {
-        return await chartDataOrchestrator.orchestrate(
-          {
-            chartConfig: config.finalChartConfig as typeof config.finalChartConfig & {
-              chartType: string;
-              dataSourceId: number;
-            },
-            runtimeFilters: config.runtimeFilters,
+      // Execute orchestration directly without deduplication
+      const orchestrationResult = await chartDataOrchestrator.orchestrate(
+        {
+          chartConfig: config.finalChartConfig as typeof config.finalChartConfig & {
+            chartType: string;
+            dataSourceId: number;
           },
-          this.userContext
-        );
-      });
+          runtimeFilters: config.runtimeFilters,
+        },
+        this.userContext
+      );
 
       // Build chart result
       const chartResult: ChartRenderResult = {
@@ -227,12 +200,10 @@ export class BatchExecutorService extends BaseDashboardRenderingService {
    * Aggregate statistics from execution results
    *
    * @param results - Chart execution results
-   * @param queryCache - Query cache with deduplication stats
    * @returns Aggregated statistics
    */
   private aggregateStats(
-    results: Array<{ chartId: string; result: ChartRenderResult | null }>,
-    queryCache: DashboardQueryCache
+    results: Array<{ chartId: string; result: ChartRenderResult | null }>
   ) {
     let cacheHits = 0;
     let cacheMisses = 0;
@@ -249,17 +220,10 @@ export class BatchExecutorService extends BaseDashboardRenderingService {
       }
     }
 
-    const dedupStats = queryCache.getStats();
-
     return {
       cacheHits,
       cacheMisses,
       totalQueryTime,
-      deduplicationStats: {
-        uniqueQueries: dedupStats.uniqueQueries,
-        queriesDeduped: dedupStats.hits,
-        deduplicationRate: dedupStats.deduplicationRate,
-      },
     };
   }
 }

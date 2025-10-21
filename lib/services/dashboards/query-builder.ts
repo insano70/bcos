@@ -125,19 +125,28 @@ export function getDashboardQueryBuilder() {
  * @returns Array of charts with position config
  */
 export async function getDashboardChartDetails(dashboardId: string) {
-  return db
+  // Order by position_config.y (row position) for proper display order
+  // Using SQL to extract y from JSON column, with fallback to added_at for charts without position
+  const results = await db
     .select({
       chart_definition_id: chart_definitions.chart_definition_id,
       chart_name: chart_definitions.chart_name,
       chart_description: chart_definitions.chart_description,
       chart_type: chart_definitions.chart_type,
       position_config: dashboard_charts.position_config,
+      dashboard_chart_id: dashboard_charts.dashboard_chart_id,
     })
     .from(dashboard_charts)
     .innerJoin(
       chart_definitions,
       eq(dashboard_charts.chart_definition_id, chart_definitions.chart_definition_id)
     )
-    .where(eq(dashboard_charts.dashboard_id, dashboardId))
-    .orderBy(dashboard_charts.added_at);
+    .where(eq(dashboard_charts.dashboard_id, dashboardId));
+
+  // Sort by position_config.y in JavaScript (Drizzle ORM doesn't support JSON field ordering easily)
+  return results.sort((a, b) => {
+    const aY = (a.position_config as { y?: number })?.y ?? 999;
+    const bY = (b.position_config as { y?: number })?.y ?? 999;
+    return aY - bY;
+  });
 }

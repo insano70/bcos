@@ -43,6 +43,7 @@ interface AnalyticsChartProps extends ResponsiveChartProps {
     | 'table'
     | 'dual-axis'
     | 'number';
+  chartDefinitionId?: string | undefined; // For cache key uniqueness
   measure?: MeasureType;
   frequency?: FrequencyType;
   practice?: string | undefined;
@@ -381,6 +382,7 @@ function UniversalChartComponent(props: AnalyticsChartProps) {
   // Build chart data request with proper memoization
   const chartDataRequest = useMemo(() => {
     const request: {
+      chartDefinitionId?: string;
       chartConfig: Record<string, unknown>;
       runtimeFilters?: Record<string, unknown>;
       nocache?: boolean;
@@ -391,6 +393,11 @@ function UniversalChartComponent(props: AnalyticsChartProps) {
         colorPalette,
       },
     };
+
+    // Include chartDefinitionId at top level for cache key uniqueness
+    if (props.chartDefinitionId) {
+      request.chartDefinitionId = props.chartDefinitionId;
+    }
 
     // Add nocache flag if specified (for previews)
     if (props.nocache) {
@@ -436,6 +443,7 @@ function UniversalChartComponent(props: AnalyticsChartProps) {
 
     return request;
   }, [
+    props.chartDefinitionId,
     chartType,
     dataSourceId,
     groupBy,
@@ -457,6 +465,7 @@ function UniversalChartComponent(props: AnalyticsChartProps) {
     frequency,
     JSON.stringify(advancedFilters),
     calculatedField,
+    props.nocache,
   ]);
 
   // Fetch chart data using unified hook

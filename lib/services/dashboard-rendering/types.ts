@@ -78,14 +78,6 @@ export interface DashboardRenderResponse {
     chartsRendered: number;
     dashboardFiltersApplied: string[];
     parallelExecution: boolean;
-
-    // Query deduplication metrics
-    deduplication: {
-      enabled: boolean;
-      queriesDeduped: number; // How many charts reused queries
-      uniqueQueries: number; // How many unique queries executed
-      deduplicationRate: number; // Percentage of queries saved
-    };
   };
 }
 
@@ -119,11 +111,6 @@ export interface ExecutionResult {
     cacheHits: number;
     cacheMisses: number;
     totalQueryTime: number;
-    deduplicationStats: {
-      uniqueQueries: number;
-      queriesDeduped: number;
-      deduplicationRate: number;
-    };
   };
 }
 
