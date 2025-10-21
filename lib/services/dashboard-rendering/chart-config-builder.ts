@@ -144,7 +144,8 @@ export class ChartConfigBuilderService {
       runtimeFilters.frequency = chartConfig.frequency;
     }
     if (dataSourceFilters.practice?.value) {
-      runtimeFilters.practiceUid = dataSourceFilters.practice.value;
+      // Convert single practice to array for consistency
+      runtimeFilters.practiceUids = [dataSourceFilters.practice.value];
     }
     if (dataSourceFilters.startDate?.value) {
       runtimeFilters.startDate = dataSourceFilters.startDate.value;

@@ -127,17 +127,18 @@ export default function AnalyticsNumberChart({
   const charCount = formattedValue.length;
 
   // Dynamic font size based on character count (Tailwind classes - no inline styles)
-  let fontSizeClass = 'text-7xl'; // default
+  // Mobile-first with responsive scaling: smaller on mobile (<640px), larger on desktop (≥640px)
+  let fontSizeClass = 'text-6xl sm:text-7xl'; // default
   if (charCount <= 5) {
-    fontSizeClass = 'text-9xl'; // ≤5 chars: $123, 45.5%
+    fontSizeClass = 'text-8xl sm:text-9xl'; // ≤5 chars: $123, 45.5% (96px→128px, 25% increase)
   } else if (charCount <= 8) {
-    fontSizeClass = 'text-8xl'; // 6-8 chars: $1,234, 12.3%
+    fontSizeClass = 'text-7xl sm:text-8xl'; // 6-8 chars: $1,234, 12.3% (72px→96px, 25% increase)
   } else if (charCount <= 12) {
-    fontSizeClass = 'text-7xl'; // 9-12 chars: $1,234,567
+    fontSizeClass = 'text-6xl sm:text-7xl'; // 9-12 chars: $1,234,567 (60px→72px, 17% increase)
   } else if (charCount <= 16) {
-    fontSizeClass = 'text-6xl'; // 13-16 chars: $123,456,789
+    fontSizeClass = 'text-5xl sm:text-6xl'; // 13-16 chars: $123,456,789 (48px→60px, 20% increase)
   } else {
-    fontSizeClass = 'text-5xl'; // 17+ chars: $1,234,567,890
+    fontSizeClass = 'text-4xl sm:text-5xl'; // 17+ chars: $1,234,567,890 (36px→48px, 25% increase)
   }
 
   // Responsive sizing

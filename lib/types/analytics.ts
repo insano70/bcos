@@ -155,10 +155,8 @@ export class MeasureAccessor {
  * Pre-aggregated measure record from analytics tables
  * FULLY DYNAMIC - column names determined by data source configuration
  *
- * ⚠️ BREAKING CHANGE: No longer has hardcoded `date_index`, `measure_value`, etc.
+ * Column names are dynamic based on data source schema.
  * Use MeasureAccessor for type-safe access to dynamic columns.
- *
- * For legacy code, see LegacyAggAppMeasure (deprecated)
  */
 export interface AggAppMeasure {
   // NO hardcoded column names
@@ -173,53 +171,6 @@ export interface AggAppMeasure {
 
   // Index signature for all dynamic columns
   [key: string]: string | number | boolean | null | undefined;
-}
-
-/**
- * Legacy measure record with hardcoded column names
- *
- * @deprecated Use AggAppMeasure with MeasureAccessor instead
- *
- * This interface is maintained for backward compatibility during the migration
- * to dynamic column names. New code should use:
- * - AggAppMeasure for the data type
- * - MeasureAccessor for accessing fields
- * - DataSourceColumnMapping for configuration
- *
- * Will be removed in a future version.
- */
-export interface LegacyAggAppMeasure extends AggAppMeasure {
-  // Hardcoded column names from original schema
-  date_index: string;
-  measure_value: number;
-  measure_type: string;
-
-  // Common optional fields
-  practice?: string;
-  practice_primary?: string;
-  practice_uid?: number;
-  provider_name?: string;
-  entity_name?: string;
-  measure?: string;
-  frequency?: string;
-}
-
-/**
- * Standard measure record for ih.agg_app_measures table
- *
- * @deprecated Use LegacyAggAppMeasure if you need hardcoded fields, or better yet, migrate to MeasureAccessor
- *
- * Extended interface for backward compatibility and type safety
- * Use this when you know you're working with the standard data source
- */
-export interface StandardAggAppMeasure extends LegacyAggAppMeasure {
-  // All fields from LegacyAggAppMeasure as required
-  practice: string; // Practice name/identifier (required for standard)
-  practice_primary: string; // Primary practice identifier (required for standard)
-  practice_uid: number; // Practice UID for filtering (required for standard)
-  provider_name: string; // Provider name (required for standard)
-  measure: string; // What we're measuring (required for standard)
-  frequency: string; // Time unit (required for standard)
 }
 
 /**

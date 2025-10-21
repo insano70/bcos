@@ -23,13 +23,84 @@ export interface ClassifiedError {
 }
 
 /**
+ * Extended Error interface with HTTP status
+ */
+export interface HttpError extends Error {
+  status?: number;
+  response?: Response;
+  statusCode?: number;
+}
+
+/**
  * Classify an error from an authentication operation
+ *
+ * Priority order:
+ * 1. Check HTTP status code directly (most reliable)
+ * 2. Check error type (TypeError for network)
+ * 3. Fall back to message parsing (least reliable)
  *
  * @param error - Error from auth operation
  * @returns Classified error with retry recommendation
  */
 export function classifyAuthError(error: unknown): ClassifiedError {
-  // Network/fetch errors
+  // PRIORITY 1: Check for HTTP status directly (most reliable)
+  if (error && typeof error === 'object' && ('status' in error || 'statusCode' in error)) {
+    const httpError = error as HttpError;
+    const status = httpError.status || httpError.statusCode;
+
+    if (status === 429) {
+      return {
+        type: 'rate_limit',
+        shouldRetry: true,
+        message: 'Rate limit exceeded',
+        originalError: error,
+        statusCode: 429,
+      };
+    }
+
+    if (status === 401) {
+      return {
+        type: 'invalid_token',
+        shouldRetry: false,
+        message: 'Token invalid or expired',
+        originalError: error,
+        statusCode: 401,
+      };
+    }
+
+    if (status === 403) {
+      // Check if CSRF error by examining message
+      const errorMessage = httpError.message?.toLowerCase() || '';
+      if (errorMessage.includes('csrf')) {
+        return {
+          type: 'csrf',
+          shouldRetry: true,
+          message: 'CSRF token validation failed',
+          originalError: error,
+          statusCode: 403,
+        };
+      }
+      return {
+        type: 'forbidden',
+        shouldRetry: false,
+        message: 'Access forbidden',
+        originalError: error,
+        statusCode: 403,
+      };
+    }
+
+    if (status && status >= 500 && status < 600) {
+      return {
+        type: 'server_error',
+        shouldRetry: true,
+        message: 'Server error occurred',
+        originalError: error,
+        statusCode: status,
+      };
+    }
+  }
+
+  // PRIORITY 2: Network/fetch errors (TypeError)
   if (error instanceof TypeError && error.message.includes('fetch')) {
     return {
       type: 'network',
@@ -39,7 +110,7 @@ export function classifyAuthError(error: unknown): ClassifiedError {
     };
   }
 
-  // Standard Error objects
+  // PRIORITY 3: Fall back to message parsing (least reliable)
   if (error instanceof Error) {
     const message = error.message.toLowerCase();
 

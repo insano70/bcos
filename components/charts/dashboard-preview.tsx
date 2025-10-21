@@ -1,17 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { DashboardUniversalFilters } from '@/hooks/use-dashboard-data';
 import { apiClient } from '@/lib/api/client';
 import type {
   ChartDefinition,
   ChartFilter,
   Dashboard,
   DashboardChart,
+  DashboardFilterConfig,
   FrequencyType,
   MeasureType,
 } from '@/lib/types/analytics';
 import AnalyticsChart from './analytics-chart';
-import type { DashboardFilterConfig, DashboardUniversalFilters } from './dashboard-filter-bar';
 import DashboardFilterDropdown from './dashboard-filter-dropdown';
 
 interface DashboardConfig {

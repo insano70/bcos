@@ -69,23 +69,40 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     // RACE CONDITION PROTECTION: Prevent concurrent refresh operations
     // If a refresh is already in progress, wait for it to complete instead of skipping
     if (authOperationInProgress.current) {
-      console.log('[Auth] Operation already in progress, waiting for completion...');
-
-      // Wait for the current operation to complete (max 5 seconds)
-      const maxWaitTime = 5000;
-      const checkInterval = 100;
-      let waited = 0;
-
-      while (authOperationInProgress.current && waited < maxWaitTime) {
-        await new Promise(resolve => setTimeout(resolve, checkInterval));
-        waited += checkInterval;
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Auth] Operation already in progress, waiting for completion...');
       }
 
-      if (authOperationInProgress.current) {
-        console.warn('[Auth] Operation timeout - proceeding anyway');
-      } else {
-        console.log('[Auth] Operation completed, refresh not needed');
-        return;
+      try {
+        // Import auth constants
+        const { AUTH_RETRY_CONFIG } = await import('@/lib/utils/auth-constants');
+
+        // Wait for the current operation to complete
+        const maxWaitTime = AUTH_RETRY_CONFIG.MUTEX_TIMEOUT_MS;
+        const checkInterval = AUTH_RETRY_CONFIG.MUTEX_CHECK_INTERVAL_MS;
+        let waited = 0;
+
+        while (authOperationInProgress.current && waited < maxWaitTime) {
+          await new Promise<void>((resolve) => setTimeout(resolve, checkInterval));
+          waited += checkInterval;
+        }
+
+        if (authOperationInProgress.current) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[Auth] Operation timeout - proceeding anyway');
+          }
+        } else {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[Auth] Operation completed, refresh not needed');
+          }
+          return;
+        }
+      } catch (error) {
+        // If waiting fails, log and proceed with refresh attempt
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[Auth] Error while waiting for concurrent operation:', error);
+        }
+        // Proceed with refresh attempt
       }
     }
 
@@ -94,9 +111,10 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     try {
       actions.refreshStart();
 
-      // Import retry utilities
+      // Import retry utilities and constants
       const { retryWithBackoff } = await import('@/lib/utils/retry');
       const { classifyAuthError, shouldRetryAuthError } = await import('@/lib/utils/auth-errors');
+      const { AUTH_RETRY_CONFIG } = await import('@/lib/utils/auth-constants');
 
       let attempt = 0;
 
@@ -109,7 +127,9 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
           const currentToken = csrfTokenRef.current;
           const token = currentToken || (await ensureCsrfToken()) || '';
 
-          console.log(`[Auth] Token refresh attempt ${attempt}`);
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`[Auth] Token refresh attempt ${attempt}`);
+          }
 
           // Use HTTP service to refresh token
           const refreshResult = await authHTTPService.refreshAuthToken(token);
@@ -121,18 +141,20 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
           return refreshResult;
         },
         {
-          maxAttempts: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 4000,
+          maxAttempts: AUTH_RETRY_CONFIG.MAX_ATTEMPTS,
+          initialDelayMs: AUTH_RETRY_CONFIG.INITIAL_DELAY_MS,
+          maxDelayMs: AUTH_RETRY_CONFIG.MAX_DELAY_MS,
           shouldRetry: (error, attemptNum) => {
             const classified = classifyAuthError(error);
             const shouldRetry = shouldRetryAuthError(error, attemptNum);
 
-            console.log(`[Auth] Refresh attempt ${attemptNum} failed:`, {
-              errorType: classified.type,
-              shouldRetry,
-              message: classified.message,
-            });
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`[Auth] Refresh attempt ${attemptNum} failed:`, {
+                errorType: classified.type,
+                shouldRetry,
+                message: classified.message,
+              });
+            }
 
             // Update state with retry attempt number
             if (shouldRetry) {
@@ -143,10 +165,12 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
           },
           onRetry: (error, attemptNum, delayMs) => {
             const classified = classifyAuthError(error);
-            console.log(`[Auth] Retrying refresh in ${delayMs}ms (attempt ${attemptNum + 1})`, {
-              errorType: classified.type,
-              message: classified.message,
-            });
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`[Auth] Retrying refresh in ${delayMs}ms (attempt ${attemptNum + 1})`, {
+                errorType: classified.type,
+                message: classified.message,
+              });
+            }
           },
         }
       );
@@ -157,34 +181,71 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
       }
 
       // Update state with refreshed user data (accessToken updated server-side in httpOnly cookie)
-      if (result.data) {
-        actions.refreshSuccess({
-          user: result.data.user as User,
-          sessionId: result.data.sessionId,
-        });
+      if (!result.data) {
+        throw new Error('Invalid refresh response: missing data');
       }
 
-      console.log('[Auth] Token refreshed successfully after', attempt, 'attempt(s)');
+      if (!result.data.user || !result.data.sessionId) {
+        throw new Error('Invalid refresh response: missing user or sessionId');
+      }
+
+      // Validate user object structure and construct User object
+      const userData = result.data.user as Record<string, unknown>;
+      if (!userData || typeof userData !== 'object') {
+        throw new Error('Invalid user data: not an object');
+      }
+
+      if (!userData.id || !userData.email) {
+        throw new Error('Invalid user data: missing required fields');
+      }
+
+      // Construct validated User object
+      const user: User = {
+        id: String(userData.id),
+        email: String(userData.email),
+        name: userData.name
+          ? String(userData.name)
+          : `${userData.firstName || ''} ${userData.lastName || ''}`.trim() || 'User',
+        firstName: userData.firstName ? String(userData.firstName) : '',
+        lastName: userData.lastName ? String(userData.lastName) : '',
+        role: userData.role ? String(userData.role) : 'user',
+        emailVerified: Boolean(userData.emailVerified),
+      };
+
+      actions.refreshSuccess({
+        user,
+        sessionId: result.data.sessionId,
+      });
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Auth] Token refreshed successfully after', attempt, 'attempt(s)');
+      }
     } catch (error) {
       // All retries exhausted - classify the error and determine final action
       const { classifyAuthError } = await import('@/lib/utils/auth-errors');
       const classified = classifyAuthError(error);
 
-      console.error('[Auth] Token refresh failed after all retries:', {
-        errorType: classified.type,
-        message: classified.message,
-        shouldRetry: classified.shouldRetry,
-      });
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[Auth] Token refresh failed after all retries:', {
+          errorType: classified.type,
+          message: classified.message,
+          shouldRetry: classified.shouldRetry,
+        });
+      }
 
       // Check if this was a rate limit - don't log out, just wait for next periodic refresh
       if (classified.type === 'rate_limit') {
-        console.log('[Auth] Rate limited - will retry on next periodic refresh');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[Auth] Rate limited - will retry on next periodic refresh');
+        }
         // Don't trigger refreshRetryFailed - keep user authenticated
         return;
       }
 
       // All other errors: log out after retries exhausted
-      console.log('[Auth] Session expired after retry attempts');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Auth] Session expired after retry attempts');
+      }
       actions.refreshRetryFailed();
     } finally {
       // Always release mutex
@@ -350,25 +411,34 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
 
   // Set up token refresh interval (based on authentication state, not client-side token)
   useEffect(() => {
-    if (state.isAuthenticated) {
-      // Refresh token every 8 minutes (access tokens last 15 minutes)
-      // 7-minute safety margin (47%) prevents expiration during network delays or clock skew
-      // This aggressive refresh ensures tokens are always fresh for active users
-      const refreshInterval = setInterval(
-        () => {
-          // Only refresh if we're still authenticated and not already refreshing
-          if (state.isAuthenticated && !state.isLoading) {
-            if (process.env.NODE_ENV === 'development') {
-              console.log('[Auth] Periodic token refresh triggered');
-            }
-            refreshToken();
-          }
-        },
-        8 * 60 * 1000
-      ); // 8 minutes (47% safety margin)
+    const setupRefreshInterval = async () => {
+      if (state.isAuthenticated) {
+        // Import token refresh constants
+        const { TOKEN_REFRESH_INTERVALS } = await import('@/lib/utils/auth-constants');
 
-      return () => clearInterval(refreshInterval);
-    }
+        // Refresh token periodically (access tokens last 15 minutes)
+        // Safety margin prevents expiration during network delays or clock skew
+        const refreshInterval = setInterval(
+          () => {
+            // Only refresh if we're still authenticated and not already refreshing
+            if (state.isAuthenticated && !state.isLoading) {
+              if (process.env.NODE_ENV === 'development') {
+                console.log('[Auth] Periodic token refresh triggered');
+              }
+              refreshToken();
+            }
+          },
+          TOKEN_REFRESH_INTERVALS.PERIODIC_REFRESH_MS
+        );
+
+        return () => clearInterval(refreshInterval);
+      }
+    };
+
+    const cleanup = setupRefreshInterval();
+    return () => {
+      cleanup.then((cleanupFn) => cleanupFn?.());
+    };
   }, [state.isAuthenticated, refreshToken, state.isLoading]);
 
   // Load RBAC user context when user changes (with debouncing to prevent race conditions)

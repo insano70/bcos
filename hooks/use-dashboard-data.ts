@@ -28,8 +28,7 @@ export interface DashboardUniversalFilters {
   endDate?: string | null;
   dateRangePreset?: string;
   organizationId?: string | null;
-  practiceUid?: number | null;
-  practiceUids?: number[]; // Auto-populated from organizationId on backend
+  practiceUids?: number[]; // Practice UIDs for filtering - can be manually specified or auto-populated from organizationId
   providerName?: string | null;
 }
 

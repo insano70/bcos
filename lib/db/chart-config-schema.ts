@@ -25,6 +25,15 @@ export const chart_data_sources = pgTable(
     data_source_description: text('data_source_description'),
     table_name: varchar('table_name', { length: 100 }).notNull(),
     schema_name: varchar('schema_name', { length: 50 }).notNull(),
+
+    // Data source type classification for caching strategy
+    // 'measure-based': Aggregated analytics requiring measure + frequency (e.g., AR, Monthly)
+    // 'table-based': Raw table data without measure/frequency aggregation
+    data_source_type: varchar('data_source_type', { length: 20 })
+      .default('measure-based')
+      .notNull()
+      .$type<'measure-based' | 'table-based'>(),
+
     database_type: varchar('database_type', { length: 50 }).default('postgresql'),
     connection_config: jsonb('connection_config'),
     is_active: boolean('is_active').default(true),
@@ -36,6 +45,7 @@ export const chart_data_sources = pgTable(
   (table) => ({
     activeIdx: index('idx_chart_data_sources_active').on(table.is_active),
     tableNameIdx: index('idx_chart_data_sources_table').on(table.table_name),
+    typeIdx: index('idx_chart_data_sources_type').on(table.data_source_type, table.is_active),
   })
 );
 

@@ -2,22 +2,20 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useDashboardData } from '@/hooks/use-dashboard-data';
+import {
+  useDashboardData,
+  type DashboardUniversalFilters,
+} from '@/hooks/use-dashboard-data';
 import { apiClient } from '@/lib/api/client';
 import type {
   ChartConfig,
   ChartDataSourceConfig,
   ChartDefinition,
-  ChartFilter,
   Dashboard,
   DashboardChart,
-  FrequencyType,
-  MeasureType,
 } from '@/lib/types/analytics';
-import AnalyticsChart from './analytics-chart';
 import BatchChartRenderer, { type BatchChartData } from './batch-chart-renderer';
 import ChartErrorBoundary from './chart-error-boundary';
-import type { DashboardUniversalFilters } from './dashboard-filter-bar';
 import DashboardFilterDropdown from './dashboard-filter-dropdown';
 
 interface DashboardViewProps {
@@ -32,15 +30,12 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
   const [isLoadingCharts, setIsLoadingCharts] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Phase 7: Check dashboard configuration
+  // Dashboard configuration
   const layoutConfig = dashboard.layout_config;
   const filterConfig = layoutConfig?.filterConfig;
   const showFilterBar = filterConfig?.enabled !== false; // Default to true if not specified
 
-  // Phase 7: Batch rendering feature flag (default: true - Phase 7 complete)
-  const useBatchRendering = layoutConfig?.useBatchRendering !== false;
-
-  // Phase 7: Dashboard-level universal filters with default values
+  // Dashboard-level universal filters with default values
   // Priority: URL params > default filters from config > system defaults
   const [universalFilters, setUniversalFilters] = useState<DashboardUniversalFilters>(() => {
     const practice = searchParams.get('practice');
@@ -58,7 +53,7 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
     } as DashboardUniversalFilters;
   });
 
-  // Phase 7: URL param management
+  // URL param management
   const updateUrlParams = useCallback(
     (filters: DashboardUniversalFilters) => {
       const params = new URLSearchParams();
@@ -82,7 +77,7 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
     [router]
   );
 
-  // Phase 7: Handle filter changes
+  // Handle filter changes
   const handleFilterChange = useCallback(
     (newFilters: DashboardUniversalFilters) => {
       setUniversalFilters(newFilters);
@@ -121,7 +116,7 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
     }
   }, []);
 
-  // Phase 7: Batch rendering data (only if batch mode enabled)
+  // Batch rendering data - dashboards always use batch rendering
   const {
     data: batchData,
     isLoading: isBatchLoading,
@@ -131,7 +126,7 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
   } = useDashboardData({
     dashboardId: dashboard.dashboard_id,
     universalFilters,
-    enabled: useBatchRendering && !isLoadingCharts, // Only fetch after chart definitions loaded
+    enabled: !isLoadingCharts, // Only fetch after chart definitions loaded
   });
 
   // Create dashboard configuration from saved dashboard data
@@ -179,8 +174,8 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
     [dashboard, dashboardCharts, availableCharts, layoutConfig]
   );
 
-  // Phase 7: Combined loading state (chart definitions + batch data)
-  const isLoading = isLoadingCharts || (useBatchRendering && isBatchLoading);
+  // Combined loading state (chart definitions + batch data)
+  const isLoading = isLoadingCharts || isBatchLoading;
 
   if (isLoading) {
     return (
@@ -193,12 +188,38 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
     );
   }
 
-  // Phase 7: Handle batch error (fallback to individual fetching)
-  if (useBatchRendering && batchError) {
-    console.warn('[Dashboard] Batch rendering failed, falling back to individual fetching', {
-      dashboardId: dashboard.dashboard_id,
-      error: batchError,
-    });
+  // Handle batch rendering error
+  if (batchError) {
+    return (
+      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6">
+        <div className="flex items-center">
+          <svg
+            className="w-6 h-6 text-red-600 dark:text-red-400 mr-3"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+            />
+          </svg>
+          <div>
+            <h3 className="text-red-800 dark:text-red-200 font-medium">Dashboard Rendering Error</h3>
+            <p className="text-red-600 dark:text-red-400 text-sm mt-1">{batchError}</p>
+            <button
+              type="button"
+              onClick={() => refetchBatch(true)}
+              className="mt-3 btn-sm bg-red-600 hover:bg-red-700 text-white"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
@@ -256,8 +277,8 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
         )}
       </div>
 
-      {/* Phase 7: Performance Metrics (dev mode only) */}
-      {process.env.NODE_ENV === 'development' && useBatchRendering && batchMetrics && (
+      {/* Performance Metrics (dev mode only) */}
+      {process.env.NODE_ENV === 'development' && batchMetrics && (
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mx-4">
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-3">
@@ -313,23 +334,7 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
 
           // Use pre-extracted configs from memoized dashboardConfig
           const chartDef = dashboardChart.chartDefinition;
-          const dataSource = dashboardChart.dataSource;
           const chartConfig = dashboardChart.chartConfig;
-
-          // Extract filters to get chart parameters
-          const measureFilter = dataSource.filters?.find((f: ChartFilter) => f.field === 'measure');
-          const frequencyFilter = dataSource.filters?.find(
-            (f: ChartFilter) => f.field === 'frequency'
-          );
-          const practiceFilter = dataSource.filters?.find(
-            (f: ChartFilter) => f.field === 'practice_uid'
-          );
-          const startDateFilter = dataSource.filters?.find(
-            (f: ChartFilter) => f.field === 'date_index' && f.operator === 'gte'
-          );
-          const endDateFilter = dataSource.filters?.find(
-            (f: ChartFilter) => f.field === 'date_index' && f.operator === 'lte'
-          );
 
           // Use responsive sizing that respects dashboard configuration
           const baseHeight = dashboardChart.position.h * 150; // Height from dashboard configuration
@@ -347,11 +352,26 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
             colSpanClass = 'col-span-full';
           }
 
-          // Phase 7: Check if we have batch data for this chart
-          const batchChartData =
-            useBatchRendering && batchData && !batchError
-              ? batchData.charts[dashboardChart.chartDefinitionId]
-              : null;
+          // Get batch data for this chart
+          const batchChartData = batchData?.charts[dashboardChart.chartDefinitionId];
+
+          // Skip chart if no data returned from batch API
+          if (!batchChartData) {
+            return (
+              <div
+                key={dashboardChart.id}
+                className={`${colSpanClass} flex flex-col bg-white dark:bg-gray-800 shadow-sm rounded-xl border border-dashed border-gray-300 dark:border-gray-600`}
+              >
+                <div className="flex items-center justify-center h-48 text-center text-gray-500 dark:text-gray-400">
+                  <div>
+                    <div className="text-2xl mb-2">⚠️</div>
+                    <p className="text-sm">Chart Data Unavailable</p>
+                    <p className="text-xs">ID: {dashboardChart.chartDefinitionId.slice(0, 8)}...</p>
+                  </div>
+                </div>
+              </div>
+            );
+          }
 
           return (
             <div
@@ -364,57 +384,22 @@ export default function DashboardView({ dashboard, dashboardCharts }: DashboardV
                 overflow: 'hidden',
               }}
             >
-              {/* Phase 7: Render with batch data if available, otherwise fallback to individual fetching */}
-              {/* Phase 2: Wrap charts with error boundary to prevent dashboard crashes */}
+              {/* Batch-only rendering - wrap with error boundary to prevent dashboard crashes */}
               <ChartErrorBoundary chartName={chartDef.chart_name}>
-                {batchChartData ? (
-                  <BatchChartRenderer
-                    chartData={batchChartData as BatchChartData}
-                    chartDefinition={{
-                      chart_definition_id: chartDef.chart_definition_id,
-                      chart_name: chartDef.chart_name,
-                      chart_type: chartDef.chart_type,
-                      chart_config: chartConfig,
-                    }}
-                    position={dashboardChart.position}
-                    className="w-full h-full flex-1"
-                    responsive={true}
-                    minHeight={200}
-                    maxHeight={containerHeight - 100}
-                  />
-                ) : (
-                  <AnalyticsChart
-                    chartType={chartDef.chart_type}
-                    chartDefinitionId={chartDef.chart_definition_id}
-                    {...(measureFilter?.value && { measure: measureFilter.value as MeasureType })}
-                    {...(frequencyFilter?.value && {
-                      frequency: frequencyFilter.value as FrequencyType,
-                    })}
-                    practice={practiceFilter?.value?.toString()}
-                    // Phase 7: Dashboard filters override chart filters
-                    startDate={universalFilters.startDate || startDateFilter?.value?.toString()}
-                    endDate={universalFilters.endDate || endDateFilter?.value?.toString()}
-                    groupBy={chartConfig.series?.groupBy || 'none'}
-                    title={chartDef.chart_name}
-                    calculatedField={chartConfig.calculatedField}
-                    advancedFilters={dataSource.advancedFilters || []}
-                    dataSourceId={chartConfig.dataSourceId}
-                    stackingMode={chartConfig.stackingMode}
-                    colorPalette={chartConfig.colorPalette}
-                    {...(chartConfig.seriesConfigs && chartConfig.seriesConfigs.length > 0
-                      ? { multipleSeries: chartConfig.seriesConfigs }
-                      : {})}
-                    {...(chartConfig.dualAxisConfig
-                      ? { dualAxisConfig: chartConfig.dualAxisConfig }
-                      : {})}
-                    {...(chartConfig.target && { target: chartConfig.target })}
-                    {...(chartConfig.aggregation && { aggregation: chartConfig.aggregation })}
-                    className="w-full h-full flex-1"
-                    responsive={true}
-                    minHeight={200}
-                    maxHeight={containerHeight - 100}
-                  />
-                )}
+                <BatchChartRenderer
+                  chartData={batchChartData as BatchChartData}
+                  chartDefinition={{
+                    chart_definition_id: chartDef.chart_definition_id,
+                    chart_name: chartDef.chart_name,
+                    chart_type: chartDef.chart_type,
+                    chart_config: chartConfig,
+                  }}
+                  position={dashboardChart.position}
+                  className="w-full h-full flex-1"
+                  responsive={true}
+                  minHeight={200}
+                  maxHeight={containerHeight - 100}
+                />
               </ChartErrorBoundary>
             </div>
           );

@@ -4,7 +4,6 @@ import { createErrorResponse } from '@/lib/api/responses/error';
 import { createSuccessResponse } from '@/lib/api/responses/success';
 import { rbacRoute } from '@/lib/api/route-handlers';
 import { analyticsCache } from '@/lib/cache/analytics-cache';
-import { chartDataCache } from '@/lib/cache/chart-data-cache';
 import { log } from '@/lib/logger';
 import { createRBACDashboardsService } from '@/lib/services/dashboards';
 import type { UserContext } from '@/lib/types/rbac';
@@ -107,54 +106,39 @@ const updateDashboardHandler = async (
       updatedBy: userContext.user_id,
     });
 
-    // Aggressive cache invalidation - invalidate all related caches
-    // Get dashboard with charts to invalidate their caches
-    const fullDashboard = await dashboardsService.getDashboardById(dashboardId);
+    // Targeted cache invalidation
+    // Only invalidate what changed:
+    // 1. This specific dashboard (metadata, chart associations)
+    // 2. Dashboard list (for sidebar, dashboard list page)
+    // 3. Chart definitions - ALWAYS invalidate if chart_ids changed (per requirement)
+    // 4. Chart data remains valid (data hasn't changed, only dashboard metadata/layout)
 
-    if (fullDashboard?.charts) {
-      // Invalidate each chart's definition cache
-      for (const chart of fullDashboard.charts) {
-        await analyticsCache.invalidate('chart', chart.chart_definition_id);
+    // Invalidate this specific dashboard
+    await analyticsCache.invalidate('dashboard', dashboardId);
+
+    // Invalidate dashboard list (affects sidebar, dashboard management page)
+    await analyticsCache.invalidate('dashboard');
+
+    // If chart associations changed, invalidate affected chart definitions
+    if (validatedData.chart_ids && validatedData.chart_ids.length > 0) {
+      for (const chartId of validatedData.chart_ids) {
+        await analyticsCache.invalidate('chart', chartId);
       }
+      // Also invalidate chart list cache
+      await analyticsCache.invalidate('chart');
 
-      // Extract unique data source IDs from chart configs
-      const dataSourceIds = new Set<number>();
-      for (const chart of fullDashboard.charts) {
-        // Chart configs are stored in the chart_config column of the chart definition
-        // We need to get the full chart to access the config
-        const chartDef = await analyticsCache.getChartDefinition(chart.chart_definition_id);
-        if (chartDef?.chart_config) {
-          const dataSourceId = (chartDef.chart_config as { dataSourceId?: number })?.dataSourceId;
-          if (dataSourceId) {
-            dataSourceIds.add(dataSourceId);
-          }
-        }
-      }
-
-      // Invalidate chart data cache for all data sources
-      for (const dataSourceId of Array.from(dataSourceIds)) {
-        await chartDataCache.invalidateByDataSource(dataSourceId);
-      }
-
-      log.info('Dashboard chart caches invalidated', {
+      log.info('Chart definitions invalidated due to dashboard association changes', {
         dashboardId,
-        chartsInvalidated: fullDashboard.charts.length,
-        dataSourcesInvalidated: dataSourceIds.size,
+        chartsInvalidated: validatedData.chart_ids.length,
       });
     }
 
-    // Invalidate dashboard-specific cache
-    await analyticsCache.invalidate('dashboard', dashboardId);
-
-    // Invalidate dashboard list cache
-    await analyticsCache.invalidate('dashboard');
-
-    // Invalidate chart list cache (charts may have been affected)
-    await analyticsCache.invalidate('chart');
-
-    log.info('All caches invalidated after dashboard update', {
+    log.info('Dashboard cache invalidated', {
       dashboardId,
-      invalidated: ['dashboard', 'dashboard-list', 'chart-definitions', 'chart-data', 'chart-list'],
+      invalidated: validatedData.chart_ids
+        ? ['dashboard-specific', 'dashboard-list', 'chart-definitions']
+        : ['dashboard-specific', 'dashboard-list'],
+      preserved: ['chart-data'],
     });
 
     return createSuccessResponse({ dashboard: updatedDashboard }, 'Dashboard updated successfully');
@@ -201,39 +185,6 @@ const deleteDashboardHandler = async (
       return createErrorResponse('Dashboard not found', 404);
     }
 
-    // Aggressive cache invalidation - invalidate all related caches BEFORE deletion
-    if (dashboard.charts) {
-      // Invalidate each chart's definition cache
-      for (const chart of dashboard.charts) {
-        await analyticsCache.invalidate('chart', chart.chart_definition_id);
-      }
-
-      // Extract unique data source IDs from chart configs
-      const dataSourceIds = new Set<number>();
-      for (const chart of dashboard.charts) {
-        // Chart configs are stored in the chart_config column of the chart definition
-        // We need to get the full chart to access the config
-        const chartDef = await analyticsCache.getChartDefinition(chart.chart_definition_id);
-        if (chartDef?.chart_config) {
-          const dataSourceId = (chartDef.chart_config as { dataSourceId?: number })?.dataSourceId;
-          if (dataSourceId) {
-            dataSourceIds.add(dataSourceId);
-          }
-        }
-      }
-
-      // Invalidate chart data cache for all data sources
-      for (const dataSourceId of Array.from(dataSourceIds)) {
-        await chartDataCache.invalidateByDataSource(dataSourceId);
-      }
-
-      log.info('Dashboard chart caches invalidated before deletion', {
-        dashboardId,
-        chartsInvalidated: dashboard.charts.length,
-        dataSourcesInvalidated: dataSourceIds.size,
-      });
-    }
-
     // Delete dashboard through service with automatic permission checking
     await dashboardsService.deleteDashboard(dashboardId);
 
@@ -245,18 +196,22 @@ const deleteDashboardHandler = async (
       deletedBy: userContext.user_id,
     });
 
-    // Invalidate dashboard-specific cache
+    // Targeted cache invalidation after deletion
+    // Only invalidate:
+    // 1. This specific dashboard (now deleted)
+    // 2. Dashboard list (for sidebar, dashboard list page)
+    // Chart definitions and chart data remain valid (charts still exist, just dashboard association removed)
+
+    // Invalidate this specific dashboard
     await analyticsCache.invalidate('dashboard', dashboardId);
 
-    // Invalidate dashboard list cache
+    // Invalidate dashboard list (affects sidebar, dashboard management page)
     await analyticsCache.invalidate('dashboard');
 
-    // Invalidate chart list cache (charts may have been affected)
-    await analyticsCache.invalidate('chart');
-
-    log.info('All caches invalidated after dashboard deletion', {
+    log.info('Dashboard cache invalidated after deletion', {
       dashboardId,
-      invalidated: ['dashboard', 'dashboard-list', 'chart-definitions', 'chart-data', 'chart-list'],
+      invalidated: ['dashboard-specific', 'dashboard-list'],
+      preserved: ['chart-definitions', 'chart-data'],
     });
 
     return createSuccessResponse(

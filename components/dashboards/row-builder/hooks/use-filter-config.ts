@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { DashboardFilterConfig } from '@/components/charts/dashboard-filter-bar';
+import type { DashboardFilterConfig } from '@/lib/types/analytics';
 
 interface EditingDashboard {
   dashboard_id?: string;

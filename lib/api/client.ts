@@ -88,19 +88,20 @@ class ApiClient {
               console.log('[API Client] Token refresh completed, retrying original request...');
             }
 
-            // Retry the original request up to 2 times
-            let retryAttempt = 0;
-            const maxRetries = 2;
+            // Import retry constants
+            const { API_CLIENT_RETRY_CONFIG } = await import('@/lib/utils/auth-constants');
 
-            while (retryAttempt < maxRetries) {
-              retryAttempt++;
+            // Retry the original request
+            const maxRetries = API_CLIENT_RETRY_CONFIG.MAX_RETRIES;
 
+            for (let retryAttempt = 1; retryAttempt <= maxRetries; retryAttempt++) {
               const retryResponse = await fetch(url, {
                 ...requestOptions,
                 headers: requestHeaders,
                 credentials: 'include',
               });
 
+              // Success - return immediately
               if (retryResponse.ok) {
                 const data = await retryResponse.json();
                 if (process.env.NODE_ENV === 'development') {
@@ -109,30 +110,32 @@ class ApiClient {
                 return data.data || data;
               }
 
-              // If still getting 401, wait briefly and try once more
-              if (retryResponse.status === 401 && retryAttempt < maxRetries) {
-                if (process.env.NODE_ENV === 'development') {
-                  console.log(`[API Client] Retry ${retryAttempt} still 401, waiting 500ms...`);
-                }
-                await new Promise(resolve => setTimeout(resolve, 500));
-                continue;
-              }
-
-              // If retry still fails with 401 after all attempts, session is truly expired
+              // Still 401 after refresh
               if (retryResponse.status === 401) {
-                if (process.env.NODE_ENV === 'development') {
-                  console.error('[API Client] All retries exhausted with 401 - session expired');
+                if (retryAttempt < maxRetries) {
+                  // Wait and retry once more
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log(`[API Client] Retry ${retryAttempt} still 401, waiting ${API_CLIENT_RETRY_CONFIG.RETRY_DELAY_MS}ms...`);
+                  }
+                  await new Promise(resolve => setTimeout(resolve, API_CLIENT_RETRY_CONFIG.RETRY_DELAY_MS));
+                  continue;
+                } else {
+                  // Final attempt failed with 401 - session truly expired
+                  if (process.env.NODE_ENV === 'development') {
+                    console.error('[API Client] All retries exhausted with 401 - session expired');
+                  }
+                  this.handleSessionExpired();
+                  throw new Error('Session expired - redirecting to login');
                 }
-                this.handleSessionExpired();
-                throw new Error('Session expired - redirecting to login');
               }
 
-              // Other error - return it
-              if (!retryResponse.ok) {
-                const errorData = await retryResponse.json().catch(() => ({}));
-                throw new Error(errorData.error || `HTTP ${retryResponse.status}`);
-              }
+              // Any other HTTP error - throw immediately
+              const errorData = await retryResponse.json().catch(() => ({}));
+              throw new Error(errorData.error || `HTTP ${retryResponse.status}`);
             }
+
+            // This should never be reached, but TypeScript requires it
+            throw new Error('Request failed after all retries');
           } catch (refreshError) {
             // Token refresh failure logging (client-side debug)
             if (process.env.NODE_ENV === 'development') {

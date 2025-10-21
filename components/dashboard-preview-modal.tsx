@@ -1,7 +1,11 @@
 'use client';
 
-import type { ChartDefinition, Dashboard, DashboardChart } from '@/lib/types/analytics';
-import type { DashboardFilterConfig } from './charts/dashboard-filter-bar';
+import type {
+  ChartDefinition,
+  Dashboard,
+  DashboardChart,
+  DashboardFilterConfig,
+} from '@/lib/types/analytics';
 import DashboardPreview from './charts/dashboard-preview';
 
 interface DashboardConfig {

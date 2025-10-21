@@ -2,9 +2,9 @@
 
 import { Popover, PopoverButton, PopoverPanel, Transition } from '@headlessui/react';
 import { useEffect, useState } from 'react';
+import type { DashboardUniversalFilters } from '@/hooks/use-dashboard-data';
 import { apiClient } from '@/lib/api/client';
 import HierarchySelect from '@/components/hierarchy-select';
-import type { DashboardUniversalFilters } from './dashboard-filter-bar';
 
 /**
  * Dashboard Filter Dropdown - Compact Version
