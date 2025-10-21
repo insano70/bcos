@@ -17,7 +17,7 @@ import { chartColors } from '@/components/charts/chartjs-config';
 import 'chartjs-adapter-moment';
 
 // Import utilities
-import { formatValue } from '@/components/utils/utils';
+import { formatValue as formatChartValue } from '@/lib/utils/chart-data/formatters/value-formatter';
 
 Chart.register(LineController, LineElement, Filler, PointElement, LinearScale, TimeScale, Tooltip);
 
@@ -127,8 +127,14 @@ const LineChart01 = forwardRef<HTMLCanvasElement, LineChart01Props>(function Lin
                     return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
                   },
                   label: (context) => {
-                    // Show provider name and value
-                    return `${context.dataset.label}: ${formatValue(context.parsed.y ?? 0)}`;
+                    // Get measure type from dataset metadata, fallback to chart data, then to 'number'
+                    const measureType =
+                      (context.dataset as { measureType?: string })?.measureType ||
+                      (context.chart.data as { measureType?: string })?.measureType ||
+                      'number';
+                    const value = context.parsed.y ?? 0;
+                    const formattedValue = formatChartValue(value, measureType);
+                    return `${context.dataset.label}: ${formattedValue}`;
                   },
                 },
                 bodyColor: darkMode ? tooltipBodyColor.dark : tooltipBodyColor.light,

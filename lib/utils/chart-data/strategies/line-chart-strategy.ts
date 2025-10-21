@@ -51,29 +51,39 @@ export class LineChartStrategy extends BaseChartTransformStrategy {
 
   /**
    * Create single series line/area chart
+   * Aggregates (sums) all rows by date
    */
   private createSingleSeries(measures: AggAppMeasure[], filled: boolean): ChartData {
-    const sortedMeasures = this.sortMeasuresByDate(measures);
+    // Aggregate data by date - sum all values for each date
+    const aggregatedByDate = new Map<string, number>();
+    const frequency = (measures[0]?.frequency ?? 'Monthly') as string;
 
-    // Handle dates based on frequency
-    const dateObjects = sortedMeasures.map((m) => {
-      return toChartJsDate(
-        (m.date_index ?? m.date_value ?? '') as string,
-        (m.frequency ?? 'Monthly') as string
+    measures.forEach((measure) => {
+      const dateKey = (measure.date_index ?? measure.date_value ?? '') as string;
+      const value = measure.measure_value ?? measure.numeric_value ?? 0;
+      const measureValue = this.parseValue(
+        typeof value === 'string' || typeof value === 'number' ? value : 0
       );
+
+      // Sum values for the same date
+      const currentValue = aggregatedByDate.get(dateKey) || 0;
+      aggregatedByDate.set(dateKey, currentValue + measureValue);
     });
+
+    // Sort dates chronologically
+    const sortedDates = Array.from(aggregatedByDate.keys()).sort(
+      (a, b) => new Date(`${a}T00:00:00`).getTime() - new Date(`${b}T00:00:00`).getTime()
+    );
+
+    // Convert dates to Chart.js format
+    const dateObjects = sortedDates.map((dateStr) => toChartJsDate(dateStr, frequency));
 
     const chartData: ChartData = {
       labels: dateObjects,
       datasets: [
         {
-          label: (sortedMeasures[0]?.measure ?? 'Value') as string,
-          data: sortedMeasures.map((m) => {
-            const value = m.measure_value ?? m.numeric_value ?? 0;
-            return this.parseValue(
-              typeof value === 'string' || typeof value === 'number' ? value : 0
-            );
-          }),
+          label: (measures[0]?.measure ?? 'Value') as string,
+          data: sortedDates.map((date) => aggregatedByDate.get(date) || 0),
           borderColor: getCssVariable('--color-violet-500'),
           backgroundColor: filled
             ? adjustColorOpacity(getCssVariable('--color-violet-500'), 0.1)
@@ -91,6 +101,7 @@ export class LineChartStrategy extends BaseChartTransformStrategy {
 
   /**
    * Create multi-series line/area chart
+   * Aggregates (sums) all rows by groupBy field and date
    */
   private createMultiSeries(
     measures: AggAppMeasure[],
@@ -99,7 +110,7 @@ export class LineChartStrategy extends BaseChartTransformStrategy {
     paletteId: string,
     config: TransformConfig
   ): ChartData {
-    // Group data by the groupBy field and date
+    // Group data by the groupBy field and date, summing values
     const groupedData = new Map<string, Map<string, number>>();
     const allDates = new Set<string>();
 
@@ -119,7 +130,10 @@ export class LineChartStrategy extends BaseChartTransformStrategy {
       const measureValue = this.parseValue(
         typeof value === 'string' || typeof value === 'number' ? value : 0
       );
-      dateMap.set(dateKey, measureValue);
+
+      // Sum values for the same groupKey + date combination
+      const currentValue = dateMap.get(dateKey) || 0;
+      dateMap.set(dateKey, currentValue + measureValue);
     });
 
     // Sort dates chronologically

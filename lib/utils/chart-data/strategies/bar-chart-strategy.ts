@@ -37,21 +37,35 @@ export class BarChartStrategy extends BaseChartTransformStrategy {
 
   /**
    * Create single series bar chart
+   * Aggregates (sums) all rows by date
    */
   private createSingleSeries(measures: AggAppMeasure[]): ChartData {
-    const sortedMeasures = this.sortMeasuresByDate(measures);
+    // Aggregate data by date - sum all values for each date
+    const aggregatedByDate = new Map<string, number>();
+
+    measures.forEach((measure) => {
+      const dateKey = (measure.date_index ?? measure.date_value ?? '') as string;
+      const value = measure.measure_value ?? measure.numeric_value ?? 0;
+      const measureValue = this.parseValue(
+        typeof value === 'string' || typeof value === 'number' ? value : 0
+      );
+
+      // Sum values for the same date
+      const currentValue = aggregatedByDate.get(dateKey) || 0;
+      aggregatedByDate.set(dateKey, currentValue + measureValue);
+    });
+
+    // Sort dates chronologically
+    const sortedDates = Array.from(aggregatedByDate.keys()).sort(
+      (a, b) => new Date(`${a}T00:00:00`).getTime() - new Date(`${b}T00:00:00`).getTime()
+    );
 
     const chartData: ChartData = {
-      labels: sortedMeasures.map((m) => toMMDDYYYY((m.date_index ?? m.date_value ?? '') as string)),
+      labels: sortedDates.map((date) => toMMDDYYYY(date)),
       datasets: [
         {
-          label: (sortedMeasures[0]?.measure ?? 'Value') as string,
-          data: sortedMeasures.map((m) => {
-            const value = m.measure_value ?? m.numeric_value ?? 0;
-            return this.parseValue(
-              typeof value === 'string' || typeof value === 'number' ? value : 0
-            );
-          }),
+          label: (measures[0]?.measure ?? 'Value') as string,
+          data: sortedDates.map((date) => aggregatedByDate.get(date) || 0),
           backgroundColor: getCssVariable('--color-violet-500'),
           hoverBackgroundColor: getCssVariable('--color-violet-600'),
           borderRadius: 4,
@@ -66,6 +80,7 @@ export class BarChartStrategy extends BaseChartTransformStrategy {
 
   /**
    * Create multi-series bar chart
+   * Aggregates (sums) all rows by groupBy field and date
    */
   private createMultiSeries(
     measures: AggAppMeasure[],
@@ -73,7 +88,7 @@ export class BarChartStrategy extends BaseChartTransformStrategy {
     paletteId: string,
     config: TransformConfig
   ): ChartData {
-    // Group data by the groupBy field and date
+    // Group data by the groupBy field and date, summing values
     const groupedData = new Map<string, Map<string, number>>();
     const allDates = new Set<string>();
 
@@ -93,7 +108,10 @@ export class BarChartStrategy extends BaseChartTransformStrategy {
       const measureValue = this.parseValue(
         typeof value === 'string' || typeof value === 'number' ? value : 0
       );
-      dateMap.set(dateKey, measureValue);
+
+      // Sum values for the same groupKey + date combination
+      const currentValue = dateMap.get(dateKey) || 0;
+      dateMap.set(dateKey, currentValue + measureValue);
     });
 
     // Sort dates chronologically

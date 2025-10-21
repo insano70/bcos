@@ -9,7 +9,7 @@
  * Format value based on measure type
  *
  * @param value - Numeric value to format
- * @param measureType - Type of measure ('currency', 'count', 'percentage', 'number')
+ * @param measureType - Type of measure ('currency', 'count', 'quantity', 'percentage', 'number')
  * @returns Formatted string representation
  */
 export function formatValue(value: number, measureType: string): string {
@@ -23,7 +23,11 @@ export function formatValue(value: number, measureType: string): string {
       }).format(value);
 
     case 'count':
-      return new Intl.NumberFormat('en-US').format(value);
+    case 'quantity':
+      return new Intl.NumberFormat('en-US', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      }).format(value);
 
     case 'percentage':
       return `${value.toFixed(1)}%`;
