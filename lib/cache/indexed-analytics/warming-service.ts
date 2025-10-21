@@ -22,6 +22,7 @@ import { executeAnalyticsQuery } from '@/lib/services/analytics-db';
 import { chartConfigService } from '@/lib/services/chart-config-service';
 import { columnMappingService } from '@/lib/services/column-mapping-service';
 import type { IndexedCacheClient } from './cache-client';
+import { CacheInvalidationService } from './invalidation-service';
 import { KeyGenerator, type CacheKeyEntry } from './key-generator';
 
 /**
@@ -86,6 +87,16 @@ export class CacheWarmingService {
     }
 
     try {
+      // Invalidate old cache before warming to prevent orphaned index references
+      // This ensures clean state and prevents key doubling on subsequent warming cycles
+      const invalidationService = new CacheInvalidationService(this.client);
+      await invalidationService.invalidate(datasourceId);
+
+      log.info('Old cache invalidated, starting fresh warming', {
+        datasourceId,
+        component: 'warming-service',
+      });
+
       // Get data source config
       const config = await chartConfigService.getDataSourceConfigById(datasourceId);
       if (!config) {

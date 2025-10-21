@@ -185,65 +185,65 @@ CREATE TABLE IF NOT EXISTS "work_items" (
 -- ALTER TABLE "work_items" ADD CONSTRAINT "work_items_status_id_work_item_statuses_work_item_status_id_fk" FOREIGN KEY ("status_id") REFERENCES "public"."work_item_statuses"("work_item_status_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 -- ALTER TABLE "work_items" ADD CONSTRAINT "work_items_assigned_to_users_user_id_fk" FOREIGN KEY ("assigned_to") REFERENCES "public"."users"("user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 -- ALTER TABLE "work_items" ADD CONSTRAINT "work_items_created_by_users_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_activity_work_item" ON "work_item_activity" USING btree ("work_item_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_activity_type" ON "work_item_activity" USING btree ("activity_type");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_activity_created_by" ON "work_item_activity" USING btree ("created_by");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_activity_created_at" ON "work_item_activity" USING btree ("created_at");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_attachments_work_item" ON "work_item_attachments" USING btree ("work_item_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_attachments_uploaded_by" ON "work_item_attachments" USING btree ("uploaded_by");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_attachments_uploaded_at" ON "work_item_attachments" USING btree ("uploaded_at");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_attachments_deleted_at" ON "work_item_attachments" USING btree ("deleted_at");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_comments_work_item" ON "work_item_comments" USING btree ("work_item_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_comments_parent" ON "work_item_comments" USING btree ("parent_comment_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_comments_created_by" ON "work_item_comments" USING btree ("created_by");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_comments_created_at" ON "work_item_comments" USING btree ("created_at");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_comments_deleted_at" ON "work_item_comments" USING btree ("deleted_at");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_item_field_values_work_item" ON "work_item_field_values" USING btree ("work_item_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_item_field_values_field" ON "work_item_field_values" USING btree ("work_item_field_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_item_field_values_work_item_field" ON "work_item_field_values" USING btree ("work_item_id","work_item_field_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_item_fields_type" ON "work_item_fields" USING btree ("work_item_type_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_item_fields_created_by" ON "work_item_fields" USING btree ("created_by");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_item_fields_deleted_at" ON "work_item_fields" USING btree ("deleted_at");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_item_fields_display_order" ON "work_item_fields" USING btree ("display_order");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_item_fields_type_visible" ON "work_item_fields" USING btree ("work_item_type_id","is_visible");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_item_fields_type_order" ON "work_item_fields" USING btree ("work_item_type_id","display_order");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_transitions_type" ON "work_item_status_transitions" USING btree ("work_item_type_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_transitions_from" ON "work_item_status_transitions" USING btree ("from_status_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_transitions_to" ON "work_item_status_transitions" USING btree ("to_status_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_unique_transition" ON "work_item_status_transitions" USING btree ("work_item_type_id","from_status_id","to_status_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_statuses_type" ON "work_item_statuses" USING btree ("work_item_type_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_statuses_category" ON "work_item_statuses" USING btree ("status_category");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_type_relationships_parent" ON "work_item_type_relationships" USING btree ("parent_type_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_type_relationships_child" ON "work_item_type_relationships" USING btree ("child_type_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_type_relationships_deleted_at" ON "work_item_type_relationships" USING btree ("deleted_at");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_unique_type_relationship" ON "work_item_type_relationships" USING btree ("parent_type_id","child_type_id","deleted_at");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_item_types_org" ON "work_item_types" USING btree ("organization_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_item_types_active" ON "work_item_types" USING btree ("is_active");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_item_types_deleted_at" ON "work_item_types" USING btree ("deleted_at");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_watchers_work_item" ON "work_item_watchers" USING btree ("work_item_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_watchers_user" ON "work_item_watchers" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_watchers_type" ON "work_item_watchers" USING btree ("watch_type");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_unique_watcher" ON "work_item_watchers" USING btree ("work_item_id","user_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_items_type" ON "work_items" USING btree ("work_item_type_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_items_org" ON "work_items" USING btree ("organization_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_items_status" ON "work_items" USING btree ("status_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_items_assigned" ON "work_items" USING btree ("assigned_to");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_items_priority" ON "work_items" USING btree ("priority");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_items_due_date" ON "work_items" USING btree ("due_date");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_items_created_at" ON "work_items" USING btree ("created_at");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_items_created_by" ON "work_items" USING btree ("created_by");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_items_deleted_at" ON "work_items" USING btree ("deleted_at");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_items_parent" ON "work_items" USING btree ("parent_work_item_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_items_root" ON "work_items" USING btree ("root_work_item_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_items_depth" ON "work_items" USING btree ("depth");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_work_items_path" ON "work_items" USING btree ("path");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_activity_work_item" ON "work_item_activity" USING btree ("work_item_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_activity_type" ON "work_item_activity" USING btree ("activity_type");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_activity_created_by" ON "work_item_activity" USING btree ("created_by");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_activity_created_at" ON "work_item_activity" USING btree ("created_at");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_attachments_work_item" ON "work_item_attachments" USING btree ("work_item_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_attachments_uploaded_by" ON "work_item_attachments" USING btree ("uploaded_by");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_attachments_uploaded_at" ON "work_item_attachments" USING btree ("uploaded_at");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_attachments_deleted_at" ON "work_item_attachments" USING btree ("deleted_at");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_comments_work_item" ON "work_item_comments" USING btree ("work_item_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_comments_parent" ON "work_item_comments" USING btree ("parent_comment_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_comments_created_by" ON "work_item_comments" USING btree ("created_by");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_comments_created_at" ON "work_item_comments" USING btree ("created_at");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_comments_deleted_at" ON "work_item_comments" USING btree ("deleted_at");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_item_field_values_work_item" ON "work_item_field_values" USING btree ("work_item_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_item_field_values_field" ON "work_item_field_values" USING btree ("work_item_field_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_item_field_values_work_item_field" ON "work_item_field_values" USING btree ("work_item_id","work_item_field_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_item_fields_type" ON "work_item_fields" USING btree ("work_item_type_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_item_fields_created_by" ON "work_item_fields" USING btree ("created_by");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_item_fields_deleted_at" ON "work_item_fields" USING btree ("deleted_at");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_item_fields_display_order" ON "work_item_fields" USING btree ("display_order");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_item_fields_type_visible" ON "work_item_fields" USING btree ("work_item_type_id","is_visible");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_item_fields_type_order" ON "work_item_fields" USING btree ("work_item_type_id","display_order");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_transitions_type" ON "work_item_status_transitions" USING btree ("work_item_type_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_transitions_from" ON "work_item_status_transitions" USING btree ("from_status_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_transitions_to" ON "work_item_status_transitions" USING btree ("to_status_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_unique_transition" ON "work_item_status_transitions" USING btree ("work_item_type_id","from_status_id","to_status_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_statuses_type" ON "work_item_statuses" USING btree ("work_item_type_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_statuses_category" ON "work_item_statuses" USING btree ("status_category");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_type_relationships_parent" ON "work_item_type_relationships" USING btree ("parent_type_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_type_relationships_child" ON "work_item_type_relationships" USING btree ("child_type_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_type_relationships_deleted_at" ON "work_item_type_relationships" USING btree ("deleted_at");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_unique_type_relationship" ON "work_item_type_relationships" USING btree ("parent_type_id","child_type_id","deleted_at");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_item_types_org" ON "work_item_types" USING btree ("organization_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_item_types_active" ON "work_item_types" USING btree ("is_active");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_item_types_deleted_at" ON "work_item_types" USING btree ("deleted_at");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_watchers_work_item" ON "work_item_watchers" USING btree ("work_item_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_watchers_user" ON "work_item_watchers" USING btree ("user_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_watchers_type" ON "work_item_watchers" USING btree ("watch_type");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_unique_watcher" ON "work_item_watchers" USING btree ("work_item_id","user_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_items_type" ON "work_items" USING btree ("work_item_type_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_items_org" ON "work_items" USING btree ("organization_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_items_status" ON "work_items" USING btree ("status_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_items_assigned" ON "work_items" USING btree ("assigned_to");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_items_priority" ON "work_items" USING btree ("priority");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_items_due_date" ON "work_items" USING btree ("due_date");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_items_created_at" ON "work_items" USING btree ("created_at");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_items_created_by" ON "work_items" USING btree ("created_by");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_items_deleted_at" ON "work_items" USING btree ("deleted_at");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_items_parent" ON "work_items" USING btree ("parent_work_item_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_items_root" ON "work_items" USING btree ("root_work_item_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_items_depth" ON "work_items" USING btree ("depth");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_work_items_path" ON "work_items" USING btree ("path");--> statement-breakpoint
 -- ALTER TABLE "chart_definitions" ADD CONSTRAINT "chart_definitions_data_source_id_chart_data_sources_data_source_id_fk" FOREIGN KEY ("data_source_id") REFERENCES "public"."chart_data_sources"("data_source_id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 -- ALTER TABLE "dashboards" ADD CONSTRAINT "dashboards_organization_id_organizations_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organizations"("organization_id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_account_security_mfa_skips" ON "account_security" USING btree ("mfa_skips_remaining");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_chart_definitions_data_source" ON "chart_definitions" USING btree ("data_source_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_dashboards_organization_id" ON "dashboards" USING btree ("organization_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_dashboards_published_org" ON "dashboards" USING btree ("is_published","organization_id");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_organizations_practice_uids" ON "organizations" USING gin ("practice_uids");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_users_provider_uid" ON "users" USING btree ("provider_uid") WHERE provider_uid IS NOT NULL;--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_webauthn_challenges_expires_used" ON "webauthn_challenges" USING btree ("expires_at","used_at");--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "idx_webauthn_credentials_user_active" ON "webauthn_credentials" USING btree ("user_id","is_active");
+-- CREATE INDEX IF NOT EXISTS "idx_account_security_mfa_skips" ON "account_security" USING btree ("mfa_skips_remaining");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_chart_definitions_data_source" ON "chart_definitions" USING btree ("data_source_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_dashboards_organization_id" ON "dashboards" USING btree ("organization_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_dashboards_published_org" ON "dashboards" USING btree ("is_published","organization_id");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_organizations_practice_uids" ON "organizations" USING gin ("practice_uids");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_users_provider_uid" ON "users" USING btree ("provider_uid") WHERE provider_uid IS NOT NULL;--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_webauthn_challenges_expires_used" ON "webauthn_challenges" USING btree ("expires_at","used_at");--> statement-breakpoint
+-- CREATE INDEX IF NOT EXISTS "idx_webauthn_credentials_user_active" ON "webauthn_credentials" USING btree ("user_id","is_active");
