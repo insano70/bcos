@@ -81,7 +81,7 @@ export default function ChartHeader({
 
   return (
     <header
-      className={`px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-white dark:bg-gray-800 ${className}`}
+      className={`px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-white dark:bg-gray-800 rounded-t-2xl ${className}`}
     >
       {/* Title */}
       <div className="flex-1">

@@ -69,7 +69,7 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     // RACE CONDITION PROTECTION: Prevent concurrent refresh operations
     // If a refresh is already in progress, wait for it to complete instead of skipping
     if (authOperationInProgress.current) {
-      console.log('Auth operation already in progress, waiting for completion...');
+      console.log('[Auth] Operation already in progress, waiting for completion...');
 
       // Wait for the current operation to complete (max 5 seconds)
       const maxWaitTime = 5000;
@@ -82,9 +82,9 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
       }
 
       if (authOperationInProgress.current) {
-        console.warn('Auth operation timeout - proceeding anyway');
+        console.warn('[Auth] Operation timeout - proceeding anyway');
       } else {
-        console.log('Auth operation completed, refresh not needed');
+        console.log('[Auth] Operation completed, refresh not needed');
         return;
       }
     }
@@ -94,40 +94,98 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
     try {
       actions.refreshStart();
 
-      // Read current value from ref (always up-to-date, never stale)
-      const currentToken = csrfTokenRef.current;
-      const token = currentToken || (await ensureCsrfToken()) || '';
+      // Import retry utilities
+      const { retryWithBackoff } = await import('@/lib/utils/retry');
+      const { classifyAuthError, shouldRetryAuthError } = await import('@/lib/utils/auth-errors');
 
-      // Use HTTP service to refresh token
-      const result = await authHTTPService.refreshAuthToken(token);
+      let attempt = 0;
 
-      if (!result.data) {
-        throw new Error('Invalid refresh response: missing data');
-      }
+      // Retry refresh with exponential backoff
+      const result = await retryWithBackoff(
+        async () => {
+          attempt++;
+
+          // Read current value from ref (always up-to-date, never stale)
+          const currentToken = csrfTokenRef.current;
+          const token = currentToken || (await ensureCsrfToken()) || '';
+
+          console.log(`[Auth] Token refresh attempt ${attempt}`);
+
+          // Use HTTP service to refresh token
+          const refreshResult = await authHTTPService.refreshAuthToken(token);
+
+          if (!refreshResult.data) {
+            throw new Error('Invalid refresh response: missing data');
+          }
+
+          return refreshResult;
+        },
+        {
+          maxAttempts: 3,
+          initialDelayMs: 1000,
+          maxDelayMs: 4000,
+          shouldRetry: (error, attemptNum) => {
+            const classified = classifyAuthError(error);
+            const shouldRetry = shouldRetryAuthError(error, attemptNum);
+
+            console.log(`[Auth] Refresh attempt ${attemptNum} failed:`, {
+              errorType: classified.type,
+              shouldRetry,
+              message: classified.message,
+            });
+
+            // Update state with retry attempt number
+            if (shouldRetry) {
+              actions.refreshFailure(attemptNum);
+            }
+
+            return shouldRetry;
+          },
+          onRetry: (error, attemptNum, delayMs) => {
+            const classified = classifyAuthError(error);
+            console.log(`[Auth] Retrying refresh in ${delayMs}ms (attempt ${attemptNum + 1})`, {
+              errorType: classified.type,
+              message: classified.message,
+            });
+          },
+        }
+      );
 
       // Update CSRF token if provided
-      if (result.data.csrfToken) {
+      if (result.data?.csrfToken) {
         setCsrfToken(result.data.csrfToken);
       }
 
       // Update state with refreshed user data (accessToken updated server-side in httpOnly cookie)
-      actions.refreshSuccess({
-        user: result.data.user as User,
-        sessionId: result.data.sessionId,
+      if (result.data) {
+        actions.refreshSuccess({
+          user: result.data.user as User,
+          sessionId: result.data.sessionId,
+        });
+      }
+
+      console.log('[Auth] Token refreshed successfully after', attempt, 'attempt(s)');
+    } catch (error) {
+      // All retries exhausted - classify the error and determine final action
+      const { classifyAuthError } = await import('@/lib/utils/auth-errors');
+      const classified = classifyAuthError(error);
+
+      console.error('[Auth] Token refresh failed after all retries:', {
+        errorType: classified.type,
+        message: classified.message,
+        shouldRetry: classified.shouldRetry,
       });
 
-      console.log('Token refreshed successfully');
-    } catch (error) {
-      // Check if this is a rate limit error
-      if (error instanceof Error && error.message.includes('429')) {
-        console.log('Token refresh rate limited, will retry later');
-        // Don't clear auth state on rate limit - tokens might still be valid
+      // Check if this was a rate limit - don't log out, just wait for next periodic refresh
+      if (classified.type === 'rate_limit') {
+        console.log('[Auth] Rate limited - will retry on next periodic refresh');
+        // Don't trigger refreshRetryFailed - keep user authenticated
         return;
       }
 
-      // This is normal if no session exists
-      console.log('No session to refresh (normal on first visit)');
-      actions.refreshFailure();
+      // All other errors: log out after retries exhausted
+      console.log('[Auth] Session expired after retry attempts');
+      actions.refreshRetryFailed();
     } finally {
       // Always release mutex
       authOperationInProgress.current = false;

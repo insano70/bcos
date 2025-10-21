@@ -34,6 +34,10 @@ export interface AuthState {
   isLoading: boolean;
   isAuthenticated: boolean;
 
+  // Refresh retry state
+  isRefreshRetrying: boolean;
+  refreshRetryCount: number;
+
   // RBAC context
   userContext: UserContext | null;
   rbacLoading: boolean;
@@ -51,6 +55,8 @@ export const initialAuthState: AuthState = {
   sessionId: null,
   isLoading: true,
   isAuthenticated: false,
+  isRefreshRetrying: false,
+  refreshRetryCount: 0,
   userContext: null,
   rbacLoading: false,
   rbacError: null,
@@ -77,7 +83,8 @@ export type AuthAction =
   // Token refresh
   | { type: 'REFRESH_START' }
   | { type: 'REFRESH_SUCCESS'; payload: { user: User; sessionId: string } }
-  | { type: 'REFRESH_FAILURE' }
+  | { type: 'REFRESH_FAILURE'; payload: { attempt: number } }
+  | { type: 'REFRESH_RETRY_FAILED' }
 
   // RBAC context
   | { type: 'RBAC_LOAD_START' }
@@ -171,6 +178,8 @@ export function authReducer(state: AuthState, action: AuthAction): AuthState {
     case 'REFRESH_START':
       return {
         ...state,
+        isRefreshRetrying: false,
+        refreshRetryCount: 0,
         // Don't set isLoading for refresh (background operation)
       };
 
@@ -180,12 +189,23 @@ export function authReducer(state: AuthState, action: AuthAction): AuthState {
         user: action.payload.user,
         sessionId: action.payload.sessionId,
         isAuthenticated: true,
+        isRefreshRetrying: false,
+        refreshRetryCount: 0,
         userContext: null, // Will be reloaded if needed
         rbacLoading: false,
         rbacError: null,
       };
 
     case 'REFRESH_FAILURE':
+      // Don't immediately log out - preserve auth state during retry attempts
+      return {
+        ...state,
+        isRefreshRetrying: true,
+        refreshRetryCount: action.payload.attempt,
+      };
+
+    case 'REFRESH_RETRY_FAILED':
+      // All retries exhausted - now log out
       return {
         ...initialAuthState,
         isLoading: false,

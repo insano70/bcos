@@ -45,7 +45,8 @@ export interface AuthActions {
   // Token refresh
   refreshStart: () => void;
   refreshSuccess: (payload: { user: User; sessionId: string }) => void;
-  refreshFailure: () => void;
+  refreshFailure: (attempt: number) => void;
+  refreshRetryFailed: () => void;
 
   // RBAC context
   rbacLoadStart: () => void;
@@ -124,8 +125,12 @@ export function useAuthState(): UseAuthStateReturn {
         dispatch({ type: 'REFRESH_SUCCESS', payload });
       },
 
-      refreshFailure: () => {
-        dispatch({ type: 'REFRESH_FAILURE' });
+      refreshFailure: (attempt: number) => {
+        dispatch({ type: 'REFRESH_FAILURE', payload: { attempt } });
+      },
+
+      refreshRetryFailed: () => {
+        dispatch({ type: 'REFRESH_RETRY_FAILED' });
       },
 
       // RBAC context
