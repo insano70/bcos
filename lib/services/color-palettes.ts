@@ -105,13 +105,127 @@ export const COLOR_PALETTES = {
     category: 'sequential' as const,
     recommendedFor: ['stacked-bar', 'area', 'line'],
   },
+  red: {
+    id: 'red',
+    name: 'Red',
+    description: 'Sequential red palette, ideal for alert metrics and negative trends',
+    colors: [
+      '#7f1d1d', // Red 900
+      '#991b1b', // Red 800
+      '#b91c1c', // Red 700
+      '#dc2626', // Red 600
+      '#ef4444', // Red 500
+      '#f87171', // Red 400
+      '#fca5a5', // Red 300
+      '#fecaca', // Red 200
+    ],
+    category: 'sequential' as const,
+    recommendedFor: ['stacked-bar', 'area', 'line'],
+  },
+  yellow: {
+    id: 'yellow',
+    name: 'Yellow',
+    description: 'Sequential yellow palette, perfect for warning metrics and highlights',
+    colors: [
+      '#713f12', // Yellow 900
+      '#854d0e', // Yellow 800
+      '#a16207', // Yellow 700
+      '#ca8a04', // Yellow 600
+      '#eab308', // Yellow 500
+      '#facc15', // Yellow 400
+      '#fde047', // Yellow 300
+      '#fef08a', // Yellow 200
+    ],
+    category: 'sequential' as const,
+    recommendedFor: ['stacked-bar', 'area', 'line'],
+  },
+  navy: {
+    id: 'navy',
+    name: 'Navy',
+    description: 'Sequential navy/dark blue palette, professional and corporate',
+    colors: [
+      '#0c4a6e', // Sky 900
+      '#075985', // Sky 800
+      '#0369a1', // Sky 700
+      '#0284c7', // Sky 600
+      '#0ea5e9', // Sky 500
+      '#38bdf8', // Sky 400
+      '#7dd3fc', // Sky 300
+      '#bae6fd', // Sky 200
+    ],
+    category: 'sequential' as const,
+    recommendedFor: ['stacked-bar', 'area', 'line', 'bar'],
+  },
+  gray: {
+    id: 'gray',
+    name: 'Gray',
+    description: 'Sequential gray palette, neutral and monochrome for subtle visualizations',
+    colors: [
+      '#1f2937', // Gray 800
+      '#374151', // Gray 700
+      '#4b5563', // Gray 600
+      '#6b7280', // Gray 500
+      '#9ca3af', // Gray 400
+      '#d1d5db', // Gray 300
+      '#e5e7eb', // Gray 200
+      '#f3f4f6', // Gray 100
+    ],
+    category: 'sequential' as const,
+    recommendedFor: ['stacked-bar', 'area'],
+  },
+  teal: {
+    id: 'teal',
+    name: 'Teal',
+    description: 'Sequential teal palette, modern and calming for data visualizations',
+    colors: [
+      '#134e4a', // Teal 900
+      '#115e59', // Teal 800
+      '#0f766e', // Teal 700
+      '#0d9488', // Teal 600
+      '#14b8a6', // Teal 500
+      '#2dd4bf', // Teal 400
+      '#5eead4', // Teal 300
+      '#99f6e4', // Teal 200
+    ],
+    category: 'sequential' as const,
+    recommendedFor: ['stacked-bar', 'area', 'line'],
+  },
+  rose: {
+    id: 'rose',
+    name: 'Rose',
+    description: 'Sequential rose/pink palette, softer alternative to red for alerts',
+    colors: [
+      '#881337', // Rose 900
+      '#9f1239', // Rose 800
+      '#be123c', // Rose 700
+      '#e11d48', // Rose 600
+      '#f43f5e', // Rose 500
+      '#fb7185', // Rose 400
+      '#fda4af', // Rose 300
+      '#fecdd3', // Rose 200
+    ],
+    category: 'sequential' as const,
+    recommendedFor: ['stacked-bar', 'area', 'line'],
+  },
 } as const;
 
 /**
  * Get a color palette by ID
  */
 export function getColorPalette(paletteId: string = 'default'): ColorPalette {
-  const validIds = ['default', 'blue', 'green', 'warm', 'purple'] as const;
+  const validIds = [
+    'default',
+    'blue',
+    'green',
+    'warm',
+    'purple',
+    'red',
+    'yellow',
+    'navy',
+    'gray',
+    'teal',
+    'rose',
+  ] as const;
   const id = validIds.includes(paletteId as (typeof validIds)[number]) ? paletteId : 'default';
   return COLOR_PALETTES[id as keyof typeof COLOR_PALETTES];
 }

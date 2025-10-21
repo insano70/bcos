@@ -104,9 +104,9 @@ describe('DateFormatter', () => {
       expect(result).toBe('Jun 15');
     });
 
-    it('should return original for unknown frequency', () => {
-      const result = createCategoryLabel('2024-01-01', 'Daily');
-      expect(result).toBe('2024-01-01');
+    it('should create daily labels in ISO format', () => {
+      const result = createCategoryLabel('2024-01-15', 'Daily');
+      expect(result).toBe('2024-01-15');
     });
   });
 });

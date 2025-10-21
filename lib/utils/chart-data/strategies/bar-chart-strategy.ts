@@ -148,8 +148,10 @@ export class BarChartStrategy extends BaseChartTransformStrategy {
     });
 
     // Create category labels based on frequency
+    // Extract frequency dynamically from data (no hardcoded field names)
+    const frequency = this.extractTimePeriod(measures);
     const categoryLabels = datesWithData.map((dateStr) => {
-      return createCategoryLabel(dateStr, (measures[0]?.frequency ?? 'Monthly') as string);
+      return createCategoryLabel(dateStr, frequency);
     });
 
     const chartData: ChartData = {

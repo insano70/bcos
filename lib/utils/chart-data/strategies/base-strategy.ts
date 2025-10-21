@@ -180,4 +180,27 @@ export abstract class BaseChartTransformStrategy implements ChartTransformStrate
       (a, b) => new Date(`${a}T00:00:00`).getTime() - new Date(`${b}T00:00:00`).getTime()
     );
   }
+
+  /**
+   * Extract time period/frequency value from measures
+   * Dynamically checks common field names: time_period, frequency
+   */
+  protected extractTimePeriod(measures: AggAppMeasure[]): string {
+    if (measures.length === 0) return 'Monthly';
+
+    const firstMeasure = measures[0] as Record<string, unknown>;
+
+    // Check time_period field first (preferred)
+    if (firstMeasure.time_period && typeof firstMeasure.time_period === 'string') {
+      return firstMeasure.time_period;
+    }
+
+    // Fallback to frequency field
+    if (firstMeasure.frequency && typeof firstMeasure.frequency === 'string') {
+      return firstMeasure.frequency;
+    }
+
+    // Default fallback
+    return 'Monthly';
+  }
 }

@@ -75,7 +75,7 @@ export function toMMDDYYYY(dateIndex: string): string {
  * Create category labels for bar charts based on frequency
  *
  * @param dateIndex - Date string in ISO format (YYYY-MM-DD)
- * @param frequency - Time unit ('Weekly', 'Monthly', 'Quarterly')
+ * @param frequency - Time unit ('Daily', 'Weekly', 'Monthly', 'Quarterly')
  * @returns Formatted category label
  */
 export function createCategoryLabel(dateIndex: string, frequency: string): string {
@@ -96,6 +96,9 @@ export function createCategoryLabel(dateIndex: string, frequency: string): strin
       day: 'numeric',
       timeZone: 'UTC',
     });
+  } else if (frequency === 'Daily') {
+    // Return ISO format date for daily data (e.g., "2025-09-20")
+    return dateIndex;
   }
 
   return dateIndex;
