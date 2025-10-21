@@ -67,9 +67,26 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
 
   const refreshToken = useCallback(async () => {
     // RACE CONDITION PROTECTION: Prevent concurrent refresh operations
+    // If a refresh is already in progress, wait for it to complete instead of skipping
     if (authOperationInProgress.current) {
-      console.log('Auth operation already in progress, skipping refresh');
-      return;
+      console.log('Auth operation already in progress, waiting for completion...');
+
+      // Wait for the current operation to complete (max 5 seconds)
+      const maxWaitTime = 5000;
+      const checkInterval = 100;
+      let waited = 0;
+
+      while (authOperationInProgress.current && waited < maxWaitTime) {
+        await new Promise(resolve => setTimeout(resolve, checkInterval));
+        waited += checkInterval;
+      }
+
+      if (authOperationInProgress.current) {
+        console.warn('Auth operation timeout - proceeding anyway');
+      } else {
+        console.log('Auth operation completed, refresh not needed');
+        return;
+      }
     }
 
     authOperationInProgress.current = true;
@@ -276,8 +293,9 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
   // Set up token refresh interval (based on authentication state, not client-side token)
   useEffect(() => {
     if (state.isAuthenticated) {
-      // Refresh token every 10 minutes (access tokens last 15 minutes)
-      // 5-minute safety margin (33%) prevents expiration during network delays or clock skew
+      // Refresh token every 8 minutes (access tokens last 15 minutes)
+      // 7-minute safety margin (47%) prevents expiration during network delays or clock skew
+      // This aggressive refresh ensures tokens are always fresh for active users
       const refreshInterval = setInterval(
         () => {
           // Only refresh if we're still authenticated and not already refreshing
@@ -288,8 +306,8 @@ export function RBACAuthProvider({ children }: RBACAuthProviderProps) {
             refreshToken();
           }
         },
-        10 * 60 * 1000
-      ); // 10 minutes (33% safety margin)
+        8 * 60 * 1000
+      ); // 8 minutes (47% safety margin)
 
       return () => clearInterval(refreshInterval);
     }

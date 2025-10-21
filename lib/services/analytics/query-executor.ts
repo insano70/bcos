@@ -212,11 +212,11 @@ export class QueryExecutor {
     const data = await executeAnalyticsQuery<AggAppMeasure>(query, queryParams);
 
     // Get appropriate total based on measure_type
-    // For currency: sum the values, for count: count the rows
+    // For currency/quantity: sum the values, for count: count the rows
     const totalQuery = `
       SELECT
         CASE
-          WHEN ${columnMappings.measureTypeField} = 'currency' THEN SUM(${columnMappings.measureValueField})::text
+          WHEN ${columnMappings.measureTypeField} IN ('currency', 'quantity') THEN SUM(${columnMappings.measureValueField})::text
           ELSE COUNT(*)::text
         END as total,
         ${columnMappings.measureTypeField} as measure_type
@@ -517,7 +517,7 @@ export class QueryExecutor {
 
     const measureType = accessor.getMeasureType();
 
-    if (measureType === 'currency') {
+    if (measureType === 'currency' || measureType === 'quantity') {
       // Sum all measure values using accessor
       return rows.reduce((sum, row) => {
         const rowAccessor = new MeasureAccessor(row, mapping);
