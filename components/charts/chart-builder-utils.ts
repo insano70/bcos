@@ -120,6 +120,7 @@ export function parseChartForEdit(chart: ChartDefinition): Partial<ChartConfig> 
   if (chartConfigData.stackingMode) result.stackingMode = chartConfigData.stackingMode;
   if (chartConfigData.periodComparison) result.periodComparison = chartConfigData.periodComparison;
   if (chartConfigData.dualAxisConfig) result.dualAxisConfig = chartConfigData.dualAxisConfig;
+  if (chartConfigData.dateRangePreset) result.dateRangePreset = chartConfigData.dateRangePreset;
 
   return result;
 }
