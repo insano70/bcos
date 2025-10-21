@@ -382,9 +382,6 @@ jobs:
 
       - name: Verify deployment
         run: |
-          # Wait for deployment to complete (Next.js apps need more startup time)
-          sleep 120
-          
           # Set health check URL based on environment
           if [ "${{ steps.vars.outputs.TARGET_ENV }}" = "production" ]; then
             HEALTH_URL="https://app.bendcare.com/api/health"
@@ -393,13 +390,60 @@ jobs:
             HEALTH_URL="https://staging.bendcare.com/api/health"
             APP_URL="https://staging.bendcare.com"
           fi
-          
-          # Health check
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" $HEALTH_URL)
-          if [ "$RESPONSE" -eq 200 ]; then
+
+          # Retry health check up to 10 times with 15-second intervals (2.5 minutes total)
+          MAX_ATTEMPTS=10
+          ATTEMPT=1
+          SUCCESS=false
+
+          echo "🏥 Starting health check verification..."
+          echo "🔗 Health URL: ${HEALTH_URL}"
+
+          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+            echo ""
+            echo "🔄 Health check attempt $ATTEMPT of $MAX_ATTEMPTS..."
+
+            # Use curl with User-Agent header to avoid WAF bot detection
+            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "User-Agent: GitHub-Actions-Deploy-Verification/1.0" \
+              --max-time 10 \
+              "${HEALTH_URL}")
+
+            echo "📊 Response code: ${RESPONSE}"
+
+            if [ "$RESPONSE" -eq 200 ]; then
+              echo "✅ Health check passed on attempt $ATTEMPT"
+              SUCCESS=true
+              break
+            elif [ "$RESPONSE" -eq 403 ]; then
+              echo "⚠️  Received 403 - service may still be starting or WAF warming up"
+            elif [ "$RESPONSE" -eq 502 ] || [ "$RESPONSE" -eq 503 ] || [ "$RESPONSE" -eq 504 ]; then
+              echo "⚠️  Received ${RESPONSE} - service starting up"
+            else
+              echo "⚠️  Unexpected response: ${RESPONSE}"
+            fi
+
+            if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+              echo "⏳ Waiting 15 seconds before next attempt..."
+              sleep 15
+            fi
+
+            ATTEMPT=$((ATTEMPT + 1))
+          done
+
+          # Final result
+          if [ "$SUCCESS" = true ]; then
+            echo ""
             echo "✅ ${{ steps.vars.outputs.TARGET_ENV }} deployment successful - Health check passed"
+            echo "🌐 Application URL: ${APP_URL}"
           else
-            echo "❌ ${{ steps.vars.outputs.TARGET_ENV }} deployment failed - Health check returned: $RESPONSE"
+            echo ""
+            echo "❌ ${{ steps.vars.outputs.TARGET_ENV }} deployment failed - Health check never returned 200"
+            echo "   Last response code: ${RESPONSE}"
+            echo "   All $MAX_ATTEMPTS attempts failed"
+            echo ""
+            echo "📋 Check application logs at:"
+            echo "https://console.aws.amazon.com/ecs/home?region=us-east-1#/clusters/${{ steps.vars.outputs.ECS_CLUSTER }}/services/${{ steps.vars.outputs.ECS_SERVICE }}/logs"
             exit 1
           fi
 
