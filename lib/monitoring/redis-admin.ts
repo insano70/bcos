@@ -328,7 +328,7 @@ export class RedisAdminService {
       // Preview mode - return keys without deleting
       if (preview) {
         return {
-          keysDeleted: 0,
+          keysDeleted: keys.length, // Return actual count for preview
           pattern,
           keys: keys.slice(0, PREVIEW_KEY_LIMIT),
         };
