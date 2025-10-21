@@ -216,10 +216,12 @@ const universalChartDataHandler = async (
     let cachedData: Awaited<ReturnType<typeof chartDataCache.get>> = null;
 
     if (!bypassCache && validatedData.chartConfig) {
-      // Merge chartConfig with runtimeFilters for cache key
+      // Merge chartConfig with runtimeFilters and chartDefinitionId for cache key
       const configForCache = {
         ...validatedData.chartConfig,
         ...validatedData.runtimeFilters,
+        // Include chartDefinitionId to prevent cache collision between different charts
+        chartDefinitionId: validatedData.chartDefinitionId,
       };
 
       cacheKey = generateCacheKey(configForCache);

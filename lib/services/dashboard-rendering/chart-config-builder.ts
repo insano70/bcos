@@ -60,10 +60,13 @@ export class ChartConfigBuilderService {
     // 1. Extract filters from data_source
     const dataSourceFilters = this.extractDataSourceFilters(chart);
 
-    // 2. Build runtime filters
-    const runtimeFilters = this.buildRuntimeFilters(dataSourceFilters, universalFilters);
+    // 2. Extract chart config for frequency fallback
+    const chartConfig = chart.chart_config as { frequency?: string } | undefined;
 
-    // 3. Normalize chart config
+    // 3. Build runtime filters
+    const runtimeFilters = this.buildRuntimeFilters(dataSourceFilters, universalFilters, chartConfig);
+
+    // 4. Normalize chart config
     const normalizedConfig = this.normalizeChartConfig(chart, universalFilters);
 
     // 4. Build metadata
@@ -119,11 +122,13 @@ export class ChartConfigBuilderService {
    *
    * @param dataSourceFilters - Filters extracted from data_source
    * @param universalFilters - Dashboard-level filters
+   * @param chartConfig - Chart config for fallback values
    * @returns Runtime filters object
    */
   private buildRuntimeFilters(
     dataSourceFilters: ReturnType<typeof this.extractDataSourceFilters>,
-    universalFilters: ResolvedFilters
+    universalFilters: ResolvedFilters,
+    chartConfig?: { frequency?: string }
   ): Record<string, unknown> {
     const runtimeFilters: Record<string, unknown> = {};
 
@@ -133,6 +138,10 @@ export class ChartConfigBuilderService {
     }
     if (dataSourceFilters.frequency?.value) {
       runtimeFilters.frequency = dataSourceFilters.frequency.value;
+    }
+    // Fallback to chart_config.frequency for multi-series/dual-axis charts
+    else if (chartConfig?.frequency) {
+      runtimeFilters.frequency = chartConfig.frequency;
     }
     if (dataSourceFilters.practice?.value) {
       runtimeFilters.practiceUid = dataSourceFilters.practice.value;
@@ -187,6 +196,7 @@ export class ChartConfigBuilderService {
       stackingMode?: string;
       dataSourceId?: number;
       seriesConfigs?: unknown[];
+      frequency?: string;
     };
 
     const config: Record<string, unknown> = {

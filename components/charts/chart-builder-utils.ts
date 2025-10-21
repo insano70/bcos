@@ -191,7 +191,8 @@ export function buildChartPayload(
       colorPalette: config.colorPalette,
       periodComparison: config.periodComparison,
       dualAxisConfig: config.dualAxisConfig,
-      ...(config.chartType === 'dual-axis' && config.frequency && { frequency: config.frequency }),
+      // Save frequency for dual-axis and multi-series charts (needed for data fetching)
+      ...((config.chartType === 'dual-axis' || config.useMultipleSeries) && config.frequency && { frequency: config.frequency }),
     },
     data_source: {
       table: `${dataSource.schemaName}.${dataSource.tableName}`,

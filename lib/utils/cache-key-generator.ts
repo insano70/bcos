@@ -4,10 +4,11 @@
  * Generates deterministic cache keys from chart configurations.
  * Part of Phase 6: Unified Caching Strategy
  *
- * Key Format: chart:data:{chartType}:{dataSourceId}:{configHash}
- * Example: chart:data:dual-axis:3:a1b2c3d4
+ * Key Format: chart:data:{chartType}:{dataSourceId}:{chartDefinitionId}:{configHash}
+ * Example: chart:data:dual-axis:3:abc-123-def:a1b2c3d4
  *
  * Features:
+ * - Includes chartDefinitionId to prevent cache collision between different charts
  * - Deterministic hashing (same config = same key)
  * - Excludes UI-only properties (width, height, responsive)
  * - Handles complex nested objects
@@ -45,23 +46,26 @@ const EXCLUDED_PROPERTIES = new Set([
  * const key = generateCacheKey({
  *   chartType: 'bar',
  *   dataSourceId: 42,
+ *   chartDefinitionId: 'abc-123-def-456',
  *   groupBy: 'provider_name',
  *   startDate: '2024-01-01',
  *   endDate: '2024-12-31',
  * });
- * // Returns: "bar:42:a1b2c3d4e5f6"
+ * // Returns: "bar:42:abc-123-def-456:a1b2c3d4e5f6"
  * ```
  */
 export function generateCacheKey(config: Record<string, unknown>): string {
   try {
     const chartType = (config.chartType as string) || 'unknown';
     const dataSourceId = (config.dataSourceId as number) || 0;
+    const chartDefinitionId = (config.chartDefinitionId as string) || 'inline';
 
-    // Extract cache-relevant properties (exclude UI-only props)
+    // Extract cache-relevant properties (exclude UI-only props AND chartDefinitionId)
     const cacheRelevantConfig: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(config)) {
-      if (!EXCLUDED_PROPERTIES.has(key) && value !== undefined && value !== null) {
+      // Exclude UI props and chartDefinitionId (since it's in the key itself)
+      if (key !== 'chartDefinitionId' && !EXCLUDED_PROPERTIES.has(key) && value !== undefined && value !== null) {
         cacheRelevantConfig[key] = value;
       }
     }
@@ -77,11 +81,13 @@ export function generateCacheKey(config: Record<string, unknown>): string {
     const configString = JSON.stringify(sortedConfig);
     const hash = crypto.createHash('sha256').update(configString).digest('hex').substring(0, 12); // First 12 chars sufficient for uniqueness
 
-    const cacheKey = `${chartType}:${dataSourceId}:${hash}`;
+    // Include chartDefinitionId in key to prevent collision between different charts
+    const cacheKey = `${chartType}:${dataSourceId}:${chartDefinitionId}:${hash}`;
 
     log.debug('Cache key generated', {
       chartType,
       dataSourceId,
+      chartDefinitionId,
       hash,
       cacheKey,
       configSize: configString.length,
@@ -92,6 +98,7 @@ export function generateCacheKey(config: Record<string, unknown>): string {
     log.error('Cache key generation failed', error, {
       chartType: config.chartType,
       dataSourceId: config.dataSourceId,
+      chartDefinitionId: config.chartDefinitionId,
     });
 
     // Fallback: Generate key from timestamp (cache will be unique per request)
