@@ -44,9 +44,7 @@ export default function DualAxisFullscreenModal({
 }: DualAxisFullscreenModalProps) {
   const [chart, setChart] = useState<ChartType | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [canvasDimensions, setCanvasDimensions] = useState({ width: 800, height: 400 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
   const legendRef = useRef<HTMLUListElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const { theme } = useTheme();
@@ -79,45 +77,6 @@ export default function DualAxisFullscreenModal({
     setMounted(true);
   }, []);
 
-  // Track canvas container dimensions for responsive sizing
-  useEffect(() => {
-    if (!isOpen || !containerRef.current) return;
-
-    const updateCanvasSize = () => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const newWidth = Math.floor(rect.width);
-        const newHeight = Math.floor(rect.height);
-
-        // Only update if dimensions actually changed
-        setCanvasDimensions((prev) => {
-          if (prev.width !== newWidth || prev.height !== newHeight) {
-            return { width: newWidth, height: newHeight };
-          }
-          return prev;
-        });
-      }
-    };
-
-    // Initial measurement (deferred to ensure layout is complete)
-    const initialRafId = requestAnimationFrame(() => {
-      updateCanvasSize();
-    });
-
-    // Watch for resize events (browser resize, device rotation, etc.)
-    const resizeObserver = new ResizeObserver(() => {
-      requestAnimationFrame(() => {
-        updateCanvasSize();
-      });
-    });
-    resizeObserver.observe(containerRef.current);
-
-    return () => {
-      cancelAnimationFrame(initialRafId);
-      resizeObserver.disconnect();
-    };
-  }, [isOpen]);
-
   // Lock body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
@@ -143,14 +102,10 @@ export default function DualAxisFullscreenModal({
   }, [isOpen, onClose]);
 
   // Initialize chart
-  // Chart initialization - deferred to prevent race condition
   useEffect(() => {
-    if (!isOpen || !canvasRef.current || !chartData || canvasDimensions.width === 0) return;
+    if (!isOpen || !canvasRef.current || !chartData) return;
 
     const ctx = canvasRef.current;
-
-    // Safety check: ensure canvas is properly mounted
-    if (!ctx.parentElement || !ctx.isConnected) return;
 
     // Get fresh color values inside useEffect to ensure they're read after theme is loaded
     const { textColor, gridColor, tooltipBodyColor, tooltipBgColor, tooltipBorderColor } =
@@ -161,16 +116,6 @@ export default function DualAxisFullscreenModal({
       labels: chartData.labels,
       datasets: chartData.datasets,
     };
-
-    // Defer initialization until after React's layout phase (fixes race condition)
-    const rafId = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (!ctx.isConnected) {
-          if (process.env.NODE_ENV === 'development') {
-            console.warn('[DualAxisFullscreenModal] Canvas disconnected during initialization deferral');
-          }
-          return;
-        }
 
     const config: ChartConfiguration = {
       type: 'bar',
@@ -322,17 +267,17 @@ export default function DualAxisFullscreenModal({
             },
           },
         },
-        responsive: false, // Disable Chart.js responsive mode (we handle it manually)
+        responsive: true,
         maintainAspectRatio: false,
       },
     };
 
-        const newChart = new Chart(ctx, config);
-        setChart(newChart);
+    const newChart = new Chart(ctx, config);
+    setChart(newChart);
 
-        // Generate HTML legend
-        if (legendRef.current?.isConnected) {
-          const ul = legendRef.current;
+    // Generate HTML legend
+    if (legendRef.current) {
+      const ul = legendRef.current;
       ul.innerHTML = '';
 
       const items = newChart.options.plugins?.legend?.labels?.generateLabels?.(newChart);
@@ -391,18 +336,13 @@ export default function DualAxisFullscreenModal({
         };
 
         ul.appendChild(li);
-        });
-      }
       });
-    });
+    }
 
     return () => {
-      cancelAnimationFrame(rafId);
-      if (chart) {
-        chart.destroy();
-      }
+      newChart.destroy();
     };
-  }, [isOpen, mounted, chartData, primaryAxisLabel, secondaryAxisLabel, darkMode, canvasDimensions]);
+  }, [isOpen, mounted, chartData, primaryAxisLabel, secondaryAxisLabel, darkMode]);
 
   const handleResetZoom = () => {
     if (chart) {
@@ -466,12 +406,8 @@ export default function DualAxisFullscreenModal({
 
         {/* Chart Content */}
         <div className="flex-1 p-6 overflow-auto">
-          <div ref={containerRef} className="w-full h-[calc(90vh-200px)] min-h-[400px]">
-            <canvas
-              ref={setCanvasRef}
-              width={canvasDimensions.width}
-              height={canvasDimensions.height}
-            />
+          <div className="w-full h-[calc(90vh-200px)] min-h-[400px]">
+            <canvas ref={setCanvasRef} />
           </div>
 
           {/* Legend */}
